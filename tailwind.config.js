@@ -6,7 +6,7 @@ module.exports = {
     './src/**/*.{vue,js,ts,jsx,tsx}',
     './node_modules/@vechaiui/**/*.{js,ts,jsx,tsx}'
   ],
-  darkMode: 'media',
+  darkMode: 'class',
   mode: 'jit',
   theme: {
     colors: {
@@ -20,9 +20,7 @@ module.exports = {
     }
   },
   variants: {
-    extend: {
-      // bg: { transparent: 'transparent' }
-    }
+    extend: {}
   },
   plugins: [require('@tailwindcss/forms'), require('@vechaiui/core')]
 };

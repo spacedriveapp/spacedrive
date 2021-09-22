@@ -54,7 +54,6 @@
         "fullscreen": false,
         "alwaysOnTop": false,
         "focus": true,
-        "transparent": true,
         "fileDropEnabled": false,
         "decorations": false,
         "center": true
