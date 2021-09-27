@@ -1,4 +1,5 @@
 const colors = require('tailwindcss/colors');
+const plugin = require('tailwindcss/plugin');
 
 module.exports = {
   purge: [
@@ -22,5 +23,13 @@ module.exports = {
   variants: {
     extend: {}
   },
-  plugins: [require('@tailwindcss/forms'), require('@vechaiui/core')]
+  plugins: [
+    require('@tailwindcss/forms'),
+    require('@vechaiui/core'),
+    plugin(function ({ addUtilities }) {
+      addUtilities({
+        '.bg-transparent': ''
+      });
+    })
+  ]
 };
