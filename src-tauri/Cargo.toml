@@ -1,11 +1,11 @@
 [package]
-name = "spacedrop"
+name = "nexus"
 version = "0.1.0"
-description = "Share files with a keybind"
+description = "The next gen private virtual filesystem."
 authors = ["you"]
 license = ""
 repository = ""
-default-run = "spacedrop"
+default-run = "nexus"
 edition = "2018"
 build = "src/build.rs"
 
@@ -19,6 +19,10 @@ serde_json = "1.0"
 rebind = "0.2.1"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.0.0-beta.5", features = ["api-all", "menu"] }
+data-encoding = "2.3.2"
+ring = "0.17.0-alpha.10"
+rusqlite = "0.25.3"
+chrono = "0.4.0"
 
 [features]
 default = [ "custom-protocol" ]

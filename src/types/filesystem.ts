@@ -7,7 +7,7 @@ export interface Object {
   type: ObjectType;
 
   uri: string;
-  file_name: string;
+  name: string;
   extension: string;
   size: number;
   mime: string;
@@ -16,7 +16,6 @@ export interface Object {
   date_created: Date;
   date_modified: Date;
   date_indexed: Date;
-  geolocation: string;
 
   directory_id: string;
   storage_device_id: string;
@@ -24,6 +23,7 @@ export interface Object {
   parent_object_id: string;
   user_id: string;
 
+  geolocation: string;
   extra_data: null | ImageMeta | VideoMeta;
   ipfs_id: string;
 }

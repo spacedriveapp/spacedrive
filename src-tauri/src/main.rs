@@ -3,8 +3,11 @@
   windows_subsystem = "windows"
 )]
 
-// mod filestuff;
-mod menu;
+mod app;
+mod crypto;
+mod db;
+mod filesystem;
+use crate::app::menu;
 
 #[derive(serde::Serialize)]
 struct CustomResponse {
@@ -12,18 +15,20 @@ struct CustomResponse {
 }
 
 #[tauri::command]
-async fn message_from_rust(window: tauri::Window) -> Result<CustomResponse, String> {
-  println!("Called from {}", window.label());
+async fn fn_exposed_to_js(window: tauri::Window) -> Result<CustomResponse, String> {
+  println!("Called from window {}", window.label());
   Ok(CustomResponse {
     message: "Hello from rust!".to_string(),
   })
 }
 
 fn main() {
-  // filestuff::current_dir();
+  let connection = db::init::create_connection();
+  // let hash = filestuff::create_hash("/Users/jamie/Desktop/jeff.MP4");
+  println!("jeff {:?}", connection);
 
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![message_from_rust])
+    .invoke_handler(tauri::generate_handler![fn_exposed_to_js])
     .menu(menu::get_menu())
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
