@@ -7,6 +7,7 @@ mod app;
 mod crypto;
 mod db;
 mod filesystem;
+mod util;
 use crate::app::menu;
 
 #[derive(serde::Serialize)]
@@ -28,7 +29,10 @@ fn main() {
   println!("jeff {:?}", connection);
 
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![fn_exposed_to_js])
+    .invoke_handler(tauri::generate_handler![
+      fn_exposed_to_js,
+      filesystem::file::read_file_command
+    ])
     .menu(menu::get_menu())
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

@@ -1,2 +1,2 @@
-mod file;
-mod hash;
+pub mod checksum;
+pub mod file;

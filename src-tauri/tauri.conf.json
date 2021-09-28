@@ -43,19 +43,25 @@
       "active": false
     },
     "allowlist": {
-      "all": true
+      "all": true,
+      "dialog": {
+        "all": true,
+        "open": true,
+        "save": true
+      }
     },
     "windows": [
       {
         "title": "Nexus",
-        "width": 800,
-        "height": 500,
+        "width": 1200,
+        "height": 700,
         "resizable": true,
         "fullscreen": false,
         "alwaysOnTop": false,
         "focus": true,
-        "fileDropEnabled": false,
+        "fileDropEnabled": true,
         "decorations": false,
+        "transparent": false,
         "center": true
       }
     ],
