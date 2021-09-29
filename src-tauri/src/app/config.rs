@@ -8,7 +8,7 @@ pub struct AppConfig {
 
 // returns the app config struct with complete values
 pub fn get_config() -> AppConfig {
-  let app_name = "Nexus";
+  let app_name = "spacedrive";
   let data_dir = path::data_dir()
     .unwrap_or(std::path::PathBuf::from("./"))
     .join(app_name);

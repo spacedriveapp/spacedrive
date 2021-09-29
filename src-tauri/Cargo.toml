@@ -1,11 +1,11 @@
 [package]
-name = "nexus"
+name = "spacedrive"
 version = "0.1.0"
 description = "The next gen private virtual filesystem."
 authors = ["you"]
 license = ""
 repository = ""
-default-run = "nexus"
+default-run = "spacedrive"
 edition = "2018"
 build = "src/build.rs"
 
@@ -22,7 +22,8 @@ rebind = "0.2.1"
 data-encoding = "2.3.2"
 ring = "0.17.0-alpha.10"
 rusqlite = "0.25.3"
-chrono = { version = "0.4.0", features = ["serde"]}
+chrono = { version = "0.4.0", features = ["serde"] }
+crossbeam = "0.8.1"
 
 [features]
 default = [ "custom-protocol" ]

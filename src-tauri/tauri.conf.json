@@ -1,6 +1,6 @@
 {
   "package": {
-    "productName": "nexus",
+    "productName": "spacedrive",
     "version": "0.1.0"
   },
   "build": {
@@ -13,7 +13,7 @@
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "org.nexusapp",
+      "identifier": "co.spacedrive.client",
       "icon": ["icons/icon.icns"],
       "resources": [],
       "externalBin": [],
@@ -52,7 +52,7 @@
     },
     "windows": [
       {
-        "title": "Nexus",
+        "title": "spacedrive",
         "width": 1200,
         "height": 700,
         "resizable": true,

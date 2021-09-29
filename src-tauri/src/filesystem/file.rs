@@ -1,8 +1,12 @@
 use crate::crypto;
 use chrono::prelude::*;
+use crossbeam::thread;
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use std::fs;
+use std::io;
 use std::path;
+use std::time::Instant;
 
 use crate::filesystem::checksum;
 use crate::util::time;
@@ -11,7 +15,7 @@ use crate::util::time;
 pub struct File {
   // identity
   pub id: Option<u64>,
-  pub checksum: String,
+  pub checksum: Option<String>,
   pub uri: String,
   // metadata
   pub name: String,
@@ -30,48 +34,50 @@ pub struct File {
   pub date_indexed: DateTime<Utc>,
 }
 
-pub struct Directory {
-  // identity
-  pub id: Option<u64>,
-  pub name: String,
-  // calculations
-  pub calculated_size_in_bytes: u64,
-  pub calculated_file_count: u32,
-  // ownership
-  pub user_id: Option<u64>,
-  pub storage_device_id: Option<u64>,
-  pub parent_directory_id: Option<u32>,
-  // date
-  pub date_created: DateTime<Utc>,
-  pub date_modified: DateTime<Utc>,
-  pub date_indexed: DateTime<Utc>,
-}
-
-#[tauri::command]
-pub fn read_file_command(path: &str) -> Result<File, String> {
-  let file = read_file(path).unwrap();
-  Ok(file)
-}
-
-pub fn read_file(path: &str) -> Result<File, String> {
+// Read a file from path returning the File struct
+// Generates checksum and extracts metadata
+pub async fn read_file(path: &str) -> io::Result<File> {
+  // let start = Instant::now();
   let path_buff = path::PathBuf::from(path);
   // extract metadata
-  let metadata = fs::metadata(&path).unwrap();
-  if metadata.is_dir() {
-    panic!("Not a file, this is a directory");
-  }
+  let metadata = match fs::metadata(&path) {
+    Ok(metadata) => metadata,
+    Err(e) => return Err(e),
+  };
 
+  // if metadata.is_dir() {
+  //   return Err();
+  // }
+
+  // let checksum = thread::scope(|s| {
+  //   let res = s.spawn(move |_| checksum::create_hash(path).unwrap());
+  //   res.join()
+  // })
+  // .unwrap()
+  // .unwrap();
+
+  // let checksum = match checksum {
+  //   Ok(metadata) => metadata, // Err(e) => return Err(e.into()),
+  // };
+
+  // generate checksum
+  // let checksum = match checksum::create_hash(path) {
+  //   Ok(checksum) => checksum,
+  //   Err(e) => return Err(e),
+  // };
+  // assemble File struct with initial values
   let file = File {
-    id: None,
-    name: path_buff.file_name().unwrap().to_str().unwrap().to_owned(),
-    extension: path_buff.extension().unwrap().to_str().unwrap().to_owned(),
+    name: extract_name(path_buff.file_name()),
+    extension: extract_name(path_buff.extension()),
     uri: path.to_owned(),
-    checksum: checksum::create_hash(path).unwrap(),
     size_in_bytes: metadata.len(),
-    date_created: time::system_time_to_date_time(metadata.created().unwrap()).unwrap(),
-    date_modified: time::system_time_to_date_time(metadata.created().unwrap()).unwrap(),
-    date_indexed: chrono::offset::Utc::now(),
+    date_created: time::system_time_to_date_time(metadata.created()).unwrap_or(Utc::now()),
+    date_modified: time::system_time_to_date_time(metadata.created()).unwrap_or(Utc::now()),
+    date_indexed: Utc::now(),
     encryption: crypto::Encryption::NONE,
+    // this will be populated later, either by the database or other functions
+    id: None,
+    checksum: None,
     ipfs_id: None,
     user_id: None,
     storage_device_id: None,
@@ -79,7 +85,16 @@ pub fn read_file(path: &str) -> Result<File, String> {
     parent_file_id: None,
   };
 
-  println!("file: {:?}", file);
+  checksum::create_hash(path).await;
 
   Ok(file)
+}
+
+// extract name from OsStr returned by PathBuff
+fn extract_name(os_string: Option<&OsStr>) -> String {
+  os_string
+    .unwrap_or_default()
+    .to_str()
+    .unwrap_or_default()
+    .to_owned()
 }
