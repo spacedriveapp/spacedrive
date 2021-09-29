@@ -1,6 +1,6 @@
 {
   "package": {
-    "productName": "spacedrive",
+    "productName": "sd",
     "version": "0.1.0"
   },
   "build": {
@@ -13,7 +13,7 @@
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "co.spacedrive.client",
+      "identifier": "co.sd.client",
       "icon": ["icons/icon.icns"],
       "resources": [],
       "externalBin": [],
@@ -52,7 +52,7 @@
     },
     "windows": [
       {
-        "title": "spacedrive",
+        "title": "sd",
         "width": 1200,
         "height": 700,
         "resizable": true,
