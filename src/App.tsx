@@ -38,11 +38,21 @@ export default function App() {
 
   return (
     <VechaiProvider theme={theme} colorScheme="pale">
-      <div data-tauri-drag-region className="max-w h-10 bg-primary-800"></div>
+      <div data-tauri-drag-region className="max-w h-4"></div>
       <div className="p-2">
         <div className="flex flex-wrap w-full space-x-2">
-          <Input value={fileInputVal} onChange={(e) => setFileInputVal(e.target.value)} />
-          <input ref={fileUploader} type="file" id="file" onChange={changeHandler} />
+          <Input
+            className="mb-2"
+            value={fileInputVal}
+            onChange={(e) => setFileInputVal(e.target.value)}
+          />
+          <input
+            ref={fileUploader}
+            type="file"
+            id="file"
+            className="hidden"
+            onChange={changeHandler}
+          />
           <Button
             variant="solid"
             color="primary"
@@ -54,8 +64,16 @@ export default function App() {
           >
             Load File
           </Button>
-          <Button variant="solid" color="primary">
-            Reset
+          <Button
+            variant="solid"
+            color="primary"
+            onClick={() => {
+              invoke('generate_buffer_checksum', {
+                path: fileInputVal
+              }).then(console.log);
+            }}
+          >
+            Generate Buffer Checksum
           </Button>
           <Button variant="solid" color="primary">
             Close

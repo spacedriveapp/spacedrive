@@ -1,9 +1,22 @@
+use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, IntEnum)]
 pub enum Encryption {
-  NONE,
-  AES128,
-  AES192,
-  AES256,
+  NONE = 0,
+  AES128 = 1,
+  AES192 = 2,
+  AES256 = 3,
+}
+
+impl From<i64> for Encryption {
+  fn from(val: i64) -> Self {
+    match val {
+      0 => Encryption::NONE,
+      1 => Encryption::AES128,
+      2 => Encryption::AES192,
+      3 => Encryption::AES256,
+    }
+  }
 }

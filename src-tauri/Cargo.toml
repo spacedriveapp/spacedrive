@@ -21,9 +21,13 @@ serde_json = "1.0"
 rebind = "0.2.1"
 data-encoding = "2.3.2"
 ring = "0.17.0-alpha.10"
-rusqlite = "0.25.3"
+rusqlite = { version = "0.25.3", features = ["chrono"] }
 chrono = { version = "0.4.0", features = ["serde"] }
 crossbeam = "0.8.1"
+cargo-edit = "0.8.0"
+sha256 = "1.0.2"
+int-enum = "0.4.0"
+rusqlite_migration = "0.5.0"
 
 [features]
 default = [ "custom-protocol" ]
