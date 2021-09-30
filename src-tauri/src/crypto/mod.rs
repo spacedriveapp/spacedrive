@@ -10,13 +10,13 @@ pub enum Encryption {
   AES256 = 3,
 }
 
-impl From<i64> for Encryption {
-  fn from(val: i64) -> Self {
-    match val {
-      0 => Encryption::NONE,
-      1 => Encryption::AES128,
-      2 => Encryption::AES192,
-      3 => Encryption::AES256,
-    }
-  }
-}
+// impl From<i8> for Encryption {
+//   fn from(val: i8) -> Self {
+//     match val {
+//       0 => Encryption::NONE,
+//       1 => Encryption::AES128,
+//       2 => Encryption::AES192,
+//       3 => Encryption::AES256,
+//     }
+//   }
+// }

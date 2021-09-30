@@ -10,7 +10,7 @@ pub async fn read_file_command(path: &str) -> Result<File, InvokeError> {
     .await
     .map_err(|error| InvokeError::from(format!("Failed to read file: {}", error)))?;
 
-  file::commit_file(&file).await;
+  // file::commit_file(&file).await;
 
   Ok(file)
 }
@@ -20,6 +20,6 @@ pub async fn generate_buffer_checksum(path: &str) -> Result<File, InvokeError> {
     .await
     .map_err(|error| InvokeError::from(format!("Failed to read file: {}", error)))?;
 
-  file.buffer_checksum = Some(checksum::create_hash(&file.uri).await.unwrap());
+  // file.buffer_checksum = Some(checksum::create_hash(&file.uri).await.unwrap());
   Ok(file)
 }

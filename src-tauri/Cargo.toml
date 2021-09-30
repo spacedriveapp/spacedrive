@@ -9,8 +9,6 @@ default-run = "sd"
 edition = "2018"
 build = "src/build.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [build-dependencies]
 tauri-build = { version = "1.0.0-beta.3" }
 
@@ -18,16 +16,16 @@ tauri-build = { version = "1.0.0-beta.3" }
 tauri = { version = "1.0.0-beta.5", features = ["api-all", "menu"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+futures = "0.3"
 rebind = "0.2.1"
 data-encoding = "2.3.2"
 ring = "0.17.0-alpha.10"
-rusqlite = { version = "0.25.3", features = ["chrono"] }
 chrono = { version = "0.4.0", features = ["serde"] }
 crossbeam = "0.8.1"
 cargo-edit = "0.8.0"
 sha256 = "1.0.2"
 int-enum = "0.4.0"
-rusqlite_migration = "0.5.0"
+sea-orm = { version = "^0", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros" ], default-features = false }
 
 [features]
 default = [ "custom-protocol" ]
