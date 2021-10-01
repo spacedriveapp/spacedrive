@@ -4,7 +4,7 @@
 )]
 
 mod app;
-// mod commands;
+mod commands;
 mod crypto;
 mod db;
 mod filesystem;
@@ -13,15 +13,12 @@ use crate::app::menu;
 use futures::executor::block_on;
 
 fn main() {
-  let connection = db::connection::get_connection();
+  let connection = db::connection::create_primary_db();
   let primary_db = block_on(connection).unwrap();
-  // db::migrate::run_migrations(connection);
-
-  println!("primary database connected {:?}", primary_db);
 
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
-      // commands::read_file_command,
+      commands::read_file_command,
       // commands::generate_buffer_checksum
     ])
     .menu(menu::get_menu())

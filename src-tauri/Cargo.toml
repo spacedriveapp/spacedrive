@@ -25,6 +25,9 @@ crossbeam = "0.8.1"
 cargo-edit = "0.8.0"
 sha256 = "1.0.2"
 int-enum = "0.4.0"
+rusqlite = "0.25.3"
+refinery = { version = "0.6.0", features = ["rusqlite"] }
+sqlx = { version = "0.5.7", features = ["sqlite"] }
 sea-orm = { version = "^0", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros" ], default-features = false }
 
 [features]
