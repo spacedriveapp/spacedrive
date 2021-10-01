@@ -28,7 +28,9 @@ int-enum = "0.4.0"
 rusqlite = "0.25.3"
 refinery = { version = "0.6.0", features = ["rusqlite"] }
 sqlx = { version = "0.5.7", features = ["sqlite"] }
-sea-orm = { version = "^0", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros" ], default-features = false }
+sea-orm = { version = "^0", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros", "debug-print" ], default-features = false }
+env_logger = "0.9.0"
+log = "0.4.14"
 
 [features]
 default = [ "custom-protocol" ]
