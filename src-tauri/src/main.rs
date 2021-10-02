@@ -15,10 +15,10 @@ use futures::executor::block_on;
 use log;
 
 fn main() {
-  env_logger::builder()
-    .filter_level(log::LevelFilter::Debug)
-    .is_test(true)
-    .init();
+  // env_logger::builder()
+  //   .filter_level(log::LevelFilter::Debug)
+  //   .is_test(true)
+  //   .init();
 
   let connection = db::connection::create_primary_db();
   let primary_db = block_on(connection).unwrap();
