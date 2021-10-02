@@ -4,23 +4,22 @@ use serde::{Deserialize, Serialize};
 
 // -------------------------------------
 // Entity: Directory
+// Represents an item discovered on the filesystem
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, DeriveEntityModel, Default)]
-#[sea_orm(table_name = "directories")]
+#[sea_orm(table_name = "libraries")]
 // -------------------------------------
 pub struct Model {
   // identity
   #[sea_orm(primary_key)]
   pub id: u32,
   pub name: String,
-  pub uri: String,
-  pub calculated_size_in_bytes: Option<String>,
-  pub calculated_file_count: Option<u32>,
+  pub is_primary: bool,
+  pub remote_id: Option<String>,
+  pub total_file_count: Option<u32>,
+  pub total_bytes_used: Option<String>,
+  pub total_byte_capacity: Option<String>,
   pub date_created: Option<NaiveDateTime>,
-  pub date_modified: Option<NaiveDateTime>,
-  pub date_indexed: Option<NaiveDateTime>,
-  pub library_id: u32,
-  pub storage_device_id: Option<u32>,
-  pub parent_directory_id: Option<u32>,
+  pub timezone: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

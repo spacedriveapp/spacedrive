@@ -1,4 +1,3 @@
-use crate::crypto;
 use chrono::NaiveDateTime;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -38,7 +37,35 @@ pub struct Model {
   pub parent_file_id: Option<u32>,
 }
 
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+#[derive(Copy, Clone, Debug, EnumIter)]
+pub enum Relation {
+  StorageDevice,
+  CaptureDevice,
+}
+
+impl RelationTrait for Relation {
+  fn def(&self) -> RelationDef {
+    match self {
+      Self::StorageDevice => Entity::belongs_to(super::storage_device::Entity)
+        .from(Column::StorageDeviceId)
+        .to(super::storage_device::Column::Id)
+        .into(),
+      Self::CaptureDevice => Entity::belongs_to(super::capture_device::Entity)
+        .from(Column::CaptureDeviceId)
+        .to(super::capture_device::Column::Id)
+        .into(),
+    }
+  }
+}
+impl Related<super::storage_device::Entity> for Entity {
+  fn to() -> RelationDef {
+    Relation::StorageDevice.def()
+  }
+}
+impl Related<super::capture_device::Entity> for Entity {
+  fn to() -> RelationDef {
+    Relation::CaptureDevice.def()
+  }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

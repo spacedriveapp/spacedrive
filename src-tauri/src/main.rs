@@ -20,8 +20,10 @@ fn main() {
   //   .is_test(true)
   //   .init();
 
-  let connection = db::connection::create_primary_db();
-  let primary_db = block_on(connection).unwrap();
+  // create primary data base if not exists
+  block_on(db::connection::create_primary_db()).unwrap();
+  // init filesystem and create library if missing
+  block_on(filesystem::init::init_library()).unwrap();
 
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
