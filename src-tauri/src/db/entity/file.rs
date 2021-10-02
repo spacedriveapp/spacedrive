@@ -24,6 +24,8 @@ pub struct Model {
   pub name: String,
   pub extension: String,
   pub size_in_bytes: String,
+  pub library_id: String,
+  pub directory_id: String,
   // #[sea_orm(column_type = "Int")]
   // pub encryption: crypto::Encryption,
   // ownership
@@ -39,13 +41,24 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
+  Library,
+  Directory,
   StorageDevice,
   CaptureDevice,
+  ParentFile,
 }
 
 impl RelationTrait for Relation {
   fn def(&self) -> RelationDef {
     match self {
+      Self::Library => Entity::belongs_to(super::library::Entity)
+        .from(Column::LibraryId)
+        .to(super::library::Column::Id)
+        .into(),
+      Self::Directory => Entity::belongs_to(super::dir::Entity)
+        .from(Column::DirectoryId)
+        .to(super::dir::Column::Id)
+        .into(),
       Self::StorageDevice => Entity::belongs_to(super::storage_device::Entity)
         .from(Column::StorageDeviceId)
         .to(super::storage_device::Column::Id)
@@ -54,7 +67,21 @@ impl RelationTrait for Relation {
         .from(Column::CaptureDeviceId)
         .to(super::capture_device::Column::Id)
         .into(),
+      Self::ParentFile => Entity::belongs_to(Entity)
+        .from(Column::ParentFileId)
+        .to(Column::Id)
+        .into(),
     }
+  }
+}
+impl Related<super::library::Entity> for Entity {
+  fn to() -> RelationDef {
+    Relation::Library.def()
+  }
+}
+impl Related<super::dir::Entity> for Entity {
+  fn to() -> RelationDef {
+    Relation::Directory.def()
   }
 }
 impl Related<super::storage_device::Entity> for Entity {
@@ -65,6 +92,11 @@ impl Related<super::storage_device::Entity> for Entity {
 impl Related<super::capture_device::Entity> for Entity {
   fn to() -> RelationDef {
     Relation::CaptureDevice.def()
+  }
+}
+impl Related<Entity> for Entity {
+  fn to() -> RelationDef {
+    Relation::ParentFile.def()
   }
 }
 

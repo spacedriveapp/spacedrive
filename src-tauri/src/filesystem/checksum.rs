@@ -18,7 +18,7 @@ fn sha256_digest<R: Read>(mut reader: R) -> io::Result<Digest> {
   Ok(context.finish())
 }
 
-pub async fn create_hash(path: &str) -> io::Result<String> {
+pub async fn create_buffer_checksum(path: &str) -> io::Result<String> {
   let start = Instant::now();
   // read file as buffer and convert to digest
   let digest = sha256_digest(BufReader::new(std::fs::File::open(path)?))?;
@@ -28,6 +28,6 @@ pub async fn create_hash(path: &str) -> io::Result<String> {
   Ok(hex)
 }
 
-pub fn create_meta_hash(uri: String, size_in_bytes: u64) -> io::Result<String> {
+pub fn create_meta_checksum(uri: String, size_in_bytes: u64) -> io::Result<String> {
   Ok(digest(format!("{}{}", uri, size_in_bytes.to_string())))
 }
