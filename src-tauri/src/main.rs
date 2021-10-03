@@ -28,10 +28,7 @@ fn main() {
   // block_on(filesystem::device::discover_storage_devices()).unwrap();
 
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![
-      commands::read_file_command,
-      // commands::generate_buffer_checksum
-    ])
+    .invoke_handler(tauri::generate_handler![commands::scan_dir])
     .menu(menu::get_menu())
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

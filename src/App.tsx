@@ -31,6 +31,7 @@ const theme = extendTheme({
 export default function App() {
   const fileUploader = useRef<HTMLInputElement | null>(null);
   const [fileInputVal, setFileInputVal] = useState('/Users/jamie/Downloads/lol.mkv');
+  const [fileScanInputVal, setFileScanInputVal] = useState('/Users/jamie/Downloads');
 
   function changeHandler(e: any) {
     console.log(e);
@@ -46,6 +47,7 @@ export default function App() {
             value={fileInputVal}
             onChange={(e) => setFileInputVal(e.target.value)}
           />
+
           <input
             ref={fileUploader}
             type="file"
@@ -77,6 +79,24 @@ export default function App() {
           </Button>
           <Button variant="solid" color="primary">
             Close
+          </Button>
+        </div>
+        <div className="">
+          <Input
+            className="mb-2"
+            value={fileScanInputVal}
+            onChange={(e) => setFileScanInputVal(e.target.value)}
+          />
+          <Button
+            variant="solid"
+            color="primary"
+            onClick={() => {
+              invoke('scan_dir', {
+                path: fileScanInputVal
+              }).then(console.log);
+            }}
+          >
+            Scan directories
           </Button>
         </div>
       </div>

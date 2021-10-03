@@ -33,6 +33,7 @@ env_logger = "0.9.0"
 # libusb-sys = "0.2.3"
 anyhow = "1.0.44"
 once_cell = "1.8.0"
+walkdir = "^2.3.2"
 strum = { version = "0.21.0", features = ["derive"] }
 snafu = "0.6.10"
 log = "0.4.14"

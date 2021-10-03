@@ -1,5 +1,5 @@
-use crate::db;
 use crate::filesystem::{init, reader};
+use crate::{db, filesystem};
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use sea_orm::DatabaseConnection;
@@ -15,14 +15,16 @@ async fn init_db_instance() -> Result<()> {
 }
 
 #[tauri::command(async)]
-pub async fn read_file_command(path: &str) -> Result<String, String> {
+pub async fn scan_dir(path: &str) -> Result<(), String> {
   init_db_instance().await.map_err(|e| e.to_string())?;
 
-  let file = reader::path(path).await.map_err(|e| e.to_string());
+  let directories = filesystem::explorer::scan(path)
+    .await
+    .map_err(|e| e.to_string())?;
 
-  println!("file: {:?}", file);
+  println!("file: {:?}", directories);
 
-  Ok("lol".to_owned())
+  Ok(())
 }
 // #[tauri::command(async)]
 // pub async fn generate_buffer_checksum(path: &str) -> Result<File, InvokeError> {
