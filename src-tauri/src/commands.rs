@@ -1,13 +1,24 @@
-// use crate::filesystem::checksum;
-use crate::filesystem::reader;
+use crate::db;
+use crate::filesystem::{init, reader};
+use anyhow::Result;
+use once_cell::sync::OnceCell;
+use sea_orm::DatabaseConnection;
 
-use tauri::InvokeError;
+pub static DB_INSTANCE: OnceCell<DatabaseConnection> = OnceCell::new();
+
+async fn init_db_instance() -> Result<()> {
+  let db = db::connection::get_connection().await?;
+  if DB_INSTANCE.get().is_none() {
+    DB_INSTANCE.set(db).unwrap_or_default();
+  }
+  Ok(())
+}
 
 #[tauri::command(async)]
-pub async fn read_file_command(path: &str) -> Result<String, InvokeError> {
-  let file = reader::read_file(path)
-    .await
-    .map_err(|error| InvokeError::from(format!("Failed to read file: {}", error)))?;
+pub async fn read_file_command(path: &str) -> Result<String, String> {
+  init_db_instance().await.map_err(|e| e.to_string())?;
+
+  let file = reader::path(path).await.map_err(|e| e.to_string());
 
   println!("file: {:?}", file);
 

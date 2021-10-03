@@ -1,19 +1,34 @@
-use crate::db::connection;
-use crate::db::entity::library;
-use sea_orm::entity::*;
-use sea_orm::DbErr;
-use sea_orm::QueryFilter;
+use crate::db::{connection, entity::library};
+use anyhow::{bail, Result};
+use sea_orm::{entity::*, DatabaseConnection, QueryFilter};
+use strum::Display;
 
-pub async fn init_library() -> Result<(), Box<DbErr>> {
-  let db = connection::get_connection().await?;
+#[derive(Display)]
+pub enum InitError {
+  LibraryNotFound,
+}
 
-  let existing_libs = library::Entity::find()
+pub async fn get_primary_library(db: &DatabaseConnection) -> Result<library::Model> {
+  // get library entity by is_primary column, should be unique
+  let mut existing_libs = library::Entity::find()
     .filter(library::Column::IsPrimary.eq(true))
     .all(&db)
-    .await
-    .unwrap();
+    .await?;
 
+  // return library
   if existing_libs.len() == 0 {
+    bail!(InitError::LibraryNotFound.to_string());
+  } else {
+    Ok(existing_libs.swap_remove(0))
+  }
+}
+
+pub async fn init_library() -> Result<()> {
+  let db = connection::get_connection().await?;
+
+  let library = get_primary_library(&db).await;
+  // if no library create one now
+  if library.is_err() {
     let library = library::ActiveModel {
       name: Set("Primary".to_owned()),
       is_primary: Set(true),
@@ -22,11 +37,9 @@ pub async fn init_library() -> Result<(), Box<DbErr>> {
 
     let library = library.save(&db).await?;
 
-    println!("created library {:?}", library);
+    println!("created library {:?}", &library);
   } else {
-    let existing_lib = &existing_libs[0];
-    println!("library loaded {:?}", existing_lib);
+    println!("library loaded {:?}", library.unwrap());
   };
-
   Ok(())
 }

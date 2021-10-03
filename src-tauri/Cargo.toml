@@ -30,7 +30,10 @@ refinery = { version = "0.6.0", features = ["rusqlite"] }
 sqlx = { version = "0.5.7", features = ["sqlite"] }
 sea-orm = { version = "^0", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros", "debug-print" ], default-features = false }
 env_logger = "0.9.0"
-# libusb = "0.3.0"
+# libusb-sys = "0.2.3"
+anyhow = "1.0.44"
+once_cell = "1.8.0"
+strum = { version = "0.21.0", features = ["derive"] }
 snafu = "0.6.10"
 log = "0.4.14"
 

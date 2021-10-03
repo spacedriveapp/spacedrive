@@ -54,9 +54,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.42"
+version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "595d3cfa7a60d4555cb5067b99f07142a08ea778de5cf993f7b75c7d8fabc486"
+checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
 name = "arrayref"
@@ -3349,6 +3349,7 @@ dependencies = [
 name = "sd"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cargo-edit",
  "chrono",
  "crossbeam",
@@ -3357,6 +3358,7 @@ dependencies = [
  "futures",
  "int-enum",
  "log",
+ "once_cell",
  "rebind",
  "refinery",
  "ring 0.17.0-alpha.10",
@@ -3367,6 +3369,7 @@ dependencies = [
  "sha256",
  "snafu",
  "sqlx",
+ "strum 0.21.0",
  "tauri",
  "tauri-build",
 ]
@@ -3970,6 +3973,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57bd81eb48f4c437cadc685403cad539345bf703d78e63707418431cecd4522b"
 
 [[package]]
+name = "strum"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aaf86bbcfd1fa9670b7a129f64fc0c9fcbbfe4f1bc4210e9e98fe71ffc12cde2"
+dependencies = [
+ "strum_macros 0.21.1",
+]
+
+[[package]]
 name = "strum_macros"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3984,6 +3996,18 @@ name = "strum_macros"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87c85aa3f8ea653bfd3ddf25f7ee357ee4d204731f6aa9ad04002306f6e2774c"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote 1.0.9",
+ "syn 1.0.74",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d06aaeeee809dbc59eb4556183dd927df67db1540de5be8d3ec0b6636358a5ec"
 dependencies = [
  "heck",
  "proc-macro2",

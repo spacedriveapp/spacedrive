@@ -24,8 +24,8 @@ pub struct Model {
   pub name: String,
   pub extension: String,
   pub size_in_bytes: String,
-  pub library_id: String,
-  pub directory_id: String,
+  pub library_id: u32,
+  pub directory_id: Option<u32>,
   // #[sea_orm(column_type = "Int")]
   // pub encryption: crypto::Encryption,
   // ownership
