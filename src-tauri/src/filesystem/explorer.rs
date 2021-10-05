@@ -10,6 +10,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
     .map(|s| s.starts_with("."))
     .unwrap_or(false)
 }
+
 fn is_app_bundle(entry: &DirEntry) -> bool {
   let is_dir = entry.metadata().unwrap().is_dir();
   let contains_dot = entry

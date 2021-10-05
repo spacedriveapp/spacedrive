@@ -2,19 +2,21 @@
   all(not(debug_assertions), target_os = "windows"),
   windows_subsystem = "windows"
 )]
-
 mod app;
 mod commands;
 mod crypto;
 mod db;
+mod device;
 mod filesystem;
 mod util;
 use crate::app::menu;
-use env_logger;
 use futures::executor::block_on;
-use log;
+
+// use systemstat::{saturating_sub_bytes, Platform, System};
 
 fn main() {
+  let mounts = device::volumes_c::get_mounts();
+  println!("mounted drives: {:?}", &mounts);
   // env_logger::builder()
   //   .filter_level(log::LevelFilter::Debug)
   //   .is_test(true)

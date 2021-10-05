@@ -59,9 +59,9 @@
         "fullscreen": false,
         "alwaysOnTop": false,
         "focus": true,
-        "fileDropEnabled": true,
+        "fileDropEnabled": false,
         "decorations": false,
-        "transparent": false,
+        "transparent": true,
         "center": true
       }
     ],
