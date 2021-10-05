@@ -3,6 +3,11 @@ import { ButtonHTMLAttributes, useState } from 'react';
 import { Switch } from '@headlessui/react';
 import clsx from 'clsx';
 
+const sizes = {
+  default: 'py-1 px-3 text-md font-medium',
+  sm: 'py-1 px-2 text-sm font-medium'
+};
+
 const variants = {
   default: `
     bg-gray-50 
@@ -33,6 +38,7 @@ const variants = {
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: keyof typeof variants;
+  size?: keyof typeof sizes;
   loading?: boolean;
 }
 
@@ -41,8 +47,9 @@ export const Button: React.FC<ButtonProps> = ({ loading, ...props }) => {
     <button
       {...props}
       className={clsx(
-        'flex justify-center py-1 px-3 border rounded-md font-medium text-md transition-all duration-100 text-white',
+        'flex justify-center  border rounded-md transition-all duration-100 text-white',
         { 'opacity-5': loading },
+        sizes[props.size || 'default'],
         variants[props.variant || 'default'],
         props.className
       )}
