@@ -11,10 +11,10 @@ export default function App() {
   const [fileScanInputVal, setFileScanInputVal] = useState('/Users/jamie/Downloads');
 
   return (
-    <div className="flex flex-col h-screen rounded-xl bg-gray-100 dark:bg-gray-900 overflow-hidden ">
+    <div className="flex flex-col h-screen rounded-xl bg-white dark:bg-gray-900 overflow-hidden ">
       <div
         data-tauri-drag-region
-        className="max-w bg-gray-200 dark:bg-gray-800 h-10 border-b-1 border-gray-400"
+        className="max-w bg-gray-100 dark:bg-gray-800 h-10 border-b-1 border-gray-400"
       ></div>
       <div className="p-4 ">
         <div className="flex space-x-2">

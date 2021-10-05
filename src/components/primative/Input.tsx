@@ -2,8 +2,30 @@ import clsx from 'clsx';
 import React from 'react';
 
 const variants = {
-  default:
-    'border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-white dark:focus:hover:bg-gray-800 focus:border-gray-300 placeholder-gray-300 focus:ring-gray-200 dark:focus:border-gray-900 dark:focus:ring-gray-600',
+  default: `
+    shadow-sm
+    bg-white
+    hover:bg-white
+    focus:hover:bg-white
+    focus:bg-white
+    dark:bg-gray-800
+    dark:hover:bg-gray-700
+    dark:focus:bg-gray-800
+    dark:focus:hover:bg-gray-800
+
+    border-gray-100
+    hover:border-gray-200
+    focus:border-white
+    dark:border-gray-700
+    dark:hover:border-gray-700
+    dark:focus:border-gray-900
+
+    focus:ring-gray-100 
+    dark:focus:ring-gray-600
+
+    dark:text-white 
+    placeholder-gray-300
+  `,
   primary: ''
 };
 

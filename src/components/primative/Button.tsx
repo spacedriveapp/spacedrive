@@ -5,16 +5,17 @@ import clsx from 'clsx';
 
 const variants = {
   default: `
-    bg-gray-100 
-    hover:bg-gray-200 
-    active:bg-gray-200  
+    bg-gray-50 
+    shadow-sm
+    hover:bg-gray-100 
+    active:bg-gray-50  
     dark:bg-gray-800
     dark:hover:bg-gray-700
     dark:active:bg-gray-600
     
-    border-gray-200 
-    hover:border-gray-300
-    active:border-gray-200
+    border-gray-100 
+    hover:border-gray-200
+    active:border-gray-100
     dark:border-gray-700 
     dark:hover:border-gray-600
 
@@ -27,7 +28,7 @@ const variants = {
     
   `,
   primary:
-    'bg-primary border-primary-600 dark:border-primary-400 active:bg-primary-600 active:border-primary-700 hover:bg-primary-400 hover:border-primary-500'
+    'bg-primary shadow-sm border-primary-600 dark:border-primary-400 active:bg-primary-600 active:border-primary-700 hover:bg-primary-400 hover:border-primary-500'
 };
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
