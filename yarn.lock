@@ -260,6 +260,11 @@
   resolved "https://registry.yarnpkg.com/@headlessui/react/-/react-1.4.0.tgz#c6d424d8ab10ac925e4423d7f3cbab02c30d736a"
   integrity sha512-C+FmBVF6YGvqcEI5fa2dfVbEaXr2RGR6Kw1E5HXIISIZEfsrH/yuCgsjWw5nlRF9vbCxmQ/EKs64GAdKeb8gCw==
 
+"@heroicons/react@^1.0.4":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@heroicons/react/-/react-1.0.4.tgz#11847eb2ea5510419d7ada9ff150a33af0ad0863"
+  integrity sha512-3kOrTmo8+Z8o6AL0rzN82MOf8J5CuxhRLFhpI8mrn+3OqekA6d5eb1GYO3EYYo1Vn6mYQSMNTzCWbEwUInb0cQ==
+
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
   resolved "https://registry.yarnpkg.com/@nodelib/fs.scandir/-/fs.scandir-2.1.5.tgz#7619c2eb21b25483f6d167548b4cfd5a7488c3d5"
@@ -280,125 +285,6 @@
   dependencies:
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
-
-"@reach/alert@^0.15.0":
-  version "0.15.3"
-  resolved "https://registry.yarnpkg.com/@reach/alert/-/alert-0.15.3.tgz#c8b35a1c9e1e50495ca883fb666c210a3cdc7656"
-  integrity sha512-zfTYOj1jJQ2xoug/Vv9TRB1mGknXlyzKTEJbXRbR9TgIfBm74u/3OivY+wlwn2chFNLotsSo/K8ALPB08c7WEw==
-  dependencies:
-    "@reach/utils" "0.15.3"
-    "@reach/visually-hidden" "0.15.2"
-    prop-types "^15.7.2"
-    tslib "^2.3.0"
-
-"@reach/auto-id@^0.15.0", "@reach/auto-id@^0.15.3":
-  version "0.15.3"
-  resolved "https://registry.yarnpkg.com/@reach/auto-id/-/auto-id-0.15.3.tgz#23b6ae8de3bf7520044c95a85c992ae46cdcef9c"
-  integrity sha512-lbLUI9mrn74qVis141ib0Rsyhgk+gzUMtpplRmjy06cUWDFZyiBATNWMUxN5T+0fU4tpfgcjkAuPeTCCGThKtQ==
-  dependencies:
-    "@reach/utils" "0.15.3"
-    tslib "^2.3.0"
-
-"@reach/utils@0.15.3":
-  version "0.15.3"
-  resolved "https://registry.yarnpkg.com/@reach/utils/-/utils-0.15.3.tgz#200f42adba9d1463b1c6a75ee2aaf9f0cba84f9d"
-  integrity sha512-HFyjw8LZ4/RRk5bcMpDAeEc3aOeLR/vWRDsljlE3cHI5GfFlZcG3DDLSW8C2ba74RCFp/4X3Nz0nOrd4JdkZ1w==
-  dependencies:
-    tiny-warning "^1.0.3"
-    tslib "^2.3.0"
-
-"@reach/visually-hidden@0.15.2":
-  version "0.15.2"
-  resolved "https://registry.yarnpkg.com/@reach/visually-hidden/-/visually-hidden-0.15.2.tgz#07794cb53f4bd23a9452d53a0ad7778711ee323f"
-  integrity sha512-suDSCuKKuqiEB4UDgwWHbrPRxNwrusZ3ImXr85kfsQXGmKptMogaq22xoaHn32NC++lzZXxdWtAJriieszzFXw==
-  dependencies:
-    prop-types "^15.7.2"
-    tslib "^2.3.0"
-
-"@react-spring/animated@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/animated/-/animated-9.2.5.tgz#7c52e4845b572459a922bc8f5b07122293eede07"
-  integrity sha512-SDIgozNdxQ8xj4xbrF9aDsU/xyZ1WlnbnLo6BAvTciVIwp4Zhbt8keISQ2bq3THDjPxQbRTzxry8pSW2qUwXaw==
-  dependencies:
-    "@react-spring/shared" "~9.2.5-beta.0"
-    "@react-spring/types" "~9.2.5-beta.0"
-
-"@react-spring/core@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/core/-/core-9.2.5.tgz#fd0cae8e291467dcb94d5dc4eabe43e07cca9697"
-  integrity sha512-3pQOA1QyEu3/8tEfZ0DGklPULyM+bXqJE0JJ0S0lBUivd2MvxhVbJzqoHKxdoHI8CsVSFWMNwwJQ4Vd/XpAk8w==
-  dependencies:
-    "@react-spring/animated" "~9.2.5-beta.0"
-    "@react-spring/shared" "~9.2.5-beta.0"
-    "@react-spring/types" "~9.2.5-beta.0"
-
-"@react-spring/konva@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/konva/-/konva-9.2.5.tgz#1c0106a1fbd96cb08bbc6d718cfb2eb19ef50f92"
-  integrity sha512-uha9cTyO68Vo6CDw2CBmQqJfrj4w0LwSbg1E2o9nJpjkI/Ojhj3oiNmiKVaLbaZmCiGo6tHZZeK/8kNQiBhhDg==
-  dependencies:
-    "@react-spring/animated" "~9.2.5-beta.0"
-    "@react-spring/core" "~9.2.5-beta.0"
-    "@react-spring/shared" "~9.2.5-beta.0"
-    "@react-spring/types" "~9.2.5-beta.0"
-
-"@react-spring/native@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/native/-/native-9.2.5.tgz#9fd288ce0f3f38354cef6fe1626bb76f70f46dd1"
-  integrity sha512-WF2XCte2qaZNn6seC1E1r514d1S6KVmtgZUliKojIzjpoqzicBvLKMrRtWWKBMas7HxtSKgrxgyQQmnL9omZYA==
-  dependencies:
-    "@react-spring/animated" "~9.2.5-beta.0"
-    "@react-spring/core" "~9.2.5-beta.0"
-    "@react-spring/shared" "~9.2.5-beta.0"
-    "@react-spring/types" "~9.2.5-beta.0"
-
-"@react-spring/rafz@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/rafz/-/rafz-9.2.5.tgz#517b6bf6407dd791719e5aae11c18fd321c08af1"
-  integrity sha512-FZdbgcBMF1DM/eCnHZ28nHUG984gqcZHWlz2aIfj5TikPTzgVYDECCW/Pvt3ncHLTxikjYn2wvDV3/Q68yqv8A==
-
-"@react-spring/shared@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/shared/-/shared-9.2.5.tgz#ce96cd1063bd644e820b19d9f3ebce8f6077b872"
-  integrity sha512-kutUl8PN0xBSXBmpnHJVFDsgOCFP448syiCcRfdSsryO8kVfJOcSNT4BzIqmzDCWto/neBQJs2iEhKOZTfwQnA==
-  dependencies:
-    "@react-spring/rafz" "~9.2.5-beta.0"
-    "@react-spring/types" "~9.2.5-beta.0"
-
-"@react-spring/three@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/three/-/three-9.2.5.tgz#1b66dfe4ca3982a3800410608e11894424940802"
-  integrity sha512-FtrxN6KDVMYaymMvwxNNZAJinLQHeKJ5TMQK+GqfLkFuJyNjUgiAThnAWYrp76iZrSR3AxOqNkZ36YZ7cjwNjA==
-  dependencies:
-    "@react-spring/animated" "~9.2.5-beta.0"
-    "@react-spring/core" "~9.2.5-beta.0"
-    "@react-spring/shared" "~9.2.5-beta.0"
-    "@react-spring/types" "~9.2.5-beta.0"
-
-"@react-spring/types@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/types/-/types-9.2.5.tgz#14eeca9ed7d5beed8c3fc943ee8f365c5c9fa635"
-  integrity sha512-ayitxzSUGO4MTQ6VOeNgUviTV/8nxjwGq6Ie+pFgv6JUlOecwdzo2/apEeHN6ae9tbcxQJx6nuDw/yb590M8Uw==
-
-"@react-spring/web@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/web/-/web-9.2.5.tgz#8dfb08ca13526152d04e0395e9f135df78b765e9"
-  integrity sha512-PYwL03eA9clHPzLHjPwNuJuGPAcmT7Kti1bD1AVTM203qrhF0Nhj8dvCeMqfLVUaCIsr+z3kYw+p45izNxbvZg==
-  dependencies:
-    "@react-spring/animated" "~9.2.5-beta.0"
-    "@react-spring/core" "~9.2.5-beta.0"
-    "@react-spring/shared" "~9.2.5-beta.0"
-    "@react-spring/types" "~9.2.5-beta.0"
-
-"@react-spring/zdog@~9.2.5-beta.0":
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/@react-spring/zdog/-/zdog-9.2.5.tgz#f9573aa2c84cfbedeb10e412b83014ce420867fe"
-  integrity sha512-HCndkoF+RfTt4rDUv0Wi/iifYcOfpJ/1pbhQwjO0iYf0RYpMpFjxLv1o6oJ/BfK9uH8JdJ2PKyYOfSzDaiWf8A==
-  dependencies:
-    "@react-spring/animated" "~9.2.5-beta.0"
-    "@react-spring/core" "~9.2.5-beta.0"
-    "@react-spring/shared" "~9.2.5-beta.0"
-    "@react-spring/types" "~9.2.5-beta.0"
 
 "@rollup/pluginutils@^4.1.1":
   version "4.1.1"
@@ -612,256 +498,6 @@
   version "0.8.3"
   resolved "https://registry.yarnpkg.com/@types/zen-observable/-/zen-observable-0.8.3.tgz#781d360c282436494b32fe7d9f7f8e64b3118aa3"
   integrity sha512-fbF6oTd4sGGy0xjHPKAt+eS2CrxJ3+6gQ3FGcBoIJR2TLAyCkCyI8JqZNy+FeON0AhVgNJoUumVoZQjBFUqHkw==
-
-"@vechaiui/alert@0.1.8":
-  version "0.1.8"
-  resolved "https://registry.yarnpkg.com/@vechaiui/alert/-/alert-0.1.8.tgz#8f75a9f7bec85857b175ad45d5f2ddd7740d5c49"
-  integrity sha512-OqHBhvuVPH+RTxZl3Mvf/LtDgfkiCd0cCpuyf+qRLTbbt9SuZreQFF7qeq2Y8ZWOyxQ+vMHhGHpKnQdm+MvAyg==
-  dependencies:
-    "@vechaiui/icon" "0.1.7"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/avatar@0.1.8":
-  version "0.1.8"
-  resolved "https://registry.yarnpkg.com/@vechaiui/avatar/-/avatar-0.1.8.tgz#0e8fc5a67ffedce7fe52e5cb06c41e4e1f85c3f7"
-  integrity sha512-DCJoWaT7rRIRtQ9oMiCtcxdNcad6XSgD0TbVQsERTvPswYrX/001gm41qG31qjAmX9svo3JfWwHJ4QX5IJ7urA==
-  dependencies:
-    "@vechaiui/image" "0.1.7"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/badge@0.1.6":
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/@vechaiui/badge/-/badge-0.1.6.tgz#c1ec2ef37004e3f12e9a5bd69074a052a089e21f"
-  integrity sha512-5OH6BTY9DZCKx6yKMqb+CF9vx+6yiVVzzAt2p3C12iJBTGIIKjGvoAOLASq2EgOIQcVx6poKCs7Yok3cDofQWg==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/breadcrumb@0.1.7":
-  version "0.1.7"
-  resolved "https://registry.yarnpkg.com/@vechaiui/breadcrumb/-/breadcrumb-0.1.7.tgz#566661cc8897ebb6dbca5ad3694af5e7f48cae4e"
-  integrity sha512-B8cJZ+ETBhf1CSG5/KMDOqWATWxtfPJ0ZB7a/FqI3iofWMSViIQj7j+/c07w3uO6n2P09irCfgIM71qk3wuhag==
-  dependencies:
-    "@vechaiui/link" "0.1.6"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/button@0.1.7":
-  version "0.1.7"
-  resolved "https://registry.yarnpkg.com/@vechaiui/button/-/button-0.1.7.tgz#981d5ae4e6f5638ad94556196c12a6c65a3fbdab"
-  integrity sha512-O/4USBYV6Nwhs8yC4XrfDzpSKYEwz/KyxDBaEM1NSFF16xOVG8QWinrCMdGSaxngN1TFwO0YfmrUXhqWab5Yyw==
-  dependencies:
-    "@vechaiui/spinner" "0.1.6"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/checkbox@0.2.7":
-  version "0.2.7"
-  resolved "https://registry.yarnpkg.com/@vechaiui/checkbox/-/checkbox-0.2.7.tgz#bf73859326aeec8e2931a4b5139c9a91e271b227"
-  integrity sha512-LDN3Ye9fBNW3gpEklyGNBVaiDrIGiM+v/T1vC2TiSZKLVfzRRP2kEZdC9nBtuVTr8t8T9CIZWoVJTmg1htsOwg==
-  dependencies:
-    "@reach/auto-id" "^0.15.0"
-    "@vechaiui/forms" "0.3.1"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/code@0.1.6":
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/@vechaiui/code/-/code-0.1.6.tgz#2df0dd0c58b91d68c79f62fd48d3e275068faeed"
-  integrity sha512-WMgBHmDJWtZGCwcKW0noBL59kjuly/SE8NXDC1c1xuK/CFymmcLpZi8+8GcwJExqDngNF4AcuboGm6JE+IPUZw==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/core@^0.5.1":
-  version "0.5.1"
-  resolved "https://registry.yarnpkg.com/@vechaiui/core/-/core-0.5.1.tgz#76aeccfccc9a7b38abdc5e377199671bfbd4f6be"
-  integrity sha512-XDvJWVXOiyCwtnl+ywKYdQuLRT/h0ymLWAB9j2vOH95lckHZOYO1HzcGKqDHilPgBVIqDTMQZDfwtj58012qKw==
-
-"@vechaiui/divider@0.1.6":
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/@vechaiui/divider/-/divider-0.1.6.tgz#b69b8d6c870b6335795f9a78d7df0a77efb6c5c2"
-  integrity sha512-ojFJw+686l/jyOfALSj0q8cPdeSWRbxEwvKY3b2NoSUcbWpgUEkyRwYXLpj90EOrgkelXykTPAcbEtCIxFNL7A==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/dot@0.1.6":
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/@vechaiui/dot/-/dot-0.1.6.tgz#b36f5b1185419922d523de1d651e9c76470de05e"
-  integrity sha512-51w8hOuRa1uVn1JvKbRFBRxfhh8+x3EAKgcVFwZnD2YgNH4Tk49wv121Be5VF8f38KfZn06Mh30+hEOl3zzsMw==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/forms@0.3.1":
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/@vechaiui/forms/-/forms-0.3.1.tgz#177166f9d96fcf82819231802c31fc2e2e3120bf"
-  integrity sha512-2uk5BubHhspQtW+rerEM9qmetr3iTF6FzwQD9Qfjf1H1GFV5zQRL/3TSQB3rVw3vPPHuRZVHtp1IIr0CEbQpWQ==
-  dependencies:
-    "@reach/auto-id" "^0.15.3"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/icon@0.1.7":
-  version "0.1.7"
-  resolved "https://registry.yarnpkg.com/@vechaiui/icon/-/icon-0.1.7.tgz#ba246df51dcc4000ac8e405de99fb9da8a528000"
-  integrity sha512-kBO5ch9OPlIGP4j3s4IscsA8Wgvyqq6+SvCr/M9kI1rJ1im+76FRqxnbuW+FhMHzm9migDAHbPRmqlbqUnNppA==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-    "@vechaiui/visually-hidden" "^0.1.0"
-
-"@vechaiui/image@0.1.7":
-  version "0.1.7"
-  resolved "https://registry.yarnpkg.com/@vechaiui/image/-/image-0.1.7.tgz#a4495b4c0985a62f731c478955c0d3646530934f"
-  integrity sha512-YQbZHC1rHUp3F4RUHuLz6h48zpiUTDtcoScppjrMcBHQmLQCxx3VSVkwN8rQhagpuoecXFz7U87bVfkWLSKvPg==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/kbd@0.1.6":
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/@vechaiui/kbd/-/kbd-0.1.6.tgz#c9b4016f89a014113b3a927b7ace48cc1487aebc"
-  integrity sha512-QtbTC4FLpe/Kic/dEIXnYELEa8rw248kHwl3YWnc89TP50VnOJqxDZ2XkMAFAGMpL+YcEEwklc7ePz4Ci2ZIqg==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/link@0.1.6":
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/@vechaiui/link/-/link-0.1.6.tgz#03c1428b6e8ad733db8f3fc4fc12cb5d4b49b957"
-  integrity sha512-FSTXO+W6l/arEQMID7CgFGP3uewav5uR8WaNRrnyjIMrrmGHkoUrSY2q2bajddjnH1PF4wLkSolrOeI0tldyhg==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/message@0.1.8":
-  version "0.1.8"
-  resolved "https://registry.yarnpkg.com/@vechaiui/message/-/message-0.1.8.tgz#70bdff86816480aa065984b7827e9712cc1f1e3e"
-  integrity sha512-NcYwcG75DLse0CTpXIAjK1q2TraBRnEDZYxYmc0K/nnyqlfXTUuRzjZsBQJPtW6f8PL8Ub1x2XWKJ0yx4YMi5g==
-  dependencies:
-    "@vechaiui/icon" "0.1.7"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/toast" "0.1.6"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/notification@0.1.9":
-  version "0.1.9"
-  resolved "https://registry.yarnpkg.com/@vechaiui/notification/-/notification-0.1.9.tgz#cbe529ae04267a3f901e9a357f531121b7a4553c"
-  integrity sha512-LIbP1LWqfDwXLKsFGApLN+6LuImGHb9d9JXNfqISvjEcJUmduK0425qCj4j7qr69ZJfKKkkBmWXs2hWPDDXTxg==
-  dependencies:
-    "@vechaiui/button" "0.1.7"
-    "@vechaiui/icon" "0.1.7"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/toast" "0.1.6"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/radio@0.1.9":
-  version "0.1.9"
-  resolved "https://registry.yarnpkg.com/@vechaiui/radio/-/radio-0.1.9.tgz#a041dec98e0d0fcc926d2cc236e06ff7fb03a5ed"
-  integrity sha512-T90WwdvvkaFv/rm89/tLl3SttC3XkpomXxnpH7lv/986lNC71JABYXuJCMozh5eJ/i01//bfyrs6JWUmj8vTzw==
-  dependencies:
-    "@reach/auto-id" "^0.15.0"
-    "@vechaiui/forms" "0.3.1"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/react@^0.1.12":
-  version "0.1.12"
-  resolved "https://registry.yarnpkg.com/@vechaiui/react/-/react-0.1.12.tgz#02c25feb224135380b0e340d15e1e82cde5d1070"
-  integrity sha512-Nw/2+R1uRs6XZfO/F7G2zW6fCAo8jHgbuh+ZRdkUi2/pM4IORV4ZeNjFz/P5KGLmDkoE5yQZJpCItfSYZmwQfQ==
-  dependencies:
-    "@vechaiui/alert" "0.1.8"
-    "@vechaiui/avatar" "0.1.8"
-    "@vechaiui/badge" "0.1.6"
-    "@vechaiui/breadcrumb" "0.1.7"
-    "@vechaiui/button" "0.1.7"
-    "@vechaiui/checkbox" "0.2.7"
-    "@vechaiui/code" "0.1.6"
-    "@vechaiui/divider" "0.1.6"
-    "@vechaiui/dot" "0.1.6"
-    "@vechaiui/forms" "0.3.1"
-    "@vechaiui/icon" "0.1.7"
-    "@vechaiui/image" "0.1.7"
-    "@vechaiui/kbd" "0.1.6"
-    "@vechaiui/link" "0.1.6"
-    "@vechaiui/message" "0.1.8"
-    "@vechaiui/notification" "0.1.9"
-    "@vechaiui/radio" "0.1.9"
-    "@vechaiui/spinner" "0.1.6"
-    "@vechaiui/switch" "0.1.9"
-    "@vechaiui/tag" "0.1.8"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/spinner@0.1.6":
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/@vechaiui/spinner/-/spinner-0.1.6.tgz#d56b81dce1048a52fc1f8d71015e651cebf24bc4"
-  integrity sha512-iPy6/pkT5KygU049QRir154TgWwTFaOk/n0Hyx3j2QRjXSaiUFvtyJp6YuDp9RBTZf33N4M0MRE2QVJ+ZJSoFA==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/switch@0.1.9":
-  version "0.1.9"
-  resolved "https://registry.yarnpkg.com/@vechaiui/switch/-/switch-0.1.9.tgz#e468b98ab268ef10c02f3a36ec0d0cbaab3845d3"
-  integrity sha512-AHVUGdyXY8ztrDc4lcTKEPmvF3UuK0yGrCTJSYC6bR4Lq6SeULm5wO6YMpvHYOiqqewQr0Jw3XKFwK8PyaxyGA==
-  dependencies:
-    "@vechaiui/forms" "0.3.1"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-    "@vechaiui/visually-hidden" "^0.1.0"
-
-"@vechaiui/tag@0.1.8":
-  version "0.1.8"
-  resolved "https://registry.yarnpkg.com/@vechaiui/tag/-/tag-0.1.8.tgz#9dea32baf37f86244173bdbd1326554401b4c993"
-  integrity sha512-pUlOjemJc0FPC4sgnr2b868Z2LFvPzPqPmCFy1Eel7012l/EkfREco3SOawwRXt+If5wCXj2/Lkklv4J08giog==
-  dependencies:
-    "@vechaiui/icon" "0.1.7"
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/utils" "^0.1.0"
-
-"@vechaiui/theme@0.3.1":
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/@vechaiui/theme/-/theme-0.3.1.tgz#98c2eb57be288a5e3062d28a96db0b081da5ec12"
-  integrity sha512-ALcPlETNerhX1ioGCLq3nFG+DgdJwtt4EKdJ64dLmJxIJQfd4R3lrw8tqxwJw4yT8FayBv7VcGOW07GN5tSWUg==
-  dependencies:
-    "@vechaiui/utils" "^0.1.0"
-    lodash.set "^4.3.2"
-
-"@vechaiui/toast@0.1.6":
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/@vechaiui/toast/-/toast-0.1.6.tgz#2188a4f13221754c29ab089170efd31c52dc1960"
-  integrity sha512-+H1P0Yg6sOPLWKxpCzWfJ84JES0Amo3oYngBhJR/p+Bm0935NJetcgXcVxK25Oxnp9Ch5OJLp6HdKl/eCjzVDA==
-  dependencies:
-    "@vechaiui/theme" "0.3.1"
-    "@vechaiui/toasted-notes" "^0.1.0"
-
-"@vechaiui/toasted-notes@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@vechaiui/toasted-notes/-/toasted-notes-0.1.0.tgz#bff987fc25790e123c31b8f17a5993b569def3d8"
-  integrity sha512-EgZ2e/KMExcYSa0M6UvL6SO9LHM5BMnoY8kKIkLo/fojlfGogT6hR1wfP8TlDeDcTgRu4bbrwK4Ar6A/lU/MIg==
-  dependencies:
-    "@reach/alert" "^0.15.0"
-    react-spring "^9.2.3"
-
-"@vechaiui/utils@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@vechaiui/utils/-/utils-0.1.0.tgz#2d8aa9c2cd24f85a63c9a930bc51800eed96bdcb"
-  integrity sha512-nLjg8vI219qKXR8jq8G8ZqQztIE7SGvznd5A/g+oH4nDNR/NPQ3v6M87imdmnm64PawGHum6kKiLXxJH+19Mvg==
-  dependencies:
-    clsx "^1.1.1"
-    color-string "^1.5.5"
-
-"@vechaiui/visually-hidden@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@vechaiui/visually-hidden/-/visually-hidden-0.1.0.tgz#4ccfa8be280cc49cc40039e0ef1c7fc52114e1dc"
-  integrity sha512-EuPEq5yyrGHHjtBWVQQc5mWI1wJwOCM7M3V3mlnt9SHna5jRZryHJjzHy+fh2h9lO0Iz42nunxq/LaCeT4LSvg==
-  dependencies:
-    "@vechaiui/utils" "^0.1.0"
 
 "@vitejs/plugin-react-refresh@^1.3.6":
   version "1.3.6"
@@ -1419,7 +1055,7 @@ color-name@^1.0.0, color-name@~1.1.4:
   resolved "https://registry.yarnpkg.com/color-name/-/color-name-1.1.4.tgz#c2a09a87acbde69543de6f63fa3995c826c536a2"
   integrity sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==
 
-color-string@^1.5.5, color-string@^1.6.0:
+color-string@^1.6.0:
   version "1.6.0"
   resolved "https://registry.yarnpkg.com/color-string/-/color-string-1.6.0.tgz#c3915f61fe267672cb7e1e064c9d692219f6c312"
   integrity sha512-c/hGS+kRWJutUBEngKKmk4iH3sD59MBkoxVapS/0wgpCz2u7XsNloxknyvBhzwEs1IbV36D9PwqLPJ2DTu3vMA==
@@ -2851,11 +2487,6 @@ load-json-file@^1.0.0:
     pinkie-promise "^2.0.0"
     strip-bom "^2.0.0"
 
-lodash.set@^4.3.2:
-  version "4.3.2"
-  resolved "https://registry.yarnpkg.com/lodash.set/-/lodash.set-4.3.2.tgz#d8757b1da807dde24816b0d6a84bea1a76230b23"
-  integrity sha1-2HV7HagH3eJIFrDWqEvqGnYjCyM=
-
 lodash.topath@^4.5.2:
   version "4.5.2"
   resolved "https://registry.yarnpkg.com/lodash.topath/-/lodash.topath-4.5.2.tgz#3616351f3bba61994a0931989660bd03254fd009"
@@ -3722,18 +3353,6 @@ react-router@5.2.0:
     react-is "^16.6.0"
     tiny-invariant "^1.0.2"
     tiny-warning "^1.0.0"
-
-react-spring@^9.2.3:
-  version "9.2.5"
-  resolved "https://registry.yarnpkg.com/react-spring/-/react-spring-9.2.5.tgz#748d307f664179f972b0f124bfa9dc69fcbcd809"
-  integrity sha512-GWkKW3NtnPgoONxM9qX+in6wAv32fgnB9mKAFcbS+1cM7jqGJjKwyXaYbtH5s6wrqgzPT9lv9vVGgrNTS5WDYw==
-  dependencies:
-    "@react-spring/core" "~9.2.5-beta.0"
-    "@react-spring/konva" "~9.2.5-beta.0"
-    "@react-spring/native" "~9.2.5-beta.0"
-    "@react-spring/three" "~9.2.5-beta.0"
-    "@react-spring/web" "~9.2.5-beta.0"
-    "@react-spring/zdog" "~9.2.5-beta.0"
 
 react@^17.0.2:
   version "17.0.2"

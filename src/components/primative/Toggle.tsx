@@ -13,7 +13,7 @@ export const Toggle = (props: { initialState: boolean }) => {
       className={clsx(
         'relative inline-flex items-center h-6 rounded-full w-11 bg-gray-200 dark:bg-gray-700',
         {
-          'bg-primary-600': enabled
+          'bg-primary-500 dark:bg-primary-500': enabled
         }
       )}
     >
