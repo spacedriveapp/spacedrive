@@ -1,6 +1,6 @@
 {
   "package": {
-    "productName": "sd",
+    "productName": "SpaceDrive",
     "version": "0.1.0"
   },
   "build": {
@@ -52,7 +52,7 @@
     },
     "windows": [
       {
-        "title": "sd",
+        "title": "SpaceDrive",
         "width": 1200,
         "height": 700,
         "resizable": true,

@@ -42,12 +42,12 @@ module.exports = {
           800: '#282A34',
           900: '#1B1C23'
         }
-      },
-      fontFamily: { sans: ['Inter', ...defaultTheme.fontFamily.sans] }
+      }
+      // fontFamily: { sans: ['Inter', ...defaultTheme.fontFamily.sans] }
     }
   },
   variants: {
     extend: {}
   },
-  plugins: [require('@tailwindcss/forms')]
+  plugins: []
 };

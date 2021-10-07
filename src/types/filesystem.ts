@@ -1,31 +1,25 @@
 import { Encryption } from './library';
 import { ImageMeta, VideoMeta } from './media';
 
-export interface Object {
+export interface FileData {
   id?: number;
-  checksum: string;
-  type: ObjectType;
-
+  meta_checksum: string;
   uri: string;
-  name: string;
-  extension: string;
-  size: number;
-  mime: string;
-  encryption?: Encryption;
 
   date_created: Date;
   date_modified: Date;
   date_indexed: Date;
 
+  name: string;
+  extension: string;
+  size_in_bytes: string;
+
+  library_id: string;
   directory_id: string;
+  ipfs_id: string;
   storage_device_id: string;
   capture_device_id: string;
-  parent_object_id: string;
-  user_id: string;
-
-  geolocation: string;
-  extra_data: null | ImageMeta | VideoMeta;
-  ipfs_id: string;
+  parent_file_id: string;
 }
 
 export interface Directory {

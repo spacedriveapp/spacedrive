@@ -1,11 +1,11 @@
 [package]
-name = "sd"
+name = "SpaceDrive"
 version = "0.1.0"
 description = "The next gen private virtual filesystem."
 authors = ["you"]
 license = ""
 repository = ""
-default-run = "sd"
+default-run = "SpaceDrive"
 edition = "2018"
 build = "src/build.rs"
 

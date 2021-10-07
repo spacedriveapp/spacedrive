@@ -60,8 +60,9 @@ const variants = {
   `,
   primary:
     'bg-primary text-white shadow-sm border-primary-600 dark:border-primary-400 active:bg-primary-600 active:border-primary-700 hover:bg-primary-400 hover:border-primary-500',
-  selected:
-    'bg-gray-100 dark:bg-gray-500 active:text-gray-100  dark:hover:text-white dark:text-white'
+  selected: `bg-gray-100 dark:bg-gray-500 
+    text-black hover:text-black active:text-black dark:hover:text-white dark:text-white 
+    `
 };
 
 export type ButtonVariant = keyof typeof variants;
