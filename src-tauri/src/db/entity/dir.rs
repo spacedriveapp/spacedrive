@@ -28,6 +28,7 @@ pub struct Model {
 pub enum Relation {
   StorageDevice,
   Library,
+  File,
 }
 
 impl RelationTrait for Relation {
@@ -41,9 +42,12 @@ impl RelationTrait for Relation {
         .from(Column::StorageDeviceId)
         .to(super::storage_device::Column::Id)
         .into(),
+      Self::File => Entity::has_many(super::file::Entity).into(),
     }
   }
 }
+
+// BRB, getting something from the store, 15 mins max!
 
 impl Related<super::library::Entity> for Entity {
   fn to() -> RelationDef {
@@ -54,6 +58,12 @@ impl Related<super::library::Entity> for Entity {
 impl Related<super::storage_device::Entity> for Entity {
   fn to() -> RelationDef {
     Relation::StorageDevice.def()
+  }
+}
+
+impl Related<super::file::Entity> for Entity {
+  fn to() -> RelationDef {
+    Relation::File.def()
   }
 }
 

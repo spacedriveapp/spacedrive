@@ -1,5 +1,5 @@
 pub mod capture_device;
-pub mod dir;
+// pub mod dir;
 pub mod file;
 pub mod library;
 pub mod space;

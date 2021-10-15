@@ -16,6 +16,7 @@ pub struct Model {
   #[sea_orm(unique)]
   pub meta_checksum: String,
   pub uri: String,
+  pub is_dir: bool,
   // date
   pub date_created: Option<NaiveDateTime>,
   pub date_modified: Option<NaiveDateTime>,
@@ -25,7 +26,6 @@ pub struct Model {
   pub extension: String,
   pub size_in_bytes: String,
   pub library_id: u32,
-  pub directory_id: Option<u32>,
   // #[sea_orm(column_type = "Int")]
   // pub encryption: crypto::Encryption,
   // ownership
@@ -36,13 +36,12 @@ pub struct Model {
   #[sea_orm(nullable)]
   pub capture_device_id: Option<u32>,
   #[sea_orm(nullable)]
-  pub parent_file_id: Option<u32>,
+  pub parent_id: Option<u32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
   Library,
-  Directory,
   StorageDevice,
   CaptureDevice,
   ParentFile,
@@ -55,10 +54,6 @@ impl RelationTrait for Relation {
         .from(Column::LibraryId)
         .to(super::library::Column::Id)
         .into(),
-      Self::Directory => Entity::belongs_to(super::dir::Entity)
-        .from(Column::DirectoryId)
-        .to(super::dir::Column::Id)
-        .into(),
       Self::StorageDevice => Entity::belongs_to(super::storage_device::Entity)
         .from(Column::StorageDeviceId)
         .to(super::storage_device::Column::Id)
@@ -68,7 +63,7 @@ impl RelationTrait for Relation {
         .to(super::capture_device::Column::Id)
         .into(),
       Self::ParentFile => Entity::belongs_to(Entity)
-        .from(Column::ParentFileId)
+        .from(Column::ParentId)
         .to(Column::Id)
         .into(),
     }
@@ -77,11 +72,6 @@ impl RelationTrait for Relation {
 impl Related<super::library::Entity> for Entity {
   fn to() -> RelationDef {
     Relation::Library.def()
-  }
-}
-impl Related<super::dir::Entity> for Entity {
-  fn to() -> RelationDef {
-    Relation::Directory.def()
   }
 }
 impl Related<super::storage_device::Entity> for Entity {

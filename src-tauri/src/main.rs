@@ -10,17 +10,17 @@ mod device;
 mod filesystem;
 mod util;
 use crate::app::menu;
+use env_logger;
 use futures::executor::block_on;
-
 // use systemstat::{saturating_sub_bytes, Platform, System};
 
 fn main() {
-  let mounts = device::volumes_c::get_mounts();
-  println!("mounted drives: {:?}", &mounts);
-  // env_logger::builder()
-  //   .filter_level(log::LevelFilter::Debug)
-  //   .is_test(true)
-  //   .init();
+  // let mounts = device::volumes_c::get_mounts();
+  // println!("mounted drives: {:?}", &mounts);
+  env_logger::builder()
+    .filter_level(log::LevelFilter::Debug)
+    .is_test(true)
+    .init();
 
   // create primary data base if not exists
   block_on(db::connection::create_primary_db()).unwrap();

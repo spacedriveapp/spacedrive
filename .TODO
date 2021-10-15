@@ -1,0 +1,12 @@
+# SpaceDrive development log / todo list 
+✔ Configured a custom MacOS style Tauri window 
+✔ Connect & create sqlite database in application data folder
+✔ Auto migrate database on app launch 
+✔ Define data schema in Rust 
+✔ Scan given directory recursively and write to database 
+✔ App frame and router set up 
+✔ Primative UI components (Button, Input, Shortcut etc) 
+✔ Render basic file list with database data 
+☐ Create a global store
+☐ Set up Tauri updater
+☐ 

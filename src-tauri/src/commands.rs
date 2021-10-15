@@ -1,15 +1,18 @@
 use crate::db::entity::file;
-use crate::filesystem::{init, reader};
+use crate::filesystem::retrieve::Directory;
 use crate::{db, filesystem};
 use anyhow::Result;
 use once_cell::sync::OnceCell;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::ColumnTrait;
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter};
 
 pub static DB_INSTANCE: OnceCell<DatabaseConnection> = OnceCell::new();
 
-async fn db_instance() -> Result<&'static DatabaseConnection> {
+async fn db_instance() -> Result<&'static DatabaseConnection, String> {
   if DB_INSTANCE.get().is_none() {
-    let db = db::connection::get_connection().await?;
+    let db = db::connection::get_connection()
+      .await
+      .map_err(|e| e.to_string())?;
     DB_INSTANCE.set(db).unwrap_or_default();
     Ok(DB_INSTANCE.get().unwrap())
   } else {
@@ -18,38 +21,44 @@ async fn db_instance() -> Result<&'static DatabaseConnection> {
 }
 
 #[tauri::command(async)]
-pub async fn scan_dir(path: &str) -> Result<(), String> {
-  db_instance().await.map_err(|e| e.to_string())?;
+pub async fn scan_dir(path: String) -> Result<(), String> {
+  db_instance().await?;
 
-  let directories = filesystem::explorer::scan(path)
+  let files = filesystem::indexer::scan(&path)
     .await
     .map_err(|e| e.to_string())?;
 
-  println!("file: {:?}", directories);
+  println!("file: {:?}", files);
 
   Ok(())
 }
 
 #[tauri::command(async)]
-pub async fn get_files() -> Result<Vec<file::Model>, String> {
-  let connection = db_instance().await.map_err(|e| e.to_string())?;
+pub async fn get_files(path: String) -> Result<Directory, String> {
+  let connection = db_instance().await?;
 
-  let files = file::Entity::find()
+  println!("getting files... {:?}", &path);
+
+  let directories = file::Entity::find()
+    .filter(file::Column::Uri.eq(path))
     .all(connection)
     .await
     .map_err(|e| e.to_string())?;
 
-  println!("files found, {:?}", files.len());
+  if directories.is_empty() {
+    return Err("fuk".to_owned());
+  }
 
-  Ok(files[..100].to_vec())
+  let directory = &directories[0];
+
+  let files = file::Entity::find()
+    .filter(file::Column::ParentId.eq(directory.id))
+    .all(connection)
+    .await
+    .map_err(|e| e.to_string())?;
+
+  Ok(Directory {
+    directory: directory.clone(),
+    contents: files,
+  })
 }
-
-// #[tauri::command(async)]
-// pub async fn generate_buffer_checksum(path: &str) -> Result<File, InvokeError> {
-//   let mut file = file::read_file(path)
-//     .await
-//     .map_err(|error| InvokeError::from(format!("Failed to read file: {}", error)))?;
-
-//   // file.buffer_checksum = Some(checksum::create_hash(&file.uri).await.unwrap());
-//   Ok(file)
-// }

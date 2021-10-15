@@ -1,7 +1,7 @@
 import { DuplicateIcon, PencilAltIcon, TrashIcon } from '@heroicons/react/solid';
 import { invoke } from '@tauri-apps/api';
 import React, { useRef } from 'react';
-// import { dummyFileData, FileList } from '../components/file/FileList';
+// import { dummyIFile, FileList } from '../components/file/FileList';
 import { Input, Toggle } from '../components/primative';
 import { Button } from '../components/primative/Button';
 import { Checkbox } from '../components/primative/Checkbox';
@@ -17,7 +17,7 @@ export const SettingsScreen: React.FC<{}> = () => {
   return (
     <div>
       <div className="p-3">
-        {/* <FileList files={dummyFileData} /> */}
+        {/* <FileList files={dummyIFile} /> */}
         <div className="flex space-x-2 mt-4">
           <InputContainer
             title="Quick scan directory"

@@ -13,7 +13,7 @@ export default function App() {
         <TopBar />
         <div className="flex flex-row min-h-full">
           <Sidebar />
-          <div className="w-full flex">
+          <div className="w-full flex bg-gray-50 dark:bg-gray-800">
             <Switch>
               <Route path="/settings">
                 <SettingsScreen />

@@ -37,8 +37,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
       {tabs.map((button, index) => (
         <NavLink
-          className="max-w rounded px-2 py-1 flex flex-row items-center hover:bg-gray-700 text-sm"
-          activeClassName="bg-gray-500 hover:bg-gray-500"
+          key={index}
+          className="max-w rounded px-2 py-1 flex flex-row items-center hover:bg-gray-200 dark:hover:bg-gray-700 text-sm"
+          activeClassName="bg-gray-200 hover:bg-gray-200 dark:bg-gray-500 dark:hover:bg-gray-500"
           to={button.uri}
         >
           {button.icon && <button.icon className="w-4 h-4 mr-2" />}

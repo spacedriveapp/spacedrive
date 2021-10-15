@@ -1,4 +1,4 @@
 pub mod checksum;
-pub mod explorer;
+pub mod indexer;
 pub mod init;
-pub mod reader;
+pub mod retrieve;

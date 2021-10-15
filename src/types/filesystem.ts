@@ -1,10 +1,11 @@
 import { Encryption } from './library';
 import { ImageMeta, VideoMeta } from './media';
 
-export interface FileData {
+export interface IFile {
   id?: number;
   meta_checksum: string;
   uri: string;
+  is_dir: string;
 
   date_created: Date;
   date_modified: Date;
@@ -15,38 +16,18 @@ export interface FileData {
   size_in_bytes: string;
 
   library_id: string;
-  directory_id: string;
   ipfs_id: string;
   storage_device_id: string;
   capture_device_id: string;
-  parent_file_id: string;
+  parent_id: string;
+  tags?: ITag[];
 }
 
-export interface Directory {
+export interface IDirectory extends IFile {
+  children?: IFile[];
+  children_count: number;
+}
+
+export interface ITag {
   id: string;
-  name: string;
-
-  calculated_size: string;
-  calculated_object_count: number;
-  storage_device_id: string;
-  parent_directory_id: string;
-  user_id: string;
-
-  date_created: Date;
-  date_modified: Date;
-  date_indexed: Date;
-}
-
-export interface Tag {
-  id: string;
-}
-
-export interface TagObject {
-  object_id: string;
-  tag_id: string;
-}
-
-export enum ObjectType {
-  FILE,
-  LINK
 }

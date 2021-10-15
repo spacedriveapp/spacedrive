@@ -2,22 +2,32 @@ import React, { useEffect, useState } from 'react';
 import { FileList } from '../components/file/FileList';
 import { emit, listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api';
-import { FileData } from '../types';
+import { IFile } from '../types';
+import { useExplorerStore } from '../store/explorer';
+
+export interface DirectoryResponse {
+  directory: IFile;
+  contents: IFile[];
+}
 
 export const ExplorerScreen: React.FC<{}> = () => {
-  const [files, setFiles] = useState<FileData[] | null>(null);
+  const [activeDirHash, collectDir] = useExplorerStore((state) => [
+    state.activeDirHash,
+    state.collectDir
+  ]);
+
   useEffect(() => {
-    invoke('get_files').then((res) => {
-      setFiles(res as FileData[]);
+    invoke<DirectoryResponse>('get_files', { path: '/Users/jamie/Downloads' }).then((res) => {
+      console.log({ res });
+      collectDir(res.directory, res.contents);
     });
   }, []);
-  console.log({ files });
 
-  if (!files) return <></>;
+  if (!activeDirHash) return <></>;
 
   return (
-    <div className="w-full m-3">
-      <FileList files={files} />
+    <div className="w-full">
+      <FileList />
     </div>
   );
 };
