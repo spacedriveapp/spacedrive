@@ -1,6 +1,6 @@
 import { DocumentIcon, DotsVerticalIcon, FilmIcon, FolderIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { IFile } from '../../types';
 import byteSize from 'pretty-bytes';
 import { useKey } from 'rooks';
@@ -22,13 +22,16 @@ function ensureIsColumns<T extends Column[]>(data: T) {
 const columns = ensureIsColumns([
   { column: 'Name', key: 'name', width: 280 } as const,
   { column: 'Size', key: 'size_in_bytes', width: 120 } as const,
-  { column: 'Checksum', key: 'meta_checksum', width: 120 } as const
+  { column: 'Type', key: 'extension', width: 100 } as const
+  // { column: 'Checksum', key: 'meta_checksum', width: 120 } as const
   // { column: 'Tags', key: 'tags', width: 120 } as const
 ]);
 
 type ColumnKey = typeof columns[number]['key'];
 
 export const FileList: React.FC<{}> = (props) => {
+  const scrollContainer = useRef<null | HTMLDivElement>(null);
+  const [rowHeight, setRowHeight] = useState(0);
   // const [selectedRow, setSelectedRow] = useState(0);
   const [currentDir, activeDirHash, collectDir, selectedRow, setSelectedRow] = useExplorerStore(
     (state) => [
@@ -42,18 +45,35 @@ export const FileList: React.FC<{}> = (props) => {
 
   useKey('ArrowUp', (e) => {
     e.preventDefault();
-    if (selectedRow > 1) setSelectedRow(selectedRow - 1);
-    else setSelectedRow(currentDir.children_count);
+    if (!selectedRow || !currentDir?.children) return;
+    if (selectedRow?.index > 0)
+      // decrement selected index
+      setSelectedRow(selectedRow.index - 1, currentDir.children[selectedRow.index - 1]);
+    // loop to bottom
+    else setSelectedRow(currentDir.children_count, currentDir.children[currentDir.children_count]);
   });
   useKey('ArrowDown', (e) => {
     e.preventDefault();
-    if (selectedRow < currentDir.children_count) setSelectedRow(selectedRow + 1);
-    else setSelectedRow(0);
+    if (!selectedRow || !currentDir?.children) return;
+    // increment if rows below exist
+    if (selectedRow.index < currentDir.children_count)
+      setSelectedRow(selectedRow.index + 1, currentDir.children[selectedRow.index + 1]);
+    else setSelectedRow(0, currentDir.children[0]);
   });
+
+  function isRowOutOfView(rowHeight: number, rowIndex: number) {
+    const scrollTop = scrollContainer.current?.scrollTop || 0;
+  }
+
+  function handleScroll() {}
 
   return useMemo(
     () => (
-      <div className="table-container w-full h-full overflow-scroll bg-white dark:bg-gray-900 p-3 ">
+      <div
+        ref={scrollContainer}
+        onScroll={handleScroll}
+        className="table-container w-full h-full overflow-scroll bg-white dark:bg-gray-900 p-3 cursor-default"
+      >
         <div className="table-head">
           <div className="table-head-row flex flex-row p-2">
             {columns.map((col) => (
@@ -68,7 +88,7 @@ export const FileList: React.FC<{}> = (props) => {
             ))}
           </div>
         </div>
-        <div className="table-body">
+        <div className="table-body pb-10">
           {currentDir?.children?.map((row, index) => (
             <RenderRow key={row.id} row={row} rowIndex={index} />
           ))}
@@ -86,13 +106,18 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number }> = ({ row, rowIndex }
     state.setSelected
   ]);
 
-  const isActive = selectedRow === row.id;
+  const isActive = selectedRow?.index === rowIndex;
   const isAlternate = rowIndex % 2 == 0;
+
+  function selectFile() {
+    if (selectedRow?.index == rowIndex) setSelectedRow(null);
+    else setSelectedRow(rowIndex, row);
+  }
 
   return useMemo(
     () => (
       <div
-        onClick={() => setSelectedRow(row.id as number)}
+        onClick={selectFile}
         onDoubleClick={() => {
           if (row.is_dir) {
             invoke<DirectoryResponse>('get_files', { path: row.uri }).then((res) => {
@@ -106,7 +131,11 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number }> = ({ row, rowIndex }
         })}
       >
         {columns.map((col) => (
-          <div key={col.key} className="table-body-cell px-4 py-2" style={{ width: col.width }}>
+          <div
+            key={col.key}
+            className="table-body-cell px-4 py-2 flex items-center pr-2"
+            style={{ width: col.width }}
+          >
             <RenderCell row={row} colKey={col?.key} />
           </div>
         ))}
@@ -123,25 +152,28 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; row?: IFile }> = ({ colKey, row
   switch (colKey) {
     case 'name':
       return (
-        <div className="flex flex-row items-center">
+        <div className="flex flex-row items-center overflow-hidden">
           {colKey == 'name' &&
             (() => {
               switch (row.extension.toLowerCase()) {
                 case 'mov' || 'mp4':
-                  return <FilmIcon className="w-5 h-5 mr-3 flex-shrink-0" />;
+                  return <FilmIcon className="w-5 h-5 mr-3 flex-shrink-0 text-gray-300" />;
 
                 default:
-                  if (row.is_dir) return <FolderIcon className="w-5 h-5 mr-3 flex-shrink-0" />;
-                  return <DocumentIcon className="w-5 h-5 mr-3 flex-shrink-0" />;
+                  if (row.is_dir)
+                    return <FolderIcon className="w-5 h-5 mr-3 flex-shrink-0 text-gray-300" />;
+                  return <DocumentIcon className="w-5 h-5 mr-3 flex-shrink-0 text-gray-300" />;
               }
             })()}
-          <span className="truncate">{row[colKey]}</span>
+          <span className="truncate text-xs">{row[colKey]}</span>
         </div>
       );
     case 'size_in_bytes':
-      return <span>{byteSize(Number(value || 0))}</span>;
-    case 'meta_checksum':
-      return <span className="truncate">{value}</span>;
+      return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
+    case 'extension':
+      return <span className="text-xs text-left">{value.toLowerCase()}</span>;
+    // case 'meta_checksum':
+    //   return <span className="truncate">{value}</span>;
     // case 'tags':
     //   return renderCellWithIcon(MusicNoteIcon);
 

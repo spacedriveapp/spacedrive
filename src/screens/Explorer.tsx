@@ -4,6 +4,7 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api';
 import { IFile } from '../types';
 import { useExplorerStore } from '../store/explorer';
+import { Inspector } from '../components/file/Inspector';
 
 export interface DirectoryResponse {
   directory: IFile;
@@ -26,8 +27,9 @@ export const ExplorerScreen: React.FC<{}> = () => {
   if (!activeDirHash) return <></>;
 
   return (
-    <div className="w-full">
+    <div className="relative w-full flex flex-row bg-white dark:bg-gray-900">
       <FileList />
+      <Inspector />
     </div>
   );
 };

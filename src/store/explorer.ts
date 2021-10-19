@@ -6,17 +6,18 @@ interface ExplorerStore {
   dirs: Record<string, IDirectory>;
   activeDirHash: string;
   history: string[];
-  selected: number;
+  selected: null | { index: number; file: IFile };
   collectDir: (dirHash: IFile, files: IFile[]) => void;
   currentDir?: () => IFile[];
-  setSelected: (id: number) => void;
+  setSelected: (index: number | null, file?: IFile) => void;
+  goBack: () => void;
 }
 
 export const useExplorerStore = create<ExplorerStore>((set, get) => ({
   dirs: {},
   activeDirHash: '',
   history: [],
-  selected: 0,
+  selected: null,
   collectDir: (directory, files) => {
     set((state) =>
       produce(state, (draft) => {
@@ -40,10 +41,10 @@ export const useExplorerStore = create<ExplorerStore>((set, get) => ({
       );
     }
   },
-  setSelected: (id) =>
+  setSelected: (index?: number | null, file?: IFile) =>
     set((state) =>
       produce(state, (draft) => {
-        draft.selected = id;
+        draft.selected = !index || !file ? null : { index, file };
       })
     )
 }));

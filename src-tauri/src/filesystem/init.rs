@@ -39,7 +39,7 @@ pub async fn init_library() -> Result<()> {
 
     println!("created library {:?}", &library);
   } else {
-    println!("library loaded {:?}", library.unwrap());
+    // println!("library loaded {:?}", library.unwrap());
   };
   Ok(())
 }

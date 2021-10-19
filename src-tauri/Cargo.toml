@@ -11,6 +11,8 @@ build = "src/build.rs"
 
 [build-dependencies]
 tauri-build = { version = "1.0.0-beta.3" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [dependencies]
 tauri = { version = "1.0.0-beta.5", features = ["api-all", "menu"] }
@@ -40,6 +42,9 @@ bytesize = "1.1.0"
 libc = "0.2.103"
 nix = "0.23.0"
 log = "0.4.14"
+objc = "0.2.7"
+cocoa = "0.24.0"
+objc-foundation = "0.1.1"
 
 [features]
 default = [ "custom-protocol" ]

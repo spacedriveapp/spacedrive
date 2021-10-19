@@ -7,6 +7,21 @@
 ✔ App frame and router set up 
 ✔ Primative UI components (Button, Input, Shortcut etc) 
 ✔ Render basic file list with database data 
-☐ Create a global store
+✔ Create a global store 
+☐ File inspector <- CURRENT
+☐ Tag creation and assignment
+☐ Generate buffer hash
+☐ Right click menu
+☐ Settings screen
 ☐ Set up Tauri updater
-☐ 
+☐ Volume identification
+☐ Job queue system
+☐ Native file previews
+☐ Secret keystore
+☐ File encryptor
+☐ File viewer / player
+☐ Open with
+☐ Explorer grid view
+☐ Explorer path viewer / editor
+☐ Statistic calucations
+    Folder size, Volume size, Total capacity, Total unique etc..
