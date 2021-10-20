@@ -49,7 +49,7 @@ fn build_swift_natives() {
 
   if !Command::new("swift")
     .args(&["build", "-c", &profile])
-    .current_dir("./swift")
+    .current_dir("./swift-lib")
     .status()
     .unwrap()
     .success()
@@ -65,11 +65,11 @@ fn build_swift_natives() {
       println!("cargo:rustc-link-search=native={}", path);
     });
   println!(
-    "cargo:rustc-link-search=native=./swift/.build/{}/{}",
+    "cargo:rustc-link-search=native=./swift-lib/.build/{}/{}",
     swift_target_info.target.unversioned_triple, profile
   );
-  println!("cargo:rustc-link-lib=static=spacedrive");
-  println!("cargo:rerun-if-changed=swift/src/*.swift");
+  println!("cargo:rustc-link-lib=static=swift-lib");
+  println!("cargo:rerun-if-changed=swift-lib/src/*.swift");
   println!(
     "cargo:rustc-env=MACOSX_DEPLOYMENT_TARGET={}",
     MACOS_TARGET_VERSION
@@ -77,10 +77,6 @@ fn build_swift_natives() {
 }
 
 fn main() {
-  // let target = env::var("CARGO_CFG_TARGET_OS").unwrap();
-  // if target == "macos" {
   build_swift_natives();
-  // }
-
   tauri_build::build();
 }

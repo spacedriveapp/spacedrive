@@ -5,6 +5,7 @@ import { TopBar } from './components/layout/TopBar';
 import { useInputState } from './hooks/useInputState';
 import { SettingsScreen } from './screens/Settings';
 import { ExplorerScreen } from './screens/Explorer';
+import { invoke } from '@tauri-apps/api';
 
 export default function App() {
   return (

@@ -51,7 +51,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex flex-shrink-0 h-10 max-w items-center border-b bg-gray-100 dark:bg-gray-650  border-gray-100 dark:border-gray-900 shadow-sm "
+        className="flex flex-shrink-0 h-10 max-w items-center border-b bg-gray-100 dark:bg-gray-650 border-gray-100 dark:border-gray-900 shadow-sm"
       >
         <div className="mr-32 ml-1 ">
           <TrafficLights className="p-1.5" />
@@ -67,7 +67,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
         <div className="relative flex h-7">
           <Input
             placeholder="Search"
-            className="placeholder-gray-600 bg-gray-50 zdark:bg-gray-600 dark:hover:bg-gray-600 text-xs w-32 focus:w-52 transition-all"
+            className="placeholder-gray-600 bg-gray-50 dark:bg-gray-600 dark:hover:!bg-gray-600 dark:focus:hover:!bg-gray-800 text-xs w-32 focus:w-52 transition-all"
           />
           <div className="space-x-1 absolute top-[1px] right-1">
             <Shortcut chars="⌘" />

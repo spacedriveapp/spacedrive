@@ -24,11 +24,12 @@ interface SidebarProps extends DefaultProps {}
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   return (
-    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-850 border-gray-100 border-r dark:border-gray-700 px-3  space-y-0.5">
+    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-650  border-gray-100 border-r dark:border-gray-700 px-3  space-y-0.5">
       <Dropdown
         buttonProps={{
           justifyLeft: true,
-          className: 'mb-1 shadow flex-shrink-0 w-[175px] dark:bg-gray-650',
+          className:
+            'mb-1 shadow flex-shrink-0 w-[175px] dark:bg-gray-550 dark:hover:!bg-gray-500 dark:hover:!border-gray-450',
           variant: 'gray'
         }}
         buttonText="Jamie's Library"

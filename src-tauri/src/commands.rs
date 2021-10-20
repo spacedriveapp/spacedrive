@@ -1,5 +1,6 @@
 use crate::db::entity::file;
 use crate::filesystem::retrieve::Directory;
+use crate::swift::get_file_thumbnail_base64;
 use crate::{db, filesystem};
 use anyhow::Result;
 use once_cell::sync::OnceCell;
@@ -31,6 +32,13 @@ pub async fn scan_dir(path: String) -> Result<(), String> {
   println!("file: {:?}", files);
 
   Ok(())
+}
+#[tauri::command(async)]
+pub async fn get_file_thumb(path: &str) -> Result<String, String> {
+  let path = &path.to_string();
+  let thumbnail_b46 = get_file_thumbnail_base64(path.into()).to_string();
+
+  Ok(thumbnail_b46)
 }
 
 #[tauri::command(async)]

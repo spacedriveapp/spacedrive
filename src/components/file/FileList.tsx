@@ -1,6 +1,6 @@
 import { DocumentIcon, DotsVerticalIcon, FilmIcon, FolderIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IFile } from '../../types';
 import byteSize from 'pretty-bytes';
 import { useKey } from 'rooks';
@@ -100,6 +100,16 @@ export const FileList: React.FC<{}> = (props) => {
 };
 
 const RenderRow: React.FC<{ row: IFile; rowIndex: number }> = ({ row, rowIndex }) => {
+  const [image, setImage] = useState<string | undefined>();
+  useEffect(() => {
+    if (row.uri)
+      invoke('get_file_thumb', { path: row.uri }).then((imageData) => {
+        console.log({ imageData: (imageData as string).slice(1, 50) });
+
+        setImage(imageData as string);
+      });
+  }, [row.uri]);
+
   const [collectDir, selectedRow, setSelectedRow] = useExplorerStore((state) => [
     state.collectDir,
     state.selected,
@@ -136,16 +146,20 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number }> = ({ row, rowIndex }
             className="table-body-cell px-4 py-2 flex items-center pr-2"
             style={{ width: col.width }}
           >
-            <RenderCell row={row} colKey={col?.key} />
+            <RenderCell image={image} row={row} colKey={col?.key} />
           </div>
         ))}
       </div>
     ),
-    [isActive]
+    [isActive, image]
   );
 };
 
-const RenderCell: React.FC<{ colKey?: ColumnKey; row?: IFile }> = ({ colKey, row }) => {
+const RenderCell: React.FC<{ colKey?: ColumnKey; row?: IFile; image?: string }> = ({
+  colKey,
+  row,
+  image
+}) => {
   if (!row || !colKey || !row[colKey]) return <></>;
   const value = row[colKey];
 
@@ -153,7 +167,8 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; row?: IFile }> = ({ colKey, row
     case 'name':
       return (
         <div className="flex flex-row items-center overflow-hidden">
-          {colKey == 'name' &&
+          {!!image && <img src={'data:image/png;base64, ' + image} className="w-6 h-6 mr-2" />}
+          {/* {colKey == 'name' &&
             (() => {
               switch (row.extension.toLowerCase()) {
                 case 'mov' || 'mp4':
@@ -164,7 +179,7 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; row?: IFile }> = ({ colKey, row
                     return <FolderIcon className="w-5 h-5 mr-3 flex-shrink-0 text-gray-300" />;
                   return <DocumentIcon className="w-5 h-5 mr-3 flex-shrink-0 text-gray-300" />;
               }
-            })()}
+            })()} */}
           <span className="truncate text-xs">{row[colKey]}</span>
         </div>
       );

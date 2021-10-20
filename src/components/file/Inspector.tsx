@@ -33,9 +33,9 @@ export const Inspector = () => {
       leaveFrom="translate-x-0"
       leaveTo="translate-x-64"
     >
-      <div className="h-full w-52 absolute right-0 top-0 m-1">
-        <div className="flex flex-col overflow-hidden h-full rounded-md bg-gray-800 shadow-xl  select-text">
-          <div className="h-32 bg-gray-950 w-full" />
+      <div className="h-full w-60 absolute right-0 top-0 m-2">
+        <div className="flex flex-col overflow-hidden h-full rounded-lg bg-gray-700 shadow-lg  select-text">
+          <div className="h-32 bg-gray-750 w-full" />
           <h3 className="font-bold p-3 text-base">{selectedFile?.name}</h3>
           <MetaItem title="Checksum" value={selectedFile?.meta_checksum as string} />
           <Divider />
