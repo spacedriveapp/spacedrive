@@ -11,8 +11,7 @@ build = "src/build.rs"
 
 [build-dependencies]
 tauri-build = { version = "1.0.0-beta.3" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+swift-rs = "0.1.0"
 
 [dependencies]
 tauri = { version = "1.0.0-beta.5", features = ["api-all", "menu"] }

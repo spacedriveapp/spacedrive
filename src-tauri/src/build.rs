@@ -1,7 +1,8 @@
-use swift_rs::build_utils;
+use swift_rs::build_utils::{link_swift, link_swift_package};
 
 fn main() {
-  build_utils::link_swift();
-  build_utils::link_swift_package("swift-lib", "./swift-lib/");
+  link_swift();
+  link_swift_package("swift-lib", "./swift-lib/");
+
   tauri_build::build();
 }

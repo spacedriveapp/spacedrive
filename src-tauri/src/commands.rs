@@ -35,8 +35,7 @@ pub async fn scan_dir(path: String) -> Result<(), String> {
 }
 #[tauri::command(async)]
 pub async fn get_file_thumb(path: &str) -> Result<String, String> {
-  let path = &path.to_string();
-  let thumbnail_b46 = get_file_thumbnail_base64(path.into()).to_string();
+  let thumbnail_b46 = get_file_thumbnail_base64(path).to_string();
 
   Ok(thumbnail_b46)
 }
