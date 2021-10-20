@@ -5,9 +5,9 @@
         "package": "SwiftRs",
         "repositoryURL": "https://github.com/Brendonovich/swift-rs",
         "state": {
-          "branch": "master",
-          "revision": "1827da87300a581b5cd828dd5c9bd5dcd26243b6",
-          "version": null
+          "branch": null,
+          "revision": "196359dfb25a9520d534655c1321150e36c1b1dd",
+          "version": "0.1.0"
         }
       }
     ]
