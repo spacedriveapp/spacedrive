@@ -14,6 +14,13 @@ interface Column {
   width: number;
 }
 
+function renderIcon(dirHash: string, path: string, rowIndex: number) {
+  const setIconForFile = useExplorerStore.getState().setIconForFile;
+  invoke('get_file_thumb', { path }).then((imageData) => {
+    if (dirHash) setIconForFile(dirHash, rowIndex, imageData as string);
+  });
+}
+
 // Function ensure no types are loss, but guarantees that they are Column[]
 function ensureIsColumns<T extends Column[]>(data: T) {
   return data;
@@ -46,9 +53,12 @@ export const FileList: React.FC<{}> = (props) => {
   useKey('ArrowUp', (e) => {
     e.preventDefault();
     if (!selectedRow || !currentDir?.children) return;
-    if (selectedRow?.index > 0)
-      // decrement selected index
-      setSelectedRow(selectedRow.index - 1, currentDir.children[selectedRow.index - 1]);
+    if (selectedRow?.index > 0) {
+      const nextRowIndex = selectedRow.index - 1;
+      const row = currentDir.children[selectedRow.index - 1];
+      setSelectedRow(nextRowIndex, row);
+      if (!row.icon_b64) renderIcon(activeDirHash, row.uri, nextRowIndex);
+    }
     // loop to bottom
     else setSelectedRow(currentDir.children_count, currentDir.children[currentDir.children_count]);
   });
@@ -56,9 +66,12 @@ export const FileList: React.FC<{}> = (props) => {
     e.preventDefault();
     if (!selectedRow || !currentDir?.children) return;
     // increment if rows below exist
-    if (selectedRow.index < currentDir.children_count)
-      setSelectedRow(selectedRow.index + 1, currentDir.children[selectedRow.index + 1]);
-    else setSelectedRow(0, currentDir.children[0]);
+    if (selectedRow.index < currentDir.children_count) {
+      const nextRowIndex = selectedRow.index + 1;
+      const row = currentDir.children[selectedRow.index + 1];
+      setSelectedRow(nextRowIndex, row);
+      if (!row.icon_b64) renderIcon(activeDirHash, row.uri, nextRowIndex);
+    } else setSelectedRow(0, currentDir.children[0]);
   });
 
   function isRowOutOfView(rowHeight: number, rowIndex: number) {
@@ -90,7 +103,7 @@ export const FileList: React.FC<{}> = (props) => {
         </div>
         <div className="table-body pb-10">
           {currentDir?.children?.map((row, index) => (
-            <RenderRow key={row.id} row={row} rowIndex={index} />
+            <RenderRow key={row.id} row={row} rowIndex={index} dirId={currentDir.meta_checksum} />
           ))}
         </div>
       </div>
@@ -99,16 +112,12 @@ export const FileList: React.FC<{}> = (props) => {
   );
 };
 
-const RenderRow: React.FC<{ row: IFile; rowIndex: number }> = ({ row, rowIndex }) => {
-  const [image, setImage] = useState<string | undefined>();
-  useEffect(() => {
-    if (row.uri)
-      invoke('get_file_thumb', { path: row.uri }).then((imageData) => {
-        console.log({ imageData: (imageData as string).slice(1, 50) });
-
-        setImage(imageData as string);
-      });
-  }, [row.uri]);
+const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: string }> = ({
+  row,
+  rowIndex,
+  dirId
+}) => {
+  const [setIconForFile] = useExplorerStore((state) => [state.setIconForFile]);
 
   const [collectDir, selectedRow, setSelectedRow] = useExplorerStore((state) => [
     state.collectDir,
@@ -120,6 +129,7 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number }> = ({ row, rowIndex }
   const isAlternate = rowIndex % 2 == 0;
 
   function selectFile() {
+    if (!row.icon_b64) renderIcon(dirId, row.uri, rowIndex);
     if (selectedRow?.index == rowIndex) setSelectedRow(null);
     else setSelectedRow(rowIndex, row);
   }
@@ -146,28 +156,33 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number }> = ({ row, rowIndex }
             className="table-body-cell px-4 py-2 flex items-center pr-2"
             style={{ width: col.width }}
           >
-            <RenderCell image={image} row={row} colKey={col?.key} />
+            <RenderCell rowIndex={rowIndex} dirHash={dirId} colKey={col?.key} />
           </div>
         ))}
       </div>
     ),
-    [isActive, image]
+    [isActive]
   );
 };
 
-const RenderCell: React.FC<{ colKey?: ColumnKey; row?: IFile; image?: string }> = ({
+const RenderCell: React.FC<{ colKey?: ColumnKey; dirHash?: string; rowIndex?: number }> = ({
   colKey,
-  row,
-  image
+  rowIndex,
+  dirHash
 }) => {
-  if (!row || !colKey || !row[colKey]) return <></>;
+  if (!rowIndex || !colKey || !dirHash) return <></>;
+  const [row] = useExplorerStore((state) => [state.dirs[dirHash].children?.[rowIndex]]);
+  if (!row) return <></>;
   const value = row[colKey];
+  if (!value) return <></>;
 
   switch (colKey) {
     case 'name':
       return (
         <div className="flex flex-row items-center overflow-hidden">
-          {!!image && <img src={'data:image/png;base64, ' + image} className="w-6 h-6 mr-2" />}
+          {!!row?.icon_b64 && (
+            <img src={'data:image/png;base64, ' + row.icon_b64} className="w-6 h-6 mr-2" />
+          )}
           {/* {colKey == 'name' &&
             (() => {
               switch (row.extension.toLowerCase()) {

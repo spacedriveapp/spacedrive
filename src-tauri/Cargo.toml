@@ -45,6 +45,7 @@ log = "0.4.14"
 objc = "0.2.7"
 cocoa = "0.24.0"
 objc-foundation = "0.1.1"
+swift-rs = "0.1.0"
 
 [features]
 default = [ "custom-protocol" ]

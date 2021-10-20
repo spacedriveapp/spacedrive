@@ -18,10 +18,12 @@ export const ExplorerScreen: React.FC<{}> = () => {
   ]);
 
   useEffect(() => {
-    invoke<DirectoryResponse>('get_files', { path: '/Users/jamie/Downloads' }).then((res) => {
-      console.log({ res });
-      collectDir(res.directory, res.contents);
-    });
+    invoke<DirectoryResponse>('get_files', { path: '/Users/jamie/Downloads/CoolFolder' }).then(
+      (res) => {
+        console.log({ res });
+        collectDir(res.directory, res.contents);
+      }
+    );
   }, []);
 
   if (!activeDirHash) return <></>;

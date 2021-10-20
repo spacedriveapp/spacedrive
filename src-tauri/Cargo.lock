@@ -33,6 +33,7 @@ dependencies = [
  "snafu",
  "sqlx",
  "strum 0.21.0",
+ "swift-rs",
  "tauri",
  "tauri-build",
  "walkdir",
@@ -4056,6 +4057,17 @@ name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
+
+[[package]]
+name = "swift-rs"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e56047444883f07ced9a621d23c8af8c7a3bbdafc16e02e00f4799943002e20"
+dependencies = [
+ "base64",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "syn"

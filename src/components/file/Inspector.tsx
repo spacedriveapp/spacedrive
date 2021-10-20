@@ -35,7 +35,11 @@ export const Inspector = () => {
     >
       <div className="h-full w-60 absolute right-0 top-0 m-2">
         <div className="flex flex-col overflow-hidden h-full rounded-lg bg-gray-700 shadow-lg  select-text">
-          <div className="h-32 bg-gray-750 w-full" />
+          <div className="h-32 bg-gray-750 w-full flex justify-center items-center">
+            {!!selectedFile?.icon_b64 && (
+              <img src={'data:image/png;base64, ' + selectedFile.icon_b64} className=" h-24" />
+            )}
+          </div>
           <h3 className="font-bold p-3 text-base">{selectedFile?.name}</h3>
           <MetaItem title="Checksum" value={selectedFile?.meta_checksum as string} />
           <Divider />

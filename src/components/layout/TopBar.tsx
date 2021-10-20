@@ -5,10 +5,13 @@ import {
   HomeIcon,
   ViewBoardsIcon,
   ViewGridIcon,
-  ViewListIcon
+  ViewListIcon,
+  CloudIcon,
+  FolderAddIcon,
+  TagIcon
 } from '@heroicons/react/outline';
 import clsx from 'clsx';
-import { HouseSimple } from 'phosphor-react';
+import { ArrowsLeftRight, HouseSimple } from 'phosphor-react';
 import React from 'react';
 import { useExplorerStore } from '../../store/explorer';
 import { TrafficLights } from '../os/TrafficLights';
@@ -30,7 +33,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
     <button
       {...props}
       className={clsx(
-        'mr-[1px] py-1 px-1 text-md font-medium dark:bg-gray-650 dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
+        'mr-[1px] py-1 px-1 text-md font-medium dark:bg-gray-550 dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
         {
           'rounded-r-none rounded-l-none': props.group && !props.left && !props.right,
           'rounded-r-none': props.group && props.left,
@@ -40,7 +43,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
         props.className
       )}
     >
-      <Icon className="m-0.5 w-4 h-4 dark:text-white" />
+      <Icon className="m-0.5 w-5 h-5 dark:text-gray-150" />
     </button>
   );
 };
@@ -51,7 +54,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex flex-shrink-0 h-10 max-w items-center border-b bg-gray-100 dark:bg-gray-650 border-gray-100 dark:border-gray-900 shadow-sm"
+        className="flex flex-shrink-0 h-11 -mt-0.5 max-w items-center border-b bg-gray-100 dark:bg-gray-550 border-gray-100 dark:border-gray-900 shadow-sm"
       >
         <div className="mr-32 ml-1 ">
           <TrafficLights className="p-1.5" />
@@ -59,21 +62,27 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
         <TopBarButton group left icon={ChevronLeftIcon} onClick={goBack} />
         <TopBarButton group right icon={ChevronRightIcon} />
-        <div className="w-4"></div>
+        <div className="w-8"></div>
         <TopBarButton active group left icon={ViewListIcon} />
         <TopBarButton group icon={ViewBoardsIcon} />
         <TopBarButton group right icon={ViewGridIcon} />
-        <div className="w-4"></div>
+        <div className="w-8"></div>
         <div className="relative flex h-7">
           <Input
             placeholder="Search"
-            className="placeholder-gray-600 bg-gray-50 dark:bg-gray-600 dark:hover:!bg-gray-600 dark:focus:hover:!bg-gray-800 text-xs w-32 focus:w-52 transition-all"
+            className="placeholder-gray-600 bg-gray-50 dark:bg-gray-500 dark:border-gray-500 dark:hover:!bg-gray-550 text-xs w-32 focus:w-52 transition-all"
           />
           <div className="space-x-1 absolute top-[1px] right-1">
             <Shortcut chars="⌘" />
             <Shortcut chars="S" />
           </div>
         </div>
+        <div className="w-8"></div>
+        <TopBarButton icon={TagIcon} />
+        <TopBarButton icon={FolderAddIcon} />
+        <TopBarButton icon={CloudIcon} />
+        <div className="w-8"></div>
+        <TopBarButton icon={ArrowsLeftRight} />
         <div className="flex-grow"></div>
         <TopBarButton className="mr-[8px]" icon={CogIcon} />
       </div>

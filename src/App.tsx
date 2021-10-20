@@ -10,7 +10,7 @@ import { invoke } from '@tauri-apps/api';
 export default function App() {
   return (
     <Router>
-      <div className="flex flex-col select-none h-screen rounded-xl border border-gray-200 dark:border-gray-600 bg-white text-gray-900 dark:text-white dark:bg-gray-800 overflow-hidden ">
+      <div className="flex flex-col select-none h-screen rounded-xl border border-gray-200 dark:border-gray-450 bg-white text-gray-900 dark:text-white dark:bg-gray-800 overflow-hidden ">
         <TopBar />
         <div className="flex flex-row min-h-full">
           <Sidebar />

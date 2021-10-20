@@ -11,6 +11,7 @@ interface ExplorerStore {
   currentDir?: () => IFile[];
   setSelected: (index: number | null, file?: IFile) => void;
   goBack: () => void;
+  setIconForFile: (dirId: string, fileIndex: number, b64: string) => void;
 }
 
 export const useExplorerStore = create<ExplorerStore>((set, get) => ({
@@ -40,6 +41,18 @@ export const useExplorerStore = create<ExplorerStore>((set, get) => ({
         })
       );
     }
+  },
+  setIconForFile: (dirId: string, fileIndex: number, b64: string) => {
+    set((state) =>
+      produce(state, (draft) => {
+        console.log({ dirId, fileIndex, b64: b64?.slice(1, 50) });
+        const dir = draft.dirs[dirId];
+        const file = dir.children?.[fileIndex];
+        if (file) {
+          file.icon_b64 = b64;
+        }
+      })
+    );
   },
   setSelected: (index?: number | null, file?: IFile) =>
     set((state) =>

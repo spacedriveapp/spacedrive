@@ -21,6 +21,8 @@ export interface IFile {
   capture_device_id: string;
   parent_id: string;
   tags?: ITag[];
+
+  icon_b64?: string;
 }
 
 export interface IDirectory extends IFile {
