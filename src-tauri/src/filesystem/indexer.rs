@@ -1,4 +1,4 @@
-use crate::commands::DB_INSTANCE;
+use crate::db::connection::DB_INSTANCE;
 use crate::db::entity::file;
 use crate::filesystem::{checksum, init};
 use crate::util::time;
@@ -24,10 +24,18 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
   let contains_dot = entry
     .file_name()
     .to_str()
-    .map(|s| s.contains("."))
+    .map(|s| s.contains(".app") | s.contains(".bundle"))
     .unwrap_or(false);
 
-  is_dir && contains_dot
+  let is_app_bundle = is_dir && contains_dot;
+  // if is_app_bundle {
+  //   let path_buff = entry.path();
+  //   let path = path_buff.to_str().unwrap();
+
+  //   self::path(&path, );
+  // }
+
+  is_app_bundle
 }
 
 pub async fn scan(path: &str) -> Result<()> {
@@ -42,33 +50,50 @@ pub async fn scan(path: &str) -> Result<()> {
     // insert root directory
     dirs.insert(path.to_owned(), file.id);
     // iterate over files and subdirectories
-    for entry in WalkDir::new(path)
-      .into_iter()
-      .filter_entry(|e| !is_hidden(e) && !is_app_bundle(e))
-    {
+    for entry in WalkDir::new(path).into_iter().filter_entry(|dir| {
+      let approved = !is_hidden(dir) && !is_app_bundle(dir);
+      approved
+    }) {
       let entry = entry?;
-      let path_buff = entry.path();
-      let path = path_buff.to_str().unwrap();
-      // get the parent directory from the path
-      let parent = path_buff.parent().unwrap().to_str().unwrap();
-      // get parent dir database id from hashmap
-      let parent_dir = dirs.get(&parent.to_owned());
+      let child_path = entry.path().to_str().unwrap();
+      let parent_dir = get_parent_dir_id(&dirs, &entry);
       // analyse the child file
-      let child_file = self::path(&path, parent_dir).await.unwrap();
+      let child_file = self::path(&child_path, parent_dir).await.unwrap();
+
+      println!(
+        "Reading file from dir {:?} {:?} assigned id {:?}",
+        parent_dir, child_path, child_file.id
+      );
       // if this file is a directory, save in hashmap with database id
       if child_file.is_dir {
-        dirs.insert(path.to_owned(), child_file.id);
+        dirs.insert(child_path.to_owned(), child_file.id);
       }
 
       // println!("{}", entry.path().display());
     }
   }
+
+  println!("Scanning complete: {}", &path);
   Ok(())
+}
+
+fn get_parent_dir_id(dirs: &HashMap<String, u32>, entry: &DirEntry) -> Option<u32> {
+  let path = entry.path();
+  let parent_path = path
+    .parent()
+    .unwrap_or_else(|| path)
+    .to_str()
+    .unwrap_or_default();
+  let parent_dir_id = dirs.get(&parent_path.to_owned());
+  match parent_dir_id {
+    Some(x) => Some(x.clone()),
+    None => None,
+  }
 }
 
 // Read a file from path returning the File struct
 // Generates meta checksum and extracts metadata
-pub async fn path(path: &str, parent_id: Option<&u32>) -> Result<file::Model> {
+pub async fn path(path: &str, parent_id: Option<u32>) -> Result<file::Model> {
   let db = DB_INSTANCE.get().unwrap();
 
   let path_buff = path::PathBuf::from(path);
@@ -99,9 +124,7 @@ pub async fn path(path: &str, parent_id: Option<&u32>) -> Result<file::Model> {
       ..Default::default()
     };
 
-    let file = file.save(&db).await.unwrap();
-
-    println!("FILE: {:?}", file);
+    let _file = file.save(&db).await.unwrap();
 
     // REPLACE WHEN SEA QL PULLS THROUGH
     let existing_files = file::Entity::find()

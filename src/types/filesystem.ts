@@ -2,7 +2,7 @@ import { Encryption } from './library';
 import { ImageMeta, VideoMeta } from './media';
 
 export interface IFile {
-  id?: number;
+  id: number;
   meta_checksum: string;
   uri: string;
   is_dir: string;
@@ -22,6 +22,11 @@ export interface IFile {
   parent_id: string;
   tags?: ITag[];
 
+  // this state is used to tell the renderer to look in the designated
+  // folder for this media type
+  has_native_icon?: boolean;
+  has_thumb?: boolean;
+  has_preview_media?: boolean;
   icon_b64?: string;
 }
 

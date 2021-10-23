@@ -1,29 +1,38 @@
-use crate::db::entity::file;
+use crate::db::connection::db_instance;
+use crate::filesystem;
 use crate::filesystem::retrieve::Directory;
 use crate::swift::get_file_thumbnail_base64;
-use crate::{db, filesystem};
 use anyhow::Result;
-use once_cell::sync::OnceCell;
-use sea_orm::ColumnTrait;
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter};
 
-pub static DB_INSTANCE: OnceCell<DatabaseConnection> = OnceCell::new();
+use serde::Serialize;
 
-async fn db_instance() -> Result<&'static DatabaseConnection, String> {
-  if DB_INSTANCE.get().is_none() {
-    let db = db::connection::get_connection()
-      .await
-      .map_err(|e| e.to_string())?;
-    DB_INSTANCE.set(db).unwrap_or_default();
-    Ok(DB_INSTANCE.get().unwrap())
-  } else {
-    Ok(DB_INSTANCE.get().unwrap())
-  }
+#[derive(Serialize)]
+pub enum GlobalEventKind {
+  FileTypeThumb,
+}
+
+#[derive(Serialize)]
+pub struct GlobalEvent<T> {
+  pub kind: GlobalEventKind,
+  pub data: T,
+}
+#[derive(Serialize)]
+pub struct GenFileTypeIconsResponse {
+  pub thumbnail_b64: String,
+  pub file_id: u32,
+}
+
+pub fn reply<T: Serialize>(window: &tauri::Window, kind: GlobalEventKind, data: T) {
+  let _message = window
+    .emit("message", GlobalEvent { kind, data })
+    .map_err(|e| println!("{}", e));
 }
 
 #[tauri::command(async)]
-pub async fn scan_dir(path: String) -> Result<(), String> {
+pub async fn scan_dir(window: tauri::Window, path: String) -> Result<(), String> {
   db_instance().await?;
+
+  // reply(&window, GlobalEventKind::JEFF, "jeff");
 
   let files = filesystem::indexer::scan(&path)
     .await
@@ -35,37 +44,31 @@ pub async fn scan_dir(path: String) -> Result<(), String> {
 }
 #[tauri::command(async)]
 pub async fn get_file_thumb(path: &str) -> Result<String, String> {
-  let thumbnail_b46 = get_file_thumbnail_base64(path).to_string();
+  let thumbnail_b64 = get_file_thumbnail_base64(path).to_string();
 
-  Ok(thumbnail_b46)
+  Ok(thumbnail_b64)
 }
 
 #[tauri::command(async)]
 pub async fn get_files(path: String) -> Result<Directory, String> {
-  let connection = db_instance().await?;
+  Ok(filesystem::retrieve::get_dir_with_contents(&path).await?)
+}
 
-  println!("getting files... {:?}", &path);
-
-  let directories = file::Entity::find()
-    .filter(file::Column::Uri.eq(path))
-    .all(connection)
-    .await
-    .map_err(|e| e.to_string())?;
-
-  if directories.is_empty() {
-    return Err("fuk".to_owned());
+#[tauri::command]
+pub async fn get_thumbs_for_directory(window: tauri::Window, path: &str) -> Result<(), String> {
+  let dir = filesystem::retrieve::get_dir_with_contents(&path).await?;
+  for file in dir.contents.into_iter() {
+    let thumbnail_b64 = get_file_thumbnail_base64(&file.uri).to_string();
+    println!("getting thumb: {:?}", file.id);
+    reply(
+      &window,
+      GlobalEventKind::FileTypeThumb,
+      GenFileTypeIconsResponse {
+        thumbnail_b64,
+        file_id: file.id,
+      },
+    )
   }
 
-  let directory = &directories[0];
-
-  let files = file::Entity::find()
-    .filter(file::Column::ParentId.eq(directory.id))
-    .all(connection)
-    .await
-    .map_err(|e| e.to_string())?;
-
-  Ok(Directory {
-    directory: directory.clone(),
-    contents: files,
-  })
+  Ok(())
 }

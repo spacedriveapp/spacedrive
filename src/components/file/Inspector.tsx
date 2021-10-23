@@ -1,6 +1,7 @@
 import React from 'react';
-import { useExplorerStore } from '../../store/explorer';
+import { useExplorerStore, useSelectedFile } from '../../store/explorer';
 import { Transition } from '@headlessui/react';
+import { IFile } from '../../types';
 
 interface MetaItemProps {
   title: string;
@@ -19,9 +20,11 @@ const MetaItem = (props: MetaItemProps) => {
 const Divider = () => <div className="w-full my-1 h-[1px] bg-gray-700" />;
 
 export const Inspector = () => {
-  const [selectedFile] = useExplorerStore((state) => [state.selected?.file]);
+  const selectedFile = useSelectedFile();
 
   const isOpen = !!selectedFile;
+
+  const file = selectedFile;
 
   return (
     <Transition
@@ -36,14 +39,14 @@ export const Inspector = () => {
       <div className="h-full w-60 absolute right-0 top-0 m-2">
         <div className="flex flex-col overflow-hidden h-full rounded-lg bg-gray-700 shadow-lg  select-text">
           <div className="h-32 bg-gray-750 w-full flex justify-center items-center">
-            {!!selectedFile?.icon_b64 && (
-              <img src={'data:image/png;base64, ' + selectedFile.icon_b64} className=" h-24" />
+            {!!file?.icon_b64 && (
+              <img src={'data:image/png;base64, ' + file.icon_b64} className=" h-24" />
             )}
           </div>
-          <h3 className="font-bold p-3 text-base">{selectedFile?.name}</h3>
-          <MetaItem title="Checksum" value={selectedFile?.meta_checksum as string} />
+          <h3 className="font-bold p-3 text-base">{file?.name}</h3>
+          <MetaItem title="Checksum" value={file?.meta_checksum as string} />
           <Divider />
-          <MetaItem title="Uri" value={selectedFile?.uri as string} />
+          <MetaItem title="Uri" value={file?.uri as string} />
         </div>
       </div>
     </Transition>

@@ -13,7 +13,7 @@
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "co.sd.client",
+      "identifier": "co.spacedrive.client",
       "icon": ["icons/icon.icns"],
       "resources": [],
       "externalBin": [],

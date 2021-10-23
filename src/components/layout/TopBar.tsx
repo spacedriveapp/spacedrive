@@ -18,6 +18,7 @@ import { TrafficLights } from '../os/TrafficLights';
 import { Button, ButtonProps, Input } from '../primative';
 import { Shortcut } from '../primative/Shortcut';
 import { DefaultProps } from '../primative/types';
+import { appWindow } from '@tauri-apps/api/window';
 
 export interface TopBarProps extends DefaultProps {}
 export interface TopBarButtonProps extends ButtonProps {
@@ -33,12 +34,12 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
     <button
       {...props}
       className={clsx(
-        'mr-[1px] py-1 px-1 text-md font-medium dark:bg-gray-550 dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
+        'mr-[1px] py-0.5 px-0.5 text-md font-medium dark:bg-gray-550 dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
         {
           'rounded-r-none rounded-l-none': props.group && !props.left && !props.right,
           'rounded-r-none': props.group && props.left,
           'rounded-l-none': props.group && props.right,
-          'dark:bg-gray-550 dark:hover:bg-gray-550 dark:active:bg-gray-550': props.active
+          'dark:bg-gray-450 dark:hover:bg-gray-450 dark:active:bg-gray-450': props.active
         },
         props.className
       )}
@@ -57,32 +58,38 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
         className="flex flex-shrink-0 h-11 -mt-0.5 max-w items-center border-b bg-gray-100 dark:bg-gray-550 border-gray-100 dark:border-gray-900 shadow-sm"
       >
         <div className="mr-32 ml-1 ">
-          <TrafficLights className="p-1.5" />
+          <TrafficLights
+            onClose={appWindow.close}
+            onFullscreen={appWindow.maximize}
+            onMinimize={appWindow.minimize}
+            className="p-1.5"
+          />
         </div>
 
         <TopBarButton group left icon={ChevronLeftIcon} onClick={goBack} />
         <TopBarButton group right icon={ChevronRightIcon} />
-        <div className="w-8"></div>
-        <TopBarButton active group left icon={ViewListIcon} />
-        <TopBarButton group icon={ViewBoardsIcon} />
-        <TopBarButton group right icon={ViewGridIcon} />
-        <div className="w-8"></div>
+        <div className="flex mx-8 space-x-[1px]">
+          <TopBarButton active group left icon={ViewListIcon} />
+          <TopBarButton group icon={ViewBoardsIcon} />
+          <TopBarButton group right icon={ViewGridIcon} />
+        </div>
+
         <div className="relative flex h-7">
-          <Input
+          <input
             placeholder="Search"
-            className="placeholder-gray-600 bg-gray-50 dark:bg-gray-500 dark:border-gray-500 dark:hover:!bg-gray-550 text-xs w-32 focus:w-52 transition-all"
+            className="w-32 focus:w-52 text-xs p-2 rounded-md outline-none focus:ring-2  placeholder-gray-600 dark:placeholder-gray-300 bg-gray-50 dark:bg-gray-500 dark:border-gray-500 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
           />
           <div className="space-x-1 absolute top-[1px] right-1">
             <Shortcut chars="⌘" />
             <Shortcut chars="S" />
           </div>
         </div>
-        <div className="w-8"></div>
-        <TopBarButton icon={TagIcon} />
-        <TopBarButton icon={FolderAddIcon} />
-        <TopBarButton icon={CloudIcon} />
-        <div className="w-8"></div>
-        <TopBarButton icon={ArrowsLeftRight} />
+        <div className="flex mx-8 space-x-2">
+          <TopBarButton icon={TagIcon} />
+          <TopBarButton icon={FolderAddIcon} />
+          <TopBarButton icon={CloudIcon} />
+          <TopBarButton icon={ArrowsLeftRight} />
+        </div>
         <div className="flex-grow"></div>
         <TopBarButton className="mr-[8px]" icon={CogIcon} />
       </div>

@@ -5,20 +5,19 @@ import { IFile } from '../../types';
 import byteSize from 'pretty-bytes';
 import { useKey } from 'rooks';
 import { invoke } from '@tauri-apps/api';
-import { useExplorerStore } from '../../store/explorer';
+import {
+  useCurrentDir,
+  useExplorerStore,
+  useFile,
+  useSelectedFile,
+  useSelectedFileIndex
+} from '../../store/explorer';
 import { DirectoryResponse } from '../../screens/Explorer';
 
 interface Column {
   column: string;
   key: string;
   width: number;
-}
-
-function renderIcon(dirHash: string, path: string, rowIndex: number) {
-  const setIconForFile = useExplorerStore.getState().setIconForFile;
-  invoke('get_file_thumb', { path }).then((imageData) => {
-    if (dirHash) setIconForFile(dirHash, rowIndex, imageData as string);
-  });
 }
 
 // Function ensure no types are loss, but guarantees that they are Column[]
@@ -40,38 +39,20 @@ export const FileList: React.FC<{}> = (props) => {
   const scrollContainer = useRef<null | HTMLDivElement>(null);
   const [rowHeight, setRowHeight] = useState(0);
   // const [selectedRow, setSelectedRow] = useState(0);
-  const [currentDir, activeDirHash, collectDir, selectedRow, setSelectedRow] = useExplorerStore(
-    (state) => [
-      state.dirs[state.activeDirHash],
-      state.activeDirHash,
-      state.collectDir,
-      state.selected,
-      state.setSelected
-    ]
-  );
+  const currentDir = useCurrentDir();
+  console.log({ currentDir });
+
+  if (!currentDir) return <></>;
+
+  const explorer = useExplorerStore.getState();
 
   useKey('ArrowUp', (e) => {
     e.preventDefault();
-    if (!selectedRow || !currentDir?.children) return;
-    if (selectedRow?.index > 0) {
-      const nextRowIndex = selectedRow.index - 1;
-      const row = currentDir.children[selectedRow.index - 1];
-      setSelectedRow(nextRowIndex, row);
-      if (!row.icon_b64) renderIcon(activeDirHash, row.uri, nextRowIndex);
-    }
-    // loop to bottom
-    else setSelectedRow(currentDir.children_count, currentDir.children[currentDir.children_count]);
+    if (explorer.selectedFile) explorer.selectFile(currentDir.id, explorer.selectedFile, 'above');
   });
   useKey('ArrowDown', (e) => {
     e.preventDefault();
-    if (!selectedRow || !currentDir?.children) return;
-    // increment if rows below exist
-    if (selectedRow.index < currentDir.children_count) {
-      const nextRowIndex = selectedRow.index + 1;
-      const row = currentDir.children[selectedRow.index + 1];
-      setSelectedRow(nextRowIndex, row);
-      if (!row.icon_b64) renderIcon(activeDirHash, row.uri, nextRowIndex);
-    } else setSelectedRow(0, currentDir.children[0]);
+    if (explorer.selectedFile) explorer.selectFile(currentDir.id, explorer.selectedFile, 'below');
   });
 
   function isRowOutOfView(rowHeight: number, rowIndex: number) {
@@ -80,58 +61,48 @@ export const FileList: React.FC<{}> = (props) => {
 
   function handleScroll() {}
 
-  return useMemo(
-    () => (
-      <div
-        ref={scrollContainer}
-        onScroll={handleScroll}
-        className="table-container w-full h-full overflow-scroll bg-white dark:bg-gray-900 p-3 cursor-default"
-      >
-        <div className="table-head">
-          <div className="table-head-row flex flex-row p-2">
-            {columns.map((col) => (
-              <div
-                key={col.key}
-                className="table-head-cell flex flex-row items-center relative group px-4"
-                style={{ width: col.width }}
-              >
-                <DotsVerticalIcon className="hidden absolute group-hover:block drag-handle w-5 h-5 opacity-10 -ml-5 cursor-move" />
-                <span className="text-sm text-gray-500 font-medium">{col.column}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="table-body pb-10">
-          {currentDir?.children?.map((row, index) => (
-            <RenderRow key={row.id} row={row} rowIndex={index} dirId={currentDir.meta_checksum} />
+  return (
+    <div
+      ref={scrollContainer}
+      onScroll={handleScroll}
+      className="table-container w-full h-full overflow-scroll bg-white dark:bg-gray-900 p-3 cursor-default"
+    >
+      <div className="table-head">
+        <div className="table-head-row flex flex-row p-2">
+          {columns.map((col) => (
+            <div
+              key={col.key}
+              className="table-head-cell flex flex-row items-center relative group px-4"
+              style={{ width: col.width }}
+            >
+              <DotsVerticalIcon className="hidden absolute group-hover:block drag-handle w-5 h-5 opacity-10 -ml-5 cursor-move" />
+              <span className="text-sm text-gray-500 font-medium">{col.column}</span>
+            </div>
           ))}
         </div>
       </div>
-    ),
-    [activeDirHash]
+      <div className="table-body pb-10">
+        {currentDir?.children?.map((row, index) => (
+          <RenderRow key={row.id} row={row} rowIndex={index} dirId={currentDir.id} />
+        ))}
+      </div>
+    </div>
   );
 };
 
-const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: string }> = ({
+const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: number }> = ({
   row,
   rowIndex,
   dirId
 }) => {
-  const [setIconForFile] = useExplorerStore((state) => [state.setIconForFile]);
+  const selectedFileIndex = useSelectedFileIndex(dirId);
 
-  const [collectDir, selectedRow, setSelectedRow] = useExplorerStore((state) => [
-    state.collectDir,
-    state.selected,
-    state.setSelected
-  ]);
-
-  const isActive = selectedRow?.index === rowIndex;
+  const isActive = selectedFileIndex === rowIndex;
   const isAlternate = rowIndex % 2 == 0;
 
   function selectFile() {
-    if (!row.icon_b64) renderIcon(dirId, row.uri, rowIndex);
-    if (selectedRow?.index == rowIndex) setSelectedRow(null);
-    else setSelectedRow(rowIndex, row);
+    if (selectedFileIndex == rowIndex) useExplorerStore.getState().clearSelectedFiles();
+    else useExplorerStore.getState().selectFile(dirId, row.id);
   }
 
   return useMemo(
@@ -141,7 +112,7 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: string }> = ({
         onDoubleClick={() => {
           if (row.is_dir) {
             invoke<DirectoryResponse>('get_files', { path: row.uri }).then((res) => {
-              collectDir(res.directory, res.contents);
+              useExplorerStore.getState().ingestDir(res.directory, res.contents);
             });
           }
         }}
@@ -156,7 +127,7 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: string }> = ({
             className="table-body-cell px-4 py-2 flex items-center pr-2"
             style={{ width: col.width }}
           >
-            <RenderCell rowIndex={rowIndex} dirHash={dirId} colKey={col?.key} />
+            <RenderCell fileId={row.id} dirId={dirId} colKey={col?.key} />
           </div>
         ))}
       </div>
@@ -165,13 +136,13 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: string }> = ({
   );
 };
 
-const RenderCell: React.FC<{ colKey?: ColumnKey; dirHash?: string; rowIndex?: number }> = ({
+const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; fileId?: number }> = ({
   colKey,
-  rowIndex,
-  dirHash
+  fileId,
+  dirId
 }) => {
-  if (!rowIndex || !colKey || !dirHash) return <></>;
-  const [row] = useExplorerStore((state) => [state.dirs[dirHash].children?.[rowIndex]]);
+  if (!fileId || !colKey || !dirId) return <></>;
+  const row = useFile(fileId);
   if (!row) return <></>;
   const value = row[colKey];
   if (!value) return <></>;
@@ -180,9 +151,11 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirHash?: string; rowIndex?: nu
     case 'name':
       return (
         <div className="flex flex-row items-center overflow-hidden">
-          {!!row?.icon_b64 && (
-            <img src={'data:image/png;base64, ' + row.icon_b64} className="w-6 h-6 mr-2" />
-          )}
+          <div className="w-6 h-6 mr-2">
+            {!!row?.icon_b64 && (
+              <img src={'data:image/png;base64, ' + row.icon_b64} className="w-6 h-6 mr-2" />
+            )}
+          </div>
           {/* {colKey == 'name' &&
             (() => {
               switch (row.extension.toLowerCase()) {

@@ -13,6 +13,8 @@ mod util;
 use crate::app::menu;
 use env_logger;
 use futures::executor::block_on;
+use tauri::Manager;
+
 // use systemstat::{saturating_sub_bytes, Platform, System};
 
 fn main() {
@@ -31,10 +33,17 @@ fn main() {
   // block_on(filesystem::device::discover_storage_devices()).unwrap();
 
   tauri::Builder::default()
+    .setup(|app| {
+      // let main_window = app.get_window("main").unwrap();
+      // // would need to emit this elsewhere in my Rust code
+      // main_window.emit("my-event", "payload");
+      Ok(())
+    })
     .invoke_handler(tauri::generate_handler![
       commands::scan_dir,
       commands::get_files,
-      commands::get_file_thumb
+      commands::get_file_thumb,
+      commands::get_thumbs_for_directory
     ])
     .menu(menu::get_menu())
     .run(tauri::generate_context!())

@@ -9,15 +9,24 @@ import { Dropdown } from '../components/primative/Dropdown';
 import { InputContainer } from '../components/primative/InputContainer';
 import { Shortcut } from '../components/primative/Shortcut';
 import { useInputState } from '../hooks/useInputState';
+//@ts-ignore
+// import { Spline } from 'react-spline';
+// import WINDOWS_SCENE from '../assets/spline/scene.json';
 
 export const SettingsScreen: React.FC<{}> = () => {
   const fileUploader = useRef<HTMLInputElement | null>(null);
-  const inputState = useInputState('/Users/jamie/Downloads');
+  const inputState = useInputState('/Users/jamie/Downloads/CoolFolder');
 
   return (
     <div>
-      <div className="p-3">
+      <div className="px-5">
         {/* <FileList files={dummyIFile} /> */}
+        {/* <Spline scene={WINDOWS_SCENE} /> */}
+        {/* <iframe
+          src="https://my.spline.design/windowscopy-8e92a2e9b7cb4d9237100441e8c4f688/"
+          width="100%"
+          height="100%"
+        ></iframe> */}
         <div className="flex space-x-2 mt-4">
           <InputContainer
             title="Quick scan directory"
@@ -25,15 +34,10 @@ export const SettingsScreen: React.FC<{}> = () => {
           >
             <Input {...inputState} placeholder="/users/jamie/Desktop" />
           </InputContainer>
-          <InputContainer
-            title="Quick scan directory"
-            description="The directory for which this application will perform a detailed scan of the contents and sub directories"
-          >
-            <Input {...inputState} placeholder="/users/jamie/Desktop" />
-          </InputContainer>
         </div>
-        <div className="space-x-2 flex flex-row mt-6">
+        <div className="space-x-2 flex flex-row mt-2">
           <Button
+            size="sm"
             variant="primary"
             onClick={() => {
               invoke('scan_dir', {
@@ -43,14 +47,8 @@ export const SettingsScreen: React.FC<{}> = () => {
           >
             Scan Now
           </Button>
-          <Button>Cancel</Button>
         </div>
-        <div className="flex space-x-2 mt-2">
-          <Button size="sm" variant="primary">
-            Cancel
-          </Button>
-          <Button size="sm">Cancel</Button>
-        </div>
+
         <div className="space-x-2 flex flex-row mt-4">
           <Toggle initialState={false} />
         </div>

@@ -3,43 +3,6 @@
 version = 3
 
 [[package]]
-name = "SpaceDrive"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytesize",
- "cargo-edit",
- "chrono",
- "cocoa",
- "crossbeam",
- "data-encoding",
- "env_logger",
- "futures",
- "int-enum",
- "libc",
- "log",
- "nix 0.23.0",
- "objc",
- "objc-foundation",
- "once_cell",
- "rebind",
- "refinery",
- "ring 0.17.0-alpha.10",
- "rusqlite",
- "sea-orm",
- "serde",
- "serde_json",
- "sha256",
- "snafu",
- "sqlx",
- "strum 0.21.0",
- "swift-rs",
- "tauri",
- "tauri-build",
- "walkdir",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3786,6 +3749,43 @@ dependencies = [
  "gtk-sys",
  "libc",
  "pango",
+]
+
+[[package]]
+name = "spacedrive"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytesize",
+ "cargo-edit",
+ "chrono",
+ "cocoa",
+ "crossbeam",
+ "data-encoding",
+ "env_logger",
+ "futures",
+ "int-enum",
+ "libc",
+ "log",
+ "nix 0.23.0",
+ "objc",
+ "objc-foundation",
+ "once_cell",
+ "rebind",
+ "refinery",
+ "ring 0.17.0-alpha.10",
+ "rusqlite",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "sha256",
+ "snafu",
+ "sqlx",
+ "strum 0.21.0",
+ "swift-rs",
+ "tauri",
+ "tauri-build",
+ "walkdir",
 ]
 
 [[package]]

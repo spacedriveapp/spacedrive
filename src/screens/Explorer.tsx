@@ -12,21 +12,17 @@ export interface DirectoryResponse {
 }
 
 export const ExplorerScreen: React.FC<{}> = () => {
-  const [activeDirHash, collectDir] = useExplorerStore((state) => [
-    state.activeDirHash,
-    state.collectDir
-  ]);
+  const [currentDir] = useExplorerStore((state) => [state.currentDir]);
 
   useEffect(() => {
-    invoke<DirectoryResponse>('get_files', { path: '/Users/jamie/Downloads/CoolFolder' }).then(
-      (res) => {
-        console.log({ res });
-        collectDir(res.directory, res.contents);
-      }
-    );
+    invoke<DirectoryResponse>('get_files', { path: '/Users/jamie/Downloads' }).then((res) => {
+      console.log({ res });
+      useExplorerStore.getState().ingestDir(res.directory, res.contents);
+      invoke('get_thumbs_for_directory', { path: '/Users/jamie/Downloads' });
+    });
   }, []);
 
-  if (!activeDirHash) return <></>;
+  if (currentDir === null) return <></>;
 
   return (
     <div className="relative w-full flex flex-row bg-white dark:bg-gray-900">

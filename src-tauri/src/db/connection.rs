@@ -1,5 +1,6 @@
 use crate::app::config;
 use anyhow::{Context, Result};
+use once_cell::sync::OnceCell;
 use rusqlite::Connection;
 use sea_orm::{Database, DatabaseConnection, DbErr};
 // use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
@@ -14,6 +15,17 @@ pub async fn get_connection() -> Result<DatabaseConnection, DbErr> {
   let db = Database::connect(&db_url).await?;
 
   Ok(db)
+}
+
+pub static DB_INSTANCE: OnceCell<DatabaseConnection> = OnceCell::new();
+pub async fn db_instance() -> Result<&'static DatabaseConnection, String> {
+  if DB_INSTANCE.get().is_none() {
+    let db = get_connection().await.map_err(|e| e.to_string())?;
+    DB_INSTANCE.set(db).unwrap_or_default();
+    Ok(DB_INSTANCE.get().unwrap())
+  } else {
+    Ok(DB_INSTANCE.get().unwrap())
+  }
 }
 
 pub async fn create_primary_db() -> Result<(), sqlx::Error> {

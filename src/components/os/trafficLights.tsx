@@ -26,7 +26,8 @@ interface LightProps {
 const Light: React.FC<LightProps> = (props) => {
   return (
     <div
-      className={clsx('w-[12px] h-[12px] rounded-full', {
+      onClick={props.action}
+      className={clsx('w-[12px] h-[12px] rounded-full cursor-pointer', {
         'bg-red-400': props.mode == 'close',
         'bg-green-400': props.mode == 'fullscreen',
         'bg-yellow-400': props.mode == 'minimize'

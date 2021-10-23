@@ -18,6 +18,8 @@
 ☐ Job queue system
 ☐ Native file previews
 ☐ Secret keystore
+☐ Search 
+    Efficient way to search sqlite: make file table WITHOUT ROWID
 ☐ File encryptor
 ☐ File viewer / player
 ☐ Open with
