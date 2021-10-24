@@ -14,9 +14,8 @@ export function useGlobalEvents() {
 
       switch (e.payload?.kind) {
         case 'FileTypeThumb':
-          useExplorerStore
-            .getState()
-            .tempInjectThumb(e.payload.data.file_id, e.payload.data.thumbnail_b64);
+          if (e.payload?.data.icon_created)
+            useExplorerStore.getState().nativeIconUpdated(e.payload.data.file_id);
           break;
 
         default:

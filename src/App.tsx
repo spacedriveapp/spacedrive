@@ -8,9 +8,14 @@ import { ExplorerScreen } from './screens/Explorer';
 import { invoke } from '@tauri-apps/api';
 import { DebugGlobalStore } from './store/Debug';
 import { useGlobalEvents } from './hooks/useGlobalEvents';
+import { AppState, useAppState } from './store/app';
 
 export default function App() {
   useGlobalEvents();
+  useEffect(() => {
+    invoke<AppState>('get_config').then((state) => useAppState.getState().update(state));
+  }, []);
+
   return (
     <Router>
       <div className="flex flex-col select-none h-screen rounded-xl border border-gray-200 dark:border-gray-450 bg-white text-gray-900 dark:text-white dark:bg-gray-800 overflow-hidden ">
@@ -21,7 +26,7 @@ export default function App() {
           <div className="relative w-full flex bg-gray-50 dark:bg-gray-800">
             <Switch>
               <Route exact path="/">
-                <Redirect to="/explorer" />
+                <Redirect to="/settings" />
               </Route>
               <Route path="/settings">
                 <SettingsScreen />

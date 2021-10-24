@@ -12,13 +12,16 @@ export interface DirectoryResponse {
 }
 
 export const ExplorerScreen: React.FC<{}> = () => {
-  const [currentDir] = useExplorerStore((state) => [state.currentDir]);
+  const [currentDir, tempWatchDir] = useExplorerStore((state) => [
+    state.currentDir,
+    state.tempWatchDir
+  ]);
 
   useEffect(() => {
-    invoke<DirectoryResponse>('get_files', { path: '/Users/jamie/Downloads' }).then((res) => {
+    invoke<DirectoryResponse>('get_files', { path: tempWatchDir }).then((res) => {
       console.log({ res });
       useExplorerStore.getState().ingestDir(res.directory, res.contents);
-      invoke('get_thumbs_for_directory', { path: '/Users/jamie/Downloads' });
+      invoke('get_thumbs_for_directory', { path: tempWatchDir });
     });
   }, []);
 

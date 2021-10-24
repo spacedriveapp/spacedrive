@@ -40,6 +40,7 @@ fn main() {
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
+      commands::get_config,
       commands::scan_dir,
       commands::get_files,
       commands::get_file_thumb,

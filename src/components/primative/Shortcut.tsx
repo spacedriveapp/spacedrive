@@ -19,8 +19,8 @@ export const Shortcut: React.FC<ShortcutProps> = (props) => {
   bg-gray-200
   border-gray-300
   dark:text-gray-300
-  dark:bg-gray-700
-  dark:border-gray-600
+  dark:bg-gray-550
+  dark:border-gray-450
   border-t-2
   rounded-md
   `,

@@ -23,7 +23,7 @@ pub async fn get_dir_with_contents(path: &str) -> Result<Directory, String> {
     .map_err(|e| e.to_string())?;
 
   if directories.is_empty() {
-    return Err("fuk".to_owned());
+    return Err("directory_not_found".to_owned());
   }
 
   let directory = &directories[0];

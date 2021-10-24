@@ -6,7 +6,7 @@ import {
   PhotographIcon,
   ServerIcon
 } from '@heroicons/react/solid';
-import { Planet } from 'phosphor-react';
+import { Folder, Planet } from 'phosphor-react';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Dropdown } from '../primative/Dropdown';
@@ -14,7 +14,7 @@ import { DefaultProps } from '../primative/types';
 
 const tabs = [
   // { name: 'Spaces', icon: Planet, uri: '/spaces' },
-  { name: 'Explorer', icon: CubeTransparentIcon, uri: '/explorer' },
+  { name: 'Explorer', icon: Folder, uri: '/explorer' },
   { name: 'Photos', icon: PhotographIcon, uri: '/photos' },
   { name: 'Storage', icon: ServerIcon, uri: '/settings' }
   // { name: 'Settings', icon: CogIcon, uri: '/settings' }

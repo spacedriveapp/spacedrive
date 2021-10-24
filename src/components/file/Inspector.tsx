@@ -2,6 +2,8 @@ import React from 'react';
 import { useExplorerStore, useSelectedFile } from '../../store/explorer';
 import { Transition } from '@headlessui/react';
 import { IFile } from '../../types';
+import { useAppState } from '../../store/app';
+import { convertFileSrc } from '@tauri-apps/api/tauri';
 
 interface MetaItemProps {
   title: string;
@@ -36,12 +38,17 @@ export const Inspector = () => {
       leaveFrom="translate-x-0"
       leaveTo="translate-x-64"
     >
-      <div className="h-full w-60 absolute right-0 top-0 m-2">
+      <div className="h-full w-60  right-0 top-0 m-2">
         <div className="flex flex-col overflow-hidden h-full rounded-lg bg-gray-700 shadow-lg  select-text">
           <div className="h-32 bg-gray-750 w-full flex justify-center items-center">
-            {!!file?.icon_b64 && (
-              <img src={'data:image/png;base64, ' + file.icon_b64} className=" h-24" />
-            )}
+            <img
+              src={convertFileSrc(
+                `${useAppState.getState().file_type_thumb_dir}/${
+                  file?.is_dir ? 'folder' : file?.extension
+                }.png`
+              )}
+              className="h-24"
+            />
           </div>
           <h3 className="font-bold p-3 text-base">{file?.name}</h3>
           <MetaItem title="Checksum" value={file?.meta_checksum as string} />

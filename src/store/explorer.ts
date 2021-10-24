@@ -1,6 +1,12 @@
 import create from 'zustand';
 import { IDirectory, IFile } from '../types';
 import produce from 'immer';
+import { useCallback, useMemo } from 'react';
+
+interface SelectedFile {
+  id: number;
+  index?: number;
+}
 
 interface ExplorerStore {
   // storage
@@ -10,10 +16,15 @@ interface ExplorerStore {
   // ingest
   ingestDir: (dir: IFile, children: IFile[]) => void;
   // selection
-  selectedFile: number | null;
-  selectedFiles: number[];
-  selectedFilesHistory: string[][];
-  selectFile: (dirId: number, fileId: number, type?: 'below' | 'above') => void;
+  selectedFile: SelectedFile | null;
+  selectedFiles: SelectedFile[];
+  selectedFilesHistory: SelectedFile[][];
+  selectFile: (
+    dirId: number,
+    fileId: number,
+    type?: 'below' | 'above',
+    specificIndex?: number
+  ) => void;
   clearSelectedFiles: () => void;
   // selectAnotherFile?: (fileId: number) => void;
   // selectFilesBetween?: (firstFileId: number, secondFileId: number) => void;
@@ -22,18 +33,28 @@ interface ExplorerStore {
   dirHistory: number[];
   goBack?: () => void;
   goForward?: () => void;
+  nativeIconUpdated: (fileId: number) => void;
 
-  tempInjectThumb: (fileId: number, b64: string) => void;
+  tempWatchDir: string;
+  setTempWatchDir: (path: string) => void;
 }
 
 export const useExplorerStore = create<ExplorerStore>((set, get) => ({
   files: {},
   dirs: {},
   selectedFile: null,
+  selectedFileIndex: null,
   selectedFiles: [],
   selectedFilesHistory: [],
   currentDir: null,
   dirHistory: [],
+  tempWatchDir: '/Users/jamie/Downloads',
+  setTempWatchDir: (path) =>
+    set((state) =>
+      produce(state, (draft) => {
+        draft.tempWatchDir = path;
+      })
+    ),
 
   ingestDir: (dir, children) => {
     set((state) =>
@@ -76,25 +97,37 @@ export const useExplorerStore = create<ExplorerStore>((set, get) => ({
       })
     );
   },
-  selectFile: (dirId, fileId, type) => {
+  selectFile: (dirId, fileId, type, specificIndex) => {
     set((state) =>
       produce(state, (draft) => {
         if (!draft.files[fileId]) return;
-        if (!type) {
-          draft.selectedFile = fileId;
-        }
-        // this is the logic for up / down movement on selected file
-        const dirIndex = draft.dirs[dirId];
+        const dirIndex = get().dirs[dirId];
         const maxIndex = dirIndex.length - 1;
-        const activeIndex = dirIndex.findIndex((i) => i === fileId);
+        // discover index within active directory
+
+        const currentIndex =
+          state.selectedFile?.index !== undefined
+            ? state.selectedFile.index
+            : (() => {
+                console.log('FINDING INDEX');
+
+                return dirIndex.findIndex((i) => i === fileId);
+              })();
+        console.log('selecting file', { fileId, dirIndex, maxIndex, currentIndex });
+        // if no type just select specified file
+        if (!type) {
+          draft.selectedFile = { id: fileId, index: specificIndex };
+          return;
+        }
         switch (type) {
           case 'above':
-            if (activeIndex - 1 < 0) draft.selectedFile = dirIndex[maxIndex];
-            else draft.selectedFile = dirIndex[activeIndex - 1];
+            if (currentIndex - 1 < 0)
+              draft.selectedFile = { id: dirIndex[maxIndex], index: maxIndex };
+            else draft.selectedFile = { id: dirIndex[currentIndex - 1], index: currentIndex - 1 };
             break;
           case 'below':
-            if (activeIndex + 1 > maxIndex) draft.selectedFile = dirIndex[0];
-            else draft.selectedFile = dirIndex[activeIndex + 1];
+            if (currentIndex + 1 > maxIndex) draft.selectedFile = { id: dirIndex[0], index: 0 };
+            else draft.selectedFile = { id: dirIndex[currentIndex + 1], index: currentIndex + 1 };
             break;
         }
       })
@@ -107,25 +140,27 @@ export const useExplorerStore = create<ExplorerStore>((set, get) => ({
       })
     );
   },
-  tempInjectThumb: (fileId: number, b64: string) => {
+  nativeIconUpdated: (fileId: number) => {
     set((state) =>
       produce(state, (draft) => {
         if (!draft.files[fileId]) return;
-        draft.files[fileId].icon_b64 = b64;
+        draft.files[fileId].has_native_icon = true;
       })
     );
   }
 }));
 
 export function useSelectedFile(): null | IFile {
-  const [file] = useExplorerStore((state) => [state.files[state.selectedFile || -1]]);
+  const [file] = useExplorerStore((state) => [state.files[state.selectedFile?.id || -1]]);
   return file;
 }
 
 export function useSelectedFileIndex(dirId: number): null | number {
-  return useExplorerStore((state) =>
-    state.dirs[dirId].findIndex((i) => i === state.files[state.selectedFile || -1]?.id)
-  );
+  return useExplorerStore((state) => {
+    const index = state.selectedFile?.index;
+    if (index === undefined) return null;
+    return index;
+  });
 }
 
 export function useFile(fileId: number): null | IFile {
@@ -134,7 +169,10 @@ export function useFile(fileId: number): null | IFile {
 
 export function useCurrentDir(): IDirectory | null {
   return useExplorerStore((state) => {
-    const children = state.dirs[state.currentDir || -1].map((id) => state.files[id]);
+    const children = useMemo(
+      () => state.dirs[state.currentDir || -1].map((id) => state.files[id]),
+      [state.currentDir]
+    );
     const directory = state.files[state.currentDir || -1];
 
     return {

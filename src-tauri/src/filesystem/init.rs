@@ -12,7 +12,7 @@ pub async fn get_primary_library(db: &DatabaseConnection) -> Result<library::Mod
   // get library entity by is_primary column, should be unique
   let mut existing_libs = library::Entity::find()
     .filter(library::Column::IsPrimary.eq(true))
-    .all(&db)
+    .all(db)
     .await?;
 
   // return library

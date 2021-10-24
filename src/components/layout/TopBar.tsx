@@ -11,7 +11,16 @@ import {
   TagIcon
 } from '@heroicons/react/outline';
 import clsx from 'clsx';
-import { ArrowsLeftRight, HouseSimple } from 'phosphor-react';
+import {
+  ArrowsLeftRight,
+  Cloud,
+  Columns,
+  FolderPlus,
+  HouseSimple,
+  List,
+  SquaresFour,
+  Tag
+} from 'phosphor-react';
 import React from 'react';
 import { useExplorerStore } from '../../store/explorer';
 import { TrafficLights } from '../os/TrafficLights';
@@ -68,12 +77,16 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
         <TopBarButton group left icon={ChevronLeftIcon} onClick={goBack} />
         <TopBarButton group right icon={ChevronRightIcon} />
-        <div className="flex mx-8 space-x-[1px]">
-          <TopBarButton active group left icon={ViewListIcon} />
-          <TopBarButton group icon={ViewBoardsIcon} />
-          <TopBarButton group right icon={ViewGridIcon} />
+        {/* <div className="flex mx-8 space-x-[1px]">
+          <TopBarButton active group left icon={List} />
+          <TopBarButton group icon={Columns} />
+          <TopBarButton group right icon={SquaresFour} />
+        </div> */}
+        <div className="flex-grow"></div>
+        <div className="flex mx-8 space-x-2">
+          <TopBarButton icon={Tag} />
+          <TopBarButton icon={FolderPlus} />
         </div>
-
         <div className="relative flex h-7">
           <input
             placeholder="Search"
@@ -85,11 +98,10 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           </div>
         </div>
         <div className="flex mx-8 space-x-2">
-          <TopBarButton icon={TagIcon} />
-          <TopBarButton icon={FolderAddIcon} />
-          <TopBarButton icon={CloudIcon} />
+          <TopBarButton icon={Cloud} />
           <TopBarButton icon={ArrowsLeftRight} />
         </div>
+        <div className="flex-grow"></div>
         <div className="flex-grow"></div>
         <TopBarButton className="mr-[8px]" icon={CogIcon} />
       </div>

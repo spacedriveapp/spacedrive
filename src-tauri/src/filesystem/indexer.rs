@@ -103,7 +103,7 @@ pub async fn path(path: &str, parent_id: Option<u32>) -> Result<file::Model> {
 
   let existing_files = file::Entity::find()
     .filter(file::Column::MetaChecksum.contains(&meta_checksum))
-    .all(&db)
+    .all(db)
     .await?;
 
   if existing_files.len() == 0 {
@@ -124,12 +124,12 @@ pub async fn path(path: &str, parent_id: Option<u32>) -> Result<file::Model> {
       ..Default::default()
     };
 
-    let _file = file.save(&db).await.unwrap();
+    let _file = file.save(db).await.unwrap();
 
     // REPLACE WHEN SEA QL PULLS THROUGH
     let existing_files = file::Entity::find()
       .filter(file::Column::MetaChecksum.contains(&meta_checksum))
-      .all(&db)
+      .all(db)
       .await?;
 
     let existing_file = existing_files.first().unwrap().clone();

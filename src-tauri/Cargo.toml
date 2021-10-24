@@ -14,7 +14,7 @@ tauri-build = { version = "1.0.0-beta.3" }
 swift-rs = "0.1.0"
 
 [dependencies]
-tauri = { version = "1.0.0-beta.5", features = ["api-all", "menu"] }
+tauri = { version = "1.0.0-beta.8", features = ["api-all"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures = "0.3"
@@ -29,7 +29,7 @@ int-enum = "0.4.0"
 rusqlite = "0.25.3"
 refinery = { version = "0.6.0", features = ["rusqlite"] }
 sqlx = { version = "0.5.7", features = ["sqlite"] }
-sea-orm = { version = "^0", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros", "debug-print" ], default-features = false }
+sea-orm = { version = "^0.3.1", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros", "debug-print" ], default-features = false }
 env_logger = "0.9.0"
 # libusb-sys = "0.2.3"
 anyhow = "1.0.44"
@@ -45,6 +45,7 @@ objc = "0.2.7"
 cocoa = "0.24.0"
 objc-foundation = "0.1.1"
 swift-rs = "0.1.0"
+base64 = "0.13.0"
 
 [features]
 default = [ "custom-protocol" ]

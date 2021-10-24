@@ -9,13 +9,18 @@ import { Dropdown } from '../components/primative/Dropdown';
 import { InputContainer } from '../components/primative/InputContainer';
 import { Shortcut } from '../components/primative/Shortcut';
 import { useInputState } from '../hooks/useInputState';
+import { useExplorerStore } from '../store/explorer';
 //@ts-ignore
 // import { Spline } from 'react-spline';
 // import WINDOWS_SCENE from '../assets/spline/scene.json';
 
 export const SettingsScreen: React.FC<{}> = () => {
   const fileUploader = useRef<HTMLInputElement | null>(null);
-  const inputState = useInputState('/Users/jamie/Downloads/CoolFolder');
+
+  const [tempWatchDir, setTempWatchDir] = useExplorerStore((state) => [
+    state.tempWatchDir,
+    state.setTempWatchDir
+  ]);
 
   return (
     <div>
@@ -32,7 +37,11 @@ export const SettingsScreen: React.FC<{}> = () => {
             title="Quick scan directory"
             description="The directory for which this application will perform a detailed scan of the contents and sub directories"
           >
-            <Input {...inputState} placeholder="/users/jamie/Desktop" />
+            <Input
+              value={tempWatchDir}
+              onChange={(e) => setTempWatchDir(e.target.value)}
+              placeholder="/users/jamie/Desktop"
+            />
           </InputContainer>
         </div>
         <div className="space-x-2 flex flex-row mt-2">
@@ -41,12 +50,13 @@ export const SettingsScreen: React.FC<{}> = () => {
             variant="primary"
             onClick={() => {
               invoke('scan_dir', {
-                path: inputState.value
+                path: tempWatchDir
               });
             }}
           >
             Scan Now
           </Button>
+          <Button size="sm">Test</Button>
         </div>
 
         <div className="space-x-2 flex flex-row mt-4">

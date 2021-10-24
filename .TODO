@@ -1,29 +1,38 @@
 # SpaceDrive development log / todo list 
-✔ Configured a custom MacOS style Tauri window 
+✔ Configured a Tauri window 
+✔ Primative UI components (Button, Input, Shortcut etc) 
 ✔ Connect & create sqlite database in application data folder
 ✔ Auto migrate database on app launch 
 ✔ Define data schema in Rust 
 ✔ Scan given directory recursively and write to database 
 ✔ App frame and router set up 
-✔ Primative UI components (Button, Input, Shortcut etc) 
 ✔ Render basic file list with database data 
 ✔ Create a global store 
 ☐ File inspector <- CURRENT
-☐ Tag creation and assignment
-☐ Generate buffer hash
-☐ Right click menu
-☐ Settings screen
-☐ Set up Tauri updater
-☐ Volume identification
-☐ Job queue system
+✔ Virtualized list for explorer @done(21-10-24 04:03)
+    Also cache folder contents and serve lazy, updating in background
+✔ Native file type icons @done(21-10-24 04:04)
+✔ Cache native icons in app data folder @done(21-10-24 11:30)
 ☐ Native file previews
-☐ Secret keystore
-☐ Search 
-    Efficient way to search sqlite: make file table WITHOUT ROWID
-☐ File encryptor
-☐ File viewer / player
-☐ Open with
-☐ Explorer grid view
-☐ Explorer path viewer / editor
+☐ Generate buffer hash
+☐ Action system & command pallete
+☐ Settings screen
+☐ Tag creation and assignment
+☐ Job queue system
+☐ Right click menu
+☐ Volume identification
+☐ Set up Tauri updater
 ☐ Statistic calucations
     Folder size, Volume size, Total capacity, Total unique etc..
+☐ Onboarding flow
+☐ Explorer grid view
+☐ Explorer path viewer / editor
+☐ File encryptor
+☐ File viewer / player
+☐ Secret keystore
+☐ Search 
+Efficient way to search sqlite: make file table WITHOUT ROWID
+☐ Open with
+
+☐ Changelog
+☐ Landing page
