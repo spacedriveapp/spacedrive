@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IFile } from '../../types';
 import byteSize from 'pretty-bytes';
-import { useKey } from 'rooks';
+import { useKey, useOnWindowResize, useWindowSize } from 'rooks';
 import { invoke } from '@tauri-apps/api';
 import {
   useCurrentDir,
@@ -42,6 +42,12 @@ export const FileList: React.FC<{}> = (props) => {
   const tableContainer = useRef<null | HTMLDivElement>(null);
   const VList = useRef<null | List>(null);
   const currentDir = useCurrentDir();
+
+  // useOnWindowResize((e) => {
+
+  // })
+
+  const size = useWindowSize();
 
   const explorer = useExplorerStore.getState();
 
@@ -89,7 +95,7 @@ export const FileList: React.FC<{}> = (props) => {
   };
 
   const width = (tableContainer.current?.getBoundingClientRect().width || 0) - 30;
-  const height = (tableContainer.current?.getBoundingClientRect().height || 0) - 30;
+  const height = (tableContainer.current?.getBoundingClientRect().height || 0) - 140;
 
   return useMemo(
     () => (
@@ -123,7 +129,7 @@ export const FileList: React.FC<{}> = (props) => {
         />
       </div>
     ),
-    [currentDir?.id, tableContainer.current]
+    [size.innerWidth, currentDir?.id, tableContainer.current]
   );
 };
 

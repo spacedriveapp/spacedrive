@@ -16,6 +16,7 @@ export interface DropdownProps extends DefaultOptions {
   items: Section[];
   buttonText: string;
   buttonProps: ButtonProps;
+  buttonIcon?: any;
 }
 
 export const Dropdown: React.FC<DropdownProps> = (props) => {
@@ -25,6 +26,7 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
         <div>
           <Menu.Button className="outline-none">
             <Button size="sm" {...props.buttonProps}>
+              {props.buttonIcon}
               {props.buttonText}
               <div className="flex-grow" />
               <ChevronDownIcon

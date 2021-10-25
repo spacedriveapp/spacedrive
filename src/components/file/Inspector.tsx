@@ -19,7 +19,7 @@ const MetaItem = (props: MetaItemProps) => {
   );
 };
 
-const Divider = () => <div className="w-full my-1 h-[1px] bg-gray-700" />;
+const Divider = () => <div className="w-full my-1 h-[1px] bg-gray-100 dark:bg-gray-700" />;
 
 export const Inspector = () => {
   const selectedFile = useSelectedFile();
@@ -30,7 +30,7 @@ export const Inspector = () => {
 
   return (
     <Transition
-      show={isOpen}
+      show={true}
       enter="transition-translate ease-in-out duration-200"
       enterFrom="translate-x-64"
       enterTo="translate-x-0"
@@ -38,23 +38,25 @@ export const Inspector = () => {
       leaveFrom="translate-x-0"
       leaveTo="translate-x-64"
     >
-      <div className="h-full w-60  right-0 top-0 m-2">
-        <div className="flex flex-col overflow-hidden h-full rounded-lg bg-gray-700 shadow-lg  select-text">
-          <div className="h-32 bg-gray-750 w-full flex justify-center items-center">
-            <img
-              src={convertFileSrc(
-                `${useAppState.getState().file_type_thumb_dir}/${
-                  file?.is_dir ? 'folder' : file?.extension
-                }.png`
-              )}
-              className="h-24"
-            />
+      <div className="h-full w-60 right-0 top-0 m-2 border border-gray-100 dark:border-gray-850 rounded-lg ">
+        {!!file && (
+          <div className="flex flex-col overflow-hidden h-full rounded-lg bg-white dark:bg-gray-700 select-text">
+            <div className="h-32 bg-gray-50 dark:bg-gray-750 rounded-t-lg w-full flex justify-center items-center">
+              <img
+                src={convertFileSrc(
+                  `${useAppState.getState().file_type_thumb_dir}/${
+                    file?.is_dir ? 'folder' : file?.extension
+                  }.png`
+                )}
+                className="h-24"
+              />
+            </div>
+            <h3 className="font-bold p-3 text-base">{file?.name}</h3>
+            <MetaItem title="Checksum" value={file?.meta_checksum as string} />
+            <Divider />
+            <MetaItem title="Uri" value={file?.uri as string} />
           </div>
-          <h3 className="font-bold p-3 text-base">{file?.name}</h3>
-          <MetaItem title="Checksum" value={file?.meta_checksum as string} />
-          <Divider />
-          <MetaItem title="Uri" value={file?.uri as string} />
-        </div>
+        )}
       </div>
     </Transition>
   );

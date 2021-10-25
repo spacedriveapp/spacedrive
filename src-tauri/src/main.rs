@@ -33,12 +33,13 @@ fn main() {
   // block_on(filesystem::device::discover_storage_devices()).unwrap();
 
   tauri::Builder::default()
-    .setup(|app| {
+    .setup(|_app| {
       // let main_window = app.get_window("main").unwrap();
       // // would need to emit this elsewhere in my Rust code
       // main_window.emit("my-event", "payload");
       Ok(())
     })
+    .on_menu_event(|event| menu::handle_menu_event(event))
     .invoke_handler(tauri::generate_handler![
       commands::get_config,
       commands::scan_dir,

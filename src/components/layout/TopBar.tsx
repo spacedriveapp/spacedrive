@@ -19,7 +19,8 @@ import {
   HouseSimple,
   List,
   SquaresFour,
-  Tag
+  Tag,
+  TerminalWindow
 } from 'phosphor-react';
 import React from 'react';
 import { useExplorerStore } from '../../store/explorer';
@@ -43,7 +44,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
     <button
       {...props}
       className={clsx(
-        'mr-[1px] py-0.5 px-0.5 text-md font-medium dark:bg-gray-550 dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
+        'mr-[1px] py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:bg-gray-550 dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
         {
           'rounded-r-none rounded-l-none': props.group && !props.left && !props.right,
           'rounded-r-none': props.group && props.left,
@@ -53,7 +54,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
         props.className
       )}
     >
-      <Icon className="m-0.5 w-5 h-5 dark:text-gray-150" />
+      <Icon weight={'regular'} className="m-0.5 w-5 h-5 text-gray-450 dark:text-gray-150" />
     </button>
   );
 };
@@ -64,7 +65,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex flex-shrink-0 h-11 -mt-0.5 max-w items-center border-b bg-gray-100 dark:bg-gray-550 border-gray-100 dark:border-gray-900 shadow-sm"
+        className="flex flex-shrink-0 h-[2.95rem] -mt-0.5 max-w items-center border-b bg-gray-50 dark:bg-gray-550 border-gray-100 dark:border-gray-900 shadow-sm"
       >
         <div className="mr-32 ml-1 ">
           <TrafficLights
@@ -86,15 +87,16 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
         <div className="flex mx-8 space-x-2">
           <TopBarButton icon={Tag} />
           <TopBarButton icon={FolderPlus} />
+          <TopBarButton icon={TerminalWindow} />
         </div>
         <div className="relative flex h-7">
           <input
             placeholder="Search"
-            className="w-32 focus:w-52 text-xs p-2 rounded-md outline-none focus:ring-2  placeholder-gray-600 dark:placeholder-gray-300 bg-gray-50 dark:bg-gray-500 dark:border-gray-500 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
+            className="w-32 focus:w-52 text-sm p-3 rounded-md outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-300 bg-gray-50 border border-gray-250 dark:bg-gray-500 dark:border-gray-500 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
           />
           <div className="space-x-1 absolute top-[1px] right-1">
-            <Shortcut chars="⌘" />
-            <Shortcut chars="S" />
+            <Shortcut chars="⌘S" />
+            {/* <Shortcut chars="S" /> */}
           </div>
         </div>
         <div className="flex mx-8 space-x-2">

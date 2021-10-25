@@ -9,12 +9,19 @@ import { invoke } from '@tauri-apps/api';
 import { DebugGlobalStore } from './store/Debug';
 import { useGlobalEvents } from './hooks/useGlobalEvents';
 import { AppState, useAppState } from './store/app';
+import { Modal } from './components/layout/Modal';
+import { useKey, useKeyBindings } from 'rooks';
+// import { useHotkeys } from 'react-hotkeys-hook';
 
 export default function App() {
   useGlobalEvents();
   useEffect(() => {
     invoke<AppState>('get_config').then((state) => useAppState.getState().update(state));
   }, []);
+
+  // useHotkeys('command+q', () => {
+  //   process.exit();
+  // });
 
   return (
     <Router>
@@ -26,17 +33,18 @@ export default function App() {
           <div className="relative w-full flex bg-gray-50 dark:bg-gray-800">
             <Switch>
               <Route exact path="/">
-                <Redirect to="/settings" />
-              </Route>
-              <Route path="/settings">
-                <SettingsScreen />
+                <Redirect to="/explorer" />
               </Route>
               <Route path="/explorer">
                 <ExplorerScreen />
               </Route>
+              <Route path="/settings">
+                <SettingsScreen />
+              </Route>
             </Switch>
           </div>
         </div>
+        {/* <Modal /> */}
       </div>
     </Router>
   );
