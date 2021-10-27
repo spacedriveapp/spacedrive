@@ -113,7 +113,7 @@ export const useExplorerStore = create<ExplorerStore>((set, get) => ({
 
                 return dirIndex.findIndex((i) => i === fileId);
               })();
-        console.log('selecting file', { fileId, dirIndex, maxIndex, currentIndex });
+        // console.log('selecting file', { fileId, dirIndex, maxIndex, currentIndex });
         // if no type just select specified file
         if (!type) {
           draft.selectedFile = { id: fileId, index: specificIndex };

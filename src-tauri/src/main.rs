@@ -6,20 +6,13 @@ mod app;
 mod commands;
 mod crypto;
 mod db;
-mod device;
 mod filesystem;
 mod swift;
 mod util;
 use crate::app::menu;
-use env_logger;
 use futures::executor::block_on;
-use tauri::Manager;
-
-// use systemstat::{saturating_sub_bytes, Platform, System};
 
 fn main() {
-  // let mounts = device::volumes_c::get_mounts();
-  // println!("mounted drives: {:?}", &mounts);
   // env_logger::builder()
   //   .filter_level(log::LevelFilter::Debug)
   //   .is_test(true)
@@ -43,8 +36,10 @@ fn main() {
     .invoke_handler(tauri::generate_handler![
       commands::get_config,
       commands::scan_dir,
+      commands::get_mounts,
       commands::get_files,
       commands::get_file_thumb,
+      commands::test_scan,
       commands::get_thumbs_for_directory
     ])
     .menu(menu::get_menu())

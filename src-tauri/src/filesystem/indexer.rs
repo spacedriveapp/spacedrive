@@ -18,6 +18,13 @@ fn is_hidden(entry: &DirEntry) -> bool {
     .map(|s| s.starts_with("."))
     .unwrap_or(false)
 }
+fn is_node_modules(entry: &DirEntry) -> bool {
+  entry
+    .file_name()
+    .to_str()
+    .map(|s| s.contains("node_modules"))
+    .unwrap_or(false)
+}
 
 fn is_app_bundle(entry: &DirEntry) -> bool {
   let is_dir = entry.metadata().unwrap().is_dir();
@@ -51,7 +58,7 @@ pub async fn scan(path: &str) -> Result<()> {
     dirs.insert(path.to_owned(), file.id);
     // iterate over files and subdirectories
     for entry in WalkDir::new(path).into_iter().filter_entry(|dir| {
-      let approved = !is_hidden(dir) && !is_app_bundle(dir);
+      let approved = !is_hidden(dir) && !is_app_bundle(dir) && !is_node_modules(dir);
       approved
     }) {
       let entry = entry?;

@@ -1,6 +1,6 @@
 import React from 'react';
-import { useAppState } from './app';
-import { useExplorerStore } from './explorer';
+import { useAppState } from './store/app';
+import { useExplorerStore } from './store/explorer';
 
 export function DebugGlobalStore() {
   useAppState();

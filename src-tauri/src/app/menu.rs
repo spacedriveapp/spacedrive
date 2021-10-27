@@ -8,6 +8,19 @@ pub(crate) fn get_menu() -> Menu {
   //   "File",
   //   Menu::new().add_item(quit).add_item(close).add_item(jeff),
   // );
+  let spacedrive = Submenu::new(
+    "SpaceDrive",
+    Menu::new()
+      .add_native_item(MenuItem::About("SpaceDrive".to_string()))
+      .add_native_item(MenuItem::Separator)
+      .add_native_item(MenuItem::Services)
+      .add_native_item(MenuItem::Separator)
+      .add_native_item(MenuItem::Hide)
+      .add_native_item(MenuItem::HideOthers)
+      .add_native_item(MenuItem::ShowAll)
+      .add_native_item(MenuItem::Separator)
+      .add_native_item(MenuItem::Quit),
+  );
 
   let file = Submenu::new(
     "File",
@@ -32,8 +45,7 @@ pub(crate) fn get_menu() -> Menu {
   );
 
   let menu = Menu::new()
-    .add_native_item(MenuItem::Copy)
-    .add_item(CustomMenuItem::new("about".to_string(), "About SpaceDrive"))
+    .add_submenu(spacedrive)
     .add_submenu(file)
     .add_submenu(edit)
     .add_submenu(view);

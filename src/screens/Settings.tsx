@@ -27,11 +27,11 @@ export const SettingsScreen: React.FC<{}> = () => {
       <div className="px-5">
         {/* <FileList files={dummyIFile} /> */}
         {/* <Spline scene={WINDOWS_SCENE} /> */}
-        <iframe
+        {/* <iframe
           src="https://my.spline.design/windowscopy-8e92a2e9b7cb4d9237100441e8c4f688/"
           width="100%"
           height="100%"
-        ></iframe>
+        ></iframe> */}
         <div className="flex space-x-2 mt-4">
           <InputContainer
             title="Quick scan directory"
@@ -55,6 +55,14 @@ export const SettingsScreen: React.FC<{}> = () => {
             }}
           >
             Scan Now
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              invoke('test_scan');
+            }}
+          >
+            Test Scan
           </Button>
           <Button size="sm">Test</Button>
         </div>
