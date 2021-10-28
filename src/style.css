@@ -1,6 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+a,
+button {
+  @apply cursor-default;
+}
+
+.blur-rr {
+  -webkit-backdrop-filter: blur(10px);
+}
 /* 
 .table-container {
   @apply w-full bg-gray-900;

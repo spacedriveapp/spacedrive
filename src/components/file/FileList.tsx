@@ -1,27 +1,30 @@
-import { DocumentIcon, DotsVerticalIcon, FilmIcon, FolderIcon } from '@heroicons/react/solid';
-import clsx from 'clsx';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IFile } from '../../types';
-import byteSize from 'pretty-bytes';
-import { useKey, useOnWindowResize, useWindowSize } from 'rooks';
+import { DotsVerticalIcon } from '@heroicons/react/solid';
 import { invoke } from '@tauri-apps/api';
+import { convertFileSrc } from '@tauri-apps/api/tauri';
+import clsx from 'clsx';
+import byteSize from 'pretty-bytes';
+import React, { forwardRef, useEffect, useMemo, useRef } from 'react';
+import AutoSizer from 'react-virtualized-auto-sizer';
+import { FixedSizeList as List } from 'react-window';
+import { useKey, useWindowSize } from 'rooks';
+import { DirectoryResponse } from '../../screens/Explorer';
+// import { List, ListRowRenderer } from 'react-virtualized';
+import { useAppState } from '../../store/app';
 import {
   useCurrentDir,
   useExplorerStore,
   useFile,
-  useSelectedFile,
   useSelectedFileIndex
 } from '../../store/explorer';
-import { DirectoryResponse } from '../../screens/Explorer';
-import { List, ListRowRenderer } from 'react-virtualized';
-import { useAppState } from '../../store/app';
-import { convertFileSrc } from '@tauri-apps/api/tauri';
+import { IFile } from '../../types';
 
 interface IColumn {
   column: string;
   key: string;
   width: number;
 }
+
+const PADDING_SIZE = 130;
 
 // Function ensure no types are loss, but guarantees that they are Column[]
 function ensureIsColumns<T extends IColumn[]>(data: T) {
@@ -53,7 +56,7 @@ export const FileList: React.FC<{}> = (props) => {
 
   const seletedRowIndex = useSelectedFileIndex(currentDir?.id as number);
   useEffect(() => {
-    if (seletedRowIndex != null) VList.current?.scrollToRow(seletedRowIndex);
+    if (seletedRowIndex != null) VList.current?.scrollToItem(seletedRowIndex);
   }, [seletedRowIndex]);
 
   useKey('ArrowUp', (e) => {
@@ -68,42 +71,18 @@ export const FileList: React.FC<{}> = (props) => {
       explorer.selectFile(explorer.currentDir as number, explorer.selectedFile.id, 'below');
   });
 
-  // function isRowOutOfView(rowHeight: number, rowIndex: number) {
-  //   const scrollTop = scrollContainer.current?.scrollTop || 0;
-  // }
-
-  const rowRenderer: ListRowRenderer = ({
-    index, // Index of row
-    isScrolling, // The List is currently being scrolled
-    isVisible, // This row is visible within the List (eg it is not an overscanned row)
-    key, // Unique key within array of rendered rows
-    parent, // Reference to the parent List (instance)
-    style // Style object to be applied to row (to position it);
-    // This must be passed through to the rendered row element.
-  }) => {
-    const row = currentDir?.children?.[index] as IFile;
-
-    // If row content is complex, consider rendering a light-weight placeholder while scrolling.
-    const content = (
-      <RenderRow key={key} row={row} rowIndex={index} dirId={currentDir?.id as number} />
-    );
-    return (
-      <div key={key} style={style}>
-        {content}
-      </div>
-    );
-  };
-
-  const width = (tableContainer.current?.getBoundingClientRect().width || 0) - 30;
-  const height = (tableContainer.current?.getBoundingClientRect().height || 0) - 140;
-
-  return useMemo(
-    () => (
-      <div
-        ref={tableContainer}
-        className="table-container w-full h-full bg-white dark:bg-gray-900 p-3 cursor-default"
-      >
-        <h1 className="p-2 ml-3 font-bold text-xl">{currentDir?.name}</h1>
+  const listInnerElement = forwardRef<HTMLDivElement, { style: any }>(({ style, ...rest }, ref) => (
+    <div
+      ref={ref}
+      style={{
+        ...style,
+        height: `${parseFloat(style.height) + PADDING_SIZE * 2}px`
+      }}
+      {...rest}
+      className="jeff"
+    >
+      <div>
+        <h1 className="p-2 mt-12 ml-3 font-bold text-xl">{currentDir?.name}</h1>
         <div className="table-head">
           <div className="table-head-row flex flex-row p-2">
             {columns.map((col) => (
@@ -118,15 +97,44 @@ export const FileList: React.FC<{}> = (props) => {
             ))}
           </div>
         </div>
-        <List
-          ref={VList}
-          width={width}
-          height={height}
-          rowHeight={40}
-          rowCount={currentDir?.children_count || 0}
-          rowRenderer={rowRenderer}
-          className="table-body pb-10 outline-none"
-        />
+      </div>
+      {rest.children}
+    </div>
+  ));
+
+  const Row = ({ index, key, style }: any) => {
+    const row = currentDir?.children?.[index] as IFile;
+
+    return (
+      <div key={key} style={{ ...style, top: `${parseFloat(style.top) + PADDING_SIZE}px` }}>
+        <RenderRow key={key} row={row} rowIndex={index} dirId={currentDir?.id as number} />
+      </div>
+    );
+  };
+
+  return useMemo(
+    () => (
+      <div
+        ref={tableContainer}
+        style={{ marginTop: -44 }}
+        className="table-container  w-full h-full bg-white dark:bg-gray-900 p-3 cursor-default"
+      >
+        <AutoSizer>
+          {({ width, height }) => (
+            <List
+              ref={VList}
+              innerElementType={listInnerElement}
+              width={width}
+              height={height}
+              overscanCount={5}
+              itemSize={40}
+              itemCount={currentDir?.children_count || 0}
+              className="table-body pb-10 outline-none"
+            >
+              {Row}
+            </List>
+          )}
+        </AutoSizer>
       </div>
     ),
     [size.innerWidth, currentDir?.id, tableContainer.current]

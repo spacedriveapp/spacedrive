@@ -18,7 +18,6 @@ import {
   FolderPlus,
   HouseSimple,
   Key,
-  List,
   SquaresFour,
   Tag,
   TerminalWindow
@@ -66,7 +65,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex flex-shrink-0 h-[2.95rem] -mt-0.5 max-w items-center border-b bg-gray-50 dark:bg-gray-650 border-gray-100 dark:border-gray-600 shadow-sm"
+        className="flex z-50 blur-rr !bg-opacity-70 flex-shrink-0 h-[2.95rem] -mt-0.5 max-w items-center border-b bg-gray-50 dark:bg-gray-650 border-gray-100 dark:border-gray-600 shadow-sm"
       >
         <div className="mr-32 ml-1 ">
           <TrafficLights

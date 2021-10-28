@@ -14,8 +14,8 @@ const variants = {
     shadow-sm
     hover:bg-gray-100 
     active:bg-gray-50  
-    dark:bg-gray-800
-    dark:hover:bg-gray-700
+    dark:bg-gray-650
+    dark:hover:bg-gray-650
     dark:active:bg-gray-700
     dark:active:opacity-80
     
@@ -84,7 +84,7 @@ export const Button: React.FC<ButtonProps> = ({ loading, ...props }) => {
     <button
       {...props}
       className={clsx(
-        'flex border rounded-md transition-colors duration-100',
+        'flex border rounded-md transition-colors duration-100 cursor-default',
         { 'opacity-5': loading, '!p-1': props.noPadding },
         { 'justify-center': !props.justifyLeft },
         sizes[props.size || 'default'],

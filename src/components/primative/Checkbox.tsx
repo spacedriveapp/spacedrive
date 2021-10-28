@@ -9,7 +9,7 @@ export const Checkbox: React.FC<CheckboxProps> = (props) => {
   return (
     <label
       className={clsx(
-        'flex items-center text-sm cursor-pointer font-medium text-gray-700 dark:text-gray-100',
+        'flex items-center text-sm font-medium text-gray-700 dark:text-gray-100',
         props.containerClasname
       )}
     >
@@ -26,7 +26,6 @@ export const Checkbox: React.FC<CheckboxProps> = (props) => {
         dark:border-gray-700
         dark:hover:bg-gray-700
         dark:hover:border-gray-600
-        cursor-pointer
         transition 
         rounded 
         mr-2

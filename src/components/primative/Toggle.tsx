@@ -11,7 +11,7 @@ export const Toggle = (props: { initialState: boolean }) => {
       checked={enabled}
       onChange={setEnabled}
       className={clsx(
-        'relative inline-flex items-center h-6 rounded-full w-11 bg-gray-200 dark:bg-gray-700',
+        'relative inline-flex items-center h-6 rounded-full w-11 bg-gray-200 dark:bg-gray-750',
         {
           'bg-primary-500 dark:bg-primary-500': enabled
         }

@@ -27,7 +27,7 @@ const Light: React.FC<LightProps> = (props) => {
   return (
     <div
       onClick={props.action}
-      className={clsx('w-[12px] h-[12px] rounded-full cursor-pointer', {
+      className={clsx('w-[12px] h-[12px] rounded-full', {
         'bg-red-400': props.mode == 'close',
         'bg-green-400': props.mode == 'fullscreen',
         'bg-yellow-400': props.mode == 'minimize'
