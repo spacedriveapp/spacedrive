@@ -7,6 +7,7 @@ use crate::swift::get_file_thumbnail_base64;
 use anyhow::Result;
 use base64;
 use serde::Serialize;
+use swift_rs::types::{SRObjectArray};
 use std::fs;
 use std::time::Instant;
 use walkdir::WalkDir;
@@ -64,8 +65,8 @@ pub async fn get_config() -> Result<config::AppConfig, String> {
   Ok(config::get_config())
 }
 #[tauri::command]
-pub fn get_mounts() -> Result<Vec<swift::Mount>, String> {
-  Ok(swift::get_mounts().unwrap())
+pub fn get_mounts() -> Result<SRObjectArray<swift::Mount>, String> {
+  Ok(swift::get_mounts())
 }
 
 #[tauri::command]
