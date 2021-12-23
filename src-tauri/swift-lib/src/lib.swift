@@ -12,9 +12,19 @@ public func getFileThumbnailBase64(path: SRString) -> SRString {
     return SRString(bitmap.base64EncodedString())
 }
 
-public struct Volume : Codable {
-    var name: String
-    var path: String
+class Volume: NSObject {
+    internal init(name: String, path: String, total_capacity: Int, available_capacity: Int, is_removable: Bool, is_ejectable: Bool, is_root_filesystem: Bool) {
+        self.name = SRString(name)
+        self.path = SRString(path)
+        self.total_capacity = total_capacity
+        self.available_capacity = available_capacity
+        self.is_removable = is_removable
+        self.is_ejectable = is_ejectable
+        self.is_root_filesystem = is_root_filesystem
+    }
+    
+    var name: SRString
+    var path: SRString
     var total_capacity: Int
     var available_capacity: Int
     var is_removable: Bool
@@ -22,9 +32,8 @@ public struct Volume : Codable {
     var is_root_filesystem: Bool
 }
 
-
 @_cdecl("get_mounts")
-public func getMounts() -> SRString {
+public func getMounts() -> SRObjectArray {
        let keys: [URLResourceKey] = [
         .volumeNameKey,
         .volumeIsRemovableKey,
@@ -35,9 +44,9 @@ public func getMounts() -> SRString {
     ]
     let paths = FileManager().mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [])
     
+    var validMounts: [Volume] = []
+    
     if let urls = paths {
-        var validMounts: [Volume] = []
-        
         for url in urls {
             let components = url.pathComponents
             if components.count == 1 || components.count > 1
@@ -58,16 +67,9 @@ public func getMounts() -> SRString {
                 validMounts.append(volume)
             }
         }
-        let jsonData = try? JSONEncoder().encode(validMounts)
-        
-        if jsonData != nil {
-            let jsonString = String(data: jsonData!, encoding: .utf8)!
-            return SRString(jsonString)
-        }
-        return SRString("")
-
     }
-    return SRString("")
+    
+    return SRObjectArray(validMounts)
 }
 
 
