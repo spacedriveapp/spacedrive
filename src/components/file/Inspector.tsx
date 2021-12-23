@@ -2,7 +2,7 @@ import React from 'react';
 import { useExplorerStore, useSelectedFile } from '../../store/explorer';
 import { Transition } from '@headlessui/react';
 import { IFile } from '../../types';
-import { useAppState } from '../../store/app';
+import { useAppState } from '../../store/global';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import moment from 'moment';
 import { Button } from '../primative';

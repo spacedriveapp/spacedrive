@@ -4,12 +4,12 @@ import { convertFileSrc } from '@tauri-apps/api/tauri';
 import clsx from 'clsx';
 import byteSize from 'pretty-bytes';
 import React, { forwardRef, useEffect, useMemo, useRef } from 'react';
-import AutoSizer from 'react-virtualized-auto-sizer';
-import { FixedSizeList as List } from 'react-window';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
+
 import { useKey, useWindowSize } from 'rooks';
 import { DirectoryResponse } from '../../screens/Explorer';
 // import { List, ListRowRenderer } from 'react-virtualized';
-import { useAppState } from '../../store/app';
+import { useAppState } from '../../store/global';
 import {
   useCurrentDir,
   useExplorerStore,
@@ -43,7 +43,7 @@ type ColumnKey = typeof columns[number]['key'];
 
 export const FileList: React.FC<{}> = (props) => {
   const tableContainer = useRef<null | HTMLDivElement>(null);
-  const VList = useRef<null | List>(null);
+  const VList = useRef<null | VirtuosoHandle>(null);
   const currentDir = useCurrentDir();
 
   // useOnWindowResize((e) => {
@@ -56,7 +56,8 @@ export const FileList: React.FC<{}> = (props) => {
 
   const seletedRowIndex = useSelectedFileIndex(currentDir?.id as number);
   useEffect(() => {
-    if (seletedRowIndex != null) VList.current?.scrollToItem(seletedRowIndex);
+    // VList.current?.scrollIntoView()
+    if (seletedRowIndex != null) VList.current?.scrollIntoView({ index: seletedRowIndex });
   }, [seletedRowIndex]);
 
   useKey('ArrowUp', (e) => {
@@ -71,46 +72,31 @@ export const FileList: React.FC<{}> = (props) => {
       explorer.selectFile(explorer.currentDir as number, explorer.selectedFile.id, 'below');
   });
 
-  const listInnerElement = forwardRef<HTMLDivElement, { style: any }>(({ style, ...rest }, ref) => (
-    <div
-      ref={ref}
-      style={{
-        ...style,
-        height: `${parseFloat(style.height) + PADDING_SIZE * 2}px`
-      }}
-      {...rest}
-      className="jeff"
-    >
-      <div>
-        <h1 className="p-2 mt-12 ml-3 font-bold text-xl">{currentDir?.name}</h1>
-        <div className="table-head">
-          <div className="table-head-row flex flex-row p-2">
-            {columns.map((col) => (
-              <div
-                key={col.key}
-                className="table-head-cell flex flex-row items-center relative group px-4"
-                style={{ width: col.width }}
-              >
-                <DotsVerticalIcon className="hidden absolute group-hover:block drag-handle w-5 h-5 opacity-10 -ml-5 cursor-move" />
-                <span className="text-sm text-gray-500 font-medium">{col.column}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      {rest.children}
-    </div>
-  ));
-
-  const Row = ({ index, key, style }: any) => {
+  const Row = (index: number) => {
     const row = currentDir?.children?.[index] as IFile;
 
-    return (
-      <div key={key} style={{ ...style, top: `${parseFloat(style.top) + PADDING_SIZE}px` }}>
-        <RenderRow key={key} row={row} rowIndex={index} dirId={currentDir?.id as number} />
-      </div>
-    );
+    return <RenderRow key={index} row={row} rowIndex={index} dirId={currentDir?.id as number} />;
   };
+
+  const Header = () => (
+    <div>
+      <h1 className="p-2 mt-10 ml-1 font-bold text-xl">{currentDir?.name}</h1>
+      <div className="table-head">
+        <div className="table-head-row flex flex-row p-2">
+          {columns.map((col) => (
+            <div
+              key={col.key}
+              className="table-head-cell flex flex-row items-center relative group pl-2"
+              style={{ width: col.width }}
+            >
+              <DotsVerticalIcon className="hidden absolute group-hover:block drag-handle w-5 h-5 opacity-10 -ml-5 cursor-move" />
+              <span className="text-sm text-gray-500 font-medium">{col.column}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return useMemo(
     () => (
@@ -119,22 +105,15 @@ export const FileList: React.FC<{}> = (props) => {
         style={{ marginTop: -44 }}
         className="table-container  w-full h-full bg-white dark:bg-gray-900 p-3 cursor-default"
       >
-        <AutoSizer>
-          {({ width, height }) => (
-            <List
-              ref={VList}
-              innerElementType={listInnerElement}
-              width={width}
-              height={height}
-              overscanCount={5}
-              itemSize={40}
-              itemCount={currentDir?.children_count || 0}
-              className="table-body pb-10 outline-none"
-            >
-              {Row}
-            </List>
-          )}
-        </AutoSizer>
+        <Virtuoso
+          data={currentDir?.children}
+          ref={VList}
+          // style={{ height: '400px' }}
+          totalCount={currentDir?.children_count || 0}
+          itemContent={Row}
+          components={{ Header }}
+          className="table-body pb-10 outline-none"
+        />
       </div>
     ),
     [size.innerWidth, currentDir?.id, tableContainer.current]
