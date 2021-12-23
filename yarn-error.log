@@ -1,5 +1,5 @@
 Arguments: 
-  /usr/local/bin/node /usr/local/Cellar/yarn/1.22.5/libexec/bin/yarn.js add react-virtualized-auto-size
+  /usr/local/bin/node /usr/local/Cellar/yarn/1.22.5/libexec/bin/yarn.js add @types/af-virtual-scroll -D
 
 PATH: 
   /Users/jamie/Library/Android/sdk/tools:/Users/jamie/Library/Android/sdk/platform-tools:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin:/Library/Apple/usr/bin:/Users/jamie/.cargo/bin
@@ -14,7 +14,7 @@ Platform:
   darwin x64
 
 Trace: 
-  Error: https://registry.yarnpkg.com/react-virtualized-auto-size: Not found
+  Error: https://registry.yarnpkg.com/@types%2faf-virtual-scroll: Not found
       at Request.params.callback [as _callback] (/usr/local/Cellar/yarn/1.22.5/libexec/lib/cli.js:66988:18)
       at Request.self.callback (/usr/local/Cellar/yarn/1.22.5/libexec/lib/cli.js:140749:22)
       at Request.emit (events.js:315:20)
@@ -40,6 +40,8 @@ npm manifest:
       "@types/react": "^17.0.18",
       "@types/react-dom": "^17.0.9",
       "@types/react-router-dom": "^5.3.1",
+      "@types/react-virtualized-auto-sizer": "^1.0.1",
+      "@types/react-window": "^1.8.5",
       "@types/tailwindcss": "^2.2.1",
       "concurrently": "^6.2.1",
       "prettier": "^2.3.2",
@@ -63,6 +65,7 @@ npm manifest:
       "@types/react-table": "^7.7.6",
       "@types/react-virtualized": "^9.21.14",
       "@vitejs/plugin-react-refresh": "^1.3.6",
+      "af-virtual-scroll": "^2.9.9",
       "autoprefixer": "^9",
       "byte-size": "^8.1.0",
       "clsx": "^1.1.1",
@@ -78,6 +81,7 @@ npm manifest:
       "react-router-dom": "^5.2.0",
       "react-spline": "^1.2.1",
       "react-virtualized": "^9.22.3",
+      "react-virtualized-auto-sizer": "^1.0.6",
       "react-window": "^1.8.6",
       "rooks": "^5.7.1",
       "tailwindcss": "^2.2.16",
@@ -603,12 +607,26 @@ Lockfile:
     dependencies:
       "@types/react" "*"
   
+  "@types/react-virtualized-auto-sizer@^1.0.1":
+    version "1.0.1"
+    resolved "https://registry.yarnpkg.com/@types/react-virtualized-auto-sizer/-/react-virtualized-auto-sizer-1.0.1.tgz#b3187dae1dfc4c15880c9cfc5b45f2719ea6ebd4"
+    integrity sha512-GH8sAnBEM5GV9LTeiz56r4ZhMOUSrP43tAQNSRVxNexDjcNKLCEtnxusAItg1owFUFE6k0NslV26gqVClVvong==
+    dependencies:
+      "@types/react" "*"
+  
   "@types/react-virtualized@^9.21.14":
     version "9.21.14"
     resolved "https://registry.yarnpkg.com/@types/react-virtualized/-/react-virtualized-9.21.14.tgz#8d465aa54386a7bebc7b61f71afc588bb800b868"
     integrity sha512-wvZftXXYNpj3ELVm2v8pySnq/uxKD1UsFpRkNoBAbQFTnI4Bz4OcwjUhwvaqUq5dDoT6SCS2+PdCzysxMYfjdg==
     dependencies:
       "@types/prop-types" "*"
+      "@types/react" "*"
+  
+  "@types/react-window@^1.8.5":
+    version "1.8.5"
+    resolved "https://registry.yarnpkg.com/@types/react-window/-/react-window-1.8.5.tgz#285fcc5cea703eef78d90f499e1457e9b5c02fc1"
+    integrity sha512-V9q3CvhC9Jk9bWBOysPGaWy/Z0lxYcTXLtLipkt2cnRj1JOSFNF7wqGpkScSXMgBwC+fnVRg/7shwgddBG5ICw==
+    dependencies:
       "@types/react" "*"
   
   "@types/react@*", "@types/react@^17.0.18":
@@ -692,6 +710,13 @@ Lockfile:
     version "7.4.1"
     resolved "https://registry.yarnpkg.com/acorn/-/acorn-7.4.1.tgz#feaed255973d2e77555b83dbc08851a6c63520fa"
     integrity sha512-nQyp0o1/mNdbTO1PO6kHkwSrmgZ0MT/jCCpNiwbUjGoRN4dlBhqJtoQuCnEOKzgTVwg0ZWiCoQy6SxMebQVh8A==
+  
+  af-virtual-scroll@^2.9.9:
+    version "2.9.9"
+    resolved "https://registry.yarnpkg.com/af-virtual-scroll/-/af-virtual-scroll-2.9.9.tgz#72ab29d2fe21801a82abdd4da6d577f6e99caefc"
+    integrity sha512-25rb+/xa07G1YWu//OOciK8hUzfJHxU6eYScfFkEA2nGDS79kGWYuf2jsogyIAffmcX57p87G37OGaZl6oTpcQ==
+    dependencies:
+      react "^17.0.2"
   
   ansi-align@^3.0.0:
     version "3.0.0"
@@ -3562,6 +3587,11 @@ Lockfile:
     integrity sha512-d17gOvoKjWfHmsXm7H1YbK715dDEVuIc72eNcrrpNp7T/H8zH2yfNvk1NSJQSuGchTXaa90hbiGRC3FGpJHMZA==
     dependencies:
       three "0.123.0"
+  
+  react-virtualized-auto-sizer@^1.0.6:
+    version "1.0.6"
+    resolved "https://registry.yarnpkg.com/react-virtualized-auto-sizer/-/react-virtualized-auto-sizer-1.0.6.tgz#66c5b1c9278064c5ef1699ed40a29c11518f97ca"
+    integrity sha512-7tQ0BmZqfVF6YYEWcIGuoR3OdYe8I/ZFbNclFlGOC3pMqunkYF/oL30NCjSGl9sMEb17AnzixDz98Kqc3N76HQ==
   
   react-virtualized@^9.22.3:
     version "9.22.3"

@@ -7,8 +7,9 @@ button {
   @apply cursor-default;
 }
 
-.blur-rr {
-  -webkit-backdrop-filter: blur(10px);
+.backdrop-blur {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 /* 
 .table-container {

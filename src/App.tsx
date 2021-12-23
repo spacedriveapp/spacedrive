@@ -8,13 +8,15 @@ import { ExplorerScreen } from './screens/Explorer';
 import { invoke } from '@tauri-apps/api';
 import { DebugGlobalStore } from './Debug';
 import { useGlobalEvents } from './hooks/useGlobalEvents';
-import { AppState, useAppState } from './store/app';
+import { AppState, useAppState } from './store/global';
 import { Modal } from './components/layout/Modal';
 import { useKey, useKeyBindings } from 'rooks';
 // import { useHotkeys } from 'react-hotkeys-hook';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
 import { Button } from './components/primative';
 import { useLocationStore, Location } from './store/locations';
+import { OverviewScreen } from './screens/Overview';
+import { SpacesScreen } from './screens/Spaces';
 
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
@@ -68,6 +70,12 @@ export default function App() {
               <Switch>
                 <Route exact path="/">
                   <Redirect to="/explorer" />
+                </Route>
+                <Route path="/overview">
+                  <OverviewScreen />
+                </Route>
+                <Route path="/spaces">
+                  <SpacesScreen />
                 </Route>
                 <Route path="/explorer">
                   <ExplorerScreen />

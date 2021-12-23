@@ -67,16 +67,13 @@ const Heading: React.FC<{}> = ({ children }) => (
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const locations = useLocations();
-
-  console.log({ locations });
-
   return (
-    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-650  border-gray-100 border-r dark:border-gray-600 px-3 space-y-0.5">
+    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-650 !bg-opacity-60  border-gray-100 border-r dark:border-gray-600 px-3 space-y-0.5">
       <Dropdown
         buttonProps={{
           justifyLeft: true,
           className:
-            'mb-1 !bg-gray-50 border-gray-150 hover:!bg-gray-100 flex-shrink-0 w-[175px] dark:!bg-gray-600 dark:hover:!bg-gray-550 dark:!border-gray-550 dark:hover:!border-gray-500',
+            'mb-1 !bg-gray-50 border-gray-150 hover:!bg-gray-1000 flex-shrink-0 w-[175px] dark:!bg-gray-600 dark:hover:!bg-gray-550 dark:!border-gray-550 dark:hover:!border-gray-500',
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
@@ -91,6 +88,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       />
 
       <div>
+        <SidebarLink to="/overview">
+          <Icon component={Planet} />
+          Overview
+        </SidebarLink>
         <SidebarLink to="/spaces">
           <Icon component={CirclesFour} />
           Spaces
@@ -117,9 +118,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
                   <Button
                     noBorder
                     size="sm"
-                    className="w-7 h-7 top-0 right-0 absolute group-hover:bg-gray-600 hover:!bg-gray-550 transition-none items-center !rounded-l-none"
+                    className="w-7 h-7 top-0 right-0 absolute !bg-transparent group-hover:bg-gray-600 dark:hover:!bg-gray-550 !transition-none items-center !rounded-l-none"
                   >
-                    <Icon className="w-3 h-3 mr-0" component={EjectSimple} />
+                    <Icon className="w-3 h-3 mr-0 " component={EjectSimple} />
                   </Button>
                 )}
               </SidebarLink>
