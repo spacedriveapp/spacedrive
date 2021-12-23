@@ -11,7 +11,7 @@ build = "src/build.rs"
 
 [build-dependencies]
 tauri-build = { version = "1.0.0-beta.3" }
-swift-rs = "0.2.2"
+swift-rs = "0.2.3"
 
 [dependencies]
 tauri = { version = "1.0.0-beta.8", features = ["api-all"] }
@@ -44,7 +44,7 @@ log = "0.4.14"
 objc = "0.2.7"
 cocoa = "0.24.0"
 objc-foundation = "0.1.1"
-swift-rs = "0.2.2"
+swift-rs = "0.2.3"
 base64 = "0.13.0"
 
 [features]
