@@ -1,15 +1,4 @@
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CogIcon,
-  HomeIcon,
-  ViewBoardsIcon,
-  ViewGridIcon,
-  ViewListIcon,
-  CloudIcon,
-  FolderAddIcon,
-  TagIcon
-} from '@heroicons/react/outline';
+import { ChevronLeftIcon, ChevronRightIcon, CogIcon } from '@heroicons/react/outline';
 import clsx from 'clsx';
 import {
   ArrowsLeftRight,
@@ -29,6 +18,7 @@ import { Button, ButtonProps, Input } from '../primative';
 import { Shortcut } from '../primative/Shortcut';
 import { DefaultProps } from '../primative/types';
 import { appWindow } from '@tauri-apps/api/window';
+import { HeartIcon } from '@heroicons/react/solid';
 
 export interface TopBarProps extends DefaultProps {}
 export interface TopBarButtonProps extends ButtonProps {
@@ -44,7 +34,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
     <button
       {...props}
       className={clsx(
-        'mr-[1px] py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:bg-gray-650 dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
+        'mr-[1px] py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
         {
           'rounded-r-none rounded-l-none': props.group && !props.left && !props.right,
           'rounded-r-none': props.group && props.left,
@@ -65,9 +55,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex z-50 blur-rr !bg-opacity-70 flex-shrink-0 h-[2.95rem] -mt-0.5 max-w items-center border-b bg-gray-50 dark:bg-gray-650 border-gray-100 dark:border-gray-600 shadow-sm"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-50 rounded-t-2xl flex-shrink-0 items-center border-b bg-gray-50 dark:bg-gray-650 border-gray-100 dark:border-gray-600 !bg-opacity-60 backdrop-blur shadow-sm"
       >
-        <div className="mr-32 ml-1 ">
+        <div className="mr-32 ml-1">
           <TrafficLights
             onClose={appWindow.close}
             onFullscreen={appWindow.maximize}
@@ -75,7 +65,6 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
             className="p-1.5"
           />
         </div>
-
         <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
         <TopBarButton icon={ChevronRightIcon} />
         {/* <div className="flex mx-8 space-x-[1px]">
