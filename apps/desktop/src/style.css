@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+a,
+button {
+  @apply cursor-default;
+}
+
+.backdrop-blur {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+/* 
+.table-container {
+  @apply w-full bg-gray-900;
+}
+.table-head {
+  @apply w-full;
+}
+.table-head-row {
+  @apply w-full  flex flex-row;
+}
+.table-head-cell {
+}
+.table-body {
+  @apply w-full;
+}
+.table-row {
+  @apply w-full flex flex-row;
+}
+.table-cell {
+} */
