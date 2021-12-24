@@ -1,12 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-// import 'style.css';
+import App from './App';
+import './style.css';
 
 ReactDOM.render(
   <React.StrictMode>
-    <div style={{background:"red", display:"flex", flex:1}}>
-    hello
-    </div>
+    <App />
   </React.StrictMode>,
   document.getElementById('root')
 );
