@@ -55,9 +55,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-50 rounded-t-2xl flex-shrink-0 items-center border-b bg-gray-50 dark:bg-gray-650 border-gray-100 dark:border-gray-600 !bg-opacity-60 backdrop-blur shadow-sm"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-50 rounded-t-2xl flex-shrink-0 items-center border-b bg-gray-50 dark:bg-gray-650 border-gray-100 dark:border-gray-600 !bg-opacity-60 backdrop-blur "
       >
-        <div className="mr-32 ml-1">
+        <div className="ml-1 mr-32">
           <TrafficLights
             onClose={appWindow.close}
             onFullscreen={appWindow.maximize}

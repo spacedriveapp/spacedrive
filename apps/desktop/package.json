@@ -52,7 +52,7 @@
       "react-spline": "^1.2.1",
       "react-virtuoso": "^2.2.6",
       "rooks": "^5.7.1",
-      "tailwindcss": "^2.2.16",
+      "tailwindcss": "^3.0.7",
       "vite": "^2.4.4",
       "vite-plugin-filter-replace": "^0.1.9",
       "vite-tsconfig-paths": "^3.3.13",

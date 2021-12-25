@@ -28,7 +28,7 @@ export const ExplorerScreen: React.FC<{}> = () => {
   if (currentDir === null) return <></>;
 
   return (
-    <div className="relative w-full flex flex-row bg-white dark:bg-gray-900">
+    <div className="relative flex flex-row w-full bg-white dark:bg-gray-900">
       <FileList />
       <Inspector />
     </div>

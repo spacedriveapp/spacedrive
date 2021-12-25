@@ -1663,6 +1663,7 @@ dependencies = [
  "sha256",
  "sqlx",
  "strum",
+ "swift-rs",
  "walkdir",
 ]
 
@@ -2077,6 +2078,17 @@ checksum = "055cf3ebc2981ad8f0a5a17ef6652f652d87831f79fddcba2ac57bcb9a0aa407"
 dependencies = [
  "libc",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "swift-rs"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e31aa5c69d3be879a07d9a0eb0ad1a424301849061fff96294569b61dd137d2f"
+dependencies = [
+ "base64",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

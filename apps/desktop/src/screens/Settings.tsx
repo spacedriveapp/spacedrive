@@ -10,12 +10,15 @@ import { InputContainer } from '../components/primitive/InputContainer';
 import { Shortcut } from '../components/primitive/Shortcut';
 import { useInputState } from '../hooks/useInputState';
 import { useExplorerStore } from '../store/explorer';
+import { useAppState } from '../store/global';
 //@ts-ignore
 // import { Spline } from 'react-spline';
 // import WINDOWS_SCENE from '../assets/spline/scene.json';
 
 export const SettingsScreen: React.FC<{}> = () => {
   const fileUploader = useRef<HTMLInputElement | null>(null);
+
+const config = useAppState()
 
   const [tempWatchDir, setTempWatchDir] = useExplorerStore((state) => [
     state.tempWatchDir,
@@ -32,7 +35,7 @@ export const SettingsScreen: React.FC<{}> = () => {
           width="100%"
           height="100%"
         ></iframe> */}
-        <div className="flex space-x-2 mt-4">
+        <div className="flex mt-4 space-x-2">
           <InputContainer
             title="Quick scan directory"
             description="The directory for which this application will perform a detailed scan of the contents and sub directories"
@@ -44,7 +47,7 @@ export const SettingsScreen: React.FC<{}> = () => {
             />
           </InputContainer>
         </div>
-        <div className="space-x-2 flex flex-row mt-2">
+        <div className="flex flex-row mt-2 space-x-2">
           <Button
             size="sm"
             variant="primary"
@@ -67,10 +70,10 @@ export const SettingsScreen: React.FC<{}> = () => {
           <Button size="sm">Test</Button>
         </div>
 
-        <div className="space-x-2 flex flex-row mt-4">
+        <div className="flex flex-row mt-4 space-x-2">
           <Toggle initialState={false} />
         </div>
-        <div className="space-x-2 flex flex-row mt-4 mb-5 ml-1">
+        <div className="flex flex-row mt-4 mb-5 ml-1 space-x-2">
           <Checkbox />
           <Checkbox />
           <Checkbox />
@@ -90,6 +93,8 @@ export const SettingsScreen: React.FC<{}> = () => {
           <Shortcut chars="⌘" />
           <Shortcut chars="S" />
         </div>
+
+          {JSON.stringify({config})}
       </div>
     </div>
   );

@@ -6,6 +6,9 @@
   "files": [
     "eslint-preset.js"
   ],
+  "devDependencies": {
+    "typescript": "^4.5.3"
+  },
   "dependencies": {
     "eslint-config-next": "^12.0.3",
     "eslint-config-prettier": "^8.3.0"

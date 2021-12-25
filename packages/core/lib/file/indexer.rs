@@ -84,6 +84,17 @@ pub async fn scan(path: &str) -> Result<()> {
     Ok(())
 }
 
+pub async fn test_scan(path: &str) -> Result<()> {
+    let mut count: u32 = 0;
+    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+        let child_path = entry.path().to_str().unwrap();
+        count = count + 1;
+        println!("Reading file from dir {:?}", child_path);
+    }
+    println!("files found {}", count);
+    Ok(())
+}
+
 fn get_parent_dir_id(dirs: &HashMap<String, u32>, entry: &DirEntry) -> Option<u32> {
     let path = entry.path();
     let parent_path = path
