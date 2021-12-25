@@ -1,5 +1,6 @@
 {
-  "cSpell.words": ["ipfs", "repr", "tailwindcss"],
-  "rust-analyzer.procMacro.enable": true,
-  "rust-analyzer.diagnostics.enableExperimental": false,
-}
+    "cSpell.words": ["ipfs", "repr", "tailwindcss"],
+    "rust-analyzer.procMacro.enable": true,
+    "rust-analyzer.diagnostics.enableExperimental": false,
+  }
+  

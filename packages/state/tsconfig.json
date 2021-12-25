@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "lib": ["ES2015"],
+        "module": "CommonJS",
+        "outDir": "./dist",
+        "rootDir": "./lib"
+      },
+    "extends": "config/tsconfig/base.json",
+    "include": ["**/*.ts"],
+    "exclude": ["node_modules"]
+  }
+  
