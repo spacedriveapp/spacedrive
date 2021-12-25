@@ -1,10 +1,11 @@
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
-mod crypto;
-mod db;
-mod file;
-mod util;
+pub mod crypto;
+pub mod db;
+pub mod file;
+pub mod native;
+pub mod util;
 
 // static configuration
 #[derive(Serialize, Deserialize, Debug)]
@@ -15,7 +16,9 @@ pub struct AppConfig {
 }
 pub static CONFIG: OnceCell<AppConfig> = OnceCell::new();
 
-pub fn configure(data_dir: std::path::PathBuf) {
+pub fn configure(mut data_dir: std::path::PathBuf) {
+    data_dir = data_dir.join("spacedrive");
+
     let config = AppConfig {
         data_dir: data_dir.clone(),
         primary_db: data_dir.clone().join("primary.db3"),
