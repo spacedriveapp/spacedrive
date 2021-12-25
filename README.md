@@ -1,23 +1,23 @@
-# Turborepo starter
+# Spacedrive
+The worlds first private virtual filesystem.
 
-This is an official Yarn v1 starter turborepo.
 
-## What's inside?
-
-This turborepo uses [Yarn](https://classic.yarnpkg.com/lang/en/) as a package manager. It includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org) app
+## Apps
+- `desktop`: a [Tauri](https://nextjs.org) app
+- `mobile`: a [React Native](https://nextjs.org) app
 - `web`: another [Next.js](https://nextjs.org) app
-- `ui`: a stub React component library shared by both `web` and `docs` applications
-- `config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `tsconfig`: `tsconfig.json`s used throughout the monorepo
+- `docs`: a [Next.js](https://nextjs.org) app
+  
+## Packages
+All TypeScript packages are compiled automatically, other native binaries including Rust packages must be compiled by a host app at build time.
+- `core`: the [Rust]() core logic library, referred to internally as `sdcorelib`
+- `state`: the [TypeScript]() core logic library
+- `ui`: a [React Native]() / [RNW]() component library
+- `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
 
-### Utilities
 
+## Utilities
 This turborepo has some additional tools already setup for you:
 
 - [TypeScript](https://www.typescriptlang.org/) for static type checking
@@ -25,29 +25,7 @@ This turborepo has some additional tools already setup for you:
 - [Jest](https://jestjs.io) test runner for all things JavaScript
 - [Prettier](https://prettier.io) for code formatting
 
-## Setup
-
-This repository is used in the `npx create-turbo` command, and selected when choosing which package manager you wish to use with your monorepo (Yarn).
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-yarn run build
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-yarn run dev
-```
-
-### Remote Caching
+## Remote Caching
 
 Turborepo can use a technique known as [Remote Caching (Beta)](https://turborepo.org/docs/features/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
 
