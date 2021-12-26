@@ -60,7 +60,7 @@ const Heading: React.FC<{}> = ({ children }) => (
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const locations = useLocations();
   return (
-    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-650 !bg-opacity-60  border-gray-100 border-r dark:border-gray-600 px-3 space-y-0.5">
+    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-650 !bg-opacity-60  border-gray-100 border-r dark:border-gray-600 px-3 py-1">
       <Dropdown
         buttonProps={{
           justifyLeft: true,
@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         ]}
       />
 
-      <div>
+      <div className='pt-1'>
         <SidebarLink to="/overview">
           <Icon component={Planet} />
           Overview

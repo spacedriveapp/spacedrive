@@ -26,7 +26,7 @@ const config = useAppState()
   ]);
 
   return (
-    <div>
+    <div className='bg-gray-900'>
       <div className="px-5">
         {/* <FileList files={dummyIFile} /> */}
         {/* <Spline scene={WINDOWS_SCENE} /> */}
@@ -67,7 +67,6 @@ const config = useAppState()
           >
             Test Scan
           </Button>
-          <Button size="sm">Test</Button>
         </div>
 
         <div className="flex flex-row mt-4 space-x-2">

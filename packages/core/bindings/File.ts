@@ -1,0 +1,2 @@
+
+export interface File { id: number, meta_checksum: string, uri: string, is_dir: boolean, name: string, extension: string, size_in_bytes: string, library_id: number, date_created: string, date_modified: string, date_indexed: string, ipfs_id: string | null, storage_device_id: number | null, capture_device_id: number | null, parent_id: number | null, }

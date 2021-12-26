@@ -1,0 +1,2 @@
+
+export interface Library { id: number, name: string, is_primary: boolean, remote_id: string | null, total_file_count: number | null, total_bytes_used: string | null, total_byte_capacity: string | null, date_created: string, timezone: string | null, }

@@ -1,12 +1,15 @@
 use chrono::NaiveDateTime;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 // -------------------------------------
 // Entity: File
 // Represents an item discovered on the filesystem
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, DeriveEntityModel, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, DeriveEntityModel, Default, TS)]
 #[sea_orm(table_name = "files")]
+#[serde(rename = "File")]
+#[ts(export)]
 // -------------------------------------
 pub struct Model {
     // identity
@@ -17,15 +20,18 @@ pub struct Model {
     pub meta_checksum: String,
     pub uri: String,
     pub is_dir: bool,
-    // date
-    pub date_created: Option<NaiveDateTime>,
-    pub date_modified: Option<NaiveDateTime>,
-    pub date_indexed: Option<NaiveDateTime>,
     // metadata
     pub name: String,
     pub extension: String,
     pub size_in_bytes: String,
     pub library_id: u32,
+    // date
+    #[ts(type = "string")]
+    pub date_created: Option<NaiveDateTime>,
+    #[ts(type = "string")]
+    pub date_modified: Option<NaiveDateTime>,
+    #[ts(type = "string")]
+    pub date_indexed: Option<NaiveDateTime>,
     // #[sea_orm(column_type = "Int")]
     // pub encryption: crypto::Encryption,
     // ownership
