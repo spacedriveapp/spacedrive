@@ -7,40 +7,40 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct Directory {
-  pub directory: file::Model,
-  pub contents: Vec<file::Model>,
+    pub directory: file::Model,
+    pub contents: Vec<file::Model>,
 }
 
 pub async fn get_dir_with_contents(path: &str) -> Result<Directory, String> {
-  let connection = db_instance().await?;
+    let connection = db_instance().await?;
 
-  println!("getting files... {:?}", &path);
+    println!("getting files... {:?}", &path);
 
-  let directories = file::Entity::find()
-    .filter(file::Column::Uri.eq(path))
-    .all(connection)
-    .await
-    .map_err(|e| e.to_string())?;
+    let directories = file::Entity::find()
+        .filter(file::Column::Uri.eq(path))
+        .all(connection)
+        .await
+        .map_err(|e| e.to_string())?;
 
-  if directories.is_empty() {
-    return Err("directory_not_found".to_owned());
-  }
+    if directories.is_empty() {
+        return Err("directory_not_found".to_owned());
+    }
 
-  let directory = &directories[0];
+    let directory = &directories[0];
 
-  let files = file::Entity::find()
-    .filter(file::Column::ParentId.eq(directory.id))
-    .all(connection)
-    .await
-    .map_err(|e| e.to_string())?;
+    let files = file::Entity::find()
+        .filter(file::Column::ParentId.eq(directory.id))
+        .all(connection)
+        .await
+        .map_err(|e| e.to_string())?;
 
-  Ok(Directory {
-    directory: directory.clone(),
-    contents: files,
-  })
+    Ok(Directory {
+        directory: directory.clone(),
+        contents: files,
+    })
 }
 
 pub async fn get_directory(path: &str) {
-  // 1. search db for path
-  // 2. get directory shallow
+    // 1. search db for path
+    // 2. get directory shallow
 }

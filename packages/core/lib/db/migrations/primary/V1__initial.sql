@@ -63,8 +63,16 @@ CREATE TABLE IF NOT EXISTS tags_files (
 CREATE TABLE IF NOT EXISTS storage_devices (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	name TEXT,
+	path TEXT,
+	total_capacity INTEGER,
+	available_capacity INTEGER,
+	is_removable BOOLEAN NOT NULL DEFAULT TRUE,
+	is_ejectable BOOLEAN NOT NULL DEFAULT TRUE,
+	is_root_filesystem BOOLEAN NOT NULL DEFAULT TRUE,
+	is_online BOOLEAN NOT NULL DEFAULT TRUE,
+	watch_active BOOLEAN NOT NULL DEFAULT TRUE,
 	date_created DATE NOT NULL DEFAULT (datetime('now')),
-	date_modified DATE NOT NULL DEFAULT (datetime('now'))
+	last_indexed DATE NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS capture_devices (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,

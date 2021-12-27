@@ -5,8 +5,8 @@ use ts_rs::TS;
 
 // -------------------------------------
 // Entity: File
-// Represents an item discovered on the filesystem
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, DeriveEntityModel, Default, TS)]
+// Represents an item discovered on the filesystem, can be a file or directory.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, DeriveEntityModel, TS)]
 #[sea_orm(table_name = "files")]
 #[serde(rename = "File")]
 #[ts(export)]
@@ -32,8 +32,8 @@ pub struct Model {
     pub date_modified: Option<NaiveDateTime>,
     #[ts(type = "string")]
     pub date_indexed: Option<NaiveDateTime>,
-    // #[sea_orm(column_type = "Int")]
-    // pub encryption: crypto::Encryption,
+
+    pub encryption: Encryption,
     // ownership
     #[sea_orm(nullable)]
     pub ipfs_id: Option<String>,
@@ -46,6 +46,20 @@ pub struct Model {
 
     #[sea_orm(nullable)]
     pub parent_id: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, EnumIter, DeriveActiveEnum, TS)]
+#[sea_orm(rs_type = "i32", db_type = "Integer")]
+#[ts(export)]
+pub enum Encryption {
+    #[sea_orm(num_value = 0)]
+    None,
+    #[sea_orm(num_value = 1)]
+    AES128,
+    #[sea_orm(num_value = 2)]
+    AES192,
+    #[sea_orm(num_value = 3)]
+    AES256,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
