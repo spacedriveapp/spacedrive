@@ -134,6 +134,7 @@ pub async fn path(path: &str, parent_id: Option<u32>) -> Result<file::Model> {
             meta_checksum: Set(meta_checksum.to_owned()),
             name: Set(extract_name(path_buff.file_name())),
             extension: Set(extract_name(path_buff.extension())),
+            encryption: Set(file::Encryption::None),
             uri: Set(path_buff.to_str().unwrap().to_owned()),
             library_id: Set(primary_library.id),
             size_in_bytes: Set(size.to_string()),

@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 // -------------------------------------
 // Entity: Space
+// Spaces are virtual directories that can be used to organize, and visualize, projects.
+// They're sharable and can be made available on the web.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, DeriveEntityModel, Default, TS)]
 #[sea_orm(table_name = "spaces")]
 #[serde(rename = "Space")]

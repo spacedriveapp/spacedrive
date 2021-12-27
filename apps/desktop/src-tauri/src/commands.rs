@@ -69,7 +69,11 @@ pub async fn test_scan() -> Result<(), String> {
 //   Ok(thumbnail_b64)
 // }
 
-// #[tauri::command(async)]
-// pub async fn get_thumbs_for_directory(window: tauri::Window, path: &str) -> Result<(), String> {
-//   let config = config::get_config();
-// }
+#[tauri::command(async)]
+pub async fn get_thumbs_for_directory(window: tauri::Window, path: &str) -> Result<(), String> {
+  let config = CONFIG.get().unwrap();
+
+  let thumbnails = retrieve::get_thumbs_for_directory(path, &config).await?;
+
+  // ....
+}

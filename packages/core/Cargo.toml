@@ -37,7 +37,7 @@ ts-rs = "6.1"
 rusqlite = "0.25.3"
 refinery = { version = "0.6.0", features = ["rusqlite"] }
 sqlx = { version = "0.5.7", features = ["sqlite"] }
-sea-orm = { version = "^0.3.1", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros", "debug-print" ], default-features = false }
+sea-orm = { version = "^0.4.2", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros" ], default-features = false }
 walkdir = "^2.3.2"
 bytesize = "1.1.0"
 
