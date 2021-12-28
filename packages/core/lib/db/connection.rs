@@ -1,4 +1,4 @@
-use crate::APP_CONFIG;
+use crate::get_core_config;
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use rusqlite::Connection;
@@ -8,7 +8,7 @@ use sea_orm::{Database, DatabaseConnection, DbErr};
 // use std::str::FromStr;
 
 pub async fn get_connection() -> Result<DatabaseConnection, DbErr> {
-    let config = &APP_CONFIG.get().unwrap();
+    let config = get_core_config();
 
     let db_url = format!("{}{}", "sqlite://", config.primary_db.to_str().unwrap());
 
@@ -29,7 +29,7 @@ pub async fn db_instance() -> Result<&'static DatabaseConnection, String> {
 }
 
 pub async fn create_primary_db() -> Result<(), sqlx::Error> {
-    let config = &APP_CONFIG.get().unwrap();
+    let config = get_core_config();
 
     let db_url = config.primary_db.to_str().unwrap();
     // establish connection, this is only used to create the db if missing

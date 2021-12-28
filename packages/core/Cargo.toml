@@ -41,3 +41,4 @@ sea-orm = { version = "^0.4.2", features = [ "sqlx-sqlite", "runtime-async-std-r
 walkdir = "^2.3.2"
 bytesize = "1.1.0"
 
+tokio = {version = "1.15.0", features=["sync"]}
