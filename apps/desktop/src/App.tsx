@@ -7,7 +7,7 @@ import { SettingsScreen } from './screens/Settings';
 import { ExplorerScreen } from './screens/Explorer';
 import { invoke } from '@tauri-apps/api';
 import { DebugGlobalStore } from './Debug';
-import { useGlobalEvents } from './hooks/useGlobalEvents';
+import { useCoreEvents } from './hooks/useCoreEvents';
 import { AppState, useAppState } from './store/global';
 import { Modal } from './components/layout/Modal';
 import { useKey, useKeyBindings } from 'rooks';
@@ -41,7 +41,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 }
 
 export default function App() {
-  useGlobalEvents();
+  useCoreEvents();
   useEffect(() => {
     invoke<AppState>('get_config').then((state) => useAppState.getState().update(state));
     invoke<Location[]>('get_mounts').then((locations) =>

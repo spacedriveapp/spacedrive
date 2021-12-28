@@ -3399,6 +3399,7 @@ dependencies = [
  "sqlx",
  "strum 0.21.0",
  "swift-rs",
+ "tokio",
  "ts-rs",
  "walkdir",
 ]
@@ -3777,6 +3778,7 @@ dependencies = [
  "swift-rs",
  "tauri",
  "tauri-build",
+ "tokio",
 ]
 
 [[package]]
@@ -4417,11 +4419,10 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.13.0"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "588b2d10a336da58d877567cd8fb8a14b463e2104910f8132cd054b4b96e29ee"
+checksum = "fbbf1c778ec206785635ce8ad57fe52b3009ae9e0c9f574a728f3049d3e55838"
 dependencies = [
- "autocfg",
  "bytes",
  "memchr",
  "num_cpus",

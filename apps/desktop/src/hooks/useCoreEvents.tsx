@@ -7,9 +7,9 @@ export interface RustEvent {
   data: any;
 }
 
-export function useGlobalEvents() {
+export function useCoreEvents() {
   useEffect(() => {
-    listen('message', (e: Event<RustEvent>) => {
+    listen('core_event', (e: Event<RustEvent>) => {
       console.log({ e });
 
       switch (e.payload?.kind) {
