@@ -1,9 +1,12 @@
+use std::time::Instant;
+
 use anyhow::Result;
 use sdcorelib::db::connection::db_instance;
 use sdcorelib::file::{indexer, retrieve, retrieve::Directory};
 use sdcorelib::native;
-use sdcorelib::{AppConfig, CONFIG};
+use sdcorelib::AppConfig;
 use serde::Serialize;
+use std::fs;
 use swift_rs::types::SRObjectArray;
 
 #[derive(Serialize)]
@@ -46,7 +49,7 @@ pub async fn get_files(path: String) -> Result<Directory, String> {
 }
 #[tauri::command(async)]
 pub async fn get_config() -> Result<&'static AppConfig, String> {
-  Ok(CONFIG.get().unwrap())
+  Ok(&sdcorelib::EXTERNAL_CLIENT.get().unwrap().config)
 }
 #[tauri::command]
 pub fn get_mounts() -> Result<SRObjectArray<native::methods::Mount>, String> {
@@ -77,3 +80,48 @@ pub async fn test_scan() -> Result<(), String> {
 
 //   // ....
 // }
+#[tauri::command(async)]
+pub async fn get_thumbs_for_directory(window: tauri::Window, path: &str) -> Result<(), String> {
+  let config = &sdcorelib::EXTERNAL_CLIENT.get().unwrap().config;
+  let dir = retrieve::get_dir_with_contents(&path).await?;
+  // iterate over directory contents
+  for file in dir.contents.into_iter() {
+    let now = Instant::now();
+    let icon_name = format!(
+      "{}.png",
+      if file.is_dir {
+        "folder".to_owned()
+      } else {
+        file.extension
+      }
+    );
+    let icon_path = config.file_type_thumb_dir.join(icon_name);
+    // extract metadata from file
+    let existing = fs::metadata(&icon_path).is_ok();
+    // write thumbnail only if
+    if !existing {
+      // call swift to get thumbnail data
+      let thumbnail_b64 =
+        sdcorelib::native::methods::get_file_thumbnail_base64(&file.uri).to_string();
+      fs::write(
+        &icon_path,
+        base64::decode(thumbnail_b64).unwrap_or_default(),
+      )
+      .map_err(|_| "thumb_cache_failure")?;
+    }
+    println!("cached thumb {:?} in {:?}", file.id, now.elapsed());
+
+    if !existing {
+      reply(
+        &window,
+        GlobalEventKind::FileTypeThumb,
+        GenFileTypeIconsResponse {
+          icon_created: true,
+          file_id: file.id,
+        },
+      )
+    }
+  }
+
+  Ok(())
+}

@@ -17,9 +17,31 @@ pub struct AppConfig {
     pub file_type_thumb_dir: std::path::PathBuf,
 }
 
-pub static CONFIG: OnceCell<AppConfig> = OnceCell::new();
+// represents an event this library can emit
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ClientEvent {
+    NewFileTypeThumb,
+}
 
-pub async fn configure(mut data_dir: std::path::PathBuf) {
+// represents an application or client instance to communicate with
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExternalClient {
+    pub config: AppConfig,
+}
+
+trait Emitter {
+    fn emit(&self, event: ClientEvent, data: &str) -> Result<(), String>;
+}
+
+impl Emitter for ExternalClient {
+    fn emit(&self, event: ClientEvent, _: &str) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+pub static EXTERNAL_CLIENT: OnceCell<ExternalClient> = OnceCell::new();
+
+pub fn configure(mut data_dir: std::path::PathBuf) {
     data_dir = data_dir.join("spacedrive");
 
     let config = AppConfig {
@@ -27,11 +49,16 @@ pub async fn configure(mut data_dir: std::path::PathBuf) {
         primary_db: data_dir.clone().join("primary.db3"),
         file_type_thumb_dir: data_dir.clone().join("file_icons"),
     };
-    CONFIG.set(config).unwrap();
+
+    EXTERNAL_CLIENT.set(ExternalClient { config });
+
+    // EXTERNAL_CLIENT
+    //     .unwrap()
+    //     .emit(ClientEvent::NewFileTypeThumb, "...");
 
     // create the data directories if not present
-    fs::create_dir_all(&CONFIG.get().unwrap().data_dir).unwrap();
-    fs::create_dir_all(&CONFIG.get().unwrap().file_type_thumb_dir).unwrap();
+    fs::create_dir_all(&EXTERNAL_CLIENT.get().unwrap().config.data_dir).unwrap();
+    fs::create_dir_all(&EXTERNAL_CLIENT.get().unwrap().config.file_type_thumb_dir).unwrap();
 
     // create primary data base if not exists
     block_on(db::connection::create_primary_db()).unwrap();
