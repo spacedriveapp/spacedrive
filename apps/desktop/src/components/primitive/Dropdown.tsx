@@ -45,7 +45,7 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
           leaveFrom="transform opacity-100 scale-100"
           leaveTo="transform opacity-0 scale-95"
         >
-          <Menu.Items className="absolute left-0 w-44 mt-1 origin-top-left bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-700 border dark:border-gray-700 rounded-md shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+          <Menu.Items className="absolute left-0 w-44 mt-1 origin-top-left bg-white dark:bg-gray-950 divide-y divide-gray-100 dark:divide-gray-700 border dark:border-gray-700 rounded-md shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
             {props.items.map((item, index) => (
               <div key={index} className="px-1 py-1">
                 {item.map((button, index) => (

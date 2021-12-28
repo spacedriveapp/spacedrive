@@ -13,7 +13,7 @@ export function useGlobalEvents() {
       console.log({ e });
 
       switch (e.payload?.kind) {
-        case 'FileTypeThumb':
+        case 'NewFileTypeThumb':
           if (e.payload?.data.icon_created)
             useExplorerStore.getState().nativeIconUpdated(e.payload.data.file_id);
           break;

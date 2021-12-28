@@ -9,26 +9,8 @@ use serde::Serialize;
 use std::fs;
 use swift_rs::types::SRObjectArray;
 
-#[derive(Serialize)]
-pub enum GlobalEventKind {
-  FileTypeThumb,
-}
-
-#[derive(Serialize)]
-pub struct GlobalEvent<T> {
-  pub kind: GlobalEventKind,
-  pub data: T,
-}
-#[derive(Serialize)]
-pub struct GenFileTypeIconsResponse {
-  pub file_id: u32,
-  pub icon_created: bool,
-}
-
-pub fn reply<T: Serialize>(window: &tauri::Window, kind: GlobalEventKind, data: T) {
-  let _message = window
-    .emit("message", GlobalEvent { kind, data })
-    .map_err(|e| println!("{}", e));
+pub fn reply<T: Serialize>(window: &tauri::Window, data: T) {
+  let _message = window.emit("message", data).map_err(|e| println!("{}", e));
 }
 
 #[tauri::command(async)]
@@ -49,7 +31,7 @@ pub async fn get_files(path: String) -> Result<Directory, String> {
 }
 #[tauri::command(async)]
 pub async fn get_config() -> Result<&'static AppConfig, String> {
-  Ok(&sdcorelib::EXTERNAL_CLIENT.get().unwrap().config)
+  Ok(&sdcorelib::APP_CONFIG.get().unwrap())
 }
 #[tauri::command]
 pub fn get_mounts() -> Result<SRObjectArray<native::methods::Mount>, String> {
@@ -82,7 +64,7 @@ pub async fn test_scan() -> Result<(), String> {
 // }
 #[tauri::command(async)]
 pub async fn get_thumbs_for_directory(window: tauri::Window, path: &str) -> Result<(), String> {
-  let config = &sdcorelib::EXTERNAL_CLIENT.get().unwrap().config;
+  let config = &sdcorelib::APP_CONFIG.get().unwrap();
   let dir = retrieve::get_dir_with_contents(&path).await?;
   // iterate over directory contents
   for file in dir.contents.into_iter() {
@@ -114,8 +96,7 @@ pub async fn get_thumbs_for_directory(window: tauri::Window, path: &str) -> Resu
     if !existing {
       reply(
         &window,
-        GlobalEventKind::FileTypeThumb,
-        GenFileTypeIconsResponse {
+        sdcorelib::ClientEvent::NewFileTypeThumb {
           icon_created: true,
           file_id: file.id,
         },
