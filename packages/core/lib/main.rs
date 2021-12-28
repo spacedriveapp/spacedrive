@@ -9,37 +9,27 @@ pub mod native;
 pub mod util;
 use futures::executor::block_on;
 
+trait Emitter {
+    fn emit(&self, event: ClientEvent, data: &str) -> Result<(), String>;
+}
+
 // static configuration
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AppConfig {
     pub data_dir: std::path::PathBuf,
     pub primary_db: std::path::PathBuf,
     pub file_type_thumb_dir: std::path::PathBuf,
+    // pub emitter: Box<dyn Emitter>,
 }
 
 // represents an event this library can emit
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type", content = "data")]
 pub enum ClientEvent {
-    NewFileTypeThumb,
+    NewFileTypeThumb { file_id: u32, icon_created: bool },
 }
 
-// represents an application or client instance to communicate with
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ExternalClient {
-    pub config: AppConfig,
-}
-
-trait Emitter {
-    fn emit(&self, event: ClientEvent, data: &str) -> Result<(), String>;
-}
-
-impl Emitter for ExternalClient {
-    fn emit(&self, event: ClientEvent, _: &str) -> Result<(), String> {
-        Ok(())
-    }
-}
-
-pub static EXTERNAL_CLIENT: OnceCell<ExternalClient> = OnceCell::new();
+pub static APP_CONFIG: OnceCell<AppConfig> = OnceCell::new();
 
 pub fn configure(mut data_dir: std::path::PathBuf) {
     data_dir = data_dir.join("spacedrive");
@@ -50,15 +40,11 @@ pub fn configure(mut data_dir: std::path::PathBuf) {
         file_type_thumb_dir: data_dir.clone().join("file_icons"),
     };
 
-    EXTERNAL_CLIENT.set(ExternalClient { config });
-
-    // EXTERNAL_CLIENT
-    //     .unwrap()
-    //     .emit(ClientEvent::NewFileTypeThumb, "...");
+    APP_CONFIG.set(config);
 
     // create the data directories if not present
-    fs::create_dir_all(&EXTERNAL_CLIENT.get().unwrap().config.data_dir).unwrap();
-    fs::create_dir_all(&EXTERNAL_CLIENT.get().unwrap().config.file_type_thumb_dir).unwrap();
+    fs::create_dir_all(&APP_CONFIG.get().unwrap().data_dir).unwrap();
+    fs::create_dir_all(&APP_CONFIG.get().unwrap().file_type_thumb_dir).unwrap();
 
     // create primary data base if not exists
     block_on(db::connection::create_primary_db()).unwrap();
