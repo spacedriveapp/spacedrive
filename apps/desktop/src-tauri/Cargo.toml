@@ -34,6 +34,7 @@ cargo-edit = "0.8.0"
 sha256 = "1.0.2"
 once_cell = "1.8.0"
 int-enum = "0.4.0"
+async-std = "1.10.0"
 
 [features]
 default = [ "custom-protocol" ]
