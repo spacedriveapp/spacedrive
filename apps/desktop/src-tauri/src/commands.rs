@@ -1,6 +1,8 @@
-use std::time::Instant;
-
 use anyhow::Result;
+use futures::{
+  stream::{self, StreamExt},
+  Stream,
+};
 use sdcorelib::db::connection::db_instance;
 use sdcorelib::file::{indexer, retrieve, retrieve::Directory};
 use sdcorelib::native;
@@ -62,13 +64,29 @@ pub async fn test_scan() -> Result<(), String> {
 
 //   // ....
 // }
+
+async fn stream_reply<T: Stream<Item = sdcorelib::ClientEvent>>(window: &tauri::Window, stream: T) {
+  stream
+    .for_each(|event| async { reply(window, event) })
+    .await;
+}
+
 #[tauri::command(async)]
 pub async fn get_thumbs_for_directory(window: tauri::Window, path: &str) -> Result<(), String> {
-  let config = &sdcorelib::APP_CONFIG.get().unwrap();
-  let dir = retrieve::get_dir_with_contents(&path).await?;
-  // iterate over directory contents
-  for file in dir.contents.into_iter() {
-    let now = Instant::now();
+  let thumbs = get_thumbs_for_directory_impl(path).await;
+
+  stream_reply(&window, thumbs).await;
+
+  Ok(())
+}
+
+pub async fn get_thumbs_for_directory_impl(
+  path: &str,
+) -> impl Stream<Item = sdcorelib::ClientEvent> {
+  let dir = retrieve::get_dir_with_contents(&path).await.unwrap();
+
+  stream::iter(dir.contents.into_iter()).filter_map(|file| async {
+    let config = &sdcorelib::APP_CONFIG.get().unwrap();
     let icon_name = format!(
       "{}.png",
       if file.is_dir {
@@ -89,20 +107,16 @@ pub async fn get_thumbs_for_directory(window: tauri::Window, path: &str) -> Resu
         &icon_path,
         base64::decode(thumbnail_b64).unwrap_or_default(),
       )
-      .map_err(|_| "thumb_cache_failure")?;
+      .unwrap();
     }
-    println!("cached thumb {:?} in {:?}", file.id, now.elapsed());
 
     if !existing {
-      reply(
-        &window,
-        sdcorelib::ClientEvent::NewFileTypeThumb {
-          icon_created: true,
-          file_id: file.id,
-        },
-      )
+      Some(sdcorelib::ClientEvent::NewFileTypeThumb {
+        icon_created: true,
+        file_id: file.id,
+      })
+    } else {
+      None
     }
-  }
-
-  Ok(())
+  })
 }
