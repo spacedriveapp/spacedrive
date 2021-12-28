@@ -41,15 +41,15 @@ pub async fn configure(mut data_dir: std::path::PathBuf) {
     println!("Spacedrive daemon online");
 }
 
-pub static MAIN_WINDOW: OnceCell<tauri::window> = OnceCell::new();
-// handler to pass "callback" to OneCell intercepting the commands
-pub fn emit(kind: &str, data: &str) {
-    let _message = MAIN_WINDOW
-        .get()
-        .unwrap()
-        .emit(kind, data)
-        .map_err(|e| println!("{}", e));
-}
+// pub static MAIN_WINDOW: OnceCell<> = OnceCell::new();
+// // handler to pass "callback" to OneCell intercepting the commands
+// pub fn emit(kind: &str, data: &str) {
+//     let _message = MAIN_WINDOW
+//         .get()
+//         .unwrap()
+//         .emit(kind, data)
+//         .map_err(|e| println!("{}", e));
+// }
 
 fn main() {
     // hello!
