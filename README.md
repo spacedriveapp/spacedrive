@@ -24,9 +24,11 @@ Out of the box support for photos, movies, albums, audio, VODs, code repositorie
 - **Spacedrive Cloud** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.
 
 ## Motivation
-With a cultural boom of independent creatives there is a lack of tools to support the ever increasing amount of data accumulated. Cloud services have great features, but require your content to be *in* the cloud to benefit from them. For most creators a 50GB OBS recording is just not convenient to upload. 
+We’re in a world now where independent creatives are the new normal, our data is steadily accumulating but the tooling hasn’t caught up. Cloud services like Google Photos and iCloud have great features, beautiful UI—but you’re locked in with a very limited capacity. Many people have multiple cloud accounts, drives that aren’t backed up and collecting dust, data at risk of loss. I wanted a solution that didn’t tie me to any one provider; a photo album shouldn’t exist only in only my iCloud account, it should be universal and permanent. I believe open source technology is the solution to this, with incredibly an versatile and secure architecture we can create a uniform experience to provide control over vast amounts of data in many environments. 
 
-I believe, in the advent of web3, we need to control and own our own data portfolios, not cloud companies. One uniform way to track, organize, back-up, share, encrypt and view an unlimited amount of data, not locking into a single provider and living within their limits. 
+<!-- With a cultural boom of independent creatives there is a lack of tools to support the ever increasing amount of data accumulated. Cloud services have great features, but require your content to be *in* the cloud to benefit from them. For most creators a 50GB OBS recording is just not convenient to upload. 
+
+I believe, in the advent of web3, we need to control and own our own data portfolios, not cloud companies. One uniform way to track, organize, back-up, share, encrypt and view an unlimited amount of data, not locking into a single provider and living within their limits.  -->
 
 ## Architecture
 Spacedrive's core is written in pure Rust, with a web based Typescript React UI and native binaries to support additional functionality per platform.
