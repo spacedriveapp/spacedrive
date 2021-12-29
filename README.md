@@ -18,7 +18,7 @@
   </p>
 </p>
 
-Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. All the feature-rich benefits of the cloud but hosted, controlled and owned by you. Through a single beautifully designed cross platform interface, you can build a limitless directory of your entire digital life that will stand the test of time.
+Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. All the feature-rich benefits of the cloud but hosted, controlled and owned by you. Through a single beautifully designed cross platform interface—build a limitless directory of your entire digital life that will stand the test of time.
 
 Out of the box support for photos, movies, albums, audio, VODs, code repositories, social media backups, NFTs, screenshots, saved web pages, links and notes.
 
