@@ -41,12 +41,12 @@ It has everything you'd expect from a file explorer and more; a native photo vie
 - **Encrypted vault(s)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
 - **Key manager** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
 - **Statistics** - Statistics such as total capacity, index size, preview media size, free space etc.
-- **Jobs** - Each task a client performs, a body of work we refer to as a "job", is logged and reversible.
 - **Timeline** - View a linear timeline of content, travel to any time and see media represented visually, including overlapping content.
 - **Extensions** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.co/extensions](#).
 - **Manage redundancy** - Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.
 - **Media encoder** - Encode video and audio into various formats, use Tags to automate.
 - **Workers** - Utilize the compute power of your devices in unison to encode and perform tasks at insane speeds.
+- **Jobs** - Each task a client performs, a body of work we refer to as a "job", is logged and reversible.
 - **Self host** - Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.
 - **Spacedrive Cloud** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.
 
