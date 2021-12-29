@@ -1,5 +1,18 @@
-# Spacedrive
-<!-- Spacedrive is a cross-platform file manager that brings the convenience of the cloud to your own private network. Designed specifically for independent creatives. -->
+<p align="center">
+  <h1 align="center">Spacedrive</h1>
+  <p align="center">
+    Your private virtual cloud.
+    <br />
+    <a href="https://spacedrive.co"><strong>Learn more »</strong></a>
+    <br />
+    <br />
+    <a href="">Discord</a>
+    ·
+    <a href="https://spacedrive.co">Website</a>
+    ·
+    <a href="https://github.com/jamiepine/spacedrive/issues">Issues</a>
+  </p>
+</p>
 
 Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. The benefits of the cloud but owned and controlled by you and your network of devices. Through a single beautifully designed cross platform interface, you can build a limitless directory of your entire digital life that will stand the test of time.
 
@@ -7,8 +20,8 @@ Out of the box support for photos, movies, albums, audio, VODs, code repositorie
 
 ## Features
 - **File indexing** - Scan your devices, drives, removable storage and cloud accounts to build a virtual "yellow pages" directory of all your data.
-- **Realtime synchronization** - Sync data between devices securely in realtime.
-- **Photos** - Beautiful photo and video albums similar to Apple/Google photos.
+- **Realtime synchronization** - Sync database in realtime between devices, securely.
+- **Photos** - Photo and video albums similar to Apple/Google photos.
 - **Search** - Search your entire index at the press of a keybind, including offline devices, drives and clouds.
 - **Cloud integration** - Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
 - **Encrypted vault(s)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
