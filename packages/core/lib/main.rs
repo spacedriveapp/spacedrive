@@ -31,6 +31,7 @@ pub struct Core {
 #[ts(export)]
 pub enum ClientEvent {
     NewFileTypeThumb { file_id: u32, icon_created: bool },
+    NewJobCreated { job_id: u32, progress: u8 },
 }
 
 pub static CORE: OnceCell<Core> = OnceCell::new();
@@ -40,6 +41,7 @@ pub fn get_core_config() -> &'static CoreConfig {
 }
 
 pub async fn core_send(event: ClientEvent) {
+    println!("Core Event: {:?}", event);
     CORE.get()
         .unwrap()
         .event_channel_sender
