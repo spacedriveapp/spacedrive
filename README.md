@@ -7,7 +7,7 @@ Out of the box support for photos, movies, albums, audio, VODs, code repositorie
 
 ## Features
 - **File indexing** - Scan your devices, drives, removable storage and cloud accounts to build a virtual "yellow pages" directory of all your data.
-- **Realtime synchronization** - sync data between devices securely in realtime.
+- **Realtime synchronization** - Sync data between devices securely in realtime.
 - **Photos** - Beautiful photo and video albums similar to Apple/Google photos.
 - **Search** - Search your entire index at the press of a keybind, including offline devices, drives and clouds.
 - **Cloud integration** - Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
