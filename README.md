@@ -5,7 +5,7 @@
   </a>
   <h2 align="center">Spacedrive</h2>
   <p align="center">
-    Your private virtual cloud.
+    Your virtual private cloud.
     <br />
     <a href="https://spacedrive.co"><strong>Learn more »</strong></a>
     <br />
@@ -26,20 +26,20 @@
   </p>
 </p>
 
-Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. All the feature-rich benefits of the cloud, but owned and hosted by you. With a beautifully designed cross-platform interface, create a limitless directory of your entire digital life that will stand the test of time.
+Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. All the feature-rich benefits of the cloud, but owned and hosted by you. With a thoughtfully crafted cross-platform interface, create a limitless directory of your entire digital life that will stand the test of time.
 
-Out of the box support for photo, video, audio, albums, VODs, git repositories, social media backups, NFTs, screenshots, saved web pages, links and notes.
+It has everything you'd expect from a file explorer and more; a native photo viewer, video and audio player, support for VODs, git repositories, social media backups, NFTs, screenshots, saved web pages, links, and notes. Community extensions can even add support for different filetypes.
 
 ## Features
 - **File indexing** - Scan your devices, drives, removable storage and cloud accounts to build a virtual "yellow pages" directory of all your data.
 - **Realtime synchronization** - Sync database in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).
 - **Photos** - Photo and video albums similar to Apple/Google photos.
-- **Search** - Search your entire index at the press of a keybind, including offline devices, drives and clouds.
+- **Search** - Search deep into your filesystem, including offline devices, with a custom keybind.
 - **Cloud integration** - Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
-- **Encrypted vault(s)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
-- **Key manager** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
 - **Smart tags** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
 - **Spaces** - A collection of files organized visually and shareable as public web pages with a Spacedrive account.
+- **Encrypted vault(s)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
+- **Key manager** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
 - **Statistics** - Statistics such as total capacity, index size, preview media size, free space etc.
 - **Jobs** - Each task a client performs, a body of work we refer to as a "job", is logged and reversible.
 - **Timeline** - View a linear timeline of content, travel to any time and see media represented visually, including overlapping content.
