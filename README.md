@@ -14,7 +14,7 @@
   </p>
 </p>
 
-Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. The benefits of the cloud but owned and controlled by you and your network of devices. Through a single beautifully designed cross platform interface, you can build a limitless directory of your entire digital life that will stand the test of time.
+Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. The benefits of the cloud but owned and controlled by you Through a single beautifully designed cross platform interface, you can build a limitless directory of your entire digital life that will stand the test of time.
 
 Out of the box support for photos, movies, albums, audio, VODs, code repositories, social media backups, NFTs, screenshots, saved web pages, links and notes.
 
@@ -33,6 +33,7 @@ Out of the box support for photos, movies, albums, audio, VODs, code repositorie
 - **Extensions** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.co/extensions](#).
 - **Manage redundancy** - Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.
 - **Media encoder** - Encode video and audio into various formats, use Tags to automate.
+- **Workers** - Utilize the compute power of your devices in unison to encode and perform tasks at insane speeds.
 - **Self host** - Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.
 - **Spacedrive Cloud** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.
 
