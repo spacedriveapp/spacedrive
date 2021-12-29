@@ -18,13 +18,13 @@
   </p>
 </p>
 
-Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. All the feature-rich benefits of the cloud but hosted, controlled and owned by you. Through a beautifully designed cross platform interface, build a limitless directory of your entire digital life that will stand the test of time.
+Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices **combined**. All the feature-rich benefits of the cloud, but owned and hosted by you. With a beautifully designed cross-platform interface, create a limitless directory of your entire digital life that will stand the test of time.
 
 Out of the box support for photos, movies, albums, audio, VODs, code repositories, social media backups, NFTs, screenshots, saved web pages, links and notes.
 
 ## Features
 - **File indexing** - Scan your devices, drives, removable storage and cloud accounts to build a virtual "yellow pages" directory of all your data.
-- **Realtime synchronization** - Sync database in realtime between devices, securely.
+- **Realtime synchronization** - Sync database in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).
 - **Photos** - Photo and video albums similar to Apple/Google photos.
 - **Search** - Search your entire index at the press of a keybind, including offline devices, drives and clouds.
 - **Cloud integration** - Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
@@ -32,7 +32,8 @@ Out of the box support for photos, movies, albums, audio, VODs, code repositorie
 - **Key manager** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
 - **Smart tags** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
 - **Spaces** - A collection of files organized visually and shareable as public web pages with a Spacedrive account.
-- **Statistics** - View statistics such as total capacity, index size, preview media size, free space—to name a few.
+- **Statistics** - Statistics such as total capacity, index size, preview media size, free space etc.
+- **Jobs** - Each task a client performs, a body of work we refer to as a "job", is logged and reversible.
 - **Timeline** - View a linear timeline of content, travel to any time and see media represented visually, including overlapping content.
 - **Extensions** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.co/extensions](#).
 - **Manage redundancy** - Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.
@@ -49,7 +50,7 @@ Independent creatives are the new normal, our data is steadily accumulating in t
 I believe, in the advent of web3, we need to control and own our own data portfolios, not cloud companies. One uniform way to track, organize, back-up, share, encrypt and view an unlimited amount of data, not locking into a single provider and living within their limits.  -->
 
 ## Architecture
-Spacedrive's core is written in pure Rust, with a web based Typescript React UI and native binaries to support additional functionality per platform.
+Spacedrive's core (`sdcorelib`) is written in pure Rust, using the Tauri framework to embed a React app in a native browser window for UI. The mobile app is React Native, with `sdcorelib` embedded as a native binary. 
 
 ## Apps
 - `desktop`: a [Tauri](https://nextjs.org) app
