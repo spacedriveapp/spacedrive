@@ -24,8 +24,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 
   return (
     <div className="flex flex-col w-full h-full p-5 bg-white dark:bg-gray-900">
-      <h1 className="text-xl font-bold ">Jamie's Library</h1>
-      <div className="flex flex-wrap mt-3 space-x-2">
+      <div className="flex flex-wrap space-x-2">
         <StatItem name="Total capacity" value="26.5" unit="TB" />
         <StatItem name="Index size" value="103" unit="MB" />
         <StatItem name="Preview media" value="23.5" unit="GB" />

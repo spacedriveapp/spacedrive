@@ -1,9 +1,8 @@
 use anyhow::Result;
-use futures::{stream::StreamExt, Stream};
 use sdcorelib::{
   core_send_stream,
   db::connection::db_instance,
-  file::{icon, indexer, retrieve, retrieve::Directory},
+  file::{icon, indexer, retrieve, retrieve::Directory, watcher::watch_dir},
   get_core_config, native, CoreConfig,
 };
 use swift_rs::types::SRObjectArray;
@@ -46,6 +45,13 @@ pub async fn test_scan() -> Result<(), String> {
 #[tauri::command(async)]
 pub async fn get_thumbs_for_directory(path: &str) -> Result<(), String> {
   core_send_stream(icon::get_thumbs_for_directory(path).await).await;
+
+  Ok(())
+}
+#[tauri::command(async)]
+pub async fn start_watcher(path: &str) -> Result<(), String> {
+  println!("starting watcher for: {:?}", path);
+  watch_dir(&path).await;
 
   Ok(())
 }

@@ -87,18 +87,16 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
 
     event_receiver
 }
+// println!("Spacedrive test");
+// use crate::file::watcher::watch_dir;
+// use std::{thread, time};
+// watch_dir("/Users/jamie/Downloads/");
+// let duration = time::Duration::from_secs(500);
+// let now = time::Instant::now();
+// thread::sleep(duration);
+// assert!(now.elapsed() >= duration);
 
-// pub static MAIN_WINDOW: OnceCell<> = OnceCell::new();
-// // handler to pass "callback" to OneCell intercepting the commands
-// pub fn emit(kind: &str, data: &str) {
-//     let _message = MAIN_WINDOW
-//         .get()
-//         .unwrap()
-//         .emit(kind, data)
-//         .map_err(|e| println!("{}", e));
-// }
-
-fn main() {
+pub fn main() {
     // hello!
     println!("Hello, world!");
 }
