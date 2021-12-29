@@ -28,6 +28,7 @@ fn main() {
       commands::get_mounts,
       commands::test_scan,
       commands::get_thumbs_for_directory,
+      commands::start_watcher,
     ])
     .menu(menu::get_menu())
     .run(tauri::generate_context!())

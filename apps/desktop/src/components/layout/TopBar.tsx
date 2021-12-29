@@ -19,6 +19,7 @@ import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { appWindow } from '@tauri-apps/api/window';
 import { HeartIcon } from '@heroicons/react/solid';
+import { invoke } from '@tauri-apps/api';
 
 export interface TopBarProps extends DefaultProps {}
 export interface TopBarButtonProps extends ButtonProps {
@@ -91,7 +92,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
         <div className="flex mx-8 space-x-2">
           <TopBarButton icon={Key} />
           <TopBarButton icon={Cloud} />
-          <TopBarButton icon={ArrowsLeftRight} />
+          <TopBarButton icon={ArrowsLeftRight} onClick={() => invoke("start_watcher", { path: "/Users/jamie/Downloads"})} />
         </div>
         <div className="flex-grow"></div>
         <div className="flex-grow"></div>

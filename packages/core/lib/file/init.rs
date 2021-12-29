@@ -41,5 +41,6 @@ pub async fn init_library() -> Result<()> {
     } else {
         // println!("library loaded {:?}", library.unwrap());
     };
+
     Ok(())
 }
