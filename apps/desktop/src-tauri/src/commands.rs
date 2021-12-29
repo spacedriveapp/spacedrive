@@ -48,10 +48,10 @@ pub async fn get_thumbs_for_directory(path: &str) -> Result<(), String> {
 
   Ok(())
 }
-#[tauri::command(async)]
+#[tauri::command]
 pub async fn start_watcher(path: &str) -> Result<(), String> {
   println!("starting watcher for: {:?}", path);
-  watch_dir(&path).await;
+  watch_dir(&path);
 
   Ok(())
 }

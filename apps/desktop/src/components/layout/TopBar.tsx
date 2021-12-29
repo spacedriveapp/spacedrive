@@ -92,7 +92,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
         <div className="flex mx-8 space-x-2">
           <TopBarButton icon={Key} />
           <TopBarButton icon={Cloud} />
-          <TopBarButton icon={ArrowsLeftRight} onClick={() => invoke("start_watcher", { path: "/Users/jamie/Downloads"})} />
+          <TopBarButton icon={ArrowsLeftRight} onClick={() => invoke("start_watcher", { path: "/Users/jamie"})} />
         </div>
         <div className="flex-grow"></div>
         <div className="flex-grow"></div>

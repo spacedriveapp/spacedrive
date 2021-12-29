@@ -1,14 +1,25 @@
 use std::path::Path;
 
-use hotwatch::{Event, Hotwatch};
+use hotwatch::{
+    blocking::{Flow, Hotwatch},
+    Event,
+};
 
-pub async fn watch_dir(path: &str) {
-    let mut watcher = Hotwatch::new().expect("hotwatch failed to initialize!");
+pub fn watch_dir(path: &str) {
+    let mut hotwatch = Hotwatch::new().expect("hotwatch failed to initialize!");
+    hotwatch
+        .watch(&path, |event: Event| {
+            if let Event::Write(path) = event {
+                println!("{:?} changed!", path);
+                // Flow::Exit
+                Flow::Continue
+            } else {
+                Flow::Continue
+            }
+        })
+        .expect("failed to watch file!");
 
-    watcher.watch(Path::new(path), move |event: Event| {
-        println!("hotwatch event: {:?}", event);
-    });
-    // .expect(format!("failed to watch directory {}", &path).as_str());
+    hotwatch.run();
 
     println!("watching directory {:?}", Path::new(&path));
 }
