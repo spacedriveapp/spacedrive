@@ -18,7 +18,7 @@
   </p>
 </p>
 
-Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. The benefits of the cloud but owned and controlled by you Through a single beautifully designed cross platform interface, you can build a limitless directory of your entire digital life that will stand the test of time.
+Spacedrive is a privacy-first, open source, virtual filesystem powered by your devices combined. All the feature-rich benefits of the cloud but hosted, controlled and owned by you. Through a single beautifully designed cross platform interface, you can build a limitless directory of your entire digital life that will stand the test of time.
 
 Out of the box support for photos, movies, albums, audio, VODs, code repositories, social media backups, NFTs, screenshots, saved web pages, links and notes.
 
@@ -42,7 +42,7 @@ Out of the box support for photos, movies, albums, audio, VODs, code repositorie
 - **Spacedrive Cloud** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.
 
 ## Motivation
-We’re in a world now where independent creatives are the new normal, our data is steadily accumulating but the tooling hasn’t caught up. Cloud services like Google Photos and iCloud have great features, beautiful UI—but you’re locked in with a very limited capacity. Many people have multiple cloud accounts, drives that aren’t backed up and collecting dust, data at risk of loss. I wanted a solution that didn’t tie me to any one provider; a photo album shouldn’t exist only in only my iCloud account, it should be universal and permanent. I believe open source technology is the solution to this, with incredibly an versatile and secure architecture we can create a uniform experience to provide control over vast amounts of data in many environments. 
+Independent creatives are the new normal, our data is steadily accumulating in the terabytes but the infrastructure hasn’t caught up. Cloud services like Google Photos and iCloud have great features, beautiful UI—but you’re locked in with a very limited capacity. Many people have multiple cloud accounts, drives that aren’t backed up and collecting dust, data at risk of loss. I don't want to be tied to any one cloud provider; a photo album shouldn’t exist only in only my iCloud account, it should be universal and permanent. I believe open source technology is the solution to this, with incredibly an versatile and secure architecture we can create a uniform experience to provide control over vast amounts of data in many environments. 
 
 <!-- With a cultural boom of independent creatives there is a lack of tools to support the ever increasing amount of data accumulated. Cloud services have great features, but require your content to be *in* the cloud to benefit from them. For most creators a 50GB OBS recording is just not convenient to upload. 
 
