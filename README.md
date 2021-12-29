@@ -13,7 +13,7 @@ Out of the box support for photos, movies, albums, audio, VODs, code repositorie
 - **Cloud integration** - Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
 - **Encrypted vault(s)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
 - **Key manager** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
-- **Smart tags** - Define routines on tags to automate workflows.
+- **Smart tags** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
 - **Spaces** - A collection of files organized visually and shareable as public web pages with a Spacedrive account.
 - **Statistics** - View statistics such as total capacity, index size, preview media size, free space—to name a few.
 - **Timeline** - View a linear timeline of content, travel to any time and see media represented visually, including overlapping content.
