@@ -1,5 +1,9 @@
 <p align="center">
-  <h1 align="center">Spacedrive</h1>
+  <a href="#">
+    <img src="https://cdn.discordapp.com/attachments/795140682247307277/925649615867498516/CleanShot_2021-12-28_at_23.19.592x.png" alt="Logo">
+    
+  </a>
+  <h2 align="center">Spacedrive</h2>
   <p align="center">
     Your private virtual cloud.
     <br />
