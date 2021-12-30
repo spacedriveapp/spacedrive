@@ -1,4 +1,5 @@
 pub mod checksum;
+pub mod client;
 pub mod icon;
 pub mod indexer;
 pub mod init;

@@ -17,6 +17,7 @@ path = "lib/main.rs"
 [dependencies]
 swift-rs = "0.2.3"
 hotwatch = "0.4.6"
+hostname = "0.3.1"
 # Universal Dependencies
 anyhow = "1.0.44"
 log = "0.4.14"

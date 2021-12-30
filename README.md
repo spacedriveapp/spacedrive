@@ -5,7 +5,7 @@
   </a>
   <h2 align="center">Spacedrive</h2>
   <p align="center">
-    Your virtual private cloud.
+    Your personal virtual cloud.
     <br />
     <a href="https://spacedrive.co"><strong>Learn more »</strong></a>
     <br />
@@ -26,7 +26,7 @@
   </p>
 </p>
 
-Spacedrive is an open source, privacy focused, virtual filesystem powered collectively by your daily devices. With all the feature-rich benefits of the cloud, but owned and hosted by you instead. Using a thoughtfully crafted, cross-platform UI, create a limitless directory of your digital life that will stand the test of time.
+Spacedrive is an open source virtual filesystem, a local personal cloud powered by your everyday devices. Feature-rich benefits of the cloud; only its owned and hosted by _you_ with security and privacy at the core. Spacedrive makes it possible to create a limitless directory of your digital life that will stand the test of time.
 
 It has everything you'd expect from a file explorer and more; a native photo viewer, video and audio player, support for VODs, git repositories, social media backups, NFTs, screenshots, saved web pages, links, and notes. Community extensions can add support for different filetypes and tailored file viewers.
 

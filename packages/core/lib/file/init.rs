@@ -1,4 +1,4 @@
-use crate::db::{connection, entity::library};
+use crate::db::{connection::db_instance, entity::library};
 use anyhow::{bail, Result};
 use sea_orm::{entity::*, DatabaseConnection, QueryFilter};
 use strum::Display;
@@ -24,7 +24,7 @@ pub async fn get_primary_library(db: &DatabaseConnection) -> Result<library::Mod
 }
 
 pub async fn init_library() -> Result<()> {
-    let db = connection::get_connection().await?;
+    let db = db_instance().await.unwrap();
 
     let library = get_primary_library(&db).await;
     // if no library create one now
@@ -35,7 +35,7 @@ pub async fn init_library() -> Result<()> {
             ..Default::default()
         };
 
-        let library = library.save(&db).await?;
+        let library = library.save(db).await?;
 
         println!("created library {:?}", &library);
     } else {

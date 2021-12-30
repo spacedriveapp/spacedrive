@@ -40,7 +40,7 @@ pub async fn get_dir_with_contents(path: &str) -> Result<Directory, String> {
     })
 }
 
-pub async fn get_directory(path: &str) {
-    // 1. search db for path
-    // 2. get directory shallow
-}
+// pub async fn get_directory(path: &str) {
+//     // 1. search db for path
+//     // 2. get directory shallow
+// }

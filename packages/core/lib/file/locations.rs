@@ -37,8 +37,8 @@ pub async fn create_location(path: &str) -> Result<()> {
         .one(db)
         .await
     {
-        Ok(location) => location.map_or(0, |location| location.id + 1),
-        Err(_) => 0,
+        Ok(location) => location.map_or(1, |location| location.id + 1),
+        Err(_) => 1,
     };
 
     let location = locations::ActiveModel {

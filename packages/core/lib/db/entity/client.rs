@@ -30,14 +30,16 @@ pub struct Model {
 #[ts(export)]
 pub enum Platform {
     #[sea_orm(num_value = 0)]
-    MacOs,
+    Unknown,
     #[sea_orm(num_value = 1)]
-    Windows,
+    MacOS,
     #[sea_orm(num_value = 2)]
-    Linux,
+    Windows,
     #[sea_orm(num_value = 3)]
-    IOS,
+    Linux,
     #[sea_orm(num_value = 4)]
+    IOS,
+    #[sea_orm(num_value = 5)]
     Android,
 }
 
