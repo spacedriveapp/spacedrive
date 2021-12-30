@@ -4,26 +4,28 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 // -------------------------------------
-// Entity: StorageDevice
+// Entity: Location
 // Represents a folder, drive or cloud
 // Two can exist on the same volume, but not on the same path or intersecting paths
 // We can create suggestions for these, such as Macintosh HD, Windows C presets, etc.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, DeriveEntityModel, Default, TS)]
-#[sea_orm(table_name = "storage_devices")]
-#[serde(rename = "StorageDevice")]
+#[sea_orm(table_name = "locations")]
+#[serde(rename = "Location")]
 #[ts(export)]
 // -------------------------------------
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u32,
     pub name: String,
-    pub path: String,
+    pub path: String, // C:\ or /Volumes/MyDrive
     pub total_capacity: u32,
     pub available_capacity: u32,
     pub is_removable: bool,
     pub is_ejectable: bool,
     pub is_root_filesystem: bool,
     pub is_online: bool,
+    pub library_id: String,
+    pub client_id: String,
 
     pub watch_active: bool,
     #[ts(type = "string")]
@@ -33,6 +35,19 @@ pub struct Model {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::library::Entity",
+        from = "Column::LibraryId",
+        to = "super::library::Column::Id"
+    )]
+    Library,
+    #[sea_orm(
+        belongs_to = "super::client::Entity",
+        from = "Column::ClientId",
+        to = "super::client::Column::Id"
+    )]
+    Client,
+}
 
 impl ActiveModelBehavior for ActiveModel {}

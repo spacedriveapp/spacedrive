@@ -34,6 +34,7 @@ It has everything you'd expect from a file explorer and more; a native photo vie
 - **File indexing** - Scan your devices, drives, removable storage and cloud accounts to build a virtual "yellow pages" directory of all your data.
 - **Realtime synchronization** - Sync database in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).
 - **Photos** - Photo and video albums similar to Apple/Google photos.
+- **Preview generation** - Auto generate lower resolution stand-ins for image and video, 
 - **Search** - Search deep into your filesystem, including offline devices, with a custom keybind.
 - **Cloud integration** - Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
 - **Smart tags** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
