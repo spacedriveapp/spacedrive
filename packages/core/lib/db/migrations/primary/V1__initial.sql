@@ -14,11 +14,11 @@ CREATE TABLE IF NOT EXISTS libraries (
 CREATE TABLE IF NOT EXISTS clients (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	name TEXT NOT NULL,
-	platform INTEGER DEFAULT 0,
-	online BOOLEAN,
+	platform INTEGER NOT NULL DEFAULT 0,
+	online BOOLEAN DEFAULT TRUE,
 	last_seen DATE NOT NULL DEFAULT (datetime('now')),
 	timezone TEXT,
-	date_created DATE NOT NULL DEFAULT (datetime('now')),
+	date_created DATE NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS locations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,

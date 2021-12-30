@@ -1,25 +1,12 @@
-use crate::db::connection::DB_INSTANCE;
-use crate::db::entity::file;
+use crate::db::{connection::DB_INSTANCE, entity::file};
 use crate::file::{checksum::create_meta_checksum, init};
 use crate::util::time;
 use anyhow::Result;
 use chrono::Utc;
-use sea_orm::QueryTrait;
-use sea_orm::{entity::*, DatabaseBackend, QueryFilter};
-// use sea_orm::ActiveModelTrait;
-// use sea_orm::QueryFilter;
-use futures::{
-    stream::{self, StreamExt},
-    Stream,
-};
-use sea_orm::ConnectionTrait;
-use sea_orm::QueryOrder;
-use std::collections::HashMap;
-use std::ffi::OsStr;
-use std::path::Path;
-use std::time::Instant;
-use std::{fs, path::PathBuf};
+use sea_orm::{entity::*, QueryOrder};
+use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant};
 use walkdir::{DirEntry, WalkDir};
+
 // creates a vector of valid path buffers from a directory
 pub async fn scan(path: &str) -> Result<()> {
     println!("Scanning directory: {}", &path);
@@ -147,15 +134,19 @@ fn create_active_file_model(
     let mut meta_checksum = create_meta_checksum(uri.to_str().unwrap_or_default(), size)?;
     meta_checksum.truncate(20);
 
-    let location_relative_uri = format!(
-        "/{}",
-        uri.to_str()
-            .unwrap()
-            .split(location_path)
-            .last()
-            .unwrap()
-            .to_owned()
-    );
+    let mut location_relative_uri = uri
+        .to_str()
+        .unwrap()
+        .split(location_path)
+        .last()
+        .unwrap()
+        .to_owned();
+
+    // if location_relative_uri is empty String return "/"
+    location_relative_uri = match location_relative_uri.is_empty() {
+        true => "/".to_owned(),
+        false => location_relative_uri,
+    };
 
     Ok(file::ActiveModel {
         id: Set(*id),
