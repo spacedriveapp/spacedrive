@@ -12,13 +12,13 @@ use swift_rs::types::{SRObjectArray, SRString};
 #[derive(Serialize)]
 #[repr(C)]
 pub struct Mount {
-    name: SRString,
-    path: SRString,
-    total_capacity: usize,
-    available_capacity: usize,
-    is_removable: bool,
-    is_ejectable: bool,
-    is_root_filesystem: bool,
+    pub name: SRString,
+    pub path: SRString,
+    pub total_capacity: usize,
+    pub available_capacity: usize,
+    pub is_removable: bool,
+    pub is_ejectable: bool,
+    pub is_root_filesystem: bool,
 }
 
 pub fn get_file_thumbnail_base64(path: &str) -> SRString {

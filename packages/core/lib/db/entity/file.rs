@@ -39,7 +39,7 @@ pub struct Model {
     pub ipfs_id: Option<String>,
 
     #[sea_orm(nullable)]
-    pub storage_device_id: Option<u32>,
+    pub location_id: Option<u32>,
 
     #[sea_orm(nullable)]
     pub capture_device_id: Option<u32>,
@@ -72,9 +72,9 @@ pub enum Relation {
     Library,
 
     #[sea_orm(
-        belongs_to = "super::storage_device::Entity",
-        from = "Column::StorageDeviceId",
-        to = "super::storage_device::Column::Id"
+        belongs_to = "super::locations::Entity",
+        from = "Column::LocationId",
+        to = "super::locations::Column::Id"
     )]
     StorageDevice,
 
