@@ -85,6 +85,11 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
 
     println!("Spacedrive daemon online");
 
+    // env_logger::builder()
+    //     .filter_level(log::LevelFilter::Debug)
+    //     .is_test(true)
+    //     .init();
+
     event_receiver
 }
 // println!("Spacedrive test");
