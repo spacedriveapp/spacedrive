@@ -56,17 +56,18 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-50 pl-3 rounded-tr-2xl  items-center border-b bg-gray-50 dark:bg-gray-750 border-gray-100 dark:border-gray-600 !bg-opacity-60 backdrop-blur shadow-xl"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-50 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-850 !bg-opacity-60 backdrop-blur"
       >
-        
-        <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
-        <TopBarButton icon={ChevronRightIcon} />
+        <div className="">
+          <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
+          <TopBarButton icon={ChevronRightIcon} />
+        </div>
         {/* <div className="flex mx-8 space-x-[1px]">
           <TopBarButton active group left icon={List} />
           <TopBarButton group icon={Columns} />
           <TopBarButton group right icon={SquaresFour} />
         </div> */}
-        <div className="flex-grow"></div>
+        <div className="flex flex-row justify-center flex-grow">
         <div className="flex mx-8 space-x-2">
           <TopBarButton icon={Tag} />
           <TopBarButton icon={FolderPlus} />
@@ -87,8 +88,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           <TopBarButton icon={Cloud} />
           <TopBarButton icon={ArrowsLeftRight} onClick={() => invoke("start_watcher", { path: "/Users/jamie"})} />
         </div>
-        <div className="flex-grow"></div>
-        <div className="flex-grow"></div>
+        </div>
         <TopBarButton className="mr-[8px]" icon={CogIcon} />
       </div>
       {/* <div className="h-[1px] flex-shrink-0 max-w bg-gray-200 dark:bg-gray-700" /> */}

@@ -1,6 +1,6 @@
 <p align="center">
   <a href="#">
-    <img src="https://cdn.discordapp.com/attachments/795140682247307277/925649615867498516/CleanShot_2021-12-28_at_23.19.592x.png" alt="Logo">
+    <img src="./apps/desktop/src/assets/images/spacedrive_screenshot.png" alt="Logo">
     
   </a>
   <h2 align="center">Spacedrive</h2>

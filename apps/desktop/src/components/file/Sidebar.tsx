@@ -62,7 +62,7 @@ const Heading: React.FC<{}> = ({ children }) => (
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const locations = useLocations();
   return (
-    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-950 !bg-opacity-60  border-gray-100 border-r dark:border-gray-600 px-3 py-1">
+    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-950 !bg-opacity-60  border-gray-100 border-r dark:border-gray-950 px-3 py-1">
       <div className="mt-2 mb-1 -ml-1">
           <TrafficLights
             onClose={appWindow.close}
