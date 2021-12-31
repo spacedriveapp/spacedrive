@@ -16,7 +16,7 @@ pub struct Model {
     pub id: u32,
     pub path: String,
     pub rule: PathRule,
-    pub location_id: String,
+    pub location_id: u32,
     #[ts(type = "string")]
     pub date_created: Option<NaiveDateTime>,
     #[ts(type = "string")]
@@ -40,7 +40,7 @@ pub enum Relation {
         from = "Column::LocationId",
         to = "super::locations::Column::Id"
     )]
-    Library,
+    Locations,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

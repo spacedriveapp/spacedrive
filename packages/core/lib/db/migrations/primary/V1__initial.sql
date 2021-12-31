@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS locations (
 	is_ejectable BOOLEAN NOT NULL DEFAULT TRUE,
 	is_root_filesystem BOOLEAN NOT NULL DEFAULT TRUE,
 	is_online BOOLEAN NOT NULL DEFAULT TRUE,
-	watch_active BOOLEAN NOT NULL DEFAULT TRUE,
 	date_created DATE NOT NULL DEFAULT (datetime('now')),
 	last_indexed DATE NOT NULL DEFAULT (datetime('now'))
 );

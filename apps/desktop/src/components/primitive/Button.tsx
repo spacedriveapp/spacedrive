@@ -15,14 +15,14 @@ const variants = {
     hover:bg-gray-100 
     active:bg-gray-50  
     dark:bg-gray-650
-    dark:hover:bg-gray-650
+    dark:hover:bg-gray-600
     dark:active:bg-gray-700
     dark:active:opacity-80
     
     border-gray-100 
     hover:border-gray-200
     active:border-gray-200
-    dark:border-gray-700 
+    dark:border-gray-600 
     dark:active:border-gray-600 
     dark:hover:border-gray-600
 

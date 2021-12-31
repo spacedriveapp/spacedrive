@@ -10,6 +10,7 @@ import {
   PlusIcon,
   ServerIcon
 } from '@heroicons/react/solid';
+import { appWindow } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import {
   Book,
@@ -30,6 +31,7 @@ import {
 import React, { useEffect } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useLocations } from '../../store/locations';
+import { TrafficLights } from '../os/TrafficLights';
 import { Button } from '../primitive';
 import { Dropdown } from '../primitive/Dropdown';
 import { DefaultProps } from '../primitive/types';
@@ -60,12 +62,29 @@ const Heading: React.FC<{}> = ({ children }) => (
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const locations = useLocations();
   return (
-    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-650 !bg-opacity-60  border-gray-100 border-r dark:border-gray-600 px-3 py-1">
+    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-950 !bg-opacity-60  border-gray-100 border-r dark:border-gray-600 px-3 py-1">
+      <div className="mt-2 mb-1 -ml-1">
+          <TrafficLights
+            onClose={appWindow.close}
+            onFullscreen={appWindow.maximize}
+            onMinimize={appWindow.minimize}
+            className="p-1.5"
+          />
+        </div>
       <Dropdown
         buttonProps={{
           justifyLeft: true,
           className:
-            'mb-1 rounded !bg-gray-50 border-gray-150 hover:!bg-gray-1000 flex-shrink-0 w-[175px] dark:!bg-gray-600 dark:hover:!bg-gray-550 dark:!border-gray-550 dark:hover:!border-gray-500',
+            `mb-1 shadow-xs rounded flex-shrink-0 w-[175px] 
+            !bg-gray-50 
+            border-gray-150 
+            hover:!bg-gray-1000 
+            
+            dark:!bg-gray-650 
+            dark:hover:!bg-gray-550
+
+            dark:!border-gray-600 
+            dark:hover:!border-gray-500`,
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
