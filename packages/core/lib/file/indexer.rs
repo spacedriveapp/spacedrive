@@ -1,11 +1,34 @@
-use crate::db::{connection::DB_INSTANCE, entity::file};
+use crate::db::{connection::DB_INSTANCE, entity::file, entity::location_paths, entity::locations};
 use crate::file::{checksum::create_meta_checksum, init};
 use crate::util::time;
 use anyhow::Result;
 use chrono::Utc;
+use sea_orm::QueryFilter;
 use sea_orm::{entity::*, QueryOrder};
 use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant};
 use walkdir::{DirEntry, WalkDir};
+
+use super::locations::get_location_and_paths;
+use super::watcher::watch_dir;
+
+pub async fn scan_paths(location_id: u32) -> Result<()> {
+    // get location by location_id from db and include location_paths
+    let (_location, location_paths) = get_location_and_paths(location_id).await?;
+
+    // loop over and scan() paths
+    if !location_paths.is_empty() {
+        for location_path in location_paths {
+            if location_path.rule != location_paths::PathRule::Exclude {
+                scan(&location_path.path).await?;
+            }
+            if location_path.rule != location_paths::PathRule::NoWatch {
+                watch_dir(&location_path.path);
+            }
+        }
+    }
+
+    Ok(())
+}
 
 // creates a vector of valid path buffers from a directory
 pub async fn scan(path: &str) -> Result<()> {

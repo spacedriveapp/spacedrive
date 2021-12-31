@@ -56,16 +56,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-50 rounded-t-2xl flex-shrink-0 items-center border-b bg-gray-50 dark:bg-gray-650 border-gray-100 dark:border-gray-600 !bg-opacity-60 backdrop-blur "
+        className="flex h-[2.95rem] -mt-0.5 max-w z-50 pl-3 rounded-tr-2xl  items-center border-b bg-gray-50 dark:bg-gray-750 border-gray-100 dark:border-gray-600 !bg-opacity-60 backdrop-blur shadow-xl"
       >
-        <div className="ml-1 mr-32">
-          <TrafficLights
-            onClose={appWindow.close}
-            onFullscreen={appWindow.maximize}
-            onMinimize={appWindow.minimize}
-            className="p-1.5"
-          />
-        </div>
+        
         <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
         <TopBarButton icon={ChevronRightIcon} />
         {/* <div className="flex mx-8 space-x-[1px]">
@@ -82,7 +75,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
         <div className="relative flex h-7">
           <input
             placeholder="Search"
-            className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-500 bg-gray-50 border border-gray-250 dark:bg-gray-700 dark:border-gray-600 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
+            className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-500 bg-gray-50 border border-gray-250 dark:bg-gray-850 dark:border-gray-600 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
           />
           <div className="space-x-1 absolute top-[2px] right-1">
             <Shortcut chars="⌘S" />

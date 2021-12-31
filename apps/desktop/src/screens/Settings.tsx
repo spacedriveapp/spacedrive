@@ -26,7 +26,7 @@ const config = useAppState()
   ]);
 
   return (
-    <div className='bg-gray-900'>
+    <div className=''>
       <div className="px-5">
         {/* <FileList files={dummyIFile} /> */}
         {/* <Spline scene={WINDOWS_SCENE} /> */}

@@ -61,12 +61,12 @@ export default function App() {
       }}
     >
       <Router>
-        <div className="flex flex-col h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none rounded-xl dark:border-gray-550 dark:text-white dark:bg-gray-800">
+        <div className="flex flex-row h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none rounded-xl dark:border-gray-500 dark:text-white dark:bg-gray-750">
           <DebugGlobalStore />
+          <Sidebar />
+          <div className="flex flex-col w-full min-h-full">
           <TopBar />
-          <div className="flex flex-row min-h-full">
-            <Sidebar />
-            <div className="relative flex w-full bg-white dark:bg-gray-800">
+            <div className="relative flex w-full">
               <Switch>
                 <Route exact path="/">
                   <Redirect to="/explorer" />

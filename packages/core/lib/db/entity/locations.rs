@@ -24,10 +24,9 @@ pub struct Model {
     pub is_ejectable: bool,
     pub is_root_filesystem: bool,
     pub is_online: bool,
-    pub library_id: String,
-    pub client_id: String,
+    pub library_id: u32,
+    pub client_id: u32,
 
-    pub watch_active: bool,
     #[ts(type = "string")]
     pub date_created: Option<NaiveDateTime>,
     #[ts(type = "string")]
@@ -48,6 +47,9 @@ pub enum Relation {
         to = "super::client::Column::Id"
     )]
     Client,
+    // TODO: fix??????
+    // #[sea_orm(has_many = "super::location_paths::Entity")]
+    // LocationPaths,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

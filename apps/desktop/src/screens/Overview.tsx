@@ -10,7 +10,7 @@ interface StatItemProps {
 
 const StatItem: React.FC<StatItemProps> = (props) => {
   return (
-    <div className="flex flex-col p-4 mt-2 rounded-md bg-gray-50 dark:bg-gray-800">
+    <div className="flex flex-col p-4 mt-2 rounded-md bg-gray-50 dark:bg-gray-650">
       <span className="text-sm text-gray-400">{props.name}</span>
       <span className="text-2xl font-bold">
         {props.value}
@@ -23,7 +23,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 export const OverviewScreen: React.FC<{}> = (props) => {
 
   return (
-    <div className="flex flex-col w-full h-full p-5 bg-white dark:bg-gray-900">
+    <div className="flex flex-col w-full h-full px-5 py-3">
       <div className="flex flex-wrap space-x-2">
         <StatItem name="Total capacity" value="26.5" unit="TB" />
         <StatItem name="Index size" value="103" unit="MB" />
@@ -32,7 +32,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <StatItem name="Total at-risk" value="1.5" unit="TB" />
         <StatItem name="Total backed up" value="25.3" unit="TB" />
       </div>
-      <hr className="my-5 dark:border-gray-800" />
+      <hr className="my-5 dark:border-gray-600" />
       <div className='-mt-[1px] space-x-2'>
         <Tag color='red'>Videos</Tag>
         <Tag color='orange'>DSLR Photos</Tag>
@@ -42,7 +42,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <Tag color='blue'>Documents</Tag>
         <Tag color='purple'>Repositories</Tag>
       </div>
-      <hr className="my-5 dark:border-gray-800" />
+      <hr className="my-5 dark:border-gray-600" />
       <div>
       </div>
     </div>
