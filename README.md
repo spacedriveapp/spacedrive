@@ -3,7 +3,7 @@
     <img src="./apps/desktop/src/assets/images/spacedrive_screenshot.png" alt="Logo">
     
   </a>
-  <h2 align="center">Spacedrive</h2>
+  <h2 align="center">SpaceDrive</h2>
   <p align="center">
     Your personal virtual cloud.
     <br />
@@ -26,7 +26,8 @@
   </p>
 </p>
 
-Spacedrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. SpaceDrive makes it possible to create a limitless directory of your digital life that will stand the test of time.
+
+SpaceDrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. SpaceDrive makes it possible to create a limitless directory of your digital life that will stand the test of time.
 
 For each client you install, you'll have another node in your personal network. They all share a single encrypted database and work as a team to perform tasks. Prioritizing peer-to-peer LAN connections but always using end-to-end encryption to synchronize in realtime.
 
@@ -40,18 +41,18 @@ As for UI, it has everything you'd expect from a file explorer and more; a nativ
 - **Search** - Search deep into your filesystem, including offline devices, with a custom keybind.
 - **Cloud integration** - Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
 - **Smart tags** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
-- **Spaces** - A collection of files organized visually and shareable as public web pages with a Spacedrive account.
+- **Spaces** - A collection of files organized visually and shareable as public web pages with a SpaceDrive account.
 - **Encrypted vault(s)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
 - **Key manager** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
 - **Statistics** - Statistics such as total capacity, index size, preview media size, free space etc.
 - **Timeline** - View a linear timeline of content, travel to any time and see media represented visually, including overlapping content.
-- **Extensions** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.co/extensions](#).
+- **Extensions** - Build tools on top of SpaceDrive, extend functionality and integrate third party services. Extension directory on [spacedrive.co/extensions](#).
 - **Manage redundancy** - Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.
 - **Media encoder** - Encode video and audio into various formats, use Tags to automate.
 - **Workers** - Utilize the compute power of your devices in unison to encode and perform tasks at insane speeds.
 - **Jobs** - Each task a client performs, a body of work we refer to as a "job", is logged and reversible.
-- **Self host** - Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.
-- **Spacedrive Cloud** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.
+- **Self host** - SpaceDrive can be deployed as a service, behaving as just another device powering your personal cloud.
+- **SpaceDrive Cloud** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.
 
 ## Motivation
 Independent creatives are the new normal, our data is steadily accumulating in the terabytes but the infrastructure hasn’t caught up. Cloud services like Google Photos and iCloud have great features, beautiful UI—but you’re locked in with a very limited capacity. Many people have multiple cloud accounts, drives that aren’t backed up and collecting dust, data at risk of loss. I don't want to be tied to any one cloud provider; a photo album shouldn’t exist only in only my iCloud account, it should be universal and permanent. I believe open source technology is the solution to this, with incredibly an versatile and secure architecture we can create a uniform experience to provide control over vast amounts of data in many environments. 
@@ -61,7 +62,7 @@ Independent creatives are the new normal, our data is steadily accumulating in t
 I believe, in the advent of web3, we need to control and own our own data portfolios, not cloud companies. One uniform way to track, organize, back-up, share, encrypt and view an unlimited amount of data, not locking into a single provider and living within their limits.  -->
 
 ## Architecture
-Spacedrive's core (`sdcorelib`) is written in pure Rust, using the Tauri framework to embed a React app in a native browser window for UI. The mobile app is React Native, with `sdcorelib` embedded as a native binary. 
+SpaceDrive's core (`sdcorelib`) is written in pure Rust, using the Tauri framework to embed a React app in a native browser window for UI. The mobile app is React Native, with `sdcorelib` embedded as a native binary. 
 
 ## Apps
 - `desktop`: a [Tauri](https://nextjs.org) app
@@ -79,6 +80,3 @@ All TypeScript packages are compiled automatically using Turborepo.
 - `native-ios`: a [Swift]() native binary
 - `native-windows`: a [C#]() native binary
 - `native-android`: a [Kotlin]() native binary
-
-
-## 
