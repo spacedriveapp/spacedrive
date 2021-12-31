@@ -26,9 +26,11 @@
   </p>
 </p>
 
-Spacedrive is an open source virtual filesystem, a local personal cloud powered by your everyday devices. Feature-rich benefits of the cloud; only its owned and hosted by _you_ with security and privacy at the core. Spacedrive makes it possible to create a limitless directory of your digital life that will stand the test of time.
+Spacedrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. SpaceDrive makes it possible to create a limitless directory of your digital life that will stand the test of time.
 
-It has everything you'd expect from a file explorer and more; a native photo viewer, video and audio player, support for VODs, git repositories, social media backups, NFTs, screenshots, saved web pages, links, and notes. Community extensions can add support for different filetypes and tailored file viewers.
+For each client you install, you'll have another node in your personal network. They all share a single encrypted database and work as a team to perform tasks. Prioritizing peer-to-peer LAN connections but always using end-to-end encryption to synchronize in realtime.
+
+As for UI, it has everything you'd expect from a file explorer and more; a native photo viewer, video and audio player. But also *specific* support for VODs, git repositories, social media backups, NFTs, screenshots, webpage snapshots, links, notes and more. Community extensions can add support for different filetypes and tailored file viewers.
 
 ## Features
 - **File indexing** - Scan your devices, drives, removable storage and cloud accounts to build a virtual "yellow pages" directory of all your data.
