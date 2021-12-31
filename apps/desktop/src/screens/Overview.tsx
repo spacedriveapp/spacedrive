@@ -33,24 +33,18 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <StatItem name="Total backed up" value="25.3" unit="TB" />
       </div>
       <hr className="my-5 dark:border-gray-600" />
-      <div className="-mt-[1px] space-x-2 ml-1">
-        <Tag color="red">Videos</Tag>
-        <Tag color="orange">DSLR Photos</Tag>
-        <Tag color="yellow">Camera Roll</Tag>
-        <Tag color="green">NFTs</Tag>
-        <Tag color="pink">Screenshots</Tag>
-        <Tag color="blue">Documents</Tag>
-        <Tag color="purple">Repositories</Tag>
-      </div>
-      <div className="mt-8 space-x-1">
+
+      <div className="space-x-1 ">
         <FileItem fileName="hello.tsx" format="tsx" iconName="reactts" />
         <FileItem fileName="styles.scss" format="scss" iconName="scss" />
         <FileItem fileName="yes.pug" format="pug" iconName="pug" />
         <FileItem fileName="vite.config.js" format="vite" iconName="vite" />
         <FileItem fileName=".prettierrc" format="dot" iconName="prettier" />
+        <FileItem fileName="src" folder />
         <FileItem fileName="index.ts" format="ts" iconName="typescript" />
         <FileItem fileName="server.ts" format="ts" iconName="typescript" />
         <FileItem fileName="config.json" format="json" iconName="json" />
+        <FileItem fileName=".vscode" folder />
       </div>
     </div>
   );
