@@ -22,9 +22,11 @@
 ####
 # Next up 
 ####
-☐ Create locations from volumes <- CURRENT 
+✔ Auto create Client in DB & persist id as JSON in data folder @done(21-12-30 23:42)
+☐ Auto discover root volume <- CURRENT 
+☐ Create locations from volumes 
+✔ Path rules for loctions @done(21-12-30 23:39)
 ☐ Locations UI
-☐ Path rules for loctions
 ☐ Auto create path rules for macOS
 
 ####

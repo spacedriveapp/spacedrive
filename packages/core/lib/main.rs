@@ -33,6 +33,7 @@ pub struct Core {
 pub enum ClientEvent {
     NewFileTypeThumb { file_id: u32, icon_created: bool },
     NewJobCreated { job_id: u32, progress: u8 },
+    DatabaseDisconnected { reason: Option<String> },
 }
 
 pub static CORE: OnceCell<Core> = OnceCell::new();
