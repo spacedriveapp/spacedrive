@@ -59,20 +59,6 @@ pub async fn core_send_stream<T: Stream<Item = ClientEvent>>(stream: T) {
         .await;
 }
 
-pub async fn startup_routine() -> Result<()> {
-    // create the data directories if not present
-    fs::create_dir_all(&get_core_config().data_dir).unwrap();
-    fs::create_dir_all(&get_core_config().file_type_thumb_dir).unwrap();
-
-    // create primary data base if not exists
-    block_on(db::connection::create_primary_db()).expect("failed to create primary db");
-    block_on(file::init::init_library()).expect("failed to init library");
-    block_on(file::client::init_client()).expect("failed to init client");
-
-    println!("Spacedrive daemon online");
-    Ok(())
-}
-
 pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent> {
     data_dir = data_dir.join("spacedrive");
 
@@ -89,7 +75,15 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
         event_channel_sender: event_sender,
     });
 
-    // block_on(startup_routine()).expect("failed to start spacedrive");
+    fs::create_dir_all(&get_core_config().data_dir).unwrap();
+    fs::create_dir_all(&get_core_config().file_type_thumb_dir).unwrap();
+
+    // create primary data base if not exists
+    block_on(db::connection::create_primary_db()).expect("failed to create primary db");
+    block_on(file::init::init_library()).expect("failed to init library");
+    block_on(file::client::init_client()).expect("failed to init client");
+
+    println!("Spacedrive daemon online");
 
     // env_logger::builder()
     //     .filter_level(log::LevelFilter::Debug)
