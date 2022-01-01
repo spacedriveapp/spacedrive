@@ -13,6 +13,8 @@ pub mod native;
 pub mod util;
 use futures::executor::block_on;
 
+use crate::file::locations::discover_root_location;
+
 // static configuration
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CoreConfig {
@@ -83,6 +85,8 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
     block_on(db::connection::create_primary_db()).expect("failed to create primary db");
     block_on(file::init::init_library()).expect("failed to init library");
     block_on(file::client::init_client()).expect("failed to init client");
+
+    block_on(discover_root_location());
 
     println!("Spacedrive daemon online");
 

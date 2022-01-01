@@ -62,28 +62,27 @@ const Heading: React.FC<{}> = ({ children }) => (
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const locations = useLocations();
   return (
-    <div className="w-46 flex flex-col flex-wrap flex-shrink-0 min-h-full bg-gray-50 dark:bg-gray-950 !bg-opacity-60  border-gray-100 border-r dark:border-gray-950 px-3 py-1">
-      <div className="mt-2 mb-1 -ml-1">
-          <TrafficLights
-            onClose={appWindow.close}
-            onFullscreen={appWindow.maximize}
-            onMinimize={appWindow.minimize}
-            className="p-1.5"
-          />
-        </div>
+    <div className="flex flex-col flex-wrap flex-shrink-0 min-h-full px-3 py-1 border-r border-gray-100 w-46 bg-gray-50 dark:bg-gray-850 dark:border-gray-950">
+      <div data-tauri-drag-region className="mt-2 mb-1 -ml-1 ">
+        <TrafficLights
+          onClose={appWindow.close}
+          onFullscreen={appWindow.maximize}
+          onMinimize={appWindow.minimize}
+          className="p-1.5"
+        />
+      </div>
       <Dropdown
         buttonProps={{
           justifyLeft: true,
-          className:
-            `mb-1 shadow-xs rounded flex-shrink-0 w-[175px] 
+          className: `mb-1 shadow-xs rounded flex-shrink-0 w-[175px] 
             !bg-gray-50 
             border-gray-150 
             hover:!bg-gray-1000 
             
-            dark:!bg-gray-650 
+            dark:!bg-gray-550 
             dark:hover:!bg-gray-550
 
-            dark:!border-gray-600 
+            dark:!border-gray-500 
             dark:hover:!border-gray-500`,
           variant: 'gray'
         }}
@@ -98,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         ]}
       />
 
-      <div className='pt-1'>
+      <div className="pt-1">
         <SidebarLink to="/overview">
           <Icon component={Planet} />
           Overview

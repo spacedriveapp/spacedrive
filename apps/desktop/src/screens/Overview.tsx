@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import FileItem from '../components/file/FileItem';
 import { Button } from '../components/primitive';
 import { Tag } from '../components/primitive/Tag';
@@ -22,9 +22,16 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 };
 
 export const OverviewScreen: React.FC<{}> = (props) => {
+  const [selectedFile, setSelectedFile] = useState<null | string>(null);
+
+  function handleSelect(key: string) {
+    if (selectedFile === key) setSelectedFile(null);
+    setSelectedFile(key);
+  }
+
   return (
     <div className="flex flex-col w-full h-full px-5 py-3">
-      <div className="flex flex-wrap space-x-2">
+      {/* <div className="flex flex-wrap space-x-2">
         <StatItem name="Total capacity" value="26.5" unit="TB" />
         <StatItem name="Index size" value="103" unit="MB" />
         <StatItem name="Preview media" value="23.5" unit="GB" />
@@ -32,19 +39,77 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <StatItem name="Total at-risk" value="1.5" unit="TB" />
         <StatItem name="Total backed up" value="25.3" unit="TB" />
       </div>
-      <hr className="my-5 dark:border-gray-600" />
+      <hr className="my-5 dark:border-gray-600" /> */}
 
-      <div className="space-x-1 ">
-        <FileItem fileName="hello.tsx" format="tsx" iconName="reactts" />
-        <FileItem fileName="styles.scss" format="scss" iconName="scss" />
-        <FileItem fileName="yes.pug" format="pug" iconName="pug" />
-        <FileItem fileName="vite.config.js" format="vite" iconName="vite" />
-        <FileItem fileName=".prettierrc" format="dot" iconName="prettier" />
-        <FileItem fileName="src" folder />
-        <FileItem fileName="index.ts" format="ts" iconName="typescript" />
-        <FileItem fileName="server.ts" format="ts" iconName="typescript" />
-        <FileItem fileName="config.json" format="json" iconName="json" />
-        <FileItem fileName=".vscode" folder />
+      <div className="mt-2 space-x-1">
+        <FileItem
+          selected={selectedFile == 'tsx'}
+          onClick={() => handleSelect('tsx')}
+          fileName="hello.tsx"
+          format="tsx"
+          iconName="reactts"
+        />
+        <FileItem
+          selected={selectedFile == 'scss'}
+          onClick={() => handleSelect('scss')}
+          fileName="styles.scss"
+          format="scss"
+          iconName="scss"
+        />
+        <FileItem
+          selected={selectedFile == 'pug'}
+          onClick={() => handleSelect('pug')}
+          fileName="yes.pug"
+          format="pug"
+          iconName="pug"
+        />
+        <FileItem
+          selected={selectedFile == 'vite'}
+          onClick={() => handleSelect('vite')}
+          fileName="vite.config.js"
+          format="vite"
+          iconName="vite"
+        />
+        <FileItem
+          selected={selectedFile == 'dot'}
+          onClick={() => handleSelect('dot')}
+          fileName=".prettierrc"
+          format="dot"
+          iconName="prettier"
+        />
+        <FileItem
+          selected={selectedFile == 'folder'}
+          onClick={() => handleSelect('folder')}
+          fileName="src"
+          folder
+        />
+        <FileItem
+          selected={selectedFile == 'wwcwefwe'}
+          onClick={() => handleSelect('wwcwefwe')}
+          fileName="index.ts"
+          format="ts"
+          iconName="typescript"
+        />
+        <FileItem
+          selected={selectedFile == 'werf'}
+          onClick={() => handleSelect('werf')}
+          fileName="server.ts"
+          format="ts"
+          iconName="typescript"
+        />
+        <FileItem
+          selected={selectedFile == 'tsex'}
+          onClick={() => handleSelect('tsex')}
+          fileName="config.json"
+          format="json"
+          iconName="json"
+        />
+        <FileItem
+          selected={selectedFile == 'tsx3'}
+          onClick={() => handleSelect('tsx3')}
+          fileName=".vscode"
+          folder
+        />
       </div>
     </div>
   );

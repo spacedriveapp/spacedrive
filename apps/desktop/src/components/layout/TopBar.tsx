@@ -56,7 +56,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-50 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-850 !bg-opacity-60 backdrop-blur"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-50 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-700 !bg-opacity-100 backdrop-blur"
       >
         <div className="">
           <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
@@ -67,27 +67,30 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           <TopBarButton group icon={Columns} />
           <TopBarButton group right icon={SquaresFour} />
         </div> */}
-        <div className="flex flex-row justify-center flex-grow">
-        <div className="flex mx-8 space-x-2">
-          <TopBarButton icon={Tag} />
-          <TopBarButton icon={FolderPlus} />
-          <TopBarButton icon={TerminalWindow} />
-        </div>
-        <div className="relative flex h-7">
-          <input
-            placeholder="Search"
-            className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-500 bg-gray-50 border border-gray-250 dark:bg-gray-850 dark:border-gray-600 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
-          />
-          <div className="space-x-1 absolute top-[2px] right-1">
-            <Shortcut chars="⌘S" />
-            {/* <Shortcut chars="S" /> */}
+        <div data-tauri-drag-region className="flex flex-row justify-center flex-grow">
+          <div className="flex mx-8 space-x-2 pointer-events-auto">
+            <TopBarButton icon={Tag} />
+            <TopBarButton icon={FolderPlus} />
+            <TopBarButton icon={TerminalWindow} />
           </div>
-        </div>
-        <div className="flex mx-8 space-x-2">
-          <TopBarButton icon={Key} />
-          <TopBarButton icon={Cloud} />
-          <TopBarButton icon={ArrowsLeftRight} onClick={() => invoke("start_watcher", { path: "/Users/jamie"})} />
-        </div>
+          <div className="relative flex h-7">
+            <input
+              placeholder="Search"
+              className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-500 bg-gray-50 border border-gray-250 dark:bg-gray-650 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
+            />
+            <div className="space-x-1 absolute top-[2px] right-1">
+              <Shortcut chars="⌘S" />
+              {/* <Shortcut chars="S" /> */}
+            </div>
+          </div>
+          <div className="flex mx-8 space-x-2">
+            <TopBarButton icon={Key} />
+            <TopBarButton icon={Cloud} />
+            <TopBarButton
+              icon={ArrowsLeftRight}
+              onClick={() => invoke('start_watcher', { path: '/Users/jamie' })}
+            />
+          </div>
         </div>
         <TopBarButton className="mr-[8px]" icon={CogIcon} />
       </div>
