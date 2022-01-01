@@ -23,7 +23,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
     <div
       data-tauri-drag-region
       role="alert"
-      className="flex flex-col items-center justify-center w-screen h-screen p-4 border border-gray-200 rounded-lg dark:border-gray-650 bg-gray-50 dark:bg-gray-950 dark:text-white"
+      className="flex flex-col items-center justify-center w-screen h-screen p-4 border border-gray-200 rounded-lg dark:border-gray-650 bg-gray-50 dark:bg-gray-350 dark:text-white"
     >
       <p className="m-3 text-sm font-bold text-gray-400">APP CRASHED</p>
       <h1 className="text-2xl font-bold">We're past the event horizon...</h1>
@@ -61,11 +61,11 @@ export default function App() {
       }}
     >
       <Router>
-        <div className="flex flex-row h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none rounded-xl dark:border-gray-500 dark:text-white dark:bg-gray-750">
+        <div className="flex flex-row h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none rounded-xl dark:border-gray-500 dark:text-white dark:bg-gray-650">
           <DebugGlobalStore />
           <Sidebar />
           <div className="flex flex-col w-full min-h-full">
-          <TopBar />
+            <TopBar />
             <div className="relative flex w-full">
               <Switch>
                 <Route exact path="/">

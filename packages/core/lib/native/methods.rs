@@ -9,7 +9,7 @@ use serde::Serialize;
 
 use swift_rs::types::{SRObjectArray, SRString};
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[repr(C)]
 pub struct Mount {
     pub name: SRString,

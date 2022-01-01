@@ -10,9 +10,12 @@ export interface TrafficLightsProps extends DefaultProps {
 }
 
 export const TrafficLights: React.FC<TrafficLightsProps> = (props) => {
-  const [focused] = useFocusState()
+  const [focused] = useFocusState();
   return (
-    <div className={clsx('flex flex-row space-x-2 px-2 group', props.className)}>
+    <div
+      data-tauri-drag-region
+      className={clsx('flex flex-row space-x-2 px-2 group', props.className)}
+    >
       <Light mode="close" action={props.onClose} focused={focused} />
       <Light mode="minimize" action={props.onMinimize} focused={focused} />
       <Light mode="fullscreen" action={props.onFullscreen} focused={focused} />
