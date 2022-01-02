@@ -22,11 +22,6 @@ struct DotSpaceDrive {
     location_id: u32,
 }
 
-pub async fn discover_root_location() {
-    let mounts = get_mounts();
-    println!("mounts: {:?}", mounts);
-}
-
 pub async fn get_location_and_paths(
     location_id: u32,
 ) -> Result<(locations::Model, Vec<location_paths::Model>)> {

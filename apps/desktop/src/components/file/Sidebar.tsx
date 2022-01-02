@@ -82,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
             dark:!bg-gray-550 
             dark:hover:!bg-gray-550
 
-            dark:!border-gray-500 
+            dark:!border-gray-550 
             dark:hover:!border-gray-500`,
           variant: 'gray'
         }}

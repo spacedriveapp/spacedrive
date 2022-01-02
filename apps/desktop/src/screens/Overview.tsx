@@ -45,7 +45,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <FileItem
           selected={selectedFile == 'tsx'}
           onClick={() => handleSelect('tsx')}
-          fileName="hello.tsx"
+          fileName="App.tsx"
           format="tsx"
           iconName="reactts"
         />
@@ -59,7 +59,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <FileItem
           selected={selectedFile == 'pug'}
           onClick={() => handleSelect('pug')}
-          fileName="yes.pug"
+          fileName="cool.pug"
           format="pug"
           iconName="pug"
         />
@@ -108,6 +108,12 @@ export const OverviewScreen: React.FC<{}> = (props) => {
           selected={selectedFile == 'tsx3'}
           onClick={() => handleSelect('tsx3')}
           fileName=".vscode"
+          folder
+        />
+        <FileItem
+          selected={selectedFile == 'tsx3d'}
+          onClick={() => handleSelect('tsx3d')}
+          fileName="node_modules"
           folder
         />
       </div>

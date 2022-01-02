@@ -56,7 +56,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-50 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-700 !bg-opacity-100 backdrop-blur"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-50 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
       >
         <div className="">
           <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
