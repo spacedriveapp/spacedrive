@@ -12,23 +12,46 @@ interface Props extends DefaultProps {
 }
 
 export default function FileItem(props: Props) {
-  return (
-    <div onClick={props.onClick} className="inline-block w-[100px]  mb-3">
+  const Shadow = () => {
+    return (
       <div
         className={clsx(
-          'inline-block border-2 border-transparent rounded-lg text-center w-[100px] h-[100px] ',
-          { ' bg-gray-550': props.selected }
+          'absolute opacity-100 transition-opacity duration-200 top-auto bottom-auto w-[64px] h-[40px] shadow-xl shadow-red-500',
+          { 'opacity-100': props.selected }
+        )}
+      />
+    );
+  };
+  return (
+    <div onClick={props.onClick} className="inline-block w-[100px] mb-3">
+      <div
+        className={clsx(
+          'border-2 border-transparent rounded-lg text-center w-[100px] h-[100px] mb-1',
+          {
+            'bg-gray-50 dark:bg-gray-550': props.selected
+          }
         )}
       >
+        {/* <Shadow /> */}
         {/* <div className="w-[65px] border border-gray-600 m-auto rounded-md h-[80px] bg-gray-650 relative shadow-md "> */}
         {props.folder ? (
-          <div className="w-full h-full">
-            <img className="bottom-0 p-3 pt-[19px] margin-auto" src="svg/folder.svg" />
+          <div className="relative w-full h-full ">
+            <img
+              className="bottom-0 p-3 pt-[19px] active:translate-y-[1px] margin-auto z-90"
+              src="svg/folder.svg"
+            />
           </div>
         ) : (
-          <div className="w-[64px] mt-1.5 m-auto rounded-lg h-[80px] relative">
+          <div
+            className={clsx(
+              'w-[64px] mt-1.5 m-auto transition duration-200 rounded-lg h-[90px] relative active:translate-y-[1px]',
+              {
+                '': props.selected
+              }
+            )}
+          >
             <svg
-              className="absolute top-0 left-0 fill-gray-750"
+              className="absolute top-0 left-0 fill-gray-150 dark:fill-gray-750"
               width="65"
               height="81"
               viewBox="0 0 65 81"
@@ -38,7 +61,7 @@ export default function FileItem(props: Props) {
             <svg
               width="22"
               height="22"
-              className="absolute -right-[1px] z-10 fill-gray-500"
+              className="absolute -right-[1px] z-10 fill-gray-50 dark:fill-gray-600"
               viewBox="0 0 41 41"
             >
               <path d="M41.4116 40.5577H11.234C5.02962 40.5577 0 35.5281 0 29.3238V0L41.4116 40.5577Z" />
