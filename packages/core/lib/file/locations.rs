@@ -75,13 +75,13 @@ pub async fn create_location(path: &str) -> Result<()> {
 
     let location = locations::ActiveModel {
         id: Set(next_location_id),
+        client_id: Set(1),
         name: Set(Path::new(path)
             .file_name()
             .unwrap()
             .to_str()
             .unwrap()
             .to_owned()),
-        path: Set(path.to_owned()),
         total_capacity: Set(mount.total_capacity.try_into().unwrap()),
         available_capacity: Set(mount.available_capacity.try_into().unwrap()),
         is_ejectable: Set(mount.is_ejectable),

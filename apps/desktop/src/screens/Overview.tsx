@@ -11,7 +11,7 @@ interface StatItemProps {
 
 const StatItem: React.FC<StatItemProps> = (props) => {
   return (
-    <div className="flex flex-col p-4 mt-2 rounded-md bg-gray-50 dark:bg-gray-650">
+    <div className="flex flex-col p-4 mt-2 rounded-md shadow-md bg-gray-50 dark:bg-gray-600">
       <span className="text-sm text-gray-400">{props.name}</span>
       <span className="text-2xl font-bold">
         {props.value}
@@ -25,13 +25,14 @@ export const OverviewScreen: React.FC<{}> = (props) => {
   const [selectedFile, setSelectedFile] = useState<null | string>(null);
 
   function handleSelect(key: string) {
-    if (selectedFile === key) setSelectedFile(null);
+    // if (selectedFile === key) setSelectedFile(null);
+    // else setSelectedFile(key);
     setSelectedFile(key);
   }
 
   return (
     <div className="flex flex-col w-full h-full px-5 py-3">
-      {/* <div className="flex flex-wrap space-x-2">
+      <div className="flex flex-wrap space-x-2">
         <StatItem name="Total capacity" value="26.5" unit="TB" />
         <StatItem name="Index size" value="103" unit="MB" />
         <StatItem name="Preview media" value="23.5" unit="GB" />
@@ -39,7 +40,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <StatItem name="Total at-risk" value="1.5" unit="TB" />
         <StatItem name="Total backed up" value="25.3" unit="TB" />
       </div>
-      <hr className="my-5 dark:border-gray-600" /> */}
+      <hr className="my-5 dark:border-gray-600" />
 
       <div className="mt-2 space-x-1">
         <FileItem

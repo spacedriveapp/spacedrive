@@ -17,7 +17,10 @@ pub struct Model {
     pub id: u32,
     // pub buffer_checksum: String,
     #[sea_orm(unique)]
-    pub meta_checksum: String,
+    pub meta_integrity_hash: String,
+    pub sampled_byte_integrity_hash: Option<String>,
+    pub byte_integrity_hash: Option<String>,
+
     pub uri: String,
     pub is_dir: bool,
     // metadata
