@@ -1,5 +1,5 @@
 use crate::db::{connection::DB_INSTANCE, entity::file, entity::location_paths, entity::locations};
-use crate::file::{checksum::create_meta_checksum, init};
+use crate::file::{checksum::create_meta_integrity_hash, init};
 use crate::util::time;
 use anyhow::Result;
 use chrono::Utc;
@@ -154,8 +154,8 @@ fn create_active_file_model(
 ) -> Result<file::ActiveModel> {
     let metadata = fs::metadata(&uri)?;
     let size = metadata.len();
-    let mut meta_checksum = create_meta_checksum(uri.to_str().unwrap_or_default(), size)?;
-    meta_checksum.truncate(20);
+    let mut meta_integrity_hash = create_meta_integrity_hash(uri.to_str().unwrap_or_default(), size)?;
+    meta_integrity_hash.truncate(20);
 
     let mut location_relative_uri = uri
         .to_str()
@@ -175,7 +175,7 @@ fn create_active_file_model(
         id: Set(*id),
         is_dir: Set(metadata.is_dir()),
         parent_id: Set(parent_id.map(|x| x.clone())),
-        meta_checksum: Set(meta_checksum),
+        meta_integrity_hash: Set(meta_integrity_hash),
         name: Set(extract_name(uri.file_stem())),
         extension: Set(extract_name(uri.extension())),
         encryption: Set(file::Encryption::None),

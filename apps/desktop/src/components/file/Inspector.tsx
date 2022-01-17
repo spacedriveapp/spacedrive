@@ -67,7 +67,7 @@ export const Inspector = () => {
                 <Link className="w-4 h-4" />
               </Button>
             </div>
-            <MetaItem title="Checksum" value={file?.meta_checksum as string} />
+            <MetaItem title="Checksum" value={file?.meta_integrity_hash as string} />
             <Divider />
             <MetaItem title="Uri" value={file?.uri as string} />
             <Divider />

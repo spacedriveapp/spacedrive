@@ -35,7 +35,7 @@ const columns = ensureIsColumns([
   { column: 'Name', key: 'name', width: 280 } as const,
   { column: 'Size', key: 'size_in_bytes', width: 120 } as const,
   { column: 'Type', key: 'extension', width: 100 } as const
-  // { column: 'Checksum', key: 'meta_checksum', width: 120 } as const
+  // { column: 'Checksum', key: 'meta_integrity_hash', width: 120 } as const
   // { column: 'Tags', key: 'tags', width: 120 } as const
 ]);
 
@@ -213,7 +213,7 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; fileId?: number
       return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
     case 'extension':
       return <span className="text-xs text-left">{value.toLowerCase()}</span>;
-    // case 'meta_checksum':
+    // case 'meta_integrity_hash':
     //   return <span className="truncate">{value}</span>;
     // case 'tags':
     //   return renderCellWithIcon(MusicNoteIcon);

@@ -3,7 +3,7 @@ import { ImageMeta, VideoMeta } from './media';
 
 export interface IFile {
   id: number;
-  meta_checksum: string;
+  meta_integrity_hash: string;
   uri: string;
   is_dir: string;
 
