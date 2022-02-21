@@ -1,0 +1,105 @@
+import Callout from 'nextra-theme-docs/callout';
+
+# Ideas
+
+<Callout emoji="👾">
+  **Space Invaders** is a 1978 shoot 'em up arcade game developed by Tomohiro Nishikado.
+</Callout>
+
+> A self hosted, bulletproof, personal cloud.
+
+> Bringing the magic of cloud services like iCloud and google photos to your local devices.
+
+> Don’t think in drives.
+
+> A pure rust core brings efficiency and compatibility to complex file management system.
+
+### Architecture
+
+```javascript
+import '../styles/fonts.css';
+import '../styles/globals.css';
+```
+
+```rust
+pub enum Action {
+  SCAN_DIR,
+  ENCRYPT_FILE,
+  UPLOAD_FILE,
+}
+```
+
+- **meta_integrity_hash**<br />
+  `location + path`<br />
+  This allows us to quickly assume a file we have already scanned still exists at that location.<br />
+  _Note: Could potentiallty be replaced by a unique constraint on location+path_
+- **sample_byte_integrity_hash**<br />
+  `100 * 100 byte samples at equal points throughout file`<br />
+  this is used to find duplicates quickly
+- **byte_integrity_hash**<br />
+  `full byte-to-byte checksum on file contents`<br />
+  this is used to confirm duplicates
+
+path must be stored so we can handle system delete events and update database accordingly
+^ of course but that’s a simple query on destructured volume/location/path
+
+duplicate files should have a new File created but it receives no metadata, the parent File, aka the first instance discovered, consumes all metadata and master_file_id determines this link
+
+add deleted_at to File
+
+.spacedrive file can exist in a directory to identify it as something other than a directory, such as a single file with a custom UI
+
+we can also define hard coded enhancements to the visual display of directories based on context
+
+If a new file has the same sampled_byte_integrity hash on the currently loaded volume we check to see if it still exists at that other location. if so, we assign as a duplicate. if not, we count it as a move and update the original File to the new location.
+
+after every file is updated we run a set of checks, or routines.
+or a file being updated puts it into a “touched” state queuing it up for inspection routines
+
+database mutations are processed as commits, through an enum of commit types, we take data and commit it to database
+
+wanted state for missing files
+
+sync server uses redis to queue sync chunks
+
+file types are an enum to allow for extended functionality
+
+```rust
+pub enum FileType {
+  File,
+  RichFile
+  Directory,
+  Package,
+  Alias,
+}
+
+pub enum Package {
+  WebPage,
+  ThumbnailMedia,
+  PreviewMedia,
+  Custom
+}
+```
+
+### Promotion
+
+_show a pile of drives_
+“if this is you, you’ll know how much of a pain it is to deal with this much data. We’re in a world now where independent creatives are the new normal, our data is steadily accumulating but the tooling hasn’t caught up yet”
+
+“Cloud services like Google Photos and iCloud have great features, beautiful UI—but you’re locked in with a very limited capacity. Many people have multiple cloud accounts each with their own restrictions. Drives that aren’t backed up, collecting dust and at risk of failure.
+
+“Spacedrive is a beautiful interface to organize and consume an unlimited amount of data, bringing each and every one of your devices together to form your own cloud. It’s incredible to see it all come together.
+
+We’re in a world now where independent creatives are the new normal, our data is steadily accumulating but the tooling hasn’t caught up yet. Cloud services like Google Photos and iCloud have great features, beautiful UI—but you’re locked in with a very limited capacity. Many people have multiple cloud accounts, drives that aren’t backed up and collecting dust, data at risk of loss. I wanted a solution that didn’t tie me to any one provider, a photo album shouldn’t exist only in my iCloud account, it should be universal and permanent. I believe open source technology is the solution to this, with incredibly an versatile and secure architecture
+
+“a beautiful, intentionally crafted user interface to effortlessly and continually archive your vast wealth of memories, creations, and data. a digital legacy that is will stand the test of time, and be truly yours.”
+
+### Storage Device Presets
+
+To improve index quality these presets can be automatically applied to the indexer to avoid paths and handle individual files by a ruleset uniquely
+
+- Macintosh HD
+- Windows C:/
+- Linux??
+
+Drop from index button on dropdown

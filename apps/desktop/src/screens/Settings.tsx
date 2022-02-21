@@ -8,7 +8,6 @@ import { Checkbox } from '../components/primitive/Checkbox';
 import { Dropdown } from '../components/primitive/Dropdown';
 import { InputContainer } from '../components/primitive/InputContainer';
 import { Shortcut } from '../components/primitive/Shortcut';
-import { useInputState } from '../hooks/useInputState';
 import { useExplorerStore } from '../store/explorer';
 import { useAppState } from '../store/global';
 //@ts-ignore
@@ -18,7 +17,7 @@ import { useAppState } from '../store/global';
 export const SettingsScreen: React.FC<{}> = () => {
   const fileUploader = useRef<HTMLInputElement | null>(null);
 
-const config = useAppState()
+  const config = useAppState()
 
   const [tempWatchDir, setTempWatchDir] = useExplorerStore((state) => [
     state.tempWatchDir,
@@ -51,21 +50,13 @@ const config = useAppState()
           <Button
             size="sm"
             variant="primary"
-            onClick={() => {
-              invoke('scan_dir', {
+            onClick={async () => {
+             await invoke('scan_dir', {
                 path: tempWatchDir
               });
             }}
           >
             Scan Now
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              invoke('test_scan');
-            }}
-          >
-            Test Scan
           </Button>
         </div>
 

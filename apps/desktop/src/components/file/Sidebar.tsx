@@ -106,10 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={CirclesFour} />
           Spaces
         </SidebarLink>
-        <SidebarLink to="/explorer">
-          <Icon component={Folder} />
-          Explorer
-        </SidebarLink>
+
         <SidebarLink to="/settings">
           <Icon component={MonitorPlay} />
           Media
@@ -119,8 +116,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <Heading>Locations</Heading>
         {locations.map((location, index) => {
           return (
-            <div className="flex flex-row items-center">
-              <SidebarLink className="relative group" key={index} to={`/explorer/${location.name}`}>
+            <div key={index}  className="flex flex-row items-center">
+              <SidebarLink className="relative group" to={`/explorer/${location.name}`}>
                 <Icon component={ServerIcon} />
                 {location.name}
                 <div className="flex-grow" />

@@ -1,29 +1,28 @@
-import React, { useEffect, useRef } from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import { Route, BrowserRouter as Router, Switch, Redirect } from 'react-router-dom';
 import { Sidebar } from './components/file/Sidebar';
 import { TopBar } from './components/layout/TopBar';
-import { useInputState } from './hooks/useInputState';
 import { SettingsScreen } from './screens/Settings';
 import { ExplorerScreen } from './screens/Explorer';
 import { invoke } from '@tauri-apps/api';
 import { DebugGlobalStore } from './Debug';
 import { useCoreEvents } from './hooks/useCoreEvents';
 import { AppState, useAppState } from './store/global';
-import { Modal } from './components/layout/Modal';
-import { useKey, useKeyBindings } from 'rooks';
-// import { useHotkeys } from 'react-hotkeys-hook';
+import { Button } from 'ui';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
-import { Button } from './components/primitive';
 import { useLocationStore, Location } from './store/locations';
 import { OverviewScreen } from './screens/Overview';
 import { SpacesScreen } from './screens/Spaces';
+import {createModal, Modal} from "./components/layout/Modal";
+
+export const SettingsModal = createModal('settings');
 
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
     <div
       data-tauri-drag-region
       role="alert"
-      className="flex flex-col items-center justify-center w-screen h-screen p-4 border border-gray-200 rounded-lg dark:border-gray-650 bg-gray-50 dark:bg-gray-350 dark:text-white"
+      className="flex flex-col items-center justify-center w-screen h-screen p-4 border border-gray-200 rounded-lg dark:border-gray-650 bg-gray-50 dark:bg-gray-950 dark:text-white"
     >
       <p className="m-3 text-sm font-bold text-gray-400">APP CRASHED</p>
       <h1 className="text-2xl font-bold">We're past the event horizon...</h1>
@@ -53,6 +52,7 @@ export default function App() {
   //   process.exit();
   // });
 
+
   return (
     <ErrorBoundary
       FallbackComponent={ErrorFallback}
@@ -62,15 +62,15 @@ export default function App() {
     >
       <Router>
         <div className="flex flex-row h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none rounded-xl dark:border-gray-500 dark:text-white dark:bg-gray-650">
+          <Modal {...SettingsModal}>
+            <SettingsScreen />
+          </Modal>
           <DebugGlobalStore />
           <Sidebar />
           <div className="flex flex-col w-full min-h-full">
             <TopBar />
             <div className="relative flex w-full">
               <Switch>
-                <Route exact path="/">
-                  <Redirect to="/explorer" />
-                </Route>
                 <Route path="/overview">
                   <OverviewScreen />
                 </Route>
@@ -80,13 +80,11 @@ export default function App() {
                 <Route path="/explorer">
                   <ExplorerScreen />
                 </Route>
-                <Route path="/settings">
-                  <SettingsScreen />
-                </Route>
+
               </Switch>
             </div>
           </div>
-          <Modal />
+
         </div>
       </Router>
     </ErrorBoundary>

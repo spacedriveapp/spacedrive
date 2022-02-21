@@ -1,30 +1,75 @@
-## Getting Started
+<!-- PROJECT LOGO -->
+<div align="right">
+  <a href="https://github.com/calcom/cal.com">
+    <img src="https://user-images.githubusercontent.com/8019099/133430653-24422d2a-3c8d-4052-9ad6-0580597151ee.png" alt="Logo">
+  </a>
+  <a href="https://cal.com">Website</a>
+  ·
+  <a href="https://github.com/calcom/docs/issues">Community Support</a>
+</div>
 
-First, run the development server:
+# Cal.com Documentation
 
-```bash
+The official product, support and developer documentation, containing information and guides about using the product as well as support for self-hosted installations. This documentation site runs on [Nextra](https://nextra.vercel.app), so you may refer to their documentation should you need information on anything that isn't covered here.
+
+## Prerequisites
+- Git
+- Node.js & npm
+- Yarn
+
+## Installation
+Firstly, clone the repository using Git:
+```console
+git clone https://github.com/calcom/docs.git
+```
+
+Now, you can install the dependencies with yarn:
+```console
+yarn install
+```
+
+## Editing
+To create, edit and delete documentation pages, you can simply create markdown (.mdx) files in the `pages/` folder. You can edit Markdown with any text editor, but VS Code and WebStorm have side-by-side previews so you can see your formatted content whilst writing markdown.
+
+You will also need to add it as an entry to the `meta.json` file found in whichever directory that the .mdx file is in.
+
+## Local Development
+
+```console
 yarn dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+## Build
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
+```console
+yarn build
+```
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+This command generates static content into the `build` directory and can be served using any static content hosting service.
 
-## Learn More
+## How to easily contribute
 
-To learn more about Next.js, take a look at the following resources:
+## Existing Page
+1. From the documentation's GitHub repository, head to the folder called 'pages' and open it.
+2. From here you can view all current pages on the documentation site. Select the page you would like to contribute to.
+3. You should now be able to view the page you have selected. Located at the top right of the page will be a pencil icon. Pressing this will bring you up an editor to edit and make changes. You can add formatting using the buttons at the top, which will automatically insert the relevant markdown content needed to style the text.
+4. From here make the changes you wish to make.
+5. At the bottom of the screen will be a 'Propose Changes' box, fill in all the relevant details such as title and description then press the green 'Propose Changes' button.
+6. Your changes have been saved, to submit them for review, located on your screen, press the green 'Create Pull Request' button.
+7. Fill in all the relevant details such as title and description and after finalize the submission.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+You have now successfully edited and submitted changes to our documentation site.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+## Creating a New Page
 
-## Deploy on Vercel
+1. From the documentation's GitHub repository, head to the folder called 'pages' and open it.
+2. From here you can view all current pages on the documentation site. At the top of your screen press the 'New file' button.
+3. You should now be able to view the page you have created. Remember when renaming the document to put .mdx at the end of the file name.
+4. From here make the changes you wish to make. Such as creating a title, sub-title and body text.
+5. At the bottom of the screen will be a 'Propose Changes' box, fill in all the relevant details such as title and description then press the green 'Propose Changes' button.
+6. Your changes have been saved, to submit them for review, located on your screen, press the greem 'Create Pull Request' button.
+7. Fill in all the relevant details such as title and description and after finalize the submission.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_source=github.com&utm_medium=referral&utm_campaign=turborepo-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+You have now successfully created and submitted changes to our documentation site.

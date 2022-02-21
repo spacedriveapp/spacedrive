@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api';
 import { IFile } from '../types';
 import { useExplorerStore } from '../store/explorer';
 import { Inspector } from '../components/file/Inspector';
+import {useParams} from "react-router-dom";
 
 export interface DirectoryResponse {
   directory: IFile;
@@ -12,6 +13,9 @@ export interface DirectoryResponse {
 }
 
 export const ExplorerScreen: React.FC<{}> = () => {
+
+  // let { slug } = useParams();
+
   const [currentDir, tempWatchDir] = useExplorerStore((state) => [
     state.currentDir,
     state.tempWatchDir
@@ -21,7 +25,6 @@ export const ExplorerScreen: React.FC<{}> = () => {
     invoke<DirectoryResponse>('get_files', { path: tempWatchDir }).then((res) => {
       console.log({ res });
       useExplorerStore.getState().ingestDir(res.directory, res.contents);
-      invoke('get_thumbs_for_directory', { path: tempWatchDir });
     });
   }, []);
 

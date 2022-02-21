@@ -14,7 +14,7 @@ fn main() {
       let app = app.handle();
 
       let window = app.get_window("main").unwrap();
-      window.set_shadow(true);
+//       window.set_shadow(true);
 
       tauri::async_runtime::spawn(async move {
         while let Some(event) = core_receiver.recv().await {
