@@ -21,6 +21,9 @@ import { appWindow } from '@tauri-apps/api/window';
 import { HeartIcon } from '@heroicons/react/solid';
 import { invoke } from '@tauri-apps/api';
 
+import { SettingsModal } from '../../App'
+import {useAtom} from "jotai";
+
 export interface TopBarProps extends DefaultProps {}
 export interface TopBarButtonProps extends ButtonProps {
   icon: any;
@@ -51,12 +54,13 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 };
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
+  const [settingsOpen, setSettingsOpen] = useAtom(SettingsModal.open)
   const [goBack] = useExplorerStore((state) => [state.goBack]);
   return (
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-50 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
       >
         <div className="">
           <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
@@ -92,7 +96,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
             />
           </div>
         </div>
-        <TopBarButton className="mr-[8px]" icon={CogIcon} />
+        <TopBarButton onClick={() => {
+          setSettingsOpen(!settingsOpen);
+        }} className="mr-[8px]" icon={CogIcon} />
       </div>
       {/* <div className="h-[1px] flex-shrink-0 max-w bg-gray-200 dark:bg-gray-700" /> */}
     </>

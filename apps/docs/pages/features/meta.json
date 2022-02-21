@@ -1,0 +1,18 @@
+{
+  "library": "The Library",
+  "locations": "Locations",
+  "search": "Search",
+  "spaces": "Spaces",
+  "smart-tags": "Smart Tags",
+  "sync": "Sync",
+  "encryption": "Encryption",
+  "key-manager": "Key Manager",
+  "albums": "Albums",
+  "extensions": "Extensions",
+  "encoder": "Encoder",
+  "media-viewer": "Media Viewer",
+  "preview-generation": "Preview Generation",
+  "statistics": "Statistics",
+  "timeline": "Timeline",
+  "workers": "Workers"
+}
