@@ -1,34 +1,8 @@
-import {
-  BookOpenIcon,
-  CogIcon,
-  CollectionIcon,
-  CubeTransparentIcon,
-  DatabaseIcon,
-  FolderIcon,
-  LibraryIcon,
-  PhotographIcon,
-  PlusIcon,
-  ServerIcon
-} from '@heroicons/react/solid';
+import { CogIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
 import { appWindow } from '@tauri-apps/api/window';
 import clsx from 'clsx';
-import {
-  Book,
-  Camera,
-  Circle,
-  CirclesFour,
-  Eject,
-  EjectSimple,
-  Folder,
-  HandGrabbing,
-  HardDrive,
-  HardDrives,
-  MonitorPlay,
-  Package,
-  Planet,
-  Plus
-} from 'phosphor-react';
-import React, { useEffect } from 'react';
+import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
+import React from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useLocations } from '../../store/locations';
 import { TrafficLights } from '../os/TrafficLights';
@@ -38,7 +12,7 @@ import { DefaultProps } from '../primitive/types';
 
 interface SidebarProps extends DefaultProps {}
 
-const SidebarLink = (props: NavLinkProps) => (
+export const SidebarLink = (props: NavLinkProps) => (
   <NavLink
     {...props}
     className={clsx(
@@ -68,9 +42,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           onClose={appWindow.close}
           onFullscreen={appWindow.maximize}
           onMinimize={appWindow.minimize}
-          className="p-1.5"
+          className="p-1.5 z-50 absolute"
         />
       </div>
+      <div className="mt-6" />
       <Dropdown
         buttonProps={{
           justifyLeft: true,
@@ -116,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <Heading>Locations</Heading>
         {locations.map((location, index) => {
           return (
-            <div key={index}  className="flex flex-row items-center">
+            <div key={index} className="flex flex-row items-center">
               <SidebarLink className="relative group" to={`/explorer/${location.name}`}>
                 <Icon component={ServerIcon} />
                 {location.name}
