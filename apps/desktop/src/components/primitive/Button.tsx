@@ -58,8 +58,16 @@ const variants = {
     dark:hover:text-white 
     
   `,
-  primary:
-    'bg-primary text-white shadow-sm border-primary-600 dark:border-primary-400 active:bg-primary-600 active:border-primary-700 hover:bg-primary-400 hover:border-primary-500',
+  primary: `
+    bg-primary-600
+    text-white 
+    shadow-sm 
+    active:bg-primary-600 
+    hover:bg-primary
+    border-primary-500 
+    hover:border-primary-500
+    active:border-primary-700 
+  `,
   selected: `bg-gray-100 dark:bg-gray-500 
     text-black hover:text-black active:text-black dark:hover:text-white dark:text-white 
     `
@@ -84,7 +92,7 @@ export const Button: React.FC<ButtonProps> = ({ loading, ...props }) => {
     <button
       {...props}
       className={clsx(
-        'flex border rounded-md transition-colors duration-100 cursor-default',
+        'flex border rounded-md items-center transition-colors duration-100 cursor-default',
         { 'opacity-5': loading, '!p-1': props.noPadding },
         { 'justify-center': !props.justifyLeft },
         sizes[props.size || 'default'],

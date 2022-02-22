@@ -38,7 +38,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
     <button
       {...props}
       className={clsx(
-        'mr-[1px] py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-600 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
+        'mr-[1px] py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-550 dark:active:bg-gray-500 rounded-md transition-colors duration-100',
         {
           'rounded-r-none rounded-l-none': props.group && !props.left && !props.right,
           'rounded-r-none': props.group && props.left,
@@ -62,7 +62,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
         data-tauri-drag-region
         className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
       >
-        <div className="">
+        <div className="flex">
           <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
           <TopBarButton icon={ChevronRightIcon} />
         </div>

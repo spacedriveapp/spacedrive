@@ -8,20 +8,20 @@ const variants = {
     hover:bg-white
     focus:hover:bg-white
     focus:bg-white
-    dark:bg-gray-800
-    dark:hover:bg-gray-750
+    dark:bg-gray-550
+    dark:hover:bg-gray-550
     dark:focus:bg-gray-800
     dark:focus:hover:bg-gray-800
 
     border-gray-100
     hover:border-gray-200
     focus:border-white
-    dark:border-gray-600
-    dark:hover:border-gray-600
+    dark:border-gray-500
+    dark:hover:border-gray-500
     dark:focus:border-gray-900
 
-    focus:ring-gray-100 
-    dark:focus:ring-gray-600
+    focus:ring-primary-100 
+    dark:focus:ring-gray-550
 
     dark:text-white 
     placeholder-gray-300

@@ -22,7 +22,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
     <div
       data-tauri-drag-region
       role="alert"
-      className="flex flex-col items-center justify-center w-screen h-screen p-4 border border-gray-200 rounded-lg dark:border-gray-650 bg-gray-50 dark:bg-gray-950 dark:text-white"
+      className="flex flex-col items-center justify-center w-screen h-screen p-4 border border-gray-200 rounded-lg dark:border-gray-650 bg-gray-50 dark:bg-gray-650 dark:text-white"
     >
       <p className="m-3 text-sm font-bold text-gray-400">APP CRASHED</p>
       <h1 className="text-2xl font-bold">We're past the event horizon...</h1>
