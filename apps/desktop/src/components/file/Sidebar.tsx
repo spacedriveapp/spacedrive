@@ -13,15 +13,18 @@ import { DefaultProps } from '../primitive/types';
 interface SidebarProps extends DefaultProps {}
 
 export const SidebarLink = (props: NavLinkProps) => (
-  <NavLink
-    {...props}
-    className={clsx(
-      'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
-      props.className
+  <NavLink {...props}>
+    {({ isActive }) => (
+      <span
+        className={clsx(
+          'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
+          { '!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive },
+          props.className
+        )}
+      >
+        {props.children}
+      </span>
     )}
-    activeClassName="!bg-primary !text-white hover:bg-primary dark:hover:bg-primary"
-  >
-    {props.children}
   </NavLink>
 );
 
@@ -33,18 +36,26 @@ const Heading: React.FC<{}> = ({ children }) => (
   <div className="mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300">{children}</div>
 );
 
+export function MacOSTrafficLights() {
+  return (
+    <div data-tauri-drag-region className="mt-2 mb-1 -ml-1 ">
+      <TrafficLights
+        onClose={appWindow.close}
+        onFullscreen={appWindow.maximize}
+        onMinimize={appWindow.minimize}
+        className="p-1.5 z-50 absolute"
+      />
+    </div>
+  );
+}
+
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const locations = useLocations();
+
+  console.log({ locations });
   return (
-    <div className="flex flex-col flex-wrap flex-shrink-0 min-h-full px-3 py-1 border-r border-gray-100 w-46 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
-      <div data-tauri-drag-region className="mt-2 mb-1 -ml-1 ">
-        <TrafficLights
-          onClose={appWindow.close}
-          onFullscreen={appWindow.maximize}
-          onMinimize={appWindow.minimize}
-          className="p-1.5 z-50 absolute"
-        />
-      </div>
+    <div className="flex flex-col flex-wrap flex-shrink-0 min-h-full px-3 pb-1 border-r border-gray-100 w-46 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+      <MacOSTrafficLights />
       <div className="mt-6" />
       <Dropdown
         buttonProps={{
@@ -77,12 +88,12 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={Planet} />
           Overview
         </SidebarLink>
-        <SidebarLink to="/spaces">
+        <SidebarLink to="spaces">
           <Icon component={CirclesFour} />
           Spaces
         </SidebarLink>
 
-        <SidebarLink to="/settings">
+        <SidebarLink to="media">
           <Icon component={MonitorPlay} />
           Media
         </SidebarLink>
@@ -92,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         {locations.map((location, index) => {
           return (
             <div key={index} className="flex flex-row items-center">
-              <SidebarLink className="relative group" to={`/explorer/${location.name}`}>
+              <SidebarLink className="relative group" to={`/app/explorer/${location.name}`}>
                 <Icon component={ServerIcon} />
                 {location.name}
                 <div className="flex-grow" />
@@ -109,6 +120,16 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
             </div>
           );
         })}
+      </div>
+      <div className="flex-grow" />
+      <div className="mb-2">
+        <NavLink to="/settings/general">
+          {({ isActive }) => (
+            <Button variant={isActive ? 'default' : 'default'} className="px-[4px]">
+              <CogIcon className="w-5 h-5" />
+            </Button>
+          )}
+        </NavLink>
       </div>
     </div>
   );

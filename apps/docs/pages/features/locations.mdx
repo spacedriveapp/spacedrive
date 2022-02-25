@@ -1,0 +1,24 @@
+# Locations
+
+Locations are paths to a directory or volume on a [Client]() to be indexed and stored within a [Library]().
+
+The user should be promted to add at least one location during onboarding.
+
+Locations are immediately indexed in their entirety.
+
+```rust
+ struct Location {
+    id: u32,
+    name: String,
+    total_capacity: u32,
+    available_capacity: u32,
+    is_removable: bool,
+    is_ejectable: bool,
+    is_root_filesystem: bool,
+    is_online: bool,
+    library_id: u32,
+    client_id: u32,
+    date_created: Option<NaiveDateTime>,
+    last_indexed: Option<NaiveDateTime>,
+}
+```

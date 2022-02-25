@@ -1,28 +1,13 @@
-import { ChevronLeftIcon, ChevronRightIcon, CogIcon } from '@heroicons/react/outline';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
 import clsx from 'clsx';
-import {
-  ArrowsLeftRight,
-  Cloud,
-  Columns,
-  FolderPlus,
-  HouseSimple,
-  Key,
-  SquaresFour,
-  Tag,
-  TerminalWindow
-} from 'phosphor-react';
+import { ArrowsLeftRight, Cloud, FolderPlus, Key, Tag, TerminalWindow } from 'phosphor-react';
 import React from 'react';
 import { useExplorerStore } from '../../store/explorer';
-import { TrafficLights } from '../os/TrafficLights';
-import { Button, ButtonProps, Input } from '../primitive';
+import { ButtonProps } from '../primitive';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
-import { appWindow } from '@tauri-apps/api/window';
-import { HeartIcon } from '@heroicons/react/solid';
 import { invoke } from '@tauri-apps/api';
-
-import { SettingsModal } from '../../App'
-import {useAtom} from "jotai";
+import { useLocation } from 'react-router-dom';
 
 export interface TopBarProps extends DefaultProps {}
 export interface TopBarButtonProps extends ButtonProps {
@@ -54,13 +39,13 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 };
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-  const [settingsOpen, setSettingsOpen] = useAtom(SettingsModal.open)
+  let location = useLocation();
   const [goBack] = useExplorerStore((state) => [state.goBack]);
   return (
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl  items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl flex-shrink-0 items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
       >
         <div className="flex">
           <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
@@ -71,7 +56,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           <TopBarButton group icon={Columns} />
           <TopBarButton group right icon={SquaresFour} />
         </div> */}
-        <div data-tauri-drag-region className="flex flex-row justify-center flex-grow">
+        <div data-tauri-drag-region className="flex flex-row justify-center flex-grow ">
           <div className="flex mx-8 space-x-2 pointer-events-auto">
             <TopBarButton icon={Tag} />
             <TopBarButton icon={FolderPlus} />
@@ -96,9 +81,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
             />
           </div>
         </div>
-        <TopBarButton onClick={() => {
-          setSettingsOpen(!settingsOpen);
-        }} className="mr-[8px]" icon={CogIcon} />
+        {/*<TopBarButton onClick={() => {*/}
+        {/*  setSettingsOpen(!settingsOpen);*/}
+        {/*}} className="mr-[8px]" icon={CogIcon} />*/}
       </div>
       {/* <div className="h-[1px] flex-shrink-0 max-w bg-gray-200 dark:bg-gray-700" /> */}
     </>

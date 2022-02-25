@@ -1,9 +1,10 @@
-mod commands;
-mod menu;
 use sdcorelib;
 use tauri::api::path;
 use tauri::Manager;
 use tauri_plugin_shadows::Shadows;
+
+mod commands;
+mod menu;
 
 fn main() {
   tauri::Builder::default()
@@ -12,9 +13,6 @@ fn main() {
       let mut core_receiver = sdcorelib::configure(data_dir);
 
       let app = app.handle();
-
-      let window = app.get_window("main").unwrap();
-//       window.set_shadow(true);
 
       tauri::async_runtime::spawn(async move {
         while let Some(event) = core_receiver.recv().await {
@@ -27,6 +25,7 @@ fn main() {
     .on_menu_event(|event| menu::handle_menu_event(event))
     .invoke_handler(tauri::generate_handler![
       commands::scan_dir,
+      commands::create_location,
       commands::get_files,
       commands::get_config,
       commands::get_mounts,
