@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { Fragment } from 'react';
 import { Menu, Transition } from '@headlessui/react';
-import { Fragment, useEffect, useRef, useState } from 'react';
 import { ChevronDownIcon } from '@heroicons/react/solid';
 import { DefaultOptions } from '@apollo/client';
 import { Button, ButtonProps } from '.';

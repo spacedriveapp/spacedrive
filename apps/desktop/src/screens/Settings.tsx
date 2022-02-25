@@ -12,8 +12,7 @@ import React from 'react';
 import { SidebarLink } from '../components/file/Sidebar';
 import { HardDrive, PaintBrush } from 'phosphor-react';
 import clsx from 'clsx';
-import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
-import GeneralSettings from './settings/General';
+import { Outlet } from 'react-router-dom';
 
 //@ts-ignore
 // import { Spline } from 'react-spline';
@@ -31,80 +30,56 @@ const Heading: React.FC<{ className?: string }> = ({ children, className }) => (
 
 export const SettingsScreen: React.FC<{}> = () => {
   return (
-    <Router>
-      <div className="flex flex-row w-full">
-        <div className="p-8 w-60 h-full border-r border-gray-550">
-          <Heading className="mt-0">Client</Heading>
-          <SidebarLink to="/general">
-            <Icon component={CogIcon} />
-            General
-          </SidebarLink>
-          <SidebarLink to="/security">
-            <Icon component={LockClosedIcon} />
-            Security
-          </SidebarLink>
+    <div className="flex flex-row w-full">
+      <div className="p-5 w-60 h-full border-r border-gray-550">
+        <Heading className="mt-0">Client</Heading>
+        <SidebarLink to="/settings/general">
+          <Icon component={CogIcon} />
+          General
+        </SidebarLink>
+        <SidebarLink to="/settings/security">
+          <Icon component={LockClosedIcon} />
+          Security
+        </SidebarLink>
+        <SidebarLink to="/settings/appearance">
+          <Icon component={PaintBrush} />
+          Appearance
+        </SidebarLink>
 
-          <SidebarLink to="/appearance">
-            <Icon component={PaintBrush} />
-            Appearance
-          </SidebarLink>
-          <Heading>Library</Heading>
+        <Heading>Library</Heading>
+        <SidebarLink to="/settings/locations">
+          <Icon component={HardDrive} />
+          Locations
+        </SidebarLink>
+        <SidebarLink to="/settings/media">
+          <Icon component={PhotographIcon} />
+          Media
+        </SidebarLink>
+        <SidebarLink to="/settings/keys">
+          <Icon component={KeyIcon} />
+          Keys
+        </SidebarLink>
+        <SidebarLink to="/settings/tags">
+          <Icon component={TagIcon} />
+          Tags
+        </SidebarLink>
 
-          <SidebarLink to="/locations">
-            <Icon component={HardDrive} />
-            Locations
-          </SidebarLink>
-          <SidebarLink to="/media">
-            <Icon component={PhotographIcon} />
-            Media
-          </SidebarLink>
-          <SidebarLink to="/keys">
-            <Icon component={KeyIcon} />
-            Keys
-          </SidebarLink>
-          <SidebarLink to="/tags">
-            <Icon component={TagIcon} />
-            Tags
-          </SidebarLink>
-
-          <Heading>Cloud</Heading>
-          <SidebarLink to="/sync">
-            <Icon component={CloudIcon} />
-            Sync
-          </SidebarLink>
-          <SidebarLink to="/contacts">
-            <Icon component={UsersIcon} />
-            Contacts
-          </SidebarLink>
-        </div>
-        <div className="w-full flex-grow overflow-y-scroll">
-          <div className="p-8">
-            <Switch>
-              <Route path="/general">
-                <GeneralSettings />
-              </Route>
-              <Route path="/spaces"></Route>
-              <Route path="/explorer"></Route>
-            </Switch>
-          </div>
-
-          {/*<div className="flex flex-row mt-4 space-x-2">*/}
-          {/*  <Toggle initialState={false} />*/}
-          {/*</div>*/}
-
-          {/*<Dropdown*/}
-          {/*  buttonProps={{}}*/}
-          {/*  buttonText="My Library"*/}
-          {/*  items={[*/}
-          {/*    [*/}
-          {/*      { name: 'Edit', icon: PencilAltIcon },*/}
-          {/*      { name: 'Copy', icon: DuplicateIcon }*/}
-          {/*    ],*/}
-          {/*    [{ name: 'Delete', icon: TrashIcon }]*/}
-          {/*  ]}*/}
-          {/*/>*/}
+        <Heading>Cloud</Heading>
+        <SidebarLink to="/settings/sync">
+          <Icon component={CloudIcon} />
+          Sync
+        </SidebarLink>
+        <SidebarLink to="/settings/contacts">
+          <Icon component={UsersIcon} />
+          Contacts
+        </SidebarLink>
+      </div>
+      <div className="flex flex-grow-0 w-full h-full max-h-screen overflow-y-scroll bg-gray-600">
+        <div className="px-12 py-5">
+          <Outlet />
+          <div className="block h-20" />
         </div>
       </div>
-    </Router>
+    </div>
   );
 };

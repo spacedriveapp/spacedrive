@@ -1,6 +1,4 @@
 import React from 'react';
-import { ButtonHTMLAttributes, useState } from 'react';
-import { Switch } from '@headlessui/react';
 import clsx from 'clsx';
 
 const sizes = {
@@ -11,20 +9,20 @@ const sizes = {
 const variants = {
   default: `
     bg-gray-50 
-    shadow-sm
+    shadow-sm 
     hover:bg-gray-100 
     active:bg-gray-50  
-    dark:bg-gray-650
-    dark:hover:bg-gray-600
-    dark:active:bg-gray-700
-    dark:active:opacity-80
+    dark:bg-transparent 
+    dark:active:bg-gray-600 
+    dark:hover:bg-gray-550 
+    dark:active:opacity-80 
     
     border-gray-100 
-    hover:border-gray-200
-    active:border-gray-200
-    dark:border-gray-600 
+    hover:border-gray-200 
+    active:border-gray-200 
+    dark:border-transparent 
     dark:active:border-gray-600 
-    dark:hover:border-gray-600
+    dark:hover:border-gray-500 
 
     text-gray-700
     hover:text-gray-900 

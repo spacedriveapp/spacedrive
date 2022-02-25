@@ -1,31 +1,23 @@
-use crate::db::{connection::DB_INSTANCE, entity::file, entity::location_paths, entity::locations};
-use crate::file::{checksum::create_meta_integrity_hash, init};
-use crate::util::time;
+use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant};
+
 use anyhow::Result;
 use chrono::Utc;
-use sea_orm::QueryFilter;
 use sea_orm::{entity::*, QueryOrder};
-use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant};
 use walkdir::{DirEntry, WalkDir};
 
-use super::locations::get_location_and_paths;
+use crate::db::{connection::DB_INSTANCE, entity::file};
+use crate::file::{checksum::create_meta_integrity_hash, init};
+use crate::util::time;
+
+use super::locations::get_location;
 use super::watcher::watch_dir;
 
 pub async fn scan_paths(location_id: u32) -> Result<()> {
     // get location by location_id from db and include location_paths
-    let (_location, location_paths) = get_location_and_paths(location_id).await?;
+    let location = get_location(location_id).await?;
 
-    // loop over and scan() paths
-    if !location_paths.is_empty() {
-        for location_path in location_paths {
-            if location_path.rule != location_paths::PathRule::Exclude {
-                scan(&location_path.path).await?;
-            }
-            if location_path.rule != location_paths::PathRule::NoWatch {
-                watch_dir(&location_path.path);
-            }
-        }
-    }
+    scan(&location.path).await?;
+    watch_dir(&location.path);
 
     Ok(())
 }

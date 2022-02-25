@@ -1,30 +1,32 @@
-use super::init;
-use crate::{
-    db::{
-        connection::DB_INSTANCE,
-        entity::{file, location_paths, locations},
-    },
-    native::methods::get_mounts,
-};
 use anyhow::{anyhow, Result};
 use chrono::Utc;
-use sea_orm::ColumnTrait;
-use sea_orm::Set;
 use sea_orm::{ActiveModelTrait, QueryOrder};
 use sea_orm::{EntityTrait, QueryFilter};
+use sea_orm::ColumnTrait;
+use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::io::Write;
 use std::path::Path;
+
+use crate::{
+    db::{
+        connection::DB_INSTANCE,
+        entity::{file, locations},
+    },
+    native::methods::get_mounts,
+};
+
+use super::init;
 
 #[derive(Serialize, Deserialize)]
 struct DotSpaceDrive {
     location_id: u32,
 }
 
-pub async fn get_location_and_paths(
+pub async fn get_location(
     location_id: u32,
-) -> Result<(locations::Model, Vec<location_paths::Model>)> {
+) -> Result<locations::Model> {
     let db = DB_INSTANCE.get().unwrap();
 
     // get location by location_id from db and include location_paths
@@ -37,17 +39,7 @@ pub async fn get_location_and_paths(
         Err(_) => return Err(anyhow!("location_not_found")),
     };
 
-    // get location paths
-    let location_paths = match location_paths::Entity::find()
-        .filter(location_paths::Column::LocationId.eq(location_id))
-        .all(db)
-        .await
-    {
-        Ok(location_paths) => location_paths,
-        Err(_) => vec![],
-    };
-
-    Ok((location.unwrap(), location_paths))
+    Ok(location.unwrap())
 }
 
 pub async fn create_location(path: &str) -> Result<()> {
@@ -76,7 +68,8 @@ pub async fn create_location(path: &str) -> Result<()> {
     let location = locations::ActiveModel {
         id: Set(next_location_id),
         client_id: Set(1),
-        name: Set(Path::new(path)
+        name: Set(mount.name.to_owned()),
+        path: Set(Path::new(path)
             .file_name()
             .unwrap()
             .to_str()
@@ -94,14 +87,6 @@ pub async fn create_location(path: &str) -> Result<()> {
         ..Default::default()
     };
     location.save(db).await?;
-
-    // insert root path as location_path to database
-    let location_path = location_paths::ActiveModel {
-        location_id: Set(next_location_id),
-        path: Set(path.to_owned()),
-        ..Default::default()
-    };
-    location_path.save(db).await?;
 
     // write a file called .spacedrive to path containing the location id in JSON format
     let mut dotfile = std::fs::File::create(format!("{}/.spacedrive", path))?;

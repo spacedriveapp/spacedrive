@@ -38,7 +38,7 @@ export default function FileItem(props: Props) {
           <div className="relative w-full h-full active:translate-y-[1px]">
             <img
               className="bottom-0 p-3 pt-[19px]  margin-auto z-90 pointer-events-none"
-              src="svg/folder.svg"
+              src="/svg/folder.svg"
             />
           </div>
         ) : (
@@ -71,7 +71,7 @@ export default function FileItem(props: Props) {
                 className="mt-2 pointer-events-none margin-auto"
                 width={40}
                 height={40}
-                src={`icons/${props.iconName}.svg`}
+                src={`/icons/${props.iconName}.svg`}
               />
               <span className="mt-1 text-xs font-bold text-center uppercase cursor-default text-gray-450">
                 {props.format}

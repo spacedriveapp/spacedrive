@@ -59,15 +59,6 @@ CREATE TABLE IF NOT EXISTS files (
 	FOREIGN KEY(location_id) REFERENCES locations(id),
 	FOREIGN KEY(capture_device_id) REFERENCES capture_devices(id)
 );
-CREATE TABLE IF NOT EXISTS location_paths (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	name TEXT,
-	path TEXT,
-	rule INTEGER,
-	location_id INTEGER,
-	date_created DATE NOT NULL DEFAULT (datetime('now')),
-	last_indexed DATE NOT NULL DEFAULT (datetime('now'))
-);
 CREATE TABLE IF NOT EXISTS tags (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	name TEXT,

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import FileItem from '../components/file/FileItem';
-import { Button } from '../components/primitive';
-import { Tag } from '../components/primitive/Tag';
 
 interface StatItemProps {
   name: string;

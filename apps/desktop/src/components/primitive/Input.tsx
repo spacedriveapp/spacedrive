@@ -31,15 +31,17 @@ const variants = {
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   variant?: keyof typeof variants;
+  size?: 'sm';
 }
 
-export const Input = (props: InputProps) => {
+export const Input = ({ size, ...props }: InputProps) => {
   return (
     <input
       {...props}
       className={clsx(
         `px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
         variants[props.variant || 'default'],
+        size && '',
         props.className
       )}
     />

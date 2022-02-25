@@ -1,4 +1,3 @@
-use anyhow::Result;
 use futures::{stream::StreamExt, Stream};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -10,10 +9,11 @@ pub mod crypto;
 pub mod db;
 pub mod file;
 pub mod native;
+pub mod p2p;
 pub mod util;
 use futures::executor::block_on;
 
-// static configuration
+// static configuration passed in by host application
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CoreConfig {
     pub data_dir: std::path::PathBuf,
@@ -85,6 +85,8 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
     block_on(file::client::init_client()).expect("failed to init client");
 
     println!("Spacedrive daemon online");
+
+    p2p::listener::listen(None);
 
     // env_logger::builder()
     //     .filter_level(log::LevelFilter::Debug)
