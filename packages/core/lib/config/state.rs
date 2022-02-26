@@ -20,6 +20,17 @@ pub struct Library {
     pub data_folder_path: String,
 }
 
+impl Default for ClientState {
+    fn default() -> Self {
+        Self {
+            client_id: "".to_string(),
+            client_name: "".to_string(),
+            tcp_port: 0,
+            libraries: vec![],
+        }
+    }
+}
+
 lazy_static! {
     static ref CONFIG: RwLock<Config> = RwLock::new(Config::default());
 }
@@ -27,7 +38,12 @@ lazy_static! {
 pub fn get() -> Result<ClientState> {
     let rw_lock = CONFIG.read().unwrap();
 
-    let client_state: ClientState = rw_lock.try_deserialize().unwrap();
+    let client_state: ClientState = rw_lock
+        .clone()
+        .try_deserialize()
+        .unwrap_or(ClientState::default());
+
+    println!("{:?}", client_state);
 
     Ok(client_state)
 }
@@ -42,9 +58,11 @@ pub fn make(path: &str) -> ClientState {
         .build()
         .unwrap_or_default();
 
-    let mut lock = CONFIG.write().unwrap();
+    {
+        let mut lock = CONFIG.write().unwrap();
 
-    *lock = config;
+        *lock = config;
+    }
 
     get().unwrap()
 }
