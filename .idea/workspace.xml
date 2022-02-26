@@ -5,44 +5,10 @@
     <cargoProject FILE="$PROJECT_DIR$/apps/desktop/src-tauri/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e9f4d63e-e014-4f5b-9bf1-6c3b1fae8f30" name="Changes" comment="settings via react router">
-      <change afterPath="$PROJECT_DIR$/apps/desktop/src/components/layout/Dialog.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Listbox.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/apps/desktop/src/components/transitions/SlideUp.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/apps/desktop/src/screens/settings/LocationSettings.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/apps/desktop/src/screens/settings/SecuritySettings.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/packages/core/lib/p2p/listener.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/packages/core/lib/p2p/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/spacedrive.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/spacedrive.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src-tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src-tauri/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src-tauri/src/commands.rs" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src-tauri/src/commands.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src-tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src-tauri/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/App.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/file/FileItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/file/FileItem.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/file/Sidebar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/file/Sidebar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/layout/Modal.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/layout/Modal.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/layout/TopBar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/layout/TopBar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Button.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Dropdown.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Dropdown.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Input.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Input.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/primitive/InputContainer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/primitive/InputContainer.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Toggle.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/components/primitive/Toggle.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/screens/Explorer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/screens/Explorer.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/screens/Overview.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/screens/Overview.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/screens/Settings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/screens/Settings.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/desktop/src/screens/settings/General.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/apps/desktop/src/screens/settings/GeneralSettings.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/core/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/core/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/core/lib/db/entity/location_paths.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/core/lib/db/entity/locations.rs" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/lib/db/entity/locations.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/core/lib/db/entity/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/lib/db/entity/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/core/lib/db/migrations/primary/V1__initial.sql" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/lib/db/migrations/primary/V1__initial.sql" afterDir="false" />
+    <list default="true" id="e9f4d63e-e014-4f5b-9bf1-6c3b1fae8f30" name="Changes" comment="- tcp listener WIP&#10;- better settings">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/packages/core/lib/file/client.rs" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/lib/file/client.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/packages/core/lib/file/indexer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/lib/file/indexer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/core/lib/file/locations.rs" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/lib/file/locations.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/core/lib/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/packages/core/lib/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/yarn.lock" beforeDir="false" afterPath="$PROJECT_DIR$/yarn.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -203,7 +169,7 @@
       <workItem from="1645523382970" duration="40541000" />
       <workItem from="1645675072647" duration="1008000" />
       <workItem from="1645676102200" duration="7490000" />
-      <workItem from="1645688411634" duration="7274000" />
+      <workItem from="1645688411634" duration="12878000" />
     </task>
     <task id="LOCAL-00001" summary="just a bunch 'o stuff">
       <created>1645422057851</created>
@@ -246,7 +212,8 @@
     <MESSAGE value="just a bunch 'o stuff" />
     <MESSAGE value="settings" />
     <MESSAGE value="settings via react router" />
-    <option name="LAST_COMMIT_MESSAGE" value="settings via react router" />
+    <MESSAGE value="- tcp listener WIP&#10;- better settings" />
+    <option name="LAST_COMMIT_MESSAGE" value="- tcp listener WIP&#10;- better settings" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

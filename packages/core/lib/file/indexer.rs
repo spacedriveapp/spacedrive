@@ -208,6 +208,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .map(|s| s.starts_with("."))
         .unwrap_or(false)
 }
+
 fn is_node_modules(entry: &DirEntry) -> bool {
     entry
         .file_name()
