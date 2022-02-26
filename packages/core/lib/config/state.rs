@@ -49,7 +49,9 @@ pub fn get() -> Result<ClientState> {
 }
 
 pub fn make(path: &str) -> ClientState {
-    let config_file_uri = format!("{}/config", path);
+    let config_file_uri = format!("{}/config.yml", path);
+
+    println!("{}", config_file_uri);
 
     let config = Config::builder()
         .add_source(File::new(&config_file_uri, FileFormat::Yaml))
@@ -57,6 +59,8 @@ pub fn make(path: &str) -> ClientState {
         .unwrap_or_default()
         .build()
         .unwrap_or_default();
+
+    println!("{:?}", config);
 
     {
         let mut lock = CONFIG.write().unwrap();
