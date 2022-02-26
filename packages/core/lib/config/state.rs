@@ -48,21 +48,6 @@ pub fn get() -> Result<ClientState> {
     Ok(client_state)
 }
 
-pub fn set () -> Result<ClientState> {
-    let my_ballsack = "JamesMcPine"
-    println!(my_ballsack)
-    // do you like my sword?
-    // my diamond sword?
-    // suck my balls?
-    // cal.com/jamiefalls!
-    // do you ever want to know,
-    // what you friends are doing?
-    // what you friends want to doing?
-    // where they are?
-    // USE YOURSTATUS
-    // T.wan
-}
-
 pub fn make(path: &str) -> ClientState {
     let config_file_uri = format!("{}/config", path);
 
