@@ -1,11 +1,12 @@
-use std::env;
 use std::io::Write;
+use std::{collections::HashMap, env};
 
 use anyhow::Result;
 use once_cell::sync::OnceCell;
-use sea_orm::{ActiveModelTrait, QueryOrder};
 use sea_orm::EntityTrait;
 use sea_orm::Set;
+
+use sea_orm::{ActiveModelTrait, QueryOrder};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -16,16 +17,47 @@ use crate::{
     get_core_config,
 };
 
-// client config file struct
-#[derive(Serialize, Deserialize, Debug)]
-pub struct DotClientData {
-    pub client_id: u32,
-    pub client_name: Option<String>,
-    pub tcp_port: Option<u32>
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+pub enum DotClientKey {
+    ClientId { client_id: String },
+    TCPPort { tcp_port: u64 },
 }
 
+// // client config file struct
+// #[derive(Serialize, Deserialize, Debug)]
+// pub struct DotClientData {
+//     pub client_id: u32,
+//     pub client_name: Option<String>,
+//     pub tcp_port: Option<u32>,
+// }
+
 // in memory storage for config file
-pub static client_config: OnceCell<DotClientData> = OnceCell::new();
+pub static CLIENT_CONFIG: OnceCell<HashMap<DotClientKey, String>> = OnceCell::new();
+
+fn get_client_config() -> Result<&'static HashMap<DotClientKey, String>> {
+    let client = CLIENT_CONFIG.get().unwrap();
+    Ok(client)
+}
+
+// method to update client config
+pub fn update_client_config(key: DotClientKey, json_value: String) -> Result<()> {
+    let core_config = get_core_config();
+    // clone existing config from memory
+    let mut config = CLIENT_CONFIG.get().unwrap().clone();
+    // insert new value
+    config.insert(key, json_value);
+    // set in memory
+    CLIENT_CONFIG.set(config).unwrap();
+    // convert to json
+    let json = serde_json::to_string(&config)?;
+    // create fresh dot file
+    let mut dotfile =
+        std::fs::File::create(format!("{}/.client_data", core_config.data_dir.display()))?;
+    // write json to file
+    dotfile.write_all(json.as_bytes())?;
+
+    Ok(())
+}
 
 pub async fn init_client() -> Result<()> {
     let config = get_core_config();
@@ -36,21 +68,22 @@ pub async fn init_client() -> Result<()> {
 
     match client_data_file {
         Ok(file) => {
-            let client_data: DotClientData = serde_json::from_reader(file).unwrap();
-            client_config.set(client_data);
-            println!("loaded existing client: {:?}", client_config.get().unwrap());
+            let client_data: HashMap<DotClientKey, String> = serde_json::from_reader(file).unwrap();
+            CLIENT_CONFIG.set(client_data);
+
+            println!("loaded existing client: {:?}", CLIENT_CONFIG.get().unwrap());
         }
         Err(_) => {
             let client_data = create_client().await?;
-            client_config.set(client_data);
-            println!("created new client {:?}", client_config.get().unwrap());
+
+            println!("created new client {:?}", CLIENT_CONFIG.get().unwrap());
         }
     };
 
     Ok(())
 }
 
-pub async fn create_client() -> Result<DotClientData> {
+pub async fn create_client() -> Result<HashMap<DotClientKey, String>> {
     let db = db_instance().await.unwrap();
     let config = get_core_config();
 
@@ -92,22 +125,11 @@ pub async fn create_client() -> Result<DotClientData> {
     // write a file called .spacedrive to path containing the location id in JSON format
     let mut dotfile = std::fs::File::create(format!("{}/.client_data", config.data_dir.display()))?;
 
-    let data = DotClientData {
-        client_id: next_client_id,
-        tcp_port: None,
-        client_name: None
-    };
-
     let json = serde_json::to_string(&data)?;
 
     dotfile.write_all(json.as_bytes())?;
 
     Ok(data)
-}
-
-fn get_client_config() -> Result<&'static DotClientData> {
-    let client = client_config.get().unwrap();
-    Ok(client)
 }
 
 // fn update_client_config(key: String, value: String) -> Result<&'static DotClientData> {
@@ -117,4 +139,3 @@ fn get_client_config() -> Result<&'static DotClientData> {
 //
 //     Ok(client)
 // }
-
