@@ -1,16 +1,16 @@
-use crate::{file::retrieve, get_core_config, native, ClientEvent};
+use crate::{file::retrieve, native, state, ClientEvent};
 
 use futures::{
     stream::{self, StreamExt},
     Stream,
 };
-use std::fs;
+use std::{fs, path::Path};
 
 pub async fn get_thumbs_for_directory(path: &str) -> impl Stream<Item = ClientEvent> {
     let dir = retrieve::get_dir_with_contents(&path).await.unwrap();
 
     stream::iter(dir.contents.into_iter()).filter_map(|file| async {
-        let config = get_core_config();
+        let config = state::client::get().unwrap();
         let icon_name = format!(
             "{}.png",
             if file.is_dir {
@@ -19,7 +19,9 @@ pub async fn get_thumbs_for_directory(path: &str) -> impl Stream<Item = ClientEv
                 file.extension
             }
         );
-        let icon_path = config.file_type_thumb_dir.join(icon_name);
+        let icon_path = Path::new(&config.data_path)
+            .join("file_icons")
+            .join(icon_name);
         // extract metadata from file
         let existing = fs::metadata(&icon_path).is_ok();
         // write thumbnail only if

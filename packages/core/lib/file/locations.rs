@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use chrono::Utc;
-use sea_orm::{ActiveModelTrait, QueryOrder};
-use sea_orm::{EntityTrait, QueryFilter};
 use sea_orm::ColumnTrait;
 use sea_orm::Set;
+use sea_orm::{ActiveModelTrait, QueryOrder};
+use sea_orm::{EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::io::Write;
@@ -24,9 +24,7 @@ struct DotSpaceDrive {
     location_id: u32,
 }
 
-pub async fn get_location(
-    location_id: u32,
-) -> Result<locations::Model> {
+pub async fn get_location(location_id: u32) -> Result<locations::Model> {
     let db = DB_INSTANCE.get().unwrap();
 
     // get location by location_id from db and include location_paths
