@@ -10,7 +10,7 @@ use sea_orm::{Database, DatabaseConnection, DbErr};
 pub async fn get_connection() -> Result<DatabaseConnection, DbErr> {
     let config = state::client::get().unwrap();
 
-    let db_url = format!("{}{}", "sqlite://", config.get_current_library_db_path());
+    let db_url = format!("{}{}{}", "sqlite://", config.data_path, "/library.db");
 
     let db = Database::connect(&db_url).await?;
 
@@ -31,7 +31,8 @@ pub async fn db() -> Result<&'static DatabaseConnection, String> {
 pub async fn create_primary_db() -> Result<(), sqlx::Error> {
     let config = state::client::get().unwrap();
 
-    let db_url = config.get_current_library_db_path();
+    let db_url = format!("{}/library.db", config.data_path);
+
     // establish connection, this is only used to create the db if missing
     // replace in future
     let mut connection = Connection::open(&db_url).unwrap();

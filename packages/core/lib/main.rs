@@ -76,18 +76,21 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
 
     println!("Client Config: {:?}", client_config);
 
+    // begin asynchronous startup routines
     block_on(async {
-        // init database
-        db::connection::create_primary_db().await;
-        // init library
-        library::init::init_library().await;
+        // init library, updates config with primary library
+        library::init::init_library().await.unwrap();
+        // init database for primary library / TODO: rename to create_db
+        db::connection::create_primary_db().await.unwrap();
+        // add library to database
+        library::init::add_library_to_db(Some("My Library".to_string())).await;
         // init client
-        library::client::create().await;
+        library::client::create().await.unwrap();
+        // activate p2p listeners
+        // p2p::listener::listen(None);
     });
 
     println!("Spacedrive online");
-
-    // p2p::listener::listen(None);
 
     // env_logger::builder()
     //     .filter_level(log::LevelFilter::Debug)

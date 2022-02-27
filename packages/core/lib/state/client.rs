@@ -101,9 +101,6 @@ impl ClientState {
     }
 
     pub fn get_current_library_db_path(&self) -> String {
-        format!(
-            "{}/primary_library.db",
-            &self.get_primary_library().library_path
-        )
+        format!("{}/library.db", &self.get_primary_library().library_path)
     }
 }
