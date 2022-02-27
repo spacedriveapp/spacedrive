@@ -11,7 +11,6 @@ use crate::{
 
 pub async fn init_library() -> Result<()> {
     let mut client_config = state::client::get()?;
-    let db = db().await.unwrap();
 
     if client_config.libraries.len() == 0 {
         // create default library
@@ -19,20 +18,25 @@ pub async fn init_library() -> Result<()> {
 
         let library = LibraryState {
             library_id: uuid.clone(),
-            library_path: format!("{}/primary_library.db", client_config.data_path),
+            library_path: format!("{}/library.db", client_config.data_path),
         };
 
         client_config.libraries.push(library);
         client_config.save();
-
-        let library = library::ActiveModel {
-            uuid: Set(uuid),
-            name: Set(String::from("My Library")),
-            ..Default::default()
-        };
-
-        library.save(db).await?;
     }
 
     Ok(())
+}
+
+// this should also take care of calling the connection module to create the library db before saving
+pub async fn add_library_to_db(name: Option<String>) {
+    let db = db().await.unwrap();
+
+    let library = library::ActiveModel {
+        uuid: Set(Uuid::new_v4().to_string()),
+        name: Set(String::from(name.unwrap_or(String::from("My Library")))),
+        ..Default::default()
+    };
+
+    library.save(db).await.unwrap();
 }
