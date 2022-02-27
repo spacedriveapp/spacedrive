@@ -1,3 +1,4 @@
+use futures::executor::block_on;
 use futures::{stream::StreamExt, Stream};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -5,22 +6,16 @@ use std::fs;
 use tokio::sync::mpsc;
 use ts_rs::TS;
 
-pub mod config;
 pub mod crypto;
 pub mod db;
 pub mod file;
+pub mod library;
 pub mod native;
+pub mod state;
 // pub mod p2p;
 pub mod util;
-use futures::executor::block_on;
 
-// static configuration passed in by host application
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CoreConfig {
-    pub data_dir: std::path::PathBuf,
-    pub primary_db: std::path::PathBuf,
-    pub file_type_thumb_dir: std::path::PathBuf,
-}
+use crate::state::client::ClientState;
 
 // represents an event this library can emit
 #[derive(Serialize, Deserialize, Debug, TS)]
@@ -33,15 +28,18 @@ pub enum ClientEvent {
 }
 
 pub struct Core {
-    pub config: CoreConfig,
     pub event_channel_sender: mpsc::Sender<ClientEvent>,
 }
 
-pub static CORE: OnceCell<Core> = OnceCell::new();
-
-pub fn get_core_config() -> &'static CoreConfig {
-    &CORE.get().unwrap().config
+// static configuration passed in by host application
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CoreConfig {
+    pub data_dir: std::path::PathBuf,
+    pub primary_db: std::path::PathBuf,
+    pub file_type_thumb_dir: std::path::PathBuf,
 }
+
+pub static CORE: OnceCell<Core> = OnceCell::new();
 
 pub async fn core_send(event: ClientEvent) {
     println!("Core Event: {:?}", event);
@@ -66,27 +64,28 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
 
     let (event_sender, event_receiver) = mpsc::channel(100);
 
-    let config = CoreConfig {
-        data_dir: data_dir.clone(),
-        primary_db: data_dir.clone().join("primary.db3"),
-        file_type_thumb_dir: data_dir.clone().join("file_icons"),
-    };
-
     let _ = CORE.set(Core {
-        config,
         event_channel_sender: event_sender,
     });
 
-    fs::create_dir_all(&get_core_config().data_dir).unwrap();
-    fs::create_dir_all(&get_core_config().file_type_thumb_dir).unwrap();
+    let data_dir = data_dir.to_str().unwrap();
 
-    config::state::make(data_dir.to_str().unwrap());
+    fs::create_dir_all(&data_dir).unwrap();
+    // prepare basic client state
+    let client_config = ClientState::new(data_dir, "spacedrive").unwrap();
 
-    // create primary data base if not exists
-    block_on(db::connection::create_primary_db()).expect("failed to create primary db");
-    block_on(file::init::init_library()).expect("failed to init library");
+    println!("Client Config: {:?}", client_config);
 
-    println!("Spacedrive daemon online");
+    block_on(async {
+        // init database
+        db::connection::create_primary_db().await;
+        // init library
+        library::init::init_library().await;
+        // init client
+        library::client::create().await;
+    });
+
+    println!("Spacedrive online");
 
     // p2p::listener::listen(None);
 

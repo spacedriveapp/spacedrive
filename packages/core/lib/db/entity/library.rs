@@ -15,6 +15,7 @@ pub struct Model {
     // identity
     #[sea_orm(primary_key)]
     pub id: u32,
+    pub uuid: String,
     pub name: String,
     pub is_primary: bool,
     pub remote_id: Option<String>,

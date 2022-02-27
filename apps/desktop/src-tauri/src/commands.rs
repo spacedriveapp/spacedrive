@@ -1,15 +1,16 @@
 use anyhow::Result;
 use sdcorelib::{
   core_send_stream,
-  CoreConfig,
-  db::connection::db_instance,
-  file::{icon, indexer, locations, retrieve, retrieve::Directory, watcher::watch_dir}, get_core_config, native,
+  db::connection::db,
+  file::{icon, indexer, locations, retrieve, retrieve::Directory, watcher::watch_dir},
+  native,
+  state::client::{get, ClientState},
 };
 use swift_rs::types::SRObjectArray;
 
 #[tauri::command(async)]
 pub async fn scan_dir(path: String) -> Result<(), String> {
-  db_instance().await?;
+  db().await?;
 
   let files = indexer::scan(&path).await.map_err(|e| e.to_string())?;
 
@@ -23,9 +24,9 @@ pub async fn get_files(path: String) -> Result<Directory, String> {
   Ok(retrieve::get_dir_with_contents(&path).await?)
 }
 
-#[tauri::command(async)]
-pub async fn get_config() -> Result<&'static CoreConfig, String> {
-  Ok(get_core_config())
+#[tauri::command]
+pub fn get_config() -> ClientState {
+  get().unwrap()
 }
 
 #[tauri::command]
@@ -55,7 +56,6 @@ pub async fn start_watcher(path: &str) -> Result<(), String> {
 
   Ok(())
 }
-
 
 #[tauri::command]
 pub async fn create_location(path: &str) -> Result<(), String> {

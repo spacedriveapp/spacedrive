@@ -1,4 +1,4 @@
-use crate::db::connection::db_instance;
+use crate::db::connection::db;
 use crate::db::entity::file;
 use anyhow::Result;
 use sea_orm::ColumnTrait;
@@ -12,7 +12,7 @@ pub struct Directory {
 }
 
 pub async fn get_dir_with_contents(path: &str) -> Result<Directory, String> {
-    let connection = db_instance().await?;
+    let connection = db().await?;
 
     println!("getting files... {:?}", &path);
 
