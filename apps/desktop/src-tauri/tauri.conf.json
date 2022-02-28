@@ -17,9 +17,9 @@
       "icon": ["icons/icon.icns"],
       "resources": [],
       "externalBin": [],
-      "copyright": "NerdHouse, Inc",
-      "shortDescription": "",
-      "longDescription": "",
+      "copyright": "Jamie Pine",
+      "shortDescription": "Your personal virtual cloud.",
+      "longDescription": "SpaceDrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. SpaceDrive makes it possible to create a limitless directory of your digital life that will stand the test of time.",
       "deb": {
         "depends": [],
         "useBootstrapper": false
@@ -52,8 +52,8 @@
     "windows": [
       {
         "title": "SpaceDrive",
-        "width": 1100,
-        "height": 600,
+        "width": 1300,
+        "height": 900,
         "resizable": true,
         "fullscreen": false,
         "alwaysOnTop": false,

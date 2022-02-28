@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import ReactJson from 'react-json-view';
 import FileItem from '../components/file/FileItem';
+import { useAppState } from '../store/global';
 
 interface StatItemProps {
   name: string;
@@ -21,6 +23,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 export const OverviewScreen: React.FC<{}> = (props) => {
   const [selectedFile, setSelectedFile] = useState<null | string>(null);
+  const app = useAppState();
 
   function handleSelect(key: string) {
     // if (selectedFile === key) setSelectedFile(null);
@@ -114,6 +117,23 @@ export const OverviewScreen: React.FC<{}> = (props) => {
           onClick={() => handleSelect('tsx3d')}
           fileName="node_modules"
           folder
+        />
+      </div>
+      <div className="mt-10 select-text">
+        <ReactJson
+          // collapsed
+          enableClipboard={false}
+          displayDataTypes={false}
+          theme="ocean"
+          src={app.config}
+          style={{
+            padding: 20,
+            borderRadius: 5,
+            backgroundColor: '#101016',
+            border: 1,
+            borderColor: '#1E1E27',
+            borderStyle: 'solid'
+          }}
         />
       </div>
     </div>

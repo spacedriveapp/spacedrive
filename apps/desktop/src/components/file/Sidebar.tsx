@@ -1,4 +1,5 @@
-import { CogIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
+import { DownloadIcon, LockClosedIcon } from '@heroicons/react/outline';
+import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
 import { appWindow } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
@@ -78,7 +79,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           [{ name: `Jamie's Library`, selected: true }, { name: 'Subto' }],
           [
             { name: 'Library Settings', icon: CogIcon },
-            { name: 'Add Library', icon: PlusIcon }
+            { name: 'Add Library', icon: PlusIcon },
+            { name: 'Lock', icon: LockClosedIcon },
+            { name: 'Hide', icon: EyeOffIcon }
           ]
         ]}
       />
@@ -125,7 +128,13 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       <div className="mb-2">
         <NavLink to="/settings/general">
           {({ isActive }) => (
-            <Button variant={isActive ? 'default' : 'default'} className="px-[4px]">
+            <Button
+              variant={isActive ? 'default' : 'default'}
+              className={clsx(
+                'px-[4px]'
+                // isActive && '!bg-gray-550'
+              )}
+            >
               <CogIcon className="w-5 h-5" />
             </Button>
           )}
