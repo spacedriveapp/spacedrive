@@ -16,9 +16,9 @@ interface MetaItemProps {
 
 const MetaItem = (props: MetaItemProps) => {
   return (
-    <div className="meta-item flex flex-col px-3 py-1">
-      <h5 className="font-bold text-xs">{props.title}</h5>
-      <p className="break-all text-xs text-gray-600 dark:text-gray-300 truncate">{props.value}</p>
+    <div className="flex flex-col px-3 py-1 meta-item">
+      <h5 className="text-xs font-bold">{props.title}</h5>
+      <p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">{props.value}</p>
     </div>
   );
 };
@@ -42,20 +42,20 @@ export const Inspector = () => {
       leaveFrom="translate-x-0"
       leaveTo="translate-x-64"
     >
-      <div className="h-full w-60 right-0 top-0 m-2 border border-gray-100 dark:border-gray-850 rounded-lg ">
+      <div className="top-0 right-0 h-full m-2 border border-gray-100 rounded-lg w-60 dark:border-gray-850 ">
         {!!file && (
-          <div className="flex flex-col overflow-hidden h-full rounded-lg bg-white dark:bg-gray-700 select-text">
-            <div className="h-32 bg-gray-50 dark:bg-gray-900 rounded-t-lg w-full flex justify-center items-center">
+          <div className="flex flex-col h-full overflow-hidden bg-white rounded-lg select-text dark:bg-gray-700">
+            <div className="flex items-center justify-center w-full h-32 rounded-t-lg bg-gray-50 dark:bg-gray-900">
               <img
                 src={convertFileSrc(
-                  `${useAppState.getState().file_type_thumb_dir}/${
+                  `${useAppState.getState().config.file_type_thumb_dir}/${
                     file?.is_dir ? 'folder' : file?.extension
                   }.png`
                 )}
                 className="h-24"
               />
             </div>
-            <h3 className="font-bold p-3 text-base">{file?.name}</h3>
+            <h3 className="p-3 text-base font-bold">{file?.name}</h3>
             <div className="flex flex-row m-3 space-x-2">
               <Button size="sm">
                 <Heart className="w-4 h-4" />

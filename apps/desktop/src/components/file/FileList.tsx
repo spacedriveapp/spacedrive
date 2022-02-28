@@ -80,17 +80,17 @@ export const FileList: React.FC<{}> = (props) => {
 
   const Header = () => (
     <div>
-      <h1 className="p-2 mt-10 ml-1 font-bold text-xl">{currentDir?.name}</h1>
+      <h1 className="p-2 mt-10 ml-1 text-xl font-bold">{currentDir?.name}</h1>
       <div className="table-head">
-        <div className="table-head-row flex flex-row p-2">
+        <div className="flex flex-row p-2 table-head-row">
           {columns.map((col) => (
             <div
               key={col.key}
-              className="table-head-cell flex flex-row items-center relative group pl-2"
+              className="relative flex flex-row items-center pl-2 table-head-cell group"
               style={{ width: col.width }}
             >
-              <DotsVerticalIcon className="hidden absolute group-hover:block drag-handle w-5 h-5 opacity-10 -ml-5 cursor-move" />
-              <span className="text-sm text-gray-500 font-medium">{col.column}</span>
+              <DotsVerticalIcon className="absolute hidden w-5 h-5 -ml-5 cursor-move group-hover:block drag-handle opacity-10" />
+              <span className="text-sm font-medium text-gray-500">{col.column}</span>
             </div>
           ))}
         </div>
@@ -103,7 +103,7 @@ export const FileList: React.FC<{}> = (props) => {
       <div
         ref={tableContainer}
         style={{ marginTop: -44 }}
-        className="table-container  w-full h-full bg-white dark:bg-gray-900 p-3 cursor-default"
+        className="w-full h-full p-3 bg-white cursor-default table-container dark:bg-gray-900"
       >
         <Virtuoso
           data={currentDir?.children}
@@ -112,7 +112,7 @@ export const FileList: React.FC<{}> = (props) => {
           totalCount={currentDir?.children_count || 0}
           itemContent={Row}
           components={{ Header }}
-          className="table-body pb-10 outline-none"
+          className="pb-10 outline-none table-body"
         />
       </div>
     ),
@@ -155,7 +155,7 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: number }> = ({
         {columns.map((col) => (
           <div
             key={col.key}
-            className="table-body-cell px-4 py-2 flex items-center pr-2"
+            className="flex items-center px-4 py-2 pr-2 table-body-cell"
             style={{ width: col.width }}
           >
             <RenderCell fileId={row.id} dirId={dirId} colKey={col?.key} />
@@ -187,7 +187,7 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; fileId?: number
           <div className="w-6 h-6 mr-2">
             <img
               src={convertFileSrc(
-                `${useAppState.getState().file_type_thumb_dir}/${
+                `${useAppState.getState().config.file_type_thumb_dir}/${
                   row.is_dir ? 'folder' : row.extension
                 }.png`
               )}
@@ -198,15 +198,15 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; fileId?: number
             (() => {
               switch (row.extension.toLowerCase()) {
                 case 'mov' || 'mp4':
-                  return <FilmIcon className="w-5 h-5 mr-3 flex-shrink-0 text-gray-300" />;
+                  return <FilmIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
 
                 default:
                   if (row.is_dir)
-                    return <FolderIcon className="w-5 h-5 mr-3 flex-shrink-0 text-gray-300" />;
-                  return <DocumentIcon className="w-5 h-5 mr-3 flex-shrink-0 text-gray-300" />;
+                    return <FolderIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
+                  return <DocumentIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
               }
             })()} */}
-          <span className="truncate text-xs">{row[colKey]}</span>
+          <span className="text-xs truncate">{row[colKey]}</span>
         </div>
       );
     case 'size_in_bytes':

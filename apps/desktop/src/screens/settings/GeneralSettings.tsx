@@ -1,17 +1,18 @@
 import { InputContainer } from '../../components/primitive/InputContainer';
 import { Button, Input } from '../../components/primitive';
 import { invoke } from '@tauri-apps/api';
-import React, { useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useExplorerStore } from '../../store/explorer';
 import { useAppState } from '../../store/global';
 import Listbox from '../../components/primitive/Listbox';
 import { useLocations } from '../../store/locations';
+import ReactJson from 'react-json-view';
 
 export default function GeneralSettings() {
   const locations = useLocations();
 
-  const fileUploader = useRef<HTMLInputElement | null>(null);
-  const config = useAppState();
+  // const fileUploader = useRef<HTMLInputElement | null>(null);
+  const app = useAppState();
 
   const [tempWatchDir, setTempWatchDir] = useExplorerStore((state) => [
     state.tempWatchDir,
@@ -19,11 +20,21 @@ export default function GeneralSettings() {
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col max-w-2xl space-y-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">General Settings</h1>
-        <p className="text-sm mt-1 text-gray-400">Basic settings related to this client</p>
-        <hr className="border-gray-550 mt-4" />
+        <p className="mt-1 text-sm text-gray-400">Basic settings related to this client</p>
+        <hr className="mt-4 border-gray-550" />
+      </div>
+      <div className="select-text">
+        <ReactJson
+          collapsed
+          enableClipboard={false}
+          displayDataTypes={false}
+          theme="ocean"
+          src={app.config}
+          style={{ padding: 20, borderRadius: 5 }}
+        />
       </div>
       <InputContainer
         title="Quick scan directory"
@@ -56,7 +67,11 @@ export default function GeneralSettings() {
         description="Local cache storage for media previews and thumbnails."
       >
         <div className="flex flex-row">
-          <Input className="flex-grow" value={config.data_dir} placeholder="/users/jamie/Desktop" />
+          <Input
+            className="flex-grow"
+            value={app.config.data_dir}
+            placeholder="/users/jamie/Desktop"
+          />
         </div>
       </InputContainer>
       <InputContainer
@@ -87,6 +102,8 @@ export default function GeneralSettings() {
           </Button>
         </div>
       </InputContainer>
+
+      {/* <div className="">{JSON.stringify({ config })}</div> */}
     </div>
   );
 }
