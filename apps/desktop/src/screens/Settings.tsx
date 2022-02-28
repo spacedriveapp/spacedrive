@@ -31,7 +31,7 @@ const Heading: React.FC<{ className?: string }> = ({ children, className }) => (
 export const SettingsScreen: React.FC<{}> = () => {
   return (
     <div className="flex flex-row w-full">
-      <div className="h-full p-5 border-r w-60 border-gray-550">
+      <div className="h-full p-5 border-r border-gray-100 w-60 dark:border-gray-550">
         <Heading className="mt-0">Client</Heading>
         <SidebarLink to="/settings/general">
           <Icon component={CogIcon} />
@@ -74,7 +74,7 @@ export const SettingsScreen: React.FC<{}> = () => {
           Contacts
         </SidebarLink>
       </div>
-      <div className="flex flex-grow-0 w-full h-full max-h-screen overflow-y-scroll bg-gray-600">
+      <div className="flex flex-grow-0 w-full h-full max-h-screen overflow-y-scroll">
         <div className="px-12 py-5">
           <Outlet />
           <div className="block h-20" />

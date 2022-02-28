@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{BufReader, Write};
 use std::sync::RwLock;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClientState {
@@ -63,8 +64,10 @@ pub fn get() -> Result<ClientState> {
 
 impl ClientState {
     pub fn new(data_path: &str, client_name: &str) -> Result<Self> {
+        let uuid = Uuid::new_v4().to_string();
         // create struct and assign defaults
         let config = Self {
+            client_id: uuid,
             data_path: data_path.to_string(),
             client_name: client_name.to_string(),
             ..Default::default()

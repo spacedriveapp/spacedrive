@@ -22,6 +22,9 @@ pub async fn init_library() -> Result<()> {
         };
 
         client_config.libraries.push(library);
+
+        client_config.primary_library_id = uuid;
+
         client_config.save();
     }
 
