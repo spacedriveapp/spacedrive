@@ -69,12 +69,18 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
     });
 
     let data_dir = data_dir.to_str().unwrap();
-
+    // create data directory if it doesn't exist
     fs::create_dir_all(&data_dir).unwrap();
     // prepare basic client state
-    let client_config = ClientState::new(data_dir, "spacedrive").unwrap();
+    let mut client_config = ClientState::new(data_dir, "spacedrive").unwrap();
+    // load from disk
+    client_config
+        .read_disk()
+        .unwrap_or(println!("No client state found, created new one"));
 
-    println!("Client Config: {:?}", client_config);
+    client_config.save();
+
+    println!("client config: {:?}", client_config);
 
     // begin asynchronous startup routines
     block_on(async {

@@ -2,7 +2,7 @@ use anyhow::Result;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::Write;
+use std::io::{BufReader, Write};
 use std::sync::RwLock;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -16,10 +16,12 @@ pub struct ClientState {
     // the port this client uses to listen for incoming connections
     pub tcp_port: u32,
     // all the libraries loaded by this client
-    #[serde(rename = "arr")]
     pub libraries: Vec<LibraryState>,
+    // used to quickly find the default library
     pub primary_library_id: String,
 }
+
+pub static CLIENT_STATE_CONFIG_NAME: &str = ".client_state";
 
 impl Default for ClientState {
     fn default() -> Self {
@@ -67,22 +69,34 @@ impl ClientState {
             client_name: client_name.to_string(),
             ..Default::default()
         };
-        config.save();
         Ok(config)
     }
 
     pub fn save(&self) {
-        self.write_global();
+        self.write_memory();
         // only write to disk if config path is set
         if !&self.data_path.is_empty() {
-            let config_path = format!("{}/.client_state", &self.data_path);
+            let config_path = format!("{}/{}", &self.data_path, CLIENT_STATE_CONFIG_NAME);
             let mut file = fs::File::create(config_path).unwrap();
             let json = serde_json::to_string(&self).unwrap();
             file.write_all(json.as_bytes()).unwrap();
         }
     }
 
-    fn write_global(&self) {
+    pub fn read_disk(&mut self) -> Result<()> {
+        let config_path = format!("{}/{}", &self.data_path, CLIENT_STATE_CONFIG_NAME);
+        // open the file and parse json
+        let file = fs::File::open(config_path)?;
+        let reader = BufReader::new(file);
+        let data = serde_json::from_reader(reader)?;
+
+        println!("data:::: {:?}", data);
+        // assign to self
+        *self = data;
+        Ok(())
+    }
+
+    fn write_memory(&self) {
         {
             let mut writeable = CONFIG.write().unwrap();
             *writeable = Some(self.clone());

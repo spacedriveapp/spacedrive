@@ -140,7 +140,7 @@ function NotFound() {
     <div
       data-tauri-drag-region
       role="alert"
-      className="flex flex-col w-full h-full items-center justify-center p-4 border border-gray-200 rounded-lg dark:border-gray-650 bg-gray-50 dark:bg-gray-650 dark:text-white"
+      className="flex flex-col items-center justify-center w-full h-full p-4 border border-gray-200 rounded-lg dark:border-gray-650 bg-gray-50 dark:bg-gray-650 dark:text-white"
     >
       <p className="m-3 text-sm font-bold text-gray-400">Error: 404</p>
       <h1 className="text-2xl font-bold">Not found bozo.</h1>
