@@ -40,7 +40,7 @@ module.exports = {
           350: '#A6AABF',
           400: '#9196A8',
           450: '#71758A',
-          500: '#2E313B',
+          500: '#303544',
           550: '#20222d',
           600: '#171720',
           650: '#121219',
@@ -82,9 +82,9 @@ module.exports = {
           'in-out-circ': 'cubic-bezier(0.85, 0, 0.15, 1)',
           'in-back': 'cubic-bezier(0.36, 0, 0.66, -0.56)',
           'out-back': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-          'in-out-back': 'cubic-bezier(0.68, -0.6, 0.32, 1.6)',
-        },
-      },
+          'in-out-back': 'cubic-bezier(0.68, -0.6, 0.32, 1.6)'
+        }
+      }
     }
   },
   variants: {

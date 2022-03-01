@@ -7,6 +7,7 @@ import { useAppState } from '../../store/global';
 import Listbox from '../../components/primitive/Listbox';
 import { useLocations } from '../../store/locations';
 import ReactJson from 'react-json-view';
+import Slider from '../../components/primitive/Slider';
 
 export default function GeneralSettings() {
   const locations = useLocations();
@@ -41,7 +42,6 @@ export default function GeneralSettings() {
           />
           <Button
             className="ml-2"
-            size="sm"
             variant="primary"
             onClick={async () => {
               await invoke('scan_dir', {
@@ -71,6 +71,12 @@ export default function GeneralSettings() {
             Add Location
           </Button>
         </div>
+      </InputContainer>
+      <InputContainer
+        title="Locations"
+        description="Local cache storage for media previews and thumbnails."
+      >
+        <Slider />
       </InputContainer>
       <InputContainer
         title="Media cache directory"
