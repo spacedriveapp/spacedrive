@@ -32,6 +32,7 @@
     "@headlessui/react": "^1.4.0",
     "@heroicons/react": "^1.0.4",
     "@radix-ui/react-dialog": "^0.1.5",
+    "@radix-ui/react-slider": "^0.1.4",
     "@tauri-apps/api": "^1.0.0-beta.5",
     "@types/pretty-bytes": "^5.2.0",
     "@types/react-table": "^7.7.6",

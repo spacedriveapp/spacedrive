@@ -11,7 +11,7 @@ interface StatItemProps {
 
 const StatItem: React.FC<StatItemProps> = (props) => {
   return (
-    <div className="flex flex-col p-4 mt-2 rounded-md bg-gray-50 dark:bg-gray-600">
+    <div className="flex flex-col p-4 mt-2 rounded-md bg-gray-50 dark:bg-gray-550">
       <span className="text-sm text-gray-400">{props.name}</span>
       <span className="text-2xl font-bold">
         {props.value}
