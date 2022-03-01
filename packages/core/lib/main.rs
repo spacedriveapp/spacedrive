@@ -72,26 +72,47 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
     // create data directory if it doesn't exist
     fs::create_dir_all(&data_dir).unwrap();
     // prepare basic client state
-    let mut client_config = ClientState::new(data_dir, "spacedrive").unwrap();
+    let mut client_config = ClientState::new(data_dir, "diamond-mastering-space-dragon").unwrap();
     // load from disk
     client_config
         .read_disk()
-        .unwrap_or(println!("No client state found, created new one"));
+        .unwrap_or(println!("No client state found, creating new one..."));
 
     client_config.save();
 
-    println!("client config: {:?}", client_config);
-
     // begin asynchronous startup routines
     block_on(async {
-        // init library, updates config with primary library
-        library::init::init_library().await.unwrap();
-        // init database for primary library / TODO: rename to create_db
-        db::connection::create_primary_db().await.unwrap();
-        // add library to database
-        library::init::add_library_to_db(Some("My Library".to_string())).await;
+        println!("Starting up... {:?}", client_config);
+        if client_config.libraries.len() == 0 {
+            match library::loader::create(None).await {
+                Ok(library) => {
+                    println!("Created new library: {:?}", library);
+                }
+                Err(e) => {
+                    println!("Error creating library: {:?}", e);
+                }
+            }
+        } else {
+            for library in client_config.libraries.iter() {
+                // init database for library
+                match library::loader::load(&library.library_path, &library.library_id).await {
+                    Ok(library) => {
+                        println!("Loaded library: {:?}", library);
+                    }
+                    Err(e) => {
+                        println!("Error loading library: {:?}", e);
+                    }
+                }
+            }
+        }
+
         // init client
-        library::client::create().await.unwrap();
+        match library::client::create().await {
+            Ok(_) => {}
+            Err(e) => {
+                println!("Error initializing client: {:?}", e);
+            }
+        };
         // activate p2p listeners
         // p2p::listener::listen(None);
     });

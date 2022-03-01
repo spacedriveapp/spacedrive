@@ -19,7 +19,7 @@ pub struct ClientState {
     // all the libraries loaded by this client
     pub libraries: Vec<LibraryState>,
     // used to quickly find the default library
-    pub primary_library_id: String,
+    pub current_library_id: String,
 }
 
 pub static CLIENT_STATE_CONFIG_NAME: &str = ".client_state";
@@ -32,7 +32,7 @@ impl Default for ClientState {
             client_name: "".to_string(),
             tcp_port: 0,
             libraries: vec![],
-            primary_library_id: "".to_string(),
+            current_library_id: "".to_string(),
         }
     }
 }
@@ -41,6 +41,7 @@ impl Default for ClientState {
 pub struct LibraryState {
     pub library_id: String,
     pub library_path: String,
+    pub offline: bool,
 }
 
 impl Default for LibraryState {
@@ -48,6 +49,7 @@ impl Default for LibraryState {
         LibraryState {
             library_id: "".to_string(),
             library_path: "".to_string(),
+            offline: false,
         }
     }
 }
@@ -57,9 +59,11 @@ lazy_static! {
     static ref CONFIG: RwLock<Option<ClientState>> = RwLock::new(None);
 }
 
-pub fn get() -> Result<ClientState> {
-    let client_state = CONFIG.read().unwrap().as_ref().unwrap().clone();
-    Ok(client_state)
+pub fn get() -> ClientState {
+    match CONFIG.read() {
+        Ok(guard) => guard.clone().unwrap_or(ClientState::default()),
+        Err(_) => return ClientState::default(),
+    }
 }
 
 impl ClientState {
@@ -106,11 +110,11 @@ impl ClientState {
         }
     }
 
-    pub fn get_primary_library(&self) -> LibraryState {
+    pub fn get_current_library(&self) -> LibraryState {
         match self
             .libraries
             .iter()
-            .find(|lib| lib.library_id == self.primary_library_id)
+            .find(|lib| lib.library_id == self.current_library_id)
         {
             Some(lib) => lib.clone(),
             None => LibraryState::default(),
@@ -118,6 +122,6 @@ impl ClientState {
     }
 
     pub fn get_current_library_db_path(&self) -> String {
-        format!("{}/library.db", &self.get_primary_library().library_path)
+        format!("{}/library.db", &self.get_current_library().library_path)
     }
 }

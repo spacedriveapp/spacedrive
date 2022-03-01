@@ -4,7 +4,7 @@ use sdcorelib::{
   db::connection::db,
   file::{icon, indexer, locations, retrieve, retrieve::Directory, watcher::watch_dir},
   native,
-  state::client::{get, ClientState},
+  state::{client, client::ClientState},
 };
 use swift_rs::types::SRObjectArray;
 
@@ -26,7 +26,7 @@ pub async fn get_files(path: String) -> Result<Directory, String> {
 
 #[tauri::command]
 pub fn get_config() -> ClientState {
-  get().unwrap()
+  client::get()
 }
 
 #[tauri::command]
