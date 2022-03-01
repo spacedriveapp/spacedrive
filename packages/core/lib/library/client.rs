@@ -1,12 +1,6 @@
-use std::{collections::HashMap, env};
-
 use anyhow::Result;
-
-use sea_orm::EntityTrait;
-use sea_orm::Set;
-
-use sea_orm::{ActiveModelTrait, QueryOrder};
-
+use std::env;
+// use sea_orm::EntityTrait;
 use crate::{
     db::{
         connection::db,
@@ -14,23 +8,17 @@ use crate::{
     },
     state,
 };
+use sea_orm::ActiveModelTrait;
+use sea_orm::Set;
 
 pub async fn create() -> Result<()> {
-    let db = db().await.unwrap();
-    let config = state::client::get().unwrap();
+    println!("Creating client...");
+    let mut config = state::client::get();
 
-    // get highest location id from db
-    let next_client_id = match client::Entity::find()
-        .order_by_desc(client::Column::Id)
-        .one(db)
-        .await
-    {
-        Ok(client) => client.map_or(1, |client| client.id + 1),
-        Err(_) => 1,
-    };
+    let db = db().await.expect("Could not connect to database");
 
     let hostname = match hostname::get() {
-        Ok(hostname) => hostname.to_str().unwrap().to_owned(),
+        Ok(hostname) => hostname.to_str().unwrap_or_default().to_owned(),
         Err(_) => "unknown".to_owned(),
     };
 
@@ -42,17 +30,19 @@ pub async fn create() -> Result<()> {
     };
 
     let mut client = client::ActiveModel {
-        // id: Set(next_client_id),
-        name: Set(hostname),
+        name: Set(hostname.clone()),
+        uuid: Set(config.client_id.clone()),
         platform: Set(platform),
         online: Set(true),
         ..Default::default()
     };
 
-    client = client.save(db).await.map_err(|e| {
-        println!("error saving client: {:?}", e);
-        e
-    })?;
+    client = client.save(db).await?;
+
+    config.client_name = hostname;
+    config.save();
+
+    println!("Created client: {:?}", &client);
 
     Ok(())
 }

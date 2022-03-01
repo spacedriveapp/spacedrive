@@ -5,8 +5,9 @@ use chrono::Utc;
 use sea_orm::{entity::*, QueryOrder};
 use walkdir::{DirEntry, WalkDir};
 
-use crate::db::{connection::DB_INSTANCE, entity::file};
-use crate::file::{checksum::create_meta_integrity_hash, init};
+use crate::db::{connection::db, entity::file};
+use crate::file::checksum::create_meta_integrity_hash;
+use crate::library;
 use crate::util::time;
 
 use super::locations::get_location;
@@ -25,8 +26,9 @@ pub async fn scan_paths(location_id: u32) -> Result<()> {
 // creates a vector of valid path buffers from a directory
 pub async fn scan(path: &str) -> Result<()> {
     println!("Scanning directory: {}", &path);
-    let db = DB_INSTANCE.get().unwrap();
-    let primary_library = init::get_primary_library(&db).await?;
+    let current_library = library::loader::get().await?;
+
+    let db = db().await.unwrap();
 
     // query db to highers id, so we can increment it for the new files indexed
     let mut next_file_id = match file::Entity::find()
@@ -81,7 +83,7 @@ pub async fn scan(path: &str) -> Result<()> {
             path.to_owned(),
             file_id,
             parent_dir_id.cloned(),
-            primary_library.id,
+            current_library.id,
         ));
 
         if entry.file_type().is_dir() {
@@ -146,7 +148,8 @@ fn create_active_file_model(
 ) -> Result<file::ActiveModel> {
     let metadata = fs::metadata(&uri)?;
     let size = metadata.len();
-    let mut meta_integrity_hash = create_meta_integrity_hash(uri.to_str().unwrap_or_default(), size)?;
+    let mut meta_integrity_hash =
+        create_meta_integrity_hash(uri.to_str().unwrap_or_default(), size)?;
     meta_integrity_hash.truncate(20);
 
     let mut location_relative_uri = uri

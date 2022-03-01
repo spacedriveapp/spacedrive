@@ -10,7 +10,7 @@ pub async fn get_thumbs_for_directory(path: &str) -> impl Stream<Item = ClientEv
     let dir = retrieve::get_dir_with_contents(&path).await.unwrap();
 
     stream::iter(dir.contents.into_iter()).filter_map(|file| async {
-        let config = state::client::get().unwrap();
+        let config = state::client::get();
         let icon_name = format!(
             "{}.png",
             if file.is_dir {

@@ -11,13 +11,12 @@ use std::path::Path;
 
 use crate::{
     db::{
-        connection::DB_INSTANCE,
+        connection::db,
         entity::{file, locations},
     },
+    library,
     native::methods::get_mounts,
 };
-
-use super::init;
 
 #[derive(Serialize, Deserialize)]
 struct DotSpaceDrive {
@@ -25,7 +24,7 @@ struct DotSpaceDrive {
 }
 
 pub async fn get_location(location_id: u32) -> Result<locations::Model> {
-    let db = DB_INSTANCE.get().unwrap();
+    let db = db().await.unwrap();
 
     // get location by location_id from db and include location_paths
     let location = match locations::Entity::find()
@@ -41,8 +40,9 @@ pub async fn get_location(location_id: u32) -> Result<locations::Model> {
 }
 
 pub async fn create_location(path: &str) -> Result<()> {
-    let db = DB_INSTANCE.get().unwrap();
-    let primary_library = init::get_primary_library(&db).await?;
+    let db = db().await.unwrap();
+
+    let library = library::loader::get().await?;
     let mounts = get_mounts();
 
     // find mount with matching path
@@ -77,7 +77,7 @@ pub async fn create_location(path: &str) -> Result<()> {
         available_capacity: Set(mount.available_capacity.try_into().unwrap()),
         is_ejectable: Set(mount.is_ejectable),
         is_removable: Set(mount.is_removable),
-        library_id: Set(primary_library.id),
+        library_id: Set(library.id),
         date_created: Set(Some(Utc::now().naive_utc())),
         last_indexed: Set(Some(Utc::now().naive_utc())),
         is_root_filesystem: Set(mount.is_root_filesystem),

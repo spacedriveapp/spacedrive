@@ -32,9 +32,9 @@
     "desktop": "yarn workspace desktop",
     "mobile": "yarn workspace mobile",
     "web": "yarn workspace web",
+    "docs": "yarn workspace docs",
     "server": "yarn workspace server"
   },
-  
   "devDependencies": {
     "prettier": "^2.5.1",
     "turbo": "latest"
