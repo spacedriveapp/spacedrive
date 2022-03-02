@@ -26,6 +26,7 @@ import GeneralSettings from './screens/settings/GeneralSettings';
 import SlideUp from './components/transitions/SlideUp';
 import SecuritySettings from './screens/settings/SecuritySettings';
 import LocationSettings from './screens/settings/LocationSettings';
+import { RedirectPage } from './screens/Redirect';
 
 function AppLayout() {
   return (
@@ -75,7 +76,7 @@ function Router() {
     <>
       <Routes location={state?.backgroundLocation || location}>
         <Route path="/" element={<AppLayout />}>
-          <Route index element={<OverviewScreen />} />
+          <Route index element={<RedirectPage to="/overview" />} />
           <Route path="overview" element={<OverviewScreen />} />
           <Route path="spaces" element={<SpacesScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
