@@ -20,9 +20,11 @@ pub async fn get() -> Result<library::Model> {
 
     let library_state = config.get_current_library();
 
+    println!("{:?}", library_state);
+
     // get library from db
     let library = match library::Entity::find()
-        .filter(library::Column::Id.eq(library_state.library_id.clone()))
+        .filter(library::Column::Uuid.eq(library_state.library_id.clone()))
         .one(db)
         .await?
     {
