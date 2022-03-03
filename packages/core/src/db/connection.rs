@@ -38,7 +38,7 @@ pub async fn init(db_url: &str) -> Result<(), sqlx::Error> {
     // migrate db
     mod embedded_primary {
         use refinery::embed_migrations;
-        embed_migrations!("lib/db/migrations");
+        embed_migrations!("src/db/migrations");
     }
 
     embedded_primary::migrations::runner()

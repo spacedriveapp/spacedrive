@@ -6,7 +6,7 @@ use std::io::{BufReader, Write};
 use std::sync::RwLock;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ClientState {
     // client id is a uniquely generated UUID
     pub client_id: String,
@@ -22,36 +22,13 @@ pub struct ClientState {
     pub current_library_id: String,
 }
 
-pub static CLIENT_STATE_CONFIG_NAME: &str = ".client_state";
+pub static CLIENT_STATE_CONFIG_NAME: &str = "client_state.json";
 
-impl Default for ClientState {
-    fn default() -> Self {
-        ClientState {
-            client_id: "".to_string(),
-            data_path: "".to_string(),
-            client_name: "".to_string(),
-            tcp_port: 0,
-            libraries: vec![],
-            current_library_id: "".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct LibraryState {
     pub library_id: String,
     pub library_path: String,
     pub offline: bool,
-}
-
-impl Default for LibraryState {
-    fn default() -> Self {
-        LibraryState {
-            library_id: "".to_string(),
-            library_path: "".to_string(),
-            offline: false,
-        }
-    }
 }
 
 // global, thread-safe storage for client state
@@ -104,10 +81,8 @@ impl ClientState {
     }
 
     fn write_memory(&self) {
-        {
-            let mut writeable = CONFIG.write().unwrap();
-            *writeable = Some(self.clone());
-        }
+        let mut writeable = CONFIG.write().unwrap();
+        *writeable = Some(self.clone());
     }
 
     pub fn get_current_library(&self) -> LibraryState {

@@ -17,7 +17,7 @@ pub async fn get_dir_with_contents(path: &str) -> Result<Directory, String> {
     println!("getting files... {:?}", &path);
 
     let directories = file::Entity::find()
-        .filter(file::Column::Uri.eq(path))
+        .filter(file::Column::Name.eq(path)) // FIXXXXX
         .all(connection)
         .await
         .map_err(|e| e.to_string())?;

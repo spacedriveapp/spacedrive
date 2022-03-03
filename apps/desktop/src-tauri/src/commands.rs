@@ -2,8 +2,8 @@ use anyhow::Result;
 use sdcorelib::{
   core_send_stream,
   db::connection::db,
-  file::{icon, indexer, locations, retrieve, retrieve::Directory, watcher::watch_dir},
-  native,
+  file::{icon, indexer, retrieve, retrieve::Directory, watcher::watch_dir},
+  library, native,
   state::{client, client::ClientState},
 };
 use swift_rs::types::SRObjectArray;
@@ -49,6 +49,7 @@ pub async fn get_thumbs_for_directory(path: &str) -> Result<(), String> {
 
   Ok(())
 }
+
 #[tauri::command]
 pub async fn start_watcher(path: &str) -> Result<(), String> {
   println!("starting watcher for: {:?}", path);
@@ -59,6 +60,6 @@ pub async fn start_watcher(path: &str) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn create_location(path: &str) -> Result<(), String> {
-  let _location = locations::create_location(path);
+  let _location = library::locations::create_location(path);
   Ok(())
 }
