@@ -1,93 +1,100 @@
 use anyhow::{anyhow, Result};
-use chrono::Utc;
-use sea_orm::ColumnTrait;
-use sea_orm::Set;
-use sea_orm::{ActiveModelTrait, QueryOrder};
-use sea_orm::{EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
 use std::io::Write;
 use std::path::Path;
 
 use crate::{
-    db::{
-        connection::db,
-        entity::{file, locations},
-    },
-    library,
+    db, library,
     native::methods::get_mounts,
+    prisma::{File, Location, LocationData},
 };
 
 #[derive(Serialize, Deserialize)]
 struct DotSpaceDrive {
-    location_id: u32,
+    location_id: i64,
 }
 
-pub async fn get_location(location_id: u32) -> Result<locations::Model> {
-    let db = db().await.unwrap();
+pub async fn get_location(location_id: i64) -> Result<LocationData> {
+    let db = db::get().await.unwrap();
 
     // get location by location_id from db and include location_paths
-    let location = match locations::Entity::find()
-        .filter(file::Column::Id.eq(location_id))
-        .one(db)
+    let location = match db
+        .location()
+        .find_first(vec![
+            Location::files().some(vec![File::id().equals(location_id)])
+        ])
+        .exec()
         .await
     {
-        Ok(location) => location,
-        Err(_) => return Err(anyhow!("location_not_found")),
+        Some(location) => location,
+        None => return Err(anyhow!("location_not_found")),
     };
 
-    Ok(location.unwrap())
+    Ok(location)
 }
 
-pub async fn create_location(path: &str) -> Result<()> {
-    let db = db().await.unwrap();
-
-    let library = library::loader::get().await?;
-    let mounts = get_mounts();
-
-    // find mount with matching path
-    let mount = match mounts.iter().find(|mount| mount.path.as_str() == path) {
-        Some(mount) => mount,
-        None => {
-            return Err(anyhow::anyhow!("{} is not a valid mount", path));
-        }
-    };
+pub async fn create_location(path: &str) -> Result<LocationData> {
+    let db = db::get().await.unwrap();
 
     // get highest location id from db
-    let next_location_id = match locations::Entity::find()
-        .order_by_desc(locations::Column::Id)
-        .one(db)
-        .await
-    {
-        Ok(location) => location.map_or(1, |location| location.id + 1),
-        Err(_) => 1,
+    let next_location_id = match db.location().find_first(vec![]).exec().await {
+        Some(location) => location.id + 1,
+        None => 1,
     };
 
-    let location = locations::ActiveModel {
-        id: Set(next_location_id),
-        client_id: Set(1),
-        name: Set(mount.name.to_owned()),
-        path: Set(Path::new(path)
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned()),
-        total_capacity: Set(mount.total_capacity.try_into().unwrap()),
-        available_capacity: Set(mount.available_capacity.try_into().unwrap()),
-        is_ejectable: Set(mount.is_ejectable),
-        is_removable: Set(mount.is_removable),
-        library_id: Set(library.id),
-        date_created: Set(Some(Utc::now().naive_utc())),
-        last_indexed: Set(Some(Utc::now().naive_utc())),
-        is_root_filesystem: Set(mount.is_root_filesystem),
-        is_online: Set(true),
-        ..Default::default()
+    println!("creating location: {}", path);
+
+    // let file_name = Path::new(path)
+    //     .file_name()
+    //     .unwrap()
+    //     .to_str()
+    //     .unwrap()
+    //     .to_string();
+
+    let create_location_params = {
+        // let library = library::loader::get().await?;
+        let mounts = get_mounts();
+
+        // find mount with matching path
+        let mount = &mounts[0];
+        //     .iter()
+        //     .find(|mount| path.starts_with(mount.path.as_str()))
+        // {
+        //     Some(mount) => mount,
+        //     None => {
+        //         return Err(anyhow::anyhow!("{} is not a valid mount", path));
+        //     }
+        // };
+
+        let mut create_location_params = vec![
+            Location::name().set(mount.name.to_string()),
+            Location::total_capacity().set(mount.total_capacity as i64),
+            Location::available_capacity().set(mount.available_capacity as i64),
+            Location::is_ejectable().set(mount.is_ejectable),
+            Location::is_removable().set(mount.is_removable),
+            Location::is_root_filesystem().set(mount.is_root_filesystem),
+            Location::is_online().set(true),
+        ];
+
+        create_location_params.extend(vec![
+            Location::id().set(next_location_id),
+            Location::path().set(path.to_string()),
+            // Location::library_id().set(library.id),
+        ]);
+
+        create_location_params
     };
-    location.save(db).await?;
+
+    let location = db
+        .location()
+        .create_one(create_location_params)
+        .exec()
+        .await;
+
+    println!("created location: {:?}", location);
 
     // write a file called .spacedrive to path containing the location id in JSON format
-    let mut dotfile = std::fs::File::create(format!("{}/.spacedrive", path))?;
+    let mut dotfile = std::fs::File::create(format!("{}/.spacedrive", path.clone()))?;
     let data = DotSpaceDrive {
         location_id: next_location_id,
     };
@@ -95,5 +102,5 @@ pub async fn create_location(path: &str) -> Result<()> {
 
     dotfile.write_all(json.as_bytes())?;
 
-    Ok(())
+    Ok(location)
 }

@@ -18,7 +18,7 @@ pub struct PrismaClient {
 }
 impl PrismaClient {
     pub async fn new() -> Self {
-        let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id                  Int      @id @default(autoincrement())\n    uuid                String\n    name                String\n    remote_id           String?\n    is_primary          Boolean  @default(true)\n    encryption          Int      @default(0)\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n    date_created        DateTime @default(now())\n    timezone            String?\n    spaces              Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id                   Int      @id @default(autoincrement())\n    is_dir               Boolean  @default(false)\n    location_id          Int\n    materialized_path    String\n    name                 String\n    extension            String?\n    path_integrity_hash  String   @unique // combo of location_id, materialized_path, name, extension\n    quick_integrity_hash String? // 100 * 100 byte samples\n    full_integrity_hash  String? // full byte to byte hash\n    size_in_bytes        String\n    encryption           Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    date_indexed         DateTime @default(now())\n    ipfs_id              String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    percentage_complete  Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
+        let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\ngenerator js {\n    provider = \"prisma-client-js\"\n    output   = \"../types\"\n}\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id                  Int      @id @default(autoincrement())\n    uuid                String   @unique\n    name                String\n    remote_id           String?\n    is_primary          Boolean  @default(true)\n    encryption          Int      @default(0)\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n    date_created        DateTime @default(now())\n    timezone            String?\n    spaces              Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    path_checksum  String   @unique // combo of location_id, stem, name, extension\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    percentage_complete  Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
         let config = parse_configuration(datamodel_str).unwrap().subject;
         let source = config
             .datasources
@@ -58,7 +58,7 @@ impl PrismaClient {
         }
     }
     pub async fn new_with_url(url: &str) -> Self {
-        let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id                  Int      @id @default(autoincrement())\n    uuid                String\n    name                String\n    remote_id           String?\n    is_primary          Boolean  @default(true)\n    encryption          Int      @default(0)\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n    date_created        DateTime @default(now())\n    timezone            String?\n    spaces              Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id                   Int      @id @default(autoincrement())\n    is_dir               Boolean  @default(false)\n    location_id          Int\n    materialized_path    String\n    name                 String\n    extension            String?\n    path_integrity_hash  String   @unique // combo of location_id, materialized_path, name, extension\n    quick_integrity_hash String? // 100 * 100 byte samples\n    full_integrity_hash  String? // full byte to byte hash\n    size_in_bytes        String\n    encryption           Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    date_indexed         DateTime @default(now())\n    ipfs_id              String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    percentage_complete  Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
+        let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\ngenerator js {\n    provider = \"prisma-client-js\"\n    output   = \"../types\"\n}\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id                  Int      @id @default(autoincrement())\n    uuid                String   @unique\n    name                String\n    remote_id           String?\n    is_primary          Boolean  @default(true)\n    encryption          Int      @default(0)\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n    date_created        DateTime @default(now())\n    timezone            String?\n    spaces              Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    path_checksum  String   @unique // combo of location_id, stem, name, extension\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    percentage_complete  Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
         let config = parse_configuration(datamodel_str).unwrap().subject;
         let source = config
             .datasources
@@ -4536,12 +4536,12 @@ fn file_outputs() -> Vec<Output> {
         Output::new("id"),
         Output::new("is_dir"),
         Output::new("location_id"),
-        Output::new("materialized_path"),
+        Output::new("stem"),
         Output::new("name"),
         Output::new("extension"),
-        Output::new("path_integrity_hash"),
-        Output::new("quick_integrity_hash"),
-        Output::new("full_integrity_hash"),
+        Output::new("path_checksum"),
+        Output::new("quick_checksum"),
+        Output::new("full_checksum"),
         Output::new("size_in_bytes"),
         Output::new("encryption"),
         Output::new("date_created"),
@@ -4559,18 +4559,18 @@ pub struct FileData {
     pub is_dir: bool,
     #[serde(rename = "location_id")]
     pub location_id: i64,
-    #[serde(rename = "materialized_path")]
-    pub materialized_path: String,
+    #[serde(rename = "stem")]
+    pub stem: String,
     #[serde(rename = "name")]
     pub name: String,
     #[serde(rename = "extension")]
     pub extension: Option<String>,
-    #[serde(rename = "path_integrity_hash")]
-    pub path_integrity_hash: String,
-    #[serde(rename = "quick_integrity_hash")]
-    pub quick_integrity_hash: Option<String>,
-    #[serde(rename = "full_integrity_hash")]
-    pub full_integrity_hash: Option<String>,
+    #[serde(rename = "path_checksum")]
+    pub path_checksum: String,
+    #[serde(rename = "quick_checksum")]
+    pub quick_checksum: Option<String>,
+    #[serde(rename = "full_checksum")]
+    pub full_checksum: Option<String>,
     #[serde(rename = "size_in_bytes")]
     pub size_in_bytes: String,
     #[serde(rename = "encryption")]
@@ -4631,8 +4631,8 @@ impl File {
     pub fn location_id() -> FileLocationIdField {
         FileLocationIdField {}
     }
-    pub fn materialized_path() -> FileMaterializedPathField {
-        FileMaterializedPathField {}
+    pub fn stem() -> FileStemField {
+        FileStemField {}
     }
     pub fn name() -> FileNameField {
         FileNameField {}
@@ -4640,14 +4640,14 @@ impl File {
     pub fn extension() -> FileExtensionField {
         FileExtensionField {}
     }
-    pub fn path_integrity_hash() -> FilePathIntegrityHashField {
-        FilePathIntegrityHashField {}
+    pub fn path_checksum() -> FilePathChecksumField {
+        FilePathChecksumField {}
     }
-    pub fn quick_integrity_hash() -> FileQuickIntegrityHashField {
-        FileQuickIntegrityHashField {}
+    pub fn quick_checksum() -> FileQuickChecksumField {
+        FileQuickChecksumField {}
     }
-    pub fn full_integrity_hash() -> FileFullIntegrityHashField {
-        FileFullIntegrityHashField {}
+    pub fn full_checksum() -> FileFullChecksumField {
+        FileFullChecksumField {}
     }
     pub fn size_in_bytes() -> FileSizeInBytesField {
         FileSizeInBytesField {}
@@ -4761,28 +4761,28 @@ impl FileLocationIdField {
         FileSetLocationId(value).into()
     }
 }
-pub struct FileMaterializedPathField {}
-pub struct FileSetMaterializedPath(String);
-impl From<FileSetMaterializedPath> for FileSetParam {
-    fn from(value: FileSetMaterializedPath) -> Self {
-        Self::MaterializedPath(value.0)
+pub struct FileStemField {}
+pub struct FileSetStem(String);
+impl From<FileSetStem> for FileSetParam {
+    fn from(value: FileSetStem) -> Self {
+        Self::Stem(value.0)
     }
 }
-impl FileMaterializedPathField {
+impl FileStemField {
     pub fn contains(&self, value: String) -> FileWhereParam {
-        FileWhereParam::MaterializedPathContains(value)
+        FileWhereParam::StemContains(value)
     }
     pub fn has_prefix(&self, value: String) -> FileWhereParam {
-        FileWhereParam::MaterializedPathHasPrefix(value)
+        FileWhereParam::StemHasPrefix(value)
     }
     pub fn has_suffix(&self, value: String) -> FileWhereParam {
-        FileWhereParam::MaterializedPathHasSuffix(value)
+        FileWhereParam::StemHasSuffix(value)
     }
     pub fn equals(&self, value: String) -> FileWhereParam {
-        FileWhereParam::MaterializedPathEquals(value)
+        FileWhereParam::StemEquals(value)
     }
-    pub fn set<T: From<FileSetMaterializedPath>>(&self, value: String) -> T {
-        FileSetMaterializedPath(value).into()
+    pub fn set<T: From<FileSetStem>>(&self, value: String) -> T {
+        FileSetStem(value).into()
     }
 }
 pub struct FileNameField {}
@@ -4833,76 +4833,76 @@ impl FileExtensionField {
         FileSetExtension(value).into()
     }
 }
-pub struct FilePathIntegrityHashField {}
-pub struct FileSetPathIntegrityHash(String);
-impl From<FileSetPathIntegrityHash> for FileSetParam {
-    fn from(value: FileSetPathIntegrityHash) -> Self {
-        Self::PathIntegrityHash(value.0)
+pub struct FilePathChecksumField {}
+pub struct FileSetPathChecksum(String);
+impl From<FileSetPathChecksum> for FileSetParam {
+    fn from(value: FileSetPathChecksum) -> Self {
+        Self::PathChecksum(value.0)
     }
 }
-impl FilePathIntegrityHashField {
+impl FilePathChecksumField {
     pub fn contains(&self, value: String) -> FileWhereParam {
-        FileWhereParam::PathIntegrityHashContains(value)
+        FileWhereParam::PathChecksumContains(value)
     }
     pub fn has_prefix(&self, value: String) -> FileWhereParam {
-        FileWhereParam::PathIntegrityHashHasPrefix(value)
+        FileWhereParam::PathChecksumHasPrefix(value)
     }
     pub fn has_suffix(&self, value: String) -> FileWhereParam {
-        FileWhereParam::PathIntegrityHashHasSuffix(value)
+        FileWhereParam::PathChecksumHasSuffix(value)
     }
     pub fn equals(&self, value: String) -> FileWhereParam {
-        FileWhereParam::PathIntegrityHashEquals(value)
+        FileWhereParam::PathChecksumEquals(value)
     }
-    pub fn set<T: From<FileSetPathIntegrityHash>>(&self, value: String) -> T {
-        FileSetPathIntegrityHash(value).into()
-    }
-}
-pub struct FileQuickIntegrityHashField {}
-pub struct FileSetQuickIntegrityHash(String);
-impl From<FileSetQuickIntegrityHash> for FileSetParam {
-    fn from(value: FileSetQuickIntegrityHash) -> Self {
-        Self::QuickIntegrityHash(value.0)
+    pub fn set<T: From<FileSetPathChecksum>>(&self, value: String) -> T {
+        FileSetPathChecksum(value).into()
     }
 }
-impl FileQuickIntegrityHashField {
+pub struct FileQuickChecksumField {}
+pub struct FileSetQuickChecksum(String);
+impl From<FileSetQuickChecksum> for FileSetParam {
+    fn from(value: FileSetQuickChecksum) -> Self {
+        Self::QuickChecksum(value.0)
+    }
+}
+impl FileQuickChecksumField {
     pub fn contains(&self, value: String) -> FileWhereParam {
-        FileWhereParam::QuickIntegrityHashContains(value)
+        FileWhereParam::QuickChecksumContains(value)
     }
     pub fn has_prefix(&self, value: String) -> FileWhereParam {
-        FileWhereParam::QuickIntegrityHashHasPrefix(value)
+        FileWhereParam::QuickChecksumHasPrefix(value)
     }
     pub fn has_suffix(&self, value: String) -> FileWhereParam {
-        FileWhereParam::QuickIntegrityHashHasSuffix(value)
+        FileWhereParam::QuickChecksumHasSuffix(value)
     }
     pub fn equals(&self, value: String) -> FileWhereParam {
-        FileWhereParam::QuickIntegrityHashEquals(value)
+        FileWhereParam::QuickChecksumEquals(value)
     }
-    pub fn set<T: From<FileSetQuickIntegrityHash>>(&self, value: String) -> T {
-        FileSetQuickIntegrityHash(value).into()
-    }
-}
-pub struct FileFullIntegrityHashField {}
-pub struct FileSetFullIntegrityHash(String);
-impl From<FileSetFullIntegrityHash> for FileSetParam {
-    fn from(value: FileSetFullIntegrityHash) -> Self {
-        Self::FullIntegrityHash(value.0)
+    pub fn set<T: From<FileSetQuickChecksum>>(&self, value: String) -> T {
+        FileSetQuickChecksum(value).into()
     }
 }
-impl FileFullIntegrityHashField {
+pub struct FileFullChecksumField {}
+pub struct FileSetFullChecksum(String);
+impl From<FileSetFullChecksum> for FileSetParam {
+    fn from(value: FileSetFullChecksum) -> Self {
+        Self::FullChecksum(value.0)
+    }
+}
+impl FileFullChecksumField {
     pub fn contains(&self, value: String) -> FileWhereParam {
-        FileWhereParam::FullIntegrityHashContains(value)
+        FileWhereParam::FullChecksumContains(value)
     }
     pub fn has_prefix(&self, value: String) -> FileWhereParam {
-        FileWhereParam::FullIntegrityHashHasPrefix(value)
+        FileWhereParam::FullChecksumHasPrefix(value)
     }
     pub fn has_suffix(&self, value: String) -> FileWhereParam {
-        FileWhereParam::FullIntegrityHashHasSuffix(value)
+        FileWhereParam::FullChecksumHasSuffix(value)
     }
     pub fn equals(&self, value: String) -> FileWhereParam {
-        FileWhereParam::FullIntegrityHashEquals(value)
+        FileWhereParam::FullChecksumEquals(value)
     }
-    pub fn set<T: From<FileSetFullIntegrityHash>>(&self, value: String) -> T {
-        FileSetFullIntegrityHash(value).into()
+    pub fn set<T: From<FileSetFullChecksum>>(&self, value: String) -> T {
+        FileSetFullChecksum(value).into()
     }
 }
 pub struct FileSizeInBytesField {}
@@ -5190,10 +5190,10 @@ pub enum FileWhereParam {
     LocationIdLTE(i64),
     LocationIdGTE(i64),
     LocationIdEquals(i64),
-    MaterializedPathContains(String),
-    MaterializedPathHasPrefix(String),
-    MaterializedPathHasSuffix(String),
-    MaterializedPathEquals(String),
+    StemContains(String),
+    StemHasPrefix(String),
+    StemHasSuffix(String),
+    StemEquals(String),
     NameContains(String),
     NameHasPrefix(String),
     NameHasSuffix(String),
@@ -5202,18 +5202,18 @@ pub enum FileWhereParam {
     ExtensionHasPrefix(String),
     ExtensionHasSuffix(String),
     ExtensionEquals(String),
-    PathIntegrityHashContains(String),
-    PathIntegrityHashHasPrefix(String),
-    PathIntegrityHashHasSuffix(String),
-    PathIntegrityHashEquals(String),
-    QuickIntegrityHashContains(String),
-    QuickIntegrityHashHasPrefix(String),
-    QuickIntegrityHashHasSuffix(String),
-    QuickIntegrityHashEquals(String),
-    FullIntegrityHashContains(String),
-    FullIntegrityHashHasPrefix(String),
-    FullIntegrityHashHasSuffix(String),
-    FullIntegrityHashEquals(String),
+    PathChecksumContains(String),
+    PathChecksumHasPrefix(String),
+    PathChecksumHasSuffix(String),
+    PathChecksumEquals(String),
+    QuickChecksumContains(String),
+    QuickChecksumHasPrefix(String),
+    QuickChecksumHasSuffix(String),
+    QuickChecksumEquals(String),
+    FullChecksumContains(String),
+    FullChecksumHasPrefix(String),
+    FullChecksumHasSuffix(String),
+    FullChecksumEquals(String),
     SizeInBytesContains(String),
     SizeInBytesHasPrefix(String),
     SizeInBytesHasSuffix(String),
@@ -5359,8 +5359,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::MaterializedPathContains(value) => Field {
-                name: "materialized_path".into(),
+            Self::StemContains(value) => Field {
+                name: "stem".into(),
                 fields: Some(vec![Field {
                     name: "contains".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5368,8 +5368,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::MaterializedPathHasPrefix(value) => Field {
-                name: "materialized_path".into(),
+            Self::StemHasPrefix(value) => Field {
+                name: "stem".into(),
                 fields: Some(vec![Field {
                     name: "starts_with".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5377,8 +5377,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::MaterializedPathHasSuffix(value) => Field {
-                name: "materialized_path".into(),
+            Self::StemHasSuffix(value) => Field {
+                name: "stem".into(),
                 fields: Some(vec![Field {
                     name: "ends_with".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5386,8 +5386,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::MaterializedPathEquals(value) => Field {
-                name: "materialized_path".into(),
+            Self::StemEquals(value) => Field {
+                name: "stem".into(),
                 fields: Some(vec![Field {
                     name: "equals".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5467,8 +5467,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::PathIntegrityHashContains(value) => Field {
-                name: "path_integrity_hash".into(),
+            Self::PathChecksumContains(value) => Field {
+                name: "path_checksum".into(),
                 fields: Some(vec![Field {
                     name: "contains".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5476,8 +5476,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::PathIntegrityHashHasPrefix(value) => Field {
-                name: "path_integrity_hash".into(),
+            Self::PathChecksumHasPrefix(value) => Field {
+                name: "path_checksum".into(),
                 fields: Some(vec![Field {
                     name: "starts_with".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5485,8 +5485,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::PathIntegrityHashHasSuffix(value) => Field {
-                name: "path_integrity_hash".into(),
+            Self::PathChecksumHasSuffix(value) => Field {
+                name: "path_checksum".into(),
                 fields: Some(vec![Field {
                     name: "ends_with".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5494,8 +5494,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::PathIntegrityHashEquals(value) => Field {
-                name: "path_integrity_hash".into(),
+            Self::PathChecksumEquals(value) => Field {
+                name: "path_checksum".into(),
                 fields: Some(vec![Field {
                     name: "equals".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5503,8 +5503,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::QuickIntegrityHashContains(value) => Field {
-                name: "quick_integrity_hash".into(),
+            Self::QuickChecksumContains(value) => Field {
+                name: "quick_checksum".into(),
                 fields: Some(vec![Field {
                     name: "contains".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5512,8 +5512,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::QuickIntegrityHashHasPrefix(value) => Field {
-                name: "quick_integrity_hash".into(),
+            Self::QuickChecksumHasPrefix(value) => Field {
+                name: "quick_checksum".into(),
                 fields: Some(vec![Field {
                     name: "starts_with".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5521,8 +5521,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::QuickIntegrityHashHasSuffix(value) => Field {
-                name: "quick_integrity_hash".into(),
+            Self::QuickChecksumHasSuffix(value) => Field {
+                name: "quick_checksum".into(),
                 fields: Some(vec![Field {
                     name: "ends_with".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5530,8 +5530,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::QuickIntegrityHashEquals(value) => Field {
-                name: "quick_integrity_hash".into(),
+            Self::QuickChecksumEquals(value) => Field {
+                name: "quick_checksum".into(),
                 fields: Some(vec![Field {
                     name: "equals".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5539,8 +5539,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::FullIntegrityHashContains(value) => Field {
-                name: "full_integrity_hash".into(),
+            Self::FullChecksumContains(value) => Field {
+                name: "full_checksum".into(),
                 fields: Some(vec![Field {
                     name: "contains".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5548,8 +5548,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::FullIntegrityHashHasPrefix(value) => Field {
-                name: "full_integrity_hash".into(),
+            Self::FullChecksumHasPrefix(value) => Field {
+                name: "full_checksum".into(),
                 fields: Some(vec![Field {
                     name: "starts_with".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5557,8 +5557,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::FullIntegrityHashHasSuffix(value) => Field {
-                name: "full_integrity_hash".into(),
+            Self::FullChecksumHasSuffix(value) => Field {
+                name: "full_checksum".into(),
                 fields: Some(vec![Field {
                     name: "ends_with".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -5566,8 +5566,8 @@ impl FileWhereParam {
                 }]),
                 ..Default::default()
             },
-            Self::FullIntegrityHashEquals(value) => Field {
-                name: "full_integrity_hash".into(),
+            Self::FullChecksumEquals(value) => Field {
+                name: "full_checksum".into(),
                 fields: Some(vec![Field {
                     name: "equals".into(),
                     value: Some(serde_json::to_value(value).unwrap()),
@@ -6012,12 +6012,12 @@ pub enum FileSetParam {
     Id(i64),
     IsDir(bool),
     LocationId(i64),
-    MaterializedPath(String),
+    Stem(String),
     Name(String),
     Extension(String),
-    PathIntegrityHash(String),
-    QuickIntegrityHash(String),
-    FullIntegrityHash(String),
+    PathChecksum(String),
+    QuickChecksum(String),
+    FullChecksum(String),
     SizeInBytes(String),
     Encryption(i64),
     DateCreated(chrono::DateTime<chrono::Utc>),
@@ -6052,8 +6052,8 @@ impl FileSetParam {
                 value: Some(serde_json::to_value(value).unwrap()),
                 ..Default::default()
             },
-            Self::MaterializedPath(value) => Field {
-                name: "materialized_path".into(),
+            Self::Stem(value) => Field {
+                name: "stem".into(),
                 value: Some(serde_json::to_value(value).unwrap()),
                 ..Default::default()
             },
@@ -6067,18 +6067,18 @@ impl FileSetParam {
                 value: Some(serde_json::to_value(value).unwrap()),
                 ..Default::default()
             },
-            Self::PathIntegrityHash(value) => Field {
-                name: "path_integrity_hash".into(),
+            Self::PathChecksum(value) => Field {
+                name: "path_checksum".into(),
                 value: Some(serde_json::to_value(value).unwrap()),
                 ..Default::default()
             },
-            Self::QuickIntegrityHash(value) => Field {
-                name: "quick_integrity_hash".into(),
+            Self::QuickChecksum(value) => Field {
+                name: "quick_checksum".into(),
                 value: Some(serde_json::to_value(value).unwrap()),
                 ..Default::default()
             },
-            Self::FullIntegrityHash(value) => Field {
-                name: "full_integrity_hash".into(),
+            Self::FullChecksum(value) => Field {
+                name: "full_checksum".into(),
                 value: Some(serde_json::to_value(value).unwrap()),
                 ..Default::default()
             },
@@ -6454,16 +6454,16 @@ impl<'a> FileActions<'a> {
     }
     pub fn create_one(
         &self,
-        materialized_path: FileSetMaterializedPath,
+        stem: FileSetStem,
         name: FileSetName,
-        path_integrity_hash: FileSetPathIntegrityHash,
+        path_checksum: FileSetPathChecksum,
         size_in_bytes: FileSetSizeInBytes,
         params: Vec<FileSetParam>,
     ) -> FileCreateOne {
         let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
-        input_fields.push(FileSetParam::from(materialized_path).field());
+        input_fields.push(FileSetParam::from(stem).field());
         input_fields.push(FileSetParam::from(name).field());
-        input_fields.push(FileSetParam::from(path_integrity_hash).field());
+        input_fields.push(FileSetParam::from(path_checksum).field());
         input_fields.push(FileSetParam::from(size_in_bytes).field());
         let query = Query {
             ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),

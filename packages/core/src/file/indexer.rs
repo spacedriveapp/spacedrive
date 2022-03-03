@@ -2,22 +2,25 @@ use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time:
 
 use anyhow::Result;
 use chrono::Utc;
-use sea_orm::{entity::*, QueryOrder};
 use walkdir::{DirEntry, WalkDir};
 
-use crate::db::{connection::db, entity::file};
-use crate::file::checksum::create_meta_integrity_hash;
-use crate::library::locations::get_location;
-use crate::util::time;
-
 use super::watcher::watch_dir;
+use crate::file::checksum::create_meta_integrity_hash;
+use crate::library::locations::{create_location, get_location};
+use crate::util::time;
+use crate::{
+    db,
+    prisma::{File, FileData},
+};
 
-pub async fn scan_paths(location_id: u32) -> Result<()> {
+pub async fn scan_paths(location_id: i64) -> Result<()> {
     // get location by location_id from db and include location_paths
     let location = get_location(location_id).await?;
 
-    scan(&location.path).await?;
-    watch_dir(&location.path);
+    if let Some(path) = &location.path {
+        scan(path).await?;
+        watch_dir(path);
+    }
 
     Ok(())
 }
@@ -27,16 +30,14 @@ pub async fn scan(path: &str) -> Result<()> {
     println!("Scanning directory: {}", &path);
     // let current_library = library::loader::get().await?;
 
-    let db = db().await.unwrap();
+    let db = db::get().await.unwrap();
+
+    let location = create_location(&path).await?;
 
     // query db to highers id, so we can increment it for the new files indexed
-    let mut next_file_id = match file::Entity::find()
-        .order_by_desc(file::Column::Id)
-        .one(db)
-        .await
-    {
-        Ok(file) => file.map_or(0, |file| file.id),
-        Err(_) => 0,
+    let mut next_file_id = match db.file().find_first(vec![]).exec().await {
+        Some(file) => file.id,
+        None => 0,
     };
     let mut get_id = || {
         next_file_id += 1; // increment id
@@ -49,9 +50,9 @@ pub async fn scan(path: &str) -> Result<()> {
     }
 
     // store every valid path discovered
-    let mut paths: Vec<(PathBuf, u32, Option<u32>)> = Vec::new();
+    let mut paths: Vec<(PathBuf, i64, Option<i64>)> = Vec::new();
     // store a hashmap of directories to their file ids for fast lookup
-    let mut dirs: HashMap<String, u32> = HashMap::new();
+    let mut dirs: HashMap<String, i64> = HashMap::new();
     // begin timer for logging purposes
     let scan_start = Instant::now();
     // walk through directory recursively
@@ -95,16 +96,11 @@ pub async fn scan(path: &str) -> Result<()> {
     for (i, chunk) in paths.chunks(100).enumerate() {
         println!("Writing {} files to db at chunk {}", chunk.len(), i);
         // vector to store active models
-        let mut files: Vec<file::ActiveModel> = Vec::new();
+        let mut files: Vec<String> = Vec::new();
         for (file_path, file_id, parent_dir_id) in chunk {
             // TODO: add location
             files.push(
-                match create_active_file_model(
-                    &file_path,
-                    &file_id,
-                    parent_dir_id.as_ref(),
-                    path, // TODO: we'll need the location path directly from location object just in case we're re-scanning a portion
-                ) {
+                match create_active_file_model(&file_path, *file_id, location.id, parent_dir_id) {
                     Ok(file) => file,
                     Err(e) => {
                         println!("Error creating file model from path {:?}: {}", file_path, e);
@@ -113,14 +109,16 @@ pub async fn scan(path: &str) -> Result<()> {
                 },
             );
         }
-        // insert chunk of files into db
-        file::Entity::insert_many(files)
-            .exec(db)
-            .await
-            .map_err(|e| {
-                println!("{:?}", e.to_string());
-                e
-            })?;
+
+        let raw_sql = format!(
+            r#"
+                INSERT INTO files (id, is_dir, location_id, parent_id, path_checksum, stem, name, extension, size_in_bytes, date_created, date_modified) 
+                VALUES {}
+            "#,
+            files.join(", ")
+        );
+        let count = db._execute_raw(&raw_sql).await;
+        println!("Inserted {:?} records", count);
     }
     println!(
         "scan of {:?} completed in {:?}. {:?} files found. db write completed in {:?}",
@@ -132,34 +130,66 @@ pub async fn scan(path: &str) -> Result<()> {
     Ok(())
 }
 
+fn construct_file_sql(
+    id: i64,
+    is_dir: bool,
+    location_id: i64,
+    parent_id: Option<i64>,
+    path_checksum: &str,
+    stem: &str,
+    name: &str,
+    extension: &str,
+    size_in_bytes: &str,
+    date_created: &str,
+    date_modified: &str,
+) -> String {
+    format!(
+        "({}, {}, {}, {}, \"{}\", \"{}\", \"{}\",\"{}\", \"{}\", \"{}\", \"{}\")",
+        id,
+        is_dir as u8,
+        location_id,
+        parent_id
+            .map(|id| id.to_string())
+            .unwrap_or("NULL".to_string()),
+        path_checksum,
+        stem,
+        name,
+        extension,
+        size_in_bytes,
+        date_created,
+        date_modified
+    )
+}
+
 // reads a file at a path and creates an ActiveModel with metadata
 fn create_active_file_model(
     uri: &PathBuf,
-    id: &u32,
-    parent_id: Option<&u32>,
-    location_path: &str,
-) -> Result<file::ActiveModel> {
+    id: i64,
+    location_id: i64,
+    parent_id: &Option<i64>,
+) -> Result<String> {
     let metadata = fs::metadata(&uri)?;
     let size = metadata.len();
-    let mut meta_integrity_hash =
-        create_meta_integrity_hash(uri.to_str().unwrap_or_default(), size)?;
+    let mut meta_integrity_hash = create_meta_integrity_hash(uri.to_str().unwrap_or_default())?;
     meta_integrity_hash.truncate(20);
 
-    Ok(file::ActiveModel {
-        id: Set(*id),
-        is_dir: Set(metadata.is_dir()),
-        parent_id: Set(parent_id.map(|x| x.clone())),
-        meta_integrity_hash: Set(meta_integrity_hash),
-        name: Set(extract_name(uri.file_stem())),
-        extension: Set(extract_name(uri.extension())),
-        encryption: Set(file::Encryption::None),
-        // uri: Set(location_relative_uri),
-        size_in_bytes: Set(size.to_string()),
-        date_created: Set(Some(time::system_time_to_date_time(metadata.created())?)),
-        date_modified: Set(Some(time::system_time_to_date_time(metadata.modified())?)),
-        // date_indexed: Set(Some(Utc::now().naive_utc())),
-        ..Default::default()
-    })
+    Ok(construct_file_sql(
+        id,
+        metadata.is_dir(),
+        location_id,
+        parent_id.clone(),
+        &meta_integrity_hash,
+        &extract_name(uri.file_stem()),
+        &extract_name(uri.file_name()),
+        &extract_name(uri.extension()),
+        &size.to_string(),
+        &time::system_time_to_date_time(metadata.created())
+            .unwrap()
+            .to_string(),
+        &time::system_time_to_date_time(metadata.modified())
+            .unwrap()
+            .to_string(),
+    ))
 }
 
 pub async fn test_scan(path: &str) -> Result<()> {

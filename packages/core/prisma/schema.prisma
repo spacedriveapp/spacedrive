@@ -8,6 +8,11 @@ generator client {
     output   = "../src/prisma.rs"
 }
 
+generator js {
+    provider = "prisma-client-js"
+    output   = "../types"
+}
+
 model Migration {
     id            Int      @id @default(autoincrement())
     name          String
@@ -20,7 +25,7 @@ model Migration {
 
 model Library {
     id                  Int      @id @default(autoincrement())
-    uuid                String
+    uuid                String   @unique
     name                String
     remote_id           String?
     is_primary          Boolean  @default(true)
@@ -68,21 +73,21 @@ model Location {
 }
 
 model File {
-    id                   Int      @id @default(autoincrement())
-    is_dir               Boolean  @default(false)
-    location_id          Int
-    materialized_path    String
-    name                 String
-    extension            String?
-    path_integrity_hash  String   @unique // combo of location_id, materialized_path, name, extension
-    quick_integrity_hash String? // 100 * 100 byte samples
-    full_integrity_hash  String? // full byte to byte hash
-    size_in_bytes        String
-    encryption           Int      @default(0)
-    date_created         DateTime @default(now())
-    date_modified        DateTime @default(now())
-    date_indexed         DateTime @default(now())
-    ipfs_id              String?
+    id             Int      @id @default(autoincrement())
+    is_dir         Boolean  @default(false)
+    location_id    Int
+    stem           String
+    name           String
+    extension      String?
+    path_checksum  String   @unique // combo of location_id, stem, name, extension
+    quick_checksum String? // 100 * 100 byte samples
+    full_checksum  String? // full byte to byte hash
+    size_in_bytes  String
+    encryption     Int      @default(0)
+    date_created   DateTime @default(now())
+    date_modified  DateTime @default(now())
+    date_indexed   DateTime @default(now())
+    ipfs_id        String?
 
     location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
