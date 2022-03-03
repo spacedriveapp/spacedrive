@@ -1,17 +1,18 @@
 use sdcorelib;
 use tauri::api::path;
 use tauri::Manager;
-use tauri_plugin_shadows::Shadows;
+// use tauri_plugin_shadows::Shadows;
 
 mod commands;
 mod menu;
 
-fn main() {
+#[tokio::main]
+async fn main() {
+  let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
+  let mut core_receiver = sdcorelib::configure(data_dir).await;
+  
   tauri::Builder::default()
     .setup(|app| {
-      let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
-      let mut core_receiver = sdcorelib::configure(data_dir);
-
       let app = app.handle();
 
       tauri::async_runtime::spawn(async move {

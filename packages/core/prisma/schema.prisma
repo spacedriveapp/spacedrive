@@ -1,6 +1,21 @@
 datasource db {
     provider = "sqlite"
-    url      = "file:/Users/jamie/Library/Application Support/spacedrive/library.db"
+    url      = "file:dev.db"
+}
+
+generator client {
+    provider = "prisma-client-rust"
+    output   = "../src/prisma.rs"
+}
+
+model Migration {
+    id            Int      @id @default(autoincrement())
+    name          String
+    checksum      String   @unique
+    steps_applied Int      @default(0)
+    applied_at    DateTime @default(now())
+
+    @@map("_migrations")
 }
 
 model Library {
@@ -23,7 +38,7 @@ model Library {
 
 model Client {
     id           Int      @id @default(autoincrement())
-    uuid         String   @unique()
+    uuid         String   @unique
     name         String
     platform     Int      @default(0)
     version      String?
@@ -53,53 +68,57 @@ model Location {
 }
 
 model File {
-    id                          Int       @id @default(autoincrement())
-    is_dir                      Boolean   @default(false)
-    location_id                 Int
-    materialized_path           String
-    name                        String
-    extension                   String?
-    meta_integrity_hash         String    @unique()
-    sampled_byte_integrity_hash String?
-    byte_integrity_hash         String?
-    size_in_bytes               String
-    encryption                  Int       @default(0)
-    ipfs_id                     String?
-    date_created                DateTime  @default(now())
-    date_modified               DateTime  @default(now())
-    date_indexed                DateTime  @default(now())
-    directory_id                Int?
-    parent_id                   Int?
-    locations                   Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    files                       File?     @relation("file_to_file_parent_id", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    other_files                 File[]    @relation("file_to_file_parent_id")
-    tags_files                  TagFile[] @ignore
+    id                   Int      @id @default(autoincrement())
+    is_dir               Boolean  @default(false)
+    location_id          Int
+    materialized_path    String
+    name                 String
+    extension            String?
+    path_integrity_hash  String   @unique // combo of location_id, materialized_path, name, extension
+    quick_integrity_hash String? // 100 * 100 byte samples
+    full_integrity_hash  String? // full byte to byte hash
+    size_in_bytes        String
+    encryption           Int      @default(0)
+    date_created         DateTime @default(now())
+    date_modified        DateTime @default(now())
+    date_indexed         DateTime @default(now())
+    ipfs_id              String?
 
+    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    parent    File?  @relation("directory_files", fields: [parent_id], references: [id])
+    parent_id Int?
+    children  File[] @relation("directory_files")
+
+    file_tags TagOnFile[]
     @@map("files")
 }
 
 model Tag {
-    id              Int       @id @default(autoincrement())
+    id              Int      @id @default(autoincrement())
     name            String?
-    encryption      Int?      @default(0)
-    total_files     Int?      @default(0)
-    redundancy_goal Int?      @default(1)
-    date_created    DateTime  @default(now())
-    date_modified   DateTime  @default(now())
-    tags_files      TagFile[] @ignore
+    encryption      Int?     @default(0)
+    total_files     Int?     @default(0)
+    redundancy_goal Int?     @default(1)
+    date_created    DateTime @default(now())
+    date_modified   DateTime @default(now())
+
+    tag_files TagOnFile[]
 
     @@map("tags")
 }
 
-model TagFile {
-    tag_id       Int
-    file_id      Int
+model TagOnFile {
     date_created DateTime @default(now())
-    file         File     @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    tag          Tag      @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    tag_id Int
+    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    file_id Int
+    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     @@id([tag_id, file_id])
-    @@map("tags_files")
+    @@map("tags_on_files")
 }
 
 model Job {
