@@ -5,7 +5,7 @@ use std::io;
 use std::io::{BufReader, Read};
 use std::time::Instant;
 
-fn sha256_digest<R: Read>(mut reader: R) -> io::Result<Digest> {
+pub fn sha256_digest<R: Read>(mut reader: R) -> io::Result<Digest> {
     let mut context = Context::new(&SHA256);
     let mut buffer = [0; 1024];
     loop {

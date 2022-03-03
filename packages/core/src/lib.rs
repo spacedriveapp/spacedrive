@@ -4,7 +4,9 @@ pub mod file;
 pub mod library;
 pub mod native;
 pub mod state;
+pub mod tx;
 // pub mod p2p;
+pub mod prisma;
 pub mod util;
 
 use futures::executor::block_on;
@@ -59,7 +61,7 @@ pub async fn core_send_stream<T: Stream<Item = ClientEvent>>(stream: T) {
         .await;
 }
 
-pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent> {
+pub async fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent> {
     data_dir = data_dir.join("spacedrive");
 
     let (event_sender, event_receiver) = mpsc::channel(100);
@@ -81,42 +83,41 @@ pub fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent
     client_config.save();
 
     // begin asynchronous startup routines
-    block_on(async {
-        println!("Starting up... {:?}", client_config);
-        if client_config.libraries.len() == 0 {
-            match library::loader::create(None).await {
+
+    println!("Starting up... {:?}", client_config);
+    if client_config.libraries.len() == 0 {
+        match library::loader::create(None).await {
+            Ok(library) => {
+                println!("Created new library: {:?}", library);
+            }
+            Err(e) => {
+                println!("Error creating library: {:?}", e);
+            }
+        }
+    } else {
+        for library in client_config.libraries.iter() {
+            // init database for library
+            match library::loader::load(&library.library_path, &library.library_id).await {
                 Ok(library) => {
-                    println!("Created new library: {:?}", library);
+                    println!("Loaded library: {:?}", library);
                 }
                 Err(e) => {
-                    println!("Error creating library: {:?}", e);
-                }
-            }
-        } else {
-            for library in client_config.libraries.iter() {
-                // init database for library
-                match library::loader::load(&library.library_path, &library.library_id).await {
-                    Ok(library) => {
-                        println!("Loaded library: {:?}", library);
-                    }
-                    Err(e) => {
-                        println!("Error loading library: {:?}", e);
-                    }
+                    println!("Error loading library: {:?}", e);
                 }
             }
         }
+    }
 
-        // init client
-        match library::client::create().await {
-            Ok(_) => {}
-            Err(e) => {
-                println!("Error initializing client: {:?}", e);
-            }
-        };
-        // activate p2p listeners
-        // p2p::listener::listen(None);
-    });
-
+    // init client
+    match library::client::create().await {
+        Ok(_) => {}
+        Err(e) => {
+            println!("Error initializing client: {:?}", e);
+        }
+    };
+    // activate p2p listeners
+    // p2p::listener::listen(None);
+        
     println!("Spacedrive online");
 
     // env_logger::builder()

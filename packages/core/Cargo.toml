@@ -33,6 +33,7 @@ rusqlite = "0.25.3"
 refinery = { version = "0.6.0", features = ["rusqlite"] }
 sqlx = { version = "0.5.7", features = ["sqlite"] }
 sea-orm = { version = "^0.6.0", features = [ "sqlx-sqlite", "runtime-async-std-rustls", "macros", "debug-print"], default-features = false }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "master" }
 walkdir = "^2.3.2"
 bytesize = "1.1.0"
 env_logger = "0.9.0"
@@ -43,4 +44,5 @@ uuid = "0.8"
 thumbnailer = "0.4.0"
 mime = "0.3.16"
 
-tokio = {version = "1.15.0", features=["sync"]}
+tokio = { version = "1.17.0", features = ["sync", "rt"] }
+include_dir = {version = "0.7.2", features = ["glob"]}
