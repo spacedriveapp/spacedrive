@@ -26,6 +26,7 @@ model Client {
     uuid         String   @unique()
     name         String
     platform     Int      @default(0)
+    version      String?
     online       Boolean? @default(true)
     last_seen    DateTime @default(now())
     timezone     String?
@@ -52,28 +53,27 @@ model Location {
 }
 
 model File {
-    id                          Int            @id @default(autoincrement())
-    is_dir                      Boolean        @default(false)
-    meta_integrity_hash         String         @unique()
+    id                          Int       @id @default(autoincrement())
+    is_dir                      Boolean   @default(false)
+    location_id                 Int
+    materialized_path           String
+    name                        String
+    extension                   String?
+    meta_integrity_hash         String    @unique()
     sampled_byte_integrity_hash String?
     byte_integrity_hash         String?
-    name                        String?
-    extension                   String?
     size_in_bytes               String
-    encryption                  Int            @default(0)
+    encryption                  Int       @default(0)
     ipfs_id                     String?
-    date_created                DateTime       @default(now())
-    date_modified               DateTime       @default(now())
-    date_indexed                DateTime       @default(now())
-    location_id                 Int?
+    date_created                DateTime  @default(now())
+    date_modified               DateTime  @default(now())
+    date_indexed                DateTime  @default(now())
     directory_id                Int?
-    capture_device_id           Int?
     parent_id                   Int?
-    capture_devices             CaptureDevice? @relation(fields: [capture_device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    locations                   Location?      @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    files                       File?          @relation("file_to_file_parent_id", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    other_files                 File[]         @relation("file_to_file_parent_id")
-    tags_files                  TagFile[]      @ignore
+    locations                   Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    files                       File?     @relation("file_to_file_parent_id", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    other_files                 File[]    @relation("file_to_file_parent_id")
+    tags_files                  TagFile[] @ignore
 
     @@map("files")
 }
@@ -127,14 +127,4 @@ model Space {
     Library   Library? @relation(fields: [libraryId], references: [id])
     libraryId Int?
     @@map("spaces")
-}
-
-model CaptureDevice {
-    id            Int      @id @default(autoincrement())
-    name          String?
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
-    files         File[]
-
-    @@map("capture_devices")
 }
