@@ -15,27 +15,29 @@ pub struct Model {
     // identity
     #[sea_orm(primary_key)]
     pub id: u32,
+    #[ts(type = "json")]
+    pub materialized_path: Json,
+    #[sea_orm(nullable)]
+    pub parent_id: Option<u32>,
     // pub buffer_checksum: String,
     #[sea_orm(unique)]
     pub meta_integrity_hash: String,
     pub sampled_byte_integrity_hash: Option<String>,
     pub byte_integrity_hash: Option<String>,
 
-    pub uri: String,
+    // pub uri: String,
     pub is_dir: bool,
     // metadata
     pub name: String,
     pub extension: String,
     pub size_in_bytes: String,
-    pub library_id: u32,
     // date
     #[ts(type = "string")]
     pub date_created: Option<NaiveDateTime>,
     #[ts(type = "string")]
     pub date_modified: Option<NaiveDateTime>,
-    #[ts(type = "string")]
-    pub date_indexed: Option<NaiveDateTime>,
-
+    // #[ts(type = "string")]
+    // pub date_indexed: Option<NaiveDateTime>,
     pub encryption: Encryption,
     // ownership
     #[sea_orm(nullable)]
@@ -46,9 +48,6 @@ pub struct Model {
 
     #[sea_orm(nullable)]
     pub capture_device_id: Option<u32>,
-
-    #[sea_orm(nullable)]
-    pub parent_id: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, EnumIter, DeriveActiveEnum, TS)]
@@ -67,13 +66,6 @@ pub enum Encryption {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::library::Entity",
-        from = "Column::LibraryId",
-        to = "super::library::Column::Id"
-    )]
-    Library,
-
     #[sea_orm(
         belongs_to = "super::locations::Entity",
         from = "Column::LocationId",

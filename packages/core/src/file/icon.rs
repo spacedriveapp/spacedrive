@@ -27,7 +27,8 @@ pub async fn get_thumbs_for_directory(path: &str) -> impl Stream<Item = ClientEv
         // write thumbnail only if
         if !existing {
             // call swift to get thumbnail data
-            let thumbnail_b64 = native::methods::get_file_thumbnail_base64(&file.uri).to_string();
+            let thumbnail_b64 =
+                native::methods::get_file_thumbnail_base64(&file.meta_integrity_hash).to_string();
             fs::write(
                 &icon_path,
                 base64::decode(thumbnail_b64).unwrap_or_default(),

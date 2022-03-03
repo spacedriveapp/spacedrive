@@ -1,11 +1,3 @@
-use futures::executor::block_on;
-use futures::{stream::StreamExt, Stream};
-use once_cell::sync::OnceCell;
-use serde::{Deserialize, Serialize};
-use std::fs;
-use tokio::sync::mpsc;
-use ts_rs::TS;
-
 pub mod crypto;
 pub mod db;
 pub mod file;
@@ -15,7 +7,15 @@ pub mod state;
 // pub mod p2p;
 pub mod util;
 
-use crate::state::client::ClientState;
+use futures::executor::block_on;
+use futures::{stream::StreamExt, Stream};
+use once_cell::sync::OnceCell;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use tokio::sync::mpsc;
+use ts_rs::TS;
+
+use state::client::ClientState;
 
 // represents an event this library can emit
 #[derive(Serialize, Deserialize, Debug, TS)]

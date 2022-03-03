@@ -6,13 +6,6 @@ authors = ["NerdHouse, Inc.", "Jamie Pine"]
 license = ""
 repository = "https://github.com/jamiepine/spacedrive"
 edition = "2018"
-include = ["lib/**/*.rs"]
-
-[lib]
-name = "sdcorelib"
-# crate-type = ["cdylib"]
-# bench = false
-path = "lib/main.rs"
 
 [dependencies]
 swift-rs = "0.2.3"
@@ -47,5 +40,7 @@ libp2p = "0.43.0"
 config = {version = "0.12", features = ["toml"]}
 lazy_static = "1.4.0"
 uuid = "0.8"
+thumbnailer = "0.4.0"
+mime = "0.3.16"
 
 tokio = {version = "1.15.0", features=["sync"]}

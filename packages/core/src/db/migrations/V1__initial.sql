@@ -33,12 +33,11 @@ CREATE TABLE IF NOT EXISTS locations (
 	is_ejectable BOOLEAN NOT NULL DEFAULT TRUE,
 	is_root_filesystem BOOLEAN NOT NULL DEFAULT TRUE,
 	is_online BOOLEAN NOT NULL DEFAULT TRUE,
-	date_created DATE NOT NULL DEFAULT (datetime('now')),
-	last_indexed DATE NOT NULL DEFAULT (datetime('now'))
+	date_created DATE NOT NULL DEFAULT (datetime('now')) -- last_indexed DATE NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS files (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	uri TEXT NOT NULL,
+	-- uri TEXT NOT NULL,
 	is_dir BOOLEAN NOT NULL DEFAULT FALSE,
 	meta_integrity_hash TEXT NOT NULL UNIQUE ON CONFLICT IGNORE,
 	sampled_byte_integrity_hash TEXT,
@@ -51,15 +50,25 @@ CREATE TABLE IF NOT EXISTS files (
 	date_created DATE NOT NULL DEFAULT (datetime('now')),
 	date_modified DATE NOT NULL DEFAULT (datetime('now')),
 	date_indexed DATE NOT NULL DEFAULT (datetime('now')),
-	library_id INTEGER NOT NULL,
 	location_id INTEGER,
 	directory_id INTEGER,
 	capture_device_id INTEGER,
 	parent_id INTEGER,
-	FOREIGN KEY(library_id) REFERENCES libraries(id),
 	FOREIGN KEY(parent_id) REFERENCES files(id),
 	FOREIGN KEY(location_id) REFERENCES locations(id),
 	FOREIGN KEY(capture_device_id) REFERENCES capture_devices(id)
+);
+CREATE TABLE IF NOT EXISTS jobs (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	client_id INTEGER NOT NULL,
+	action INTEGER NOT NULL,
+	status INTEGER NOT NULL DEFAULT 0,
+	percentage_complete INTEGER NOT NULL DEFAULT 0,
+	task_count INTEGER NOT NULL DEFAULT 1,
+	completed_task_count INTEGER NOT NULL DEFAULT 0,
+	date_created DATE NOT NULL DEFAULT (datetime('now')),
+	date_modified DATE NOT NULL DEFAULT (datetime('now')),
+	FOREIGN KEY(client_id) REFERENCES clients(id)
 );
 CREATE TABLE IF NOT EXISTS tags (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,

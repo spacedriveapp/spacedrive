@@ -1,0 +1,140 @@
+datasource db {
+    provider = "sqlite"
+    url      = "file:/Users/jamie/Library/Application Support/spacedrive/library.db"
+}
+
+model Library {
+    id                  Int      @id @default(autoincrement())
+    uuid                String
+    name                String
+    remote_id           String?
+    is_primary          Boolean  @default(true)
+    encryption          Int      @default(0)
+    total_file_count    Int      @default(0)
+    total_bytes_used    String   @default("0")
+    total_byte_capacity String   @default("0")
+    total_unique_bytes  String   @default("0")
+    date_created        DateTime @default(now())
+    timezone            String?
+    spaces              Space[]
+
+    @@map("libraries")
+}
+
+model Client {
+    id           Int      @id @default(autoincrement())
+    uuid         String   @unique()
+    name         String
+    platform     Int      @default(0)
+    online       Boolean? @default(true)
+    last_seen    DateTime @default(now())
+    timezone     String?
+    date_created DateTime @default(now())
+    jobs         Job[]
+
+    @@map("clients")
+}
+
+model Location {
+    id                 Int      @id @default(autoincrement())
+    name               String?
+    path               String?
+    total_capacity     Int?
+    available_capacity Int?
+    is_removable       Boolean  @default(true)
+    is_ejectable       Boolean  @default(true)
+    is_root_filesystem Boolean  @default(true)
+    is_online          Boolean  @default(true)
+    date_created       DateTime @default(now())
+    files              File[]
+
+    @@map("locations")
+}
+
+model File {
+    id                          Int            @id @default(autoincrement())
+    is_dir                      Boolean        @default(false)
+    meta_integrity_hash         String         @unique()
+    sampled_byte_integrity_hash String?
+    byte_integrity_hash         String?
+    name                        String?
+    extension                   String?
+    size_in_bytes               String
+    encryption                  Int            @default(0)
+    ipfs_id                     String?
+    date_created                DateTime       @default(now())
+    date_modified               DateTime       @default(now())
+    date_indexed                DateTime       @default(now())
+    location_id                 Int?
+    directory_id                Int?
+    capture_device_id           Int?
+    parent_id                   Int?
+    capture_devices             CaptureDevice? @relation(fields: [capture_device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    locations                   Location?      @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    files                       File?          @relation("file_to_file_parent_id", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    other_files                 File[]         @relation("file_to_file_parent_id")
+    tags_files                  TagFile[]      @ignore
+
+    @@map("files")
+}
+
+model Tag {
+    id              Int       @id @default(autoincrement())
+    name            String?
+    encryption      Int?      @default(0)
+    total_files     Int?      @default(0)
+    redundancy_goal Int?      @default(1)
+    date_created    DateTime  @default(now())
+    date_modified   DateTime  @default(now())
+    tags_files      TagFile[] @ignore
+
+    @@map("tags")
+}
+
+model TagFile {
+    tag_id       Int
+    file_id      Int
+    date_created DateTime @default(now())
+    file         File     @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    tag          Tag      @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@id([tag_id, file_id])
+    @@map("tags_files")
+}
+
+model Job {
+    id                   Int      @id @default(autoincrement())
+    client_id            Int
+    action               Int
+    status               Int      @default(0)
+    percentage_complete  Int      @default(0)
+    task_count           Int      @default(1)
+    completed_task_count Int      @default(0)
+    date_created         DateTime @default(now())
+    date_modified        DateTime @default(now())
+    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@map("jobs")
+}
+
+model Space {
+    id            Int      @id @default(autoincrement())
+    name          String
+    encryption    Int?     @default(0)
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+
+    Library   Library? @relation(fields: [libraryId], references: [id])
+    libraryId Int?
+    @@map("spaces")
+}
+
+model CaptureDevice {
+    id            Int      @id @default(autoincrement())
+    name          String?
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+    files         File[]
+
+    @@map("capture_devices")
+}

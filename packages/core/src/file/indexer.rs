@@ -7,10 +7,9 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::db::{connection::db, entity::file};
 use crate::file::checksum::create_meta_integrity_hash;
-use crate::library;
+use crate::library::locations::get_location;
 use crate::util::time;
 
-use super::locations::get_location;
 use super::watcher::watch_dir;
 
 pub async fn scan_paths(location_id: u32) -> Result<()> {
@@ -26,7 +25,7 @@ pub async fn scan_paths(location_id: u32) -> Result<()> {
 // creates a vector of valid path buffers from a directory
 pub async fn scan(path: &str) -> Result<()> {
     println!("Scanning directory: {}", &path);
-    let current_library = library::loader::get().await?;
+    // let current_library = library::loader::get().await?;
 
     let db = db().await.unwrap();
 
@@ -50,14 +49,15 @@ pub async fn scan(path: &str) -> Result<()> {
     }
 
     // store every valid path discovered
-    let mut paths: Vec<(PathBuf, u32, Option<u32>, u32)> = Vec::new();
+    let mut paths: Vec<(PathBuf, u32, Option<u32>)> = Vec::new();
     // store a hashmap of directories to their file ids for fast lookup
     let mut dirs: HashMap<String, u32> = HashMap::new();
     // begin timer for logging purposes
     let scan_start = Instant::now();
     // walk through directory recursively
     for entry in WalkDir::new(path).into_iter().filter_entry(|dir| {
-        let approved = !is_hidden(dir) && !is_app_bundle(dir) && !is_node_modules(dir);
+        let approved =
+            !is_hidden(dir) && !is_app_bundle(dir) && !is_node_modules(dir) && !is_library(dir);
         approved
     }) {
         // extract directory entry or log and continue if failed
@@ -79,12 +79,7 @@ pub async fn scan(path: &str) -> Result<()> {
         println!("Discovered: {:?}, {:?}", &path, &parent_dir_id);
 
         let file_id = get_id();
-        paths.push((
-            path.to_owned(),
-            file_id,
-            parent_dir_id.cloned(),
-            current_library.id,
-        ));
+        paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
 
         if entry.file_type().is_dir() {
             let _path = match path.to_str() {
@@ -101,7 +96,7 @@ pub async fn scan(path: &str) -> Result<()> {
         println!("Writing {} files to db at chunk {}", chunk.len(), i);
         // vector to store active models
         let mut files: Vec<file::ActiveModel> = Vec::new();
-        for (file_path, file_id, parent_dir_id, library_id) in chunk {
+        for (file_path, file_id, parent_dir_id) in chunk {
             // TODO: add location
             files.push(
                 match create_active_file_model(
@@ -109,7 +104,6 @@ pub async fn scan(path: &str) -> Result<()> {
                     &file_id,
                     parent_dir_id.as_ref(),
                     path, // TODO: we'll need the location path directly from location object just in case we're re-scanning a portion
-                    library_id.clone(),
                 ) {
                     Ok(file) => file,
                     Err(e) => {
@@ -144,27 +138,12 @@ fn create_active_file_model(
     id: &u32,
     parent_id: Option<&u32>,
     location_path: &str,
-    library_id: u32,
 ) -> Result<file::ActiveModel> {
     let metadata = fs::metadata(&uri)?;
     let size = metadata.len();
     let mut meta_integrity_hash =
         create_meta_integrity_hash(uri.to_str().unwrap_or_default(), size)?;
     meta_integrity_hash.truncate(20);
-
-    let mut location_relative_uri = uri
-        .to_str()
-        .unwrap()
-        .split(location_path)
-        .last()
-        .unwrap()
-        .to_owned();
-
-    // if location_relative_uri is empty String return "/"
-    location_relative_uri = match location_relative_uri.is_empty() {
-        true => "/".to_owned(),
-        false => location_relative_uri,
-    };
 
     Ok(file::ActiveModel {
         id: Set(*id),
@@ -174,12 +153,11 @@ fn create_active_file_model(
         name: Set(extract_name(uri.file_stem())),
         extension: Set(extract_name(uri.extension())),
         encryption: Set(file::Encryption::None),
-        uri: Set(location_relative_uri),
-        library_id: Set(library_id),
+        // uri: Set(location_relative_uri),
         size_in_bytes: Set(size.to_string()),
         date_created: Set(Some(time::system_time_to_date_time(metadata.created())?)),
         date_modified: Set(Some(time::system_time_to_date_time(metadata.modified())?)),
-        date_indexed: Set(Some(Utc::now().naive_utc())),
+        // date_indexed: Set(Some(Utc::now().naive_utc())),
         ..Default::default()
     })
 }
@@ -209,6 +187,15 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .file_name()
         .to_str()
         .map(|s| s.starts_with("."))
+        .unwrap_or(false)
+}
+
+fn is_library(entry: &DirEntry) -> bool {
+    entry
+        .path()
+        .to_str()
+        // make better this is shit
+        .map(|s| s.contains("/Library/"))
         .unwrap_or(false)
 }
 
