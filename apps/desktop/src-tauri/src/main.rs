@@ -10,7 +10,7 @@ mod menu;
 async fn main() {
   let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
   let mut core_receiver = sdcorelib::configure(data_dir).await;
-  
+
   tauri::Builder::default()
     .setup(|app| {
       let app = app.handle();
@@ -31,7 +31,6 @@ async fn main() {
       commands::get_config,
       commands::get_mounts,
       commands::test_scan,
-      commands::get_thumbs_for_directory,
       commands::start_watcher,
     ])
     .menu(menu::get_menu())

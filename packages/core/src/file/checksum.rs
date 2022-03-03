@@ -28,6 +28,6 @@ pub async fn create_buffer_checksum(path: &str) -> io::Result<String> {
     Ok(hex)
 }
 
-pub fn create_meta_integrity_hash(uri: &str, size_in_bytes: u64) -> io::Result<String> {
-    Ok(digest(format!("{}{}", uri, size_in_bytes.to_string())))
+pub fn create_meta_integrity_hash(uri: &str) -> io::Result<String> {
+    Ok(digest(format!("{}", uri)))
 }

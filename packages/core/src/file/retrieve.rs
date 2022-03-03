@@ -1,38 +1,41 @@
-use crate::db::connection::db;
-use crate::db::entity::file;
+use crate::{
+    db,
+    prisma::{File, FileData},
+};
 use anyhow::Result;
-use sea_orm::ColumnTrait;
-use sea_orm::{EntityTrait, QueryFilter};
 use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct Directory {
-    pub directory: file::Model,
-    pub contents: Vec<file::Model>,
+    pub directory: FileData,
+    pub contents: Vec<FileData>,
 }
 
 pub async fn get_dir_with_contents(path: &str) -> Result<Directory, String> {
-    let connection = db().await?;
+    let db = db::get().await?;
 
     println!("getting files... {:?}", &path);
 
-    let directories = file::Entity::find()
-        .filter(file::Column::Name.eq(path)) // FIXXXXX
-        .all(connection)
+    // let mut meta_integrity_hash =
+    //     create_meta_integrity_hash(path.to_str().unwrap_or_default(), size)?;
+
+    // meta_integrity_hash.truncate(20);
+
+    let directory = match db
+        .file()
+        .find_unique(File::name().equals(path.into()))
+        .exec()
         .await
-        .map_err(|e| e.to_string())?;
+    {
+        Some(file) => file,
+        None => return Err("directory_not_found".to_owned()),
+    };
 
-    if directories.is_empty() {
-        return Err("directory_not_found".to_owned());
-    }
-
-    let directory = &directories[0];
-
-    let files = file::Entity::find()
-        .filter(file::Column::ParentId.eq(directory.id))
-        .all(connection)
-        .await
-        .map_err(|e| e.to_string())?;
+    let files = db
+        .file()
+        .find_many(vec![File::parent_id().equals(directory.id)])
+        .exec()
+        .await;
 
     Ok(Directory {
         directory: directory.clone(),

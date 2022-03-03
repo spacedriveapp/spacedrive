@@ -1,32 +1,30 @@
 use anyhow::Result;
-use sea_orm::ActiveModelTrait;
-use sea_orm::Set;
-use sea_orm::{entity::*, query::*};
 use uuid::Uuid;
 
 use crate::state::client::LibraryState;
 use crate::{
-    db::connection::{db, init},
-    db::entity::library,
+    db::{self, init},
+    prisma::{Library, LibraryData},
     state,
 };
 
 pub static LIBRARY_DB_NAME: &str = "library.db";
 pub static DEFAULT_NAME: &str = "My Library";
 
-pub async fn get() -> Result<library::Model> {
+pub async fn get() -> Result<LibraryData> {
     let config = state::client::get();
-    let db = db().await.unwrap();
+    let db = db::get().await.unwrap();
 
     let library_state = config.get_current_library();
 
     println!("{:?}", library_state);
 
     // get library from db
-    let library = match library::Entity::find()
-        .filter(library::Column::Uuid.eq(library_state.library_id.clone()))
-        .one(db)
-        .await?
+    let library = match db
+        .library()
+        .find_unique(Library::uuid().equals(library_state.library_id.clone()))
+        .exec()
+        .await
     {
         Some(library) => Ok(library),
         None => {
@@ -76,14 +74,17 @@ pub async fn create(name: Option<String>) -> Result<()> {
 
     config.save();
 
-    let db = db().await.unwrap();
+    let db = db::get().await.unwrap();
 
-    let library = library::ActiveModel {
-        uuid: Set(config.current_library_id),
-        name: Set(String::from(name.unwrap_or(String::from(DEFAULT_NAME)))),
-        ..Default::default()
-    };
+    let library = db
+        .library()
+        .create_one(
+            Library::uuid().set(config.current_library_id),
+            Library::name().set(name.unwrap_or(DEFAULT_NAME.into())),
+            vec![],
+        )
+        .exec()
+        .await;
 
-    library.save(db).await.unwrap();
     Ok(())
 }

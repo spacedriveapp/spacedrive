@@ -2,6 +2,11 @@
     "name": "core",
     "version": "0.0.0",
     "main": "index.js",
-    "license": "MIT"
-  }
-  
+    "license": "MIT",
+    "devDependencies": {
+        "prisma": "^3.10.0"
+    },
+    "dependencies": {
+        "@prisma/client": "^3.10.0"
+    }
+}

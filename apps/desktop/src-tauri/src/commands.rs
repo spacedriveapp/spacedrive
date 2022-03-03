@@ -1,8 +1,6 @@
 use anyhow::Result;
 use sdcorelib::{
-  core_send_stream,
-  db::connection::db,
-  file::{icon, indexer, retrieve, retrieve::Directory, watcher::watch_dir},
+  file::{indexer, retrieve, retrieve::Directory, watcher::watch_dir},
   library, native,
   state::{client, client::ClientState},
 };
@@ -10,9 +8,7 @@ use swift_rs::types::SRObjectArray;
 
 #[tauri::command(async)]
 pub async fn scan_dir(path: String) -> Result<(), String> {
-  db().await?;
-
-  let files = indexer::scan(&path).await.map_err(|e| e.to_string())?;
+  let files = indexer::scan(&path).await.map_err(|e| e.to_string());
 
   println!("file: {:?}", files);
 
@@ -41,13 +37,6 @@ pub async fn test_scan() -> Result<(), String> {
       .await
       .map_err(|e| e.to_string())?,
   )
-}
-
-#[tauri::command(async)]
-pub async fn get_thumbs_for_directory(path: &str) -> Result<(), String> {
-  core_send_stream(icon::get_thumbs_for_directory(path).await).await;
-
-  Ok(())
 }
 
 #[tauri::command]
