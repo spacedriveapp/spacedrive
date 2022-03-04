@@ -116,7 +116,7 @@ pub async fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<Clien
     };
     // activate p2p listeners
     // p2p::listener::listen(None);
-        
+
     println!("Spacedrive online");
 
     // env_logger::builder()
@@ -125,17 +125,4 @@ pub async fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<Clien
     //     .init();
 
     event_receiver
-}
-// println!("Spacedrive test");
-// use crate::file::watcher::watch_dir;
-// use std::{thread, time};
-// watch_dir("/Users/jamie/Downloads/");
-// let duration = time::Duration::from_secs(500);
-// let now = time::Instant::now();
-// thread::sleep(duration);
-// assert!(now.elapsed() >= duration);
-
-pub fn main() {
-    // hello!
-    println!("Hello, world!");
 }

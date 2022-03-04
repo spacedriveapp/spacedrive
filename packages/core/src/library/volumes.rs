@@ -1,7 +1,7 @@
 use std::process::Command;
 use sysinfo::{DiskExt, System, SystemExt};
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default)]
 pub struct Volume {
     pub name: String,
     pub mount_point: String,
