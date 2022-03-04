@@ -1,17 +1,14 @@
 use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant};
 
 use anyhow::Result;
-use chrono::Utc;
+
 use walkdir::{DirEntry, WalkDir};
 
 use super::watcher::watch_dir;
 use crate::file::checksum::create_meta_integrity_hash;
 use crate::library::locations::{create_location, get_location};
 use crate::util::time;
-use crate::{
-    db,
-    prisma::{File, FileData},
-};
+use crate::{db, prisma};
 
 pub async fn scan_paths(location_id: i64) -> Result<()> {
     // get location by location_id from db and include location_paths
