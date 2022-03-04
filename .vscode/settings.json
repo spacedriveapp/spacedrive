@@ -1,6 +1,9 @@
 {
-    "cSpell.words": ["ipfs", "repr", "tailwindcss"],
-    "rust-analyzer.procMacro.enable": true,
-    "rust-analyzer.diagnostics.enableExperimental": false,
-  }
-  
+  "cSpell.words": ["ipfs", "repr", "tailwindcss"],
+  "rust-analyzer.procMacro.enable": true,
+  "rust-analyzer.diagnostics.enableExperimental": false,
+  "rust-analyzer.linkedProjects": [
+    "./packages/core/Cargo.toml",
+    "./apps/desktop/src-tauri/Cargo.toml"
+  ]
+}
