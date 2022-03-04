@@ -1,10 +1,9 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use std::path::Path;
 
 use crate::{
-    db, library,
+    db,
     native::methods::get_mounts,
     prisma::{File, Location, LocationData},
 };
