@@ -35,12 +35,22 @@ export type Library = {
   remote_id: string | null
   is_primary: boolean
   encryption: number
+  date_created: Date
+  timezone: string | null
+}
+
+/**
+ * Model LibraryStatistics
+ * 
+ */
+export type LibraryStatistics = {
+  id: number
+  date_captured: Date
+  library_id: number
   total_file_count: number
   total_bytes_used: string
   total_byte_capacity: string
   total_unique_bytes: string
-  date_created: Date
-  timezone: string | null
 }
 
 /**
@@ -312,6 +322,16 @@ export class PrismaClient<
     * ```
     */
   get library(): Prisma.LibraryDelegate<GlobalReject>;
+
+  /**
+   * `prisma.libraryStatistics`: Exposes CRUD operations for the **LibraryStatistics** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more LibraryStatistics
+    * const libraryStatistics = await prisma.libraryStatistics.findMany()
+    * ```
+    */
+  get libraryStatistics(): Prisma.LibraryStatisticsDelegate<GlobalReject>;
 
   /**
    * `prisma.client`: Exposes CRUD operations for the **Client** model.
@@ -798,6 +818,7 @@ export namespace Prisma {
   export const ModelName: {
     Migration: 'Migration',
     Library: 'Library',
+    LibraryStatistics: 'LibraryStatistics',
     Client: 'Client',
     Location: 'Location',
     File: 'File',
@@ -2051,13 +2072,11 @@ export namespace Prisma {
   export type LibraryAvgAggregateOutputType = {
     id: number | null
     encryption: number | null
-    total_file_count: number | null
   }
 
   export type LibrarySumAggregateOutputType = {
     id: number | null
     encryption: number | null
-    total_file_count: number | null
   }
 
   export type LibraryMinAggregateOutputType = {
@@ -2067,10 +2086,6 @@ export namespace Prisma {
     remote_id: string | null
     is_primary: boolean | null
     encryption: number | null
-    total_file_count: number | null
-    total_bytes_used: string | null
-    total_byte_capacity: string | null
-    total_unique_bytes: string | null
     date_created: Date | null
     timezone: string | null
   }
@@ -2082,10 +2097,6 @@ export namespace Prisma {
     remote_id: string | null
     is_primary: boolean | null
     encryption: number | null
-    total_file_count: number | null
-    total_bytes_used: string | null
-    total_byte_capacity: string | null
-    total_unique_bytes: string | null
     date_created: Date | null
     timezone: string | null
   }
@@ -2097,10 +2108,6 @@ export namespace Prisma {
     remote_id: number
     is_primary: number
     encryption: number
-    total_file_count: number
-    total_bytes_used: number
-    total_byte_capacity: number
-    total_unique_bytes: number
     date_created: number
     timezone: number
     _all: number
@@ -2110,13 +2117,11 @@ export namespace Prisma {
   export type LibraryAvgAggregateInputType = {
     id?: true
     encryption?: true
-    total_file_count?: true
   }
 
   export type LibrarySumAggregateInputType = {
     id?: true
     encryption?: true
-    total_file_count?: true
   }
 
   export type LibraryMinAggregateInputType = {
@@ -2126,10 +2131,6 @@ export namespace Prisma {
     remote_id?: true
     is_primary?: true
     encryption?: true
-    total_file_count?: true
-    total_bytes_used?: true
-    total_byte_capacity?: true
-    total_unique_bytes?: true
     date_created?: true
     timezone?: true
   }
@@ -2141,10 +2142,6 @@ export namespace Prisma {
     remote_id?: true
     is_primary?: true
     encryption?: true
-    total_file_count?: true
-    total_bytes_used?: true
-    total_byte_capacity?: true
-    total_unique_bytes?: true
     date_created?: true
     timezone?: true
   }
@@ -2156,10 +2153,6 @@ export namespace Prisma {
     remote_id?: true
     is_primary?: true
     encryption?: true
-    total_file_count?: true
-    total_bytes_used?: true
-    total_byte_capacity?: true
-    total_unique_bytes?: true
     date_created?: true
     timezone?: true
     _all?: true
@@ -2264,10 +2257,6 @@ export namespace Prisma {
     remote_id: string | null
     is_primary: boolean
     encryption: number
-    total_file_count: number
-    total_bytes_used: string
-    total_byte_capacity: string
-    total_unique_bytes: string
     date_created: Date
     timezone: string | null
     _count: LibraryCountAggregateOutputType | null
@@ -2298,10 +2287,6 @@ export namespace Prisma {
     remote_id?: boolean
     is_primary?: boolean
     encryption?: boolean
-    total_file_count?: boolean
-    total_bytes_used?: boolean
-    total_byte_capacity?: boolean
-    total_unique_bytes?: boolean
     date_created?: boolean
     timezone?: boolean
     spaces?: boolean | SpaceFindManyArgs
@@ -2968,6 +2953,850 @@ export namespace Prisma {
      * 
     **/
     include?: LibraryInclude | null
+  }
+
+
+
+  /**
+   * Model LibraryStatistics
+   */
+
+
+  export type AggregateLibraryStatistics = {
+    _count: LibraryStatisticsCountAggregateOutputType | null
+    _avg: LibraryStatisticsAvgAggregateOutputType | null
+    _sum: LibraryStatisticsSumAggregateOutputType | null
+    _min: LibraryStatisticsMinAggregateOutputType | null
+    _max: LibraryStatisticsMaxAggregateOutputType | null
+  }
+
+  export type LibraryStatisticsAvgAggregateOutputType = {
+    id: number | null
+    library_id: number | null
+    total_file_count: number | null
+  }
+
+  export type LibraryStatisticsSumAggregateOutputType = {
+    id: number | null
+    library_id: number | null
+    total_file_count: number | null
+  }
+
+  export type LibraryStatisticsMinAggregateOutputType = {
+    id: number | null
+    date_captured: Date | null
+    library_id: number | null
+    total_file_count: number | null
+    total_bytes_used: string | null
+    total_byte_capacity: string | null
+    total_unique_bytes: string | null
+  }
+
+  export type LibraryStatisticsMaxAggregateOutputType = {
+    id: number | null
+    date_captured: Date | null
+    library_id: number | null
+    total_file_count: number | null
+    total_bytes_used: string | null
+    total_byte_capacity: string | null
+    total_unique_bytes: string | null
+  }
+
+  export type LibraryStatisticsCountAggregateOutputType = {
+    id: number
+    date_captured: number
+    library_id: number
+    total_file_count: number
+    total_bytes_used: number
+    total_byte_capacity: number
+    total_unique_bytes: number
+    _all: number
+  }
+
+
+  export type LibraryStatisticsAvgAggregateInputType = {
+    id?: true
+    library_id?: true
+    total_file_count?: true
+  }
+
+  export type LibraryStatisticsSumAggregateInputType = {
+    id?: true
+    library_id?: true
+    total_file_count?: true
+  }
+
+  export type LibraryStatisticsMinAggregateInputType = {
+    id?: true
+    date_captured?: true
+    library_id?: true
+    total_file_count?: true
+    total_bytes_used?: true
+    total_byte_capacity?: true
+    total_unique_bytes?: true
+  }
+
+  export type LibraryStatisticsMaxAggregateInputType = {
+    id?: true
+    date_captured?: true
+    library_id?: true
+    total_file_count?: true
+    total_bytes_used?: true
+    total_byte_capacity?: true
+    total_unique_bytes?: true
+  }
+
+  export type LibraryStatisticsCountAggregateInputType = {
+    id?: true
+    date_captured?: true
+    library_id?: true
+    total_file_count?: true
+    total_bytes_used?: true
+    total_byte_capacity?: true
+    total_unique_bytes?: true
+    _all?: true
+  }
+
+  export type LibraryStatisticsAggregateArgs = {
+    /**
+     * Filter which LibraryStatistics to aggregate.
+     * 
+    **/
+    where?: LibraryStatisticsWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of LibraryStatistics to fetch.
+     * 
+    **/
+    orderBy?: Enumerable<LibraryStatisticsOrderByWithRelationInput>
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     * 
+    **/
+    cursor?: LibraryStatisticsWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` LibraryStatistics from the position of the cursor.
+     * 
+    **/
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` LibraryStatistics.
+     * 
+    **/
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned LibraryStatistics
+    **/
+    _count?: true | LibraryStatisticsCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: LibraryStatisticsAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: LibraryStatisticsSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: LibraryStatisticsMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: LibraryStatisticsMaxAggregateInputType
+  }
+
+  export type GetLibraryStatisticsAggregateType<T extends LibraryStatisticsAggregateArgs> = {
+        [P in keyof T & keyof AggregateLibraryStatistics]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateLibraryStatistics[P]>
+      : GetScalarType<T[P], AggregateLibraryStatistics[P]>
+  }
+
+
+
+
+  export type LibraryStatisticsGroupByArgs = {
+    where?: LibraryStatisticsWhereInput
+    orderBy?: Enumerable<LibraryStatisticsOrderByWithAggregationInput>
+    by: Array<LibraryStatisticsScalarFieldEnum>
+    having?: LibraryStatisticsScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: LibraryStatisticsCountAggregateInputType | true
+    _avg?: LibraryStatisticsAvgAggregateInputType
+    _sum?: LibraryStatisticsSumAggregateInputType
+    _min?: LibraryStatisticsMinAggregateInputType
+    _max?: LibraryStatisticsMaxAggregateInputType
+  }
+
+
+  export type LibraryStatisticsGroupByOutputType = {
+    id: number
+    date_captured: Date
+    library_id: number
+    total_file_count: number
+    total_bytes_used: string
+    total_byte_capacity: string
+    total_unique_bytes: string
+    _count: LibraryStatisticsCountAggregateOutputType | null
+    _avg: LibraryStatisticsAvgAggregateOutputType | null
+    _sum: LibraryStatisticsSumAggregateOutputType | null
+    _min: LibraryStatisticsMinAggregateOutputType | null
+    _max: LibraryStatisticsMaxAggregateOutputType | null
+  }
+
+  type GetLibraryStatisticsGroupByPayload<T extends LibraryStatisticsGroupByArgs> = PrismaPromise<
+    Array<
+      PickArray<LibraryStatisticsGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof LibraryStatisticsGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], LibraryStatisticsGroupByOutputType[P]>
+            : GetScalarType<T[P], LibraryStatisticsGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type LibraryStatisticsSelect = {
+    id?: boolean
+    date_captured?: boolean
+    library_id?: boolean
+    total_file_count?: boolean
+    total_bytes_used?: boolean
+    total_byte_capacity?: boolean
+    total_unique_bytes?: boolean
+  }
+
+  export type LibraryStatisticsGetPayload<
+    S extends boolean | null | undefined | LibraryStatisticsArgs,
+    U = keyof S
+      > = S extends true
+        ? LibraryStatistics
+    : S extends undefined
+    ? never
+    : S extends LibraryStatisticsArgs | LibraryStatisticsFindManyArgs
+    ?'include' extends U
+    ? LibraryStatistics 
+    : 'select' extends U
+    ? {
+    [P in TrueKeys<S['select']>]:
+    P extends keyof LibraryStatistics ? LibraryStatistics[P] : never
+  } 
+    : LibraryStatistics
+  : LibraryStatistics
+
+
+  type LibraryStatisticsCountArgs = Merge<
+    Omit<LibraryStatisticsFindManyArgs, 'select' | 'include'> & {
+      select?: LibraryStatisticsCountAggregateInputType | true
+    }
+  >
+
+  export interface LibraryStatisticsDelegate<GlobalRejectSettings> {
+    /**
+     * Find zero or one LibraryStatistics that matches the filter.
+     * @param {LibraryStatisticsFindUniqueArgs} args - Arguments to find a LibraryStatistics
+     * @example
+     * // Get one LibraryStatistics
+     * const libraryStatistics = await prisma.libraryStatistics.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+    **/
+    findUnique<T extends LibraryStatisticsFindUniqueArgs,  LocalRejectSettings = T["rejectOnNotFound"] extends RejectOnNotFound ? T['rejectOnNotFound'] : undefined>(
+      args: SelectSubset<T, LibraryStatisticsFindUniqueArgs>
+    ): HasReject<GlobalRejectSettings, LocalRejectSettings, 'findUnique', 'LibraryStatistics'> extends True ? CheckSelect<T, Prisma__LibraryStatisticsClient<LibraryStatistics>, Prisma__LibraryStatisticsClient<LibraryStatisticsGetPayload<T>>> : CheckSelect<T, Prisma__LibraryStatisticsClient<LibraryStatistics | null >, Prisma__LibraryStatisticsClient<LibraryStatisticsGetPayload<T> | null >>
+
+    /**
+     * Find the first LibraryStatistics that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {LibraryStatisticsFindFirstArgs} args - Arguments to find a LibraryStatistics
+     * @example
+     * // Get one LibraryStatistics
+     * const libraryStatistics = await prisma.libraryStatistics.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+    **/
+    findFirst<T extends LibraryStatisticsFindFirstArgs,  LocalRejectSettings = T["rejectOnNotFound"] extends RejectOnNotFound ? T['rejectOnNotFound'] : undefined>(
+      args?: SelectSubset<T, LibraryStatisticsFindFirstArgs>
+    ): HasReject<GlobalRejectSettings, LocalRejectSettings, 'findFirst', 'LibraryStatistics'> extends True ? CheckSelect<T, Prisma__LibraryStatisticsClient<LibraryStatistics>, Prisma__LibraryStatisticsClient<LibraryStatisticsGetPayload<T>>> : CheckSelect<T, Prisma__LibraryStatisticsClient<LibraryStatistics | null >, Prisma__LibraryStatisticsClient<LibraryStatisticsGetPayload<T> | null >>
+
+    /**
+     * Find zero or more LibraryStatistics that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {LibraryStatisticsFindManyArgs=} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all LibraryStatistics
+     * const libraryStatistics = await prisma.libraryStatistics.findMany()
+     * 
+     * // Get first 10 LibraryStatistics
+     * const libraryStatistics = await prisma.libraryStatistics.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const libraryStatisticsWithIdOnly = await prisma.libraryStatistics.findMany({ select: { id: true } })
+     * 
+    **/
+    findMany<T extends LibraryStatisticsFindManyArgs>(
+      args?: SelectSubset<T, LibraryStatisticsFindManyArgs>
+    ): CheckSelect<T, PrismaPromise<Array<LibraryStatistics>>, PrismaPromise<Array<LibraryStatisticsGetPayload<T>>>>
+
+    /**
+     * Create a LibraryStatistics.
+     * @param {LibraryStatisticsCreateArgs} args - Arguments to create a LibraryStatistics.
+     * @example
+     * // Create one LibraryStatistics
+     * const LibraryStatistics = await prisma.libraryStatistics.create({
+     *   data: {
+     *     // ... data to create a LibraryStatistics
+     *   }
+     * })
+     * 
+    **/
+    create<T extends LibraryStatisticsCreateArgs>(
+      args: SelectSubset<T, LibraryStatisticsCreateArgs>
+    ): CheckSelect<T, Prisma__LibraryStatisticsClient<LibraryStatistics>, Prisma__LibraryStatisticsClient<LibraryStatisticsGetPayload<T>>>
+
+    /**
+     * Delete a LibraryStatistics.
+     * @param {LibraryStatisticsDeleteArgs} args - Arguments to delete one LibraryStatistics.
+     * @example
+     * // Delete one LibraryStatistics
+     * const LibraryStatistics = await prisma.libraryStatistics.delete({
+     *   where: {
+     *     // ... filter to delete one LibraryStatistics
+     *   }
+     * })
+     * 
+    **/
+    delete<T extends LibraryStatisticsDeleteArgs>(
+      args: SelectSubset<T, LibraryStatisticsDeleteArgs>
+    ): CheckSelect<T, Prisma__LibraryStatisticsClient<LibraryStatistics>, Prisma__LibraryStatisticsClient<LibraryStatisticsGetPayload<T>>>
+
+    /**
+     * Update one LibraryStatistics.
+     * @param {LibraryStatisticsUpdateArgs} args - Arguments to update one LibraryStatistics.
+     * @example
+     * // Update one LibraryStatistics
+     * const libraryStatistics = await prisma.libraryStatistics.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+    **/
+    update<T extends LibraryStatisticsUpdateArgs>(
+      args: SelectSubset<T, LibraryStatisticsUpdateArgs>
+    ): CheckSelect<T, Prisma__LibraryStatisticsClient<LibraryStatistics>, Prisma__LibraryStatisticsClient<LibraryStatisticsGetPayload<T>>>
+
+    /**
+     * Delete zero or more LibraryStatistics.
+     * @param {LibraryStatisticsDeleteManyArgs} args - Arguments to filter LibraryStatistics to delete.
+     * @example
+     * // Delete a few LibraryStatistics
+     * const { count } = await prisma.libraryStatistics.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+    **/
+    deleteMany<T extends LibraryStatisticsDeleteManyArgs>(
+      args?: SelectSubset<T, LibraryStatisticsDeleteManyArgs>
+    ): PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more LibraryStatistics.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {LibraryStatisticsUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many LibraryStatistics
+     * const libraryStatistics = await prisma.libraryStatistics.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+    **/
+    updateMany<T extends LibraryStatisticsUpdateManyArgs>(
+      args: SelectSubset<T, LibraryStatisticsUpdateManyArgs>
+    ): PrismaPromise<BatchPayload>
+
+    /**
+     * Create or update one LibraryStatistics.
+     * @param {LibraryStatisticsUpsertArgs} args - Arguments to update or create a LibraryStatistics.
+     * @example
+     * // Update or create a LibraryStatistics
+     * const libraryStatistics = await prisma.libraryStatistics.upsert({
+     *   create: {
+     *     // ... data to create a LibraryStatistics
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the LibraryStatistics we want to update
+     *   }
+     * })
+    **/
+    upsert<T extends LibraryStatisticsUpsertArgs>(
+      args: SelectSubset<T, LibraryStatisticsUpsertArgs>
+    ): CheckSelect<T, Prisma__LibraryStatisticsClient<LibraryStatistics>, Prisma__LibraryStatisticsClient<LibraryStatisticsGetPayload<T>>>
+
+    /**
+     * Count the number of LibraryStatistics.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {LibraryStatisticsCountArgs} args - Arguments to filter LibraryStatistics to count.
+     * @example
+     * // Count the number of LibraryStatistics
+     * const count = await prisma.libraryStatistics.count({
+     *   where: {
+     *     // ... the filter for the LibraryStatistics we want to count
+     *   }
+     * })
+    **/
+    count<T extends LibraryStatisticsCountArgs>(
+      args?: Subset<T, LibraryStatisticsCountArgs>,
+    ): PrismaPromise<
+      T extends _Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], LibraryStatisticsCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a LibraryStatistics.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {LibraryStatisticsAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends LibraryStatisticsAggregateArgs>(args: Subset<T, LibraryStatisticsAggregateArgs>): PrismaPromise<GetLibraryStatisticsAggregateType<T>>
+
+    /**
+     * Group by LibraryStatistics.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {LibraryStatisticsGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends LibraryStatisticsGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: LibraryStatisticsGroupByArgs['orderBy'] }
+        : { orderBy?: LibraryStatisticsGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends TupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, LibraryStatisticsGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetLibraryStatisticsGroupByPayload<T> : PrismaPromise<InputErrors>
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for LibraryStatistics.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export class Prisma__LibraryStatisticsClient<T> implements PrismaPromise<T> {
+    [prisma]: true;
+    private readonly _dmmf;
+    private readonly _fetcher;
+    private readonly _queryType;
+    private readonly _rootField;
+    private readonly _clientMethod;
+    private readonly _args;
+    private readonly _dataPath;
+    private readonly _errorFormat;
+    private readonly _measurePerformance?;
+    private _isList;
+    private _callsite;
+    private _requestPromise?;
+    constructor(_dmmf: runtime.DMMFClass, _fetcher: PrismaClientFetcher, _queryType: 'query' | 'mutation', _rootField: string, _clientMethod: string, _args: any, _dataPath: string[], _errorFormat: ErrorFormat, _measurePerformance?: boolean | undefined, _isList?: boolean);
+    readonly [Symbol.toStringTag]: 'PrismaClientPromise';
+
+
+    private get _document();
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): Promise<TResult1 | TResult2>;
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): Promise<T | TResult>;
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): Promise<T>;
+  }
+
+  // Custom InputTypes
+
+  /**
+   * LibraryStatistics findUnique
+   */
+  export type LibraryStatisticsFindUniqueArgs = {
+    /**
+     * Select specific fields to fetch from the LibraryStatistics
+     * 
+    **/
+    select?: LibraryStatisticsSelect | null
+    /**
+     * Throw an Error if a LibraryStatistics can't be found
+     * 
+    **/
+    rejectOnNotFound?: RejectOnNotFound
+    /**
+     * Filter, which LibraryStatistics to fetch.
+     * 
+    **/
+    where: LibraryStatisticsWhereUniqueInput
+  }
+
+
+  /**
+   * LibraryStatistics findFirst
+   */
+  export type LibraryStatisticsFindFirstArgs = {
+    /**
+     * Select specific fields to fetch from the LibraryStatistics
+     * 
+    **/
+    select?: LibraryStatisticsSelect | null
+    /**
+     * Throw an Error if a LibraryStatistics can't be found
+     * 
+    **/
+    rejectOnNotFound?: RejectOnNotFound
+    /**
+     * Filter, which LibraryStatistics to fetch.
+     * 
+    **/
+    where?: LibraryStatisticsWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of LibraryStatistics to fetch.
+     * 
+    **/
+    orderBy?: Enumerable<LibraryStatisticsOrderByWithRelationInput>
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for LibraryStatistics.
+     * 
+    **/
+    cursor?: LibraryStatisticsWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` LibraryStatistics from the position of the cursor.
+     * 
+    **/
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` LibraryStatistics.
+     * 
+    **/
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of LibraryStatistics.
+     * 
+    **/
+    distinct?: Enumerable<LibraryStatisticsScalarFieldEnum>
+  }
+
+
+  /**
+   * LibraryStatistics findMany
+   */
+  export type LibraryStatisticsFindManyArgs = {
+    /**
+     * Select specific fields to fetch from the LibraryStatistics
+     * 
+    **/
+    select?: LibraryStatisticsSelect | null
+    /**
+     * Filter, which LibraryStatistics to fetch.
+     * 
+    **/
+    where?: LibraryStatisticsWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of LibraryStatistics to fetch.
+     * 
+    **/
+    orderBy?: Enumerable<LibraryStatisticsOrderByWithRelationInput>
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing LibraryStatistics.
+     * 
+    **/
+    cursor?: LibraryStatisticsWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` LibraryStatistics from the position of the cursor.
+     * 
+    **/
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` LibraryStatistics.
+     * 
+    **/
+    skip?: number
+    distinct?: Enumerable<LibraryStatisticsScalarFieldEnum>
+  }
+
+
+  /**
+   * LibraryStatistics create
+   */
+  export type LibraryStatisticsCreateArgs = {
+    /**
+     * Select specific fields to fetch from the LibraryStatistics
+     * 
+    **/
+    select?: LibraryStatisticsSelect | null
+    /**
+     * The data needed to create a LibraryStatistics.
+     * 
+    **/
+    data: XOR<LibraryStatisticsCreateInput, LibraryStatisticsUncheckedCreateInput>
+  }
+
+
+  /**
+   * LibraryStatistics update
+   */
+  export type LibraryStatisticsUpdateArgs = {
+    /**
+     * Select specific fields to fetch from the LibraryStatistics
+     * 
+    **/
+    select?: LibraryStatisticsSelect | null
+    /**
+     * The data needed to update a LibraryStatistics.
+     * 
+    **/
+    data: XOR<LibraryStatisticsUpdateInput, LibraryStatisticsUncheckedUpdateInput>
+    /**
+     * Choose, which LibraryStatistics to update.
+     * 
+    **/
+    where: LibraryStatisticsWhereUniqueInput
+  }
+
+
+  /**
+   * LibraryStatistics updateMany
+   */
+  export type LibraryStatisticsUpdateManyArgs = {
+    /**
+     * The data used to update LibraryStatistics.
+     * 
+    **/
+    data: XOR<LibraryStatisticsUpdateManyMutationInput, LibraryStatisticsUncheckedUpdateManyInput>
+    /**
+     * Filter which LibraryStatistics to update
+     * 
+    **/
+    where?: LibraryStatisticsWhereInput
+  }
+
+
+  /**
+   * LibraryStatistics upsert
+   */
+  export type LibraryStatisticsUpsertArgs = {
+    /**
+     * Select specific fields to fetch from the LibraryStatistics
+     * 
+    **/
+    select?: LibraryStatisticsSelect | null
+    /**
+     * The filter to search for the LibraryStatistics to update in case it exists.
+     * 
+    **/
+    where: LibraryStatisticsWhereUniqueInput
+    /**
+     * In case the LibraryStatistics found by the `where` argument doesn't exist, create a new LibraryStatistics with this data.
+     * 
+    **/
+    create: XOR<LibraryStatisticsCreateInput, LibraryStatisticsUncheckedCreateInput>
+    /**
+     * In case the LibraryStatistics was found with the provided `where` argument, update it with this data.
+     * 
+    **/
+    update: XOR<LibraryStatisticsUpdateInput, LibraryStatisticsUncheckedUpdateInput>
+  }
+
+
+  /**
+   * LibraryStatistics delete
+   */
+  export type LibraryStatisticsDeleteArgs = {
+    /**
+     * Select specific fields to fetch from the LibraryStatistics
+     * 
+    **/
+    select?: LibraryStatisticsSelect | null
+    /**
+     * Filter which LibraryStatistics to delete.
+     * 
+    **/
+    where: LibraryStatisticsWhereUniqueInput
+  }
+
+
+  /**
+   * LibraryStatistics deleteMany
+   */
+  export type LibraryStatisticsDeleteManyArgs = {
+    /**
+     * Filter which LibraryStatistics to delete
+     * 
+    **/
+    where?: LibraryStatisticsWhereInput
+  }
+
+
+  /**
+   * LibraryStatistics without action
+   */
+  export type LibraryStatisticsArgs = {
+    /**
+     * Select specific fields to fetch from the LibraryStatistics
+     * 
+    **/
+    select?: LibraryStatisticsSelect | null
   }
 
 
@@ -9392,15 +10221,24 @@ export namespace Prisma {
     remote_id: 'remote_id',
     is_primary: 'is_primary',
     encryption: 'encryption',
-    total_file_count: 'total_file_count',
-    total_bytes_used: 'total_bytes_used',
-    total_byte_capacity: 'total_byte_capacity',
-    total_unique_bytes: 'total_unique_bytes',
     date_created: 'date_created',
     timezone: 'timezone'
   };
 
   export type LibraryScalarFieldEnum = (typeof LibraryScalarFieldEnum)[keyof typeof LibraryScalarFieldEnum]
+
+
+  export const LibraryStatisticsScalarFieldEnum: {
+    id: 'id',
+    date_captured: 'date_captured',
+    library_id: 'library_id',
+    total_file_count: 'total_file_count',
+    total_bytes_used: 'total_bytes_used',
+    total_byte_capacity: 'total_byte_capacity',
+    total_unique_bytes: 'total_unique_bytes'
+  };
+
+  export type LibraryStatisticsScalarFieldEnum = (typeof LibraryStatisticsScalarFieldEnum)[keyof typeof LibraryStatisticsScalarFieldEnum]
 
 
   export const ClientScalarFieldEnum: {
@@ -9576,10 +10414,6 @@ export namespace Prisma {
     remote_id?: StringNullableFilter | string | null
     is_primary?: BoolFilter | boolean
     encryption?: IntFilter | number
-    total_file_count?: IntFilter | number
-    total_bytes_used?: StringFilter | string
-    total_byte_capacity?: StringFilter | string
-    total_unique_bytes?: StringFilter | string
     date_created?: DateTimeFilter | Date | string
     timezone?: StringNullableFilter | string | null
     spaces?: SpaceListRelationFilter
@@ -9592,10 +10426,6 @@ export namespace Prisma {
     remote_id?: SortOrder
     is_primary?: SortOrder
     encryption?: SortOrder
-    total_file_count?: SortOrder
-    total_bytes_used?: SortOrder
-    total_byte_capacity?: SortOrder
-    total_unique_bytes?: SortOrder
     date_created?: SortOrder
     timezone?: SortOrder
     spaces?: SpaceOrderByRelationAggregateInput
@@ -9613,10 +10443,6 @@ export namespace Prisma {
     remote_id?: SortOrder
     is_primary?: SortOrder
     encryption?: SortOrder
-    total_file_count?: SortOrder
-    total_bytes_used?: SortOrder
-    total_byte_capacity?: SortOrder
-    total_unique_bytes?: SortOrder
     date_created?: SortOrder
     timezone?: SortOrder
     _count?: LibraryCountOrderByAggregateInput
@@ -9636,12 +10462,64 @@ export namespace Prisma {
     remote_id?: StringNullableWithAggregatesFilter | string | null
     is_primary?: BoolWithAggregatesFilter | boolean
     encryption?: IntWithAggregatesFilter | number
+    date_created?: DateTimeWithAggregatesFilter | Date | string
+    timezone?: StringNullableWithAggregatesFilter | string | null
+  }
+
+  export type LibraryStatisticsWhereInput = {
+    AND?: Enumerable<LibraryStatisticsWhereInput>
+    OR?: Enumerable<LibraryStatisticsWhereInput>
+    NOT?: Enumerable<LibraryStatisticsWhereInput>
+    id?: IntFilter | number
+    date_captured?: DateTimeFilter | Date | string
+    library_id?: IntFilter | number
+    total_file_count?: IntFilter | number
+    total_bytes_used?: StringFilter | string
+    total_byte_capacity?: StringFilter | string
+    total_unique_bytes?: StringFilter | string
+  }
+
+  export type LibraryStatisticsOrderByWithRelationInput = {
+    id?: SortOrder
+    date_captured?: SortOrder
+    library_id?: SortOrder
+    total_file_count?: SortOrder
+    total_bytes_used?: SortOrder
+    total_byte_capacity?: SortOrder
+    total_unique_bytes?: SortOrder
+  }
+
+  export type LibraryStatisticsWhereUniqueInput = {
+    id?: number
+    library_id?: number
+  }
+
+  export type LibraryStatisticsOrderByWithAggregationInput = {
+    id?: SortOrder
+    date_captured?: SortOrder
+    library_id?: SortOrder
+    total_file_count?: SortOrder
+    total_bytes_used?: SortOrder
+    total_byte_capacity?: SortOrder
+    total_unique_bytes?: SortOrder
+    _count?: LibraryStatisticsCountOrderByAggregateInput
+    _avg?: LibraryStatisticsAvgOrderByAggregateInput
+    _max?: LibraryStatisticsMaxOrderByAggregateInput
+    _min?: LibraryStatisticsMinOrderByAggregateInput
+    _sum?: LibraryStatisticsSumOrderByAggregateInput
+  }
+
+  export type LibraryStatisticsScalarWhereWithAggregatesInput = {
+    AND?: Enumerable<LibraryStatisticsScalarWhereWithAggregatesInput>
+    OR?: Enumerable<LibraryStatisticsScalarWhereWithAggregatesInput>
+    NOT?: Enumerable<LibraryStatisticsScalarWhereWithAggregatesInput>
+    id?: IntWithAggregatesFilter | number
+    date_captured?: DateTimeWithAggregatesFilter | Date | string
+    library_id?: IntWithAggregatesFilter | number
     total_file_count?: IntWithAggregatesFilter | number
     total_bytes_used?: StringWithAggregatesFilter | string
     total_byte_capacity?: StringWithAggregatesFilter | string
     total_unique_bytes?: StringWithAggregatesFilter | string
-    date_created?: DateTimeWithAggregatesFilter | Date | string
-    timezone?: StringNullableWithAggregatesFilter | string | null
   }
 
   export type ClientWhereInput = {
@@ -10148,10 +11026,6 @@ export namespace Prisma {
     remote_id?: string | null
     is_primary?: boolean
     encryption?: number
-    total_file_count?: number
-    total_bytes_used?: string
-    total_byte_capacity?: string
-    total_unique_bytes?: string
     date_created?: Date | string
     timezone?: string | null
     spaces?: SpaceCreateNestedManyWithoutLibraryInput
@@ -10164,10 +11038,6 @@ export namespace Prisma {
     remote_id?: string | null
     is_primary?: boolean
     encryption?: number
-    total_file_count?: number
-    total_bytes_used?: string
-    total_byte_capacity?: string
-    total_unique_bytes?: string
     date_created?: Date | string
     timezone?: string | null
     spaces?: SpaceUncheckedCreateNestedManyWithoutLibraryInput
@@ -10179,10 +11049,6 @@ export namespace Prisma {
     remote_id?: NullableStringFieldUpdateOperationsInput | string | null
     is_primary?: BoolFieldUpdateOperationsInput | boolean
     encryption?: IntFieldUpdateOperationsInput | number
-    total_file_count?: IntFieldUpdateOperationsInput | number
-    total_bytes_used?: StringFieldUpdateOperationsInput | string
-    total_byte_capacity?: StringFieldUpdateOperationsInput | string
-    total_unique_bytes?: StringFieldUpdateOperationsInput | string
     date_created?: DateTimeFieldUpdateOperationsInput | Date | string
     timezone?: NullableStringFieldUpdateOperationsInput | string | null
     spaces?: SpaceUpdateManyWithoutLibraryInput
@@ -10195,10 +11061,6 @@ export namespace Prisma {
     remote_id?: NullableStringFieldUpdateOperationsInput | string | null
     is_primary?: BoolFieldUpdateOperationsInput | boolean
     encryption?: IntFieldUpdateOperationsInput | number
-    total_file_count?: IntFieldUpdateOperationsInput | number
-    total_bytes_used?: StringFieldUpdateOperationsInput | string
-    total_byte_capacity?: StringFieldUpdateOperationsInput | string
-    total_unique_bytes?: StringFieldUpdateOperationsInput | string
     date_created?: DateTimeFieldUpdateOperationsInput | Date | string
     timezone?: NullableStringFieldUpdateOperationsInput | string | null
     spaces?: SpaceUncheckedUpdateManyWithoutLibraryInput
@@ -10210,10 +11072,6 @@ export namespace Prisma {
     remote_id?: NullableStringFieldUpdateOperationsInput | string | null
     is_primary?: BoolFieldUpdateOperationsInput | boolean
     encryption?: IntFieldUpdateOperationsInput | number
-    total_file_count?: IntFieldUpdateOperationsInput | number
-    total_bytes_used?: StringFieldUpdateOperationsInput | string
-    total_byte_capacity?: StringFieldUpdateOperationsInput | string
-    total_unique_bytes?: StringFieldUpdateOperationsInput | string
     date_created?: DateTimeFieldUpdateOperationsInput | Date | string
     timezone?: NullableStringFieldUpdateOperationsInput | string | null
   }
@@ -10225,12 +11083,65 @@ export namespace Prisma {
     remote_id?: NullableStringFieldUpdateOperationsInput | string | null
     is_primary?: BoolFieldUpdateOperationsInput | boolean
     encryption?: IntFieldUpdateOperationsInput | number
+    date_created?: DateTimeFieldUpdateOperationsInput | Date | string
+    timezone?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type LibraryStatisticsCreateInput = {
+    date_captured?: Date | string
+    library_id: number
+    total_file_count?: number
+    total_bytes_used?: string
+    total_byte_capacity?: string
+    total_unique_bytes?: string
+  }
+
+  export type LibraryStatisticsUncheckedCreateInput = {
+    id?: number
+    date_captured?: Date | string
+    library_id: number
+    total_file_count?: number
+    total_bytes_used?: string
+    total_byte_capacity?: string
+    total_unique_bytes?: string
+  }
+
+  export type LibraryStatisticsUpdateInput = {
+    date_captured?: DateTimeFieldUpdateOperationsInput | Date | string
+    library_id?: IntFieldUpdateOperationsInput | number
     total_file_count?: IntFieldUpdateOperationsInput | number
     total_bytes_used?: StringFieldUpdateOperationsInput | string
     total_byte_capacity?: StringFieldUpdateOperationsInput | string
     total_unique_bytes?: StringFieldUpdateOperationsInput | string
-    date_created?: DateTimeFieldUpdateOperationsInput | Date | string
-    timezone?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type LibraryStatisticsUncheckedUpdateInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    date_captured?: DateTimeFieldUpdateOperationsInput | Date | string
+    library_id?: IntFieldUpdateOperationsInput | number
+    total_file_count?: IntFieldUpdateOperationsInput | number
+    total_bytes_used?: StringFieldUpdateOperationsInput | string
+    total_byte_capacity?: StringFieldUpdateOperationsInput | string
+    total_unique_bytes?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type LibraryStatisticsUpdateManyMutationInput = {
+    date_captured?: DateTimeFieldUpdateOperationsInput | Date | string
+    library_id?: IntFieldUpdateOperationsInput | number
+    total_file_count?: IntFieldUpdateOperationsInput | number
+    total_bytes_used?: StringFieldUpdateOperationsInput | string
+    total_byte_capacity?: StringFieldUpdateOperationsInput | string
+    total_unique_bytes?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type LibraryStatisticsUncheckedUpdateManyInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    date_captured?: DateTimeFieldUpdateOperationsInput | Date | string
+    library_id?: IntFieldUpdateOperationsInput | number
+    total_file_count?: IntFieldUpdateOperationsInput | number
+    total_bytes_used?: StringFieldUpdateOperationsInput | string
+    total_byte_capacity?: StringFieldUpdateOperationsInput | string
+    total_unique_bytes?: StringFieldUpdateOperationsInput | string
   }
 
   export type ClientCreateInput = {
@@ -10868,10 +11779,6 @@ export namespace Prisma {
     remote_id?: SortOrder
     is_primary?: SortOrder
     encryption?: SortOrder
-    total_file_count?: SortOrder
-    total_bytes_used?: SortOrder
-    total_byte_capacity?: SortOrder
-    total_unique_bytes?: SortOrder
     date_created?: SortOrder
     timezone?: SortOrder
   }
@@ -10879,7 +11786,6 @@ export namespace Prisma {
   export type LibraryAvgOrderByAggregateInput = {
     id?: SortOrder
     encryption?: SortOrder
-    total_file_count?: SortOrder
   }
 
   export type LibraryMaxOrderByAggregateInput = {
@@ -10889,10 +11795,6 @@ export namespace Prisma {
     remote_id?: SortOrder
     is_primary?: SortOrder
     encryption?: SortOrder
-    total_file_count?: SortOrder
-    total_bytes_used?: SortOrder
-    total_byte_capacity?: SortOrder
-    total_unique_bytes?: SortOrder
     date_created?: SortOrder
     timezone?: SortOrder
   }
@@ -10904,10 +11806,6 @@ export namespace Prisma {
     remote_id?: SortOrder
     is_primary?: SortOrder
     encryption?: SortOrder
-    total_file_count?: SortOrder
-    total_bytes_used?: SortOrder
-    total_byte_capacity?: SortOrder
-    total_unique_bytes?: SortOrder
     date_created?: SortOrder
     timezone?: SortOrder
   }
@@ -10915,7 +11813,6 @@ export namespace Prisma {
   export type LibrarySumOrderByAggregateInput = {
     id?: SortOrder
     encryption?: SortOrder
-    total_file_count?: SortOrder
   }
 
   export type StringNullableWithAggregatesFilter = {
@@ -10941,6 +11838,48 @@ export namespace Prisma {
     _count?: NestedIntFilter
     _min?: NestedBoolFilter
     _max?: NestedBoolFilter
+  }
+
+  export type LibraryStatisticsCountOrderByAggregateInput = {
+    id?: SortOrder
+    date_captured?: SortOrder
+    library_id?: SortOrder
+    total_file_count?: SortOrder
+    total_bytes_used?: SortOrder
+    total_byte_capacity?: SortOrder
+    total_unique_bytes?: SortOrder
+  }
+
+  export type LibraryStatisticsAvgOrderByAggregateInput = {
+    id?: SortOrder
+    library_id?: SortOrder
+    total_file_count?: SortOrder
+  }
+
+  export type LibraryStatisticsMaxOrderByAggregateInput = {
+    id?: SortOrder
+    date_captured?: SortOrder
+    library_id?: SortOrder
+    total_file_count?: SortOrder
+    total_bytes_used?: SortOrder
+    total_byte_capacity?: SortOrder
+    total_unique_bytes?: SortOrder
+  }
+
+  export type LibraryStatisticsMinOrderByAggregateInput = {
+    id?: SortOrder
+    date_captured?: SortOrder
+    library_id?: SortOrder
+    total_file_count?: SortOrder
+    total_bytes_used?: SortOrder
+    total_byte_capacity?: SortOrder
+    total_unique_bytes?: SortOrder
+  }
+
+  export type LibraryStatisticsSumOrderByAggregateInput = {
+    id?: SortOrder
+    library_id?: SortOrder
+    total_file_count?: SortOrder
   }
 
   export type BoolNullableFilter = {
@@ -12585,10 +13524,6 @@ export namespace Prisma {
     remote_id?: string | null
     is_primary?: boolean
     encryption?: number
-    total_file_count?: number
-    total_bytes_used?: string
-    total_byte_capacity?: string
-    total_unique_bytes?: string
     date_created?: Date | string
     timezone?: string | null
   }
@@ -12600,10 +13535,6 @@ export namespace Prisma {
     remote_id?: string | null
     is_primary?: boolean
     encryption?: number
-    total_file_count?: number
-    total_bytes_used?: string
-    total_byte_capacity?: string
-    total_unique_bytes?: string
     date_created?: Date | string
     timezone?: string | null
   }
@@ -12624,10 +13555,6 @@ export namespace Prisma {
     remote_id?: NullableStringFieldUpdateOperationsInput | string | null
     is_primary?: BoolFieldUpdateOperationsInput | boolean
     encryption?: IntFieldUpdateOperationsInput | number
-    total_file_count?: IntFieldUpdateOperationsInput | number
-    total_bytes_used?: StringFieldUpdateOperationsInput | string
-    total_byte_capacity?: StringFieldUpdateOperationsInput | string
-    total_unique_bytes?: StringFieldUpdateOperationsInput | string
     date_created?: DateTimeFieldUpdateOperationsInput | Date | string
     timezone?: NullableStringFieldUpdateOperationsInput | string | null
   }
@@ -12639,10 +13566,6 @@ export namespace Prisma {
     remote_id?: NullableStringFieldUpdateOperationsInput | string | null
     is_primary?: BoolFieldUpdateOperationsInput | boolean
     encryption?: IntFieldUpdateOperationsInput | number
-    total_file_count?: IntFieldUpdateOperationsInput | number
-    total_bytes_used?: StringFieldUpdateOperationsInput | string
-    total_byte_capacity?: StringFieldUpdateOperationsInput | string
-    total_unique_bytes?: StringFieldUpdateOperationsInput | string
     date_created?: DateTimeFieldUpdateOperationsInput | Date | string
     timezone?: NullableStringFieldUpdateOperationsInput | string | null
   }

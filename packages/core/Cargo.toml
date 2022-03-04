@@ -8,7 +8,7 @@ repository = "https://github.com/jamiepine/spacedrive"
 edition = "2018"
 
 [dependencies]
-swift-rs = "0.2.3"
+# swift-rs = "0.2.3"
 hotwatch = "0.4.6"
 hostname = "0.3.1"
 # Universal Dependencies
@@ -39,6 +39,7 @@ lazy_static = "1.4.0"
 uuid = "0.8"
 thumbnailer = "0.4.0"
 mime = "0.3.16"
+sysinfo = "0.23.5"
 
 tokio = { version = "1.17.0", features = ["sync", "rt"] }
 include_dir = {version = "0.7.2", features = ["glob"]}

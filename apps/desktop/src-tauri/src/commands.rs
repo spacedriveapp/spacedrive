@@ -1,10 +1,10 @@
 use anyhow::Result;
 use sdcorelib::{
   file::{indexer, retrieve, retrieve::Directory, watcher::watch_dir},
-  library, native,
+  library,
+  library::{volumes, volumes::Volume},
   state::{client, client::ClientState},
 };
-use swift_rs::types::SRObjectArray;
 
 #[tauri::command(async)]
 pub async fn scan_dir(path: String) -> Result<(), String> {
@@ -25,9 +25,10 @@ pub fn get_config() -> ClientState {
   client::get()
 }
 
+
 #[tauri::command]
-pub fn get_mounts() -> Result<SRObjectArray<native::methods::Mount>, String> {
-  Ok(native::methods::get_mounts())
+pub fn get_mounts() -> Result<Vec<Volume>, String> {
+  Ok(volumes::get().unwrap())
 }
 
 #[tauri::command(async)]

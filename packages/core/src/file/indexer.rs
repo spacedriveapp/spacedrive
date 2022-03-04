@@ -8,7 +8,7 @@ use super::watcher::watch_dir;
 use crate::file::checksum::create_meta_integrity_hash;
 use crate::library::locations::{create_location, get_location};
 use crate::util::time;
-use crate::{db, prisma};
+use crate::{db};
 
 pub async fn scan_paths(location_id: i64) -> Result<()> {
     // get location by location_id from db and include location_paths
@@ -24,6 +24,7 @@ pub async fn scan_paths(location_id: i64) -> Result<()> {
 
 // creates a vector of valid path buffers from a directory
 pub async fn scan(path: &str) -> Result<()> {
+    
     println!("Scanning directory: {}", &path);
     // let current_library = library::loader::get().await?;
 
@@ -176,8 +177,8 @@ fn create_active_file_model(
         location_id,
         parent_id.clone(),
         &meta_integrity_hash,
+        uri.to_str().unwrap(),
         &extract_name(uri.file_stem()),
-        &extract_name(uri.file_name()),
         &extract_name(uri.extension()),
         &size.to_string(),
         &time::system_time_to_date_time(metadata.created())

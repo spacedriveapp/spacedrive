@@ -2,14 +2,13 @@ pub mod crypto;
 pub mod db;
 pub mod file;
 pub mod library;
-pub mod native;
+// pub mod native;
 pub mod state;
 pub mod tx;
 // pub mod p2p;
 pub mod prisma;
 pub mod util;
 
-use futures::executor::block_on;
 use futures::{stream::StreamExt, Stream};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};

@@ -80,3 +80,15 @@ All TypeScript packages are compiled automatically using Turborepo.
 - `native-ios`: a [Swift]() native binary
 - `native-windows`: a [C#]() native binary
 - `native-android`: a [Kotlin]() native binary
+
+
+## Developer Info
+
+- Rust version: **1.58.1**
+- Node version: **17**
+
+Install instructions: 
+- `$ git clone https://github.com/jamiepine/spacedrive`
+- `$ cd spacedrive`
+- `$ yarn`
+- `$ yarn desktop dev`

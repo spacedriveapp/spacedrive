@@ -27,7 +27,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
-    "db:migrate": "cd packages/core && prisma-client-rust migrate",
+    "db:migrate": "cd packages/core && prisma-client-rust migrate dev",
     "db:gen": "cd packages/core && prisma-client-rust generate",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

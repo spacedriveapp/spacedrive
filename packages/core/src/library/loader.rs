@@ -76,7 +76,7 @@ pub async fn create(name: Option<String>) -> Result<()> {
 
     let db = db::get().await.unwrap();
 
-    let library = db
+    let _library = db
         .library()
         .create_one(
             Library::uuid().set(config.current_library_id),
