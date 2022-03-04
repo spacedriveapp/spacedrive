@@ -1,4 +1,4 @@
 pub mod client;
-// pub mod init;
+pub mod volumes;
 pub mod loader;
 pub mod locations;

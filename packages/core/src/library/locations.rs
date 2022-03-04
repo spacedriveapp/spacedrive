@@ -4,7 +4,7 @@ use std::io::Write;
 
 use crate::{
     db,
-    native::methods::get_mounts,
+    library::volumes,
     prisma::{File, Location, LocationData},
 };
 
@@ -52,10 +52,10 @@ pub async fn create_location(path: &str) -> Result<LocationData> {
 
     let create_location_params = {
         // let library = library::loader::get().await?;
-        let mounts = get_mounts();
+        let volumes = volumes::get().unwrap();
 
         // find mount with matching path
-        let mount = &mounts[0];
+        let mount = &volumes[0];
         //     .iter()
         //     .find(|mount| path.starts_with(mount.path.as_str()))
         // {
@@ -67,11 +67,11 @@ pub async fn create_location(path: &str) -> Result<LocationData> {
 
         let mut create_location_params = vec![
             Location::name().set(mount.name.to_string()),
-            Location::total_capacity().set(mount.total_capacity as i64),
-            Location::available_capacity().set(mount.available_capacity as i64),
-            Location::is_ejectable().set(mount.is_ejectable),
+            Location::total_capacity().set(mount.total_space as i64),
+            Location::available_capacity().set(mount.available_space as i64),
+            Location::is_ejectable().set(false), // remove this
             Location::is_removable().set(mount.is_removable),
-            Location::is_root_filesystem().set(mount.is_root_filesystem),
+            Location::is_root_filesystem().set(false), // remove this
             Location::is_online().set(true),
         ];
 

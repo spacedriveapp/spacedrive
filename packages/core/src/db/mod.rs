@@ -47,8 +47,13 @@ pub async fn init(db_url: &str) -> Result<()> {
         Ok(data) => {
             if data.len() == 0 {
                 println!("Migration table does not exist");
-
-                client._execute_raw(INIT_MIGRATION).await;
+                // execute migration
+                match client._execute_raw(INIT_MIGRATION).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Failed to create migration table: {}", e);
+                    }
+                };
 
                 let value: Vec<serde_json::Value> = client
                     ._query_raw(

@@ -33,15 +33,15 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 
   return (
     <div className="flex flex-col w-full h-full px-5 py-3">
-      <div className="flex flex-wrap space-x-2">
+      {/* <div className="flex flex-wrap space-x-2">
         <StatItem name="Total capacity" value="26.5" unit="TB" />
         <StatItem name="Index size" value="103" unit="MB" />
         <StatItem name="Preview media" value="23.5" unit="GB" />
         <StatItem name="Free space" value="9.2" unit="TB" />
         <StatItem name="Total at-risk" value="1.5" unit="TB" />
         <StatItem name="Total backed up" value="25.3" unit="TB" />
-      </div>
-      <hr className="my-5 dark:border-gray-600" />
+      </div> */}
+      {/* <hr className="my-5 dark:border-gray-600" /> */}
 
       <div className="mt-2 space-x-1">
         <FileItem

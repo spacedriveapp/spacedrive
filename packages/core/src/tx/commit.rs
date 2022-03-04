@@ -12,11 +12,11 @@ pub struct Commit {
     pub timestamp: DateTime<Utc>,
     pub client_uuid: String,
     pub library_uuid: String,
-    pub sql: String,
+    pub query: String,
 }
 
 impl Commit {
-    pub fn new(sql: String) -> Self {
+    pub fn new(query: String) -> Self {
         let client = state::client::get();
         let id = Uuid::new_v4().to_string();
         let timestamp = Utc::now();
@@ -32,4 +32,16 @@ impl Commit {
     pub fn from_query<T: SerializeQuery>(query: T) -> Self {
         Self::new(query.serialize_query())
     }
+}
+
+
+fn do_something () {
+
+    Commit::new(
+        db.client().create_one(
+            Client::uuid().set(config.client_id.clone()),
+            Client::name().set(hostname.clone()),
+            vec![],
+        )
+    )
 }

@@ -52,7 +52,7 @@
     "windows": [
       {
         "title": "SpaceDrive",
-        "width": 1300,
+        "width": 1400,
         "height": 900,
         "resizable": true,
         "fullscreen": false,

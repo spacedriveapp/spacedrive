@@ -76,7 +76,7 @@ export default function GeneralSettings() {
         title="Locations"
         description="Local cache storage for media previews and thumbnails."
       >
-        <Slider />
+        <Slider value={[20, 0]} />
       </InputContainer>
       <InputContainer
         title="Media cache directory"

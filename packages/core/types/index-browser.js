@@ -91,12 +91,18 @@ exports.Prisma.LibraryScalarFieldEnum = makeEnum({
   remote_id: 'remote_id',
   is_primary: 'is_primary',
   encryption: 'encryption',
+  date_created: 'date_created',
+  timezone: 'timezone'
+});
+
+exports.Prisma.LibraryStatisticsScalarFieldEnum = makeEnum({
+  id: 'id',
+  date_captured: 'date_captured',
+  library_id: 'library_id',
   total_file_count: 'total_file_count',
   total_bytes_used: 'total_bytes_used',
   total_byte_capacity: 'total_byte_capacity',
-  total_unique_bytes: 'total_unique_bytes',
-  date_created: 'date_created',
-  timezone: 'timezone'
+  total_unique_bytes: 'total_unique_bytes'
 });
 
 exports.Prisma.ClientScalarFieldEnum = makeEnum({
@@ -189,6 +195,7 @@ exports.Prisma.SortOrder = makeEnum({
 exports.Prisma.ModelName = makeEnum({
   Migration: 'Migration',
   Library: 'Library',
+  LibraryStatistics: 'LibraryStatistics',
   Client: 'Client',
   Location: 'Location',
   File: 'File',

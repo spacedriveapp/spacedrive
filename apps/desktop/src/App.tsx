@@ -95,6 +95,7 @@ export default function App() {
   useEffect(() => {
     invoke<AppState>('get_config').then((state) => useAppState.getState().update(state));
     invoke<Location[]>('get_mounts').then((locations) =>
+      //@ts-expect-error
       useLocationStore.getState().setLocations(locations)
     );
   }, []);
