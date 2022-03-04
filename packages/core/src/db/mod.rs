@@ -35,7 +35,7 @@ pub async fn get() -> Result<&'static PrismaClient, String> {
 const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
-pub async fn init(db_url: &str) -> Result<(), sqlx::Error> {
+pub async fn init(db_url: &str) -> Result<()> {
     let client = PrismaClient::new_with_url(&format!("file:{}", &db_url)).await;
 
     match client
