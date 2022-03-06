@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write};
 use thiserror::Error;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct DotSpaceDrive {
     pub location_uuid: String,
     pub library_uuid: String,
@@ -24,7 +24,7 @@ static DOTFILE_NAME: &str = ".spacedrive";
 pub async fn check_location(path: &str) -> Result<DotSpaceDrive, LocationError> {
     let dotfile: DotSpaceDrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME))
     {
-        Ok(file) => serde_json::from_reader(file).unwrap(),
+        Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpaceDrive::default()),
         Err(e) => return Err(LocationError::DotfileReadFailure(e)),
     };
 
