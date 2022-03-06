@@ -146,9 +146,9 @@ pub enum LocationError {
     CreateFailure { uuid: String },
     #[error("Failed to read location dotfile")]
     DotfileReadFailure(io::Error),
-    #[error("Failed to serialize dotfile for location (at path: {0:?})")]
+    #[error("Failed to serialize dotfile for location (at path: {1:?})")]
     DotfileSerializeFailure(serde_json::Error, String),
-    #[error("Location not found (uuid: {0:?})")]
+    #[error("Location not found (uuid: {1:?})")]
     DotfileWriteFailure(io::Error, String),
     #[error("Location not found (uuid: {0:?})")]
     NotFound(String),
