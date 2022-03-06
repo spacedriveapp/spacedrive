@@ -92,7 +92,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
                     None => Volume::default(),
                 };
 
-                let mut create_location_params = vec![
+                vec![
                     Location::name().set(volume_data.name.to_string()),
                     Location::total_capacity().set(volume_data.total_space as i64),
                     Location::available_capacity().set(volume_data.available_space as i64),
@@ -100,9 +100,8 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
                     Location::is_removable().set(volume_data.is_removable),
                     Location::is_root_filesystem().set(false), // remove this
                     Location::is_online().set(true),
-                ];
-                create_location_params.extend(vec![Location::path().set(path.to_string())]);
-                create_location_params
+                    Location::path().set(path.to_string()),
+                ]
             };
 
             let location = db
@@ -110,6 +109,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
                 .create_one(create_location_params)
                 .exec()
                 .await;
+
             info!("Created location: {:?}", location);
 
             // write a file called .spacedrive to path containing the location id in JSON format
