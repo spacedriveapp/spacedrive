@@ -32,10 +32,6 @@ model Library {
     encryption   Int      @default(0)
     date_created DateTime @default(now())
     timezone     String?
-    // total_file_count    Int      @default(0)
-    // total_bytes_used    String   @default("0")
-    // total_byte_capacity String   @default("0")
-    // total_unique_bytes  String   @default("0")
     spaces       Space[]
 
     @@map("libraries")
