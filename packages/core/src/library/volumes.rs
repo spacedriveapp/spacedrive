@@ -20,12 +20,15 @@ pub fn get() -> Result<Vec<Volume>, String> {
             let mut total_space = disk.total_space();
             let available_space = disk.available_space();
             let mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
-            let name = disk.name().to_str().unwrap_or("Disk").to_string();
+            let name = disk.name().to_str().unwrap_or("Volume").to_string();
             let is_removable = disk.is_removable();
+
             let mut caption = mount_point.clone();
             caption.pop();
+
             let file_system = String::from_utf8(disk.file_system().to_vec())
                 .unwrap_or_else(|_| "Err".to_string());
+
             let disk_type = match disk.type_() {
                 sysinfo::DiskType::SSD => "SSD".to_string(),
                 sysinfo::DiskType::HDD => "HDD".to_string(),

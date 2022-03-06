@@ -137,7 +137,6 @@ exports.Prisma.FileScalarFieldEnum = makeEnum({
   stem: 'stem',
   name: 'name',
   extension: 'extension',
-  path_checksum: 'path_checksum',
   quick_checksum: 'quick_checksum',
   full_checksum: 'full_checksum',
   size_in_bytes: 'size_in_bytes',

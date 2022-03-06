@@ -34,14 +34,11 @@ impl Commit {
     }
 }
 
-
-fn do_something () {
-
-    Commit::new(
-        db.client().create_one(
-            Client::uuid().set(config.client_id.clone()),
-            Client::name().set(hostname.clone()),
-            vec![],
-        )
-    )
+// example
+fn do_something() {
+    Commit::new(db.client().create_one(
+        Client::uuid().set(config.client_id.clone()),
+        Client::name().set(hostname.clone()),
+        vec![],
+    ))
 }

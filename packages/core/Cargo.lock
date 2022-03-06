@@ -5228,6 +5228,7 @@ dependencies = [
  "sha256",
  "strum",
  "sysinfo",
+ "thiserror",
  "thumbnailer",
  "tokio",
  "ts-rs",

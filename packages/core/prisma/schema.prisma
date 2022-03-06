@@ -32,6 +32,10 @@ model Library {
     encryption   Int      @default(0)
     date_created DateTime @default(now())
     timezone     String?
+    // total_file_count    Int      @default(0)
+    // total_bytes_used    String   @default("0")
+    // total_byte_capacity String   @default("0")
+    // total_unique_bytes  String   @default("0")
     spaces       Space[]
 
     @@map("libraries")
@@ -87,7 +91,6 @@ model File {
     stem           String
     name           String
     extension      String?
-    path_checksum  String   @unique // combo of location_id, stem, name, extension
     quick_checksum String? // 100 * 100 byte samples
     full_checksum  String? // full byte to byte hash
     size_in_bytes  String
@@ -104,6 +107,7 @@ model File {
     children  File[] @relation("directory_files")
 
     file_tags TagOnFile[]
+    @@unique([location_id, stem, name, extension])
     @@map("files")
 }
 
