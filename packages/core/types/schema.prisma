@@ -91,7 +91,6 @@ model File {
     stem           String
     name           String
     extension      String?
-    // path_checksum  String   @unique // combo of location_id, stem, name, extension
     quick_checksum String? // 100 * 100 byte samples
     full_checksum  String? // full byte to byte hash
     size_in_bytes  String
