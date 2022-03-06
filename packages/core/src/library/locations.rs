@@ -101,11 +101,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
                     Location::is_root_filesystem().set(false), // remove this
                     Location::is_online().set(true),
                 ];
-                create_location_params.extend(vec![
-                    Location::path().set(path.to_string()),
-                    // Location::library_id().set(library.id),
-                ]);
-                info!("Created new location: {:?}", location);
+                create_location_params.extend(vec![Location::path().set(path.to_string())]);
                 create_location_params
             };
 
@@ -114,6 +110,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
                 .create_one(create_location_params)
                 .exec()
                 .await;
+            info!("Created location: {:?}", location);
 
             // write a file called .spacedrive to path containing the location id in JSON format
             let mut dotfile = match fs::File::create(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
