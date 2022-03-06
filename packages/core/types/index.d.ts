@@ -97,7 +97,6 @@ export type File = {
   stem: string
   name: string
   extension: string | null
-  path_checksum: string
   quick_checksum: string | null
   full_checksum: string | null
   size_in_bytes: string
@@ -5665,7 +5664,6 @@ export namespace Prisma {
     stem: string | null
     name: string | null
     extension: string | null
-    path_checksum: string | null
     quick_checksum: string | null
     full_checksum: string | null
     size_in_bytes: string | null
@@ -5684,7 +5682,6 @@ export namespace Prisma {
     stem: string | null
     name: string | null
     extension: string | null
-    path_checksum: string | null
     quick_checksum: string | null
     full_checksum: string | null
     size_in_bytes: string | null
@@ -5703,7 +5700,6 @@ export namespace Prisma {
     stem: number
     name: number
     extension: number
-    path_checksum: number
     quick_checksum: number
     full_checksum: number
     size_in_bytes: number
@@ -5738,7 +5734,6 @@ export namespace Prisma {
     stem?: true
     name?: true
     extension?: true
-    path_checksum?: true
     quick_checksum?: true
     full_checksum?: true
     size_in_bytes?: true
@@ -5757,7 +5752,6 @@ export namespace Prisma {
     stem?: true
     name?: true
     extension?: true
-    path_checksum?: true
     quick_checksum?: true
     full_checksum?: true
     size_in_bytes?: true
@@ -5776,7 +5770,6 @@ export namespace Prisma {
     stem?: true
     name?: true
     extension?: true
-    path_checksum?: true
     quick_checksum?: true
     full_checksum?: true
     size_in_bytes?: true
@@ -5888,7 +5881,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension: string | null
-    path_checksum: string
     quick_checksum: string | null
     full_checksum: string | null
     size_in_bytes: string
@@ -5926,7 +5918,6 @@ export namespace Prisma {
     stem?: boolean
     name?: boolean
     extension?: boolean
-    path_checksum?: boolean
     quick_checksum?: boolean
     full_checksum?: boolean
     size_in_bytes?: boolean
@@ -10279,7 +10270,6 @@ export namespace Prisma {
     stem: 'stem',
     name: 'name',
     extension: 'extension',
-    path_checksum: 'path_checksum',
     quick_checksum: 'quick_checksum',
     full_checksum: 'full_checksum',
     size_in_bytes: 'size_in_bytes',
@@ -10667,7 +10657,6 @@ export namespace Prisma {
     stem?: StringFilter | string
     name?: StringFilter | string
     extension?: StringNullableFilter | string | null
-    path_checksum?: StringFilter | string
     quick_checksum?: StringNullableFilter | string | null
     full_checksum?: StringNullableFilter | string | null
     size_in_bytes?: StringFilter | string
@@ -10690,7 +10679,6 @@ export namespace Prisma {
     stem?: SortOrder
     name?: SortOrder
     extension?: SortOrder
-    path_checksum?: SortOrder
     quick_checksum?: SortOrder
     full_checksum?: SortOrder
     size_in_bytes?: SortOrder
@@ -10708,7 +10696,7 @@ export namespace Prisma {
 
   export type FileWhereUniqueInput = {
     id?: number
-    path_checksum?: string
+    location_id_stem_name_extension?: FileLocation_idStemNameExtensionCompoundUniqueInput
   }
 
   export type FileOrderByWithAggregationInput = {
@@ -10718,7 +10706,6 @@ export namespace Prisma {
     stem?: SortOrder
     name?: SortOrder
     extension?: SortOrder
-    path_checksum?: SortOrder
     quick_checksum?: SortOrder
     full_checksum?: SortOrder
     size_in_bytes?: SortOrder
@@ -10745,7 +10732,6 @@ export namespace Prisma {
     stem?: StringWithAggregatesFilter | string
     name?: StringWithAggregatesFilter | string
     extension?: StringNullableWithAggregatesFilter | string | null
-    path_checksum?: StringWithAggregatesFilter | string
     quick_checksum?: StringNullableWithAggregatesFilter | string | null
     full_checksum?: StringNullableWithAggregatesFilter | string | null
     size_in_bytes?: StringWithAggregatesFilter | string
@@ -11301,7 +11287,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -11323,7 +11308,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -11342,7 +11326,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -11364,7 +11347,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -11383,7 +11365,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -11401,7 +11382,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -12059,6 +12039,13 @@ export namespace Prisma {
     _count?: SortOrder
   }
 
+  export type FileLocation_idStemNameExtensionCompoundUniqueInput = {
+    location_id: number
+    stem: string
+    name: string
+    extension: string
+  }
+
   export type FileCountOrderByAggregateInput = {
     id?: SortOrder
     is_dir?: SortOrder
@@ -12066,7 +12053,6 @@ export namespace Prisma {
     stem?: SortOrder
     name?: SortOrder
     extension?: SortOrder
-    path_checksum?: SortOrder
     quick_checksum?: SortOrder
     full_checksum?: SortOrder
     size_in_bytes?: SortOrder
@@ -12092,7 +12078,6 @@ export namespace Prisma {
     stem?: SortOrder
     name?: SortOrder
     extension?: SortOrder
-    path_checksum?: SortOrder
     quick_checksum?: SortOrder
     full_checksum?: SortOrder
     size_in_bytes?: SortOrder
@@ -12111,7 +12096,6 @@ export namespace Prisma {
     stem?: SortOrder
     name?: SortOrder
     extension?: SortOrder
-    path_checksum?: SortOrder
     quick_checksum?: SortOrder
     full_checksum?: SortOrder
     size_in_bytes?: SortOrder
@@ -12970,7 +12954,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -12990,7 +12973,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -13035,7 +13017,6 @@ export namespace Prisma {
     stem?: StringFilter | string
     name?: StringFilter | string
     extension?: StringNullableFilter | string | null
-    path_checksum?: StringFilter | string
     quick_checksum?: StringNullableFilter | string | null
     full_checksum?: StringNullableFilter | string | null
     size_in_bytes?: StringFilter | string
@@ -13082,7 +13063,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -13103,7 +13083,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -13126,7 +13105,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -13147,7 +13125,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -13220,7 +13197,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13241,7 +13217,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13355,7 +13330,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -13376,7 +13350,6 @@ export namespace Prisma {
     stem: string
     name: string
     extension?: string | null
-    path_checksum: string
     quick_checksum?: string | null
     full_checksum?: string | null
     size_in_bytes: string
@@ -13428,7 +13401,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13449,7 +13421,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13630,7 +13601,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13650,7 +13620,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13670,7 +13639,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13687,7 +13655,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13708,7 +13675,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string
@@ -13728,7 +13694,6 @@ export namespace Prisma {
     stem?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
     extension?: NullableStringFieldUpdateOperationsInput | string | null
-    path_checksum?: StringFieldUpdateOperationsInput | string
     quick_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     full_checksum?: NullableStringFieldUpdateOperationsInput | string | null
     size_in_bytes?: StringFieldUpdateOperationsInput | string

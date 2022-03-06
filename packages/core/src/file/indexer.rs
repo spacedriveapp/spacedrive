@@ -1,14 +1,14 @@
 use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use walkdir::{DirEntry, WalkDir};
 
 use super::watcher::watch_dir;
-use crate::file::checksum::create_meta_integrity_hash;
+use crate::db;
 use crate::library::locations::{create_location, get_location};
+use crate::prisma::LocationData;
 use crate::util::time;
-use crate::{db};
 
 pub async fn scan_paths(location_id: i64) -> Result<()> {
     // get location by location_id from db and include location_paths
@@ -24,7 +24,6 @@ pub async fn scan_paths(location_id: i64) -> Result<()> {
 
 // creates a vector of valid path buffers from a directory
 pub async fn scan(path: &str) -> Result<()> {
-    
     println!("Scanning directory: {}", &path);
     // let current_library = library::loader::get().await?;
 
@@ -96,9 +95,8 @@ pub async fn scan(path: &str) -> Result<()> {
         // vector to store active models
         let mut files: Vec<String> = Vec::new();
         for (file_path, file_id, parent_dir_id) in chunk {
-            // TODO: add location
             files.push(
-                match create_active_file_model(&file_path, *file_id, location.id, parent_dir_id) {
+                match prepare_model(&file_path, *file_id, &location, parent_dir_id) {
                     Ok(file) => file,
                     Err(e) => {
                         println!("Error creating file model from path {:?}: {}", file_path, e);
@@ -107,10 +105,9 @@ pub async fn scan(path: &str) -> Result<()> {
                 },
             );
         }
-
         let raw_sql = format!(
             r#"
-                INSERT INTO files (id, is_dir, location_id, parent_id, path_checksum, stem, name, extension, size_in_bytes, date_created, date_modified) 
+                INSERT INTO files (id, is_dir, location_id, parent_id, stem, name, extension, size_in_bytes, date_created, date_modified) 
                 VALUES {}
             "#,
             files.join(", ")
@@ -128,58 +125,37 @@ pub async fn scan(path: &str) -> Result<()> {
     Ok(())
 }
 
-fn construct_file_sql(
-    id: i64,
-    is_dir: bool,
-    location_id: i64,
-    parent_id: Option<i64>,
-    path_checksum: &str,
-    stem: &str,
-    name: &str,
-    extension: &str,
-    size_in_bytes: &str,
-    date_created: &str,
-    date_modified: &str,
-) -> String {
-    format!(
-        "({}, {}, {}, {}, \"{}\", \"{}\", \"{}\",\"{}\", \"{}\", \"{}\", \"{}\")",
-        id,
-        is_dir as u8,
-        location_id,
-        parent_id
-            .map(|id| id.to_string())
-            .unwrap_or("NULL".to_string()),
-        path_checksum,
-        stem,
-        name,
-        extension,
-        size_in_bytes,
-        date_created,
-        date_modified
-    )
-}
-
 // reads a file at a path and creates an ActiveModel with metadata
-fn create_active_file_model(
-    uri: &PathBuf,
+fn prepare_model(
+    file_path: &PathBuf,
     id: i64,
-    location_id: i64,
+    location: &LocationData,
     parent_id: &Option<i64>,
 ) -> Result<String> {
-    let metadata = fs::metadata(&uri)?;
+    let metadata = fs::metadata(&file_path)?;
+    let location_path = location.path.as_ref().unwrap().as_str();
     let size = metadata.len();
-    let mut meta_integrity_hash = create_meta_integrity_hash(uri.to_str().unwrap_or_default())?;
-    meta_integrity_hash.truncate(20);
+    let name = extract_name(file_path.file_stem());
+    let extension = extract_name(file_path.extension());
+
+    let stem = match file_path.to_str() {
+        Some(p) => p
+            .clone()
+            .strip_prefix(&location_path)
+            .unwrap_or_default()
+            .strip_suffix(format!("{}{}", name, extension).as_str())
+            .unwrap_or_default(),
+        None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
+    };
 
     Ok(construct_file_sql(
         id,
         metadata.is_dir(),
-        location_id,
+        location.id,
         parent_id.clone(),
-        &meta_integrity_hash,
-        uri.to_str().unwrap(),
-        &extract_name(uri.file_stem()),
-        &extract_name(uri.extension()),
+        stem,
+        &name,
+        &extension,
         &size.to_string(),
         &time::system_time_to_date_time(metadata.created())
             .unwrap()
@@ -252,4 +228,33 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
     // }
 
     is_app_bundle
+}
+
+fn construct_file_sql(
+    id: i64,
+    is_dir: bool,
+    location_id: i64,
+    parent_id: Option<i64>,
+    stem: &str,
+    name: &str,
+    extension: &str,
+    size_in_bytes: &str,
+    date_created: &str,
+    date_modified: &str,
+) -> String {
+    format!(
+        "({}, {}, {}, {}, \"{}\", \"{}\",\"{}\", \"{}\", \"{}\", \"{}\")",
+        id,
+        is_dir as u8,
+        location_id,
+        parent_id
+            .map(|id| id.to_string())
+            .unwrap_or("NULL".to_string()),
+        stem,
+        name,
+        extension,
+        size_in_bytes,
+        date_created,
+        date_modified
+    )
 }

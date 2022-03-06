@@ -40,6 +40,7 @@ uuid = "0.8"
 thumbnailer = "0.4.0"
 mime = "0.3.16"
 sysinfo = "0.23.5"
+thiserror = "1.0.30"
 
 tokio = { version = "1.17.0", features = ["sync", "rt"] }
 include_dir = {version = "0.7.2", features = ["glob"]}

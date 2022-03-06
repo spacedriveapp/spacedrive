@@ -4,19 +4,36 @@ use crate::{
     prisma::{File, Location, LocationData},
     state::client,
 };
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use log::info;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io::Write;
+use std::{fs, io, io::Write};
+use thiserror::Error;
 
 #[derive(Serialize, Deserialize)]
-struct DotSpaceDrive {
-    location_uuid: String,
-    library_uuid: String,
+pub struct DotSpaceDrive {
+    pub location_uuid: String,
+    pub library_uuid: String,
 }
 
-pub async fn get_location(location_id: i64) -> Result<LocationData> {
-    let db = db::get().await.unwrap();
+static DOTFILE_NAME: &str = ".spacedrive";
+
+// checks to see if a location is:
+// - accessible on from the local filesystem
+// - already exists in the database
+pub async fn check_location(path: &str) -> Result<DotSpaceDrive, LocationError> {
+    let dotfile: DotSpaceDrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME))
+    {
+        Ok(file) => serde_json::from_reader(file).unwrap(),
+        Err(e) => return Err(LocationError::DotfileReadFailure(e)),
+    };
+
+    Ok(dotfile)
+}
+
+pub async fn get_location(location_id: i64) -> Result<LocationData, LocationError> {
+    let db = db::get().await.map_err(|e| LocationError::DBError(e))?;
+
     // get location by location_id from db and include location_paths
     let location = match db
         .location()
@@ -27,34 +44,44 @@ pub async fn get_location(location_id: i64) -> Result<LocationData> {
         .await
     {
         Some(location) => location,
-        None => return Err(anyhow!("location_not_found")),
+        None => return Err(LocationError::NotFound(location_id.to_string())),
     };
+
+    info!("Retrieved location: {:?}", location);
 
     Ok(location)
 }
 
-pub async fn create_location(path: &str) -> Result<LocationData> {
-    let db = db::get().await.unwrap();
+pub async fn create_location(path: &str) -> Result<LocationData, LocationError> {
+    let db = db::get().await.map_err(|e| LocationError::DBError(e))?;
     let config = client::get();
+
     // check if we have access to this location
     match fs::File::open(&path) {
-        Ok(_) => println!("path is valid, creating location for '{}'", &path),
-        Err(e) => return Err(anyhow!("access_denied {}", e)),
+        Ok(_) => info!("Path is valid, creating location for '{}'", &path),
+        Err(e) => return Err(LocationError::FileReadError(e)),
     }
     // check if location already exists
     let location = match db
         .location()
-        .find_unique(Location::path().equals(path.to_string()))
+        .find_first(vec![Location::path().equals(path.to_string())])
         .exec()
         .await
     {
-        Some(_) => return Err(anyhow!("location_already_exists")),
+        Some(location) => location,
         None => {
+            info!(
+                "Location does not exist, creating new location for '{}'",
+                &path
+            );
             let uuid = uuid::Uuid::new_v4();
             // create new location
             let create_location_params = {
-                // let library = library::loader::get().await?;
-                let volumes = volumes::get().unwrap();
+                let volumes = match volumes::get() {
+                    Ok(volumes) => volumes,
+                    Err(e) => return Err(LocationError::VolumeReadError(e)),
+                };
+                info!("Loaded mounted volumes: {:?}", volumes);
                 // find mount with matching path
                 let volume = volumes
                     .into_iter()
@@ -78,6 +105,7 @@ pub async fn create_location(path: &str) -> Result<LocationData> {
                     Location::path().set(path.to_string()),
                     // Location::library_id().set(library.id),
                 ]);
+                info!("Created new location: {:?}", location);
                 create_location_params
             };
 
@@ -86,21 +114,53 @@ pub async fn create_location(path: &str) -> Result<LocationData> {
                 .create_one(create_location_params)
                 .exec()
                 .await;
-            println!("created location: {:?}", location);
 
             // write a file called .spacedrive to path containing the location id in JSON format
-            let mut dotfile = std::fs::File::create(format!("{}/.spacedrive", path.clone()))?;
+            let mut dotfile = match fs::File::create(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
+                Ok(file) => file,
+                Err(e) => return Err(LocationError::DotfileWriteFailure(e, path.to_string())),
+            };
+
             let data = DotSpaceDrive {
                 location_uuid: uuid.to_string(),
                 library_uuid: config.current_library_id,
             };
-            let json = serde_json::to_string(&data)?;
 
-            dotfile.write_all(json.as_bytes())?;
+            let json = match serde_json::to_string(&data) {
+                Ok(json) => json,
+                Err(e) => return Err(LocationError::DotfileSerializeFailure(e, path.to_string())),
+            };
+
+            match dotfile.write_all(json.as_bytes()) {
+                Ok(_) => (),
+                Err(e) => return Err(LocationError::DotfileWriteFailure(e, path.to_string())),
+            }
 
             location
         }
     };
 
     Ok(location)
+}
+
+#[derive(Error, Debug)]
+pub enum LocationError {
+    #[error("Failed to create location (uuid {uuid:?})")]
+    CreateFailure { uuid: String },
+    #[error("Failed to read location dotfile")]
+    DotfileReadFailure(io::Error),
+    #[error("Failed to serialize dotfile for location (at path: {0:?})")]
+    DotfileSerializeFailure(serde_json::Error, String),
+    #[error("Location not found (uuid: {0:?})")]
+    DotfileWriteFailure(io::Error, String),
+    #[error("Location not found (uuid: {0:?})")]
+    NotFound(String),
+    #[error("Failed to open file from local os")]
+    FileReadError(io::Error),
+    #[error("Failed to read mounted volumes from local os")]
+    VolumeReadError(String),
+    #[error("Failed to connect to database (error: {0:?})")]
+    IOError(io::Error),
+    #[error("Failed to connect to database (error: {0:?})")]
+    DBError(String),
 }

@@ -10,14 +10,14 @@ pub async fn listen(port: Option<u32>) -> Result<(), Box<dyn Error>> {
 
     let transport = libp2p::development_transport(local_key).await?;
 
-    // Create a ping network behaviour.
+    // Create a ping network behavior.
     //
     // For illustrative purposes, the ping protocol is configured to
     // keep the connection alive, so a continuous sequence of pings
     // can be observed.
-    let behaviour = ping::Behaviour::new(ping::Config::new().with_keep_alive(true));
+    let behavior = ping::Behaviour::new(ping::Config::new().with_keep_alive(true));
 
-    let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
+    let mut swarm = Swarm::new(transport, behavior, local_peer_id);
 
     // Tell the swarm to listen on all interfaces and a random, OS-assigned
     // port.
