@@ -6,7 +6,7 @@
   <p align="center">
    <img width="100" height="100" src="./apps/desktop/src/assets/images/spacedrive_logo.png" alt="Logo">
   </p>
-  <h2 align="center">Spacedrive</h2>
+  <h2 align="center" style="margin-top: 0">Spacedrive</h2>
   <p align="center">
     Your personal virtual cloud.
     <br />
