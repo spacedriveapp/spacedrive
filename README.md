@@ -14,7 +14,7 @@
     <br />
     <br />
     <b>Download for </b>
-    <a href="">MacOS</a>
+    <a href="">macOS</a>
     ·
     <a href="">Windows</a>
     ·
