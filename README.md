@@ -4,7 +4,7 @@
     
   </a>
   <div style="text-align: center">
-   <img width=80 src="./apps/desktop/src/assets/images/spacedrive_logo.png" alt="Logo">
+   <img width=100 src="./apps/desktop/src/assets/images/spacedrive_logo.png" alt="Logo">
   </div>
   <h2 align="center">Spacedrive</h2>
   <p align="center">
