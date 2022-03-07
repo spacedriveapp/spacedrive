@@ -32,18 +32,29 @@ export const OverviewScreen: React.FC<{}> = (props) => {
   }
 
   return (
-    <div className="flex flex-col w-full h-full px-5 py-3">
-      {/* <div className="flex flex-wrap space-x-2">
+    <div className="flex flex-col w-full h-screen px-5 py-3 overflow-scroll">
+      <div className="flex justify-center w-full">
+        <div className="flex flex-col items-center">
+          <img
+            alt="spacedrive-logo"
+            src="/images/spacedrive_logo.png"
+            className="w-24 h-24 mt-2 pointer-events-none"
+          />
+          <span className="text-lg font-bold heading-1">Spacedrive</span>
+          <span className="mt-0.5 text-sm text-gray-400 mb-5">v1.0.11 (pre-alpha)</span>
+        </div>
+      </div>
+      <hr className="my-5 dark:border-gray-600" />
+      <div className="flex flex-wrap space-x-2">
         <StatItem name="Total capacity" value="26.5" unit="TB" />
         <StatItem name="Index size" value="103" unit="MB" />
         <StatItem name="Preview media" value="23.5" unit="GB" />
         <StatItem name="Free space" value="9.2" unit="TB" />
         <StatItem name="Total at-risk" value="1.5" unit="TB" />
         <StatItem name="Total backed up" value="25.3" unit="TB" />
-      </div> */}
-      {/* <hr className="my-5 dark:border-gray-600" /> */}
-
-      <div className="mt-2 space-x-1">
+      </div>
+      <hr className="my-5 dark:border-gray-600" />
+      <div className="mt-2 -ml-3 space-x-1">
         <FileItem
           selected={selectedFile == 'tsx'}
           onClick={() => handleSelect('tsx')}
@@ -119,7 +130,8 @@ export const OverviewScreen: React.FC<{}> = (props) => {
           folder
         />
       </div>
-      <div className="mt-10 select-text">
+      <hr className="my-5 dark:border-gray-600" />
+      <div className="mt-2 mb-24 select-text">
         <ReactJson
           // collapsed
           enableClipboard={false}
