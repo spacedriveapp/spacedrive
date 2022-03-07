@@ -1,6 +1,9 @@
 use crate::file::checksum::sha256_digest;
-use crate::prisma::{Migration, PrismaClient};
 use crate::state;
+use crate::{
+    prisma,
+    prisma::{Migration, PrismaClient},
+};
 use anyhow::Result;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
@@ -23,7 +26,7 @@ pub async fn get() -> Result<&'static PrismaClient, String> {
         let path = current_library.library_path.clone();
         // TODO: Error handling when brendan adds it to prisma-client-rust
 
-        let client = PrismaClient::new_with_url(&format!("file:{}", &path)).await;
+        let client = prisma::new_client_with_url(&format!("file:{}", &path)).await;
         DB.set(client).unwrap_or_default();
 
         Ok(DB.get().unwrap())
@@ -36,7 +39,7 @@ const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_tab
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
 pub async fn init(db_url: &str) -> Result<()> {
-    let client = PrismaClient::new_with_url(&format!("file:{}", &db_url)).await;
+    let client = prisma::new_client_with_url(&format!("file:{}", &db_url)).await;
 
     match client
         ._query_raw::<serde_json::Value>(

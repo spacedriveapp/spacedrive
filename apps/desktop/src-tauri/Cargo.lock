@@ -5622,7 +5622,7 @@ checksum = "be91bcc43e73799dc46a6c194a55e7aae1d86cc867c860fd4a436019af21bd8c"
 [[package]]
 name = "prisma-client-rust"
 version = "0.3.0"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?branch=master#5a10f2e92d335e04f6b6853a6d0061dc2404f204"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?branch=master#55ae4638502bf36aaf1ec2512f6d7520ba9ed096"
 dependencies = [
  "chrono",
  "datamodel",
