@@ -1,6 +1,6 @@
 {
   "package": {
-    "productName": "SpaceDrive",
+    "productName": "Spacedrive",
     "version": "0.1.0"
   },
   "build": {
@@ -19,7 +19,7 @@
       "externalBin": [],
       "copyright": "Jamie Pine",
       "shortDescription": "Your personal virtual cloud.",
-      "longDescription": "SpaceDrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. SpaceDrive makes it possible to create a limitless directory of your digital life that will stand the test of time.",
+      "longDescription": "Spacedrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. Spacedrive makes it possible to create a limitless directory of your digital life that will stand the test of time.",
       "deb": {
         "depends": [],
         "useBootstrapper": false
@@ -51,7 +51,7 @@
     },
     "windows": [
       {
-        "title": "SpaceDrive",
+        "title": "Spacedrive",
         "width": 1400,
         "height": 900,
         "resizable": true,
