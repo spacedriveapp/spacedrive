@@ -9,9 +9,9 @@ pub(crate) fn get_menu() -> Menu {
   //   Menu::new().add_item(quit).add_item(close).add_item(jeff),
   // );
   let spacedrive = Submenu::new(
-    "SpaceDrive",
+    "Spacedrive",
     Menu::new()
-      .add_native_item(MenuItem::About("SpaceDrive".to_string()))
+      .add_native_item(MenuItem::About("Spacedrive".to_string()))
       .add_native_item(MenuItem::Separator)
       .add_native_item(MenuItem::Services)
       .add_native_item(MenuItem::Separator)

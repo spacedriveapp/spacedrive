@@ -11,7 +11,7 @@ use std::{fs, io, io::Write};
 use thiserror::Error;
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct DotSpaceDrive {
+pub struct DotSpacedrive {
     pub location_uuid: String,
     pub library_uuid: String,
 }
@@ -21,10 +21,10 @@ static DOTFILE_NAME: &str = ".spacedrive";
 // checks to see if a location is:
 // - accessible on from the local filesystem
 // - already exists in the database
-pub async fn check_location(path: &str) -> Result<DotSpaceDrive, LocationError> {
-    let dotfile: DotSpaceDrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME))
+pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> {
+    let dotfile: DotSpacedrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME))
     {
-        Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpaceDrive::default()),
+        Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpacedrive::default()),
         Err(e) => return Err(LocationError::DotfileReadFailure(e)),
     };
 
@@ -118,7 +118,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
                 Err(e) => return Err(LocationError::DotfileWriteFailure(e, path.to_string())),
             };
 
-            let data = DotSpaceDrive {
+            let data = DotSpacedrive {
                 location_uuid: uuid.to_string(),
                 library_uuid: config.current_library_id,
             };

@@ -1,10 +1,10 @@
 export default {
   github: 'https://github.com/jamiepine/spacedrive',
   docsRepositoryBase: 'https://github.com/jamiepine/spacedrive/',
-  titleSuffix: ' | SpaceDrive',
+  titleSuffix: ' | Spacedrive',
   logo: (
     <>
-      <span className="hidden mr-2 font-extrabold md:inline">SpaceDrive</span>
+      <span className="hidden mr-2 font-extrabold md:inline">Spacedrive</span>
       <span className="hidden font-normal text-gray-600 md:inline">
         The Virtual Private Filesystem
       </span>
