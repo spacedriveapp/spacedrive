@@ -3,9 +3,9 @@
     <img src="./apps/desktop/src/assets/images/spacedrive_screenshot_2.png" alt="Logo">
     
   </a>
-  <div style="text-align: center">
-   <img width=80 src="./apps/desktop/src/assets/images/spacedrive_logo.png" alt="Logo">
-  </div>
+  <p align="center">
+   <img width="80" height="80" src="./apps/desktop/src/assets/images/spacedrive_logo.png" alt="Logo">
+  </p>
   <h2 align="center">Spacedrive</h2>
   <p align="center">
     Your personal virtual cloud.
