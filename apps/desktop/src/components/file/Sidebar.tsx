@@ -53,6 +53,14 @@ export function MacOSTrafficLights() {
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const locations = useLocations();
 
+  const tags = [
+    { id: 1, name: 'Keepsafe', color: '#FF6788' },
+    { id: 2, name: 'OBS', color: '#BF88FF' },
+    { id: 2, name: 'BlackMagic', color: '#F0C94A' },
+    { id: 2, name: 'Camera Roll', color: '#00F0DB' },
+    { id: 2, name: 'Spacedrive', color: '#00F079' }
+  ];
+
   console.log({ locations });
   return (
     <div className="flex flex-col flex-wrap flex-shrink-0 min-h-full px-3 pb-1 border-r border-gray-100 w-46 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
@@ -124,6 +132,20 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           );
         })}
       </div>
+      <div>
+        <Heading>Tags</Heading>
+        <div className="mb-2">
+          {tags.map((tag, index) => (
+            <SidebarLink to="/" className="">
+              <div
+                className="w-[12px] h-[12px] rounded-full"
+                style={{ backgroundColor: tag.color }}
+              />
+              <span className="ml-2 text-sm">{tag.name}</span>
+            </SidebarLink>
+          ))}
+        </div>
+      </div>
       <div className="flex-grow" />
       <div className="mb-2">
         <NavLink to="/settings/general">
@@ -139,6 +161,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
             </Button>
           )}
         </NavLink>
+      </div>
+      <div className="w-full px-2 py-2 mb-2 text-xs font-bold text-center text-gray-500 border border-dashed rounded border-gray-550">
+        Drop
       </div>
     </div>
   );

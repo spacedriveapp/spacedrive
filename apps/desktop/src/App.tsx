@@ -34,7 +34,7 @@ function AppLayout() {
       <Sidebar />
       <div className="flex flex-col w-full min-h-full">
         {/* <TopBar /> */}
-        <div className="flex bg-red-500 h-18 w-96"></div>
+        <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
         <div className="relative flex w-full">
           <Outlet />
         </div>
