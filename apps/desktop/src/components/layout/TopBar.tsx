@@ -81,6 +81,11 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
             />
           </div>
         </div>
+        <img
+          alt="spacedrive-logo"
+          src="/images/spacedrive_logo.png"
+          className="w-8 h-8 mt-[1px] mr-2 pointer-events-none"
+        />
         {/*<TopBarButton onClick={() => {*/}
         {/*  setSettingsOpen(!settingsOpen);*/}
         {/*}} className="mr-[8px]" icon={CogIcon} />*/}
