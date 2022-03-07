@@ -1,10 +1,31 @@
 import React from 'react';
+import ReactJson from 'react-json-view';
 import FileItem from '../components/file/FileItem';
 import { Tag } from '../components/primitive/Tag';
+import { useAppState } from '../store/global';
 
 export const SpacesScreen: React.FC<{}> = (props) => {
+  const app = useAppState();
   return (
-    <div className="flex flex-col w-full h-full px-2 py-5">
+    <div className="flex flex-col items-center justify-center w-full h-screen px-2 py-5">
+      <div className="mt-2 mb-24 select-text">
+        <p className="mb-2 font-medium text-md text-gray-250">Rust level client state:</p>
+        <ReactJson
+          // collapsed
+          enableClipboard={false}
+          displayDataTypes={false}
+          theme="ocean"
+          src={app.config}
+          style={{
+            padding: 20,
+            borderRadius: 5,
+            backgroundColor: '#101016',
+            border: 1,
+            borderColor: '#1E1E27',
+            borderStyle: 'solid'
+          }}
+        />
+      </div>
       {/*<div className="-mt-[1px] space-x-2 ml-1">*/}
       {/*  <Tag color="red">Videos</Tag>*/}
       {/*  <Tag color="orange">DSLR Photos</Tag>*/}

@@ -33,7 +33,8 @@ function AppLayout() {
     <div className="flex flex-row h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none rounded-xl dark:border-gray-500 dark:text-white dark:bg-gray-650">
       <Sidebar />
       <div className="flex flex-col w-full min-h-full">
-        <TopBar />
+        {/* <TopBar /> */}
+        <div className="flex bg-red-500 h-18 w-96"></div>
         <div className="relative flex w-full">
           <Outlet />
         </div>

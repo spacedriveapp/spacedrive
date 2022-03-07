@@ -11,7 +11,7 @@ interface StatItemProps {
 
 const StatItem: React.FC<StatItemProps> = (props) => {
   return (
-    <div className="flex flex-col p-4 mt-2 rounded-md bg-gray-50 dark:bg-gray-550">
+    <div className="flex flex-col p-4 mt-2 duration-75 transform rounded-md cursor-default hover:dark:bg-gray-600">
       <span className="text-sm text-gray-400">{props.name}</span>
       <span className="text-2xl font-bold">
         {props.value}
@@ -33,26 +33,38 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 
   return (
     <div className="flex flex-col w-full h-screen px-5 py-3 overflow-scroll">
-      <div className="flex justify-center w-full">
-        <div className="flex flex-col items-center">
+      <div className="flex items-center justify-center w-full">
+        <div className="flex space-x-2">
+          <StatItem name="Total capacity" value="26.5" unit="TB" />
+          <StatItem name="Index size" value="103" unit="MB" />
+          <StatItem name="Preview media" value="23.5" unit="GB" />
+        </div>
+        <div className="flex flex-col items-center ml-4 mr-4 w-60">
           <img
             alt="spacedrive-logo"
             src="/images/spacedrive_logo.png"
-            className="w-24 h-24 mt-2 pointer-events-none"
+            className="mt-2 pointer-events-none w-28 h-28"
           />
-          <span className="text-lg font-bold heading-1">Spacedrive</span>
-          <span className="mt-0.5 text-sm text-gray-400 mb-5">v1.0.11 (pre-alpha)</span>
+          {/* <span className="text-lg font-bold heading-1">Spacedrive</span>
+          <span className="mt-0.5 text-sm text-gray-400 mb-5">v1.0.11 (pre-alpha)</span> */}
+          {/* <span className="font-bold text-gray-400 text-md heading-1">Jamie's Library</span>
+          <span className="mt-1 text-xs text-gray-500 ">lib-71230e11c869</span> */}
+        </div>
+        <div className="flex space-x-2">
+          <StatItem name="Free space" value="9.2" unit="TB" />
+          <StatItem name="Total at-risk" value="1.5" unit="TB" />
+          <StatItem name="Total backed up" value="25.3" unit="TB" />
         </div>
       </div>
-      <hr className="my-5 dark:border-gray-600" />
-      <div className="flex flex-wrap space-x-2">
+      {/* <hr className="my-5 dark:border-gray-600" /> */}
+      {/* <div className="flex flex-wrap space-x-2">
         <StatItem name="Total capacity" value="26.5" unit="TB" />
         <StatItem name="Index size" value="103" unit="MB" />
         <StatItem name="Preview media" value="23.5" unit="GB" />
         <StatItem name="Free space" value="9.2" unit="TB" />
         <StatItem name="Total at-risk" value="1.5" unit="TB" />
         <StatItem name="Total backed up" value="25.3" unit="TB" />
-      </div>
+      </div> */}
       <hr className="my-5 dark:border-gray-600" />
       <div className="mt-2 -ml-3 space-x-1">
         <FileItem
@@ -131,23 +143,13 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         />
       </div>
       <hr className="my-5 dark:border-gray-600" />
-      <div className="mt-2 mb-24 select-text">
-        <ReactJson
-          // collapsed
-          enableClipboard={false}
-          displayDataTypes={false}
-          theme="ocean"
-          src={app.config}
-          style={{
-            padding: 20,
-            borderRadius: 5,
-            backgroundColor: '#101016',
-            border: 1,
-            borderColor: '#1E1E27',
-            borderStyle: 'solid'
-          }}
-        />
-      </div>
+      <p className="px-5 py-3 mb-3 text-gray-500 bg-gray-600 rounded-md">
+        <b>Note: </b>This is a pre-alpha build of Spacedrive, an open source personal cloud powered
+        by your daily devices. Under the hood, a secure Rust based virtual filesystem synchronized
+        cross-platform in realtime. Enjoy this barely functional UI while pre-alpha is still in
+        progress.
+      </p>
+      {/* <hr className="my-5 dark:border-gray-600" /> */}
     </div>
   );
 };
