@@ -89,31 +89,6 @@ function Router() {
   );
 }
 
-export default function App() {
-  useCoreEvents();
-
-  useEffect(() => {
-    invoke<AppState>('get_config').then((state) => useAppState.getState().update(state));
-    invoke<Location[]>('get_mounts').then((locations) =>
-      //@ts-expect-error
-      useLocationStore.getState().setLocations(locations)
-    );
-  }, []);
-
-  return (
-    <ErrorBoundary
-      FallbackComponent={ErrorFallback}
-      // reset the state of your app so the error doesn't happen again
-      onReset={() => {}}
-    >
-      <DebugGlobalStore />
-      <BrowserRouter>
-        <Router />
-      </BrowserRouter>
-    </ErrorBoundary>
-  );
-}
-
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
     <div
@@ -158,3 +133,28 @@ function NotFound() {
 // useHotkeys('command+q', () => {
 //   process.exit();
 // });
+
+export default function App() {
+  useCoreEvents();
+
+  useEffect(() => {
+    invoke<AppState>('get_config').then((state) => useAppState.getState().update(state));
+    invoke<Location[]>('get_mounts').then((locations) =>
+      //@ts-expect-error
+      useLocationStore.getState().setLocations(locations)
+    );
+  }, []);
+
+  return (
+    <ErrorBoundary
+      FallbackComponent={ErrorFallback}
+      // reset the state of your app so the error doesn't happen again
+      onReset={() => {}}
+    >
+      <DebugGlobalStore />
+      <BrowserRouter>
+        <Router />
+      </BrowserRouter>
+    </ErrorBoundary>
+  );
+}
