@@ -1,7 +1,7 @@
 import { InputContainer } from '../../components/primitive/InputContainer';
 import { Button, Input } from '../../components/primitive';
 import { invoke } from '@tauri-apps/api';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useExplorerStore } from '../../store/explorer';
 import { useAppState } from '../../store/global';
 import Listbox from '../../components/primitive/Listbox';
@@ -11,6 +11,8 @@ import Slider from '../../components/primitive/Slider';
 
 export default function GeneralSettings() {
   const locations = useLocations();
+
+  const [fakeSliderVal, setFakeSliderVal] = useState([30, 0]);
 
   // const fileUploader = useRef<HTMLInputElement | null>(null);
   const app = useAppState();
@@ -73,10 +75,15 @@ export default function GeneralSettings() {
         </div>
       </InputContainer>
       <InputContainer
-        title="Locations"
-        description="Local cache storage for media previews and thumbnails."
+        title="Volumes"
+        description="A list of mounted volumes on this machine, for no reason."
       >
-        <Slider value={[20, 0]} />
+        <Slider
+          step={5}
+          value={fakeSliderVal}
+          onValueChange={setFakeSliderVal}
+          defaultValue={[25, 75]}
+        />
       </InputContainer>
       <InputContainer
         title="Media cache directory"
@@ -86,14 +93,11 @@ export default function GeneralSettings() {
           <Input
             className="flex-grow"
             value={app.config.data_dir}
-            placeholder="/users/jamie/Desktop"
+            placeholder="/users/jamie/Library/Application Support/spacedrive/cache"
           />
         </div>
       </InputContainer>
-      <InputContainer
-        title="Something about a vault"
-        description="Local cache storage for media previews and thumbnails."
-      >
+      <InputContainer title="Vault" description="Enable vault storage with VeraCrypt.">
         <div className="flex flex-row">
           <Button variant="primary">Enable Vault</Button>
           {/*<Input className="flex-grow" value="jeff" placeholder="/users/jamie/Desktop" />*/}

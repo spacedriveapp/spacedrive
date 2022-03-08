@@ -22,7 +22,7 @@ Flow for changing an active "Job" resource for example:
    ```
 2. Resolver is defined in Rust
    ```rust
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize)]
     pub struct GetLatestJobs {
         amount: u8
     }
@@ -35,7 +35,15 @@ Flow for changing an active "Job" resource for example:
         }
     }
    ```
-3. Rust backend dispatches change to a resource
+3. Register resolver
+   - this enum is serialized into TS for use 
+   ```rust 
+   #[derive(Serialize, Deserialize, TS)]
+    pub enum Requests {
+        GetLatestJobs(GetLatestJobs)
+    }
+   ```
+4. Rust backend dispatches change to a resource
    ```rust
         Commit::new(
             Resource::Job,
@@ -45,9 +53,9 @@ Flow for changing an active "Job" resource for example:
                     Job::percentage_complete().set(&percentage_complete),
                     Job::completed_task_count().set(&completed_task_count),
                 ])
-                .raw(),
+                ._raw_gql(),
         )
         .exec()
         .await?;
     ```
-4. From within the
+5. Commit

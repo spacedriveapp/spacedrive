@@ -1,15 +1,8 @@
 import React from 'react';
 import * as SliderPrimitive from '@radix-ui/react-slider';
 
-interface SliderProps {
-  value: number[];
-}
-
-const Slider = (props: SliderProps) => (
-  <SliderPrimitive.Root
-    value={props.value}
-    className="relative flex items-center w-full h-6 select-none"
-  >
+const Slider = (props: SliderPrimitive.SliderProps) => (
+  <SliderPrimitive.Root {...props} className="relative flex items-center w-full h-6 select-none">
     <SliderPrimitive.Track className="relative flex-grow h-2 bg-gray-500 rounded-full outline-none">
       <SliderPrimitive.Range className="absolute h-full rounded-full outline-none bg-primary-500" />
     </SliderPrimitive.Track>
