@@ -8,7 +8,7 @@
   </p>
   <h2 align="center">Spacedrive</h2>
   <p align="center">
-    The virtual file system.
+    The virtual filesystem.
     <br />
     <a href="https://spacedrive.co"><strong>spacedrive.app »</strong></a>
     <br />
