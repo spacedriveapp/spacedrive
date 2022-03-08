@@ -1,6 +1,6 @@
 <p align="center">
   <a href="#">
-    <img src="./apps/desktop/src/assets/images/spacedrive_screenshot_2.png" alt="Logo">
+    <img src="./apps/desktop/src/assets/images/spacedrive_screenshot_2.jpg" alt="Logo">
     
   </a>
   <p align="center">
