@@ -131,6 +131,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
             </div>
           );
         })}
+        <div className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-500 border border-dashed rounded border-transparent cursor-normal border-gray-550">
+          Add Location
+        </div>
       </div>
       <div>
         <Heading>Tags</Heading>
@@ -162,9 +165,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           )}
         </NavLink>
       </div>
-      <div className="w-full px-2 py-2 mb-2 text-xs font-bold text-center text-gray-500 border border-dashed rounded border-gray-550">
+      {/* <div className="w-full px-2 py-2 mb-2 text-xs font-bold text-center text-gray-500 border border-dashed rounded border-gray-550">
         Drop
-      </div>
+      </div> */}
     </div>
   );
 };
