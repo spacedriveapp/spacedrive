@@ -8,9 +8,9 @@
   </p>
   <h2 align="center">Spacedrive</h2>
   <p align="center">
-    Your personal virtual cloud.
+    The virtual file system.
     <br />
-    <a href="https://spacedrive.co"><strong>Learn more »</strong></a>
+    <a href="https://spacedrive.co"><strong>spacedrive.app »</strong></a>
     <br />
     <br />
     <b>Download for </b>
