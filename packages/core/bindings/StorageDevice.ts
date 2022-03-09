@@ -1,2 +1,0 @@
-
-export interface StorageDevice { id: number, name: string, path: string, total_capacity: number, available_capacity: number, is_removable: boolean, is_ejectable: boolean, is_root_filesystem: boolean, is_online: boolean, watch_active: boolean, date_created: string, last_indexed: string, }
