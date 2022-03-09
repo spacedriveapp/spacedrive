@@ -26,7 +26,7 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "setup": "yarn && db:gen && yarn dev",
+    "setup": "yarn && yarn db:gen && yarn dev",
     "dev": "yarn desktop dev",
     "parallel": "turbo run dev --parallel",
     "db:migrate": "cd packages/core && prisma migrate dev",
