@@ -3,10 +3,10 @@ pub mod db;
 pub mod file;
 pub mod library;
 // pub mod native;
+pub mod p2p;
+pub mod prisma;
 pub mod state;
 pub mod tx;
-// pub mod p2p;
-pub mod prisma;
 pub mod util;
 
 use futures::{stream::StreamExt, Stream};
@@ -23,8 +23,9 @@ use state::client::ClientState;
 #[serde(tag = "type", content = "data")]
 #[ts(export)]
 pub enum ClientEvent {
-    NewFileTypeThumb { file_id: u32, icon_created: bool },
-    NewJobCreated { job_id: u32, progress: u8 },
+    // NewFileTypeThumb { file_id: u32, icon_created: bool },
+    // NewJobCreated { job_id: u32, progress: u8 },
+    ResourceChange { key: String, id: String },
     DatabaseDisconnected { reason: Option<String> },
 }
 

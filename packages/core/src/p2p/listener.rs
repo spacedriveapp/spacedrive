@@ -1,6 +1,9 @@
-use async_std::task;
-use lib::p2p::{identity, Multiaddr, PeerId, ping};
-use lib::p2p::swarm::{Swarm, SwarmEvent};
+use futures::StreamExt;
+use libp2p::{
+    identity, ping,
+    swarm::{Swarm, SwarmEvent},
+    Multiaddr, PeerId,
+};
 use std::error::Error;
 
 pub async fn listen(port: Option<u32>) -> Result<(), Box<dyn Error>> {
@@ -25,9 +28,9 @@ pub async fn listen(port: Option<u32>) -> Result<(), Box<dyn Error>> {
 
     // Dial the peer identified by the multi-address given as the second
     // command-line argument, if any.
-    let address = format!("{}{}", "/ip4/127.0.0.1/tcp/", port);
 
-    if let Some(addr) = address {
+    if port.is_some() {
+        let addr = format!("{:?}{:?}", "/ip4/127.0.0.1/tcp/", port);
         let remote: Multiaddr = addr.parse()?;
         swarm.dial(remote)?;
         println!("Dialed {}", addr)

@@ -1,2 +1,0 @@
-
-export interface Location { id: number, name: string, total_capacity: number, available_capacity: number, is_removable: boolean, is_ejectable: boolean, is_root_filesystem: boolean, is_online: boolean, library_id: number, client_id: number, date_created: string, last_indexed: string, }
