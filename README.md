@@ -27,7 +27,7 @@
 
   </p>
 </p>
-Spacedrive is an open source, cross platform file manager app. Powered by a secure, virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust. <a href="https://spacedrive.app"><strong>Learn more »</strong></a>
+Spacedrive is an open source, cross platform file manager app. Powered by a secure, virtual distributed filesystem (<a href="#what-is-vdfs">VDFS</a>) written in Rust. <a href="https://spacedrive.app"><strong>Learn more »</strong></a>
 <br />
 <br />
 The model for data storage today is; subscribe to a cloud provider and get storage space. With that space come handy tools for organization (photo albums, shared folders etc.). The problem comes once you outgrow that space and the tools aren't so handy anymore. Your data doesn't translate well across OS platforms and between competing cloud services—and that's not to mention privacy.
