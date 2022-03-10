@@ -5,7 +5,7 @@
   <p align="center">
    <img width="100" height="100" src="./apps/desktop/src/assets/images/spacedrive_logo.png" alt="Logo">
   </p>
-  <h2 align="center"><b>Spacedrive</b></h2>
+  <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
    The universal file explorer.
     <br />
