@@ -7,7 +7,7 @@
   </p>
   <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
-   The universal file explorer.
+   The universal file manager.
     <br />
     <a href="https://spacedrive.co"><strong>spacedrive.app »</strong></a>
     <br />
@@ -27,40 +27,16 @@
 
   </p>
 </p>
-Spacedrive is an open source, cross platform file manager. Powered by a secure, distributed virtual filesystem (VFS) written in Rust. <a href="https://spacedrive.co"><strong>Learn more »</strong></a>
-<!-- <br />
-<br />
-By uniting your devices, clouds and drives into one synchronized filesystem, Spacedrive becomes a private cloud— -->
+Spacedrive is an open source, cross platform file manager app. Powered by a secure, virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust. <a href="https://spacedrive.app"><strong>Learn more »</strong></a>
 <br />
 <br />
 The model for data storage today is; subscribe to a cloud provider and get storage space. With that space come handy tools for organization (photo albums, shared folders etc.). The problem comes once you outgrow that space and the tools aren't so handy anymore. Your data doesn't translate well across OS platforms and between competing cloud services—and that's not to mention privacy.
 <br />
 <br />
 Spacedrive brings those tools out of the cloud and onto your devices. To organize, encode, encrypt, share, and preserve the data that defines you, at unlimited scale.
-
-<!-- The only thing cloud providers provide you is the storage real-estate, you define your storage archive with  -->
-<!-- <br />
-<br />
-Albums in the Apple's Photos app, while beautifully designed, are exclusive and restricted to the Apple Photos app, they have to be present in a single library and can not be split or divided between storage locations or competing cloud services. Apple's tools to organize photos are exclusive to Apple's cloud service which is limited. 
-<br />
-<br />
-- Spacedrive will index native filesystems.
-- Search offline storage, track duplicates (across all devices drives and clouds),
-- create photo albums, encode video, encrypt sensitive data, automate routines. 
-- Organize as if everything was in one place.
-<!--
-For many independent creatives there is no one cloud or solution for the growing amount of rich media created daily — these are memories, creations, archives.  --> 
-<!-- Spacedrive is a file manger that combines the storage capacity and power of all your devices into one synchronized <a>virtual filesystem</a>, with or without the cloud. 
--->
 <br />
 <br />
 <img src="./apps/desktop/src/assets/images/spacedrive_screenshot_2.jpg" alt="Logo">
-
-<!-- Spacedrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. Spacedrive makes it possible to create a limitless directory of your digital life that will stand the test of time.
-
-For each client you install, you'll have another node in your personal network. They all share a single encrypted database and work as a team to perform tasks. Prioritizing peer-to-peer LAN connections but always using end-to-end encryption to synchronize in realtime.
-
-As for UI, it has everything you'd expect from a file explorer and more; a native photo viewer, video and audio player. But also *specific* support for VODs, git repositories, social media backups, NFTs, screenshots, webpage snapshots, links, notes and more. Community extensions can add support for different filetypes and tailored file viewers. -->
 
 # Features
 > NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change.
@@ -91,24 +67,13 @@ As for UI, it has everything you'd expect from a file explorer and more; a nativ
 <!-- - **Spaces** - A collection of files organized visually and shareable as public web pages with a Spacedrive account. -->
 <!-- - **Jobs** - Each task a client performs, a body of work we refer to as a "job", is logged and reversible. -->
 
-
-
 # Motivation
-<!-- Independent creatives define society today, we've produced terabytes of rich data — entire lifetimes digitized, but we don't own or control most of it. The tools to organize, backup and share your files belong to cloud services like Google Drive and iCloud. 
+We depend on cloud services like Google Photos and iCloud, but are locked in with a limited capacity. Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. But why be tied to any one cloud provider? Photo albums shouldn’t be suck in a device ecosystem, or harvested for advertising data. It should be OS agnostic, permanent and personally owned.
 
-The albums you create— -->
+Open source technology is the solution to this, Spacedrive is a universal experience to manage files, across all platforms, devices and clouds. 
 
-
-
-We depend on cloud services like Google Photos and iCloud, but are locked in with a limited capacity. Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. But why should we be tied to any one cloud provider? Photo albums shouldn’t be suck in a device ecosystem, or harvested for advertising data. It should be OS agnostic, permanent and personally owned.
-
-We believe open source technology is the solution to this, Spacedrive is a universal experience to manage files, across all platforms, devices and clouds. 
-
-<!-- Spacedrive is an app that gives you the tools of the cloud, without the cloud. -->
-
-<!-- With a cultural boom of independent creatives there is a lack of tools to support the ever increasing amount of data accumulated. Cloud services have great features, but require your content to be *in* the cloud to benefit from them. For most creators a 50GB OBS recording is just not convenient to upload. 
-
-I believe, in the advent of web3, we need to control and own our own data portfolios, not cloud companies. One uniform way to track, organize, back-up, share, encrypt and view an unlimited amount of data, not locking into a single provider and living within their limits.  -->
+# What is VDFS?
+A VDFS (virtual distributed filesystem) is a concept first outlined in a UC Berkeley [paper](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.pdf) by Haoyuan Li. Simplified, it can be thought of to provide a single UNIX-like interface to a virtualized filesystem above a variety of storage layers. Due to being distributed in nature it has infinite expansion potential, while maintaining a consistent API. This paper describes its use for cloud computing, however the underlying concepts can be translated to open consumer software. Spacedrive is an alternate implementation 
 
 # Architecture
 This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, React, TypeScript, Tauri). 
