@@ -5,7 +5,7 @@
   <p align="center">
    <img width="100" height="100" src="./apps/desktop/src/assets/images/spacedrive_logo.png" alt="Logo">
   </p>
-  <h1 align="center"><b><abbr title="Spacky">Space</abbr>drive</b></h1>
+  <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
    The universal file manager.
     <br />
@@ -30,10 +30,7 @@
 Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-vdfs">VDFS</a>) written in Rust. <a href="https://spacedrive.app"><strong>Learn more »</strong></a>
 <br />
 <br />
-We rely on cloud providers for more than just storage space; with it come handy tools for organization (photo albums, shared folders etc.). Creative people and hoarders alike will quickly outgrow that space, leaving the tools not so handy anymore. Data typically doesn't flow well between OS platforms and across competing cloud services ...and that's not to mention privacy.
-<br />
-<br />
-Spacedrive brings those tools out of the cloud and onto your devices. To organize, encode, encrypt, share, and preserve the data that defines you, at unlimited scale.
+Spacedrive brings the best tools out of the cloud and onto your devices. To organize, encode, encrypt, share, and preserve the data that defines you, at unlimited scale.
 <br />
 <br />
 <img src="./apps/desktop/src/assets/images/spacedrive_screenshot_2.jpg" alt="Logo">
