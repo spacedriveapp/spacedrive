@@ -1,8 +1,8 @@
 use crate::{
     db,
-    library::{volumes, volumes::Volume},
     prisma::{File, Location, LocationData},
     state::client,
+    sys::{volumes, volumes::Volume},
 };
 use anyhow::Result;
 use log::info;
@@ -94,8 +94,8 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
 
                 vec![
                     Location::name().set(volume_data.name.to_string()),
-                    Location::total_capacity().set(volume_data.total_space as i64),
-                    Location::available_capacity().set(volume_data.available_space as i64),
+                    Location::total_capacity().set(volume_data.total_capacity as i64),
+                    Location::available_capacity().set(volume_data.available_capacity as i64),
                     Location::is_ejectable().set(false), // remove this
                     Location::is_removable().set(volume_data.is_removable),
                     Location::is_root_filesystem().set(false), // remove this

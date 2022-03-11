@@ -81,7 +81,7 @@ function Router() {
           <Route path="overview" element={<OverviewScreen />} />
           <Route path="spaces" element={<SpacesScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
-          <Route path="explorer" element={<ExplorerScreen />} />
+          <Route path="explorer/*" element={<ExplorerScreen />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

@@ -6,8 +6,8 @@ use walkdir::{DirEntry, WalkDir};
 
 use super::watcher::watch_dir;
 use crate::db;
-use crate::library::locations::{create_location, get_location};
 use crate::prisma::LocationData;
+use crate::sys::locations::{create_location, get_location};
 use crate::util::time;
 
 pub async fn scan_paths(location_id: i64) -> Result<()> {

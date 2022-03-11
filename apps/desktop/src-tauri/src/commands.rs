@@ -1,9 +1,9 @@
 use anyhow::Result;
 use sdcorelib::{
   file::{indexer, retrieve, retrieve::Directory, watcher::watch_dir},
-  library,
-  library::{volumes, volumes::Volume},
   state::{client, client::ClientState},
+  sys,
+  sys::{volumes, volumes::Volume},
 };
 
 #[tauri::command(async)]
@@ -24,7 +24,6 @@ pub async fn get_files(path: String) -> Result<Directory, String> {
 pub fn get_config() -> ClientState {
   client::get()
 }
-
 
 #[tauri::command]
 pub fn get_mounts() -> Result<Vec<Volume>, String> {
@@ -50,6 +49,6 @@ pub async fn start_watcher(path: &str) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn create_location(path: &str) -> Result<(), String> {
-  let _location = library::locations::create_location(path);
+  let _location = sys::locations::create_location(path);
   Ok(())
 }

@@ -4,7 +4,7 @@ import immer, { produce } from 'immer';
 export interface Location {
   id: string;
   name: string;
-  path: string;
+  mount_point: string;
   total_capacity: number;
   available_capacity: number;
   is_removable: boolean;
@@ -23,7 +23,7 @@ export const useLocationStore = create<LocationStore>((set, get) => ({
     set((state) =>
       produce(state, (draft) => {
         for (let location of locations) {
-          draft.locations[location.path] = location;
+          draft.locations[location.mount_point] = location;
         }
       })
     )

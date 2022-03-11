@@ -3,9 +3,11 @@ pub mod db;
 pub mod file;
 pub mod library;
 // pub mod native;
+pub mod client;
 pub mod p2p;
 pub mod prisma;
 pub mod state;
+pub mod sys;
 pub mod tx;
 pub mod util;
 
@@ -109,16 +111,16 @@ pub async fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<Clien
     }
 
     // init client
-    match library::client::create().await {
-        Ok(_) => {}
+    match client::create().await {
+        Ok(_) => {
+            println!("Spacedrive online");
+        }
         Err(e) => {
             println!("Error initializing client: {:?}", e);
         }
     };
     // activate p2p listeners
     // p2p::listener::listen(None);
-
-    println!("Spacedrive online");
 
     // env_logger::builder()
     //     .filter_level(log::LevelFilter::Debug)

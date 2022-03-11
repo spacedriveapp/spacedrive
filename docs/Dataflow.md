@@ -36,10 +36,12 @@ Flow for changing an active "Job" resource for example:
     }
    ```
 3. Register resolver
-   - this enum is serialized into TS for use 
+   - this enum is serialized into TS for client 
+   - queries have a single key derived from an enum using a macro
    ```rust 
    #[derive(Serialize, Deserialize, TS)]
     pub enum Requests {
+        [expose_as("jobs.latest")]
         GetLatestJobs(GetLatestJobs)
     }
    ```
@@ -59,3 +61,10 @@ Flow for changing an active "Job" resource for example:
         .await?;
     ```
 5. Commit
+
+
+
+
+
+
+
