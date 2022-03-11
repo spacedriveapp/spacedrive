@@ -2,4 +2,4 @@
 pub mod methods;
 
 #[cfg(target_os = "macos")]
-mod swift;
+pub mod swift;

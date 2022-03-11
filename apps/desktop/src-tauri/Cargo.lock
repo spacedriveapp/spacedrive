@@ -6547,6 +6547,7 @@ dependencies = [
  "serde_json",
  "sha256",
  "strum 0.21.0",
+ "swift-rs",
  "sysinfo",
  "thiserror",
  "thumbnailer",

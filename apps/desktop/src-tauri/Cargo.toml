@@ -16,7 +16,6 @@ swift-rs = "0.2.3"
 [dependencies]
 # Project dependencies
 tauri = { git = "https://github.com/tauri-apps/tauri", branch = "next", features = ["api-all"] }
-swift-rs = "0.2.3"
 sdcorelib = { path = "../../../packages/core" }
 # tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
 

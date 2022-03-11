@@ -114,7 +114,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         {locations.map((location, index) => {
           return (
             <div key={index} className="flex flex-row items-center">
-              <SidebarLink className="relative w-full group" to={`/app/explorer/${location.name}`}>
+              <SidebarLink
+                className="relative w-full group"
+                to={{ pathname: `/app/explorer`, search: `?url=${location.mount_point}` }}
+              >
                 <Icon component={ServerIcon} />
                 {location.name}
                 <div className="flex-grow" />

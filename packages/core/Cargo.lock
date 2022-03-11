@@ -5233,6 +5233,7 @@ dependencies = [
  "serde_json",
  "sha256",
  "strum",
+ "swift-rs",
  "sysinfo",
  "thiserror",
  "thumbnailer",
@@ -5717,6 +5718,17 @@ name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
+
+[[package]]
+name = "swift-rs"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e31aa5c69d3be879a07d9a0eb0ad1a424301849061fff96294569b61dd137d2f"
+dependencies = [
+ "base64 0.13.0",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "syn"
