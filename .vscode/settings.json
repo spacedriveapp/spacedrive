@@ -4,6 +4,7 @@
   "rust-analyzer.diagnostics.enableExperimental": false,
   "rust-analyzer.linkedProjects": [
     "./packages/core/Cargo.toml",
-    "./apps/desktop/src-tauri/Cargo.toml"
+    "./apps/desktop/src-tauri/Cargo.toml",
+    "./apps/debug/Cargo.toml"
   ]
 }

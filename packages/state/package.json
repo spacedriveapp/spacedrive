@@ -1,26 +1,30 @@
 {
-    "name": "state",
-    "version": "0.0.0",
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "source": "./src/index.ts",
-    "private": true,
-    "files": [
-      "dist/**"
-    ],
-    "scripts": {
-      "test": "jest",
-      "dev": "tsc -w",
-      "build": "tsc",
-      "lint": "TIMING=1 eslint src --fix",
-      "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
-    },
-    "devDependencies": {
-      "scripts": "*",
-      "tsconfig": "*",
-      "typescript": "^4.5.3"
-    },
-    "jest": {
-      "preset": "scripts/jest/node"
-    }
+  "name": "@sd/state",
+  "version": "0.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "source": "./src/index.ts",
+  "private": true,
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "test": "jest",
+    "dev": "tsc -w",
+    "build": "tsc",
+    "lint": "TIMING=1 eslint src --fix",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
+  },
+  "devDependencies": {
+    "scripts": "*",
+    "tsconfig": "*",
+    "typescript": "^4.5.3"
+  },
+  "jest": {
+    "preset": "scripts/jest/node"
+  },
+  "dependencies": {
+    "eventemitter3": "^4.0.7",
+    "react-query": "^3.34.16"
   }
+}

@@ -1,5 +1,5 @@
 {
-    "extends": "config/tsconfig/tauri.json",
+    "extends": "@sd/config/tsconfig/tauri.json",
     "include": ["src"],
     "exclude": ["node_modules"],
   "compilerOptions": {

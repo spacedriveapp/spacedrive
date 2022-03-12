@@ -1,12 +1,12 @@
 {
     "compilerOptions": {
-        "lib": ["ES2015"],
-        "module": "CommonJS",
+        "lib": ["esnext"],
+        "module": "esnext",
         "outDir": "./dist",
         "rootDir": "./lib"
       },
-    "extends": "config/tsconfig/base.json",
+    "extends": "@sd/config/tsconfig/base.json",
     "include": ["**/*.ts"],
-    "exclude": ["node_modules"]
+    "exclude": ["node_modules", "dist"]
   }
   

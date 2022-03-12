@@ -25,6 +25,7 @@ async fn main() {
     })
     .on_menu_event(|event| menu::handle_menu_event(event))
     .invoke_handler(tauri::generate_handler![
+      commands::client_query_transport,
       commands::scan_dir,
       commands::create_location,
       commands::get_files,

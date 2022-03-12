@@ -1,6 +1,6 @@
 use crate::{
     db,
-    prisma::{File, Location, LocationData},
+    prisma::{File, Location},
     state::client,
     sys::{volumes, volumes::Volume},
 };
@@ -9,6 +9,8 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write};
 use thiserror::Error;
+
+pub use crate::prisma::LocationData;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct DotSpacedrive {
@@ -79,7 +81,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
             let create_location_params = {
                 let volumes = match volumes::get() {
                     Ok(volumes) => volumes,
-                    Err(e) => return Err(LocationError::VolumeReadError(e)),
+                    Err(e) => return Err(LocationError::VolumeReadError(e.to_string())),
                 };
                 info!("Loaded mounted volumes: {:?}", volumes);
                 // find mount with matching path

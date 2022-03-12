@@ -1,1 +1,1 @@
-module.exports = require("ui/style/tailwind.config");
+module.exports = require('@sd/ui/style/tailwind.config');

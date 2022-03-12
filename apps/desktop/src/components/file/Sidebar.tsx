@@ -10,7 +10,7 @@ import { TrafficLights } from '../os/TrafficLights';
 import { Button } from '../primitive';
 import { Dropdown } from '../primitive/Dropdown';
 import { DefaultProps } from '../primitive/types';
-
+import { useVolumes } from '@sd/state';
 interface SidebarProps extends DefaultProps {}
 
 export const SidebarLink = (props: NavLinkProps) => (
@@ -51,7 +51,7 @@ export function MacOSTrafficLights() {
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
-  const locations = useLocations();
+  const { data: locations } = useVolumes();
 
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },
@@ -61,7 +61,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
     { id: 2, name: 'Spacedrive', color: '#00F079' }
   ];
 
-  console.log({ locations });
   return (
     <div className="flex flex-col flex-wrap flex-shrink-0 min-h-full px-3 pb-1 border-r border-gray-100 w-46 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
       <MacOSTrafficLights />
@@ -111,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       </div>
       <div>
         <Heading>Locations</Heading>
-        {locations.map((location, index) => {
+        {locations?.map((location, index) => {
           return (
             <div key={index} className="flex flex-row items-center">
               <SidebarLink

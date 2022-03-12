@@ -8,10 +8,10 @@ generator client {
     output   = "../src/prisma.rs"
 }
 
-generator js {
-    provider = "prisma-client-js"
-    output   = "../types"
-}
+// generator js {
+//     provider = "prisma-client-js"
+//     output   = "../types"
+// }
 
 model Migration {
     id            Int      @id @default(autoincrement())

@@ -30,7 +30,7 @@ Flow for changing an active "Job" resource for example:
     impl Resolver for GetLatestJobs {
         pub async fn resolve(&self) -> Result<Vec<Job>> {
             let db = db::get().await?;
-            let jobs = db.job().find_many(vec![]).exec().await;
+            let jobs = db.job().find_many(vec![]).exec().await?;
             Ok(jobs)
         }
     }
@@ -41,7 +41,7 @@ Flow for changing an active "Job" resource for example:
    ```rust 
    #[derive(Serialize, Deserialize, TS)]
     pub enum Requests {
-        [expose_as("jobs.latest")]
+        [expose_as("jobs::latest")]
         GetLatestJobs(GetLatestJobs)
     }
    ```

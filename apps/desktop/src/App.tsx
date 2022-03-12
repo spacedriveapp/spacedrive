@@ -27,6 +27,9 @@ import SlideUp from './components/transitions/SlideUp';
 import SecuritySettings from './screens/settings/SecuritySettings';
 import LocationSettings from './screens/settings/LocationSettings';
 import { RedirectPage } from './screens/Redirect';
+import { QueryClient, QueryClientProvider } from 'react-query';
+
+const queryClient = new QueryClient();
 
 function AppLayout() {
   return (
@@ -140,10 +143,10 @@ export default function App() {
 
   useEffect(() => {
     invoke<AppState>('get_config').then((state) => useAppState.getState().update(state));
-    invoke<Location[]>('get_mounts').then((locations) =>
-      //@ts-expect-error
-      useLocationStore.getState().setLocations(locations)
-    );
+    // invoke<Location[]>('get_mounts').then((locations) =>
+    //   //@ts-expect-error
+    //   useLocationStore.getState().setLocations(locations)
+    // );
   }, []);
 
   return (
@@ -154,7 +157,9 @@ export default function App() {
     >
       <DebugGlobalStore />
       <BrowserRouter>
-        <Router />
+        <QueryClientProvider client={queryClient}>
+          <Router />
+        </QueryClientProvider>
       </BrowserRouter>
     </ErrorBoundary>
   );

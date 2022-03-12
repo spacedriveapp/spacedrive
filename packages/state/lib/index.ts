@@ -1,1 +1,2 @@
-export const log = () => {}
+export * from './bridge';
+export * from './files';

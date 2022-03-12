@@ -4,7 +4,16 @@ use sdcorelib::{
   state::{client, client::ClientState},
   sys,
   sys::{volumes, volumes::Volume},
+  ClientQuery, ClientResponse, Core,
 };
+
+#[tauri::command(async)]
+pub async fn client_query_transport(data: ClientQuery) -> Result<ClientResponse, String> {
+  match Core::query(data).await {
+    Ok(response) => Ok(response),
+    Err(err) => Err(err.to_string()),
+  }
+}
 
 #[tauri::command(async)]
 pub async fn scan_dir(path: String) -> Result<(), String> {

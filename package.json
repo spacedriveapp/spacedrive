@@ -27,17 +27,18 @@
   "scripts": {
     "build": "turbo run build",
     "setup": "yarn && yarn db:gen && yarn dev",
-    "dev": "yarn desktop dev",
-    "parallel": "turbo run dev --parallel",
+    "dev": "turbo run dev --parallel --scope=@sd/desktop --scope=@sd/state --scope=@sd/ui",
     "db:migrate": "cd packages/core && prisma migrate dev",
     "db:gen": "cd packages/core && prisma generate",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "desktop": "yarn workspace desktop",
-    "mobile": "yarn workspace mobile",
-    "web": "yarn workspace web",
-    "docs": "yarn workspace docs",
-    "server": "yarn workspace server"
+    "desktop": "yarn workspace @sd/desktop",
+    "mobile": "yarn workspace @sd/mobile",
+    "web": "yarn workspace @sd/web",
+    "core": "yarn workspace @sd/core",
+    "docs": "yarn workspace @sd/docs",
+    "state": "yarn workspace @sd/state",
+    "server": "yarn workspace @sd/server"
   },
   "devDependencies": {
     "prettier": "^2.5.1",
