@@ -1,6 +1,5 @@
 use anyhow::Result;
 use log::{error, info};
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use state::client::ClientState;
 use std::fs;
@@ -22,7 +21,8 @@ pub mod util;
 // pub mod native;
 
 pub struct Core {
-    pub event_channel_sender: mpsc::Sender<ClientEvent>,
+    pub event_sender: mpsc::Sender<ClientEvent>,
+    pub event_receiver: mpsc::Receiver<ClientEvent>,
 }
 
 #[derive(Error, Debug)]
@@ -60,19 +60,9 @@ pub enum ClientResponse {
     SysGetVolumes(Vec<sys::volumes::Volume>),
 }
 
-// static configuration passed in by host application
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CoreConfig {
-    pub data_dir: std::path::PathBuf,
-    pub primary_db: std::path::PathBuf,
-    pub file_type_thumb_dir: std::path::PathBuf,
-}
-
-pub static CORE: OnceCell<Core> = OnceCell::new();
-
 impl Core {
     pub async fn query(query: ClientQuery) -> Result<ClientResponse, CoreError> {
-        println!("query: {:?}", query);
+        println!("Core Query: {:?}", query);
         let response = match query {
             ClientQuery::SysGetVolumes => ClientResponse::SysGetVolumes(sys::volumes::get()?),
             ClientQuery::SysGetLocations { id: _ } => todo!(),
@@ -81,14 +71,19 @@ impl Core {
         };
         Ok(response)
     }
-    pub async fn configure(mut data_dir: std::path::PathBuf) -> mpsc::Receiver<ClientEvent> {
-        data_dir = data_dir.join("spacedrive");
 
+    pub async fn send(&self, event: ClientEvent) {
+        self.event_sender.send(event).await.unwrap();
+    }
+
+    pub async fn new(mut data_dir: std::path::PathBuf) -> Core {
         let (event_sender, event_receiver) = mpsc::channel(100);
-        let _ = CORE.set(Core {
-            event_channel_sender: event_sender,
-        });
+        let core = Core {
+            event_sender,
+            event_receiver,
+        };
 
+        data_dir = data_dir.join("spacedrive");
         let data_dir = data_dir.to_str().unwrap();
         // create data directory if it doesn't exist
         fs::create_dir_all(&data_dir).unwrap();
@@ -125,6 +120,6 @@ impl Core {
         };
         // activate p2p listeners
         // p2p::listener::listen(None);
-        event_receiver
+        core
     }
 }
