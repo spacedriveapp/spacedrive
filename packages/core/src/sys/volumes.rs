@@ -1,12 +1,15 @@
 // use crate::native;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 // #[cfg(not(target_os = "macos"))]
 use std::process::Command;
 // #[cfg(not(target_os = "macos"))]
 use sysinfo::{DiskExt, System, SystemExt};
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+use super::SysError;
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone, TS)]
 #[repr(C)]
 pub struct Volume {
     pub name: String,
@@ -19,9 +22,11 @@ pub struct Volume {
     pub is_root_filesystem: bool,
 }
 
-pub fn get() -> Result<Vec<Volume>, String> {
+pub fn get() -> Result<Vec<Volume>, SysError> {
     // #[cfg(target_os = "macos")]
     // let volumes = native::methods::get_mounts();
+
+    // return Err(SysError::VolumeError(String::from("Not implemented")));
 
     // #[cfg(not(target_os = "macos"))]
     let all_volumes: Vec<Volume> = System::new_all()
@@ -91,7 +96,7 @@ pub fn get() -> Result<Vec<Volume>, String> {
 #[test]
 fn test_get_volumes() {
     let volumes = get().unwrap();
-    println!("volumes: {:?}", volumes);
+    dbg!(&volumes);
     assert!(volumes.len() > 0);
 }
 

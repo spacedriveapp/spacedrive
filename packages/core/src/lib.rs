@@ -8,31 +8,73 @@ pub mod p2p;
 pub mod prisma;
 pub mod state;
 pub mod sys;
-pub mod tx;
 pub mod util;
-
+use anyhow::Result;
 use futures::{stream::StreamExt, Stream};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use state::client::ClientState;
 use std::fs;
+use thiserror::Error;
 use tokio::sync::mpsc;
 use ts_rs::TS;
 
-use state::client::ClientState;
-
 // represents an event this library can emit
 #[derive(Serialize, Deserialize, Debug, TS)]
-#[serde(tag = "type", content = "data")]
+#[serde(rename_all = "snake_case", tag = "key", content = "payload")]
 #[ts(export)]
 pub enum ClientEvent {
-    // NewFileTypeThumb { file_id: u32, icon_created: bool },
-    // NewJobCreated { job_id: u32, progress: u8 },
+    NewFileTypeThumb { file_id: u32, icon_created: bool },
+    NewJobCreated { job_id: u32, progress: u8 },
     ResourceChange { key: String, id: String },
     DatabaseDisconnected { reason: Option<String> },
 }
 
+// represents an event this library can emit
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[serde(rename_all = "snake_case", tag = "key", content = "params")]
+#[ts(export)]
+pub enum ClientQuery {
+    SysGetVolumes,
+    SysGetLocations { id: String },
+    LibExplorePath { path: String, limit: u32 },
+}
+
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[serde(rename_all = "snake_case", tag = "key", content = "data")]
+#[ts(export)]
+pub enum ClientResponse {
+    SysGetVolumes(Vec<sys::volumes::Volume>),
+    // SysGetLocations {
+    //     locations: Vec<sys::locations::LocationData>,
+    // },
+}
+
 pub struct Core {
     pub event_channel_sender: mpsc::Sender<ClientEvent>,
+}
+#[derive(Error, Debug)]
+pub enum CoreError {
+    #[error("System error")]
+    SysError(#[from] sys::SysError),
+}
+
+impl Core {
+    pub async fn query(query: ClientQuery) -> Result<ClientResponse, CoreError> {
+        println!("query: {:?}", query);
+        let response = match query {
+            ClientQuery::SysGetVolumes => ClientResponse::SysGetVolumes(sys::volumes::get()?),
+            ClientQuery::SysGetLocations { id } => todo!(),
+            ClientQuery::LibExplorePath { path, limit } => todo!(),
+            // ClientQuery::SysGetLocations { id } => Ok(ClientResponse::SysGetLocations {
+            //     locations: sys::locations::get(id)?,
+            // }),
+            // ClientQuery::LibExplorePath { path, limit } => Ok(ClientResponse::LibExplorePath {
+            //     files: file::indexer::scan(path)?,
+            // }),
+        };
+        Ok(response)
+    }
 }
 
 // static configuration passed in by host application

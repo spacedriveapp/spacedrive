@@ -1,9 +1,9 @@
 use crate::file::checksum::sha256_digest;
-use crate::state;
 use crate::{
     prisma,
     prisma::{Migration, PrismaClient},
 };
+use crate::{state, CoreError};
 use anyhow::Result;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};

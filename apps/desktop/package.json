@@ -1,5 +1,5 @@
 {
-  "name": "desktop",
+  "name": "@sd/desktop",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
@@ -60,7 +60,9 @@
     "react-virtuoso": "^2.2.6",
     "rooks": "^5.7.1",
     "tailwindcss": "^3.0.7",
-    "ui": "*",
+    "@sd/ui": "*",
+    "@sd/state": "*",
+    "@sd/core": "*",
     "vite": "^2.4.4",
     "vite-plugin-filter-replace": "^0.1.9",
     "vite-plugin-react-svg": "^0.2.0",

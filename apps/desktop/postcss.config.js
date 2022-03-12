@@ -1,1 +1,1 @@
-module.exports = require("ui/style/postcss.config");
+module.exports = require('@sd/ui/style/postcss.config');

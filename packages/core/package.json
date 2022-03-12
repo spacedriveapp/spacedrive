@@ -1,13 +1,16 @@
 {
-  "name": "core",
+  "name": "@sd/core",
   "version": "0.0.0",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "codegen": "cargo test"
+    "codegen": "cargo test && ts-node ./scripts/bindingsIndex.ts",
+    "test": "cargo test",
+    "test:log": "cargo test -- --nocapture"
   },
   "devDependencies": {
-    "prisma": "^3.10.0"
+    "prisma": "^3.10.0",
+    "ts-node": "^10.7.0"
   },
   "dependencies": {
     "@prisma/client": "^3.10.0"

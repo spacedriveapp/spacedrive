@@ -1,9 +1,0 @@
-{
-    "name": "types",
-    "version": "0.0.0",
-    "types": "./index.d.ts",
-    "private": true,
-    "files": [
-      "./**"
-    ]
-  }
