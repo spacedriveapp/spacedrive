@@ -1,4 +1,4 @@
-use sdcorelib;
+use sdcorelib::Core;
 use tauri::api::path;
 use tauri::Manager;
 // use tauri_plugin_shadows::Shadows;
@@ -9,14 +9,15 @@ mod menu;
 #[tokio::main]
 async fn main() {
   let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
-  let mut core_receiver = sdcorelib::Core::configure(data_dir).await;
+
+  let mut core = Core::new(data_dir).await;
 
   tauri::Builder::default()
     .setup(|app| {
       let app = app.handle();
 
       tauri::async_runtime::spawn(async move {
-        while let Some(event) = core_receiver.recv().await {
+        while let Some(event) = core.event_receiver.recv().await {
           app.emit_all("core_event", &event).unwrap();
         }
       });
