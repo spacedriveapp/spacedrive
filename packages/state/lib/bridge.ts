@@ -12,7 +12,7 @@ export async function bridge<
   CQ extends Extract<ClientQuery, { key: K }>
 >(key: K, params?: CQ extends { params: any } ? CQ['params'] : never) {
   const result = (await transport?.send({ key, params } as any)) as any;
-  console.log(`query: ${result?.key}`, result?.data);
+  console.log(`ClientQueryTransport: [${result?.key}]`, result?.data);
   return result?.data;
 }
 

@@ -9,7 +9,7 @@ mod menu;
 #[tokio::main]
 async fn main() {
   let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
-  let mut core_receiver = sdcorelib::configure(data_dir).await;
+  let mut core_receiver = sdcorelib::Core::configure(data_dir).await;
 
   tauri::Builder::default()
     .setup(|app| {
