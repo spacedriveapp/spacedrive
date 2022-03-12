@@ -51,7 +51,7 @@ export function MacOSTrafficLights() {
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
-  const { data: locations } = useVolumes();
+  const { data: volumes } = useVolumes();
 
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },
@@ -110,7 +110,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       </div>
       <div>
         <Heading>Locations</Heading>
-        {locations?.map((location, index) => {
+        {/* @ts-ignore */}
+        {volumes?.map((location, index) => {
           return (
             <div key={index} className="flex flex-row items-center">
               <SidebarLink
