@@ -1,5 +1,6 @@
 import { ClientQuery, ClientResponse } from '@sd/core';
 import { EventEmitter } from 'eventemitter3';
+import { useQuery } from 'react-query';
 
 export let transport: BaseTransport | null = null;
 
@@ -18,4 +19,12 @@ export async function bridge<
 
 export function setTransport(_transport: BaseTransport) {
   transport = _transport;
+}
+
+export function useBridgeQuery(
+  key: Parameters<typeof bridge>[0],
+  params?: Parameters<typeof bridge>[1],
+  options: Parameters<typeof useQuery>[2] = {}
+) {
+  return useQuery([key, params], () => bridge(key, params), options);
 }
