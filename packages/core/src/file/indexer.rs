@@ -6,8 +6,7 @@ use walkdir::{DirEntry, WalkDir};
 
 use super::watcher::watch_dir;
 use crate::db;
-use crate::prisma::LocationData;
-use crate::sys::locations::{create_location, get_location};
+use crate::sys::locations::{create_location, get_location, LocationResource};
 use crate::util::time;
 
 pub async fn scan_paths(location_id: i64) -> Result<()> {
@@ -54,8 +53,7 @@ pub async fn scan(path: &str) -> Result<()> {
     let scan_start = Instant::now();
     // walk through directory recursively
     for entry in WalkDir::new(path).into_iter().filter_entry(|dir| {
-        let approved =
-            !is_hidden(dir) && !is_app_bundle(dir) && !is_node_modules(dir) && !is_library(dir);
+        let approved = !is_hidden(dir) && !is_app_bundle(dir) && !is_node_modules(dir) && !is_library(dir);
         approved
     }) {
         // extract directory entry or log and continue if failed
@@ -68,11 +66,7 @@ pub async fn scan(path: &str) -> Result<()> {
         };
         let path = entry.path();
 
-        let parent_path = path
-            .parent()
-            .unwrap_or(Path::new(""))
-            .to_str()
-            .unwrap_or("");
+        let parent_path = path.parent().unwrap_or(Path::new("")).to_str().unwrap_or("");
         let parent_dir_id = dirs.get(&*parent_path);
         println!("Discovered: {:?}, {:?}", &path, &parent_dir_id);
 
@@ -95,15 +89,13 @@ pub async fn scan(path: &str) -> Result<()> {
         // vector to store active models
         let mut files: Vec<String> = Vec::new();
         for (file_path, file_id, parent_dir_id) in chunk {
-            files.push(
-                match prepare_model(&file_path, *file_id, &location, parent_dir_id) {
-                    Ok(file) => file,
-                    Err(e) => {
-                        println!("Error creating file model from path {:?}: {}", file_path, e);
-                        continue;
-                    }
-                },
-            );
+            files.push(match prepare_model(&file_path, *file_id, &location, parent_dir_id) {
+                Ok(file) => file,
+                Err(e) => {
+                    println!("Error creating file model from path {:?}: {}", file_path, e);
+                    continue;
+                }
+            });
         }
         let raw_sql = format!(
             r#"
@@ -126,12 +118,7 @@ pub async fn scan(path: &str) -> Result<()> {
 }
 
 // reads a file at a path and creates an ActiveModel with metadata
-fn prepare_model(
-    file_path: &PathBuf,
-    id: i64,
-    location: &LocationData,
-    parent_id: &Option<i64>,
-) -> Result<String> {
+fn prepare_model(file_path: &PathBuf, id: i64, location: &LocationResource, parent_id: &Option<i64>) -> Result<String> {
     let metadata = fs::metadata(&file_path)?;
     let location_path = location.path.as_ref().unwrap().as_str();
     let size = metadata.len();
@@ -157,12 +144,8 @@ fn prepare_model(
         &name,
         &extension,
         &size.to_string(),
-        &time::system_time_to_date_time(metadata.created())
-            .unwrap()
-            .to_string(),
-        &time::system_time_to_date_time(metadata.modified())
-            .unwrap()
-            .to_string(),
+        &time::system_time_to_date_time(metadata.created()).unwrap().to_string(),
+        &time::system_time_to_date_time(metadata.modified()).unwrap().to_string(),
     ))
 }
 
@@ -179,19 +162,11 @@ pub async fn test_scan(path: &str) -> Result<()> {
 
 // extract name from OsStr returned by PathBuff
 fn extract_name(os_string: Option<&OsStr>) -> String {
-    os_string
-        .unwrap_or_default()
-        .to_str()
-        .unwrap_or_default()
-        .to_owned()
+    os_string.unwrap_or_default().to_str().unwrap_or_default().to_owned()
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
-    entry
-        .file_name()
-        .to_str()
-        .map(|s| s.starts_with("."))
-        .unwrap_or(false)
+    entry.file_name().to_str().map(|s| s.starts_with(".")).unwrap_or(false)
 }
 
 fn is_library(entry: &DirEntry) -> bool {
@@ -204,11 +179,7 @@ fn is_library(entry: &DirEntry) -> bool {
 }
 
 fn is_node_modules(entry: &DirEntry) -> bool {
-    entry
-        .file_name()
-        .to_str()
-        .map(|s| s.contains("node_modules"))
-        .unwrap_or(false)
+    entry.file_name().to_str().map(|s| s.contains("node_modules")).unwrap_or(false)
 }
 
 fn is_app_bundle(entry: &DirEntry) -> bool {
@@ -247,9 +218,7 @@ fn construct_file_sql(
         id,
         is_dir as u8,
         location_id,
-        parent_id
-            .map(|id| id.to_string())
-            .unwrap_or("NULL".to_string()),
+        parent_id.map(|id| id.to_string()).unwrap_or("NULL".to_string()),
         stem,
         name,
         extension,

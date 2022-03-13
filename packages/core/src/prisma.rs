@@ -3,9 +3,7 @@
 use prisma_client_rust::datamodel::parse_configuration;
 use prisma_client_rust::prisma_models::InternalDataModelBuilder;
 use prisma_client_rust::query::*;
-use prisma_client_rust::query_core::{
-    executor, schema_builder, BuildMode, CoreError, QueryExecutor, QuerySchema,
-};
+use prisma_client_rust::query_core::{executor, schema_builder, BuildMode, CoreError, QueryExecutor, QuerySchema};
 use prisma_client_rust::{chrono, operator::Operator, serde_json, DeleteResult};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -17,10 +15,7 @@ pub struct PrismaClient {
 pub async fn new_client() -> PrismaClient {
     let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\ngenerator js {\n    provider = \"prisma-client-js\"\n    output   = \"../types\"\n}\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@unique([location_id, stem, name, extension])\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    percentage_complete  Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
     let config = parse_configuration(datamodel_str).unwrap().subject;
-    let source = config
-        .datasources
-        .first()
-        .expect("Pleasy supply a datasource in your schema.prisma file");
+    let source = config.datasources.first().expect("Pleasy supply a datasource in your schema.prisma file");
     let url = if let Some(url) = source.load_shadow_database_url().unwrap() {
         url
     } else {
@@ -43,10 +38,7 @@ pub async fn new_client() -> PrismaClient {
 pub async fn new_client_with_url(url: &str) -> PrismaClient {
     let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\ngenerator js {\n    provider = \"prisma-client-js\"\n    output   = \"../types\"\n}\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@unique([location_id, stem, name, extension])\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    percentage_complete  Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
     let config = parse_configuration(datamodel_str).unwrap().subject;
-    let source = config
-        .datasources
-        .first()
-        .expect("Pleasy supply a datasource in your schema.prisma file");
+    let source = config.datasources.first().expect("Pleasy supply a datasource in your schema.prisma file");
     let (db_name, executor) = executor::load(&source, &[], &url).await.unwrap();
     let internal_model = InternalDataModelBuilder::new(&datamodel_str).build(db_name);
     let query_schema = Arc::new(schema_builder::build(
@@ -58,16 +50,10 @@ pub async fn new_client_with_url(url: &str) -> PrismaClient {
         source.referential_integrity(),
     ));
     executor.primary_connector().get_connection().await.unwrap();
-    PrismaClient {
-        executor,
-        query_schema,
-    }
+    PrismaClient { executor, query_schema }
 }
 impl PrismaClient {
-    pub async fn _query_raw<T: serde::de::DeserializeOwned>(
-        &self,
-        query: &str,
-    ) -> Result<Vec<T>, CoreError> {
+    pub async fn _query_raw<T: serde::de::DeserializeOwned>(&self, query: &str) -> Result<Vec<T>, CoreError> {
         let query = Query {
             ctx: QueryContext::new(&self.executor, self.query_schema.clone()),
             operation: "mutation".into(),
@@ -684,10 +670,7 @@ impl<'a> MigrationFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<MigrationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -700,10 +683,7 @@ impl<'a> MigrationFindFirst<'a> {
         self.query.perform::<Option<MigrationData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<MigrationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -754,10 +734,7 @@ impl<'a> MigrationFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<MigrationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -778,10 +755,7 @@ impl<'a> MigrationUpdateUnique<'a> {
         self.query.perform::<MigrationData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<MigrationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -794,10 +768,7 @@ impl<'a> MigrationUpdateMany<'a> {
         self.query.perform::<Vec<MigrationData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<MigrationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -881,12 +852,7 @@ impl<'a> MigrationActions<'a> {
         };
         MigrationFindMany { query }
     }
-    pub fn create_one(
-        &self,
-        name: MigrationSetName,
-        checksum: MigrationSetChecksum,
-        params: Vec<MigrationSetParam>,
-    ) -> MigrationCreateOne {
+    pub fn create_one(&self, name: MigrationSetName, checksum: MigrationSetChecksum, params: Vec<MigrationSetParam>) -> MigrationCreateOne {
         let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
         input_fields.push(MigrationSetParam::from(name).field());
         input_fields.push(MigrationSetParam::from(checksum).field());
@@ -943,10 +909,7 @@ impl LibraryData {
     pub fn spaces(&self) -> Result<&Vec<SpaceData>, String> {
         match self.spaces.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access spaces but did not fetch it using the .with() syntax"
-                    .to_string(),
-            ),
+            None => Err("attempted to access spaces but did not fetch it using the .with() syntax".to_string()),
         }
     }
 }
@@ -1667,9 +1630,7 @@ impl LibrarySetParam {
                 name: "spaces".into(),
                 fields: Some(vec![Field {
                     name: "connect".into(),
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     list: true,
                     wrap_list: true,
                     ..Default::default()
@@ -1682,9 +1643,7 @@ impl LibrarySetParam {
                     name: "disconnect".into(),
                     list: true,
                     wrap_list: true,
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     ..Default::default()
                 }]),
                 ..Default::default()
@@ -1739,10 +1698,7 @@ impl<'a> LibraryFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<LibraryWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -1755,10 +1711,7 @@ impl<'a> LibraryFindFirst<'a> {
         self.query.perform::<Option<LibraryData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LibraryWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -1809,10 +1762,7 @@ impl<'a> LibraryFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<LibraryWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -1833,10 +1783,7 @@ impl<'a> LibraryUpdateUnique<'a> {
         self.query.perform::<LibraryData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LibraryWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -1849,10 +1796,7 @@ impl<'a> LibraryUpdateMany<'a> {
         self.query.perform::<Vec<LibraryData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LibraryWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -1936,12 +1880,7 @@ impl<'a> LibraryActions<'a> {
         };
         LibraryFindMany { query }
     }
-    pub fn create_one(
-        &self,
-        uuid: LibrarySetUuid,
-        name: LibrarySetName,
-        params: Vec<LibrarySetParam>,
-    ) -> LibraryCreateOne {
+    pub fn create_one(&self, uuid: LibrarySetUuid, name: LibrarySetName, params: Vec<LibrarySetParam>) -> LibraryCreateOne {
         let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
         input_fields.push(LibrarySetParam::from(uuid).field());
         input_fields.push(LibrarySetParam::from(name).field());
@@ -2055,25 +1994,16 @@ impl LibraryStatisticsDateCapturedField {
     pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LibraryStatisticsWhereParam {
         LibraryStatisticsWhereParam::DateCapturedAfter(value)
     }
-    pub fn before_equals(
-        &self,
-        value: chrono::DateTime<chrono::Utc>,
-    ) -> LibraryStatisticsWhereParam {
+    pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LibraryStatisticsWhereParam {
         LibraryStatisticsWhereParam::DateCapturedBeforeEquals(value)
     }
-    pub fn after_equals(
-        &self,
-        value: chrono::DateTime<chrono::Utc>,
-    ) -> LibraryStatisticsWhereParam {
+    pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LibraryStatisticsWhereParam {
         LibraryStatisticsWhereParam::DateCapturedAfterEquals(value)
     }
     pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> LibraryStatisticsWhereParam {
         LibraryStatisticsWhereParam::DateCapturedEquals(value)
     }
-    pub fn set<T: From<LibraryStatisticsSetDateCaptured>>(
-        &self,
-        value: chrono::DateTime<chrono::Utc>,
-    ) -> T {
+    pub fn set<T: From<LibraryStatisticsSetDateCaptured>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
         LibraryStatisticsSetDateCaptured(value).into()
     }
 }
@@ -2633,10 +2563,7 @@ pub struct LibraryStatisticsFindMany<'a> {
 }
 impl<'a> LibraryStatisticsFindMany<'a> {
     pub async fn exec(self) -> Vec<LibraryStatisticsData> {
-        self.query
-            .perform::<Vec<LibraryStatisticsData>>()
-            .await
-            .unwrap()
+        self.query.perform::<Vec<LibraryStatisticsData>>().await.unwrap()
     }
     pub fn delete(self) -> LibraryStatisticsDelete<'a> {
         LibraryStatisticsDelete {
@@ -2649,10 +2576,7 @@ impl<'a> LibraryStatisticsFindMany<'a> {
             },
         }
     }
-    pub fn update(
-        mut self,
-        params: Vec<LibraryStatisticsSetParam>,
-    ) -> LibraryStatisticsUpdateMany<'a> {
+    pub fn update(mut self, params: Vec<LibraryStatisticsSetParam>) -> LibraryStatisticsUpdateMany<'a> {
         self.query.inputs.push(Input {
             name: "data".into(),
             fields: params
@@ -2681,10 +2605,7 @@ impl<'a> LibraryStatisticsFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<LibraryStatisticsWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -2694,16 +2615,10 @@ pub struct LibraryStatisticsFindFirst<'a> {
 }
 impl<'a> LibraryStatisticsFindFirst<'a> {
     pub async fn exec(self) -> Option<LibraryStatisticsData> {
-        self.query
-            .perform::<Option<LibraryStatisticsData>>()
-            .await
-            .unwrap()
+        self.query.perform::<Option<LibraryStatisticsData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LibraryStatisticsWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -2713,10 +2628,7 @@ pub struct LibraryStatisticsFindUnique<'a> {
 }
 impl<'a> LibraryStatisticsFindUnique<'a> {
     pub async fn exec(self) -> Option<LibraryStatisticsData> {
-        self.query
-            .perform::<Option<LibraryStatisticsData>>()
-            .await
-            .unwrap()
+        self.query.perform::<Option<LibraryStatisticsData>>().await.unwrap()
     }
     pub fn delete(self) -> LibraryStatisticsDelete<'a> {
         LibraryStatisticsDelete {
@@ -2728,10 +2640,7 @@ impl<'a> LibraryStatisticsFindUnique<'a> {
             },
         }
     }
-    pub fn update(
-        mut self,
-        params: Vec<LibraryStatisticsSetParam>,
-    ) -> LibraryStatisticsUpdateUnique<'a> {
+    pub fn update(mut self, params: Vec<LibraryStatisticsSetParam>) -> LibraryStatisticsUpdateUnique<'a> {
         self.query.inputs.push(Input {
             name: "data".into(),
             fields: params
@@ -2760,10 +2669,7 @@ impl<'a> LibraryStatisticsFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<LibraryStatisticsWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -2784,10 +2690,7 @@ impl<'a> LibraryStatisticsUpdateUnique<'a> {
         self.query.perform::<LibraryStatisticsData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LibraryStatisticsWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -2797,16 +2700,10 @@ pub struct LibraryStatisticsUpdateMany<'a> {
 }
 impl<'a> LibraryStatisticsUpdateMany<'a> {
     pub async fn exec(self) -> Vec<LibraryStatisticsData> {
-        self.query
-            .perform::<Vec<LibraryStatisticsData>>()
-            .await
-            .unwrap()
+        self.query.perform::<Vec<LibraryStatisticsData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LibraryStatisticsWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -2840,10 +2737,7 @@ impl<'a> LibraryStatisticsActions<'a> {
         };
         LibraryStatisticsFindUnique { query }
     }
-    pub fn find_first(
-        &self,
-        params: Vec<LibraryStatisticsWhereParam>,
-    ) -> LibraryStatisticsFindFirst {
+    pub fn find_first(&self, params: Vec<LibraryStatisticsWhereParam>) -> LibraryStatisticsFindFirst {
         let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
         let inputs = if where_fields.len() > 0 {
             vec![Input {
@@ -2893,11 +2787,7 @@ impl<'a> LibraryStatisticsActions<'a> {
         };
         LibraryStatisticsFindMany { query }
     }
-    pub fn create_one(
-        &self,
-        library_id: LibraryStatisticsSetLibraryId,
-        params: Vec<LibraryStatisticsSetParam>,
-    ) -> LibraryStatisticsCreateOne {
+    pub fn create_one(&self, library_id: LibraryStatisticsSetLibraryId, params: Vec<LibraryStatisticsSetParam>) -> LibraryStatisticsCreateOne {
         let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
         input_fields.push(LibraryStatisticsSetParam::from(library_id).field());
         let query = Query {
@@ -2956,10 +2846,7 @@ impl ClientData {
     pub fn jobs(&self) -> Result<&Vec<JobData>, String> {
         match self.jobs.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access jobs but did not fetch it using the .with() syntax"
-                    .to_string(),
-            ),
+            None => Err("attempted to access jobs but did not fetch it using the .with() syntax".to_string()),
         }
     }
 }
@@ -3766,9 +3653,7 @@ impl ClientSetParam {
                 name: "jobs".into(),
                 fields: Some(vec![Field {
                     name: "connect".into(),
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     list: true,
                     wrap_list: true,
                     ..Default::default()
@@ -3781,9 +3666,7 @@ impl ClientSetParam {
                     name: "disconnect".into(),
                     list: true,
                     wrap_list: true,
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     ..Default::default()
                 }]),
                 ..Default::default()
@@ -3838,10 +3721,7 @@ impl<'a> ClientFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<ClientWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -3854,10 +3734,7 @@ impl<'a> ClientFindFirst<'a> {
         self.query.perform::<Option<ClientData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<ClientWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -3908,10 +3785,7 @@ impl<'a> ClientFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<ClientWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -3932,10 +3806,7 @@ impl<'a> ClientUpdateUnique<'a> {
         self.query.perform::<ClientData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<ClientWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -3948,10 +3819,7 @@ impl<'a> ClientUpdateMany<'a> {
         self.query.perform::<Vec<ClientData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<ClientWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -4035,12 +3903,7 @@ impl<'a> ClientActions<'a> {
         };
         ClientFindMany { query }
     }
-    pub fn create_one(
-        &self,
-        uuid: ClientSetUuid,
-        name: ClientSetName,
-        params: Vec<ClientSetParam>,
-    ) -> ClientCreateOne {
+    pub fn create_one(&self, uuid: ClientSetUuid, name: ClientSetName, params: Vec<ClientSetParam>) -> ClientCreateOne {
         let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
         input_fields.push(ClientSetParam::from(uuid).field());
         input_fields.push(ClientSetParam::from(name).field());
@@ -4103,10 +3966,7 @@ impl LocationData {
     pub fn files(&self) -> Result<&Vec<FileData>, String> {
         match self.files.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access files but did not fetch it using the .with() syntax"
-                    .to_string(),
-            ),
+            None => Err("attempted to access files but did not fetch it using the .with() syntax".to_string()),
         }
     }
 }
@@ -4869,9 +4729,7 @@ impl LocationSetParam {
                 name: "files".into(),
                 fields: Some(vec![Field {
                     name: "connect".into(),
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     list: true,
                     wrap_list: true,
                     ..Default::default()
@@ -4884,9 +4742,7 @@ impl LocationSetParam {
                     name: "disconnect".into(),
                     list: true,
                     wrap_list: true,
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     ..Default::default()
                 }]),
                 ..Default::default()
@@ -4941,10 +4797,7 @@ impl<'a> LocationFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<LocationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -4957,10 +4810,7 @@ impl<'a> LocationFindFirst<'a> {
         self.query.perform::<Option<LocationData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LocationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -5011,10 +4861,7 @@ impl<'a> LocationFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<LocationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -5035,10 +4882,7 @@ impl<'a> LocationUpdateUnique<'a> {
         self.query.perform::<LocationData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LocationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -5051,10 +4895,7 @@ impl<'a> LocationUpdateMany<'a> {
         self.query.perform::<Vec<LocationData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<LocationWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -5226,19 +5067,13 @@ impl FileData {
     pub fn children(&self) -> Result<&Vec<FileData>, String> {
         match self.children.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access children but did not fetch it using the .with() syntax"
-                    .to_string(),
-            ),
+            None => Err("attempted to access children but did not fetch it using the .with() syntax".to_string()),
         }
     }
     pub fn file_tags(&self) -> Result<&Vec<TagOnFileData>, String> {
         match self.file_tags.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access file_tags but did not fetch it using the .with() syntax"
-                    .to_string(),
-            ),
+            None => Err("attempted to access file_tags but did not fetch it using the .with() syntax".to_string()),
         }
     }
 }
@@ -6706,9 +6541,7 @@ impl FileSetParam {
                 name: "children".into(),
                 fields: Some(vec![Field {
                     name: "connect".into(),
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     list: true,
                     wrap_list: true,
                     ..Default::default()
@@ -6721,9 +6554,7 @@ impl FileSetParam {
                     name: "disconnect".into(),
                     list: true,
                     wrap_list: true,
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     ..Default::default()
                 }]),
                 ..Default::default()
@@ -6732,9 +6563,7 @@ impl FileSetParam {
                 name: "file_tags".into(),
                 fields: Some(vec![Field {
                     name: "connect".into(),
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     list: true,
                     wrap_list: true,
                     ..Default::default()
@@ -6747,9 +6576,7 @@ impl FileSetParam {
                     name: "disconnect".into(),
                     list: true,
                     wrap_list: true,
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     ..Default::default()
                 }]),
                 ..Default::default()
@@ -6804,10 +6631,7 @@ impl<'a> FileFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<FileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -6820,10 +6644,7 @@ impl<'a> FileFindFirst<'a> {
         self.query.perform::<Option<FileData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<FileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -6874,10 +6695,7 @@ impl<'a> FileFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<FileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -6898,10 +6716,7 @@ impl<'a> FileUpdateUnique<'a> {
         self.query.perform::<FileData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<FileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -6914,10 +6729,7 @@ impl<'a> FileUpdateMany<'a> {
         self.query.perform::<Vec<FileData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<FileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -7001,13 +6813,7 @@ impl<'a> FileActions<'a> {
         };
         FileFindMany { query }
     }
-    pub fn create_one(
-        &self,
-        stem: FileSetStem,
-        name: FileSetName,
-        size_in_bytes: FileSetSizeInBytes,
-        params: Vec<FileSetParam>,
-    ) -> FileCreateOne {
+    pub fn create_one(&self, stem: FileSetStem, name: FileSetName, size_in_bytes: FileSetSizeInBytes, params: Vec<FileSetParam>) -> FileCreateOne {
         let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
         input_fields.push(FileSetParam::from(stem).field());
         input_fields.push(FileSetParam::from(name).field());
@@ -7062,10 +6868,7 @@ impl TagData {
     pub fn tag_files(&self) -> Result<&Vec<TagOnFileData>, String> {
         match self.tag_files.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access tag_files but did not fetch it using the .with() syntax"
-                    .to_string(),
-            ),
+            None => Err("attempted to access tag_files but did not fetch it using the .with() syntax".to_string()),
         }
     }
 }
@@ -7791,9 +7594,7 @@ impl TagSetParam {
                 name: "tag_files".into(),
                 fields: Some(vec![Field {
                     name: "connect".into(),
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     list: true,
                     wrap_list: true,
                     ..Default::default()
@@ -7806,9 +7607,7 @@ impl TagSetParam {
                     name: "disconnect".into(),
                     list: true,
                     wrap_list: true,
-                    fields: Some(transform_equals(
-                        where_params.into_iter().map(|item| item.field()).collect(),
-                    )),
+                    fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
                     ..Default::default()
                 }]),
                 ..Default::default()
@@ -7863,10 +7662,7 @@ impl<'a> TagFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<TagWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -7879,10 +7675,7 @@ impl<'a> TagFindFirst<'a> {
         self.query.perform::<Option<TagData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<TagWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -7933,10 +7726,7 @@ impl<'a> TagFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<TagWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -7957,10 +7747,7 @@ impl<'a> TagUpdateUnique<'a> {
         self.query.perform::<TagData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<TagWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -7973,10 +7760,7 @@ impl<'a> TagUpdateMany<'a> {
         self.query.perform::<Vec<TagData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<TagWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -8079,11 +7863,7 @@ impl<'a> TagActions<'a> {
     }
 }
 fn tag_on_file_outputs() -> Vec<Output> {
-    vec![
-        Output::new("date_created"),
-        Output::new("tag_id"),
-        Output::new("file_id"),
-    ]
+    vec![Output::new("date_created"), Output::new("tag_id"), Output::new("file_id")]
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TagOnFileData {
@@ -8102,18 +7882,13 @@ impl TagOnFileData {
     pub fn tag(&self) -> Result<&TagData, String> {
         match self.tag.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access tag but did not fetch it using the .with() syntax".to_string(),
-            ),
+            None => Err("attempted to access tag but did not fetch it using the .with() syntax".to_string()),
         }
     }
     pub fn file(&self) -> Result<&FileData, String> {
         match self.file.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access file but did not fetch it using the .with() syntax"
-                    .to_string(),
-            ),
+            None => Err("attempted to access file but did not fetch it using the .with() syntax".to_string()),
         }
     }
 }
@@ -8584,10 +8359,7 @@ impl<'a> TagOnFileFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<TagOnFileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -8600,10 +8372,7 @@ impl<'a> TagOnFileFindFirst<'a> {
         self.query.perform::<Option<TagOnFileData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<TagOnFileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -8654,10 +8423,7 @@ impl<'a> TagOnFileFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<TagOnFileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -8678,10 +8444,7 @@ impl<'a> TagOnFileUpdateUnique<'a> {
         self.query.perform::<TagOnFileData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<TagOnFileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -8694,10 +8457,7 @@ impl<'a> TagOnFileUpdateMany<'a> {
         self.query.perform::<Vec<TagOnFileData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<TagOnFileWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -8781,12 +8541,7 @@ impl<'a> TagOnFileActions<'a> {
         };
         TagOnFileFindMany { query }
     }
-    pub fn create_one(
-        &self,
-        tag: TagOnFileLinkTag,
-        file: TagOnFileLinkFile,
-        params: Vec<TagOnFileSetParam>,
-    ) -> TagOnFileCreateOne {
+    pub fn create_one(&self, tag: TagOnFileLinkTag, file: TagOnFileLinkFile, params: Vec<TagOnFileSetParam>) -> TagOnFileCreateOne {
         let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
         input_fields.push(TagOnFileSetParam::from(tag).field());
         input_fields.push(TagOnFileSetParam::from(file).field());
@@ -8846,10 +8601,7 @@ impl JobData {
     pub fn clients(&self) -> Result<&ClientData, String> {
         match self.clients.as_ref() {
             Some(v) => Ok(v),
-            None => Err(
-                "attempted to access clients but did not fetch it using the .with() syntax"
-                    .to_string(),
-            ),
+            None => Err("attempted to access clients but did not fetch it using the .with() syntax".to_string()),
         }
     }
 }
@@ -9789,10 +9541,7 @@ impl<'a> JobFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<JobWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -9805,10 +9554,7 @@ impl<'a> JobFindFirst<'a> {
         self.query.perform::<Option<JobData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<JobWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -9859,10 +9605,7 @@ impl<'a> JobFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<JobWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -9883,10 +9626,7 @@ impl<'a> JobUpdateUnique<'a> {
         self.query.perform::<JobData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<JobWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -9899,10 +9639,7 @@ impl<'a> JobUpdateMany<'a> {
         self.query.perform::<Vec<JobData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<JobWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -9986,12 +9723,7 @@ impl<'a> JobActions<'a> {
         };
         JobFindMany { query }
     }
-    pub fn create_one(
-        &self,
-        action: JobSetAction,
-        clients: JobLinkClients,
-        params: Vec<JobSetParam>,
-    ) -> JobCreateOne {
+    pub fn create_one(&self, action: JobSetAction, clients: JobLinkClients, params: Vec<JobSetParam>) -> JobCreateOne {
         let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
         input_fields.push(JobSetParam::from(action).field());
         input_fields.push(JobSetParam::from(clients).field());
@@ -10721,10 +10453,7 @@ impl<'a> SpaceFindMany<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<SpaceWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -10737,10 +10466,7 @@ impl<'a> SpaceFindFirst<'a> {
         self.query.perform::<Option<SpaceData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<SpaceWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -10791,10 +10517,7 @@ impl<'a> SpaceFindUnique<'a> {
         }
     }
     pub fn with(mut self, fetches: Vec<SpaceWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -10815,10 +10538,7 @@ impl<'a> SpaceUpdateUnique<'a> {
         self.query.perform::<SpaceData>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<SpaceWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }
@@ -10831,10 +10551,7 @@ impl<'a> SpaceUpdateMany<'a> {
         self.query.perform::<Vec<SpaceData>>().await.unwrap()
     }
     pub fn with(mut self, fetches: Vec<SpaceWith>) -> Self {
-        let outputs = fetches
-            .into_iter()
-            .map(|f| f.param.output())
-            .collect::<Vec<_>>();
+        let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
         self.query.outputs.extend(outputs);
         self
     }

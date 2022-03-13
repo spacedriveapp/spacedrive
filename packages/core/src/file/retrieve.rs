@@ -21,21 +21,12 @@ pub async fn get_dir_with_contents(path: &str) -> Result<Directory, String> {
 
     // meta_integrity_hash.truncate(20);
 
-    let directory = match db
-        .file()
-        .find_unique(File::name().equals(path.into()))
-        .exec()
-        .await
-    {
+    let directory = match db.file().find_unique(File::name().equals(path.into())).exec().await {
         Some(file) => file,
         None => return Err("directory_not_found".to_owned()),
     };
 
-    let files = db
-        .file()
-        .find_many(vec![File::parent_id().equals(directory.id)])
-        .exec()
-        .await;
+    let files = db.file().find_many(vec![File::parent_id().equals(directory.id)]).exec().await;
 
     Ok(Directory {
         directory: directory.clone(),

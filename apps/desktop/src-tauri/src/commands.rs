@@ -1,28 +1,11 @@
+// DEPRECATE EVERYTHING IN THIS FILE
 use anyhow::Result;
 use sdcorelib::{
   file::{indexer, retrieve, retrieve::Directory, watcher::watch_dir},
   state::{client, client::ClientState},
   sys,
   sys::{volumes, volumes::Volume},
-  ClientCommand, ClientQuery, Core, CoreResponse,
 };
-
-// #[tauri::command(async)]
-// pub async fn client_query_transport(data: ClientQuery) -> Result<CoreResponse, String> {
-//   match Core::query(data).await {
-//     Ok(response) => Ok(response),
-//     Err(err) => Err(err.to_string()),
-//   }
-// }
-
-// #[tauri::command(async)]
-// pub async fn client_command_transport(data: ClientCommand) -> Result<CoreResponse, String> {
-//   match Core::command(data).await {
-//     Ok(response) => Ok(response),
-//     Err(err) => Err(err.to_string()),
-//   }
-// }
-
 #[tauri::command(async)]
 pub async fn scan_dir(path: String) -> Result<(), String> {
   let files = indexer::scan(&path).await.map_err(|e| e.to_string());

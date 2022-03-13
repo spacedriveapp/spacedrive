@@ -1,2 +1,2 @@
 
-export type ClientQuery = { key: "SysGetVolumes" } | { key: "ClientGetCurrent" } | { key: "SysGetLocations", params: { id: string, } } | { key: "LibGetExplorerDir", params: { path: string, limit: number, } };
+export type ClientQuery = { key: "ClientGetState" } | { key: "SysGetVolumes" } | { key: "SysGetLocation", params: { id: bigint, } } | { key: "LibGetExplorerDir", params: { path: string, limit: bigint, } };

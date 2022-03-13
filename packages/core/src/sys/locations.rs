@@ -9,8 +9,41 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write};
 use thiserror::Error;
+use ts_rs::TS;
 
 pub use crate::prisma::LocationData;
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct LocationResource {
+    pub id: i64,
+    pub name: Option<String>,
+    pub path: Option<String>,
+    pub total_capacity: Option<i64>,
+    pub available_capacity: Option<i64>,
+    pub is_removable: bool,
+    pub is_ejectable: bool,
+    pub is_root_filesystem: bool,
+    pub is_online: bool,
+    #[ts(type = "string")]
+    pub date_created: chrono::DateTime<chrono::Utc>,
+}
+
+impl Into<LocationResource> for LocationData {
+    fn into(self) -> LocationResource {
+        LocationResource {
+            id: self.id,
+            name: self.name,
+            path: self.path,
+            total_capacity: self.total_capacity,
+            available_capacity: self.available_capacity,
+            is_removable: self.is_removable,
+            is_ejectable: self.is_ejectable,
+            is_root_filesystem: self.is_root_filesystem,
+            is_online: self.is_online,
+            date_created: self.date_created,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct DotSpacedrive {
@@ -24,8 +57,7 @@ static DOTFILE_NAME: &str = ".spacedrive";
 // - accessible on from the local filesystem
 // - already exists in the database
 pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> {
-    let dotfile: DotSpacedrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME))
-    {
+    let dotfile: DotSpacedrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
         Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpacedrive::default()),
         Err(e) => return Err(LocationError::DotfileReadFailure(e)),
     };
@@ -33,15 +65,13 @@ pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> 
     Ok(dotfile)
 }
 
-pub async fn get_location(location_id: i64) -> Result<LocationData, LocationError> {
+pub async fn get_location(location_id: i64) -> Result<LocationResource, LocationError> {
     let db = db::get().await.map_err(|e| LocationError::DBError(e))?;
 
     // get location by location_id from db and include location_paths
     let location = match db
         .location()
-        .find_first(vec![
-            Location::files().some(vec![File::id().equals(location_id)])
-        ])
+        .find_first(vec![Location::files().some(vec![File::id().equals(location_id.into())])])
         .exec()
         .await
     {
@@ -51,10 +81,10 @@ pub async fn get_location(location_id: i64) -> Result<LocationData, LocationErro
 
     info!("Retrieved location: {:?}", location);
 
-    Ok(location)
+    Ok(location.into())
 }
 
-pub async fn create_location(path: &str) -> Result<LocationData, LocationError> {
+pub async fn create_location(path: &str) -> Result<LocationResource, LocationError> {
     let db = db::get().await.map_err(|e| LocationError::DBError(e))?;
     let config = client::get();
 
@@ -64,18 +94,10 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
         Err(e) => return Err(LocationError::FileReadError(e)),
     }
     // check if location already exists
-    let location = match db
-        .location()
-        .find_first(vec![Location::path().equals(path.to_string())])
-        .exec()
-        .await
-    {
+    let location = match db.location().find_first(vec![Location::path().equals(path.to_string())]).exec().await {
         Some(location) => location,
         None => {
-            info!(
-                "Location does not exist, creating new location for '{}'",
-                &path
-            );
+            info!("Location does not exist, creating new location for '{}'", &path);
             let uuid = uuid::Uuid::new_v4();
             // create new location
             let create_location_params = {
@@ -85,9 +107,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
                 };
                 info!("Loaded mounted volumes: {:?}", volumes);
                 // find mount with matching path
-                let volume = volumes
-                    .into_iter()
-                    .find(|mount| path.starts_with(&mount.mount_point));
+                let volume = volumes.into_iter().find(|mount| path.starts_with(&mount.mount_point));
 
                 let volume_data = match volume {
                     Some(mount) => mount,
@@ -106,11 +126,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
                 ]
             };
 
-            let location = db
-                .location()
-                .create_one(create_location_params)
-                .exec()
-                .await;
+            let location = db.location().create_one(create_location_params).exec().await;
 
             info!("Created location: {:?}", location);
 
@@ -139,7 +155,7 @@ pub async fn create_location(path: &str) -> Result<LocationData, LocationError> 
         }
     };
 
-    Ok(location)
+    Ok(location.into())
 }
 
 #[derive(Error, Debug)]
