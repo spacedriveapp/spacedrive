@@ -6,28 +6,28 @@ use std::io::{BufReader, Read};
 use std::time::Instant;
 
 pub fn sha256_digest<R: Read>(mut reader: R) -> io::Result<Digest> {
-    let mut context = Context::new(&SHA256);
-    let mut buffer = [0; 1024];
-    loop {
-        let count = reader.read(&mut buffer)?;
-        if count == 0 {
-            break;
-        }
-        context.update(&buffer[..count]);
-    }
-    Ok(context.finish())
+	let mut context = Context::new(&SHA256);
+	let mut buffer = [0; 1024];
+	loop {
+		let count = reader.read(&mut buffer)?;
+		if count == 0 {
+			break;
+		}
+		context.update(&buffer[..count]);
+	}
+	Ok(context.finish())
 }
 
 pub async fn create_buffer_checksum(path: &str) -> io::Result<String> {
-    let start = Instant::now();
-    // read file as buffer and convert to digest
-    let digest = sha256_digest(BufReader::new(std::fs::File::open(path)?))?;
-    // create a lowercase hash from
-    let hex = HEXLOWER.encode(digest.as_ref());
-    println!("hashing complete in {:?} {}", start.elapsed(), hex);
-    Ok(hex)
+	let start = Instant::now();
+	// read file as buffer and convert to digest
+	let digest = sha256_digest(BufReader::new(std::fs::File::open(path)?))?;
+	// create a lowercase hash from
+	let hex = HEXLOWER.encode(digest.as_ref());
+	println!("hashing complete in {:?} {}", start.elapsed(), hex);
+	Ok(hex)
 }
 
 pub fn create_meta_integrity_hash(uri: &str) -> io::Result<String> {
-    Ok(digest(format!("{}", uri)))
+	Ok(digest(format!("{}", uri)))
 }
