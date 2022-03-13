@@ -6,16 +6,16 @@ use std::io::Cursor;
 use thumbnailer::{create_thumbnails, ThumbnailSize};
 
 pub async fn create_thumb(path: &str) -> Result<()> {
-    let file = File::open(path).unwrap();
-    let reader = BufReader::new(file);
+	let file = File::open(path).unwrap();
+	let reader = BufReader::new(file);
 
-    let mut thumbnails = create_thumbnails(reader, mime::IMAGE_PNG, [ThumbnailSize::Small]).unwrap();
+	let mut thumbnails = create_thumbnails(reader, mime::IMAGE_PNG, [ThumbnailSize::Small]).unwrap();
 
-    let thumbnail = thumbnails.pop().unwrap();
+	let thumbnail = thumbnails.pop().unwrap();
 
-    let mut buf = Cursor::new(Vec::new());
+	let mut buf = Cursor::new(Vec::new());
 
-    thumbnail.write_png(&mut buf).unwrap();
+	thumbnail.write_png(&mut buf).unwrap();
 
-    Ok(())
+	Ok(())
 }
