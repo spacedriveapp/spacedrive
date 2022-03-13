@@ -11,6 +11,7 @@ use super::SysError;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, TS)]
 #[repr(C)]
+#[ts(export)]
 pub struct Volume {
 	pub name: String,
 	pub mount_point: String,

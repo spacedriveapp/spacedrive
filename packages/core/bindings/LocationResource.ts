@@ -1,0 +1,2 @@
+
+export interface LocationResource { id: bigint, name: string | null, path: string | null, total_capacity: bigint | null, available_capacity: bigint | null, is_removable: boolean, is_ejectable: boolean, is_root_filesystem: boolean, is_online: boolean, date_created: string, }

@@ -14,6 +14,7 @@ use ts_rs::TS;
 pub use crate::prisma::LocationData;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct LocationResource {
 	pub id: i64,
 	pub name: Option<String>,
