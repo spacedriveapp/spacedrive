@@ -13,6 +13,8 @@ use ts_rs::TS;
 
 pub use crate::prisma::LocationData;
 
+use super::SysError;
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct LocationResource {
@@ -66,8 +68,8 @@ pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> 
 	Ok(dotfile)
 }
 
-pub async fn get_location(location_id: i64) -> Result<LocationResource, LocationError> {
-	let db = db::get().await.map_err(|e| LocationError::DBError(e))?;
+pub async fn get_location(location_id: i64) -> Result<LocationResource, SysError> {
+	let db = db::get().await?;
 
 	// get location by location_id from db and include location_paths
 	let location = match db
@@ -77,7 +79,7 @@ pub async fn get_location(location_id: i64) -> Result<LocationResource, Location
 		.await
 	{
 		Some(location) => location,
-		None => return Err(LocationError::NotFound(location_id.to_string())),
+		None => Err(LocationError::NotFound(location_id.to_string()))?,
 	};
 
 	info!("Retrieved location: {:?}", location);
@@ -85,14 +87,14 @@ pub async fn get_location(location_id: i64) -> Result<LocationResource, Location
 	Ok(location.into())
 }
 
-pub async fn create_location(path: &str) -> Result<LocationResource, LocationError> {
-	let db = db::get().await.map_err(|e| LocationError::DBError(e))?;
+pub async fn create_location(path: &str) -> Result<LocationResource, SysError> {
+	let db = db::get().await?;
 	let config = client::get();
 
 	// check if we have access to this location
 	match fs::File::open(&path) {
 		Ok(_) => info!("Path is valid, creating location for '{}'", &path),
-		Err(e) => return Err(LocationError::FileReadError(e)),
+		Err(e) => Err(LocationError::FileReadError(e))?,
 	}
 	// check if location already exists
 	let location = match db.location().find_first(vec![Location::path().equals(path.to_string())]).exec().await {
@@ -104,7 +106,7 @@ pub async fn create_location(path: &str) -> Result<LocationResource, LocationErr
 			let create_location_params = {
 				let volumes = match volumes::get() {
 					Ok(volumes) => volumes,
-					Err(e) => return Err(LocationError::VolumeReadError(e.to_string())),
+					Err(e) => Err(LocationError::VolumeReadError(e.to_string()))?,
 				};
 				info!("Loaded mounted volumes: {:?}", volumes);
 				// find mount with matching path
@@ -134,7 +136,7 @@ pub async fn create_location(path: &str) -> Result<LocationResource, LocationErr
 			// write a file called .spacedrive to path containing the location id in JSON format
 			let mut dotfile = match fs::File::create(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
 				Ok(file) => file,
-				Err(e) => return Err(LocationError::DotfileWriteFailure(e, path.to_string())),
+				Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
 			};
 
 			let data = DotSpacedrive {
@@ -144,12 +146,12 @@ pub async fn create_location(path: &str) -> Result<LocationResource, LocationErr
 
 			let json = match serde_json::to_string(&data) {
 				Ok(json) => json,
-				Err(e) => return Err(LocationError::DotfileSerializeFailure(e, path.to_string())),
+				Err(e) => Err(LocationError::DotfileSerializeFailure(e, path.to_string()))?,
 			};
 
 			match dotfile.write_all(json.as_bytes()) {
 				Ok(_) => (),
-				Err(e) => return Err(LocationError::DotfileWriteFailure(e, path.to_string())),
+				Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
 			}
 
 			location
@@ -177,6 +179,4 @@ pub enum LocationError {
 	VolumeReadError(String),
 	#[error("Failed to connect to database (error: {0:?})")]
 	IOError(io::Error),
-	#[error("Failed to connect to database (error: {0:?})")]
-	DBError(String),
 }

@@ -90,7 +90,7 @@ impl Core {
 		Ok(match query {
 			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get()?),
 			ClientQuery::SysGetLocation { id } => CoreResponse::SysGetLocations(sys::locations::get_location(id).await?),
-			ClientQuery::LibGetExplorerDir { path: _, limit: _ } => todo!(),
+			ClientQuery::LibGetExplorerDir { path, limit: _ } => CoreResponse::LibGetExplorerDir(file::retrieve::get_dir_with_contents(&path).await?),
 			ClientQuery::ClientGetState => todo!(),
 			ClientQuery::LibGetTags => todo!(),
 		})
@@ -154,12 +154,17 @@ pub enum CoreResponse {
 	Success,
 	SysGetVolumes(Vec<sys::volumes::Volume>),
 	SysGetLocations(sys::locations::LocationResource),
+	LibGetExplorerDir(file::retrieve::Directory),
 }
 
 #[derive(Error, Debug)]
 pub enum CoreError {
 	#[error("System error")]
 	SysError(#[from] sys::SysError),
+	#[error("File error")]
+	FileError(#[from] file::FileError),
+	#[error("Database error")]
+	DatabaseError(#[from] db::DatabaseError),
 }
 
 // this does nothing yet, but maybe we could use these to invalidate queries tied to resources

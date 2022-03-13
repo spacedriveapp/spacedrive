@@ -1,40 +1,33 @@
-use crate::{
-	db,
-	prisma::{File, FileData},
-};
+use crate::{db, prisma::File};
 use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Serialize)]
+use super::{FileError, FileResource};
+
+#[derive(Serialize, Deserialize, TS, Debug)]
+#[ts(export)]
 pub struct Directory {
-	pub directory: FileData,
-	pub contents: Vec<FileData>,
+	pub directory: FileResource,
+	pub contents: Vec<FileResource>,
 }
 
-pub async fn get_dir_with_contents(path: &str) -> Result<Directory, String> {
+pub async fn get_dir_with_contents(path: &str) -> Result<Directory, FileError> {
 	let db = db::get().await?;
 
 	println!("getting files... {:?}", &path);
 
-	// let mut meta_integrity_hash =
-	//     create_meta_integrity_hash(path.to_str().unwrap_or_default(), size)?;
-
-	// meta_integrity_hash.truncate(20);
-
-	let directory = match db.file().find_unique(File::name().equals(path.into())).exec().await {
-		Some(file) => file,
-		None => return Err("directory_not_found".to_owned()),
-	};
+	let directory = db
+		.file()
+		.find_unique(File::name().equals(path.into()))
+		.exec()
+		.await
+		.ok_or(FileError::FileNotFound(path.to_string()))?;
 
 	let files = db.file().find_many(vec![File::parent_id().equals(directory.id)]).exec().await;
 
 	Ok(Directory {
-		directory: directory.clone(),
-		contents: files,
+		directory: directory.into(),
+		contents: files.into_iter().map(|l| l.into()).collect(),
 	})
 }
-
-// pub async fn get_directory(path: &str) {
-//     // 1. search db for path
-//     // 2. get directory shallow
-// }
