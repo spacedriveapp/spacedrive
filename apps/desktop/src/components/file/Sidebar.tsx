@@ -10,7 +10,7 @@ import { TrafficLights } from '../os/TrafficLights';
 import { Button } from '../primitive';
 import { Dropdown } from '../primitive/Dropdown';
 import { DefaultProps } from '../primitive/types';
-import { useVolumes } from '@sd/state';
+import { useBridgeQuery } from '@sd/state';
 interface SidebarProps extends DefaultProps {}
 
 export const SidebarLink = (props: NavLinkProps) => (
@@ -51,7 +51,7 @@ export function MacOSTrafficLights() {
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
-  const { data: volumes } = useVolumes();
+  const { data: volumes } = useBridgeQuery('SysGetVolumes');
 
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },

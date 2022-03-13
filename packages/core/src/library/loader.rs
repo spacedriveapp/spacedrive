@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::state::client::LibraryState;
 use crate::{
-    db::{self, init},
+    db::{self, migrate},
     prisma::{Library, LibraryData},
     state,
 };
@@ -48,7 +48,7 @@ pub async fn load(library_path: &str, library_id: &str) -> Result<()> {
         config.save();
     }
     // create connection with library database & run migrations
-    init(&library_path).await?;
+    migrate::run_migrations(&library_path).await?;
     // if doesn't exist, mark as offline
     Ok(())
 }
@@ -66,7 +66,7 @@ pub async fn create(name: Option<String>) -> Result<()> {
         ..LibraryState::default()
     };
 
-    init(&library_state.library_path).await?;
+    migrate::run_migrations(&library_state.library_path).await?;
 
     config.libraries.push(library_state);
 

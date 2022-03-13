@@ -3,10 +3,6 @@ import { useState } from 'react';
 import { useFileExplorerState } from './state';
 import { bridge } from '../bridge';
 
-// export function useBridgeQuery(key: ) {
-//     return useQuery(['sys_get_volumes'], () => bridge('sys_get_volumes'));
-// }
-
 // this hook initializes the explorer state and queries the core
 export function useFileExplorer(initialPath = '/', initialLocation: number | null = null) {
   const fileState = useFileExplorerState();
@@ -28,6 +24,6 @@ export function useFileExplorer(initialPath = '/', initialLocation: number | nul
   return { location, files, setPath, setLocationId };
 }
 
-export function useVolumes() {
-  return useQuery(['SysGetVolumes'], () => bridge('SysGetVolumes'));
-}
+// export function useVolumes() {
+//   return useQuery(['SysGetVolumes'], () => bridge('SysGetVolumes'));
+// }
