@@ -6987,6 +6987,7 @@ dependencies = [
  "data-encoding",
  "futures",
  "int-enum",
+ "lazy_static",
  "log",
  "once_cell",
  "rebind",

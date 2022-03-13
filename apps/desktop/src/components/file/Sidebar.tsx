@@ -110,7 +110,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       </div>
       <div>
         <Heading>Locations</Heading>
-        {/* @ts-ignore */}
         {volumes?.map((location, index) => {
           return (
             <div key={index} className="flex flex-row items-center">

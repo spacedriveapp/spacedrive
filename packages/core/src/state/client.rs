@@ -86,11 +86,7 @@ impl ClientState {
     }
 
     pub fn get_current_library(&self) -> LibraryState {
-        match self
-            .libraries
-            .iter()
-            .find(|lib| lib.library_id == self.current_library_id)
-        {
+        match self.libraries.iter().find(|lib| lib.library_id == self.current_library_id) {
             Some(lib) => lib.clone(),
             None => LibraryState::default(),
         }

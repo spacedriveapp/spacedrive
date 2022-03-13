@@ -9,8 +9,7 @@ pub async fn create_thumb(path: &str) -> Result<()> {
     let file = File::open(path).unwrap();
     let reader = BufReader::new(file);
 
-    let mut thumbnails =
-        create_thumbnails(reader, mime::IMAGE_PNG, [ThumbnailSize::Small]).unwrap();
+    let mut thumbnails = create_thumbnails(reader, mime::IMAGE_PNG, [ThumbnailSize::Small]).unwrap();
 
     let thumbnail = thumbnails.pop().unwrap();
 

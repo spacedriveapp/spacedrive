@@ -1,25 +1,27 @@
-use once_cell::sync::OnceCell;
 use sdcorelib::{ClientCommand, ClientQuery, Core, CoreResponse};
 use tauri::api::path;
 use tauri::Manager;
 // use tauri_plugin_shadows::Shadows;
-
 mod commands;
 mod menu;
 
-pub static CORE: OnceCell<Core> = OnceCell::new();
-
 #[tauri::command(async)]
-async fn client_query_transport(data: ClientQuery) -> Result<CoreResponse, String> {
-  match CORE.get().unwrap().query(data).await {
+async fn client_query_transport(
+  core: tauri::State<'_, Core>,
+  data: ClientQuery,
+) -> Result<CoreResponse, String> {
+  match core.query(data).await {
     Ok(response) => Ok(response),
     Err(err) => Err(err.to_string()),
   }
 }
 
 #[tauri::command(async)]
-async fn client_command_transport(data: ClientCommand) -> Result<CoreResponse, String> {
-  match CORE.get().unwrap().command(data).await {
+async fn client_command_transport(
+  core: tauri::State<'_, Core>,
+  data: ClientCommand,
+) -> Result<CoreResponse, String> {
+  match core.command(data).await {
     Ok(response) => Ok(response),
     Err(err) => Err(err.to_string()),
   }
@@ -28,15 +30,15 @@ async fn client_command_transport(data: ClientCommand) -> Result<CoreResponse, S
 #[tokio::main]
 async fn main() {
   let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
-
-  let mut core = Core::new(data_dir).await;
+  let (core, mut event_receiver) = Core::new(data_dir).await;
 
   tauri::Builder::default()
+    .manage(core)
     .setup(|app| {
       let app = app.handle();
-
-      tauri::async_runtime::spawn(async move {
-        while let Some(event) = core.event_receiver.recv().await {
+      // core event transport
+      tokio::spawn(async move {
+        while let Some(event) = event_receiver.recv().await {
           app.emit_all("core_event", &event).unwrap();
         }
       });
@@ -47,6 +49,7 @@ async fn main() {
     .invoke_handler(tauri::generate_handler![
       client_query_transport,
       client_command_transport,
+      // deprecate below
       commands::scan_dir,
       commands::create_location,
       commands::get_files,

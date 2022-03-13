@@ -13,9 +13,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
     let client = prisma::new_client_with_url(&format!("file:{}", &db_url)).await;
 
     match client
-        ._query_raw::<serde_json::Value>(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'",
-        )
+        ._query_raw::<serde_json::Value>("SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'")
         .await
     {
         Ok(data) => {
@@ -30,9 +28,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
                 };
 
                 let value: Vec<serde_json::Value> = client
-                    ._query_raw(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'",
-                    )
+                    ._query_raw("SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'")
                     .await
                     .unwrap();
 
@@ -64,9 +60,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
 
             for subdir in migration_subdirs {
                 println!("{:?}", subdir.path());
-                let migration_file = subdir
-                    .get_file(subdir.path().join("./migration.sql"))
-                    .unwrap();
+                let migration_file = subdir.get_file(subdir.path().join("./migration.sql")).unwrap();
                 let migration_sql = migration_file.contents_utf8().unwrap();
 
                 let digest = sha256_digest(BufReader::new(migration_file.contents()))?;
