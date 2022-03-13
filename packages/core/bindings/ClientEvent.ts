@@ -1,2 +1,0 @@
-
-export type ClientEvent = { key: "new_file_type_thumb", payload: { file_id: number, icon_created: boolean, } } | { key: "new_job_created", payload: { job_id: number, progress: number, } } | { key: "resource_change", payload: { key: string, id: string, } } | { key: "database_disconnected", payload: { reason: string | null, } };

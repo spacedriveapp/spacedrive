@@ -71,18 +71,29 @@ impl Core {
 	}
 	pub async fn command(&self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
 		info!("Core command: {:?}", cmd);
-		Ok(CoreResponse::Success)
+		Ok(match cmd {
+			ClientCommand::FileRead { id: _ } => todo!(),
+			ClientCommand::FileDelete { id: _ } => todo!(),
+			ClientCommand::TagCreate { name: _, color: _ } => todo!(),
+			ClientCommand::TagAssign { file_id: _, tag_id: _ } => todo!(),
+			ClientCommand::TagDelete { id: _ } => todo!(),
+			ClientCommand::LocScan { id: _ } => todo!(),
+			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
+			ClientCommand::LocDelete { id: _ } => todo!(),
+			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
+			ClientCommand::LibDelete { id: _ } => todo!(),
+		})
 	}
 	// query sources of data
 	pub async fn query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
 		info!("Core query: {:?}", query);
-		let response = match query {
+		Ok(match query {
 			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get()?),
 			ClientQuery::SysGetLocation { id } => CoreResponse::SysGetLocations(sys::locations::get_location(id).await?),
 			ClientQuery::LibGetExplorerDir { path: _, limit: _ } => todo!(),
 			ClientQuery::ClientGetState => todo!(),
-		};
-		Ok(response)
+			ClientQuery::LibGetTags => todo!(),
+		})
 	}
 	// send an event to the client
 	pub async fn send(&self, event: CoreEvent) {
@@ -95,16 +106,21 @@ impl Core {
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientCommand {
-	LocScanFull { location_id: i64 },
-	FileScanQuick { file_id: i64 },
-	FileScanFull { file_id: i64 },
-	FileDelete { file_id: i64 },
+	// Files
+	FileRead { id: i64 },
+	FileDelete { id: i64 },
+	// Library
+	LibDelete { id: i64 },
+	// Tags
 	TagCreate { name: String, color: String },
 	TagAssign { file_id: i64, tag_id: i64 },
-	TagDelete { tag_id: i64 },
-	LocDelete { location_id: i64 },
-	LibDelete { library_id: i64 },
-	SysVolumeUnmount { volume_id: i64 },
+	TagDelete { id: i64 },
+	// Locations
+	LocScan { id: i64 },
+	LocDelete { id: i64 },
+	LocUpdate { id: i64, name: Option<String> },
+	// System
+	SysVolumeUnmount { id: i64 },
 }
 
 // represents an event this library can emit
@@ -114,6 +130,7 @@ pub enum ClientCommand {
 pub enum ClientQuery {
 	ClientGetState,
 	SysGetVolumes,
+	LibGetTags,
 	SysGetLocation { id: i64 },
 	LibGetExplorerDir { path: String, limit: i64 },
 }
@@ -145,6 +162,7 @@ pub enum CoreError {
 	SysError(#[from] sys::SysError),
 }
 
+// this does nothing yet, but maybe we could use these to invalidate queries tied to resources
 #[derive(Serialize, Deserialize, Debug, TS)]
 #[ts(export)]
 pub enum CoreResource {
