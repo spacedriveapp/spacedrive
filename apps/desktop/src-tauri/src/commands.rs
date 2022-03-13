@@ -17,7 +17,11 @@ pub async fn scan_dir(path: String) -> Result<(), String> {
 
 #[tauri::command(async)]
 pub async fn get_files(path: String) -> Result<Directory, String> {
-  Ok(retrieve::get_dir_with_contents(&path).await?)
+  Ok(
+    retrieve::get_dir_with_contents(&path)
+      .await
+      .map_err(|e| e.to_string())?,
+  )
 }
 
 #[tauri::command]
