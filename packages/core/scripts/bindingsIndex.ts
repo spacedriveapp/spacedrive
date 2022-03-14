@@ -10,6 +10,7 @@ import * as path from 'path';
   for (let binding of bindings) {
     str += `export * from './bindings/${binding.split('.')[0]}';\n`;
   }
+  await fs.rm(path.join(__dirname, '../index.ts'));
 
   await fs.writeFile(path.join(__dirname, '../index.ts'), str);
 })();
