@@ -5,7 +5,6 @@ import clsx from 'clsx';
 import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
 import React from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
-import { useLocations } from '../../store/locations';
 import { TrafficLights } from '../os/TrafficLights';
 import { Button } from '../primitive';
 import { Dropdown } from '../primitive/Dropdown';

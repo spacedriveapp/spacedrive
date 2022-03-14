@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import ReactJson from 'react-json-view';
 import FileItem from '../components/file/FileItem';
-import { useAppState } from '../store/global';
 
 interface StatItemProps {
   name: string;
@@ -23,7 +22,6 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 export const OverviewScreen: React.FC<{}> = (props) => {
   const [selectedFile, setSelectedFile] = useState<null | string>(null);
-  const app = useAppState();
 
   function handleSelect(key: string) {
     // if (selectedFile === key) setSelectedFile(null);

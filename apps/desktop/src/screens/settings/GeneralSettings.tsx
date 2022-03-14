@@ -2,25 +2,21 @@ import { InputContainer } from '../../components/primitive/InputContainer';
 import { Button, Input } from '../../components/primitive';
 import { invoke } from '@tauri-apps/api';
 import React, { useEffect, useState } from 'react';
-import { useExplorerStore } from '../../store/explorer';
-import { useAppState } from '../../store/global';
+
 import Listbox from '../../components/primitive/Listbox';
-import { useLocations } from '../../store/locations';
+
 import ReactJson from 'react-json-view';
 import Slider from '../../components/primitive/Slider';
+import { useBridgeQuery } from '@sd/state';
 
 export default function GeneralSettings() {
-  const locations = useLocations();
+  const { data: volumes } = useBridgeQuery('SysGetVolumes');
+  const [tempWatchDir, setTempWatchDir] = useState('');
 
   const [fakeSliderVal, setFakeSliderVal] = useState([30, 0]);
 
   // const fileUploader = useRef<HTMLInputElement | null>(null);
-  const app = useAppState();
-
-  const [tempWatchDir, setTempWatchDir] = useExplorerStore((state) => [
-    state.tempWatchDir,
-    state.setTempWatchDir
-  ]);
+  const { data: client } = useBridgeQuery('ClientGetState');
 
   return (
     <div className="flex flex-col max-w-2xl space-y-4">
@@ -47,7 +43,7 @@ export default function GeneralSettings() {
             variant="primary"
             onClick={async () => {
               await invoke('scan_dir', {
-                path: tempWatchDir
+                path: client?.data_path
               });
             }}
           >
@@ -62,11 +58,13 @@ export default function GeneralSettings() {
         <div className="flex flex-row space-x-2">
           <div className="flex flex-grow">
             <Listbox
-              options={locations.map((location) => ({
-                key: location.name,
-                option: location.name,
-                description: location.path
-              }))}
+              options={
+                volumes?.map((volume) => ({
+                  key: volume.name,
+                  option: volume.name,
+                  description: volume.mount_point
+                })) ?? []
+              }
             />
           </div>
           <Button className="mb-3" variant="primary">
@@ -92,7 +90,7 @@ export default function GeneralSettings() {
         <div className="flex flex-row">
           <Input
             className="flex-grow"
-            value={app.config.data_dir}
+            value={'uuuuuu'}
             placeholder="/users/jamie/Library/Application Support/spacedrive/cache"
           />
         </div>

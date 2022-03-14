@@ -1,11 +1,11 @@
+import { useBridgeQuery } from '@sd/state';
 import React from 'react';
 import ReactJson from 'react-json-view';
 import FileItem from '../components/file/FileItem';
 import { Tag } from '../components/primitive/Tag';
-import { useAppState } from '../store/global';
 
 export const SpacesScreen: React.FC<{}> = (props) => {
-  const app = useAppState();
+  const { data: client } = useBridgeQuery('ClientGetState');
   return (
     <div className="flex flex-col items-center justify-center w-full h-screen px-2 py-5">
       <div className="mt-2 mb-24 select-text">
@@ -15,7 +15,7 @@ export const SpacesScreen: React.FC<{}> = (props) => {
           enableClipboard={false}
           displayDataTypes={false}
           theme="ocean"
-          src={app.config}
+          src={{ ...client }}
           style={{
             padding: 20,
             borderRadius: 5,
