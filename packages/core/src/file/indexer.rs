@@ -2,6 +2,7 @@ use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time:
 
 use anyhow::{anyhow, Result};
 
+use serde::{Deserialize, Serialize};
 use walkdir::{DirEntry, WalkDir};
 
 use super::watcher::watch_dir;
@@ -31,10 +32,15 @@ pub async fn scan(path: &str) -> Result<()> {
 	let location = create_location(&path).await?;
 
 	// query db to highers id, so we can increment it for the new files indexed
-	let mut next_file_id = match db.file().find_first(vec![]).exec().await {
-		Some(file) => file.id,
-		None => 0,
+	#[derive(Deserialize, Serialize, Debug)]
+	struct QueryRes {
+		id: i64,
+	}
+	let mut next_file_id = match db._query_raw::<QueryRes>(r#"SELECT MAX(id) id FROM files"#).await {
+		Ok(rows) => rows[0].id,
+		Err(e) => Err(anyhow!("Error querying for next file id: {}", e))?,
 	};
+
 	let mut get_id = || {
 		next_file_id += 1; // increment id
 		next_file_id
@@ -129,8 +135,7 @@ fn prepare_model(file_path: &PathBuf, id: i64, location: &LocationResource, pare
 		Some(p) => p
 			.clone()
 			.strip_prefix(&location_path)
-			.unwrap_or_default()
-			.strip_suffix(format!("{}{}", name, extension).as_str())
+			.and_then(|p| p.strip_suffix(format!("{}{}", name, extension).as_str()))
 			.unwrap_or_default(),
 		None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
 	};

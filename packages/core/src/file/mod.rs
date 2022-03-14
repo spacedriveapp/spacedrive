@@ -10,6 +10,7 @@ pub mod thumb;
 pub mod watcher;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct FileResource {
 	pub id: i64,
 	pub is_dir: bool,
