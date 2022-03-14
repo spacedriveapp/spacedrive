@@ -9,16 +9,11 @@ import {
   useNavigate
 } from 'react-router-dom';
 import { Sidebar } from './components/file/Sidebar';
-import { TopBar } from './components/layout/TopBar';
 import { SettingsScreen } from './screens/Settings';
 import { ExplorerScreen } from './screens/Explorer';
-import { invoke } from '@tauri-apps/api';
-import { DebugGlobalStore } from './Debug';
 import { useCoreEvents } from './hooks/useCoreEvents';
-import { AppState, useAppState } from './store/global';
 import { Button } from './components/primitive';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
-import { useLocationStore } from './store/locations';
 import { OverviewScreen } from './screens/Overview';
 import { SpacesScreen } from './screens/Spaces';
 import { Modal } from './components/layout/Modal';
@@ -138,29 +133,21 @@ function NotFound() {
 //   process.exit();
 // });
 
-export default function App() {
+function AppContainer() {
   useCoreEvents();
-
-  useEffect(() => {
-    invoke<AppState>('get_config').then((state) => useAppState.getState().update(state));
-    // invoke<Location[]>('get_mounts').then((locations) =>
-    //   //@ts-expect-error
-    //   useLocationStore.getState().setLocations(locations)
-    // );
-  }, []);
-
   return (
-    <ErrorBoundary
-      FallbackComponent={ErrorFallback}
-      // reset the state of your app so the error doesn't happen again
-      onReset={() => {}}
-    >
-      <DebugGlobalStore />
-      <BrowserRouter>
-        <QueryClientProvider client={queryClient}>
-          <Router />
-        </QueryClientProvider>
-      </BrowserRouter>
+    <BrowserRouter>
+      <Router />
+    </BrowserRouter>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
+      <QueryClientProvider client={queryClient}>
+        <AppContainer />
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

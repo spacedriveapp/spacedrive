@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{BufReader, Write};
 use std::sync::RwLock;
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, TS)]
+#[ts(export)]
 pub struct ClientState {
 	// client id is a uniquely generated UUID
 	pub client_id: String,
@@ -24,7 +26,8 @@ pub struct ClientState {
 
 pub static CLIENT_STATE_CONFIG_NAME: &str = "client_state.json";
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, TS)]
+#[ts(export)]
 pub struct LibraryState {
 	pub library_id: String,
 	pub library_path: String,

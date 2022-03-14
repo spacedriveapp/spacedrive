@@ -72,14 +72,19 @@ impl Core {
 	pub async fn command(&self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
 		info!("Core command: {:?}", cmd);
 		Ok(match cmd {
+			// CRUD for files
 			ClientCommand::FileRead { id: _ } => todo!(),
 			ClientCommand::FileDelete { id: _ } => todo!(),
+			// CRUD for tags
 			ClientCommand::TagCreate { name: _, color: _ } => todo!(),
 			ClientCommand::TagAssign { file_id: _, tag_id: _ } => todo!(),
 			ClientCommand::TagDelete { id: _ } => todo!(),
+			// scan the contents of a location on the local filesystem
 			ClientCommand::LocScan { id: _ } => todo!(),
+			// CRUD for locations
 			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
 			ClientCommand::LocDelete { id: _ } => todo!(),
+			// CRUD for libraries
 			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
 			ClientCommand::LibDelete { id: _ } => todo!(),
 		})
@@ -88,14 +93,19 @@ impl Core {
 	pub async fn query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
 		info!("Core query: {:?}", query);
 		Ok(match query {
+			// get system volumes without saving to library
 			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get()?),
+			// get location from library
 			ClientQuery::SysGetLocation { id } => CoreResponse::SysGetLocations(sys::locations::get_location(id).await?),
+			// return contents of a directory for the explorer
 			ClientQuery::LibGetExplorerDir { path, limit: _ } => CoreResponse::LibGetExplorerDir(file::retrieve::get_dir_with_contents(&path).await?),
-			ClientQuery::ClientGetState => todo!(),
+			// return the client state from memory
+			ClientQuery::ClientGetState => CoreResponse::ClientGetState(self.state.clone()),
 			ClientQuery::LibGetTags => todo!(),
 		})
 	}
 	// send an event to the client
+
 	pub async fn send(&self, event: CoreEvent) {
 		self.event_sender.send(event).await.unwrap();
 	}
@@ -137,7 +147,7 @@ pub enum ClientQuery {
 
 // represents an event this library can emit
 #[derive(Serialize, Deserialize, Debug, TS)]
-#[serde(tag = "key", content = "payload")]
+#[serde(tag = "key", content = "data")]
 #[ts(export)]
 pub enum CoreEvent {
 	// most all events should be once of these two
@@ -155,6 +165,7 @@ pub enum CoreResponse {
 	SysGetVolumes(Vec<sys::volumes::Volume>),
 	SysGetLocations(sys::locations::LocationResource),
 	LibGetExplorerDir(file::retrieve::Directory),
+	ClientGetState(ClientState),
 }
 
 #[derive(Error, Debug)]

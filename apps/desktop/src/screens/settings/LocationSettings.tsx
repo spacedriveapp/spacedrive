@@ -1,17 +1,15 @@
 import React from 'react';
 import { Button } from '../../components/primitive';
-import { useLocations } from '../../store/locations';
-import Listbox from '../../components/primitive/Listbox';
 import { InputContainer } from '../../components/primitive/InputContainer';
 
 const exampleLocations = [
   { option: 'Macintosh HD', key: 'macintosh_hd' },
-  { option: 'Lacie External', key: 'lacie_external' },
+  { option: 'LaCie External', key: 'lacie_external' },
   { option: 'Seagate 8TB', key: 'seagate_8tb' }
 ];
 
 export default function LocationSettings() {
-  const locations = useLocations();
+  // const locations = useBridgeQuery("SysGetLocation")
 
   return (
     <div className="max-w-md">
@@ -22,13 +20,13 @@ export default function LocationSettings() {
       >
         <div className="flex flex-row space-x-2">
           <div className="flex flex-grow">
-            <Listbox
+            {/* <Listbox
               options={locations.map((location) => ({
                 key: location.name,
                 option: location.name,
                 description: location.path
               }))}
-            />
+            /> */}
           </div>
           <Button className="mb-3" variant="primary">
             Add Location
