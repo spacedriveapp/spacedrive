@@ -1,4 +1,5 @@
 use anyhow::Result;
+use crypto::encryption::EncryptionAlgorithm;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use state::client::ClientState;
@@ -12,6 +13,7 @@ pub mod client;
 pub mod crypto;
 pub mod db;
 pub mod file;
+pub mod job;
 pub mod library;
 pub mod p2p;
 pub mod prisma;
@@ -72,36 +74,39 @@ impl Core {
 	pub async fn command(&self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
 		info!("Core command: {:?}", cmd);
 		Ok(match cmd {
+			// CRUD for locations
+			ClientCommand::LocCreate { id } => todo!(),
+			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
+			ClientCommand::LocDelete { id: _ } => todo!(),
 			// CRUD for files
 			ClientCommand::FileRead { id: _ } => todo!(),
+			ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
 			ClientCommand::FileDelete { id: _ } => todo!(),
 			// CRUD for tags
 			ClientCommand::TagCreate { name: _, color: _ } => todo!(),
 			ClientCommand::TagAssign { file_id: _, tag_id: _ } => todo!(),
 			ClientCommand::TagDelete { id: _ } => todo!(),
-			// scan the contents of a location on the local filesystem
-			ClientCommand::LocScan { id: _ } => todo!(),
-			// CRUD for locations
-			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
-			ClientCommand::LocDelete { id: _ } => todo!(),
 			// CRUD for libraries
 			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
 			ClientCommand::LibDelete { id: _ } => todo!(),
+			ClientCommand::TagUpdate { name, color } => todo!(),
 		})
 	}
 	// query sources of data
 	pub async fn query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
 		info!("Core query: {:?}", query);
 		Ok(match query {
-			// get system volumes without saving to library
-			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get()?),
-			// get location from library
-			ClientQuery::SysGetLocation { id } => CoreResponse::SysGetLocations(sys::locations::get_location(id).await?),
-			// return contents of a directory for the explorer
-			ClientQuery::LibGetExplorerDir { path, limit: _ } => CoreResponse::LibGetExplorerDir(file::retrieve::get_dir_with_contents(&path).await?),
 			// return the client state from memory
 			ClientQuery::ClientGetState => CoreResponse::ClientGetState(self.state.clone()),
+			// get system volumes without saving to library
+			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get_volumes()?),
+			// get location from library
+			ClientQuery::SysGetLocation { id } => CoreResponse::SysGetLocation(sys::locations::get_location(id).await?),
+			// return contents of a directory for the explorer
+			ClientQuery::LibGetExplorerDir { path, limit: _ } => CoreResponse::LibGetExplorerDir(file::explorer::open_dir(&path).await?),
 			ClientQuery::LibGetTags => todo!(),
+			ClientQuery::JobGetRunning => todo!(),
+			ClientQuery::JobGetHistory => todo!(),
 		})
 	}
 	// send an event to the client
@@ -118,17 +123,19 @@ impl Core {
 pub enum ClientCommand {
 	// Files
 	FileRead { id: i64 },
+	FileEncrypt { id: i64, algorithm: EncryptionAlgorithm },
 	FileDelete { id: i64 },
 	// Library
 	LibDelete { id: i64 },
 	// Tags
 	TagCreate { name: String, color: String },
+	TagUpdate { name: String, color: String },
 	TagAssign { file_id: i64, tag_id: i64 },
 	TagDelete { id: i64 },
 	// Locations
-	LocScan { id: i64 },
-	LocDelete { id: i64 },
+	LocCreate { id: i64 },
 	LocUpdate { id: i64, name: Option<String> },
+	LocDelete { id: i64 },
 	// System
 	SysVolumeUnmount { id: i64 },
 }
@@ -141,6 +148,8 @@ pub enum ClientQuery {
 	ClientGetState,
 	SysGetVolumes,
 	LibGetTags,
+	JobGetRunning,
+	JobGetHistory,
 	SysGetLocation { id: i64 },
 	LibGetExplorerDir { path: String, limit: i64 },
 }
@@ -161,11 +170,14 @@ pub enum CoreEvent {
 #[serde(tag = "key", content = "data")]
 #[ts(export)]
 pub enum CoreResponse {
-	Success,
+	Success(()),
 	SysGetVolumes(Vec<sys::volumes::Volume>),
-	SysGetLocations(sys::locations::LocationResource),
-	LibGetExplorerDir(file::retrieve::Directory),
+	SysGetLocation(sys::locations::LocationResource),
+	LibGetExplorerDir(file::explorer::Directory),
 	ClientGetState(ClientState),
+	LocCreate(sys::locations::LocationResource),
+	JobGetRunning(Vec<job::JobResource>),
+	JobGetHistory(Vec<job::JobResource>),
 }
 
 #[derive(Error, Debug)]

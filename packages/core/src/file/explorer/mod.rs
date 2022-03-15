@@ -12,7 +12,7 @@ pub struct Directory {
 	pub contents: Vec<FileResource>,
 }
 
-pub async fn get_dir_with_contents(path: &str) -> Result<Directory, FileError> {
+pub async fn open_dir(path: &str) -> Result<Directory, FileError> {
 	let db = db::get().await?;
 
 	println!("getting files... {:?}", &path);

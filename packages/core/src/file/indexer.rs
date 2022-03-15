@@ -10,12 +10,12 @@ use crate::db;
 use crate::sys::locations::{create_location, get_location, LocationResource};
 use crate::util::time;
 
-pub async fn scan_paths(location_id: i64) -> Result<()> {
+pub async fn scan_loc(location_id: i64) -> Result<()> {
 	// get location by location_id from db and include location_paths
 	let location = get_location(location_id).await?;
 
 	if let Some(path) = &location.path {
-		scan(path).await?;
+		scan_path(path).await?;
 		watch_dir(path);
 	}
 
@@ -23,7 +23,7 @@ pub async fn scan_paths(location_id: i64) -> Result<()> {
 }
 
 // creates a vector of valid path buffers from a directory
-pub async fn scan(path: &str) -> Result<()> {
+pub async fn scan_path(path: &str) -> Result<()> {
 	println!("Scanning directory: {}", &path);
 	// let current_library = library::loader::get().await?;
 

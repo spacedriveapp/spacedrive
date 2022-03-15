@@ -10,6 +10,7 @@ import { Button } from '../primitive';
 import { Dropdown } from '../primitive/Dropdown';
 import { DefaultProps } from '../primitive/types';
 import { useBridgeQuery } from '@sd/state';
+
 interface SidebarProps extends DefaultProps {}
 
 export const SidebarLink = (props: NavLinkProps) => (
