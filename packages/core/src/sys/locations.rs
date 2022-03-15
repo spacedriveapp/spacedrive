@@ -104,7 +104,7 @@ pub async fn create_location(path: &str) -> Result<LocationResource, SysError> {
 			let uuid = uuid::Uuid::new_v4();
 			// create new location
 			let create_location_params = {
-				let volumes = match volumes::get() {
+				let volumes = match volumes::get_volumes() {
 					Ok(volumes) => volumes,
 					Err(e) => Err(LocationError::VolumeReadError(e.to_string()))?,
 				};

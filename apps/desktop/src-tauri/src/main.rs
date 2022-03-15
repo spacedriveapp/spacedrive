@@ -2,7 +2,7 @@ use sdcorelib::{ClientCommand, ClientQuery, Core, CoreResponse};
 use tauri::api::path;
 use tauri::Manager;
 // use tauri_plugin_shadows::Shadows;
-mod commands;
+// mod commands;
 mod menu;
 
 #[tauri::command(async)]
@@ -50,13 +50,13 @@ async fn main() {
       client_query_transport,
       client_command_transport,
       // deprecate below
-      commands::scan_dir,
-      commands::create_location,
-      commands::get_files,
-      commands::get_config,
-      commands::get_mounts,
-      commands::test_scan,
-      commands::start_watcher,
+      // commands::scan_dir,
+      // commands::create_location,
+      // commands::get_files,
+      // commands::get_config,
+      // commands::get_mounts,
+      // commands::test_scan,
+      // commands::start_watcher,
     ])
     .menu(menu::get_menu())
     .run(tauri::generate_context!())

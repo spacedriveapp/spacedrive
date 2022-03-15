@@ -4,8 +4,8 @@ use ts_rs::TS;
 
 use crate::{db, prisma::FileData, sys::locations::LocationResource};
 pub mod checksum;
+pub mod explorer;
 pub mod indexer;
-pub mod retrieve;
 pub mod thumb;
 pub mod watcher;
 
