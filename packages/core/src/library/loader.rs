@@ -22,7 +22,7 @@ pub async fn get() -> Result<LibraryData> {
 	// get library from db
 	let library = match db
 		.library()
-		.find_unique(Library::uuid().equals(library_state.library_id.clone()))
+		.find_unique(Library::uuid().equals(library_state.library_uuid.clone()))
 		.exec()
 		.await
 	{
@@ -43,8 +43,8 @@ pub async fn load(library_path: &str, library_id: &str) -> Result<()> {
 
 	println!("Initializing library: {} {}", &library_id, library_path);
 
-	if config.current_library_id != library_id {
-		config.current_library_id = library_id.to_string();
+	if config.current_library_uuid != library_id {
+		config.current_library_uuid = library_id.to_string();
 		config.save();
 	}
 	// create connection with library database & run migrations
@@ -61,7 +61,7 @@ pub async fn create(name: Option<String>) -> Result<()> {
 	println!("Creating library {:?}, UUID: {:?}", name, uuid);
 
 	let library_state = LibraryState {
-		library_id: uuid.clone(),
+		library_uuid: uuid.clone(),
 		library_path: format!("{}/{}", config.data_path, LIBRARY_DB_NAME),
 		..LibraryState::default()
 	};
@@ -70,7 +70,7 @@ pub async fn create(name: Option<String>) -> Result<()> {
 
 	config.libraries.push(library_state);
 
-	config.current_library_id = uuid;
+	config.current_library_uuid = uuid;
 
 	config.save();
 
@@ -79,7 +79,7 @@ pub async fn create(name: Option<String>) -> Result<()> {
 	let _library = db
 		.library()
 		.create_one(
-			Library::uuid().set(config.current_library_id),
+			Library::uuid().set(config.current_library_uuid),
 			Library::name().set(name.unwrap_or(DEFAULT_NAME.into())),
 			vec![],
 		)

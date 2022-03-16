@@ -135,11 +135,11 @@ model TagOnFile {
 }
 
 model Job {
-    id                   Int      @id @default(autoincrement())
-    client_id            Int
-    action               Int
-    status               Int      @default(0)
-    percentage_complete  Int      @default(0)
+    id        Int @id @default(autoincrement())
+    client_id Int
+    action    Int
+    status    Int @default(0)
+
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
     date_created         DateTime @default(now())
@@ -155,8 +155,8 @@ model Space {
     encryption    Int?     @default(0)
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
+    Library       Library? @relation(fields: [libraryId], references: [id])
+    libraryId     Int?
 
-    Library   Library? @relation(fields: [libraryId], references: [id])
-    libraryId Int?
     @@map("spaces")
 }

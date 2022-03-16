@@ -41,6 +41,8 @@ For independant creatives, hoarders and those that want to own their digital foo
 # Features
 > NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change.
 
+<!-- ### Rich context -->
+
 **Complete:** *(in testing)*
 - **[File discovery](#)** - Scan devices, drives and cloud accounts to build a virtual, realtime updating, "yellow pages" directory of all files with metadata.
 - **[Preview generation](#)** - Auto generate lower resolution stand-ins for image and video.

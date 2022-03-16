@@ -24,7 +24,11 @@ pub async fn open_dir(path: &str) -> Result<Directory, FileError> {
 		.await
 		.ok_or(FileError::FileNotFound(path.to_string()))?;
 
-	let files = db.file().find_many(vec![File::parent_id().equals(directory.id)]).exec().await;
+	let files = db
+		.file()
+		.find_many(vec![File::parent_id().equals(directory.id)])
+		.exec()
+		.await;
 
 	Ok(Directory {
 		directory: directory.into(),

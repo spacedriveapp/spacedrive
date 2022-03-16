@@ -29,12 +29,17 @@ pub async fn create() -> Result<()> {
 		_ => Platform::Unknown,
 	};
 
-	let client = match db.client().find_unique(Client::uuid().equals(config.client_id.clone())).exec().await {
+	let client = match db
+		.client()
+		.find_unique(Client::uuid().equals(config.client_uuid.clone()))
+		.exec()
+		.await
+	{
 		Some(client) => client,
 		None => {
 			db.client()
 				.create_one(
-					Client::uuid().set(config.client_id.clone()),
+					Client::uuid().set(config.client_uuid.clone()),
 					Client::name().set(hostname.clone()),
 					vec![Client::platform().set(platform as i64), Client::online().set(true)],
 				)

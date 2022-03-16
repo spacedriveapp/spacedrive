@@ -1,11 +1,12 @@
 use crate::{
-	db::get,
+	db::{self, get},
 	prisma::{Client, Job, JobData},
 	ClientQuery, Core, CoreEvent,
 };
 use anyhow::Result;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -17,6 +18,7 @@ pub struct JobResource {
 	pub status: JobStatus,
 	pub percentage_complete: i64,
 	pub task_count: i64,
+	pub message: String,
 	pub completed_task_count: i64,
 	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
@@ -50,21 +52,36 @@ impl Into<JobResource> for JobData {
 			client_id: self.client_id,
 			action: JobAction::from_int(self.action).unwrap(),
 			status: JobStatus::from_int(self.status).unwrap(),
-			percentage_complete: self.percentage_complete,
 			task_count: self.task_count,
 			completed_task_count: self.completed_task_count,
 			date_created: self.date_created,
 			date_modified: self.date_modified,
+			percentage_complete: 0,
+			message: "".to_string(),
+		}
+	}
+}
+
+pub struct JobRunner {
+	pub running_jobs: Vec<JobResource>,
+	pub queued_jobs: Vec<JobResource>,
+}
+
+impl JobRunner {
+	pub fn new() -> Self {
+		Self {
+			running_jobs: Vec::new(),
+			queued_jobs: Vec::new(),
 		}
 	}
 }
 
 impl JobResource {
-	pub async fn new(core: &Core, action: JobAction, task_count: i64) -> Result<Self> {
+	pub async fn new(client_uuid: String, action: JobAction, task_count: i64) -> Result<Self, JobError> {
 		let db = get().await?;
 		let client = db
 			.client()
-			.find_unique(Client::uuid().equals(core.state.client_id.clone()))
+			.find_unique(Client::uuid().equals(client_uuid))
 			.exec()
 			.await
 			.unwrap();
@@ -79,6 +96,7 @@ impl JobResource {
 			completed_task_count: 0,
 			date_created: chrono::Utc::now(),
 			date_modified: chrono::Utc::now(),
+			message: "".to_string(),
 		};
 
 		db.job().create_one(
@@ -90,33 +108,74 @@ impl JobResource {
 		Ok(job)
 	}
 
-	pub async fn update_task_count(&mut self, core: &Core, completed_task_count: i64) -> Result<Self> {
-		let db = get().await.unwrap();
-		db.job()
+	pub async fn save(&self, core: &Core) -> Result<(), JobError> {
+		let db = get().await?;
+		let job = db
+			.job()
 			.find_unique(Job::id().equals(self.id))
-			.update(vec![Job::completed_task_count().set(completed_task_count)])
+			.update(vec![
+				Job::status().set(self.status.int_value()),
+				Job::completed_task_count().set(self.completed_task_count),
+				Job::date_modified().set(chrono::Utc::now()),
+			])
 			.exec()
 			.await;
-
-		self.completed_task_count = completed_task_count;
 
 		core.send(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning)).await;
 
-		Ok(self.clone())
+		Ok(())
 	}
+	pub fn set_progress(&mut self, completed_task_count: Option<i64>, message: Option<String>) -> &Self {
+		if let Some(count) = completed_task_count {
+			self.completed_task_count = count;
+			self.percentage_complete = (count as f64 / self.task_count as f64 * 100.0) as i64;
+		}
+		if let Some(msg) = message {
+			self.message = msg;
+		}
 
-	pub async fn update_status(&mut self, core: &Core, status: JobStatus) -> Result<Self> {
-		let db = get().await.unwrap();
-		db.job()
-			.find_unique(Job::id().equals(self.id))
-			.update(vec![Job::status().set(status.int_value())])
-			.exec()
-			.await;
-
+		self
+	}
+	pub fn set_status(&mut self, status: JobStatus, task_count: Option<i64>) -> &Self {
 		self.status = status;
-
-		core.send(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning)).await;
-
-		Ok(self.clone())
+		if let Some(count) = task_count {
+			self.task_count = count;
+		}
+		self.set_progress(None, Some("Starting job...".to_string()));
+		self
 	}
+
+	pub async fn get_running() -> Result<Vec<JobResource>, JobError> {
+		let db = get().await?;
+		let jobs = db
+			.job()
+			.find_many(vec![Job::status().equals(JobStatus::Running.int_value())])
+			.exec()
+			.await;
+
+		Ok(jobs.into_iter().map(|j| j.into()).collect())
+	}
+
+	pub async fn get_history() -> Result<Vec<JobResource>, JobError> {
+		let db = get().await?;
+		let jobs = db
+			.job()
+			.find_many(vec![
+				Job::status().equals(JobStatus::Completed.int_value()),
+				Job::status().equals(JobStatus::Canceled.int_value()),
+				Job::status().equals(JobStatus::Queued.int_value()),
+			])
+			.exec()
+			.await;
+
+		Ok(jobs.into_iter().map(|j| j.into()).collect())
+	}
+}
+
+#[derive(Error, Debug)]
+pub enum JobError {
+	#[error("Failed to create job (job_id {job_id:?})")]
+	CreateFailure { job_id: String },
+	#[error("Database error")]
+	DatabaseError(#[from] db::DatabaseError),
 }

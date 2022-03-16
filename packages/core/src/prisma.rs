@@ -13,9 +13,12 @@ pub struct PrismaClient {
 	query_schema: Arc<QuerySchema>,
 }
 pub async fn new_client() -> PrismaClient {
-	let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\n// generator js {\n//     provider = \"prisma-client-js\"\n//     output   = \"../types\"\n// }\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@unique([location_id, stem, name, extension])\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    percentage_complete  Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
+	let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\n// generator js {\n//     provider = \"prisma-client-js\"\n//     output   = \"../types\"\n// }\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@unique([location_id, stem, name, extension])\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
 	let config = parse_configuration(datamodel_str).unwrap().subject;
-	let source = config.datasources.first().expect("Pleasy supply a datasource in your schema.prisma file");
+	let source = config
+		.datasources
+		.first()
+		.expect("Pleasy supply a datasource in your schema.prisma file");
 	let url = if let Some(url) = source.load_shadow_database_url().unwrap() {
 		url
 	} else {
@@ -36,9 +39,12 @@ pub async fn new_client() -> PrismaClient {
 	new_client_with_url(&url).await
 }
 pub async fn new_client_with_url(url: &str) -> PrismaClient {
-	let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\n// generator js {\n//     provider = \"prisma-client-js\"\n//     output   = \"../types\"\n// }\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@unique([location_id, stem, name, extension])\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    percentage_complete  Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
+	let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\n// generator js {\n//     provider = \"prisma-client-js\"\n//     output   = \"../types\"\n// }\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@unique([location_id, stem, name, extension])\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
 	let config = parse_configuration(datamodel_str).unwrap().subject;
-	let source = config.datasources.first().expect("Pleasy supply a datasource in your schema.prisma file");
+	let source = config
+		.datasources
+		.first()
+		.expect("Pleasy supply a datasource in your schema.prisma file");
 	let (db_name, executor) = executor::load(&source, &[], &url).await.unwrap();
 	let internal_model = InternalDataModelBuilder::new(&datamodel_str).build(db_name);
 	let query_schema = Arc::new(schema_builder::build(
@@ -852,7 +858,12 @@ impl<'a> MigrationActions<'a> {
 		};
 		MigrationFindMany { query }
 	}
-	pub fn create_one(&self, name: MigrationSetName, checksum: MigrationSetChecksum, params: Vec<MigrationSetParam>) -> MigrationCreateOne {
+	pub fn create_one(
+		&self,
+		name: MigrationSetName,
+		checksum: MigrationSetChecksum,
+		params: Vec<MigrationSetParam>,
+	) -> MigrationCreateOne {
 		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
 		input_fields.push(MigrationSetParam::from(name).field());
 		input_fields.push(MigrationSetParam::from(checksum).field());
@@ -1630,7 +1641,9 @@ impl LibrarySetParam {
 				name: "spaces".into(),
 				fields: Some(vec![Field {
 					name: "connect".into(),
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					list: true,
 					wrap_list: true,
 					..Default::default()
@@ -1643,7 +1656,9 @@ impl LibrarySetParam {
 					name: "disconnect".into(),
 					list: true,
 					wrap_list: true,
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					..Default::default()
 				}]),
 				..Default::default()
@@ -1880,7 +1895,12 @@ impl<'a> LibraryActions<'a> {
 		};
 		LibraryFindMany { query }
 	}
-	pub fn create_one(&self, uuid: LibrarySetUuid, name: LibrarySetName, params: Vec<LibrarySetParam>) -> LibraryCreateOne {
+	pub fn create_one(
+		&self,
+		uuid: LibrarySetUuid,
+		name: LibrarySetName,
+		params: Vec<LibrarySetParam>,
+	) -> LibraryCreateOne {
 		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
 		input_fields.push(LibrarySetParam::from(uuid).field());
 		input_fields.push(LibrarySetParam::from(name).field());
@@ -2787,7 +2807,11 @@ impl<'a> LibraryStatisticsActions<'a> {
 		};
 		LibraryStatisticsFindMany { query }
 	}
-	pub fn create_one(&self, library_id: LibraryStatisticsSetLibraryId, params: Vec<LibraryStatisticsSetParam>) -> LibraryStatisticsCreateOne {
+	pub fn create_one(
+		&self,
+		library_id: LibraryStatisticsSetLibraryId,
+		params: Vec<LibraryStatisticsSetParam>,
+	) -> LibraryStatisticsCreateOne {
 		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
 		input_fields.push(LibraryStatisticsSetParam::from(library_id).field());
 		let query = Query {
@@ -3653,7 +3677,9 @@ impl ClientSetParam {
 				name: "jobs".into(),
 				fields: Some(vec![Field {
 					name: "connect".into(),
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					list: true,
 					wrap_list: true,
 					..Default::default()
@@ -3666,7 +3692,9 @@ impl ClientSetParam {
 					name: "disconnect".into(),
 					list: true,
 					wrap_list: true,
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					..Default::default()
 				}]),
 				..Default::default()
@@ -4729,7 +4757,9 @@ impl LocationSetParam {
 				name: "files".into(),
 				fields: Some(vec![Field {
 					name: "connect".into(),
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					list: true,
 					wrap_list: true,
 					..Default::default()
@@ -4742,7 +4772,9 @@ impl LocationSetParam {
 					name: "disconnect".into(),
 					list: true,
 					wrap_list: true,
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					..Default::default()
 				}]),
 				..Default::default()
@@ -6541,7 +6573,9 @@ impl FileSetParam {
 				name: "children".into(),
 				fields: Some(vec![Field {
 					name: "connect".into(),
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					list: true,
 					wrap_list: true,
 					..Default::default()
@@ -6554,7 +6588,9 @@ impl FileSetParam {
 					name: "disconnect".into(),
 					list: true,
 					wrap_list: true,
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					..Default::default()
 				}]),
 				..Default::default()
@@ -6563,7 +6599,9 @@ impl FileSetParam {
 				name: "file_tags".into(),
 				fields: Some(vec![Field {
 					name: "connect".into(),
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					list: true,
 					wrap_list: true,
 					..Default::default()
@@ -6576,7 +6614,9 @@ impl FileSetParam {
 					name: "disconnect".into(),
 					list: true,
 					wrap_list: true,
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					..Default::default()
 				}]),
 				..Default::default()
@@ -6813,7 +6853,13 @@ impl<'a> FileActions<'a> {
 		};
 		FileFindMany { query }
 	}
-	pub fn create_one(&self, stem: FileSetStem, name: FileSetName, size_in_bytes: FileSetSizeInBytes, params: Vec<FileSetParam>) -> FileCreateOne {
+	pub fn create_one(
+		&self,
+		stem: FileSetStem,
+		name: FileSetName,
+		size_in_bytes: FileSetSizeInBytes,
+		params: Vec<FileSetParam>,
+	) -> FileCreateOne {
 		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
 		input_fields.push(FileSetParam::from(stem).field());
 		input_fields.push(FileSetParam::from(name).field());
@@ -7594,7 +7640,9 @@ impl TagSetParam {
 				name: "tag_files".into(),
 				fields: Some(vec![Field {
 					name: "connect".into(),
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					list: true,
 					wrap_list: true,
 					..Default::default()
@@ -7607,7 +7655,9 @@ impl TagSetParam {
 					name: "disconnect".into(),
 					list: true,
 					wrap_list: true,
-					fields: Some(transform_equals(where_params.into_iter().map(|item| item.field()).collect())),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
 					..Default::default()
 				}]),
 				..Default::default()
@@ -7863,7 +7913,11 @@ impl<'a> TagActions<'a> {
 	}
 }
 fn tag_on_file_outputs() -> Vec<Output> {
-	vec![Output::new("date_created"), Output::new("tag_id"), Output::new("file_id")]
+	vec![
+		Output::new("date_created"),
+		Output::new("tag_id"),
+		Output::new("file_id"),
+	]
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TagOnFileData {
@@ -8541,7 +8595,12 @@ impl<'a> TagOnFileActions<'a> {
 		};
 		TagOnFileFindMany { query }
 	}
-	pub fn create_one(&self, tag: TagOnFileLinkTag, file: TagOnFileLinkFile, params: Vec<TagOnFileSetParam>) -> TagOnFileCreateOne {
+	pub fn create_one(
+		&self,
+		tag: TagOnFileLinkTag,
+		file: TagOnFileLinkFile,
+		params: Vec<TagOnFileSetParam>,
+	) -> TagOnFileCreateOne {
 		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
 		input_fields.push(TagOnFileSetParam::from(tag).field());
 		input_fields.push(TagOnFileSetParam::from(file).field());
@@ -8567,7 +8626,6 @@ fn job_outputs() -> Vec<Output> {
 		Output::new("client_id"),
 		Output::new("action"),
 		Output::new("status"),
-		Output::new("percentage_complete"),
 		Output::new("task_count"),
 		Output::new("completed_task_count"),
 		Output::new("date_created"),
@@ -8584,8 +8642,6 @@ pub struct JobData {
 	pub action: i64,
 	#[serde(rename = "status")]
 	pub status: i64,
-	#[serde(rename = "percentage_complete")]
-	pub percentage_complete: i64,
 	#[serde(rename = "task_count")]
 	pub task_count: i64,
 	#[serde(rename = "completed_task_count")]
@@ -8618,9 +8674,6 @@ impl Job {
 	}
 	pub fn status() -> JobStatusField {
 		JobStatusField {}
-	}
-	pub fn percentage_complete() -> JobPercentageCompleteField {
-		JobPercentageCompleteField {}
 	}
 	pub fn task_count() -> JobTaskCountField {
 		JobTaskCountField {}
@@ -8744,33 +8797,6 @@ impl JobStatusField {
 	}
 	pub fn set<T: From<JobSetStatus>>(&self, value: i64) -> T {
 		JobSetStatus(value).into()
-	}
-}
-pub struct JobPercentageCompleteField {}
-pub struct JobSetPercentageComplete(i64);
-impl From<JobSetPercentageComplete> for JobSetParam {
-	fn from(value: JobSetPercentageComplete) -> Self {
-		Self::PercentageComplete(value.0)
-	}
-}
-impl JobPercentageCompleteField {
-	pub fn lt(&self, value: i64) -> JobWhereParam {
-		JobWhereParam::PercentageCompleteLT(value)
-	}
-	pub fn gt(&self, value: i64) -> JobWhereParam {
-		JobWhereParam::PercentageCompleteGT(value)
-	}
-	pub fn lte(&self, value: i64) -> JobWhereParam {
-		JobWhereParam::PercentageCompleteLTE(value)
-	}
-	pub fn gte(&self, value: i64) -> JobWhereParam {
-		JobWhereParam::PercentageCompleteGTE(value)
-	}
-	pub fn equals(&self, value: i64) -> JobWhereParam {
-		JobWhereParam::PercentageCompleteEquals(value)
-	}
-	pub fn set<T: From<JobSetPercentageComplete>>(&self, value: i64) -> T {
-		JobSetPercentageComplete(value).into()
 	}
 }
 pub struct JobTaskCountField {}
@@ -8920,11 +8946,6 @@ pub enum JobWhereParam {
 	StatusLTE(i64),
 	StatusGTE(i64),
 	StatusEquals(i64),
-	PercentageCompleteLT(i64),
-	PercentageCompleteGT(i64),
-	PercentageCompleteLTE(i64),
-	PercentageCompleteGTE(i64),
-	PercentageCompleteEquals(i64),
 	TaskCountLT(i64),
 	TaskCountGT(i64),
 	TaskCountLTE(i64),
@@ -9126,51 +9147,6 @@ impl JobWhereParam {
 			},
 			Self::StatusEquals(value) => Field {
 				name: "status".into(),
-				fields: Some(vec![Field {
-					name: "equals".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PercentageCompleteLT(value) => Field {
-				name: "percentage_complete".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PercentageCompleteGT(value) => Field {
-				name: "percentage_complete".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PercentageCompleteLTE(value) => Field {
-				name: "percentage_complete".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PercentageCompleteGTE(value) => Field {
-				name: "percentage_complete".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PercentageCompleteEquals(value) => Field {
-				name: "percentage_complete".into(),
 				fields: Some(vec![Field {
 					name: "equals".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -9427,7 +9403,6 @@ pub enum JobSetParam {
 	ClientId(i64),
 	Action(i64),
 	Status(i64),
-	PercentageComplete(i64),
 	TaskCount(i64),
 	CompletedTaskCount(i64),
 	DateCreated(chrono::DateTime<chrono::Utc>),
@@ -9454,11 +9429,6 @@ impl JobSetParam {
 			},
 			Self::Status(value) => Field {
 				name: "status".into(),
-				value: Some(serde_json::to_value(value).unwrap()),
-				..Default::default()
-			},
-			Self::PercentageComplete(value) => Field {
-				name: "percentage_complete".into(),
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},

@@ -6,28 +6,28 @@ use serde::{Deserialize, Serialize};
 use walkdir::{DirEntry, WalkDir};
 
 use super::watcher::watch_dir;
-use crate::db;
+use crate::job::{JobAction, JobResource};
 use crate::sys::locations::{create_location, get_location, LocationResource};
 use crate::util::time;
+use crate::{db, Core};
 
-pub async fn scan_loc(location_id: i64) -> Result<()> {
+pub async fn scan_loc(core: &mut Core, location_id: i64) -> Result<()> {
 	// get location by location_id from db and include location_paths
 	let location = get_location(location_id).await?;
 
 	if let Some(path) = &location.path {
-		scan_path(path).await?;
+		scan_path(core, path).await?;
 		watch_dir(path);
 	}
-
 	Ok(())
 }
 
 // creates a vector of valid path buffers from a directory
-pub async fn scan_path(path: &str) -> Result<()> {
+pub async fn scan_path(core: &mut Core, path: &str) -> Result<()> {
 	println!("Scanning directory: {}", &path);
-	// let current_library = library::loader::get().await?;
-
 	let db = db::get().await.unwrap();
+
+	let job = core.queue(JobResource::new(core.state.client_uuid.clone(), JobAction::ScanLoc, 1).await?);
 
 	let location = create_location(&path).await?;
 
@@ -36,13 +36,14 @@ pub async fn scan_path(path: &str) -> Result<()> {
 	struct QueryRes {
 		id: i64,
 	}
+	// grab the next id so we can increment in memory for batch inserting
 	let mut next_file_id = match db._query_raw::<QueryRes>(r#"SELECT MAX(id) id FROM files"#).await {
 		Ok(rows) => rows[0].id,
 		Err(e) => Err(anyhow!("Error querying for next file id: {}", e))?,
 	};
 
 	let mut get_id = || {
-		next_file_id += 1; // increment id
+		next_file_id += 1;
 		next_file_id
 	};
 
@@ -91,7 +92,11 @@ pub async fn scan_path(path: &str) -> Result<()> {
 	let scan_read_time = scan_start.elapsed();
 
 	for (i, chunk) in paths.chunks(100).enumerate() {
-		println!("Writing {} files to db at chunk {}", chunk.len(), i);
+		job.set_progress(
+			Some(12),
+			Some(format!("Writing {} files to db at chunk {}", chunk.len(), i)),
+		);
+
 		// vector to store active models
 		let mut files: Vec<String> = Vec::new();
 		for (file_path, file_id, parent_dir_id) in chunk {
@@ -184,7 +189,11 @@ fn is_library(entry: &DirEntry) -> bool {
 }
 
 fn is_node_modules(entry: &DirEntry) -> bool {
-	entry.file_name().to_str().map(|s| s.contains("node_modules")).unwrap_or(false)
+	entry
+		.file_name()
+		.to_str()
+		.map(|s| s.contains("node_modules"))
+		.unwrap_or(false)
 }
 
 fn is_app_bundle(entry: &DirEntry) -> bool {
