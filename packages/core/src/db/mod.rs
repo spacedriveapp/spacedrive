@@ -22,7 +22,7 @@ pub async fn get() -> Result<&'static PrismaClient, DatabaseError> {
 		let current_library = config
 			.libraries
 			.iter()
-			.find(|l| l.library_id == config.current_library_id)
+			.find(|l| l.library_uuid == config.current_library_uuid)
 			.ok_or(DatabaseError::MalformedConfig)?;
 
 		let path = current_library.library_path.clone();

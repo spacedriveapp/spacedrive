@@ -97,7 +97,12 @@ pub async fn create_location(path: &str) -> Result<LocationResource, SysError> {
 		Err(e) => Err(LocationError::FileReadError(e))?,
 	}
 	// check if location already exists
-	let location = match db.location().find_first(vec![Location::path().equals(path.to_string())]).exec().await {
+	let location = match db
+		.location()
+		.find_first(vec![Location::path().equals(path.to_string())])
+		.exec()
+		.await
+	{
 		Some(location) => location,
 		None => {
 			info!("Location does not exist, creating new location for '{}'", &path);
@@ -141,7 +146,7 @@ pub async fn create_location(path: &str) -> Result<LocationResource, SysError> {
 
 			let data = DotSpacedrive {
 				location_uuid: uuid.to_string(),
-				library_uuid: config.current_library_id,
+				library_uuid: config.current_library_uuid,
 			};
 
 			let json = match serde_json::to_string(&data) {

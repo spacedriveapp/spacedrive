@@ -1,37 +1,79 @@
-import { ClientQuery, CoreResponse } from '@sd/core';
+import { ClientCommand, ClientQuery, CoreResponse } from '@sd/core';
 import { EventEmitter } from 'eventemitter3';
-import { useQuery, UseQueryOptions, UseQueryResult } from 'react-query';
+import {
+  useMutation,
+  useQuery,
+  UseQueryOptions,
+  UseQueryResult,
+  UseMutationOptions
+} from 'react-query';
 
+// global var to store the transport
 export let transport: BaseTransport | null = null;
 
+// applications utilizing this package should extend this class to instantiate a transport
 export abstract class BaseTransport extends EventEmitter {
-  abstract send(query: ClientQuery): Promise<unknown>;
-}
-
-type KeyType = ClientQuery['key'];
-type CQType<K> = Extract<ClientQuery, { key: K }>;
-type CRType<K> = Extract<CoreResponse, { key: K }>;
-
-type CQParams<CQ> = CQ extends { params: any } ? CQ['params'] : never;
-type CRData<CR> = CR extends { data: any } ? CR['data'] : never;
-
-export async function bridge<K extends KeyType, CQ extends CQType<K>, CR extends CRType<K>>(
-  key: K,
-  params?: CQParams<CQ>
-): Promise<CRData<CR>> {
-  const result = (await transport?.send({ key, params } as any)) as any;
-  // console.log(`Client Query Transport: [${result?.key}]`, result?.data);
-  return result?.data;
+  abstract query(query: ClientQuery): Promise<unknown>;
+  abstract command(command: ClientCommand): Promise<unknown>;
 }
 
 export function setTransport(_transport: BaseTransport) {
   transport = _transport;
 }
 
-export function useBridgeQuery<K extends KeyType, CQ extends CQType<K>, CR extends CRType<K>>(
+// extract keys from generated Rust query/command types
+type QueryKeyType = ClientQuery['key'];
+type CommandKeyType = ClientCommand['key'];
+
+// extract the type from the union
+type CQType<K> = Extract<ClientQuery, { key: K }>;
+type CCType<K> = Extract<ClientCommand, { key: K }>;
+type CRType<K> = Extract<CoreResponse, { key: K }>;
+
+// extract payload type
+type ExtractParams<P> = P extends { params: any } ? P['params'] : never;
+type ExtractData<D> = D extends { data: any } ? D['data'] : never;
+
+// vanilla method to call the transport
+export async function queryBridge<
+  K extends QueryKeyType,
+  CQ extends CQType<K>,
+  CR extends CRType<K>
+>(key: K, params?: ExtractParams<CQ>): Promise<ExtractData<CR>> {
+  const result = (await transport?.query({ key, params } as any)) as any;
+  return result?.data;
+}
+
+export async function commandBridge<
+  K extends CommandKeyType,
+  CC extends CCType<K>,
+  CR extends CRType<K>
+>(key: K, params?: ExtractParams<CC>): Promise<ExtractData<CR>> {
+  const result = (await transport?.command({ key, params } as any)) as any;
+  return result?.data;
+}
+
+// react-query method to call the transport
+export function useBridgeQuery<K extends QueryKeyType, CQ extends CQType<K>, CR extends CRType<K>>(
   key: K,
-  params?: CQParams<CQ>,
-  options: UseQueryOptions<CRData<CR>> = {}
+  params?: ExtractParams<CQ>,
+  options: UseQueryOptions<ExtractData<CR>> = {}
 ) {
-  return useQuery<CRData<CR>>([key, params], async () => await bridge(key, params), options);
+  return useQuery<ExtractData<CR>>(
+    [key, params],
+    async () => await queryBridge(key, params),
+    options
+  );
+}
+
+export function useBridgeCommand<
+  K extends CommandKeyType,
+  CC extends CCType<K>,
+  CR extends CRType<K>
+>(key: K, params?: ExtractParams<CC>, options: UseMutationOptions<ExtractData<CC>> = {}) {
+  return useMutation<ExtractData<CR>>(
+    [key, params],
+    async () => await commandBridge(key, params),
+    options
+  );
 }

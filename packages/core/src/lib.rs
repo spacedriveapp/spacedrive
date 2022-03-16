@@ -1,5 +1,6 @@
 use anyhow::Result;
 use crypto::encryption::EncryptionAlgorithm;
+use job::JobResource;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use state::client::ClientState;
@@ -25,6 +26,7 @@ pub mod util;
 pub struct Core {
 	pub event_sender: mpsc::Sender<CoreEvent>,
 	pub state: ClientState,
+	pub job_runner: job::JobRunner,
 }
 
 impl Core {
@@ -39,12 +41,20 @@ impl Core {
 		// prepare basic client state
 		let mut state = ClientState::new(data_dir, "diamond-mastering-space-dragon").unwrap();
 		// load from disk
-		state.read_disk().unwrap_or(error!("No client state found, creating new one..."));
+		state
+			.read_disk()
+			.unwrap_or(error!("No client state found, creating new one..."));
 
 		state.save();
 
-		let core = Core { event_sender, state };
+		let core = Core {
+			event_sender,
+			state,
+			job_runner: job::JobRunner::new(),
+		};
+
 		core.initializer().await;
+
 		(core, event_receiver)
 		// activate p2p listeners
 		// p2p::listener::listen(None);
@@ -59,7 +69,7 @@ impl Core {
 		} else {
 			for library in self.state.libraries.iter() {
 				// init database for library
-				match library::loader::load(&library.library_path, &library.library_id).await {
+				match library::loader::load(&library.library_path, &library.library_uuid).await {
 					Ok(library) => info!("Loaded library: {:?}", library),
 					Err(e) => info!("Error loading library: {:?}", e),
 				}
@@ -70,6 +80,10 @@ impl Core {
 			Ok(_) => info!("Spacedrive online"),
 			Err(e) => info!("Error initializing client: {:?}", e),
 		};
+	}
+	pub fn queue(&mut self, job: JobResource) -> &mut JobResource {
+		self.job_runner.queued_jobs.push(job);
+		self.job_runner.queued_jobs.last_mut().unwrap()
 	}
 	pub async fn command(&self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
 		info!("Core command: {:?}", cmd);
@@ -103,10 +117,12 @@ impl Core {
 			// get location from library
 			ClientQuery::SysGetLocation { id } => CoreResponse::SysGetLocation(sys::locations::get_location(id).await?),
 			// return contents of a directory for the explorer
-			ClientQuery::LibGetExplorerDir { path, limit: _ } => CoreResponse::LibGetExplorerDir(file::explorer::open_dir(&path).await?),
+			ClientQuery::LibGetExplorerDir { path, limit: _ } => {
+				CoreResponse::LibGetExplorerDir(file::explorer::open_dir(&path).await?)
+			},
 			ClientQuery::LibGetTags => todo!(),
-			ClientQuery::JobGetRunning => todo!(),
-			ClientQuery::JobGetHistory => todo!(),
+			ClientQuery::JobGetRunning => CoreResponse::JobGetRunning(job::JobResource::get_running().await?),
+			ClientQuery::JobGetHistory => CoreResponse::JobGetHistory(job::JobResource::get_history().await?),
 		})
 	}
 	// send an event to the client
@@ -186,6 +202,8 @@ pub enum CoreError {
 	SysError(#[from] sys::SysError),
 	#[error("File error")]
 	FileError(#[from] file::FileError),
+	#[error("Job error")]
+	JobError(#[from] job::JobError),
 	#[error("Database error")]
 	DatabaseError(#[from] db::DatabaseError),
 }

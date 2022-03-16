@@ -11,7 +11,7 @@ use uuid::Uuid;
 #[ts(export)]
 pub struct ClientState {
 	// client id is a uniquely generated UUID
-	pub client_id: String,
+	pub client_uuid: String,
 	// client_name is the name of the device running the client
 	pub client_name: String,
 	// config path is stored as struct can exist only in memory during startup and be written to disk later without supplying path
@@ -21,7 +21,7 @@ pub struct ClientState {
 	// all the libraries loaded by this client
 	pub libraries: Vec<LibraryState>,
 	// used to quickly find the default library
-	pub current_library_id: String,
+	pub current_library_uuid: String,
 }
 
 pub static CLIENT_STATE_CONFIG_NAME: &str = "client_state.json";
@@ -29,7 +29,7 @@ pub static CLIENT_STATE_CONFIG_NAME: &str = "client_state.json";
 #[derive(Debug, Serialize, Deserialize, Clone, Default, TS)]
 #[ts(export)]
 pub struct LibraryState {
-	pub library_id: String,
+	pub library_uuid: String,
 	pub library_path: String,
 	pub offline: bool,
 }
@@ -51,7 +51,7 @@ impl ClientState {
 		let uuid = Uuid::new_v4().to_string();
 		// create struct and assign defaults
 		let config = Self {
-			client_id: uuid,
+			client_uuid: uuid,
 			data_path: data_path.to_string(),
 			client_name: client_name.to_string(),
 			..Default::default()
@@ -89,7 +89,11 @@ impl ClientState {
 	}
 
 	pub fn get_current_library(&self) -> LibraryState {
-		match self.libraries.iter().find(|lib| lib.library_id == self.current_library_id) {
+		match self
+			.libraries
+			.iter()
+			.find(|lib| lib.library_uuid == self.current_library_uuid)
+		{
 			Some(lib) => lib.clone(),
 			None => LibraryState::default(),
 		}
