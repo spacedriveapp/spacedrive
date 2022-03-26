@@ -44,3 +44,4 @@ thiserror = "1.0.30"
 
 tokio = { version = "1.17.0", features = ["sync", "rt"] }
 include_dir = {version = "0.7.2", features = ["glob"]}
+async-trait = "0.1.52"

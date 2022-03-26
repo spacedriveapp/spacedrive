@@ -13,7 +13,7 @@ pub struct PrismaClient {
 	query_schema: Arc<QuerySchema>,
 }
 pub async fn new_client() -> PrismaClient {
-	let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\n// generator js {\n//     provider = \"prisma-client-js\"\n//     output   = \"../types\"\n// }\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@unique([location_id, stem, name, extension])\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
+	let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    local_path         String?\n    total_capacity     Int?\n    available_capacity Int?\n    filesystem         String?\n    disk_type          Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n\n    file_paths FilePath[]\n    @@map(\"locations\")\n}\n\nmodel File {\n    id            Int      @id @default(autoincrement())\n    id_hash       String   @unique\n    name          String\n    extension     String?\n    checksum      String?\n    size_in_bytes String\n    encryption    Int      @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n    date_indexed  DateTime @default(now())\n    ipfs_id       String?\n\n    file_tags   TagOnFile[]\n    file_labels LabelOnFile[]\n    file_paths  FilePath[]\n    comments    Comment[]\n    @@map(\"files\")\n}\n\nmodel FilePath {\n    id                Int        @id @default(autoincrement())\n    is_dir            Boolean    @default(false)\n    materialized_path String\n    file_id           Int?\n    file              File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)\n    parent_id         Int?\n    parent            FilePath?  @relation(\"directory_file_paths\", fields: [parent_id], references: [id])\n    children          FilePath[] @relation(\"directory_file_paths\")\n    location_id       Int\n    location          Location?  @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n    date_indexed      DateTime   @default(now())\n    permissions       String?\n\n    @@unique([location_id, materialized_path, file_id])\n    @@map(\"file_paths\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Label {\n    id            Int      @id @default(autoincrement())\n    name          String?\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    label_files LabelOnFile[]\n    @@map(\"labels\")\n}\n\nmodel LabelOnFile {\n    date_created DateTime @default(now())\n\n    label_id Int\n    label    Label @relation(fields: [label_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([label_id, file_id])\n    @@map(\"label_on_files\")\n}\n\nmodel Job {\n    id        Int @id @default(autoincrement())\n    client_id Int\n    action    Int\n    status    Int @default(0)\n\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0) // remove\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n    Library       Library? @relation(fields: [libraryId], references: [id])\n    libraryId     Int?\n\n    @@map(\"spaces\")\n}\n\nmodel Album {\n    id        Int     @id @default(autoincrement())\n    name      String\n    is_hidden Boolean @default(false)\n\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    @@map(\"albums\")\n}\n\nmodel Comment {\n    id            Int      @id @default(autoincrement())\n    content       String\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n    file_id       Int?\n    file          File?    @relation(fields: [file_id], references: [id])\n\n    @@map(\"comments\")\n}\n" ;
 	let config = parse_configuration(datamodel_str).unwrap().subject;
 	let source = config
 		.datasources
@@ -39,7 +39,7 @@ pub async fn new_client() -> PrismaClient {
 	new_client_with_url(&url).await
 }
 pub async fn new_client_with_url(url: &str) -> PrismaClient {
-	let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\n// generator js {\n//     provider = \"prisma-client-js\"\n//     output   = \"../types\"\n// }\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    path               String?\n    total_capacity     Int?\n    available_capacity Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n    files              File[]\n\n    @@map(\"locations\")\n}\n\nmodel File {\n    id             Int      @id @default(autoincrement())\n    is_dir         Boolean  @default(false)\n    location_id    Int\n    stem           String\n    name           String\n    extension      String?\n    quick_checksum String? // 100 * 100 byte samples\n    full_checksum  String? // full byte to byte hash\n    size_in_bytes  String\n    encryption     Int      @default(0)\n    date_created   DateTime @default(now())\n    date_modified  DateTime @default(now())\n    date_indexed   DateTime @default(now())\n    ipfs_id        String?\n\n    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    parent    File?  @relation(\"directory_files\", fields: [parent_id], references: [id])\n    parent_id Int?\n    children  File[] @relation(\"directory_files\")\n\n    file_tags TagOnFile[]\n    @@unique([location_id, stem, name, extension])\n    @@map(\"files\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Job {\n    id                   Int      @id @default(autoincrement())\n    client_id            Int\n    action               Int\n    status               Int      @default(0)\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    Library   Library? @relation(fields: [libraryId], references: [id])\n    libraryId Int?\n    @@map(\"spaces\")\n}\n" ;
+	let datamodel_str = "datasource db {\n    provider = \"sqlite\"\n    url      = \"file:dev.db\"\n}\n\ngenerator client {\n    provider = \"prisma-client-rust\"\n    output   = \"../src/prisma.rs\"\n}\n\nmodel Migration {\n    id            Int      @id @default(autoincrement())\n    name          String\n    checksum      String   @unique\n    steps_applied Int      @default(0)\n    applied_at    DateTime @default(now())\n\n    @@map(\"_migrations\")\n}\n\nmodel Library {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    remote_id    String?\n    is_primary   Boolean  @default(true)\n    encryption   Int      @default(0)\n    date_created DateTime @default(now())\n    timezone     String?\n    spaces       Space[]\n\n    @@map(\"libraries\")\n}\n\nmodel LibraryStatistics {\n    id                  Int      @id @default(autoincrement())\n    date_captured       DateTime @default(now())\n    library_id          Int      @unique\n    total_file_count    Int      @default(0)\n    total_bytes_used    String   @default(\"0\")\n    total_byte_capacity String   @default(\"0\")\n    total_unique_bytes  String   @default(\"0\")\n\n    @@map(\"library_statistics\")\n}\n\nmodel Client {\n    id           Int      @id @default(autoincrement())\n    uuid         String   @unique\n    name         String\n    platform     Int      @default(0)\n    version      String?\n    online       Boolean? @default(true)\n    last_seen    DateTime @default(now())\n    timezone     String?\n    date_created DateTime @default(now())\n    jobs         Job[]\n\n    @@map(\"clients\")\n}\n\nmodel Location {\n    id                 Int      @id @default(autoincrement())\n    name               String?\n    local_path         String?\n    total_capacity     Int?\n    available_capacity Int?\n    filesystem         String?\n    disk_type          Int?\n    is_removable       Boolean  @default(true)\n    is_ejectable       Boolean  @default(true)\n    is_root_filesystem Boolean  @default(true)\n    is_online          Boolean  @default(true)\n    date_created       DateTime @default(now())\n\n    file_paths FilePath[]\n    @@map(\"locations\")\n}\n\nmodel File {\n    id            Int      @id @default(autoincrement())\n    id_hash       String   @unique\n    name          String\n    extension     String?\n    checksum      String?\n    size_in_bytes String\n    encryption    Int      @default(0)\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n    date_indexed  DateTime @default(now())\n    ipfs_id       String?\n\n    file_tags   TagOnFile[]\n    file_labels LabelOnFile[]\n    file_paths  FilePath[]\n    comments    Comment[]\n    @@map(\"files\")\n}\n\nmodel FilePath {\n    id                Int        @id @default(autoincrement())\n    is_dir            Boolean    @default(false)\n    materialized_path String\n    file_id           Int?\n    file              File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)\n    parent_id         Int?\n    parent            FilePath?  @relation(\"directory_file_paths\", fields: [parent_id], references: [id])\n    children          FilePath[] @relation(\"directory_file_paths\")\n    location_id       Int\n    location          Location?  @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n    date_indexed      DateTime   @default(now())\n    permissions       String?\n\n    @@unique([location_id, materialized_path, file_id])\n    @@map(\"file_paths\")\n}\n\nmodel Tag {\n    id              Int      @id @default(autoincrement())\n    name            String?\n    encryption      Int?     @default(0)\n    total_files     Int?     @default(0)\n    redundancy_goal Int?     @default(1)\n    date_created    DateTime @default(now())\n    date_modified   DateTime @default(now())\n\n    tag_files TagOnFile[]\n    @@map(\"tags\")\n}\n\nmodel TagOnFile {\n    date_created DateTime @default(now())\n\n    tag_id Int\n    tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([tag_id, file_id])\n    @@map(\"tags_on_files\")\n}\n\nmodel Label {\n    id            Int      @id @default(autoincrement())\n    name          String?\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    label_files LabelOnFile[]\n    @@map(\"labels\")\n}\n\nmodel LabelOnFile {\n    date_created DateTime @default(now())\n\n    label_id Int\n    label    Label @relation(fields: [label_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    file_id Int\n    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@id([label_id, file_id])\n    @@map(\"label_on_files\")\n}\n\nmodel Job {\n    id        Int @id @default(autoincrement())\n    client_id Int\n    action    Int\n    status    Int @default(0)\n\n    task_count           Int      @default(1)\n    completed_task_count Int      @default(0)\n    date_created         DateTime @default(now())\n    date_modified        DateTime @default(now())\n    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)\n\n    @@map(\"jobs\")\n}\n\nmodel Space {\n    id            Int      @id @default(autoincrement())\n    name          String\n    encryption    Int?     @default(0) // remove\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n    Library       Library? @relation(fields: [libraryId], references: [id])\n    libraryId     Int?\n\n    @@map(\"spaces\")\n}\n\nmodel Album {\n    id        Int     @id @default(autoincrement())\n    name      String\n    is_hidden Boolean @default(false)\n\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n\n    @@map(\"albums\")\n}\n\nmodel Comment {\n    id            Int      @id @default(autoincrement())\n    content       String\n    date_created  DateTime @default(now())\n    date_modified DateTime @default(now())\n    file_id       Int?\n    file          File?    @relation(fields: [file_id], references: [id])\n\n    @@map(\"comments\")\n}\n" ;
 	let config = parse_configuration(datamodel_str).unwrap().subject;
 	let source = config
 		.datasources
@@ -123,17 +123,32 @@ impl PrismaClient {
 	pub fn file(&self) -> FileActions {
 		FileActions { client: &self }
 	}
+	pub fn file_path(&self) -> FilePathActions {
+		FilePathActions { client: &self }
+	}
 	pub fn tag(&self) -> TagActions {
 		TagActions { client: &self }
 	}
 	pub fn tag_on_file(&self) -> TagOnFileActions {
 		TagOnFileActions { client: &self }
 	}
+	pub fn label(&self) -> LabelActions {
+		LabelActions { client: &self }
+	}
+	pub fn label_on_file(&self) -> LabelOnFileActions {
+		LabelOnFileActions { client: &self }
+	}
 	pub fn job(&self) -> JobActions {
 		JobActions { client: &self }
 	}
 	pub fn space(&self) -> SpaceActions {
 		SpaceActions { client: &self }
+	}
+	pub fn album(&self) -> AlbumActions {
+		AlbumActions { client: &self }
+	}
+	pub fn comment(&self) -> CommentActions {
+		CommentActions { client: &self }
 	}
 }
 fn migration_outputs() -> Vec<Output> {
@@ -3955,9 +3970,11 @@ fn location_outputs() -> Vec<Output> {
 	vec![
 		Output::new("id"),
 		Output::new("name"),
-		Output::new("path"),
+		Output::new("local_path"),
 		Output::new("total_capacity"),
 		Output::new("available_capacity"),
+		Output::new("filesystem"),
+		Output::new("disk_type"),
 		Output::new("is_removable"),
 		Output::new("is_ejectable"),
 		Output::new("is_root_filesystem"),
@@ -3971,12 +3988,16 @@ pub struct LocationData {
 	pub id: i64,
 	#[serde(rename = "name")]
 	pub name: Option<String>,
-	#[serde(rename = "path")]
-	pub path: Option<String>,
+	#[serde(rename = "local_path")]
+	pub local_path: Option<String>,
 	#[serde(rename = "total_capacity")]
 	pub total_capacity: Option<i64>,
 	#[serde(rename = "available_capacity")]
 	pub available_capacity: Option<i64>,
+	#[serde(rename = "filesystem")]
+	pub filesystem: Option<String>,
+	#[serde(rename = "disk_type")]
+	pub disk_type: Option<i64>,
 	#[serde(rename = "is_removable")]
 	pub is_removable: bool,
 	#[serde(rename = "is_ejectable")]
@@ -3987,14 +4008,14 @@ pub struct LocationData {
 	pub is_online: bool,
 	#[serde(rename = "date_created")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
-	#[serde(rename = "files")]
-	files: Option<Vec<FileData>>,
+	#[serde(rename = "file_paths")]
+	file_paths: Option<Vec<FilePathData>>,
 }
 impl LocationData {
-	pub fn files(&self) -> Result<&Vec<FileData>, String> {
-		match self.files.as_ref() {
+	pub fn file_paths(&self) -> Result<&Vec<FilePathData>, String> {
+		match self.file_paths.as_ref() {
 			Some(v) => Ok(v),
-			None => Err("attempted to access files but did not fetch it using the .with() syntax".to_string()),
+			None => Err("attempted to access file_paths but did not fetch it using the .with() syntax".to_string()),
 		}
 	}
 }
@@ -4006,14 +4027,20 @@ impl Location {
 	pub fn name() -> LocationNameField {
 		LocationNameField {}
 	}
-	pub fn path() -> LocationPathField {
-		LocationPathField {}
+	pub fn local_path() -> LocationLocalPathField {
+		LocationLocalPathField {}
 	}
 	pub fn total_capacity() -> LocationTotalCapacityField {
 		LocationTotalCapacityField {}
 	}
 	pub fn available_capacity() -> LocationAvailableCapacityField {
 		LocationAvailableCapacityField {}
+	}
+	pub fn filesystem() -> LocationFilesystemField {
+		LocationFilesystemField {}
+	}
+	pub fn disk_type() -> LocationDiskTypeField {
+		LocationDiskTypeField {}
 	}
 	pub fn is_removable() -> LocationIsRemovableField {
 		LocationIsRemovableField {}
@@ -4030,8 +4057,8 @@ impl Location {
 	pub fn date_created() -> LocationDateCreatedField {
 		LocationDateCreatedField {}
 	}
-	pub fn files() -> LocationFilesField {
-		LocationFilesField {}
+	pub fn file_paths() -> LocationFilePathsField {
+		LocationFilePathsField {}
 	}
 }
 pub struct LocationIdField {}
@@ -4085,28 +4112,28 @@ impl LocationNameField {
 		LocationSetName(value).into()
 	}
 }
-pub struct LocationPathField {}
-pub struct LocationSetPath(String);
-impl From<LocationSetPath> for LocationSetParam {
-	fn from(value: LocationSetPath) -> Self {
-		Self::Path(value.0)
+pub struct LocationLocalPathField {}
+pub struct LocationSetLocalPath(String);
+impl From<LocationSetLocalPath> for LocationSetParam {
+	fn from(value: LocationSetLocalPath) -> Self {
+		Self::LocalPath(value.0)
 	}
 }
-impl LocationPathField {
+impl LocationLocalPathField {
 	pub fn contains(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::PathContains(value)
+		LocationWhereParam::LocalPathContains(value)
 	}
 	pub fn has_prefix(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::PathHasPrefix(value)
+		LocationWhereParam::LocalPathHasPrefix(value)
 	}
 	pub fn has_suffix(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::PathHasSuffix(value)
+		LocationWhereParam::LocalPathHasSuffix(value)
 	}
 	pub fn equals(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::PathEquals(value)
+		LocationWhereParam::LocalPathEquals(value)
 	}
-	pub fn set<T: From<LocationSetPath>>(&self, value: String) -> T {
-		LocationSetPath(value).into()
+	pub fn set<T: From<LocationSetLocalPath>>(&self, value: String) -> T {
+		LocationSetLocalPath(value).into()
 	}
 }
 pub struct LocationTotalCapacityField {}
@@ -4161,6 +4188,57 @@ impl LocationAvailableCapacityField {
 	}
 	pub fn set<T: From<LocationSetAvailableCapacity>>(&self, value: i64) -> T {
 		LocationSetAvailableCapacity(value).into()
+	}
+}
+pub struct LocationFilesystemField {}
+pub struct LocationSetFilesystem(String);
+impl From<LocationSetFilesystem> for LocationSetParam {
+	fn from(value: LocationSetFilesystem) -> Self {
+		Self::Filesystem(value.0)
+	}
+}
+impl LocationFilesystemField {
+	pub fn contains(&self, value: String) -> LocationWhereParam {
+		LocationWhereParam::FilesystemContains(value)
+	}
+	pub fn has_prefix(&self, value: String) -> LocationWhereParam {
+		LocationWhereParam::FilesystemHasPrefix(value)
+	}
+	pub fn has_suffix(&self, value: String) -> LocationWhereParam {
+		LocationWhereParam::FilesystemHasSuffix(value)
+	}
+	pub fn equals(&self, value: String) -> LocationWhereParam {
+		LocationWhereParam::FilesystemEquals(value)
+	}
+	pub fn set<T: From<LocationSetFilesystem>>(&self, value: String) -> T {
+		LocationSetFilesystem(value).into()
+	}
+}
+pub struct LocationDiskTypeField {}
+pub struct LocationSetDiskType(i64);
+impl From<LocationSetDiskType> for LocationSetParam {
+	fn from(value: LocationSetDiskType) -> Self {
+		Self::DiskType(value.0)
+	}
+}
+impl LocationDiskTypeField {
+	pub fn lt(&self, value: i64) -> LocationWhereParam {
+		LocationWhereParam::DiskTypeLT(value)
+	}
+	pub fn gt(&self, value: i64) -> LocationWhereParam {
+		LocationWhereParam::DiskTypeGT(value)
+	}
+	pub fn lte(&self, value: i64) -> LocationWhereParam {
+		LocationWhereParam::DiskTypeLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> LocationWhereParam {
+		LocationWhereParam::DiskTypeGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> LocationWhereParam {
+		LocationWhereParam::DiskTypeEquals(value)
+	}
+	pub fn set<T: From<LocationSetDiskType>>(&self, value: i64) -> T {
+		LocationSetDiskType(value).into()
 	}
 }
 pub struct LocationIsRemovableField {}
@@ -4250,28 +4328,28 @@ impl LocationDateCreatedField {
 		LocationSetDateCreated(value).into()
 	}
 }
-pub struct LocationFilesField {}
-pub struct LocationLinkFiles(Vec<FileWhereParam>);
-impl From<LocationLinkFiles> for LocationSetParam {
-	fn from(value: LocationLinkFiles) -> Self {
-		Self::LinkFiles(value.0.into_iter().map(|v| v.into()).collect())
+pub struct LocationFilePathsField {}
+pub struct LocationLinkFilePaths(Vec<FilePathWhereParam>);
+impl From<LocationLinkFilePaths> for LocationSetParam {
+	fn from(value: LocationLinkFilePaths) -> Self {
+		Self::LinkFilePaths(value.0.into_iter().map(|v| v.into()).collect())
 	}
 }
-impl LocationFilesField {
-	pub fn some(&self, value: Vec<FileWhereParam>) -> LocationWhereParam {
-		LocationWhereParam::FilesSome(value)
+impl LocationFilePathsField {
+	pub fn some(&self, value: Vec<FilePathWhereParam>) -> LocationWhereParam {
+		LocationWhereParam::FilePathsSome(value)
 	}
-	pub fn every(&self, value: Vec<FileWhereParam>) -> LocationWhereParam {
-		LocationWhereParam::FilesEvery(value)
+	pub fn every(&self, value: Vec<FilePathWhereParam>) -> LocationWhereParam {
+		LocationWhereParam::FilePathsEvery(value)
 	}
-	pub fn link<T: From<LocationLinkFiles>>(&self, value: Vec<FileWhereParam>) -> T {
-		LocationLinkFiles(value).into()
+	pub fn link<T: From<LocationLinkFilePaths>>(&self, value: Vec<FilePathWhereParam>) -> T {
+		LocationLinkFilePaths(value).into()
 	}
-	pub fn unlink(&self, params: Vec<FileWhereParam>) -> LocationSetParam {
-		LocationSetParam::UnlinkFiles(params)
+	pub fn unlink(&self, params: Vec<FilePathWhereParam>) -> LocationSetParam {
+		LocationSetParam::UnlinkFilePaths(params)
 	}
-	pub fn fetch(&self, params: Vec<FileWhereParam>) -> LocationWith {
-		LocationWithParam::Files(params).into()
+	pub fn fetch(&self, params: Vec<FilePathWhereParam>) -> LocationWith {
+		LocationWithParam::FilePaths(params).into()
 	}
 }
 pub enum LocationWhereParam {
@@ -4284,10 +4362,10 @@ pub enum LocationWhereParam {
 	NameHasPrefix(String),
 	NameHasSuffix(String),
 	NameEquals(String),
-	PathContains(String),
-	PathHasPrefix(String),
-	PathHasSuffix(String),
-	PathEquals(String),
+	LocalPathContains(String),
+	LocalPathHasPrefix(String),
+	LocalPathHasSuffix(String),
+	LocalPathEquals(String),
 	TotalCapacityLT(i64),
 	TotalCapacityGT(i64),
 	TotalCapacityLTE(i64),
@@ -4298,6 +4376,15 @@ pub enum LocationWhereParam {
 	AvailableCapacityLTE(i64),
 	AvailableCapacityGTE(i64),
 	AvailableCapacityEquals(i64),
+	FilesystemContains(String),
+	FilesystemHasPrefix(String),
+	FilesystemHasSuffix(String),
+	FilesystemEquals(String),
+	DiskTypeLT(i64),
+	DiskTypeGT(i64),
+	DiskTypeLTE(i64),
+	DiskTypeGTE(i64),
+	DiskTypeEquals(i64),
 	IsRemovableEquals(bool),
 	IsEjectableEquals(bool),
 	IsRootFilesystemEquals(bool),
@@ -4307,8 +4394,8 @@ pub enum LocationWhereParam {
 	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
-	FilesSome(Vec<FileWhereParam>),
-	FilesEvery(Vec<FileWhereParam>),
+	FilePathsSome(Vec<FilePathWhereParam>),
+	FilePathsEvery(Vec<FilePathWhereParam>),
 	Not(Vec<LocationWhereParam>),
 	Or(Vec<LocationWhereParam>),
 	And(Vec<LocationWhereParam>),
@@ -4397,8 +4484,8 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::PathContains(value) => Field {
-				name: "path".into(),
+			Self::LocalPathContains(value) => Field {
+				name: "local_path".into(),
 				fields: Some(vec![Field {
 					name: "contains".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -4406,8 +4493,8 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::PathHasPrefix(value) => Field {
-				name: "path".into(),
+			Self::LocalPathHasPrefix(value) => Field {
+				name: "local_path".into(),
 				fields: Some(vec![Field {
 					name: "starts_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -4415,8 +4502,8 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::PathHasSuffix(value) => Field {
-				name: "path".into(),
+			Self::LocalPathHasSuffix(value) => Field {
+				name: "local_path".into(),
 				fields: Some(vec![Field {
 					name: "ends_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -4424,8 +4511,8 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::PathEquals(value) => Field {
-				name: "path".into(),
+			Self::LocalPathEquals(value) => Field {
+				name: "local_path".into(),
 				fields: Some(vec![Field {
 					name: "equals".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -4523,6 +4610,87 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
+			Self::FilesystemContains(value) => Field {
+				name: "filesystem".into(),
+				fields: Some(vec![Field {
+					name: "contains".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FilesystemHasPrefix(value) => Field {
+				name: "filesystem".into(),
+				fields: Some(vec![Field {
+					name: "starts_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FilesystemHasSuffix(value) => Field {
+				name: "filesystem".into(),
+				fields: Some(vec![Field {
+					name: "ends_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FilesystemEquals(value) => Field {
+				name: "filesystem".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DiskTypeLT(value) => Field {
+				name: "disk_type".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DiskTypeGT(value) => Field {
+				name: "disk_type".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DiskTypeLTE(value) => Field {
+				name: "disk_type".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DiskTypeGTE(value) => Field {
+				name: "disk_type".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DiskTypeEquals(value) => Field {
+				name: "disk_type".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
 			Self::IsRemovableEquals(value) => Field {
 				name: "is_removable".into(),
 				fields: Some(vec![Field {
@@ -4604,8 +4772,8 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::FilesSome(value) => Field {
-				name: "files".into(),
+			Self::FilePathsSome(value) => Field {
+				name: "file_paths".into(),
 				fields: Some(vec![Field {
 					name: "AND".into(),
 					fields: Some(value.into_iter().map(|f| f.field()).collect()),
@@ -4613,8 +4781,8 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::FilesEvery(value) => Field {
-				name: "files".into(),
+			Self::FilePathsEvery(value) => Field {
+				name: "file_paths".into(),
 				fields: Some(vec![Field {
 					name: "AND".into(),
 					fields: Some(value.into_iter().map(|f| f.field()).collect()),
@@ -4659,7 +4827,7 @@ pub struct LocationWith {
 	pub param: LocationWithParam,
 }
 pub enum LocationWithParam {
-	Files(Vec<FileWhereParam>),
+	FilePaths(Vec<FilePathWhereParam>),
 }
 impl From<LocationWithParam> for LocationWith {
 	fn from(param: LocationWithParam) -> Self {
@@ -4669,9 +4837,9 @@ impl From<LocationWithParam> for LocationWith {
 impl LocationWithParam {
 	pub fn output(self) -> Output {
 		match self {
-			Self::Files(where_params) => Output {
-				name: "files".into(),
-				outputs: file_outputs(),
+			Self::FilePaths(where_params) => Output {
+				name: "file_paths".into(),
+				outputs: file_path_outputs(),
 				inputs: if where_params.len() > 0 {
 					vec![Input {
 						name: "where".into(),
@@ -4689,16 +4857,18 @@ impl LocationWithParam {
 pub enum LocationSetParam {
 	Id(i64),
 	Name(String),
-	Path(String),
+	LocalPath(String),
 	TotalCapacity(i64),
 	AvailableCapacity(i64),
+	Filesystem(String),
+	DiskType(i64),
 	IsRemovable(bool),
 	IsEjectable(bool),
 	IsRootFilesystem(bool),
 	IsOnline(bool),
 	DateCreated(chrono::DateTime<chrono::Utc>),
-	LinkFiles(Vec<FileWhereParam>),
-	UnlinkFiles(Vec<FileWhereParam>),
+	LinkFilePaths(Vec<FilePathWhereParam>),
+	UnlinkFilePaths(Vec<FilePathWhereParam>),
 }
 impl LocationSetParam {
 	pub fn field(self) -> Field {
@@ -4713,8 +4883,8 @@ impl LocationSetParam {
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
-			Self::Path(value) => Field {
-				name: "path".into(),
+			Self::LocalPath(value) => Field {
+				name: "local_path".into(),
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
@@ -4725,6 +4895,16 @@ impl LocationSetParam {
 			},
 			Self::AvailableCapacity(value) => Field {
 				name: "available_capacity".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::Filesystem(value) => Field {
+				name: "filesystem".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::DiskType(value) => Field {
+				name: "disk_type".into(),
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
@@ -4753,8 +4933,8 @@ impl LocationSetParam {
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
-			Self::LinkFiles(where_params) => Field {
-				name: "files".into(),
+			Self::LinkFilePaths(where_params) => Field {
+				name: "file_paths".into(),
 				fields: Some(vec![Field {
 					name: "connect".into(),
 					fields: Some(transform_equals(
@@ -4766,8 +4946,8 @@ impl LocationSetParam {
 				}]),
 				..Default::default()
 			},
-			Self::UnlinkFiles(where_params) => Field {
-				name: "files".into(),
+			Self::UnlinkFilePaths(where_params) => Field {
+				name: "file_paths".into(),
 				fields: Some(vec![Field {
 					name: "disconnect".into(),
 					list: true,
@@ -5032,40 +5212,30 @@ impl<'a> LocationActions<'a> {
 fn file_outputs() -> Vec<Output> {
 	vec![
 		Output::new("id"),
-		Output::new("is_dir"),
-		Output::new("location_id"),
-		Output::new("stem"),
+		Output::new("id_hash"),
 		Output::new("name"),
 		Output::new("extension"),
-		Output::new("quick_checksum"),
-		Output::new("full_checksum"),
+		Output::new("checksum"),
 		Output::new("size_in_bytes"),
 		Output::new("encryption"),
 		Output::new("date_created"),
 		Output::new("date_modified"),
 		Output::new("date_indexed"),
 		Output::new("ipfs_id"),
-		Output::new("parent_id"),
 	]
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileData {
 	#[serde(rename = "id")]
 	pub id: i64,
-	#[serde(rename = "is_dir")]
-	pub is_dir: bool,
-	#[serde(rename = "location_id")]
-	pub location_id: i64,
-	#[serde(rename = "stem")]
-	pub stem: String,
+	#[serde(rename = "id_hash")]
+	pub id_hash: String,
 	#[serde(rename = "name")]
 	pub name: String,
 	#[serde(rename = "extension")]
 	pub extension: Option<String>,
-	#[serde(rename = "quick_checksum")]
-	pub quick_checksum: Option<String>,
-	#[serde(rename = "full_checksum")]
-	pub full_checksum: Option<String>,
+	#[serde(rename = "checksum")]
+	pub checksum: Option<String>,
 	#[serde(rename = "size_in_bytes")]
 	pub size_in_bytes: String,
 	#[serde(rename = "encryption")]
@@ -5078,34 +5248,38 @@ pub struct FileData {
 	pub date_indexed: chrono::DateTime<chrono::Utc>,
 	#[serde(rename = "ipfs_id")]
 	pub ipfs_id: Option<String>,
-	#[serde(rename = "location")]
-	pub location: Box<Option<LocationData>>,
-	#[serde(rename = "parent")]
-	pub parent: Box<Option<FileData>>,
-	#[serde(rename = "parent_id")]
-	pub parent_id: Option<i64>,
-	#[serde(rename = "children")]
-	children: Option<Vec<FileData>>,
 	#[serde(rename = "file_tags")]
 	file_tags: Option<Vec<TagOnFileData>>,
+	#[serde(rename = "file_labels")]
+	file_labels: Option<Vec<LabelOnFileData>>,
+	#[serde(rename = "file_paths")]
+	file_paths: Option<Vec<FilePathData>>,
+	#[serde(rename = "comments")]
+	comments: Option<Vec<CommentData>>,
 }
 impl FileData {
-	pub fn location(&self) -> Option<&LocationData> {
-		self.location.as_ref().as_ref()
-	}
-	pub fn parent(&self) -> Option<&FileData> {
-		self.parent.as_ref().as_ref()
-	}
-	pub fn children(&self) -> Result<&Vec<FileData>, String> {
-		match self.children.as_ref() {
-			Some(v) => Ok(v),
-			None => Err("attempted to access children but did not fetch it using the .with() syntax".to_string()),
-		}
-	}
 	pub fn file_tags(&self) -> Result<&Vec<TagOnFileData>, String> {
 		match self.file_tags.as_ref() {
 			Some(v) => Ok(v),
 			None => Err("attempted to access file_tags but did not fetch it using the .with() syntax".to_string()),
+		}
+	}
+	pub fn file_labels(&self) -> Result<&Vec<LabelOnFileData>, String> {
+		match self.file_labels.as_ref() {
+			Some(v) => Ok(v),
+			None => Err("attempted to access file_labels but did not fetch it using the .with() syntax".to_string()),
+		}
+	}
+	pub fn file_paths(&self) -> Result<&Vec<FilePathData>, String> {
+		match self.file_paths.as_ref() {
+			Some(v) => Ok(v),
+			None => Err("attempted to access file_paths but did not fetch it using the .with() syntax".to_string()),
+		}
+	}
+	pub fn comments(&self) -> Result<&Vec<CommentData>, String> {
+		match self.comments.as_ref() {
+			Some(v) => Ok(v),
+			None => Err("attempted to access comments but did not fetch it using the .with() syntax".to_string()),
 		}
 	}
 }
@@ -5114,14 +5288,8 @@ impl File {
 	pub fn id() -> FileIdField {
 		FileIdField {}
 	}
-	pub fn is_dir() -> FileIsDirField {
-		FileIsDirField {}
-	}
-	pub fn location_id() -> FileLocationIdField {
-		FileLocationIdField {}
-	}
-	pub fn stem() -> FileStemField {
-		FileStemField {}
+	pub fn id_hash() -> FileIdHashField {
+		FileIdHashField {}
 	}
 	pub fn name() -> FileNameField {
 		FileNameField {}
@@ -5129,11 +5297,8 @@ impl File {
 	pub fn extension() -> FileExtensionField {
 		FileExtensionField {}
 	}
-	pub fn quick_checksum() -> FileQuickChecksumField {
-		FileQuickChecksumField {}
-	}
-	pub fn full_checksum() -> FileFullChecksumField {
-		FileFullChecksumField {}
+	pub fn checksum() -> FileChecksumField {
+		FileChecksumField {}
 	}
 	pub fn size_in_bytes() -> FileSizeInBytesField {
 		FileSizeInBytesField {}
@@ -5153,20 +5318,17 @@ impl File {
 	pub fn ipfs_id() -> FileIpfsIdField {
 		FileIpfsIdField {}
 	}
-	pub fn location() -> FileLocationField {
-		FileLocationField {}
-	}
-	pub fn parent() -> FileParentField {
-		FileParentField {}
-	}
-	pub fn parent_id() -> FileParentIdField {
-		FileParentIdField {}
-	}
-	pub fn children() -> FileChildrenField {
-		FileChildrenField {}
-	}
 	pub fn file_tags() -> FileFileTagsField {
 		FileFileTagsField {}
+	}
+	pub fn file_labels() -> FileFileLabelsField {
+		FileFileLabelsField {}
+	}
+	pub fn file_paths() -> FileFilePathsField {
+		FileFilePathsField {}
+	}
+	pub fn comments() -> FileCommentsField {
+		FileCommentsField {}
 	}
 }
 pub struct FileIdField {}
@@ -5196,70 +5358,28 @@ impl FileIdField {
 		FileSetId(value).into()
 	}
 }
-pub struct FileIsDirField {}
-pub struct FileSetIsDir(bool);
-impl From<FileSetIsDir> for FileSetParam {
-	fn from(value: FileSetIsDir) -> Self {
-		Self::IsDir(value.0)
+pub struct FileIdHashField {}
+pub struct FileSetIdHash(String);
+impl From<FileSetIdHash> for FileSetParam {
+	fn from(value: FileSetIdHash) -> Self {
+		Self::IdHash(value.0)
 	}
 }
-impl FileIsDirField {
-	pub fn equals(&self, value: bool) -> FileWhereParam {
-		FileWhereParam::IsDirEquals(value)
-	}
-	pub fn set<T: From<FileSetIsDir>>(&self, value: bool) -> T {
-		FileSetIsDir(value).into()
-	}
-}
-pub struct FileLocationIdField {}
-pub struct FileSetLocationId(i64);
-impl From<FileSetLocationId> for FileSetParam {
-	fn from(value: FileSetLocationId) -> Self {
-		Self::LocationId(value.0)
-	}
-}
-impl FileLocationIdField {
-	pub fn lt(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::LocationIdLT(value)
-	}
-	pub fn gt(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::LocationIdGT(value)
-	}
-	pub fn lte(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::LocationIdLTE(value)
-	}
-	pub fn gte(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::LocationIdGTE(value)
-	}
-	pub fn equals(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::LocationIdEquals(value)
-	}
-	pub fn set<T: From<FileSetLocationId>>(&self, value: i64) -> T {
-		FileSetLocationId(value).into()
-	}
-}
-pub struct FileStemField {}
-pub struct FileSetStem(String);
-impl From<FileSetStem> for FileSetParam {
-	fn from(value: FileSetStem) -> Self {
-		Self::Stem(value.0)
-	}
-}
-impl FileStemField {
+impl FileIdHashField {
 	pub fn contains(&self, value: String) -> FileWhereParam {
-		FileWhereParam::StemContains(value)
+		FileWhereParam::IdHashContains(value)
 	}
 	pub fn has_prefix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::StemHasPrefix(value)
+		FileWhereParam::IdHashHasPrefix(value)
 	}
 	pub fn has_suffix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::StemHasSuffix(value)
+		FileWhereParam::IdHashHasSuffix(value)
 	}
 	pub fn equals(&self, value: String) -> FileWhereParam {
-		FileWhereParam::StemEquals(value)
+		FileWhereParam::IdHashEquals(value)
 	}
-	pub fn set<T: From<FileSetStem>>(&self, value: String) -> T {
-		FileSetStem(value).into()
+	pub fn set<T: From<FileSetIdHash>>(&self, value: String) -> T {
+		FileSetIdHash(value).into()
 	}
 }
 pub struct FileNameField {}
@@ -5310,52 +5430,28 @@ impl FileExtensionField {
 		FileSetExtension(value).into()
 	}
 }
-pub struct FileQuickChecksumField {}
-pub struct FileSetQuickChecksum(String);
-impl From<FileSetQuickChecksum> for FileSetParam {
-	fn from(value: FileSetQuickChecksum) -> Self {
-		Self::QuickChecksum(value.0)
+pub struct FileChecksumField {}
+pub struct FileSetChecksum(String);
+impl From<FileSetChecksum> for FileSetParam {
+	fn from(value: FileSetChecksum) -> Self {
+		Self::Checksum(value.0)
 	}
 }
-impl FileQuickChecksumField {
+impl FileChecksumField {
 	pub fn contains(&self, value: String) -> FileWhereParam {
-		FileWhereParam::QuickChecksumContains(value)
+		FileWhereParam::ChecksumContains(value)
 	}
 	pub fn has_prefix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::QuickChecksumHasPrefix(value)
+		FileWhereParam::ChecksumHasPrefix(value)
 	}
 	pub fn has_suffix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::QuickChecksumHasSuffix(value)
+		FileWhereParam::ChecksumHasSuffix(value)
 	}
 	pub fn equals(&self, value: String) -> FileWhereParam {
-		FileWhereParam::QuickChecksumEquals(value)
+		FileWhereParam::ChecksumEquals(value)
 	}
-	pub fn set<T: From<FileSetQuickChecksum>>(&self, value: String) -> T {
-		FileSetQuickChecksum(value).into()
-	}
-}
-pub struct FileFullChecksumField {}
-pub struct FileSetFullChecksum(String);
-impl From<FileSetFullChecksum> for FileSetParam {
-	fn from(value: FileSetFullChecksum) -> Self {
-		Self::FullChecksum(value.0)
-	}
-}
-impl FileFullChecksumField {
-	pub fn contains(&self, value: String) -> FileWhereParam {
-		FileWhereParam::FullChecksumContains(value)
-	}
-	pub fn has_prefix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::FullChecksumHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::FullChecksumHasSuffix(value)
-	}
-	pub fn equals(&self, value: String) -> FileWhereParam {
-		FileWhereParam::FullChecksumEquals(value)
-	}
-	pub fn set<T: From<FileSetFullChecksum>>(&self, value: String) -> T {
-		FileSetFullChecksum(value).into()
+	pub fn set<T: From<FileSetChecksum>>(&self, value: String) -> T {
+		FileSetChecksum(value).into()
 	}
 }
 pub struct FileSizeInBytesField {}
@@ -5514,99 +5610,6 @@ impl FileIpfsIdField {
 		FileSetIpfsId(value).into()
 	}
 }
-pub struct FileLocationField {}
-pub struct FileLinkLocation(LocationWhereParam);
-impl From<FileLinkLocation> for FileSetParam {
-	fn from(value: FileLinkLocation) -> Self {
-		Self::LinkLocation(value.0)
-	}
-}
-impl FileLocationField {
-	pub fn is(&self, value: Vec<LocationWhereParam>) -> FileWhereParam {
-		FileWhereParam::LocationIs(value)
-	}
-	pub fn link<T: From<FileLinkLocation>>(&self, value: LocationWhereParam) -> T {
-		FileLinkLocation(value).into()
-	}
-	pub fn fetch(&self) -> FileWith {
-		FileWithParam::Location.into()
-	}
-	pub fn unlink(&self) -> FileSetParam {
-		FileSetParam::UnlinkLocation
-	}
-}
-pub struct FileParentField {}
-pub struct FileLinkParent(FileWhereParam);
-impl From<FileLinkParent> for FileSetParam {
-	fn from(value: FileLinkParent) -> Self {
-		Self::LinkParent(value.0)
-	}
-}
-impl FileParentField {
-	pub fn is(&self, value: Vec<FileWhereParam>) -> FileWhereParam {
-		FileWhereParam::ParentIs(value)
-	}
-	pub fn link<T: From<FileLinkParent>>(&self, value: FileWhereParam) -> T {
-		FileLinkParent(value).into()
-	}
-	pub fn fetch(&self) -> FileWith {
-		FileWithParam::Parent.into()
-	}
-	pub fn unlink(&self) -> FileSetParam {
-		FileSetParam::UnlinkParent
-	}
-}
-pub struct FileParentIdField {}
-pub struct FileSetParentId(i64);
-impl From<FileSetParentId> for FileSetParam {
-	fn from(value: FileSetParentId) -> Self {
-		Self::ParentId(value.0)
-	}
-}
-impl FileParentIdField {
-	pub fn lt(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::ParentIdLT(value)
-	}
-	pub fn gt(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::ParentIdGT(value)
-	}
-	pub fn lte(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::ParentIdLTE(value)
-	}
-	pub fn gte(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::ParentIdGTE(value)
-	}
-	pub fn equals(&self, value: i64) -> FileWhereParam {
-		FileWhereParam::ParentIdEquals(value)
-	}
-	pub fn set<T: From<FileSetParentId>>(&self, value: i64) -> T {
-		FileSetParentId(value).into()
-	}
-}
-pub struct FileChildrenField {}
-pub struct FileLinkChildren(Vec<FileWhereParam>);
-impl From<FileLinkChildren> for FileSetParam {
-	fn from(value: FileLinkChildren) -> Self {
-		Self::LinkChildren(value.0.into_iter().map(|v| v.into()).collect())
-	}
-}
-impl FileChildrenField {
-	pub fn some(&self, value: Vec<FileWhereParam>) -> FileWhereParam {
-		FileWhereParam::ChildrenSome(value)
-	}
-	pub fn every(&self, value: Vec<FileWhereParam>) -> FileWhereParam {
-		FileWhereParam::ChildrenEvery(value)
-	}
-	pub fn link<T: From<FileLinkChildren>>(&self, value: Vec<FileWhereParam>) -> T {
-		FileLinkChildren(value).into()
-	}
-	pub fn unlink(&self, params: Vec<FileWhereParam>) -> FileSetParam {
-		FileSetParam::UnlinkChildren(params)
-	}
-	pub fn fetch(&self, params: Vec<FileWhereParam>) -> FileWith {
-		FileWithParam::Children(params).into()
-	}
-}
 pub struct FileFileTagsField {}
 pub struct FileLinkFileTags(Vec<TagOnFileWhereParam>);
 impl From<FileLinkFileTags> for FileSetParam {
@@ -5631,22 +5634,88 @@ impl FileFileTagsField {
 		FileWithParam::FileTags(params).into()
 	}
 }
+pub struct FileFileLabelsField {}
+pub struct FileLinkFileLabels(Vec<LabelOnFileWhereParam>);
+impl From<FileLinkFileLabels> for FileSetParam {
+	fn from(value: FileLinkFileLabels) -> Self {
+		Self::LinkFileLabels(value.0.into_iter().map(|v| v.into()).collect())
+	}
+}
+impl FileFileLabelsField {
+	pub fn some(&self, value: Vec<LabelOnFileWhereParam>) -> FileWhereParam {
+		FileWhereParam::FileLabelsSome(value)
+	}
+	pub fn every(&self, value: Vec<LabelOnFileWhereParam>) -> FileWhereParam {
+		FileWhereParam::FileLabelsEvery(value)
+	}
+	pub fn link<T: From<FileLinkFileLabels>>(&self, value: Vec<LabelOnFileWhereParam>) -> T {
+		FileLinkFileLabels(value).into()
+	}
+	pub fn unlink(&self, params: Vec<LabelOnFileWhereParam>) -> FileSetParam {
+		FileSetParam::UnlinkFileLabels(params)
+	}
+	pub fn fetch(&self, params: Vec<LabelOnFileWhereParam>) -> FileWith {
+		FileWithParam::FileLabels(params).into()
+	}
+}
+pub struct FileFilePathsField {}
+pub struct FileLinkFilePaths(Vec<FilePathWhereParam>);
+impl From<FileLinkFilePaths> for FileSetParam {
+	fn from(value: FileLinkFilePaths) -> Self {
+		Self::LinkFilePaths(value.0.into_iter().map(|v| v.into()).collect())
+	}
+}
+impl FileFilePathsField {
+	pub fn some(&self, value: Vec<FilePathWhereParam>) -> FileWhereParam {
+		FileWhereParam::FilePathsSome(value)
+	}
+	pub fn every(&self, value: Vec<FilePathWhereParam>) -> FileWhereParam {
+		FileWhereParam::FilePathsEvery(value)
+	}
+	pub fn link<T: From<FileLinkFilePaths>>(&self, value: Vec<FilePathWhereParam>) -> T {
+		FileLinkFilePaths(value).into()
+	}
+	pub fn unlink(&self, params: Vec<FilePathWhereParam>) -> FileSetParam {
+		FileSetParam::UnlinkFilePaths(params)
+	}
+	pub fn fetch(&self, params: Vec<FilePathWhereParam>) -> FileWith {
+		FileWithParam::FilePaths(params).into()
+	}
+}
+pub struct FileCommentsField {}
+pub struct FileLinkComments(Vec<CommentWhereParam>);
+impl From<FileLinkComments> for FileSetParam {
+	fn from(value: FileLinkComments) -> Self {
+		Self::LinkComments(value.0.into_iter().map(|v| v.into()).collect())
+	}
+}
+impl FileCommentsField {
+	pub fn some(&self, value: Vec<CommentWhereParam>) -> FileWhereParam {
+		FileWhereParam::CommentsSome(value)
+	}
+	pub fn every(&self, value: Vec<CommentWhereParam>) -> FileWhereParam {
+		FileWhereParam::CommentsEvery(value)
+	}
+	pub fn link<T: From<FileLinkComments>>(&self, value: Vec<CommentWhereParam>) -> T {
+		FileLinkComments(value).into()
+	}
+	pub fn unlink(&self, params: Vec<CommentWhereParam>) -> FileSetParam {
+		FileSetParam::UnlinkComments(params)
+	}
+	pub fn fetch(&self, params: Vec<CommentWhereParam>) -> FileWith {
+		FileWithParam::Comments(params).into()
+	}
+}
 pub enum FileWhereParam {
 	IdLT(i64),
 	IdGT(i64),
 	IdLTE(i64),
 	IdGTE(i64),
 	IdEquals(i64),
-	IsDirEquals(bool),
-	LocationIdLT(i64),
-	LocationIdGT(i64),
-	LocationIdLTE(i64),
-	LocationIdGTE(i64),
-	LocationIdEquals(i64),
-	StemContains(String),
-	StemHasPrefix(String),
-	StemHasSuffix(String),
-	StemEquals(String),
+	IdHashContains(String),
+	IdHashHasPrefix(String),
+	IdHashHasSuffix(String),
+	IdHashEquals(String),
 	NameContains(String),
 	NameHasPrefix(String),
 	NameHasSuffix(String),
@@ -5655,14 +5724,10 @@ pub enum FileWhereParam {
 	ExtensionHasPrefix(String),
 	ExtensionHasSuffix(String),
 	ExtensionEquals(String),
-	QuickChecksumContains(String),
-	QuickChecksumHasPrefix(String),
-	QuickChecksumHasSuffix(String),
-	QuickChecksumEquals(String),
-	FullChecksumContains(String),
-	FullChecksumHasPrefix(String),
-	FullChecksumHasSuffix(String),
-	FullChecksumEquals(String),
+	ChecksumContains(String),
+	ChecksumHasPrefix(String),
+	ChecksumHasSuffix(String),
+	ChecksumEquals(String),
 	SizeInBytesContains(String),
 	SizeInBytesHasPrefix(String),
 	SizeInBytesHasSuffix(String),
@@ -5691,17 +5756,14 @@ pub enum FileWhereParam {
 	IpfsIdHasPrefix(String),
 	IpfsIdHasSuffix(String),
 	IpfsIdEquals(String),
-	LocationIs(Vec<LocationWhereParam>),
-	ParentIs(Vec<FileWhereParam>),
-	ParentIdLT(i64),
-	ParentIdGT(i64),
-	ParentIdLTE(i64),
-	ParentIdGTE(i64),
-	ParentIdEquals(i64),
-	ChildrenSome(Vec<FileWhereParam>),
-	ChildrenEvery(Vec<FileWhereParam>),
 	FileTagsSome(Vec<TagOnFileWhereParam>),
 	FileTagsEvery(Vec<TagOnFileWhereParam>),
+	FileLabelsSome(Vec<LabelOnFileWhereParam>),
+	FileLabelsEvery(Vec<LabelOnFileWhereParam>),
+	FilePathsSome(Vec<FilePathWhereParam>),
+	FilePathsEvery(Vec<FilePathWhereParam>),
+	CommentsSome(Vec<CommentWhereParam>),
+	CommentsEvery(Vec<CommentWhereParam>),
 	Not(Vec<FileWhereParam>),
 	Or(Vec<FileWhereParam>),
 	And(Vec<FileWhereParam>),
@@ -5754,62 +5816,8 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::IsDirEquals(value) => Field {
-				name: "is_dir".into(),
-				fields: Some(vec![Field {
-					name: "equals".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdLT(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdGT(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdLTE(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdGTE(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdEquals(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "equals".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::StemContains(value) => Field {
-				name: "stem".into(),
+			Self::IdHashContains(value) => Field {
+				name: "id_hash".into(),
 				fields: Some(vec![Field {
 					name: "contains".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -5817,8 +5825,8 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::StemHasPrefix(value) => Field {
-				name: "stem".into(),
+			Self::IdHashHasPrefix(value) => Field {
+				name: "id_hash".into(),
 				fields: Some(vec![Field {
 					name: "starts_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -5826,8 +5834,8 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::StemHasSuffix(value) => Field {
-				name: "stem".into(),
+			Self::IdHashHasSuffix(value) => Field {
+				name: "id_hash".into(),
 				fields: Some(vec![Field {
 					name: "ends_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -5835,8 +5843,8 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::StemEquals(value) => Field {
-				name: "stem".into(),
+			Self::IdHashEquals(value) => Field {
+				name: "id_hash".into(),
 				fields: Some(vec![Field {
 					name: "equals".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -5916,8 +5924,8 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::QuickChecksumContains(value) => Field {
-				name: "quick_checksum".into(),
+			Self::ChecksumContains(value) => Field {
+				name: "checksum".into(),
 				fields: Some(vec![Field {
 					name: "contains".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -5925,8 +5933,8 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::QuickChecksumHasPrefix(value) => Field {
-				name: "quick_checksum".into(),
+			Self::ChecksumHasPrefix(value) => Field {
+				name: "checksum".into(),
 				fields: Some(vec![Field {
 					name: "starts_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -5934,8 +5942,8 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::QuickChecksumHasSuffix(value) => Field {
-				name: "quick_checksum".into(),
+			Self::ChecksumHasSuffix(value) => Field {
+				name: "checksum".into(),
 				fields: Some(vec![Field {
 					name: "ends_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -5943,44 +5951,8 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::QuickChecksumEquals(value) => Field {
-				name: "quick_checksum".into(),
-				fields: Some(vec![Field {
-					name: "equals".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FullChecksumContains(value) => Field {
-				name: "full_checksum".into(),
-				fields: Some(vec![Field {
-					name: "contains".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FullChecksumHasPrefix(value) => Field {
-				name: "full_checksum".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FullChecksumHasSuffix(value) => Field {
-				name: "full_checksum".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FullChecksumEquals(value) => Field {
-				name: "full_checksum".into(),
+			Self::ChecksumEquals(value) => Field {
+				name: "checksum".into(),
 				fields: Some(vec![Field {
 					name: "equals".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
@@ -6240,87 +6212,6 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::LocationIs(value) => Field {
-				name: "location".into(),
-				fields: Some(vec![Field {
-					name: "AND".into(),
-					fields: Some(value.into_iter().map(|f| f.field()).collect()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIs(value) => Field {
-				name: "parent".into(),
-				fields: Some(vec![Field {
-					name: "AND".into(),
-					fields: Some(value.into_iter().map(|f| f.field()).collect()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIdLT(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIdGT(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIdLTE(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIdGTE(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIdEquals(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "equals".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ChildrenSome(value) => Field {
-				name: "children".into(),
-				fields: Some(vec![Field {
-					name: "AND".into(),
-					fields: Some(value.into_iter().map(|f| f.field()).collect()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ChildrenEvery(value) => Field {
-				name: "children".into(),
-				fields: Some(vec![Field {
-					name: "AND".into(),
-					fields: Some(value.into_iter().map(|f| f.field()).collect()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::FileTagsSome(value) => Field {
 				name: "file_tags".into(),
 				fields: Some(vec![Field {
@@ -6332,6 +6223,60 @@ impl FileWhereParam {
 			},
 			Self::FileTagsEvery(value) => Field {
 				name: "file_tags".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileLabelsSome(value) => Field {
+				name: "file_labels".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileLabelsEvery(value) => Field {
+				name: "file_labels".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FilePathsSome(value) => Field {
+				name: "file_paths".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FilePathsEvery(value) => Field {
+				name: "file_paths".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::CommentsSome(value) => Field {
+				name: "comments".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::CommentsEvery(value) => Field {
+				name: "comments".into(),
 				fields: Some(vec![Field {
 					name: "AND".into(),
 					fields: Some(value.into_iter().map(|f| f.field()).collect()),
@@ -6376,10 +6321,10 @@ pub struct FileWith {
 	pub param: FileWithParam,
 }
 pub enum FileWithParam {
-	Location,
-	Parent,
-	Children(Vec<FileWhereParam>),
 	FileTags(Vec<TagOnFileWhereParam>),
+	FileLabels(Vec<LabelOnFileWhereParam>),
+	FilePaths(Vec<FilePathWhereParam>),
+	Comments(Vec<CommentWhereParam>),
 }
 impl From<FileWithParam> for FileWith {
 	fn from(param: FileWithParam) -> Self {
@@ -6389,19 +6334,9 @@ impl From<FileWithParam> for FileWith {
 impl FileWithParam {
 	pub fn output(self) -> Output {
 		match self {
-			Self::Location => Output {
-				name: "location".into(),
-				outputs: location_outputs(),
-				..Default::default()
-			},
-			Self::Parent => Output {
-				name: "parent".into(),
-				outputs: file_outputs(),
-				..Default::default()
-			},
-			Self::Children(where_params) => Output {
-				name: "children".into(),
-				outputs: file_outputs(),
+			Self::FileTags(where_params) => Output {
+				name: "file_tags".into(),
+				outputs: tag_on_file_outputs(),
 				inputs: if where_params.len() > 0 {
 					vec![Input {
 						name: "where".into(),
@@ -6413,9 +6348,37 @@ impl FileWithParam {
 				},
 				..Default::default()
 			},
-			Self::FileTags(where_params) => Output {
-				name: "file_tags".into(),
-				outputs: tag_on_file_outputs(),
+			Self::FileLabels(where_params) => Output {
+				name: "file_labels".into(),
+				outputs: label_on_file_outputs(),
+				inputs: if where_params.len() > 0 {
+					vec![Input {
+						name: "where".into(),
+						fields: where_params.into_iter().map(|f| f.field()).collect(),
+						..Default::default()
+					}]
+				} else {
+					vec![]
+				},
+				..Default::default()
+			},
+			Self::FilePaths(where_params) => Output {
+				name: "file_paths".into(),
+				outputs: file_path_outputs(),
+				inputs: if where_params.len() > 0 {
+					vec![Input {
+						name: "where".into(),
+						fields: where_params.into_iter().map(|f| f.field()).collect(),
+						..Default::default()
+					}]
+				} else {
+					vec![]
+				},
+				..Default::default()
+			},
+			Self::Comments(where_params) => Output {
+				name: "comments".into(),
+				outputs: comment_outputs(),
 				inputs: if where_params.len() > 0 {
 					vec![Input {
 						name: "where".into(),
@@ -6432,28 +6395,24 @@ impl FileWithParam {
 }
 pub enum FileSetParam {
 	Id(i64),
-	IsDir(bool),
-	LocationId(i64),
-	Stem(String),
+	IdHash(String),
 	Name(String),
 	Extension(String),
-	QuickChecksum(String),
-	FullChecksum(String),
+	Checksum(String),
 	SizeInBytes(String),
 	Encryption(i64),
 	DateCreated(chrono::DateTime<chrono::Utc>),
 	DateModified(chrono::DateTime<chrono::Utc>),
 	DateIndexed(chrono::DateTime<chrono::Utc>),
 	IpfsId(String),
-	LinkLocation(LocationWhereParam),
-	UnlinkLocation,
-	LinkParent(FileWhereParam),
-	UnlinkParent,
-	ParentId(i64),
-	LinkChildren(Vec<FileWhereParam>),
-	UnlinkChildren(Vec<FileWhereParam>),
 	LinkFileTags(Vec<TagOnFileWhereParam>),
 	UnlinkFileTags(Vec<TagOnFileWhereParam>),
+	LinkFileLabels(Vec<LabelOnFileWhereParam>),
+	UnlinkFileLabels(Vec<LabelOnFileWhereParam>),
+	LinkFilePaths(Vec<FilePathWhereParam>),
+	UnlinkFilePaths(Vec<FilePathWhereParam>),
+	LinkComments(Vec<CommentWhereParam>),
+	UnlinkComments(Vec<CommentWhereParam>),
 }
 impl FileSetParam {
 	pub fn field(self) -> Field {
@@ -6463,18 +6422,8 @@ impl FileSetParam {
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
-			Self::IsDir(value) => Field {
-				name: "is_dir".into(),
-				value: Some(serde_json::to_value(value).unwrap()),
-				..Default::default()
-			},
-			Self::LocationId(value) => Field {
-				name: "location_id".into(),
-				value: Some(serde_json::to_value(value).unwrap()),
-				..Default::default()
-			},
-			Self::Stem(value) => Field {
-				name: "stem".into(),
+			Self::IdHash(value) => Field {
+				name: "id_hash".into(),
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
@@ -6488,13 +6437,8 @@ impl FileSetParam {
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
-			Self::QuickChecksum(value) => Field {
-				name: "quick_checksum".into(),
-				value: Some(serde_json::to_value(value).unwrap()),
-				..Default::default()
-			},
-			Self::FullChecksum(value) => Field {
-				name: "full_checksum".into(),
+			Self::Checksum(value) => Field {
+				name: "checksum".into(),
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
@@ -6528,73 +6472,6 @@ impl FileSetParam {
 				value: Some(serde_json::to_value(value).unwrap()),
 				..Default::default()
 			},
-			Self::LinkLocation(where_param) => Field {
-				name: "location".into(),
-				fields: Some(vec![Field {
-					name: "connect".into(),
-					fields: Some(transform_equals(vec![where_param.field()])),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::UnlinkLocation => Field {
-				name: "location".into(),
-				fields: Some(vec![Field {
-					name: "disconnect".into(),
-					value: Some(true.into()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LinkParent(where_param) => Field {
-				name: "parent".into(),
-				fields: Some(vec![Field {
-					name: "connect".into(),
-					fields: Some(transform_equals(vec![where_param.field()])),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::UnlinkParent => Field {
-				name: "parent".into(),
-				fields: Some(vec![Field {
-					name: "disconnect".into(),
-					value: Some(true.into()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentId(value) => Field {
-				name: "parent_id".into(),
-				value: Some(serde_json::to_value(value).unwrap()),
-				..Default::default()
-			},
-			Self::LinkChildren(where_params) => Field {
-				name: "children".into(),
-				fields: Some(vec![Field {
-					name: "connect".into(),
-					fields: Some(transform_equals(
-						where_params.into_iter().map(|item| item.field()).collect(),
-					)),
-					list: true,
-					wrap_list: true,
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::UnlinkChildren(where_params) => Field {
-				name: "children".into(),
-				fields: Some(vec![Field {
-					name: "disconnect".into(),
-					list: true,
-					wrap_list: true,
-					fields: Some(transform_equals(
-						where_params.into_iter().map(|item| item.field()).collect(),
-					)),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::LinkFileTags(where_params) => Field {
 				name: "file_tags".into(),
 				fields: Some(vec![Field {
@@ -6610,6 +6487,84 @@ impl FileSetParam {
 			},
 			Self::UnlinkFileTags(where_params) => Field {
 				name: "file_tags".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LinkFileLabels(where_params) => Field {
+				name: "file_labels".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					list: true,
+					wrap_list: true,
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkFileLabels(where_params) => Field {
+				name: "file_labels".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LinkFilePaths(where_params) => Field {
+				name: "file_paths".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					list: true,
+					wrap_list: true,
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkFilePaths(where_params) => Field {
+				name: "file_paths".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LinkComments(where_params) => Field {
+				name: "comments".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					list: true,
+					wrap_list: true,
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkComments(where_params) => Field {
+				name: "comments".into(),
 				fields: Some(vec![Field {
 					name: "disconnect".into(),
 					list: true,
@@ -6855,13 +6810,13 @@ impl<'a> FileActions<'a> {
 	}
 	pub fn create_one(
 		&self,
-		stem: FileSetStem,
+		id_hash: FileSetIdHash,
 		name: FileSetName,
 		size_in_bytes: FileSetSizeInBytes,
 		params: Vec<FileSetParam>,
 	) -> FileCreateOne {
 		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
-		input_fields.push(FileSetParam::from(stem).field());
+		input_fields.push(FileSetParam::from(id_hash).field());
 		input_fields.push(FileSetParam::from(name).field());
 		input_fields.push(FileSetParam::from(size_in_bytes).field());
 		let query = Query {
@@ -6878,6 +6833,1262 @@ impl<'a> FileActions<'a> {
 			}],
 		};
 		FileCreateOne { query }
+	}
+}
+fn file_path_outputs() -> Vec<Output> {
+	vec![
+		Output::new("id"),
+		Output::new("is_dir"),
+		Output::new("materialized_path"),
+		Output::new("file_id"),
+		Output::new("parent_id"),
+		Output::new("location_id"),
+		Output::new("date_indexed"),
+		Output::new("permissions"),
+	]
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FilePathData {
+	#[serde(rename = "id")]
+	pub id: i64,
+	#[serde(rename = "is_dir")]
+	pub is_dir: bool,
+	#[serde(rename = "materialized_path")]
+	pub materialized_path: String,
+	#[serde(rename = "file_id")]
+	pub file_id: Option<i64>,
+	#[serde(rename = "file")]
+	pub file: Box<Option<FileData>>,
+	#[serde(rename = "parent_id")]
+	pub parent_id: Option<i64>,
+	#[serde(rename = "parent")]
+	pub parent: Box<Option<FilePathData>>,
+	#[serde(rename = "children")]
+	children: Option<Vec<FilePathData>>,
+	#[serde(rename = "location_id")]
+	pub location_id: i64,
+	#[serde(rename = "location")]
+	pub location: Box<Option<LocationData>>,
+	#[serde(rename = "date_indexed")]
+	pub date_indexed: chrono::DateTime<chrono::Utc>,
+	#[serde(rename = "permissions")]
+	pub permissions: Option<String>,
+}
+impl FilePathData {
+	pub fn file(&self) -> Option<&FileData> {
+		self.file.as_ref().as_ref()
+	}
+	pub fn parent(&self) -> Option<&FilePathData> {
+		self.parent.as_ref().as_ref()
+	}
+	pub fn children(&self) -> Result<&Vec<FilePathData>, String> {
+		match self.children.as_ref() {
+			Some(v) => Ok(v),
+			None => Err("attempted to access children but did not fetch it using the .with() syntax".to_string()),
+		}
+	}
+	pub fn location(&self) -> Option<&LocationData> {
+		self.location.as_ref().as_ref()
+	}
+}
+pub struct FilePath;
+impl FilePath {
+	pub fn id() -> FilePathIdField {
+		FilePathIdField {}
+	}
+	pub fn is_dir() -> FilePathIsDirField {
+		FilePathIsDirField {}
+	}
+	pub fn materialized_path() -> FilePathMaterializedPathField {
+		FilePathMaterializedPathField {}
+	}
+	pub fn file_id() -> FilePathFileIdField {
+		FilePathFileIdField {}
+	}
+	pub fn file() -> FilePathFileField {
+		FilePathFileField {}
+	}
+	pub fn parent_id() -> FilePathParentIdField {
+		FilePathParentIdField {}
+	}
+	pub fn parent() -> FilePathParentField {
+		FilePathParentField {}
+	}
+	pub fn children() -> FilePathChildrenField {
+		FilePathChildrenField {}
+	}
+	pub fn location_id() -> FilePathLocationIdField {
+		FilePathLocationIdField {}
+	}
+	pub fn location() -> FilePathLocationField {
+		FilePathLocationField {}
+	}
+	pub fn date_indexed() -> FilePathDateIndexedField {
+		FilePathDateIndexedField {}
+	}
+	pub fn permissions() -> FilePathPermissionsField {
+		FilePathPermissionsField {}
+	}
+}
+pub struct FilePathIdField {}
+pub struct FilePathSetId(i64);
+impl From<FilePathSetId> for FilePathSetParam {
+	fn from(value: FilePathSetId) -> Self {
+		Self::Id(value.0)
+	}
+}
+impl FilePathIdField {
+	pub fn lt(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::IdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::IdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::IdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::IdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::IdEquals(value)
+	}
+	pub fn set<T: From<FilePathSetId>>(&self, value: i64) -> T {
+		FilePathSetId(value).into()
+	}
+}
+pub struct FilePathIsDirField {}
+pub struct FilePathSetIsDir(bool);
+impl From<FilePathSetIsDir> for FilePathSetParam {
+	fn from(value: FilePathSetIsDir) -> Self {
+		Self::IsDir(value.0)
+	}
+}
+impl FilePathIsDirField {
+	pub fn equals(&self, value: bool) -> FilePathWhereParam {
+		FilePathWhereParam::IsDirEquals(value)
+	}
+	pub fn set<T: From<FilePathSetIsDir>>(&self, value: bool) -> T {
+		FilePathSetIsDir(value).into()
+	}
+}
+pub struct FilePathMaterializedPathField {}
+pub struct FilePathSetMaterializedPath(String);
+impl From<FilePathSetMaterializedPath> for FilePathSetParam {
+	fn from(value: FilePathSetMaterializedPath) -> Self {
+		Self::MaterializedPath(value.0)
+	}
+}
+impl FilePathMaterializedPathField {
+	pub fn contains(&self, value: String) -> FilePathWhereParam {
+		FilePathWhereParam::MaterializedPathContains(value)
+	}
+	pub fn has_prefix(&self, value: String) -> FilePathWhereParam {
+		FilePathWhereParam::MaterializedPathHasPrefix(value)
+	}
+	pub fn has_suffix(&self, value: String) -> FilePathWhereParam {
+		FilePathWhereParam::MaterializedPathHasSuffix(value)
+	}
+	pub fn equals(&self, value: String) -> FilePathWhereParam {
+		FilePathWhereParam::MaterializedPathEquals(value)
+	}
+	pub fn set<T: From<FilePathSetMaterializedPath>>(&self, value: String) -> T {
+		FilePathSetMaterializedPath(value).into()
+	}
+}
+pub struct FilePathFileIdField {}
+pub struct FilePathSetFileId(i64);
+impl From<FilePathSetFileId> for FilePathSetParam {
+	fn from(value: FilePathSetFileId) -> Self {
+		Self::FileId(value.0)
+	}
+}
+impl FilePathFileIdField {
+	pub fn lt(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::FileIdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::FileIdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::FileIdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::FileIdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::FileIdEquals(value)
+	}
+	pub fn set<T: From<FilePathSetFileId>>(&self, value: i64) -> T {
+		FilePathSetFileId(value).into()
+	}
+}
+pub struct FilePathFileField {}
+pub struct FilePathLinkFile(FileWhereParam);
+impl From<FilePathLinkFile> for FilePathSetParam {
+	fn from(value: FilePathLinkFile) -> Self {
+		Self::LinkFile(value.0)
+	}
+}
+impl FilePathFileField {
+	pub fn is(&self, value: Vec<FileWhereParam>) -> FilePathWhereParam {
+		FilePathWhereParam::FileIs(value)
+	}
+	pub fn link<T: From<FilePathLinkFile>>(&self, value: FileWhereParam) -> T {
+		FilePathLinkFile(value).into()
+	}
+	pub fn fetch(&self) -> FilePathWith {
+		FilePathWithParam::File.into()
+	}
+	pub fn unlink(&self) -> FilePathSetParam {
+		FilePathSetParam::UnlinkFile
+	}
+}
+pub struct FilePathParentIdField {}
+pub struct FilePathSetParentId(i64);
+impl From<FilePathSetParentId> for FilePathSetParam {
+	fn from(value: FilePathSetParentId) -> Self {
+		Self::ParentId(value.0)
+	}
+}
+impl FilePathParentIdField {
+	pub fn lt(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::ParentIdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::ParentIdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::ParentIdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::ParentIdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::ParentIdEquals(value)
+	}
+	pub fn set<T: From<FilePathSetParentId>>(&self, value: i64) -> T {
+		FilePathSetParentId(value).into()
+	}
+}
+pub struct FilePathParentField {}
+pub struct FilePathLinkParent(FilePathWhereParam);
+impl From<FilePathLinkParent> for FilePathSetParam {
+	fn from(value: FilePathLinkParent) -> Self {
+		Self::LinkParent(value.0)
+	}
+}
+impl FilePathParentField {
+	pub fn is(&self, value: Vec<FilePathWhereParam>) -> FilePathWhereParam {
+		FilePathWhereParam::ParentIs(value)
+	}
+	pub fn link<T: From<FilePathLinkParent>>(&self, value: FilePathWhereParam) -> T {
+		FilePathLinkParent(value).into()
+	}
+	pub fn fetch(&self) -> FilePathWith {
+		FilePathWithParam::Parent.into()
+	}
+	pub fn unlink(&self) -> FilePathSetParam {
+		FilePathSetParam::UnlinkParent
+	}
+}
+pub struct FilePathChildrenField {}
+pub struct FilePathLinkChildren(Vec<FilePathWhereParam>);
+impl From<FilePathLinkChildren> for FilePathSetParam {
+	fn from(value: FilePathLinkChildren) -> Self {
+		Self::LinkChildren(value.0.into_iter().map(|v| v.into()).collect())
+	}
+}
+impl FilePathChildrenField {
+	pub fn some(&self, value: Vec<FilePathWhereParam>) -> FilePathWhereParam {
+		FilePathWhereParam::ChildrenSome(value)
+	}
+	pub fn every(&self, value: Vec<FilePathWhereParam>) -> FilePathWhereParam {
+		FilePathWhereParam::ChildrenEvery(value)
+	}
+	pub fn link<T: From<FilePathLinkChildren>>(&self, value: Vec<FilePathWhereParam>) -> T {
+		FilePathLinkChildren(value).into()
+	}
+	pub fn unlink(&self, params: Vec<FilePathWhereParam>) -> FilePathSetParam {
+		FilePathSetParam::UnlinkChildren(params)
+	}
+	pub fn fetch(&self, params: Vec<FilePathWhereParam>) -> FilePathWith {
+		FilePathWithParam::Children(params).into()
+	}
+}
+pub struct FilePathLocationIdField {}
+pub struct FilePathSetLocationId(i64);
+impl From<FilePathSetLocationId> for FilePathSetParam {
+	fn from(value: FilePathSetLocationId) -> Self {
+		Self::LocationId(value.0)
+	}
+}
+impl FilePathLocationIdField {
+	pub fn lt(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::LocationIdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::LocationIdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::LocationIdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::LocationIdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> FilePathWhereParam {
+		FilePathWhereParam::LocationIdEquals(value)
+	}
+	pub fn set<T: From<FilePathSetLocationId>>(&self, value: i64) -> T {
+		FilePathSetLocationId(value).into()
+	}
+}
+pub struct FilePathLocationField {}
+pub struct FilePathLinkLocation(LocationWhereParam);
+impl From<FilePathLinkLocation> for FilePathSetParam {
+	fn from(value: FilePathLinkLocation) -> Self {
+		Self::LinkLocation(value.0)
+	}
+}
+impl FilePathLocationField {
+	pub fn is(&self, value: Vec<LocationWhereParam>) -> FilePathWhereParam {
+		FilePathWhereParam::LocationIs(value)
+	}
+	pub fn link<T: From<FilePathLinkLocation>>(&self, value: LocationWhereParam) -> T {
+		FilePathLinkLocation(value).into()
+	}
+	pub fn fetch(&self) -> FilePathWith {
+		FilePathWithParam::Location.into()
+	}
+	pub fn unlink(&self) -> FilePathSetParam {
+		FilePathSetParam::UnlinkLocation
+	}
+}
+pub struct FilePathDateIndexedField {}
+pub struct FilePathSetDateIndexed(chrono::DateTime<chrono::Utc>);
+impl From<FilePathSetDateIndexed> for FilePathSetParam {
+	fn from(value: FilePathSetDateIndexed) -> Self {
+		Self::DateIndexed(value.0)
+	}
+}
+impl FilePathDateIndexedField {
+	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
+		FilePathWhereParam::DateIndexedBefore(value)
+	}
+	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
+		FilePathWhereParam::DateIndexedAfter(value)
+	}
+	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
+		FilePathWhereParam::DateIndexedBeforeEquals(value)
+	}
+	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
+		FilePathWhereParam::DateIndexedAfterEquals(value)
+	}
+	pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
+		FilePathWhereParam::DateIndexedEquals(value)
+	}
+	pub fn set<T: From<FilePathSetDateIndexed>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
+		FilePathSetDateIndexed(value).into()
+	}
+}
+pub struct FilePathPermissionsField {}
+pub struct FilePathSetPermissions(String);
+impl From<FilePathSetPermissions> for FilePathSetParam {
+	fn from(value: FilePathSetPermissions) -> Self {
+		Self::Permissions(value.0)
+	}
+}
+impl FilePathPermissionsField {
+	pub fn contains(&self, value: String) -> FilePathWhereParam {
+		FilePathWhereParam::PermissionsContains(value)
+	}
+	pub fn has_prefix(&self, value: String) -> FilePathWhereParam {
+		FilePathWhereParam::PermissionsHasPrefix(value)
+	}
+	pub fn has_suffix(&self, value: String) -> FilePathWhereParam {
+		FilePathWhereParam::PermissionsHasSuffix(value)
+	}
+	pub fn equals(&self, value: String) -> FilePathWhereParam {
+		FilePathWhereParam::PermissionsEquals(value)
+	}
+	pub fn set<T: From<FilePathSetPermissions>>(&self, value: String) -> T {
+		FilePathSetPermissions(value).into()
+	}
+}
+pub enum FilePathWhereParam {
+	IdLT(i64),
+	IdGT(i64),
+	IdLTE(i64),
+	IdGTE(i64),
+	IdEquals(i64),
+	IsDirEquals(bool),
+	MaterializedPathContains(String),
+	MaterializedPathHasPrefix(String),
+	MaterializedPathHasSuffix(String),
+	MaterializedPathEquals(String),
+	FileIdLT(i64),
+	FileIdGT(i64),
+	FileIdLTE(i64),
+	FileIdGTE(i64),
+	FileIdEquals(i64),
+	FileIs(Vec<FileWhereParam>),
+	ParentIdLT(i64),
+	ParentIdGT(i64),
+	ParentIdLTE(i64),
+	ParentIdGTE(i64),
+	ParentIdEquals(i64),
+	ParentIs(Vec<FilePathWhereParam>),
+	ChildrenSome(Vec<FilePathWhereParam>),
+	ChildrenEvery(Vec<FilePathWhereParam>),
+	LocationIdLT(i64),
+	LocationIdGT(i64),
+	LocationIdLTE(i64),
+	LocationIdGTE(i64),
+	LocationIdEquals(i64),
+	LocationIs(Vec<LocationWhereParam>),
+	DateIndexedBefore(chrono::DateTime<chrono::Utc>),
+	DateIndexedAfter(chrono::DateTime<chrono::Utc>),
+	DateIndexedBeforeEquals(chrono::DateTime<chrono::Utc>),
+	DateIndexedAfterEquals(chrono::DateTime<chrono::Utc>),
+	DateIndexedEquals(chrono::DateTime<chrono::Utc>),
+	PermissionsContains(String),
+	PermissionsHasPrefix(String),
+	PermissionsHasSuffix(String),
+	PermissionsEquals(String),
+	Not(Vec<FilePathWhereParam>),
+	Or(Vec<FilePathWhereParam>),
+	And(Vec<FilePathWhereParam>),
+}
+impl FilePathWhereParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::IdLT(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdGT(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdLTE(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdGTE(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdEquals(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IsDirEquals(value) => Field {
+				name: "is_dir".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::MaterializedPathContains(value) => Field {
+				name: "materialized_path".into(),
+				fields: Some(vec![Field {
+					name: "contains".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::MaterializedPathHasPrefix(value) => Field {
+				name: "materialized_path".into(),
+				fields: Some(vec![Field {
+					name: "starts_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::MaterializedPathHasSuffix(value) => Field {
+				name: "materialized_path".into(),
+				fields: Some(vec![Field {
+					name: "ends_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::MaterializedPathEquals(value) => Field {
+				name: "materialized_path".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdLT(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdGT(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdLTE(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdGTE(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdEquals(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIs(value) => Field {
+				name: "file".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ParentIdLT(value) => Field {
+				name: "parent_id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ParentIdGT(value) => Field {
+				name: "parent_id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ParentIdLTE(value) => Field {
+				name: "parent_id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ParentIdGTE(value) => Field {
+				name: "parent_id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ParentIdEquals(value) => Field {
+				name: "parent_id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ParentIs(value) => Field {
+				name: "parent".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ChildrenSome(value) => Field {
+				name: "children".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ChildrenEvery(value) => Field {
+				name: "children".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LocationIdLT(value) => Field {
+				name: "location_id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LocationIdGT(value) => Field {
+				name: "location_id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LocationIdLTE(value) => Field {
+				name: "location_id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LocationIdGTE(value) => Field {
+				name: "location_id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LocationIdEquals(value) => Field {
+				name: "location_id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LocationIs(value) => Field {
+				name: "location".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateIndexedBefore(value) => Field {
+				name: "date_indexed".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateIndexedAfter(value) => Field {
+				name: "date_indexed".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateIndexedBeforeEquals(value) => Field {
+				name: "date_indexed".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateIndexedAfterEquals(value) => Field {
+				name: "date_indexed".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateIndexedEquals(value) => Field {
+				name: "date_indexed".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::PermissionsContains(value) => Field {
+				name: "permissions".into(),
+				fields: Some(vec![Field {
+					name: "contains".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::PermissionsHasPrefix(value) => Field {
+				name: "permissions".into(),
+				fields: Some(vec![Field {
+					name: "starts_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::PermissionsHasSuffix(value) => Field {
+				name: "permissions".into(),
+				fields: Some(vec![Field {
+					name: "ends_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::PermissionsEquals(value) => Field {
+				name: "permissions".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::Not(value) => Field {
+				name: "NOT".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::Or(value) => Field {
+				name: "OR".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::And(value) => Field {
+				name: "AND".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+		}
+	}
+}
+impl From<Operator<Self>> for FilePathWhereParam {
+	fn from(op: Operator<Self>) -> Self {
+		match op {
+			Operator::Not(value) => Self::Not(value),
+			Operator::And(value) => Self::And(value),
+			Operator::Or(value) => Self::Or(value),
+		}
+	}
+}
+pub struct FilePathWith {
+	pub param: FilePathWithParam,
+}
+pub enum FilePathWithParam {
+	File,
+	Parent,
+	Children(Vec<FilePathWhereParam>),
+	Location,
+}
+impl From<FilePathWithParam> for FilePathWith {
+	fn from(param: FilePathWithParam) -> Self {
+		Self { param }
+	}
+}
+impl FilePathWithParam {
+	pub fn output(self) -> Output {
+		match self {
+			Self::File => Output {
+				name: "file".into(),
+				outputs: file_outputs(),
+				..Default::default()
+			},
+			Self::Parent => Output {
+				name: "parent".into(),
+				outputs: file_path_outputs(),
+				..Default::default()
+			},
+			Self::Children(where_params) => Output {
+				name: "children".into(),
+				outputs: file_path_outputs(),
+				inputs: if where_params.len() > 0 {
+					vec![Input {
+						name: "where".into(),
+						fields: where_params.into_iter().map(|f| f.field()).collect(),
+						..Default::default()
+					}]
+				} else {
+					vec![]
+				},
+				..Default::default()
+			},
+			Self::Location => Output {
+				name: "location".into(),
+				outputs: location_outputs(),
+				..Default::default()
+			},
+		}
+	}
+}
+pub enum FilePathSetParam {
+	Id(i64),
+	IsDir(bool),
+	MaterializedPath(String),
+	FileId(i64),
+	LinkFile(FileWhereParam),
+	UnlinkFile,
+	ParentId(i64),
+	LinkParent(FilePathWhereParam),
+	UnlinkParent,
+	LinkChildren(Vec<FilePathWhereParam>),
+	UnlinkChildren(Vec<FilePathWhereParam>),
+	LocationId(i64),
+	LinkLocation(LocationWhereParam),
+	UnlinkLocation,
+	DateIndexed(chrono::DateTime<chrono::Utc>),
+	Permissions(String),
+}
+impl FilePathSetParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::Id(value) => Field {
+				name: "id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::IsDir(value) => Field {
+				name: "is_dir".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::MaterializedPath(value) => Field {
+				name: "materialized_path".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::FileId(value) => Field {
+				name: "file_id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::LinkFile(where_param) => Field {
+				name: "file".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(vec![where_param.field()])),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkFile => Field {
+				name: "file".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					value: Some(true.into()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ParentId(value) => Field {
+				name: "parent_id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::LinkParent(where_param) => Field {
+				name: "parent".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(vec![where_param.field()])),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkParent => Field {
+				name: "parent".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					value: Some(true.into()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LinkChildren(where_params) => Field {
+				name: "children".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					list: true,
+					wrap_list: true,
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkChildren(where_params) => Field {
+				name: "children".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LocationId(value) => Field {
+				name: "location_id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::LinkLocation(where_param) => Field {
+				name: "location".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(vec![where_param.field()])),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkLocation => Field {
+				name: "location".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					value: Some(true.into()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateIndexed(value) => Field {
+				name: "date_indexed".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::Permissions(value) => Field {
+				name: "permissions".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+		}
+	}
+}
+pub struct FilePathFindMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> FilePathFindMany<'a> {
+	pub async fn exec(self) -> Vec<FilePathData> {
+		self.query.perform::<Vec<FilePathData>>().await.unwrap()
+	}
+	pub fn delete(self) -> FilePathDelete<'a> {
+		FilePathDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteMany".into(),
+				model: "FilePath".into(),
+				outputs: vec![Output::new("count")],
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<FilePathSetParam>) -> FilePathUpdateMany<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		FilePathUpdateMany {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateMany".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<FilePathWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct FilePathFindFirst<'a> {
+	query: Query<'a>,
+}
+impl<'a> FilePathFindFirst<'a> {
+	pub async fn exec(self) -> Option<FilePathData> {
+		self.query.perform::<Option<FilePathData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<FilePathWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct FilePathFindUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> FilePathFindUnique<'a> {
+	pub async fn exec(self) -> Option<FilePathData> {
+		self.query.perform::<Option<FilePathData>>().await.unwrap()
+	}
+	pub fn delete(self) -> FilePathDelete<'a> {
+		FilePathDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteOne".into(),
+				model: "FilePath".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<FilePathSetParam>) -> FilePathUpdateUnique<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		FilePathUpdateUnique {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateOne".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<FilePathWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct FilePathCreateOne<'a> {
+	query: Query<'a>,
+}
+impl<'a> FilePathCreateOne<'a> {
+	pub async fn exec(self) -> FilePathData {
+		self.query.perform::<FilePathData>().await.unwrap()
+	}
+}
+pub struct FilePathUpdateUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> FilePathUpdateUnique<'a> {
+	pub async fn exec(self) -> FilePathData {
+		self.query.perform::<FilePathData>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<FilePathWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct FilePathUpdateMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> FilePathUpdateMany<'a> {
+	pub async fn exec(self) -> Vec<FilePathData> {
+		self.query.perform::<Vec<FilePathData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<FilePathWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct FilePathDelete<'a> {
+	query: Query<'a>,
+}
+impl<'a> FilePathDelete<'a> {
+	pub async fn exec(self) -> isize {
+		self.query.perform::<DeleteResult>().await.unwrap().count
+	}
+}
+pub struct FilePathActions<'a> {
+	client: &'a PrismaClient,
+}
+impl<'a> FilePathActions<'a> {
+	pub fn find_unique(&self, param: FilePathWhereParam) -> FilePathFindUnique {
+		let fields = transform_equals(vec![param.field()]);
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findUnique".into(),
+			model: "FilePath".into(),
+			outputs: file_path_outputs(),
+			inputs: vec![Input {
+				name: "where".into(),
+				fields,
+				..Default::default()
+			}],
+		};
+		FilePathFindUnique { query }
+	}
+	pub fn find_first(&self, params: Vec<FilePathWhereParam>) -> FilePathFindFirst {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: vec![Field {
+					name: "AND".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(where_fields),
+					..Default::default()
+				}],
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findFirst".into(),
+			model: "FilePath".into(),
+			outputs: file_path_outputs(),
+			inputs,
+		};
+		FilePathFindFirst { query }
+	}
+	pub fn find_many(&self, params: Vec<FilePathWhereParam>) -> FilePathFindMany {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: where_fields,
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findMany".into(),
+			model: "FilePath".into(),
+			outputs: file_path_outputs(),
+			inputs,
+		};
+		FilePathFindMany { query }
+	}
+	pub fn create_one(
+		&self,
+		materialized_path: FilePathSetMaterializedPath,
+		params: Vec<FilePathSetParam>,
+	) -> FilePathCreateOne {
+		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
+		input_fields.push(FilePathSetParam::from(materialized_path).field());
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "mutation".into(),
+			method: "createOne".into(),
+			model: "FilePath".into(),
+			outputs: file_path_outputs(),
+			inputs: vec![Input {
+				name: "data".into(),
+				fields: input_fields,
+				..Default::default()
+			}],
+		};
+		FilePathCreateOne { query }
 	}
 }
 fn tag_outputs() -> Vec<Output> {
@@ -8618,6 +9829,1479 @@ impl<'a> TagOnFileActions<'a> {
 			}],
 		};
 		TagOnFileCreateOne { query }
+	}
+}
+fn label_outputs() -> Vec<Output> {
+	vec![
+		Output::new("id"),
+		Output::new("name"),
+		Output::new("date_created"),
+		Output::new("date_modified"),
+	]
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LabelData {
+	#[serde(rename = "id")]
+	pub id: i64,
+	#[serde(rename = "name")]
+	pub name: Option<String>,
+	#[serde(rename = "date_created")]
+	pub date_created: chrono::DateTime<chrono::Utc>,
+	#[serde(rename = "date_modified")]
+	pub date_modified: chrono::DateTime<chrono::Utc>,
+	#[serde(rename = "label_files")]
+	label_files: Option<Vec<LabelOnFileData>>,
+}
+impl LabelData {
+	pub fn label_files(&self) -> Result<&Vec<LabelOnFileData>, String> {
+		match self.label_files.as_ref() {
+			Some(v) => Ok(v),
+			None => Err("attempted to access label_files but did not fetch it using the .with() syntax".to_string()),
+		}
+	}
+}
+pub struct Label;
+impl Label {
+	pub fn id() -> LabelIdField {
+		LabelIdField {}
+	}
+	pub fn name() -> LabelNameField {
+		LabelNameField {}
+	}
+	pub fn date_created() -> LabelDateCreatedField {
+		LabelDateCreatedField {}
+	}
+	pub fn date_modified() -> LabelDateModifiedField {
+		LabelDateModifiedField {}
+	}
+	pub fn label_files() -> LabelLabelFilesField {
+		LabelLabelFilesField {}
+	}
+}
+pub struct LabelIdField {}
+pub struct LabelSetId(i64);
+impl From<LabelSetId> for LabelSetParam {
+	fn from(value: LabelSetId) -> Self {
+		Self::Id(value.0)
+	}
+}
+impl LabelIdField {
+	pub fn lt(&self, value: i64) -> LabelWhereParam {
+		LabelWhereParam::IdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> LabelWhereParam {
+		LabelWhereParam::IdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> LabelWhereParam {
+		LabelWhereParam::IdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> LabelWhereParam {
+		LabelWhereParam::IdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> LabelWhereParam {
+		LabelWhereParam::IdEquals(value)
+	}
+	pub fn set<T: From<LabelSetId>>(&self, value: i64) -> T {
+		LabelSetId(value).into()
+	}
+}
+pub struct LabelNameField {}
+pub struct LabelSetName(String);
+impl From<LabelSetName> for LabelSetParam {
+	fn from(value: LabelSetName) -> Self {
+		Self::Name(value.0)
+	}
+}
+impl LabelNameField {
+	pub fn contains(&self, value: String) -> LabelWhereParam {
+		LabelWhereParam::NameContains(value)
+	}
+	pub fn has_prefix(&self, value: String) -> LabelWhereParam {
+		LabelWhereParam::NameHasPrefix(value)
+	}
+	pub fn has_suffix(&self, value: String) -> LabelWhereParam {
+		LabelWhereParam::NameHasSuffix(value)
+	}
+	pub fn equals(&self, value: String) -> LabelWhereParam {
+		LabelWhereParam::NameEquals(value)
+	}
+	pub fn set<T: From<LabelSetName>>(&self, value: String) -> T {
+		LabelSetName(value).into()
+	}
+}
+pub struct LabelDateCreatedField {}
+pub struct LabelSetDateCreated(chrono::DateTime<chrono::Utc>);
+impl From<LabelSetDateCreated> for LabelSetParam {
+	fn from(value: LabelSetDateCreated) -> Self {
+		Self::DateCreated(value.0)
+	}
+}
+impl LabelDateCreatedField {
+	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateCreatedBefore(value)
+	}
+	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateCreatedAfter(value)
+	}
+	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateCreatedBeforeEquals(value)
+	}
+	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateCreatedAfterEquals(value)
+	}
+	pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateCreatedEquals(value)
+	}
+	pub fn set<T: From<LabelSetDateCreated>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
+		LabelSetDateCreated(value).into()
+	}
+}
+pub struct LabelDateModifiedField {}
+pub struct LabelSetDateModified(chrono::DateTime<chrono::Utc>);
+impl From<LabelSetDateModified> for LabelSetParam {
+	fn from(value: LabelSetDateModified) -> Self {
+		Self::DateModified(value.0)
+	}
+}
+impl LabelDateModifiedField {
+	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateModifiedBefore(value)
+	}
+	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateModifiedAfter(value)
+	}
+	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateModifiedBeforeEquals(value)
+	}
+	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateModifiedAfterEquals(value)
+	}
+	pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
+		LabelWhereParam::DateModifiedEquals(value)
+	}
+	pub fn set<T: From<LabelSetDateModified>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
+		LabelSetDateModified(value).into()
+	}
+}
+pub struct LabelLabelFilesField {}
+pub struct LabelLinkLabelFiles(Vec<LabelOnFileWhereParam>);
+impl From<LabelLinkLabelFiles> for LabelSetParam {
+	fn from(value: LabelLinkLabelFiles) -> Self {
+		Self::LinkLabelFiles(value.0.into_iter().map(|v| v.into()).collect())
+	}
+}
+impl LabelLabelFilesField {
+	pub fn some(&self, value: Vec<LabelOnFileWhereParam>) -> LabelWhereParam {
+		LabelWhereParam::LabelFilesSome(value)
+	}
+	pub fn every(&self, value: Vec<LabelOnFileWhereParam>) -> LabelWhereParam {
+		LabelWhereParam::LabelFilesEvery(value)
+	}
+	pub fn link<T: From<LabelLinkLabelFiles>>(&self, value: Vec<LabelOnFileWhereParam>) -> T {
+		LabelLinkLabelFiles(value).into()
+	}
+	pub fn unlink(&self, params: Vec<LabelOnFileWhereParam>) -> LabelSetParam {
+		LabelSetParam::UnlinkLabelFiles(params)
+	}
+	pub fn fetch(&self, params: Vec<LabelOnFileWhereParam>) -> LabelWith {
+		LabelWithParam::LabelFiles(params).into()
+	}
+}
+pub enum LabelWhereParam {
+	IdLT(i64),
+	IdGT(i64),
+	IdLTE(i64),
+	IdGTE(i64),
+	IdEquals(i64),
+	NameContains(String),
+	NameHasPrefix(String),
+	NameHasSuffix(String),
+	NameEquals(String),
+	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
+	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
+	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
+	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
+	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
+	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
+	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
+	LabelFilesSome(Vec<LabelOnFileWhereParam>),
+	LabelFilesEvery(Vec<LabelOnFileWhereParam>),
+	Not(Vec<LabelWhereParam>),
+	Or(Vec<LabelWhereParam>),
+	And(Vec<LabelWhereParam>),
+}
+impl LabelWhereParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::IdLT(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdGT(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdLTE(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdGTE(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdEquals(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::NameContains(value) => Field {
+				name: "name".into(),
+				fields: Some(vec![Field {
+					name: "contains".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::NameHasPrefix(value) => Field {
+				name: "name".into(),
+				fields: Some(vec![Field {
+					name: "starts_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::NameHasSuffix(value) => Field {
+				name: "name".into(),
+				fields: Some(vec![Field {
+					name: "ends_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::NameEquals(value) => Field {
+				name: "name".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedBefore(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedAfter(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedBeforeEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedAfterEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedBefore(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedAfter(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedBeforeEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedAfterEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LabelFilesSome(value) => Field {
+				name: "label_files".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LabelFilesEvery(value) => Field {
+				name: "label_files".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::Not(value) => Field {
+				name: "NOT".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::Or(value) => Field {
+				name: "OR".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::And(value) => Field {
+				name: "AND".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+		}
+	}
+}
+impl From<Operator<Self>> for LabelWhereParam {
+	fn from(op: Operator<Self>) -> Self {
+		match op {
+			Operator::Not(value) => Self::Not(value),
+			Operator::And(value) => Self::And(value),
+			Operator::Or(value) => Self::Or(value),
+		}
+	}
+}
+pub struct LabelWith {
+	pub param: LabelWithParam,
+}
+pub enum LabelWithParam {
+	LabelFiles(Vec<LabelOnFileWhereParam>),
+}
+impl From<LabelWithParam> for LabelWith {
+	fn from(param: LabelWithParam) -> Self {
+		Self { param }
+	}
+}
+impl LabelWithParam {
+	pub fn output(self) -> Output {
+		match self {
+			Self::LabelFiles(where_params) => Output {
+				name: "label_files".into(),
+				outputs: label_on_file_outputs(),
+				inputs: if where_params.len() > 0 {
+					vec![Input {
+						name: "where".into(),
+						fields: where_params.into_iter().map(|f| f.field()).collect(),
+						..Default::default()
+					}]
+				} else {
+					vec![]
+				},
+				..Default::default()
+			},
+		}
+	}
+}
+pub enum LabelSetParam {
+	Id(i64),
+	Name(String),
+	DateCreated(chrono::DateTime<chrono::Utc>),
+	DateModified(chrono::DateTime<chrono::Utc>),
+	LinkLabelFiles(Vec<LabelOnFileWhereParam>),
+	UnlinkLabelFiles(Vec<LabelOnFileWhereParam>),
+}
+impl LabelSetParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::Id(value) => Field {
+				name: "id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::Name(value) => Field {
+				name: "name".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::DateCreated(value) => Field {
+				name: "date_created".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::DateModified(value) => Field {
+				name: "date_modified".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::LinkLabelFiles(where_params) => Field {
+				name: "label_files".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					list: true,
+					wrap_list: true,
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkLabelFiles(where_params) => Field {
+				name: "label_files".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(transform_equals(
+						where_params.into_iter().map(|item| item.field()).collect(),
+					)),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+		}
+	}
+}
+pub struct LabelFindMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelFindMany<'a> {
+	pub async fn exec(self) -> Vec<LabelData> {
+		self.query.perform::<Vec<LabelData>>().await.unwrap()
+	}
+	pub fn delete(self) -> LabelDelete<'a> {
+		LabelDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteMany".into(),
+				model: "Label".into(),
+				outputs: vec![Output::new("count")],
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<LabelSetParam>) -> LabelUpdateMany<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		LabelUpdateMany {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateMany".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<LabelWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelFindFirst<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelFindFirst<'a> {
+	pub async fn exec(self) -> Option<LabelData> {
+		self.query.perform::<Option<LabelData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<LabelWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelFindUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelFindUnique<'a> {
+	pub async fn exec(self) -> Option<LabelData> {
+		self.query.perform::<Option<LabelData>>().await.unwrap()
+	}
+	pub fn delete(self) -> LabelDelete<'a> {
+		LabelDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteOne".into(),
+				model: "Label".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<LabelSetParam>) -> LabelUpdateUnique<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		LabelUpdateUnique {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateOne".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<LabelWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelCreateOne<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelCreateOne<'a> {
+	pub async fn exec(self) -> LabelData {
+		self.query.perform::<LabelData>().await.unwrap()
+	}
+}
+pub struct LabelUpdateUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelUpdateUnique<'a> {
+	pub async fn exec(self) -> LabelData {
+		self.query.perform::<LabelData>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<LabelWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelUpdateMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelUpdateMany<'a> {
+	pub async fn exec(self) -> Vec<LabelData> {
+		self.query.perform::<Vec<LabelData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<LabelWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelDelete<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelDelete<'a> {
+	pub async fn exec(self) -> isize {
+		self.query.perform::<DeleteResult>().await.unwrap().count
+	}
+}
+pub struct LabelActions<'a> {
+	client: &'a PrismaClient,
+}
+impl<'a> LabelActions<'a> {
+	pub fn find_unique(&self, param: LabelWhereParam) -> LabelFindUnique {
+		let fields = transform_equals(vec![param.field()]);
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findUnique".into(),
+			model: "Label".into(),
+			outputs: label_outputs(),
+			inputs: vec![Input {
+				name: "where".into(),
+				fields,
+				..Default::default()
+			}],
+		};
+		LabelFindUnique { query }
+	}
+	pub fn find_first(&self, params: Vec<LabelWhereParam>) -> LabelFindFirst {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: vec![Field {
+					name: "AND".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(where_fields),
+					..Default::default()
+				}],
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findFirst".into(),
+			model: "Label".into(),
+			outputs: label_outputs(),
+			inputs,
+		};
+		LabelFindFirst { query }
+	}
+	pub fn find_many(&self, params: Vec<LabelWhereParam>) -> LabelFindMany {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: where_fields,
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findMany".into(),
+			model: "Label".into(),
+			outputs: label_outputs(),
+			inputs,
+		};
+		LabelFindMany { query }
+	}
+	pub fn create_one(&self, params: Vec<LabelSetParam>) -> LabelCreateOne {
+		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "mutation".into(),
+			method: "createOne".into(),
+			model: "Label".into(),
+			outputs: label_outputs(),
+			inputs: vec![Input {
+				name: "data".into(),
+				fields: input_fields,
+				..Default::default()
+			}],
+		};
+		LabelCreateOne { query }
+	}
+}
+fn label_on_file_outputs() -> Vec<Output> {
+	vec![
+		Output::new("date_created"),
+		Output::new("label_id"),
+		Output::new("file_id"),
+	]
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LabelOnFileData {
+	#[serde(rename = "date_created")]
+	pub date_created: chrono::DateTime<chrono::Utc>,
+	#[serde(rename = "label_id")]
+	pub label_id: i64,
+	#[serde(rename = "label")]
+	label: Box<Option<LabelData>>,
+	#[serde(rename = "file_id")]
+	pub file_id: i64,
+	#[serde(rename = "file")]
+	file: Box<Option<FileData>>,
+}
+impl LabelOnFileData {
+	pub fn label(&self) -> Result<&LabelData, String> {
+		match self.label.as_ref() {
+			Some(v) => Ok(v),
+			None => Err("attempted to access label but did not fetch it using the .with() syntax".to_string()),
+		}
+	}
+	pub fn file(&self) -> Result<&FileData, String> {
+		match self.file.as_ref() {
+			Some(v) => Ok(v),
+			None => Err("attempted to access file but did not fetch it using the .with() syntax".to_string()),
+		}
+	}
+}
+pub struct LabelOnFile;
+impl LabelOnFile {
+	pub fn date_created() -> LabelOnFileDateCreatedField {
+		LabelOnFileDateCreatedField {}
+	}
+	pub fn label_id() -> LabelOnFileLabelIdField {
+		LabelOnFileLabelIdField {}
+	}
+	pub fn label() -> LabelOnFileLabelField {
+		LabelOnFileLabelField {}
+	}
+	pub fn file_id() -> LabelOnFileFileIdField {
+		LabelOnFileFileIdField {}
+	}
+	pub fn file() -> LabelOnFileFileField {
+		LabelOnFileFileField {}
+	}
+}
+pub struct LabelOnFileDateCreatedField {}
+pub struct LabelOnFileSetDateCreated(chrono::DateTime<chrono::Utc>);
+impl From<LabelOnFileSetDateCreated> for LabelOnFileSetParam {
+	fn from(value: LabelOnFileSetDateCreated) -> Self {
+		Self::DateCreated(value.0)
+	}
+}
+impl LabelOnFileDateCreatedField {
+	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::DateCreatedBefore(value)
+	}
+	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::DateCreatedAfter(value)
+	}
+	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::DateCreatedBeforeEquals(value)
+	}
+	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::DateCreatedAfterEquals(value)
+	}
+	pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::DateCreatedEquals(value)
+	}
+	pub fn set<T: From<LabelOnFileSetDateCreated>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
+		LabelOnFileSetDateCreated(value).into()
+	}
+}
+pub struct LabelOnFileLabelIdField {}
+pub struct LabelOnFileSetLabelId(i64);
+impl From<LabelOnFileSetLabelId> for LabelOnFileSetParam {
+	fn from(value: LabelOnFileSetLabelId) -> Self {
+		Self::LabelId(value.0)
+	}
+}
+impl LabelOnFileLabelIdField {
+	pub fn lt(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::LabelIdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::LabelIdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::LabelIdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::LabelIdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::LabelIdEquals(value)
+	}
+	pub fn set<T: From<LabelOnFileSetLabelId>>(&self, value: i64) -> T {
+		LabelOnFileSetLabelId(value).into()
+	}
+}
+pub struct LabelOnFileLabelField {}
+pub struct LabelOnFileLinkLabel(LabelWhereParam);
+impl From<LabelOnFileLinkLabel> for LabelOnFileSetParam {
+	fn from(value: LabelOnFileLinkLabel) -> Self {
+		Self::LinkLabel(value.0)
+	}
+}
+impl LabelOnFileLabelField {
+	pub fn is(&self, value: Vec<LabelWhereParam>) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::LabelIs(value)
+	}
+	pub fn link<T: From<LabelOnFileLinkLabel>>(&self, value: LabelWhereParam) -> T {
+		LabelOnFileLinkLabel(value).into()
+	}
+	pub fn fetch(&self) -> LabelOnFileWith {
+		LabelOnFileWithParam::Label.into()
+	}
+}
+pub struct LabelOnFileFileIdField {}
+pub struct LabelOnFileSetFileId(i64);
+impl From<LabelOnFileSetFileId> for LabelOnFileSetParam {
+	fn from(value: LabelOnFileSetFileId) -> Self {
+		Self::FileId(value.0)
+	}
+}
+impl LabelOnFileFileIdField {
+	pub fn lt(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::FileIdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::FileIdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::FileIdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::FileIdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::FileIdEquals(value)
+	}
+	pub fn set<T: From<LabelOnFileSetFileId>>(&self, value: i64) -> T {
+		LabelOnFileSetFileId(value).into()
+	}
+}
+pub struct LabelOnFileFileField {}
+pub struct LabelOnFileLinkFile(FileWhereParam);
+impl From<LabelOnFileLinkFile> for LabelOnFileSetParam {
+	fn from(value: LabelOnFileLinkFile) -> Self {
+		Self::LinkFile(value.0)
+	}
+}
+impl LabelOnFileFileField {
+	pub fn is(&self, value: Vec<FileWhereParam>) -> LabelOnFileWhereParam {
+		LabelOnFileWhereParam::FileIs(value)
+	}
+	pub fn link<T: From<LabelOnFileLinkFile>>(&self, value: FileWhereParam) -> T {
+		LabelOnFileLinkFile(value).into()
+	}
+	pub fn fetch(&self) -> LabelOnFileWith {
+		LabelOnFileWithParam::File.into()
+	}
+}
+pub enum LabelOnFileWhereParam {
+	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
+	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
+	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
+	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
+	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
+	LabelIdLT(i64),
+	LabelIdGT(i64),
+	LabelIdLTE(i64),
+	LabelIdGTE(i64),
+	LabelIdEquals(i64),
+	LabelIs(Vec<LabelWhereParam>),
+	FileIdLT(i64),
+	FileIdGT(i64),
+	FileIdLTE(i64),
+	FileIdGTE(i64),
+	FileIdEquals(i64),
+	FileIs(Vec<FileWhereParam>),
+	Not(Vec<LabelOnFileWhereParam>),
+	Or(Vec<LabelOnFileWhereParam>),
+	And(Vec<LabelOnFileWhereParam>),
+}
+impl LabelOnFileWhereParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::DateCreatedBefore(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedAfter(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedBeforeEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedAfterEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LabelIdLT(value) => Field {
+				name: "label_id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LabelIdGT(value) => Field {
+				name: "label_id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LabelIdLTE(value) => Field {
+				name: "label_id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LabelIdGTE(value) => Field {
+				name: "label_id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LabelIdEquals(value) => Field {
+				name: "label_id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::LabelIs(value) => Field {
+				name: "label".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdLT(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdGT(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdLTE(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdGTE(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdEquals(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIs(value) => Field {
+				name: "file".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::Not(value) => Field {
+				name: "NOT".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::Or(value) => Field {
+				name: "OR".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::And(value) => Field {
+				name: "AND".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+		}
+	}
+}
+impl From<Operator<Self>> for LabelOnFileWhereParam {
+	fn from(op: Operator<Self>) -> Self {
+		match op {
+			Operator::Not(value) => Self::Not(value),
+			Operator::And(value) => Self::And(value),
+			Operator::Or(value) => Self::Or(value),
+		}
+	}
+}
+pub struct LabelOnFileWith {
+	pub param: LabelOnFileWithParam,
+}
+pub enum LabelOnFileWithParam {
+	Label,
+	File,
+}
+impl From<LabelOnFileWithParam> for LabelOnFileWith {
+	fn from(param: LabelOnFileWithParam) -> Self {
+		Self { param }
+	}
+}
+impl LabelOnFileWithParam {
+	pub fn output(self) -> Output {
+		match self {
+			Self::Label => Output {
+				name: "label".into(),
+				outputs: label_outputs(),
+				..Default::default()
+			},
+			Self::File => Output {
+				name: "file".into(),
+				outputs: file_outputs(),
+				..Default::default()
+			},
+		}
+	}
+}
+pub enum LabelOnFileSetParam {
+	DateCreated(chrono::DateTime<chrono::Utc>),
+	LabelId(i64),
+	LinkLabel(LabelWhereParam),
+	FileId(i64),
+	LinkFile(FileWhereParam),
+}
+impl LabelOnFileSetParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::DateCreated(value) => Field {
+				name: "date_created".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::LabelId(value) => Field {
+				name: "label_id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::LinkLabel(where_param) => Field {
+				name: "label".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(vec![where_param.field()])),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileId(value) => Field {
+				name: "file_id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::LinkFile(where_param) => Field {
+				name: "file".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(vec![where_param.field()])),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+		}
+	}
+}
+pub struct LabelOnFileFindMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelOnFileFindMany<'a> {
+	pub async fn exec(self) -> Vec<LabelOnFileData> {
+		self.query.perform::<Vec<LabelOnFileData>>().await.unwrap()
+	}
+	pub fn delete(self) -> LabelOnFileDelete<'a> {
+		LabelOnFileDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteMany".into(),
+				model: "LabelOnFile".into(),
+				outputs: vec![Output::new("count")],
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<LabelOnFileSetParam>) -> LabelOnFileUpdateMany<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		LabelOnFileUpdateMany {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateMany".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<LabelOnFileWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelOnFileFindFirst<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelOnFileFindFirst<'a> {
+	pub async fn exec(self) -> Option<LabelOnFileData> {
+		self.query.perform::<Option<LabelOnFileData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<LabelOnFileWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelOnFileFindUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelOnFileFindUnique<'a> {
+	pub async fn exec(self) -> Option<LabelOnFileData> {
+		self.query.perform::<Option<LabelOnFileData>>().await.unwrap()
+	}
+	pub fn delete(self) -> LabelOnFileDelete<'a> {
+		LabelOnFileDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteOne".into(),
+				model: "LabelOnFile".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<LabelOnFileSetParam>) -> LabelOnFileUpdateUnique<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		LabelOnFileUpdateUnique {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateOne".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<LabelOnFileWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelOnFileCreateOne<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelOnFileCreateOne<'a> {
+	pub async fn exec(self) -> LabelOnFileData {
+		self.query.perform::<LabelOnFileData>().await.unwrap()
+	}
+}
+pub struct LabelOnFileUpdateUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelOnFileUpdateUnique<'a> {
+	pub async fn exec(self) -> LabelOnFileData {
+		self.query.perform::<LabelOnFileData>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<LabelOnFileWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelOnFileUpdateMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelOnFileUpdateMany<'a> {
+	pub async fn exec(self) -> Vec<LabelOnFileData> {
+		self.query.perform::<Vec<LabelOnFileData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<LabelOnFileWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct LabelOnFileDelete<'a> {
+	query: Query<'a>,
+}
+impl<'a> LabelOnFileDelete<'a> {
+	pub async fn exec(self) -> isize {
+		self.query.perform::<DeleteResult>().await.unwrap().count
+	}
+}
+pub struct LabelOnFileActions<'a> {
+	client: &'a PrismaClient,
+}
+impl<'a> LabelOnFileActions<'a> {
+	pub fn find_unique(&self, param: LabelOnFileWhereParam) -> LabelOnFileFindUnique {
+		let fields = transform_equals(vec![param.field()]);
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findUnique".into(),
+			model: "LabelOnFile".into(),
+			outputs: label_on_file_outputs(),
+			inputs: vec![Input {
+				name: "where".into(),
+				fields,
+				..Default::default()
+			}],
+		};
+		LabelOnFileFindUnique { query }
+	}
+	pub fn find_first(&self, params: Vec<LabelOnFileWhereParam>) -> LabelOnFileFindFirst {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: vec![Field {
+					name: "AND".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(where_fields),
+					..Default::default()
+				}],
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findFirst".into(),
+			model: "LabelOnFile".into(),
+			outputs: label_on_file_outputs(),
+			inputs,
+		};
+		LabelOnFileFindFirst { query }
+	}
+	pub fn find_many(&self, params: Vec<LabelOnFileWhereParam>) -> LabelOnFileFindMany {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: where_fields,
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findMany".into(),
+			model: "LabelOnFile".into(),
+			outputs: label_on_file_outputs(),
+			inputs,
+		};
+		LabelOnFileFindMany { query }
+	}
+	pub fn create_one(
+		&self,
+		label: LabelOnFileLinkLabel,
+		file: LabelOnFileLinkFile,
+		params: Vec<LabelOnFileSetParam>,
+	) -> LabelOnFileCreateOne {
+		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
+		input_fields.push(LabelOnFileSetParam::from(label).field());
+		input_fields.push(LabelOnFileSetParam::from(file).field());
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "mutation".into(),
+			method: "createOne".into(),
+			model: "LabelOnFile".into(),
+			outputs: label_on_file_outputs(),
+			inputs: vec![Input {
+				name: "data".into(),
+				fields: input_fields,
+				..Default::default()
+			}],
+		};
+		LabelOnFileCreateOne { query }
 	}
 }
 fn job_outputs() -> Vec<Output> {
@@ -10622,5 +13306,1529 @@ impl<'a> SpaceActions<'a> {
 			}],
 		};
 		SpaceCreateOne { query }
+	}
+}
+fn album_outputs() -> Vec<Output> {
+	vec![
+		Output::new("id"),
+		Output::new("name"),
+		Output::new("is_hidden"),
+		Output::new("date_created"),
+		Output::new("date_modified"),
+	]
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlbumData {
+	#[serde(rename = "id")]
+	pub id: i64,
+	#[serde(rename = "name")]
+	pub name: String,
+	#[serde(rename = "is_hidden")]
+	pub is_hidden: bool,
+	#[serde(rename = "date_created")]
+	pub date_created: chrono::DateTime<chrono::Utc>,
+	#[serde(rename = "date_modified")]
+	pub date_modified: chrono::DateTime<chrono::Utc>,
+}
+impl AlbumData {}
+pub struct Album;
+impl Album {
+	pub fn id() -> AlbumIdField {
+		AlbumIdField {}
+	}
+	pub fn name() -> AlbumNameField {
+		AlbumNameField {}
+	}
+	pub fn is_hidden() -> AlbumIsHiddenField {
+		AlbumIsHiddenField {}
+	}
+	pub fn date_created() -> AlbumDateCreatedField {
+		AlbumDateCreatedField {}
+	}
+	pub fn date_modified() -> AlbumDateModifiedField {
+		AlbumDateModifiedField {}
+	}
+}
+pub struct AlbumIdField {}
+pub struct AlbumSetId(i64);
+impl From<AlbumSetId> for AlbumSetParam {
+	fn from(value: AlbumSetId) -> Self {
+		Self::Id(value.0)
+	}
+}
+impl AlbumIdField {
+	pub fn lt(&self, value: i64) -> AlbumWhereParam {
+		AlbumWhereParam::IdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> AlbumWhereParam {
+		AlbumWhereParam::IdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> AlbumWhereParam {
+		AlbumWhereParam::IdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> AlbumWhereParam {
+		AlbumWhereParam::IdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> AlbumWhereParam {
+		AlbumWhereParam::IdEquals(value)
+	}
+	pub fn set<T: From<AlbumSetId>>(&self, value: i64) -> T {
+		AlbumSetId(value).into()
+	}
+}
+pub struct AlbumNameField {}
+pub struct AlbumSetName(String);
+impl From<AlbumSetName> for AlbumSetParam {
+	fn from(value: AlbumSetName) -> Self {
+		Self::Name(value.0)
+	}
+}
+impl AlbumNameField {
+	pub fn contains(&self, value: String) -> AlbumWhereParam {
+		AlbumWhereParam::NameContains(value)
+	}
+	pub fn has_prefix(&self, value: String) -> AlbumWhereParam {
+		AlbumWhereParam::NameHasPrefix(value)
+	}
+	pub fn has_suffix(&self, value: String) -> AlbumWhereParam {
+		AlbumWhereParam::NameHasSuffix(value)
+	}
+	pub fn equals(&self, value: String) -> AlbumWhereParam {
+		AlbumWhereParam::NameEquals(value)
+	}
+	pub fn set<T: From<AlbumSetName>>(&self, value: String) -> T {
+		AlbumSetName(value).into()
+	}
+}
+pub struct AlbumIsHiddenField {}
+pub struct AlbumSetIsHidden(bool);
+impl From<AlbumSetIsHidden> for AlbumSetParam {
+	fn from(value: AlbumSetIsHidden) -> Self {
+		Self::IsHidden(value.0)
+	}
+}
+impl AlbumIsHiddenField {
+	pub fn equals(&self, value: bool) -> AlbumWhereParam {
+		AlbumWhereParam::IsHiddenEquals(value)
+	}
+	pub fn set<T: From<AlbumSetIsHidden>>(&self, value: bool) -> T {
+		AlbumSetIsHidden(value).into()
+	}
+}
+pub struct AlbumDateCreatedField {}
+pub struct AlbumSetDateCreated(chrono::DateTime<chrono::Utc>);
+impl From<AlbumSetDateCreated> for AlbumSetParam {
+	fn from(value: AlbumSetDateCreated) -> Self {
+		Self::DateCreated(value.0)
+	}
+}
+impl AlbumDateCreatedField {
+	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateCreatedBefore(value)
+	}
+	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateCreatedAfter(value)
+	}
+	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateCreatedBeforeEquals(value)
+	}
+	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateCreatedAfterEquals(value)
+	}
+	pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateCreatedEquals(value)
+	}
+	pub fn set<T: From<AlbumSetDateCreated>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
+		AlbumSetDateCreated(value).into()
+	}
+}
+pub struct AlbumDateModifiedField {}
+pub struct AlbumSetDateModified(chrono::DateTime<chrono::Utc>);
+impl From<AlbumSetDateModified> for AlbumSetParam {
+	fn from(value: AlbumSetDateModified) -> Self {
+		Self::DateModified(value.0)
+	}
+}
+impl AlbumDateModifiedField {
+	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateModifiedBefore(value)
+	}
+	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateModifiedAfter(value)
+	}
+	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateModifiedBeforeEquals(value)
+	}
+	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateModifiedAfterEquals(value)
+	}
+	pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
+		AlbumWhereParam::DateModifiedEquals(value)
+	}
+	pub fn set<T: From<AlbumSetDateModified>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
+		AlbumSetDateModified(value).into()
+	}
+}
+pub enum AlbumWhereParam {
+	IdLT(i64),
+	IdGT(i64),
+	IdLTE(i64),
+	IdGTE(i64),
+	IdEquals(i64),
+	NameContains(String),
+	NameHasPrefix(String),
+	NameHasSuffix(String),
+	NameEquals(String),
+	IsHiddenEquals(bool),
+	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
+	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
+	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
+	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
+	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
+	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
+	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
+	Not(Vec<AlbumWhereParam>),
+	Or(Vec<AlbumWhereParam>),
+	And(Vec<AlbumWhereParam>),
+}
+impl AlbumWhereParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::IdLT(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdGT(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdLTE(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdGTE(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdEquals(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::NameContains(value) => Field {
+				name: "name".into(),
+				fields: Some(vec![Field {
+					name: "contains".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::NameHasPrefix(value) => Field {
+				name: "name".into(),
+				fields: Some(vec![Field {
+					name: "starts_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::NameHasSuffix(value) => Field {
+				name: "name".into(),
+				fields: Some(vec![Field {
+					name: "ends_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::NameEquals(value) => Field {
+				name: "name".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IsHiddenEquals(value) => Field {
+				name: "is_hidden".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedBefore(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedAfter(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedBeforeEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedAfterEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedBefore(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedAfter(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedBeforeEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedAfterEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::Not(value) => Field {
+				name: "NOT".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::Or(value) => Field {
+				name: "OR".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::And(value) => Field {
+				name: "AND".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+		}
+	}
+}
+impl From<Operator<Self>> for AlbumWhereParam {
+	fn from(op: Operator<Self>) -> Self {
+		match op {
+			Operator::Not(value) => Self::Not(value),
+			Operator::And(value) => Self::And(value),
+			Operator::Or(value) => Self::Or(value),
+		}
+	}
+}
+pub struct AlbumWith {
+	pub param: AlbumWithParam,
+}
+pub enum AlbumWithParam {}
+impl From<AlbumWithParam> for AlbumWith {
+	fn from(param: AlbumWithParam) -> Self {
+		Self { param }
+	}
+}
+impl AlbumWithParam {
+	pub fn output(self) -> Output {
+		match self {}
+	}
+}
+pub enum AlbumSetParam {
+	Id(i64),
+	Name(String),
+	IsHidden(bool),
+	DateCreated(chrono::DateTime<chrono::Utc>),
+	DateModified(chrono::DateTime<chrono::Utc>),
+}
+impl AlbumSetParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::Id(value) => Field {
+				name: "id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::Name(value) => Field {
+				name: "name".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::IsHidden(value) => Field {
+				name: "is_hidden".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::DateCreated(value) => Field {
+				name: "date_created".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::DateModified(value) => Field {
+				name: "date_modified".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+		}
+	}
+}
+pub struct AlbumFindMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> AlbumFindMany<'a> {
+	pub async fn exec(self) -> Vec<AlbumData> {
+		self.query.perform::<Vec<AlbumData>>().await.unwrap()
+	}
+	pub fn delete(self) -> AlbumDelete<'a> {
+		AlbumDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteMany".into(),
+				model: "Album".into(),
+				outputs: vec![Output::new("count")],
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<AlbumSetParam>) -> AlbumUpdateMany<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		AlbumUpdateMany {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateMany".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<AlbumWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct AlbumFindFirst<'a> {
+	query: Query<'a>,
+}
+impl<'a> AlbumFindFirst<'a> {
+	pub async fn exec(self) -> Option<AlbumData> {
+		self.query.perform::<Option<AlbumData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<AlbumWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct AlbumFindUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> AlbumFindUnique<'a> {
+	pub async fn exec(self) -> Option<AlbumData> {
+		self.query.perform::<Option<AlbumData>>().await.unwrap()
+	}
+	pub fn delete(self) -> AlbumDelete<'a> {
+		AlbumDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteOne".into(),
+				model: "Album".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<AlbumSetParam>) -> AlbumUpdateUnique<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		AlbumUpdateUnique {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateOne".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<AlbumWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct AlbumCreateOne<'a> {
+	query: Query<'a>,
+}
+impl<'a> AlbumCreateOne<'a> {
+	pub async fn exec(self) -> AlbumData {
+		self.query.perform::<AlbumData>().await.unwrap()
+	}
+}
+pub struct AlbumUpdateUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> AlbumUpdateUnique<'a> {
+	pub async fn exec(self) -> AlbumData {
+		self.query.perform::<AlbumData>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<AlbumWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct AlbumUpdateMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> AlbumUpdateMany<'a> {
+	pub async fn exec(self) -> Vec<AlbumData> {
+		self.query.perform::<Vec<AlbumData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<AlbumWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct AlbumDelete<'a> {
+	query: Query<'a>,
+}
+impl<'a> AlbumDelete<'a> {
+	pub async fn exec(self) -> isize {
+		self.query.perform::<DeleteResult>().await.unwrap().count
+	}
+}
+pub struct AlbumActions<'a> {
+	client: &'a PrismaClient,
+}
+impl<'a> AlbumActions<'a> {
+	pub fn find_unique(&self, param: AlbumWhereParam) -> AlbumFindUnique {
+		let fields = transform_equals(vec![param.field()]);
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findUnique".into(),
+			model: "Album".into(),
+			outputs: album_outputs(),
+			inputs: vec![Input {
+				name: "where".into(),
+				fields,
+				..Default::default()
+			}],
+		};
+		AlbumFindUnique { query }
+	}
+	pub fn find_first(&self, params: Vec<AlbumWhereParam>) -> AlbumFindFirst {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: vec![Field {
+					name: "AND".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(where_fields),
+					..Default::default()
+				}],
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findFirst".into(),
+			model: "Album".into(),
+			outputs: album_outputs(),
+			inputs,
+		};
+		AlbumFindFirst { query }
+	}
+	pub fn find_many(&self, params: Vec<AlbumWhereParam>) -> AlbumFindMany {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: where_fields,
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findMany".into(),
+			model: "Album".into(),
+			outputs: album_outputs(),
+			inputs,
+		};
+		AlbumFindMany { query }
+	}
+	pub fn create_one(&self, name: AlbumSetName, params: Vec<AlbumSetParam>) -> AlbumCreateOne {
+		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
+		input_fields.push(AlbumSetParam::from(name).field());
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "mutation".into(),
+			method: "createOne".into(),
+			model: "Album".into(),
+			outputs: album_outputs(),
+			inputs: vec![Input {
+				name: "data".into(),
+				fields: input_fields,
+				..Default::default()
+			}],
+		};
+		AlbumCreateOne { query }
+	}
+}
+fn comment_outputs() -> Vec<Output> {
+	vec![
+		Output::new("id"),
+		Output::new("content"),
+		Output::new("date_created"),
+		Output::new("date_modified"),
+		Output::new("file_id"),
+	]
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentData {
+	#[serde(rename = "id")]
+	pub id: i64,
+	#[serde(rename = "content")]
+	pub content: String,
+	#[serde(rename = "date_created")]
+	pub date_created: chrono::DateTime<chrono::Utc>,
+	#[serde(rename = "date_modified")]
+	pub date_modified: chrono::DateTime<chrono::Utc>,
+	#[serde(rename = "file_id")]
+	pub file_id: Option<i64>,
+	#[serde(rename = "file")]
+	pub file: Box<Option<FileData>>,
+}
+impl CommentData {
+	pub fn file(&self) -> Option<&FileData> {
+		self.file.as_ref().as_ref()
+	}
+}
+pub struct Comment;
+impl Comment {
+	pub fn id() -> CommentIdField {
+		CommentIdField {}
+	}
+	pub fn content() -> CommentContentField {
+		CommentContentField {}
+	}
+	pub fn date_created() -> CommentDateCreatedField {
+		CommentDateCreatedField {}
+	}
+	pub fn date_modified() -> CommentDateModifiedField {
+		CommentDateModifiedField {}
+	}
+	pub fn file_id() -> CommentFileIdField {
+		CommentFileIdField {}
+	}
+	pub fn file() -> CommentFileField {
+		CommentFileField {}
+	}
+}
+pub struct CommentIdField {}
+pub struct CommentSetId(i64);
+impl From<CommentSetId> for CommentSetParam {
+	fn from(value: CommentSetId) -> Self {
+		Self::Id(value.0)
+	}
+}
+impl CommentIdField {
+	pub fn lt(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::IdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::IdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::IdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::IdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::IdEquals(value)
+	}
+	pub fn set<T: From<CommentSetId>>(&self, value: i64) -> T {
+		CommentSetId(value).into()
+	}
+}
+pub struct CommentContentField {}
+pub struct CommentSetContent(String);
+impl From<CommentSetContent> for CommentSetParam {
+	fn from(value: CommentSetContent) -> Self {
+		Self::Content(value.0)
+	}
+}
+impl CommentContentField {
+	pub fn contains(&self, value: String) -> CommentWhereParam {
+		CommentWhereParam::ContentContains(value)
+	}
+	pub fn has_prefix(&self, value: String) -> CommentWhereParam {
+		CommentWhereParam::ContentHasPrefix(value)
+	}
+	pub fn has_suffix(&self, value: String) -> CommentWhereParam {
+		CommentWhereParam::ContentHasSuffix(value)
+	}
+	pub fn equals(&self, value: String) -> CommentWhereParam {
+		CommentWhereParam::ContentEquals(value)
+	}
+	pub fn set<T: From<CommentSetContent>>(&self, value: String) -> T {
+		CommentSetContent(value).into()
+	}
+}
+pub struct CommentDateCreatedField {}
+pub struct CommentSetDateCreated(chrono::DateTime<chrono::Utc>);
+impl From<CommentSetDateCreated> for CommentSetParam {
+	fn from(value: CommentSetDateCreated) -> Self {
+		Self::DateCreated(value.0)
+	}
+}
+impl CommentDateCreatedField {
+	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateCreatedBefore(value)
+	}
+	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateCreatedAfter(value)
+	}
+	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateCreatedBeforeEquals(value)
+	}
+	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateCreatedAfterEquals(value)
+	}
+	pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateCreatedEquals(value)
+	}
+	pub fn set<T: From<CommentSetDateCreated>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
+		CommentSetDateCreated(value).into()
+	}
+}
+pub struct CommentDateModifiedField {}
+pub struct CommentSetDateModified(chrono::DateTime<chrono::Utc>);
+impl From<CommentSetDateModified> for CommentSetParam {
+	fn from(value: CommentSetDateModified) -> Self {
+		Self::DateModified(value.0)
+	}
+}
+impl CommentDateModifiedField {
+	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateModifiedBefore(value)
+	}
+	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateModifiedAfter(value)
+	}
+	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateModifiedBeforeEquals(value)
+	}
+	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateModifiedAfterEquals(value)
+	}
+	pub fn equals(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
+		CommentWhereParam::DateModifiedEquals(value)
+	}
+	pub fn set<T: From<CommentSetDateModified>>(&self, value: chrono::DateTime<chrono::Utc>) -> T {
+		CommentSetDateModified(value).into()
+	}
+}
+pub struct CommentFileIdField {}
+pub struct CommentSetFileId(i64);
+impl From<CommentSetFileId> for CommentSetParam {
+	fn from(value: CommentSetFileId) -> Self {
+		Self::FileId(value.0)
+	}
+}
+impl CommentFileIdField {
+	pub fn lt(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::FileIdLT(value)
+	}
+	pub fn gt(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::FileIdGT(value)
+	}
+	pub fn lte(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::FileIdLTE(value)
+	}
+	pub fn gte(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::FileIdGTE(value)
+	}
+	pub fn equals(&self, value: i64) -> CommentWhereParam {
+		CommentWhereParam::FileIdEquals(value)
+	}
+	pub fn set<T: From<CommentSetFileId>>(&self, value: i64) -> T {
+		CommentSetFileId(value).into()
+	}
+}
+pub struct CommentFileField {}
+pub struct CommentLinkFile(FileWhereParam);
+impl From<CommentLinkFile> for CommentSetParam {
+	fn from(value: CommentLinkFile) -> Self {
+		Self::LinkFile(value.0)
+	}
+}
+impl CommentFileField {
+	pub fn is(&self, value: Vec<FileWhereParam>) -> CommentWhereParam {
+		CommentWhereParam::FileIs(value)
+	}
+	pub fn link<T: From<CommentLinkFile>>(&self, value: FileWhereParam) -> T {
+		CommentLinkFile(value).into()
+	}
+	pub fn fetch(&self) -> CommentWith {
+		CommentWithParam::File.into()
+	}
+	pub fn unlink(&self) -> CommentSetParam {
+		CommentSetParam::UnlinkFile
+	}
+}
+pub enum CommentWhereParam {
+	IdLT(i64),
+	IdGT(i64),
+	IdLTE(i64),
+	IdGTE(i64),
+	IdEquals(i64),
+	ContentContains(String),
+	ContentHasPrefix(String),
+	ContentHasSuffix(String),
+	ContentEquals(String),
+	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
+	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
+	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
+	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
+	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
+	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
+	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
+	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
+	FileIdLT(i64),
+	FileIdGT(i64),
+	FileIdLTE(i64),
+	FileIdGTE(i64),
+	FileIdEquals(i64),
+	FileIs(Vec<FileWhereParam>),
+	Not(Vec<CommentWhereParam>),
+	Or(Vec<CommentWhereParam>),
+	And(Vec<CommentWhereParam>),
+}
+impl CommentWhereParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::IdLT(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdGT(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdLTE(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdGTE(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::IdEquals(value) => Field {
+				name: "id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ContentContains(value) => Field {
+				name: "content".into(),
+				fields: Some(vec![Field {
+					name: "contains".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ContentHasPrefix(value) => Field {
+				name: "content".into(),
+				fields: Some(vec![Field {
+					name: "starts_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ContentHasSuffix(value) => Field {
+				name: "content".into(),
+				fields: Some(vec![Field {
+					name: "ends_with".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::ContentEquals(value) => Field {
+				name: "content".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedBefore(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedAfter(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedBeforeEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedAfterEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateCreatedEquals(value) => Field {
+				name: "date_created".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedBefore(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedAfter(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedBeforeEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedAfterEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::DateModifiedEquals(value) => Field {
+				name: "date_modified".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdLT(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "lt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdGT(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "gt".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdLTE(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "lte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdGTE(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "gte".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIdEquals(value) => Field {
+				name: "file_id".into(),
+				fields: Some(vec![Field {
+					name: "equals".into(),
+					value: Some(serde_json::to_value(value).unwrap()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::FileIs(value) => Field {
+				name: "file".into(),
+				fields: Some(vec![Field {
+					name: "AND".into(),
+					fields: Some(value.into_iter().map(|f| f.field()).collect()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::Not(value) => Field {
+				name: "NOT".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::Or(value) => Field {
+				name: "OR".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+			Self::And(value) => Field {
+				name: "AND".into(),
+				list: true,
+				wrap_list: true,
+				fields: Some(value.into_iter().map(|f| f.field()).collect()),
+				..Default::default()
+			},
+		}
+	}
+}
+impl From<Operator<Self>> for CommentWhereParam {
+	fn from(op: Operator<Self>) -> Self {
+		match op {
+			Operator::Not(value) => Self::Not(value),
+			Operator::And(value) => Self::And(value),
+			Operator::Or(value) => Self::Or(value),
+		}
+	}
+}
+pub struct CommentWith {
+	pub param: CommentWithParam,
+}
+pub enum CommentWithParam {
+	File,
+}
+impl From<CommentWithParam> for CommentWith {
+	fn from(param: CommentWithParam) -> Self {
+		Self { param }
+	}
+}
+impl CommentWithParam {
+	pub fn output(self) -> Output {
+		match self {
+			Self::File => Output {
+				name: "file".into(),
+				outputs: file_outputs(),
+				..Default::default()
+			},
+		}
+	}
+}
+pub enum CommentSetParam {
+	Id(i64),
+	Content(String),
+	DateCreated(chrono::DateTime<chrono::Utc>),
+	DateModified(chrono::DateTime<chrono::Utc>),
+	FileId(i64),
+	LinkFile(FileWhereParam),
+	UnlinkFile,
+}
+impl CommentSetParam {
+	pub fn field(self) -> Field {
+		match self {
+			Self::Id(value) => Field {
+				name: "id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::Content(value) => Field {
+				name: "content".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::DateCreated(value) => Field {
+				name: "date_created".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::DateModified(value) => Field {
+				name: "date_modified".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::FileId(value) => Field {
+				name: "file_id".into(),
+				value: Some(serde_json::to_value(value).unwrap()),
+				..Default::default()
+			},
+			Self::LinkFile(where_param) => Field {
+				name: "file".into(),
+				fields: Some(vec![Field {
+					name: "connect".into(),
+					fields: Some(transform_equals(vec![where_param.field()])),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+			Self::UnlinkFile => Field {
+				name: "file".into(),
+				fields: Some(vec![Field {
+					name: "disconnect".into(),
+					value: Some(true.into()),
+					..Default::default()
+				}]),
+				..Default::default()
+			},
+		}
+	}
+}
+pub struct CommentFindMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> CommentFindMany<'a> {
+	pub async fn exec(self) -> Vec<CommentData> {
+		self.query.perform::<Vec<CommentData>>().await.unwrap()
+	}
+	pub fn delete(self) -> CommentDelete<'a> {
+		CommentDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteMany".into(),
+				model: "Comment".into(),
+				outputs: vec![Output::new("count")],
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<CommentSetParam>) -> CommentUpdateMany<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		CommentUpdateMany {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateMany".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<CommentWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct CommentFindFirst<'a> {
+	query: Query<'a>,
+}
+impl<'a> CommentFindFirst<'a> {
+	pub async fn exec(self) -> Option<CommentData> {
+		self.query.perform::<Option<CommentData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<CommentWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct CommentFindUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> CommentFindUnique<'a> {
+	pub async fn exec(self) -> Option<CommentData> {
+		self.query.perform::<Option<CommentData>>().await.unwrap()
+	}
+	pub fn delete(self) -> CommentDelete<'a> {
+		CommentDelete {
+			query: Query {
+				operation: "mutation".into(),
+				method: "deleteOne".into(),
+				model: "Comment".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn update(mut self, params: Vec<CommentSetParam>) -> CommentUpdateUnique<'a> {
+		self.query.inputs.push(Input {
+			name: "data".into(),
+			fields: params
+				.into_iter()
+				.map(|param| {
+					let mut field = param.field();
+					if let Some(value) = field.value {
+						field.fields = Some(vec![Field {
+							name: "set".into(),
+							value: Some(value),
+							..Default::default()
+						}]);
+						field.value = None;
+					}
+					field
+				})
+				.collect(),
+			..Default::default()
+		});
+		CommentUpdateUnique {
+			query: Query {
+				operation: "mutation".into(),
+				method: "updateOne".into(),
+				..self.query
+			},
+		}
+	}
+	pub fn with(mut self, fetches: Vec<CommentWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct CommentCreateOne<'a> {
+	query: Query<'a>,
+}
+impl<'a> CommentCreateOne<'a> {
+	pub async fn exec(self) -> CommentData {
+		self.query.perform::<CommentData>().await.unwrap()
+	}
+}
+pub struct CommentUpdateUnique<'a> {
+	query: Query<'a>,
+}
+impl<'a> CommentUpdateUnique<'a> {
+	pub async fn exec(self) -> CommentData {
+		self.query.perform::<CommentData>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<CommentWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct CommentUpdateMany<'a> {
+	query: Query<'a>,
+}
+impl<'a> CommentUpdateMany<'a> {
+	pub async fn exec(self) -> Vec<CommentData> {
+		self.query.perform::<Vec<CommentData>>().await.unwrap()
+	}
+	pub fn with(mut self, fetches: Vec<CommentWith>) -> Self {
+		let outputs = fetches.into_iter().map(|f| f.param.output()).collect::<Vec<_>>();
+		self.query.outputs.extend(outputs);
+		self
+	}
+}
+pub struct CommentDelete<'a> {
+	query: Query<'a>,
+}
+impl<'a> CommentDelete<'a> {
+	pub async fn exec(self) -> isize {
+		self.query.perform::<DeleteResult>().await.unwrap().count
+	}
+}
+pub struct CommentActions<'a> {
+	client: &'a PrismaClient,
+}
+impl<'a> CommentActions<'a> {
+	pub fn find_unique(&self, param: CommentWhereParam) -> CommentFindUnique {
+		let fields = transform_equals(vec![param.field()]);
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findUnique".into(),
+			model: "Comment".into(),
+			outputs: comment_outputs(),
+			inputs: vec![Input {
+				name: "where".into(),
+				fields,
+				..Default::default()
+			}],
+		};
+		CommentFindUnique { query }
+	}
+	pub fn find_first(&self, params: Vec<CommentWhereParam>) -> CommentFindFirst {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: vec![Field {
+					name: "AND".into(),
+					list: true,
+					wrap_list: true,
+					fields: Some(where_fields),
+					..Default::default()
+				}],
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findFirst".into(),
+			model: "Comment".into(),
+			outputs: comment_outputs(),
+			inputs,
+		};
+		CommentFindFirst { query }
+	}
+	pub fn find_many(&self, params: Vec<CommentWhereParam>) -> CommentFindMany {
+		let where_fields: Vec<Field> = params.into_iter().map(|param| param.field()).collect();
+		let inputs = if where_fields.len() > 0 {
+			vec![Input {
+				name: "where".into(),
+				fields: where_fields,
+				..Default::default()
+			}]
+		} else {
+			Vec::new()
+		};
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "query".into(),
+			method: "findMany".into(),
+			model: "Comment".into(),
+			outputs: comment_outputs(),
+			inputs,
+		};
+		CommentFindMany { query }
+	}
+	pub fn create_one(&self, content: CommentSetContent, params: Vec<CommentSetParam>) -> CommentCreateOne {
+		let mut input_fields = params.into_iter().map(|p| p.field()).collect::<Vec<_>>();
+		input_fields.push(CommentSetParam::from(content).field());
+		let query = Query {
+			ctx: QueryContext::new(&self.client.executor, self.client.query_schema.clone()),
+			name: String::new(),
+			operation: "mutation".into(),
+			method: "createOne".into(),
+			model: "Comment".into(),
+			outputs: comment_outputs(),
+			inputs: vec![Input {
+				name: "data".into(),
+				fields: input_fields,
+				..Default::default()
+			}],
+		};
+		CommentCreateOne { query }
 	}
 }

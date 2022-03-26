@@ -1,37 +1,118 @@
-use crate::{
-	db::{self, get},
-	prisma::{Client, Job, JobData},
-	ClientQuery, Core, CoreEvent,
-};
+use crate::{db, file::indexer::IndexerJob, prisma::JobData, Core, CoreContext};
 use anyhow::Result;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use thiserror::Error;
+use tokio::sync::mpsc::{self, Sender, UnboundedSender};
 use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-pub struct JobResource {
-	pub id: i64,
-	pub client_id: i64,
-	pub action: JobAction,
-	pub status: JobStatus,
-	pub percentage_complete: i64,
-	pub task_count: i64,
-	pub message: String,
-	pub completed_task_count: i64,
-	#[ts(type = "string")]
-	pub date_created: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
-	pub date_modified: chrono::DateTime<chrono::Utc>,
+#[async_trait::async_trait]
+pub trait Job: Send + Sync + Debug {
+	async fn run(&self, core: CoreContext) -> Result<()>;
 }
 
-#[repr(i64)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
+// a struct to handle the runtime and execution of jobs
+pub struct Jobs {
+	// messaging channel for jobs
+	pub job_sender_channel: Sender<JobCommand>,
+	// in memory cache of jobs with metadata for external use
+	pub jobs: Vec<JobMetadata>,
+}
+
+impl Jobs {
+	pub fn new(ctx: CoreContext) -> Self {
+		let (job_sender, mut job_receiver) = mpsc::channel(100);
+		// open a thread to handle job execution
+		tokio::spawn(async move {
+			// local memory for job queue
+			let mut job_is_running = false;
+			let mut queued_jobs: Vec<Box<dyn Job>> = vec![];
+			loop {
+				tokio::select! {
+					// when job is received via message channel
+					Some(request) = job_receiver.recv() => {
+						match request {
+							// create a new job
+							JobCommand::Create(job) => {
+								println!("Creating job: {:?}", job);
+								queued_jobs.push(job);
+								if !job_is_running {
+									let job = queued_jobs.pop().unwrap();
+									// push this job into running jobs
+									job_is_running = true;
+									// open a dedicated blocking thread to run job
+									let ctx = ctx.clone();
+									tokio::task::spawn_blocking(move || {
+										// asynchronously call run method
+										tokio::runtime::Handle::current().block_on(job.run(ctx))
+									});
+								}
+							}
+							// update a running job
+							JobCommand::Update { id: _, data: _ } => {
+								break;
+							}
+						}
+					}
+				}
+			}
+		});
+
+		Self {
+			job_sender_channel: job_sender,
+			jobs: vec![],
+		}
+	}
+
+	pub async fn queue(&mut self, job: Box<dyn Job>) {
+		self.job_sender_channel
+			.send(JobCommand::Create(job))
+			.await
+			.unwrap_or(());
+	}
+}
+
+pub enum JobCommand {
+	Create(Box<dyn Job>),
+	Update { id: i64, data: JobUpdateEvent },
+}
+
+pub struct JobUpdateEvent {
+	pub task_count: Option<i64>,
+	pub completed_task_count: Option<i64>,
+	pub message: Option<String>,
+}
+
+pub struct JobContext {
+	job_id: i64,
+	job_sender: UnboundedSender<(i64, JobUpdateEvent)>,
+}
+
+impl JobContext {
+	pub async fn send(&self, event: JobUpdateEvent) {
+		self.job_sender.send((self.job_id, event)).unwrap_or(());
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export)]
-pub enum JobAction {
-	ScanLoc = 0,
-	GeneratePreviewMedia = 1,
+pub struct JobMetadata {
+	id: i64,
+	client_id: i64,
+	#[ts(type = "string")]
+	date_created: chrono::DateTime<chrono::Utc>,
+	#[ts(type = "string")]
+	date_modified: chrono::DateTime<chrono::Utc>,
+	// mutable status
+	pub status: JobStatus,
+	pub task_count: i64,
+	pub completed_task_count: i64,
+	pub message: String,
+}
+
+pub enum JobRegister {
+	IndexerJob(IndexerJob),
 }
 
 #[repr(i64)]
@@ -45,132 +126,114 @@ pub enum JobStatus {
 }
 
 // convert database struct into a resource struct
-impl Into<JobResource> for JobData {
-	fn into(self) -> JobResource {
-		JobResource {
+impl Into<JobMetadata> for JobData {
+	fn into(self) -> JobMetadata {
+		JobMetadata {
 			id: self.id,
 			client_id: self.client_id,
-			action: JobAction::from_int(self.action).unwrap(),
 			status: JobStatus::from_int(self.status).unwrap(),
 			task_count: self.task_count,
 			completed_task_count: self.completed_task_count,
 			date_created: self.date_created,
 			date_modified: self.date_modified,
-			percentage_complete: 0,
 			message: "".to_string(),
 		}
 	}
 }
 
-pub struct JobRunner {
-	pub running_jobs: Vec<JobResource>,
-	pub queued_jobs: Vec<JobResource>,
-}
+// impl Job {
+// 	pub async fn new<F>(client_uuid: String, action: JobAction, task_count: i64) -> Result<Self, JobError> {
+// 		let db = get().await?;
+// 		let client = db
+// 			.client()
+// 			.find_unique(Client::uuid().equals(client_uuid))
+// 			.exec()
+// 			.await
+// 			.unwrap();
 
-impl JobRunner {
-	pub fn new() -> Self {
-		Self {
-			running_jobs: Vec::new(),
-			queued_jobs: Vec::new(),
-		}
-	}
-}
+// 		let job = Self {
+// 			id: 0,
+// 			client_id: client.id,
+// 			action,
+// 			status: JobStatus::Queued,
+// 			task_count,
+// 			completed_task_count: 0,
+// 			date_created: chrono::Utc::now(),
+// 			date_modified: chrono::Utc::now(),
+// 			message: "".to_string(),
+// 		};
 
-impl JobResource {
-	pub async fn new(client_uuid: String, action: JobAction, task_count: i64) -> Result<Self, JobError> {
-		let db = get().await?;
-		let client = db
-			.client()
-			.find_unique(Client::uuid().equals(client_uuid))
-			.exec()
-			.await
-			.unwrap();
+// 		db.job().create_one(
+// 			prisma::Job::action().set(job.action.int_value()),
+// 			prisma::Job::clients().link(Client::id().equals(client.id)),
+// 			vec![],
+// 		);
 
-		let job = Self {
-			id: 0,
-			client_id: client.id,
-			action,
-			status: JobStatus::Queued,
-			percentage_complete: 0,
-			task_count,
-			completed_task_count: 0,
-			date_created: chrono::Utc::now(),
-			date_modified: chrono::Utc::now(),
-			message: "".to_string(),
-		};
+// 		Ok(job)
+// 	}
 
-		db.job().create_one(
-			Job::action().set(job.action.int_value()),
-			Job::clients().link(Client::id().equals(client.id)),
-			vec![],
-		);
+// 	pub async fn save(&self, core: &Core) -> Result<(), JobError> {
+// 		let db = get().await?;
+// 		db.job()
+// 			.find_unique(prisma::Job::id().equals(self.id))
+// 			.update(vec![
+// 				prisma::Job::status().set(self.status.int_value()),
+// 				prisma::Job::completed_task_count().set(self.completed_task_count),
+// 				prisma::Job::date_modified().set(chrono::Utc::now()),
+// 			])
+// 			.exec()
+// 			.await;
 
-		Ok(job)
-	}
+// 		core.send(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning)).await;
 
-	pub async fn save(&self, core: &Core) -> Result<(), JobError> {
-		let db = get().await?;
-		let job = db
-			.job()
-			.find_unique(Job::id().equals(self.id))
-			.update(vec![
-				Job::status().set(self.status.int_value()),
-				Job::completed_task_count().set(self.completed_task_count),
-				Job::date_modified().set(chrono::Utc::now()),
-			])
-			.exec()
-			.await;
+// 		Ok(())
+// 	}
+// 	pub fn set_progress(&mut self, completed_task_count: Option<i64>, message: Option<String>) -> &Self {
+// 		if let Some(count) = completed_task_count {
+// 			self.completed_task_count = count;
+// 			self.percentage_complete = (count as f64 / self.task_count as f64 * 100.0) as i64;
+// 		}
+// 		if let Some(msg) = message {
+// 			self.message = msg;
+// 		}
 
-		core.send(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning)).await;
+// 		self
+// 	}
+// 	pub fn set_status(&mut self, status: JobStatus, task_count: Option<i64>) -> &Self {
+// 		self.status = status;
+// 		if let Some(count) = task_count {
+// 			self.task_count = count;
+// 		}
+// 		self.set_progress(None, Some("Starting job...".to_string()));
+// 		self
+// 	}
 
-		Ok(())
-	}
-	pub fn set_progress(&mut self, completed_task_count: Option<i64>, message: Option<String>) -> &Self {
-		if let Some(count) = completed_task_count {
-			self.completed_task_count = count;
-			self.percentage_complete = (count as f64 / self.task_count as f64 * 100.0) as i64;
-		}
-		if let Some(msg) = message {
-			self.message = msg;
-		}
+// 	pub async fn get_running() -> Result<Vec<Job>, JobError> {
+// 		let db = get().await?;
+// 		let jobs = db
+// 			.job()
+// 			.find_many(vec![prisma::Job::status().equals(JobStatus::Running.int_value())])
+// 			.exec()
+// 			.await;
 
-		self
-	}
-	pub fn set_status(&mut self, status: JobStatus, task_count: Option<i64>) -> &Self {
-		self.status = status;
-		if let Some(count) = task_count {
-			self.task_count = count;
-		}
-		self.set_progress(None, Some("Starting job...".to_string()));
-		self
-	}
+// 		Ok(jobs.into_iter().map(|j| j.into()).collect())
+// 	}
 
-	pub async fn get_running() -> Result<Vec<JobResource>, JobError> {
-		let db = get().await?;
-		let jobs = db
-			.job()
-			.find_many(vec![Job::status().equals(JobStatus::Running.int_value())])
-			.exec()
-			.await;
+// 	pub async fn get_history() -> Result<Vec<Job>, JobError> {
+// 		let db = get().await?;
+// 		let jobs = db
+// 			.job()
+// 			.find_many(vec![
+// 				prisma::Job::status().equals(JobStatus::Completed.int_value()),
+// 				prisma::Job::status().equals(JobStatus::Canceled.int_value()),
+// 				prisma::Job::status().equals(JobStatus::Queued.int_value()),
+// 			])
+// 			.exec()
+// 			.await;
 
-		Ok(jobs.into_iter().map(|j| j.into()).collect())
-	}
-
-	pub async fn get_history() -> Result<Vec<JobResource>, JobError> {
-		let db = get().await?;
-		let jobs = db
-			.job()
-			.find_many(vec![
-				Job::status().equals(JobStatus::Completed.int_value()),
-				Job::status().equals(JobStatus::Canceled.int_value()),
-				Job::status().equals(JobStatus::Queued.int_value()),
-			])
-			.exec()
-			.await;
-
-		Ok(jobs.into_iter().map(|j| j.into()).collect())
-	}
-}
+// 		Ok(jobs.into_iter().map(|j| j.into()).collect())
+// 	}
+// }
 
 #[derive(Error, Debug)]
 pub enum JobError {

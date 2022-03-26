@@ -1,0 +1,2 @@
+
+export interface FilePath { id: bigint, is_dir: boolean, materialized_path: string, file_id: bigint | null, parent_id: bigint | null, location_id: bigint, date_indexed: string, permissions: string | null, }
