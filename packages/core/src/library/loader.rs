@@ -2,6 +2,7 @@ use anyhow::Result;
 use uuid::Uuid;
 
 use crate::state::client::LibraryState;
+use crate::Core;
 use crate::{
 	db::{self, migrate},
 	prisma::{Library, LibraryData},
@@ -11,9 +12,9 @@ use crate::{
 pub static LIBRARY_DB_NAME: &str = "library.db";
 pub static DEFAULT_NAME: &str = "My Library";
 
-pub async fn get() -> Result<LibraryData> {
+pub async fn get(core: &Core) -> Result<LibraryData> {
 	let config = state::client::get();
-	let db = db::get().await.unwrap();
+	let db = &core.database;
 
 	let library_state = config.get_current_library();
 
@@ -53,7 +54,7 @@ pub async fn load(library_path: &str, library_id: &str) -> Result<()> {
 	Ok(())
 }
 
-pub async fn create(name: Option<String>) -> Result<()> {
+pub async fn create(core: &Core, name: Option<String>) -> Result<()> {
 	let mut config = state::client::get();
 
 	let uuid = Uuid::new_v4().to_string();
@@ -74,7 +75,7 @@ pub async fn create(name: Option<String>) -> Result<()> {
 
 	config.save();
 
-	let db = db::get().await.unwrap();
+	let db = &core.database;
 
 	let _library = db
 		.library()

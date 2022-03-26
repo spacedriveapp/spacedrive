@@ -1,4 +1,4 @@
-use sdcorelib::{ClientCommand, ClientQuery, Core, CoreResponse};
+use sdcorelib::{ClientCommand, ClientQuery, Core, CoreController, CoreResponse};
 use tauri::api::path;
 use tauri::Manager;
 // use tauri_plugin_shadows::Shadows;
@@ -7,7 +7,7 @@ mod menu;
 
 #[tauri::command(async)]
 async fn client_query_transport(
-  core: tauri::State<'_, Core>,
+  core: tauri::State<'_, CoreController>,
   data: ClientQuery,
 ) -> Result<CoreResponse, String> {
   match core.query(data).await {
@@ -18,7 +18,7 @@ async fn client_query_transport(
 
 #[tauri::command(async)]
 async fn client_command_transport(
-  core: tauri::State<'_, Core>,
+  core: tauri::State<'_, CoreController>,
   data: ClientCommand,
 ) -> Result<CoreResponse, String> {
   match core.command(data).await {
@@ -30,10 +30,20 @@ async fn client_command_transport(
 #[tokio::main]
 async fn main() {
   let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
-  let (core, mut event_receiver) = Core::new(data_dir).await;
-
+  // create an instance of the core
+  let (mut core, mut event_receiver) = Core::new(data_dir).await;
+  // run startup tasks
+  core.initializer().await;
+  // extract the core controller
+  let controller = core.get_controller();
+  // throw the core into a dedicated thread
+  tokio::spawn(async move {
+    core.start().await;
+  });
+  // create tauri app
   tauri::Builder::default()
-    .manage(core)
+    // pass controller to the tauri state manager
+    .manage(controller)
     .setup(|app| {
       let app = app.handle();
       // core event transport
@@ -49,14 +59,6 @@ async fn main() {
     .invoke_handler(tauri::generate_handler![
       client_query_transport,
       client_command_transport,
-      // deprecate below
-      // commands::scan_dir,
-      // commands::create_location,
-      // commands::get_files,
-      // commands::get_config,
-      // commands::get_mounts,
-      // commands::test_scan,
-      // commands::start_watcher,
     ])
     .menu(menu::get_menu())
     .run(tauri::generate_context!())

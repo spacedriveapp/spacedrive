@@ -1,8 +1,11 @@
 use crate::{
 	db,
-	prisma::{File, Location},
+	file::indexer::IndexerJob,
+	job,
+	prisma::{File, FilePath, Location},
 	state::client,
 	sys::{volumes, volumes::Volume},
+	Core, CoreContext,
 };
 use anyhow::Result;
 use log::info;
@@ -36,7 +39,7 @@ impl Into<LocationResource> for LocationData {
 		LocationResource {
 			id: self.id,
 			name: self.name,
-			path: self.path,
+			path: self.local_path,
 			total_capacity: self.total_capacity,
 			available_capacity: self.available_capacity,
 			is_removable: self.is_removable,
@@ -68,13 +71,15 @@ pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> 
 	Ok(dotfile)
 }
 
-pub async fn get_location(location_id: i64) -> Result<LocationResource, SysError> {
-	let db = db::get().await?;
+pub async fn get_location(ctx: &CoreContext, location_id: i64) -> Result<LocationResource, SysError> {
+	let db = &ctx.database;
 
 	// get location by location_id from db and include location_paths
 	let location = match db
 		.location()
-		.find_first(vec![Location::files().some(vec![File::id().equals(location_id.into())])])
+		.find_first(vec![
+			Location::file_paths().some(vec![FilePath::id().equals(location_id.into())])
+		])
 		.exec()
 		.await
 	{
@@ -87,8 +92,19 @@ pub async fn get_location(location_id: i64) -> Result<LocationResource, SysError
 	Ok(location.into())
 }
 
-pub async fn create_location(path: &str) -> Result<LocationResource, SysError> {
-	let db = db::get().await?;
+pub async fn new_location_and_scan(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
+	let location = create_location(&ctx, path).await?;
+	// now location has been added, automatically queue a job to scan location
+	// let job = core.queue(job::JobResource::new(core.state.client_uuid.clone(), job::JobAction::ScanLoc, 1).await?);
+	ctx.job_sender
+		.send(Box::new(IndexerJob { path: path.to_string() }))
+		.expect("Failed to send job to job queue");
+
+	Ok(location)
+}
+
+pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
+	let db = &ctx.database;
 	let config = client::get();
 
 	// check if we have access to this location
@@ -99,7 +115,7 @@ pub async fn create_location(path: &str) -> Result<LocationResource, SysError> {
 	// check if location already exists
 	let location = match db
 		.location()
-		.find_first(vec![Location::path().equals(path.to_string())])
+		.find_first(vec![Location::local_path().equals(path.to_string())])
 		.exec()
 		.await
 	{
@@ -130,7 +146,7 @@ pub async fn create_location(path: &str) -> Result<LocationResource, SysError> {
 					Location::is_removable().set(volume_data.is_removable),
 					Location::is_root_filesystem().set(false), // remove this
 					Location::is_online().set(true),
-					Location::path().set(path.to_string()),
+					Location::local_path().set(path.to_string()),
 				]
 			};
 
@@ -158,7 +174,6 @@ pub async fn create_location(path: &str) -> Result<LocationResource, SysError> {
 				Ok(_) => (),
 				Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
 			}
-
 			location
 		},
 	};

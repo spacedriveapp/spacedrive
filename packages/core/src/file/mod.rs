@@ -1,8 +1,13 @@
+use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use ts_rs::TS;
 
-use crate::{db, prisma::FileData, sys::locations::LocationResource};
+use crate::{
+	crypto::encryption::EncryptionAlgorithm,
+	db,
+	prisma::{FileData, FilePathData},
+};
 pub mod checksum;
 pub mod explorer;
 pub mod indexer;
@@ -11,17 +16,15 @@ pub mod watcher;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
-pub struct FileResource {
+pub struct File {
 	pub id: i64,
-	pub is_dir: bool,
-	pub location_id: i64,
-	pub stem: String,
+	pub id_hash: String,
 	pub name: String,
 	pub extension: Option<String>,
-	pub quick_checksum: Option<String>,
-	pub full_checksum: Option<String>,
+	pub checksum: Option<String>,
 	pub size_in_bytes: String,
-	pub encryption: i64,
+	pub encryption: EncryptionAlgorithm,
+	pub file_type: FileType,
 	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
 	#[ts(type = "string")]
@@ -29,32 +32,78 @@ pub struct FileResource {
 	#[ts(type = "string")]
 	pub date_indexed: chrono::DateTime<chrono::Utc>,
 	pub ipfs_id: Option<String>,
-	pub location: Option<LocationResource>,
-	// pub parent: Option<File>,
-	pub parent_id: Option<i64>,
+	pub file_paths: Vec<FilePath>,
 }
 
-impl Into<FileResource> for FileData {
-	fn into(self) -> FileResource {
-		FileResource {
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct FilePath {
+	pub id: i64,
+	pub is_dir: bool,
+	pub materialized_path: String,
+	pub file_id: Option<i64>,
+	pub parent_id: Option<i64>,
+	pub location_id: i64,
+	#[ts(type = "string")]
+	pub date_indexed: chrono::DateTime<chrono::Utc>,
+	pub permissions: Option<String>,
+}
+
+#[repr(i64)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
+#[ts(export)]
+pub enum FileType {
+	Unknown = 0,
+	Directory = 1,
+	Package = 2,
+	Archive = 3,
+	Image = 4,
+	Video = 5,
+	Audio = 6,
+	Plaintext = 7,
+	Alias = 8,
+}
+
+impl Into<File> for FileData {
+	fn into(self) -> File {
+		File {
 			id: self.id,
-			is_dir: self.is_dir,
-			location_id: self.location_id,
-			stem: self.stem,
+			id_hash: self.id_hash,
 			name: self.name,
 			extension: self.extension,
-			quick_checksum: self.quick_checksum,
-			full_checksum: self.full_checksum,
-			size_in_bytes: self.size_in_bytes,
-			encryption: self.encryption,
+			checksum: self.checksum,
+			size_in_bytes: self.size_in_bytes.to_string(),
+			encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
+			file_type: FileType::Unknown,
 			date_created: self.date_created,
 			date_modified: self.date_modified,
 			date_indexed: self.date_indexed,
 			ipfs_id: self.ipfs_id,
-			location: self.location.map(|l| l.into()),
-			parent_id: self.parent_id,
+			file_paths: vec![],
 		}
 	}
+}
+
+impl Into<FilePath> for FilePathData {
+	fn into(self) -> FilePath {
+		FilePath {
+			id: self.id,
+			is_dir: self.is_dir,
+			materialized_path: self.materialized_path,
+			file_id: self.file_id,
+			parent_id: self.parent_id,
+			location_id: self.location_id,
+			date_indexed: self.date_indexed,
+			permissions: self.permissions,
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, TS, Debug)]
+#[ts(export)]
+pub struct DirectoryWithContents {
+	pub directory: FilePath,
+	pub contents: Vec<FilePath>,
 }
 
 #[derive(Error, Debug)]

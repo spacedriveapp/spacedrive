@@ -1,44 +1,78 @@
 use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant};
 
 use anyhow::{anyhow, Result};
+use log::info;
 
+use crate::job::{self, Job};
+use crate::sys::locations::{create_location, LocationResource};
+use crate::util::time;
+use crate::{db, Core, CoreContext};
 use serde::{Deserialize, Serialize};
 use walkdir::{DirEntry, WalkDir};
 
-use super::watcher::watch_dir;
-use crate::job::{JobAction, JobResource};
-use crate::sys::locations::{create_location, get_location, LocationResource};
-use crate::util::time;
-use crate::{db, Core};
+// pub async fn scan_loc(core: &mut Core, location: &LocationResource) -> Result<()> {
+// 	// get location by location_id from db and include location_paths
+// 	// let job = core.queue(
+// 	// 	job::JobResource::new(core.state.client_uuid.clone(), job::JobAction::ScanLoc, 1, |loc| {
+// 	// 		if let Some(path) = &loc.path {
+// 	// 			scan_path(core, path).await?;
+// 	// 			watch_dir(path);
+// 	// 		}
+// 	// 	})
+// 	// 	.await?,
+// 	// );
 
-pub async fn scan_loc(core: &mut Core, location_id: i64) -> Result<()> {
-	// get location by location_id from db and include location_paths
-	let location = get_location(location_id).await?;
+// 	Ok(())
+// }
+// pub async fn scan_loc(core: &mut Core, location: &LocationResource) -> Result<()> {
+// 	// get location by location_id from db and include location_paths
+// 	let job = core.queue(
+// 		job::JobResource::new(
+// 			core.state.client_uuid.clone(),
+// 			job::JobAction::ScanLoc,
+// 			1,
+// 			Some(vec![location.path.as_ref().unwrap().to_string()]),
+// 		)
+// 		.await?,
+// 	);
 
-	if let Some(path) = &location.path {
-		scan_path(core, path).await?;
-		watch_dir(path);
+// 	if let Some(path) = &location.path {
+// 		scan_path(core, path).await?;
+// 		watch_dir(path);
+// 	}
+// 	Ok(())
+// }
+
+#[derive(Debug)]
+pub struct IndexerJob {
+	pub path: String,
+}
+
+#[async_trait::async_trait]
+impl Job for IndexerJob {
+	async fn run(&self, ctx: CoreContext) -> Result<()> {
+		scan_path(&ctx, self.path.as_str()).await?;
+		Ok(())
 	}
-	Ok(())
 }
 
 // creates a vector of valid path buffers from a directory
-pub async fn scan_path(core: &mut Core, path: &str) -> Result<()> {
+pub async fn scan_path(ctx: &CoreContext, path: &str) -> Result<()> {
 	println!("Scanning directory: {}", &path);
-	let db = db::get().await.unwrap();
+	let db = &ctx.database;
 
-	let job = core.queue(JobResource::new(core.state.client_uuid.clone(), JobAction::ScanLoc, 1).await?);
+	let location = create_location(&ctx, &path).await?;
 
-	let location = create_location(&path).await?;
+	println!("Location: {:?}", location);
 
 	// query db to highers id, so we can increment it for the new files indexed
 	#[derive(Deserialize, Serialize, Debug)]
 	struct QueryRes {
-		id: i64,
+		id: Option<i64>,
 	}
 	// grab the next id so we can increment in memory for batch inserting
 	let mut next_file_id = match db._query_raw::<QueryRes>(r#"SELECT MAX(id) id FROM files"#).await {
-		Ok(rows) => rows[0].id,
+		Ok(rows) => rows[0].id.unwrap_or(0),
 		Err(e) => Err(anyhow!("Error querying for next file id: {}", e))?,
 	};
 
@@ -92,15 +126,16 @@ pub async fn scan_path(core: &mut Core, path: &str) -> Result<()> {
 	let scan_read_time = scan_start.elapsed();
 
 	for (i, chunk) in paths.chunks(100).enumerate() {
-		job.set_progress(
-			Some(12),
-			Some(format!("Writing {} files to db at chunk {}", chunk.len(), i)),
-		);
+		// job.set_progress(
+		// 	Some(12),
+		// 	Some(format!("Writing {} files to db at chunk {}", chunk.len(), i)),
+		// );
+		info!("{}", format!("Writing {} files to db at chunk {}", chunk.len(), i));
 
 		// vector to store active models
 		let mut files: Vec<String> = Vec::new();
 		for (file_path, file_id, parent_dir_id) in chunk {
-			files.push(match prepare_model(&file_path, *file_id, &location, parent_dir_id) {
+			files.push(match prepare_values(&file_path, *file_id, &location, parent_dir_id) {
 				Ok(file) => file,
 				Err(e) => {
 					println!("Error creating file model from path {:?}: {}", file_path, e);
@@ -110,7 +145,7 @@ pub async fn scan_path(core: &mut Core, path: &str) -> Result<()> {
 		}
 		let raw_sql = format!(
 			r#"
-                INSERT INTO files (id, is_dir, location_id, parent_id, stem, name, extension, size_in_bytes, date_created, date_modified) 
+                INSERT INTO file_paths (id, is_dir, location_id, parent_id, materialized_path, date_indexed) 
                 VALUES {}
             "#,
 			files.join(", ")
@@ -129,33 +164,37 @@ pub async fn scan_path(core: &mut Core, path: &str) -> Result<()> {
 }
 
 // reads a file at a path and creates an ActiveModel with metadata
-fn prepare_model(file_path: &PathBuf, id: i64, location: &LocationResource, parent_id: &Option<i64>) -> Result<String> {
+fn prepare_values(
+	file_path: &PathBuf,
+	id: i64,
+	location: &LocationResource,
+	parent_id: &Option<i64>,
+) -> Result<String> {
 	let metadata = fs::metadata(&file_path)?;
 	let location_path = location.path.as_ref().unwrap().as_str();
-	let size = metadata.len();
-	let name = extract_name(file_path.file_stem());
-	let extension = extract_name(file_path.extension());
+	// let size = metadata.len();
+	// let name = extract_name(file_path.file_stem());
+	// let extension = extract_name(file_path.extension());
 
-	let stem = match file_path.to_str() {
+	let materialized_path = match file_path.to_str() {
 		Some(p) => p
 			.clone()
 			.strip_prefix(&location_path)
-			.and_then(|p| p.strip_suffix(format!("{}{}", name, extension).as_str()))
+			// .and_then(|p| p.strip_suffix(format!("{}{}", name, extension).as_str()))
 			.unwrap_or_default(),
 		None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
 	};
 
-	Ok(construct_file_sql(
+	Ok(format!(
+		"({}, {}, {}, {}, \"{}\", \"{}\")",
 		id,
 		metadata.is_dir(),
 		location.id,
-		parent_id.clone(),
-		stem,
-		&name,
-		&extension,
-		&size.to_string(),
+		parent_id.clone().map(|id| id.to_string()).unwrap_or("NULL".to_string()),
+		materialized_path,
+		// &size.to_string(),
 		&time::system_time_to_date_time(metadata.created()).unwrap().to_string(),
-		&time::system_time_to_date_time(metadata.modified()).unwrap().to_string(),
+		// &time::system_time_to_date_time(metadata.modified()).unwrap().to_string(),
 	))
 }
 
@@ -213,31 +252,4 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
 	// }
 
 	is_app_bundle
-}
-
-fn construct_file_sql(
-	id: i64,
-	is_dir: bool,
-	location_id: i64,
-	parent_id: Option<i64>,
-	stem: &str,
-	name: &str,
-	extension: &str,
-	size_in_bytes: &str,
-	date_created: &str,
-	date_modified: &str,
-) -> String {
-	format!(
-		"({}, {}, {}, {}, \"{}\", \"{}\",\"{}\", \"{}\", \"{}\", \"{}\")",
-		id,
-		is_dir as u8,
-		location_id,
-		parent_id.map(|id| id.to_string()).unwrap_or("NULL".to_string()),
-		stem,
-		name,
-		extension,
-		size_in_bytes,
-		date_created,
-		date_modified
-	)
 }

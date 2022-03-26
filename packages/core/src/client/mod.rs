@@ -1,4 +1,4 @@
-use crate::{db, prisma::Client, state};
+use crate::{db, prisma::Client, state, Core};
 use anyhow::Result;
 use std::env;
 
@@ -11,11 +11,11 @@ pub enum Platform {
 	Android,
 }
 
-pub async fn create() -> Result<()> {
+pub async fn create(core: &Core) -> Result<()> {
 	println!("Creating client...");
 	let mut config = state::client::get();
 
-	let db = db::get().await.expect("Could not connect to database");
+	let db = &core.database;
 
 	let hostname = match hostname::get() {
 		Ok(hostname) => hostname.to_str().unwrap_or_default().to_owned(),

@@ -7,13 +7,15 @@ import Listbox from '../../components/primitive/Listbox';
 
 import ReactJson from 'react-json-view';
 import Slider from '../../components/primitive/Slider';
-import { useBridgeQuery } from '@sd/state';
+import { useBridgeCommand, useBridgeQuery } from '@sd/state';
 
 export default function GeneralSettings() {
   const { data: volumes } = useBridgeQuery('SysGetVolumes');
-  const [tempWatchDir, setTempWatchDir] = useState('');
+  const [tempWatchDir, setTempWatchDir] = useState('/users/jamie/Desktop');
 
   const [fakeSliderVal, setFakeSliderVal] = useState([30, 0]);
+
+  const { mutate } = useBridgeCommand('LocCreate');
 
   // const fileUploader = useRef<HTMLInputElement | null>(null);
   const { data: client } = useBridgeQuery('ClientGetState');
@@ -42,8 +44,11 @@ export default function GeneralSettings() {
             className="ml-2"
             variant="primary"
             onClick={async () => {
-              await invoke('scan_dir', {
-                path: client?.data_path
+              // await invoke('scan_dir', {
+              //   path: client?.data_path
+              // });
+              mutate({
+                path: tempWatchDir
               });
             }}
           >

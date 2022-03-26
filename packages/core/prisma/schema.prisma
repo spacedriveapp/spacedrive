@@ -8,11 +8,6 @@ generator client {
     output   = "../src/prisma.rs"
 }
 
-// generator js {
-//     provider = "prisma-client-js"
-//     output   = "../types"
-// }
-
 model Migration {
     id            Int      @id @default(autoincrement())
     name          String
@@ -67,44 +62,57 @@ model Client {
 model Location {
     id                 Int      @id @default(autoincrement())
     name               String?
-    path               String?
+    local_path         String?
     total_capacity     Int?
     available_capacity Int?
+    filesystem         String?
+    disk_type          Int?
     is_removable       Boolean  @default(true)
     is_ejectable       Boolean  @default(true)
     is_root_filesystem Boolean  @default(true)
     is_online          Boolean  @default(true)
     date_created       DateTime @default(now())
-    files              File[]
 
+    file_paths FilePath[]
     @@map("locations")
 }
 
 model File {
-    id             Int      @id @default(autoincrement())
-    is_dir         Boolean  @default(false)
-    location_id    Int
-    stem           String
-    name           String
-    extension      String?
-    quick_checksum String? // 100 * 100 byte samples
-    full_checksum  String? // full byte to byte hash
-    size_in_bytes  String
-    encryption     Int      @default(0)
-    date_created   DateTime @default(now())
-    date_modified  DateTime @default(now())
-    date_indexed   DateTime @default(now())
-    ipfs_id        String?
+    id            Int      @id @default(autoincrement())
+    id_hash       String   @unique
+    name          String
+    extension     String?
+    checksum      String?
+    size_in_bytes String
+    encryption    Int      @default(0)
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+    date_indexed  DateTime @default(now())
+    ipfs_id       String?
 
-    location Location? @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-    parent    File?  @relation("directory_files", fields: [parent_id], references: [id])
-    parent_id Int?
-    children  File[] @relation("directory_files")
-
-    file_tags TagOnFile[]
-    @@unique([location_id, stem, name, extension])
+    file_tags   TagOnFile[]
+    file_labels LabelOnFile[]
+    file_paths  FilePath[]
+    comments    Comment[]
     @@map("files")
+}
+
+model FilePath {
+    id                Int        @id @default(autoincrement())
+    is_dir            Boolean    @default(false)
+    materialized_path String
+    file_id           Int?
+    file              File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    parent_id         Int?
+    parent            FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id])
+    children          FilePath[] @relation("directory_file_paths")
+    location_id       Int
+    location          Location?  @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    date_indexed      DateTime   @default(now())
+    permissions       String?
+
+    @@unique([location_id, materialized_path, file_id])
+    @@map("file_paths")
 }
 
 model Tag {
@@ -117,7 +125,6 @@ model Tag {
     date_modified   DateTime @default(now())
 
     tag_files TagOnFile[]
-
     @@map("tags")
 }
 
@@ -132,6 +139,29 @@ model TagOnFile {
 
     @@id([tag_id, file_id])
     @@map("tags_on_files")
+}
+
+model Label {
+    id            Int      @id @default(autoincrement())
+    name          String?
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+
+    label_files LabelOnFile[]
+    @@map("labels")
+}
+
+model LabelOnFile {
+    date_created DateTime @default(now())
+
+    label_id Int
+    label    Label @relation(fields: [label_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    file_id Int
+    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@id([label_id, file_id])
+    @@map("label_on_files")
 }
 
 model Job {
@@ -152,11 +182,33 @@ model Job {
 model Space {
     id            Int      @id @default(autoincrement())
     name          String
-    encryption    Int?     @default(0)
+    encryption    Int?     @default(0) // remove
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
     Library       Library? @relation(fields: [libraryId], references: [id])
     libraryId     Int?
 
     @@map("spaces")
+}
+
+model Album {
+    id        Int     @id @default(autoincrement())
+    name      String
+    is_hidden Boolean @default(false)
+
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+
+    @@map("albums")
+}
+
+model Comment {
+    id            Int      @id @default(autoincrement())
+    content       String
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+    file_id       Int?
+    file          File?    @relation(fields: [file_id], references: [id])
+
+    @@map("comments")
 }
