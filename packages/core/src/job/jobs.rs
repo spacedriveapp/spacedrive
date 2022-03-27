@@ -41,6 +41,10 @@ impl Jobs {
 			self.running_workers.insert(id, wrapped_worker);
 		}
 	}
+	pub fn complete(&mut self, job_id: String) {
+		// remove worker from running workers
+		self.running_workers.remove(&job_id);
+	}
 	pub async fn get_running(&self) -> Vec<JobReport> {
 		let mut ret = vec![];
 
