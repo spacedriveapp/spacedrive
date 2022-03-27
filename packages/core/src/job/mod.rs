@@ -1,215 +1,201 @@
-use crate::{db, file::indexer::IndexerJob, prisma::JobData, Core, CoreContext};
-use anyhow::Result;
-use int_enum::IntEnum;
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use thiserror::Error;
-use tokio::sync::mpsc::{self, Sender, UnboundedSender};
-use ts_rs::TS;
 
-#[async_trait::async_trait]
-pub trait Job: Send + Sync + Debug {
-	async fn run(&self, core: CoreContext) -> Result<()>;
+use crate::db;
+
+pub mod jobs;
+pub mod worker;
+
+#[derive(Error, Debug)]
+pub enum JobError {
+	#[error("Failed to create job (job_id {job_id:?})")]
+	CreateFailure { job_id: String },
+	#[error("Database error")]
+	DatabaseError(#[from] db::DatabaseError),
 }
 
-// a struct to handle the runtime and execution of jobs
-pub struct Jobs {
-	// messaging channel for jobs
-	pub job_sender_channel: Sender<JobCommand>,
-	// in memory cache of jobs with metadata for external use
-	pub jobs: Vec<JobMetadata>,
-}
+// pub struct JobContext {
+// 	pub core_ctx: CoreContext,
+// 	pub job_data: JobReport,
+// }
 
-impl Jobs {
-	pub fn new(ctx: CoreContext) -> Self {
-		let (job_sender, mut job_receiver) = mpsc::channel(100);
-		// open a thread to handle job execution
-		tokio::spawn(async move {
-			// local memory for job queue
-			let mut job_is_running = false;
-			let mut queued_jobs: Vec<Box<dyn Job>> = vec![];
-			loop {
-				tokio::select! {
-					// when job is received via message channel
-					Some(request) = job_receiver.recv() => {
-						match request {
-							// create a new job
-							JobCommand::Create(job) => {
-								println!("Creating job: {:?}", job);
-								queued_jobs.push(job);
-								if !job_is_running {
-									let job = queued_jobs.pop().unwrap();
-									// push this job into running jobs
-									job_is_running = true;
-									// open a dedicated blocking thread to run job
-									let ctx = ctx.clone();
-									tokio::task::spawn_blocking(move || {
-										// asynchronously call run method
-										tokio::runtime::Handle::current().block_on(job.run(ctx))
-									});
-								}
-							}
-							// update a running job
-							JobCommand::Update { id: _, data: _ } => {
-								break;
-							}
-						}
-					}
-				}
-			}
-		});
+// #[derive(Debug)]
+// pub enum JobCommand {
+// 	Create(Box<dyn Job>),
+// 	Update { id: i64, data: JobUpdateEvent },
+// 	Completed { id: i64 },
+// }
 
-		Self {
-			job_sender_channel: job_sender,
-			jobs: vec![],
-		}
-	}
+// #[derive(Debug)]
+// pub struct JobUpdateEvent {
+// 	pub task_count: Option<i64>,
+// 	pub completed_task_count: Option<i64>,
+// 	pub message: Option<String>,
+// }
 
-	pub async fn queue(&mut self, job: Box<dyn Job>) {
-		self.job_sender_channel
-			.send(JobCommand::Create(job))
-			.await
-			.unwrap_or(());
-	}
-}
+// // a struct to handle the runtime and execution of jobs
+// pub struct Jobs {
+// 	pub job_sender_channel: Sender<JobCommand>,
+// 	pub running_job: Mutex<Option<JobReport>>,
+// }
 
-pub enum JobCommand {
-	Create(Box<dyn Job>),
-	Update { id: i64, data: JobUpdateEvent },
-}
-
-pub struct JobUpdateEvent {
-	pub task_count: Option<i64>,
-	pub completed_task_count: Option<i64>,
-	pub message: Option<String>,
-}
-
-pub struct JobContext {
-	job_id: i64,
-	job_sender: UnboundedSender<(i64, JobUpdateEvent)>,
-}
-
-impl JobContext {
-	pub async fn send(&self, event: JobUpdateEvent) {
-		self.job_sender.send((self.job_id, event)).unwrap_or(());
-	}
-}
-
-#[derive(Debug, Serialize, Deserialize, TS)]
-#[ts(export)]
-pub struct JobMetadata {
-	id: i64,
-	client_id: i64,
-	#[ts(type = "string")]
-	date_created: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
-	date_modified: chrono::DateTime<chrono::Utc>,
-	// mutable status
-	pub status: JobStatus,
-	pub task_count: i64,
-	pub completed_task_count: i64,
-	pub message: String,
-}
-
-pub enum JobRegister {
-	IndexerJob(IndexerJob),
-}
-
-#[repr(i64)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
-#[ts(export)]
-pub enum JobStatus {
-	Queued = 0,
-	Running = 1,
-	Completed = 2,
-	Canceled = 3,
-}
-
-// convert database struct into a resource struct
-impl Into<JobMetadata> for JobData {
-	fn into(self) -> JobMetadata {
-		JobMetadata {
-			id: self.id,
-			client_id: self.client_id,
-			status: JobStatus::from_int(self.status).unwrap(),
-			task_count: self.task_count,
-			completed_task_count: self.completed_task_count,
-			date_created: self.date_created,
-			date_modified: self.date_modified,
-			message: "".to_string(),
-		}
-	}
-}
-
-// impl Job {
-// 	pub async fn new<F>(client_uuid: String, action: JobAction, task_count: i64) -> Result<Self, JobError> {
-// 		let db = get().await?;
-// 		let client = db
-// 			.client()
-// 			.find_unique(Client::uuid().equals(client_uuid))
-// 			.exec()
-// 			.await
-// 			.unwrap();
-
-// 		let job = Self {
-// 			id: 0,
-// 			client_id: client.id,
-// 			action,
-// 			status: JobStatus::Queued,
-// 			task_count,
-// 			completed_task_count: 0,
-// 			date_created: chrono::Utc::now(),
-// 			date_modified: chrono::Utc::now(),
-// 			message: "".to_string(),
-// 		};
-
-// 		db.job().create_one(
-// 			prisma::Job::action().set(job.action.int_value()),
-// 			prisma::Job::clients().link(Client::id().equals(client.id)),
-// 			vec![],
-// 		);
-
-// 		Ok(job)
+// impl Jobs {
+// 	pub fn new() -> (Self, mpsc::Receiver<JobCommand>) {
+// 		let (job_sender, job_receiver) = mpsc::channel(100);
+// 		(
+// 			Self {
+// 				job_sender_channel: job_sender,
+// 				running_job: Mutex::new(None),
+// 			},
+// 			job_receiver,
+// 		)
 // 	}
 
-// 	pub async fn save(&self, core: &Core) -> Result<(), JobError> {
-// 		let db = get().await?;
-// 		db.job()
-// 			.find_unique(prisma::Job::id().equals(self.id))
-// 			.update(vec![
-// 				prisma::Job::status().set(self.status.int_value()),
-// 				prisma::Job::completed_task_count().set(self.completed_task_count),
-// 				prisma::Job::date_modified().set(chrono::Utc::now()),
-// 			])
+// 	pub fn start(&self, ctx: CoreContext, mut job_receiver: mpsc::Receiver<JobCommand>) {
+// 		// open a thread to handle job execution
+// 		tokio::spawn(async move {
+// 			// local memory for job queue
+// 			let mut queued_jobs: Vec<(Box<dyn Job>, JobReport)> = vec![];
+
+// 			loop {
+// 				tokio::select! {
+// 					// when job is received via message channel
+// 					Some(request) = job_receiver.recv() => {
+// 						match request {
+// 							// create a new job
+// 							JobCommand::Create(job) => {
+// 								// create job report and save to database
+// 								let mut report = JobReport::new();
+// 								println!("Creating job: {:?} Metadata: {:?}", &job, &report);
+// 								report.create(&ctx).await;
+// 								// queue the job
+// 								queued_jobs.push((job, report));
+
+// 								let current_running_job = self.running_job.lock().await;
+
+// 								if current_running_job.is_none() {
+// 									// replace the running job mutex with this job
+// 									let (current_job, current_report) = queued_jobs.pop().unwrap();
+// 									current_running_job.replace(current_report);
+// 									// push job id into running jobs vector
+// 									let id = report.id;
+// 									let ctx = ctx.clone();
+
+// 									// open a dedicated blocking thread to run job
+// 									tokio::task::spawn_blocking(move || {
+// 										// asynchronously call run method
+// 										let handle = tokio::runtime::Handle::current();
+// 										let job_sender = ctx.job_sender.clone();
+
+// 										handle.block_on(current_report.update(&ctx, None, Some(JobStatus::Running))).unwrap();
+// 										handle.block_on(job.run(JobContext { core_ctx: ctx.clone(), job_data: current_report.clone() })).unwrap();
+
+// 										job_sender.send(JobCommand::Completed { id }).unwrap();
+
+// 									});
+// 								}
+// 							}
+// 							// update a running job
+// 							JobCommand::Update { id, data } => {
+// 								let ctx = ctx.clone();
+// 								// find running job in memory by id
+// 								let running_job = get_job(&id).unwrap_or_else(|| panic!("Job not found"));
+// 								// update job data
+// 								running_job.update(&ctx, Some(data), None).await.unwrap();
+// 								// emit event to invalidate client cache
+// 								ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning)).await;
+// 							},
+// 							JobCommand::Completed { id } => {
+// 								let ctx = ctx.clone();
+// 								let running_job = get_job(&id).unwrap_or_else(|| panic!("Job not found"));
+// 								running_job.update(&ctx, None, Some(JobStatus::Completed)).await.unwrap();
+// 								ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning)).await;
+// 								ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory)).await;
+
+// 							}
+// 						}
+// 					}
+// 				}
+// 			}
+// 		});
+// 	}
+
+// 	pub async fn handle_job_command(&mut self, job: JobCommand) {
+// 		self.job_sender_channel.send(job).await.unwrap_or(());
+// 	}
+// }
+
+// impl JobReport {
+// 	pub fn new() -> Self {
+// 		Self {
+// 			id: 0,
+// 			// client_id: 0,
+// 			date_created: chrono::Utc::now(),
+// 			date_modified: chrono::Utc::now(),
+// 			status: JobStatus::Queued,
+// 			task_count: 0,
+// 			completed_task_count: 0,
+// 			message: String::new(),
+// 		}
+// 	}
+// 	pub async fn create(&mut self, ctx: &CoreContext) {
+// 		// let config = client::get();
+// 		let job = ctx
+// 			.database
+// 			.job()
+// 			.create_one(
+// 				prisma::Job::action().set(1),
+// 				// prisma::Job::clients().link(prisma::Client::id().equals(config.client_uuid)),
+// 				vec![],
+// 			)
 // 			.exec()
 // 			.await;
+// 		self.id = job.id;
+// 	}
+// 	pub async fn update(
+// 		&mut self,
+// 		ctx: &CoreContext,
+// 		changes: Option<JobUpdateEvent>,
+// 		status: Option<JobStatus>,
+// 	) -> Result<()> {
+// 		match changes {
+// 			Some(changes) => {
+// 				if changes.task_count.is_some() {
+// 					self.task_count = changes.task_count.unwrap();
+// 				}
+// 				if changes.completed_task_count.is_some() {
+// 					self.completed_task_count = changes.completed_task_count.unwrap();
+// 				}
+// 				if changes.message.is_some() {
+// 					self.message = changes.message.unwrap();
+// 				}
+// 			},
+// 			None => {},
+// 		}
+// 		if status.is_some() {
+// 			self.status = status.unwrap();
 
-// 		core.send(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning)).await;
+// 			if self.status == JobStatus::Completed {
+// 				ctx.database
+// 					.job()
+// 					.find_unique(prisma::Job::id().equals(self.id))
+// 					.update(vec![
+// 						prisma::Job::status().set(self.status.int_value()),
+// 						prisma::Job::task_count().set(self.task_count),
+// 						prisma::Job::completed_task_count().set(self.completed_task_count),
+// 						prisma::Job::date_modified().set(chrono::Utc::now()),
+// 					])
+// 					.exec()
+// 					.await;
+// 			}
+// 		}
+// 		println!("JOB REPORT: {:?}", self);
 
 // 		Ok(())
 // 	}
-// 	pub fn set_progress(&mut self, completed_task_count: Option<i64>, message: Option<String>) -> &Self {
-// 		if let Some(count) = completed_task_count {
-// 			self.completed_task_count = count;
-// 			self.percentage_complete = (count as f64 / self.task_count as f64 * 100.0) as i64;
-// 		}
-// 		if let Some(msg) = message {
-// 			self.message = msg;
-// 		}
 
-// 		self
-// 	}
-// 	pub fn set_status(&mut self, status: JobStatus, task_count: Option<i64>) -> &Self {
-// 		self.status = status;
-// 		if let Some(count) = task_count {
-// 			self.task_count = count;
-// 		}
-// 		self.set_progress(None, Some("Starting job...".to_string()));
-// 		self
-// 	}
-
-// 	pub async fn get_running() -> Result<Vec<Job>, JobError> {
-// 		let db = get().await?;
+// 	pub async fn get_running(ctx: &CoreContext) -> Result<Vec<JobReport>, JobError> {
+// 		let db = &ctx.database;
 // 		let jobs = db
 // 			.job()
 // 			.find_many(vec![prisma::Job::status().equals(JobStatus::Running.int_value())])
@@ -219,26 +205,18 @@ impl Into<JobMetadata> for JobData {
 // 		Ok(jobs.into_iter().map(|j| j.into()).collect())
 // 	}
 
-// 	pub async fn get_history() -> Result<Vec<Job>, JobError> {
-// 		let db = get().await?;
+// 	pub async fn get_history(ctx: &CoreContext) -> Result<Vec<JobReport>, JobError> {
+// 		let db = &ctx.database;
 // 		let jobs = db
 // 			.job()
-// 			.find_many(vec![
+// 			.find_many(vec![or(vec![
 // 				prisma::Job::status().equals(JobStatus::Completed.int_value()),
 // 				prisma::Job::status().equals(JobStatus::Canceled.int_value()),
 // 				prisma::Job::status().equals(JobStatus::Queued.int_value()),
-// 			])
+// 			])])
 // 			.exec()
 // 			.await;
 
 // 		Ok(jobs.into_iter().map(|j| j.into()).collect())
 // 	}
 // }
-
-#[derive(Error, Debug)]
-pub enum JobError {
-	#[error("Failed to create job (job_id {job_id:?})")]
-	CreateFailure { job_id: String },
-	#[error("Database error")]
-	DatabaseError(#[from] db::DatabaseError),
-}

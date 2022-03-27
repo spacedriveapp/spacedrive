@@ -94,11 +94,8 @@ pub async fn get_location(ctx: &CoreContext, location_id: i64) -> Result<Locatio
 
 pub async fn new_location_and_scan(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
 	let location = create_location(&ctx, path).await?;
-	// now location has been added, automatically queue a job to scan location
-	// let job = core.queue(job::JobResource::new(core.state.client_uuid.clone(), job::JobAction::ScanLoc, 1).await?);
-	ctx.job_sender
-		.send(Box::new(IndexerJob { path: path.to_string() }))
-		.expect("Failed to send job to job queue");
+
+	ctx.spawn_job(Box::new(IndexerJob { path: path.to_string() }));
 
 	Ok(location)
 }
