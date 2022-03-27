@@ -1,15 +1,11 @@
 use crate::job::jobs::JobReportUpdate;
-use crate::job::worker::WorkerEvent;
 use crate::job::{jobs::Job, worker::WorkerContext};
 use crate::sys::locations::{create_location, LocationResource};
 use crate::util::time;
 use crate::CoreContext;
 use anyhow::{anyhow, Result};
-use log::info;
 use serde::{Deserialize, Serialize};
-use std::{
-	collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant,
-};
+use std::{collections::HashMap, fs, path::Path, path::PathBuf, time::Instant};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug)]
@@ -20,15 +16,19 @@ pub struct IndexerJob {
 #[async_trait::async_trait]
 impl Job for IndexerJob {
 	async fn run(&self, ctx: WorkerContext) -> Result<()> {
-		// invoke scan_path function
 		let core_ctx = ctx.core_ctx.clone();
-		scan_path(&core_ctx, self.path.as_str(), move |progress| {
-			// update job progress
-			ctx.sender
-				.send(WorkerEvent::Progressed(
-					progress.iter().map(|p| p.clone().into()).collect(),
-				))
-				.unwrap_or(());
+		scan_path(&core_ctx, self.path.as_str(), move |p| {
+			ctx.progress(
+				p.iter()
+					.map(|p| match p.clone() {
+						ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
+						ScanProgress::SavedChunks(p) => {
+							JobReportUpdate::CompletedTaskCount(p)
+						},
+						ScanProgress::Message(m) => JobReportUpdate::Message(m),
+					})
+					.collect(),
+			)
 		})
 		.await?;
 		Ok(())
@@ -37,8 +37,8 @@ impl Job for IndexerJob {
 
 #[derive(Clone)]
 pub enum ScanProgress {
-	ChunkCount(i64),
-	SavedChunks(i64),
+	ChunkCount(usize),
+	SavedChunks(usize),
 	Message(String),
 }
 
@@ -48,13 +48,10 @@ pub async fn scan_path(
 	path: &str,
 	on_progress: impl Fn(Vec<ScanProgress>) + Send + Sync + 'static,
 ) -> Result<()> {
-	println!("Scanning directory: {}", &path);
 	let db = &ctx.database;
 	let path = path.to_string();
 
 	let location = create_location(&ctx, &path).await?;
-
-	println!("Location: {:?}", location);
 
 	// query db to highers id, so we can increment it for the new files indexed
 	#[derive(Deserialize, Serialize, Debug)]
@@ -113,8 +110,11 @@ pub async fn scan_path(
 				.to_str()
 				.unwrap_or("");
 			let parent_dir_id = dirs.get(&*parent_path);
-			// println!("Discovered: {:?}, {:?}", &path, &parent_dir_id);
-			on_progress(vec![ScanProgress::Message(format!("Found: {:?}", &path))]);
+
+			on_progress(vec![
+				ScanProgress::Message(format!("Found: {:?}", &path)),
+				ScanProgress::ChunkCount(paths.len() / 100),
+			]);
 
 			let file_id = get_id();
 			paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
@@ -137,19 +137,13 @@ pub async fn scan_path(
 
 	for (i, chunk) in paths.chunks(100).enumerate() {
 		on_progress(vec![
-			ScanProgress::ChunkCount(i as i64),
-			ScanProgress::SavedChunks(i as i64),
+			ScanProgress::SavedChunks(i as usize),
 			ScanProgress::Message(format!(
 				"Writing {} files to db at chunk {}",
 				chunk.len(),
 				i
 			)),
 		]);
-
-		info!(
-			"{}",
-			format!("Writing {} files to db at chunk {}", chunk.len(), i)
-		);
 
 		// vector to store active models
 		let mut files: Vec<String> = Vec::new();
@@ -174,7 +168,7 @@ pub async fn scan_path(
             "#,
 			files.join(", ")
 		);
-		let count = db._execute_raw(&raw_sql).await;
+		let _count = db._execute_raw(&raw_sql).await;
 		// println!("Inserted {:?} records", count);
 	}
 	println!(
@@ -239,13 +233,13 @@ pub async fn test_scan(path: &str) -> Result<()> {
 }
 
 // extract name from OsStr returned by PathBuff
-fn extract_name(os_string: Option<&OsStr>) -> String {
-	os_string
-		.unwrap_or_default()
-		.to_str()
-		.unwrap_or_default()
-		.to_owned()
-}
+// fn extract_name(os_string: Option<&OsStr>) -> String {
+// 	os_string
+// 		.unwrap_or_default()
+// 		.to_str()
+// 		.unwrap_or_default()
+// 		.to_owned()
+// }
 
 fn is_hidden(entry: &DirEntry) -> bool {
 	entry
@@ -323,14 +317,14 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
 // 	Ok(())
 // }
 
-impl From<ScanProgress> for JobReportUpdate {
-	fn from(progress: ScanProgress) -> Self {
-		match progress {
-			ScanProgress::ChunkCount(count) => JobReportUpdate::TaskCount(count),
-			ScanProgress::SavedChunks(count) => {
-				JobReportUpdate::CompletedTaskCount(count)
-			},
-			ScanProgress::Message(message) => JobReportUpdate::Message(message),
-		}
-	}
-}
+// impl From<ScanProgress> for JobReportUpdate {
+// 	fn from(progress: ScanProgress) -> Self {
+// 		match progress {
+// 			ScanProgress::ChunkCount(count) => JobReportUpdate::TaskCount(count),
+// 			ScanProgress::SavedChunks(count) => {
+// 				JobReportUpdate::CompletedTaskCount(count)
+// 			},
+// 			ScanProgress::Message(message) => JobReportUpdate::Message(message),
+// 		}
+// 	}
+// }

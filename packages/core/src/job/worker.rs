@@ -5,7 +5,6 @@ use tokio::sync::{
 	mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 	Mutex,
 };
-
 // used to update the worker state from inside the worker thread
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
@@ -25,6 +24,14 @@ pub struct WorkerContext {
 	pub sender: UnboundedSender<WorkerEvent>,
 }
 
+impl WorkerContext {
+	pub fn progress(&self, updates: Vec<JobReportUpdate>) {
+		self.sender
+			.send(WorkerEvent::Progressed(updates))
+			.unwrap_or(());
+	}
+}
+
 // a worker is a dedicated thread that runs a single job
 // once the job is complete the worker will exit
 pub struct Worker {
@@ -38,8 +45,6 @@ impl Worker {
 		let (worker_sender, worker_receiver) = unbounded_channel();
 		let uuid = uuid::Uuid::new_v4().to_string();
 
-		println!("worker uuid: {}", &uuid);
-
 		Self {
 			state: WorkerState::Pending(job, worker_receiver),
 			job_report: JobReport::new(uuid),
@@ -48,10 +53,9 @@ impl Worker {
 	}
 	// spawns a thread and extracts channel sender to communicate with it
 	pub async fn spawn(worker: Arc<Mutex<Self>>, ctx: &CoreContext) {
-		println!("spawning worker");
 		// we capture the worker receiver channel so state can be updated from inside the worker
 		let mut worker_mut = worker.lock().await;
-
+		// extract owned job and receiver from Self
 		let (job, worker_receiver) =
 			match std::mem::replace(&mut worker_mut.state, WorkerState::Running) {
 				WorkerState::Pending(job, worker_receiver) => {
@@ -60,12 +64,11 @@ impl Worker {
 				},
 				WorkerState::Running => unreachable!(),
 			};
-
 		let worker_sender = worker_mut.worker_sender.clone();
 		let core_ctx = ctx.clone();
 
 		worker_mut.job_report.status = JobStatus::Running;
-
+		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
 			worker.clone(),
 			worker_receiver,
@@ -73,28 +76,26 @@ impl Worker {
 		));
 
 		let uuid = worker_mut.job_report.id.clone();
-
+		// spawn task to handle running the job
 		tokio::spawn(async move {
-			println!("new worker thread spawned");
-			// this is provided to the job function and used to issue updates
 			let worker_ctx = WorkerContext {
 				uuid,
 				core_ctx,
 				sender: worker_sender,
 			};
-
+			// run the job
 			let result = job.run(worker_ctx.clone()).await;
-
-			worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
-
-			worker_ctx
-				.core_ctx
-				.internal_sender
-				.send(InternalEvent::JobComplete(worker_ctx.uuid.clone()))
-				.unwrap_or(());
 
 			if let Err(_) = result {
 				worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());
+			} else {
+				// handle completion
+				worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
+				worker_ctx
+					.core_ctx
+					.internal_sender
+					.send(InternalEvent::JobComplete(worker_ctx.uuid.clone()))
+					.unwrap_or(());
 			}
 		});
 	}
@@ -108,21 +109,19 @@ impl Worker {
 		mut channel: UnboundedReceiver<WorkerEvent>,
 		ctx: CoreContext,
 	) {
-		println!("tracking progress");
 		while let Some(command) = channel.recv().await {
 			let mut worker = worker.lock().await;
 
 			match command {
 				WorkerEvent::Progressed(changes) => {
-					println!("worker event: progressed");
 					for change in changes {
 						match change {
 							JobReportUpdate::TaskCount(task_count) => {
-								worker.job_report.task_count = task_count;
+								worker.job_report.task_count = task_count as i64;
 							},
 							JobReportUpdate::CompletedTaskCount(completed_task_count) => {
 								worker.job_report.completed_task_count =
-									completed_task_count;
+									completed_task_count as i64;
 							},
 							JobReportUpdate::Message(message) => {
 								worker.job_report.message = message;

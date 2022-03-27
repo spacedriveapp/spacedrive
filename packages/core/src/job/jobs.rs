@@ -52,14 +52,13 @@ impl Jobs {
 			let worker = worker.lock().await;
 			ret.push(worker.job_report.clone());
 		}
-
 		ret
 	}
 }
 
 pub enum JobReportUpdate {
-	TaskCount(i64),
-	CompletedTaskCount(i64),
+	TaskCount(usize),
+	CompletedTaskCount(usize),
 	Message(String),
 }
 
