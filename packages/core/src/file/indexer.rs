@@ -12,7 +12,7 @@ use std::{
 };
 use walkdir::{DirEntry, WalkDir};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct IndexerJob {
 	pub path: String,
 }
@@ -51,6 +51,7 @@ pub async fn scan_path(
 ) -> Result<()> {
 	println!("Scanning directory: {}", &path);
 	let db = &ctx.database;
+	let path = path.to_string();
 
 	let location = create_location(&ctx, &path).await?;
 
@@ -62,7 +63,7 @@ pub async fn scan_path(
 		id: Option<i64>,
 	}
 	// grab the next id so we can increment in memory for batch inserting
-	let mut next_file_id = match db
+	let first_file_id = match db
 		._query_raw::<QueryRes>(r#"SELECT MAX(id) id FROM file_paths"#)
 		.await
 	{
@@ -70,59 +71,67 @@ pub async fn scan_path(
 		Err(e) => Err(anyhow!("Error querying for next file id: {}", e))?,
 	};
 
-	let mut get_id = || {
-		next_file_id += 1;
-		next_file_id
-	};
-
 	//check is path is a directory
-	if !PathBuf::from(path).is_dir() {
-		return Err(anyhow::anyhow!("{} is not a directory", path));
+	if !PathBuf::from(&path).is_dir() {
+		return Err(anyhow::anyhow!("{} is not a directory", &path));
 	}
+	let dir_path = path.clone();
 
-	// store every valid path discovered
-	let mut paths: Vec<(PathBuf, i64, Option<i64>)> = Vec::new();
-	// store a hashmap of directories to their file ids for fast lookup
-	let mut dirs: HashMap<String, i64> = HashMap::new();
-	// begin timer for logging purposes
-	let scan_start = Instant::now();
-	// walk through directory recursively
-	for entry in WalkDir::new(path).into_iter().filter_entry(|dir| {
-		let approved = !is_hidden(dir)
-			&& !is_app_bundle(dir)
-			&& !is_node_modules(dir)
-			&& !is_library(dir);
-		approved
-	}) {
-		// extract directory entry or log and continue if failed
-		let entry = match entry {
-			Ok(entry) => entry,
-			Err(e) => {
-				println!("Error reading file {}", e);
-				continue;
-			},
+	let (paths, scan_start) = tokio::task::spawn_blocking(move || {
+		// store every valid path discovered
+		let mut paths: Vec<(PathBuf, i64, Option<i64>)> = Vec::new();
+		// store a hashmap of directories to their file ids for fast lookup
+		let mut dirs: HashMap<String, i64> = HashMap::new();
+		// begin timer for logging purposes
+		let scan_start = Instant::now();
+
+		let mut next_file_id = first_file_id;
+		let mut get_id = || {
+			next_file_id += 1;
+			next_file_id
 		};
-		let path = entry.path();
-
-		let parent_path = path
-			.parent()
-			.unwrap_or(Path::new(""))
-			.to_str()
-			.unwrap_or("");
-		let parent_dir_id = dirs.get(&*parent_path);
-		// println!("Discovered: {:?}, {:?}", &path, &parent_dir_id);
-
-		let file_id = get_id();
-		paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
-
-		if entry.file_type().is_dir() {
-			let _path = match path.to_str() {
-				Some(path) => path.to_owned(),
-				None => continue,
+		// walk through directory recursively
+		for entry in WalkDir::new(&dir_path).into_iter().filter_entry(|dir| {
+			let approved = !is_hidden(dir)
+				&& !is_app_bundle(dir)
+				&& !is_node_modules(dir)
+				&& !is_library(dir);
+			approved
+		}) {
+			// extract directory entry or log and continue if failed
+			let entry = match entry {
+				Ok(entry) => entry,
+				Err(e) => {
+					println!("Error reading file {}", e);
+					continue;
+				},
 			};
-			dirs.insert(_path, file_id);
+			let path = entry.path();
+
+			let parent_path = path
+				.parent()
+				.unwrap_or(Path::new(""))
+				.to_str()
+				.unwrap_or("");
+			let parent_dir_id = dirs.get(&*parent_path);
+			// println!("Discovered: {:?}, {:?}", &path, &parent_dir_id);
+
+			let file_id = get_id();
+			paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
+
+			if entry.file_type().is_dir() {
+				let _path = match path.to_str() {
+					Some(path) => path.to_owned(),
+					None => continue,
+				};
+				dirs.insert(_path, file_id);
+			}
 		}
-	}
+		(paths, scan_start)
+	})
+	.await
+	.unwrap();
+
 	let db_write_start = Instant::now();
 	let scan_read_time = scan_start.elapsed();
 
@@ -166,7 +175,7 @@ pub async fn scan_path(
 	}
 	println!(
 		"scan of {:?} completed in {:?}. {:?} files found. db write completed in {:?}",
-		path,
+		&path,
 		scan_read_time,
 		paths.len(),
 		db_write_start.elapsed()

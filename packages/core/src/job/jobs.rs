@@ -1,16 +1,16 @@
 use super::worker::{Worker, WorkerContext};
 use crate::{prisma::JobData, CoreContext};
 use anyhow::Result;
-use dyn_clone::DynClone;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use tokio::sync::Mutex;
 use ts_rs::TS;
 
 const MAX_WORKERS: usize = 4;
 
 #[async_trait::async_trait]
-pub trait Job: Send + Sync + Debug + DynClone {
+pub trait Job: Send + Sync + Debug {
 	async fn run(&self, ctx: WorkerContext) -> Result<()>;
 }
 
@@ -18,7 +18,7 @@ pub trait Job: Send + Sync + Debug + DynClone {
 pub struct Jobs {
 	job_queue: Vec<Box<dyn Job>>,
 	// workers are spawned when jobs are picked off the queue
-	running_workers: HashMap<String, Worker>,
+	running_workers: HashMap<String, Arc<Mutex<Worker>>>,
 }
 
 impl Jobs {
@@ -30,19 +30,26 @@ impl Jobs {
 	}
 	pub async fn ingest(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
 		// create worker to process job
-		let mut worker = Worker::new(job);
+		let worker = Worker::new(job);
+		let id = worker.id();
 
 		if self.running_workers.len() < MAX_WORKERS {
-			worker.spawn(ctx).await;
-			self.running_workers.insert(worker.id(), worker);
+			let wrapped_worker = Arc::new(Mutex::new(worker));
+
+			Worker::spawn(wrapped_worker.clone(), ctx).await;
+
+			self.running_workers.insert(id, wrapped_worker);
 		}
 	}
 	pub async fn get_running(&self) -> Vec<JobReport> {
-		self.running_workers
-			.values()
-			.into_iter()
-			.map(|worker| worker.job_report.clone())
-			.collect()
+		let mut ret = vec![];
+
+		for worker in self.running_workers.values() {
+			let worker = worker.lock().await;
+			ret.push(worker.job_report.clone());
+		}
+
+		ret
 	}
 }
 
