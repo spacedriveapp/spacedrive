@@ -1,12 +1,10 @@
+use super::jobs::{JobReport, JobReportUpdate, JobStatus};
+use crate::{ClientQuery, CoreContext, CoreEvent, InternalEvent, Job};
 use std::sync::Arc;
-
-use crate::{ClientQuery, CoreContext, CoreEvent, Job};
 use tokio::sync::{
 	mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 	Mutex,
 };
-
-use super::jobs::{JobReport, JobReportUpdate, JobStatus};
 
 // used to update the worker state from inside the worker thread
 pub enum WorkerEvent {
@@ -22,6 +20,7 @@ enum WorkerState {
 
 #[derive(Clone)]
 pub struct WorkerContext {
+	pub uuid: String,
 	pub core_ctx: CoreContext,
 	pub sender: UnboundedSender<WorkerEvent>,
 }
@@ -73,15 +72,26 @@ impl Worker {
 			ctx.clone(),
 		));
 
+		let uuid = worker_mut.job_report.id.clone();
+
 		tokio::spawn(async move {
 			println!("new worker thread spawned");
 			// this is provided to the job function and used to issue updates
 			let worker_ctx = WorkerContext {
+				uuid,
 				core_ctx,
 				sender: worker_sender,
 			};
 
 			let result = job.run(worker_ctx.clone()).await;
+
+			worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
+
+			worker_ctx
+				.core_ctx
+				.internal_sender
+				.send(InternalEvent::JobComplete(worker_ctx.uuid.clone()))
+				.unwrap_or(());
 
 			if let Err(_) = result {
 				worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());

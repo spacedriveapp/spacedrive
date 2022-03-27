@@ -21,14 +21,13 @@ pub struct IndexerJob {
 impl Job for IndexerJob {
 	async fn run(&self, ctx: WorkerContext) -> Result<()> {
 		// invoke scan_path function
-		scan_path(&ctx.core_ctx, self.path.as_str(), |progress| {
+		let core_ctx = ctx.core_ctx.clone();
+		scan_path(&core_ctx, self.path.as_str(), move |progress| {
 			// update job progress
 			ctx.sender
-				.send(WorkerEvent::Progressed(vec![
-					JobReportUpdate::TaskCount(progress.chunk_count),
-					JobReportUpdate::CompletedTaskCount(progress.saved_chunks),
-					JobReportUpdate::Message(progress.message),
-				]))
+				.send(WorkerEvent::Progressed(
+					progress.iter().map(|p| p.clone().into()).collect(),
+				))
 				.unwrap_or(());
 		})
 		.await?;
@@ -36,18 +35,18 @@ impl Job for IndexerJob {
 	}
 }
 
-pub struct ScanProgress {
-	pub total_paths: i64,
-	pub chunk_count: i64,
-	pub saved_chunks: i64,
-	pub message: String,
+#[derive(Clone)]
+pub enum ScanProgress {
+	ChunkCount(i64),
+	SavedChunks(i64),
+	Message(String),
 }
 
 // creates a vector of valid path buffers from a directory
 pub async fn scan_path(
 	ctx: &CoreContext,
 	path: &str,
-	on_progress: impl Fn(ScanProgress),
+	on_progress: impl Fn(Vec<ScanProgress>) + Send + Sync + 'static,
 ) -> Result<()> {
 	println!("Scanning directory: {}", &path);
 	let db = &ctx.database;
@@ -77,7 +76,7 @@ pub async fn scan_path(
 	}
 	let dir_path = path.clone();
 
-	let (paths, scan_start) = tokio::task::spawn_blocking(move || {
+	let (paths, scan_start, on_progress) = tokio::task::spawn_blocking(move || {
 		// store every valid path discovered
 		let mut paths: Vec<(PathBuf, i64, Option<i64>)> = Vec::new();
 		// store a hashmap of directories to their file ids for fast lookup
@@ -115,6 +114,7 @@ pub async fn scan_path(
 				.unwrap_or("");
 			let parent_dir_id = dirs.get(&*parent_path);
 			// println!("Discovered: {:?}, {:?}", &path, &parent_dir_id);
+			on_progress(vec![ScanProgress::Message(format!("Found: {:?}", &path))]);
 
 			let file_id = get_id();
 			paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
@@ -127,7 +127,7 @@ pub async fn scan_path(
 				dirs.insert(_path, file_id);
 			}
 		}
-		(paths, scan_start)
+		(paths, scan_start, on_progress)
 	})
 	.await
 	.unwrap();
@@ -136,12 +136,16 @@ pub async fn scan_path(
 	let scan_read_time = scan_start.elapsed();
 
 	for (i, chunk) in paths.chunks(100).enumerate() {
-		on_progress(ScanProgress {
-			total_paths: paths.len() as i64,
-			chunk_count: i as i64,
-			saved_chunks: i as i64,
-			message: format!("Writing {} files to db at chunk {}", chunk.len(), i),
-		});
+		on_progress(vec![
+			ScanProgress::ChunkCount(i as i64),
+			ScanProgress::SavedChunks(i as i64),
+			ScanProgress::Message(format!(
+				"Writing {} files to db at chunk {}",
+				chunk.len(),
+				i
+			)),
+		]);
+
 		info!(
 			"{}",
 			format!("Writing {} files to db at chunk {}", chunk.len(), i)
@@ -318,3 +322,15 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
 // 	}
 // 	Ok(())
 // }
+
+impl From<ScanProgress> for JobReportUpdate {
+	fn from(progress: ScanProgress) -> Self {
+		match progress {
+			ScanProgress::ChunkCount(count) => JobReportUpdate::TaskCount(count),
+			ScanProgress::SavedChunks(count) => {
+				JobReportUpdate::CompletedTaskCount(count)
+			},
+			ScanProgress::Message(message) => JobReportUpdate::Message(message),
+		}
+	}
+}

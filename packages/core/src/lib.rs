@@ -68,18 +68,26 @@ impl CoreController {
 	}
 }
 
+#[derive(Debug)]
+pub enum InternalEvent {
+	JobIngest(Box<dyn Job>),
+	JobComplete(String),
+}
+
 #[derive(Clone)]
 pub struct CoreContext {
 	pub database: Arc<PrismaClient>,
 	pub event_sender: mpsc::Sender<CoreEvent>,
-	pub job_ingest_sender: UnboundedSender<Box<dyn Job>>,
+	pub internal_sender: UnboundedSender<InternalEvent>,
 }
 
 impl CoreContext {
 	pub fn spawn_job(&self, job: Box<dyn Job>) {
-		self.job_ingest_sender.send(job).unwrap_or_else(|e| {
-			error!("Failed to spawn job. {:?}", e);
-		});
+		self.internal_sender
+			.send(InternalEvent::JobIngest(job))
+			.unwrap_or_else(|e| {
+				error!("Failed to spawn job. {:?}", e);
+			});
 	}
 	pub async fn emit(&self, event: CoreEvent) {
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
@@ -105,9 +113,11 @@ pub struct Core {
 		UnboundedReceiver<ReturnableMessage<ClientCommand>>,
 	),
 	event_sender: mpsc::Sender<CoreEvent>,
-	job_ingest_channel: (
-		UnboundedSender<Box<dyn Job>>,
-		UnboundedReceiver<Box<dyn Job>>,
+
+	// a channel for child threads to send events back to the core
+	internal_channel: (
+		UnboundedSender<InternalEvent>,
+		UnboundedReceiver<InternalEvent>,
 	),
 }
 
@@ -134,7 +144,7 @@ impl Core {
 
 		let database = Arc::new(db::create_connection().await.unwrap());
 
-		let job_ingest_channel = unbounded_channel::<Box<dyn Job>>();
+		let internal_channel = unbounded_channel::<InternalEvent>();
 
 		let core = Core {
 			state,
@@ -143,7 +153,7 @@ impl Core {
 			jobs: Jobs::new(),
 			event_sender,
 			database,
-			job_ingest_channel,
+			internal_channel,
 		};
 
 		(core, event_recv)
@@ -153,7 +163,7 @@ impl Core {
 		CoreContext {
 			database: self.database.clone(),
 			event_sender: self.event_sender.clone(),
-			job_ingest_sender: self.job_ingest_channel.0.clone(),
+			internal_sender: self.internal_channel.0.clone(),
 		}
 	}
 
@@ -177,8 +187,15 @@ impl Core {
 					let res = self.exec_command(msg.data).await;
 					msg.return_sender.send(res).unwrap_or(());
 				}
-				Some(job) = self.job_ingest_channel.1.recv() => {
-					self.jobs.ingest(&ctx, job).await;
+				Some(event) = self.internal_channel.1.recv() => {
+					match event {
+						InternalEvent::JobIngest(job) => {
+							self.jobs.ingest(&ctx, job).await;
+						},
+						InternalEvent::JobComplete(id) => {
+							self.jobs.complete(id);
+						},
+					}
 				}
 			}
 		}
