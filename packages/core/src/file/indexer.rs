@@ -1,63 +1,54 @@
-use std::{collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant};
-
-use anyhow::{anyhow, Result};
-use log::info;
-
-use crate::job::{self, Job};
+use crate::job::jobs::JobReportUpdate;
+use crate::job::worker::WorkerEvent;
+use crate::job::{jobs::Job, worker::WorkerContext};
 use crate::sys::locations::{create_location, LocationResource};
 use crate::util::time;
-use crate::{db, Core, CoreContext};
+use crate::CoreContext;
+use anyhow::{anyhow, Result};
+use log::info;
 use serde::{Deserialize, Serialize};
+use std::{
+	collections::HashMap, ffi::OsStr, fs, path::Path, path::PathBuf, time::Instant,
+};
 use walkdir::{DirEntry, WalkDir};
 
-// pub async fn scan_loc(core: &mut Core, location: &LocationResource) -> Result<()> {
-// 	// get location by location_id from db and include location_paths
-// 	// let job = core.queue(
-// 	// 	job::JobResource::new(core.state.client_uuid.clone(), job::JobAction::ScanLoc, 1, |loc| {
-// 	// 		if let Some(path) = &loc.path {
-// 	// 			scan_path(core, path).await?;
-// 	// 			watch_dir(path);
-// 	// 		}
-// 	// 	})
-// 	// 	.await?,
-// 	// );
-
-// 	Ok(())
-// }
-// pub async fn scan_loc(core: &mut Core, location: &LocationResource) -> Result<()> {
-// 	// get location by location_id from db and include location_paths
-// 	let job = core.queue(
-// 		job::JobResource::new(
-// 			core.state.client_uuid.clone(),
-// 			job::JobAction::ScanLoc,
-// 			1,
-// 			Some(vec![location.path.as_ref().unwrap().to_string()]),
-// 		)
-// 		.await?,
-// 	);
-
-// 	if let Some(path) = &location.path {
-// 		scan_path(core, path).await?;
-// 		watch_dir(path);
-// 	}
-// 	Ok(())
-// }
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexerJob {
 	pub path: String,
 }
 
 #[async_trait::async_trait]
 impl Job for IndexerJob {
-	async fn run(&self, ctx: CoreContext) -> Result<()> {
-		scan_path(&ctx, self.path.as_str()).await?;
+	async fn run(&self, ctx: WorkerContext) -> Result<()> {
+		// invoke scan_path function
+		scan_path(&ctx.core_ctx, self.path.as_str(), |progress| {
+			// update job progress
+			ctx.sender
+				.send(WorkerEvent::Progressed(vec![
+					JobReportUpdate::TaskCount(progress.chunk_count),
+					JobReportUpdate::CompletedTaskCount(progress.saved_chunks),
+					JobReportUpdate::Message(progress.message),
+				]))
+				.unwrap_or(());
+		})
+		.await?;
 		Ok(())
 	}
 }
 
+pub struct ScanProgress {
+	pub total_paths: i64,
+	pub chunk_count: i64,
+	pub saved_chunks: i64,
+	pub message: String,
+}
+
 // creates a vector of valid path buffers from a directory
-pub async fn scan_path(ctx: &CoreContext, path: &str) -> Result<()> {
+pub async fn scan_path(
+	ctx: &CoreContext,
+	path: &str,
+	on_progress: impl Fn(ScanProgress),
+) -> Result<()> {
 	println!("Scanning directory: {}", &path);
 	let db = &ctx.database;
 
@@ -71,7 +62,10 @@ pub async fn scan_path(ctx: &CoreContext, path: &str) -> Result<()> {
 		id: Option<i64>,
 	}
 	// grab the next id so we can increment in memory for batch inserting
-	let mut next_file_id = match db._query_raw::<QueryRes>(r#"SELECT MAX(id) id FROM files"#).await {
+	let mut next_file_id = match db
+		._query_raw::<QueryRes>(r#"SELECT MAX(id) id FROM file_paths"#)
+		.await
+	{
 		Ok(rows) => rows[0].id.unwrap_or(0),
 		Err(e) => Err(anyhow!("Error querying for next file id: {}", e))?,
 	};
@@ -94,7 +88,10 @@ pub async fn scan_path(ctx: &CoreContext, path: &str) -> Result<()> {
 	let scan_start = Instant::now();
 	// walk through directory recursively
 	for entry in WalkDir::new(path).into_iter().filter_entry(|dir| {
-		let approved = !is_hidden(dir) && !is_app_bundle(dir) && !is_node_modules(dir) && !is_library(dir);
+		let approved = !is_hidden(dir)
+			&& !is_app_bundle(dir)
+			&& !is_node_modules(dir)
+			&& !is_library(dir);
 		approved
 	}) {
 		// extract directory entry or log and continue if failed
@@ -107,9 +104,13 @@ pub async fn scan_path(ctx: &CoreContext, path: &str) -> Result<()> {
 		};
 		let path = entry.path();
 
-		let parent_path = path.parent().unwrap_or(Path::new("")).to_str().unwrap_or("");
+		let parent_path = path
+			.parent()
+			.unwrap_or(Path::new(""))
+			.to_str()
+			.unwrap_or("");
 		let parent_dir_id = dirs.get(&*parent_path);
-		println!("Discovered: {:?}, {:?}", &path, &parent_dir_id);
+		// println!("Discovered: {:?}, {:?}", &path, &parent_dir_id);
 
 		let file_id = get_id();
 		paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
@@ -126,22 +127,32 @@ pub async fn scan_path(ctx: &CoreContext, path: &str) -> Result<()> {
 	let scan_read_time = scan_start.elapsed();
 
 	for (i, chunk) in paths.chunks(100).enumerate() {
-		// job.set_progress(
-		// 	Some(12),
-		// 	Some(format!("Writing {} files to db at chunk {}", chunk.len(), i)),
-		// );
-		info!("{}", format!("Writing {} files to db at chunk {}", chunk.len(), i));
+		on_progress(ScanProgress {
+			total_paths: paths.len() as i64,
+			chunk_count: i as i64,
+			saved_chunks: i as i64,
+			message: format!("Writing {} files to db at chunk {}", chunk.len(), i),
+		});
+		info!(
+			"{}",
+			format!("Writing {} files to db at chunk {}", chunk.len(), i)
+		);
 
 		// vector to store active models
 		let mut files: Vec<String> = Vec::new();
 		for (file_path, file_id, parent_dir_id) in chunk {
-			files.push(match prepare_values(&file_path, *file_id, &location, parent_dir_id) {
-				Ok(file) => file,
-				Err(e) => {
-					println!("Error creating file model from path {:?}: {}", file_path, e);
-					continue;
+			files.push(
+				match prepare_values(&file_path, *file_id, &location, parent_dir_id) {
+					Ok(file) => file,
+					Err(e) => {
+						println!(
+							"Error creating file model from path {:?}: {}",
+							file_path, e
+						);
+						continue;
+					},
 				},
-			});
+			);
 		}
 		let raw_sql = format!(
 			r#"
@@ -151,7 +162,7 @@ pub async fn scan_path(ctx: &CoreContext, path: &str) -> Result<()> {
 			files.join(", ")
 		);
 		let count = db._execute_raw(&raw_sql).await;
-		println!("Inserted {:?} records", count);
+		// println!("Inserted {:?} records", count);
 	}
 	println!(
 		"scan of {:?} completed in {:?}. {:?} files found. db write completed in {:?}",
@@ -190,10 +201,15 @@ fn prepare_values(
 		id,
 		metadata.is_dir(),
 		location.id,
-		parent_id.clone().map(|id| id.to_string()).unwrap_or("NULL".to_string()),
+		parent_id
+			.clone()
+			.map(|id| id.to_string())
+			.unwrap_or("NULL".to_string()),
 		materialized_path,
 		// &size.to_string(),
-		&time::system_time_to_date_time(metadata.created()).unwrap().to_string(),
+		&time::system_time_to_date_time(metadata.created())
+			.unwrap()
+			.to_string(),
 		// &time::system_time_to_date_time(metadata.modified()).unwrap().to_string(),
 	))
 }
@@ -211,11 +227,19 @@ pub async fn test_scan(path: &str) -> Result<()> {
 
 // extract name from OsStr returned by PathBuff
 fn extract_name(os_string: Option<&OsStr>) -> String {
-	os_string.unwrap_or_default().to_str().unwrap_or_default().to_owned()
+	os_string
+		.unwrap_or_default()
+		.to_str()
+		.unwrap_or_default()
+		.to_owned()
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
-	entry.file_name().to_str().map(|s| s.starts_with(".")).unwrap_or(false)
+	entry
+		.file_name()
+		.to_str()
+		.map(|s| s.starts_with("."))
+		.unwrap_or(false)
 }
 
 fn is_library(entry: &DirEntry) -> bool {
@@ -253,3 +277,35 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
 
 	is_app_bundle
 }
+// pub async fn scan_loc(core: &mut Core, location: &LocationResource) -> Result<()> {
+// 	// get location by location_id from db and include location_paths
+// 	// let job = core.queue(
+// 	// 	job::JobResource::new(core.state.client_uuid.clone(), job::JobAction::ScanLoc, 1, |loc| {
+// 	// 		if let Some(path) = &loc.path {
+// 	// 			scan_path(core, path).await?;
+// 	// 			watch_dir(path);
+// 	// 		}
+// 	// 	})
+// 	// 	.await?,
+// 	// );
+
+// 	Ok(())
+// }
+// pub async fn scan_loc(core: &mut Core, location: &LocationResource) -> Result<()> {
+// 	// get location by location_id from db and include location_paths
+// 	let job = core.queue(
+// 		job::JobResource::new(
+// 			core.state.client_uuid.clone(),
+// 			job::JobAction::ScanLoc,
+// 			1,
+// 			Some(vec![location.path.as_ref().unwrap().to_string()]),
+// 		)
+// 		.await?,
+// 	);
+
+// 	if let Some(path) = &location.path {
+// 		scan_path(core, path).await?;
+// 		watch_dir(path);
+// 	}
+// 	Ok(())
+// }

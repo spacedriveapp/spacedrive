@@ -11,7 +11,7 @@ import { useBridgeCommand, useBridgeQuery } from '@sd/state';
 
 export default function GeneralSettings() {
   const { data: volumes } = useBridgeQuery('SysGetVolumes');
-  const [tempWatchDir, setTempWatchDir] = useState('/users/jamie/Desktop');
+  const [tempWatchDir, setTempWatchDir] = useState('/users/jamie/Projects');
 
   const [fakeSliderVal, setFakeSliderVal] = useState([30, 0]);
 
@@ -19,6 +19,8 @@ export default function GeneralSettings() {
 
   // const fileUploader = useRef<HTMLInputElement | null>(null);
   const { data: client } = useBridgeQuery('ClientGetState');
+  const { data: jobs } = useBridgeQuery('JobGetRunning');
+  const { data: jobsHistory } = useBridgeQuery('JobGetHistory');
 
   return (
     <div className="flex flex-col max-w-2xl space-y-4">
@@ -56,6 +58,36 @@ export default function GeneralSettings() {
           </Button>
         </div>
       </InputContainer>
+      <ReactJson
+        // collapsed
+        enableClipboard={false}
+        displayDataTypes={false}
+        theme="ocean"
+        src={{ ...jobs }}
+        style={{
+          padding: 20,
+          borderRadius: 5,
+          backgroundColor: '#101016',
+          border: 1,
+          borderColor: '#1E1E27',
+          borderStyle: 'solid'
+        }}
+      />
+      <ReactJson
+        // collapsed
+        enableClipboard={false}
+        displayDataTypes={false}
+        theme="ocean"
+        src={{ ...jobsHistory }}
+        style={{
+          padding: 20,
+          borderRadius: 5,
+          backgroundColor: '#101016',
+          border: 1,
+          borderColor: '#1E1E27',
+          borderStyle: 'solid'
+        }}
+      />
       <InputContainer
         title="Locations"
         description="Local cache storage for media previews and thumbnails."

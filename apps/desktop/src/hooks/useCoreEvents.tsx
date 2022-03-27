@@ -20,7 +20,9 @@ export function useCoreEvents() {
             // @ts-expect-error
             query.push(e.payload.data.params);
           }
-          client.invalidateQueries([e.payload.data.key]);
+          console.log('Invalidating query: ', e.payload.data.key);
+
+          client.invalidateQueries(e.payload.data.key);
           break;
 
         default:

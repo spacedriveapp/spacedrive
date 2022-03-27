@@ -54,7 +54,7 @@ model Client {
     last_seen    DateTime @default(now())
     timezone     String?
     date_created DateTime @default(now())
-    jobs         Job[]
+    // jobs         Job[]
 
     @@map("clients")
 }
@@ -165,16 +165,17 @@ model LabelOnFile {
 }
 
 model Job {
-    id        Int @id @default(autoincrement())
-    client_id Int
-    action    Int
-    status    Int @default(0)
+    id     String @id
+    // client_id Int
+    action Int
+    status Int    @default(0)
 
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
     date_created         DateTime @default(now())
     date_modified        DateTime @default(now())
-    clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    // clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    seconds_elapsed      Int      @default(0)
 
     @@map("jobs")
 }
