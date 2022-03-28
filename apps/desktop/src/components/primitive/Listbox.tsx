@@ -18,8 +18,6 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
     }
   }, [props.options]);
 
-  console.log({ jeff: props.options[0] });
-
   return (
     <>
       <ListboxPrimitive value={selected} onChange={setSelected}>
