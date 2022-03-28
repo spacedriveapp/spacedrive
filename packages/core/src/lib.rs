@@ -90,7 +90,6 @@ impl CoreContext {
 			});
 	}
 	pub async fn emit(&self, event: CoreEvent) {
-		println!("emitting event {:?}", event);
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
 			error!("Failed to emit event. {:?}", e);
 		});

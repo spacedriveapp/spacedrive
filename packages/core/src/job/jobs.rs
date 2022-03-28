@@ -99,7 +99,7 @@ pub struct JobReport {
 	pub completed_task_count: i64,
 
 	pub message: String,
-	// pub percentage_complete: f64,
+	pub percentage_complete: f64,
 	#[ts(type = "string")]
 	pub seconds_elapsed: i64,
 }
@@ -116,6 +116,7 @@ impl Into<JobReport> for JobData {
 			date_created: self.date_created,
 			date_modified: self.date_modified,
 			message: String::new(),
+			percentage_complete: 0.0,
 			seconds_elapsed: self.seconds_elapsed,
 		}
 	}
@@ -131,6 +132,7 @@ impl JobReport {
 			status: JobStatus::Queued,
 			task_count: 0,
 			completed_task_count: 0,
+			percentage_complete: 0.0,
 			message: String::new(),
 			seconds_elapsed: 0,
 		}
