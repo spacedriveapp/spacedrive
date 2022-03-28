@@ -1,9 +1,12 @@
 use super::jobs::{JobReport, JobReportUpdate, JobStatus};
 use crate::{ClientQuery, CoreContext, CoreEvent, InternalEvent, Job};
-use std::sync::Arc;
-use tokio::sync::{
-	mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
-	Mutex,
+use std::{sync::Arc, time::Duration};
+use tokio::{
+	sync::{
+		mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+		Mutex,
+	},
+	time::{sleep, Instant},
 };
 // used to update the worker state from inside the worker thread
 pub enum WorkerEvent {
@@ -68,6 +71,9 @@ impl Worker {
 		let core_ctx = ctx.clone();
 
 		worker_mut.job_report.status = JobStatus::Running;
+
+		worker_mut.job_report.create(&ctx).await.unwrap_or(());
+
 		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
 			worker.clone(),
@@ -83,7 +89,22 @@ impl Worker {
 				core_ctx,
 				sender: worker_sender,
 			};
-			// run the job
+			let job_start = Instant::now();
+
+			// track time
+			let sender = worker_ctx.sender.clone();
+			tokio::spawn(async move {
+				loop {
+					let elapsed = job_start.elapsed().as_secs();
+					sender
+						.send(WorkerEvent::Progressed(vec![
+							JobReportUpdate::SecondsElapsed(elapsed),
+						]))
+						.unwrap_or(());
+					sleep(Duration::from_millis(1000)).await;
+				}
+			});
+
 			let result = job.run(worker_ctx.clone()).await;
 
 			if let Err(_) = result {
@@ -114,6 +135,10 @@ impl Worker {
 
 			match command {
 				WorkerEvent::Progressed(changes) => {
+					// protect against updates if job is not running
+					if worker.job_report.status != JobStatus::Running {
+						continue;
+					};
 					for change in changes {
 						match change {
 							JobReportUpdate::TaskCount(task_count) => {
@@ -126,6 +151,9 @@ impl Worker {
 							JobReportUpdate::Message(message) => {
 								worker.job_report.message = message;
 							},
+							JobReportUpdate::SecondsElapsed(seconds) => {
+								worker.job_report.seconds_elapsed = seconds as i64;
+							},
 						}
 					}
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning))
@@ -133,6 +161,8 @@ impl Worker {
 				},
 				WorkerEvent::Completed => {
 					worker.job_report.status = JobStatus::Completed;
+					worker.job_report.update(&ctx).await.unwrap_or(());
+
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning))
 						.await;
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
@@ -141,6 +171,8 @@ impl Worker {
 				},
 				WorkerEvent::Failed => {
 					worker.job_report.status = JobStatus::Failed;
+					worker.job_report.update(&ctx).await.unwrap_or(());
+
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
 						.await;
 					break;

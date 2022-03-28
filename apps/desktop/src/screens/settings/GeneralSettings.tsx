@@ -63,7 +63,7 @@ export default function GeneralSettings() {
         enableClipboard={false}
         displayDataTypes={false}
         theme="ocean"
-        src={{ ...jobs }}
+        src={{ runningJobs: jobs }}
         style={{
           padding: 20,
           borderRadius: 5,
@@ -78,7 +78,7 @@ export default function GeneralSettings() {
         enableClipboard={false}
         displayDataTypes={false}
         theme="ocean"
-        src={{ ...jobsHistory }}
+        src={{ jobsHistory: [...(jobsHistory || [])].reverse() }}
         style={{
           padding: 20,
           borderRadius: 5,

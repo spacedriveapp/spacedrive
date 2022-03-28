@@ -90,6 +90,7 @@ impl CoreContext {
 			});
 	}
 	pub async fn emit(&self, event: CoreEvent) {
+		println!("emitting event {:?}", event);
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
 			error!("Failed to emit event. {:?}", e);
 		});
@@ -285,7 +286,7 @@ impl Core {
 			},
 			// TODO: FIX THIS
 			ClientQuery::JobGetHistory => {
-				CoreResponse::JobGetHistory(self.jobs.get_running().await)
+				CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?)
 			},
 		})
 	}
