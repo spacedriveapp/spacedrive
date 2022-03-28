@@ -348,6 +348,7 @@ pub enum ClientQuery {
 pub enum CoreEvent {
 	// most all events should be once of these two
 	InvalidateQuery(ClientQuery),
+	InvalidateQueryDebounced(ClientQuery),
 	InvalidateResource(CoreResource),
 	Log { message: String },
 	DatabaseDisconnected { reason: Option<String> },

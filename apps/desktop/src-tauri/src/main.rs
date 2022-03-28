@@ -1,8 +1,8 @@
-use sdcorelib::{ClientCommand, ClientQuery, Core, CoreController, CoreResponse};
+use std::time::{Duration, Instant};
+
+use sdcorelib::{ClientCommand, ClientQuery, Core, CoreController, CoreEvent, CoreResponse};
 use tauri::api::path;
 use tauri::Manager;
-// use tauri_plugin_shadows::Shadows;
-// mod commands;
 mod menu;
 
 #[tauri::command(async)]
@@ -48,8 +48,21 @@ async fn main() {
       let app = app.handle();
       // core event transport
       tokio::spawn(async move {
+        let mut last = Instant::now();
+        // handle stream output
         while let Some(event) = event_receiver.recv().await {
-          app.emit_all("core_event", &event).unwrap();
+          match event {
+            CoreEvent::InvalidateQueryDebounced(_) => {
+              let current = Instant::now();
+              if current.duration_since(last) > Duration::from_millis(1000 / 60) {
+                last = current;
+                app.emit_all("core_event", &event).unwrap();
+              }
+            }
+            event => {
+              app.emit_all("core_event", &event).unwrap();
+            }
+          }
         }
       });
 
