@@ -8,10 +8,9 @@ export function useCoreEvents() {
   const client = useQueryClient();
   useEffect(() => {
     listen('core_event', (e: Event<CoreEvent>) => {
-      console.log({ e });
-
       switch (e.payload?.key) {
         case 'InvalidateQuery':
+        case 'InvalidateQueryDebounced':
           let query = [e.payload.data.key];
           // TODO: find a way to make params accessible in TS
           // also this method will only work for queries that use the whole params obj as the second key
@@ -20,8 +19,6 @@ export function useCoreEvents() {
             // @ts-expect-error
             query.push(e.payload.data.params);
           }
-          console.log('Invalidating query: ', e.payload.data.key);
-
           client.invalidateQueries(e.payload.data.key);
           break;
 

@@ -156,8 +156,10 @@ impl Worker {
 							},
 						}
 					}
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning))
-						.await;
+					ctx.emit(CoreEvent::InvalidateQueryDebounced(
+						ClientQuery::JobGetRunning,
+					))
+					.await;
 				},
 				WorkerEvent::Completed => {
 					worker.job_report.status = JobStatus::Completed;

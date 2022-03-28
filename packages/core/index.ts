@@ -13,6 +13,7 @@ export * from './bindings/FileResource';
 export * from './bindings/FileType';
 export * from './bindings/JobAction';
 export * from './bindings/JobMetadata';
+export * from './bindings/JobReport';
 export * from './bindings/JobResource';
 export * from './bindings/JobStatus';
 export * from './bindings/LibraryState';
