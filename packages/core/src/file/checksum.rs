@@ -2,7 +2,7 @@ use anyhow::Result;
 use data_encoding::HEXLOWER;
 use ring::digest::{Context, Digest, SHA256};
 use std::convert::TryInto;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, BufReader, Read};
 use std::os::unix::prelude::FileExt;
 

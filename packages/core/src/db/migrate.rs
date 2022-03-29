@@ -6,14 +6,17 @@ use include_dir::{include_dir, Dir};
 use std::ffi::OsStr;
 use std::io::BufReader;
 
-const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
+const INIT_MIGRATION: &str =
+	include_str!("../../prisma/migrations/migration_table/migration.sql");
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
 pub async fn run_migrations(db_url: &str) -> Result<()> {
 	let client = prisma::new_client_with_url(&format!("file:{}", &db_url)).await;
 
 	match client
-		._query_raw::<serde_json::Value>("SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'")
+		._query_raw::<serde_json::Value>(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'",
+		)
 		.await
 	{
 		Ok(data) => {
@@ -60,7 +63,9 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
 
 			for subdir in migration_subdirs {
 				println!("{:?}", subdir.path());
-				let migration_file = subdir.get_file(subdir.path().join("./migration.sql")).unwrap();
+				let migration_file = subdir
+					.get_file(subdir.path().join("./migration.sql"))
+					.unwrap();
 				let migration_sql = migration_file.contents_utf8().unwrap();
 
 				let digest = sha256_digest(BufReader::new(migration_file.contents()))?;
@@ -73,7 +78,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
 					.migration()
 					.find_unique(Migration::checksum().equals(checksum.clone()))
 					.exec()
-					.await;
+					.await?;
 
 				if existing_migration.is_none() {
 					println!("Running migration: {}", name);
@@ -89,7 +94,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
 							vec![],
 						)
 						.exec()
-						.await;
+						.await?;
 
 					for (i, step) in steps.iter().enumerate() {
 						match client._execute_raw(&format!("{};", step)).await {
@@ -97,10 +102,14 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
 								println!("Step {} ran successfully", i);
 								client
 									.migration()
-									.find_unique(Migration::checksum().equals(checksum.clone()))
-									.update(vec![Migration::steps_applied().set(i as i64 + 1)])
+									.find_unique(
+										Migration::checksum().equals(checksum.clone()),
+									)
+									.update(vec![
+										Migration::steps_applied().set(i as i32 + 1)
+									])
 									.exec()
-									.await;
+									.await?;
 							},
 							Err(e) => {
 								println!("Error running migration: {}", name);

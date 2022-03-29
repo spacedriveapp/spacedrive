@@ -71,7 +71,7 @@ impl Jobs {
 				prisma::Job::status().equals(JobStatus::Queued.int_value()),
 			])])
 			.exec()
-			.await;
+			.await?;
 
 		Ok(jobs.into_iter().map(|j| j.into()).collect())
 	}
@@ -88,20 +88,20 @@ pub enum JobReportUpdate {
 #[ts(export)]
 pub struct JobReport {
 	pub id: String,
-	// client_id: i64,
+	// client_id: i32,
 	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
 	#[ts(type = "string")]
 	pub date_modified: chrono::DateTime<chrono::Utc>,
 
 	pub status: JobStatus,
-	pub task_count: i64,
-	pub completed_task_count: i64,
+	pub task_count: i32,
+	pub completed_task_count: i32,
 
 	pub message: String,
-	pub percentage_complete: f64,
+	// pub percentage_complete: f64,
 	#[ts(type = "string")]
-	pub seconds_elapsed: i64,
+	pub seconds_elapsed: i32,
 }
 
 // convert database struct into a resource struct
@@ -116,7 +116,6 @@ impl Into<JobReport> for JobData {
 			date_created: self.date_created,
 			date_modified: self.date_modified,
 			message: String::new(),
-			percentage_complete: 0.0,
 			seconds_elapsed: self.seconds_elapsed,
 		}
 	}
@@ -132,12 +131,11 @@ impl JobReport {
 			status: JobStatus::Queued,
 			task_count: 0,
 			completed_task_count: 0,
-			percentage_complete: 0.0,
 			message: String::new(),
 			seconds_elapsed: 0,
 		}
 	}
-	pub async fn create(&self, ctx: &CoreContext) -> Result<()> {
+	pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
 		// let config = client::get();
 		ctx.database
 			.job()
@@ -148,10 +146,10 @@ impl JobReport {
 				vec![],
 			)
 			.exec()
-			.await;
+			.await?;
 		Ok(())
 	}
-	pub async fn update(&self, ctx: &CoreContext) -> Result<()> {
+	pub async fn update(&self, ctx: &CoreContext) -> Result<(), JobError> {
 		// let config = client::get();
 		ctx.database
 			.job()
@@ -164,12 +162,12 @@ impl JobReport {
 				prisma::Job::seconds_elapsed().set(self.seconds_elapsed),
 			])
 			.exec()
-			.await;
+			.await?;
 		Ok(())
 	}
 }
 
-#[repr(i64)]
+#[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
 #[ts(export)]
 pub enum JobStatus {

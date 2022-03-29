@@ -34,7 +34,8 @@ pub fn get_volumes() -> Result<Vec<Volume>, SysError> {
 			let mut name = disk.name().to_str().unwrap_or("Volume").to_string();
 			let is_removable = disk.is_removable();
 
-			let file_system = String::from_utf8(disk.file_system().to_vec()).unwrap_or_else(|_| "Err".to_string());
+			let file_system = String::from_utf8(disk.file_system().to_vec())
+				.unwrap_or_else(|_| "Err".to_string());
 
 			let disk_type = match disk.type_() {
 				sysinfo::DiskType::SSD => "SSD".to_string(),
@@ -50,11 +51,16 @@ pub fn get_volumes() -> Result<Vec<Volume>, SysError> {
 				let mut caption = mount_point.clone();
 				caption.pop();
 				let wmic_process = Command::new("cmd")
-					.args(["/C", &format!("wmic logical disk where Caption='{caption}' get Size")])
+					.args([
+						"/C",
+						&format!("wmic logical disk where Caption='{caption}' get Size"),
+					])
 					.output()
 					.expect("failed to execute process");
 				let wmic_process_output = String::from_utf8(wmic_process.stdout).unwrap();
-				let parsed_size = wmic_process_output.split("\r\r\n").collect::<Vec<&str>>()[1].to_string();
+				let parsed_size =
+					wmic_process_output.split("\r\r\n").collect::<Vec<&str>>()[1]
+						.to_string();
 
 				if let Ok(n) = parsed_size.trim().parse::<u64>() {
 					total_space = n;

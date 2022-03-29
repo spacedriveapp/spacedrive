@@ -5,8 +5,7 @@ use ts_rs::TS;
 
 use crate::{
 	crypto::encryption::EncryptionAlgorithm,
-	db,
-	prisma::{FileData, FilePathData},
+	prisma::{self, FileData, FilePathData},
 };
 pub mod checksum;
 pub mod explorer;
@@ -18,7 +17,7 @@ pub mod watcher;
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct File {
-	pub id: i64,
+	pub id: i32,
 	pub partial_checksum: String,
 	pub checksum: Option<String>,
 	pub size_in_bytes: String,
@@ -38,18 +37,18 @@ pub struct File {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct FilePath {
-	pub id: i64,
+	pub id: i32,
 	pub is_dir: bool,
-	pub location_id: i64,
+	pub location_id: i32,
 	pub materialized_path: String,
-	pub file_id: Option<i64>,
-	pub parent_id: Option<i64>,
+	pub file_id: Option<i32>,
+	pub parent_id: Option<i32>,
 	#[ts(type = "string")]
 	pub date_indexed: chrono::DateTime<chrono::Utc>,
 	pub permissions: Option<String>,
 }
 
-#[repr(i64)]
+#[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
 #[ts(export)]
 pub enum FileType {
@@ -111,5 +110,5 @@ pub enum FileError {
 	#[error("File not found (path: {0:?})")]
 	FileNotFound(String),
 	#[error("Database error")]
-	DatabaseError(#[from] db::DatabaseError),
+	DatabaseError(#[from] prisma::QueryError),
 }
