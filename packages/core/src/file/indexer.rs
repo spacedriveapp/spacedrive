@@ -59,7 +59,7 @@ pub async fn scan_path(
 	// query db to highers id, so we can increment it for the new files indexed
 	#[derive(Deserialize, Serialize, Debug)]
 	struct QueryRes {
-		id: Option<i64>,
+		id: Option<i32>,
 	}
 	// grab the next id so we can increment in memory for batch inserting
 	let first_file_id = match db
@@ -79,9 +79,9 @@ pub async fn scan_path(
 	// spawn a dedicated thread to scan the directory for performance
 	let (paths, scan_start, on_progress) = tokio::task::spawn_blocking(move || {
 		// store every valid path discovered
-		let mut paths: Vec<(PathBuf, i64, Option<i64>)> = Vec::new();
+		let mut paths: Vec<(PathBuf, i32, Option<i32>)> = Vec::new();
 		// store a hashmap of directories to their file ids for fast lookup
-		let mut dirs: HashMap<String, i64> = HashMap::new();
+		let mut dirs: HashMap<String, i32> = HashMap::new();
 		// begin timer for logging purposes
 		let scan_start = Instant::now();
 
@@ -188,9 +188,9 @@ pub async fn scan_path(
 // reads a file at a path and creates an ActiveModel with metadata
 fn prepare_values(
 	file_path: &PathBuf,
-	id: i64,
+	id: i32,
 	location: &LocationResource,
-	parent_id: &Option<i64>,
+	parent_id: &Option<i32>,
 ) -> Result<String> {
 	let metadata = fs::metadata(&file_path)?;
 	let location_path = location.path.as_ref().unwrap().as_str();

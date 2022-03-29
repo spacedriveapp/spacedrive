@@ -112,4 +112,4 @@ Install instructions:
 - `$ git clone https://github.com/jamiepine/spacedrive`
 - `$ cd spacedrive`
 - `$ yarn`
-- `$ yarn desktop dev`
+- `$ yarn dev`

@@ -3,7 +3,9 @@ use chrono::NaiveDateTime;
 use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub fn system_time_to_date_time(system_time: io::Result<SystemTime>) -> Result<NaiveDateTime> {
+pub fn system_time_to_date_time(
+	system_time: io::Result<SystemTime>,
+) -> Result<NaiveDateTime> {
 	// extract system time or resort to current time if failure
 	let system_time = system_time.unwrap_or(SystemTime::now());
 	let std_duration = system_time.duration_since(UNIX_EPOCH)?;

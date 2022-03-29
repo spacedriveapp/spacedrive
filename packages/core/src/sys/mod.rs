@@ -2,7 +2,7 @@ pub mod locations;
 pub mod volumes;
 use thiserror::Error;
 
-use crate::{db, job};
+use crate::{job, prisma};
 
 use self::locations::LocationError;
 
@@ -15,5 +15,5 @@ pub enum SysError {
 	#[error("Error from job runner")]
 	JobError(#[from] job::JobError),
 	#[error("Database error")]
-	DatabaseError(#[from] db::DatabaseError),
+	DatabaseError(#[from] prisma::QueryError),
 }

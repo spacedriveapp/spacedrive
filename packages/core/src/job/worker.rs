@@ -142,23 +142,19 @@ impl Worker {
 					for change in changes {
 						match change {
 							JobReportUpdate::TaskCount(task_count) => {
-								worker.job_report.task_count = task_count as i64;
+								worker.job_report.task_count = task_count as i32;
 							},
 							JobReportUpdate::CompletedTaskCount(completed_task_count) => {
 								worker.job_report.completed_task_count =
-									completed_task_count as i64;
-								worker.job_report.percentage_complete =
-									(worker.job_report.completed_task_count as f64
-										/ worker.job_report.task_count as f64) * 100.0;
+									completed_task_count as i32;
 							},
 							JobReportUpdate::Message(message) => {
 								worker.job_report.message = message;
 							},
 							JobReportUpdate::SecondsElapsed(seconds) => {
-								worker.job_report.seconds_elapsed = seconds as i64;
+								worker.job_report.seconds_elapsed = seconds as i32;
 							},
 						}
-						worker.job_report.date_modified = chrono::Utc::now();
 					}
 					ctx.emit(CoreEvent::InvalidateQueryDebounced(
 						ClientQuery::JobGetRunning,
