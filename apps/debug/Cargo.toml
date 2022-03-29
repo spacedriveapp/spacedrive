@@ -6,4 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdcorelib = { path = "../../packages/core" }
+anyhow = "1.0.56"
+data-encoding = "2.3.2"
+ring = "0.16.20"
+sha256 = "1.0.3"
+# sdcorelib = { path = "../../packages/core" }

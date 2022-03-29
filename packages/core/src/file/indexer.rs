@@ -5,8 +5,11 @@ use crate::util::time;
 use crate::CoreContext;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use std::{collections::HashMap, fs, path::Path, path::PathBuf, time::Instant};
 use walkdir::{DirEntry, WalkDir};
+
+use super::checksum::partial_checksum;
 
 #[derive(Debug)]
 pub struct IndexerJob {
@@ -73,6 +76,7 @@ pub async fn scan_path(
 	}
 	let dir_path = path.clone();
 
+	// spawn a dedicated thread to scan the directory for performance
 	let (paths, scan_start, on_progress) = tokio::task::spawn_blocking(move || {
 		// store every valid path discovered
 		let mut paths: Vec<(PathBuf, i64, Option<i64>)> = Vec::new();
@@ -163,13 +167,13 @@ pub async fn scan_path(
 		}
 		let raw_sql = format!(
 			r#"
-                INSERT INTO file_paths (id, is_dir, location_id, parent_id, materialized_path, date_indexed) 
+                INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_indexed) 
                 VALUES {}
             "#,
 			files.join(", ")
 		);
-		let _count = db._execute_raw(&raw_sql).await;
-		// println!("Inserted {:?} records", count);
+		let count = db._execute_raw(&raw_sql).await;
+		println!("Inserted {:?} records", count);
 	}
 	println!(
 		"scan of {:?} completed in {:?}. {:?} files found. db write completed in {:?}",
@@ -191,7 +195,7 @@ fn prepare_values(
 	let metadata = fs::metadata(&file_path)?;
 	let location_path = location.path.as_ref().unwrap().as_str();
 	// let size = metadata.len();
-	// let name = extract_name(file_path.file_stem());
+	let name = extract_name(file_path.file_stem());
 	// let extension = extract_name(file_path.extension());
 
 	let materialized_path = match file_path.to_str() {
@@ -203,43 +207,44 @@ fn prepare_values(
 		None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
 	};
 
-	Ok(format!(
-		"({}, {}, {}, {}, \"{}\", \"{}\")",
+	let partial_checksum = {
+		if !metadata.is_dir() {
+			partial_checksum(&file_path.to_str().unwrap(), metadata.len()).unwrap()
+		} else {
+			"".to_string()
+		}
+	};
+
+	let values = format!(
+		"({}, {}, {}, \"{}\", \"{}\", \"{}\", \"{}\", \"{}\")",
 		id,
 		metadata.is_dir(),
 		location.id,
+		materialized_path,
+		name,
+		partial_checksum,
 		parent_id
 			.clone()
 			.map(|id| id.to_string())
 			.unwrap_or("NULL".to_string()),
-		materialized_path,
-		// &size.to_string(),
 		&time::system_time_to_date_time(metadata.created())
 			.unwrap()
 			.to_string(),
-		// &time::system_time_to_date_time(metadata.modified()).unwrap().to_string(),
-	))
-}
+	);
 
-pub async fn test_scan(path: &str) -> Result<()> {
-	let mut count: u32 = 0;
-	for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-		let child_path = entry.path().to_str().unwrap();
-		count = count + 1;
-		println!("Reading file from dir {:?}", child_path);
-	}
-	println!("files found {}", count);
-	Ok(())
+	println!("{}", values);
+
+	Ok(values)
 }
 
 // extract name from OsStr returned by PathBuff
-// fn extract_name(os_string: Option<&OsStr>) -> String {
-// 	os_string
-// 		.unwrap_or_default()
-// 		.to_str()
-// 		.unwrap_or_default()
-// 		.to_owned()
-// }
+fn extract_name(os_string: Option<&OsStr>) -> String {
+	os_string
+		.unwrap_or_default()
+		.to_str()
+		.unwrap_or_default()
+		.to_owned()
+}
 
 fn is_hidden(entry: &DirEntry) -> bool {
 	entry
@@ -284,47 +289,3 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
 
 	is_app_bundle
 }
-// pub async fn scan_loc(core: &mut Core, location: &LocationResource) -> Result<()> {
-// 	// get location by location_id from db and include location_paths
-// 	// let job = core.queue(
-// 	// 	job::JobResource::new(core.state.client_uuid.clone(), job::JobAction::ScanLoc, 1, |loc| {
-// 	// 		if let Some(path) = &loc.path {
-// 	// 			scan_path(core, path).await?;
-// 	// 			watch_dir(path);
-// 	// 		}
-// 	// 	})
-// 	// 	.await?,
-// 	// );
-
-// 	Ok(())
-// }
-// pub async fn scan_loc(core: &mut Core, location: &LocationResource) -> Result<()> {
-// 	// get location by location_id from db and include location_paths
-// 	let job = core.queue(
-// 		job::JobResource::new(
-// 			core.state.client_uuid.clone(),
-// 			job::JobAction::ScanLoc,
-// 			1,
-// 			Some(vec![location.path.as_ref().unwrap().to_string()]),
-// 		)
-// 		.await?,
-// 	);
-
-// 	if let Some(path) = &location.path {
-// 		scan_path(core, path).await?;
-// 		watch_dir(path);
-// 	}
-// 	Ok(())
-// }
-
-// impl From<ScanProgress> for JobReportUpdate {
-// 	fn from(progress: ScanProgress) -> Self {
-// 		match progress {
-// 			ScanProgress::ChunkCount(count) => JobReportUpdate::TaskCount(count),
-// 			ScanProgress::SavedChunks(count) => {
-// 				JobReportUpdate::CompletedTaskCount(count)
-// 			},
-// 			ScanProgress::Message(message) => JobReportUpdate::Message(message),
-// 		}
-// 	}
-// }
