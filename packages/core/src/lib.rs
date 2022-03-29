@@ -1,4 +1,3 @@
-use anyhow::Result;
 use job::jobs::{Job, JobReport, Jobs};
 use log::{error, info};
 use prisma::PrismaClient;
@@ -308,22 +307,22 @@ impl Core {
 #[ts(export)]
 pub enum ClientCommand {
 	// Files
-	FileRead { id: i64 },
-	// FileEncrypt { id: i64, algorithm: EncryptionAlgorithm },
-	FileDelete { id: i64 },
+	FileRead { id: i32 },
+	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
+	FileDelete { id: i32 },
 	// Library
-	LibDelete { id: i64 },
+	LibDelete { id: i32 },
 	// Tags
 	TagCreate { name: String, color: String },
 	TagUpdate { name: String, color: String },
-	TagAssign { file_id: i64, tag_id: i64 },
-	TagDelete { id: i64 },
+	TagAssign { file_id: i32, tag_id: i32 },
+	TagDelete { id: i32 },
 	// Locations
 	LocCreate { path: String },
-	LocUpdate { id: i64, name: Option<String> },
-	LocDelete { id: i64 },
+	LocUpdate { id: i32, name: Option<String> },
+	LocDelete { id: i32 },
 	// System
-	SysVolumeUnmount { id: i64 },
+	SysVolumeUnmount { id: i32 },
 }
 
 // represents an event this library can emit
@@ -336,8 +335,8 @@ pub enum ClientQuery {
 	LibGetTags,
 	JobGetRunning,
 	JobGetHistory,
-	SysGetLocation { id: i64 },
-	LibGetExplorerDir { path: String, limit: i64 },
+	SysGetLocation { id: i32 },
+	LibGetExplorerDir { path: String, limit: i32 },
 }
 
 // represents an event this library can emit
@@ -378,7 +377,7 @@ pub enum CoreError {
 	#[error("Job error")]
 	JobError(#[from] job::JobError),
 	#[error("Database error")]
-	DatabaseError(#[from] db::DatabaseError),
+	DatabaseError(#[from] prisma::QueryError),
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]

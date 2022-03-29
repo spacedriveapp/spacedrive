@@ -1,6 +1,15 @@
-use crate::{db, prisma::Client, state, Core};
-use anyhow::Result;
+use crate::{
+	prisma::{self, Client},
+	state, Core,
+};
 use std::env;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ClientError {
+	#[error("Database error")]
+	DatabaseError(#[from] prisma::QueryError),
+}
 
 pub enum Platform {
 	Unknown = 0,
@@ -11,7 +20,7 @@ pub enum Platform {
 	Android,
 }
 
-pub async fn create(core: &Core) -> Result<()> {
+pub async fn create(core: &Core) -> Result<(), ClientError> {
 	println!("Creating client...");
 	let mut config = state::client::get();
 
@@ -33,7 +42,7 @@ pub async fn create(core: &Core) -> Result<()> {
 		.client()
 		.find_unique(Client::uuid().equals(config.client_uuid.clone()))
 		.exec()
-		.await
+		.await?
 	{
 		Some(client) => client,
 		None => {
@@ -41,10 +50,13 @@ pub async fn create(core: &Core) -> Result<()> {
 				.create_one(
 					Client::uuid().set(config.client_uuid.clone()),
 					Client::name().set(hostname.clone()),
-					vec![Client::platform().set(platform as i64), Client::online().set(true)],
+					vec![
+						Client::platform().set(platform as i32),
+						Client::online().set(true),
+					],
 				)
 				.exec()
-				.await
+				.await?
 		},
 	};
 

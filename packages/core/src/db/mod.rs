@@ -1,6 +1,5 @@
 use crate::state;
 use crate::{prisma, prisma::PrismaClient};
-use anyhow::Result;
 use thiserror::Error;
 pub mod migrate;
 

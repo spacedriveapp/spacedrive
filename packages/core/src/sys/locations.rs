@@ -1,11 +1,9 @@
 use crate::{
-	db,
 	file::indexer::IndexerJob,
-	job,
-	prisma::{File, FilePath, Location},
+	prisma::{FilePath, Location},
 	state::client,
 	sys::{volumes, volumes::Volume},
-	Core, CoreContext,
+	CoreContext,
 };
 use anyhow::Result;
 use log::info;
@@ -21,11 +19,11 @@ use super::SysError;
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct LocationResource {
-	pub id: i64,
+	pub id: i32,
 	pub name: Option<String>,
 	pub path: Option<String>,
-	pub total_capacity: Option<i64>,
-	pub available_capacity: Option<i64>,
+	pub total_capacity: Option<i32>,
+	pub available_capacity: Option<i32>,
 	pub is_removable: bool,
 	pub is_ejectable: bool,
 	pub is_root_filesystem: bool,
@@ -63,15 +61,19 @@ static DOTFILE_NAME: &str = ".spacedrive";
 // - accessible on from the local filesystem
 // - already exists in the database
 pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> {
-	let dotfile: DotSpacedrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
-		Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpacedrive::default()),
-		Err(e) => return Err(LocationError::DotfileReadFailure(e)),
-	};
+	let dotfile: DotSpacedrive =
+		match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
+			Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpacedrive::default()),
+			Err(e) => return Err(LocationError::DotfileReadFailure(e)),
+		};
 
 	Ok(dotfile)
 }
 
-pub async fn get_location(ctx: &CoreContext, location_id: i64) -> Result<LocationResource, SysError> {
+pub async fn get_location(
+	ctx: &CoreContext,
+	location_id: i32,
+) -> Result<LocationResource, SysError> {
 	let db = &ctx.database;
 
 	// get location by location_id from db and include location_paths
@@ -81,7 +83,7 @@ pub async fn get_location(ctx: &CoreContext, location_id: i64) -> Result<Locatio
 			Location::file_paths().some(vec![FilePath::id().equals(location_id.into())])
 		])
 		.exec()
-		.await
+		.await?
 	{
 		Some(location) => location,
 		None => Err(LocationError::NotFound(location_id.to_string()))?,
@@ -92,15 +94,23 @@ pub async fn get_location(ctx: &CoreContext, location_id: i64) -> Result<Locatio
 	Ok(location.into())
 }
 
-pub async fn new_location_and_scan(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
+pub async fn new_location_and_scan(
+	ctx: &CoreContext,
+	path: &str,
+) -> Result<LocationResource, SysError> {
 	let location = create_location(&ctx, path).await?;
 
-	ctx.spawn_job(Box::new(IndexerJob { path: path.to_string() }));
+	ctx.spawn_job(Box::new(IndexerJob {
+		path: path.to_string(),
+	}));
 
 	Ok(location)
 }
 
-pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
+pub async fn create_location(
+	ctx: &CoreContext,
+	path: &str,
+) -> Result<LocationResource, SysError> {
 	let db = &ctx.database;
 	let config = client::get();
 
@@ -114,11 +124,14 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 		.location()
 		.find_first(vec![Location::local_path().equals(path.to_string())])
 		.exec()
-		.await
+		.await?
 	{
 		Some(location) => location,
 		None => {
-			info!("Location does not exist, creating new location for '{}'", &path);
+			info!(
+				"Location does not exist, creating new location for '{}'",
+				&path
+			);
 			let uuid = uuid::Uuid::new_v4();
 			// create new location
 			let create_location_params = {
@@ -128,7 +141,9 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 				};
 				info!("Loaded mounted volumes: {:?}", volumes);
 				// find mount with matching path
-				let volume = volumes.into_iter().find(|mount| path.starts_with(&mount.mount_point));
+				let volume = volumes
+					.into_iter()
+					.find(|mount| path.starts_with(&mount.mount_point));
 
 				let volume_data = match volume {
 					Some(mount) => mount,
@@ -137,8 +152,9 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 
 				vec![
 					Location::name().set(volume_data.name.to_string()),
-					Location::total_capacity().set(volume_data.total_capacity as i64),
-					Location::available_capacity().set(volume_data.available_capacity as i64),
+					Location::total_capacity().set(volume_data.total_capacity as i32),
+					Location::available_capacity()
+						.set(volume_data.available_capacity as i32),
 					Location::is_ejectable().set(false), // remove this
 					Location::is_removable().set(volume_data.is_removable),
 					Location::is_root_filesystem().set(false), // remove this
@@ -147,15 +163,22 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 				]
 			};
 
-			let location = db.location().create_one(create_location_params).exec().await;
+			let location = db
+				.location()
+				.create_one(create_location_params)
+				.exec()
+				.await?;
 
 			info!("Created location: {:?}", location);
 
 			// write a file called .spacedrive to path containing the location id in JSON format
-			let mut dotfile = match fs::File::create(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
-				Ok(file) => file,
-				Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
-			};
+			let mut dotfile =
+				match fs::File::create(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
+					Ok(file) => file,
+					Err(e) => {
+						Err(LocationError::DotfileWriteFailure(e, path.to_string()))?
+					},
+				};
 
 			let data = DotSpacedrive {
 				location_uuid: uuid.to_string(),
@@ -164,7 +187,9 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 
 			let json = match serde_json::to_string(&data) {
 				Ok(json) => json,
-				Err(e) => Err(LocationError::DotfileSerializeFailure(e, path.to_string()))?,
+				Err(e) => {
+					Err(LocationError::DotfileSerializeFailure(e, path.to_string()))?
+				},
 			};
 
 			match dotfile.write_all(json.as_bytes()) {
