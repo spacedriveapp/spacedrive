@@ -2,6 +2,7 @@
 
 use prisma_client_rust::datamodel::parse_configuration;
 use prisma_client_rust::prisma_models::InternalDataModelBuilder;
+pub use prisma_client_rust::query::Error as QueryError;
 use prisma_client_rust::query::{
 	transform_equals, Field, Input, Output, Query, QueryContext, Result as QueryResult,
 };
@@ -219,16 +220,16 @@ impl MigrationIdField {
 		MigrationCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> MigrationSetParam {
-		MigrationSetParam::Id(value)
+		MigrationSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> MigrationSetParam {
-		MigrationSetParam::Id(value)
+		MigrationSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> MigrationSetParam {
-		MigrationSetParam::Id(value)
+		MigrationSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> MigrationSetParam {
-		MigrationSetParam::Id(value)
+		MigrationSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> MigrationWhereParam {
 		MigrationWhereParam::IdInVec(value)
@@ -250,18 +251,6 @@ impl MigrationIdField {
 	}
 	pub fn not(&self, value: i32) -> MigrationWhereParam {
 		MigrationWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> MigrationWhereParam {
-		MigrationWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> MigrationWhereParam {
-		MigrationWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> MigrationWhereParam {
-		MigrationWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> MigrationWhereParam {
-		MigrationWhereParam::IdGte(value)
 	}
 }
 pub struct MigrationSetId(i32);
@@ -314,12 +303,6 @@ impl MigrationNameField {
 	pub fn not(&self, value: String) -> MigrationWhereParam {
 		MigrationWhereParam::NameNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> MigrationWhereParam {
-		MigrationWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> MigrationWhereParam {
-		MigrationWhereParam::NameHasSuffix(value)
-	}
 }
 pub struct MigrationSetName(String);
 impl From<MigrationSetName> for MigrationSetParam {
@@ -371,12 +354,6 @@ impl MigrationChecksumField {
 	pub fn not(&self, value: String) -> MigrationWhereParam {
 		MigrationWhereParam::ChecksumNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> MigrationWhereParam {
-		MigrationWhereParam::ChecksumHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> MigrationWhereParam {
-		MigrationWhereParam::ChecksumHasSuffix(value)
-	}
 }
 pub struct MigrationSetChecksum(String);
 impl From<MigrationSetChecksum> for MigrationSetParam {
@@ -399,16 +376,16 @@ impl MigrationStepsAppliedField {
 		MigrationCursor::StepsApplied(cursor)
 	}
 	pub fn increment(&self, value: i32) -> MigrationSetParam {
-		MigrationSetParam::StepsApplied(value)
+		MigrationSetParam::SetStepsApplied(value)
 	}
 	pub fn decrement(&self, value: i32) -> MigrationSetParam {
-		MigrationSetParam::StepsApplied(value)
+		MigrationSetParam::SetStepsApplied(value)
 	}
 	pub fn multiply(&self, value: i32) -> MigrationSetParam {
-		MigrationSetParam::StepsApplied(value)
+		MigrationSetParam::SetStepsApplied(value)
 	}
 	pub fn divide(&self, value: i32) -> MigrationSetParam {
-		MigrationSetParam::StepsApplied(value)
+		MigrationSetParam::SetStepsApplied(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> MigrationWhereParam {
 		MigrationWhereParam::StepsAppliedInVec(value)
@@ -430,18 +407,6 @@ impl MigrationStepsAppliedField {
 	}
 	pub fn not(&self, value: i32) -> MigrationWhereParam {
 		MigrationWhereParam::StepsAppliedNot(value)
-	}
-	pub fn lt(&self, value: i32) -> MigrationWhereParam {
-		MigrationWhereParam::StepsAppliedLt(value)
-	}
-	pub fn lte(&self, value: i32) -> MigrationWhereParam {
-		MigrationWhereParam::StepsAppliedLte(value)
-	}
-	pub fn gt(&self, value: i32) -> MigrationWhereParam {
-		MigrationWhereParam::StepsAppliedGt(value)
-	}
-	pub fn gte(&self, value: i32) -> MigrationWhereParam {
-		MigrationWhereParam::StepsAppliedGte(value)
 	}
 }
 pub struct MigrationSetStepsApplied(i32);
@@ -493,24 +458,6 @@ impl MigrationAppliedAtField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> MigrationWhereParam {
 		MigrationWhereParam::AppliedAtNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> MigrationWhereParam {
-		MigrationWhereParam::AppliedAtBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> MigrationWhereParam {
-		MigrationWhereParam::AppliedAtAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> MigrationWhereParam {
-		MigrationWhereParam::AppliedAtBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> MigrationWhereParam {
-		MigrationWhereParam::AppliedAtAfterEquals(value)
 	}
 }
 pub struct MigrationSetAppliedAt(chrono::DateTime<chrono::Utc>);
@@ -651,10 +598,6 @@ pub enum MigrationWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -666,8 +609,6 @@ pub enum MigrationWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	ChecksumEquals(String),
 	ChecksumInVec(Vec<String>),
 	ChecksumNotInVec(Vec<String>),
@@ -679,8 +620,6 @@ pub enum MigrationWhereParam {
 	ChecksumStartsWith(String),
 	ChecksumEndsWith(String),
 	ChecksumNot(String),
-	ChecksumHasPrefix(String),
-	ChecksumHasSuffix(String),
 	StepsAppliedEquals(i32),
 	StepsAppliedInVec(Vec<i32>),
 	StepsAppliedNotInVec(Vec<i32>),
@@ -689,10 +628,6 @@ pub enum MigrationWhereParam {
 	StepsAppliedGt(i32),
 	StepsAppliedGte(i32),
 	StepsAppliedNot(i32),
-	StepsAppliedLt(i32),
-	StepsAppliedLte(i32),
-	StepsAppliedGt(i32),
-	StepsAppliedGte(i32),
 	AppliedAtEquals(chrono::DateTime<chrono::Utc>),
 	AppliedAtInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	AppliedAtNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -701,10 +636,6 @@ pub enum MigrationWhereParam {
 	AppliedAtGt(chrono::DateTime<chrono::Utc>),
 	AppliedAtGte(chrono::DateTime<chrono::Utc>),
 	AppliedAtNot(chrono::DateTime<chrono::Utc>),
-	AppliedAtBefore(chrono::DateTime<chrono::Utc>),
-	AppliedAtAfter(chrono::DateTime<chrono::Utc>),
-	AppliedAtBeforeEquals(chrono::DateTime<chrono::Utc>),
-	AppliedAtAfterEquals(chrono::DateTime<chrono::Utc>),
 }
 impl MigrationWhereParam {
 	pub fn to_field(&self) -> Field {
@@ -815,42 +746,6 @@ impl MigrationWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -973,24 +868,6 @@ impl MigrationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::ChecksumEquals(value) => Field {
 				name: "checksum".into(),
 				fields: Some(vec![Field {
@@ -1108,24 +985,6 @@ impl MigrationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::ChecksumHasPrefix(value) => Field {
-				name: "checksum".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ChecksumHasSuffix(value) => Field {
-				name: "checksum".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::StepsAppliedEquals(value) => Field {
 				name: "steps_applied".into(),
 				fields: Some(vec![Field {
@@ -1216,42 +1075,6 @@ impl MigrationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::StepsAppliedLt(value) => Field {
-				name: "steps_applied".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::StepsAppliedLte(value) => Field {
-				name: "steps_applied".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::StepsAppliedGt(value) => Field {
-				name: "steps_applied".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::StepsAppliedGte(value) => Field {
-				name: "steps_applied".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::AppliedAtEquals(value) => Field {
 				name: "applied_at".into(),
 				fields: Some(vec![Field {
@@ -1337,42 +1160,6 @@ impl MigrationWhereParam {
 				name: "applied_at".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::AppliedAtBefore(value) => Field {
-				name: "applied_at".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::AppliedAtAfter(value) => Field {
-				name: "applied_at".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::AppliedAtBeforeEquals(value) => Field {
-				name: "applied_at".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::AppliedAtAfterEquals(value) => Field {
-				name: "applied_at".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -1510,7 +1297,7 @@ pub struct MigrationFindFirst<'a> {
 	with_params: Vec<MigrationWithParam>,
 }
 impl<'a> MigrationFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<MigrationData> {
+	pub async fn exec(self) -> QueryResult<Option<MigrationData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -1569,7 +1356,7 @@ pub struct MigrationFindUnique<'a> {
 	with_params: Vec<MigrationWithParam>,
 }
 impl<'a> MigrationFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<MigrationData> {
+	pub async fn exec(self) -> QueryResult<Option<MigrationData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -1699,7 +1486,7 @@ impl<'a> MigrationUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<MigrationSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -1960,16 +1747,16 @@ impl LibraryIdField {
 		LibraryCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LibrarySetParam {
-		LibrarySetParam::Id(value)
+		LibrarySetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> LibrarySetParam {
-		LibrarySetParam::Id(value)
+		LibrarySetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> LibrarySetParam {
-		LibrarySetParam::Id(value)
+		LibrarySetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> LibrarySetParam {
-		LibrarySetParam::Id(value)
+		LibrarySetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LibraryWhereParam {
 		LibraryWhereParam::IdInVec(value)
@@ -1991,18 +1778,6 @@ impl LibraryIdField {
 	}
 	pub fn not(&self, value: i32) -> LibraryWhereParam {
 		LibraryWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LibraryWhereParam {
-		LibraryWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LibraryWhereParam {
-		LibraryWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LibraryWhereParam {
-		LibraryWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LibraryWhereParam {
-		LibraryWhereParam::IdGte(value)
 	}
 }
 pub struct LibrarySetId(i32);
@@ -2055,12 +1830,6 @@ impl LibraryUuidField {
 	pub fn not(&self, value: String) -> LibraryWhereParam {
 		LibraryWhereParam::UuidNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> LibraryWhereParam {
-		LibraryWhereParam::UuidHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LibraryWhereParam {
-		LibraryWhereParam::UuidHasSuffix(value)
-	}
 }
 pub struct LibrarySetUuid(String);
 impl From<LibrarySetUuid> for LibrarySetParam {
@@ -2111,12 +1880,6 @@ impl LibraryNameField {
 	}
 	pub fn not(&self, value: String) -> LibraryWhereParam {
 		LibraryWhereParam::NameNot(value)
-	}
-	pub fn has_prefix(&self, value: String) -> LibraryWhereParam {
-		LibraryWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LibraryWhereParam {
-		LibraryWhereParam::NameHasSuffix(value)
 	}
 }
 pub struct LibrarySetName(String);
@@ -2169,12 +1932,6 @@ impl LibraryRemoteIdField {
 	pub fn not(&self, value: String) -> LibraryWhereParam {
 		LibraryWhereParam::RemoteIdNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> LibraryWhereParam {
-		LibraryWhereParam::RemoteIdHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LibraryWhereParam {
-		LibraryWhereParam::RemoteIdHasSuffix(value)
-	}
 }
 pub struct LibrarySetRemoteId(String);
 impl From<LibrarySetRemoteId> for LibrarySetParam {
@@ -2218,16 +1975,16 @@ impl LibraryEncryptionField {
 		LibraryCursor::Encryption(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LibrarySetParam {
-		LibrarySetParam::Encryption(value)
+		LibrarySetParam::SetEncryption(value)
 	}
 	pub fn decrement(&self, value: i32) -> LibrarySetParam {
-		LibrarySetParam::Encryption(value)
+		LibrarySetParam::SetEncryption(value)
 	}
 	pub fn multiply(&self, value: i32) -> LibrarySetParam {
-		LibrarySetParam::Encryption(value)
+		LibrarySetParam::SetEncryption(value)
 	}
 	pub fn divide(&self, value: i32) -> LibrarySetParam {
-		LibrarySetParam::Encryption(value)
+		LibrarySetParam::SetEncryption(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LibraryWhereParam {
 		LibraryWhereParam::EncryptionInVec(value)
@@ -2249,18 +2006,6 @@ impl LibraryEncryptionField {
 	}
 	pub fn not(&self, value: i32) -> LibraryWhereParam {
 		LibraryWhereParam::EncryptionNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LibraryWhereParam {
-		LibraryWhereParam::EncryptionLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LibraryWhereParam {
-		LibraryWhereParam::EncryptionLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LibraryWhereParam {
-		LibraryWhereParam::EncryptionGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LibraryWhereParam {
-		LibraryWhereParam::EncryptionGte(value)
 	}
 }
 pub struct LibrarySetEncryption(i32);
@@ -2309,24 +2054,6 @@ impl LibraryDateCreatedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> LibraryWhereParam {
 		LibraryWhereParam::DateCreatedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> LibraryWhereParam {
-		LibraryWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LibraryWhereParam {
-		LibraryWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LibraryWhereParam {
-		LibraryWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LibraryWhereParam {
-		LibraryWhereParam::DateCreatedAfterEquals(value)
 	}
 }
 pub struct LibrarySetDateCreated(chrono::DateTime<chrono::Utc>);
@@ -2378,12 +2105,6 @@ impl LibraryTimezoneField {
 	}
 	pub fn not(&self, value: String) -> LibraryWhereParam {
 		LibraryWhereParam::TimezoneNot(value)
-	}
-	pub fn has_prefix(&self, value: String) -> LibraryWhereParam {
-		LibraryWhereParam::TimezoneHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LibraryWhereParam {
-		LibraryWhereParam::TimezoneHasSuffix(value)
 	}
 }
 pub struct LibrarySetTimezone(String);
@@ -2659,10 +2380,6 @@ pub enum LibraryWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	UuidEquals(String),
 	UuidInVec(Vec<String>),
 	UuidNotInVec(Vec<String>),
@@ -2674,8 +2391,6 @@ pub enum LibraryWhereParam {
 	UuidStartsWith(String),
 	UuidEndsWith(String),
 	UuidNot(String),
-	UuidHasPrefix(String),
-	UuidHasSuffix(String),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -2687,8 +2402,6 @@ pub enum LibraryWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	RemoteIdEquals(String),
 	RemoteIdInVec(Vec<String>),
 	RemoteIdNotInVec(Vec<String>),
@@ -2700,8 +2413,6 @@ pub enum LibraryWhereParam {
 	RemoteIdStartsWith(String),
 	RemoteIdEndsWith(String),
 	RemoteIdNot(String),
-	RemoteIdHasPrefix(String),
-	RemoteIdHasSuffix(String),
 	IsPrimaryEquals(bool),
 	EncryptionEquals(i32),
 	EncryptionInVec(Vec<i32>),
@@ -2711,10 +2422,6 @@ pub enum LibraryWhereParam {
 	EncryptionGt(i32),
 	EncryptionGte(i32),
 	EncryptionNot(i32),
-	EncryptionLt(i32),
-	EncryptionLte(i32),
-	EncryptionGt(i32),
-	EncryptionGte(i32),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -2723,10 +2430,6 @@ pub enum LibraryWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	TimezoneEquals(String),
 	TimezoneInVec(Vec<String>),
 	TimezoneNotInVec(Vec<String>),
@@ -2738,8 +2441,6 @@ pub enum LibraryWhereParam {
 	TimezoneStartsWith(String),
 	TimezoneEndsWith(String),
 	TimezoneNot(String),
-	TimezoneHasPrefix(String),
-	TimezoneHasSuffix(String),
 	SpacesSome(Vec<SpaceWhereParam>),
 	SpacesEvery(Vec<SpaceWhereParam>),
 }
@@ -2852,42 +2553,6 @@ impl LibraryWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -3010,24 +2675,6 @@ impl LibraryWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::UuidHasPrefix(value) => Field {
-				name: "uuid".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::UuidHasSuffix(value) => Field {
-				name: "uuid".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::NameEquals(value) => Field {
 				name: "name".into(),
 				fields: Some(vec![Field {
@@ -3140,24 +2787,6 @@ impl LibraryWhereParam {
 				name: "name".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -3280,24 +2909,6 @@ impl LibraryWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::RemoteIdHasPrefix(value) => Field {
-				name: "remote_id".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::RemoteIdHasSuffix(value) => Field {
-				name: "remote_id".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::IsPrimaryEquals(value) => Field {
 				name: "is_primary".into(),
 				fields: Some(vec![Field {
@@ -3397,42 +3008,6 @@ impl LibraryWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::EncryptionLt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateCreatedEquals(value) => Field {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
@@ -3518,42 +3093,6 @@ impl LibraryWhereParam {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -3671,24 +3210,6 @@ impl LibraryWhereParam {
 				name: "timezone".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TimezoneHasPrefix(value) => Field {
-				name: "timezone".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TimezoneHasSuffix(value) => Field {
-				name: "timezone".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -3842,7 +3363,7 @@ pub struct LibraryFindFirst<'a> {
 	with_params: Vec<LibraryWithParam>,
 }
 impl<'a> LibraryFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<LibraryData> {
+	pub async fn exec(self) -> QueryResult<Option<LibraryData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -3901,7 +3422,7 @@ pub struct LibraryFindUnique<'a> {
 	with_params: Vec<LibraryWithParam>,
 }
 impl<'a> LibraryFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<LibraryData> {
+	pub async fn exec(self) -> QueryResult<Option<LibraryData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -4031,7 +3552,7 @@ impl<'a> LibraryUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<LibrarySetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -4277,16 +3798,16 @@ impl LibraryStatisticsIdField {
 		LibraryStatisticsCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::Id(value)
+		LibraryStatisticsSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::Id(value)
+		LibraryStatisticsSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::Id(value)
+		LibraryStatisticsSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::Id(value)
+		LibraryStatisticsSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::IdInVec(value)
@@ -4308,18 +3829,6 @@ impl LibraryStatisticsIdField {
 	}
 	pub fn not(&self, value: i32) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::IdGte(value)
 	}
 }
 pub struct LibraryStatisticsSetId(i32);
@@ -4393,30 +3902,6 @@ impl LibraryStatisticsDateCapturedField {
 	) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::DateCapturedNot(value)
 	}
-	pub fn before(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::DateCapturedBefore(value)
-	}
-	pub fn after(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::DateCapturedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::DateCapturedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::DateCapturedAfterEquals(value)
-	}
 }
 pub struct LibraryStatisticsSetDateCaptured(chrono::DateTime<chrono::Utc>);
 impl From<LibraryStatisticsSetDateCaptured> for LibraryStatisticsSetParam {
@@ -4439,16 +3924,16 @@ impl LibraryStatisticsLibraryIdField {
 		LibraryStatisticsCursor::LibraryId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::LibraryId(value)
+		LibraryStatisticsSetParam::SetLibraryId(value)
 	}
 	pub fn decrement(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::LibraryId(value)
+		LibraryStatisticsSetParam::SetLibraryId(value)
 	}
 	pub fn multiply(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::LibraryId(value)
+		LibraryStatisticsSetParam::SetLibraryId(value)
 	}
 	pub fn divide(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::LibraryId(value)
+		LibraryStatisticsSetParam::SetLibraryId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::LibraryIdInVec(value)
@@ -4470,18 +3955,6 @@ impl LibraryStatisticsLibraryIdField {
 	}
 	pub fn not(&self, value: i32) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::LibraryIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::LibraryIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::LibraryIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::LibraryIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::LibraryIdGte(value)
 	}
 }
 pub struct LibraryStatisticsSetLibraryId(i32);
@@ -4505,16 +3978,16 @@ impl LibraryStatisticsTotalFileCountField {
 		LibraryStatisticsCursor::TotalFileCount(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::TotalFileCount(value)
+		LibraryStatisticsSetParam::SetTotalFileCount(value)
 	}
 	pub fn decrement(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::TotalFileCount(value)
+		LibraryStatisticsSetParam::SetTotalFileCount(value)
 	}
 	pub fn multiply(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::TotalFileCount(value)
+		LibraryStatisticsSetParam::SetTotalFileCount(value)
 	}
 	pub fn divide(&self, value: i32) -> LibraryStatisticsSetParam {
-		LibraryStatisticsSetParam::TotalFileCount(value)
+		LibraryStatisticsSetParam::SetTotalFileCount(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::TotalFileCountInVec(value)
@@ -4536,18 +4009,6 @@ impl LibraryStatisticsTotalFileCountField {
 	}
 	pub fn not(&self, value: i32) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::TotalFileCountNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalFileCountLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalFileCountLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalFileCountGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalFileCountGte(value)
 	}
 }
 pub struct LibraryStatisticsSetTotalFileCount(i32);
@@ -4599,12 +4060,6 @@ impl LibraryStatisticsTotalBytesUsedField {
 	}
 	pub fn not(&self, value: String) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::TotalBytesUsedNot(value)
-	}
-	pub fn has_prefix(&self, value: String) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalBytesUsedHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalBytesUsedHasSuffix(value)
 	}
 }
 pub struct LibraryStatisticsSetTotalBytesUsed(String);
@@ -4660,12 +4115,6 @@ impl LibraryStatisticsTotalByteCapacityField {
 	pub fn not(&self, value: String) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::TotalByteCapacityNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalByteCapacityHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalByteCapacityHasSuffix(value)
-	}
 }
 pub struct LibraryStatisticsSetTotalByteCapacity(String);
 impl From<LibraryStatisticsSetTotalByteCapacity> for LibraryStatisticsSetParam {
@@ -4716,12 +4165,6 @@ impl LibraryStatisticsTotalUniqueBytesField {
 	}
 	pub fn not(&self, value: String) -> LibraryStatisticsWhereParam {
 		LibraryStatisticsWhereParam::TotalUniqueBytesNot(value)
-	}
-	pub fn has_prefix(&self, value: String) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalUniqueBytesHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LibraryStatisticsWhereParam {
-		LibraryStatisticsWhereParam::TotalUniqueBytesHasSuffix(value)
 	}
 }
 pub struct LibraryStatisticsSetTotalUniqueBytes(String);
@@ -4898,10 +4341,6 @@ pub enum LibraryStatisticsWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	DateCapturedEquals(chrono::DateTime<chrono::Utc>),
 	DateCapturedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCapturedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -4910,10 +4349,6 @@ pub enum LibraryStatisticsWhereParam {
 	DateCapturedGt(chrono::DateTime<chrono::Utc>),
 	DateCapturedGte(chrono::DateTime<chrono::Utc>),
 	DateCapturedNot(chrono::DateTime<chrono::Utc>),
-	DateCapturedBefore(chrono::DateTime<chrono::Utc>),
-	DateCapturedAfter(chrono::DateTime<chrono::Utc>),
-	DateCapturedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCapturedAfterEquals(chrono::DateTime<chrono::Utc>),
 	LibraryIdEquals(i32),
 	LibraryIdInVec(Vec<i32>),
 	LibraryIdNotInVec(Vec<i32>),
@@ -4922,10 +4357,6 @@ pub enum LibraryStatisticsWhereParam {
 	LibraryIdGt(i32),
 	LibraryIdGte(i32),
 	LibraryIdNot(i32),
-	LibraryIdLt(i32),
-	LibraryIdLte(i32),
-	LibraryIdGt(i32),
-	LibraryIdGte(i32),
 	TotalFileCountEquals(i32),
 	TotalFileCountInVec(Vec<i32>),
 	TotalFileCountNotInVec(Vec<i32>),
@@ -4934,10 +4365,6 @@ pub enum LibraryStatisticsWhereParam {
 	TotalFileCountGt(i32),
 	TotalFileCountGte(i32),
 	TotalFileCountNot(i32),
-	TotalFileCountLt(i32),
-	TotalFileCountLte(i32),
-	TotalFileCountGt(i32),
-	TotalFileCountGte(i32),
 	TotalBytesUsedEquals(String),
 	TotalBytesUsedInVec(Vec<String>),
 	TotalBytesUsedNotInVec(Vec<String>),
@@ -4949,8 +4376,6 @@ pub enum LibraryStatisticsWhereParam {
 	TotalBytesUsedStartsWith(String),
 	TotalBytesUsedEndsWith(String),
 	TotalBytesUsedNot(String),
-	TotalBytesUsedHasPrefix(String),
-	TotalBytesUsedHasSuffix(String),
 	TotalByteCapacityEquals(String),
 	TotalByteCapacityInVec(Vec<String>),
 	TotalByteCapacityNotInVec(Vec<String>),
@@ -4962,8 +4387,6 @@ pub enum LibraryStatisticsWhereParam {
 	TotalByteCapacityStartsWith(String),
 	TotalByteCapacityEndsWith(String),
 	TotalByteCapacityNot(String),
-	TotalByteCapacityHasPrefix(String),
-	TotalByteCapacityHasSuffix(String),
 	TotalUniqueBytesEquals(String),
 	TotalUniqueBytesInVec(Vec<String>),
 	TotalUniqueBytesNotInVec(Vec<String>),
@@ -4975,8 +4398,6 @@ pub enum LibraryStatisticsWhereParam {
 	TotalUniqueBytesStartsWith(String),
 	TotalUniqueBytesEndsWith(String),
 	TotalUniqueBytesNot(String),
-	TotalUniqueBytesHasPrefix(String),
-	TotalUniqueBytesHasSuffix(String),
 }
 impl LibraryStatisticsWhereParam {
 	pub fn to_field(&self) -> Field {
@@ -5092,42 +4513,6 @@ impl LibraryStatisticsWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateCapturedEquals(value) => Field {
 				name: "date_captured".into(),
 				fields: Some(vec![Field {
@@ -5213,42 +4598,6 @@ impl LibraryStatisticsWhereParam {
 				name: "date_captured".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCapturedBefore(value) => Field {
-				name: "date_captured".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCapturedAfter(value) => Field {
-				name: "date_captured".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCapturedBeforeEquals(value) => Field {
-				name: "date_captured".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCapturedAfterEquals(value) => Field {
-				name: "date_captured".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -5344,42 +4693,6 @@ impl LibraryStatisticsWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::LibraryIdLt(value) => Field {
-				name: "library_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LibraryIdLte(value) => Field {
-				name: "library_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LibraryIdGt(value) => Field {
-				name: "library_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LibraryIdGte(value) => Field {
-				name: "library_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::TotalFileCountEquals(value) => Field {
 				name: "total_file_count".into(),
 				fields: Some(vec![Field {
@@ -5465,42 +4778,6 @@ impl LibraryStatisticsWhereParam {
 				name: "total_file_count".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalFileCountLt(value) => Field {
-				name: "total_file_count".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalFileCountLte(value) => Field {
-				name: "total_file_count".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalFileCountGt(value) => Field {
-				name: "total_file_count".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalFileCountGte(value) => Field {
-				name: "total_file_count".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -5623,24 +4900,6 @@ impl LibraryStatisticsWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::TotalBytesUsedHasPrefix(value) => Field {
-				name: "total_bytes_used".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalBytesUsedHasSuffix(value) => Field {
-				name: "total_bytes_used".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::TotalByteCapacityEquals(value) => Field {
 				name: "total_byte_capacity".into(),
 				fields: Some(vec![Field {
@@ -5758,24 +5017,6 @@ impl LibraryStatisticsWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::TotalByteCapacityHasPrefix(value) => Field {
-				name: "total_byte_capacity".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalByteCapacityHasSuffix(value) => Field {
-				name: "total_byte_capacity".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::TotalUniqueBytesEquals(value) => Field {
 				name: "total_unique_bytes".into(),
 				fields: Some(vec![Field {
@@ -5888,24 +5129,6 @@ impl LibraryStatisticsWhereParam {
 				name: "total_unique_bytes".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalUniqueBytesHasPrefix(value) => Field {
-				name: "total_unique_bytes".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalUniqueBytesHasSuffix(value) => Field {
-				name: "total_unique_bytes".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -6046,7 +5269,7 @@ pub struct LibraryStatisticsFindFirst<'a> {
 	with_params: Vec<LibraryStatisticsWithParam>,
 }
 impl<'a> LibraryStatisticsFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<LibraryStatisticsData> {
+	pub async fn exec(self) -> QueryResult<Option<LibraryStatisticsData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -6105,7 +5328,7 @@ pub struct LibraryStatisticsFindUnique<'a> {
 	with_params: Vec<LibraryStatisticsWithParam>,
 }
 impl<'a> LibraryStatisticsFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<LibraryStatisticsData> {
+	pub async fn exec(self) -> QueryResult<Option<LibraryStatisticsData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -6236,7 +5459,7 @@ impl<'a> LibraryStatisticsUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<LibraryStatisticsSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -6504,16 +5727,16 @@ impl ClientIdField {
 		ClientCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> ClientSetParam {
-		ClientSetParam::Id(value)
+		ClientSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> ClientSetParam {
-		ClientSetParam::Id(value)
+		ClientSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> ClientSetParam {
-		ClientSetParam::Id(value)
+		ClientSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> ClientSetParam {
-		ClientSetParam::Id(value)
+		ClientSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> ClientWhereParam {
 		ClientWhereParam::IdInVec(value)
@@ -6535,18 +5758,6 @@ impl ClientIdField {
 	}
 	pub fn not(&self, value: i32) -> ClientWhereParam {
 		ClientWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> ClientWhereParam {
-		ClientWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> ClientWhereParam {
-		ClientWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> ClientWhereParam {
-		ClientWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> ClientWhereParam {
-		ClientWhereParam::IdGte(value)
 	}
 }
 pub struct ClientSetId(i32);
@@ -6599,12 +5810,6 @@ impl ClientUuidField {
 	pub fn not(&self, value: String) -> ClientWhereParam {
 		ClientWhereParam::UuidNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> ClientWhereParam {
-		ClientWhereParam::UuidHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> ClientWhereParam {
-		ClientWhereParam::UuidHasSuffix(value)
-	}
 }
 pub struct ClientSetUuid(String);
 impl From<ClientSetUuid> for ClientSetParam {
@@ -6656,12 +5861,6 @@ impl ClientNameField {
 	pub fn not(&self, value: String) -> ClientWhereParam {
 		ClientWhereParam::NameNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> ClientWhereParam {
-		ClientWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> ClientWhereParam {
-		ClientWhereParam::NameHasSuffix(value)
-	}
 }
 pub struct ClientSetName(String);
 impl From<ClientSetName> for ClientSetParam {
@@ -6684,16 +5883,16 @@ impl ClientPlatformField {
 		ClientCursor::Platform(cursor)
 	}
 	pub fn increment(&self, value: i32) -> ClientSetParam {
-		ClientSetParam::Platform(value)
+		ClientSetParam::SetPlatform(value)
 	}
 	pub fn decrement(&self, value: i32) -> ClientSetParam {
-		ClientSetParam::Platform(value)
+		ClientSetParam::SetPlatform(value)
 	}
 	pub fn multiply(&self, value: i32) -> ClientSetParam {
-		ClientSetParam::Platform(value)
+		ClientSetParam::SetPlatform(value)
 	}
 	pub fn divide(&self, value: i32) -> ClientSetParam {
-		ClientSetParam::Platform(value)
+		ClientSetParam::SetPlatform(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> ClientWhereParam {
 		ClientWhereParam::PlatformInVec(value)
@@ -6715,18 +5914,6 @@ impl ClientPlatformField {
 	}
 	pub fn not(&self, value: i32) -> ClientWhereParam {
 		ClientWhereParam::PlatformNot(value)
-	}
-	pub fn lt(&self, value: i32) -> ClientWhereParam {
-		ClientWhereParam::PlatformLt(value)
-	}
-	pub fn lte(&self, value: i32) -> ClientWhereParam {
-		ClientWhereParam::PlatformLte(value)
-	}
-	pub fn gt(&self, value: i32) -> ClientWhereParam {
-		ClientWhereParam::PlatformGt(value)
-	}
-	pub fn gte(&self, value: i32) -> ClientWhereParam {
-		ClientWhereParam::PlatformGte(value)
 	}
 }
 pub struct ClientSetPlatform(i32);
@@ -6778,12 +5965,6 @@ impl ClientVersionField {
 	}
 	pub fn not(&self, value: String) -> ClientWhereParam {
 		ClientWhereParam::VersionNot(value)
-	}
-	pub fn has_prefix(&self, value: String) -> ClientWhereParam {
-		ClientWhereParam::VersionHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> ClientWhereParam {
-		ClientWhereParam::VersionHasSuffix(value)
 	}
 }
 pub struct ClientSetVersion(String);
@@ -6854,21 +6035,6 @@ impl ClientLastSeenField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> ClientWhereParam {
 		ClientWhereParam::LastSeenNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> ClientWhereParam {
-		ClientWhereParam::LastSeenBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> ClientWhereParam {
-		ClientWhereParam::LastSeenAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> ClientWhereParam {
-		ClientWhereParam::LastSeenBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> ClientWhereParam {
-		ClientWhereParam::LastSeenAfterEquals(value)
-	}
 }
 pub struct ClientSetLastSeen(chrono::DateTime<chrono::Utc>);
 impl From<ClientSetLastSeen> for ClientSetParam {
@@ -6920,12 +6086,6 @@ impl ClientTimezoneField {
 	pub fn not(&self, value: String) -> ClientWhereParam {
 		ClientWhereParam::TimezoneNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> ClientWhereParam {
-		ClientWhereParam::TimezoneHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> ClientWhereParam {
-		ClientWhereParam::TimezoneHasSuffix(value)
-	}
 }
 pub struct ClientSetTimezone(String);
 impl From<ClientSetTimezone> for ClientSetParam {
@@ -6973,21 +6133,6 @@ impl ClientDateCreatedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> ClientWhereParam {
 		ClientWhereParam::DateCreatedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> ClientWhereParam {
-		ClientWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> ClientWhereParam {
-		ClientWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> ClientWhereParam {
-		ClientWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> ClientWhereParam {
-		ClientWhereParam::DateCreatedAfterEquals(value)
 	}
 }
 pub struct ClientSetDateCreated(chrono::DateTime<chrono::Utc>);
@@ -7200,10 +6345,6 @@ pub enum ClientWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	UuidEquals(String),
 	UuidInVec(Vec<String>),
 	UuidNotInVec(Vec<String>),
@@ -7215,8 +6356,6 @@ pub enum ClientWhereParam {
 	UuidStartsWith(String),
 	UuidEndsWith(String),
 	UuidNot(String),
-	UuidHasPrefix(String),
-	UuidHasSuffix(String),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -7228,8 +6367,6 @@ pub enum ClientWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	PlatformEquals(i32),
 	PlatformInVec(Vec<i32>),
 	PlatformNotInVec(Vec<i32>),
@@ -7238,10 +6375,6 @@ pub enum ClientWhereParam {
 	PlatformGt(i32),
 	PlatformGte(i32),
 	PlatformNot(i32),
-	PlatformLt(i32),
-	PlatformLte(i32),
-	PlatformGt(i32),
-	PlatformGte(i32),
 	VersionEquals(String),
 	VersionInVec(Vec<String>),
 	VersionNotInVec(Vec<String>),
@@ -7253,8 +6386,6 @@ pub enum ClientWhereParam {
 	VersionStartsWith(String),
 	VersionEndsWith(String),
 	VersionNot(String),
-	VersionHasPrefix(String),
-	VersionHasSuffix(String),
 	OnlineEquals(bool),
 	LastSeenEquals(chrono::DateTime<chrono::Utc>),
 	LastSeenInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -7264,10 +6395,6 @@ pub enum ClientWhereParam {
 	LastSeenGt(chrono::DateTime<chrono::Utc>),
 	LastSeenGte(chrono::DateTime<chrono::Utc>),
 	LastSeenNot(chrono::DateTime<chrono::Utc>),
-	LastSeenBefore(chrono::DateTime<chrono::Utc>),
-	LastSeenAfter(chrono::DateTime<chrono::Utc>),
-	LastSeenBeforeEquals(chrono::DateTime<chrono::Utc>),
-	LastSeenAfterEquals(chrono::DateTime<chrono::Utc>),
 	TimezoneEquals(String),
 	TimezoneInVec(Vec<String>),
 	TimezoneNotInVec(Vec<String>),
@@ -7279,8 +6406,6 @@ pub enum ClientWhereParam {
 	TimezoneStartsWith(String),
 	TimezoneEndsWith(String),
 	TimezoneNot(String),
-	TimezoneHasPrefix(String),
-	TimezoneHasSuffix(String),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -7289,10 +6414,6 @@ pub enum ClientWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 }
 impl ClientWhereParam {
 	pub fn to_field(&self) -> Field {
@@ -7403,42 +6524,6 @@ impl ClientWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -7561,24 +6646,6 @@ impl ClientWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::UuidHasPrefix(value) => Field {
-				name: "uuid".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::UuidHasSuffix(value) => Field {
-				name: "uuid".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::NameEquals(value) => Field {
 				name: "name".into(),
 				fields: Some(vec![Field {
@@ -7696,24 +6763,6 @@ impl ClientWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::PlatformEquals(value) => Field {
 				name: "platform".into(),
 				fields: Some(vec![Field {
@@ -7799,42 +6848,6 @@ impl ClientWhereParam {
 				name: "platform".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PlatformLt(value) => Field {
-				name: "platform".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PlatformLte(value) => Field {
-				name: "platform".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PlatformGt(value) => Field {
-				name: "platform".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PlatformGte(value) => Field {
-				name: "platform".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -7957,24 +6970,6 @@ impl ClientWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::VersionHasPrefix(value) => Field {
-				name: "version".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::VersionHasSuffix(value) => Field {
-				name: "version".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::OnlineEquals(value) => Field {
 				name: "online".into(),
 				fields: Some(vec![Field {
@@ -8069,42 +7064,6 @@ impl ClientWhereParam {
 				name: "last_seen".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LastSeenBefore(value) => Field {
-				name: "last_seen".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LastSeenAfter(value) => Field {
-				name: "last_seen".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LastSeenBeforeEquals(value) => Field {
-				name: "last_seen".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LastSeenAfterEquals(value) => Field {
-				name: "last_seen".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -8227,24 +7186,6 @@ impl ClientWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::TimezoneHasPrefix(value) => Field {
-				name: "timezone".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TimezoneHasSuffix(value) => Field {
-				name: "timezone".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateCreatedEquals(value) => Field {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
@@ -8330,42 +7271,6 @@ impl ClientWhereParam {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -8501,7 +7406,7 @@ pub struct ClientFindFirst<'a> {
 	with_params: Vec<ClientWithParam>,
 }
 impl<'a> ClientFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<ClientData> {
+	pub async fn exec(self) -> QueryResult<Option<ClientData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -8560,7 +7465,7 @@ pub struct ClientFindUnique<'a> {
 	with_params: Vec<ClientWithParam>,
 }
 impl<'a> ClientFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<ClientData> {
+	pub async fn exec(self) -> QueryResult<Option<ClientData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -8690,7 +7595,7 @@ impl<'a> ClientUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<ClientSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -8975,16 +7880,16 @@ impl LocationIdField {
 		LocationCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::Id(value)
+		LocationSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::Id(value)
+		LocationSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::Id(value)
+		LocationSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::Id(value)
+		LocationSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LocationWhereParam {
 		LocationWhereParam::IdInVec(value)
@@ -9006,18 +7911,6 @@ impl LocationIdField {
 	}
 	pub fn not(&self, value: i32) -> LocationWhereParam {
 		LocationWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::IdGte(value)
 	}
 }
 pub struct LocationSetId(i32);
@@ -9070,12 +7963,6 @@ impl LocationNameField {
 	pub fn not(&self, value: String) -> LocationWhereParam {
 		LocationWhereParam::NameNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::NameHasSuffix(value)
-	}
 }
 pub struct LocationSetName(String);
 impl From<LocationSetName> for LocationSetParam {
@@ -9127,12 +8014,6 @@ impl LocationLocalPathField {
 	pub fn not(&self, value: String) -> LocationWhereParam {
 		LocationWhereParam::LocalPathNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::LocalPathHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::LocalPathHasSuffix(value)
-	}
 }
 pub struct LocationSetLocalPath(String);
 impl From<LocationSetLocalPath> for LocationSetParam {
@@ -9155,16 +8036,16 @@ impl LocationTotalCapacityField {
 		LocationCursor::TotalCapacity(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::TotalCapacity(value)
+		LocationSetParam::SetTotalCapacity(value)
 	}
 	pub fn decrement(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::TotalCapacity(value)
+		LocationSetParam::SetTotalCapacity(value)
 	}
 	pub fn multiply(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::TotalCapacity(value)
+		LocationSetParam::SetTotalCapacity(value)
 	}
 	pub fn divide(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::TotalCapacity(value)
+		LocationSetParam::SetTotalCapacity(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LocationWhereParam {
 		LocationWhereParam::TotalCapacityInVec(value)
@@ -9186,18 +8067,6 @@ impl LocationTotalCapacityField {
 	}
 	pub fn not(&self, value: i32) -> LocationWhereParam {
 		LocationWhereParam::TotalCapacityNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::TotalCapacityLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::TotalCapacityLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::TotalCapacityGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::TotalCapacityGte(value)
 	}
 }
 pub struct LocationSetTotalCapacity(i32);
@@ -9221,16 +8090,16 @@ impl LocationAvailableCapacityField {
 		LocationCursor::AvailableCapacity(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::AvailableCapacity(value)
+		LocationSetParam::SetAvailableCapacity(value)
 	}
 	pub fn decrement(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::AvailableCapacity(value)
+		LocationSetParam::SetAvailableCapacity(value)
 	}
 	pub fn multiply(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::AvailableCapacity(value)
+		LocationSetParam::SetAvailableCapacity(value)
 	}
 	pub fn divide(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::AvailableCapacity(value)
+		LocationSetParam::SetAvailableCapacity(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LocationWhereParam {
 		LocationWhereParam::AvailableCapacityInVec(value)
@@ -9252,18 +8121,6 @@ impl LocationAvailableCapacityField {
 	}
 	pub fn not(&self, value: i32) -> LocationWhereParam {
 		LocationWhereParam::AvailableCapacityNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::AvailableCapacityLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::AvailableCapacityLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::AvailableCapacityGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::AvailableCapacityGte(value)
 	}
 }
 pub struct LocationSetAvailableCapacity(i32);
@@ -9316,12 +8173,6 @@ impl LocationFilesystemField {
 	pub fn not(&self, value: String) -> LocationWhereParam {
 		LocationWhereParam::FilesystemNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::FilesystemHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LocationWhereParam {
-		LocationWhereParam::FilesystemHasSuffix(value)
-	}
 }
 pub struct LocationSetFilesystem(String);
 impl From<LocationSetFilesystem> for LocationSetParam {
@@ -9344,16 +8195,16 @@ impl LocationDiskTypeField {
 		LocationCursor::DiskType(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::DiskType(value)
+		LocationSetParam::SetDiskType(value)
 	}
 	pub fn decrement(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::DiskType(value)
+		LocationSetParam::SetDiskType(value)
 	}
 	pub fn multiply(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::DiskType(value)
+		LocationSetParam::SetDiskType(value)
 	}
 	pub fn divide(&self, value: i32) -> LocationSetParam {
-		LocationSetParam::DiskType(value)
+		LocationSetParam::SetDiskType(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LocationWhereParam {
 		LocationWhereParam::DiskTypeInVec(value)
@@ -9375,18 +8226,6 @@ impl LocationDiskTypeField {
 	}
 	pub fn not(&self, value: i32) -> LocationWhereParam {
 		LocationWhereParam::DiskTypeNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::DiskTypeLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::DiskTypeLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::DiskTypeGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LocationWhereParam {
-		LocationWhereParam::DiskTypeGte(value)
 	}
 }
 pub struct LocationSetDiskType(i32);
@@ -9522,24 +8361,6 @@ impl LocationDateCreatedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> LocationWhereParam {
 		LocationWhereParam::DateCreatedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> LocationWhereParam {
-		LocationWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LocationWhereParam {
-		LocationWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LocationWhereParam {
-		LocationWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LocationWhereParam {
-		LocationWhereParam::DateCreatedAfterEquals(value)
 	}
 }
 pub struct LocationSetDateCreated(chrono::DateTime<chrono::Utc>);
@@ -9893,10 +8714,6 @@ pub enum LocationWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -9908,8 +8725,6 @@ pub enum LocationWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	LocalPathEquals(String),
 	LocalPathInVec(Vec<String>),
 	LocalPathNotInVec(Vec<String>),
@@ -9921,8 +8736,6 @@ pub enum LocationWhereParam {
 	LocalPathStartsWith(String),
 	LocalPathEndsWith(String),
 	LocalPathNot(String),
-	LocalPathHasPrefix(String),
-	LocalPathHasSuffix(String),
 	TotalCapacityEquals(i32),
 	TotalCapacityInVec(Vec<i32>),
 	TotalCapacityNotInVec(Vec<i32>),
@@ -9931,10 +8744,6 @@ pub enum LocationWhereParam {
 	TotalCapacityGt(i32),
 	TotalCapacityGte(i32),
 	TotalCapacityNot(i32),
-	TotalCapacityLt(i32),
-	TotalCapacityLte(i32),
-	TotalCapacityGt(i32),
-	TotalCapacityGte(i32),
 	AvailableCapacityEquals(i32),
 	AvailableCapacityInVec(Vec<i32>),
 	AvailableCapacityNotInVec(Vec<i32>),
@@ -9943,10 +8752,6 @@ pub enum LocationWhereParam {
 	AvailableCapacityGt(i32),
 	AvailableCapacityGte(i32),
 	AvailableCapacityNot(i32),
-	AvailableCapacityLt(i32),
-	AvailableCapacityLte(i32),
-	AvailableCapacityGt(i32),
-	AvailableCapacityGte(i32),
 	FilesystemEquals(String),
 	FilesystemInVec(Vec<String>),
 	FilesystemNotInVec(Vec<String>),
@@ -9958,8 +8763,6 @@ pub enum LocationWhereParam {
 	FilesystemStartsWith(String),
 	FilesystemEndsWith(String),
 	FilesystemNot(String),
-	FilesystemHasPrefix(String),
-	FilesystemHasSuffix(String),
 	DiskTypeEquals(i32),
 	DiskTypeInVec(Vec<i32>),
 	DiskTypeNotInVec(Vec<i32>),
@@ -9968,10 +8771,6 @@ pub enum LocationWhereParam {
 	DiskTypeGt(i32),
 	DiskTypeGte(i32),
 	DiskTypeNot(i32),
-	DiskTypeLt(i32),
-	DiskTypeLte(i32),
-	DiskTypeGt(i32),
-	DiskTypeGte(i32),
 	IsRemovableEquals(bool),
 	IsEjectableEquals(bool),
 	IsRootFilesystemEquals(bool),
@@ -9984,10 +8783,6 @@ pub enum LocationWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	FilePathsSome(Vec<FilePathWhereParam>),
 	FilePathsEvery(Vec<FilePathWhereParam>),
 }
@@ -10100,42 +8895,6 @@ impl LocationWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -10258,24 +9017,6 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::LocalPathEquals(value) => Field {
 				name: "local_path".into(),
 				fields: Some(vec![Field {
@@ -10393,24 +9134,6 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::LocalPathHasPrefix(value) => Field {
-				name: "local_path".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocalPathHasSuffix(value) => Field {
-				name: "local_path".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::TotalCapacityEquals(value) => Field {
 				name: "total_capacity".into(),
 				fields: Some(vec![Field {
@@ -10501,42 +9224,6 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::TotalCapacityLt(value) => Field {
-				name: "total_capacity".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalCapacityLte(value) => Field {
-				name: "total_capacity".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalCapacityGt(value) => Field {
-				name: "total_capacity".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalCapacityGte(value) => Field {
-				name: "total_capacity".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::AvailableCapacityEquals(value) => Field {
 				name: "available_capacity".into(),
 				fields: Some(vec![Field {
@@ -10622,42 +9309,6 @@ impl LocationWhereParam {
 				name: "available_capacity".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::AvailableCapacityLt(value) => Field {
-				name: "available_capacity".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::AvailableCapacityLte(value) => Field {
-				name: "available_capacity".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::AvailableCapacityGt(value) => Field {
-				name: "available_capacity".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::AvailableCapacityGte(value) => Field {
-				name: "available_capacity".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -10780,24 +9431,6 @@ impl LocationWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::FilesystemHasPrefix(value) => Field {
-				name: "filesystem".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FilesystemHasSuffix(value) => Field {
-				name: "filesystem".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DiskTypeEquals(value) => Field {
 				name: "disk_type".into(),
 				fields: Some(vec![Field {
@@ -10883,42 +9516,6 @@ impl LocationWhereParam {
 				name: "disk_type".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DiskTypeLt(value) => Field {
-				name: "disk_type".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DiskTypeLte(value) => Field {
-				name: "disk_type".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DiskTypeGt(value) => Field {
-				name: "disk_type".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DiskTypeGte(value) => Field {
-				name: "disk_type".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -11045,42 +9642,6 @@ impl LocationWhereParam {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -11232,7 +9793,7 @@ pub struct LocationFindFirst<'a> {
 	with_params: Vec<LocationWithParam>,
 }
 impl<'a> LocationFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<LocationData> {
+	pub async fn exec(self) -> QueryResult<Option<LocationData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -11291,7 +9852,7 @@ pub struct LocationFindUnique<'a> {
 	with_params: Vec<LocationWithParam>,
 }
 impl<'a> LocationFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<LocationData> {
+	pub async fn exec(self) -> QueryResult<Option<LocationData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -11414,7 +9975,7 @@ impl<'a> LocationUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<LocationSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -11704,16 +10265,16 @@ impl FileIdField {
 		FileCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> FileSetParam {
-		FileSetParam::Id(value)
+		FileSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> FileSetParam {
-		FileSetParam::Id(value)
+		FileSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> FileSetParam {
-		FileSetParam::Id(value)
+		FileSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> FileSetParam {
-		FileSetParam::Id(value)
+		FileSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> FileWhereParam {
 		FileWhereParam::IdInVec(value)
@@ -11735,18 +10296,6 @@ impl FileIdField {
 	}
 	pub fn not(&self, value: i32) -> FileWhereParam {
 		FileWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::IdGte(value)
 	}
 }
 pub struct FileSetId(i32);
@@ -11770,16 +10319,16 @@ impl FileKindField {
 		FileCursor::Kind(cursor)
 	}
 	pub fn increment(&self, value: i32) -> FileSetParam {
-		FileSetParam::Kind(value)
+		FileSetParam::SetKind(value)
 	}
 	pub fn decrement(&self, value: i32) -> FileSetParam {
-		FileSetParam::Kind(value)
+		FileSetParam::SetKind(value)
 	}
 	pub fn multiply(&self, value: i32) -> FileSetParam {
-		FileSetParam::Kind(value)
+		FileSetParam::SetKind(value)
 	}
 	pub fn divide(&self, value: i32) -> FileSetParam {
-		FileSetParam::Kind(value)
+		FileSetParam::SetKind(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> FileWhereParam {
 		FileWhereParam::KindInVec(value)
@@ -11801,18 +10350,6 @@ impl FileKindField {
 	}
 	pub fn not(&self, value: i32) -> FileWhereParam {
 		FileWhereParam::KindNot(value)
-	}
-	pub fn lt(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::KindLt(value)
-	}
-	pub fn lte(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::KindLte(value)
-	}
-	pub fn gt(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::KindGt(value)
-	}
-	pub fn gte(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::KindGte(value)
 	}
 }
 pub struct FileSetKind(i32);
@@ -11865,12 +10402,6 @@ impl FileSizeInBytesField {
 	pub fn not(&self, value: String) -> FileWhereParam {
 		FileWhereParam::SizeInBytesNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::SizeInBytesHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::SizeInBytesHasSuffix(value)
-	}
 }
 pub struct FileSetSizeInBytes(String);
 impl From<FileSetSizeInBytes> for FileSetParam {
@@ -11921,12 +10452,6 @@ impl FilePartialChecksumField {
 	}
 	pub fn not(&self, value: String) -> FileWhereParam {
 		FileWhereParam::PartialChecksumNot(value)
-	}
-	pub fn has_prefix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::PartialChecksumHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::PartialChecksumHasSuffix(value)
 	}
 }
 pub struct FileSetPartialChecksum(String);
@@ -11979,12 +10504,6 @@ impl FileChecksumField {
 	pub fn not(&self, value: String) -> FileWhereParam {
 		FileWhereParam::ChecksumNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::ChecksumHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::ChecksumHasSuffix(value)
-	}
 }
 pub struct FileSetChecksum(String);
 impl From<FileSetChecksum> for FileSetParam {
@@ -12007,16 +10526,16 @@ impl FileEncryptionField {
 		FileCursor::Encryption(cursor)
 	}
 	pub fn increment(&self, value: i32) -> FileSetParam {
-		FileSetParam::Encryption(value)
+		FileSetParam::SetEncryption(value)
 	}
 	pub fn decrement(&self, value: i32) -> FileSetParam {
-		FileSetParam::Encryption(value)
+		FileSetParam::SetEncryption(value)
 	}
 	pub fn multiply(&self, value: i32) -> FileSetParam {
-		FileSetParam::Encryption(value)
+		FileSetParam::SetEncryption(value)
 	}
 	pub fn divide(&self, value: i32) -> FileSetParam {
-		FileSetParam::Encryption(value)
+		FileSetParam::SetEncryption(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> FileWhereParam {
 		FileWhereParam::EncryptionInVec(value)
@@ -12038,18 +10557,6 @@ impl FileEncryptionField {
 	}
 	pub fn not(&self, value: i32) -> FileWhereParam {
 		FileWhereParam::EncryptionNot(value)
-	}
-	pub fn lt(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::EncryptionLt(value)
-	}
-	pub fn lte(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::EncryptionLte(value)
-	}
-	pub fn gt(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::EncryptionGt(value)
-	}
-	pub fn gte(&self, value: i32) -> FileWhereParam {
-		FileWhereParam::EncryptionGte(value)
 	}
 }
 pub struct FileSetEncryption(i32);
@@ -12102,12 +10609,6 @@ impl FileIpfsIdField {
 	pub fn not(&self, value: String) -> FileWhereParam {
 		FileWhereParam::IpfsIdNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::IpfsIdHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FileWhereParam {
-		FileWhereParam::IpfsIdHasSuffix(value)
-	}
 }
 pub struct FileSetIpfsId(String);
 impl From<FileSetIpfsId> for FileSetParam {
@@ -12155,18 +10656,6 @@ impl FileDateCreatedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
 		FileWhereParam::DateCreatedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateCreatedAfterEquals(value)
 	}
 }
 pub struct FileSetDateCreated(chrono::DateTime<chrono::Utc>);
@@ -12216,18 +10705,6 @@ impl FileDateModifiedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
 		FileWhereParam::DateModifiedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateModifiedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateModifiedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateModifiedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateModifiedAfterEquals(value)
-	}
 }
 pub struct FileSetDateModified(chrono::DateTime<chrono::Utc>);
 impl From<FileSetDateModified> for FileSetParam {
@@ -12275,18 +10752,6 @@ impl FileDateIndexedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
 		FileWhereParam::DateIndexedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateIndexedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateIndexedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateIndexedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> FileWhereParam {
-		FileWhereParam::DateIndexedAfterEquals(value)
 	}
 }
 pub struct FileSetDateIndexed(chrono::DateTime<chrono::Utc>);
@@ -12859,10 +11324,6 @@ pub enum FileWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	KindEquals(i32),
 	KindInVec(Vec<i32>),
 	KindNotInVec(Vec<i32>),
@@ -12871,10 +11332,6 @@ pub enum FileWhereParam {
 	KindGt(i32),
 	KindGte(i32),
 	KindNot(i32),
-	KindLt(i32),
-	KindLte(i32),
-	KindGt(i32),
-	KindGte(i32),
 	SizeInBytesEquals(String),
 	SizeInBytesInVec(Vec<String>),
 	SizeInBytesNotInVec(Vec<String>),
@@ -12886,8 +11343,6 @@ pub enum FileWhereParam {
 	SizeInBytesStartsWith(String),
 	SizeInBytesEndsWith(String),
 	SizeInBytesNot(String),
-	SizeInBytesHasPrefix(String),
-	SizeInBytesHasSuffix(String),
 	PartialChecksumEquals(String),
 	PartialChecksumInVec(Vec<String>),
 	PartialChecksumNotInVec(Vec<String>),
@@ -12899,8 +11354,6 @@ pub enum FileWhereParam {
 	PartialChecksumStartsWith(String),
 	PartialChecksumEndsWith(String),
 	PartialChecksumNot(String),
-	PartialChecksumHasPrefix(String),
-	PartialChecksumHasSuffix(String),
 	ChecksumEquals(String),
 	ChecksumInVec(Vec<String>),
 	ChecksumNotInVec(Vec<String>),
@@ -12912,8 +11365,6 @@ pub enum FileWhereParam {
 	ChecksumStartsWith(String),
 	ChecksumEndsWith(String),
 	ChecksumNot(String),
-	ChecksumHasPrefix(String),
-	ChecksumHasSuffix(String),
 	EncryptionEquals(i32),
 	EncryptionInVec(Vec<i32>),
 	EncryptionNotInVec(Vec<i32>),
@@ -12922,10 +11373,6 @@ pub enum FileWhereParam {
 	EncryptionGt(i32),
 	EncryptionGte(i32),
 	EncryptionNot(i32),
-	EncryptionLt(i32),
-	EncryptionLte(i32),
-	EncryptionGt(i32),
-	EncryptionGte(i32),
 	IpfsIdEquals(String),
 	IpfsIdInVec(Vec<String>),
 	IpfsIdNotInVec(Vec<String>),
@@ -12937,8 +11384,6 @@ pub enum FileWhereParam {
 	IpfsIdStartsWith(String),
 	IpfsIdEndsWith(String),
 	IpfsIdNot(String),
-	IpfsIdHasPrefix(String),
-	IpfsIdHasSuffix(String),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -12947,10 +11392,6 @@ pub enum FileWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateModifiedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -12959,10 +11400,6 @@ pub enum FileWhereParam {
 	DateModifiedGt(chrono::DateTime<chrono::Utc>),
 	DateModifiedGte(chrono::DateTime<chrono::Utc>),
 	DateModifiedNot(chrono::DateTime<chrono::Utc>),
-	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
-	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateIndexedEquals(chrono::DateTime<chrono::Utc>),
 	DateIndexedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateIndexedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -12971,10 +11408,6 @@ pub enum FileWhereParam {
 	DateIndexedGt(chrono::DateTime<chrono::Utc>),
 	DateIndexedGte(chrono::DateTime<chrono::Utc>),
 	DateIndexedNot(chrono::DateTime<chrono::Utc>),
-	DateIndexedBefore(chrono::DateTime<chrono::Utc>),
-	DateIndexedAfter(chrono::DateTime<chrono::Utc>),
-	DateIndexedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateIndexedAfterEquals(chrono::DateTime<chrono::Utc>),
 	FileTagsSome(Vec<TagOnFileWhereParam>),
 	FileTagsEvery(Vec<TagOnFileWhereParam>),
 	FileLabelsSome(Vec<LabelOnFileWhereParam>),
@@ -13098,42 +11531,6 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::KindEquals(value) => Field {
 				name: "kind".into(),
 				fields: Some(vec![Field {
@@ -13219,42 +11616,6 @@ impl FileWhereParam {
 				name: "kind".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::KindLt(value) => Field {
-				name: "kind".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::KindLte(value) => Field {
-				name: "kind".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::KindGt(value) => Field {
-				name: "kind".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::KindGte(value) => Field {
-				name: "kind".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -13377,24 +11738,6 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::SizeInBytesHasPrefix(value) => Field {
-				name: "size_in_bytes".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::SizeInBytesHasSuffix(value) => Field {
-				name: "size_in_bytes".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::PartialChecksumEquals(value) => Field {
 				name: "partial_checksum".into(),
 				fields: Some(vec![Field {
@@ -13507,24 +11850,6 @@ impl FileWhereParam {
 				name: "partial_checksum".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PartialChecksumHasPrefix(value) => Field {
-				name: "partial_checksum".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PartialChecksumHasSuffix(value) => Field {
-				name: "partial_checksum".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -13647,24 +11972,6 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::ChecksumHasPrefix(value) => Field {
-				name: "checksum".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ChecksumHasSuffix(value) => Field {
-				name: "checksum".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::EncryptionEquals(value) => Field {
 				name: "encryption".into(),
 				fields: Some(vec![Field {
@@ -13750,42 +12057,6 @@ impl FileWhereParam {
 				name: "encryption".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -13908,24 +12179,6 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::IpfsIdHasPrefix(value) => Field {
-				name: "ipfs_id".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IpfsIdHasSuffix(value) => Field {
-				name: "ipfs_id".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateCreatedEquals(value) => Field {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
@@ -14011,42 +12264,6 @@ impl FileWhereParam {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -14142,42 +12359,6 @@ impl FileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateModifiedBefore(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfter(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBeforeEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfterEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateIndexedEquals(value) => Field {
 				name: "date_indexed".into(),
 				fields: Some(vec![Field {
@@ -14263,42 +12444,6 @@ impl FileWhereParam {
 				name: "date_indexed".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateIndexedBefore(value) => Field {
-				name: "date_indexed".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateIndexedAfter(value) => Field {
-				name: "date_indexed".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateIndexedBeforeEquals(value) => Field {
-				name: "date_indexed".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateIndexedAfterEquals(value) => Field {
-				name: "date_indexed".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -14506,7 +12651,7 @@ pub struct FileFindFirst<'a> {
 	with_params: Vec<FileWithParam>,
 }
 impl<'a> FileFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<FileData> {
+	pub async fn exec(self) -> QueryResult<Option<FileData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -14565,7 +12710,7 @@ pub struct FileFindUnique<'a> {
 	with_params: Vec<FileWithParam>,
 }
 impl<'a> FileFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<FileData> {
+	pub async fn exec(self) -> QueryResult<Option<FileData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -14695,7 +12840,7 @@ impl<'a> FileUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<FileSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -15016,16 +13161,16 @@ impl FilePathIdField {
 		FilePathCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::Id(value)
+		FilePathSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::Id(value)
+		FilePathSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::Id(value)
+		FilePathSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::Id(value)
+		FilePathSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> FilePathWhereParam {
 		FilePathWhereParam::IdInVec(value)
@@ -15047,18 +13192,6 @@ impl FilePathIdField {
 	}
 	pub fn not(&self, value: i32) -> FilePathWhereParam {
 		FilePathWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::IdGte(value)
 	}
 }
 pub struct FilePathSetId(i32);
@@ -15103,16 +13236,16 @@ impl FilePathLocationIdField {
 		FilePathCursor::LocationId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::LocationId(value)
+		FilePathSetParam::SetLocationId(value)
 	}
 	pub fn decrement(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::LocationId(value)
+		FilePathSetParam::SetLocationId(value)
 	}
 	pub fn multiply(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::LocationId(value)
+		FilePathSetParam::SetLocationId(value)
 	}
 	pub fn divide(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::LocationId(value)
+		FilePathSetParam::SetLocationId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> FilePathWhereParam {
 		FilePathWhereParam::LocationIdInVec(value)
@@ -15134,18 +13267,6 @@ impl FilePathLocationIdField {
 	}
 	pub fn not(&self, value: i32) -> FilePathWhereParam {
 		FilePathWhereParam::LocationIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::LocationIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::LocationIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::LocationIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::LocationIdGte(value)
 	}
 }
 pub struct FilePathSetLocationId(i32);
@@ -15198,12 +13319,6 @@ impl FilePathMaterializedPathField {
 	pub fn not(&self, value: String) -> FilePathWhereParam {
 		FilePathWhereParam::MaterializedPathNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> FilePathWhereParam {
-		FilePathWhereParam::MaterializedPathHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FilePathWhereParam {
-		FilePathWhereParam::MaterializedPathHasSuffix(value)
-	}
 }
 pub struct FilePathSetMaterializedPath(String);
 impl From<FilePathSetMaterializedPath> for FilePathSetParam {
@@ -15254,12 +13369,6 @@ impl FilePathNameField {
 	}
 	pub fn not(&self, value: String) -> FilePathWhereParam {
 		FilePathWhereParam::NameNot(value)
-	}
-	pub fn has_prefix(&self, value: String) -> FilePathWhereParam {
-		FilePathWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FilePathWhereParam {
-		FilePathWhereParam::NameHasSuffix(value)
 	}
 }
 pub struct FilePathSetName(String);
@@ -15312,12 +13421,6 @@ impl FilePathExtensionField {
 	pub fn not(&self, value: String) -> FilePathWhereParam {
 		FilePathWhereParam::ExtensionNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> FilePathWhereParam {
-		FilePathWhereParam::ExtensionHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FilePathWhereParam {
-		FilePathWhereParam::ExtensionHasSuffix(value)
-	}
 }
 pub struct FilePathSetExtension(String);
 impl From<FilePathSetExtension> for FilePathSetParam {
@@ -15340,16 +13443,16 @@ impl FilePathFileIdField {
 		FilePathCursor::FileId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::FileId(value)
+		FilePathSetParam::SetFileId(value)
 	}
 	pub fn decrement(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::FileId(value)
+		FilePathSetParam::SetFileId(value)
 	}
 	pub fn multiply(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::FileId(value)
+		FilePathSetParam::SetFileId(value)
 	}
 	pub fn divide(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::FileId(value)
+		FilePathSetParam::SetFileId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> FilePathWhereParam {
 		FilePathWhereParam::FileIdInVec(value)
@@ -15371,18 +13474,6 @@ impl FilePathFileIdField {
 	}
 	pub fn not(&self, value: i32) -> FilePathWhereParam {
 		FilePathWhereParam::FileIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::FileIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::FileIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::FileIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::FileIdGte(value)
 	}
 }
 pub struct FilePathSetFileId(i32);
@@ -15406,16 +13497,16 @@ impl FilePathParentIdField {
 		FilePathCursor::ParentId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::ParentId(value)
+		FilePathSetParam::SetParentId(value)
 	}
 	pub fn decrement(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::ParentId(value)
+		FilePathSetParam::SetParentId(value)
 	}
 	pub fn multiply(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::ParentId(value)
+		FilePathSetParam::SetParentId(value)
 	}
 	pub fn divide(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::ParentId(value)
+		FilePathSetParam::SetParentId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> FilePathWhereParam {
 		FilePathWhereParam::ParentIdInVec(value)
@@ -15437,18 +13528,6 @@ impl FilePathParentIdField {
 	}
 	pub fn not(&self, value: i32) -> FilePathWhereParam {
 		FilePathWhereParam::ParentIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::ParentIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::ParentIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::ParentIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::ParentIdGte(value)
 	}
 }
 pub struct FilePathSetParentId(i32);
@@ -15472,16 +13551,16 @@ impl FilePathEncryptionField {
 		FilePathCursor::Encryption(cursor)
 	}
 	pub fn increment(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::Encryption(value)
+		FilePathSetParam::SetEncryption(value)
 	}
 	pub fn decrement(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::Encryption(value)
+		FilePathSetParam::SetEncryption(value)
 	}
 	pub fn multiply(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::Encryption(value)
+		FilePathSetParam::SetEncryption(value)
 	}
 	pub fn divide(&self, value: i32) -> FilePathSetParam {
-		FilePathSetParam::Encryption(value)
+		FilePathSetParam::SetEncryption(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> FilePathWhereParam {
 		FilePathWhereParam::EncryptionInVec(value)
@@ -15503,18 +13582,6 @@ impl FilePathEncryptionField {
 	}
 	pub fn not(&self, value: i32) -> FilePathWhereParam {
 		FilePathWhereParam::EncryptionNot(value)
-	}
-	pub fn lt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::EncryptionLt(value)
-	}
-	pub fn lte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::EncryptionLte(value)
-	}
-	pub fn gt(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::EncryptionGt(value)
-	}
-	pub fn gte(&self, value: i32) -> FilePathWhereParam {
-		FilePathWhereParam::EncryptionGte(value)
 	}
 }
 pub struct FilePathSetEncryption(i32);
@@ -15567,12 +13634,6 @@ impl FilePathPermissionsField {
 	pub fn not(&self, value: String) -> FilePathWhereParam {
 		FilePathWhereParam::PermissionsNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> FilePathWhereParam {
-		FilePathWhereParam::PermissionsHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> FilePathWhereParam {
-		FilePathWhereParam::PermissionsHasSuffix(value)
-	}
 }
 pub struct FilePathSetPermissions(String);
 impl From<FilePathSetPermissions> for FilePathSetParam {
@@ -15623,24 +13684,6 @@ impl FilePathDateCreatedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
 		FilePathWhereParam::DateCreatedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
-		FilePathWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
-		FilePathWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> FilePathWhereParam {
-		FilePathWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> FilePathWhereParam {
-		FilePathWhereParam::DateCreatedAfterEquals(value)
 	}
 }
 pub struct FilePathSetDateCreated(chrono::DateTime<chrono::Utc>);
@@ -15693,24 +13736,6 @@ impl FilePathDateModifiedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
 		FilePathWhereParam::DateModifiedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
-		FilePathWhereParam::DateModifiedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
-		FilePathWhereParam::DateModifiedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> FilePathWhereParam {
-		FilePathWhereParam::DateModifiedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> FilePathWhereParam {
-		FilePathWhereParam::DateModifiedAfterEquals(value)
-	}
 }
 pub struct FilePathSetDateModified(chrono::DateTime<chrono::Utc>);
 impl From<FilePathSetDateModified> for FilePathSetParam {
@@ -15761,24 +13786,6 @@ impl FilePathDateIndexedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
 		FilePathWhereParam::DateIndexedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
-		FilePathWhereParam::DateIndexedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> FilePathWhereParam {
-		FilePathWhereParam::DateIndexedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> FilePathWhereParam {
-		FilePathWhereParam::DateIndexedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> FilePathWhereParam {
-		FilePathWhereParam::DateIndexedAfterEquals(value)
 	}
 }
 pub struct FilePathSetDateIndexed(chrono::DateTime<chrono::Utc>);
@@ -16304,10 +14311,6 @@ pub enum FilePathWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	IsDirEquals(bool),
 	LocationIdEquals(i32),
 	LocationIdInVec(Vec<i32>),
@@ -16317,10 +14320,6 @@ pub enum FilePathWhereParam {
 	LocationIdGt(i32),
 	LocationIdGte(i32),
 	LocationIdNot(i32),
-	LocationIdLt(i32),
-	LocationIdLte(i32),
-	LocationIdGt(i32),
-	LocationIdGte(i32),
 	MaterializedPathEquals(String),
 	MaterializedPathInVec(Vec<String>),
 	MaterializedPathNotInVec(Vec<String>),
@@ -16332,8 +14331,6 @@ pub enum FilePathWhereParam {
 	MaterializedPathStartsWith(String),
 	MaterializedPathEndsWith(String),
 	MaterializedPathNot(String),
-	MaterializedPathHasPrefix(String),
-	MaterializedPathHasSuffix(String),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -16345,8 +14342,6 @@ pub enum FilePathWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	ExtensionEquals(String),
 	ExtensionInVec(Vec<String>),
 	ExtensionNotInVec(Vec<String>),
@@ -16358,8 +14353,6 @@ pub enum FilePathWhereParam {
 	ExtensionStartsWith(String),
 	ExtensionEndsWith(String),
 	ExtensionNot(String),
-	ExtensionHasPrefix(String),
-	ExtensionHasSuffix(String),
 	FileIdEquals(i32),
 	FileIdInVec(Vec<i32>),
 	FileIdNotInVec(Vec<i32>),
@@ -16368,10 +14361,6 @@ pub enum FilePathWhereParam {
 	FileIdGt(i32),
 	FileIdGte(i32),
 	FileIdNot(i32),
-	FileIdLt(i32),
-	FileIdLte(i32),
-	FileIdGt(i32),
-	FileIdGte(i32),
 	ParentIdEquals(i32),
 	ParentIdInVec(Vec<i32>),
 	ParentIdNotInVec(Vec<i32>),
@@ -16380,10 +14369,6 @@ pub enum FilePathWhereParam {
 	ParentIdGt(i32),
 	ParentIdGte(i32),
 	ParentIdNot(i32),
-	ParentIdLt(i32),
-	ParentIdLte(i32),
-	ParentIdGt(i32),
-	ParentIdGte(i32),
 	EncryptionEquals(i32),
 	EncryptionInVec(Vec<i32>),
 	EncryptionNotInVec(Vec<i32>),
@@ -16392,10 +14377,6 @@ pub enum FilePathWhereParam {
 	EncryptionGt(i32),
 	EncryptionGte(i32),
 	EncryptionNot(i32),
-	EncryptionLt(i32),
-	EncryptionLte(i32),
-	EncryptionGt(i32),
-	EncryptionGte(i32),
 	PermissionsEquals(String),
 	PermissionsInVec(Vec<String>),
 	PermissionsNotInVec(Vec<String>),
@@ -16407,8 +14388,6 @@ pub enum FilePathWhereParam {
 	PermissionsStartsWith(String),
 	PermissionsEndsWith(String),
 	PermissionsNot(String),
-	PermissionsHasPrefix(String),
-	PermissionsHasSuffix(String),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -16417,10 +14396,6 @@ pub enum FilePathWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateModifiedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -16429,10 +14404,6 @@ pub enum FilePathWhereParam {
 	DateModifiedGt(chrono::DateTime<chrono::Utc>),
 	DateModifiedGte(chrono::DateTime<chrono::Utc>),
 	DateModifiedNot(chrono::DateTime<chrono::Utc>),
-	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
-	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateIndexedEquals(chrono::DateTime<chrono::Utc>),
 	DateIndexedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateIndexedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -16441,10 +14412,6 @@ pub enum FilePathWhereParam {
 	DateIndexedGt(chrono::DateTime<chrono::Utc>),
 	DateIndexedGte(chrono::DateTime<chrono::Utc>),
 	DateIndexedNot(chrono::DateTime<chrono::Utc>),
-	DateIndexedBefore(chrono::DateTime<chrono::Utc>),
-	DateIndexedAfter(chrono::DateTime<chrono::Utc>),
-	DateIndexedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateIndexedAfterEquals(chrono::DateTime<chrono::Utc>),
 	FileIs(Vec<FileWhereParam>),
 	LocationIs(Vec<LocationWhereParam>),
 	ParentIs(Vec<FilePathWhereParam>),
@@ -16565,42 +14532,6 @@ impl FilePathWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::IsDirEquals(value) => Field {
 				name: "is_dir".into(),
 				fields: Some(vec![Field {
@@ -16695,42 +14626,6 @@ impl FilePathWhereParam {
 				name: "location_id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdLt(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdLte(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdGt(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LocationIdGte(value) => Field {
-				name: "location_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -16853,24 +14748,6 @@ impl FilePathWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::MaterializedPathHasPrefix(value) => Field {
-				name: "materialized_path".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::MaterializedPathHasSuffix(value) => Field {
-				name: "materialized_path".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::NameEquals(value) => Field {
 				name: "name".into(),
 				fields: Some(vec![Field {
@@ -16983,24 +14860,6 @@ impl FilePathWhereParam {
 				name: "name".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -17123,24 +14982,6 @@ impl FilePathWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::ExtensionHasPrefix(value) => Field {
-				name: "extension".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ExtensionHasSuffix(value) => Field {
-				name: "extension".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::FileIdEquals(value) => Field {
 				name: "file_id".into(),
 				fields: Some(vec![Field {
@@ -17226,42 +15067,6 @@ impl FilePathWhereParam {
 				name: "file_id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdLt(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdLte(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdGt(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdGte(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -17357,42 +15162,6 @@ impl FilePathWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::ParentIdLt(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIdLte(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIdGt(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ParentIdGte(value) => Field {
-				name: "parent_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::EncryptionEquals(value) => Field {
 				name: "encryption".into(),
 				fields: Some(vec![Field {
@@ -17478,42 +15247,6 @@ impl FilePathWhereParam {
 				name: "encryption".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -17636,24 +15369,6 @@ impl FilePathWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::PermissionsHasPrefix(value) => Field {
-				name: "permissions".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::PermissionsHasSuffix(value) => Field {
-				name: "permissions".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateCreatedEquals(value) => Field {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
@@ -17739,42 +15454,6 @@ impl FilePathWhereParam {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -17870,42 +15549,6 @@ impl FilePathWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateModifiedBefore(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfter(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBeforeEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfterEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateIndexedEquals(value) => Field {
 				name: "date_indexed".into(),
 				fields: Some(vec![Field {
@@ -17991,42 +15634,6 @@ impl FilePathWhereParam {
 				name: "date_indexed".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateIndexedBefore(value) => Field {
-				name: "date_indexed".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateIndexedAfter(value) => Field {
-				name: "date_indexed".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateIndexedBeforeEquals(value) => Field {
-				name: "date_indexed".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateIndexedAfterEquals(value) => Field {
-				name: "date_indexed".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -18205,7 +15812,7 @@ pub struct FilePathFindFirst<'a> {
 	with_params: Vec<FilePathWithParam>,
 }
 impl<'a> FilePathFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<FilePathData> {
+	pub async fn exec(self) -> QueryResult<Option<FilePathData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -18264,7 +15871,7 @@ pub struct FilePathFindUnique<'a> {
 	with_params: Vec<FilePathWithParam>,
 }
 impl<'a> FilePathFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<FilePathData> {
+	pub async fn exec(self) -> QueryResult<Option<FilePathData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -18394,7 +16001,7 @@ impl<'a> FilePathUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<FilePathSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -18649,16 +16256,16 @@ impl TagIdField {
 		TagCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> TagSetParam {
-		TagSetParam::Id(value)
+		TagSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> TagSetParam {
-		TagSetParam::Id(value)
+		TagSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> TagSetParam {
-		TagSetParam::Id(value)
+		TagSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> TagSetParam {
-		TagSetParam::Id(value)
+		TagSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> TagWhereParam {
 		TagWhereParam::IdInVec(value)
@@ -18680,18 +16287,6 @@ impl TagIdField {
 	}
 	pub fn not(&self, value: i32) -> TagWhereParam {
 		TagWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::IdGte(value)
 	}
 }
 pub struct TagSetId(i32);
@@ -18744,12 +16339,6 @@ impl TagNameField {
 	pub fn not(&self, value: String) -> TagWhereParam {
 		TagWhereParam::NameNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> TagWhereParam {
-		TagWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> TagWhereParam {
-		TagWhereParam::NameHasSuffix(value)
-	}
 }
 pub struct TagSetName(String);
 impl From<TagSetName> for TagSetParam {
@@ -18772,16 +16361,16 @@ impl TagEncryptionField {
 		TagCursor::Encryption(cursor)
 	}
 	pub fn increment(&self, value: i32) -> TagSetParam {
-		TagSetParam::Encryption(value)
+		TagSetParam::SetEncryption(value)
 	}
 	pub fn decrement(&self, value: i32) -> TagSetParam {
-		TagSetParam::Encryption(value)
+		TagSetParam::SetEncryption(value)
 	}
 	pub fn multiply(&self, value: i32) -> TagSetParam {
-		TagSetParam::Encryption(value)
+		TagSetParam::SetEncryption(value)
 	}
 	pub fn divide(&self, value: i32) -> TagSetParam {
-		TagSetParam::Encryption(value)
+		TagSetParam::SetEncryption(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> TagWhereParam {
 		TagWhereParam::EncryptionInVec(value)
@@ -18803,18 +16392,6 @@ impl TagEncryptionField {
 	}
 	pub fn not(&self, value: i32) -> TagWhereParam {
 		TagWhereParam::EncryptionNot(value)
-	}
-	pub fn lt(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::EncryptionLt(value)
-	}
-	pub fn lte(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::EncryptionLte(value)
-	}
-	pub fn gt(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::EncryptionGt(value)
-	}
-	pub fn gte(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::EncryptionGte(value)
 	}
 }
 pub struct TagSetEncryption(i32);
@@ -18838,16 +16415,16 @@ impl TagTotalFilesField {
 		TagCursor::TotalFiles(cursor)
 	}
 	pub fn increment(&self, value: i32) -> TagSetParam {
-		TagSetParam::TotalFiles(value)
+		TagSetParam::SetTotalFiles(value)
 	}
 	pub fn decrement(&self, value: i32) -> TagSetParam {
-		TagSetParam::TotalFiles(value)
+		TagSetParam::SetTotalFiles(value)
 	}
 	pub fn multiply(&self, value: i32) -> TagSetParam {
-		TagSetParam::TotalFiles(value)
+		TagSetParam::SetTotalFiles(value)
 	}
 	pub fn divide(&self, value: i32) -> TagSetParam {
-		TagSetParam::TotalFiles(value)
+		TagSetParam::SetTotalFiles(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> TagWhereParam {
 		TagWhereParam::TotalFilesInVec(value)
@@ -18869,18 +16446,6 @@ impl TagTotalFilesField {
 	}
 	pub fn not(&self, value: i32) -> TagWhereParam {
 		TagWhereParam::TotalFilesNot(value)
-	}
-	pub fn lt(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::TotalFilesLt(value)
-	}
-	pub fn lte(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::TotalFilesLte(value)
-	}
-	pub fn gt(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::TotalFilesGt(value)
-	}
-	pub fn gte(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::TotalFilesGte(value)
 	}
 }
 pub struct TagSetTotalFiles(i32);
@@ -18904,16 +16469,16 @@ impl TagRedundancyGoalField {
 		TagCursor::RedundancyGoal(cursor)
 	}
 	pub fn increment(&self, value: i32) -> TagSetParam {
-		TagSetParam::RedundancyGoal(value)
+		TagSetParam::SetRedundancyGoal(value)
 	}
 	pub fn decrement(&self, value: i32) -> TagSetParam {
-		TagSetParam::RedundancyGoal(value)
+		TagSetParam::SetRedundancyGoal(value)
 	}
 	pub fn multiply(&self, value: i32) -> TagSetParam {
-		TagSetParam::RedundancyGoal(value)
+		TagSetParam::SetRedundancyGoal(value)
 	}
 	pub fn divide(&self, value: i32) -> TagSetParam {
-		TagSetParam::RedundancyGoal(value)
+		TagSetParam::SetRedundancyGoal(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> TagWhereParam {
 		TagWhereParam::RedundancyGoalInVec(value)
@@ -18935,18 +16500,6 @@ impl TagRedundancyGoalField {
 	}
 	pub fn not(&self, value: i32) -> TagWhereParam {
 		TagWhereParam::RedundancyGoalNot(value)
-	}
-	pub fn lt(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::RedundancyGoalLt(value)
-	}
-	pub fn lte(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::RedundancyGoalLte(value)
-	}
-	pub fn gt(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::RedundancyGoalGt(value)
-	}
-	pub fn gte(&self, value: i32) -> TagWhereParam {
-		TagWhereParam::RedundancyGoalGte(value)
 	}
 }
 pub struct TagSetRedundancyGoal(i32);
@@ -18993,18 +16546,6 @@ impl TagDateCreatedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
 		TagWhereParam::DateCreatedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
-		TagWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
-		TagWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
-		TagWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
-		TagWhereParam::DateCreatedAfterEquals(value)
-	}
 }
 pub struct TagSetDateCreated(chrono::DateTime<chrono::Utc>);
 impl From<TagSetDateCreated> for TagSetParam {
@@ -19049,18 +16590,6 @@ impl TagDateModifiedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
 		TagWhereParam::DateModifiedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
-		TagWhereParam::DateModifiedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
-		TagWhereParam::DateModifiedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
-		TagWhereParam::DateModifiedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> TagWhereParam {
-		TagWhereParam::DateModifiedAfterEquals(value)
 	}
 }
 pub struct TagSetDateModified(chrono::DateTime<chrono::Utc>);
@@ -19324,10 +16853,6 @@ pub enum TagWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -19339,8 +16864,6 @@ pub enum TagWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	EncryptionEquals(i32),
 	EncryptionInVec(Vec<i32>),
 	EncryptionNotInVec(Vec<i32>),
@@ -19349,10 +16872,6 @@ pub enum TagWhereParam {
 	EncryptionGt(i32),
 	EncryptionGte(i32),
 	EncryptionNot(i32),
-	EncryptionLt(i32),
-	EncryptionLte(i32),
-	EncryptionGt(i32),
-	EncryptionGte(i32),
 	TotalFilesEquals(i32),
 	TotalFilesInVec(Vec<i32>),
 	TotalFilesNotInVec(Vec<i32>),
@@ -19361,10 +16880,6 @@ pub enum TagWhereParam {
 	TotalFilesGt(i32),
 	TotalFilesGte(i32),
 	TotalFilesNot(i32),
-	TotalFilesLt(i32),
-	TotalFilesLte(i32),
-	TotalFilesGt(i32),
-	TotalFilesGte(i32),
 	RedundancyGoalEquals(i32),
 	RedundancyGoalInVec(Vec<i32>),
 	RedundancyGoalNotInVec(Vec<i32>),
@@ -19373,10 +16888,6 @@ pub enum TagWhereParam {
 	RedundancyGoalGt(i32),
 	RedundancyGoalGte(i32),
 	RedundancyGoalNot(i32),
-	RedundancyGoalLt(i32),
-	RedundancyGoalLte(i32),
-	RedundancyGoalGt(i32),
-	RedundancyGoalGte(i32),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -19385,10 +16896,6 @@ pub enum TagWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateModifiedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -19397,10 +16904,6 @@ pub enum TagWhereParam {
 	DateModifiedGt(chrono::DateTime<chrono::Utc>),
 	DateModifiedGte(chrono::DateTime<chrono::Utc>),
 	DateModifiedNot(chrono::DateTime<chrono::Utc>),
-	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
-	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
 	TagFilesSome(Vec<TagOnFileWhereParam>),
 	TagFilesEvery(Vec<TagOnFileWhereParam>),
 }
@@ -19513,42 +17016,6 @@ impl TagWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -19671,24 +17138,6 @@ impl TagWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::EncryptionEquals(value) => Field {
 				name: "encryption".into(),
 				fields: Some(vec![Field {
@@ -19774,42 +17223,6 @@ impl TagWhereParam {
 				name: "encryption".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -19905,42 +17318,6 @@ impl TagWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::TotalFilesLt(value) => Field {
-				name: "total_files".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalFilesLte(value) => Field {
-				name: "total_files".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalFilesGt(value) => Field {
-				name: "total_files".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TotalFilesGte(value) => Field {
-				name: "total_files".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::RedundancyGoalEquals(value) => Field {
 				name: "redundancy_goal".into(),
 				fields: Some(vec![Field {
@@ -20026,42 +17403,6 @@ impl TagWhereParam {
 				name: "redundancy_goal".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::RedundancyGoalLt(value) => Field {
-				name: "redundancy_goal".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::RedundancyGoalLte(value) => Field {
-				name: "redundancy_goal".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::RedundancyGoalGt(value) => Field {
-				name: "redundancy_goal".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::RedundancyGoalGte(value) => Field {
-				name: "redundancy_goal".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -20157,42 +17498,6 @@ impl TagWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateModifiedEquals(value) => Field {
 				name: "date_modified".into(),
 				fields: Some(vec![Field {
@@ -20278,42 +17583,6 @@ impl TagWhereParam {
 				name: "date_modified".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBefore(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfter(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBeforeEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfterEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -20465,7 +17734,7 @@ pub struct TagFindFirst<'a> {
 	with_params: Vec<TagWithParam>,
 }
 impl<'a> TagFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<TagData> {
+	pub async fn exec(self) -> QueryResult<Option<TagData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -20524,7 +17793,7 @@ pub struct TagFindUnique<'a> {
 	with_params: Vec<TagWithParam>,
 }
 impl<'a> TagFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<TagData> {
+	pub async fn exec(self) -> QueryResult<Option<TagData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -20647,7 +17916,7 @@ impl<'a> TagUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<TagSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -20920,24 +18189,6 @@ impl TagOnFileDateCreatedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> TagOnFileWhereParam {
 		TagOnFileWhereParam::DateCreatedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::DateCreatedAfterEquals(value)
-	}
 }
 pub struct TagOnFileSetDateCreated(chrono::DateTime<chrono::Utc>);
 impl From<TagOnFileSetDateCreated> for TagOnFileSetParam {
@@ -20960,16 +18211,16 @@ impl TagOnFileTagIdField {
 		TagOnFileCursor::TagId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> TagOnFileSetParam {
-		TagOnFileSetParam::TagId(value)
+		TagOnFileSetParam::SetTagId(value)
 	}
 	pub fn decrement(&self, value: i32) -> TagOnFileSetParam {
-		TagOnFileSetParam::TagId(value)
+		TagOnFileSetParam::SetTagId(value)
 	}
 	pub fn multiply(&self, value: i32) -> TagOnFileSetParam {
-		TagOnFileSetParam::TagId(value)
+		TagOnFileSetParam::SetTagId(value)
 	}
 	pub fn divide(&self, value: i32) -> TagOnFileSetParam {
-		TagOnFileSetParam::TagId(value)
+		TagOnFileSetParam::SetTagId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> TagOnFileWhereParam {
 		TagOnFileWhereParam::TagIdInVec(value)
@@ -20991,18 +18242,6 @@ impl TagOnFileTagIdField {
 	}
 	pub fn not(&self, value: i32) -> TagOnFileWhereParam {
 		TagOnFileWhereParam::TagIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::TagIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::TagIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::TagIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::TagIdGte(value)
 	}
 }
 pub struct TagOnFileSetTagId(i32);
@@ -21044,16 +18283,16 @@ impl TagOnFileFileIdField {
 		TagOnFileCursor::FileId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> TagOnFileSetParam {
-		TagOnFileSetParam::FileId(value)
+		TagOnFileSetParam::SetFileId(value)
 	}
 	pub fn decrement(&self, value: i32) -> TagOnFileSetParam {
-		TagOnFileSetParam::FileId(value)
+		TagOnFileSetParam::SetFileId(value)
 	}
 	pub fn multiply(&self, value: i32) -> TagOnFileSetParam {
-		TagOnFileSetParam::FileId(value)
+		TagOnFileSetParam::SetFileId(value)
 	}
 	pub fn divide(&self, value: i32) -> TagOnFileSetParam {
-		TagOnFileSetParam::FileId(value)
+		TagOnFileSetParam::SetFileId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> TagOnFileWhereParam {
 		TagOnFileWhereParam::FileIdInVec(value)
@@ -21075,18 +18314,6 @@ impl TagOnFileFileIdField {
 	}
 	pub fn not(&self, value: i32) -> TagOnFileWhereParam {
 		TagOnFileWhereParam::FileIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::FileIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::FileIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::FileIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> TagOnFileWhereParam {
-		TagOnFileWhereParam::FileIdGte(value)
 	}
 }
 pub struct TagOnFileSetFileId(i32);
@@ -21249,10 +18476,6 @@ pub enum TagOnFileWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	TagIdEquals(i32),
 	TagIdInVec(Vec<i32>),
 	TagIdNotInVec(Vec<i32>),
@@ -21261,10 +18484,6 @@ pub enum TagOnFileWhereParam {
 	TagIdGt(i32),
 	TagIdGte(i32),
 	TagIdNot(i32),
-	TagIdLt(i32),
-	TagIdLte(i32),
-	TagIdGt(i32),
-	TagIdGte(i32),
 	TagIs(Vec<TagWhereParam>),
 	FileIdEquals(i32),
 	FileIdInVec(Vec<i32>),
@@ -21274,10 +18493,6 @@ pub enum TagOnFileWhereParam {
 	FileIdGt(i32),
 	FileIdGte(i32),
 	FileIdNot(i32),
-	FileIdLt(i32),
-	FileIdLte(i32),
-	FileIdGt(i32),
-	FileIdGte(i32),
 	FileIs(Vec<FileWhereParam>),
 }
 impl TagOnFileWhereParam {
@@ -21394,42 +18609,6 @@ impl TagOnFileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::TagIdEquals(value) => Field {
 				name: "tag_id".into(),
 				fields: Some(vec![Field {
@@ -21515,42 +18694,6 @@ impl TagOnFileWhereParam {
 				name: "tag_id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TagIdLt(value) => Field {
-				name: "tag_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TagIdLte(value) => Field {
-				name: "tag_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TagIdGt(value) => Field {
-				name: "tag_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TagIdGte(value) => Field {
-				name: "tag_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -21650,42 +18793,6 @@ impl TagOnFileWhereParam {
 				name: "file_id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdLt(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdLte(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdGt(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdGte(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -21824,7 +18931,7 @@ pub struct TagOnFileFindFirst<'a> {
 	with_params: Vec<TagOnFileWithParam>,
 }
 impl<'a> TagOnFileFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<TagOnFileData> {
+	pub async fn exec(self) -> QueryResult<Option<TagOnFileData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -21883,7 +18990,7 @@ pub struct TagOnFileFindUnique<'a> {
 	with_params: Vec<TagOnFileWithParam>,
 }
 impl<'a> TagOnFileFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<TagOnFileData> {
+	pub async fn exec(self) -> QueryResult<Option<TagOnFileData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -22013,7 +19120,7 @@ impl<'a> TagOnFileUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<TagOnFileSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -22250,16 +19357,16 @@ impl LabelIdField {
 		LabelCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LabelSetParam {
-		LabelSetParam::Id(value)
+		LabelSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> LabelSetParam {
-		LabelSetParam::Id(value)
+		LabelSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> LabelSetParam {
-		LabelSetParam::Id(value)
+		LabelSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> LabelSetParam {
-		LabelSetParam::Id(value)
+		LabelSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LabelWhereParam {
 		LabelWhereParam::IdInVec(value)
@@ -22281,18 +19388,6 @@ impl LabelIdField {
 	}
 	pub fn not(&self, value: i32) -> LabelWhereParam {
 		LabelWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LabelWhereParam {
-		LabelWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LabelWhereParam {
-		LabelWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LabelWhereParam {
-		LabelWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LabelWhereParam {
-		LabelWhereParam::IdGte(value)
 	}
 }
 pub struct LabelSetId(i32);
@@ -22345,12 +19440,6 @@ impl LabelNameField {
 	pub fn not(&self, value: String) -> LabelWhereParam {
 		LabelWhereParam::NameNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> LabelWhereParam {
-		LabelWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> LabelWhereParam {
-		LabelWhereParam::NameHasSuffix(value)
-	}
 }
 pub struct LabelSetName(String);
 impl From<LabelSetName> for LabelSetParam {
@@ -22399,18 +19488,6 @@ impl LabelDateCreatedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
 		LabelWhereParam::DateCreatedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
-		LabelWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
-		LabelWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
-		LabelWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
-		LabelWhereParam::DateCreatedAfterEquals(value)
-	}
 }
 pub struct LabelSetDateCreated(chrono::DateTime<chrono::Utc>);
 impl From<LabelSetDateCreated> for LabelSetParam {
@@ -22458,18 +19535,6 @@ impl LabelDateModifiedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
 		LabelWhereParam::DateModifiedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
-		LabelWhereParam::DateModifiedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
-		LabelWhereParam::DateModifiedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
-		LabelWhereParam::DateModifiedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> LabelWhereParam {
-		LabelWhereParam::DateModifiedAfterEquals(value)
 	}
 }
 pub struct LabelSetDateModified(chrono::DateTime<chrono::Utc>);
@@ -22679,10 +19744,6 @@ pub enum LabelWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -22694,8 +19755,6 @@ pub enum LabelWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -22704,10 +19763,6 @@ pub enum LabelWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateModifiedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -22716,10 +19771,6 @@ pub enum LabelWhereParam {
 	DateModifiedGt(chrono::DateTime<chrono::Utc>),
 	DateModifiedGte(chrono::DateTime<chrono::Utc>),
 	DateModifiedNot(chrono::DateTime<chrono::Utc>),
-	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
-	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
 	LabelFilesSome(Vec<LabelOnFileWhereParam>),
 	LabelFilesEvery(Vec<LabelOnFileWhereParam>),
 }
@@ -22832,42 +19883,6 @@ impl LabelWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -22990,24 +20005,6 @@ impl LabelWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateCreatedEquals(value) => Field {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
@@ -23098,42 +20095,6 @@ impl LabelWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateModifiedEquals(value) => Field {
 				name: "date_modified".into(),
 				fields: Some(vec![Field {
@@ -23219,42 +20180,6 @@ impl LabelWhereParam {
 				name: "date_modified".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBefore(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfter(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBeforeEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfterEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -23406,7 +20331,7 @@ pub struct LabelFindFirst<'a> {
 	with_params: Vec<LabelWithParam>,
 }
 impl<'a> LabelFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<LabelData> {
+	pub async fn exec(self) -> QueryResult<Option<LabelData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -23465,7 +20390,7 @@ pub struct LabelFindUnique<'a> {
 	with_params: Vec<LabelWithParam>,
 }
 impl<'a> LabelFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<LabelData> {
+	pub async fn exec(self) -> QueryResult<Option<LabelData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -23588,7 +20513,7 @@ impl<'a> LabelUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<LabelSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -23861,24 +20786,6 @@ impl LabelOnFileDateCreatedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> LabelOnFileWhereParam {
 		LabelOnFileWhereParam::DateCreatedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::DateCreatedAfterEquals(value)
-	}
 }
 pub struct LabelOnFileSetDateCreated(chrono::DateTime<chrono::Utc>);
 impl From<LabelOnFileSetDateCreated> for LabelOnFileSetParam {
@@ -23901,16 +20808,16 @@ impl LabelOnFileLabelIdField {
 		LabelOnFileCursor::LabelId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LabelOnFileSetParam {
-		LabelOnFileSetParam::LabelId(value)
+		LabelOnFileSetParam::SetLabelId(value)
 	}
 	pub fn decrement(&self, value: i32) -> LabelOnFileSetParam {
-		LabelOnFileSetParam::LabelId(value)
+		LabelOnFileSetParam::SetLabelId(value)
 	}
 	pub fn multiply(&self, value: i32) -> LabelOnFileSetParam {
-		LabelOnFileSetParam::LabelId(value)
+		LabelOnFileSetParam::SetLabelId(value)
 	}
 	pub fn divide(&self, value: i32) -> LabelOnFileSetParam {
-		LabelOnFileSetParam::LabelId(value)
+		LabelOnFileSetParam::SetLabelId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LabelOnFileWhereParam {
 		LabelOnFileWhereParam::LabelIdInVec(value)
@@ -23932,18 +20839,6 @@ impl LabelOnFileLabelIdField {
 	}
 	pub fn not(&self, value: i32) -> LabelOnFileWhereParam {
 		LabelOnFileWhereParam::LabelIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::LabelIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::LabelIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::LabelIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::LabelIdGte(value)
 	}
 }
 pub struct LabelOnFileSetLabelId(i32);
@@ -23985,16 +20880,16 @@ impl LabelOnFileFileIdField {
 		LabelOnFileCursor::FileId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> LabelOnFileSetParam {
-		LabelOnFileSetParam::FileId(value)
+		LabelOnFileSetParam::SetFileId(value)
 	}
 	pub fn decrement(&self, value: i32) -> LabelOnFileSetParam {
-		LabelOnFileSetParam::FileId(value)
+		LabelOnFileSetParam::SetFileId(value)
 	}
 	pub fn multiply(&self, value: i32) -> LabelOnFileSetParam {
-		LabelOnFileSetParam::FileId(value)
+		LabelOnFileSetParam::SetFileId(value)
 	}
 	pub fn divide(&self, value: i32) -> LabelOnFileSetParam {
-		LabelOnFileSetParam::FileId(value)
+		LabelOnFileSetParam::SetFileId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> LabelOnFileWhereParam {
 		LabelOnFileWhereParam::FileIdInVec(value)
@@ -24016,18 +20911,6 @@ impl LabelOnFileFileIdField {
 	}
 	pub fn not(&self, value: i32) -> LabelOnFileWhereParam {
 		LabelOnFileWhereParam::FileIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::FileIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::FileIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::FileIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> LabelOnFileWhereParam {
-		LabelOnFileWhereParam::FileIdGte(value)
 	}
 }
 pub struct LabelOnFileSetFileId(i32);
@@ -24190,10 +21073,6 @@ pub enum LabelOnFileWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	LabelIdEquals(i32),
 	LabelIdInVec(Vec<i32>),
 	LabelIdNotInVec(Vec<i32>),
@@ -24202,10 +21081,6 @@ pub enum LabelOnFileWhereParam {
 	LabelIdGt(i32),
 	LabelIdGte(i32),
 	LabelIdNot(i32),
-	LabelIdLt(i32),
-	LabelIdLte(i32),
-	LabelIdGt(i32),
-	LabelIdGte(i32),
 	LabelIs(Vec<LabelWhereParam>),
 	FileIdEquals(i32),
 	FileIdInVec(Vec<i32>),
@@ -24215,10 +21090,6 @@ pub enum LabelOnFileWhereParam {
 	FileIdGt(i32),
 	FileIdGte(i32),
 	FileIdNot(i32),
-	FileIdLt(i32),
-	FileIdLte(i32),
-	FileIdGt(i32),
-	FileIdGte(i32),
 	FileIs(Vec<FileWhereParam>),
 }
 impl LabelOnFileWhereParam {
@@ -24335,42 +21206,6 @@ impl LabelOnFileWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::LabelIdEquals(value) => Field {
 				name: "label_id".into(),
 				fields: Some(vec![Field {
@@ -24456,42 +21291,6 @@ impl LabelOnFileWhereParam {
 				name: "label_id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LabelIdLt(value) => Field {
-				name: "label_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LabelIdLte(value) => Field {
-				name: "label_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LabelIdGt(value) => Field {
-				name: "label_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LabelIdGte(value) => Field {
-				name: "label_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -24591,42 +21390,6 @@ impl LabelOnFileWhereParam {
 				name: "file_id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdLt(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdLte(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdGt(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdGte(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -24768,7 +21531,7 @@ pub struct LabelOnFileFindFirst<'a> {
 	with_params: Vec<LabelOnFileWithParam>,
 }
 impl<'a> LabelOnFileFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<LabelOnFileData> {
+	pub async fn exec(self) -> QueryResult<Option<LabelOnFileData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -24827,7 +21590,7 @@ pub struct LabelOnFileFindUnique<'a> {
 	with_params: Vec<LabelOnFileWithParam>,
 }
 impl<'a> LabelOnFileFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<LabelOnFileData> {
+	pub async fn exec(self) -> QueryResult<Option<LabelOnFileData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -24960,7 +21723,7 @@ impl<'a> LabelOnFileUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<LabelOnFileSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -25244,12 +22007,6 @@ impl JobIdField {
 	pub fn not(&self, value: String) -> JobWhereParam {
 		JobWhereParam::IdNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> JobWhereParam {
-		JobWhereParam::IdHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> JobWhereParam {
-		JobWhereParam::IdHasSuffix(value)
-	}
 }
 pub struct JobSetId(String);
 impl From<JobSetId> for JobSetParam {
@@ -25272,16 +22029,16 @@ impl JobActionField {
 		JobCursor::Action(cursor)
 	}
 	pub fn increment(&self, value: i32) -> JobSetParam {
-		JobSetParam::Action(value)
+		JobSetParam::SetAction(value)
 	}
 	pub fn decrement(&self, value: i32) -> JobSetParam {
-		JobSetParam::Action(value)
+		JobSetParam::SetAction(value)
 	}
 	pub fn multiply(&self, value: i32) -> JobSetParam {
-		JobSetParam::Action(value)
+		JobSetParam::SetAction(value)
 	}
 	pub fn divide(&self, value: i32) -> JobSetParam {
-		JobSetParam::Action(value)
+		JobSetParam::SetAction(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> JobWhereParam {
 		JobWhereParam::ActionInVec(value)
@@ -25303,18 +22060,6 @@ impl JobActionField {
 	}
 	pub fn not(&self, value: i32) -> JobWhereParam {
 		JobWhereParam::ActionNot(value)
-	}
-	pub fn lt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::ActionLt(value)
-	}
-	pub fn lte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::ActionLte(value)
-	}
-	pub fn gt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::ActionGt(value)
-	}
-	pub fn gte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::ActionGte(value)
 	}
 }
 pub struct JobSetAction(i32);
@@ -25338,16 +22083,16 @@ impl JobStatusField {
 		JobCursor::Status(cursor)
 	}
 	pub fn increment(&self, value: i32) -> JobSetParam {
-		JobSetParam::Status(value)
+		JobSetParam::SetStatus(value)
 	}
 	pub fn decrement(&self, value: i32) -> JobSetParam {
-		JobSetParam::Status(value)
+		JobSetParam::SetStatus(value)
 	}
 	pub fn multiply(&self, value: i32) -> JobSetParam {
-		JobSetParam::Status(value)
+		JobSetParam::SetStatus(value)
 	}
 	pub fn divide(&self, value: i32) -> JobSetParam {
-		JobSetParam::Status(value)
+		JobSetParam::SetStatus(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> JobWhereParam {
 		JobWhereParam::StatusInVec(value)
@@ -25369,18 +22114,6 @@ impl JobStatusField {
 	}
 	pub fn not(&self, value: i32) -> JobWhereParam {
 		JobWhereParam::StatusNot(value)
-	}
-	pub fn lt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::StatusLt(value)
-	}
-	pub fn lte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::StatusLte(value)
-	}
-	pub fn gt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::StatusGt(value)
-	}
-	pub fn gte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::StatusGte(value)
 	}
 }
 pub struct JobSetStatus(i32);
@@ -25404,16 +22137,16 @@ impl JobTaskCountField {
 		JobCursor::TaskCount(cursor)
 	}
 	pub fn increment(&self, value: i32) -> JobSetParam {
-		JobSetParam::TaskCount(value)
+		JobSetParam::SetTaskCount(value)
 	}
 	pub fn decrement(&self, value: i32) -> JobSetParam {
-		JobSetParam::TaskCount(value)
+		JobSetParam::SetTaskCount(value)
 	}
 	pub fn multiply(&self, value: i32) -> JobSetParam {
-		JobSetParam::TaskCount(value)
+		JobSetParam::SetTaskCount(value)
 	}
 	pub fn divide(&self, value: i32) -> JobSetParam {
-		JobSetParam::TaskCount(value)
+		JobSetParam::SetTaskCount(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> JobWhereParam {
 		JobWhereParam::TaskCountInVec(value)
@@ -25435,18 +22168,6 @@ impl JobTaskCountField {
 	}
 	pub fn not(&self, value: i32) -> JobWhereParam {
 		JobWhereParam::TaskCountNot(value)
-	}
-	pub fn lt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::TaskCountLt(value)
-	}
-	pub fn lte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::TaskCountLte(value)
-	}
-	pub fn gt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::TaskCountGt(value)
-	}
-	pub fn gte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::TaskCountGte(value)
 	}
 }
 pub struct JobSetTaskCount(i32);
@@ -25470,16 +22191,16 @@ impl JobCompletedTaskCountField {
 		JobCursor::CompletedTaskCount(cursor)
 	}
 	pub fn increment(&self, value: i32) -> JobSetParam {
-		JobSetParam::CompletedTaskCount(value)
+		JobSetParam::SetCompletedTaskCount(value)
 	}
 	pub fn decrement(&self, value: i32) -> JobSetParam {
-		JobSetParam::CompletedTaskCount(value)
+		JobSetParam::SetCompletedTaskCount(value)
 	}
 	pub fn multiply(&self, value: i32) -> JobSetParam {
-		JobSetParam::CompletedTaskCount(value)
+		JobSetParam::SetCompletedTaskCount(value)
 	}
 	pub fn divide(&self, value: i32) -> JobSetParam {
-		JobSetParam::CompletedTaskCount(value)
+		JobSetParam::SetCompletedTaskCount(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> JobWhereParam {
 		JobWhereParam::CompletedTaskCountInVec(value)
@@ -25501,18 +22222,6 @@ impl JobCompletedTaskCountField {
 	}
 	pub fn not(&self, value: i32) -> JobWhereParam {
 		JobWhereParam::CompletedTaskCountNot(value)
-	}
-	pub fn lt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::CompletedTaskCountLt(value)
-	}
-	pub fn lte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::CompletedTaskCountLte(value)
-	}
-	pub fn gt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::CompletedTaskCountGt(value)
-	}
-	pub fn gte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::CompletedTaskCountGte(value)
 	}
 }
 pub struct JobSetCompletedTaskCount(i32);
@@ -25559,18 +22268,6 @@ impl JobDateCreatedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
 		JobWhereParam::DateCreatedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
-		JobWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
-		JobWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
-		JobWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
-		JobWhereParam::DateCreatedAfterEquals(value)
-	}
 }
 pub struct JobSetDateCreated(chrono::DateTime<chrono::Utc>);
 impl From<JobSetDateCreated> for JobSetParam {
@@ -25616,18 +22313,6 @@ impl JobDateModifiedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
 		JobWhereParam::DateModifiedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
-		JobWhereParam::DateModifiedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
-		JobWhereParam::DateModifiedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
-		JobWhereParam::DateModifiedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> JobWhereParam {
-		JobWhereParam::DateModifiedAfterEquals(value)
-	}
 }
 pub struct JobSetDateModified(chrono::DateTime<chrono::Utc>);
 impl From<JobSetDateModified> for JobSetParam {
@@ -25650,16 +22335,16 @@ impl JobSecondsElapsedField {
 		JobCursor::SecondsElapsed(cursor)
 	}
 	pub fn increment(&self, value: i32) -> JobSetParam {
-		JobSetParam::SecondsElapsed(value)
+		JobSetParam::SetSecondsElapsed(value)
 	}
 	pub fn decrement(&self, value: i32) -> JobSetParam {
-		JobSetParam::SecondsElapsed(value)
+		JobSetParam::SetSecondsElapsed(value)
 	}
 	pub fn multiply(&self, value: i32) -> JobSetParam {
-		JobSetParam::SecondsElapsed(value)
+		JobSetParam::SetSecondsElapsed(value)
 	}
 	pub fn divide(&self, value: i32) -> JobSetParam {
-		JobSetParam::SecondsElapsed(value)
+		JobSetParam::SetSecondsElapsed(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> JobWhereParam {
 		JobWhereParam::SecondsElapsedInVec(value)
@@ -25681,18 +22366,6 @@ impl JobSecondsElapsedField {
 	}
 	pub fn not(&self, value: i32) -> JobWhereParam {
 		JobWhereParam::SecondsElapsedNot(value)
-	}
-	pub fn lt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::SecondsElapsedLt(value)
-	}
-	pub fn lte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::SecondsElapsedLte(value)
-	}
-	pub fn gt(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::SecondsElapsedGt(value)
-	}
-	pub fn gte(&self, value: i32) -> JobWhereParam {
-		JobWhereParam::SecondsElapsedGte(value)
 	}
 }
 pub struct JobSetSecondsElapsed(i32);
@@ -25890,8 +22563,6 @@ pub enum JobWhereParam {
 	IdStartsWith(String),
 	IdEndsWith(String),
 	IdNot(String),
-	IdHasPrefix(String),
-	IdHasSuffix(String),
 	ActionEquals(i32),
 	ActionInVec(Vec<i32>),
 	ActionNotInVec(Vec<i32>),
@@ -25900,10 +22571,6 @@ pub enum JobWhereParam {
 	ActionGt(i32),
 	ActionGte(i32),
 	ActionNot(i32),
-	ActionLt(i32),
-	ActionLte(i32),
-	ActionGt(i32),
-	ActionGte(i32),
 	StatusEquals(i32),
 	StatusInVec(Vec<i32>),
 	StatusNotInVec(Vec<i32>),
@@ -25912,10 +22579,6 @@ pub enum JobWhereParam {
 	StatusGt(i32),
 	StatusGte(i32),
 	StatusNot(i32),
-	StatusLt(i32),
-	StatusLte(i32),
-	StatusGt(i32),
-	StatusGte(i32),
 	TaskCountEquals(i32),
 	TaskCountInVec(Vec<i32>),
 	TaskCountNotInVec(Vec<i32>),
@@ -25924,10 +22587,6 @@ pub enum JobWhereParam {
 	TaskCountGt(i32),
 	TaskCountGte(i32),
 	TaskCountNot(i32),
-	TaskCountLt(i32),
-	TaskCountLte(i32),
-	TaskCountGt(i32),
-	TaskCountGte(i32),
 	CompletedTaskCountEquals(i32),
 	CompletedTaskCountInVec(Vec<i32>),
 	CompletedTaskCountNotInVec(Vec<i32>),
@@ -25936,10 +22595,6 @@ pub enum JobWhereParam {
 	CompletedTaskCountGt(i32),
 	CompletedTaskCountGte(i32),
 	CompletedTaskCountNot(i32),
-	CompletedTaskCountLt(i32),
-	CompletedTaskCountLte(i32),
-	CompletedTaskCountGt(i32),
-	CompletedTaskCountGte(i32),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -25948,10 +22603,6 @@ pub enum JobWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateModifiedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -25960,10 +22611,6 @@ pub enum JobWhereParam {
 	DateModifiedGt(chrono::DateTime<chrono::Utc>),
 	DateModifiedGte(chrono::DateTime<chrono::Utc>),
 	DateModifiedNot(chrono::DateTime<chrono::Utc>),
-	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
-	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
 	SecondsElapsedEquals(i32),
 	SecondsElapsedInVec(Vec<i32>),
 	SecondsElapsedNotInVec(Vec<i32>),
@@ -25972,10 +22619,6 @@ pub enum JobWhereParam {
 	SecondsElapsedGt(i32),
 	SecondsElapsedGte(i32),
 	SecondsElapsedNot(i32),
-	SecondsElapsedLt(i32),
-	SecondsElapsedLte(i32),
-	SecondsElapsedGt(i32),
-	SecondsElapsedGte(i32),
 }
 impl JobWhereParam {
 	pub fn to_field(&self) -> Field {
@@ -26118,24 +22761,6 @@ impl JobWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::IdHasPrefix(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdHasSuffix(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::ActionEquals(value) => Field {
 				name: "action".into(),
 				fields: Some(vec![Field {
@@ -26221,42 +22846,6 @@ impl JobWhereParam {
 				name: "action".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ActionLt(value) => Field {
-				name: "action".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ActionLte(value) => Field {
-				name: "action".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ActionGt(value) => Field {
-				name: "action".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ActionGte(value) => Field {
-				name: "action".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -26352,42 +22941,6 @@ impl JobWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::StatusLt(value) => Field {
-				name: "status".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::StatusLte(value) => Field {
-				name: "status".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::StatusGt(value) => Field {
-				name: "status".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::StatusGte(value) => Field {
-				name: "status".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::TaskCountEquals(value) => Field {
 				name: "task_count".into(),
 				fields: Some(vec![Field {
@@ -26473,42 +23026,6 @@ impl JobWhereParam {
 				name: "task_count".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TaskCountLt(value) => Field {
-				name: "task_count".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TaskCountLte(value) => Field {
-				name: "task_count".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TaskCountGt(value) => Field {
-				name: "task_count".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::TaskCountGte(value) => Field {
-				name: "task_count".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -26604,42 +23121,6 @@ impl JobWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::CompletedTaskCountLt(value) => Field {
-				name: "completed_task_count".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::CompletedTaskCountLte(value) => Field {
-				name: "completed_task_count".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::CompletedTaskCountGt(value) => Field {
-				name: "completed_task_count".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::CompletedTaskCountGte(value) => Field {
-				name: "completed_task_count".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateCreatedEquals(value) => Field {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
@@ -26725,42 +23206,6 @@ impl JobWhereParam {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -26856,42 +23301,6 @@ impl JobWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateModifiedBefore(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfter(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBeforeEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfterEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::SecondsElapsedEquals(value) => Field {
 				name: "seconds_elapsed".into(),
 				fields: Some(vec![Field {
@@ -26977,42 +23386,6 @@ impl JobWhereParam {
 				name: "seconds_elapsed".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::SecondsElapsedLt(value) => Field {
-				name: "seconds_elapsed".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::SecondsElapsedLte(value) => Field {
-				name: "seconds_elapsed".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::SecondsElapsedGt(value) => Field {
-				name: "seconds_elapsed".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::SecondsElapsedGte(value) => Field {
-				name: "seconds_elapsed".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -27146,7 +23519,7 @@ pub struct JobFindFirst<'a> {
 	with_params: Vec<JobWithParam>,
 }
 impl<'a> JobFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<JobData> {
+	pub async fn exec(self) -> QueryResult<Option<JobData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -27205,7 +23578,7 @@ pub struct JobFindUnique<'a> {
 	with_params: Vec<JobWithParam>,
 }
 impl<'a> JobFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<JobData> {
+	pub async fn exec(self) -> QueryResult<Option<JobData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -27335,7 +23708,7 @@ impl<'a> JobUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<JobSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -27584,16 +23957,16 @@ impl SpaceIdField {
 		SpaceCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::Id(value)
+		SpaceSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::Id(value)
+		SpaceSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::Id(value)
+		SpaceSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::Id(value)
+		SpaceSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> SpaceWhereParam {
 		SpaceWhereParam::IdInVec(value)
@@ -27615,18 +23988,6 @@ impl SpaceIdField {
 	}
 	pub fn not(&self, value: i32) -> SpaceWhereParam {
 		SpaceWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::IdGte(value)
 	}
 }
 pub struct SpaceSetId(i32);
@@ -27679,12 +24040,6 @@ impl SpaceNameField {
 	pub fn not(&self, value: String) -> SpaceWhereParam {
 		SpaceWhereParam::NameNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> SpaceWhereParam {
-		SpaceWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> SpaceWhereParam {
-		SpaceWhereParam::NameHasSuffix(value)
-	}
 }
 pub struct SpaceSetName(String);
 impl From<SpaceSetName> for SpaceSetParam {
@@ -27707,16 +24062,16 @@ impl SpaceEncryptionField {
 		SpaceCursor::Encryption(cursor)
 	}
 	pub fn increment(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::Encryption(value)
+		SpaceSetParam::SetEncryption(value)
 	}
 	pub fn decrement(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::Encryption(value)
+		SpaceSetParam::SetEncryption(value)
 	}
 	pub fn multiply(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::Encryption(value)
+		SpaceSetParam::SetEncryption(value)
 	}
 	pub fn divide(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::Encryption(value)
+		SpaceSetParam::SetEncryption(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> SpaceWhereParam {
 		SpaceWhereParam::EncryptionInVec(value)
@@ -27738,18 +24093,6 @@ impl SpaceEncryptionField {
 	}
 	pub fn not(&self, value: i32) -> SpaceWhereParam {
 		SpaceWhereParam::EncryptionNot(value)
-	}
-	pub fn lt(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::EncryptionLt(value)
-	}
-	pub fn lte(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::EncryptionLte(value)
-	}
-	pub fn gt(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::EncryptionGt(value)
-	}
-	pub fn gte(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::EncryptionGte(value)
 	}
 }
 pub struct SpaceSetEncryption(i32);
@@ -27799,18 +24142,6 @@ impl SpaceDateCreatedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
 		SpaceWhereParam::DateCreatedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
-		SpaceWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
-		SpaceWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
-		SpaceWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
-		SpaceWhereParam::DateCreatedAfterEquals(value)
-	}
 }
 pub struct SpaceSetDateCreated(chrono::DateTime<chrono::Utc>);
 impl From<SpaceSetDateCreated> for SpaceSetParam {
@@ -27859,18 +24190,6 @@ impl SpaceDateModifiedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
 		SpaceWhereParam::DateModifiedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
-		SpaceWhereParam::DateModifiedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
-		SpaceWhereParam::DateModifiedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
-		SpaceWhereParam::DateModifiedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> SpaceWhereParam {
-		SpaceWhereParam::DateModifiedAfterEquals(value)
-	}
 }
 pub struct SpaceSetDateModified(chrono::DateTime<chrono::Utc>);
 impl From<SpaceSetDateModified> for SpaceSetParam {
@@ -27914,16 +24233,16 @@ impl SpaceLibraryIdField {
 		SpaceCursor::LibraryId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::LibraryId(value)
+		SpaceSetParam::SetLibraryId(value)
 	}
 	pub fn decrement(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::LibraryId(value)
+		SpaceSetParam::SetLibraryId(value)
 	}
 	pub fn multiply(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::LibraryId(value)
+		SpaceSetParam::SetLibraryId(value)
 	}
 	pub fn divide(&self, value: i32) -> SpaceSetParam {
-		SpaceSetParam::LibraryId(value)
+		SpaceSetParam::SetLibraryId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> SpaceWhereParam {
 		SpaceWhereParam::LibraryIdInVec(value)
@@ -27945,18 +24264,6 @@ impl SpaceLibraryIdField {
 	}
 	pub fn not(&self, value: i32) -> SpaceWhereParam {
 		SpaceWhereParam::LibraryIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::LibraryIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::LibraryIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::LibraryIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> SpaceWhereParam {
-		SpaceWhereParam::LibraryIdGte(value)
 	}
 }
 pub struct SpaceSetLibraryId(i32);
@@ -28145,10 +24452,6 @@ pub enum SpaceWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -28160,8 +24463,6 @@ pub enum SpaceWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	EncryptionEquals(i32),
 	EncryptionInVec(Vec<i32>),
 	EncryptionNotInVec(Vec<i32>),
@@ -28170,10 +24471,6 @@ pub enum SpaceWhereParam {
 	EncryptionGt(i32),
 	EncryptionGte(i32),
 	EncryptionNot(i32),
-	EncryptionLt(i32),
-	EncryptionLte(i32),
-	EncryptionGt(i32),
-	EncryptionGte(i32),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -28182,10 +24479,6 @@ pub enum SpaceWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateModifiedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -28194,10 +24487,6 @@ pub enum SpaceWhereParam {
 	DateModifiedGt(chrono::DateTime<chrono::Utc>),
 	DateModifiedGte(chrono::DateTime<chrono::Utc>),
 	DateModifiedNot(chrono::DateTime<chrono::Utc>),
-	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
-	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
 	LibraryIs(Vec<LibraryWhereParam>),
 	LibraryIdEquals(i32),
 	LibraryIdInVec(Vec<i32>),
@@ -28207,10 +24496,6 @@ pub enum SpaceWhereParam {
 	LibraryIdGt(i32),
 	LibraryIdGte(i32),
 	LibraryIdNot(i32),
-	LibraryIdLt(i32),
-	LibraryIdLte(i32),
-	LibraryIdGt(i32),
-	LibraryIdGte(i32),
 }
 impl SpaceWhereParam {
 	pub fn to_field(&self) -> Field {
@@ -28321,42 +24606,6 @@ impl SpaceWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -28479,24 +24728,6 @@ impl SpaceWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::EncryptionEquals(value) => Field {
 				name: "encryption".into(),
 				fields: Some(vec![Field {
@@ -28582,42 +24813,6 @@ impl SpaceWhereParam {
 				name: "encryption".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionLte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGt(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::EncryptionGte(value) => Field {
-				name: "encryption".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -28713,42 +24908,6 @@ impl SpaceWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateModifiedEquals(value) => Field {
 				name: "date_modified".into(),
 				fields: Some(vec![Field {
@@ -28834,42 +24993,6 @@ impl SpaceWhereParam {
 				name: "date_modified".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBefore(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfter(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBeforeEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfterEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -28969,42 +25092,6 @@ impl SpaceWhereParam {
 				name: "libraryId".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LibraryIdLt(value) => Field {
-				name: "libraryId".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LibraryIdLte(value) => Field {
-				name: "libraryId".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LibraryIdGt(value) => Field {
-				name: "libraryId".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::LibraryIdGte(value) => Field {
-				name: "libraryId".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -29138,7 +25225,7 @@ pub struct SpaceFindFirst<'a> {
 	with_params: Vec<SpaceWithParam>,
 }
 impl<'a> SpaceFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<SpaceData> {
+	pub async fn exec(self) -> QueryResult<Option<SpaceData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -29197,7 +25284,7 @@ pub struct SpaceFindUnique<'a> {
 	with_params: Vec<SpaceWithParam>,
 }
 impl<'a> SpaceFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<SpaceData> {
+	pub async fn exec(self) -> QueryResult<Option<SpaceData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -29321,7 +25408,7 @@ impl<'a> SpaceUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<SpaceSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -29553,16 +25640,16 @@ impl AlbumIdField {
 		AlbumCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> AlbumSetParam {
-		AlbumSetParam::Id(value)
+		AlbumSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> AlbumSetParam {
-		AlbumSetParam::Id(value)
+		AlbumSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> AlbumSetParam {
-		AlbumSetParam::Id(value)
+		AlbumSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> AlbumSetParam {
-		AlbumSetParam::Id(value)
+		AlbumSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> AlbumWhereParam {
 		AlbumWhereParam::IdInVec(value)
@@ -29584,18 +25671,6 @@ impl AlbumIdField {
 	}
 	pub fn not(&self, value: i32) -> AlbumWhereParam {
 		AlbumWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> AlbumWhereParam {
-		AlbumWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> AlbumWhereParam {
-		AlbumWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> AlbumWhereParam {
-		AlbumWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> AlbumWhereParam {
-		AlbumWhereParam::IdGte(value)
 	}
 }
 pub struct AlbumSetId(i32);
@@ -29647,12 +25722,6 @@ impl AlbumNameField {
 	}
 	pub fn not(&self, value: String) -> AlbumWhereParam {
 		AlbumWhereParam::NameNot(value)
-	}
-	pub fn has_prefix(&self, value: String) -> AlbumWhereParam {
-		AlbumWhereParam::NameHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> AlbumWhereParam {
-		AlbumWhereParam::NameHasSuffix(value)
 	}
 }
 pub struct AlbumSetName(String);
@@ -29723,18 +25792,6 @@ impl AlbumDateCreatedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
 		AlbumWhereParam::DateCreatedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
-		AlbumWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
-		AlbumWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
-		AlbumWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
-		AlbumWhereParam::DateCreatedAfterEquals(value)
-	}
 }
 pub struct AlbumSetDateCreated(chrono::DateTime<chrono::Utc>);
 impl From<AlbumSetDateCreated> for AlbumSetParam {
@@ -29782,18 +25839,6 @@ impl AlbumDateModifiedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
 		AlbumWhereParam::DateModifiedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
-		AlbumWhereParam::DateModifiedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
-		AlbumWhereParam::DateModifiedAfter(value)
-	}
-	pub fn before_equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
-		AlbumWhereParam::DateModifiedBeforeEquals(value)
-	}
-	pub fn after_equals(&self, value: chrono::DateTime<chrono::Utc>) -> AlbumWhereParam {
-		AlbumWhereParam::DateModifiedAfterEquals(value)
 	}
 }
 pub struct AlbumSetDateModified(chrono::DateTime<chrono::Utc>);
@@ -29934,10 +25979,6 @@ pub enum AlbumWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	NameEquals(String),
 	NameInVec(Vec<String>),
 	NameNotInVec(Vec<String>),
@@ -29949,8 +25990,6 @@ pub enum AlbumWhereParam {
 	NameStartsWith(String),
 	NameEndsWith(String),
 	NameNot(String),
-	NameHasPrefix(String),
-	NameHasSuffix(String),
 	IsHiddenEquals(bool),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -29960,10 +25999,6 @@ pub enum AlbumWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateModifiedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -29972,10 +26007,6 @@ pub enum AlbumWhereParam {
 	DateModifiedGt(chrono::DateTime<chrono::Utc>),
 	DateModifiedGte(chrono::DateTime<chrono::Utc>),
 	DateModifiedNot(chrono::DateTime<chrono::Utc>),
-	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
-	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
 }
 impl AlbumWhereParam {
 	pub fn to_field(&self) -> Field {
@@ -30086,42 +26117,6 @@ impl AlbumWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -30244,24 +26239,6 @@ impl AlbumWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::NameHasPrefix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::NameHasSuffix(value) => Field {
-				name: "name".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::IsHiddenEquals(value) => Field {
 				name: "is_hidden".into(),
 				fields: Some(vec![Field {
@@ -30361,42 +26338,6 @@ impl AlbumWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateModifiedEquals(value) => Field {
 				name: "date_modified".into(),
 				fields: Some(vec![Field {
@@ -30482,42 +26423,6 @@ impl AlbumWhereParam {
 				name: "date_modified".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBefore(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfter(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBeforeEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfterEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -30651,7 +26556,7 @@ pub struct AlbumFindFirst<'a> {
 	with_params: Vec<AlbumWithParam>,
 }
 impl<'a> AlbumFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<AlbumData> {
+	pub async fn exec(self) -> QueryResult<Option<AlbumData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -30710,7 +26615,7 @@ pub struct AlbumFindUnique<'a> {
 	with_params: Vec<AlbumWithParam>,
 }
 impl<'a> AlbumFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<AlbumData> {
+	pub async fn exec(self) -> QueryResult<Option<AlbumData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -30834,7 +26739,7 @@ impl<'a> AlbumUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<AlbumSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -31081,16 +26986,16 @@ impl CommentIdField {
 		CommentCursor::Id(cursor)
 	}
 	pub fn increment(&self, value: i32) -> CommentSetParam {
-		CommentSetParam::Id(value)
+		CommentSetParam::SetId(value)
 	}
 	pub fn decrement(&self, value: i32) -> CommentSetParam {
-		CommentSetParam::Id(value)
+		CommentSetParam::SetId(value)
 	}
 	pub fn multiply(&self, value: i32) -> CommentSetParam {
-		CommentSetParam::Id(value)
+		CommentSetParam::SetId(value)
 	}
 	pub fn divide(&self, value: i32) -> CommentSetParam {
-		CommentSetParam::Id(value)
+		CommentSetParam::SetId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> CommentWhereParam {
 		CommentWhereParam::IdInVec(value)
@@ -31112,18 +27017,6 @@ impl CommentIdField {
 	}
 	pub fn not(&self, value: i32) -> CommentWhereParam {
 		CommentWhereParam::IdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> CommentWhereParam {
-		CommentWhereParam::IdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> CommentWhereParam {
-		CommentWhereParam::IdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> CommentWhereParam {
-		CommentWhereParam::IdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> CommentWhereParam {
-		CommentWhereParam::IdGte(value)
 	}
 }
 pub struct CommentSetId(i32);
@@ -31176,12 +27069,6 @@ impl CommentContentField {
 	pub fn not(&self, value: String) -> CommentWhereParam {
 		CommentWhereParam::ContentNot(value)
 	}
-	pub fn has_prefix(&self, value: String) -> CommentWhereParam {
-		CommentWhereParam::ContentHasPrefix(value)
-	}
-	pub fn has_suffix(&self, value: String) -> CommentWhereParam {
-		CommentWhereParam::ContentHasSuffix(value)
-	}
 }
 pub struct CommentSetContent(String);
 impl From<CommentSetContent> for CommentSetParam {
@@ -31229,24 +27116,6 @@ impl CommentDateCreatedField {
 	}
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
 		CommentWhereParam::DateCreatedNot(value)
-	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
-		CommentWhereParam::DateCreatedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
-		CommentWhereParam::DateCreatedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> CommentWhereParam {
-		CommentWhereParam::DateCreatedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> CommentWhereParam {
-		CommentWhereParam::DateCreatedAfterEquals(value)
 	}
 }
 pub struct CommentSetDateCreated(chrono::DateTime<chrono::Utc>);
@@ -31296,24 +27165,6 @@ impl CommentDateModifiedField {
 	pub fn not(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
 		CommentWhereParam::DateModifiedNot(value)
 	}
-	pub fn before(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
-		CommentWhereParam::DateModifiedBefore(value)
-	}
-	pub fn after(&self, value: chrono::DateTime<chrono::Utc>) -> CommentWhereParam {
-		CommentWhereParam::DateModifiedAfter(value)
-	}
-	pub fn before_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> CommentWhereParam {
-		CommentWhereParam::DateModifiedBeforeEquals(value)
-	}
-	pub fn after_equals(
-		&self,
-		value: chrono::DateTime<chrono::Utc>,
-	) -> CommentWhereParam {
-		CommentWhereParam::DateModifiedAfterEquals(value)
-	}
 }
 pub struct CommentSetDateModified(chrono::DateTime<chrono::Utc>);
 impl From<CommentSetDateModified> for CommentSetParam {
@@ -31336,16 +27187,16 @@ impl CommentFileIdField {
 		CommentCursor::FileId(cursor)
 	}
 	pub fn increment(&self, value: i32) -> CommentSetParam {
-		CommentSetParam::FileId(value)
+		CommentSetParam::SetFileId(value)
 	}
 	pub fn decrement(&self, value: i32) -> CommentSetParam {
-		CommentSetParam::FileId(value)
+		CommentSetParam::SetFileId(value)
 	}
 	pub fn multiply(&self, value: i32) -> CommentSetParam {
-		CommentSetParam::FileId(value)
+		CommentSetParam::SetFileId(value)
 	}
 	pub fn divide(&self, value: i32) -> CommentSetParam {
-		CommentSetParam::FileId(value)
+		CommentSetParam::SetFileId(value)
 	}
 	pub fn in_vec(&self, value: Vec<i32>) -> CommentWhereParam {
 		CommentWhereParam::FileIdInVec(value)
@@ -31367,18 +27218,6 @@ impl CommentFileIdField {
 	}
 	pub fn not(&self, value: i32) -> CommentWhereParam {
 		CommentWhereParam::FileIdNot(value)
-	}
-	pub fn lt(&self, value: i32) -> CommentWhereParam {
-		CommentWhereParam::FileIdLt(value)
-	}
-	pub fn lte(&self, value: i32) -> CommentWhereParam {
-		CommentWhereParam::FileIdLte(value)
-	}
-	pub fn gt(&self, value: i32) -> CommentWhereParam {
-		CommentWhereParam::FileIdGt(value)
-	}
-	pub fn gte(&self, value: i32) -> CommentWhereParam {
-		CommentWhereParam::FileIdGte(value)
 	}
 }
 pub struct CommentSetFileId(i32);
@@ -31571,10 +27410,6 @@ pub enum CommentWhereParam {
 	IdGt(i32),
 	IdGte(i32),
 	IdNot(i32),
-	IdLt(i32),
-	IdLte(i32),
-	IdGt(i32),
-	IdGte(i32),
 	ContentEquals(String),
 	ContentInVec(Vec<String>),
 	ContentNotInVec(Vec<String>),
@@ -31586,8 +27421,6 @@ pub enum CommentWhereParam {
 	ContentStartsWith(String),
 	ContentEndsWith(String),
 	ContentNot(String),
-	ContentHasPrefix(String),
-	ContentHasSuffix(String),
 	DateCreatedEquals(chrono::DateTime<chrono::Utc>),
 	DateCreatedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateCreatedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -31596,10 +27429,6 @@ pub enum CommentWhereParam {
 	DateCreatedGt(chrono::DateTime<chrono::Utc>),
 	DateCreatedGte(chrono::DateTime<chrono::Utc>),
 	DateCreatedNot(chrono::DateTime<chrono::Utc>),
-	DateCreatedBefore(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfter(chrono::DateTime<chrono::Utc>),
-	DateCreatedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateCreatedAfterEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedEquals(chrono::DateTime<chrono::Utc>),
 	DateModifiedInVec(Vec<chrono::DateTime<chrono::Utc>>),
 	DateModifiedNotInVec(Vec<chrono::DateTime<chrono::Utc>>),
@@ -31608,10 +27437,6 @@ pub enum CommentWhereParam {
 	DateModifiedGt(chrono::DateTime<chrono::Utc>),
 	DateModifiedGte(chrono::DateTime<chrono::Utc>),
 	DateModifiedNot(chrono::DateTime<chrono::Utc>),
-	DateModifiedBefore(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfter(chrono::DateTime<chrono::Utc>),
-	DateModifiedBeforeEquals(chrono::DateTime<chrono::Utc>),
-	DateModifiedAfterEquals(chrono::DateTime<chrono::Utc>),
 	FileIdEquals(i32),
 	FileIdInVec(Vec<i32>),
 	FileIdNotInVec(Vec<i32>),
@@ -31620,10 +27445,6 @@ pub enum CommentWhereParam {
 	FileIdGt(i32),
 	FileIdGte(i32),
 	FileIdNot(i32),
-	FileIdLt(i32),
-	FileIdLte(i32),
-	FileIdGt(i32),
-	FileIdGte(i32),
 	FileIs(Vec<FileWhereParam>),
 }
 impl CommentWhereParam {
@@ -31735,42 +27556,6 @@ impl CommentWhereParam {
 				name: "id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdLte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGt(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::IdGte(value) => Field {
-				name: "id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -31893,24 +27678,6 @@ impl CommentWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::ContentHasPrefix(value) => Field {
-				name: "content".into(),
-				fields: Some(vec![Field {
-					name: "starts_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::ContentHasSuffix(value) => Field {
-				name: "content".into(),
-				fields: Some(vec![Field {
-					name: "ends_with".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::DateCreatedEquals(value) => Field {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
@@ -31996,42 +27763,6 @@ impl CommentWhereParam {
 				name: "date_created".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBefore(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfter(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedBeforeEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateCreatedAfterEquals(value) => Field {
-				name: "date_created".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -32127,42 +27858,6 @@ impl CommentWhereParam {
 				}]),
 				..Default::default()
 			},
-			Self::DateModifiedBefore(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfter(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedBeforeEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::DateModifiedAfterEquals(value) => Field {
-				name: "date_modified".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
 			Self::FileIdEquals(value) => Field {
 				name: "file_id".into(),
 				fields: Some(vec![Field {
@@ -32248,42 +27943,6 @@ impl CommentWhereParam {
 				name: "file_id".into(),
 				fields: Some(vec![Field {
 					name: "not".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdLt(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "lt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdLte(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "lte".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdGt(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "gt".into(),
-					value: Some(serde_json::to_value(value).unwrap()),
-					..Default::default()
-				}]),
-				..Default::default()
-			},
-			Self::FileIdGte(value) => Field {
-				name: "file_id".into(),
-				fields: Some(vec![Field {
-					name: "gte".into(),
 					value: Some(serde_json::to_value(value).unwrap()),
 					..Default::default()
 				}]),
@@ -32426,7 +28085,7 @@ pub struct CommentFindFirst<'a> {
 	with_params: Vec<CommentWithParam>,
 }
 impl<'a> CommentFindFirst<'a> {
-	pub async fn exec(self) -> QueryResult<CommentData> {
+	pub async fn exec(self) -> QueryResult<Option<CommentData>> {
 		let Self {
 			mut query,
 			order_by_params,
@@ -32485,7 +28144,7 @@ pub struct CommentFindUnique<'a> {
 	with_params: Vec<CommentWithParam>,
 }
 impl<'a> CommentFindUnique<'a> {
-	pub async fn exec(self) -> QueryResult<CommentData> {
+	pub async fn exec(self) -> QueryResult<Option<CommentData>> {
 		let Self {
 			mut query,
 			with_params,
@@ -32613,7 +28272,7 @@ impl<'a> CommentUpsertOne<'a> {
 		});
 		self
 	}
-	pub fn update(mut self, params: Vec<UserSetParam>) -> Self {
+	pub fn update(mut self, params: Vec<CommentSetParam>) -> Self {
 		self.query.inputs.push(Input {
 			name: "update".into(),
 			fields: params
@@ -32790,7 +28449,7 @@ impl<'a> CommentActions<'a> {
 	}
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum MigrationScalarFieldEnum {
+pub enum MigrationScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "name")]
@@ -32803,7 +28462,7 @@ enum MigrationScalarFieldEnum {
 	AppliedAt,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum LibraryScalarFieldEnum {
+pub enum LibraryScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "uuid")]
@@ -32822,7 +28481,7 @@ enum LibraryScalarFieldEnum {
 	Timezone,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum LibraryStatisticsScalarFieldEnum {
+pub enum LibraryStatisticsScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "date_captured")]
@@ -32839,7 +28498,7 @@ enum LibraryStatisticsScalarFieldEnum {
 	TotalUniqueBytes,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum ClientScalarFieldEnum {
+pub enum ClientScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "uuid")]
@@ -32860,7 +28519,7 @@ enum ClientScalarFieldEnum {
 	DateCreated,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum LocationScalarFieldEnum {
+pub enum LocationScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "name")]
@@ -32887,7 +28546,7 @@ enum LocationScalarFieldEnum {
 	DateCreated,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum FileScalarFieldEnum {
+pub enum FileScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "kind")]
@@ -32910,7 +28569,7 @@ enum FileScalarFieldEnum {
 	DateIndexed,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum FilePathScalarFieldEnum {
+pub enum FilePathScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "is_dir")]
@@ -32939,7 +28598,7 @@ enum FilePathScalarFieldEnum {
 	DateIndexed,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum TagScalarFieldEnum {
+pub enum TagScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "name")]
@@ -32956,7 +28615,7 @@ enum TagScalarFieldEnum {
 	DateModified,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum TagOnFileScalarFieldEnum {
+pub enum TagOnFileScalarFieldEnum {
 	#[serde(rename = "date_created")]
 	DateCreated,
 	#[serde(rename = "tag_id")]
@@ -32965,7 +28624,7 @@ enum TagOnFileScalarFieldEnum {
 	FileId,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum LabelScalarFieldEnum {
+pub enum LabelScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "name")]
@@ -32976,7 +28635,7 @@ enum LabelScalarFieldEnum {
 	DateModified,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum LabelOnFileScalarFieldEnum {
+pub enum LabelOnFileScalarFieldEnum {
 	#[serde(rename = "date_created")]
 	DateCreated,
 	#[serde(rename = "label_id")]
@@ -32985,7 +28644,7 @@ enum LabelOnFileScalarFieldEnum {
 	FileId,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum JobScalarFieldEnum {
+pub enum JobScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "action")]
@@ -33004,7 +28663,7 @@ enum JobScalarFieldEnum {
 	SecondsElapsed,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum SpaceScalarFieldEnum {
+pub enum SpaceScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "name")]
@@ -33019,7 +28678,7 @@ enum SpaceScalarFieldEnum {
 	LibraryId,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum AlbumScalarFieldEnum {
+pub enum AlbumScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "name")]
@@ -33032,7 +28691,7 @@ enum AlbumScalarFieldEnum {
 	DateModified,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum CommentScalarFieldEnum {
+pub enum CommentScalarFieldEnum {
 	#[serde(rename = "id")]
 	Id,
 	#[serde(rename = "content")]
@@ -33045,7 +28704,7 @@ enum CommentScalarFieldEnum {
 	FileId,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum SortOrder {
+pub enum SortOrder {
 	#[serde(rename = "asc")]
 	Asc,
 	#[serde(rename = "desc")]

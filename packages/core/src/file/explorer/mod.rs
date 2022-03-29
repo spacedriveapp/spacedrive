@@ -1,9 +1,11 @@
-use crate::{db, file::DirectoryWithContents, prisma::FilePath, Core, CoreContext};
-use anyhow::Result;
+use crate::{file::DirectoryWithContents, prisma::FilePath, CoreContext};
 
-use super::{File, FileError};
+use super::FileError;
 
-pub async fn open_dir(ctx: &CoreContext, path: &str) -> Result<DirectoryWithContents, FileError> {
+pub async fn open_dir(
+	ctx: &CoreContext,
+	path: &str,
+) -> Result<DirectoryWithContents, FileError> {
 	let db = &ctx.database;
 
 	println!("getting files... {:?}", &path);
@@ -15,14 +17,14 @@ pub async fn open_dir(ctx: &CoreContext, path: &str) -> Result<DirectoryWithCont
 			FilePath::is_dir().equals(true),
 		])
 		.exec()
-		.await
+		.await?
 		.ok_or(FileError::FileNotFound(path.to_string()))?;
 
 	let files = db
 		.file_path()
 		.find_many(vec![FilePath::parent_id().equals(directory.id)])
 		.exec()
-		.await;
+		.await?;
 
 	Ok(DirectoryWithContents {
 		directory: directory.into(),

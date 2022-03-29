@@ -38,7 +38,9 @@ pub async fn listen(port: Option<u32>) -> Result<(), Box<dyn Error>> {
 
 	loop {
 		match swarm.select_next_some().await {
-			SwarmEvent::NewListenAddr { address, .. } => println!("Listening on {:?}", address),
+			SwarmEvent::NewListenAddr { address, .. } => {
+				println!("Listening on {:?}", address)
+			},
 			SwarmEvent::Behaviour(event) => println!("{:?}", event),
 			_ => {},
 		}
