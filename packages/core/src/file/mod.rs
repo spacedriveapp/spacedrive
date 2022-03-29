@@ -14,13 +14,12 @@ pub mod indexer;
 pub mod thumb;
 pub mod watcher;
 
+// A unique file
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct File {
 	pub id: i64,
-	pub id_hash: String,
-	pub name: String,
-	pub extension: Option<String>,
+	pub partial_checksum: String,
 	pub checksum: Option<String>,
 	pub size_in_bytes: String,
 	pub encryption: EncryptionAlgorithm,
@@ -35,15 +34,16 @@ pub struct File {
 	pub file_paths: Vec<FilePath>,
 }
 
+// A physical file path
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct FilePath {
 	pub id: i64,
 	pub is_dir: bool,
+	pub location_id: i64,
 	pub materialized_path: String,
 	pub file_id: Option<i64>,
 	pub parent_id: Option<i64>,
-	pub location_id: i64,
 	#[ts(type = "string")]
 	pub date_indexed: chrono::DateTime<chrono::Utc>,
 	pub permissions: Option<String>,
@@ -68,9 +68,7 @@ impl Into<File> for FileData {
 	fn into(self) -> File {
 		File {
 			id: self.id,
-			id_hash: self.id_hash,
-			name: self.name,
-			extension: self.extension,
+			partial_checksum: self.partial_checksum,
 			checksum: self.checksum,
 			size_in_bytes: self.size_in_bytes.to_string(),
 			encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
