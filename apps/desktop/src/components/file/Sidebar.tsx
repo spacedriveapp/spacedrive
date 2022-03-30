@@ -1,9 +1,9 @@
-import { DownloadIcon, LockClosedIcon } from '@heroicons/react/outline';
+import { LockClosedIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
 import { appWindow } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState }  from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
 import { Button } from '../primitive';
