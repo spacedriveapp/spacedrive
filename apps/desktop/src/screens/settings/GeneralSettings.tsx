@@ -30,7 +30,44 @@ export default function GeneralSettings() {
         <p className="mt-1 text-sm text-gray-400">Basic settings related to this client</p>
         {/* <hr className="mt-4 border-gray-550" /> */}
       </div>
-
+      <div className="flex flex-row pb-4 space-x-2">
+        <Button
+          className="w-40"
+          variant="gray"
+          size="sm"
+          // onClick={() =>
+          //   mutate({
+          //     id: 1
+          //   })
+          // }
+        >
+          Generate Thumbnails
+        </Button>
+        <Button
+          className="w-40"
+          variant="gray"
+          size="sm"
+          // onClick={() =>
+          //   mutate({
+          //     id: 1
+          //   })
+          // }
+        >
+          Open data folder
+        </Button>
+        <Button
+          className="w-40"
+          variant="gray"
+          size="sm"
+          // onClick={() =>
+          //   mutate({
+          //     id: 1
+          //   })
+          // }
+        >
+          Purge database
+        </Button>
+      </div>
       <InputContainer
         title="Test scan directory"
         description="This will create a job to scan the directory you specify to the database."
@@ -56,18 +93,7 @@ export default function GeneralSettings() {
           </Button>
         </div>
       </InputContainer>
-      <Button
-        className="w-40"
-        variant="primary"
-        size="sm"
-        // onClick={() =>
-        //   mutate({
-        //     id: 1
-        //   })
-        // }
-      >
-        Generate Thumbnails
-      </Button>
+
       <ReactJson
         // collapsed
         enableClipboard={false}
