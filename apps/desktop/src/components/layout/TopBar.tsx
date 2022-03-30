@@ -2,7 +2,6 @@ import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
 import clsx from 'clsx';
 import { ArrowsLeftRight, Cloud, FolderPlus, Key, Tag, TerminalWindow } from 'phosphor-react';
 import React from 'react';
-import { useExplorerStore } from '../../store/explorer';
 import { ButtonProps } from '../primitive';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
@@ -40,15 +39,14 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
   let location = useLocation();
-  const [goBack] = useExplorerStore((state) => [state.goBack]);
   return (
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl flex-shrink-0 items-center border-b  bg-gray-50 dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl flex-shrink-0 items-center border-b  dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
       >
         <div className="flex">
-          <TopBarButton icon={ChevronLeftIcon} onClick={goBack} />
+          <TopBarButton icon={ChevronLeftIcon} onClick={() => {}} />
           <TopBarButton icon={ChevronRightIcon} />
         </div>
         {/* <div className="flex mx-8 space-x-[1px]">

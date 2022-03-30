@@ -17,14 +17,14 @@ module.exports = {
       },
       colors: {
         primary: {
-          DEFAULT: '#2599FF',
+          DEFAULT: '#B559FD',
           50: '#FFFFFF',
           100: '#F1F8FF',
           200: '#BEE1FF',
           300: '#8BC9FF',
-          400: '#58B1FF',
-          500: '#2599FF',
-          600: '#0081F1',
+          400: '#B559FD',
+          500: '#B559FD',
+          600: '#B559FD',
           700: '#0065BE',
           800: '#004A8B',
           900: '#002F58'

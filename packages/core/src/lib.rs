@@ -11,6 +11,8 @@ use tokio::sync::{
 };
 use ts_rs::TS;
 
+use crate::file::thumb::ThumbnailJob;
+
 // init modules
 pub mod client;
 pub mod crypto;
@@ -252,6 +254,10 @@ impl Core {
 			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
 			ClientCommand::LibDelete { id: _ } => todo!(),
 			ClientCommand::TagUpdate { name: _, color: _ } => todo!(),
+			ClientCommand::GenerateThumbsForLocation { id } => {
+				ctx.spawn_job(Box::new(ThumbnailJob { location_id: id }));
+				CoreResponse::Success(())
+			},
 		})
 	}
 
@@ -323,6 +329,7 @@ pub enum ClientCommand {
 	LocDelete { id: i32 },
 	// System
 	SysVolumeUnmount { id: i32 },
+	GenerateThumbsForLocation { id: i32 },
 }
 
 // represents an event this library can emit

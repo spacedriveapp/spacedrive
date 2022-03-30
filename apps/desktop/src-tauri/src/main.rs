@@ -12,7 +12,10 @@ async fn client_query_transport(
 ) -> Result<CoreResponse, String> {
   match core.query(data).await {
     Ok(response) => Ok(response),
-    Err(err) => Err(err.to_string()),
+    Err(err) => {
+      println!("query error: {:?}", err);
+      Err(err.to_string())
+    }
   }
 }
 
@@ -23,7 +26,10 @@ async fn client_command_transport(
 ) -> Result<CoreResponse, String> {
   match core.command(data).await {
     Ok(response) => Ok(response),
-    Err(err) => Err(err.to_string()),
+    Err(err) => {
+      println!("command error: {:?}", err);
+      Err(err.to_string())
+    }
   }
 }
 
