@@ -9,6 +9,8 @@ pub enum DatabaseError {
 	MissingConnection,
 	#[error("Unable find current_library in the client config")]
 	MalformedConfig,
+	#[error("Unable to initialise the Prisma client")]
+	ClientError(#[from] prisma::NewClientError),
 }
 
 pub async fn create_connection() -> Result<PrismaClient, DatabaseError> {
@@ -23,6 +25,6 @@ pub async fn create_connection() -> Result<PrismaClient, DatabaseError> {
 	let path = current_library.library_path.clone();
 	// TODO: Error handling when brendan adds it to prisma-client-rust
 
-	let client = prisma::new_client_with_url(&format!("file:{}", &path)).await;
+	let client = prisma::new_client_with_url(&format!("file:{}", &path)).await?;
 	Ok(client)
 }
