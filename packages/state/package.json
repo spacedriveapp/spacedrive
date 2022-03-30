@@ -24,6 +24,7 @@
     "preset": "scripts/jest/node"
   },
   "dependencies": {
+    "@sd/core": "*",
     "eventemitter3": "^4.0.7",
     "immer": "^9.0.12",
     "react-query": "^3.34.16",

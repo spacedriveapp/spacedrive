@@ -3,7 +3,7 @@ use log::{error, info};
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
 use state::client::ClientState;
-use std::{fs, sync::Arc};
+use std::{fs, path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -258,6 +258,11 @@ impl Core {
 				ctx.spawn_job(Box::new(ThumbnailJob { location_id: id }));
 				CoreResponse::Success(())
 			},
+			ClientCommand::PurgeDatabase => {
+				fs::remove_file(Path::new(&self.state.data_path).join("library.db"))
+					.unwrap();
+				CoreResponse::Success(())
+			},
 		})
 	}
 
@@ -330,6 +335,7 @@ pub enum ClientCommand {
 	// System
 	SysVolumeUnmount { id: i32 },
 	GenerateThumbsForLocation { id: i32 },
+	PurgeDatabase,
 }
 
 // represents an event this library can emit

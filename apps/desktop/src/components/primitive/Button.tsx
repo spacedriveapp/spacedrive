@@ -36,15 +36,16 @@ const variants = {
     shadow-sm
     hover:bg-gray-200 
     active:bg-gray-100  
-    dark:bg-gray-800
-    dark:hover:bg-gray-700
-    dark:active:bg-gray-700
+    dark:bg-gray-500
+    dark:hover:bg-gray-500
+    dark:hover:bg-opacity-80
+    dark:active:bg-gray-550
     dark:active:opacity-80
     
     border-gray-200 
     hover:border-gray-300
     active:border-gray-200
-    dark:border-gray-700 
+    dark:border-gray-600 
     dark:active:border-gray-600 
     dark:hover:border-gray-600
 
