@@ -10,12 +10,12 @@ edition = "2018"
 build = "src/build.rs"
 
 [build-dependencies]
-tauri-build = { version = "1.0.0-beta.3" }
+tauri-build = { version = "1.0.0-rc.5", features = [] }
 swift-rs = "0.2.3"
 
 [dependencies]
 # Project dependencies
-tauri = { git = "https://github.com/tauri-apps/tauri", branch = "next", features = ["api-all"] }
+tauri = { version = "1.0.0-rc.6", features = ["api-all"] }
 sdcorelib = { path = "../../../packages/core" }
 # tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
 
