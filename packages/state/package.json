@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "eventemitter3": "^4.0.7",
-    "react-query": "^3.34.16"
+    "immer": "^9.0.12",
+    "react-query": "^3.34.16",
+    "zustand": "^3.7.1"
   }
 }
