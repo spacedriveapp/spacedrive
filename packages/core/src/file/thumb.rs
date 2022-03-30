@@ -2,13 +2,12 @@ use crate::prisma::FilePathData;
 use crate::state::client;
 use crate::{
 	job::{jobs::Job, worker::WorkerContext},
-	prisma::{FilePath, Location},
+	prisma::FilePath,
 	CoreContext,
 };
 use anyhow::Result;
 use image::*;
 use prisma_client_rust::operator::or;
-use std::fs;
 use std::path::Path;
 use webp::*;
 

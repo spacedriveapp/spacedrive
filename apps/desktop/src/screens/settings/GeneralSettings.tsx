@@ -15,7 +15,8 @@ export default function GeneralSettings() {
 
   const [fakeSliderVal, setFakeSliderVal] = useState([30, 0]);
 
-  const { mutate } = useBridgeCommand('LocCreate');
+  const { mutate: createLocation } = useBridgeCommand('LocCreate');
+  // const { mutate } = useBridgeCommand('Gen');
 
   // const fileUploader = useRef<HTMLInputElement | null>(null);
   const { data: client } = useBridgeQuery('ClientGetState');
@@ -31,8 +32,8 @@ export default function GeneralSettings() {
       </div>
 
       <InputContainer
-        title="Quick scan directory"
-        description="The directory for which this application will perform a detailed scan of the contents and sub directories"
+        title="Test scan directory"
+        description="This will create a job to scan the directory you specify to the database."
       >
         <div className="flex flex-row">
           <Input
@@ -45,19 +46,28 @@ export default function GeneralSettings() {
           <Button
             className="ml-2"
             variant="primary"
-            onClick={async () => {
-              // await invoke('scan_dir', {
-              //   path: client?.data_path
-              // });
-              mutate({
+            onClick={() =>
+              createLocation({
                 path: tempWatchDir
-              });
-            }}
+              })
+            }
           >
             Scan Now
           </Button>
         </div>
       </InputContainer>
+      <Button
+        className="w-40"
+        variant="primary"
+        size="sm"
+        // onClick={() =>
+        //   mutate({
+        //     id: 1
+        //   })
+        // }
+      >
+        Generate Thumbnails
+      </Button>
       <ReactJson
         // collapsed
         enableClipboard={false}
