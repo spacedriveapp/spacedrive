@@ -642,21 +642,21 @@ impl MigrationWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -2449,21 +2449,21 @@ impl LibraryWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -4404,21 +4404,21 @@ impl LibraryStatisticsWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -6420,21 +6420,21 @@ impl ClientWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -8791,21 +8791,21 @@ impl LocationWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -11422,21 +11422,21 @@ impl FileWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -14440,21 +14440,21 @@ impl FilePathWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -16961,21 +16961,21 @@ impl TagWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -18556,21 +18556,21 @@ impl TagOnFileWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -19854,21 +19854,21 @@ impl LabelWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -21179,21 +21179,21 @@ impl LabelOnFileWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -22726,21 +22726,21 @@ impl JobWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -24603,21 +24603,21 @@ impl SpaceWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -26114,21 +26114,21 @@ impl AlbumWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
@@ -27553,21 +27553,21 @@ impl CommentWhereParam {
 	pub fn to_field(self) -> Field {
 		match self {
 			Self::Not(value) => Field {
-				name: "Not".into(),
+				name: "NOT".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::Or(value) => Field {
-				name: "Or".into(),
+				name: "OR".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),
 				..Default::default()
 			},
 			Self::And(value) => Field {
-				name: "And".into(),
+				name: "AND".into(),
 				list: true,
 				wrap_list: true,
 				fields: Some(value.into_iter().map(|f| f.to_field()).collect()),

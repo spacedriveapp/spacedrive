@@ -216,7 +216,7 @@ fn prepare_values(
 	};
 
 	let values = format!(
-		"({}, {}, {}, \"{}\", \"{}\", \"{}\", \"{}\", \"{}\")",
+		"({}, {}, {}, \"{}\", \"{}\", \"{}\", {}, \"{}\")",
 		id,
 		metadata.is_dir(),
 		location.id,
@@ -225,7 +225,7 @@ fn prepare_values(
 		partial_checksum,
 		parent_id
 			.clone()
-			.map(|id| id.to_string())
+			.map(|id| format!("\"{}\"", &id))
 			.unwrap_or("NULL".to_string()),
 		&time::system_time_to_date_time(metadata.created())
 			.unwrap()
