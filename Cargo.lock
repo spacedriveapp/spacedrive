@@ -6525,6 +6525,7 @@ dependencies = [
  "futures",
  "hostname 0.3.1",
  "hotwatch",
+ "image",
  "include_dir",
  "int-enum",
  "lazy_static",
@@ -6547,6 +6548,7 @@ dependencies = [
  "ts-rs",
  "uuid",
  "walkdir",
+ "webp",
 ]
 
 [[package]]
