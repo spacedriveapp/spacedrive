@@ -1,12 +1,11 @@
 {
-    "compilerOptions": {
-        "lib": ["esnext"],
-        "module": "esnext",
-        "outDir": "./dist",
-        "rootDir": "./lib"
-      },
-    "extends": "@sd/config/tsconfig/base.json",
-    "include": ["**/*.ts"],
-    "exclude": ["node_modules", "dist"]
-  }
-  
+  "compilerOptions": {
+      "lib": ["esnext"],
+      "module": "esnext",
+      "outDir": "./dist",
+      "rootDir": "./lib"
+  },
+  "extends": "../config/tsconfig/base.json",
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
