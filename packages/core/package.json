@@ -6,13 +6,10 @@
   "scripts": {
     "codegen": "cargo test && ts-node ./scripts/bindingsIndex.ts",
     "test": "cargo test",
-    "test:log": "cargo test -- --nocapture"
+    "test:log": "cargo test -- --nocapture",
+    "prisma": "prisma-client-rust"
   },
   "devDependencies": {
-    "prisma": "^3.10.0",
     "ts-node": "^10.7.0"
-  },
-  "dependencies": {
-    "@prisma/client": "^3.10.0"
   }
 }

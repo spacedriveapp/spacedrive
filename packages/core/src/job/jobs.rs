@@ -8,7 +8,7 @@ use crate::{
 };
 use anyhow::Result;
 use int_enum::IntEnum;
-use prisma_client_rust::operator::or;
+use prisma_client_rust::or;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::Mutex;
@@ -65,11 +65,12 @@ impl Jobs {
 		let db = &ctx.database;
 		let jobs = db
 			.job()
-			.find_many(vec![or(vec![
+			.find_many(vec![or![
 				prisma::Job::status().equals(JobStatus::Completed.int_value()),
+				prisma::Job::status().equals(JobStatus::Failed.int_value()),
 				prisma::Job::status().equals(JobStatus::Canceled.int_value()),
 				prisma::Job::status().equals(JobStatus::Queued.int_value()),
-			])])
+			]])
 			.exec()
 			.await?;
 
