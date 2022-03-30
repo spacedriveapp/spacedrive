@@ -1,6 +1,16 @@
+use std::env::consts;
+
 use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuItem, Submenu, WindowMenuEvent, Wry};
 
 pub(crate) fn get_menu() -> Menu {
+  match consts::OS {
+    "linux" => Menu::new(),
+    "macos" => custom_menu_bar(),
+    _ => Menu::new(),
+  }
+}
+
+fn custom_menu_bar() -> Menu {
   // let quit = CustomMenuItem::new("quit".to_string(), "Quit");
   // let close = CustomMenuItem::new("close".to_string(), "Close");
   // let jeff = CustomMenuItem::new("jeff".to_string(), "Jeff");

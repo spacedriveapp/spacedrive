@@ -1,0 +1,74 @@
+{
+  "package": {
+    "productName": "Spacedrive",
+    "version": "0.1.0"
+  },
+  "build": {
+    "distDir": "../dist",
+    "devPath": "http://localhost:8085",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "tauri": {
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "co.spacedrive.desktop",
+      "icon": ["icons/icon.icns"],
+      "resources": [],
+      "externalBin": [],
+      "copyright": "Jamie Pine",
+      "shortDescription": "Your personal virtual cloud.",
+      "longDescription": "Spacedrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. Spacedrive makes it possible to create a limitless directory of your digital life that will stand the test of time.",
+      "deb": {
+        "depends": [],
+        "useBootstrapper": false
+      },
+      "macOS": {
+        "frameworks": [],
+        "minimumSystemVersion": "",
+        "useBootstrapper": false,
+        "exceptionDomain": "",
+        "signingIdentity": null,
+        "entitlements": null
+      },
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      }
+    },
+    "updater": {
+      "active": false
+    },
+    "allowlist": {
+      "all": true,
+      "os": {
+        "all": true
+      },
+      "dialog": {
+        "all": true,
+        "open": true,
+        "save": true
+      }
+    },
+    "windows": [
+      {
+        "title": "Spacedrive",
+        "width": 1250,
+        "height": 625,
+        "resizable": true,
+        "fullscreen": false,
+        "alwaysOnTop": false,
+        "focus": true,
+        "fileDropEnabled": false,
+        "decorations": true,
+        "transparent": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src asset: blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
+    }
+  }
+}

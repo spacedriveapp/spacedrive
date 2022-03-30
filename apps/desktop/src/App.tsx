@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BrowserRouter,
   Location,
@@ -23,12 +23,28 @@ import SecuritySettings from './screens/settings/SecuritySettings';
 import LocationSettings from './screens/settings/LocationSettings';
 import { RedirectPage } from './screens/Redirect';
 import { QueryClient, QueryClientProvider } from 'react-query';
+import { platform } from '@tauri-apps/api/os';
 
 const queryClient = new QueryClient();
 
 function AppLayout() {
+  const [isWindowRounded, setIsWindowRounded] = useState(false);
+
+  useEffect(() => {
+    platform().then((platform) => {
+      if (platform === 'darwin') {
+        setIsWindowRounded(true);
+      }
+    });
+  }, []);
+
   return (
-    <div className="flex flex-row h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none rounded-xl dark:border-gray-500 dark:text-white dark:bg-gray-650">
+    <div
+      className={
+        'flex flex-row h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none dark:border-gray-500 dark:text-white dark:bg-gray-650' +
+        (isWindowRounded ? ' rounded-xl' : '')
+      }
+    >
       <Sidebar />
       <div className="flex flex-col w-full min-h-full">
         {/* <TopBar /> */}

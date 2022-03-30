@@ -3,13 +3,14 @@ import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/soli
 import { appWindow } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
 import { Button } from '../primitive';
 import { Dropdown } from '../primitive/Dropdown';
 import { DefaultProps } from '../primitive/types';
 import { useBridgeQuery } from '@sd/state';
+import { platform } from '@tauri-apps/api/os';
 
 interface SidebarProps extends DefaultProps {}
 
@@ -51,7 +52,16 @@ export function MacOSTrafficLights() {
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
+  const [isMacos, setIsMacos] = useState(false);
   const { data: volumes } = useBridgeQuery('SysGetVolumes');
+
+  useEffect(() => {
+    platform().then((platform) => {
+      if (platform === 'darwin') {
+        setIsMacos(true);
+      }
+    });
+  }, []);
 
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },
@@ -63,8 +73,11 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
   return (
     <div className="flex flex-col flex-shrink-0 min-h-full px-3 pb-1 overflow-x-hidden overflow-y-scroll border-r border-gray-100 w-46 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
-      <MacOSTrafficLights />
-      <div className="mt-6" />
+      {isMacos ? (
+        <>
+          <MacOSTrafficLights /> <div className="mt-6" />
+        </>
+      ) : null}
       <Dropdown
         buttonProps={{
           justifyLeft: true,
