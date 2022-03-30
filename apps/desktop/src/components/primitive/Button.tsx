@@ -90,7 +90,7 @@ export const Button: React.FC<ButtonProps> = ({ loading, ...props }) => {
     <button
       {...props}
       className={clsx(
-        'flex border rounded-md items-center transition-colors duration-100 cursor-default',
+        'border rounded-md items-center transition-colors duration-100 cursor-default',
         { 'opacity-5': loading, '!p-1': props.noPadding },
         { 'justify-center': !props.justifyLeft },
         sizes[props.size || 'default'],
