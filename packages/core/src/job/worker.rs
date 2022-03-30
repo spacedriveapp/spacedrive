@@ -112,12 +112,12 @@ impl Worker {
 			} else {
 				// handle completion
 				worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
-				worker_ctx
-					.core_ctx
-					.internal_sender
-					.send(InternalEvent::JobComplete(worker_ctx.uuid.clone()))
-					.unwrap_or(());
 			}
+			worker_ctx
+				.core_ctx
+				.internal_sender
+				.send(InternalEvent::JobComplete(worker_ctx.uuid.clone()))
+				.unwrap_or(());
 		});
 	}
 

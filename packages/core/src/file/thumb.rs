@@ -1,22 +1,93 @@
+use crate::prisma::FilePathData;
+use crate::state::client;
+use crate::{
+	job::{jobs::Job, worker::WorkerContext},
+	prisma::{FilePath, Location},
+	CoreContext,
+};
 use anyhow::Result;
-use mime;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::Cursor;
-use thumbnailer::{create_thumbnails, ThumbnailSize};
+use image::*;
+use prisma_client_rust::operator::or;
+use std::fs;
+use std::path::Path;
+use webp::*;
 
-pub async fn create_thumb(path: &str) -> Result<()> {
-	let file = File::open(path).unwrap();
-	let reader = BufReader::new(file);
+#[derive(Debug)]
+pub struct ThumbnailJob {
+	pub location_id: i32,
+}
 
-	let mut thumbnails =
-		create_thumbnails(reader, mime::IMAGE_PNG, [ThumbnailSize::Small]).unwrap();
+static THUMBNAIL_SIZE_FACTOR: f32 = 1.0;
+static THUMBNAIL_QUALITY: f32 = 30.0;
+static CACHE_DIR_NAME: &str = "thumbnails";
 
-	let thumbnail = thumbnails.pop().unwrap();
+#[async_trait::async_trait]
+impl Job for ThumbnailJob {
+	async fn run(&self, ctx: WorkerContext) -> Result<()> {
+		let core_ctx = ctx.core_ctx.clone();
+		let image_files = get_images(&core_ctx, self.location_id).await?;
 
-	let mut buf = Cursor::new(Vec::new());
+		for image_file in image_files {
+			generate_thumbnail(
+				&image_file.materialized_path,
+				&image_file.extension.unwrap(),
+				self.location_id,
+			)
+			.unwrap();
+		}
+		Ok(())
+	}
+}
 
-	thumbnail.write_png(&mut buf).unwrap();
+pub fn generate_thumbnail(
+	file_path: &str,
+	file_hash: &str,
+	location_id: i32,
+) -> Result<()> {
+	let config = client::get();
+	// Using `image` crate, open the included .jpg file
+	let img = image::open(file_path).unwrap();
+	let (w, h) = img.dimensions();
+	// Optionally, resize the existing photo and convert back into DynamicImage
+	let img: DynamicImage = image::DynamicImage::ImageRgba8(imageops::resize(
+		&img,
+		(w as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
+		(h as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
+		imageops::FilterType::Triangle,
+	));
+	// Create the WebP encoder for the above image
+	let encoder: Encoder = Encoder::from_image(&img).unwrap();
+
+	// Encode the image at a specified quality 0-100
+	let webp: WebPMemory = encoder.encode(THUMBNAIL_QUALITY);
+	// Define and write the WebP-encoded file to a given path
+	let output_path = Path::new(&config.data_path)
+		.join(CACHE_DIR_NAME)
+		.join(format!("{}", location_id))
+		.join(file_hash)
+		.with_extension("webp");
+	std::fs::write(&output_path, &*webp).unwrap();
 
 	Ok(())
+}
+
+pub async fn get_images(
+	ctx: &CoreContext,
+	location_id: i32,
+) -> Result<Vec<FilePathData>> {
+	let image_files = ctx
+		.database
+		.file_path()
+		.find_many(vec![or(vec![
+			FilePath::location_id().equals(location_id),
+			FilePath::extension().equals("png".into()),
+			FilePath::extension().equals("jpeg".into()),
+			FilePath::extension().equals("gif".into()),
+			FilePath::extension().equals("jpg".into()),
+			FilePath::extension().equals("webp".into()),
+		])])
+		.exec()
+		.await?;
+
+	Ok(image_files)
 }

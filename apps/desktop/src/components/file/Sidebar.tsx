@@ -133,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
             </div>
           );
         })}
-        <div className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-500 border border-dashed rounded border-transparent cursor-normal border-gray-550">
+        <div className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 dark:text-gray-500 border border-dashed rounded border-transparent cursor-normal border-gray-350 dark:border-gray-550">
           Add Location
         </div>
       </div>
