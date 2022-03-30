@@ -11,7 +11,7 @@ const INIT_MIGRATION: &str =
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
 pub async fn run_migrations(db_url: &str) -> Result<()> {
-	let client = prisma::new_client_with_url(&format!("file:{}", &db_url)).await;
+	let client = prisma::new_client_with_url(&format!("file:{}", &db_url)).await?;
 
 	match client
 		._query_raw::<serde_json::Value>(

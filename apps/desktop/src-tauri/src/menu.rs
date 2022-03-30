@@ -1,4 +1,4 @@
-use tauri::{CustomMenuItem, Menu, MenuItem, Submenu, WindowMenuEvent, Wry};
+use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuItem, Submenu, WindowMenuEvent, Wry};
 
 pub(crate) fn get_menu() -> Menu {
   // let quit = CustomMenuItem::new("quit".to_string(), "Quit");
@@ -11,7 +11,10 @@ pub(crate) fn get_menu() -> Menu {
   let spacedrive = Submenu::new(
     "Spacedrive",
     Menu::new()
-      .add_native_item(MenuItem::About("Spacedrive".to_string()))
+      .add_native_item(MenuItem::About(
+        "Spacedrive".to_string(),
+        AboutMetadata::new(),
+      )) // TODO: fill out about metadata
       .add_native_item(MenuItem::Separator)
       .add_native_item(MenuItem::Services)
       .add_native_item(MenuItem::Separator)
