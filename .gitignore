@@ -54,7 +54,6 @@ yalc.lock
 !http_cache/cache
 !http_cache/cache/cache.go
 *.log
-.npmrc
 !create-turbo/templates/**/*
 todos.md
 examples/*/*.lock
