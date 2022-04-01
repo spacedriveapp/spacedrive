@@ -16,9 +16,17 @@ export default function GeneralSettings() {
   const [fakeSliderVal, setFakeSliderVal] = useState([30, 0]);
 
   const { mutate: createLocation } = useBridgeCommand('LocCreate');
-  // const { mutate } = useBridgeCommand('Gen');
+  const { mutate: generateThumbsForLocation } = useBridgeCommand('GenerateThumbsForLocation', {
+    onMutate: (data) => {
+      console.log('GenerateThumbsForLocation', data);
+    }
+  });
+  const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
+    onMutate: () => {
+      alert('Database purged');
+    }
+  });
 
-  // const fileUploader = useRef<HTMLInputElement | null>(null);
   const { data: client } = useBridgeQuery('ClientGetState');
   const { data: jobs } = useBridgeQuery('JobGetRunning');
   const { data: jobsHistory } = useBridgeQuery('JobGetHistory');
@@ -35,11 +43,11 @@ export default function GeneralSettings() {
           className="w-40"
           variant="gray"
           size="sm"
-          // onClick={() =>
-          //   mutate({
-          //     id: 1
-          //   })
-          // }
+          onClick={() =>
+            generateThumbsForLocation({
+              id: 1
+            })
+          }
         >
           Generate Thumbnails
         </Button>
@@ -55,16 +63,7 @@ export default function GeneralSettings() {
         >
           Open data folder
         </Button>
-        <Button
-          className="w-40"
-          variant="gray"
-          size="sm"
-          // onClick={() =>
-          //   mutate({
-          //     id: 1
-          //   })
-          // }
-        >
+        <Button className="w-40" variant="gray" size="sm" onClick={() => purgeDB(undefined)}>
           Purge database
         </Button>
       </div>

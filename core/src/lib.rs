@@ -259,6 +259,7 @@ impl Core {
 				CoreResponse::Success(())
 			},
 			ClientCommand::PurgeDatabase => {
+				println!("Purging database...");
 				fs::remove_file(Path::new(&self.state.data_path).join("library.db"))
 					.unwrap();
 				CoreResponse::Success(())

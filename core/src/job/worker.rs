@@ -107,7 +107,8 @@ impl Worker {
 
 			let result = job.run(worker_ctx.clone()).await;
 
-			if let Err(_) = result {
+			if let Err(e) = result {
+				println!("job failed {:?}", e);
 				worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());
 			} else {
 				// handle completion

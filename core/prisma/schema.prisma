@@ -108,6 +108,7 @@ model FilePath {
     parent_id         Int?
     encryption        Int     @default(0)
     permissions       String?
+    temp_checksum     String?
 
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())

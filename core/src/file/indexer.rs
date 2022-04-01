@@ -167,7 +167,7 @@ pub async fn scan_path(
 		}
 		let raw_sql = format!(
 			r#"
-                INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_indexed) 
+                INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_indexed, temp_checksum) 
                 VALUES {}
             "#,
 			files.join(", ")
@@ -196,7 +196,7 @@ fn prepare_values(
 	let location_path = location.path.as_ref().unwrap().as_str();
 	// let size = metadata.len();
 	let name = extract_name(file_path.file_stem());
-	// let extension = extract_name(file_path.extension());
+	let extension = extract_name(file_path.extension());
 
 	let materialized_path = match file_path.to_str() {
 		Some(p) => p
@@ -216,13 +216,13 @@ fn prepare_values(
 	};
 
 	let values = format!(
-		"({}, {}, {}, \"{}\", \"{}\", \"{}\", {}, \"{}\")",
+		"({}, {}, {}, \"{}\", \"{}\", \"{}\", {}, \"{}\", \"{}\")",
 		id,
 		metadata.is_dir(),
 		location.id,
 		materialized_path,
 		name,
-		partial_checksum,
+		extension,
 		parent_id
 			.clone()
 			.map(|id| format!("\"{}\"", &id))
@@ -230,6 +230,7 @@ fn prepare_values(
 		&time::system_time_to_date_time(metadata.created())
 			.unwrap()
 			.to_string(),
+		partial_checksum
 	);
 
 	println!("{}", values);

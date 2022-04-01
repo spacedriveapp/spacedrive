@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::Result;
 use image::*;
-use prisma_client_rust::operator::or;
+use prisma_client_rust::or;
 use std::path::Path;
 use webp::*;
 
@@ -25,6 +25,8 @@ impl Job for ThumbnailJob {
 	async fn run(&self, ctx: WorkerContext) -> Result<()> {
 		let core_ctx = ctx.core_ctx.clone();
 		let image_files = get_images(&core_ctx, self.location_id).await?;
+
+		println!("Found {:?} files", image_files.len());
 
 		for image_file in image_files {
 			generate_thumbnail(
@@ -77,14 +79,16 @@ pub async fn get_images(
 	let image_files = ctx
 		.database
 		.file_path()
-		.find_many(vec![or(vec![
+		.find_many(vec![
 			FilePath::location_id().equals(location_id),
-			FilePath::extension().equals("png".into()),
-			FilePath::extension().equals("jpeg".into()),
-			FilePath::extension().equals("gif".into()),
-			FilePath::extension().equals("jpg".into()),
-			FilePath::extension().equals("webp".into()),
-		])])
+			or!(
+				FilePath::extension().equals("png".to_string()),
+				FilePath::extension().equals("jpeg".to_string()),
+				FilePath::extension().equals("jpg".to_string()),
+				FilePath::extension().equals("gif".to_string()),
+				FilePath::extension().equals("webp".to_string()),
+			),
+		])
 		.exec()
 		.await?;
 
