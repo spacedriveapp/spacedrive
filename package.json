@@ -2,24 +2,6 @@
   "name": "spacedrive",
   "version": "0.0.0",
   "private": true,
-  "workspaces": {
-    "nohoist": [
-      "**/react-native",
-      "**/react-native/**",
-      "**/@react-native-*",
-      "**/@react-native-*/**",
-      "**/react-native-*",
-      "**/react-native-*/**",
-      "**/expo",
-      "**/expo/**",
-      "**/@expo",
-      "**/@expo/**",
-      "**/expo-*",
-      "**/expo-*/**",
-      "**/metro-*",
-      "**/metro-*/**"
-    ]
-  },
   "scripts": {
     "prep": "pnpm db:gen && pnpm core codegen && pnpm build-packages",
     "build-packages": "pnpm client build && pnpm ui build",
@@ -66,5 +48,17 @@
     "npm": "pnpm",
     "yarn": "pnpm",
     "node": ">=14.0.0"
+  },
+  "workspaces": {
+    "nohoist": [
+      "**/react-native",
+      "**/react-native/**",
+      "**/@react-native-*",
+      "**/@react-native-*/**",
+      "**/react-native-*",
+      "**/react-native-*/**",
+      "**/metro-*",
+      "**/metro-*/**"
+    ]
   }
 }

@@ -23,7 +23,7 @@ pub trait Job: Send + Sync + Debug {
 
 // jobs struct is maintained by the core
 pub struct Jobs {
-	job_queue: Vec<Box<dyn Job>>,
+	// job_queue: Vec<Box<dyn Job>>,
 	// workers are spawned when jobs are picked off the queue
 	running_workers: HashMap<String, Arc<Mutex<Worker>>>,
 }
@@ -31,7 +31,7 @@ pub struct Jobs {
 impl Jobs {
 	pub fn new() -> Self {
 		Self {
-			job_queue: vec![],
+			// job_queue: vec![],
 			running_workers: HashMap::new(),
 		}
 	}
