@@ -77,7 +77,7 @@ Open source technology is the solution to this, Spacedrive is a universal experi
 # What is a VDFS?
 A VDFS (virtual distributed filesystem) is a concept first outlined in a UC Berkeley [paper](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.pdf) by Haoyuan Li. Simplified, it can be thought of to provide a single UNIX-like interface to a virtualized filesystem above a variety of storage layers. Due to being distributed in nature it has infinite expansion potential, while maintaining a consistent API. This paper describes its use for cloud computing, however the underlying concepts can be translated to open consumer software. Spacedrive is an alternate implementation 
 
-### Developer Installation Instructions
+# Developer Installation Instructions
 This environment uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
 
 - `$ cargo install prisma-client-rust-cli`
