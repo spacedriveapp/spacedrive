@@ -21,7 +21,8 @@
     ]
   },
   "scripts": {
-    "prepare": "pnpm db:gen && pnpm core codegen",
+    "prep": "pnpm db:gen && pnpm core codegen && pnpm build-packages",
+    "build-packages": "pnpm client build && pnpm ui build",
     "build": "turbo run build",
     "dev": "turbo run dev --parallel --scope=@sd/desktop --scope=@sd/client --scope=@sd/ui",
     "db:migrate": "cd packages/core && prisma migrate dev",
@@ -31,9 +32,10 @@
     "desktop": "pnpm --filter @sd/desktop -- ",
     "mobile": "pnpm --filter @sd/mobile -- ",
     "web": "pnpm --filter @sd/web -- ",
+    "ui": "pnpm --filter @sd/ui -- ",
     "core": "pnpm --filter @sd/core -- ",
     "docs": "pnpm --filter @sd/docs -- ",
-    "state": "pnpm --filter @sd/client -- ",
+    "client": "pnpm --filter @sd/client -- ",
     "server": "pnpm --filter @sd/server -- "
   },
   "devDependencies": {

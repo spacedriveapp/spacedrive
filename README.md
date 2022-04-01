@@ -110,10 +110,9 @@ This environment uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/in
 - `$ git clone https://github.com/spacedriveapp/spacedrive`
 - `$ cd spacedrive`
 - `$ pnpm i`
-- `$ pnpm prepare` - This runs all necessary codegen.
-- `$ pnpm dev` - You must run this once, to build all required dependencies.
+- `$ pnpm prep` - This runs all necessary codegen.
 
-To quickly run only the desktop app after `prepare` you can use:
+To quickly run only the desktop app after `prep` you can use:
 - `$ pnpm desktop dev`
 
 If you are making changes to any TS packages you must run their respective dev environments too, for example: 
