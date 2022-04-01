@@ -3,3 +3,4 @@
 *.db*
 /bindings
 /src/prisma.rs
+index.ts
