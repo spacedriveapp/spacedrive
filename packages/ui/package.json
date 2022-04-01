@@ -1,14 +1,21 @@
 {
   "name": "@sd/ui",
   "version": "0.0.0",
-  "main": "./index.tsx",
-  "types": "./index.tsx",
+  "main": "./dist/index.tsx",
+  "types": "./dist/index.tsx",
   "license": "MIT",
-  "devDependencies": {
-    "@types/react": "^17.0.37",
-    "@types/react-dom": "^17.0.11",
-    "tsconfig": "*",
-    "typescript": "^4.5.3",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@headlessui/react": "^1.4.0",
+    "clsx": "^1.1.1",
     "react": "^17.0.2"
+  },
+  "devDependencies": {
+    "@sd/config": "*",
+    "typescript": "^4.5.3",
+    "@types/react": "^17.0.37",
+    "@types/react-dom": "^17.0.11"
   }
 }
