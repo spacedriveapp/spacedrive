@@ -27,7 +27,7 @@
 
   </p>
 </p>
-Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-vdfs">VDFS</a>) written in Rust. <a href="https://spacedrive.app"><strong>Learn more »</strong></a>
+Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust. <a href="https://spacedrive.app"><strong>Learn more »</strong></a>
 <br/>
 <br/>
 Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use. 
@@ -74,13 +74,10 @@ We depend on cloud services like Google Photos and iCloud, but are locked in wit
 
 Open source technology is the solution to this, Spacedrive is a universal experience to manage files, across all platforms, devices and clouds. 
 
-# What is VDFS?
+# What is a VDFS?
 A VDFS (virtual distributed filesystem) is a concept first outlined in a UC Berkeley [paper](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.pdf) by Haoyuan Li. Simplified, it can be thought of to provide a single UNIX-like interface to a virtualized filesystem above a variety of storage layers. Due to being distributed in nature it has infinite expansion potential, while maintaining a consistent API. This paper describes its use for cloud computing, however the underlying concepts can be translated to open consumer software. Spacedrive is an alternate implementation 
 
-
-
-
-## Developer Installation Instructions
+### Developer Installation Instructions
 This environment uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
 
 - `$ cargo install prisma-client-rust-cli`
