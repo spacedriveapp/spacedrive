@@ -2,6 +2,15 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 (async function main() {
+  async function exists(path: string) {
+    try {
+      await fs.access(path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   const files = await fs.readdir(path.join(__dirname, '../bindings'));
   const bindings = files.filter((f) => f.endsWith('.ts'));
   let str = '';
@@ -10,7 +19,12 @@ import * as path from 'path';
   for (let binding of bindings) {
     str += `export * from './bindings/${binding.split('.')[0]}';\n`;
   }
-  await fs.rm(path.join(__dirname, '../index.ts'));
+
+  let indexExists = await exists(path.join(__dirname, '../index.ts'));
+
+  if (indexExists) {
+    await fs.rm(path.join(__dirname, '../index.ts'));
+  }
 
   await fs.writeFile(path.join(__dirname, '../index.ts'), str);
 })();
