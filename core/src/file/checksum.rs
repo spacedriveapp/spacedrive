@@ -14,6 +14,10 @@ pub fn partial_checksum(path: &str, size: u64) -> Result<String> {
 	let file = File::open(path)?;
 
 	let mut context = Context::new(&SHA256);
+
+	// include the file size in the checksum
+	context.update(&size.to_le_bytes());
+
 	// if size is small enough, just read the whole thing
 	if SAMPLE_COUNT * SAMPLE_SIZE > size {
 		let mut buf = vec![0u8; size.try_into()?];
