@@ -1,9 +1,10 @@
 use crate::job::jobs::JobReportUpdate;
 use crate::job::{jobs::Job, worker::WorkerContext};
 use crate::sys::locations::{create_location, LocationResource};
-use crate::util::time;
+
 use crate::CoreContext;
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::{collections::HashMap, fs, path::Path, path::PathBuf, time::Instant};
@@ -167,11 +168,12 @@ pub async fn scan_path(
 		}
 		let raw_sql = format!(
 			r#"
-                INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_indexed, temp_checksum) 
+                INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_created, temp_checksum) 
                 VALUES {}
             "#,
 			files.join(", ")
 		);
+		// println!("{}", raw_sql);
 		let count = db._execute_raw(&raw_sql).await;
 		println!("Inserted {:?} records", count);
 	}
@@ -215,8 +217,11 @@ fn prepare_values(
 		}
 	};
 
+	let date_created: DateTime<Utc> = metadata.created().unwrap().into();
+	let parsed_date_created = date_created.to_rfc3339_opts(SecondsFormat::Millis, true);
+
 	let values = format!(
-		"({}, {}, {}, \"{}\", \"{}\", \"{}\", {}, \"{}\", \"{}\")",
+		"({}, {}, {}, \"{}\", \"{}\", \"{}\", {},\"{}\", \"{}\")",
 		id,
 		metadata.is_dir(),
 		location.id,
@@ -227,9 +232,7 @@ fn prepare_values(
 			.clone()
 			.map(|id| format!("\"{}\"", &id))
 			.unwrap_or("NULL".to_string()),
-		&time::system_time_to_date_time(metadata.created())
-			.unwrap()
-			.to_string(),
+		parsed_date_created,
 		partial_checksum
 	);
 

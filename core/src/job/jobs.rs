@@ -78,6 +78,7 @@ impl Jobs {
 	}
 }
 
+#[derive(Debug)]
 pub enum JobReportUpdate {
 	TaskCount(usize),
 	CompletedTaskCount(usize),
