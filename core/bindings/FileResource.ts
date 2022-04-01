@@ -1,3 +1,0 @@
-import type { LocationResource } from "./LocationResource";
-
-export interface FileResource { id: bigint, is_dir: boolean, location_id: bigint, stem: string, name: string, extension: string | null, quick_checksum: string | null, full_checksum: string | null, size_in_bytes: string, encryption: bigint, date_created: string, date_modified: string, date_indexed: string, ipfs_id: string | null, location: LocationResource | null, parent_id: bigint | null, }

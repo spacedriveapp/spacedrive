@@ -1,2 +1,0 @@
-
-export type ClientQuery = { key: "ClientGetState" } | { key: "SysGetVolumes" } | { key: "LibGetTags" } | { key: "JobGetRunning" } | { key: "JobGetHistory" } | { key: "SysGetLocation", params: { id: number, } } | { key: "LibGetExplorerDir", params: { path: string, limit: number, } };

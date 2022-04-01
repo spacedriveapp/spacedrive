@@ -103,13 +103,26 @@ All TypeScript packages are compiled automatically using Turborepo.
 - `native-android`: a [Kotlin]() native binary
 
 
-## Developer Info
+## Developer Installation Instructions
+This environment uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
 
+- `$ cargo install prisma-client-rust-cli`
+- `$ git clone https://github.com/spacedriveapp/spacedrive`
+- `$ cd spacedrive`
+- `$ pnpm i`
+- `$ pnpm prepare` - This runs all necessary codegen.
+- `$ pnpm dev` - You must run this once, to build all required dependencies.
+
+To quickly run only the desktop app after `prepare` you can use:
+- `$ pnpm desktop dev`
+
+If you are making changes to any TS packages you must run their respective dev environments too, for example: 
+- `$ pnpm core dev`
+- `$ pnpm ui dev`
+  
+Or to run everything specific to desktop app development just run:
+- `$ pnpm dev`
+
+If you are having issues ensure you are using the following versions of Rust and Node:
 - Rust version: **1.58.1**
 - Node version: **17**
-
-Install instructions: 
-- `$ git clone https://github.com/jamiepine/spacedrive`
-- `$ cd spacedrive`
-- `$ yarn`
-- `$ yarn dev`

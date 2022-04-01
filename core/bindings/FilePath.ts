@@ -1,2 +1,0 @@
-
-export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, file_id: number | null, parent_id: number | null, date_indexed: string, permissions: string | null, }

@@ -21,8 +21,8 @@
     ]
   },
   "scripts": {
+    "prepare": "pnpm db:gen && pnpm core codegen",
     "build": "turbo run build",
-    "setup": "pnpm i && pnpm db:gen && pnpm dev",
     "dev": "turbo run dev --parallel --scope=@sd/desktop --scope=@sd/client --scope=@sd/ui",
     "db:migrate": "cd packages/core && prisma migrate dev",
     "db:gen": "pnpm core prisma generate",
