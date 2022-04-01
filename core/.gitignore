@@ -1,3 +1,5 @@
 /target
 /types
 *.db*
+/bindings
+/src/prisma.rs
