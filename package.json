@@ -23,7 +23,7 @@
   "scripts": {
     "build": "turbo run build",
     "setup": "pnpm i && pnpm db:gen && pnpm dev",
-    "dev": "turbo run dev --parallel --scope=@sd/desktop --scope=@sd/state --scope=@sd/ui",
+    "dev": "turbo run dev --parallel --scope=@sd/desktop --scope=@sd/client --scope=@sd/ui",
     "db:migrate": "cd packages/core && prisma migrate dev",
     "db:gen": "pnpm core prisma generate",
     "lint": "turbo run lint",
@@ -33,7 +33,7 @@
     "web": "pnpm --filter @sd/web -- ",
     "core": "pnpm --filter @sd/core -- ",
     "docs": "pnpm --filter @sd/docs -- ",
-    "state": "pnpm --filter @sd/state -- ",
+    "state": "pnpm --filter @sd/client -- ",
     "server": "pnpm --filter @sd/server -- "
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 // // DEPRECATE EVERYTHING IN THIS FILE
 // use anyhow::Result;
-// use sdcorelib::{
+// use sdcore::{
 //   file::{indexer, retrieve, retrieve::Directory, watcher::watch_dir},
 //   state::{client, client::ClientState},
 //   sys,

@@ -6509,7 +6509,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdcorelib"
+name = "sdcore"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -7022,7 +7022,7 @@ dependencies = [
  "once_cell",
  "rebind",
  "ring 0.17.0-alpha.11",
- "sdcorelib",
+ "sdcore",
  "serde",
  "serde_json",
  "sha256",

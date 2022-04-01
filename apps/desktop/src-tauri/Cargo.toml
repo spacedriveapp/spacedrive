@@ -16,7 +16,7 @@ swift-rs = "0.2.3"
 [dependencies]
 # Project dependencies
 tauri = { version = "1.0.0-rc.6", features = ["api-all", "macos-private-api"] }
-sdcorelib = { path = "../../../packages/core" }
+sdcore = { path = "../../../core" }
 # tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
 
 # Universal Dependencies

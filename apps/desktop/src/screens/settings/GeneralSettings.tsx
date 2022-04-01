@@ -7,7 +7,7 @@ import Listbox from '../../components/primitive/Listbox';
 
 import ReactJson from 'react-json-view';
 import Slider from '../../components/primitive/Slider';
-import { useBridgeCommand, useBridgeQuery } from '@sd/state';
+import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 
 export default function GeneralSettings() {
   const { data: volumes } = useBridgeQuery('SysGetVolumes');

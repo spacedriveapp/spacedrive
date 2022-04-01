@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use sdcorelib::{ClientCommand, ClientQuery, Core, CoreController, CoreEvent, CoreResponse};
+use sdcore::{ClientCommand, ClientQuery, Core, CoreController, CoreEvent, CoreResponse};
 use tauri::api::path;
 use tauri::Manager;
 mod menu;
