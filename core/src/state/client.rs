@@ -76,8 +76,6 @@ impl ClientState {
 		let file = fs::File::open(config_path)?;
 		let reader = BufReader::new(file);
 		let data = serde_json::from_reader(reader)?;
-
-		println!("data:::: {:?}", data);
 		// assign to self
 		*self = data;
 		Ok(())
