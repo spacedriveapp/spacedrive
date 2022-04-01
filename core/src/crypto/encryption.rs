@@ -6,8 +6,8 @@ use ts_rs::TS;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
 #[ts(export)]
 pub enum EncryptionAlgorithm {
-	None = 0,
-	AES128 = 1,
-	AES192 = 2,
-	AES256 = 3,
+  None = 0,
+  AES128 = 1,
+  AES192 = 2,
+  AES256 = 3,
 }
