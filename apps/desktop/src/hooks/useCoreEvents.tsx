@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { emit, listen, Event } from '@tauri-apps/api/event';
 // import { useExplorerStore } from '../store/explorer';
-import { CoreEvent } from '@sd/core';
+import { CoreEvent } from '../../../../core';
 import { useQuery, useQueryClient } from 'react-query';
 
 export function useCoreEvents() {

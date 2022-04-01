@@ -5,7 +5,7 @@ fn main() {
   // std::env::set_var("CARGO_CFG_TARGET_ARCH", "arm64");
 
   // link_swift();
-  // link_swift_package("swift-lib", "../../../packages/native-macos/");
+  // link_swift_package("swift-lib", "../../../packages/macos/");
 
   tauri_build::build();
 }

@@ -1,5 +1,5 @@
 [package]
-name = "sdcorelib"
+name = "sdcore"
 version = "0.1.0"
 description = "The next gen private virtual filesystem."
 authors = ["NerdHouse, Inc.", "Jamie Pine"]

@@ -3,13 +3,13 @@ import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/soli
 import { appWindow } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
-import React, { useEffect, useState }  from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
 import { Button } from '../primitive';
 import { Dropdown } from '../primitive/Dropdown';
 import { DefaultProps } from '../primitive/types';
-import { useBridgeQuery } from '@sd/state';
+import { useBridgeQuery } from '@sd/client';
 import { platform } from '@tauri-apps/api/os';
 
 interface SidebarProps extends DefaultProps {}

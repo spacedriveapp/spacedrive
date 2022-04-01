@@ -3,8 +3,8 @@ import ReactDOM from 'react-dom';
 import App from './App';
 import './style.css';
 
-import { ClientCommand, ClientQuery } from '@sd/core';
-import { BaseTransport, setTransport } from '@sd/state';
+import { ClientCommand, ClientQuery } from '../../../core';
+import { BaseTransport, setTransport } from '@sd/client';
 import { invoke } from '@tauri-apps/api';
 
 // bind state to core via Tauri

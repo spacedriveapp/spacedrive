@@ -83,7 +83,7 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 - Tauri allows us to create a pure Rust native OS webview, without the overhead of your average Electron app. This brings the bundle size and average memory usage down dramatically. It also contributes to a more native feel, especially on macOS due to Safari's close integration with the OS. 
 - ...
 
-Spacedrive's core (`sdcorelib`) is written in pure Rust, using the Tauri framework to embed a React app in a native browser window for UI. The mobile app is React Native, with `sdcorelib` embedded as a native binary. 
+Spacedrive's core (`sdcore`) is written in pure Rust, using the Tauri framework to embed a React app in a native browser window for UI. The mobile app is React Native, with `sdcore` embedded as a native binary. 
 
 ## Apps
 - `desktop`: a [Tauri](https://nextjs.org) app
@@ -93,11 +93,11 @@ Spacedrive's core (`sdcorelib`) is written in pure Rust, using the Tauri framewo
   
 ## Packages
 All TypeScript packages are compiled automatically using Turborepo.
-- `core`: the [Rust]() core logic library, referred to internally as `sdcorelib`
+- `core`: the [Rust]() core logic library, referred to internally as `sdcore`
 - `state`: the [TypeScript]() core logic library
 - `ui`: a [React Native]() / [RNW]() component library
 - `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo
-- `native-macos`: a [Swift]() native binary
+- `macos`: a [Swift]() native binary
 - `native-ios`: a [Swift]() native binary
 - `native-windows`: a [C#]() native binary
 - `native-android`: a [Kotlin]() native binary

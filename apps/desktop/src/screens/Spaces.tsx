@@ -1,4 +1,4 @@
-import { useBridgeQuery } from '@sd/state';
+import { useBridgeQuery } from '@sd/client';
 import React from 'react';
 import ReactJson from 'react-json-view';
 import FileItem from '../components/file/FileItem';
