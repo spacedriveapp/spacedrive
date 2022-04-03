@@ -38,44 +38,43 @@ For independent creatives, hoarders and those that want to own their digital foo
 <br />
 <img src="./apps/desktop/src/assets/images/spacedrive_screenshot_2.jpg" alt="Logo">
 
+# What is a VDFS?
+A VDFS (virtual distributed filesystem) is a filesystem designed to work atop a variety of storage layers. It is not restricted to a single machine, with a uniform API to manipulate and access content across many devices. This implementation uses [CAS](https://en.wikipedia.org/wiki/Content-addressable_storage) (Content-addressable storage) to uniquely identify files, while keeping record of logical file paths relative to the storage locations. 
+
+The first implementation of a VDFS can be found in this UC Berkeley [paper](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.pdf) by Haoyuan Li. This paper describes its use for cloud computing, however the underlying concepts can be translated to open consumer software. 
+
+# Motivation
+Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. We depend on cloud services like Google Photos and iCloud, but are locked in with limited capacity and almost zero interoperability between services and operating systems. Photo albums shouldn’t be suck in a device ecosystem, or harvested for advertising data. They should be OS agnostic, permanent and personally owned. Data we create is our legacy, that will long outlive us—open source technology is the only way to ensure we retain absolute control over the data that defines our lives, at unlimited scale.
+
+
 # Features
 > NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change.
 
 <!-- ### Rich context -->
 
 **Complete:** *(in testing)*
-- **[File discovery](#)** - Scan devices, drives and cloud accounts to build a virtual, realtime updating, "yellow pages" directory of all files with metadata.
+- **[File discovery](#)** - Scan devices, drives and cloud accounts to build a directory of all files with metadata.
 - **[Preview generation](#)** - Auto generate lower resolution stand-ins for image and video.
-- **[Statistics](#)** - Statistics such as total capacity, index size, preview media size, free space etc.
+- **[Statistics](#)** - Total capacity, index size, preview media size, free space etc.
   
 **In progress:**
-- **[File Explorer](#)** - Browse online/offline storage locations, view files with metadata, perform basic crud. 
-- **[Realtime synchronization](#)** - Database synchronizes in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).
+- **[File Explorer](#)** - Browse online/offline storage locations, view files with metadata, perform basic CRUD. 
+- **[Realtime synchronization](#)** - Data index synchronized in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).
   
 **To be developed:**
 - **[Photos](#)** - Photo and video albums similar to Apple/Google photos, but owned by you and infinite in size.
 - **[Search](#)** - Search deep into your filesystem, including offline devices, with a custom keybind.
-- **[Cloud compatibility](#)** - Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
+- **[Cloud integration](#)** - Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
 - **[Tags](#)** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
 - **[Encrypted vault(s)](#)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
 - **[Key manager](#)** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
 - **[Redundancy](#)** - Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.
 - **[Timeline](#)** - View a linear timeline of content, travel to any time and see media represented visually.
 - **[Extensions](#)** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.app/extensions](#).
-- **[Media encoder](#)** - Encode video and audio into various formats, use Tags to automate.
-- **[Workers](#)** - Utilize the compute power of your devices in unison to encode and perform tasks at insane speeds.
+- **[Media encoder](#)** - Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.
+- **[Workers](#)** - Utilize the compute power of your devices in unison to encode and perform tasks at increased speeds.
 - **[Self host](#)** - Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.
 - **[Spacedrive Cloud](#)** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.
-<!-- - **Spaces** - A collection of files organized visually and shareable as public web pages with a Spacedrive account. -->
-<!-- - **Jobs** - Each task a client performs, a body of work we refer to as a "job", is logged and reversible. -->
-
-# Motivation
-We depend on cloud services like Google Photos and iCloud, but are locked in with a limited capacity. Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. But why be tied to any one cloud provider? Photo albums shouldn’t be suck in a device ecosystem, or harvested for advertising data. It should be OS agnostic, permanent and personally owned.
-
-Open source technology is the solution to this, Spacedrive is a universal experience to manage files, across all platforms, devices and clouds. 
-
-# What is a VDFS?
-A VDFS (virtual distributed filesystem) is a concept first outlined in a UC Berkeley [paper](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.pdf) by Haoyuan Li. Simplified, it can be thought of to provide a single UNIX-like interface to a virtualized filesystem above a variety of storage layers. Due to being distributed in nature it has infinite expansion potential, while maintaining a consistent API. This paper describes its use for cloud computing, however the underlying concepts can be translated to open consumer software. Spacedrive is an alternate implementation 
 
 # Developer Installation Instructions
 This environment uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.

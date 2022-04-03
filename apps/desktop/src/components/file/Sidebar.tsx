@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
         buttonText="Jamie's Library"
         items={[
-          [{ name: `Jamie's Library`, selected: true }, { name: 'Subto' }],
+          [{ name: `Jamie's Library`, selected: true }, { name: 'Private Library' }],
           [
             { name: 'Library Settings', icon: CogIcon },
             { name: 'Add Library', icon: PlusIcon },
