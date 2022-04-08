@@ -41,8 +41,13 @@ pub struct FilePath {
   pub is_dir: bool,
   pub location_id: i32,
   pub materialized_path: String,
+  pub name: String,
+  pub extension: Option<String>,
   pub file_id: Option<i32>,
   pub parent_id: Option<i32>,
+  pub temp_checksum: Option<String>,
+  pub has_local_thumbnail: bool,
+  pub size_in_bytes: i32,
   #[ts(type = "string")]
   pub date_indexed: chrono::DateTime<chrono::Utc>,
   pub permissions: Option<String>,
@@ -92,6 +97,11 @@ impl Into<FilePath> for FilePathData {
       location_id: self.location_id,
       date_indexed: self.date_indexed,
       permissions: self.permissions,
+      has_local_thumbnail: false,
+      name: self.name,
+      extension: self.extension,
+      temp_checksum: self.temp_checksum,
+      size_in_bytes: 0,
     }
   }
 }

@@ -6,7 +6,7 @@ import { ButtonProps } from '../primitive';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { invoke } from '@tauri-apps/api';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export interface TopBarProps extends DefaultProps {}
 export interface TopBarButtonProps extends ButtonProps {
@@ -39,15 +39,16 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
   let location = useLocation();
+  let navigate = useNavigate();
   return (
     <>
       <div
         data-tauri-drag-region
-        className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl flex-shrink-0 items-center border-b  dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-100 backdrop-blur"
+        className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl flex-shrink-0 items-center border-b  dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-60 backdrop-blur"
       >
         <div className="flex">
-          <TopBarButton icon={ChevronLeftIcon} onClick={() => {}} />
-          <TopBarButton icon={ChevronRightIcon} />
+          <TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
+          <TopBarButton icon={ChevronRightIcon} onClick={() => navigate(1)} />
         </div>
         {/* <div className="flex mx-8 space-x-[1px]">
           <TopBarButton active group left icon={List} />
@@ -79,11 +80,11 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
             />
           </div>
         </div>
-        <img
+        {/* <img
           alt="spacedrive-logo"
           src="/images/spacedrive_logo.png"
           className="w-8 h-8 mt-[1px] mr-2 pointer-events-none"
-        />
+        /> */}
         {/*<TopBarButton onClick={() => {*/}
         {/*  setSettingsOpen(!settingsOpen);*/}
         {/*}} className="mr-[8px]" icon={CogIcon} />*/}

@@ -1,22 +1,25 @@
 import { DotsVerticalIcon } from '@heroicons/react/solid';
+import { useBridgeQuery } from '@sd/client';
+import { FilePath } from '@sd/core';
 import { invoke } from '@tauri-apps/api';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import clsx from 'clsx';
 import byteSize from 'pretty-bytes';
-import React, { forwardRef, useEffect, useMemo, useRef } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-
+import create from 'zustand';
 import { useKey, useWindowSize } from 'rooks';
-import { DirectoryResponse } from '../../screens/Explorer';
-// import { List, ListRowRenderer } from 'react-virtualized';
-import { useAppState } from '../../store/global';
-import {
-  useCurrentDir,
-  useExplorerStore,
-  useFile,
-  useSelectedFileIndex
-} from '../../store/explorer';
-import { IFile } from '../../types';
+import { useSearchParams } from 'react-router-dom';
+
+type ExplorerState = {
+  selectedRowIndex: number;
+  setSelectedRowIndex: (index: number) => void;
+};
+
+export const useExplorerState = create<ExplorerState>((set) => ({
+  selectedRowIndex: -1,
+  setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index }))
+}));
 
 interface IColumn {
   column: string;
@@ -35,52 +38,53 @@ const columns = ensureIsColumns([
   { column: 'Name', key: 'name', width: 280 } as const,
   { column: 'Size', key: 'size_in_bytes', width: 120 } as const,
   { column: 'Type', key: 'extension', width: 100 } as const
-  // { column: 'Checksum', key: 'meta_integrity_hash', width: 120 } as const
-  // { column: 'Tags', key: 'tags', width: 120 } as const
 ]);
 
 type ColumnKey = typeof columns[number]['key'];
 
-export const FileList: React.FC<{}> = (props) => {
+const LocationContext = React.createContext<{ location_id: number }>({ location_id: 1 });
+
+export const FileList: React.FC<{ location_id: number; path: string; limit: number }> = (props) => {
+  const size = useWindowSize();
   const tableContainer = useRef<null | HTMLDivElement>(null);
   const VList = useRef<null | VirtuosoHandle>(null);
-  const currentDir = useCurrentDir();
 
-  // useOnWindowResize((e) => {
+  const path = props.path;
 
-  // })
+  const { selectedRowIndex, setSelectedRowIndex } = useExplorerState();
 
-  const size = useWindowSize();
+  const { data: currentDir } = useBridgeQuery('LibGetExplorerDir', {
+    location_id: props.location_id,
+    path,
+    limit: props.limit
+  });
 
-  const explorer = useExplorerStore.getState();
-
-  const seletedRowIndex = useSelectedFileIndex(currentDir?.id as number);
   useEffect(() => {
-    // VList.current?.scrollIntoView()
-    if (seletedRowIndex != null) VList.current?.scrollIntoView({ index: seletedRowIndex });
-  }, [seletedRowIndex]);
+    if (selectedRowIndex != -1) VList.current?.scrollIntoView({ index: selectedRowIndex });
+  }, [selectedRowIndex]);
 
   useKey('ArrowUp', (e) => {
     e.preventDefault();
-    if (explorer.selectedFile) {
-      explorer.selectFile(explorer.currentDir as number, explorer.selectedFile.id, 'above');
-    }
+    if (selectedRowIndex != -1 && selectedRowIndex !== 0) setSelectedRowIndex(selectedRowIndex - 1);
   });
+
   useKey('ArrowDown', (e) => {
     e.preventDefault();
-    if (explorer.selectedFile)
-      explorer.selectFile(explorer.currentDir as number, explorer.selectedFile.id, 'below');
+    if (selectedRowIndex != -1 && selectedRowIndex !== (currentDir?.contents.length ?? 1) - 1)
+      setSelectedRowIndex(selectedRowIndex + 1);
   });
 
   const Row = (index: number) => {
-    const row = currentDir?.children?.[index] as IFile;
+    const row = currentDir?.contents?.[index];
 
-    return <RenderRow key={index} row={row} rowIndex={index} dirId={currentDir?.id as number} />;
+    if (!row) return null;
+
+    return <RenderRow key={index} row={row} rowIndex={index} dirId={currentDir?.directory.id} />;
   };
 
   const Header = () => (
     <div>
-      <h1 className="p-2 mt-10 ml-1 text-xl font-bold">{currentDir?.name}</h1>
+      <h1 className="p-2 mt-10 ml-1 text-xl font-bold">{currentDir?.directory.name}</h1>
       <div className="table-head">
         <div className="flex flex-row p-2 table-head-row">
           {columns.map((col) => (
@@ -103,37 +107,39 @@ export const FileList: React.FC<{}> = (props) => {
       <div
         ref={tableContainer}
         style={{ marginTop: -44 }}
-        className="w-full h-full p-3 bg-white cursor-default table-container dark:bg-gray-900"
+        className="w-full h-full p-3 bg-white cursor-default table-container dark:bg-gray-650"
       >
-        <Virtuoso
-          data={currentDir?.children}
-          ref={VList}
-          // style={{ height: '400px' }}
-          totalCount={currentDir?.children_count || 0}
-          itemContent={Row}
-          components={{ Header }}
-          className="pb-10 outline-none table-body"
-        />
+        <LocationContext.Provider value={{ location_id: props.location_id }}>
+          <Virtuoso
+            data={currentDir?.contents}
+            ref={VList}
+            style={{ height: size.innerHeight ?? 600 }}
+            totalCount={currentDir?.contents.length || 0}
+            itemContent={Row}
+            // increaseViewportBy={10}
+            components={{ Header }}
+            className="outline-none"
+          />
+        </LocationContext.Provider>
       </div>
     ),
-    [size.innerWidth, currentDir?.id, tableContainer.current]
+    [props.location_id, size.innerWidth, currentDir?.directory.id, tableContainer.current]
   );
 };
 
-const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: number }> = ({
-  row,
-  rowIndex,
-  dirId
-}) => {
-  const { selectFile, clearSelectedFiles, ingestDir } = useExplorerStore.getState();
-  const selectedFileIndex = useSelectedFileIndex(dirId);
+const RenderRow: React.FC<{
+  row: FilePath;
+  rowIndex: number;
+  dirId: number;
+}> = ({ row, rowIndex, dirId }) => {
+  const { selectedRowIndex, setSelectedRowIndex } = useExplorerState();
+  const isActive = selectedRowIndex === rowIndex;
 
-  const isActive = selectedFileIndex === rowIndex;
-  // console.log('hello from row id', rowIndex);
+  let [_, setSearchParams] = useSearchParams();
 
   function selectFileHandler() {
-    if (selectedFileIndex == rowIndex) clearSelectedFiles();
-    else selectFile(dirId, row.id, undefined, rowIndex);
+    if (selectedRowIndex == rowIndex) setSelectedRowIndex(-1);
+    else setSelectedRowIndex(rowIndex);
   }
 
   return useMemo(
@@ -142,9 +148,7 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: number }> = ({
         onClick={selectFileHandler}
         onDoubleClick={() => {
           if (row.is_dir) {
-            invoke<DirectoryResponse>('get_files', { path: row.uri }).then((res) => {
-              ingestDir(res.directory, res.contents);
-            });
+            setSearchParams({ path: row.materialized_path });
           }
         }}
         className={clsx('table-body-row flex flex-row rounded-lg border-2 border-[#00000000]', {
@@ -158,7 +162,7 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: number }> = ({
             className="flex items-center px-4 py-2 pr-2 table-body-cell"
             style={{ width: col.width }}
           >
-            <RenderCell fileId={row.id} dirId={dirId} colKey={col?.key} />
+            <RenderCell file={row} dirId={dirId} colKey={col?.key} />
           </div>
         ))}
       </div>
@@ -167,32 +171,38 @@ const RenderRow: React.FC<{ row: IFile; rowIndex: number; dirId: number }> = ({
   );
 };
 
-const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; fileId?: number }> = ({
+const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath }> = ({
   colKey,
-  fileId,
+  file,
   dirId
 }) => {
-  if (!fileId || !colKey || !dirId) return <></>;
-  const row = useFile(fileId);
+  if (!file || !colKey || !dirId) return <></>;
+  const row = file;
   if (!row) return <></>;
+
   const value = row[colKey];
   if (!value) return <></>;
-
-  // const icon = `${useAppState.getState().file_type_thumb_dir}/lol.png`;
+  const { data: client } = useBridgeQuery('ClientGetState');
+  const location = useContext(LocationContext);
 
   switch (colKey) {
     case 'name':
       return (
         <div className="flex flex-row items-center overflow-hidden">
-          <div className="w-6 h-6 mr-2">
-            <img
-              src={convertFileSrc(
-                `${useAppState.getState().config.file_type_thumb_dir}/${
-                  row.is_dir ? 'folder' : row.extension
-                }.png`
-              )}
-              className="w-6 h-6 mr-2"
-            />
+          <div className="w-6 h-6 mr-3">
+            {row.is_dir ? (
+              <img className="mt-0.5 pointer-events-none z-90" src="/svg/folder.svg" />
+            ) : (
+              row.has_local_thumbnail &&
+              client?.data_path && (
+                <img
+                  className="mt-0.5 pointer-events-none z-90"
+                  src={convertFileSrc(
+                    `${client.data_path}/thumbnails/${location.location_id}/${row.temp_checksum}.webp`
+                  )}
+                />
+              )
+            )}
           </div>
           {/* {colKey == 'name' &&
             (() => {
@@ -212,7 +222,7 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; fileId?: number
     case 'size_in_bytes':
       return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
     case 'extension':
-      return <span className="text-xs text-left">{value.toLowerCase()}</span>;
+      return <span className="text-xs text-left">{value}</span>;
     // case 'meta_integrity_hash':
     //   return <span className="truncate">{value}</span>;
     // case 'tags':

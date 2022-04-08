@@ -272,13 +272,18 @@ impl Core {
         CoreResponse::SysGetLocation(sys::locations::get_location(&ctx, id).await?)
       }
       // return contents of a directory for the explorer
-      ClientQuery::LibGetExplorerDir { path, limit: _ } => {
-        CoreResponse::LibGetExplorerDir(file::explorer::open_dir(&ctx, &path).await?)
+      ClientQuery::LibGetExplorerDir {
+        path,
+        location_id,
+        limit: _,
+      } => {
+        CoreResponse::LibGetExplorerDir(file::explorer::open_dir(&ctx, &location_id, &path).await?)
       }
       ClientQuery::LibGetTags => todo!(),
       ClientQuery::JobGetRunning => CoreResponse::JobGetRunning(self.jobs.get_running().await),
       // TODO: FIX THIS
       ClientQuery::JobGetHistory => CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?),
+      ClientQuery::Jeff(_) => todo!(),
     })
   }
 
@@ -330,8 +335,15 @@ pub enum ClientQuery {
   LibGetTags,
   JobGetRunning,
   JobGetHistory,
-  SysGetLocation { id: i32 },
-  LibGetExplorerDir { path: String, limit: i32 },
+  SysGetLocation {
+    id: i32,
+  },
+  LibGetExplorerDir {
+    location_id: i32,
+    path: String,
+    limit: i32,
+  },
+  Jeff(i32),
 }
 
 // represents an event this library can emit

@@ -83,10 +83,6 @@ function Router() {
   let location = useLocation();
   let state = location.state as { backgroundLocation?: Location };
 
-  useEffect(() => {
-    console.log({ url: location.pathname });
-  }, [state]);
-
   return (
     <>
       <Routes location={state?.backgroundLocation || location}>
@@ -95,7 +91,7 @@ function Router() {
           <Route path="overview" element={<OverviewScreen />} />
           <Route path="spaces" element={<SpacesScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
-          <Route path="explorer/*" element={<ExplorerScreen />} />
+          <Route path="explorer" element={<ExplorerScreen />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
@@ -128,6 +124,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 function NotFound() {
   const navigate = useNavigate();
+
   return (
     <div
       data-tauri-drag-region
@@ -144,10 +141,6 @@ function NotFound() {
     </div>
   );
 }
-
-// useHotkeys('command+q', () => {
-//   process.exit();
-// });
 
 function AppContainer() {
   useCoreEvents();

@@ -114,13 +114,29 @@ model FilePath {
     date_modified DateTime @default(now())
     date_indexed  DateTime @default(now())
 
-    file     File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-    location Location?  @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id])
-    children FilePath[] @relation("directory_file_paths")
+    file       File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    location   Location?  @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    parent     FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id])
+    children   FilePath[] @relation("directory_file_paths")
+    media_data MediaData?
 
     @@unique([location_id, materialized_path, name, extension])
     @@map("file_paths")
+}
+
+model MediaData {
+    id             Int     @id
+    pixel_width    Int?
+    pixel_height   Int?
+    longitude      Float?
+    latitude       Float?
+    capture_device String?
+    duration       Int?
+
+    // change this relation to File after testing
+    file_path FilePath? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    @@map("media_data")
 }
 
 model Tag {

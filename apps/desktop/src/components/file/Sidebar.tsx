@@ -120,6 +120,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={MonitorPlay} />
           Media
         </SidebarLink>
+        <SidebarLink to="explorer">
+          <Icon component={MonitorPlay} />
+          Explorer
+        </SidebarLink>
       </div>
       <div>
         <Heading>Locations</Heading>
@@ -154,7 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <Heading>Tags</Heading>
         <div className="mb-2">
           {tags.map((tag, index) => (
-            <SidebarLink to="/" className="">
+            <SidebarLink key={index} to="/" className="">
               <div
                 className="w-[12px] h-[12px] rounded-full"
                 style={{ backgroundColor: tag.color }}

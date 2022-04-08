@@ -1,3 +1,4 @@
+import { convertFileSrc } from '@tauri-apps/api/tauri';
 import React, { useState } from 'react';
 import ReactJson from 'react-json-view';
 import FileItem from '../components/file/FileItem';
