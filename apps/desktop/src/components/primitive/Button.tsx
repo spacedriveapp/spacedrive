@@ -86,14 +86,14 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   justifyLeft?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({ loading, ...props }) => {
+export const Button: React.FC<ButtonProps> = ({ loading, justifyLeft, ...props }) => {
   return (
     <button
       {...props}
       className={clsx(
         'border rounded-md items-center transition-colors duration-100 cursor-default',
         { 'opacity-5': loading, '!p-1': props.noPadding },
-        { 'justify-center': !props.justifyLeft },
+        { 'justify-center': !justifyLeft },
         sizes[props.size || 'default'],
         variants[props.variant || 'default'],
         { 'active:translate-y-[1px]': props.pressEffect },

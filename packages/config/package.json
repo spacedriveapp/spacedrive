@@ -7,10 +7,10 @@
     "eslint-preset.js"
   ],
   "devDependencies": {
-    "typescript": "^4.5.3"
+    "typescript": "^4.6.3"
   },
   "dependencies": {
-    "eslint-config-next": "^12.0.3",
-    "eslint-config-prettier": "^8.3.0"
+    "eslint-config-next": "^12.1.4",
+    "eslint-config-prettier": "^8.5.0"
   }
 }

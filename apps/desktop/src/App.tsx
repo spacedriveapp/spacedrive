@@ -24,6 +24,7 @@ import LocationSettings from './screens/settings/LocationSettings';
 import { RedirectPage } from './screens/Redirect';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { platform } from '@tauri-apps/api/os';
+import { ClientProvider } from '@sd/client';
 
 const queryClient = new QueryClient();
 
@@ -83,6 +84,10 @@ function Router() {
   let location = useLocation();
   let state = location.state as { backgroundLocation?: Location };
 
+  useEffect(() => {
+    console.log({ url: location.pathname });
+  }, [state]);
+
   return (
     <>
       <Routes location={state?.backgroundLocation || location}>
@@ -91,7 +96,7 @@ function Router() {
           <Route path="overview" element={<OverviewScreen />} />
           <Route path="spaces" element={<SpacesScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
-          <Route path="explorer" element={<ExplorerScreen />} />
+          <Route path="explorer/*" element={<ExplorerScreen />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
@@ -124,7 +129,6 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 function NotFound() {
   const navigate = useNavigate();
-
   return (
     <div
       data-tauri-drag-region
@@ -142,6 +146,10 @@ function NotFound() {
   );
 }
 
+// useHotkeys('command+q', () => {
+//   process.exit();
+// });
+
 function AppContainer() {
   useCoreEvents();
   return (
@@ -152,10 +160,18 @@ function AppContainer() {
 }
 
 export default function App() {
+  // @ts-ignore: TODO: This is a hack and a better solution should probably be found. This exists so that the queryClient can be accessed within the subpackage '@sd/client'. Refer to <ClientProvider /> for where this is used.
+  if (window.ReactQueryClient === undefined) {
+    // @ts-ignore
+    window.ReactQueryClient = queryClient;
+  }
+
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
-      <QueryClientProvider client={queryClient}>
-        <AppContainer />
+      <QueryClientProvider client={queryClient} contextSharing={false}>
+        <ClientProvider>
+          <AppContainer />
+        </ClientProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
