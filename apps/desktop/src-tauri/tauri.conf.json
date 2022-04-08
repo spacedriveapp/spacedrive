@@ -44,6 +44,9 @@
     },
     "allowlist": {
       "all": true,
+      "protocol": {
+        "assetScope": ["$HOME/Library/Application Support/spacedrive/thumbnails/**/*.webp"]
+      },
       "dialog": {
         "all": true,
         "open": true,
@@ -53,8 +56,8 @@
     "windows": [
       {
         "title": "Spacedrive",
-        "width": 1250,
-        "height": 625,
+        "width": 1500,
+        "height": 925,
         "resizable": true,
         "fullscreen": false,
         "alwaysOnTop": false,
@@ -66,7 +69,7 @@
       }
     ],
     "security": {
-      "csp": "default-src asset: blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
+      "csp": "default-src asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
     }
   }
 }

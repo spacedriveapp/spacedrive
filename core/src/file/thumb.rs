@@ -11,7 +11,7 @@ use anyhow::Result;
 use image::*;
 use prisma_client_rust::or;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use webp::*;
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub struct ThumbnailJob {
 
 static THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
 static THUMBNAIL_QUALITY: f32 = 30.0;
-static CACHE_DIR_NAME: &str = "thumbnails";
+pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 
 #[async_trait::async_trait]
 impl Job for ThumbnailJob {
@@ -33,10 +33,9 @@ impl Job for ThumbnailJob {
 
     fs::create_dir_all(
       Path::new(&config.data_path)
-        .join(CACHE_DIR_NAME)
+        .join(THUMBNAIL_CACHE_DIR_NAME)
         .join(format!("{}", self.location_id)),
-    )
-    .unwrap();
+    )?;
 
     let root_path = location.path.unwrap();
 
@@ -60,22 +59,32 @@ impl Job for ThumbnailJob {
         let path = format!("{}{}", root_path, image_file.materialized_path);
         let checksum = image_file.temp_checksum.as_ref().unwrap();
 
-        generate_thumbnail(&path, checksum, location_id).unwrap();
+        // Define and write the WebP-encoded file to a given path
+        let output_path = Path::new(&config.data_path)
+          .join(THUMBNAIL_CACHE_DIR_NAME)
+          .join(format!("{}", location_id))
+          .join(checksum)
+          .with_extension("webp");
+
+        // check if file exists at output path
+        if !output_path.exists() {
+          generate_thumbnail(&path, &output_path).unwrap_or(());
+        } else {
+          println!("Thumb exists, skipping... {}", output_path.display());
+        }
 
         ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
       }
     })
-    .await
-    .unwrap();
+    .await?;
 
     Ok(())
   }
 }
 
-pub fn generate_thumbnail(file_path: &str, file_hash: &str, location_id: i32) -> Result<()> {
-  let config = client::get();
+pub fn generate_thumbnail(file_path: &str, output_path: &PathBuf) -> Result<()> {
   // Using `image` crate, open the included .jpg file
-  let img = image::open(file_path).unwrap();
+  let img = image::open(file_path)?;
   let (w, h) = img.dimensions();
   // Optionally, resize the existing photo and convert back into DynamicImage
   let img: DynamicImage = image::DynamicImage::ImageRgba8(imageops::resize(
@@ -85,20 +94,14 @@ pub fn generate_thumbnail(file_path: &str, file_hash: &str, location_id: i32) ->
     imageops::FilterType::Triangle,
   ));
   // Create the WebP encoder for the above image
-  let encoder: Encoder = Encoder::from_image(&img).unwrap();
+  let encoder: Encoder = Encoder::from_image(&img).map_err(|_| anyhow::anyhow!("jeff"))?;
 
   // Encode the image at a specified quality 0-100
   let webp: WebPMemory = encoder.encode(THUMBNAIL_QUALITY);
-  // Define and write the WebP-encoded file to a given path
-  let output_path = Path::new(&config.data_path)
-    .join(CACHE_DIR_NAME)
-    .join(format!("{}", location_id))
-    .join(file_hash)
-    .with_extension("webp");
 
   println!("Writing to {}", output_path.display());
 
-  std::fs::write(&output_path, &*webp).unwrap();
+  std::fs::write(&output_path, &*webp)?;
 
   Ok(())
 }

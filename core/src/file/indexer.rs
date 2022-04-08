@@ -161,9 +161,9 @@ pub async fn scan_path(
     }
     let raw_sql = format!(
       r#"
-                INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_created, temp_checksum) 
-                VALUES {}
-            "#,
+		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_created, temp_checksum) 
+		VALUES {}
+      "#,
       files.join(", ")
     );
     // println!("{}", raw_sql);
