@@ -45,8 +45,12 @@ export const Inspector = (props: { selectedFile?: FilePath; locationId: number }
       <div className="top-0 right-0 h-full m-2 border border-gray-100 rounded-lg w-60 dark:border-gray-850 ">
         {!!file && (
           <div className="flex flex-col h-full overflow-hidden bg-white rounded-lg select-text dark:bg-gray-700">
-            <div className="w-full h-64 overflow-hidden rounded-t-lg bg-gray-50 dark:bg-gray-900">
-              <FileThumb className="!m-auto" file={file} locationId={props.locationId} />
+            <div className="flex items-center justify-center w-full h-64 overflow-hidden rounded-t-lg bg-gray-50 dark:bg-gray-900">
+              <FileThumb
+                className="!m-0 flex flex-shrink flex-grow-0"
+                file={file}
+                locationId={props.locationId}
+              />
             </div>
             <h3 className="pt-3 pl-3 text-base font-bold">{file?.name}</h3>
             <div className="flex flex-row m-3 space-x-2">
