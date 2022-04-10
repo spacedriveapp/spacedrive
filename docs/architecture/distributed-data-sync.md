@@ -7,14 +7,14 @@ Designed to support synchronizing data in realtime between a [SQLite](https://ww
 ```rust
 mod sync {
   struct SyncEngine {
-    pending: Vec<SyncEvent>,			// events waiting to be sent
+    pending: Vec<SyncEvent>, 		// events waiting to be sent
   }
   
   struct SyncEvent {
-    client: client::Client,				// client that created change
-    timestamp: uhlc::Timestamp,		// unique hybrid logical clock timestamp
-    resource: crdt::Resource,			// the CRDT resource 
-    transport: p2p::Transport 		// method of data transport
+    client_uuid: String, 				// client that created change
+    timestamp: uhlc::Timestamp,	// unique hybrid logical clock timestamp
+    resource: SyncResource,			// the CRDT resource 
+    transport: SyncTransport 		// method of data transport
   }
 }
 ```
