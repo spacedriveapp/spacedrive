@@ -11,8 +11,8 @@ Represents a unique file across the virtual filesystem, all Spacedrive metadata 
 ```rust
 struct File {
   id: i32,
-  partial_checksum: String,
-  checksum: Option<String>,
+  partial_checksum: str,
+  checksum: Option<str>,
   
   kind: FileKind,
 
@@ -22,7 +22,7 @@ struct File {
   has_thumbstrip: bool,
   has_video_preview: bool,
   encryption: EncryptionAlgorithm,
-  ipfs_id: Option<String>,
+  ipfs_id: Option<str>,
   
   file_paths: Vec<FilePath>,
   tags: Vec<Tag>,
