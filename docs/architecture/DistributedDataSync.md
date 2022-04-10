@@ -19,7 +19,7 @@ Owned resources would be `file_paths` & `media_data`, since a client is the sing
 
 > Note: Not all data falls under these two categories, some might be derived from shared/owned data, and/or not synchronized at all.
 
-The `files` dataset (unique records of files based on content adressable storage) is derived on each client from `file_paths`. This data is generated post-sync for the purposes of local relations for shared state to optimize data queries.
+The `files` dataset (unique records of files based on content addressable storage) is derived on each client from `file_paths`. This data is generated post-sync for the purposes of local relations for shared state to optimize data queries.
 
 
 
@@ -59,19 +59,19 @@ Operations are removed once all online clients have received the payload.
 ```rust
 struct Operation<V> {
   // unique identifier for this client
-	client_uuid: String,
+  client_uuid: String,
   // a unique hybrid logical clock timestamp
-	uhlc_timestamp: uhlc::Timestamp,
+  uhlc_timestamp: uhlc::Timestamp,
   // the kind of operation to perform
-	method: OperationMethod,
+  method: OperationMethod,
   // the name of the database table
-	resource_type: String,
-  // the unique identifer of the resource (None for batched)
+  resource_type: String,
+  // the unique identifier of the resource (None for batched)
   resource_uuid: Option<String>,
-  // the property on the resource whoes value shall be affected
+  // the property on the resource whose value shall be affected
   resource_property: Option<String>
   // optional value for operation
-	value: Option<Box<V>>,
+  value: Option<Box<V>>,
 }
 
 enum OperationMethod {
