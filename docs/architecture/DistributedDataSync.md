@@ -33,14 +33,14 @@ The `ClientConnection` is maintained in memory and is established on startup.
 
 ```rust
 struct ClientPool {
-	clients: Vec<Client>
+  clients: Vec<Client>
 }
 
 struct Client {
-	uuid: String,
-	last_seen: DateTime<Utc>,
-	last_synchronized: DateTime<Utc>,
-	connection: Option<ClientConnection>
+  uuid: String,
+  last_seen: DateTime<Utc>,
+  last_synchronized: DateTime<Utc>,
+  connection: Option<ClientConnection>
 }
 ```
 Clients will ping-pong to ensure their connection stays alive via TCP, however this logic is contained within the `ClientConnection` instance.
