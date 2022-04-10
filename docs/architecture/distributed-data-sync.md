@@ -1,27 +1,27 @@
-# Distributed Data Synchronization
+# Distributed Data Sync
 
 Synchronizing data between clients in a Spacedrive network is acomplished using various forms of [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) combined with a hybrid logical clock, ensuring eventual constancy.
 
-Designed to support synchronizing data in realtime between a [SQLite](https://www.sqlite.org/) databases potentially in the gigabytes.
+Designed for synchronizing data in realtime between a [SQLite](https://www.sqlite.org/) databases potentially in the gigabytes.
 
 ```rust
 mod sync {
   struct SyncEngine {
-    pending: Vec<SyncEvent>, 		 // events waiting to be sent
+    pending: Vec<SyncEvent>,     // events waiting to be sent
   }
   
   struct SyncEvent {
     client_uuid: String,         // client that created change
     timestamp: uhlc::Timestamp,  // unique hybrid logical clock timestamp
     resource: SyncResource,      // the CRDT resource 
-    transport: SyncTransport     // method of data transport
+    transport: SyncTransport,    // method of data transport
   }
  
   enum SyncResource {
-    FilePath(Box<dyn Replicate>),
-    File(Box<dyn OperationalTransform + Merge>)
-    Tag(Box<dyn OperationalTransform>)
-    TagOnFile(Box<dyn LastWriteWin>)
+    FilePath(dyn Replicate),
+    File(dyn OperationalTransform + OperationalMerge),
+    Tag(dyn OperationalTransform),
+    TagOnFile(dyn LastWriteWin),
   }
 }
 ```
@@ -113,32 +113,17 @@ Owned data → Bulk shared data →  Shared data → Relational data
 
 ```rust
 enum Crdt {
-  OperationalTransform(OperationalTransform),
-  LastWriteWin(LastWriteWin),
-  Replicate(Replicate),
-  Merge(Merge),
+  OperationalTransform,
+  OperationalMerge,
+  LastWriteWin,
+  Replicate,
 }
 ```
 
 - **Operational Transform** - Update Shared resources at a property level. Operations stored in `pending_operations` table. 
-- **Last Write Win** - The most recent event will always be applied, used for Relational data.
+- **Operational Merge** - The newer resource is merged with an older resource at a property level, where oldest takes priority. Used specifically for the `files` resource, which is Shared data but is sometimes synced in bulk.
+- **Last Write Win** - The most recent event will always be applied, used for many-to-many datasets.
 - **Replicate** - Used exclusively for Owned data, clients will replicate with no questions asked.
-- **Merge** - The newer resource is merged with an older resource at a property level, where oldest takes priority. Used specifically for the `files` resource, which is Shared data but is sometimes synced in bulk.
-
-### Example Usage
-
-```rust
-fn main() {
-  SyncEvent::new(Crdt::OperationalTransform(OperationalTransform {
-    method: OperationMethod::Create,
-    resource_type: "tag",
-    resource_property: None,
-    value: None
-  }))
-}
-```
-
-
 
 
 
@@ -222,13 +207,3 @@ We handle this by using `SyncMethod::Merge`, simply merging the data where the o
 - https://github.com/atolab/uhlc-rs
 - https://github.com/alangibson/awesome-crdt
 - https://blog.logrocket.com/libp2p-tutorial-build-a-peer-to-peer-app-in-rust/
-
-
-
-
-
-### <!--OperationLevel-->
-
-<!--We can define an `OperationLevel` to treat the incoming data as an entire resource, or an update to a given property of a resource. The `ClientPool` itself uses `OperationLevel::Resource` and `OnConflict::Overwrite` by default to synchronize clients.-->
-
-<!--Operations that are for `OperationLevel::Resource` need not store a value in the operation queue, we can simply store a single entry with a timestamp that instructs the engine to query for updated resourced via their `updated_at` column in the database.-->
