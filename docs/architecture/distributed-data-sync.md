@@ -1,8 +1,23 @@
 # Distributed Data Synchronization
 
-Synchronizing data between clients in a Spacedrive network is unlike distributed systems such as crypto and blockchain. We do not need 100% accuracy and can resolve all possible conflicts and error cases with minimal dispute.
+Synchronizing data between clients in a Spacedrive network is acomplished using various forms of [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) combined with a hybrid logical clock, ensuring eventual constancy.
 
-Utilizing various forms of [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) together with a hybrid logical clock; we ensure eventual constancy while optimizing performance on an [SQLite](https://www.sqlite.org/) database reaching into the gigabytes. 
+Designed to support synchronizing data in realtime between a [SQLite](https://www.sqlite.org/) databases potentially in the gigabytes.
+
+```rust
+mod sync {
+  struct SyncEngine {
+    pending: Vec<SyncEvent>,			// events waiting to be sent
+  }
+  
+  struct SyncEvent {
+    client: client::Client,				// client that created change
+    timestamp: uhlc::Timestamp,		// unique hybrid logical clock timestamp
+    resource: crdt::Resource,			// the CRDT resource 
+    transport: p2p::Transport 		// method of data transport
+  }
+}
+```
 
 
 
@@ -10,19 +25,19 @@ Utilizing various forms of [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_r
 Data is divided into several kinds, Shared, Relational and Owned.
 - **Shared data** - Can be created and modified by any client. Has a UUID.
 
-  *Sync Method:* `Operational transforms`*
+  *Sync Method:* `Operational transform*`
 
-  > Shared resources could be,`files`, `tags`, `comments`, `albums`, `jobs`, `labels`. Since these can be created, updated or deleted by any client at any time. This data type uses operational transforms to handle changes at a property level.
+  > Shared resources could be,`files`, `tags`, `comments`, `albums`, `jobs`, `labels`. Since these can be created, updated or deleted by any client at any time. 
 
 - **Relational data** - Can be created and modified by any client. Links two UUIDs by local IDs.
 
-  *Sync Method:* `Last write wins`
+  *Sync Method:* `Last write wins (LWW)`
 
   > Any many-to-many tables do not store UUIDs, we have to handle this data specifically. Querying for the resources local IDs before creating or deleting the relation.
 
 - **Owned data** - Can only be modified by the client that created it. Has a UUID.
 
-  *Sync Method:* `Owner priority`
+  *Sync Method:* `Replicate`
 
   > Owned resources would be `file_paths` & `media_data`, since a client is the single source of truth for this data. This means we can perform conflict free synchronization.
 
@@ -89,23 +104,11 @@ Sync happens in the following order:
 
 Owned data → Bulk shared data →  Shared data → Relational data
 
-All events are wrapped in 
-
-```rust
-struct SyncEvent {
-  client_uuid: String,
-  crdt_type: Crdt,
-  uhlc_timestamp: uhlc::Timestamp,
-}
-```
-- **CRDT**  - The type of CRDT to handle
-- **UHLC timestamp** - A hybrid logical clock timestamp to preserve event order.
-
 ```rust
 enum Crdt {
   OperationalTransform(OperationalTransform),
   LastWriteWin(LastWriteWin),
-  Replicate(Replicate)
+  Replicate(Replicate),
   Merge(Merge),
 }
 ```
@@ -170,7 +173,7 @@ In the next case we're handling the creation of a Shared resource. The `method` 
 
 | `client_uuid` |      `uhlc_timestamp`      |      `method`      | `resource_key` | `resource_uuid` | `resource_property` | `value` |
 |----------|-------------|------|----------|----------|----------|----------|
-| 2e8f85bf... | 2022-04-09T06:53:36... | SharedCreate | tags | 2e8f85bf...     | NULL | NULL |
+| 2e8f85bf... | 2022-04-09T06:53:36... | Create | tags | 2e8f85bf...     | NULL | NULL |
 
 **Update operation for Shared data**
 
@@ -178,13 +181,17 @@ Shared data works at a property level
 
 | `client_uuid` |      `uhlc_timestamp`      |      `method`      | `resource_key` | `resource_uuid` | `resource_property` | `value` |
 |----------|-------------|------|----------|----------|----------|----------|
-| 2e8f85bf... | 2022-04-09T06:53:36... | SharedUpdate | albums | 2e8f85bf...     | name | "jeff" |
+| 2e8f85bf... | 2022-04-09T06:53:36... | Update | albums | 2e8f85bf...     | name | "jeff" |
 
 
 
 ## Owned Data Synchronization
 
 Owned data does not use the Operation system, it is queried dynamically by the `updated_at` column on Owned datasets.
+
+For the sake of compatibility with local relations, some resource properties can be ignored*, such as `file_id`  and `parent_id` on the `file_paths` resource, these are re-calculated on bulk ingest.
+
+*_This will require some form of definition when creating an owned data resource_.
 
 
 
