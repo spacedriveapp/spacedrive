@@ -1,5 +1,3 @@
-Spacedrive Architecture
-
 # Distributed Data Synchronization
 
 Synchronizing data between clients in a Spacedrive network is unlike distributed systems such as crypto and blockchain. We do not need 100% accuracy and can resolve all possible conflicts and error cases with minimal dispute.
@@ -9,25 +7,40 @@ Utilizing various forms of [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_r
 
 
 ## Data Types
-Data is divided into two kinds, Shared and Owned.
-- **Shared data** - can be created and modified by any client. 
-- **Owned data** - can only be modified by the client that created it.
+Data is divided into several kinds, Shared, Relational and Owned.
+- **Shared data** - Can be created and modified by any client. Has a UUID.
 
-Shared resources could be, `tags`, `comments`, `albums`, `jobs`, `tags_on_files`. Since these can be created, updated or deleted by any client at any time.
+  *Sync Method:* `Operational transforms`*
 
-Owned resources would be `file_paths` & `media_data`, since a client is the single source of truth for this data.
+  > Shared resources could be,`files`, `tags`, `comments`, `albums`, `jobs`, `labels`. Since these can be created, updated or deleted by any client at any time. This data type uses operational transforms to handle changes at a property level.
 
-> Note: Not all data falls under these two categories, some might be derived from shared/owned data, and/or not synchronized at all.
+- **Relational data** - Can be created and modified by any client. Links two UUIDs by local IDs.
 
-The `files` dataset (unique records of files based on content addressable storage) is derived on each client from `file_paths`. This data is generated post-sync for the purposes of local relations for shared state to optimize data queries.
+  *Sync Method:* `Last write wins`
+
+  > Any many-to-many tables do not store UUIDs, we have to handle this data specifically. Querying for the resources local IDs before creating or deleting the relation.
+
+- **Owned data** - Can only be modified by the client that created it. Has a UUID.
+
+  *Sync Method:* `Owner priority`
+
+  > Owned resources would be `file_paths` & `media_data`, since a client is the single source of truth for this data. This means we can perform conflict free synchronization.
+
+- **Offline data** - Not synchronized at all.
+
+  > For example `logs` `pending_operations` `_migrations`. These are static and not part of this system.
+
+
+
+**Shared data doesn't always use this method, in some cases we can create shared resources in bulk, where conflicts are handled by simply merging. More on that in [Synchronization Strategy]()*.
 
 
 
 
 ## Client Pool
-The client pool maintains record of all clients in the network.
+The client pool maintains record of all clients in your network.
 
-An exact replica of the Client Pool is synchronized on each client. When a given client has a state change, it will notify every other client in the pool via the `connection`  struct. 
+An exact replica of the client pool is synchronized on each client. When a given client has a state change, it will notify every other client in the pool via the `connection`  struct. 
 
 The `ClientConnection` is maintained in memory and is established on startup.
 
@@ -43,31 +56,94 @@ struct Client {
   connection: Option<ClientConnection>
 }
 ```
-Clients will ping-pong to ensure their connection stays alive via TCP, however this logic is contained within the `ClientConnection` instance.
+Clients will ping-pong to ensure their connection stays alive, this logic is contained within the `ClientConnection` instance.
 
 **Handling stale clients**
 
-If a client has not been seen in X amount of time, other clients will not persist pending operations for them. Clients take care of flushing the pending operation queue one all non-stale clients have received the pending operations.
+If a client has not been seen in X amount of time, other clients will not persist pending operations for them. Clients take care of flushing the pending operation queue once all non-stale clients have received the pending operations.
+
+
+
+## Clock
+
+With realtime synchronization it is important to maintain the true order of events, we can timestamp each operation, but have to account for time drift; there is no way to guarantee two machines have synchronized system clocks.
+
+We can solve this with a Unique Hybrid Logical Clock ([UHLC]()): a globally-unique, monotonic timestamp. 
+
+```
+2022-04-09T06:53:36.397295996Z/89F9DD8514914648989315B2D30D7BE5
+```
+
+Each client combines their hybrid time with a unique identifier. When receiving new [Sync Events](), a client will update its own clock with the incoming timestamp.
+
+
+A client will reject operations with a timestamp drift greater than 100ms (can be adjusted).
+
+This allows us to entirely avoid the need to synchronize time between clients, as each client controls its own order of operations, never producing a conflicting timestamp with another system in the network.
+
+
+
+## Synchronization Strategy
+
+Sync happens in the following order:
+
+Owned data → Bulk shared data →  Shared data → Relational data
+
+All events are wrapped in 
+
+```rust
+struct SyncEvent {
+  client_uuid: String,
+  crdt_type: Crdt,
+  uhlc_timestamp: uhlc::Timestamp,
+}
+```
+- **CRDT**  - The type of CRDT to handle
+- **UHLC timestamp** - A hybrid logical clock timestamp to preserve event order.
+
+```rust
+enum Crdt {
+  OperationalTransform(OperationalTransform),
+  LastWriteWin(LastWriteWin),
+  Replicate(Replicate)
+  Merge(Merge),
+}
+```
+
+- **Operational Transform** - Update Shared resources at a property level. Operations stored in `pending_operations` table. 
+- **Last Write Win** - The most recent event will always be applied, used for Relational data.
+- **Replicate** - Used exclusively for Owned data, clients will replicate with no questions asked.
+- **Merge** - The newer resource is merged with an older resource at a property level, where oldest takes priority. Used specifically for the `files` resource, which is Shared data but is sometimes synced in bulk.
+
+### Example Usage
+
+```rust
+fn main() {
+  SyncEvent::new(Crdt::OperationalTransform(OperationalTransform {
+    method: OperationMethod::Create,
+    resource_type: "tag",
+    resource_property: None,
+    value: None
+  }))
+}
+```
+
+
 
 
 
 ## Operations
-Operations wrap a given data change, they are stored in the database as `pending_operations`. 
+Operations perform a Shared data change, they are cached in the database as `pending_operations`. 
 
 Operations are removed once all online clients have received the payload.
 
 ```rust
-struct Operation<V> {
-  // unique identifier for this client
-  client_uuid: String,
-  // a unique hybrid logical clock timestamp
-  uhlc_timestamp: uhlc::Timestamp,
-  // the kind of operation to perform
+struct OperationalTransform<V> {
   method: OperationMethod,
   // the name of the database table
   resource_type: String,
   // the unique identifier of the resource (None for batched)
-  resource_uuid: Option<String>,
+  resource_uuid: String,
   // the property on the resource whose value shall be affected
   resource_property: Option<String>
   // optional value for operation
@@ -75,41 +151,18 @@ struct Operation<V> {
 }
 
 enum OperationMethod {
-  OwnedBatchCreate,
-  OwnedDelete,
-  SharedCreate,
-  SharedUpdate
-  SharedDelete
+  Create,
+  Update
+  Delete
 }
 
 ```
 
 
 
-## Clock
-For realtime synchronization it is important to maintain the true order of events, we can timestamp each operation, but have to account for time drift across the distributed system. There is no way to guarantee two machines have synchronized system clocks.
-
-We can solve this with a Unique Hybrid Logical Clock ([UHLC]()): a globally-unique, monotonic timestamp. Each client combines their hybrid time with a unique identifier. When receiving new operations, a client will update its own clock with the incoming timestamp.
-```
-2022-04-09T06:53:36.397295996Z/89F9DD8514914648989315B2D30D7BE5
-```
-Each client maintains an instance of a UHLC clock and will reject operations with a timestamp drift greater than 100ms (can be adjusted).
-
-This allows us to entirely avoid needing to synchronize time between clients, as each client controls its own order of operations, never producing a conflicting timestamp with another system.
-
-
-
 ## Pending operations
 
 Here are some examples of how operations are stored to minimize disk usage and data duplication.
-
-**Batch create operation for Owned data**
-
-In the below case, this data tells the sync engine to query the database for all resources created or updated before sending the sync event. This is typically used for Owned data. It will be conflict free but the ordering is still important, potentially hundreds of thousands of `file_path` resources might be represented by a single entry here.
-
-| `client_uuid` |      `uhlc_timestamp`      |      `method`      | `resource_key` | `resource_uuid` | `resource_property` | `value` |
-|----------|-------------|------|----------|----------|----------|----------|
-| 2e8f85bf... | 2022-04-09T06:53:36... | OwnedBatchCreate | file_paths | NULL | NULL | NULL |
 
 **Create operation for Shared data**
 
@@ -126,6 +179,24 @@ Shared data works at a property level
 | `client_uuid` |      `uhlc_timestamp`      |      `method`      | `resource_key` | `resource_uuid` | `resource_property` | `value` |
 |----------|-------------|------|----------|----------|----------|----------|
 | 2e8f85bf... | 2022-04-09T06:53:36... | SharedUpdate | albums | 2e8f85bf...     | name | "jeff" |
+
+
+
+## Owned Data Synchronization
+
+Owned data does not use the Operation system, it is queried dynamically by the `updated_at` column on Owned datasets.
+
+
+
+## Bulk Shared Data Synchronization
+
+In some cases we are able to create many shared data resources at once and resolve conflicts on the fly by merging where the oldest resource takes priority.
+
+This is intended for the `files` resource. It requires Shared data behaviour as most other shared resources are related at a database level and user defined metadata can be assigned, however it is initially derived from `file_paths` which is Owned data.
+
+As `files` are created in abundance (hundreds of thousands at a time), it would be inefficient to record these changes in the `pending_operations` table. But we are also unable to sync in the same way as Owned data due to the possibility of conflicts. 
+
+We handle this by using `SyncMethod::Merge`, simply merging the data where the oldest resource properties are prioritized.
 
 
 
