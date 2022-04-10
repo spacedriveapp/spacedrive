@@ -7,14 +7,21 @@ Designed to support synchronizing data in realtime between a [SQLite](https://ww
 ```rust
 mod sync {
   struct SyncEngine {
-    pending: Vec<SyncEvent>, 		// events waiting to be sent
+    pending: Vec<SyncEvent>, 		 // events waiting to be sent
   }
   
   struct SyncEvent {
-    client_uuid: String, 				// client that created change
-    timestamp: uhlc::Timestamp,	// unique hybrid logical clock timestamp
-    resource: SyncResource,			// the CRDT resource 
-    transport: SyncTransport 		// method of data transport
+    client_uuid: String,         // client that created change
+    timestamp: uhlc::Timestamp,  // unique hybrid logical clock timestamp
+    resource: SyncResource,      // the CRDT resource 
+    transport: SyncTransport     // method of data transport
+  }
+ 
+  enum SyncResource {
+    FilePath(Box<dyn Replicate>),
+    File(Box<dyn OperationalTransform + Merge>)
+    Tag(Box<dyn OperationalTransform>)
+    TagOnFile(Box<dyn LastWriteWin>)
   }
 }
 ```
