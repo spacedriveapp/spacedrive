@@ -28,6 +28,7 @@ pub mod util;
 // pub mod native;
 
 // a wrapper around external input with a returning sender channel for core to respond
+#[derive(Debug)]
 pub struct ReturnableMessage<D, R = Result<CoreResponse, CoreError>> {
   data: D,
   return_sender: oneshot::Sender<R>,

@@ -5,8 +5,6 @@ use tauri::api::path;
 use tauri::Manager;
 mod menu;
 
-use window_shadows::set_shadow;
-
 #[tauri::command(async)]
 async fn client_query_transport(
   core: tauri::State<'_, CoreController>,
@@ -55,11 +53,14 @@ async fn main() {
     .setup(|app| {
       let app = app.handle();
 
-      app.windows().iter().for_each(|(_, window)| {
-        set_shadow(&window, true).unwrap_or(());
+      #[cfg(not(target_os = "linux"))]
+      {
+        app.windows().iter().for_each(|(_, window)| {
+          window_shadows::set_shadow(&window, true).unwrap_or(());
 
-        window.start_dragging().unwrap_or(());
-      });
+          window.start_dragging().unwrap_or(());
+        });
+      }
 
       // core event transport
       tokio::spawn(async move {
