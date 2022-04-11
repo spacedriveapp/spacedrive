@@ -8,14 +8,14 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@headlessui/react": "^1.4.0",
+    "@headlessui/react": "^1.5.0",
     "clsx": "^1.1.1",
-    "react": "^17.0.2"
+    "react": "^18.0.0"
   },
   "devDependencies": {
-    "@sd/config": "*",
-    "typescript": "^4.5.3",
-    "@types/react": "^17.0.37",
-    "@types/react-dom": "^17.0.11"
+    "@sd/config": "workspace:*",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^4.6.3"
   }
 }
