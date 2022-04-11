@@ -21,8 +21,8 @@
     "server": "pnpm --filter @sd/server -- "
   },
   "devDependencies": {
-    "prettier": "^2.5.1",
-    "turbo": "latest"
+    "prettier": "^2.6.2",
+    "turbo": "^1.2.1"
   },
   "turbo": {
     "pipeline": {
