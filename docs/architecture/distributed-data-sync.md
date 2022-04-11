@@ -14,14 +14,16 @@ mod sync {
     client_uuid: String,         // client that created change
     timestamp: uhlc::Timestamp,  // unique hybrid logical clock timestamp
     resource: SyncResource,      // the CRDT resource 
-    transport: SyncTransport,    // method of data transport
+    transport: SyncTransport,    // method of data transport (msg or binary)
   }
  
+  // we can now impl specfic CRDT traits to given resources
   enum SyncResource {
     FilePath(dyn Replicate),
-    File(dyn OperationalTransform + OperationalMerge),
+    File(dyn OperationalTransform),
     Tag(dyn OperationalTransform),
     TagOnFile(dyn LastWriteWin),
+    Jobs(dyn Replicate + OperationalTransform)
   }
 }
 ```
@@ -30,11 +32,11 @@ mod sync {
 
 ## Data Types
 Data is divided into several kinds, Shared, Relational and Owned.
-- **Shared data** - Can be created and modified by any client. Has a UUID.
+- **Shared data** - Can be created and modified by any client. Has a `uuid`.
 
   *Sync Method:* `Operational transform*`
 
-  > Shared resources could be,`files`, `tags`, `comments`, `albums`, `jobs`, `labels`. Since these can be created, updated or deleted by any client at any time. 
+  > Shared resources could be,`files`, `tags`, `comments`, `albums` and `labels`. Since these can be created, updated or deleted by any client at any time. 
 
 - **Relational data** - Can be created and modified by any client. Links two UUIDs by local IDs.
 
@@ -42,15 +44,15 @@ Data is divided into several kinds, Shared, Relational and Owned.
 
   > Any many-to-many tables do not store UUIDs, we have to handle this data specifically. Querying for the resources local IDs before creating or deleting the relation.
 
-- **Owned data** - Can only be modified by the client that created it. Has a UUID.
+- **Owned data** - Can only be modified by the client that created it. Has a `client_id` and `uuid`.
 
   *Sync Method:* `Replicate`
 
-  > Owned resources would be `file_paths` & `media_data`, since a client is the single source of truth for this data. This means we can perform conflict free synchronization.
+  > Owned resources would be `file_paths`, `jobs`, `locations` and `media_data`, since a client is the single source of truth for this data. This means we can perform conflict free synchronization.
 
 - **Offline data** - Not synchronized at all.
 
-  > For example `logs` `pending_operations` `_migrations`. These are static and not part of this system.
+  > For example `logs`, `pending_operations` and `_migrations`. These are static and not part of this system.
 
 
 
@@ -86,6 +88,8 @@ If a client has not been seen in X amount of time, other clients will not persis
 
 
 
+
+
 ## Clock
 
 With realtime synchronization it is important to maintain the true order of events, we can timestamp each operation, but have to account for time drift; there is no way to guarantee two machines have synchronized system clocks.
@@ -111,17 +115,19 @@ Sync happens in the following order:
 
 Owned data → Bulk shared data →  Shared data → Relational data
 
+
+
+### Types of CRDT:
+
 ```rust
-enum Crdt {
-  OperationalTransform,
-  OperationalMerge,
-  LastWriteWin,
-  Replicate,
-}
+trait OperationalTransform;
+
+trait LastWriteWin;
+
+trait Replicate;
 ```
 
 - **Operational Transform** - Update Shared resources at a property level. Operations stored in `pending_operations` table. 
-- **Operational Merge** - The newer resource is merged with an older resource at a property level, where oldest takes priority. Used specifically for the `files` resource, which is Shared data but is sometimes synced in bulk.
 - **Last Write Win** - The most recent event will always be applied, used for many-to-many datasets.
 - **Replicate** - Used exclusively for Owned data, clients will replicate with no questions asked.
 
@@ -196,6 +202,109 @@ This is intended for the `files` resource. It requires Shared data behaviour as 
 As `files` are created in abundance (hundreds of thousands at a time), it would be inefficient to record these changes in the `pending_operations` table. But we are also unable to sync in the same way as Owned data due to the possibility of conflicts. 
 
 We handle this by using `SyncMethod::Merge`, simply merging the data where the oldest resource properties are prioritized.
+
+
+
+
+
+## Combining CRDTs 
+
+Combining CRDT types allow for some tailored functionality for particular resources.
+
+Looking at the `jobs` resource let look how `OperationalTransform + Replicate` might work.
+
+Jobs are unique in that they have frequent updates to some properties and 
+
+```rust
+impl OperationalTransform for Job {
+  pub fn create () {}
+  pub fn update () {}
+  pub fn delete () {}
+}
+
+impl Replicate for Job {
+  
+}
+```
+
+
+
+
+
+
+
+## Creating Sync Events
+
+We have a simple Rust syntax for creating sync events in the core.
+
+```rust
+aysnc fn my_core_function(&ctx: CoreContext) -> Result<()> {
+  let mut file = File::get_unique(1).await?;
+  
+  ctx.sync.operation(file.id, 
+    SyncResource::File(
+      Operation::Update(
+  			FileUpdate::HasThumbnail(true)
+  		)
+  	)
+  );
+  
+  Ok(())
+}
+```
+
+Then inside the `sync` function we send the event to the 
+
+```rust
+  impl SyncEngine {
+  	pub fn operation(&self, uuid: &str, sync_resource: SyncResource) {
+      self.perform_operation(
+        uuid.clone(), 
+        SyncTransport::Message(sync_resource)
+      );
+    }  
+	}
+```
+
+Files also impempent `OperationalMerge` would use 
+
+
+
+
+
+## Ingesting Sync Events
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
