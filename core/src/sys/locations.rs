@@ -8,7 +8,7 @@ use crate::{
 use anyhow::Result;
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::{fs, io, io::Write};
+use std::{fs, io, io::Write, path::Path};
 use thiserror::Error;
 use ts_rs::TS;
 
@@ -24,9 +24,7 @@ pub struct LocationResource {
   pub path: Option<String>,
   pub total_capacity: Option<i32>,
   pub available_capacity: Option<i32>,
-  pub is_removable: bool,
-  pub is_ejectable: bool,
-  pub is_root_filesystem: bool,
+  pub is_removable: Option<bool>,
   pub is_online: bool,
   #[ts(type = "string")]
   pub date_created: chrono::DateTime<chrono::Utc>,
@@ -41,8 +39,6 @@ impl Into<LocationResource> for LocationData {
       total_capacity: self.total_capacity,
       available_capacity: self.available_capacity,
       is_removable: self.is_removable,
-      is_ejectable: self.is_ejectable,
-      is_root_filesystem: self.is_root_filesystem,
       is_online: self.is_online,
       date_created: self.date_created,
     }
@@ -78,9 +74,7 @@ pub async fn get_location(
   // get location by location_id from db and include location_paths
   let location = match db
     .location()
-    .find_first(vec![
-      Location::file_paths().some(vec![FilePath::id().equals(location_id.into())])
-    ])
+    .find_unique(Location::id().equals(location_id))
     .exec()
     .await?
   {
@@ -106,6 +100,21 @@ pub async fn new_location_and_scan(
   Ok(location)
 }
 
+pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, SysError> {
+  let db = &ctx.database;
+  let config = client::get();
+
+  let locations = db.location().find_many(vec![]).exec().await?;
+
+  // turn locations into LocationResource
+  let locations: Vec<LocationResource> = locations
+    .into_iter()
+    .map(|location| location.into())
+    .collect();
+
+  Ok(locations)
+}
+
 pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
   let db = &ctx.database;
   let config = client::get();
@@ -129,40 +138,18 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
         &path
       );
       let uuid = uuid::Uuid::new_v4();
-      // create new location
-      let create_location_params = {
-        let volumes = match volumes::get_volumes() {
-          Ok(volumes) => volumes,
-          Err(e) => Err(LocationError::VolumeReadError(e.to_string()))?,
-        };
-        info!("Loaded mounted volumes: {:?}", volumes);
-        // find mount with matching path
-        let volume = volumes
-          .into_iter()
-          .find(|mount| path.starts_with(&mount.mount_point));
 
-        let volume_data = match volume {
-          Some(mount) => mount,
-          None => Volume::default(),
-        };
-
-        vec![
-          Location::name().set(volume_data.name.to_string()),
-          Location::total_capacity().set(volume_data.total_capacity as i32),
-          Location::available_capacity().set(volume_data.available_capacity as i32),
-          Location::is_ejectable().set(false), // remove this
-          Location::is_removable().set(volume_data.is_removable),
-          Location::is_root_filesystem().set(false), // remove this
-          Location::is_online().set(true),
-          Location::local_path().set(path.to_string()),
-        ]
-      };
+      let p = Path::new(&path);
 
       let location = db
         .location()
         .create_one(
-          Location::uuid().set(uuid.to_string()),
-          create_location_params,
+          Location::pub_id().set(uuid.to_string()),
+          vec![
+            Location::name().set(p.file_name().unwrap().to_string_lossy().to_string()),
+            Location::is_online().set(true),
+            Location::local_path().set(path.to_string()),
+          ],
         )
         .exec()
         .await?;

@@ -45,7 +45,7 @@
     "allowlist": {
       "all": true,
       "protocol": {
-        "assetScope": ["$HOME/Library/Application Support/spacedrive/thumbnails/**/*.webp"]
+        "assetScope": ["*"]
       },
       "dialog": {
         "all": true,

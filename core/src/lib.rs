@@ -53,7 +53,7 @@ impl CoreController {
       })
       .unwrap_or(());
     // wait for response and return
-    recv.await.unwrap()
+    recv.await.unwrap_or(Err(CoreError::QueryError))
   }
 
   pub async fn command(&self, command: ClientCommand) -> Result<CoreResponse, CoreError> {
@@ -158,7 +158,9 @@ impl Core {
       internal_channel,
     };
 
-    // p2p::listener::listen(None).await.unwrap_or(());
+    tokio::spawn(async move {
+      p2p::listener::listen(None).await.unwrap_or(());
+    });
 
     (core, event_recv)
   }
@@ -253,8 +255,12 @@ impl Core {
       ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
       ClientCommand::LibDelete { id: _ } => todo!(),
       ClientCommand::TagUpdate { name: _, color: _ } => todo!(),
-      ClientCommand::GenerateThumbsForLocation { id } => {
-        ctx.spawn_job(Box::new(ThumbnailJob { location_id: id }));
+      ClientCommand::GenerateThumbsForLocation { id, path } => {
+        ctx.spawn_job(Box::new(ThumbnailJob {
+          location_id: id,
+          path,
+          background: false, // fix
+        }));
         CoreResponse::Success(())
       }
       ClientCommand::PurgeDatabase => {
@@ -267,13 +273,16 @@ impl Core {
 
   // query sources of data
   async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
-    info!("Core query: {:?}", query);
+    println!("Core query: {:?}", query);
     let ctx = self.get_context();
     Ok(match query {
       // return the client state from memory
       ClientQuery::ClientGetState => CoreResponse::ClientGetState(self.state.clone()),
       // get system volumes without saving to library
       ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get_volumes()?),
+      ClientQuery::SysGetLocations => {
+        CoreResponse::SysGetLocations(sys::locations::get_locations(&ctx).await?)
+      }
       // get location from library
       ClientQuery::SysGetLocation { id } => {
         CoreResponse::SysGetLocation(sys::locations::get_location(&ctx, id).await?)
@@ -292,17 +301,6 @@ impl Core {
       ClientQuery::JobGetHistory => CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?),
     })
   }
-
-  // pub fn queue(&mut self, job: JobResource) -> &mut JobResource {
-  // 	self.job_runner.queued_jobs.push(job);
-  // 	self.job_runner.queued_jobs.last_mut().unwrap()
-  // }
-  // send an event to the client
-  // async fn emit_event(&mut self, event: ClientEvent) {}
-
-  // pub async fn send(&self, event: CoreEvent) {
-  // 	// self.event_channel.1.send(event).await;
-  // }
 }
 
 // represents an event this library can emit
@@ -327,7 +325,7 @@ pub enum ClientCommand {
   LocDelete { id: i32 },
   // System
   SysVolumeUnmount { id: i32 },
-  GenerateThumbsForLocation { id: i32 },
+  GenerateThumbsForLocation { id: i32, path: String },
   PurgeDatabase,
 }
 
@@ -341,6 +339,7 @@ pub enum ClientQuery {
   LibGetTags,
   JobGetRunning,
   JobGetHistory,
+  SysGetLocations,
   SysGetLocation {
     id: i32,
   },
@@ -371,6 +370,7 @@ pub enum CoreResponse {
   Success(()),
   SysGetVolumes(Vec<sys::volumes::Volume>),
   SysGetLocation(sys::locations::LocationResource),
+  SysGetLocations(Vec<sys::locations::LocationResource>),
   LibGetExplorerDir(file::DirectoryWithContents),
   ClientGetState(ClientState),
   LocCreate(sys::locations::LocationResource),

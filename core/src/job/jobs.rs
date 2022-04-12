@@ -5,6 +5,7 @@ use super::{
 use crate::{
   prisma::{self, JobData},
   state::client,
+  sync::{crdt::Replicate, engine::SyncContext},
   CoreContext,
 };
 use anyhow::Result;
@@ -145,8 +146,8 @@ impl JobReport {
       .job()
       .create_one(
         prisma::Job::id().set(self.id.clone()),
-        prisma::Job::client_id().set(config.client_id),
         prisma::Job::action().set(1),
+        prisma::Job::clients().link(prisma::Client::id().equals(config.client_id)),
         vec![],
       )
       .exec()
@@ -154,7 +155,6 @@ impl JobReport {
     Ok(())
   }
   pub async fn update(&self, ctx: &CoreContext) -> Result<(), JobError> {
-    // let config = client::get();
     ctx
       .database
       .job()
@@ -170,6 +170,17 @@ impl JobReport {
       .await?;
     Ok(())
   }
+}
+
+#[derive(Clone)]
+pub struct JobReportCreate {}
+
+#[async_trait::async_trait]
+impl Replicate for JobReport {
+  type Create = JobReportCreate;
+
+  async fn create(_data: Self::Create, ctx: SyncContext) {}
+  async fn delete(ctx: SyncContext) {}
 }
 
 #[repr(i32)]

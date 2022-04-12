@@ -32,7 +32,7 @@ export default function GeneralSettings() {
   const { data: jobsHistory } = useBridgeQuery('JobGetHistory');
 
   return (
-    <div className="flex flex-col max-w-2xl space-y-4">
+    <div className="flex flex-col flex-grow max-w-4xl space-y-4">
       <div className="mt-3 mb-6">
         <h1 className="text-2xl font-bold">General Settings</h1>
         <p className="mt-1 text-sm text-gray-400">Basic settings related to this client</p>

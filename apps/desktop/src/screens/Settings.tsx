@@ -75,7 +75,7 @@ export const SettingsScreen: React.FC<{}> = () => {
         </SidebarLink>
       </div>
       <div className="flex flex-grow-0 w-full h-full max-h-screen overflow-y-scroll">
-        <div className="px-12 py-5">
+        <div className="flex flex-grow px-12 py-5">
           <Outlet />
           <div className="block h-20" />
         </div>

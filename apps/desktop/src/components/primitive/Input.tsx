@@ -48,6 +48,25 @@ export const Input = ({ size, ...props }: InputProps) => {
   );
 };
 
+interface TextAreaProps extends React.InputHTMLAttributes<HTMLTextAreaElement> {
+  variant?: keyof typeof variants;
+  size?: 'sm';
+}
+
+export const TextArea = ({ size, ...props }: TextAreaProps) => {
+  return (
+    <textarea
+      {...props}
+      className={clsx(
+        `px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
+        variants[props.variant || 'default'],
+        size && '',
+        props.className
+      )}
+    />
+  );
+};
+
 export const Label: React.FC<{ slug?: string }> = (props) => (
   <label className="text-sm font-bold" htmlFor={props.slug}>
     {props.children}

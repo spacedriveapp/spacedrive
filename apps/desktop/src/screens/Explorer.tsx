@@ -7,32 +7,37 @@ import { useBridgeQuery } from '@sd/client';
 import { Inspector } from '../components/file/Inspector';
 
 export const ExplorerScreen: React.FC<{}> = () => {
-  // let { slug } = useParams();
   let [searchParams] = useSearchParams();
-  let path = searchParams.get('path');
+  let path = searchParams.get('path') || '';
+  let hrefSplit = window.location.href.split('explorer/')[1];
 
-  let [locationId, _setLocationId] = React.useState(1);
+  let location_id = Number(hrefSplit.includes('?') ? hrefSplit.split('?')[0] : hrefSplit);
+
   let [limit, setLimit] = React.useState(100);
+
+  useEffect(() => {
+    console.log({ location_id, path, limit });
+  }, [location_id, path]);
+
+  const { selectedRowIndex } = useExplorerState();
 
   const { data: currentDir } = useBridgeQuery(
     'LibGetExplorerDir',
-    {
-      location_id: locationId,
-      path: path || '/',
-      limit
-    },
-    {
-      enabled: !!path
-    }
+    { location_id, path, limit },
+    { enabled: !!location_id }
   );
-  const { selectedRowIndex } = useExplorerState();
 
   return (
     <div className="flex flex-col w-full h-full">
       <TopBar />
       <div className="relative flex flex-row w-full ">
-        <FileList location_id={1} path={path ?? ''} limit={limit} />
-        <Inspector selectedFile={currentDir?.contents[selectedRowIndex]} locationId={locationId} />
+        <FileList location_id={location_id} path={path} limit={limit} />
+        {currentDir?.contents && (
+          <Inspector
+            selectedFile={currentDir.contents[selectedRowIndex]}
+            locationId={location_id}
+          />
+        )}
       </div>
     </div>
   );

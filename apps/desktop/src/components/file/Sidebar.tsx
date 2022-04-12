@@ -14,7 +14,7 @@ import { platform } from '@tauri-apps/api/os';
 
 interface SidebarProps extends DefaultProps {}
 
-export const SidebarLink = (props: NavLinkProps) => (
+export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode }) => (
   <NavLink {...props}>
     {({ isActive }) => (
       <span
@@ -34,7 +34,7 @@ const Icon = ({ component: Icon, ...props }: any) => (
   <Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
 );
 
-const Heading: React.FC<{}> = ({ children }) => (
+const Heading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300">{children}</div>
 );
 
@@ -53,7 +53,7 @@ export function MacOSTrafficLights() {
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const [isMacos, setIsMacos] = useState(false);
-  const { data: volumes } = useBridgeQuery('SysGetVolumes');
+  const { data: locations } = useBridgeQuery('SysGetLocations');
 
   useEffect(() => {
     platform().then((platform) => {
@@ -113,40 +113,47 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         </SidebarLink>
         <SidebarLink to="spaces">
           <Icon component={CirclesFour} />
-          Spaces
+          Content
         </SidebarLink>
 
         <SidebarLink to="media">
           <Icon component={MonitorPlay} />
-          Media
+          Albums
         </SidebarLink>
-        <SidebarLink to="explorer">
+        {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
           Explorer
-        </SidebarLink>
+        </SidebarLink> */}
       </div>
       <div>
         <Heading>Locations</Heading>
-        {volumes?.map((location, index) => {
+        {locations?.map((location, index) => {
           return (
             <div key={index} className="flex flex-row items-center">
-              <SidebarLink
-                className="relative w-full group"
-                to={{ pathname: `/app/explorer`, search: `?url=${location.mount_point}` }}
+              <NavLink
+                className="'relative w-full group'"
+                to={{
+                  pathname: `explorer/${location.id}`
+                }}
               >
-                <Icon component={ServerIcon} />
-                {location.name}
-                <div className="flex-grow" />
-                {location.is_removable && (
-                  <Button
-                    noBorder
-                    size="sm"
-                    className="w-7 h-7 top-0 right-0 absolute !bg-transparent group-hover:bg-gray-600 dark:hover:!bg-gray-550 !transition-none items-center !rounded-l-none"
+                {({ isActive }) => (
+                  <span
+                    className={clsx(
+                      'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
+                      {
+                        '!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
+                      }
+                    )}
                   >
-                    <Icon className="w-3 h-3 mr-0 " component={EjectSimple} />
-                  </Button>
+                    <img
+                      className="w-4 h-4 mr-2 pointer-events-none z-90"
+                      src={`/svg/${isActive ? 'folder-white' : 'folder'}.svg`}
+                    />
+                    {location.name}
+                    <div className="flex-grow" />
+                  </span>
                 )}
-              </SidebarLink>
+              </NavLink>
             </div>
           );
         })}
@@ -184,9 +191,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           )}
         </NavLink>
       </div>
-      {/* <div className="w-full px-2 py-2 mb-2 text-xs font-bold text-center text-gray-500 border border-dashed rounded border-gray-550">
-        Drop
-      </div> */}
     </div>
   );
 };

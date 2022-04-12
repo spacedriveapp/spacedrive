@@ -6,6 +6,7 @@ use ts_rs::TS;
 use crate::{
   crypto::encryption::EncryptionAlgorithm,
   prisma::{self, FileData, FilePathData},
+  sys::SysError,
 };
 pub mod checksum;
 pub mod explorer;
@@ -60,6 +61,10 @@ pub struct FilePath {
   pub parent_id: Option<i32>,
   pub temp_cas_id: Option<String>,
   pub has_local_thumbnail: bool,
+  #[ts(type = "string")]
+  pub date_created: chrono::DateTime<chrono::Utc>,
+  #[ts(type = "string")]
+  pub date_modified: chrono::DateTime<chrono::Utc>,
   #[ts(type = "string")]
   pub date_indexed: chrono::DateTime<chrono::Utc>,
   pub permissions: Option<String>,
@@ -120,6 +125,8 @@ impl Into<FilePath> for FilePathData {
       name: self.name,
       extension: self.extension,
       temp_cas_id: self.temp_cas_id,
+      date_created: self.date_created,
+      date_modified: self.date_modified,
     }
   }
 }
@@ -139,4 +146,6 @@ pub enum FileError {
   FileNotFound(String),
   #[error("Database error")]
   DatabaseError(#[from] prisma::QueryError),
+  #[error("System error")]
+  SysError(#[from] SysError),
 }
