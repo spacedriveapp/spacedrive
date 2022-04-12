@@ -65,7 +65,6 @@ export default function GeneralSettings() {
         <div className="flex flex-row">
           <Input
             value={tempWatchDir}
-            size="sm"
             className="flex-grow"
             onChange={(e) => setTempWatchDir(e.target.value)}
             placeholder="/users/jamie/Desktop"

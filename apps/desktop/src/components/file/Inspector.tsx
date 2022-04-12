@@ -104,7 +104,7 @@ export const Inspector = (props: { selectedFile?: FilePath; locationId: number }
             )}
             <MetaItem
               title="Comment"
-              value={<TextArea size="sm" className="mt-2 text-xs leading-snug !py-2" />}
+              value={<TextArea className="mt-2 text-xs leading-snug !py-2" />}
             />
 
             {/* <div className="flex flex-row m-3">
