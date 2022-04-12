@@ -31,17 +31,15 @@ const variants = {
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   variant?: keyof typeof variants;
-  size?: 'sm';
 }
 
-export const Input = ({ size, ...props }: InputProps) => {
+export const Input = ({ ...props }: InputProps) => {
   return (
     <input
       {...props}
       className={clsx(
         `px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
         variants[props.variant || 'default'],
-        size && '',
         props.className
       )}
     />
@@ -50,7 +48,6 @@ export const Input = ({ size, ...props }: InputProps) => {
 
 interface TextAreaProps extends React.InputHTMLAttributes<HTMLTextAreaElement> {
   variant?: keyof typeof variants;
-  size?: 'sm';
 }
 
 export const TextArea = ({ size, ...props }: TextAreaProps) => {
@@ -67,7 +64,7 @@ export const TextArea = ({ size, ...props }: TextAreaProps) => {
   );
 };
 
-export const Label: React.FC<{ slug?: string }> = (props) => (
+export const Label: React.FC<{ slug?: string; children: string }> = (props) => (
   <label className="text-sm font-bold" htmlFor={props.slug}>
     {props.children}
   </label>

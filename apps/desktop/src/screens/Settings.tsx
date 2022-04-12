@@ -22,7 +22,7 @@ const Icon = ({ component: Icon, ...props }: any) => (
   <Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
 );
 
-const Heading: React.FC<{ className?: string }> = ({ children, className }) => (
+const Heading: React.FC<{ className?: string; children: string }> = ({ children, className }) => (
   <div className={clsx('mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300', className)}>
     {children}
   </div>
