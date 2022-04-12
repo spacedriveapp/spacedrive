@@ -36,7 +36,7 @@ struct File {
 }
 ```
 
-- `partial_checksum ` - A SHA256 checksum generated from 5 samples of 10,000 bytes throughout the file data, including the begining and end. This is used to identify a file as *likely* unique in under 100µs. 
+- `partial_checksum ` - A SHA256 checksum generated from 5 samples of 10,000 bytes throughout the file data, including the begining and end + total byte count. This is used to identify a file as *likely* unique in under 100µs. 
 
 > ~~It is impossible to have a unique constraint at a database level for the `partial_checksum` however we can asyncronously resolve conflicts by querying for duplicates and generating full checksums at a later date.~~
 >

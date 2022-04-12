@@ -24,6 +24,7 @@ packages/*/data
 apps/*/data
 docs/public/*.st
 docs/public/*.toml
+dev.db
 
 !cli/cmd/turbo
 cli/npm/turbo-android-arm64/bin

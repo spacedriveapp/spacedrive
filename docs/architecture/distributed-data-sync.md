@@ -20,8 +20,8 @@ mod sync {
   // we can now impl specfic CRDT traits to given resources
   enum SyncResource {
     FilePath(dyn Replicate),
-    File(dyn OperationalTransform),
-    Tag(dyn OperationalTransform),
+    File(dyn PropertyOperation),
+    Tag(dyn PropertyOperation),
     TagOnFile(dyn LastWriteWin),
     Jobs(dyn Replicate + OperationalTransform)
   }
@@ -31,28 +31,18 @@ mod sync {
 
 
 ## Data Types
-Data is divided into several kinds, Shared, Relational and Owned.
+Data is divided into several kinds, Shared and Owned.
 - **Shared data** - Can be created and modified by any client. Has a `uuid`.
 
-  *Sync Method:* `Operational transform*`
+  *Sync Method:* `Property operation*`
 
   > Shared resources could be,`files`, `tags`, `comments`, `albums` and `labels`. Since these can be created, updated or deleted by any client at any time. 
-
-- **Relational data** - Can be created and modified by any client. Links two UUIDs by local IDs.
-
-  *Sync Method:* `Last write wins (LWW)`
-
-  > Any many-to-many tables do not store UUIDs, we have to handle this data specifically. Querying for the resources local IDs before creating or deleting the relation.
 
 - **Owned data** - Can only be modified by the client that created it. Has a `client_id` and `uuid`.
 
   *Sync Method:* `Replicate`
 
   > Owned resources would be `file_paths`, `jobs`, `locations` and `media_data`, since a client is the single source of truth for this data. This means we can perform conflict free synchronization.
-
-- **Offline data** - Not synchronized at all.
-
-  > For example `logs`, `pending_operations` and `_migrations`. These are static and not part of this system.
 
 
 
@@ -120,16 +110,19 @@ Owned data → Bulk shared data →  Shared data → Relational data
 ### Types of CRDT:
 
 ```rust
-trait OperationalTransform;
-
-trait LastWriteWin;
+trait PropertyOperation;
 
 trait Replicate;
 ```
 
-- **Operational Transform** - Update Shared resources at a property level. Operations stored in `pending_operations` table. 
-- **Last Write Win** - The most recent event will always be applied, used for many-to-many datasets.
+- **PropertyOperation** - Update Shared resources at a property level. Operations stored in `pending_operations` table. 
 - **Replicate** - Used exclusively for Owned data, clients will replicate with no questions asked.
+
+- ~~**Last Write Win** - The most recent event will always be applied, used for many-to-many datasets.~~
+
+
+
+
 
 
 
@@ -139,7 +132,7 @@ Operations perform a Shared data change, they are cached in the database as `pen
 Operations are removed once all online clients have received the payload.
 
 ```rust
-struct OperationalTransform<V> {
+struct PropertyOperation<V> {
   method: OperationMethod,
   // the name of the database table
   resource_type: String,
@@ -267,18 +260,6 @@ Then inside the `sync` function we send the event to the
 ```
 
 Files also impempent `OperationalMerge` would use 
-
-
-
-
-
-## Ingesting Sync Events
-
-
-
-
-
-
 
 
 
