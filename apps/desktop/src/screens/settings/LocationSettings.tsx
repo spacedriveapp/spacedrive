@@ -1,5 +1,7 @@
 import React from 'react';
 import { Button } from '../../components/primitive';
+import { Dropdown } from '../../components/primitive/Dropdown';
+import DropdownMenu from '../../components/primitive/DropdownMenu';
 import { InputContainer } from '../../components/primitive/InputContainer';
 
 const exampleLocations = [
@@ -12,7 +14,7 @@ export default function LocationSettings() {
   // const locations = useBridgeQuery("SysGetLocation")
 
   return (
-    <div className="max-w-md">
+    <div className="flex flex-col flex-grow max-w-4xl space-y-4">
       {/*<Button size="sm">Add Location</Button>*/}
       <InputContainer
         title="Something about a vault"
@@ -31,6 +33,7 @@ export default function LocationSettings() {
           <Button className="mb-3" variant="primary">
             Add Location
           </Button>
+          <DropdownMenu />
         </div>
       </InputContainer>
     </div>

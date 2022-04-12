@@ -51,7 +51,7 @@ pub async fn create(core: &Core) -> Result<(), ClientError> {
 
   let client = match db
     .client()
-    .find_unique(prisma::Client::uuid().equals(config.client_uuid.clone()))
+    .find_unique(prisma::Client::pub_id().equals(config.client_uuid.clone()))
     .exec()
     .await?
   {
@@ -59,7 +59,7 @@ pub async fn create(core: &Core) -> Result<(), ClientError> {
     None => {
       db.client()
         .create_one(
-          prisma::Client::uuid().set(config.client_uuid.clone()),
+          prisma::Client::pub_id().set(config.client_uuid.clone()),
           prisma::Client::name().set(hostname.clone()),
           vec![
             prisma::Client::platform().set(platform as i32),

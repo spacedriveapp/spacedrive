@@ -17,7 +17,7 @@ type ExplorerState = {
 };
 
 export const useExplorerState = create<ExplorerState>((set) => ({
-  selectedRowIndex: -1,
+  selectedRowIndex: 1,
   setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index }))
 }));
 
@@ -52,6 +52,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
   const path = props.path;
 
   const { selectedRowIndex, setSelectedRowIndex } = useExplorerState();
+  const [goingUp, setGoingUp] = useState(false);
 
   const { data: currentDir } = useBridgeQuery('LibGetExplorerDir', {
     location_id: props.location_id,
@@ -60,16 +61,25 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
   });
 
   useEffect(() => {
-    if (selectedRowIndex != -1) VList.current?.scrollIntoView({ index: selectedRowIndex });
+    if (selectedRowIndex === 0 && goingUp) {
+      VList.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    if (selectedRowIndex != -1) {
+      VList.current?.scrollIntoView({
+        index: goingUp ? selectedRowIndex - 1 : selectedRowIndex
+      });
+    }
   }, [selectedRowIndex]);
 
   useKey('ArrowUp', (e) => {
     e.preventDefault();
+    setGoingUp(true);
     if (selectedRowIndex != -1 && selectedRowIndex !== 0) setSelectedRowIndex(selectedRowIndex - 1);
   });
 
   useKey('ArrowDown', (e) => {
     e.preventDefault();
+    setGoingUp(false);
     if (selectedRowIndex != -1 && selectedRowIndex !== (currentDir?.contents.length ?? 1) - 1)
       setSelectedRowIndex(selectedRowIndex + 1);
   });
@@ -84,7 +94,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 
   const Header = () => (
     <div>
-      <h1 className="p-2 mt-10 ml-1 text-xl font-bold">{currentDir?.directory.name}</h1>
+      <h1 className="p-2 pt-20 pl-4 text-xl font-bold">{currentDir?.directory.name}</h1>
       <div className="table-head">
         <div className="flex flex-row p-2 table-head-row">
           {columns.map((col) => (
@@ -107,7 +117,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
       <div
         ref={tableContainer}
         style={{ marginTop: -44 }}
-        className="w-full h-full p-3 bg-white cursor-default table-container dark:bg-gray-650"
+        className="w-full px-2 bg-white cursor-default table-container dark:bg-gray-650"
       >
         <LocationContext.Provider value={{ location_id: props.location_id }}>
           <Virtuoso
@@ -116,8 +126,8 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
             style={{ height: size.innerHeight ?? 600 }}
             totalCount={currentDir?.contents.length || 0}
             itemContent={Row}
-            // increaseViewportBy={10}
-            components={{ Header }}
+            components={{ Header, Footer: () => <div className="w-full " /> }}
+            increaseViewportBy={{ top: 400, bottom: 200 }}
             className="outline-none"
           />
         </LocationContext.Provider>
@@ -180,9 +190,12 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath
   const row = file;
   if (!row) return <></>;
 
+  // @ts-expect-error
   const value = row[colKey];
   if (!value) return <></>;
-  const { data: client } = useBridgeQuery('ClientGetState');
+  const { data: client } = useBridgeQuery('ClientGetState', undefined, {
+    refetchOnWindowFocus: false
+  });
   const location = useContext(LocationContext);
 
   switch (colKey) {
@@ -198,7 +211,7 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath
                 <img
                   className="mt-0.5 pointer-events-none z-90"
                   src={convertFileSrc(
-                    `${client.data_path}/thumbnails/${location.location_id}/${row.temp_checksum}.webp`
+                    `${client.data_path}/thumbnails/${location.location_id}/${row.temp_cas_id}.webp`
                   )}
                 />
               )

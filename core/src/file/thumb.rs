@@ -14,9 +14,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use webp::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ThumbnailJob {
   pub location_id: i32,
+  pub path: String,
+  pub background: bool,
 }
 
 static THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
@@ -39,7 +41,7 @@ impl Job for ThumbnailJob {
 
     let root_path = location.path.unwrap();
 
-    let image_files = get_images(&core_ctx, self.location_id).await?;
+    let image_files = get_images(&core_ctx, self.location_id, &self.path).await?;
 
     let location_id = location.id.clone();
 
@@ -106,22 +108,25 @@ pub fn generate_thumbnail(file_path: &str, output_path: &PathBuf) -> Result<()> 
   Ok(())
 }
 
-pub async fn get_images(ctx: &CoreContext, location_id: i32) -> Result<Vec<FilePathData>> {
-  let image_files = ctx
-    .database
-    .file_path()
-    .find_many(vec![
-      FilePath::location_id().equals(location_id),
-      or!(
-        FilePath::extension().equals("png".to_string()),
-        FilePath::extension().equals("jpeg".to_string()),
-        FilePath::extension().equals("jpg".to_string()),
-        FilePath::extension().equals("gif".to_string()),
-        FilePath::extension().equals("webp".to_string()),
-      ),
-    ])
-    .exec()
-    .await?;
+pub async fn get_images(
+  ctx: &CoreContext,
+  location_id: i32,
+  path: &str,
+) -> Result<Vec<FilePathData>> {
+  let mut params = vec![
+    FilePath::location_id().equals(location_id),
+    or!(
+      FilePath::extension().equals("png".to_string()),
+      FilePath::extension().equals("jpeg".to_string()),
+      FilePath::extension().equals("jpg".to_string()),
+      FilePath::extension().equals("gif".to_string()),
+      FilePath::extension().equals("webp".to_string()),
+    ),
+  ];
+  if !path.is_empty() {
+    params.push(FilePath::materialized_path().starts_with(path.to_string()))
+  }
+  let image_files = ctx.database.file_path().find_many(params).exec().await?;
 
   Ok(image_files)
 }

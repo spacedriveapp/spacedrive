@@ -30,7 +30,7 @@ model SyncEvent {
 
 model Library {
     id           Int      @id @default(autoincrement())
-    uuid         String   @unique
+    pub_id       String   @unique
     name         String
     remote_id    String?
     is_primary   Boolean  @default(true)
@@ -56,7 +56,7 @@ model LibraryStatistics {
 
 model Client {
     id           Int      @id @default(autoincrement())
-    uuid         String   @unique
+    pub_id       String   @unique
     name         String
     platform     Int      @default(0)
     version      String?
@@ -64,16 +64,16 @@ model Client {
     last_seen    DateTime @default(now())
     timezone     String?
     date_created DateTime @default(now())
-    // jobs         Job[]
 
     sync_events SyncEvent[]
+    jobs        Job[]
 
     @@map("clients")
 }
 
 model Location {
     id                 Int      @id @default(autoincrement())
-    uuid               String   @unique
+    pub_id             String   @unique
     client_id          Int?
     name               String?
     local_path         String?
@@ -81,9 +81,7 @@ model Location {
     available_capacity Int?
     filesystem         String?
     disk_type          Int?
-    is_removable       Boolean  @default(true)
-    is_ejectable       Boolean  @default(true)
-    is_root_filesystem Boolean  @default(true)
+    is_removable       Boolean?
     is_online          Boolean  @default(true)
     date_created       DateTime @default(now())
 
@@ -122,11 +120,12 @@ model File {
     // when this file was first indexed
     date_indexed       DateTime @default(now())
 
-    file_tags   TagOnFile[]
-    file_labels LabelOnFile[]
-    file_paths  FilePath[]
-    comments    Comment[]
-    media_data  MediaData?
+    tags       TagOnFile[]
+    labels     LabelOnFile[]
+    albums     FileInAlbum[]
+    paths      FilePath[]
+    comments   Comment[]
+    media_data MediaData?
 
     @@map("files")
 }
@@ -179,7 +178,7 @@ model MediaData {
 
 model Tag {
     id              Int      @id @default(autoincrement())
-    uuid            String   @unique
+    pub_id          String   @unique
     name            String?
     encryption      Int?     @default(0)
     total_files     Int?     @default(0)
@@ -206,7 +205,7 @@ model TagOnFile {
 
 model Label {
     id            Int      @id @default(autoincrement())
-    uuid          String   @unique
+    pub_id        String   @unique
     name          String?
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
@@ -238,15 +237,15 @@ model Job {
     completed_task_count Int      @default(0)
     date_created         DateTime @default(now())
     date_modified        DateTime @default(now())
-    // clients              Client   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
     seconds_elapsed      Int      @default(0)
 
+    clients Client @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
     @@map("jobs")
 }
 
 model Space {
     id            Int      @id @default(autoincrement())
-    uuid          String   @unique
+    pub_id        String   @unique
     name          String
     encryption    Int?     @default(0) // remove
     date_created  DateTime @default(now())
@@ -259,19 +258,34 @@ model Space {
 
 model Album {
     id        Int     @id @default(autoincrement())
-    uuid      String  @unique
+    pub_id    String  @unique
     name      String
     is_hidden Boolean @default(false)
 
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
 
+    files FileInAlbum[]
+
     @@map("albums")
+}
+
+model FileInAlbum {
+    date_created DateTime @default(now())
+
+    album_id Int
+    album    Album @relation(fields: [album_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    file_id Int
+    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@id([album_id, file_id])
+    @@map("files_in_albums")
 }
 
 model Comment {
     id            Int      @id @default(autoincrement())
-    uuid          String   @unique
+    pub_id        String   @unique
     content       String
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())

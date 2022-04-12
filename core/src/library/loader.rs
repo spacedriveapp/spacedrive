@@ -30,7 +30,7 @@ pub async fn get(core: &Core) -> Result<LibraryData, LibraryError> {
   // get library from db
   let library = match db
     .library()
-    .find_unique(Library::uuid().equals(library_state.library_uuid.clone()))
+    .find_unique(Library::pub_id().equals(library_state.library_uuid.clone()))
     .exec()
     .await?
   {
@@ -87,7 +87,7 @@ pub async fn create(core: &Core, name: Option<String>) -> Result<()> {
   let _library = db
     .library()
     .create_one(
-      Library::uuid().set(config.current_library_uuid),
+      Library::pub_id().set(config.current_library_uuid),
       Library::name().set(name.unwrap_or(DEFAULT_NAME.into())),
       vec![],
     )

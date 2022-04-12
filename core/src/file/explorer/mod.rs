@@ -14,7 +14,7 @@ pub async fn open_dir(
   let config = client::get();
 
   // get location
-  let location = get_location(ctx, location_id.clone()).await.unwrap();
+  let location = get_location(ctx, location_id.clone()).await?;
 
   let directory = db
     .file_path()
@@ -25,7 +25,7 @@ pub async fn open_dir(
     ])
     .exec()
     .await?
-    .ok_or(FileError::FileNotFound(path.to_string()))?;
+    .ok_or(FileError::DirectoryNotFound(path.to_string()))?;
 
   let files = db
     .file_path()
@@ -46,10 +46,6 @@ pub async fn open_dir(
         .with_extension("webp");
 
       let exists = path.exists();
-      if exists {
-        println!("thumb found!! {:?}", path);
-      }
-
       file.has_local_thumbnail = exists;
     }
     contents.push(file);
