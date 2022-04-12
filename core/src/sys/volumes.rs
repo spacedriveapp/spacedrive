@@ -29,7 +29,7 @@ pub fn get_volumes() -> Result<Vec<Volume>, SysError> {
     .iter()
     .map(|disk| {
       let mut total_space = disk.total_space();
-      let mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
+      let mut mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
       let available_space = disk.available_space();
       let mut name = disk.name().to_str().unwrap_or("Volume").to_string();
       let is_removable = disk.is_removable();
@@ -43,8 +43,9 @@ pub fn get_volumes() -> Result<Vec<Volume>, SysError> {
         _ => "Removable Disk".to_string(),
       };
 
-      if cfg!(target_os = "macos") && mount_point == "/" {
+      if cfg!(target_os = "macos") && mount_point == "/" || mount_point == "/System/Volumes/Data" {
         name = "Macintosh HD".to_string();
+        mount_point = "/".to_string();
       }
 
       if total_space < available_space && cfg!(target_os = "windows") {
@@ -87,11 +88,11 @@ pub fn get_volumes() -> Result<Vec<Volume>, SysError> {
   Ok(volumes)
 }
 
-#[test]
-fn test_get_volumes() {
-  let volumes = get_volumes().unwrap();
-  dbg!(&volumes);
-  assert!(volumes.len() > 0);
-}
+// #[test]
+// fn test_get_volumes() {
+//   let volumes = get_volumes().unwrap();
+//   dbg!(&volumes);
+//   assert!(volumes.len() > 0);
+// }
 
 // Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs

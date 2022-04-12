@@ -18,19 +18,32 @@ pub mod watcher;
 #[ts(export)]
 pub struct File {
   pub id: i32,
-  pub partial_checksum: String,
-  pub checksum: Option<String>,
+  pub cas_id: String,
+  pub integrity_checksum: Option<String>,
   pub size_in_bytes: String,
+  pub kind: FileKind,
+
+  pub hidden: bool,
+  pub favorite: bool,
+  pub important: bool,
+  pub has_thumbnail: bool,
+  pub has_thumbstrip: bool,
+  pub has_video_preview: bool,
   pub encryption: EncryptionAlgorithm,
-  pub file_type: FileType,
+  pub ipfs_id: Option<String>,
+  pub comment: Option<String>,
+
   #[ts(type = "string")]
   pub date_created: chrono::DateTime<chrono::Utc>,
   #[ts(type = "string")]
   pub date_modified: chrono::DateTime<chrono::Utc>,
   #[ts(type = "string")]
   pub date_indexed: chrono::DateTime<chrono::Utc>,
-  pub ipfs_id: Option<String>,
-  pub file_paths: Vec<FilePath>,
+
+  pub paths: Vec<FilePath>,
+  // pub media_data: Option<MediaData>,
+  // pub tags: Vec<Tag>,
+  // pub label: Vec<Label>,
 }
 
 // A physical file path
@@ -45,9 +58,8 @@ pub struct FilePath {
   pub extension: Option<String>,
   pub file_id: Option<i32>,
   pub parent_id: Option<i32>,
-  pub temp_checksum: Option<String>,
+  pub temp_cas_id: Option<String>,
   pub has_local_thumbnail: bool,
-  pub size_in_bytes: i32,
   #[ts(type = "string")]
   pub date_indexed: chrono::DateTime<chrono::Utc>,
   pub permissions: Option<String>,
@@ -56,7 +68,7 @@ pub struct FilePath {
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
 #[ts(export)]
-pub enum FileType {
+pub enum FileKind {
   Unknown = 0,
   Directory = 1,
   Package = 2,
@@ -72,16 +84,23 @@ impl Into<File> for FileData {
   fn into(self) -> File {
     File {
       id: self.id,
-      partial_checksum: self.partial_checksum,
-      checksum: self.checksum,
+      cas_id: self.cas_id,
+      integrity_checksum: self.integrity_checksum,
+      kind: IntEnum::from_int(self.kind).unwrap(),
       size_in_bytes: self.size_in_bytes.to_string(),
       encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
-      file_type: FileType::Unknown,
+      ipfs_id: self.ipfs_id,
+      hidden: self.hidden,
+      favorite: self.favorite,
+      important: self.important,
+      has_thumbnail: self.has_thumbnail,
+      has_thumbstrip: self.has_thumbstrip,
+      has_video_preview: self.has_video_preview,
+      comment: self.comment,
       date_created: self.date_created,
       date_modified: self.date_modified,
       date_indexed: self.date_indexed,
-      ipfs_id: self.ipfs_id,
-      file_paths: vec![],
+      paths: vec![],
     }
   }
 }
@@ -100,8 +119,7 @@ impl Into<FilePath> for FilePathData {
       has_local_thumbnail: false,
       name: self.name,
       extension: self.extension,
-      temp_checksum: self.temp_checksum,
-      size_in_bytes: 0,
+      temp_cas_id: self.temp_cas_id,
     }
   }
 }

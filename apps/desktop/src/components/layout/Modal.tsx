@@ -8,6 +8,7 @@ import { MacOSTrafficLights } from '../file/Sidebar';
 
 export interface ModalProps {
   full?: boolean;
+  children: React.ReactNode;
 }
 
 export const Modal: React.FC<ModalProps> = (props) => {
@@ -30,7 +31,7 @@ export const Modal: React.FC<ModalProps> = (props) => {
           <div
             data-tauri-drag-region
             onClick={() => navigate('/')}
-            className="absolute -z-50 w-screen h-screen left-0 top-0 rounded-2xl bg-white dark:bg-gray-800 bg-opacity-90"
+            className="absolute top-0 left-0 w-screen h-screen bg-white -z-50 rounded-2xl dark:bg-gray-800 bg-opacity-90"
           />
         </Transition>
         <Button
@@ -51,7 +52,7 @@ export const Modal: React.FC<ModalProps> = (props) => {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="flex flex-grow max-w-7xl mx-auto z-30 shadow-2xl bg-white rounded-lg shadow-xl dark:bg-gray-650 ">
+          <div className="z-30 flex flex-grow mx-auto bg-white rounded-lg shadow-xl shadow-2xl max-w-7xl dark:bg-gray-650 ">
             {props.children}
           </div>
         </Transition>

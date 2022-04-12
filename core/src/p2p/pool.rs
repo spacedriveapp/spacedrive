@@ -1,9 +1,5 @@
-pub struct ConnectionPool {
-    connected_clients: Vec<Client>,
-}
+use crate::client::Client;
 
-pub struct Client {
-    tcp_address: String,
-    remote_address: String,
-    client_uuid: String,
+pub struct ClientPool {
+  pub clients: Vec<Client>,
 }

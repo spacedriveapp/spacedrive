@@ -160,7 +160,10 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 
       let location = db
         .location()
-        .create_one(create_location_params)
+        .create_one(
+          Location::uuid().set(uuid.to_string()),
+          create_location_params,
+        )
         .exec()
         .await?;
 
