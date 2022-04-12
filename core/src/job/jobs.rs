@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{
   prisma::{self, JobData},
+  state::client,
   CoreContext,
 };
 use anyhow::Result;
@@ -138,14 +139,14 @@ impl JobReport {
     }
   }
   pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
-    // let config = client::get();
+    let config = client::get();
     ctx
       .database
       .job()
       .create_one(
         prisma::Job::id().set(self.id.clone()),
+        prisma::Job::client_id().set(config.client_id),
         prisma::Job::action().set(1),
-        // prisma::Job::clients().link(prisma::Client::id().equals(config.client_uuid)),
         vec![],
       )
       .exec()

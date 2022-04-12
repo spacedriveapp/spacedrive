@@ -18,6 +18,16 @@ model Migration {
     @@map("_migrations")
 }
 
+model SyncEvent {
+    id        Int    @id @default(autoincrement())
+    client_id Int
+    timestamp String
+    data      String
+    client    Client @relation(fields: [client_id], references: [id])
+
+    @@map("sync_events")
+}
+
 model Library {
     id           Int      @id @default(autoincrement())
     uuid         String   @unique
@@ -56,11 +66,15 @@ model Client {
     date_created DateTime @default(now())
     // jobs         Job[]
 
+    sync_events SyncEvent[]
+
     @@map("clients")
 }
 
 model Location {
     id                 Int      @id @default(autoincrement())
+    uuid               String   @unique
+    client_id          Int?
     name               String?
     local_path         String?
     total_capacity     Int?
@@ -78,47 +92,71 @@ model Location {
 }
 
 model File {
-    id               Int     @id @default(autoincrement())
-    kind             Int     @default(0)
-    size_in_bytes    String
-    partial_checksum String
-    checksum         String? @unique
-    encryption       Int     @default(0)
-    ipfs_id          String?
-
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
-    date_indexed  DateTime @default(now())
+    id                 Int      @id @default(autoincrement())
+    // content addressable storage id - sha256
+    // this does not need to be unique, as incoming replicas will always ignore if at least one exists
+    cas_id             String
+    // full byte contents digested into sha256 checksum
+    integrity_checksum String?  @unique
+    // basic metadata
+    kind               Int      @default(0)
+    size_in_bytes      String
+    // mark uniqely as encrypted, will lead to all file paths being encrypted
+    encryption         Int      @default(0)
+    // handy ways to mark a file
+    hidden             Boolean  @default(false)
+    favorite           Boolean  @default(false)
+    important          Boolean  @default(false)
+    // if we have generated preview media for this file
+    has_thumbnail      Boolean  @default(false)
+    has_thumbstrip     Boolean  @default(false)
+    has_video_preview  Boolean  @default(false)
+    // integration with ipfs
+    ipfs_id            String?
+    // plain text comment
+    comment            String?
+    // the original known creation date of this file
+    date_created       DateTime @default(now())
+    // the last time this file was modified
+    date_modified      DateTime @default(now())
+    // when this file was first indexed
+    date_indexed       DateTime @default(now())
 
     file_tags   TagOnFile[]
     file_labels LabelOnFile[]
     file_paths  FilePath[]
     comments    Comment[]
+    media_data  MediaData?
+
     @@map("files")
 }
 
 model FilePath {
     id                Int     @id @default(autoincrement())
     is_dir            Boolean @default(false)
+    // location that owns this path
     location_id       Int
+    // a path generated from local file_path ids eg: "34/45/67/890"
     materialized_path String
+    // the name and extension
     name              String
     extension         String?
+    // the unique File for this file path
     file_id           Int?
+    //
     parent_id         Int?
     encryption        Int     @default(0)
     permissions       String?
-    temp_checksum     String?
+    temp_cas_id       String? // so a filepath can be created without its File, as they're created lazily
 
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
     date_indexed  DateTime @default(now())
 
-    file       File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-    location   Location?  @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    parent     FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id])
-    children   FilePath[] @relation("directory_file_paths")
-    media_data MediaData?
+    file     File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    location Location?  @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id])
+    children FilePath[] @relation("directory_file_paths")
 
     @@unique([location_id, materialized_path, name, extension])
     @@map("file_paths")
@@ -134,13 +172,14 @@ model MediaData {
     duration       Int?
 
     // change this relation to File after testing
-    file_path FilePath? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    files File? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
     @@map("media_data")
 }
 
 model Tag {
     id              Int      @id @default(autoincrement())
+    uuid            String   @unique
     name            String?
     encryption      Int?     @default(0)
     total_files     Int?     @default(0)
@@ -167,6 +206,7 @@ model TagOnFile {
 
 model Label {
     id            Int      @id @default(autoincrement())
+    uuid          String   @unique
     name          String?
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
@@ -189,10 +229,10 @@ model LabelOnFile {
 }
 
 model Job {
-    id     String @id
-    // client_id Int
-    action Int
-    status Int    @default(0)
+    id        String @id
+    client_id Int
+    action    Int
+    status    Int    @default(0)
 
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
@@ -206,6 +246,7 @@ model Job {
 
 model Space {
     id            Int      @id @default(autoincrement())
+    uuid          String   @unique
     name          String
     encryption    Int?     @default(0) // remove
     date_created  DateTime @default(now())
@@ -218,6 +259,7 @@ model Space {
 
 model Album {
     id        Int     @id @default(autoincrement())
+    uuid      String  @unique
     name      String
     is_hidden Boolean @default(false)
 
@@ -229,6 +271,7 @@ model Album {
 
 model Comment {
     id            Int      @id @default(autoincrement())
+    uuid          String   @unique
     content       String
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())

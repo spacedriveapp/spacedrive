@@ -12,6 +12,7 @@ use uuid::Uuid;
 pub struct ClientState {
   // client id is a uniquely generated UUID
   pub client_uuid: String,
+  pub client_id: i32,
   // client_name is the name of the device running the client
   pub client_name: String,
   // config path is stored as struct can exist only in memory during startup and be written to disk later without supplying path

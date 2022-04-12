@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "codegen": "cargo test && ts-node ./scripts/bindingsIndex.ts",
+    "build": "cargo build",
     "test": "cargo test",
     "test:log": "cargo test -- --nocapture",
     "prisma": "prisma-client-rust"

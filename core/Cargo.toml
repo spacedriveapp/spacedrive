@@ -39,7 +39,7 @@ lazy_static = "1.4.0"
 uuid = "0.8"
 thumbnailer = "0.4.0"
 mime = "0.3.16"
-sysinfo = "0.23.5"
+sysinfo = "0.23.9"
 thiserror = "1.0.30"
 core-derive = { path = "./derive" }
 

@@ -168,6 +168,7 @@ export default function App() {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
+      {/* @ts-ignore */}
       <QueryClientProvider client={queryClient} contextSharing={false}>
         <ClientProvider>
           <AppContainer />

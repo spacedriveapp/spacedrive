@@ -51,16 +51,7 @@ export default function GeneralSettings() {
         >
           Generate Thumbnails
         </Button>
-        <Button
-          className="w-40"
-          variant="gray"
-          size="sm"
-          // onClick={() =>
-          //   mutate({
-          //     id: 1
-          //   })
-          // }
-        >
+        <Button className="w-40" variant="gray" size="sm" onClick={() => {}}>
           Open data folder
         </Button>
         <Button className="w-40" variant="gray" size="sm" onClick={() => purgeDB(undefined)}>

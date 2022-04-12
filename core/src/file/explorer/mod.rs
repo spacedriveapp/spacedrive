@@ -38,11 +38,11 @@ pub async fn open_dir(
   let mut contents: Vec<FilePath> = vec![];
 
   for mut file in files {
-    if file.temp_checksum.is_some() {
+    if file.temp_cas_id.is_some() {
       let path = Path::new(&config.data_path)
         .join(THUMBNAIL_CACHE_DIR_NAME)
         .join(format!("{}", location.id))
-        .join(file.temp_checksum.as_ref().unwrap())
+        .join(file.temp_cas_id.as_ref().unwrap())
         .with_extension("webp");
 
       let exists = path.exists();

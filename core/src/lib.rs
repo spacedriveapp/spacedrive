@@ -23,6 +23,7 @@ pub mod library;
 pub mod p2p;
 pub mod prisma;
 pub mod state;
+pub mod sync;
 pub mod sys;
 pub mod util;
 // pub mod native;
@@ -141,6 +142,8 @@ impl Core {
 
     state.save();
 
+    println!("Client State: {:?}", state);
+
     let database = Arc::new(db::create_connection().await.unwrap());
 
     let internal_channel = unbounded_channel::<InternalEvent>();
@@ -154,6 +157,8 @@ impl Core {
       database,
       internal_channel,
     };
+
+    // p2p::listener::listen(None).await.unwrap_or(());
 
     (core, event_recv)
   }
@@ -201,6 +206,7 @@ impl Core {
   }
   // load library database + initialize client with db
   pub async fn initializer(&self) {
+    println!("Initializing...");
     if self.state.libraries.len() == 0 {
       match library::loader::create(&self, None).await {
         Ok(library) => info!("Created new library: {:?}", library),
@@ -284,7 +290,6 @@ impl Core {
       ClientQuery::JobGetRunning => CoreResponse::JobGetRunning(self.jobs.get_running().await),
       // TODO: FIX THIS
       ClientQuery::JobGetHistory => CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?),
-      ClientQuery::Jeff(_) => todo!(),
     })
   }
 
@@ -344,7 +349,6 @@ pub enum ClientQuery {
     path: String,
     limit: i32,
   },
-  Jeff(i32),
 }
 
 // represents an event this library can emit
