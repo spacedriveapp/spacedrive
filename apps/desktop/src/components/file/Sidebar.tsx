@@ -9,8 +9,10 @@ import { TrafficLights } from '../os/TrafficLights';
 import { Button } from '../primitive';
 import { Dropdown } from '../primitive/Dropdown';
 import { DefaultProps } from '../primitive/types';
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { platform } from '@tauri-apps/api/os';
+import { dialog } from '@tauri-apps/api';
+import RunningJobsWidget from '../jobs/RunningJobsWidget';
 
 interface SidebarProps extends DefaultProps {}
 
@@ -54,6 +56,7 @@ export function MacOSTrafficLights() {
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const [isMacos, setIsMacos] = useState(false);
   const { data: locations } = useBridgeQuery('SysGetLocations');
+  const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
   useEffect(() => {
     platform().then((platform) => {
@@ -72,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
   ];
 
   return (
-    <div className="flex flex-col flex-shrink-0 min-h-full px-3 pb-1 overflow-x-hidden overflow-y-scroll border-r border-gray-100 w-46 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+    <div className="flex flex-col w-56 min-h-full px-3 pb-1 overflow-x-hidden overflow-y-scroll border-r border-gray-100 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
       {isMacos ? (
         <>
           <MacOSTrafficLights /> <div className="mt-6" />
@@ -157,9 +160,17 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
             </div>
           );
         })}
-        <div className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 dark:text-gray-500 border border-dashed rounded border-transparent cursor-normal border-gray-350 dark:border-gray-550">
+
+        <button
+          onClick={() => {
+            dialog.open({ directory: true }).then((result) => {
+              createLocation({ path: result });
+            });
+          }}
+          className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 dark:text-gray-500 border border-dashed rounded border-transparent cursor-normal border-gray-350 dark:border-gray-550 hover:dark:border-gray-500 transition"
+        >
           Add Location
-        </div>
+        </button>
       </div>
       <div>
         <Heading>Tags</Heading>
@@ -176,6 +187,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         </div>
       </div>
       <div className="flex-grow" />
+      <RunningJobsWidget />
+      {/* <div className="flex w-full">
+      </div> */}
       <div className="mb-2">
         <NavLink to="/settings/general">
           {({ isActive }) => (

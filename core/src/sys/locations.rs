@@ -3,7 +3,7 @@ use crate::{
   prisma::{FilePath, Location},
   state::client,
   sys::{volumes, volumes::Volume},
-  CoreContext,
+  ClientQuery, CoreContext, CoreEvent,
 };
 use anyhow::Result;
 use log::info;
@@ -176,6 +176,11 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
         Ok(_) => (),
         Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
       }
+
+      ctx
+        .emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
+        .await;
+
       location
     }
   };

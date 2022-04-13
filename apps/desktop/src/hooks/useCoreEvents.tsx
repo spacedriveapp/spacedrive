@@ -3,12 +3,17 @@ import { emit, listen, Event } from '@tauri-apps/api/event';
 // import { useExplorerStore } from '../store/explorer';
 import { CoreEvent } from '../../../../core';
 import { useQuery, useQueryClient } from 'react-query';
+import { useExplorerState } from '../components/file/FileList';
 
 export function useCoreEvents() {
   const client = useQueryClient();
+  const { addNewThumbnail } = useExplorerState();
   useEffect(() => {
     listen('core_event', (e: Event<CoreEvent>) => {
       switch (e.payload?.key) {
+        case 'NewThumbnail':
+          addNewThumbnail(e.payload.data.cas_id);
+          break;
         case 'InvalidateQuery':
         case 'InvalidateQueryDebounced':
           let query = [e.payload.data.key];

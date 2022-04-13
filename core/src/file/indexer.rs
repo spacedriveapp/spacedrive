@@ -140,9 +140,9 @@ pub async fn scan_path(
     on_progress(vec![
       ScanProgress::SavedChunks(i as usize),
       ScanProgress::Message(format!(
-        "Writing {} files to db at chunk {}",
-        chunk.len(),
-        i
+        "Writing {} of {} to db",
+        i * chunk.len(),
+        paths.len(),
       )),
     ]);
 
@@ -220,7 +220,7 @@ fn prepare_values(
     location.id,
     materialized_path,
     name,
-    extension,
+    extension.to_lowercase(),
     parent_id
       .clone()
       .map(|id| format!("\"{}\"", &id))

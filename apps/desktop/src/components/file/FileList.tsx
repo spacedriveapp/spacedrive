@@ -14,11 +14,20 @@ import { useSearchParams } from 'react-router-dom';
 type ExplorerState = {
   selectedRowIndex: number;
   setSelectedRowIndex: (index: number) => void;
+  locationId: number;
+  setLocationId: (index: number) => void;
+  newThumbnails: Record<string, boolean>;
+  addNewThumbnail: (cas_id: string) => void;
 };
 
 export const useExplorerState = create<ExplorerState>((set) => ({
   selectedRowIndex: 1,
-  setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index }))
+  setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index })),
+  locationId: -1,
+  setLocationId: (id: number) => set((state) => ({ ...state, locationId: id })),
+  newThumbnails: {},
+  addNewThumbnail: (cas_id: string) =>
+    set((state) => ({ ...state, newThumbnails: { ...state.newThumbnails, [cas_id]: true } }))
 }));
 
 interface IColumn {
@@ -36,7 +45,7 @@ function ensureIsColumns<T extends IColumn[]>(data: T) {
 
 const columns = ensureIsColumns([
   { column: 'Name', key: 'name', width: 280 } as const,
-  { column: 'Size', key: 'size_in_bytes', width: 120 } as const,
+  // { column: 'Size', key: 'size_in_bytes', width: 120 } as const,
   { column: 'Type', key: 'extension', width: 100 } as const
 ]);
 
@@ -51,7 +60,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 
   const path = props.path;
 
-  const { selectedRowIndex, setSelectedRowIndex } = useExplorerState();
+  const { selectedRowIndex, setSelectedRowIndex, setLocationId } = useExplorerState();
   const [goingUp, setGoingUp] = useState(false);
 
   const { data: currentDir } = useBridgeQuery('LibGetExplorerDir', {
@@ -70,6 +79,10 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
       });
     }
   }, [selectedRowIndex]);
+
+  useEffect(() => {
+    setLocationId(props.location_id);
+  }, [props.location_id]);
 
   useKey('ArrowUp', (e) => {
     e.preventDefault();
@@ -197,6 +210,9 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath
     refetchOnWindowFocus: false
   });
   const location = useContext(LocationContext);
+  const { newThumbnails } = useExplorerState();
+
+  const hasThumbnail = !!row?.has_local_thumbnail || !!newThumbnails[row?.temp_cas_id ?? ''];
 
   switch (colKey) {
     case 'name':
@@ -206,7 +222,7 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath
             {row.is_dir ? (
               <img className="mt-0.5 pointer-events-none z-90" src="/svg/folder.svg" />
             ) : (
-              row.has_local_thumbnail &&
+              hasThumbnail &&
               client?.data_path && (
                 <img
                   className="mt-0.5 pointer-events-none z-90"

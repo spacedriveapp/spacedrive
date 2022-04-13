@@ -18,6 +18,7 @@ importers:
       '@radix-ui/react-dialog': ^0.1.7
       '@radix-ui/react-dropdown-menu': ^0.1.6
       '@radix-ui/react-icons': ^1.1.0
+      '@radix-ui/react-progress': ^0.1.4
       '@radix-ui/react-slider': ^0.1.4
       '@sd/client': workspace:*
       '@sd/core': workspace:*
@@ -74,6 +75,7 @@ importers:
       '@radix-ui/react-dialog': 0.1.7_761282c47ea27a9f40e1344337910648
       '@radix-ui/react-dropdown-menu': 0.1.6_761282c47ea27a9f40e1344337910648
       '@radix-ui/react-icons': 1.1.0_react@18.0.0
+      '@radix-ui/react-progress': 0.1.4_react@18.0.0
       '@radix-ui/react-slider': 0.1.4_react@18.0.0
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
@@ -823,6 +825,17 @@ packages:
     dependencies:
       '@babel/runtime': 7.17.9
       '@radix-ui/react-slot': 0.1.2_react@18.0.0
+      react: 18.0.0
+    dev: false
+
+  /@radix-ui/react-progress/0.1.4_react@18.0.0:
+    resolution: {integrity: sha512-Q+H7r/S0HMlwVriksgyUgBtol5TgkNllQPVtaXDDaeJBNFK2uiToHBp3j1Gi88/4Fw+EKT+SyWpeM/5nVtGujw==}
+    peerDependencies:
+      react: ^16.8 || ^17.0
+    dependencies:
+      '@babel/runtime': 7.17.9
+      '@radix-ui/react-context': 0.1.1_react@18.0.0
+      '@radix-ui/react-primitive': 0.1.4_react@18.0.0
       react: 18.0.0
     dev: false
 
