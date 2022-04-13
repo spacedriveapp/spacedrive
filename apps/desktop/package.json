@@ -34,6 +34,7 @@
     "@radix-ui/react-dialog": "^0.1.7",
     "@radix-ui/react-dropdown-menu": "^0.1.6",
     "@radix-ui/react-icons": "^1.1.0",
+    "@radix-ui/react-progress": "^0.1.4",
     "@radix-ui/react-slider": "^0.1.4",
     "@sd/client": "workspace:*",
     "@sd/core": "workspace:*",

@@ -231,7 +231,7 @@ impl Core {
   }
 
   async fn exec_command(&mut self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
-    info!("Core command: {:?}", cmd);
+    println!("Core command: {:?}", cmd);
     let ctx = self.get_context();
     Ok(match cmd {
       // CRUD for locations
@@ -359,6 +359,7 @@ pub enum CoreEvent {
   InvalidateQuery(ClientQuery),
   InvalidateQueryDebounced(ClientQuery),
   InvalidateResource(CoreResource),
+  NewThumbnail { cas_id: String },
   Log { message: String },
   DatabaseDisconnected { reason: Option<String> },
 }

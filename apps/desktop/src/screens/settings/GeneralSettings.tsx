@@ -11,7 +11,7 @@ import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 
 export default function GeneralSettings() {
   const { data: volumes } = useBridgeQuery('SysGetVolumes');
-  const [tempWatchDir, setTempWatchDir] = useState('/users/jamie/Projects');
+  const [tempWatchDir, setTempWatchDir] = useState('/users/jamie/Desktop/Pictures');
 
   const [fakeSliderVal, setFakeSliderVal] = useState([30, 0]);
 
@@ -33,24 +33,12 @@ export default function GeneralSettings() {
 
   return (
     <div className="flex flex-col flex-grow max-w-4xl space-y-4">
-      <div className="mt-3 mb-6">
+      <div className="mt-3 mb-3">
         <h1 className="text-2xl font-bold">General Settings</h1>
         <p className="mt-1 text-sm text-gray-400">Basic settings related to this client</p>
         {/* <hr className="mt-4 border-gray-550" /> */}
       </div>
       <div className="flex flex-row pb-4 space-x-2">
-        <Button
-          className="w-40"
-          variant="gray"
-          size="sm"
-          onClick={() =>
-            generateThumbsForLocation({
-              id: 1
-            })
-          }
-        >
-          Generate Thumbnails
-        </Button>
         <Button className="w-40" variant="gray" size="sm" onClick={() => {}}>
           Open data folder
         </Button>
@@ -58,7 +46,7 @@ export default function GeneralSettings() {
           Purge database
         </Button>
       </div>
-      <InputContainer
+      {/* <InputContainer
         title="Test scan directory"
         description="This will create a job to scan the directory you specify to the database."
       >
@@ -81,38 +69,8 @@ export default function GeneralSettings() {
             Scan Now
           </Button>
         </div>
-      </InputContainer>
+      </InputContainer> */}
 
-      <ReactJson
-        // collapsed
-        enableClipboard={false}
-        displayDataTypes={false}
-        theme="ocean"
-        src={{ runningJobs: jobs }}
-        style={{
-          padding: 20,
-          borderRadius: 5,
-          backgroundColor: '#101016',
-          border: 1,
-          borderColor: '#1E1E27',
-          borderStyle: 'solid'
-        }}
-      />
-      <ReactJson
-        // collapsed
-        enableClipboard={false}
-        displayDataTypes={false}
-        theme="ocean"
-        src={{ jobsHistory: [...(jobsHistory || [])].reverse() }}
-        style={{
-          padding: 20,
-          borderRadius: 5,
-          backgroundColor: '#101016',
-          border: 1,
-          borderColor: '#1E1E27',
-          borderStyle: 'solid'
-        }}
-      />
       <InputContainer
         title="Locations"
         description="Local cache storage for media previews and thumbnails."
@@ -146,13 +104,12 @@ export default function GeneralSettings() {
         />
       </InputContainer>
       <InputContainer
-        title="Media cache directory"
+        title="A long input"
         description="Local cache storage for media previews and thumbnails."
       >
         <div className="flex flex-row">
           <Input
             className="flex-grow"
-            value={'uuuuuu'}
             placeholder="/users/jamie/Library/Application Support/spacedrive/cache"
           />
         </div>

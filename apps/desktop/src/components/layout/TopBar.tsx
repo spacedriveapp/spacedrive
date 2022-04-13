@@ -1,12 +1,22 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
 import clsx from 'clsx';
-import { ArrowsLeftRight, Cloud, FolderPlus, Key, Tag, TerminalWindow } from 'phosphor-react';
+import {
+  ArrowsClockwise,
+  ArrowsLeftRight,
+  Cloud,
+  FolderPlus,
+  Key,
+  Tag,
+  TerminalWindow
+} from 'phosphor-react';
 import React from 'react';
 import { ButtonProps } from '../primitive';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { invoke } from '@tauri-apps/api';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useBridgeCommand } from '@sd/client';
+import { useExplorerState } from '../file/FileList';
 
 export interface TopBarProps extends DefaultProps {}
 export interface TopBarButtonProps extends ButtonProps {
@@ -38,7 +48,12 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 };
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-  let location = useLocation();
+  const { locationId } = useExplorerState();
+  const { mutate: generateThumbsForLocation } = useBridgeCommand('GenerateThumbsForLocation', {
+    onMutate: (data) => {
+      console.log('GenerateThumbsForLocation', data);
+    }
+  });
   let navigate = useNavigate();
   return (
     <>
@@ -75,8 +90,10 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
             <TopBarButton icon={Key} />
             <TopBarButton icon={Cloud} />
             <TopBarButton
-              icon={ArrowsLeftRight}
-              onClick={() => invoke('start_watcher', { path: '/Users/jamie' })}
+              icon={ArrowsClockwise}
+              onClick={() => {
+                generateThumbsForLocation({ id: locationId, path: '' });
+              }}
             />
           </div>
         </div>

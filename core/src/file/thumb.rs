@@ -1,13 +1,14 @@
 use crate::job::jobs::JobReportUpdate;
 use crate::prisma::FilePathData;
 use crate::state::client;
-use crate::sys;
 use crate::{
   job::{jobs::Job, worker::WorkerContext},
   prisma::FilePath,
   CoreContext,
 };
+use crate::{sys, CoreEvent};
 use anyhow::Result;
+use futures::executor::block_on;
 use image::*;
 use prisma_client_rust::or;
 use std::fs;
@@ -47,6 +48,8 @@ impl Job for ThumbnailJob {
 
     println!("Found {:?} files", image_files.len());
 
+    let is_background = self.background.clone();
+
     tokio::task::spawn_blocking(move || {
       ctx.progress(vec![
         JobReportUpdate::TaskCount(image_files.len()),
@@ -76,6 +79,12 @@ impl Job for ThumbnailJob {
         }
 
         ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
+
+        if !is_background {
+          block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail {
+            cas_id: checksum.to_string(),
+          }));
+        };
       }
     })
     .await?;
