@@ -29,7 +29,7 @@ once_cell = "1.8.0"
 int-enum = "0.4.0"
 # Project dependencies
 ts-rs = "6.1"
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "848f9ed11fdcccd9f67011a5650166146f863eba" }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "eb7a7804518f68933ce313ae6226b882b22b81f8" }
 walkdir = "^2.3.2"
 bytesize = "1.1.0"
 env_logger = "0.9.0"

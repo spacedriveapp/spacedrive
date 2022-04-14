@@ -10,7 +10,6 @@ use crate::{sys, CoreEvent};
 use anyhow::Result;
 use futures::executor::block_on;
 use image::*;
-use prisma_client_rust::or;
 use std::fs;
 use std::path::{Path, PathBuf};
 use webp::*;
@@ -124,18 +123,20 @@ pub async fn get_images(
 ) -> Result<Vec<FilePathData>> {
   let mut params = vec![
     FilePath::location_id().equals(location_id),
-    or!(
-      FilePath::extension().equals("png".to_string()),
-      FilePath::extension().equals("jpeg".to_string()),
-      FilePath::extension().equals("jpg".to_string()),
-      FilePath::extension().equals("gif".to_string()),
-      FilePath::extension().equals("webp".to_string()),
-    ),
+    FilePath::extension().in_vec(vec![
+      "png".to_string(),
+      "jpeg".to_string(),
+      "jpg".to_string(),
+      "gif".to_string(),
+      "webp".to_string(),
+    ]),
   ];
+  
   if !path.is_empty() {
     params.push(FilePath::materialized_path().starts_with(path.to_string()))
   }
+  
   let image_files = ctx.database.file_path().find_many(params).exec().await?;
-
+  
   Ok(image_files)
 }

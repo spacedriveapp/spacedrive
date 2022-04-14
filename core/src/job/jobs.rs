@@ -144,7 +144,7 @@ impl JobReport {
     ctx
       .database
       .job()
-      .create_one(
+      .create(
         prisma::Job::id().set(self.id.clone()),
         prisma::Job::action().set(1),
         prisma::Job::clients().link(prisma::Client::id().equals(config.client_id)),
