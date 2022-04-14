@@ -17,6 +17,7 @@ use crate::file::thumb::ThumbnailJob;
 pub mod client;
 pub mod crypto;
 pub mod db;
+pub mod encode;
 pub mod file;
 pub mod job;
 pub mod library;
@@ -292,9 +293,9 @@ impl Core {
         path,
         location_id,
         limit: _,
-      } => {
-        CoreResponse::LibGetExplorerDir(file::explorer::open_dir(&ctx, &location_id, &path).await?)
-      }
+      } => CoreResponse::LibGetExplorerDir(
+        file::explorer::open::open_dir(&ctx, &location_id, &path).await?,
+      ),
       ClientQuery::LibGetTags => todo!(),
       ClientQuery::JobGetRunning => CoreResponse::JobGetRunning(self.jobs.get_running().await),
       // TODO: FIX THIS

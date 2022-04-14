@@ -1,13 +1,26 @@
-use crate::file::checksum::sha256_digest;
 use crate::{prisma, prisma::Migration};
 use anyhow::Result;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
+use ring::digest::{Context, Digest, SHA256};
 use std::ffi::OsStr;
-use std::io::BufReader;
+use std::io::{BufReader, Read};
 
 const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
+
+pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
+  let mut context = Context::new(&SHA256);
+  let mut buffer = [0; 1024];
+  loop {
+    let count = reader.read(&mut buffer)?;
+    if count == 0 {
+      break;
+    }
+    context.update(&buffer[..count]);
+  }
+  Ok(context.finish())
+}
 
 pub async fn run_migrations(db_url: &str) -> Result<()> {
   let client = prisma::new_client_with_url(&format!("file:{}", &db_url)).await?;

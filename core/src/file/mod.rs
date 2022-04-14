@@ -8,7 +8,7 @@ use crate::{
   prisma::{self, FileData, FilePathData},
   sys::SysError,
 };
-pub mod checksum;
+pub mod cas;
 pub mod explorer;
 pub mod indexer;
 pub mod thumb;
