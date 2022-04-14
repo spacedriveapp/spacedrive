@@ -127,7 +127,7 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
   // check if location already exists
   let location = match db
     .location()
-    .find_first(vec![Location::local_path().equals(path.to_string())])
+    .find_first(vec![Location::local_path().equals(Some(path.to_string()))])
     .exec()
     .await?
   {
@@ -143,12 +143,12 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 
       let location = db
         .location()
-        .create_one(
+        .create(
           Location::pub_id().set(uuid.to_string()),
           vec![
-            Location::name().set(p.file_name().unwrap().to_string_lossy().to_string()),
+            Location::name().set(Some(p.file_name().unwrap().to_string_lossy().to_string())),
             Location::is_online().set(true),
-            Location::local_path().set(path.to_string()),
+            Location::local_path().set(Some(path.to_string())),
           ],
         )
         .exec()
