@@ -58,12 +58,12 @@ pub async fn create(core: &Core) -> Result<(), ClientError> {
     Some(client) => client,
     None => {
       db.client()
-        .create_one(
+        .create(
           prisma::Client::pub_id().set(config.client_uuid.clone()),
           prisma::Client::name().set(hostname.clone()),
           vec![
             prisma::Client::platform().set(platform as i32),
-            prisma::Client::online().set(true),
+            prisma::Client::online().set(Some(true)),
           ],
         )
         .exec()

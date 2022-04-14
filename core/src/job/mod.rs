@@ -143,7 +143,7 @@ pub enum JobError {
 // 		let job = ctx
 // 			.database
 // 			.job()
-// 			.create_one(
+// 			.create(
 // 				prisma::Job::action().set(1),
 // 				// prisma::Job::clients().link(prisma::Client::id().equals(config.client_uuid)),
 // 				vec![],
