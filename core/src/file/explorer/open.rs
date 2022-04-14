@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use crate::{
-  file::{thumb::THUMBNAIL_CACHE_DIR_NAME, DirectoryWithContents, FileError, FilePath},
+  encode::thumb::THUMBNAIL_CACHE_DIR_NAME,
+  file::{DirectoryWithContents, FileError, FilePath},
   prisma,
   state::client,
   sys::locations::get_location,

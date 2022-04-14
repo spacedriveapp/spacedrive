@@ -11,7 +11,7 @@ use tokio::sync::{
 };
 use ts_rs::TS;
 
-use crate::file::thumb::ThumbnailJob;
+use crate::encode::thumb::ThumbnailJob;
 
 // init modules
 pub mod client;
