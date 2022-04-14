@@ -87,7 +87,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
 
           client
             .migration()
-            .create_one(
+            .create(
               Migration::name().set(name.to_string()),
               Migration::checksum().set(checksum.clone()),
               vec![],

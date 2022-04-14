@@ -36,7 +36,7 @@ impl Commit {
 
 // example
 fn do_something() {
-  Commit::new(db.client().create_one(
+  Commit::new(db.client().create(
     Client::pub_id().set(config.client_id.clone()),
     Client::name().set(hostname.clone()),
     vec![],
