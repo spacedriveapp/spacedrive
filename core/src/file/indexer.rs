@@ -10,7 +10,7 @@ use std::ffi::OsStr;
 use std::{collections::HashMap, fs, path::Path, path::PathBuf, time::Instant};
 use walkdir::{DirEntry, WalkDir};
 
-use super::checksum::partial_checksum;
+use super::cas::checksum::partial_checksum;
 
 #[derive(Debug)]
 pub struct IndexerJob {
@@ -197,14 +197,16 @@ fn prepare_values(
     Some(p) => p
       .clone()
       .strip_prefix(&location_path)
-      // .and_then(|p| p.strip_suffix(format!("{}{}", name, extension).as_str()))
+      .and_then(|p| p.strip_suffix(format!("{}{}", name, extension).as_str()))
       .unwrap_or_default(),
     None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
   };
 
   let partial_checksum = {
     if !metadata.is_dir() {
-      partial_checksum(&file_path.to_str().unwrap(), metadata.len()).unwrap()
+      let mut x = partial_checksum(&file_path.to_str().unwrap(), metadata.len()).unwrap();
+      x.truncate(16);
+      x
     } else {
       "".to_string()
     }

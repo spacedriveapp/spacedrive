@@ -162,13 +162,18 @@ model FilePath {
 }
 
 model MediaData {
-    id             Int     @id
-    pixel_width    Int?
-    pixel_height   Int?
-    longitude      Float?
-    latitude       Float?
-    capture_device String?
-    duration       Int?
+    id                      Int     @id
+    pixel_width             Int?
+    pixel_height            Int?
+    longitude               Float?
+    latitude                Float?
+    fps                     Int?
+    capture_device_make     String? // eg: "Apple"
+    capture_device_model    String? // eg: "iPhone 12"
+    capture_device_software String? // eg: "12.1.1"
+    duration_seconds        Int?
+    codecs                  String? // eg: "h264,acc"
+    streams                 Int?
 
     // change this relation to File after testing
     files File? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
