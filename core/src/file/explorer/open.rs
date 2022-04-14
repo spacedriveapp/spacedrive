@@ -32,7 +32,9 @@ pub async fn open_dir(
 
   let files = db
     .file_path()
-    .find_many(vec![prisma::FilePath::parent_id().equals(directory.id)])
+    .find_many(vec![
+      prisma::FilePath::parent_id().equals(Some(directory.id))
+    ])
     .exec()
     .await?;
 

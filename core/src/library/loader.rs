@@ -86,7 +86,7 @@ pub async fn create(core: &Core, name: Option<String>) -> Result<()> {
 
   let _library = db
     .library()
-    .create_one(
+    .create(
       Library::pub_id().set(config.current_library_uuid),
       Library::name().set(name.unwrap_or(DEFAULT_NAME.into())),
       vec![],
