@@ -1,7 +1,5 @@
-use crate::job::jobs::JobReportUpdate;
-use crate::job::{jobs::Job, worker::WorkerContext};
+use crate::file::cas::checksum::partial_checksum;
 use crate::sys::locations::{create_location, LocationResource};
-
 use crate::CoreContext;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, SecondsFormat, Utc};
@@ -9,33 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::{collections::HashMap, fs, path::Path, path::PathBuf, time::Instant};
 use walkdir::{DirEntry, WalkDir};
-
-use super::cas::checksum::partial_checksum;
-
-#[derive(Debug)]
-pub struct IndexerJob {
-  pub path: String,
-}
-
-#[async_trait::async_trait]
-impl Job for IndexerJob {
-  async fn run(&self, ctx: WorkerContext) -> Result<()> {
-    let core_ctx = ctx.core_ctx.clone();
-    scan_path(&core_ctx, self.path.as_str(), move |p| {
-      ctx.progress(
-        p.iter()
-          .map(|p| match p.clone() {
-            ScanProgress::ChunkCount(c) => JobReportUpdate::TaskCount(c),
-            ScanProgress::SavedChunks(p) => JobReportUpdate::CompletedTaskCount(p),
-            ScanProgress::Message(m) => JobReportUpdate::Message(m),
-          })
-          .collect(),
-      )
-    })
-    .await?;
-    Ok(())
-  }
-}
 
 #[derive(Clone)]
 pub enum ScanProgress {

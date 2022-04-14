@@ -11,7 +11,6 @@ use crate::{
 pub mod cas;
 pub mod explorer;
 pub mod indexer;
-pub mod thumb;
 pub mod watcher;
 
 // A unique file
