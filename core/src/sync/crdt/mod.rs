@@ -1,10 +1,10 @@
-pub mod property_operation;
+pub mod operation;
 pub mod replicate;
 
 use serde::{Deserialize, Serialize};
 
 pub use self::{
-  property_operation::{PoMethod, PropertyOperation},
+  operation::{PoMethod, PropertyOperation},
   replicate::{Replicate, ReplicateMethod},
 };
 
