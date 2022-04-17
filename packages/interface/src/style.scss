@@ -7,7 +7,15 @@ button {
   @apply cursor-default;
 }
 
+.html {
+  background: #404040;
+}
+
 .backdrop-blur {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+}
+
+.faggot {
+  display:none;
 }

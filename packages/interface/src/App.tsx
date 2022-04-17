@@ -26,7 +26,8 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { ClientProvider } from '@sd/client';
 import { CoreEvent } from '@sd/core';
 
-import '@sd/ui/style/globals.web.scss';
+// import './style.scss';
+import 'tailwindcss/tailwind.css';
 
 const queryClient = new QueryClient();
 
