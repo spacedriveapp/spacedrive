@@ -9,21 +9,7 @@ export default defineConfig({
   server: {
     port: 8085
   },
-  plugins: [
-    reactRefresh(),
-    tsconfigPaths(),
-    reactSvgPlugin(),
-    filterReplace([
-      {
-        filter: /\.js$/,
-        replace: {
-          // this is a hotfix for broken import in react-virtualized
-          from: `import { bpfrpt_proptype_WindowScroller } from "../WindowScroller.js";`,
-          to: ''
-        }
-      }
-    ])
-  ],
+  plugins: [reactRefresh(), tsconfigPaths()],
   esbuild: {
     jsxInject: 'import {jsx as _jsx} from "react/jsx-runtime"'
   },
