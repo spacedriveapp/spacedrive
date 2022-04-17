@@ -1,6 +1,4 @@
 import { defineConfig } from 'vite';
-import tsconfigPaths from 'vite-tsconfig-paths';
-import filterReplace from 'vite-plugin-filter-replace';
 import reactSvgPlugin from 'vite-plugin-react-svg';
 import react from '@vitejs/plugin-react';
 
@@ -13,18 +11,7 @@ export default defineConfig({
     react({
       jsxRuntime: 'classic'
     }),
-    tsconfigPaths(),
     reactSvgPlugin()
-    // filterReplace([
-    //   {
-    //     filter: /\.js$/,
-    //     replace: {
-    //       // this is a hotfix for broken import in react-virtualized
-    //       from: `import { bpfrpt_proptype_WindowScroller } from "../WindowScroller.js";`,
-    //       to: ''
-    //     }
-    //   }
-    // ])
   ],
   esbuild: {
     jsxInject: 'import {jsx as _jsx} from "react/jsx-runtime"'
@@ -43,10 +30,15 @@ export default defineConfig({
       input: {
         index: path.resolve(__dirname, 'src', 'index.ts')
       },
-      external: ['react', 'react-dom']
+      external: ['react', 'react-dom'],
+      output: {
+        globals: {
+          'react': 'React',
+          'react-dom': 'ReactDOM'
+        }
+      }
     },
     target: 'esnext',
     sourcemap: true
-  },
-  base: ''
+  }
 });

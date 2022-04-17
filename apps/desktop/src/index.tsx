@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 // import Spacedrive interface
 import SpacedriveInterface from '@sd/interface';
+import '@sd/interface/dist/style.css';
 
 // import types from Spacedrive core (TODO: re-export from client would be cleaner)
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
