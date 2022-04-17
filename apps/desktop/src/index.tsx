@@ -1,11 +1,15 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
-import './style.css';
 
-import { ClientCommand, ClientQuery } from '../../../core';
+// import Spacedrive interface
+import SpacedriveInterface from '@sd/interface';
+
+// import types from Spacedrive core (TODO: re-export from client would be cleaner)
+import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
+// import Spacedrive JS client
 import { BaseTransport, setTransport } from '@sd/client';
-import { invoke } from '@tauri-apps/api';
+// import tauri apis
+import { invoke, os } from '@tauri-apps/api';
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
@@ -19,8 +23,21 @@ class Transport extends BaseTransport {
 setTransport(new Transport());
 
 const root = createRoot(document.getElementById('root')!);
+
 root.render(
   <React.StrictMode>
-    <App />
+    <SpacedriveInterface
+      onCoreEvent={function (event: CoreEvent): void {
+        return;
+      }}
+      //@ts-expect-error
+      platform={os.platform()}
+      convertFileSrc={function (url: string): string {
+        return url;
+      }}
+      openDialog={function (options: { directory?: boolean | undefined }): Promise<void> {
+        return Promise.resolve();
+      }}
+    />
   </React.StrictMode>
 );

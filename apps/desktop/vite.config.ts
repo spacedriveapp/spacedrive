@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import filterReplace from 'vite-plugin-filter-replace';
-const reactRefresh = require('@vitejs/plugin-react-refresh');
-const reactSvgPlugin = require('vite-plugin-react-svg');
+import reactRefresh from '@vitejs/plugin-react-refresh';
+import reactSvgPlugin from 'vite-plugin-react-svg';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -28,7 +28,7 @@ export default defineConfig({
     jsxInject: 'import {jsx as _jsx} from "react/jsx-runtime"'
   },
   root: 'src',
-  publicDir: 'assets',
+  publicDir: '../../packages/interface/src/assets',
   build: {
     outDir: '../dist',
     emptyOutDir: false,
