@@ -6,6 +6,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
+    "vite": "vite",
     "build": "vite build"
   },
   "resolutions": {
