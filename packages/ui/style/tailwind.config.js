@@ -1,6 +1,6 @@
-const colors = require('tailwindcss/colors');
-const plugin = require('tailwindcss/plugin');
-const defaultTheme = require('tailwindcss/defaultTheme');
+// const colors = require('tailwindcss/colors');
+// const plugin = require('tailwindcss/plugin');
+// const defaultTheme = require('tailwindcss/defaultTheme');
 
 module.exports = {
   content: ['./src/index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],

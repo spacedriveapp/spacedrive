@@ -14,13 +14,13 @@
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "co.spacedrive.desktop",
+      "identifier": "app.spacedrive.desktop",
       "icon": ["icons/icon.icns"],
       "resources": [],
       "externalBin": [],
       "copyright": "Jamie Pine",
-      "shortDescription": "Your personal virtual cloud.",
-      "longDescription": "Spacedrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. Spacedrive makes it possible to create a limitless directory of your digital life that will stand the test of time.",
+      "shortDescription": "The Universal File Explorer",
+      "longDescription": "A cross-platform file explorer, powered by an open source virtual distributed filesystem.",
       "deb": {
         "depends": [],
         "useBootstrapper": false
