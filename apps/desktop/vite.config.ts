@@ -10,14 +10,14 @@ export default defineConfig({
   plugins: [
     react({
       jsxRuntime: 'classic'
-    }),
-    tsconfigPaths()
+    })
   ],
   esbuild: {
     jsxInject: 'import {jsx as _jsx} from "react/jsx-runtime"'
   },
+
   root: 'src',
-  publicDir: '../../packages/interface/src/assets',
+  publicDir: '@sd/interface/src/assets',
   build: {
     outDir: '../dist',
     emptyOutDir: false,

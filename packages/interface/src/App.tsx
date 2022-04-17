@@ -26,9 +26,6 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { ClientProvider } from '@sd/client';
 import { CoreEvent } from '@sd/core';
 
-// import './style.scss';
-import 'tailwindcss/tailwind.css';
-
 const queryClient = new QueryClient();
 
 export const AppPropsContext = React.createContext<AppProps | null>(null);
@@ -159,10 +156,6 @@ function NotFound() {
     </div>
   );
 }
-
-// useHotkeys('command+q', () => {
-//   process.exit();
-// });
 
 function AppContainer() {
   useCoreEvents();

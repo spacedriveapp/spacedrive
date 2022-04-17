@@ -10,13 +10,14 @@
     ".": {
       "import": "./dist/index.es.js",
       "require": "./dist/index.umd.js"
-    }
+    },
+    "./dist/style.css": "./dist/style.css"
   },
   "types": "./src/index.ts",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "vite": "vite",
+    "dev": "vite build --watch",
     "build": "vite build"
   },
   "resolutions": {
@@ -72,13 +73,13 @@
     "@types/react-virtualized-auto-sizer": "^1.0.1",
     "@types/react-window": "^1.8.5",
     "@types/tailwindcss": "^3.0.10",
+    "@vitejs/plugin-react": "^1.3.1",
     "concurrently": "^7.1.0",
     "prettier": "^2.6.2",
     "typescript": "^4.6.3",
     "vite": "^2.9.1",
     "vite-plugin-filter-replace": "^0.1.9",
     "vite-plugin-react-svg": "^0.2.0",
-    "vite-tsconfig-paths": "^3.4.1",
-    "@vitejs/plugin-react": "^1.3.1"
+    "vite-tsconfig-paths": "^3.4.1"
   }
 }
