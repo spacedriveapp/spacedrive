@@ -23,16 +23,19 @@ import SecuritySettings from './screens/settings/SecuritySettings';
 import LocationSettings from './screens/settings/LocationSettings';
 import { RedirectPage } from './screens/Redirect';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { ClientProvider } from '@sd/client';
+import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 import { CoreEvent } from '@sd/core';
 
 const queryClient = new QueryClient();
 
 export const AppPropsContext = React.createContext<AppProps | null>(null);
 
+export type Platform = 'browser' | 'macOS' | 'windows' | 'linux';
+
 export interface AppProps {
+  transport: BaseTransport;
   onCoreEvent: (event: CoreEvent) => void;
-  platform: 'browser' | 'macOS' | 'windows' | 'linux';
+  platform: Platform;
   convertFileSrc: (url: string) => string;
   openDialog: (options: { directory?: boolean }) => Promise<void>;
   onClose?: () => void;
@@ -172,6 +175,12 @@ export default function App(props: AppProps) {
     // @ts-ignore
     window.ReactQueryClient = queryClient;
   }
+
+  useEffect(() => {
+    setTransport(props.transport);
+  }, [props.transport]);
+
+  console.log('App props', props);
 
   return (
     <>

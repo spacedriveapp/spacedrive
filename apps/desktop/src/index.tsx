@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 // import Spacedrive interface
-import SpacedriveInterface from '@sd/interface';
+import SpacedriveInterface, { Platform } from '@sd/interface';
 import '@sd/interface/dist/style.css';
 
 // import types from Spacedrive core (TODO: re-export from client would be cleaner)
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 // import Spacedrive JS client
-import { BaseTransport, setTransport } from '@sd/client';
+import { BaseTransport } from '@sd/client';
 // import tauri apis
 import { invoke, os } from '@tauri-apps/api';
 
@@ -21,18 +21,34 @@ class Transport extends BaseTransport {
     return await invoke('client_command_transport', { data: query });
   }
 }
-setTransport(new Transport());
 
-const root = createRoot(document.getElementById('root')!);
+function App() {
+  function getPlatform(platform: string): Platform {
+    switch (platform) {
+      case 'darwin':
+        return 'macOS';
+      case 'win32':
+        return 'windows';
+      case 'linux':
+        return 'linux';
+      default:
+        return 'browser';
+    }
+  }
 
-root.render(
-  <React.StrictMode>
+  const [platform, setPlatform] = useState<Platform>('macOS');
+
+  useEffect(() => {
+    os.platform().then((platform) => setPlatform(getPlatform(platform)));
+  }, []);
+
+  return (
     <SpacedriveInterface
+      transport={new Transport()}
       onCoreEvent={function (event: CoreEvent): void {
         return;
       }}
-      //@ts-expect-error
-      platform={os.platform()}
+      platform={platform}
       convertFileSrc={function (url: string): string {
         return url;
       }}
@@ -40,5 +56,13 @@ root.render(
         return Promise.resolve();
       }}
     />
+  );
+}
+
+const root = createRoot(document.getElementById('root')!);
+
+root.render(
+  <React.StrictMode>
+    <App />
   </React.StrictMode>
 );
