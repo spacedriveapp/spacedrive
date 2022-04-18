@@ -18,6 +18,7 @@
   "private": true,
   "scripts": {
     "dev": "vite build --watch",
+    "vite": "vite",
     "build": "vite build"
   },
   "resolutions": {
@@ -78,8 +79,6 @@
     "prettier": "^2.6.2",
     "typescript": "^4.6.3",
     "vite": "^2.9.1",
-    "vite-plugin-filter-replace": "^0.1.9",
-    "vite-plugin-react-svg": "^0.2.0",
-    "vite-tsconfig-paths": "^3.4.1"
+    "@honkhonk/vite-plugin-svgr": "^1.1.0"
   }
 }

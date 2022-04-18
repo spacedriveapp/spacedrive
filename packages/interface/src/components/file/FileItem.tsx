@@ -2,6 +2,8 @@ import clsx from 'clsx';
 import React from 'react';
 import { DefaultProps } from '../primitive/types';
 
+import Folder from '../../assets/svg/folder.svg?component';
+
 interface Props extends DefaultProps {
   fileName: string;
   iconName?: string;
@@ -36,10 +38,11 @@ export default function FileItem(props: Props) {
         {/* <div className="w-[65px] border border-gray-600 m-auto rounded-md h-[80px] bg-gray-650 relative shadow-md "> */}
         {props.folder ? (
           <div className="relative w-full h-full active:translate-y-[1px]">
-            <img
+            {/* <img
               className="bottom-0 p-3 pt-[19px]  margin-auto z-90 pointer-events-none"
               src="/svg/folder.svg"
-            />
+            /> */}
+            <Folder className="w-[70px] m-auto -mt-1.5" />
           </div>
         ) : (
           <div

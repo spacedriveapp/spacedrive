@@ -14,6 +14,7 @@
     "desktop": "pnpm --filter @sd/desktop -- ",
     "mobile": "pnpm --filter @sd/mobile -- ",
     "web": "pnpm --filter @sd/web -- ",
+    "webapp": "pnpm --filter @sd/webapp -- ",
     "ui": "pnpm --filter @sd/ui -- ",
     "interface": "pnpm --filter @sd/interface -- ",
     "core": "pnpm --filter @sd/core -- ",

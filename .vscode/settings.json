@@ -2,12 +2,14 @@
   "cSpell.words": [
     "bpfrpt",
     "creationdate",
+    "honkhonk",
     "ipfs",
     "Keepsafe",
     "pathctx",
     "proptype",
     "quicktime",
     "repr",
+    "svgr",
     "tailwindcss"
   ],
   "rust-analyzer.procMacro.enable": true,

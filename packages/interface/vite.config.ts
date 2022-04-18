@@ -1,17 +1,21 @@
 import { defineConfig } from 'vite';
-import reactSvgPlugin from 'vite-plugin-react-svg';
 import react from '@vitejs/plugin-react';
+import svgr from '@honkhonk/vite-plugin-svgr';
 
 import * as path from 'path';
 
 // Vite configured in "Library Mode", it will not run as a server.
 // https://vitejs.dev/config/
 export default defineConfig({
+  // for developer purposes only
+  server: {
+    port: 8003
+  },
   plugins: [
     react({
       jsxRuntime: 'classic'
     }),
-    reactSvgPlugin()
+    svgr()
   ],
   esbuild: {
     jsxInject: 'import {jsx as _jsx} from "react/jsx-runtime"'

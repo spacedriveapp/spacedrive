@@ -16,6 +16,7 @@
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
+    "types": [ "@honkhonk/vite-plugin-svgr/client" ]
   },
   "include": ["src"],
   "exclude": ["node_modules"]
