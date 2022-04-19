@@ -14,8 +14,12 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react",
-    "outDir": "dist"
+    "outDir": "dist",
+    "baseUrl": "./",
+    "paths": {
+      "@sd/interface": ["../../packages/interface/src/index.ts"],
+      "@sd/ui": ["../../packages/ui/src"]
+    }
   },
   "include": ["src"],
-  "exclude": ["node_modules"]
 }
