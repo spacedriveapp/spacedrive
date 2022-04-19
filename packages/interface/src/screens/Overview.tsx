@@ -39,11 +39,11 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             <StatItem name="Preview media" value="23.5" unit="GB" />
           </div>
           <div className="flex flex-col items-center w-56">
-            <img
+            {/* <img
               alt="spacedrive-logo"
               src="/images/spacedrive_logo.png"
               className="pointer-events-none w-28 h-28"
-            />
+            /> */}
             {/* <span className="text-lg font-bold heading-1">Spacedrive</span>
           <span className="mt-0.5 text-sm text-gray-400 mb-5">v1.0.11 (pre-alpha)</span> */}
             {/* <span className="font-bold text-gray-400 text-md heading-1">Jamie's Library</span>

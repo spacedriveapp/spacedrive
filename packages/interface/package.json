@@ -17,8 +17,8 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "vite build --watch",
-    "vite": "vite",
+    "dev": "vite",
+    "dev:build": "vite build --watch",
     "build": "vite build"
   },
   "resolutions": {

@@ -12,6 +12,9 @@ import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { AppPropsContext } from '../../App';
 
+import Folder from '../../assets/svg/folder.svg?component';
+import FolderWhite from '../../assets/svg/folder-white.svg?component';
+
 interface SidebarProps extends DefaultProps {}
 
 export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode }) => (
@@ -140,10 +143,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
                       }
                     )}
                   >
-                    <img
-                      className="w-4 h-4 mr-2 pointer-events-none z-90"
-                      src={`/svg/${isActive ? 'folder-white' : 'folder'}.svg`}
-                    />
+                    <div className="w-[18px] mr-2 -mt-0.5">
+                      {isActive ? <FolderWhite /> : <Folder />}
+                    </div>
                     {location.name}
                     <div className="flex-grow" />
                   </span>
