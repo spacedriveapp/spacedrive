@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 
 // import Spacedrive interface
 import SpacedriveInterface, { Platform } from '@sd/interface';
-import '@sd/interface/dist/style.css';
 
 // import types from Spacedrive core (TODO: re-export from client would be cleaner)
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
@@ -12,6 +11,8 @@ import { BaseTransport } from '@sd/client';
 // import tauri apis
 import { dialog, invoke, os } from '@tauri-apps/api';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
+
+import '@sd/ui/style';
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {

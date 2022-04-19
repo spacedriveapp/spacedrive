@@ -3,7 +3,14 @@
   "version": "0.0.0",
   "main": "./dist/index.d.ts",
   "types": "./dist/index.js",
+  "sass": "./style/style.scss",
   "license": "MIT",
+  "exports": {
+    ".": "./src",
+    "./postcss": "./style/postcss.config.js",
+    "./tailwind": "./style/tailwind.config.js",
+    "./style": "./style/index.ts"
+  },
   "scripts": {
     "build": "tsc"
   },

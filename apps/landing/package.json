@@ -2,7 +2,7 @@
   "name": "@sd/landing",
   "private": true,
   "scripts": {
-    "dev": "next",
+    "dev": "next -p 8003",
     "build": "next build",
     "start": "next start",
     "type-check": "tsc"

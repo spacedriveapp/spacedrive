@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 // import Spacedrive interface
 
 const IndexPage = () => (
-  <Layout title="Home | Next.js + TypeScript Example">
+  <Layout title="Spacedrive: The file explorer from the future.">
     <h1 className="my-16 text-6xl font-black">The file explorer from the future</h1>
     <iframe
       className="border border-gray-800 rounded-lg shadow-2xl"

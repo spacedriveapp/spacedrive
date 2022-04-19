@@ -19,5 +19,4 @@
     "types": [ "@honkhonk/vite-plugin-svgr/client" ]
   },
   "include": ["src"],
-  "exclude": ["node_modules"]
 }
