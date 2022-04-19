@@ -7,7 +7,7 @@ type Props = {
   title?: string;
 };
 
-const Layout = ({ children, title = 'This is the default title' }: Props) => (
+const Layout = ({ children, title = 'Spacedrive' }: Props) => (
   <>
     <Head>
       <title>{title}</title>
@@ -21,7 +21,9 @@ const Layout = ({ children, title = 'This is the default title' }: Props) => (
         </Link>{' '}
       </nav> */}
     </header>
-    <div className="flex flex-col items-center p-1 ">{children as any}</div>
+    <div className="flex flex-col items-center h-screen p-1 bg-[#0B0B10] text-white">
+      {children as any}
+    </div>
     {/* <footer className="bg-gray-100 ">
       <span>Version 0.1.0</span>
     </footer> */}

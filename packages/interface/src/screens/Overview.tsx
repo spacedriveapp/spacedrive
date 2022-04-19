@@ -33,23 +33,10 @@ export const OverviewScreen: React.FC<{}> = (props) => {
       <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
       <div className="flex flex-col w-full h-screen px-5 pb-3 overflow-scroll">
         <div className="flex items-center justify-center w-full">
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap">
             <StatItem name="Total capacity" value="26.5" unit="TB" />
             <StatItem name="Index size" value="103" unit="MB" />
             <StatItem name="Preview media" value="23.5" unit="GB" />
-          </div>
-          <div className="flex flex-col items-center w-56">
-            {/* <img
-              alt="spacedrive-logo"
-              src="/images/spacedrive_logo.png"
-              className="pointer-events-none w-28 h-28"
-            /> */}
-            {/* <span className="text-lg font-bold heading-1">Spacedrive</span>
-          <span className="mt-0.5 text-sm text-gray-400 mb-5">v1.0.11 (pre-alpha)</span> */}
-            {/* <span className="font-bold text-gray-400 text-md heading-1">Jamie's Library</span>
-          <span className="mt-1 text-xs text-gray-500 ">lib-71230e11c869</span> */}
-          </div>
-          <div className="flex space-x-2">
             <StatItem name="Free space" value="9.2" unit="TB" />
             <StatItem name="Total at-risk" value="1.5" unit="TB" />
             <StatItem name="Total backed up" value="25.3" unit="TB" />

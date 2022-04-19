@@ -5,9 +5,9 @@ import Layout from '../components/Layout';
 
 const IndexPage = () => (
   <Layout title="Home | Next.js + TypeScript Example">
-    <h1 className="my-8 text-4xl font-black">A file explorer from the future</h1>
+    <h1 className="my-16 text-6xl font-black">The file explorer from the future</h1>
     <iframe
-      style={{ border: 'none', borderRadius: 5 }}
+      className="border border-gray-800 rounded-lg shadow-2xl"
       width={1200}
       height={600}
       src="http://localhost:8002?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6"

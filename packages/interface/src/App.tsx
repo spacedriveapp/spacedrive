@@ -25,6 +25,7 @@ import { RedirectPage } from './screens/Redirect';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 import { CoreEvent } from '@sd/core';
+import clsx from 'clsx';
 
 const queryClient = new QueryClient();
 
@@ -46,19 +47,24 @@ export interface AppProps {
 function AppLayout() {
   const appPropsContext = useContext(AppPropsContext);
   const [isWindowRounded, setIsWindowRounded] = useState(false);
+  const [hasWindowBorder, setHasWindowBorder] = useState(true);
 
   useEffect(() => {
     if (appPropsContext?.platform === 'macOS') {
       setIsWindowRounded(true);
     }
+    if (appPropsContext?.platform === 'browser') {
+      setHasWindowBorder(false);
+    }
   }, []);
 
   return (
     <div
-      className={
-        'flex flex-row h-screen overflow-hidden text-gray-900 bg-white border border-gray-200 select-none dark:border-gray-500 dark:text-white dark:bg-gray-650' +
-        (isWindowRounded ? ' rounded-xl' : '')
-      }
+      className={clsx(
+        'flex flex-row h-screen overflow-hidden text-gray-900 bg-white select-none dark:text-white dark:bg-gray-650',
+        isWindowRounded && 'rounded-xl',
+        hasWindowBorder && 'border border-gray-200 dark:border-gray-500'
+      )}
     >
       <Sidebar />
       <div className="flex flex-col w-full min-h-full">

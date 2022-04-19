@@ -70,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
   ];
 
   return (
-    <div className="flex flex-col w-56 min-h-full px-3 pb-1 overflow-x-hidden overflow-y-scroll border-r border-gray-100 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+    <div className="flex flex-col flex-shrink-0 min-h-full px-3 pb-1 overflow-x-hidden overflow-y-scroll border-r border-gray-100 w-46 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
       {appPropsContext?.platform === 'macOS' ? (
         <>
           <MacOSTrafficLights /> <div className="mt-6" />
@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       <Dropdown
         buttonProps={{
           justifyLeft: true,
-          className: `flex mb-1 shadow-xs rounded flex-shrink-0 w-[175px] 
+          className: `flex mb-1 mt-1 shadow-xs rounded flex-shrink-0 w-[175px] 
             !bg-gray-50 
             border-gray-150 
             hover:!bg-gray-1000 
