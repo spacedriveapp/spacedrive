@@ -34,15 +34,11 @@ export default function FileItem(props: Props) {
           }
         )}
       >
-        {/* <Shadow /> */}
-        {/* <div className="w-[65px] border border-gray-600 m-auto rounded-md h-[80px] bg-gray-650 relative shadow-md "> */}
         {props.folder ? (
-          <div className="relative w-full h-full active:translate-y-[1px]">
-            {/* <img
-              className="bottom-0 p-3 pt-[19px]  margin-auto z-90 pointer-events-none"
-              src="/svg/folder.svg"
-            /> */}
-            <Folder className="w-[70px] m-auto -mt-1.5" />
+          <div className="flex items-center justify-center w-full h-full active:translate-y-[1px]">
+            <div className="w-[70px]">
+              <Folder className="" />
+            </div>
           </div>
         ) : (
           <div

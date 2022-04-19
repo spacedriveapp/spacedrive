@@ -10,7 +10,8 @@ import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 // import Spacedrive JS client
 import { BaseTransport } from '@sd/client';
 // import tauri apis
-import { invoke, os } from '@tauri-apps/api';
+import { dialog, invoke, os } from '@tauri-apps/api';
+import { convertFileSrc } from '@tauri-apps/api/tauri';
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
@@ -50,10 +51,12 @@ function App() {
       }}
       platform={platform}
       convertFileSrc={function (url: string): string {
-        return url;
+        return convertFileSrc(url);
       }}
-      openDialog={function (options: { directory?: boolean | undefined }): Promise<void> {
-        return Promise.resolve();
+      openDialog={function (options: {
+        directory?: boolean | undefined;
+      }): Promise<string | string[]> {
+        return dialog.open(options);
       }}
     />
   );

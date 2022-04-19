@@ -25,8 +25,10 @@ root.render(
       convertFileSrc={function (url: string): string {
         return url;
       }}
-      openDialog={function (options: { directory?: boolean | undefined }): Promise<void> {
-        return Promise.resolve();
+      openDialog={function (options: {
+        directory?: boolean | undefined;
+      }): Promise<string | string[]> {
+        return Promise.resolve('');
       }}
     />
   </React.StrictMode>

@@ -5,6 +5,8 @@ import clsx from 'clsx';
 import React, { useContext } from 'react';
 import { AppPropsContext } from '../../App';
 
+import Folder from '../../assets/svg/folder.svg?component';
+
 export default function FileThumb(props: {
   file: FilePath;
   locationId: number;
@@ -14,12 +16,7 @@ export default function FileThumb(props: {
   const { data: client } = useBridgeQuery('ClientGetState');
 
   if (props.file.is_dir) {
-    return (
-      <img
-        className={clsx('mt-0.5 pointer-events-none z-90', props.className)}
-        src="/svg/folder.svg"
-      />
-    );
+    return <Folder className="" />;
   }
 
   if (props.file.has_local_thumbnail && client?.data_path) {

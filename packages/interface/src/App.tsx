@@ -37,7 +37,7 @@ export interface AppProps {
   onCoreEvent: (event: CoreEvent) => void;
   platform: Platform;
   convertFileSrc: (url: string) => string;
-  openDialog: (options: { directory?: boolean }) => Promise<void>;
+  openDialog: (options: { directory?: boolean }) => Promise<string | string[]>;
   onClose?: () => void;
   onMinimize?: () => void;
   onFullscreen?: () => void;
