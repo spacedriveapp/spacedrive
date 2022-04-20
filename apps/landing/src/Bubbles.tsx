@@ -3,12 +3,12 @@ import Particles from 'react-tsparticles';
 import { loadFull } from 'tsparticles';
 
 export const Bubbles = () => {
-  const particlesInit = async (main) => {
+  const particlesInit = async (main: any) => {
     console.log(main);
     await loadFull(main);
   };
 
-  const particlesLoaded = (container) => {
+  const particlesLoaded = (container: any) => {
     console.log(container);
   };
 

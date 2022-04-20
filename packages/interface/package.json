@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "license": "MIT",
   "private": true,
+  "main": "src/index.ts",
   "resolutions": {
     "react-virtualized": "patch:react-virtualized@9.22.3#./path/to/react-virtualized-9.22.3.patch"
   },

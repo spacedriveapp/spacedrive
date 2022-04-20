@@ -182,10 +182,11 @@ const RenderRow: React.FC<{
             setSearchParams({ path: row.materialized_path });
           }
         }}
-        className={clsx('table-body-row flex flex-row rounded-lg border-2 border-[#00000000]', {
-          'bg-[#00000006] dark:bg-[#00000030]': rowIndex % 2 == 0,
-          'border-primary-500': isActive
-        })}
+        className={clsx(
+          'table-body-row flex flex-row rounded-lg border-2',
+          isActive ? 'border-primary-500' : 'border-transparent',
+          rowIndex % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
+        )}
       >
         {columns.map((col) => (
           <div

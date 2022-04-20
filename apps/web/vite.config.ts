@@ -4,34 +4,23 @@ import { name, version } from './package.json';
 import * as path from 'path';
 import svgr from '@honkhonk/vite-plugin-svgr';
 
-function resolvePackage(name: string) {
-  return path.resolve(require.resolve(`${name}/package.json`), '../src');
-}
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
     port: 8002
   },
   plugins: [
+    //@ts-ignore
     react({
       jsxRuntime: 'classic'
     }),
+    //@ts-ignore
     svgr()
   ],
   root: 'src',
   publicDir: '../../packages/interface/src/assets',
   define: {
     pkgJson: { name, version }
-  },
-  optimizeDeps: {
-    include: ['@sd/interface', '@sd/ui', '@sd/client']
-  },
-  resolve: {
-    alias: {
-      '@sd/interface': resolvePackage('@sd/interface'),
-      '@sd/ui': resolvePackage('@sd/ui'),
-      '@sd/client': resolvePackage('@sd/client')
-    }
   },
   build: {
     outDir: '../dist',
