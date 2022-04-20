@@ -1,4 +1,4 @@
-use crate::{prisma, prisma::Migration};
+use crate::prisma::{self, migration};
 use anyhow::Result;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
@@ -88,7 +88,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
         // get existing migration by checksum, if it doesn't exist run the migration
         let existing_migration = client
           .migration()
-          .find_unique(Migration::checksum().equals(checksum.clone()))
+          .find_unique(migration::checksum::equals(checksum.clone()))
           .exec()
           .await?;
 
@@ -101,8 +101,8 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
           client
             .migration()
             .create(
-              Migration::name().set(name.to_string()),
-              Migration::checksum().set(checksum.clone()),
+              migration::name::set(name.to_string()),
+              migration::checksum::set(checksum.clone()),
               vec![],
             )
             .exec()
@@ -114,8 +114,8 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
                 println!("Step {} ran successfully", i);
                 client
                   .migration()
-                  .find_unique(Migration::checksum().equals(checksum.clone()))
-                  .update(vec![Migration::steps_applied().set(i as i32 + 1)])
+                  .find_unique(migration::checksum::equals(checksum.clone()))
+                  .update(vec![migration::steps_applied::set(i as i32 + 1)])
                   .exec()
                   .await?;
               }

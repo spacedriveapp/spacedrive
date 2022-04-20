@@ -3,14 +3,13 @@ use super::{
   JobError,
 };
 use crate::{
-  prisma::{self, JobData},
-  state::client,
+  prisma::{client, job},
+  state,
   sync::{crdt::Replicate, engine::SyncContext},
   CoreContext,
 };
 use anyhow::Result;
 use int_enum::IntEnum;
-use prisma_client_rust::or;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::Mutex;
@@ -67,12 +66,7 @@ impl Jobs {
     let db = &ctx.database;
     let jobs = db
       .job()
-      .find_many(vec![or![
-        prisma::Job::status().equals(JobStatus::Completed.int_value()),
-        prisma::Job::status().equals(JobStatus::Failed.int_value()),
-        prisma::Job::status().equals(JobStatus::Canceled.int_value()),
-        prisma::Job::status().equals(JobStatus::Queued.int_value()),
-      ]])
+      .find_many(vec![job::status::not(JobStatus::Running.int_value())])
       .exec()
       .await?;
 
@@ -109,7 +103,7 @@ pub struct JobReport {
 }
 
 // convert database struct into a resource struct
-impl Into<JobReport> for JobData {
+impl Into<JobReport> for job::Data {
   fn into(self) -> JobReport {
     JobReport {
       id: self.id,
@@ -140,14 +134,14 @@ impl JobReport {
     }
   }
   pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
-    let config = client::get();
+    let config = state::client::get();
     ctx
       .database
       .job()
       .create(
-        prisma::Job::id().set(self.id.clone()),
-        prisma::Job::action().set(1),
-        prisma::Job::clients().link(prisma::Client::id().equals(config.client_id)),
+        job::id::set(self.id.clone()),
+        job::action::set(1),
+        job::clients::link(client::id::equals(config.client_id)),
         vec![],
       )
       .exec()
@@ -158,13 +152,13 @@ impl JobReport {
     ctx
       .database
       .job()
-      .find_unique(prisma::Job::id().equals(self.id.clone()))
+      .find_unique(job::id::equals(self.id.clone()))
       .update(vec![
-        prisma::Job::status().set(self.status.int_value()),
-        prisma::Job::task_count().set(self.task_count),
-        prisma::Job::completed_task_count().set(self.completed_task_count),
-        prisma::Job::date_modified().set(chrono::Utc::now()),
-        prisma::Job::seconds_elapsed().set(self.seconds_elapsed),
+        job::status::set(self.status.int_value()),
+        job::task_count::set(self.task_count),
+        job::completed_task_count::set(self.completed_task_count),
+        job::date_modified::set(chrono::Utc::now()),
+        job::seconds_elapsed::set(self.seconds_elapsed),
       ])
       .exec()
       .await?;

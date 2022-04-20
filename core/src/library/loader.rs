@@ -3,11 +3,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::state::client::LibraryState;
-use crate::{
-  db::migrate,
-  prisma::{Library, LibraryData},
-  state,
-};
+use crate::{db::migrate, prisma::library, state};
 use crate::{prisma, Core};
 
 pub static LIBRARY_DB_NAME: &str = "library.db";
@@ -19,7 +15,7 @@ pub enum LibraryError {
   DatabaseError(#[from] prisma::QueryError),
 }
 
-pub async fn get(core: &Core) -> Result<LibraryData, LibraryError> {
+pub async fn get(core: &Core) -> Result<library::Data, LibraryError> {
   let config = state::client::get();
   let db = &core.database;
 
@@ -30,7 +26,7 @@ pub async fn get(core: &Core) -> Result<LibraryData, LibraryError> {
   // get library from db
   let library = match db
     .library()
-    .find_unique(Library::pub_id().equals(library_state.library_uuid.clone()))
+    .find_unique(library::pub_id::equals(library_state.library_uuid.clone()))
     .exec()
     .await?
   {
@@ -87,8 +83,8 @@ pub async fn create(core: &Core, name: Option<String>) -> Result<()> {
   let _library = db
     .library()
     .create(
-      Library::pub_id().set(config.current_library_uuid),
-      Library::name().set(name.unwrap_or(DEFAULT_NAME.into())),
+      library::pub_id::set(config.current_library_uuid),
+      library::name::set(name.unwrap_or(DEFAULT_NAME.into())),
       vec![],
     )
     .exec()

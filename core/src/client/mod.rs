@@ -1,4 +1,7 @@
-use crate::{prisma, state, Core};
+use crate::{
+  prisma::{self, client},
+  state, Core,
+};
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
@@ -51,7 +54,7 @@ pub async fn create(core: &Core) -> Result<(), ClientError> {
 
   let client = match db
     .client()
-    .find_unique(prisma::Client::pub_id().equals(config.client_uuid.clone()))
+    .find_unique(client::pub_id::equals(config.client_uuid.clone()))
     .exec()
     .await?
   {
@@ -59,11 +62,11 @@ pub async fn create(core: &Core) -> Result<(), ClientError> {
     None => {
       db.client()
         .create(
-          prisma::Client::pub_id().set(config.client_uuid.clone()),
-          prisma::Client::name().set(hostname.clone()),
+          client::pub_id::set(config.client_uuid.clone()),
+          client::name::set(hostname.clone()),
           vec![
-            prisma::Client::platform().set(platform as i32),
-            prisma::Client::online().set(Some(true)),
+            client::platform::set(platform as i32),
+            client::online::set(Some(true)),
           ],
         )
         .exec()

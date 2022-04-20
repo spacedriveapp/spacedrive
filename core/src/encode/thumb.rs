@@ -1,9 +1,8 @@
 use crate::job::jobs::JobReportUpdate;
-use crate::prisma::FilePathData;
 use crate::state::client;
 use crate::{
   job::{jobs::Job, worker::WorkerContext},
-  prisma::FilePath,
+  prisma::file_path,
   CoreContext,
 };
 use crate::{sys, CoreEvent};
@@ -120,10 +119,10 @@ pub async fn get_images(
   ctx: &CoreContext,
   location_id: i32,
   path: &str,
-) -> Result<Vec<FilePathData>> {
+) -> Result<Vec<file_path::Data>> {
   let mut params = vec![
-    FilePath::location_id().equals(location_id),
-    FilePath::extension().in_vec(vec![
+    file_path::location_id::equals(location_id),
+    file_path::extension::in_vec(vec![
       "png".to_string(),
       "jpeg".to_string(),
       "jpg".to_string(),
@@ -131,12 +130,12 @@ pub async fn get_images(
       "webp".to_string(),
     ]),
   ];
-  
+
   if !path.is_empty() {
-    params.push(FilePath::materialized_path().starts_with(path.to_string()))
+    params.push(file_path::materialized_path::starts_with(path.to_string()))
   }
-  
+
   let image_files = ctx.database.file_path().find_many(params).exec().await?;
-  
+
   Ok(image_files)
 }

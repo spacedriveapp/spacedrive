@@ -15,5 +15,8 @@
     "tsparticles"
   ],
   "rust-analyzer.procMacro.enable": true,
-  "rust-analyzer.diagnostics.enableExperimental": false
+  "rust-analyzer.diagnostics.enableExperimental": false,
+  "rust-analyzer.inlayHints.parameterHints": false,
+  "rust-analyzer.inlayHints.enable": false,
+  "rust-analyzer.inlayHints.typeHints": false
 }
