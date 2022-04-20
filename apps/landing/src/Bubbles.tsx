@@ -16,6 +16,7 @@ export const Bubbles = () => {
     //@ts-ignore
     <Particles
       id="tsparticles"
+      className="absolute z-0"
       init={particlesInit}
       //@ts-ignore
       loaded={particlesLoaded}
