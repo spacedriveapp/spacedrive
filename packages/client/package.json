@@ -1,13 +1,14 @@
 {
   "name": "@sd/client",
   "version": "0.0.0",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "source": "./src/index.ts",
   "private": true,
   "files": [
     "dist/**"
   ],
+  "exports": {
+    ".": "./src",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "test": "jest",
     "dev": "tsc -w",

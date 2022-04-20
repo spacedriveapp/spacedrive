@@ -28,7 +28,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@sd/interface': resolvePackage('@sd/interface')
+      '@sd/interface': resolvePackage('@sd/interface'),
+      '@sd/ui': resolvePackage('@sd/ui'),
+      '@sd/client': resolvePackage('@sd/client')
     }
   },
   build: {

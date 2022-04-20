@@ -1,3 +1,3 @@
-import * as React from 'react';
+import '../style';
 
-export * from './primitive';
+export * from './Button';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { InputContainer } from '../../components/primitive/InputContainer';
-import { Button } from '../../components/primitive';
+import { Button } from '@sd/ui';
 
 export default function SecuritySettings() {
   return (

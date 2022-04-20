@@ -2,8 +2,8 @@ import React, { Fragment } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/solid';
 import { DefaultOptions } from '@apollo/client';
-import { Button, ButtonProps } from '.';
 import clsx from 'clsx';
+import { Button, ButtonProps } from '@sd/ui';
 
 type Section = {
   name: string;

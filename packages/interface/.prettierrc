@@ -12,6 +12,7 @@
     "^@sd/interface/(.*)$",
     "^@sd/client/(.*)$",
     "^@sd/ui/(.*)$",
+    "<THIRD_PARTY_MODULES>",
     "^[./]"
   ],
   "importOrderSeparation": true,
