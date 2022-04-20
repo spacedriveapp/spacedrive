@@ -5,7 +5,7 @@ description = "A virtual distributed filesystem."
 authors = ["Jamie Pine"]
 license = "GNU GENERAL PUBLIC LICENSE"
 repository = "https://github.com/jamiepine/spacedrive"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 swift-rs = "0.2.3"
@@ -29,7 +29,7 @@ once_cell = "1.8.0"
 int-enum = "0.4.0"
 # Project dependencies
 ts-rs = "6.1"
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "3f742cc4fb4df9a77c6311d43183d5082cf32510" }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.4.0" }
 walkdir = "^2.3.2"
 bytesize = "1.1.0"
 env_logger = "0.9.0"

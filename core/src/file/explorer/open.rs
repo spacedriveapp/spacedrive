@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::{
   encode::thumb::THUMBNAIL_CACHE_DIR_NAME,
   file::{DirectoryWithContents, FileError, FilePath},
-  prisma,
+  prisma::file_path,
   state::client,
   sys::locations::get_location,
   CoreContext,
@@ -23,9 +23,9 @@ pub async fn open_dir(
   let directory = db
     .file_path()
     .find_first(vec![
-      prisma::FilePath::location_id().equals(location.id),
-      prisma::FilePath::materialized_path().equals(path.into()),
-      prisma::FilePath::is_dir().equals(true),
+      file_path::location_id::equals(location.id),
+      file_path::materialized_path::equals(path.into()),
+      file_path::is_dir::equals(true),
     ])
     .exec()
     .await?
@@ -33,9 +33,7 @@ pub async fn open_dir(
 
   let files = db
     .file_path()
-    .find_many(vec![
-      prisma::FilePath::parent_id().equals(Some(directory.id))
-    ])
+    .find_many(vec![file_path::parent_id::equals(Some(directory.id))])
     .exec()
     .await?;
 

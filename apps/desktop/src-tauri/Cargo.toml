@@ -2,11 +2,11 @@
 name = "spacedrive"
 version = "0.1.0"
 description = "The next gen private virtual filesystem."
-authors = ["NerdHouse, Inc.", "Jamie Pine"]
+authors = ["Jamie Pine"]
 license = ""
 repository = "https://github.com/jamiepine/spacedrive"
 default-run = "spacedrive"
-edition = "2018"
+edition = "2021"
 build = "src/build.rs"
 
 [build-dependencies]

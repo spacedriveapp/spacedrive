@@ -5,7 +5,7 @@ use ts_rs::TS;
 
 use crate::{
   crypto::encryption::EncryptionAlgorithm,
-  prisma::{self, FileData, FilePathData},
+  prisma::{self, file, file_path},
   sys::SysError,
 };
 pub mod cas;
@@ -84,7 +84,7 @@ pub enum FileKind {
   Alias = 8,
 }
 
-impl Into<File> for FileData {
+impl Into<File> for file::Data {
   fn into(self) -> File {
     File {
       id: self.id,
@@ -109,7 +109,7 @@ impl Into<File> for FileData {
   }
 }
 
-impl Into<FilePath> for FilePathData {
+impl Into<FilePath> for file_path::Data {
   fn into(self) -> FilePath {
     FilePath {
       id: self.id,

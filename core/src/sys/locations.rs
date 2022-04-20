@@ -1,6 +1,6 @@
 use crate::{
   file::indexer::IndexerJob,
-  prisma::{FilePath, Location},
+  prisma::{file_path, location},
   state::client,
   sys::{volumes, volumes::Volume},
   ClientQuery, CoreContext, CoreEvent,
@@ -11,8 +11,6 @@ use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
 use thiserror::Error;
 use ts_rs::TS;
-
-pub use crate::prisma::LocationData;
 
 use super::SysError;
 
@@ -30,7 +28,7 @@ pub struct LocationResource {
   pub date_created: chrono::DateTime<chrono::Utc>,
 }
 
-impl Into<LocationResource> for LocationData {
+impl Into<LocationResource> for location::Data {
   fn into(self) -> LocationResource {
     LocationResource {
       id: self.id,
@@ -74,7 +72,7 @@ pub async fn get_location(
   // get location by location_id from db and include location_paths
   let location = match db
     .location()
-    .find_unique(Location::id().equals(location_id))
+    .find_unique(location::id::equals(location_id))
     .exec()
     .await?
   {
@@ -127,7 +125,7 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
   // check if location already exists
   let location = match db
     .location()
-    .find_first(vec![Location::local_path().equals(Some(path.to_string()))])
+    .find_first(vec![location::local_path::equals(Some(path.to_string()))])
     .exec()
     .await?
   {
@@ -144,11 +142,11 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
       let location = db
         .location()
         .create(
-          Location::pub_id().set(uuid.to_string()),
+          location::pub_id::set(uuid.to_string()),
           vec![
-            Location::name().set(Some(p.file_name().unwrap().to_string_lossy().to_string())),
-            Location::is_online().set(true),
-            Location::local_path().set(Some(path.to_string())),
+            location::name::set(Some(p.file_name().unwrap().to_string_lossy().to_string())),
+            location::is_online::set(true),
+            location::local_path::set(Some(path.to_string())),
           ],
         )
         .exec()
