@@ -2,13 +2,10 @@
   "name": "@sd/client",
   "version": "0.0.0",
   "private": true,
+  "main": "./src/index.ts",
   "files": [
     "dist/**"
   ],
-  "exports": {
-    ".": "./src",
-    "./package.json": "./package.json"
-  },
   "scripts": {
     "test": "jest",
     "dev": "tsc -w",

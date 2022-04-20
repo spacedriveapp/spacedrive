@@ -2,10 +2,11 @@
   "name": "@sd/ui",
   "version": "0.0.0",
   "license": "MIT",
+  "main": "src/index.ts",
   "exports": {
-    ".": "./src",
+    ".": "./src/index.ts",
     "./postcss": "./style/postcss.config.js",
-    "./tailwind": "./style/tailwind.config.js",
+    "./tailwind": "./style/tailwind.js",
     "./style": "./style/index.js",
     "./package.json": "./package.json"
   },
