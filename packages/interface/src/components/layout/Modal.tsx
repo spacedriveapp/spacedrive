@@ -2,7 +2,7 @@ import { Transition } from '@headlessui/react';
 import clsx from 'clsx';
 import React from 'react';
 import { XIcon } from '@heroicons/react/solid';
-import { Button } from '../primitive';
+import { Button } from '@sd/ui';
 import { useNavigate } from 'react-router-dom';
 import { MacOSTrafficLights } from '../file/Sidebar';
 

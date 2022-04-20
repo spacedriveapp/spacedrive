@@ -1,5 +1,6 @@
 import { InputContainer } from '../../components/primitive/InputContainer';
-import { Button, Input } from '../../components/primitive';
+import { Input } from '../../components/primitive';
+import { Button } from '@sd/ui';
 import React, { useState } from 'react';
 
 import Listbox from '../../components/primitive/Listbox';

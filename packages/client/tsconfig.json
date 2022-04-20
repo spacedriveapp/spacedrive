@@ -3,7 +3,7 @@
     "lib": ["esnext"],
     "module": "esnext",
     "outDir": "./dist",
-    "rootDir": "./lib",
+    "rootDir": "src",
     "jsx": "react"
   },
   "extends": "../config/tsconfig/base.json",

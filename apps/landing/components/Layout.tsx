@@ -21,7 +21,7 @@ const Layout = ({ children, title = 'Spacedrive' }: Props) => (
         </Link>{' '}
       </nav> */}
     </header>
-    <div className="flex flex-col items-center h-screen p-1 bg-[#0B0B10] text-white">
+    <div className="flex flex-col items-center h-screen p-1 bg-[#000000] text-white">
       {children as any}
     </div>
     {/* <footer className="bg-gray-100 ">

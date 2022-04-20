@@ -1,7 +1,7 @@
 import React from 'react';
 
 import SpacedriveInterface from '@sd/interface';
-import '@sd/ui/style';
+// import '@sd/ui/style';
 
 import { ClientCommand, ClientQuery } from '@sd/core';
 import { BaseTransport } from '@sd/client';

@@ -6,6 +6,7 @@
     "prep": "pnpm db:gen && pnpm core codegen && pnpm build-packages",
     "build-packages": "pnpm client build && pnpm ui build && pnpm interface build",
     "build": "turbo run build",
+    "landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
     "db:migrate": "pnpm core prisma migrate dev",
     "db:gen": "pnpm core prisma generate",
     "lint": "turbo run lint",

@@ -12,7 +12,6 @@ import { Sidebar } from './components/file/Sidebar';
 import { SettingsScreen } from './screens/Settings';
 import { ExplorerScreen } from './screens/Explorer';
 import { useCoreEvents } from './hooks/useCoreEvents';
-import { Button } from './components/primitive';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
 import { OverviewScreen } from './screens/Overview';
 import { SpacesScreen } from './screens/Spaces';
@@ -24,6 +23,7 @@ import LocationSettings from './screens/settings/LocationSettings';
 import { RedirectPage } from './screens/Redirect';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
+import { Button } from '@sd/ui';
 import { CoreEvent } from '@sd/core';
 import clsx from 'clsx';
 

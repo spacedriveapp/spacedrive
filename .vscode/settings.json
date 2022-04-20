@@ -10,7 +10,9 @@
     "quicktime",
     "repr",
     "svgr",
-    "tailwindcss"
+    "tailwindcss",
+    "trivago",
+    "tsparticles"
   ],
   "rust-analyzer.procMacro.enable": true,
   "rust-analyzer.diagnostics.enableExperimental": false

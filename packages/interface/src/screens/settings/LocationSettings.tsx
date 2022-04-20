@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '../../components/primitive';
+import { Button } from '@sd/ui';
 import { Dropdown } from '../../components/primitive/Dropdown';
 import DropdownMenu from '../../components/primitive/DropdownMenu';
 import { InputContainer } from '../../components/primitive/InputContainer';

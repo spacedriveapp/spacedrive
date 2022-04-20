@@ -5,7 +5,7 @@ import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
 import React, { useContext, useEffect, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
-import { Button } from '../primitive';
+import { Button } from '@sd/ui';
 import { Dropdown } from '../primitive/Dropdown';
 import { DefaultProps } from '../primitive/types';
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';

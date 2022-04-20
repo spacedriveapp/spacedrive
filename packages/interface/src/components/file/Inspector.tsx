@@ -1,7 +1,8 @@
 import React from 'react';
 import { Transition } from '@headlessui/react';
 import moment from 'moment';
-import { Button, Input, TextArea } from '../primitive';
+import { Input, TextArea } from '../primitive';
+import { Button } from '@sd/ui';
 import { ShareIcon } from '@heroicons/react/solid';
 import { Heart, Link } from 'phosphor-react';
 import { useExplorerState } from './FileList';
