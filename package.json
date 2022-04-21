@@ -51,17 +51,5 @@
     "npm": "pnpm",
     "yarn": "pnpm",
     "node": ">=14.0.0"
-  },
-  "workspaces": {
-    "nohoist": [
-      "**/react-native",
-      "**/react-native/**",
-      "**/@react-native-*",
-      "**/@react-native-*/**",
-      "**/react-native-*",
-      "**/react-native-*/**",
-      "**/metro-*",
-      "**/metro-*/**"
-    ]
   }
 }
