@@ -14,7 +14,7 @@ export default function NavBar() {
   const [isAtTop, setIsAtTop] = useState(true);
 
   function onScroll(event: Event) {
-    if (window.pageYOffset > 0) setIsAtTop(true);
+    if (window.pageYOffset > 20) setIsAtTop(true);
     else if (isAtTop) setIsAtTop(false);
   }
 
@@ -26,14 +26,14 @@ export default function NavBar() {
   return (
     <div
       className={clsx(
-        'fixed transition duration-300 z-50 w-full h-16 border-b bg-transparent border-transparent ',
-        isAtTop && 'border-gray-550 !bg-gray-750 backdrop-blur bg-opacity-80'
+        'fixed transition z-50 w-full h-16 border-b backdrop-blur',
+        isAtTop ? 'border-gray-550 bg-gray-750 bg-opacity-80' : 'bg-transparent border-transparent'
       )}
     >
       <div className="container flex items-center h-full m-auto ">
         <AppLogo className="z-30 w-8 h-8 mr-3" />
         <h3 className="text-xl font-bold text-white">
-          Spacedrive
+          Memes
           <span className="ml-2 text-xs text-gray-400 uppercase">BETA</span>
         </h3>
 
