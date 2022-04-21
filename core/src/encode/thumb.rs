@@ -71,18 +71,23 @@ impl Job for ThumbnailJob {
 
         // check if file exists at output path
         if !output_path.exists() {
-          generate_thumbnail(&path, &output_path).unwrap_or(());
+          println!("writing {:?} to {}", output_path, path);
+          generate_thumbnail(&path, &output_path)
+            .map_err(|e| {
+              println!("error generating thumb {:?}", e);
+            })
+            .unwrap_or(());
+
+          ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
+
+          if !is_background {
+            block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail {
+              cas_id: checksum.to_string(),
+            }));
+          };
         } else {
           println!("Thumb exists, skipping... {}", output_path.display());
         }
-
-        ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
-
-        if !is_background {
-          block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail {
-            cas_id: checksum.to_string(),
-          }));
-        };
       }
     })
     .await?;

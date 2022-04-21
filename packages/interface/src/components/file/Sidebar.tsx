@@ -92,9 +92,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText="Jamie's Library"
+        buttonText="Jeff's Library"
         items={[
-          [{ name: `Jamie's Library`, selected: true }, { name: 'Private Library' }],
+          [{ name: `Jeff's Library`, selected: true }, { name: 'Private Library' }],
           [
             { name: 'Library Settings', icon: CogIcon },
             { name: 'Add Library', icon: PlusIcon },
