@@ -8,7 +8,7 @@
     "build": "cargo build",
     "test": "cargo test",
     "test:log": "cargo test -- --nocapture",
-    "prisma": "prisma-client-rust"
+    "prisma": "cargo prisma"
   },
   "devDependencies": {
     "@types/node": "^17.0.23",
