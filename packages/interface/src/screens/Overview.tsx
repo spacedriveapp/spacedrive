@@ -32,8 +32,8 @@ export const OverviewScreen: React.FC<{}> = (props) => {
     <div className="flex flex-col w-full h-screen">
       <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
       <div className="flex flex-col w-full h-screen px-5 pb-3 overflow-scroll">
-        <div className="flex items-center justify-center w-full">
-          <div className="flex flex-wrap">
+        <div className="flex items-center w-full px-2">
+          <div className="flex flex-wrap space-x-4">
             <StatItem name="Total capacity" value="26.5" unit="TB" />
             <StatItem name="Index size" value="103" unit="MB" />
             <StatItem name="Preview media" value="23.5" unit="GB" />
@@ -46,11 +46,23 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <hr className="my-5 border-gray-50 dark:border-gray-600" />
         <div className="mt-2 space-x-1">
           <FileItem
+            selected={selectedFile == 'assets'}
+            onClick={() => handleSelect('assets')}
+            fileName="assets"
+            folder
+          />
+          <FileItem
             selected={selectedFile == 'tsx'}
             onClick={() => handleSelect('tsx')}
             fileName="App.tsx"
             format="tsx"
             iconName="reactts"
+          />
+          <FileItem
+            selected={selectedFile == 'asc'}
+            onClick={() => handleSelect('asc')}
+            fileName="asc"
+            folder
           />
           <FileItem
             selected={selectedFile == 'scss'}
@@ -62,9 +74,9 @@ export const OverviewScreen: React.FC<{}> = (props) => {
           <FileItem
             selected={selectedFile == 'pug'}
             onClick={() => handleSelect('pug')}
-            fileName="cool.pug"
+            fileName="tailwind.conf.js"
             format="pug"
-            iconName="pug"
+            iconName="tailwind"
           />
           <FileItem
             selected={selectedFile == 'vite'}

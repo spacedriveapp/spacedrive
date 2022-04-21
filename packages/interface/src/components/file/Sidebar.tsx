@@ -12,8 +12,8 @@ import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { AppPropsContext } from '../../App';
 
-import Folder from '../../assets/svg/folder.svg?component';
-import FolderWhite from '../../assets/svg/folder-white.svg?component';
+import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
+import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
 
 interface SidebarProps extends DefaultProps {}
 
