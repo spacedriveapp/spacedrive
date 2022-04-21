@@ -13,16 +13,28 @@ jobs:
       fail-fast: false
       matrix:
         platform: [macos-latest, ubuntu-latest, windows-latest]
-
+    env:
+      FFMPEG_DOWNLOAD_URL: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
     runs-on: ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
     
-    - name: Install CMake
+    - name: Install ffmpeg (Windows)
+      run: |
+        $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+        Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
+        Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
+        7z x ffmpeg-release-full-shared.7z
+        mkdir ffmpeg
+        mv ffmpeg-*/* ffmpeg/
+        Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+        Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
+    
+    - name: Install CMake (Windows)
       uses: lukka/get-cmake@latest
       if: matrix.os == 'windows-latest'
       
-    - name: Setup vcpkg
+    - name: Install vcpkg (Windows)
       if: matrix.os == 'windows-latest'
       uses: lukka/run-vcpkg@v10
     
