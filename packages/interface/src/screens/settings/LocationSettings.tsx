@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button } from '@sd/ui';
 import { Dropdown } from '../../components/primitive/Dropdown';
-import DropdownMenu from '../../components/primitive/DropdownMenu';
 import { InputContainer } from '../../components/primitive/InputContainer';
 
 const exampleLocations = [
@@ -20,21 +19,7 @@ export default function LocationSettings() {
         title="Something about a vault"
         description="Local cache storage for media previews and thumbnails."
       >
-        <div className="flex flex-row space-x-2">
-          <div className="flex flex-grow">
-            {/* <Listbox
-              options={locations.map((location) => ({
-                key: location.name,
-                option: location.name,
-                description: location.path
-              }))}
-            /> */}
-          </div>
-          <Button className="mb-3" variant="primary">
-            Add Location
-          </Button>
-          <DropdownMenu />
-        </div>
+        <div className="flex flex-row space-x-2"></div>
       </InputContainer>
     </div>
   );
