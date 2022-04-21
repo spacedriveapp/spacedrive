@@ -86,7 +86,7 @@ jobs:
       run: pnpm prep:ci
       
     - name: Build frontend
-      run: pnpm desktop build
+      run: pnpm desktop build:vite
       
     - name: Build Tauri app 
       uses: tauri-apps/tauri-action@v0
