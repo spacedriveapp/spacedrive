@@ -34,10 +34,6 @@ jobs:
     - name: Install CMake (Windows)
       uses: lukka/get-cmake@latest
       if: matrix.platform == 'windows-latest'
-      
-    - name: Install vcpkg (Windows)
-      if: matrix.platform == 'windows-latest'
-      uses: lukka/run-vcpkg@v10
     
     # Optimisation for windows
     - name: Rename existing rust toolchain (Windows)
