@@ -20,6 +20,7 @@ jobs:
     - uses: actions/checkout@v2
     
     - name: Install ffmpeg (Windows)
+      if: matrix.os == 'windows-latest'
       run: |
         $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
         Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
