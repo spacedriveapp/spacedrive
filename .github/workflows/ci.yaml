@@ -15,6 +15,7 @@ jobs:
         platform: [macos-latest, ubuntu-latest, windows-latest]
     env:
       FFMPEG_DOWNLOAD_URL: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
+      RUST_CACHE_VERSION: 0
     runs-on: ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
@@ -56,6 +57,8 @@ jobs:
     
     - name: Cache Rust Dependencies
       uses: Swatinem/rust-cache@ce325b60658c1b38465c06cc965b79baf32c1e72
+      with:
+        sharedKey: ${{ env.RUST_CACHE_VERSION }}
         
     - name: Cache pnpm dependencies
       uses: actions/cache@v2
