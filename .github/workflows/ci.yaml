@@ -56,7 +56,7 @@ jobs:
         components: rustfmt, rust-src
     
     - name: Cache Rust Dependencies
-      uses: Swatinem/rust-cache@ce325b60658c1b38465c06cc965b79baf32c1e72
+      uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
       with:
         sharedKey: ${{ env.RUST_CACHE_VERSION }}
         
