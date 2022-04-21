@@ -56,7 +56,23 @@ jobs:
       if: matrix.platform == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libssl-dev libavutil-dev ffmpeg
+        sudo apt-get install -y --no-install-recommends
+          libgtk-3-dev \
+          webkit2gtk-4.0 \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf \
+          libssl-dev \
+          libavcodec-dev \
+          libavdevice-dev \
+          libavfilter-dev \
+          libavformat-dev \
+          libavresample-dev \
+          libavutil-dev \
+          libswscale-dev \
+          libswresample-dev \
+          pkg-config \
+          ffmpeg
     
     - name: Install dependencies (macOS)
       if: matrix.platform == 'macos-latest'
@@ -66,7 +82,7 @@ jobs:
     - name: Install pnpm dependencies
       run: pnpm i
       
-    - name: Prepare codegen for build
+    - name: Build codegen
       run: pnpm prep:ci
       
     - name: Build frontend
