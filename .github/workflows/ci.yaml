@@ -18,6 +18,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+      if: matrix.os == 'windows-latest'
+      
+    - name: Setup vcpkg
+      if: matrix.os == 'windows-latest'
+      uses: lukka/run-vcpkg@v10
+    
     # Optimisation for windows
     - name: Rename existing rust toolchain (Windows)
       if: matrix.os == 'windows-latest'
