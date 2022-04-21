@@ -8,6 +8,7 @@
     "vite": "vite",
     "dev": "concurrently \"pnpm tauri dev\" \"vite\"",
     "tauri": "tauri",
+    "build:vite": "vite build",
     "build": "vite build && tauri build"
   },
   "resolutions": {
