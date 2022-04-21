@@ -13,6 +13,8 @@ export function useCoreEvents() {
   useEffect(() => {
     // check Tauri Event type
     transport?.on('core_event', (e: CoreEvent) => {
+      console.log('core_event', e);
+
       switch (e?.key) {
         case 'NewThumbnail':
           addNewThumbnail(e.data.cas_id);
@@ -37,5 +39,5 @@ export function useCoreEvents() {
 
     // listen('core_event', (e: { payload: CoreEvent }) => {
     // });
-  }, []);
+  }, [transport]);
 }

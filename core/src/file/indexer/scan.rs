@@ -168,7 +168,7 @@ fn prepare_values(
     Some(p) => p
       .clone()
       .strip_prefix(&location_path)
-      .and_then(|p| p.strip_suffix(format!("{}{}", name, extension).as_str()))
+      // .and_then(|p| p.strip_suffix(format!("{}{}", name, extension).as_str()))
       .unwrap_or_default(),
     None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
   };
