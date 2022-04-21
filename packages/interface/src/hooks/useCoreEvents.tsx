@@ -7,14 +7,10 @@ import { AppPropsContext } from '../App';
 
 export function useCoreEvents() {
   const client = useQueryClient();
-  const appPropsContext = useContext(AppPropsContext);
 
   const { addNewThumbnail } = useExplorerState();
   useEffect(() => {
-    // check Tauri Event type
-    transport?.on('core_event', (e: CoreEvent) => {
-      console.log('core_event', e);
-
+    function handleCoreEvent(e: CoreEvent) {
       switch (e?.key) {
         case 'NewThumbnail':
           addNewThumbnail(e.data.cas_id);
@@ -35,7 +31,13 @@ export function useCoreEvents() {
         default:
           break;
       }
-    });
+    }
+    // check Tauri Event type
+    transport?.on('core_event', handleCoreEvent);
+
+    return () => {
+      transport?.off('core_event', handleCoreEvent);
+    };
 
     // listen('core_event', (e: { payload: CoreEvent }) => {
     // });

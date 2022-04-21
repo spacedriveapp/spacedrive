@@ -8,7 +8,7 @@ import {
   UseMutationOptions
 } from 'react-query';
 
-// global var to store the transport
+// global var to store the transport TODO: not global :D
 export let transport: BaseTransport | null = null;
 
 // applications utilizing this package should extend this class to instantiate a transport
