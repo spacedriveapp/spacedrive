@@ -16,12 +16,11 @@
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
-    "types": [ "@honkhonk/vite-plugin-svgr/client" ],
     "baseUrl": "./",
     "paths": {
       "@sd/ui": ["../ui/src/index.ts"],
       "@sd/client": ["../client/src/index.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "scripts"],
 }

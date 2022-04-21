@@ -1,11 +1,10 @@
 import { useBridgeQuery } from '@sd/client';
 import { FilePath } from '@sd/core';
-
 import clsx from 'clsx';
 import React, { useContext } from 'react';
 import { AppPropsContext } from '../../App';
 
-import Folder from '../../assets/svg/folder.svg?component';
+import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 
 export default function FileThumb(props: {
   file: FilePath;

@@ -121,12 +121,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
           />
         </div>
         <hr className="my-5 border-gray-50 dark:border-gray-600" />
-        <p className="px-5 py-3 mb-3 text-gray-400 rounded-md bg-gray-50 dark:text-gray-500 dark:bg-gray-600">
-          <b>Note: </b>This is a pre-alpha build of Spacedrive, an open source personal cloud
-          powered by your daily devices. Under the hood, a secure Rust based virtual filesystem
-          synchronized cross-platform in realtime. Enjoy this barely functional UI while pre-alpha
-          is still in progress.
-        </p>
+
         {/* <hr className="my-5 dark:border-gray-600" /> */}
       </div>
     </div>

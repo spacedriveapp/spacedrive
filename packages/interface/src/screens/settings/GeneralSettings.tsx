@@ -26,6 +26,10 @@ export default function GeneralSettings() {
         <p className="mt-1 text-sm text-gray-400">Basic settings related to this client</p>
         {/* <hr className="mt-4 border-gray-550" /> */}
       </div>
+      <p className="px-5 py-3 mb-3 text-gray-400 rounded-md bg-gray-50 dark:text-gray-400 dark:bg-gray-600">
+        <b>Note: </b>This is a pre-alpha build of Spacedrive, many features are yet to be
+        functional.
+      </p>
       <div className="flex flex-row pb-4 space-x-2">
         <Button className="w-40" variant="gray" size="sm" onClick={() => {}}>
           Open data folder

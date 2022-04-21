@@ -2,7 +2,8 @@ import clsx from 'clsx';
 import React from 'react';
 import { DefaultProps } from '../primitive/types';
 
-import Folder from '../../assets/svg/folder.svg?component';
+import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
+import icons from '../../assets/icons';
 
 interface Props extends DefaultProps {
   fileName: string;
@@ -66,12 +67,18 @@ export default function FileItem(props: Props) {
               <path d="M41.4116 40.5577H11.234C5.02962 40.5577 0 35.5281 0 29.3238V0L41.4116 40.5577Z" />
             </svg>
             <div className="absolute flex flex-col items-center justify-center w-full h-full">
-              <img
-                className="mt-2 pointer-events-none margin-auto"
-                width={40}
-                height={40}
-                src={`/icons/${props.iconName}.svg`}
-              />
+              {/* @ts-ignore */}
+              {props.iconName && icons[props.iconName] ? (
+                (() => {
+                  // @ts-ignore
+                  let Icon = icons[props.iconName];
+                  return (
+                    <Icon className="mt-2 pointer-events-none margin-auto w-[40px] h-[40px]" />
+                  );
+                })()
+              ) : (
+                <></>
+              )}
               <span className="mt-1 text-xs font-bold text-center uppercase cursor-default text-gray-450">
                 {props.format}
               </span>

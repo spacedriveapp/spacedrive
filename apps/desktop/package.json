@@ -23,7 +23,6 @@
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@honkhonk/vite-plugin-svgr": "^1.1.0",
     "@tauri-apps/cli": "^1.0.0-rc.8",
     "@types/babel-core": "^6.25.7",
     "@types/byte-size": "^8.1.0",
@@ -38,9 +37,10 @@
     "prettier": "^2.6.2",
     "sass": "^1.50.0",
     "typescript": "^4.6.3",
-    "vite": "^2.9.1",
+    "vite": "^2.9.5",
     "vite-plugin-filter-replace": "^0.1.9",
     "vite-plugin-react-svg": "^0.2.0",
+    "vite-plugin-svgr": "^1.1.0",
     "vite-tsconfig-paths": "^3.4.1"
   }
 }
