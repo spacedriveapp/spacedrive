@@ -20,23 +20,21 @@ export interface DropdownProps extends DefaultOptions {
 
 export const Dropdown: React.FC<DropdownProps> = (props) => {
   return (
-    <div className="flex mt-2">
-      <Menu as="div" className="relative inline-block text-left">
-        <div>
-          <Menu.Button className="outline-none">
-            <Button size="sm" {...props.buttonProps}>
-              {props.buttonIcon}
-              {props.buttonText}
-              <div className="flex-grow" />
-              <ChevronDownIcon
-                className="w-5 h-5 ml-2 -mr-1 text-violet-200 hover:text-violet-100 "
-                aria-hidden="true"
-              />
-            </Button>
-          </Menu.Button>
-        </div>
+    <div className="w-full mt-2">
+      <Menu as="div" className="relative flex w-full text-left">
+        <Menu.Button as="div" className="flex-1 outline-none">
+          <Button size="sm" {...props.buttonProps}>
+            {props.buttonIcon}
+            {props.buttonText}
+            <div className="flex-grow" />
+            <ChevronDownIcon
+              className="w-5 h-5 ml-2 -mr-1 text-violet-200 hover:text-violet-100 "
+              aria-hidden="true"
+            />
+          </Button>
+        </Menu.Button>
 
-        <Menu.Items className="absolute left-0 z-50 mt-1 origin-top-left bg-white border divide-y divide-gray-100 rounded shadow-xl w-44 dark:bg-gray-550 dark:divide-gray-500 dark:border-gray-600 ring-1 ring-black ring-opacity-5 focus:outline-none">
+        <Menu.Items className="absolute z-50 w-full bg-white border divide-y divide-gray-100 rounded shadow-xl top-full dark:bg-gray-550 dark:divide-gray-500 dark:border-gray-600 ring-1 ring-black ring-opacity-5 focus:outline-none">
           {props.items.map((item, index) => (
             <div key={index} className="px-1 py-1">
               {item.map((button, index) => (

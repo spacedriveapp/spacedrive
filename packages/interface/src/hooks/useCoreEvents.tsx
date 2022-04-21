@@ -1,5 +1,6 @@
 import { useContext, useEffect } from 'react';
 import { CoreEvent } from '@sd/core';
+import { transport } from '@sd/client';
 import { useQueryClient } from 'react-query';
 import { useExplorerState } from '../components/file/FileList';
 import { AppPropsContext } from '../App';
@@ -11,8 +12,7 @@ export function useCoreEvents() {
   const { addNewThumbnail } = useExplorerState();
   useEffect(() => {
     // check Tauri Event type
-    // @ts-expect-error
-    appPropsContext?.onCoreEvent((e: CoreEvent) => {
+    transport?.on('core_event', (e: CoreEvent) => {
       switch (e?.key) {
         case 'NewThumbnail':
           addNewThumbnail(e.data.cas_id);
