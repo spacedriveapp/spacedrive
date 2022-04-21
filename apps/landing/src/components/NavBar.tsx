@@ -33,7 +33,7 @@ export default function NavBar() {
       <div className="container flex items-center h-full m-auto ">
         <AppLogo className="z-30 w-8 h-8 mr-3" />
         <h3 className="text-xl font-bold text-white">
-          Memes
+          Spacedrive
           <span className="ml-2 text-xs text-gray-400 uppercase">BETA</span>
         </h3>
 

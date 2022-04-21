@@ -10,7 +10,7 @@ import {
   TerminalWindow
 } from 'phosphor-react';
 import React from 'react';
-import { ButtonProps } from '../primitive';
+import { ButtonProps } from '@sd/ui';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { useLocation, useNavigate } from 'react-router-dom';

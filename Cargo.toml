@@ -4,5 +4,6 @@ members = [
 	"apps/desktop/src-tauri",
 	"core",
 	"core/prisma",
-	"core/derive"
+	"core/derive",
+	"apps/server"
 ]

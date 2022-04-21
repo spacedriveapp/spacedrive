@@ -38,16 +38,17 @@ const variants = {
     active:bg-gray-100  
     dark:bg-gray-500
     dark:hover:bg-gray-500
-    dark:hover:bg-opacity-80
+    dark:bg-opacity-80
+    dark:hover:bg-opacity-100
     dark:active:bg-gray-550
     dark:active:opacity-80
     
     border-gray-200 
     hover:border-gray-300
     active:border-gray-200
-    dark:border-gray-600 
+    dark:border-gray-500 
     dark:active:border-gray-600 
-    dark:hover:border-gray-600
+    dark:hover:border-gray-500
 
     text-gray-700
     hover:text-gray-900 

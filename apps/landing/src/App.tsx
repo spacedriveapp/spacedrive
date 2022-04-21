@@ -13,7 +13,9 @@ function App() {
       <NavBar />
       <div className="container z-10 flex flex-col items-center px-4 mx-auto text-white bg-black">
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
-        <h1 className="text-6xl font-black mt-36">The file explorer from the future</h1>
+        <h1 className="text-4xl font-black leading-snug text-center md:text-6xl mt-36">
+          The file explorer from the future
+        </h1>
         <p className="max-w-5xl mt-1 mb-8 text-lg text-center text-gray-450">
           Spacedrive is the first file explorer that puts the full power of the cloud in your hands.
         </p>
@@ -21,11 +23,11 @@ function App() {
           {/* <Button className="px-2">
           <WindowsLogo className="" fill="white" />
         </Button> */}
-          <Button variant="primary">
+          <Button className="cursor-pointer" variant="primary">
             <AppleLogo className="inline -mt-[3px] mr-1.5" fill="white" />
             Download
           </Button>
-          <Button variant="gray">
+          <Button className="cursor-pointer" variant="gray">
             <GithubLogo className="inline -mt-[3px] mr-1.5" fill="white" />
             Star on GitHub
           </Button>
