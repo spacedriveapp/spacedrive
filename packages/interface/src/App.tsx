@@ -35,7 +35,6 @@ export type Platform = 'browser' | 'macOS' | 'windows' | 'linux';
 
 export interface AppProps {
   transport: BaseTransport;
-  onCoreEvent: (event: CoreEvent) => void;
   platform: Platform;
   convertFileSrc: (url: string) => string;
   openDialog: (options: { directory?: boolean }) => Promise<string | string[]>;
@@ -174,6 +173,8 @@ function AppContainer() {
     </BrowserRouter>
   );
 }
+
+export function bindCoreEvent() {}
 
 export default function App(props: AppProps) {
   // @ts-ignore: TODO: This is a hack and a better solution should probably be found. This exists so that the queryClient can be accessed within the subpackage '@sd/client'. Refer to <ClientProvider /> for where this is used.

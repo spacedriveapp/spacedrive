@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 // import Spacedrive interface
 import SpacedriveInterface, { Platform } from '@sd/interface';
-
+import { emit, listen, Event } from '@tauri-apps/api/event';
 // import types from Spacedrive core (TODO: re-export from client would be cleaner)
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 // import Spacedrive JS client
@@ -16,6 +16,13 @@ import '@sd/ui/style';
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
+  constructor() {
+    super();
+
+    listen('core_event', (e: Event<CoreEvent>) => {
+      this.emit('core_event', e.payload);
+    });
+  }
   async query(query: ClientQuery) {
     return await invoke('client_query_transport', { data: query });
   }
@@ -47,9 +54,6 @@ function App() {
   return (
     <SpacedriveInterface
       transport={new Transport()}
-      onCoreEvent={function (event: CoreEvent): void {
-        return;
-      }}
       platform={platform}
       convertFileSrc={function (url: string): string {
         return convertFileSrc(url);
