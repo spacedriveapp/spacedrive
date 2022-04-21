@@ -19,6 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
+    # from https://github.com/zmwangx/rust-ffmpeg/blob/master/.github/workflows/build.yml
     - name: Install ffmpeg (Windows)
       if: matrix.platform == 'windows-latest'
       run: |
