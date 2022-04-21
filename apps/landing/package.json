@@ -8,7 +8,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@honkhonk/vite-plugin-svgr": "^1.1.0",
     "@sd/client": "workspace:*",
     "@sd/core": "workspace:*",
     "@sd/interface": "workspace:*",
@@ -17,18 +16,17 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-tsparticles": "^2.0.6",
-    "tsparticles": "^2.0.6",
-    "vite-plugin-react-svg": "^0.2.0",
-    "vite-plugin-svgr": "^1.1.0"
+    "tsparticles": "^2.0.6"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
-    "@vitejs/plugin-react": "^1.3.1",
     "autoprefixer": "^10.4.4",
     "postcss": "^8.4.12",
     "tailwind": "^4.0.0",
     "typescript": "^4.6.3",
-    "vite": "^2.9.5"
+    "vite": "^2.9.5",
+    "vite-plugin-svgr": "^1.1.0",
+    "@vitejs/plugin-react": "^1.3.1"
   }
 }

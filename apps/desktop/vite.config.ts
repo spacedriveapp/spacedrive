@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { name, version } from './package.json';
 import * as path from 'path';
-import svgr from '@honkhonk/vite-plugin-svgr';
+import svg from 'vite-plugin-svgr';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -10,10 +10,11 @@ export default defineConfig({
     port: 8001
   },
   plugins: [
+    //@ts-ignore
     react({
       jsxRuntime: 'classic'
     }),
-    svgr()
+    svg({ svgrOptions: { icon: true } })
   ],
   root: 'src',
   publicDir: '../../packages/interface/src/assets',

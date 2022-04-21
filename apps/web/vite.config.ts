@@ -1,8 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { name, version } from './package.json';
-import * as path from 'path';
-import svgr from '@honkhonk/vite-plugin-svgr';
+import svg from 'vite-plugin-svgr';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -10,12 +9,11 @@ export default defineConfig({
     port: 8002
   },
   plugins: [
-    //@ts-ignore
+    //@ts-ignore - no idea why one moment this errors, next its fine. all on same version.
     react({
       jsxRuntime: 'classic'
     }),
-    //@ts-ignore
-    svgr()
+    svg({ svgrOptions: { icon: true } })
   ],
   root: 'src',
   publicDir: '../../packages/interface/src/assets',
