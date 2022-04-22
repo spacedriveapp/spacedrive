@@ -51,6 +51,14 @@ jobs:
         with:
           node-version: 17
 
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-
+
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.1
         with:
@@ -74,6 +82,14 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 17
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.1
