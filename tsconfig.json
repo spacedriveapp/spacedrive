@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "apps/desktop"
+    },
+    {
+      "path": "apps/web"
+    },
+    {
+      "path": "apps/landing"
+    }
+  ]
+}

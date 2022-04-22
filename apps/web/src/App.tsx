@@ -20,9 +20,6 @@ function App() {
       {/* <header className="App-header"></header> */}
       <SpacedriveInterface
         transport={new Transport()}
-        onCoreEvent={function (event: any): void {
-          return;
-        }}
         platform={'browser'}
         convertFileSrc={function (url: string): string {
           return url;
