@@ -1,4 +1,4 @@
-use crate::file::cas::checksum::partial_checksum;
+use crate::file::cas::checksum::generate_cas_id;
 use crate::sys::locations::{create_location, LocationResource};
 use crate::CoreContext;
 use anyhow::{anyhow, Result};
@@ -173,9 +173,9 @@ fn prepare_values(
     None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
   };
 
-  let partial_checksum = {
+  let cas_id = {
     if !metadata.is_dir() {
-      let mut x = partial_checksum(&file_path.to_str().unwrap(), metadata.len()).unwrap();
+      let mut x = generate_cas_id(&file_path.to_str().unwrap(), metadata.len()).unwrap();
       x.truncate(16);
       x
     } else {
@@ -199,7 +199,7 @@ fn prepare_values(
       .map(|id| format!("\"{}\"", &id))
       .unwrap_or("NULL".to_string()),
     parsed_date_created,
-    partial_checksum
+    cas_id
   );
 
   println!("{}", values);

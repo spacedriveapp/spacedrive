@@ -5,12 +5,29 @@ use ring::digest::{Context, SHA256};
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::{BufReader, Read};
+
+#[cfg(target_os = "macos")]
 use std::os::unix::prelude::FileExt;
+
+#[cfg(target_os = "windows")]
+use std::os::windows::prelude::*;
 
 static SAMPLE_COUNT: u64 = 4;
 static SAMPLE_SIZE: u64 = 10000;
 
-pub fn partial_checksum(path: &str, size: u64) -> Result<String> {
+fn read_at(file: &File, offset: u64, size: u64) -> Result<Vec<u8>> {
+  let mut buf = vec![0u8; size as usize];
+
+  #[cfg(target_os = "macos")]
+  file.read_exact_at(&mut buf, offset)?;
+
+  #[cfg(target_os = "windows")]
+  file.seek_read(&mut buffer[..], offset)?;
+
+  Ok(buf)
+}
+
+pub fn generate_cas_id(path: &str, size: u64) -> Result<String> {
   // open file reference
   let file = File::open(path)?;
 
@@ -21,20 +38,16 @@ pub fn partial_checksum(path: &str, size: u64) -> Result<String> {
 
   // if size is small enough, just read the whole thing
   if SAMPLE_COUNT * SAMPLE_SIZE > size {
-    let mut buf = vec![0u8; size.try_into()?];
-    file.read_exact_at(&mut buf, 0)?;
+    let buf = read_at(&file, 0, size.try_into()?)?;
     context.update(&buf);
   } else {
     // loop over samples
     for i in 0..SAMPLE_COUNT {
-      let start_point = (size / SAMPLE_COUNT) * i;
-      let mut buf = vec![0u8; SAMPLE_SIZE.try_into()?];
-      file.read_exact_at(&mut buf, start_point)?;
+      let buf = read_at(&file, (size / SAMPLE_COUNT) * i, SAMPLE_SIZE.try_into()?)?;
       context.update(&buf);
     }
     // sample end of file
-    let mut buf = vec![0u8; SAMPLE_SIZE.try_into()?];
-    file.read_exact_at(&mut buf, size - SAMPLE_SIZE)?;
+    let buf = read_at(&file, size - SAMPLE_SIZE, SAMPLE_SIZE.try_into()?)?;
     context.update(&buf);
   }
 
