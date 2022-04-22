@@ -42,12 +42,8 @@ jobs:
         run: pnpm -r exec tsc
 
   build-js:
-    name: Build apps/${{ matrix.app }} JS
+    name: Build JS
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        app: [desktop, web]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -73,16 +69,18 @@ jobs:
       - name: Install dependencies
         run: pnpm i --frozen-lockfile
 
-      - name: Build
-        run: pnpm --filter @sd/${{ matrix.app }} build
+      - name: Build Desktop
+        run: pnpm desktop build
+      
+      - name: Build Web
+        run: pnpm web build
 
-  build-core-pkgs:
-    name: Build core/${{ matrix.package }}
+  build-core:
+    name: Build core (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
         platform: [macos-latest, ubuntu-latest, windows-latest]
-        package: [derive, prisma]
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
@@ -98,7 +96,17 @@ jobs:
 
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+     
+      - name: Build prisma-cli
+        run: cargo build
+        
+      - name: Build core-derive
+        run: cargo build -p core-derive --release
       
-      - name: Build core/${{ matrix.package }}
-        working-directory: core/${{matrix.package}}
-        run: cargo build --release
+      - name: Generate Primsa client
+        working-directory: core
+        run: cargo prisma generate
+      
+      - name: Build core
+        run: cargo build -p core --release
+      
