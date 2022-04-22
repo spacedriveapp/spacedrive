@@ -6,10 +6,10 @@ use std::convert::TryInto;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
-#[cfg(target_os = "macos")]
+#[cfg(target_family = "unix")]
 use std::os::unix::prelude::FileExt;
 
-#[cfg(target_os = "windows")]
+#[cfg(target_family = "windows")]
 use std::os::windows::prelude::*;
 
 static SAMPLE_COUNT: u64 = 4;
@@ -18,11 +18,11 @@ static SAMPLE_SIZE: u64 = 10000;
 fn read_at(file: &File, offset: u64, size: u64) -> Result<Vec<u8>> {
   let mut buf = vec![0u8; size as usize];
 
-  #[cfg(target_os = "macos")]
+  #[cfg(target_family = "unix")]
   file.read_exact_at(&mut buf, offset)?;
 
-  #[cfg(target_os = "windows")]
-  file.seek_read(&mut buffer[..], offset)?;
+  #[cfg(target_family = "windows")]
+  file.seek_read(&mut buf, offset)?;
 
   Ok(buf)
 }
