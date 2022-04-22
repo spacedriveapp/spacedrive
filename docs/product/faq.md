@@ -1,3 +1,9 @@
+
+
+##  What is it?
+
+Spacedrive is a cross platform app that allows you to manage files across all devices, drives and clouds at once. Check out the [readme](https://github.com/spacedriveapp) for more detailed info.
+
 ## Can I download it yet?
 
 Only if you compile it yourself, but it is not stable yet. Follow [@spacedriveapp](https://twitter.com/spacedriveapp) for updates!
@@ -8,7 +14,7 @@ This software is aimed at independent creatives such as filmmakers, streamers, m
 
 ## Why do I need this?
 
-In the same way we use finance apps to consolidate our books, Spacedrive consolidates files and the metadata associated with them. If you have external hard drives, cloud accounts and more than one device—you'll get a birds eye view of every file you own and the ability to create folders, tags and albums that contain files from all different locations. 
+In the same way we use finance apps to consolidate our books, Spacedrive consolidates files and the metadata associated with them. If you have external hard drives, cloud accounts and more than one device—you'll get a birds eye view of every file you own. With the ability to create folders, tags and albums that contain files from all different locations. 
 
 ## What makes this different to Dropbox or Google Drive?
 

@@ -113,11 +113,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={CirclesFour} />
           Content
         </SidebarLink>
-
-        <SidebarLink to="media">
-          <Icon component={MonitorPlay} />
-          Albums
-        </SidebarLink>
         {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
           Explorer

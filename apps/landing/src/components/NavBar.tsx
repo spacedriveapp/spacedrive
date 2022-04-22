@@ -39,10 +39,11 @@ export default function NavBar() {
 
         <div className="space-x-4 text-white mx-28">
           <NavLink>Product</NavLink>
-          <NavLink>Developers</NavLink>
           <NavLink>Documentation</NavLink>
           <NavLink>Support</NavLink>
-          <NavLink>Download</NavLink>
+          <NavLink>FAQ</NavLink>
+          <NavLink>Changelog</NavLink>
+          <NavLink>Blog</NavLink>
         </div>
       </div>
     </div>
