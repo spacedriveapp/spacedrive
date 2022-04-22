@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  typescript:
-    name: TypeScript
+  pnpm-cache:
+    name: Cache PNPM Deps
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -29,6 +29,27 @@ jobs:
           key: pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             pnpm-
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.1
+        with:
+          version: 6.32.6
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    needs: [pnpm-cache]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 17
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.1
@@ -44,6 +65,7 @@ jobs:
   build-js:
     name: Build JS
     runs-on: ubuntu-latest
+    needs: [pnpm-cache]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -52,14 +74,6 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 17
-
-      - name: Cache pnpm dependencies
-        uses: actions/cache@v2
-        with:
-          path: ~/.pnpm-store
-          key: pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            pnpm-
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.1
@@ -71,7 +85,7 @@ jobs:
 
       - name: Build Desktop
         run: pnpm desktop build
-      
+
       - name: Build Web
         run: pnpm web build
 
@@ -96,17 +110,16 @@ jobs:
 
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
-     
+
       - name: Build prisma-cli
         run: cargo build
-        
+
       - name: Build core-derive
         run: cargo build -p core-derive --release
-      
+
       - name: Generate Primsa client
         working-directory: core
         run: cargo prisma generate
-      
+
       - name: Build core
         run: cargo build -p core --release
-      
