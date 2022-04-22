@@ -3,13 +3,13 @@
     
   </a>
   <p align="center">
-   <img width="100" height="100" src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_logo.png" alt="Logo">
+   <img width="150" height="150" src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_app_logo.png" alt="Logo">
   </p>
   <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
    The universal file manager.
     <br />
-    <a href="https://spacedrive.co"><strong>spacedrive.app »</strong></a>
+    <a href="https://spacedrive.app"><strong>spacedrive.app »</strong></a>
     <br />
     <br />
     <b>Download for </b>
