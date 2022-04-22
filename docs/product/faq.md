@@ -4,9 +4,9 @@
 
 Spacedrive is a cross platform app that allows you to manage files across all devices, drives and clouds at once. Check out the [readme](https://github.com/spacedriveapp) for more detailed info.
 
-## What is it in nerd speak?
+## How does it work?
 
-Using content addressable storage in a virtual distributed filesystem, Spacedrive securely combines the storage capacity and processing power of your devices into one. 
+Using a "Virtual Distributed Filesystem" (VDFS), in other words; a decentralized database that emulates a filesystem. It scans real filesystems, creating a master database that is synchronized in realtime between your devices running Spacedrive. 
 
 ## Can I download it yet?
 
@@ -50,6 +50,4 @@ We call it "PRRTT"; [Prisma](), [Rust](), [React](), [TypeScript]() and [Tauri](
 
 Rust is a powerful, fast, memory safe, cross-platform, low-level language and thanks to Tauri, the perfect tool to power a desktop application.
 
-## How does it work?
 
-Using a "Virtual Distributed Filesystem" (VDFS), in other words; a decentralized database that emulates a filesystem. It scans real filesystems, creating a master database that is synchronized in realtime between your devices running Spacedrive. 
