@@ -16,6 +16,7 @@
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
+    "types": ["vite-plugin-svgr/client"],
     "baseUrl": "./",
     "paths": {
       "@sd/ui": ["../ui/src/index.ts"],

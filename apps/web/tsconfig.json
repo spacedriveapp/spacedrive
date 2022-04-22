@@ -14,6 +14,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react",
+    "types": ["vite-plugin-svgr/client"],
     "baseUrl": "./",
     "paths": {
       "@sd/interface": ["../../packages/interface/src/index.ts"],

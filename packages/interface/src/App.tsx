@@ -33,6 +33,7 @@ export const AppPropsContext = React.createContext<AppProps | null>(null);
 
 export type Platform = 'browser' | 'macOS' | 'windows' | 'linux';
 
+
 export interface AppProps {
   transport: BaseTransport;
   platform: Platform;

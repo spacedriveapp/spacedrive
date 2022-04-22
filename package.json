@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "prettier": "^2.6.2",
-    "turbo": "^1.2.1"
+    "turbo": "^1.2.4"
   },
   "turbo": {
     "pipeline": {
