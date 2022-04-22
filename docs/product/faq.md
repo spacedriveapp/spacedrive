@@ -4,6 +4,10 @@
 
 Spacedrive is a cross platform app that allows you to manage files across all devices, drives and clouds at once. Check out the [readme](https://github.com/spacedriveapp) for more detailed info.
 
+## What is it in nerd speak?
+
+Using content addressable storage in a virtual distributed filesystem, Spacedrive securely combines the storage capacity and processing power of your devices into one. 
+
 ## Can I download it yet?
 
 Only if you compile it yourself, but it is not stable yet. Follow [@spacedriveapp](https://twitter.com/spacedriveapp) for updates!
