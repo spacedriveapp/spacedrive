@@ -44,7 +44,7 @@ export default function NavBar() {
         <div className="m-auto space-x-4 text-white">
           <NavLink link="https://github.com/spacedriveapp/#features">Features</NavLink>
           <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">Docs</NavLink>
-          <NavLink link="https:/github.com/spacedriveapp/spacedrive/blob/main/docs/product/faq.md">
+          <NavLink link="https://github.com/spacedriveapp/spacedrive/blob/main/docs/product/faq.md">
             FAQ
           </NavLink>
           <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs/changelog">

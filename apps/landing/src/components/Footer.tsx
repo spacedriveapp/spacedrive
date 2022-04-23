@@ -50,11 +50,19 @@ export function Footer() {
         <div className="flex flex-col col-span-1 space-y-2">
           <h3 className="mb-1 text-xs font-bold uppercase ">About</h3>
 
-          <FooterLink link="#">Team</FooterLink>
-          <FooterLink link="#">FAQ</FooterLink>
-          <FooterLink link="#">Mission</FooterLink>
-          <FooterLink link="#">Changelog</FooterLink>
-          <FooterLink link="#">Blog</FooterLink>
+          <FooterLink link="https://github.com/jamiepine/spacedrive/blob/main/docs/product/credits.md">
+            Team
+          </FooterLink>
+          <FooterLink link="https://github.com/jamiepine/spacedrive/blob/main/docs/product/faq.md">
+            FAQ
+          </FooterLink>
+          <FooterLink link="https://github.com/jamiepine/spacedrive#motivation">Mission</FooterLink>
+          <FooterLink link="https://github.com/jamiepine/spacedrive/tree/main/docs/changelog">
+            Changelog
+          </FooterLink>
+          <div className="opacity-50 pointer-events-none">
+            <FooterLink link="#">Blog</FooterLink>
+          </div>
         </div>
         <div className="flex flex-col col-span-1 space-y-2 opacity-50 pointer-events-none">
           <h3 className="mb-1 text-xs font-bold uppercase ">Downloads</h3>
@@ -64,17 +72,31 @@ export function Footer() {
         </div>
         <div className="flex flex-col col-span-1 space-y-2">
           <h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>
-          <FooterLink link="#">Documentation</FooterLink>
-          <FooterLink link="#">Contribute</FooterLink>
-          <FooterLink link="#">Extensions</FooterLink>
-          <FooterLink link="#">Self Host</FooterLink>
+          <FooterLink link="https://github.com/jamiepine/spacedrive/tree/main/docs">
+            Documentation
+          </FooterLink>
+          <FooterLink link="https://github.com/jamiepine/spacedrive/tree/main/docs/developer/contributing.md">
+            Contribute
+          </FooterLink>
+          <div className="opacity-50 pointer-events-none">
+            <FooterLink link="#">Extensions</FooterLink>
+          </div>
+          <div className="opacity-50 pointer-events-none">
+            <FooterLink link="#">Self Host</FooterLink>
+          </div>
         </div>
         <div className="flex flex-col col-span-1 space-y-2">
           <h3 className="mb-1 text-xs font-bold uppercase ">Org</h3>
-          <FooterLink link="#">Open Collective</FooterLink>
-          <FooterLink link="#">Privacy</FooterLink>
-          <FooterLink link="#">Terms</FooterLink>
-          <FooterLink link="#">License</FooterLink>
+          <FooterLink link="https://opencollective.com/spacedrive">Open Collective</FooterLink>
+          <FooterLink link="https://github.com/jamiepine/spacedrive/blob/main/LICENSE">
+            License
+          </FooterLink>
+          <div className="opacity-50 pointer-events-none">
+            <FooterLink link="#">Privacy</FooterLink>
+          </div>
+          <div className="opacity-50 pointer-events-none">
+            <FooterLink link="#">Terms</FooterLink>
+          </div>
         </div>
       </div>
     </footer>

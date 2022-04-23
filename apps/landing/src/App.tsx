@@ -46,7 +46,7 @@ function App() {
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
         <h1 className="text-4xl font-black leading-snug text-center md:text-6xl mt-36">
           {/* One space, all your drives. */}
-          The file explorer from the future.
+          The file explorer of the future.
         </h1>
         <p className="max-w-3xl mt-1 mb-8 text-lg text-center text-gray-450">
           Manage files across all devices, drives and clouds from one place.
@@ -91,7 +91,7 @@ function App() {
         />
         <Section
           orientation="right"
-          heading="Its one big catalogue"
+          heading="One Big Catalogue"
           description={
             <>
               Using content addressable storage in a virtual distributed filesystem, Spacedrive
