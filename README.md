@@ -41,7 +41,9 @@ For independent creatives, hoarders and those that want to own their digital foo
   <img src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_screenshot.jpg" alt="Logo">
   <br />
   <br />
-  <img src="https://img.shields.io/discord/949090953497567312?label=Discord&color=5865F2" />
+  <a href="https://discord.gg/gTaF2Z44f5">
+    <img src="https://img.shields.io/discord/949090953497567312?label=Discord&color=5865F2" />
+  </a>
   <a href="https://twitter.com/spacedriveapp">
     <img src="https://img.shields.io/badge/Twitter-00acee?logo=twitter&logoColor=white" />
   </a>
