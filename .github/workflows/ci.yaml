@@ -149,7 +149,7 @@ jobs:
         run: pnpm desktop build
 
       - name: Build
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.2
         with:
           projectPath: apps/desktop
         env:
