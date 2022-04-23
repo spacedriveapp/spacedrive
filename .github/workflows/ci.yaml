@@ -82,7 +82,7 @@ jobs:
         uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
 
       - name: Build prisma-cli
-        run: cargo build
+        run: cargo build -p prisma-cli --release
 
       - name: Build core-derive
         run: cargo build -p core-derive --release
