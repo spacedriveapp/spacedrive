@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@v2
         
       - name: Install ffmpeg (Ubuntu)
-        if: ${{ matrix.platform }} == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -89,11 +89,11 @@ jobs:
             ffmpeg
       
       - name: Install ffmpeg (macOS)
-        if: ${{ matrix.platform }} == 'macos-latest'
+        if: matrix.platform == 'macos-latest'
         run: brew install ffmpeg
         
       - name: Install ffmpeg (Windows)
-        if: ${{ matrix.platform }} == 'windows-latest'
+        if: matrix.platform == 'windows-latest'
         run: |
           $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
           Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
