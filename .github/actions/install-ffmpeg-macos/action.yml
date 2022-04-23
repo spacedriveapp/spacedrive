@@ -1,0 +1,5 @@
+name: 'Install ffmpeg macOS'
+description: 'Installs ffmpeg with caching for macOS'
+runs:
+  using: 'node16'
+  main: 'index.js'

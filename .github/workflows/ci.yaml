@@ -1,4 +1,4 @@
-name: CI (Desktop) 
+name: CI (Desktop)
 on:
   pull_request:
   push:
@@ -58,7 +58,7 @@ jobs:
 
       - name: Build Web
         run: pnpm web build
-  
+
   build-rust:
     name: Build Rust (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
@@ -72,7 +72,7 @@ jobs:
 
       - name: Install desktop dependencies
         uses: ./.github/actions/install-desktop-deps
-        
+
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
@@ -89,8 +89,12 @@ jobs:
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
         with:
-          sharedKey: all-${{ matrix.platform }} 
-       
+          sharedKey: all-${{ matrix.platform }}
+
+      - name: Generate Prisma client
+        working-directory: core
+        run: cargo run -p prisma-cli --release -- generate
+
       - uses: actions-rs/cargo@v1
         with:
           command: build
@@ -110,7 +114,7 @@ jobs:
 
       - name: Install desktop dependencies
         uses: ./.github/actions/install-desktop-deps
-        
+
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
