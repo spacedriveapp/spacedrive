@@ -66,43 +66,12 @@ jobs:
       fail-fast: true
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
-    env:
-      FFMPEG_DOWNLOAD_URL: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-        
-      - name: Install ffmpeg (Ubuntu)
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libssl-dev \
-            libavcodec-dev \
-            libavdevice-dev \
-            libavfilter-dev \
-            libavformat-dev \
-            libavresample-dev \
-            libavutil-dev \
-            libswscale-dev \
-            libswresample-dev \
-            ffmpeg
       
-      - name: Install ffmpeg (macOS)
-        if: matrix.platform == 'macos-latest'
-        run: brew install ffmpeg
-        
-      - name: Install ffmpeg (Windows)
-        if: matrix.platform == 'windows-latest'
-        run: |
-          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
-          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
-          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
-          7z x ffmpeg-release-full-shared.7z
-          mkdir ffmpeg
-          mv ffmpeg-*/* ffmpeg/
-          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
-          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
+      - name: Install ffmpeg
+        uses: ./.github/actions/install-ffmpeg
       
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
@@ -114,6 +83,8 @@ jobs:
 
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+        with:
+          sharedKey: ${{ matrix.platform }}
 
       - name: Build prisma-cli
         run: cargo build -p prisma-cli --release
@@ -153,7 +124,7 @@ jobs:
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
         with:
-          sharedKey: desktop-${{ matrix.platform}}
+          sharedKey: ${{ matrix.platform }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.1
