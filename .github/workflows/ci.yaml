@@ -59,19 +59,28 @@ jobs:
       - name: Build Web
         run: pnpm web build
 
-  build-core:
-    name: Build core (${{ matrix.platform }})
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
+  build-core-ubuntu:
+    name: Build core (Ubuntu)
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
         
-      - name: Install ffmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v1
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libssl-dev \
+            libavcodec-dev \
+            libavdevice-dev \
+            libavfilter-dev \
+            libavformat-dev \
+            libavresample-dev \
+            libavutil-dev \
+            libswscale-dev \
+            libswresample-dev \
+            ffmpeg
 
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
@@ -87,8 +96,36 @@ jobs:
       - name: Build prisma-cli
         run: cargo build -p prisma-cli --release
 
-      - name: Build core-derive
-        run: cargo build -p core-derive --release
+      - name: Generate Primsa client
+        working-directory: core
+        run: cargo prisma generate
+
+      - name: Build sdcore
+        run: cargo build -p sdcore --release
+
+  build-core-mac:
+    name: Build core (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        
+      - name: Install ffmpeg
+        run: brew install ffmpeg
+
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, rust-src
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+
+      - name: Build prisma-cli
+        run: cargo build -p prisma-cli --release
 
       - name: Generate Primsa client
         working-directory: core
@@ -96,3 +133,42 @@ jobs:
 
       - name: Build sdcore
         run: cargo build -p sdcore --release
+  
+  build-core-windows:
+    name: Build core (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        
+      - name: Install ffmpeg (Windows)
+        run: |
+          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
+          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
+          7z x ffmpeg-release-full-shared.7z
+          mkdir ffmpeg
+          mv ffmpeg-*/* ffmpeg/
+          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
+
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, rust-src
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+
+      - name: Build prisma-cli
+        run: cargo build -p prisma-cli --release
+
+      - name: Generate Primsa client
+        working-directory: core
+        run: cargo prisma generate
+
+      - name: Build sdcore
+        run: cargo build -p sdcore --release 
