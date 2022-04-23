@@ -58,8 +58,9 @@ export function MacOSTrafficLights() {
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const appPropsContext = useContext(AppPropsContext);
-  const { data: locations } = useBridgeQuery('SysGetLocations');
+  const { data: locations } = useBridgeQuery('SysGetLocations', undefined, {});
   const { mutate: createLocation } = useBridgeCommand('LocCreate');
+  const { data: clientState } = useBridgeQuery('ClientGetState', undefined, {});
 
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },
@@ -92,9 +93,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText="Jeff's Library"
+        buttonText={clientState?.client_name || 'Loading...'}
         items={[
-          [{ name: `Jeff's Library`, selected: true }, { name: 'Private Library' }],
+          [{ name: clientState?.client_name || '', selected: true }, { name: 'Private Library' }],
           [
             { name: 'Library Settings', icon: CogIcon },
             { name: 'Add Library', icon: PlusIcon },
