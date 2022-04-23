@@ -99,7 +99,7 @@ jobs:
   package-desktop:
     name: Package desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
-    needs: build-all
+    needs: build-rust
     strategy:
       fail-fast: true
       matrix:
