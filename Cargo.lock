@@ -5564,7 +5564,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.4.0"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.4.0#4c6c4bf93c8eb5f3a16efca161983a9537e5e53b"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?tag=0.4.0#4c6c4bf93c8eb5f3a16efca161983a9537e5e53b"
 dependencies = [
  "chrono",
  "datamodel",
@@ -5581,7 +5581,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.4.0"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.4.0#4c6c4bf93c8eb5f3a16efca161983a9537e5e53b"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?tag=0.4.0#4c6c4bf93c8eb5f3a16efca161983a9537e5e53b"
 dependencies = [
  "convert_case 0.5.0",
  "directories",

@@ -91,5 +91,5 @@ jobs:
         working-directory: core
         run: cargo prisma generate
 
-      - name: Build core
-        run: cargo build -p core --release
+      - name: Build sdcore
+        run: cargo build -p sdcore --release
