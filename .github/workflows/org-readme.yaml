@@ -13,14 +13,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Pushes test file
+      - name: Update README
         uses: dmnemec/copy_file_to_another_repo_action@main
         env:
           API_TOKEN_GITHUB: ${{ secrets.REPOS_PAT }}
         with:
           source_file: 'README.md'
-          destination_repo: 'spacedrive/.github'
-          destination_folder: '.'
+          destination_repo: 'spacedriveapp/.github'
+          destination_folder: 'profile'
           user_email: 'actions@spacedrive.app'
-          user_name: 'actions'
+          user_name: 'GH Actions'
           commit_message: 'Update README'
