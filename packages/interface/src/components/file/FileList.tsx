@@ -9,6 +9,7 @@ import create from 'zustand';
 import { useKey, useWindowSize } from 'rooks';
 import { useSearchParams } from 'react-router-dom';
 import { AppPropsContext } from '../../App';
+import FileThumb from './FileThumb';
 
 type ExplorerState = {
   selectedRowIndex: number;
@@ -226,19 +227,7 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath
       return (
         <div className="flex flex-row items-center overflow-hidden">
           <div className="w-6 h-6 mr-3">
-            {row.is_dir ? (
-              <img className="mt-0.5 pointer-events-none z-90" src="/svg/folder.svg" />
-            ) : (
-              hasThumbnail &&
-              location?.data_path && (
-                <img
-                  className="mt-0.5 pointer-events-none z-90"
-                  src={appPropsContext?.convertFileSrc(
-                    `${location.data_path}/thumbnails/${location.location_id}/${row.temp_cas_id}.webp`
-                  )}
-                />
-              )
-            )}
+            <FileThumb file={row} locationId={location.location_id} />
           </div>
           {/* {colKey == 'name' &&
             (() => {

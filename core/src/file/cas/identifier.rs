@@ -66,7 +66,7 @@ impl Job for FileIdentifierJob {
           println!("UPDATING PATH: {}", update_file_path);
           block_on(db._execute_raw(&update_file_path)).unwrap();
         }
-
+        
         completed += 1;
         println!("completed: {}", completed);
         ctx.progress(vec![JobReportUpdate::CompletedTaskCount(completed)]);

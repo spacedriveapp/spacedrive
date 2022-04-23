@@ -1,16 +1,65 @@
 import React from 'react';
 
 import SpacedriveInterface from '@sd/interface';
-import { ClientCommand, ClientQuery } from '@sd/core';
+import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 import { BaseTransport } from '@sd/client';
+
+const websocket = new WebSocket('ws://localhost:8080/ws');
+
+const randomId = () => Math.random().toString(36).slice(2);
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
-  async query(query: ClientQuery) {
-    // return await invoke('client_query_transport', { data: query });
+  requestMap = new Map<string, (data: any) => void>();
+
+  constructor() {
+    super();
+
+    websocket.addEventListener('message', (event) => {
+      if (!event.data) return;
+
+      const { id, payload } = JSON.parse(event.data);
+
+      const { type, data } = payload;
+      if (type === 'event') {
+        this.emit('core_event', data);
+      } else if (type === 'query' || type === 'command') {
+        if (this.requestMap.has(id)) {
+          this.requestMap.get(id)?.(data);
+          this.requestMap.delete(id);
+        }
+      }
+    });
   }
-  async command(query: ClientCommand) {
-    // return await invoke('client_command_transport', { data: query });
+  async query(query: ClientQuery) {
+    const id = randomId();
+    let resolve: (data: any) => void;
+
+    const promise = new Promise((res) => {
+      resolve = res;
+    });
+
+    // @ts-ignore
+    this.requestMap.set(id, resolve);
+
+    websocket.send(JSON.stringify({ id, payload: { type: 'query', data: query } }));
+
+    return await promise;
+  }
+  async command(command: ClientCommand) {
+    const id = randomId();
+    let resolve: (data: any) => void;
+
+    const promise = new Promise((res) => {
+      resolve = res;
+    });
+
+    // @ts-ignore
+    this.requestMap.set(id, resolve);
+
+    websocket.send(JSON.stringify({ id, payload: { type: 'command', data: command } }));
+
+    return await promise;
   }
 }
 
@@ -20,9 +69,6 @@ function App() {
       {/* <header className="App-header"></header> */}
       <SpacedriveInterface
         transport={new Transport()}
-        onCoreEvent={function (event: any): void {
-          return;
-        }}
         platform={'browser'}
         convertFileSrc={function (url: string): string {
           return url;
