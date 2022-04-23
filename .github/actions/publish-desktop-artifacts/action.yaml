@@ -1,0 +1,25 @@
+name: Publish desktop artifacts
+description: Publishes desktop artifacts after Tauri build
+runs:
+  using: 'composite'
+  steps:
+    - name: Publish artifacts (Ubuntu)
+      if: matrix.platform == 'ubuntu-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: Spacedrive-Ubuntu-AppImage
+        path: ./target/release/bundle/appimage/spacedrive_0.1.0_amd64.AppImage.tar.gz
+    
+    - name: Publish artifacts (Windows)
+      if: matrix.platform == 'windows-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: Spacedrive-Windows-Installer
+        path: .\target\release\bundle\msi\Spacedrive_0.1.0_x64_en-US.msi.zip
+    
+    - name: Publish artifacts (macOS)
+      if: matrix.platform == 'macos-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: Spacedrive-macOS
+        path: .target/release/bundle/macos/Spacedrive.app.tar.gz
