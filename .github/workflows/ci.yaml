@@ -66,8 +66,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
         
-      - name: Install dependencies (Ubuntu)
-        if: matrix.platform == 'ubuntu-latest'
+      - name: Install ffmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -137,11 +136,13 @@ jobs:
   build-core-windows:
     name: Build core (Windows)
     runs-on: windows-latest
+    env:
+      FFMPEG_DOWNLOAD_URL: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
         
-      - name: Install ffmpeg (Windows)
+      - name: Install ffmpeg
         run: |
           $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
           Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
