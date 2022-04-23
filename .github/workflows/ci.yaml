@@ -99,6 +99,7 @@ jobs:
   build-desktop:
     name: Build desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
+    needs: build-all
     strategy:
       fail-fast: true
       matrix:
