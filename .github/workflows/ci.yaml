@@ -59,14 +59,20 @@ jobs:
       - name: Build Web
         run: pnpm web build
 
-  build-core-ubuntu:
-    name: Build core (Ubuntu)
-    runs-on: ubuntu-latest
+  build-core:
+    name: Build core (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      FFMPEG_DOWNLOAD_URL: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
         
-      - name: Install ffmpeg
+      - name: Install ffmpeg (Ubuntu)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -80,38 +86,21 @@ jobs:
             libswscale-dev \
             libswresample-dev \
             ffmpeg
-
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          components: rustfmt, rust-src
-
-      - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
-
-      - name: Build prisma-cli
-        run: cargo build -p prisma-cli --release
-
-      - name: Generate Primsa client
-        working-directory: core
-        run: cargo prisma generate
-
-      - name: Build sdcore
-        run: cargo build -p sdcore --release
-
-  build-core-mac:
-    name: Build core (macOS)
-    runs-on: macos-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        
-      - name: Install ffmpeg
+      
+      - name: Install ffmpeg (macOS)
         run: brew install ffmpeg
-
+        
+      - name: Install ffmpeg (Windows)
+        run: |
+          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
+          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
+          7z x ffmpeg-release-full-shared.7z
+          mkdir ffmpeg
+          mv ffmpeg-*/* ffmpeg/
+          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
+      
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
@@ -133,26 +122,23 @@ jobs:
       - name: Build sdcore
         run: cargo build -p sdcore --release
   
-  build-core-windows:
-    name: Build core (Windows)
-    runs-on: windows-latest
-    env:
-      FFMPEG_DOWNLOAD_URL: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
+  build-desktop:
+    name: Build desktop (${{ matrix.platform }})
+    needs: build-core
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-        
-      - name: Install ffmpeg
-        run: |
-          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
-          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
-          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
-          7z x ffmpeg-release-full-shared.7z
-          mkdir ffmpeg
-          mv ffmpeg-*/* ffmpeg/
-          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
-          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
 
+      - name: Setup Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 17
+     
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
@@ -160,16 +146,23 @@ jobs:
           profile: minimal
           override: true
           components: rustfmt, rust-src
-
+ 
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+        with:
+          sharedKey: desktop-${{ matrix.platform}}
 
-      - name: Build prisma-cli
-        run: cargo build -p prisma-cli --release
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.1
+        with:
+          version: 6.32.6
 
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+      
       - name: Generate Primsa client
         working-directory: core
         run: cargo prisma generate
-
-      - name: Build sdcore
-        run: cargo build -p sdcore --release 
+      
+      - name: Build desktop
+        run: pnpm desktop build
