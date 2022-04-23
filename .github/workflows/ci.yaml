@@ -164,7 +164,7 @@ jobs:
     needs: build-rust
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v
+        uses: actions/checkout@v2
 
       - name: Install dependencies
         uses: ./.github/actions/install-deps
