@@ -167,9 +167,12 @@ jobs:
       - name: Build desktop
         run: cargo build -p spacedrive --release
 
-      - name: Bundle
-        working-directory: apps/desktop
-        run: pnpm tauri build
+      - name: Build
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: apps/desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish artifacts
         uses: ./.github/actions/publish-desktop-artifacts
