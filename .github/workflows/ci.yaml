@@ -70,8 +70,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install desktop dependencies
-        uses: ./.github/actions/install-desktop-deps
+      - name: Install dependencies
+        uses: ./.github/actions/install-deps
 
       - name: Setup Node
         uses: actions/setup-node@v1
@@ -112,8 +112,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install desktop dependencies
-        uses: ./.github/actions/install-desktop-deps
+      - name: Install dependencies
+        uses: ./.github/actions/install-deps
 
       - name: Setup Node
         uses: actions/setup-node@v1
@@ -157,3 +157,34 @@ jobs:
 
       - name: Publish artifacts
         uses: ./.github/actions/publish-desktop-artifacts
+
+  deploy-server:
+    name: Deploy server
+    runs-on: ubuntu-latest
+    needs: build-rust
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-deps
+
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, rust-src
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+        with:
+          sharedKey: all-${{ matrix.platform }}
+      
+      - name: Publish docker image
+        uses: ./.github/actions/publish-server
+        with:
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+      
+      # TODO: Trigger deploy
