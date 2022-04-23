@@ -160,6 +160,9 @@ jobs:
 
       - name: Build frontend
         run: pnpm desktop build
+       
+      - name: Build sdcore
+        run: cargo build -p sdcore --release 
 
       - name: Build desktop
         run: cargo build -p spacedrive --release
