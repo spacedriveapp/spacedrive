@@ -149,6 +149,9 @@ jobs:
         working-directory: core
         run: cargo prisma generate
       
+      - name: Build frontend
+        run: pnpm desktop build
+        
       - name: Build Tauri app 
         uses: tauri-apps/tauri-action@v0
         with:
