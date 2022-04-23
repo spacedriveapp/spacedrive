@@ -49,7 +49,7 @@ function App() {
           The file explorer from the future
         </h1>
         <p className="max-w-3xl mt-1 mb-8 text-lg text-center text-gray-450">
-          Spacedrive allows you to manage files across all devices, drives and clouds at once.
+          Manage files across all devices, drives and clouds from one place.
           <br />
           Designed for creators, hoarders and the painfully disorganized.
         </p>

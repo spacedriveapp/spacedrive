@@ -18,6 +18,7 @@ export default function GeneralSettings() {
       alert('Database purged');
     }
   });
+  const { mutate: identifyFiles } = useBridgeCommand('IdentifyUniqueFiles');
 
   return (
     <div className="flex flex-col flex-grow max-w-4xl space-y-4">
@@ -36,6 +37,9 @@ export default function GeneralSettings() {
         </Button>
         <Button className="w-40" variant="gray" size="sm" onClick={() => purgeDB(undefined)}>
           Purge database
+        </Button>
+        <Button className="w-40" variant="gray" size="sm" onClick={() => identifyFiles(undefined)}>
+          Identify unique files
         </Button>
       </div>
       {/* <InputContainer

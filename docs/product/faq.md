@@ -1,5 +1,3 @@
-
-
 ##  What is it?
 
 Spacedrive is a cross platform app that allows you to manage files across all devices, drives and clouds at once. Check out the [readme](https://github.com/spacedriveapp) for more detailed info.
