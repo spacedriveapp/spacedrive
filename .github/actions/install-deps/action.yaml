@@ -1,5 +1,5 @@
-name: Install deskop dependencies
-description: Installs OS-specific dependencies for desktop builds
+name: Install dependencies
+description: Installs OS-specific dependencies for builds
 runs:
   using: "composite"
   steps:  
