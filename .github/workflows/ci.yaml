@@ -59,8 +59,8 @@ jobs:
       - name: Build Web
         run: pnpm web build
   
-  build-all:
-    name: Build desktop (${{ matrix.platform }})
+  build-rust:
+    name: Build Rust (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: true
@@ -96,8 +96,8 @@ jobs:
           command: build
           args: --release
 
-  build-desktop:
-    name: Build desktop (${{ matrix.platform }})
+  package-desktop:
+    name: Package desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
     needs: build-all
     strategy:
