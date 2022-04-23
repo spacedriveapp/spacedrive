@@ -107,7 +107,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+        
+      - name: Install vcpkg (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
 
+      - name: Install ffmpeg
+        uses: ./.github/actions/install-ffmpeg
+        
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
