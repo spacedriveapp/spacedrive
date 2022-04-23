@@ -58,9 +58,10 @@ export function MacOSTrafficLights() {
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const appPropsContext = useContext(AppPropsContext);
-  const { data: locations } = useBridgeQuery('SysGetLocations', undefined, {});
+  const { data: locations } = useBridgeQuery('SysGetLocations');
+  const { data: clientState } = useBridgeQuery('ClientGetState');
+
   const { mutate: createLocation } = useBridgeCommand('LocCreate');
-  const { data: clientState } = useBridgeQuery('ClientGetState', undefined, {});
 
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },

@@ -18,6 +18,10 @@ This software is aimed at independent creatives such as filmmakers, streamers, m
 
 In the same way we use finance apps to consolidate our books, Spacedrive consolidates files and the metadata associated with them. If you have external hard drives, cloud accounts and more than one device—you'll get a birds eye view of every file you own. With the ability to create folders, tags and albums that contain files from all different locations. 
 
+## Where are my files stored?
+
+Exactly where they already are, Spacedrive simply indexes your existing storage locations, extracting metadata and fingerprinting the byte data. However, it will have the power to transfer files at your command.
+
 ## What makes this different to Dropbox or Google Drive?
 
 It is not a storage provider, Spacedrive is simply a database that exists on top of existing storage layers, from cloud services like Dropbox, Google Drive and iCloud to physical devices and external drives you already own. It doesn't provide you more storage, rather a supercharged view of your existing storage.

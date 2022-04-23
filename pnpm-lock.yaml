@@ -69,6 +69,7 @@ importers:
 
   apps/landing:
     specifiers:
+      '@icons-pack/react-simple-icons': ^4.6.1
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -83,12 +84,14 @@ importers:
       react: ^18.0.0
       react-dom: ^18.0.0
       react-tsparticles: ^2.0.6
+      simple-icons: ^6.19.0
       tailwind: ^4.0.0
       tsparticles: ^2.0.6
       typescript: ^4.6.3
       vite: ^2.9.5
       vite-plugin-svgr: ^1.1.0
     dependencies:
+      '@icons-pack/react-simple-icons': 4.6.1_react@18.0.0
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -98,6 +101,7 @@ importers:
       react: 18.0.0
       react-dom: 18.0.0_react@18.0.0
       react-tsparticles: 2.0.6_react@18.0.0
+      simple-icons: 6.19.0
       tsparticles: 2.0.6
     devDependencies:
       '@types/react': 18.0.5
@@ -761,6 +765,15 @@ packages:
     peerDependencies:
       react: '>= 16'
     dependencies:
+      react: 18.0.0
+    dev: false
+
+  /@icons-pack/react-simple-icons/4.6.1_react@18.0.0:
+    resolution: {integrity: sha512-ICONbofFzeTkXvmbnptDv4P9cqtW/N/8EFOqyzJQJ80b8fJoLzqhM7EKslBmWziIwjY9FBnOoL2ofzQOoDG1Gg==}
+    peerDependencies:
+      react: ^16.13 || ^17
+    dependencies:
+      prop-types: 15.8.1
       react: 18.0.0
     dev: false
 
@@ -4225,6 +4238,11 @@ packages:
       get-intrinsic: 1.1.1
       object-inspect: 1.12.0
 
+  /simple-icons/6.19.0:
+    resolution: {integrity: sha512-HI7X+Ibu9FbphEJZzkOGu820Mp9JhUEAGf3qjooQkBXSgASt3HCJlhVsKxLzPAaXiSSMWupsf+rB2DwFQbRrKg==}
+    engines: {node: '>=0.12.18'}
+    dev: false
+
   /slash/3.0.0:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
     engines: {node: '>=8'}
@@ -5131,7 +5149,7 @@ packages:
       vite: ^2.6.0
     dependencies:
       '@svgr/core': 6.2.1
-      vite: 2.9.5_sass@1.50.0
+      vite: 2.9.5
     transitivePeerDependencies:
       - supports-color
     dev: true

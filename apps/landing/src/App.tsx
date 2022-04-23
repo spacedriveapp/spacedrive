@@ -6,11 +6,12 @@ import { ReactComponent as GithubLogo } from './assets/github.svg';
 import { ReactComponent as AppleLogo } from './assets/apple.svg';
 import { ReactComponent as AppLogo } from './assets/app-logo.svg';
 import NavBar from './components/NavBar';
+import { Footer } from './components/Footer';
 
 interface SectionProps {
   orientation: 'left' | 'right';
   heading?: string;
-  description?: string;
+  description?: string | React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -46,7 +47,8 @@ function App() {
       <div className="container z-10 flex flex-col items-center px-4 mx-auto text-white bg-black">
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
         <h1 className="text-4xl font-black leading-snug text-center md:text-6xl mt-36">
-          The file explorer from the future
+          {/* One space, all your drives. */}
+          The file explorer from the future.
         </h1>
         <p className="max-w-3xl mt-1 mb-8 text-lg text-center text-gray-450">
           Manage files across all devices, drives and clouds from one place.
@@ -80,11 +82,25 @@ function App() {
         />
         <Section
           orientation="right"
-          heading="It's one big catalogue"
-          description="Using content addressable storage in a virtual distributed filesystem, Spacedrive securely
-    combines the storage capacity and processing power of your devices into one."
+          heading="Its one big catalogue"
+          description={
+            <>
+              Using content addressable storage in a virtual distributed filesystem, Spacedrive
+              securely combines the storage capacity and processing power of your devices into one.
+              <br />
+              <br />
+              Organize files across many devices in one place. From cloud services to offline hard
+              drives, Spacedrive combines the storage capacity and processing power of your devices
+              into one personal distributed cloud, that is both secure and intuitive to use.
+              <br />
+              <br />
+              For independent creatives, hoarders and those that want to own their digital
+              footprint. Spacedrive provides a file management experience like no other, and its
+              completely free.
+            </>
+          }
         />
-        <Section
+        {/* <Section
           orientation="left"
           heading="It's one big catalogue"
           description="Using content addressable storage in a virtual distributed filesystem, Spacedrive securely
@@ -95,8 +111,8 @@ function App() {
           heading="It's one big catalogue"
           description="Using content addressable storage in a virtual distributed filesystem, Spacedrive securely
     combines the storage capacity and processing power of your devices into one."
-        />
-        <div className="h-[500px]" />
+        /> */}
+        <Footer />
       </div>
       <Bubbles />
     </div>
