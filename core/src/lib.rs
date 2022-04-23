@@ -1,3 +1,4 @@
+use crate::file::cas::identifier::FileIdentifierJob;
 use job::jobs::{Job, JobReport, Jobs};
 use log::{error, info};
 use prisma::PrismaClient;
@@ -269,6 +270,10 @@ impl Core {
         fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
         CoreResponse::Success(())
       }
+      ClientCommand::IdentifyUniqueFiles => {
+        ctx.spawn_job(Box::new(FileIdentifierJob));
+        CoreResponse::Success(())
+      }
     })
   }
 
@@ -328,6 +333,7 @@ pub enum ClientCommand {
   SysVolumeUnmount { id: i32 },
   GenerateThumbsForLocation { id: i32, path: String },
   PurgeDatabase,
+  IdentifyUniqueFiles,
 }
 
 // represents an event this library can emit

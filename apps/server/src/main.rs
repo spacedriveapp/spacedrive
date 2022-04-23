@@ -19,5 +19,7 @@ async fn main() {
 
 	tokio::spawn(async move {
 		core.start().await;
-	});
+	})
+	.await
+	.unwrap();
 }
