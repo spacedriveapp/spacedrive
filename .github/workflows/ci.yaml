@@ -153,7 +153,7 @@ jobs:
         run: pnpm desktop build
 
       - name: Build desktop
-        run: cargo build -p spacedrive
+        run: cargo build -p spacedrive --release
 
       - name: Bundle
         working-directory: apps/desktop
