@@ -4,12 +4,13 @@ import {
   Discord,
   Instagram,
   Github,
-  Opencollective
+  Opencollective,
+  Twitch
 } from '@icons-pack/react-simple-icons';
 
 function FooterLink(props: { children: string; link: string }) {
   return (
-    <a href={props.link} className="text-gray-300 hover:text-white">
+    <a href={props.link} target="_blank" className="text-gray-300 hover:text-white">
       {props.children}
     </a>
   );
@@ -25,11 +26,24 @@ export function Footer() {
           <h3 className="mb-1 text-xl font-bold">Spacedrive</h3>
           <p className="text-sm text-gray-350">&copy; Copyright 2022 Jamie Pine</p>
           <div className="flex flex-row mt-6 space-x-3">
-            <Twitter />
-            <Discord />
-            <Instagram />
-            <Github />
-            <Opencollective />
+            <a href="https://twitter.com/spacedriveapp" target="_blank">
+              <Twitter />
+            </a>
+            <a href="https://discord.gg/gTaF2Z44f5" target="_blank">
+              <Discord />
+            </a>
+            <a href="https://instagram.com/spacedriveapp" target="_blank">
+              <Instagram />
+            </a>
+            <a href="https://github.com/spacedriveapp" target="_blank">
+              <Github />
+            </a>
+            <a href="https://opencollective.com/spacedrive" target="_blank">
+              <Opencollective />
+            </a>
+            <a href="https://twitch.tv/jamiepinelive" target="_blank">
+              <Twitch />
+            </a>
           </div>
         </div>
         <div className="col-span-1"></div>
@@ -42,12 +56,11 @@ export function Footer() {
           <FooterLink link="#">Changelog</FooterLink>
           <FooterLink link="#">Blog</FooterLink>
         </div>
-        <div className="flex flex-col col-span-1 space-y-2">
+        <div className="flex flex-col col-span-1 space-y-2 opacity-50 pointer-events-none">
           <h3 className="mb-1 text-xs font-bold uppercase ">Downloads</h3>
           <FooterLink link="#">macOS</FooterLink>
           <FooterLink link="#">Windows</FooterLink>
           <FooterLink link="#">Linux</FooterLink>
-          <FooterLink link="#">Blog</FooterLink>
         </div>
         <div className="flex flex-col col-span-1 space-y-2">
           <h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>
@@ -55,11 +68,13 @@ export function Footer() {
           <FooterLink link="#">Contribute</FooterLink>
           <FooterLink link="#">Extensions</FooterLink>
           <FooterLink link="#">Self Host</FooterLink>
-          <FooterLink link="#">Blog</FooterLink>
         </div>
         <div className="flex flex-col col-span-1 space-y-2">
-          <h3 className="mb-1 text-xs font-bold uppercase ">Company</h3>
-          <FooterLink link="#">Gaming</FooterLink>
+          <h3 className="mb-1 text-xs font-bold uppercase ">Org</h3>
+          <FooterLink link="#">Open Collective</FooterLink>
+          <FooterLink link="#">Privacy</FooterLink>
+          <FooterLink link="#">Terms</FooterLink>
+          <FooterLink link="#">License</FooterLink>
         </div>
       </div>
     </footer>

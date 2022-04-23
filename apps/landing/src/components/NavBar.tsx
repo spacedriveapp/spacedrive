@@ -2,9 +2,13 @@ import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
 import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 
-function NavLink(props: { children: string }) {
+function NavLink(props: { link?: string; children: string }) {
   return (
-    <a className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50">
+    <a
+      href={props.link ?? '#'}
+      target="_blank"
+      className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50"
+    >
       {props.children}
     </a>
   );
@@ -37,14 +41,18 @@ export default function NavBar() {
           <span className="ml-2 text-xs text-gray-400 uppercase">BETA</span>
         </h3>
 
-        <div className="space-x-4 text-white mx-28">
-          <NavLink>Product</NavLink>
-          <NavLink>Documentation</NavLink>
-          <NavLink>Support</NavLink>
-          <NavLink>FAQ</NavLink>
-          <NavLink>Changelog</NavLink>
-          <NavLink>Blog</NavLink>
+        <div className="m-auto space-x-4 text-white">
+          <NavLink link="https://github.com/spacedriveapp/#features">Features</NavLink>
+          <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">Docs</NavLink>
+          <NavLink link="https:/github.com/spacedriveapp/spacedrive/blob/main/docs/product/faq.md">
+            FAQ
+          </NavLink>
+          <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs/changelog">
+            Changelog
+          </NavLink>
+          <NavLink link="https://opencollective.com/spacedrive">Sponsor us</NavLink>
         </div>
+        <div className="w-44"></div>
       </div>
     </div>
   );

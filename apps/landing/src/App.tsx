@@ -2,11 +2,9 @@ import { Button } from '@sd/ui';
 import { Bubbles } from './Bubbles';
 import './index.css';
 
-import { ReactComponent as GithubLogo } from './assets/github.svg';
-import { ReactComponent as AppleLogo } from './assets/apple.svg';
-import { ReactComponent as AppLogo } from './assets/app-logo.svg';
 import NavBar from './components/NavBar';
 import { Footer } from './components/Footer';
+import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
 
 interface SectionProps {
   orientation: 'left' | 'right';
@@ -59,14 +57,25 @@ function App() {
           {/* <Button className="px-2">
           <WindowsLogo className="" fill="white" />
         </Button> */}
-          <Button className="cursor-pointer" variant="primary">
-            <AppleLogo className="inline -mt-[3px] mr-1.5" fill="white" />
+
+          <Button
+            onClick={() =>
+              alert(
+                "You're here early! This is the only button on this page that does not work, I promise. Release build coming very soon—follow @spacedriveapp for updates."
+              )
+            }
+            className="cursor-pointer"
+            variant="primary"
+          >
             Download
           </Button>
-          <Button className="cursor-pointer" variant="gray">
-            <GithubLogo className="inline -mt-[3px] mr-1.5" fill="white" />
-            Star on GitHub
-          </Button>
+
+          <a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
+            <Button className="cursor-pointer" variant="gray">
+              <Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
+              Star on GitHub
+            </Button>
+          </a>
         </div>
         <p className="mt-3 text-xs text-center text-gray-500">
           Available on macOS (Intel & Apple Silicon), Windows and Linux.
@@ -89,14 +98,18 @@ function App() {
               securely combines the storage capacity and processing power of your devices into one.
               <br />
               <br />
-              Organize files across many devices in one place. From cloud services to offline hard
-              drives, Spacedrive combines the storage capacity and processing power of your devices
-              into one personal distributed cloud, that is both secure and intuitive to use.
-              <br />
-              <br />
               For independent creatives, hoarders and those that want to own their digital
               footprint. Spacedrive provides a file management experience like no other, and its
               completely free.
+              <br />
+              <br />
+              <a
+                className="transition text-primary-600 hover:text-primary-500"
+                href="https://github.com/spacedriveapp"
+                target="_blank"
+              >
+                Find out more →
+              </a>
             </>
           }
         />
