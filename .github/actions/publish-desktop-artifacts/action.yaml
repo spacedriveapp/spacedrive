@@ -16,18 +16,18 @@ runs:
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Ubuntu-AppImage
-        path: ./target/release/bundle/appimage/spacedrive_0.1.0_amd64.AppImage.tar.gz
-    
+        path: ./target/release/bundle/appimage/spacedrive_0.1.0_amd64.AppImage
+            
     - name: Publish artifacts (Windows)
       if: matrix.platform == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-Windows-Installer
-        path: .\target\release\bundle\msi\Spacedrive_0.1.0_x64_en-US.msi.zip
+        path: .\target\release\bundle\msi\Spacedrive_0.1.0_x64_en-US.msi
     
     - name: Publish artifacts (macOS)
       if: matrix.platform == 'macos-latest'
       uses: actions/upload-artifact@v3
       with:
         name: Spacedrive-macOS
-        path: .target/release/bundle/macos/Spacedrive.app.tar.gz
+        path: ./target/release/bundle/macos/Spacedrive.app
