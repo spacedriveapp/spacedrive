@@ -153,8 +153,7 @@ jobs:
       - name: Build
         uses: tauri-apps/tauri-action@v0.2
         with:
-          projectPath: apps/desktop
-          tauriScript: pnpm tauri
+          tauriScript: pnpm desktop tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
