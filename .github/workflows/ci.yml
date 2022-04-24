@@ -115,3 +115,18 @@ jobs:
         projectPath: apps/desktop
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and publish server
+      if: matrix.platform == 'ubuntu-latest'
+      uses: ./.github/actions/build-and-publish-server
+      with:
+        gh_token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Deploy Spacedrive Server to Kubernetes
+      if: matrix.platform == 'ubuntu-latest'
+      env:
+        K8S_KUBECONFIG: ${{ secrets.K8S_KUBECONFIG }}
+      run: |
+        mkdir -p ~/.kube
+        echo "$K8S_KUBECONFIG" > ~/.kube/config 2>&1
+        kubectl rollout restart deployment/sdserver-deployment
