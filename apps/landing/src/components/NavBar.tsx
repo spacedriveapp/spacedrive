@@ -18,7 +18,7 @@ export default function NavBar() {
   const [isAtTop, setIsAtTop] = useState(true);
 
   function onScroll(event: Event) {
-    if (window.pageYOffset > 20) setIsAtTop(true);
+    if (window.pageYOffset < 20) setIsAtTop(true);
     else if (isAtTop) setIsAtTop(false);
   }
 
@@ -30,8 +30,10 @@ export default function NavBar() {
   return (
     <div
       className={clsx(
-        'fixed transition z-50 w-full h-16 border-b backdrop-blur',
-        isAtTop ? 'border-gray-550 bg-gray-750 bg-opacity-80' : 'bg-transparent border-transparent'
+        'fixed transition z-50 w-full h-16 border-b ',
+        isAtTop
+          ? 'bg-transparent border-transparent'
+          : 'border-gray-550 bg-gray-750 bg-opacity-80 backdrop-blur'
       )}
     >
       <div className="container relative flex items-center h-full px-5 m-auto">

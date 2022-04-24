@@ -19,13 +19,13 @@ function FooterLink(props: { children: string; link: string }) {
 export function Footer() {
   return (
     <footer className="z-50 w-screen bg-gray-900 border-gray-500 border-t-1">
-      <div className="container grid grid-cols-1 gap-6 p-8 pt-10 pb-20 m-auto text-white min-h-64 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="container grid grid-cols-2 gap-6 p-8 pt-10 pb-20 m-auto text-white min-h-64 sm:grid-cols-2 lg:grid-cols-6">
         <div className="col-span-1">
           <AppLogo className="w-10 h-10 mb-5" />
 
           <h3 className="mb-1 text-xl font-bold">Spacedrive</h3>
           <p className="text-sm text-gray-350">&copy; Copyright 2022 Jamie Pine</p>
-          <div className="flex flex-row mt-6 space-x-3">
+          <div className="flex flex-row mt-6 mb-10 space-x-3">
             <a href="https://twitter.com/spacedriveapp" target="_blank">
               <Twitter />
             </a>

@@ -44,12 +44,12 @@ function App() {
   return (
     <div>
       <NavBar />
-      <div className="container z-10 flex flex-col items-center px-4 mx-auto text-white bg-black">
+      <div className="container z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden text-white bg-black">
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
-        <h1 className="text-4xl font-black leading-snug text-center md:text-6xl mt-36">
+        <h1 className="mb-3 text-5xl font-black leading-tight text-center md:text-6xl mt-36">
           {/* One space, all your drives. */}A file explorer from the future.
         </h1>
-        <p className="max-w-4xl mt-1 mb-8 text-lg text-center text-gray-450">
+        <p className="max-w-4xl mt-1 mb-8 text-lg leading-8 text-center text-gray-450">
           Combine your drives and clouds into one database that you can organize and explore from
           any device.
           <br />
@@ -93,7 +93,9 @@ function App() {
             onError={(e) => {
               setShowApp(false);
             }}
-            src={`${import.meta.env.VITE_SDWEB_BASE_URL || "http://localhost:8002"}?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
+            src={`${
+              import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
+            }?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
           />
         )}
         <Section
