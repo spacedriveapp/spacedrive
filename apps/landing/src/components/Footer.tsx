@@ -19,7 +19,7 @@ function FooterLink(props: { children: string; link: string }) {
 export function Footer() {
   return (
     <footer className="z-50 w-screen bg-gray-900 border-gray-500 border-t-1">
-      <div className="container grid h-64 grid-cols-6 gap-6 pt-10 m-auto text-white">
+      <div className="container grid grid-cols-1 gap-6 p-8 pt-10 pb-20 m-auto text-white min-h-64 sm:grid-cols-2 lg:grid-cols-6">
         <div className="col-span-1">
           <AppLogo className="w-10 h-10 mb-5" />
 
@@ -64,11 +64,13 @@ export function Footer() {
             <FooterLink link="#">Blog</FooterLink>
           </div>
         </div>
-        <div className="flex flex-col col-span-1 space-y-2 opacity-50 pointer-events-none">
-          <h3 className="mb-1 text-xs font-bold uppercase ">Downloads</h3>
-          <FooterLink link="#">macOS</FooterLink>
-          <FooterLink link="#">Windows</FooterLink>
-          <FooterLink link="#">Linux</FooterLink>
+        <div className="flex flex-col col-span-1 space-y-2 pointer-events-none">
+          <h3 className="mb-1 text-xs font-bold uppercase">Downloads</h3>
+          <div className="flex flex-col col-span-1 space-y-2 opacity-50">
+            <FooterLink link="#">macOS</FooterLink>
+            <FooterLink link="#">Windows</FooterLink>
+            <FooterLink link="#">Linux</FooterLink>
+          </div>
         </div>
         <div className="flex flex-col col-span-1 space-y-2">
           <h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>

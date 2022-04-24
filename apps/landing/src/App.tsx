@@ -23,7 +23,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
   );
   let children = <div className="p-10 ">{props.children}</div>;
   return (
-    <div className="grid grid-cols-2 my-44">
+    <div className="grid grid-cols-1 lg:grid-cols-2 my-44">
       {props.orientation === 'right' ? (
         <>
           {info}

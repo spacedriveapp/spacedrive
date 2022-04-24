@@ -244,6 +244,7 @@ importers:
       react-query: ^3.34.19
       react-router: 6.3.0
       react-router-dom: 6.3.0
+      react-scrollbars-custom: ^4.0.27
       react-spline: ^1.2.1
       react-transition-group: ^4.4.2
       react-virtuoso: ^2.9.0
@@ -284,6 +285,7 @@ importers:
       react-query: 3.34.19_react-dom@18.0.0+react@18.0.0
       react-router: 6.3.0_react@18.0.0
       react-router-dom: 6.3.0_react-dom@18.0.0+react@18.0.0
+      react-scrollbars-custom: 4.0.27_react-dom@18.0.0+react@18.0.0
       react-spline: 1.2.1_react@18.0.0
       react-transition-group: 4.4.2_react-dom@18.0.0+react@18.0.0
       react-virtuoso: 2.9.0_react@18.0.0
@@ -2113,6 +2115,10 @@ packages:
     engines: {node: '>=6'}
     dev: false
 
+  /cnbuilder/2.7.1:
+    resolution: {integrity: sha512-kJ/X8vJOSeY0usRPuTlm+rtsB8iwpTs4JFOvDQxkFX6M/0D5IbOKZBJf822T3UIVNWOIXiewXh7l/ux1Feh1Yg==}
+    dev: false
+
   /coa/2.0.2:
     resolution: {integrity: sha512-q5/jG+YQnSy4nRTV4F7lPepBJZ8qBNJJDBuJdoejDyLXgmL7IEo+Le2JDZudFTFt7mrCqIRaSjws4ygRCTCAXA==}
     engines: {node: '>= 4.0'}
@@ -3794,6 +3800,18 @@ packages:
       scheduler: 0.21.0
     dev: false
 
+  /react-draggable/4.4.4_react-dom@18.0.0+react@18.0.0:
+    resolution: {integrity: sha512-6e0WdcNLwpBx/YIDpoyd2Xb04PB0elrDrulKUgdrIlwuYvxh5Ok9M+F8cljm8kPXXs43PmMzek9RrB1b7mLMqA==}
+    peerDependencies:
+      react: '>= 16.3.0'
+      react-dom: '>= 16.3.0'
+    dependencies:
+      clsx: 1.1.1
+      prop-types: 15.8.1
+      react: 18.0.0
+      react-dom: 18.0.0_react@18.0.0
+    dev: false
+
   /react-dropzone/12.0.4_react@18.0.0:
     resolution: {integrity: sha512-fcqHEYe1MzAghU6/Hz86lHDlBNsA+lO48nAcm7/wA+kIzwS6uuJbUG33tBZjksj7GAZ1iUQ6NHwjUURPmSGang==}
     engines: {node: '>= 10.13'}
@@ -3958,6 +3976,19 @@ packages:
     dependencies:
       history: 5.3.0
       react: 18.0.0
+    dev: false
+
+  /react-scrollbars-custom/4.0.27_react-dom@18.0.0+react@18.0.0:
+    resolution: {integrity: sha512-vEIvb+AbxWHtU6yqNfIEtnm06vguFFxDK8UTC6hPMlgEPvrQX7ayoLp9MT+vyszouQ9NgcEtipLmNGEw31pQpQ==}
+    peerDependencies:
+      react: '>=16.0.0'
+    dependencies:
+      cnbuilder: 2.7.1
+      react: 18.0.0
+      react-draggable: 4.4.4_react-dom@18.0.0+react@18.0.0
+      zoom-level: 2.5.0
+    transitivePeerDependencies:
+      - react-dom
     dev: false
 
   /react-spline/1.2.1_react@18.0.0:
@@ -5323,6 +5354,10 @@ packages:
 
   /zen-observable/0.8.15:
     resolution: {integrity: sha512-PQ2PC7R9rslx84ndNBZB/Dkv8V8fZEpk83RLgXtYd0fwUgEjseMn1Dgajh2x6S8QbZAFa9p2qVCEuYZNgve0dQ==}
+    dev: false
+
+  /zoom-level/2.5.0:
+    resolution: {integrity: sha512-7UlRWU4Q3uCMCeDVMOm7eBrIu145OqsIJ3p6zq58l8UsSYwKWxc6zEapC5YA9tIeh0oheb4cT9Kk2Wq353loFg==}
     dev: false
 
   /zustand/3.7.2_react@18.0.0:
