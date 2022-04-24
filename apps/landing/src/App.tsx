@@ -95,7 +95,7 @@ function App() {
               showApp ? 'opacity-100' : 'opacity-0'
             )}
             onLoad={(event) => {
-              setShowApp(true);
+              // setShowApp(true);
             }}
             src={`${
               import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
