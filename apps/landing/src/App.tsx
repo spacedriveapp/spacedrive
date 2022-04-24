@@ -6,6 +6,7 @@ import NavBar from './components/NavBar';
 import { Footer } from './components/Footer';
 import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
 import { useState } from 'react';
+import clsx from 'clsx';
 
 interface SectionProps {
   orientation: 'left' | 'right';
@@ -23,7 +24,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
   );
   let children = <div className="p-10 ">{props.children}</div>;
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 my-44">
+    <div className="grid grid-cols-1 my-10 lg:grid-cols-2 lg:my-44">
       {props.orientation === 'right' ? (
         <>
           {info}
@@ -40,11 +41,11 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 }
 
 function App() {
-  const [showApp, setShowApp] = useState(true);
+  const [showApp, setShowApp] = useState(false);
   return (
     <div>
       <NavBar />
-      <div className="container z-10 flex flex-col items-center px-4 mx-auto text-white bg-black">
+      <div className="container z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden text-white bg-black sm:overflow-x-visible ">
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
         <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center mt-28 md:text-6xl lg:mt-36">
           {/* One space, all your drives. */}A file explorer from the future.
@@ -87,17 +88,21 @@ function App() {
           Coming soon to iOS & Android.
         </p>
 
-        <div className="h-[600px] mt-20 w-screen max-w-[100vw] overflow-hidden relative">
-          {showApp && (
-            <iframe
-              className="absolute w-[1200px] h-[600px] z-30  border rounded-lg shadow-2xl inset-center bg-gray-850 border-gray-550"
-              onError={(e) => {
-                setShowApp(false);
-              }}
-              src={`${
-                import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
-              }?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
-            />
+        <div className="h-[300px] lg:h-[600px] mt-16 w-screen max-w-[100vw] overflow-hidden relative">
+          <iframe
+            className={clsx(
+              'absolute w-[1200px] h-[300px] lg:h-[600px]z-30 border rounded-lg shadow-2xl inset-center bg-gray-850 border-gray-550',
+              showApp ? 'opacity-100' : 'opacity-0'
+            )}
+            onLoad={(event) => {
+              // setShowApp(true);
+            }}
+            src={`${
+              import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
+            }?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
+          />
+          {!showApp && (
+            <div className="w-[800px] ml-[250px] lg:ml-0 lg:w-[1200px] h-[300px] lg:h-[600px] inset-center absolute z-30 landing-img" />
           )}
         </div>
         <Section
