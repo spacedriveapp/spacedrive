@@ -102,6 +102,7 @@ _Note: Links are for highlight purposes only until feature specific documentatio
 This environment uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
 
 - `$ git clone https://github.com/spacedriveapp/spacedrive`
+- IMPORTANT: *Install [FFMPEG](https://www.ffmpeg.org/download.html) if you don't have it already*
 - `$ cd spacedrive`
 - `$ pnpm i`
 - `$ pnpm prep` - Runs all necessary codegen & builds required dependencies.
