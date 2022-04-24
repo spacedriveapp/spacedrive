@@ -13,13 +13,13 @@ runs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ inputs.gh_token }}
-    
+
     - name: Build Server
       shell: bash
       run: |
         cargo build --release -p server
         cp ./target/release/server ./apps/server/server
-    
+
     - name: Determine image name & tag
       shell: bash
       run: |
@@ -46,7 +46,7 @@ runs:
       run: |
         docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:staging
         docker push $IMAGE_NAME:staging
-      
+
     - name: Tag & push image as latest production image
       if: github.event_name == 'release'
       shell: bash

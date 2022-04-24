@@ -3,8 +3,8 @@ on:
   pull_request:
   push:
     branches:
-    - main
-    - ci
+      - main
+      - ci
   workflow_dispatch:
 
 jobs:
@@ -18,115 +18,115 @@ jobs:
       RUST_CACHE_VERSION: 0
     runs-on: ${{ matrix.platform }}
     steps:
-    - uses: actions/checkout@v2
-    
-    # from https://github.com/zmwangx/rust-ffmpeg/blob/master/.github/workflows/build.yml
-    - name: Install ffmpeg (Windows)
-      if: matrix.platform == 'windows-latest'
-      run: |
-        $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
-        Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
-        Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
-        7z x ffmpeg-release-full-shared.7z
-        mkdir ffmpeg
-        mv ffmpeg-*/* ffmpeg/
-        Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
-        Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
-    
-    - name: Install CMake (Windows)
-      uses: lukka/get-cmake@latest
-      if: matrix.platform == 'windows-latest'
-    
-    # Optimisation for windows
-    - name: Rename existing rust toolchain (Windows)
-      if: matrix.platform == 'windows-latest'
-      run: Rename-Item C:\Users\runneradmin\.rustup\toolchains\stable-x86_64-pc-windows-msvc C:\Users\runneradmin\.rustup\toolchains\stable-x86_64-pc-windows-msvc.old
-    
-    - name: Setup Node
-      uses: actions/setup-node@v1
-      with:
-        node-version: 16
-        
-    - name: Install Rust stable
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        override: true
-        components: rustfmt, rust-src
-    
-    - name: Cache Rust Dependencies
-      uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
-      with:
-        sharedKey: ${{ env.RUST_CACHE_VERSION }}
-        
-    - name: Cache pnpm dependencies
-      uses: actions/cache@v2
-      with:
-        path: ~/.pnpm-store
-        key: ${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-
+      - uses: actions/checkout@v2
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v2.2.1
-      with:
-        version: 6.32.6
-    
-    - name: Install dependencies (Ubuntu)
-      if: matrix.platform == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-          libgtk-3-dev \
-          webkit2gtk-4.0 \
-          libappindicator3-dev \
-          librsvg2-dev \
-          patchelf \
-          libssl-dev \
-          libavcodec-dev \
-          libavdevice-dev \
-          libavfilter-dev \
-          libavformat-dev \
-          libavresample-dev \
-          libavutil-dev \
-          libswscale-dev \
-          libswresample-dev \
-          pkg-config \
-          ffmpeg
-    
-    - name: Install dependencies (macOS)
-      if: matrix.platform == 'macos-latest'
-      run: |
-        brew install ffmpeg
-        
-    - name: Install pnpm dependencies
-      run: pnpm i
-      
-    - name: Build codegen
-      run: pnpm prep:ci
-      
-    - name: Build frontend
-      run: pnpm desktop build:vite
-      
-    - name: Build Tauri app 
-      uses: tauri-apps/tauri-action@v0
-      with:
-        projectPath: apps/desktop
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # from https://github.com/zmwangx/rust-ffmpeg/blob/master/.github/workflows/build.yml
+      - name: Install ffmpeg (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
+          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
+          7z x ffmpeg-release-full-shared.7z
+          mkdir ffmpeg
+          mv ffmpeg-*/* ffmpeg/
+          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
 
-    - name: Build and publish server
-      if: matrix.platform == 'ubuntu-latest'
-      uses: ./.github/actions/build-and-publish-server
-      with:
-        gh_token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Deploy Spacedrive Server to Kubernetes
-      if: matrix.platform == 'ubuntu-latest'
-      env:
-        K8S_KUBECONFIG: ${{ secrets.K8S_KUBECONFIG }}
-      run: |
-        mkdir -p ~/.kube
-        echo "$K8S_KUBECONFIG" > ~/.kube/config 2>&1
-        kubectl rollout restart deployment/sdserver-deployment
+      - name: Install CMake (Windows)
+        uses: lukka/get-cmake@latest
+        if: matrix.platform == 'windows-latest'
+
+      # Optimisation for windows
+      - name: Rename existing rust toolchain (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: Rename-Item C:\Users\runneradmin\.rustup\toolchains\stable-x86_64-pc-windows-msvc C:\Users\runneradmin\.rustup\toolchains\stable-x86_64-pc-windows-msvc.old
+
+      - name: Setup Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16
+
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, rust-src
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+        with:
+          sharedKey: ${{ env.RUST_CACHE_VERSION }}
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.1
+        with:
+          version: 6.32.6
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev \
+            webkit2gtk-4.0 \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libavcodec-dev \
+            libavdevice-dev \
+            libavfilter-dev \
+            libavformat-dev \
+            libavresample-dev \
+            libavutil-dev \
+            libswscale-dev \
+            libswresample-dev \
+            pkg-config \
+            ffmpeg
+
+      - name: Install dependencies (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew install ffmpeg
+
+      - name: Install pnpm dependencies
+        run: pnpm i
+
+      - name: Build codegen
+        run: pnpm prep:ci
+
+      - name: Build frontend
+        run: pnpm desktop build:vite
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: apps/desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish server
+        if: matrix.platform == 'ubuntu-latest'
+        uses: ./.github/actions/build-and-publish-server
+        with:
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy Spacedrive Server to Kubernetes
+        if: matrix.platform == 'ubuntu-latest'
+        env:
+          K8S_KUBECONFIG: ${{ secrets.K8S_KUBECONFIG }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$K8S_KUBECONFIG" > ~/.kube/config 2>&1
+          kubectl rollout restart deployment/sdserver-deployment

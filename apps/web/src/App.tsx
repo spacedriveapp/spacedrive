@@ -4,9 +4,7 @@ import SpacedriveInterface from '@sd/interface';
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 import { BaseTransport } from '@sd/client';
 
-const websocket = new WebSocket(
-  import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws'
-);
+const websocket = new WebSocket(import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws');
 
 const randomId = () => Math.random().toString(36).slice(2);
 

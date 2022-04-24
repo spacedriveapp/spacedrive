@@ -13,16 +13,16 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: kube-system-antiseo@kubernetescrd
 spec:
   rules:
-  - host: spacedrive.otbeaumont.me
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: sdserver-service
-            port:
-              number: 8080
+    - host: spacedrive.otbeaumont.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sdserver-service
+                port:
+                  number: 8080
 ---
 apiVersion: v1
 kind: Service
