@@ -3,11 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "pnpm run server",
-    "prod": "pnpm run build && pnpm run server:prod",
-    "build": "vite build && vite build --ssr",
-    "server": "ts-node ./server",
-    "server:prod": "cross-env NODE_ENV=production ts-node ./server"
+    "dev": "vite",
+    "build": "cross-env DEBUG=vite-plugin-pages vite build",
+    "serve": "vite preview"
   },
   "dependencies": {
     "@icons-pack/react-simple-icons": "^4.6.1",
@@ -23,6 +21,7 @@
     "phosphor-react": "^1.4.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
+    "react-router-dom": "6.3.0",
     "react-tsparticles": "^2.0.6",
     "simple-icons": "^6.19.0",
     "tsparticles": "^2.0.6"
@@ -32,10 +31,14 @@
     "@types/react-dom": "^18.0.0",
     "@vitejs/plugin-react": "^1.3.1",
     "autoprefixer": "^10.4.4",
+    "nodemon": "^2.0.15",
     "postcss": "^8.4.12",
+    "sass": "^1.50.0",
     "tailwind": "^4.0.0",
+    "ts-node": "^10.7.0",
     "typescript": "^4.6.3",
     "vite": "^2.9.5",
+    "vite-plugin-pages": "^0.23.0",
     "vite-plugin-ssr": "^0.3.64",
     "vite-plugin-svgr": "^1.1.0"
   }

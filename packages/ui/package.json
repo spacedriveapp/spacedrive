@@ -8,6 +8,7 @@
     "./postcss": "./style/postcss.config.js",
     "./tailwind": "./style/tailwind.js",
     "./style": "./style/index.js",
+    "./style/style.scss": "./style/style.scss",
     "./package.json": "./package.json"
   },
   "scripts": {
