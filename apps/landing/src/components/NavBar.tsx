@@ -62,7 +62,7 @@ export default function NavBar() {
         <Button className="absolute block !p-1 right-3  lg:hidden">
           <List weight="bold" className="w-6 h-6" />
         </Button>
-        <div className="flex-row hidden space-x-5 lg:flex">
+        <div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
           <a href="https://discord.gg/gTaF2Z44f5" target="_blank">
             <Discord className="text-white" />
           </a>

@@ -44,7 +44,7 @@ function App() {
   return (
     <div>
       <NavBar />
-      <div className="container z-10 flex flex-col items-center px-4 mx-auto text-white bg-black overflow-x-clip">
+      <div className="container z-10 flex flex-col items-center px-4 mx-auto text-white bg-black">
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
         <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center mt-28 md:text-6xl lg:mt-36">
           {/* One space, all your drives. */}A file explorer from the future.
@@ -87,19 +87,19 @@ function App() {
           Coming soon to iOS & Android.
         </p>
 
-        {showApp && (
-          <iframe
-            className="z-30 mt-20 border rounded-lg shadow-2xl bg-gray-850 border-gray-550"
-            width={1200}
-            height={600}
-            onError={(e) => {
-              setShowApp(false);
-            }}
-            src={`${
-              import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
-            }?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
-          />
-        )}
+        <div className="h-[600px] mt-20 w-screen max-w-[100vw] overflow-hidden relative">
+          {showApp && (
+            <iframe
+              className="absolute w-[1200px] h-[600px] z-30  border rounded-lg shadow-2xl inset-center bg-gray-850 border-gray-550"
+              onError={(e) => {
+                setShowApp(false);
+              }}
+              src={`${
+                import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
+              }?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
+            />
+          )}
+        </div>
         <Section
           orientation="right"
           heading="Never leave a file behind."
