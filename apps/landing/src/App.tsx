@@ -76,7 +76,7 @@ function App() {
           className="z-30 mt-20 border rounded-lg shadow-2xl bg-gray-850 border-gray-550"
           width={1200}
           height={600}
-          src="http://localhost:8002?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6"
+          src={`${import.meta.env.VITE_SDWEB_BASE_URL || "http://localhost:8002"}?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
         />
         <Section
           orientation="right"

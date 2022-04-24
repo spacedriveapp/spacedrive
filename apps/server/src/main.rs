@@ -5,7 +5,10 @@ use actix::{
 	Actor, AsyncContext, ContextFutureSpawner, Handler, Message, StreamHandler,
 	WrapFuture,
 };
-use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{
+	get, http::StatusCode, web, App, Error, HttpRequest, HttpResponse, HttpServer,
+	Responder,
+};
 use actix_web_actors::ws;
 use serde::{Deserialize, Serialize};
 
@@ -123,7 +126,18 @@ impl Handler<SocketMessage> for Socket {
 	}
 }
 
-async fn index(
+#[get("/")]
+async fn index() -> impl Responder {
+	format!("Spacedrive Server!")
+}
+
+#[get("/health")]
+async fn healthcheck() -> impl Responder {
+	format!("OK")
+}
+
+#[get("/ws")]
+async fn ws_handler(
 	req: HttpRequest,
 	stream: web::Payload,
 	event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
@@ -141,6 +155,10 @@ async fn index(
 	resp
 }
 
+async fn not_found() -> impl Responder {
+	HttpResponse::build(StatusCode::OK).body("We're past the event horizon...")
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 	let (event_receiver, controller) = setup().await;
@@ -150,7 +168,10 @@ async fn main() -> std::io::Result<()> {
 		App::new()
 			.app_data(event_receiver.clone())
 			.app_data(controller.clone())
-			.route("/ws", web::get().to(index))
+			.service(index)
+			.service(healthcheck)
+			.service(ws_handler)
+			.default_service(web::route().to(not_found))
 	})
 	.bind(("0.0.0.0", 8080))?
 	.run()
