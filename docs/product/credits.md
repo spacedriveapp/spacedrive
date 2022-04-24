@@ -1,6 +1,6 @@
 ## Spacedrive
 
-hello@spacedrive.app`
+hello@spacedrive.app
 
 **Made with ♥️ in Canada**
 
