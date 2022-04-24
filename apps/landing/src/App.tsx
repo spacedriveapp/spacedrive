@@ -22,17 +22,16 @@ function Section(props: SectionProps = { orientation: 'left' }) {
       {props.description && <p className="mt-5 text-xl text-gray-450">{props.description}</p>}
     </div>
   );
-  let children = <div className="p-10 ">{props.children}</div>;
   return (
     <div className="grid grid-cols-1 my-10 lg:grid-cols-2 lg:my-44">
       {props.orientation === 'right' ? (
         <>
           {info}
-          {children}
+          {props.children}
         </>
       ) : (
         <>
-          {children}
+          {props.children}
           {info}
         </>
       )}
@@ -101,9 +100,7 @@ function App() {
               import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
             }?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
           />
-          {!showApp && (
-            <div className="w-[800px] ml-[250px] lg:ml-0 lg:w-[1200px] h-[300px] lg:h-[600px] inset-center absolute z-30 landing-img" />
-          )}
+          <div className="w-[800px] ml-[230px] md:ml-[100px] lg:ml-0 lg:w-[1200px] h-[300px] lg:h-[600px] inset-center absolute z-20 landing-img" />
         </div>
         <Section
           orientation="right"
