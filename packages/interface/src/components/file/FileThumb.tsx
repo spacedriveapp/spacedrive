@@ -9,6 +9,7 @@ import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 export default function FileThumb(props: {
   file: FilePath;
   locationId: number;
+  hasThumbnailOverride: boolean;
   className?: string;
 }) {
   const appPropsContext = useContext(AppPropsContext);
@@ -18,7 +19,7 @@ export default function FileThumb(props: {
     return <Folder className="max-w-[170px]" />;
   }
 
-  if (props.file.has_local_thumbnail && client?.data_path) {
+  if (client?.data_path && (props.file.has_local_thumbnail || props.hasThumbnailOverride)) {
     return (
       <img
         className="mt-0.5 pointer-events-none z-90"
