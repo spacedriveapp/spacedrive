@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "cross-env DEBUG=vite-plugin-pages vite build",
+    "build": "vite build",
     "serve": "vite preview"
   },
   "dependencies": {
