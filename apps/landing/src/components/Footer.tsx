@@ -81,6 +81,9 @@ export function Footer() {
           <FooterLink link="https://github.com/jamiepine/spacedrive/tree/main/docs/developer/contributing.md">
             Contribute
           </FooterLink>
+          <FooterLink link="https://github.com/spacedriveapp#developer-installation-instructions">
+            CodeBase Setup
+          </FooterLink>
           <div className="opacity-50 pointer-events-none">
             <FooterLink link="#">Extensions</FooterLink>
           </div>
