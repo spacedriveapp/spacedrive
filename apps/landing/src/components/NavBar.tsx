@@ -1,6 +1,9 @@
+import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
+import { List } from 'phosphor-react';
 import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
+import { Discord, Github } from '@icons-pack/react-simple-icons';
 
 function NavLink(props: { link?: string; children: string }) {
   return (
@@ -15,7 +18,7 @@ function NavLink(props: { link?: string; children: string }) {
 }
 
 export default function NavBar() {
-  const [isAtTop, setIsAtTop] = useState(true);
+  const [isAtTop, setIsAtTop] = useState(window.pageYOffset < 20);
 
   function onScroll(event: Event) {
     if (window.pageYOffset < 20) setIsAtTop(true);
@@ -55,6 +58,17 @@ export default function NavBar() {
             Changelog
           </NavLink>
           <NavLink link="https://opencollective.com/spacedrive">Sponsor us</NavLink>
+        </div>
+        <Button className="absolute block !p-1 right-3 lg:hidden">
+          <List weight="bold" className="w-6 h-6" />
+        </Button>
+        <div className="flex-row hidden space-x-5 lg:flex">
+          <a href="https://discord.gg/gTaF2Z44f5" target="_blank">
+            <Discord className="text-white" />
+          </a>
+          <a href="https://discord.gg/gTaF2Z44f5" target="_blank">
+            <Github className="text-white" />
+          </a>
         </div>
       </div>
     </div>

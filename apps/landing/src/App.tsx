@@ -46,14 +46,16 @@ function App() {
       <NavBar />
       <div className="container z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden text-white bg-black">
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
-        <h1 className="mb-3 text-5xl font-black leading-tight text-center md:text-6xl mt-36">
+        <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center mt-28 md:text-6xl lg:mt-36">
           {/* One space, all your drives. */}A file explorer from the future.
         </h1>
-        <p className="max-w-4xl mt-1 mb-8 text-lg leading-8 text-center text-gray-450">
+        <p className="max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
           Combine your drives and clouds into one database that you can organize and explore from
           any device.
           <br />
-          Designed for creators, hoarders and the painfully disorganized.
+          <span className="hidden sm:block">
+            Designed for creators, hoarders and the painfully disorganized.
+          </span>
         </p>
         <div className="flex flex-row space-x-4">
           {/* <Button className="px-2">
@@ -79,7 +81,7 @@ function App() {
             </Button>
           </a>
         </div>
-        <p className="mt-3 text-xs text-center text-gray-500">
+        <p className="px-6 mt-3 text-xs text-center text-gray-500">
           Available on macOS (Intel & Apple Silicon), Windows and Linux.
           <br />
           Coming soon to iOS & Android.
