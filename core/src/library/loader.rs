@@ -1,19 +1,14 @@
 use anyhow::Result;
-use thiserror::Error;
 use uuid::Uuid;
 
 use crate::state::client::LibraryState;
 use crate::{db::migrate, prisma::library, state};
 use crate::{prisma, Core};
 
+use super::LibraryError;
+
 pub static LIBRARY_DB_NAME: &str = "library.db";
 pub static DEFAULT_NAME: &str = "My Library";
-
-#[derive(Error, Debug)]
-pub enum LibraryError {
-  #[error("Database error")]
-  DatabaseError(#[from] prisma::QueryError),
-}
 
 pub async fn get(core: &Core) -> Result<library::Data, LibraryError> {
   let config = state::client::get();

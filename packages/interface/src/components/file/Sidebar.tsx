@@ -1,7 +1,7 @@
 import { LockClosedIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
-import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
+import { CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
 import React, { useContext, useEffect, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
@@ -111,9 +111,13 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={Planet} />
           Overview
         </SidebarLink>
-        <SidebarLink to="spaces">
+        <SidebarLink to="content">
           <Icon component={CirclesFour} />
           Content
+        </SidebarLink>
+        <SidebarLink to="debug">
+          <Icon component={Code} />
+          Debug
         </SidebarLink>
         {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
@@ -141,7 +145,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
                     )}
                   >
                     <div className="w-[18px] mr-2 -mt-0.5">
-                      {isActive ? <FolderWhite /> : <Folder />}
+                      <FolderWhite className={clsx(!isActive && 'hidden')} />
+                      <Folder className={clsx(isActive && 'hidden')} />
                     </div>
                     {location.name}
                     <div className="flex-grow" />
