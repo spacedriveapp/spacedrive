@@ -91,11 +91,11 @@ function App() {
         <div className="h-[300px] lg:h-[600px] mt-16 w-screen max-w-[100vw] overflow-hidden relative">
           <iframe
             className={clsx(
-              'absolute w-[1200px] h-[300px] lg:h-[600px]z-30 border rounded-lg shadow-2xl inset-center bg-gray-850 border-gray-550',
+              'absolute w-[1200px] h-[300px] lg:h-[600px] z-30 border rounded-lg shadow-2xl inset-center bg-gray-850 border-gray-550',
               showApp ? 'opacity-100' : 'opacity-0'
             )}
             onLoad={(event) => {
-              // setShowApp(true);
+              setShowApp(true);
             }}
             src={`${
               import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
