@@ -17,7 +17,7 @@ core.register_context(IndexerContext {
     is_dir: false,
     extension: ".photoslibrary",
     must_contain: vec!["database", "originals"],
-    always_ignored: None, 
+    always_ignored: None,
     scan: false, // apple-photos extension takes care of scan
 });
 
@@ -32,6 +32,7 @@ core.register_context(IndexerContext {
 ```
 
 For Apple Photos we need:
+
 - Hidden/Favorite items
 - Live photo support
 - Original creation date

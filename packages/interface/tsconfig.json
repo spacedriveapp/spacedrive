@@ -22,5 +22,5 @@
       "@sd/client": ["../client/src/index.ts"]
     }
   },
-  "include": ["src", "scripts"],
+  "include": ["src", "scripts"]
 }
