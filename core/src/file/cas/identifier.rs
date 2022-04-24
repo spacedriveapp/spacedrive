@@ -36,7 +36,7 @@ impl Job for FileIdentifierJob {
 
     let ctx = tokio::task::spawn_blocking(move || {
       let mut completed: usize = 0;
-      let mut cursor:i32 = 0;
+      let mut cursor: i32 = 1;
 
       while completed < task_count {
 
@@ -74,7 +74,14 @@ impl Job for FileIdentifierJob {
         cursor = last_row.id;
         
         completed += 1;
-        ctx.progress(vec![JobReportUpdate::CompletedTaskCount(completed)]);
+        ctx.progress(vec![
+          JobReportUpdate::CompletedTaskCount(completed),
+          JobReportUpdate::Message(format!(
+            "Processed {} of {} orphan files",
+            completed,
+            task_count
+          )),
+        ]);
       }
       ctx
     }).await?;
