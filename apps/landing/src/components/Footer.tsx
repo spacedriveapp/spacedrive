@@ -1,3 +1,4 @@
+import React from 'react';
 import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 import {
   Twitter,

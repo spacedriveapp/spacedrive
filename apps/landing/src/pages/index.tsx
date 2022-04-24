@@ -1,9 +1,9 @@
+import React from 'react';
 import { Button } from '@sd/ui';
-import { Bubbles } from './Bubbles';
-import './style.scss';
+import { Bubbles } from '../components/Bubbles';
 
-import NavBar from './components/NavBar';
-import { Footer } from './components/Footer';
+import NavBar from '../components/NavBar';
+import { Footer } from '../components/Footer';
 import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
 import { useState } from 'react';
 import clsx from 'clsx';
@@ -39,7 +39,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
   );
 }
 
-function App() {
+function Page() {
   const [showApp, setShowApp] = useState(false);
   return (
     <div>
@@ -129,4 +129,4 @@ function App() {
   );
 }
 
-export default App;
+export default Page;

@@ -14,7 +14,7 @@ import { ExplorerScreen } from './screens/Explorer';
 import { useCoreEvents } from './hooks/useCoreEvents';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
 import { OverviewScreen } from './screens/Overview';
-import { SpacesScreen } from './screens/Spaces';
+import { DebugScreen } from './screens/Debug';
 import { Modal } from './components/layout/Modal';
 import GeneralSettings from './screens/settings/GeneralSettings';
 import SlideUp from './components/transitions/SlideUp';
@@ -27,6 +27,7 @@ import { Button } from '@sd/ui';
 import { CoreEvent } from '@sd/core';
 import clsx from 'clsx';
 import './style.scss';
+import { ContentScreen } from './screens/Content';
 
 const queryClient = new QueryClient();
 
@@ -114,7 +115,8 @@ function Router() {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<RedirectPage to="/overview" />} />
           <Route path="overview" element={<OverviewScreen />} />
-          <Route path="spaces" element={<SpacesScreen />} />
+          <Route path="content" element={<ContentScreen />} />
+          <Route path="debug" element={<DebugScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
           <Route path="explorer/:id" element={<ExplorerScreen />} />
           <Route path="*" element={<NotFound />} />

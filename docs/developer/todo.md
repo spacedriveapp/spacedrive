@@ -3,6 +3,7 @@
 # Todo
 
 - Landing sections
+- Client pool
 - Custom scrollbars
 - Tag files
 - Right click menu
