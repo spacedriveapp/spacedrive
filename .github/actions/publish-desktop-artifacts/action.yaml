@@ -3,6 +3,14 @@ description: Publishes desktop artifacts after Tauri build
 runs:
   using: 'composite'
   steps:
+    - name: Debug
+      if: matrix.platform == 'ubuntu-latest'
+      shell: bash
+      run: |
+        ls ./target/release/bundle/appimage
+        ls ./target/release/bundle/
+        ls ./target/release/
+
     - name: Publish artifacts (Ubuntu)
       if: matrix.platform == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
