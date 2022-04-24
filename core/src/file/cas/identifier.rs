@@ -8,6 +8,7 @@ use crate::{
 use anyhow::Result;
 use futures::executor::block_on;
 use serde::{Deserialize, Serialize};
+use prisma_client_rust::Direction;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FileCreated {
@@ -35,40 +36,44 @@ impl Job for FileIdentifierJob {
 
     let ctx = tokio::task::spawn_blocking(move || {
       let mut completed: usize = 0;
+      let mut cursor:i32 = 0;
 
       while completed < task_count {
-        let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, completed * 100)).unwrap();
-        println!("Processing: {:?}", file_paths);
+
+        let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
+        println!("Processing {:?} orphan files. ({} completed of {})", file_paths.len(), completed, task_count);
+
         let mut rows: Vec<String> = Vec::new();
+        // only rows that have a valid cas_id to be inserted
         for file_path in file_paths.iter() {
-          if file_path.temp_cas_id.is_none() {
-            continue;
+          if file_path.temp_cas_id.is_some() {
+            rows.push(prepare_file_values(file_path));
           }
-          rows.push(prepare_file_values(file_path));
         }
         if rows.len() == 0 {
+          println!("No orphan files to process, finishing...");
           break;
         }
         let insert_files = format!(
           r#"INSERT INTO files (cas_id, size_in_bytes) VALUES {} ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id"#,
           rows.join(", ")
         );
-        println!("{}", insert_files);
+        
         let files: Vec<FileCreated> = block_on(db._query_raw(&insert_files)).unwrap();
-
-        println!("FILES: {:?}", files);
 
         for file in files.iter() {
           let update_file_path = format!(
             r#"UPDATE file_paths SET file_id = "{}" WHERE temp_cas_id = "{}""#,
             file.id, file.cas_id
           );
-          println!("UPDATING PATH: {}", update_file_path);
           block_on(db._execute_raw(&update_file_path)).unwrap();
         }
+
+        let last_row = file_paths.last().unwrap();
+
+        cursor = last_row.id;
         
         completed += 1;
-        println!("completed: {}", completed);
         ctx.progress(vec![JobReportUpdate::CompletedTaskCount(completed)]);
       }
       ctx
@@ -76,9 +81,11 @@ impl Job for FileIdentifierJob {
 
     let remaining = count_orphan_file_paths(&ctx.core_ctx).await?;
 
-    if remaining > 0 {
-      ctx.core_ctx.spawn_job(Box::new(FileIdentifierJob));
-    }
+    println!("Finished with {} files remaining because your code is bad.", remaining);
+
+    // if remaining > 0 {
+    //   ctx.core_ctx.spawn_job(Box::new(FileIdentifierJob));
+    // }
 
     Ok(())
   }
@@ -101,17 +108,18 @@ pub async fn count_orphan_file_paths(ctx: &CoreContext) -> Result<usize, FileErr
 
 pub async fn get_orphan_file_paths(
   ctx: &CoreContext,
-  offset: usize,
+  cursor: i32,
 ) -> Result<Vec<file_path::Data>, FileError> {
   let db = &ctx.database;
-  println!("offset: {}", offset);
+  println!("cursor: {:?}", cursor);
   let files = db
     .file_path()
     .find_many(vec![
       file_path::file_id::equals(None),
       file_path::is_dir::equals(false),
     ])
-    .skip(offset)
+    .order_by(file_path::id::order(Direction::Asc))
+    .cursor(file_path::id::cursor(cursor))
     .take(100)
     .exec()
     .await?;
