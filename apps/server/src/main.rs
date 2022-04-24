@@ -52,7 +52,43 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 			Ok(ws::Message::Text(text)) => {
 				let msg: SocketMessage = serde_json::from_str(&text).unwrap();
 
-				ctx.notify(msg);
+				let core = self.core.clone();
+
+				let recipient = ctx.address().recipient();
+
+				let fut = async move {
+					match msg.payload {
+						SocketMessagePayload::Query(query) => {
+							match core.query(query).await {
+								Ok(response) => recipient.do_send(SocketResponse {
+									id: msg.id.clone(),
+									payload: SocketResponsePayload::Query(response),
+								}),
+								Err(err) => {
+									// println!("query error: {:?}", err);
+									// Err(err.to_string())
+								},
+							};
+						},
+						SocketMessagePayload::Command(command) => {
+							match core.command(command).await {
+								Ok(response) => recipient.do_send(SocketResponse {
+									id: msg.id.clone(),
+									payload: SocketResponsePayload::Query(response),
+								}),
+								Err(err) => {
+									// println!("command error: {:?}", err);
+									// Err(err.to_string())
+								},
+							};
+						},
+						_ => {},
+					}
+				};
+
+				fut.into_actor(self).spawn(ctx);
+
+				()
 			},
 			_ => (),
 		}
@@ -79,50 +115,6 @@ impl Handler<SocketResponse> for Socket {
 		let string = serde_json::to_string(&msg).unwrap();
 		println!("sending response: {string}");
 		ctx.text(string);
-	}
-}
-
-impl Handler<SocketMessage> for Socket {
-	type Result = ();
-
-	fn handle(&mut self, msg: SocketMessage, ctx: &mut Self::Context) -> Self::Result {
-		let core = self.core.clone();
-
-		let recipient = ctx.address().recipient();
-
-		let fut = async move {
-			match msg.payload {
-				SocketMessagePayload::Query(query) => {
-					match core.query(query).await {
-						Ok(response) => recipient.do_send(SocketResponse {
-							id: msg.id.clone(),
-							payload: SocketResponsePayload::Query(response),
-						}),
-						Err(err) => {
-							// println!("query error: {:?}", err);
-							// Err(err.to_string())
-						},
-					};
-				},
-				SocketMessagePayload::Command(command) => {
-					match core.command(command).await {
-						Ok(response) => recipient.do_send(SocketResponse {
-							id: msg.id.clone(),
-							payload: SocketResponsePayload::Query(response),
-						}),
-						Err(err) => {
-							// println!("command error: {:?}", err);
-							// Err(err.to_string())
-						},
-					};
-				},
-				_ => {},
-			}
-		};
-
-		fut.into_actor(self).spawn(ctx);
-
-		()
 	}
 }
 

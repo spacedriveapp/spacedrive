@@ -1,9 +1,9 @@
 import { Button } from '@sd/ui';
-import { Bubbles } from './Bubbles';
+import { Bubbles } from '../../components/Bubbles';
 import './style.scss';
 
-import NavBar from './components/NavBar';
-import { Footer } from './components/Footer';
+import NavBar from '../../components/NavBar';
+import { Footer } from '../../components/Footer';
 import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
 import { useState } from 'react';
 import clsx from 'clsx';

@@ -23,6 +23,12 @@
       "@sd/client": ["../../packages/client/src/index.ts"],
     }
   },
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
+  },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
