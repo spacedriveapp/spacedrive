@@ -3,9 +3,9 @@ name: Update Org README
 on:
   push:
     branches:
-    - main
+      - main
     paths:
-    - README.md
+      - README.md
   workflow_dispatch:
 
 jobs:
