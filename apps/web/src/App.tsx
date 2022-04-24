@@ -75,8 +75,10 @@ function App() {
         convertFileSrc={function (url: string): string {
           return url;
         }}
-        openDialog={function (options: { directory?: boolean }): Promise<string | string[]> {
-          return Promise.resolve('');
+        openDialog={function (options: {
+          directory?: boolean | undefined;
+        }): Promise<string | string[]> {
+          return Promise.resolve([]);
         }}
       />
     </div>

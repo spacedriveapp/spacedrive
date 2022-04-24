@@ -137,7 +137,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
       <div
         ref={tableContainer}
         style={{ marginTop: -44 }}
-        className="w-full px-2 bg-white cursor-default table-container dark:bg-gray-650"
+        className="w-full pl-2 bg-white cursor-default table-container dark:bg-gray-650"
       >
         <LocationContext.Provider
           value={{ location_id: props.location_id, data_path: client?.data_path as string }}
@@ -150,7 +150,8 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
             itemContent={Row}
             components={{ Header, Footer: () => <div className="w-full " /> }}
             increaseViewportBy={{ top: 400, bottom: 200 }}
-            className="outline-none"
+            className="outline-none explorer-scroll"
+            // useWindowScroll
           />
         </LocationContext.Provider>
       </div>
@@ -184,7 +185,7 @@ const RenderRow: React.FC<{
           }
         }}
         className={clsx(
-          'table-body-row flex flex-row rounded-lg border-2',
+          'table-body-row mr-2 flex flex-row rounded-lg border-2',
           isActive ? 'border-primary-500' : 'border-transparent',
           rowIndex % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
         )}
@@ -220,14 +221,18 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath
   const location = useContext(LocationContext);
   const { newThumbnails } = useExplorerState();
 
-  const hasThumbnail = !!row?.has_local_thumbnail || !!newThumbnails[row?.temp_cas_id ?? ''];
+  const hasNewThumbnail = !!newThumbnails[row?.temp_cas_id ?? ''];
 
   switch (colKey) {
     case 'name':
       return (
         <div className="flex flex-row items-center overflow-hidden">
           <div className="w-6 h-6 mr-3">
-            <FileThumb file={row} locationId={location.location_id} />
+            <FileThumb
+              hasThumbnailOverride={hasNewThumbnail}
+              file={row}
+              locationId={location.location_id}
+            />
           </div>
           {/* {colKey == 'name' &&
             (() => {

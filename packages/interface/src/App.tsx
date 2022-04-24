@@ -26,6 +26,7 @@ import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 import { Button } from '@sd/ui';
 import { CoreEvent } from '@sd/core';
 import clsx from 'clsx';
+import './style.scss';
 
 const queryClient = new QueryClient();
 
@@ -183,9 +184,7 @@ export default function App(props: AppProps) {
     window.ReactQueryClient = queryClient;
   }
 
-  useEffect(() => {
-    setTransport(props.transport);
-  }, [props.transport]);
+  setTransport(props.transport);
 
   console.log('App props', props);
 

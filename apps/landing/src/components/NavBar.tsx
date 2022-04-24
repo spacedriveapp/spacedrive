@@ -2,9 +2,13 @@ import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
 import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 
-function NavLink(props: { children: string }) {
+function NavLink(props: { link?: string; children: string }) {
   return (
-    <a className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50">
+    <a
+      href={props.link ?? '#'}
+      target="_blank"
+      className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50"
+    >
       {props.children}
     </a>
   );
@@ -30,20 +34,25 @@ export default function NavBar() {
         isAtTop ? 'border-gray-550 bg-gray-750 bg-opacity-80' : 'bg-transparent border-transparent'
       )}
     >
-      <div className="container flex items-center h-full m-auto ">
-        <AppLogo className="z-30 w-8 h-8 mr-3" />
-        <h3 className="text-xl font-bold text-white">
-          Spacedrive
-          <span className="ml-2 text-xs text-gray-400 uppercase">BETA</span>
-        </h3>
+      <div className="container relative flex items-center h-full px-5 m-auto">
+        <div className="absolute flex flex-row items-center">
+          <AppLogo className="z-30 w-8 h-8 mr-3" />
+          <h3 className="text-xl font-bold text-white">
+            Spacedrive
+            <span className="ml-2 text-xs text-gray-400 uppercase">BETA</span>
+          </h3>
+        </div>
 
-        <div className="space-x-4 text-white mx-28">
-          <NavLink>Product</NavLink>
-          <NavLink>Documentation</NavLink>
-          <NavLink>Support</NavLink>
-          <NavLink>FAQ</NavLink>
-          <NavLink>Changelog</NavLink>
-          <NavLink>Blog</NavLink>
+        <div className="hidden m-auto space-x-4 text-white lg:block ">
+          <NavLink link="https://github.com/spacedriveapp/#features">Features</NavLink>
+          <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">Docs</NavLink>
+          <NavLink link="https://github.com/spacedriveapp/spacedrive/blob/main/docs/product/faq.md">
+            FAQ
+          </NavLink>
+          <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs/changelog">
+            Changelog
+          </NavLink>
+          <NavLink link="https://opencollective.com/spacedrive">Sponsor us</NavLink>
         </div>
       </div>
     </div>
