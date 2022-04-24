@@ -59,7 +59,7 @@ export default function NavBar() {
           </NavLink>
           <NavLink link="https://opencollective.com/spacedrive">Sponsor us</NavLink>
         </div>
-        <Button className="absolute block !p-1 right-3 lg:hidden">
+        <Button className="absolute block !p-1 right-3  lg:hidden">
           <List weight="bold" className="w-6 h-6" />
         </Button>
         <div className="flex-row hidden space-x-5 lg:flex">

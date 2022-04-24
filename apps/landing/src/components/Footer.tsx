@@ -18,7 +18,7 @@ function FooterLink(props: { children: string; link: string }) {
 
 export function Footer() {
   return (
-    <footer className="z-50 w-screen border-gray-500 border-t-1">
+    <footer className="z-50 w-screen pt-3 border-t border-gray-550 bg-gray-850">
       <div className="container grid grid-cols-2 gap-6 p-8 pt-10 pb-20 m-auto text-white min-h-64 sm:grid-cols-2 lg:grid-cols-6">
         <div className="col-span-1">
           <AppLogo className="w-10 h-10 mb-5" />

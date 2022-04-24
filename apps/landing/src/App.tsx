@@ -44,7 +44,7 @@ function App() {
   return (
     <div>
       <NavBar />
-      <div className="container z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden text-white bg-black">
+      <div className="container z-10 flex flex-col items-center px-4 mx-auto text-white bg-black overflow-x-clip">
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
         <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center mt-28 md:text-6xl lg:mt-36">
           {/* One space, all your drives. */}A file explorer from the future.
