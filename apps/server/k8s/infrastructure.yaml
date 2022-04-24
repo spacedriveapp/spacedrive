@@ -23,9 +23,9 @@ metadata:
   name: spacedrive-ns-full
   namespace: spacedrive
 rules:
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["get", "patch"]
+  - apiGroups: ['apps']
+    resources: ['deployments']
+    verbs: ['get', 'patch']
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -33,9 +33,9 @@ metadata:
   name: spacedrive-ci-rb
   namespace: spacedrive
 subjects:
-- kind: ServiceAccount
-  name: spacedrive-ci
-  namespace: spacedrive
+  - kind: ServiceAccount
+    name: spacedrive-ci
+    namespace: spacedrive
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
