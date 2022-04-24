@@ -5,6 +5,7 @@ import './index.css';
 import NavBar from './components/NavBar';
 import { Footer } from './components/Footer';
 import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
+import { useState } from 'react';
 
 interface SectionProps {
   orientation: 'left' | 'right';
@@ -39,17 +40,18 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 }
 
 function App() {
+  const [showApp, setShowApp] = useState(true);
   return (
     <div>
       <NavBar />
       <div className="container z-10 flex flex-col items-center px-4 mx-auto text-white bg-black">
         {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
         <h1 className="text-4xl font-black leading-snug text-center md:text-6xl mt-36">
-          {/* One space, all your drives. */}
-          The file explorer of the future.
+          {/* One space, all your drives. */}A file explorer from the future.
         </h1>
-        <p className="max-w-3xl mt-1 mb-8 text-lg text-center text-gray-450">
-          Manage files across all devices, drives and clouds from one place.
+        <p className="max-w-4xl mt-1 mb-8 text-lg text-center text-gray-450">
+          Combine your drives and clouds into one database that you can organize and explore from
+          any device.
           <br />
           Designed for creators, hoarders and the painfully disorganized.
         </p>
@@ -83,24 +85,25 @@ function App() {
           Coming soon to iOS & Android.
         </p>
 
-        <iframe
-          className="z-30 mt-20 border rounded-lg shadow-2xl bg-gray-850 border-gray-550"
-          width={1200}
-          height={600}
-          src="http://localhost:8002?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6"
-        />
+        {showApp && (
+          <iframe
+            className="z-30 mt-20 border rounded-lg shadow-2xl bg-gray-850 border-gray-550"
+            width={1200}
+            height={600}
+            onError={(e) => {
+              setShowApp(false);
+            }}
+            src="http://localhost:8002?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6"
+          />
+        )}
         <Section
           orientation="right"
-          heading="One Big Catalogue"
+          heading="Never leave a file behind."
           description={
             <>
-              Using content addressable storage in a virtual distributed filesystem, Spacedrive
-              securely combines the storage capacity and processing power of your devices into one.
-              <br />
-              <br />
-              For independent creatives, hoarders and those that want to own their digital
-              footprint. Spacedrive provides a file management experience like no other, and its
-              completely free.
+              Spacedrive accounts for every file you own, uniquely fingerprinting and extracting
+              metadata so you can sort, tag, backup and share files without limitations of any one
+              cloud provider.
               <br />
               <br />
               <a
@@ -113,18 +116,6 @@ function App() {
             </>
           }
         />
-        {/* <Section
-          orientation="left"
-          heading="It's one big catalogue"
-          description="Using content addressable storage in a virtual distributed filesystem, Spacedrive securely
-    combines the storage capacity and processing power of your devices into one."
-        />
-        <Section
-          orientation="right"
-          heading="It's one big catalogue"
-          description="Using content addressable storage in a virtual distributed filesystem, Spacedrive securely
-    combines the storage capacity and processing power of your devices into one."
-        /> */}
         <Footer />
       </div>
       <Bubbles />
