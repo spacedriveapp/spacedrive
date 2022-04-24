@@ -1,6 +1,6 @@
 import { Button } from '@sd/ui';
 import { Bubbles } from './Bubbles';
-import './index.css';
+import './style.scss';
 
 import NavBar from './components/NavBar';
 import { Footer } from './components/Footer';

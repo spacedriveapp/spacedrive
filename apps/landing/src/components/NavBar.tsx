@@ -68,7 +68,7 @@ export default function NavBar() {
           <a href="https://discord.gg/gTaF2Z44f5" target="_blank">
             <Discord className="text-white" />
           </a>
-          <a href="https://discord.gg/gTaF2Z44f5" target="_blank">
+          <a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
             <Github className="text-white" />
           </a>
         </div>
