@@ -19,3 +19,9 @@
   left: 50%;
   transform: translate(-50%, -50%);
 }
+
+.landing-img {
+  background-image: url('app.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+}
