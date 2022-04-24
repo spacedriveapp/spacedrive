@@ -87,7 +87,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+        uses: Brendonovich/rust-cache@v1
         with:
           sharedKey: all-${{ matrix.platform }}
 
@@ -128,7 +128,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+        uses: Brendonovich/rust-cache@v1
         with:
           sharedKey: all-${{ matrix.platform }}
 
@@ -176,7 +176,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@cb2cf0cc7c5198d3364b9630e2c3d457f160790c
+        uses: Brendonovich/rust-cache@v1
         with:
           sharedKey: all-${{ matrix.platform }}
       
