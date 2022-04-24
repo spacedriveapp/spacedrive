@@ -2,3 +2,7 @@ a,
 button {
   @apply cursor-default;
 }
+
+::-webkit-scrollbar {
+  display: none;
+}
