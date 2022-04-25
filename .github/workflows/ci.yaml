@@ -101,6 +101,9 @@ jobs:
         with:
           command: build
           args: --release
+      
+      - name: Build desktop
+        run: cargo build -p spacedrive --release
 
   package-desktop:
     name: Package desktop (${{ matrix.platform }})
