@@ -97,8 +97,8 @@ jobs:
         working-directory: core
         run: cargo run -p prisma-cli --release -- generate
 
-      - name: Build Rust
-        run: cargo build --release
+      - name: Build Core
+        run: cargo build -p core --release
 
   package-desktop:
     name: Package desktop (${{ matrix.platform }})
