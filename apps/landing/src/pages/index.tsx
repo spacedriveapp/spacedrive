@@ -60,7 +60,7 @@ function Page() {
           <WindowsLogo className="" fill="white" />
         </Button> */}
 
-        <Button
+        {/* <Button
           onClick={() =>
             alert(
               "You're here early! This is the only button on this page that does not work, I promise. Release build coming very soon—follow @spacedriveapp for updates."
@@ -70,7 +70,7 @@ function Page() {
           variant="primary"
         >
           Download
-        </Button>
+        </Button> */}
 
         <a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
           <Button className="cursor-pointer" variant="gray">
