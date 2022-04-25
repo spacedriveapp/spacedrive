@@ -100,15 +100,6 @@ jobs:
       - name: Build Rust
         run: cargo build --release
 
-      - name: Build Rust
-        run: cargo build --release
-      
-      - name: Build desktop
-        run: cargo build -p spacedrive --release
-
-      - name: Build desktop
-        run: cargo build -p spacedrive --release
-
   package-desktop:
     name: Package desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
@@ -153,6 +144,10 @@ jobs:
 
       - name: Build frontend
         run: pnpm desktop build
+
+      - name: Generate Prisma client
+        working-directory: core
+        run: cargo run -p prisma-cli --release -- generate
 
       - name: Build desktop
         run: cargo build -p spacedrive --release
