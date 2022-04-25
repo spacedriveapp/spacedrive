@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^1.5.0",
+    "@heroicons/react": "^1.0.6",
     "clsx": "^1.1.1",
     "postcss": "^8.4.12",
     "react": "^18.0.0",
