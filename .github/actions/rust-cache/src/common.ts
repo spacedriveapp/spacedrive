@@ -222,20 +222,20 @@ async function cleanProfileTarget(packages: Packages, profile: string) {
   }
 
   const keepPkg = new Set(packages.map((p) => p.name));
-  await rmExcept(path.join(targetDir, profile, "./build"), keepPkg);
+  // await rmExcept(path.join(targetDir, profile, "./build"), keepPkg);
   await rmExcept(path.join(targetDir, profile, "./.fingerprint"), keepPkg);
 
-  const keepDeps = new Set(
-    packages.flatMap((p) => {
-      const names = [];
-      for (const n of [p.name, ...p.targets]) {
-        const name = n.replace(/-/g, "_");
-        names.push(name, `lib${name}`);
-      }
-      return names;
-    })
-  );
-  await rmExcept(path.join(targetDir, profile, "./deps"), keepDeps);
+  // const keepDeps = new Set(
+  //   packages.flatMap((p) => {
+  //     const names = [];
+  //     for (const n of [p.name, ...p.targets]) {
+  //       const name = n.replace(/-/g, "_");
+  //       names.push(name, `lib${name}`);
+  //     }
+  //     return names;
+  //   })
+  // );
+  // await rmExcept(path.join(targetDir, profile, "./deps"), keepDeps);
 }
 
 const oneWeek = 7 * 24 * 3600 * 1000;
