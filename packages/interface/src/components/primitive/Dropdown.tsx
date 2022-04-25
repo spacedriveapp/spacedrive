@@ -25,7 +25,7 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
         <Menu.Button as="div" className="flex-1 outline-none">
           <Button size="sm" {...props.buttonProps}>
             {props.buttonIcon}
-            {props.buttonText}
+            <span className="w-32 truncate"> {props.buttonText}</span>
             <div className="flex-grow" />
             <ChevronDownIcon
               className="w-5 h-5 ml-2 -mr-1 text-violet-200 hover:text-violet-100 "
@@ -57,7 +57,7 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
                           })}
                         />
                       )}
-                      {button.name}
+                      <span className="text-left">{button.name}</span>
                     </button>
                   )}
                 </Menu.Item>

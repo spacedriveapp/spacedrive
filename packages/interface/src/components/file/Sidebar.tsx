@@ -78,19 +78,20 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <MacOSTrafficLights /> <div className="mt-6" />
         </>
       ) : null}
+
       <Dropdown
         buttonProps={{
           justifyLeft: true,
-          className: `flex w-full mb-1 mt-1 shadow-xs rounded flex-shrink-0  
-            !bg-gray-50 
-            border-gray-150 
-            hover:!bg-gray-1000 
-            
-            dark:!bg-gray-550 
-            dark:hover:!bg-gray-550
-
-            dark:!border-gray-550 
-            dark:hover:!border-gray-500`,
+          className: `flex w-full max-w-full mb-1 mt-1 shadow-xs rounded 
+          !bg-gray-50 
+          border-gray-150 
+          hover:!bg-gray-1000 
+          
+          dark:!bg-gray-550 
+          dark:hover:!bg-gray-550
+          
+          dark:!border-gray-550 
+          dark:hover:!border-gray-500`,
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
