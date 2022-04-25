@@ -45,7 +45,7 @@ function Page() {
     <>
       <div className="mt-28 lg:mt-36" />
       <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl ">
-        {/* One space, all your drives. */}A file explorer from the future.
+        A file explorer from the future.
       </h1>
       <p className="max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
         Combine your drives and clouds into one database that you can organize and explore from any
@@ -80,9 +80,9 @@ function Page() {
         </a>
       </div>
       <p className="px-6 mt-3 text-xs text-center text-gray-500">
-        Available on macOS (Intel & Apple Silicon), Windows and Linux.
+        Coming soon on macOS (Intel & Apple Silicon), Windows and Linux.
         <br />
-        Coming soon to iOS & Android.
+        ...and shortly after to iOS & Android.
       </p>
 
       <div className="h-[300px] lg:h-[600px] mt-16 w-screen max-w-[100vw] relative overflow-hidden relative">

@@ -44,7 +44,7 @@ export default function NavBar() {
           <AppLogo className="z-30 w-8 h-8 mr-3" />
           <h3 className="text-xl font-bold text-white">
             Spacedrive
-            <span className="ml-2 text-xs text-gray-400 uppercase">BETA</span>
+            {/* <span className="ml-2 text-xs text-gray-400 uppercase">ALPHA</span> */}
           </h3>
         </a>
 
