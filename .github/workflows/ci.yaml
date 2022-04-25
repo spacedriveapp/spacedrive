@@ -98,7 +98,7 @@ jobs:
         run: cargo run -p prisma-cli --release -- generate
 
       - name: Build Core
-        run: cargo build -p core --release
+        run: cargo build -p sdcore --release
 
   package-desktop:
     name: Package desktop (${{ matrix.platform }})
