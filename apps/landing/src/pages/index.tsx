@@ -43,8 +43,8 @@ function Page() {
   const [showApp, setShowApp] = useState(false);
   return (
     <>
-      {/* <AppLogo className="z-30 w-40 h-40 mt-32" /> */}
-      <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center mt-28 md:text-6xl lg:mt-36">
+      <div className="mt-28 lg:mt-36" />
+      <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl ">
         {/* One space, all your drives. */}A file explorer from the future.
       </h1>
       <p className="max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
@@ -66,7 +66,7 @@ function Page() {
               "You're here early! This is the only button on this page that does not work, I promise. Release build coming very soon—follow @spacedriveapp for updates."
             )
           }
-          className="cursor-pointer"
+          className="opacity-50 cursor-not-allowed select-none"
           variant="primary"
         >
           Download
