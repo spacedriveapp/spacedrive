@@ -1,7 +1,7 @@
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
-import { List } from 'phosphor-react';
+import { Link, List } from 'phosphor-react';
 import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 import { Discord, Github } from '@icons-pack/react-simple-icons';
 
@@ -9,7 +9,7 @@ function NavLink(props: { link?: string; children: string }) {
   return (
     <a
       href={props.link ?? '#'}
-      target="_blank"
+      target={props.link?.startsWith('http') ? '_blank' : undefined}
       className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50"
     >
       {props.children}
@@ -40,23 +40,20 @@ export default function NavBar() {
       )}
     >
       <div className="container relative flex items-center h-full px-5 m-auto">
-        <div className="absolute flex flex-row items-center">
+        <a href="/" className="absolute flex flex-row items-center">
           <AppLogo className="z-30 w-8 h-8 mr-3" />
           <h3 className="text-xl font-bold text-white">
             Spacedrive
             <span className="ml-2 text-xs text-gray-400 uppercase">BETA</span>
           </h3>
-        </div>
+        </a>
 
         <div className="hidden m-auto space-x-4 text-white lg:block ">
-          <NavLink link="https://github.com/spacedriveapp/#features">Features</NavLink>
-          <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">Docs</NavLink>
-          <NavLink link="https://github.com/spacedriveapp/spacedrive/blob/main/docs/product/faq.md">
-            FAQ
-          </NavLink>
-          <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs/changelog">
-            Changelog
-          </NavLink>
+          <NavLink link="/roadmap">Roadmap</NavLink>
+          {/* <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">Docs</NavLink> */}
+          <NavLink link="/faq">FAQ</NavLink>
+          <NavLink link="/change-log">Changelog</NavLink>
+          <NavLink link="/privacy">Privacy</NavLink>
           <NavLink link="https://opencollective.com/spacedrive">Sponsor us</NavLink>
         </div>
         <a href="#footer">

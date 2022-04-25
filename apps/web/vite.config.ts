@@ -9,7 +9,6 @@ export default defineConfig({
     port: 8002
   },
   plugins: [
-    //@ts-ignore - no idea why one moment this errors, next its fine. all on same version.
     react({
       jsxRuntime: 'classic'
     }),

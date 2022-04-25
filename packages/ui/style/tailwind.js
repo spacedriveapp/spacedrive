@@ -3,12 +3,12 @@
 // const defaultTheme = require('tailwindcss/defaultTheme');
 
 module.exports = function (app, options) {
-  return {
+  let config = {
     content: [
       !options?.ignorePackages && '../../packages/*/src/**/*.{js,ts,jsx,tsx,html}',
       `../../apps/${app}/src/**/*.{js,ts,jsx,tsx,html}`
     ],
-    darkMode: 'media',
+    darkMode: app == 'landing' ? 'class' : 'media',
     mode: 'jit',
     theme: {
       fontSize: {
@@ -110,4 +110,8 @@ module.exports = function (app, options) {
     },
     plugins: []
   };
+  if (app === 'landing') {
+    config.plugins.push(require('@tailwindcss/typography'));
+  }
+  return config;
 };

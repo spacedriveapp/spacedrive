@@ -2,15 +2,25 @@ import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom';
 import { BrowserRouter as Router, useRoutes } from 'react-router-dom';
 
-import './style.scss';
-import '@sd/ui/style';
 import routes from '~react-pages';
+import NavBar from './components/NavBar';
+import { Footer } from './components/Footer';
 
-// eslint-disable-next-line no-console
-console.log(routes);
+import '@sd/ui/style';
+import './style.scss';
 
 function App() {
-  return <Suspense fallback={<p>Loading...</p>}>{useRoutes(routes)}</Suspense>;
+  return (
+    <Suspense fallback={<p>Loading...</p>}>
+      <div className="dark:bg-black dark:text-white ">
+        <NavBar />
+        <div className="container z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden sm:overflow-x-visible ">
+          {useRoutes(routes)}
+          <Footer />
+        </div>
+      </div>
+    </Suspense>
+  );
 }
 
 ReactDOM.render(

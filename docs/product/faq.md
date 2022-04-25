@@ -1,10 +1,12 @@
+# Frequently Asked Questions
+
 ## What is it?
 
-Spacedrive is a cross platform app that allows you to manage files across all devices, drives and clouds at once. Check out the [readme](https://github.com/spacedriveapp) for more detailed info.
+Spacedrive is a decentralized cross platform app that allows you to manage files across all devices, drives and clouds at once.
 
 ## How does it work?
 
-Using a "Virtual Distributed Filesystem" (VDFS), in other words; a decentralized database that emulates a filesystem. It scans real filesystems, creating a master database that is synchronized in realtime between your devices running Spacedrive.
+Using a "Virtual Distributed Filesystem" (VDFS), in other words; a decentralized database that emulates a filesystem. It indexes hardware filesystems to create a master database that is synchronized in realtime between your devices running Spacedrive.
 
 ## Can I download it yet?
 
@@ -20,7 +22,7 @@ In the same way we use finance apps to consolidate our books, Spacedrive consoli
 
 ## Where are my files stored?
 
-Exactly where they already are, Spacedrive simply indexes your existing storage locations, extracting metadata and fingerprinting the byte data. However, it will have the power to transfer files at your command.
+Exactly where they already are, Spacedrive simply indexes your existing storage locations, extracting metadata and fingerprinting the byte data. Though it can move files around under your command.
 
 ## What makes this different to Dropbox or Google Drive?
 
@@ -46,8 +48,8 @@ During the early development and beta stages it will rely on donations via Twitc
 
 ## What is the stack?
 
-We call it "PRRTT"; [Prisma](), [Rust](), [React](), [TypeScript]() and [Tauri]().
+We call it "PRRTT"; [Prisma](https://prisma.io), [Rust](https://rustlang.org), [React](https://reactjs.org), [TypeScript](https://typescriptlang.org) and [Tauri](https://tauri.studio).
 
 ## Why Rust?
 
-Rust is a powerful, fast, memory safe, cross-platform, low-level language and thanks to Tauri, the perfect tool to power a desktop application.
+Rust is a powerful, fast, memory safe, cross-platform, low-level language and thanks to [Tauri](https://tauri.studio)—its the perfect tool to power a desktop application.
