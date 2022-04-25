@@ -100,11 +100,11 @@ jobs:
       - name: Build Rust
         run: cargo build --release
 
-      - name: Build desktop
-        run: cargo build -p spacedrive --release
-
       - name: Build Rust
         run: cargo build --release
+      
+      - name: Build desktop
+        run: cargo build -p spacedrive --release
 
       - name: Build desktop
         run: cargo build -p spacedrive --release
