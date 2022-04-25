@@ -1,8 +1,6 @@
-use crate::{prisma::library_statistics, state::client, CoreContext};
+use crate::prisma::library_statistics;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-
-use super::LibraryError;
 
 #[derive(Debug, Serialize, Deserialize, TS, Clone)]
 #[ts(export)]
@@ -44,24 +42,24 @@ impl Default for Statistics {
   }
 }
 
-impl Statistics {
-  pub async fn recalculate(ctx: &CoreContext) -> Result<(), LibraryError> {
-    let config = client::get();
-    let db = &ctx.database;
+// impl Statistics {
+//   pub async fn recalculate(ctx: &CoreContext) -> Result<(), LibraryError> {
+//     let config = client::get();
+//     let db = &ctx.database;
 
-    let library_data = config.get_current_library();
+//     let library_data = config.get_current_library();
 
-    let library_statistics_db = match db
-      .library_statistics()
-      .find_unique(library_statistics::id::equals(library_data.library_id))
-      .exec()
-      .await?
-    {
-      Some(library_statistics_db) => library_statistics_db.into(),
-      // create the default values if database has no entry
-      None => Statistics::default(),
-    };
+//     let library_statistics_db = match db
+//       .library_statistics()
+//       .find_unique(library_statistics::id::equals(library_data.library_id))
+//       .exec()
+//       .await?
+//     {
+//       Some(library_statistics_db) => library_statistics_db.into(),
+//       // create the default values if database has no entry
+//       None => Statistics::default(),
+//     };
 
-    Ok(())
-  }
-}
+//     Ok(())
+//   }
+// }

@@ -5,7 +5,7 @@
   },
   "build": {
     "distDir": "../dist",
-    "devPath": "http://localhost:8085",
+    "devPath": "http://localhost:8001",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },

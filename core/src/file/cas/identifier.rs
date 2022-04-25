@@ -2,7 +2,7 @@ use crate::job::jobs::JobReportUpdate;
 use crate::{
   file::FileError,
   job::{jobs::Job, worker::WorkerContext},
-  prisma::{self, file_path},
+  prisma::{file_path},
   CoreContext,
 };
 use anyhow::Result;
