@@ -14,9 +14,11 @@ use serde::{Deserialize, Serialize};
 
 use tokio::sync::mpsc;
 
+const DATA_DIR_ENV_VAR: &'static str = "DATA_DIR";
+
 /// Define HTTP actor
 struct Socket {
-	event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
+	_event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
 	core: web::Data<CoreController>,
 }
 
@@ -65,7 +67,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 									payload: SocketResponsePayload::Query(response),
 								}),
 								Err(err) => {
-									// println!("query error: {:?}", err);
+									println!("query error: {:?}", err);
 									// Err(err.to_string())
 								},
 							};
@@ -77,12 +79,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 									payload: SocketResponsePayload::Query(response),
 								}),
 								Err(err) => {
-									// println!("command error: {:?}", err);
+									println!("command error: {:?}", err);
 									// Err(err.to_string())
 								},
 							};
 						},
-						_ => {},
 					}
 				};
 
@@ -113,7 +114,6 @@ impl Handler<SocketResponse> for Socket {
 
 	fn handle(&mut self, msg: SocketResponse, ctx: &mut Self::Context) {
 		let string = serde_json::to_string(&msg).unwrap();
-		println!("sending response: {string}");
 		ctx.text(string);
 	}
 }
@@ -137,14 +137,19 @@ async fn ws_handler(
 ) -> Result<HttpResponse, Error> {
 	let resp = ws::start(
 		Socket {
-			event_receiver,
+			_event_receiver: event_receiver,
 			core: controller,
 		},
 		&req,
 		stream,
 	);
-	println!("{:?}", resp);
 	resp
+}
+
+#[get("/file/{file:.*}")]
+async fn file() -> impl Responder {
+	// TODO
+	format!("OK")
 }
 
 async fn not_found() -> impl Responder {
@@ -163,6 +168,7 @@ async fn main() -> std::io::Result<()> {
 			.service(index)
 			.service(healthcheck)
 			.service(ws_handler)
+			.service(file)
 			.default_service(web::route().to(not_found))
 	})
 	.bind(("0.0.0.0", 8080))?
@@ -174,15 +180,23 @@ async fn setup() -> (
 	web::Data<mpsc::Receiver<CoreEvent>>,
 	web::Data<CoreController>,
 ) {
-	let data_dir_var = "DATA_DIR";
-	let data_dir = match env::var(data_dir_var) {
-		Ok(path) => path,
-		Err(e) => panic!("${} is not set ({})", data_dir_var, e),
+	let data_dir_path = match env::var(DATA_DIR_ENV_VAR) {
+		Ok(path) => Path::new(&path).to_path_buf(),
+		Err(_e) => {
+			#[cfg(not(debug_assertions))]
+			{
+				panic!("${} is not set ({})", DATA_DIR_ENV_VAR, _e)
+			}
+
+			std::env::current_dir()
+				.expect(
+					"Unable to get your currrent directory. Maybe try setting $DATA_DIR?",
+				)
+				.join("sdserver_data")
+		},
 	};
 
-	let data_dir_path = Path::new(&data_dir);
-
-	let (mut core, event_receiver) = Core::new(data_dir_path.to_path_buf()).await;
+	let (mut core, event_receiver) = Core::new(data_dir_path).await;
 
 	core.initializer().await;
 

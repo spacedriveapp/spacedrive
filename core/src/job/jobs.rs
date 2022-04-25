@@ -173,8 +173,8 @@ pub struct JobReportCreate {}
 impl Replicate for JobReport {
   type Create = JobReportCreate;
 
-  async fn create(_data: Self::Create, ctx: SyncContext) {}
-  async fn delete(ctx: SyncContext) {}
+  async fn create(_data: Self::Create, _ctx: SyncContext) {}
+  async fn delete(_ctx: SyncContext) {}
 }
 
 #[repr(i32)]
