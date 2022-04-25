@@ -4,7 +4,3 @@ name = "rust-cache"
 version = "0.1.0"
 authors = ["Arpad Borsos <arpad.borsos@googlemail.com>"]
 edition = "2018"
-
-[dev-dependencies]
-reqwest = "0.11.0"
-actix-web = { git = "https://github.com/actix/actix-web.git", rev = "bd26083f333ecf63e3eb444748250364ce124f5e" }

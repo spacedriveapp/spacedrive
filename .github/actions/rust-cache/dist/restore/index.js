@@ -59893,7 +59893,7 @@ async function run() {
             cacheOnFailure = "false";
         }
         core.exportVariable("CACHE_ON_FAILURE", cacheOnFailure);
-        core.exportVariable("CARGO_INCREMENTAL", 0);
+        // core.exportVariable("CARGO_INCREMENTAL", 0);
         const { paths, key, restoreKeys } = await getCacheConfig();
         const bins = await getCargoBins();
         core.saveState(stateBins, JSON.stringify([...bins]));
