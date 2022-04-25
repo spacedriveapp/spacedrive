@@ -149,10 +149,7 @@ jobs:
         working-directory: core
         run: cargo run -p prisma-cli --release -- generate
 
-      - name: Build desktop
-        run: cargo build -p spacedrive --release
-
-      - name: Bundle
+      - name: Build bundle
         run: pnpm desktop tauri build
 
       - name: Publish artifacts
