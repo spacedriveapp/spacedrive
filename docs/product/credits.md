@@ -1,19 +1,12 @@
 ## Spacedrive
-
-hello@spacedrive.app
-
-**Made with ♥️ in Canada**
-
 _&copy; Copyright 2022-Present Jamie Pine_
 
-**Developers:**
+### Business contact
+hello@jamiepine.com
 
-Jamie Pine, Brendonovich, Oscar Beaumont, Haden Fletcher
 
-**Founding Users:**
+### Developers
+Jamie Pine, Brendonovich, Oscar Beaumont
 
-People, Who, Buy, Founder Pack
-
-**Sponsors:**
-
-Jamie Pine
+### Contributors
+Haden Fletcher
