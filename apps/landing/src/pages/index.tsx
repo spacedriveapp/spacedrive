@@ -80,9 +80,9 @@ function Page() {
         </a>
       </div>
       <p className="px-6 mt-3 text-xs text-center text-gray-500">
-        Coming soon on macOS (Intel & Apple Silicon), Windows and Linux.
+        Coming soon on macOS, Windows and Linux.
         <br />
-        ...and shortly after to iOS & Android.
+        Shortly after to iOS & Android.
       </p>
 
       <div className="h-[300px] lg:h-[600px] mt-16 w-screen max-w-[100vw] relative overflow-hidden relative">

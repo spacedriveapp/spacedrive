@@ -4,13 +4,13 @@
 
 Spacedrive is a decentralized cross platform app that allows you to manage files across all devices, drives and clouds at once.
 
-## How does it work?
-
-Using a "Virtual Distributed Filesystem" (VDFS), in other words; a decentralized database that emulates a filesystem. It indexes hardware filesystems to create a master database that is synchronized in realtime between your devices running Spacedrive.
-
 ## Can I download it yet?
 
 Only if you compile it yourself, but it is not stable yet. Follow [@spacedriveapp](https://twitter.com/spacedriveapp) for updates!
+
+## How does it work?
+
+Using a "Virtual Distributed Filesystem" (VDFS), in other words; a decentralized database that emulates a filesystem. It indexes hardware filesystems to create a master database that is synchronized in realtime between your devices running Spacedrive.
 
 ## Who is this for?
 
