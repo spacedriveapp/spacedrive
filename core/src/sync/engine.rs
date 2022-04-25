@@ -48,7 +48,7 @@ pub enum SyncTransport {
 }
 
 impl SyncEngine {
-  pub fn new(core_ctx: &FakeCoreContext) -> Self {
+  pub fn new(_core_ctx: &FakeCoreContext) -> Self {
     let (client_pool_sender, _client_pool_receiver) = mpsc::channel(10);
 
     SyncEngine {
