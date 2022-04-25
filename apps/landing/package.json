@@ -8,6 +8,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
+    "@heroicons/react": "^1.0.6",
     "@icons-pack/react-simple-icons": "^4.6.1",
     "@sd/client": "workspace:*",
     "@sd/core": "workspace:*",

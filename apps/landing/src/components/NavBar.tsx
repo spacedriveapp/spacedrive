@@ -1,9 +1,17 @@
-import { Button } from '@sd/ui';
+import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
-import { Link, List } from 'phosphor-react';
+import { Link, List, MapPin, Question } from 'phosphor-react';
 import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 import { Discord, Github } from '@icons-pack/react-simple-icons';
+import {
+  ClockIcon,
+  CogIcon,
+  HeartIcon,
+  LockClosedIcon,
+  MapIcon,
+  QuestionMarkCircleIcon
+} from '@heroicons/react/solid';
 
 function NavLink(props: { link?: string; children: string }) {
   return (
@@ -50,17 +58,62 @@ export default function NavBar() {
 
         <div className="hidden m-auto space-x-4 text-white lg:block ">
           <NavLink link="/roadmap">Roadmap</NavLink>
-          {/* <NavLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">Docs</NavLink> */}
           <NavLink link="/faq">FAQ</NavLink>
           <NavLink link="/change-log">Changelog</NavLink>
           <NavLink link="/privacy">Privacy</NavLink>
           <NavLink link="https://opencollective.com/spacedrive">Sponsor us</NavLink>
         </div>
-        <a href="#footer">
-          <Button className="absolute top-3 block !p-1 right-3 lg:hidden">
-            <List weight="bold" className="w-6 h-6" />
-          </Button>
-        </a>
+        <Dropdown
+          className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
+          items={[
+            [
+              {
+                name: 'Repository',
+                icon: Github,
+                onPress: () =>
+                  (window.location.href = 'https://github.com/spacedriveapp/spacedrive')
+              },
+              {
+                name: 'Join Discord',
+                icon: Discord,
+                onPress: () => (window.location.href = 'https://discord.gg/gTaF2Z44f5')
+              }
+            ],
+            [
+              {
+                name: 'Roadmap',
+                icon: MapIcon,
+                onPress: () => (window.location.href = '/roadmap'),
+                selected: window.location.href.includes('/roadmap')
+              },
+              {
+                name: 'FAQ',
+                icon: QuestionMarkCircleIcon,
+                onPress: () => (window.location.href = '/faq'),
+                selected: window.location.href.includes('/faq')
+              },
+              // {
+              //   name: 'Changelog',
+              //   icon: ClockIcon,
+              //   onPress: () => (window.location.href = '/changelog'),
+              //   selected: window.location.href.includes('/changelog')
+              // },
+              // {
+              //   name: 'Privacy',
+              //   icon: LockClosedIcon,
+              //   onPress: () => (window.location.href = '/privacy'),
+              //   selected: window.location.href.includes('/privacy')
+              // },
+              {
+                name: 'Sponsor us',
+                icon: HeartIcon,
+                onPress: () => (window.location.href = 'https://opencollective.com/spacedrive')
+              }
+            ]
+          ]}
+          buttonIcon={<List weight="bold" className="w-6 h-6" />}
+          buttonProps={{ className: '!p-1 ml-[140px]' }}
+        />
         <div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
           <a href="https://discord.gg/gTaF2Z44f5" target="_blank">
             <Discord className="text-white" />

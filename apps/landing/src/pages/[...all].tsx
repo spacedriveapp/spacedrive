@@ -14,10 +14,10 @@ function Page() {
         <SmileyXEyes className="mb-3 w-44 h-44" />
         <h1 className="mb-2 text-center">In the quantum realm this page potentially exists.</h1>
         <p>In other words, thats a 404.</p>
-        <div>
-          <a href="/">
+        <div className="flex flex-wrap justify-center">
+          <a onClick={() => window.history.back()}>
             <Button className="mt-2 mr-3 cursor-pointer " variant="gray">
-              ← Exit the quantum realm
+              ← Back
             </Button>
           </a>
           <a href="/">
