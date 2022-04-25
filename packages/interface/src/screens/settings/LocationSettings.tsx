@@ -1,6 +1,5 @@
 import React from 'react';
 import { Button } from '@sd/ui';
-import { Dropdown } from '../../components/primitive/Dropdown';
 import { InputContainer } from '../../components/primitive/InputContainer';
 
 const exampleLocations = [

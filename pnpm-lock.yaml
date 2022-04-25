@@ -70,6 +70,7 @@ importers:
   apps/landing:
     specifiers:
       '@babel/preset-react': ^7.16.7
+      '@heroicons/react': ^1.0.6
       '@icons-pack/react-simple-icons': ^4.6.1
       '@sd/client': workspace:*
       '@sd/core': workspace:*
@@ -110,6 +111,7 @@ importers:
       vite-plugin-ssr: ^0.3.64
       vite-plugin-svgr: ^1.1.0
     dependencies:
+      '@heroicons/react': 1.0.6_react@18.0.0
       '@icons-pack/react-simple-icons': 4.6.1_react@18.0.0
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
@@ -353,6 +355,7 @@ importers:
   packages/ui:
     specifiers:
       '@headlessui/react': ^1.5.0
+      '@heroicons/react': ^1.0.6
       '@sd/config': workspace:*
       '@types/react': ^18.0.0
       '@types/react-dom': ^18.0.0
@@ -364,6 +367,7 @@ importers:
       typescript: ^4.6.3
     dependencies:
       '@headlessui/react': 1.5.0_react@18.0.0
+      '@heroicons/react': 1.0.6_react@18.0.0
       clsx: 1.1.1
       postcss: 8.4.12
       react: 18.0.0
