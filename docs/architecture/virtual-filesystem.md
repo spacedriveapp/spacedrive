@@ -38,7 +38,7 @@ struct File {
 
 > ~~It is impossible to have a unique constraint at a database level for the `partial_checksum` however we can asyncronously resolve conflicts by querying for duplicates and generating full checksums at a later date.~~
 >
-> For synchronization of this resource we can tolorate temporary duplicates, any client can calculate that two files resources are duplicate and merge them into a single resource. In turn, triggering a shared data merge operation, whereby the older record is prioritsed at a property level during the merge.
+> For synchronization of this resource we can tolerate temporary duplicates, any client can calculate that two files resources are duplicate and merge them into a single resource. In turn, triggering a shared data merge operation, whereby the older record is prioritsed at a property level during the merge.
 
 - `checksum` - A full SHA256 checksum of the file data used to verify uniqueness should a `partial_checksum` conflict occur.
 
