@@ -144,10 +144,6 @@ jobs:
       - name: Install pnpm dependencies
         run: pnpm i --frozen-lockfile
 
-      - name: Generate Primsa client
-        working-directory: core
-        run: cargo prisma generate
-
       - name: Build frontend
         run: pnpm desktop build
       
