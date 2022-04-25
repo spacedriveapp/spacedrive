@@ -59828,7 +59828,7 @@ async function cleanProfileTarget(packages, profile) {
     }
     const keepPkg = new Set(packages.map((p) => p.name));
     // await rmExcept(path.join(targetDir, profile, "./build"), keepPkg);
-    await rmExcept(external_path_default().join(targetDir, profile, "./.fingerprint"), keepPkg);
+    // await rmExcept(path.join(targetDir, profile, "./.fingerprint"), keepPkg);
     // const keepDeps = new Set(
     //   packages.flatMap((p) => {
     //     const names = [];
@@ -59841,17 +59841,17 @@ async function cleanProfileTarget(packages, profile) {
     // );
     // await rmExcept(path.join(targetDir, profile, "./deps"), keepDeps);
 }
-const oneWeek = 7 * 24 * 3600 * 1000;
+const oneWeek = (/* unused pure expression or super */ null && (7 * 24 * 3600 * 1000));
 async function rmExcept(dirName, keepPrefix) {
-    const dir = await external_fs_default().promises.opendir(dirName);
+    const dir = await fs.promises.opendir(dirName);
     for await (const dirent of dir) {
         let name = dirent.name;
         const idx = name.lastIndexOf("-");
         if (idx !== -1) {
             name = name.slice(0, idx);
         }
-        const fileName = external_path_default().join(dir.path, dirent.name);
-        const { mtime } = await external_fs_default().promises.stat(fileName);
+        const fileName = path.join(dir.path, dirent.name);
+        const { mtime } = await fs.promises.stat(fileName);
         // we don’t really know
         if (!keepPrefix.has(name) || Date.now() - mtime.getTime() > oneWeek) {
             await rm(dir.path, dirent);

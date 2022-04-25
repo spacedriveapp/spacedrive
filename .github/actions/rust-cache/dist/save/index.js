@@ -59651,13 +59651,13 @@ __nccwpck_require__.r(__webpack_exports__);
 // EXTERNAL MODULE: ../../../node_modules/.pnpm/@actions+cache@2.0.2/node_modules/@actions/cache/lib/cache.js
 var cache = __nccwpck_require__(9633);
 // EXTERNAL MODULE: ../../../node_modules/.pnpm/@actions+core@1.6.0/node_modules/@actions/core/lib/core.js
-var core = __nccwpck_require__(83);
+var lib_core = __nccwpck_require__(83);
 // EXTERNAL MODULE: ../../../node_modules/.pnpm/@actions+exec@1.1.1/node_modules/@actions/exec/lib/exec.js
 var exec = __nccwpck_require__(6435);
 // EXTERNAL MODULE: ../../../node_modules/.pnpm/@actions+glob@0.2.1/node_modules/@actions/glob/lib/glob.js
 var glob = __nccwpck_require__(9059);
 // EXTERNAL MODULE: ../../../node_modules/.pnpm/@actions+io@1.1.2/node_modules/@actions/io/lib/io.js
-var io = __nccwpck_require__(8754);
+var lib_io = __nccwpck_require__(8754);
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(7147);
 var external_fs_default = /*#__PURE__*/__nccwpck_require__.n(external_fs_);
@@ -59680,23 +59680,23 @@ var external_os_default = /*#__PURE__*/__nccwpck_require__.n(external_os_);
 
 
 process.on("uncaughtException", (e) => {
-    core.info(`[warning] ${e.message}`);
+    lib_core.info(`[warning] ${e.message}`);
     if (e.stack) {
-        core.info(e.stack);
+        lib_core.info(e.stack);
     }
 });
-const cwd = core.getInput("working-directory");
+const cwd = lib_core.getInput("working-directory");
 // TODO: this could be read from .cargo config file directly
-const targetDir = core.getInput("target-dir") || "./target";
+const targetDir = lib_core.getInput("target-dir") || "./target";
 if (cwd) {
     process.chdir(cwd);
 }
-const stateBins = "RUST_CACHE_BINS";
+const common_stateBins = "RUST_CACHE_BINS";
 const stateKey = "RUST_CACHE_KEY";
 const stateHash = "RUST_CACHE_HASH";
 const home = external_os_default().homedir();
 const cargoHome = process.env.CARGO_HOME || external_path_default().join(home, ".cargo");
-const paths = {
+const common_paths = {
     cargoHome,
     index: external_path_default().join(cargoHome, "registry/index"),
     cache: external_path_default().join(cargoHome, "registry/cache"),
@@ -59708,28 +59708,28 @@ function isValidEvent() {
     return RefKey in process.env && Boolean(process.env[RefKey]);
 }
 async function getCacheConfig() {
-    let lockHash = core.getState(stateHash);
+    let lockHash = lib_core.getState(stateHash);
     if (!lockHash) {
         lockHash = await getLockfileHash();
-        core.saveState(stateHash, lockHash);
+        lib_core.saveState(stateHash, lockHash);
     }
     return {
         paths: [
             external_path_default().join(cargoHome, "bin"),
             external_path_default().join(cargoHome, ".crates2.json"),
             external_path_default().join(cargoHome, ".crates.toml"),
-            paths.git,
-            paths.cache,
-            paths.index,
-            paths.target,
+            common_paths.git,
+            common_paths.cache,
+            common_paths.index,
+            common_paths.target,
         ],
-        key: core.getInput("key"),
+        key: lib_core.getInput("key"),
         restoreKeys: getInputAsArray("restore-keys"),
     };
 }
-async function getCargoBins() {
+async function common_getCargoBins() {
     try {
-        const { installs, } = JSON.parse(await external_fs_default().promises.readFile(external_path_default().join(paths.cargoHome, ".crates2.json"), "utf8"));
+        const { installs, } = JSON.parse(await fs.promises.readFile(path.join(common_paths.cargoHome, ".crates2.json"), "utf8"));
         const bins = new Set();
         for (const pkg of Object.values(installs)) {
             for (const bin of pkg.bins) {
@@ -59816,19 +59816,19 @@ async function cleanProfileTarget(packages, profile) {
     catch {
         return;
     }
-    await io.rmRF(external_path_default().join(targetDir, profile, "./examples"));
-    await io.rmRF(external_path_default().join(targetDir, profile, "./incremental"));
+    await lib_io.rmRF(external_path_default().join(targetDir, profile, "./examples"));
+    await lib_io.rmRF(external_path_default().join(targetDir, profile, "./incremental"));
     let dir;
     // remove all *files* from the profile directory
     dir = await external_fs_default().promises.opendir(external_path_default().join(targetDir, profile));
     for await (const dirent of dir) {
         if (dirent.isFile()) {
-            await rm(dir.path, dirent);
+            await common_rm(dir.path, dirent);
         }
     }
     const keepPkg = new Set(packages.map((p) => p.name));
     // await rmExcept(path.join(targetDir, profile, "./build"), keepPkg);
-    await rmExcept(external_path_default().join(targetDir, profile, "./.fingerprint"), keepPkg);
+    // await rmExcept(path.join(targetDir, profile, "./.fingerprint"), keepPkg);
     // const keepDeps = new Set(
     //   packages.flatMap((p) => {
     //     const names = [];
@@ -59841,38 +59841,38 @@ async function cleanProfileTarget(packages, profile) {
     // );
     // await rmExcept(path.join(targetDir, profile, "./deps"), keepDeps);
 }
-const oneWeek = 7 * 24 * 3600 * 1000;
+const oneWeek = (/* unused pure expression or super */ null && (7 * 24 * 3600 * 1000));
 async function rmExcept(dirName, keepPrefix) {
-    const dir = await external_fs_default().promises.opendir(dirName);
+    const dir = await fs.promises.opendir(dirName);
     for await (const dirent of dir) {
         let name = dirent.name;
         const idx = name.lastIndexOf("-");
         if (idx !== -1) {
             name = name.slice(0, idx);
         }
-        const fileName = external_path_default().join(dir.path, dirent.name);
-        const { mtime } = await external_fs_default().promises.stat(fileName);
+        const fileName = path.join(dir.path, dirent.name);
+        const { mtime } = await fs.promises.stat(fileName);
         // we don’t really know
         if (!keepPrefix.has(name) || Date.now() - mtime.getTime() > oneWeek) {
-            await rm(dir.path, dirent);
+            await common_rm(dir.path, dirent);
         }
     }
 }
-async function rm(parent, dirent) {
+async function common_rm(parent, dirent) {
     try {
         const fileName = external_path_default().join(parent, dirent.name);
-        core.debug(`deleting "${fileName}"`);
+        lib_core.debug(`deleting "${fileName}"`);
         if (dirent.isFile()) {
             await external_fs_default().promises.unlink(fileName);
         }
         else if (dirent.isDirectory()) {
-            await io.rmRF(fileName);
+            await lib_io.rmRF(fileName);
         }
     }
     catch { }
 }
 function getInputAsArray(name, options) {
-    return core.getInput(name, options)
+    return lib_core.getInput(name, options)
         .split("\n")
         .map((s) => s.trim())
         .filter((x) => x !== "");
@@ -59893,8 +59893,8 @@ async function run() {
     }
     try {
         const { paths: savePaths, key } = await getCacheConfig();
-        if (core.getState(stateKey) === key) {
-            core.info(`Cache up-to-date.`);
+        if (lib_core.getState(stateKey) === key) {
+            lib_core.info(`Cache up-to-date.`);
             return;
         }
         // TODO: remove this once https://github.com/actions/toolkit/pull/553 lands
@@ -59902,36 +59902,36 @@ async function run() {
         const registryName = await getRegistryName();
         const packages = await getPackages();
         try {
-            await cleanRegistry(registryName, packages);
+            // await cleanRegistry(registryName, packages);
         }
         catch { }
         try {
-            await cleanBin();
+            // await cleanBin();
         }
         catch { }
         try {
-            await cleanGit(packages);
+            // await cleanGit(packages);
         }
         catch { }
         try {
             await cleanTarget(packages);
         }
         catch { }
-        core.info(`Saving paths:\n    ${savePaths.join("\n    ")}`);
-        core.info(`In directory:\n    ${process.cwd()}`);
-        core.info(`Using key:\n    ${key}`);
+        lib_core.info(`Saving paths:\n    ${savePaths.join("\n    ")}`);
+        lib_core.info(`In directory:\n    ${process.cwd()}`);
+        lib_core.info(`Using key:\n    ${key}`);
         await cache.saveCache(savePaths, key);
     }
     catch (e) {
-        core.info(`[warning] ${e.message}`);
+        lib_core.info(`[warning] ${e.message}`);
     }
 }
 run();
 async function getRegistryName() {
-    const globber = await glob.create(`${paths.index}/**/.last-updated`, { followSymbolicLinks: false });
+    const globber = await glob.create(`${common_paths.index}/**/.last-updated`, { followSymbolicLinks: false });
     const files = await globber.glob();
     if (files.length > 1) {
-        core.warning(`got multiple registries: "${files.join('", "')}"`);
+        lib_core.warning(`got multiple registries: "${files.join('", "')}"`);
     }
     const first = files.shift();
     return external_path_default().basename(external_path_default().dirname(first));
@@ -59942,7 +59942,7 @@ async function cleanBin() {
     for (const bin of oldBins) {
         bins.delete(bin);
     }
-    const dir = await external_fs_default().promises.opendir(external_path_default().join(paths.cargoHome, "bin"));
+    const dir = await fs.promises.opendir(path.join(paths.cargoHome, "bin"));
     for await (const dirent of dir) {
         if (dirent.isFile() && !bins.has(dirent.name)) {
             await rm(dir.path, dirent);
@@ -59950,9 +59950,9 @@ async function cleanBin() {
     }
 }
 async function cleanRegistry(registryName, packages) {
-    await io.rmRF(external_path_default().join(paths.index, registryName, ".cache"));
+    await io.rmRF(path.join(paths.index, registryName, ".cache"));
     const pkgSet = new Set(packages.map((p) => `${p.name}-${p.version}.crate`));
-    const dir = await external_fs_default().promises.opendir(external_path_default().join(paths.cache, registryName));
+    const dir = await fs.promises.opendir(path.join(paths.cache, registryName));
     for await (const dirent of dir) {
         if (dirent.isFile() && !pkgSet.has(dirent.name)) {
             await rm(dir.path, dirent);
@@ -59960,14 +59960,14 @@ async function cleanRegistry(registryName, packages) {
     }
 }
 async function cleanGit(packages) {
-    const coPath = external_path_default().join(paths.git, "checkouts");
-    const dbPath = external_path_default().join(paths.git, "db");
+    const coPath = path.join(paths.git, "checkouts");
+    const dbPath = path.join(paths.git, "db");
     const repos = new Map();
     for (const p of packages) {
         if (!p.path.startsWith(coPath)) {
             continue;
         }
-        const [repo, ref] = p.path.slice(coPath.length + 1).split((external_path_default()).sep);
+        const [repo, ref] = p.path.slice(coPath.length + 1).split(path.sep);
         const refs = repos.get(repo);
         if (refs) {
             refs.add(ref);
@@ -59978,32 +59978,32 @@ async function cleanGit(packages) {
     }
     // we have to keep both the clone, and the checkout, removing either will
     // trigger a rebuild
-    let dir;
-    // clean the db
-    dir = await external_fs_default().promises.opendir(dbPath);
-    for await (const dirent of dir) {
-        if (!repos.has(dirent.name)) {
-            await rm(dir.path, dirent);
-        }
-    }
-    // clean the checkouts
-    dir = await external_fs_default().promises.opendir(coPath);
-    for await (const dirent of dir) {
-        const refs = repos.get(dirent.name);
-        if (!refs) {
-            await rm(dir.path, dirent);
-            continue;
-        }
-        if (!dirent.isDirectory()) {
-            continue;
-        }
-        const refsDir = await external_fs_default().promises.opendir(external_path_default().join(dir.path, dirent.name));
-        for await (const dirent of refsDir) {
-            if (!refs.has(dirent.name)) {
-                await rm(refsDir.path, dirent);
-            }
-        }
-    }
+    // let dir: fs.Dir;
+    // // clean the db
+    // dir = await fs.promises.opendir(dbPath);
+    // for await (const dirent of dir) {
+    //   if (!repos.has(dirent.name)) {
+    //     await rm(dir.path, dirent);
+    //   }
+    // }
+    // // clean the checkouts
+    // dir = await fs.promises.opendir(coPath);
+    // for await (const dirent of dir) {
+    //   const refs = repos.get(dirent.name);
+    //   if (!refs) {
+    //     await rm(dir.path, dirent);
+    //     continue;
+    //   }
+    //   if (!dirent.isDirectory()) {
+    //     continue;
+    //   }
+    //   const refsDir = await fs.promises.opendir(path.join(dir.path, dirent.name));
+    //   for await (const dirent of refsDir) {
+    //     if (!refs.has(dirent.name)) {
+    //       await rm(refsDir.path, dirent);
+    //     }
+    //   }
+    // }
 }
 async function macOsWorkaround() {
     try {

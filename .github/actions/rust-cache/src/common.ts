@@ -223,7 +223,7 @@ async function cleanProfileTarget(packages: Packages, profile: string) {
 
   const keepPkg = new Set(packages.map((p) => p.name));
   // await rmExcept(path.join(targetDir, profile, "./build"), keepPkg);
-  await rmExcept(path.join(targetDir, profile, "./.fingerprint"), keepPkg);
+  // await rmExcept(path.join(targetDir, profile, "./.fingerprint"), keepPkg);
 
   // const keepDeps = new Set(
   //   packages.flatMap((p) => {
