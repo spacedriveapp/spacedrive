@@ -59805,22 +59805,22 @@ async function getPackages() {
     }));
 }
 async function cleanTarget(packages) {
-    await external_fs_default().promises.unlink(external_path_default().join(targetDir, "./.rustc_info.json"));
+    await fs.promises.unlink(path.join(targetDir, "./.rustc_info.json"));
     await cleanProfileTarget(packages, "debug");
     await cleanProfileTarget(packages, "release");
 }
 async function cleanProfileTarget(packages, profile) {
     try {
-        await external_fs_default().promises.access(external_path_default().join(targetDir, profile));
+        await fs.promises.access(path.join(targetDir, profile));
     }
     catch {
         return;
     }
-    await lib_io.rmRF(external_path_default().join(targetDir, profile, "./examples"));
-    await lib_io.rmRF(external_path_default().join(targetDir, profile, "./incremental"));
+    await io.rmRF(path.join(targetDir, profile, "./examples"));
+    await io.rmRF(path.join(targetDir, profile, "./incremental"));
     let dir;
     // remove all *files* from the profile directory
-    dir = await external_fs_default().promises.opendir(external_path_default().join(targetDir, profile));
+    dir = await fs.promises.opendir(path.join(targetDir, profile));
     for await (const dirent of dir) {
         if (dirent.isFile()) {
             await common_rm(dir.path, dirent);
@@ -59860,13 +59860,13 @@ async function rmExcept(dirName, keepPrefix) {
 }
 async function common_rm(parent, dirent) {
     try {
-        const fileName = external_path_default().join(parent, dirent.name);
-        lib_core.debug(`deleting "${fileName}"`);
+        const fileName = path.join(parent, dirent.name);
+        core.debug(`deleting "${fileName}"`);
         if (dirent.isFile()) {
-            await external_fs_default().promises.unlink(fileName);
+            await fs.promises.unlink(fileName);
         }
         else if (dirent.isDirectory()) {
-            await lib_io.rmRF(fileName);
+            await io.rmRF(fileName);
         }
     }
     catch { }
@@ -59914,7 +59914,7 @@ async function run() {
         }
         catch { }
         try {
-            await cleanTarget(packages);
+            // await cleanTarget(packages);
         }
         catch { }
         lib_core.info(`Saving paths:\n    ${savePaths.join("\n    ")}`);
