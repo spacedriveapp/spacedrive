@@ -1,4 +1,4 @@
-name: CI 
+name: CI
 on:
   pull_request:
   push:
@@ -97,13 +97,17 @@ jobs:
         working-directory: core
         run: cargo run -p prisma-cli --release -- generate
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
-      
+      - name: Build Rust
+        run: cargo build --release
+
       - name: Build desktop
-        run: cargo build -p spacedrive --release
+        run: cargo build -p spacedrive --releas
+
+      - name: Build Rust
+        run: cargo build --release
+
+      - name: Build desktop
+        run: cargo build -p spacedrive --releasee
 
   package-desktop:
     name: Package desktop (${{ matrix.platform }})
@@ -149,7 +153,7 @@ jobs:
 
       - name: Build frontend
         run: pnpm desktop build
-      
+
       - name: Build desktop
         run: cargo build -p spacedrive --release
 
@@ -184,10 +188,10 @@ jobs:
           key: rust-${{ matrix.platform }}-${{ github.run_id }}
           restore-keys: |
             rust-${{ matrix.platform }}
-      
+
       - name: Publish docker image
         uses: ./.github/actions/publish-server
         with:
           gh_token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       # TODO: Trigger deploy
