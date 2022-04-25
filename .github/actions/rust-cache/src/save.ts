@@ -49,7 +49,7 @@ async function run() {
     } catch {}
 
     try {
-      await cleanTarget(packages);
+      // await cleanTarget(packages);
     } catch {}
 
     core.info(`Saving paths:\n    ${savePaths.join("\n    ")}`);
