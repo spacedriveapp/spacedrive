@@ -87,9 +87,11 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: Brendonovich/rust-cache@v1
+        uses: ./.github/actions/rust-cache
         with:
-          sharedKey: all-${{ matrix.platform }}
+          key: rust-${{ matrix.platform }}-${{ github.run_id }}
+          restore-keys: |
+            rust-${{ matrix.platform }}
 
       - name: Generate Prisma client
         working-directory: core
@@ -128,9 +130,11 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: Brendonovich/rust-cache@v1
+        uses: ./.github/actions/rust-cache
         with:
-          sharedKey: all-${{ matrix.platform }}
+          key: rust-${{ matrix.platform }}-${{ github.run_id }}
+          restore-keys: |
+            rust-${{ matrix.platform }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.1
@@ -176,9 +180,11 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: Brendonovich/rust-cache@v1
+        uses: ./.github/actions/rust-cache
         with:
-          sharedKey: all-${{ matrix.platform }}
+          key: rust-${{ matrix.platform }}-${{ github.run_id }}
+          restore-keys: |
+            rust-${{ matrix.platform }}
       
       - name: Publish docker image
         uses: ./.github/actions/publish-server
