@@ -1,6 +1,0 @@
-[package]
-publish = false
-name = "rust-cache"
-version = "0.1.0"
-authors = ["Arpad Borsos <arpad.borsos@googlemail.com>"]
-edition = "2018"
