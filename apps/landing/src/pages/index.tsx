@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@sd/ui';
 import { Bubbles } from '../components/Bubbles';
 
@@ -41,6 +41,16 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 
 function Page() {
   const [showApp, setShowApp] = useState(false);
+
+  useEffect(() => {
+    function handleResize(event: Event) {
+      if (window.innerWidth < 1000) setShowApp(false);
+      else if (!showApp) setShowApp(true);
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <>
       <div className="mt-28 lg:mt-36" />
