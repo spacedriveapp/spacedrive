@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       <Dropdown
         buttonProps={{
           justifyLeft: true,
-          className: `flex w-full max-w-full mb-1 mt-1 shadow-xs rounded 
+          className: `flex w-full text-left max-w-full mb-1 mt-1 shadow-xs rounded 
           !bg-gray-50 
           border-gray-150 
           hover:!bg-gray-1000 
