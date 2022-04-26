@@ -28,6 +28,7 @@ import { CoreEvent } from '@sd/core';
 import clsx from 'clsx';
 import './style.scss';
 import { ContentScreen } from './screens/Content';
+import LibrarySettings from './screens/settings/LibrarySettings';
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ function SettingsRoutes({ modal = false }) {
           <Route path="security" element={<SecuritySettings />} />
           <Route path="appearance" element={<></>} />
           <Route path="locations" element={<LocationSettings />} />
+          <Route path="library" element={<LibrarySettings />} />
           <Route path="media" element={<></>} />
           <Route path="keys" element={<></>} />
           <Route path="tags" element={<></>} />

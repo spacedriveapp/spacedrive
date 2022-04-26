@@ -78,8 +78,9 @@ export function Device(props: DeviceProps) {
       {/* <hr className="border-gray-700" />
       <hr className="border-gray-550" /> */}
       <div className="px-4 pb-3 mt-3">
-        {props.locations.map((location) => (
+        {props.locations.map((location, key) => (
           <FileItem
+            key={key}
             selected={selectedFile == location.name}
             onClick={() => handleSelect(location.name)}
             fileName={location.name}
