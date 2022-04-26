@@ -114,7 +114,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 
   const Header = () => (
     <div>
-      <h1 className="p-2 pt-20 pl-4 text-xl font-bold">{currentDir?.directory.name}</h1>
+      <h1 className="pt-20 pl-4 text-xl font-bold ">{currentDir?.directory.name}</h1>
       <div className="table-head">
         <div className="flex flex-row p-2 table-head-row">
           {columns.map((col) => (
@@ -151,7 +151,6 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
             components={{ Header, Footer: () => <div className="w-full " /> }}
             increaseViewportBy={{ top: 400, bottom: 200 }}
             className="outline-none explorer-scroll"
-            // useWindowScroll
           />
         </LocationContext.Provider>
       </div>
