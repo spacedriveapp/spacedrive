@@ -48,7 +48,7 @@ export function Device(props: DeviceProps) {
         </span>
         <div className="flex flex-grow" />
         {props.runningJob && (
-          <div className="flex flex-row ml-5 border rounded-md bg-opacity-10 bg-gray-750 border-gray-550 ">
+          <div className="flex flex-row ml-5 bg-opacity-50 rounded-md bg-gray-550 ">
             <Rings
               stroke="#2599FF"
               strokeOpacity={4}
@@ -73,8 +73,8 @@ export function Device(props: DeviceProps) {
           </Button>
         </div>
       </div>
-      <hr className="border-gray-700" />
-      <hr className="border-gray-550" />
+      {/* <hr className="border-gray-700" />
+      <hr className="border-gray-550" /> */}
       <div className="px-4 pb-3 mt-3">
         {props.locations.map((location) => (
           <FileItem
