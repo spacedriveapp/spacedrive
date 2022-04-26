@@ -51,16 +51,12 @@ export function Footer() {
         <div className="flex flex-col col-span-1 space-y-2">
           <h3 className="mb-1 text-xs font-bold uppercase ">About</h3>
 
-          <FooterLink link="https://github.com/jamiepine/spacedrive/blob/main/docs/product/credits.md">
-            Team
+          <FooterLink link="/team">Team</FooterLink>
+          <FooterLink link="/faq">FAQ</FooterLink>
+          <FooterLink link="https://github.com/spacedriveapp/spacedrive#motivation">
+            Mission
           </FooterLink>
-          <FooterLink link="https://github.com/jamiepine/spacedrive/blob/main/docs/product/faq.md">
-            FAQ
-          </FooterLink>
-          <FooterLink link="https://github.com/jamiepine/spacedrive#motivation">Mission</FooterLink>
-          <FooterLink link="https://github.com/jamiepine/spacedrive/tree/main/docs/changelog">
-            Changelog
-          </FooterLink>
+          <FooterLink link="/changelog">Changelog</FooterLink>
           <div className="opacity-50 pointer-events-none">
             <FooterLink link="#">Blog</FooterLink>
           </div>
