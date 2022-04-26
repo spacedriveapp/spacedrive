@@ -6,6 +6,9 @@
     "rootDir": "src",
     "jsx": "react"
   },
+  "paths": {
+    "@sd/core": ["../../core/index.ts"],
+  },
   "extends": "../config/tsconfig/base.json",
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "dist"]
