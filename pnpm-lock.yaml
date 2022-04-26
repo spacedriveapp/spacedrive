@@ -280,6 +280,7 @@ importers:
       react-error-boundary: ^3.1.4
       react-hotkeys-hook: ^3.4.4
       react-json-view: ^1.21.3
+      react-loading-icons: ^1.0.8
       react-portal: ^4.2.2
       react-query: ^3.34.19
       react-router: 6.3.0
@@ -321,6 +322,7 @@ importers:
       react-error-boundary: 3.1.4_react@18.0.0
       react-hotkeys-hook: 3.4.4_react-dom@18.0.0+react@18.0.0
       react-json-view: 1.21.3_761282c47ea27a9f40e1344337910648
+      react-loading-icons: 1.0.8
       react-portal: 4.2.2_react-dom@18.0.0+react@18.0.0
       react-query: 3.34.19_react-dom@18.0.0+react@18.0.0
       react-router: 6.3.0_react@18.0.0
@@ -4832,6 +4834,10 @@ packages:
 
   /react-lifecycles-compat/3.0.4:
     resolution: {integrity: sha512-fBASbA6LnOU9dOU2eW7aQ8xmYBSXUIWr+UmF9b1efZBazGNO+rcXT/icdKnYm2pTwcRylVUYwW7H1PHfLekVzA==}
+    dev: false
+
+  /react-loading-icons/1.0.8:
+    resolution: {integrity: sha512-j0myUwDUPoo3qaPkbgnA7U2RNHqLLC+wXcpMWe+rtk3Iw+mGHltZ3QitPSHFKtsFKlpM9UlMmZGZ6sw6WVVW7w==}
     dev: false
 
   /react-portal/4.2.2_react-dom@18.0.0+react@18.0.0:

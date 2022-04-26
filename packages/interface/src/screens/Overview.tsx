@@ -1,4 +1,6 @@
+import { DotsSixVertical, Laptop, LineSegments } from 'phosphor-react';
 import React, { useState } from 'react';
+import { Device } from '../components/device/Device';
 import FileItem from '../components/file/FileItem';
 
 interface StatItemProps {
@@ -9,7 +11,7 @@ interface StatItemProps {
 
 const StatItem: React.FC<StatItemProps> = (props) => {
   return (
-    <div className="flex flex-col p-4 mt-2 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600">
+    <div className="flex flex-col px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600">
       <span className="text-sm text-gray-400">{props.name}</span>
       <span className="text-2xl font-bold">
         {props.value}
@@ -23,17 +25,16 @@ export const OverviewScreen: React.FC<{}> = (props) => {
   const [selectedFile, setSelectedFile] = useState<null | string>(null);
 
   function handleSelect(key: string) {
-    // if (selectedFile === key) setSelectedFile(null);
-    // else setSelectedFile(key);
-    setSelectedFile(key);
+    if (selectedFile === key) setSelectedFile(null);
+    else setSelectedFile(key);
   }
 
   return (
     <div className="flex flex-col w-full h-screen">
       <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
-      <div className="flex flex-col w-full h-screen px-5 pb-3 overflow-scroll">
-        <div className="flex items-center w-full px-2">
-          <div className="flex flex-wrap space-x-4">
+      <div className="flex flex-col w-full h-screen px-3 overflow-scroll">
+        <div className="flex items-center w-full ml-4">
+          <div className="flex flex-wrap p-2 space-x-6">
             <StatItem name="Total capacity" value="26.5" unit="TB" />
             <StatItem name="Index size" value="103" unit="MB" />
             <StatItem name="Preview media" value="23.5" unit="GB" />
@@ -42,9 +43,25 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             <StatItem name="Total backed up" value="25.3" unit="TB" />
           </div>
         </div>
+        <div className="mt-5" />
+        <div className="flex flex-col space-y-4">
+          <Device
+            name="Spacedad"
+            size="1.4TB"
+            runningJob={{ amount: 65, task: 'Generating preview media' }}
+            locations={[{ name: 'Pictures' }, { name: 'Downloads' }, { name: 'Minecraft' }]}
+            type="laptop"
+          />
+          <Device
+            name="Jamies iPhone"
+            size="47.7GB"
+            locations={[{ name: 'Camera Roll' }, { name: 'Notes' }]}
+            type="phone"
+          />
+        </div>
+        {/* <hr className="my-5 border-gray-50 dark:border-gray-600" /> */}
 
-        <hr className="my-5 border-gray-50 dark:border-gray-600" />
-        <div className="mt-2 space-x-1">
+        {/* <div className="mt-2 space-x-1">
           <FileItem
             selected={selectedFile == 'assets'}
             onClick={() => handleSelect('assets')}
@@ -132,7 +149,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             folder
           />
         </div>
-        <hr className="my-5 border-gray-50 dark:border-gray-600" />
+        <hr className="my-5 border-gray-50 dark:border-gray-600" /> */}
 
         {/* <hr className="my-5 dark:border-gray-600" /> */}
       </div>
