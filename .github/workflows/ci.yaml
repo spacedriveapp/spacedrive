@@ -95,6 +95,7 @@ jobs:
           key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Generate Prisma client
+        working-directory: core
         run: cargo run -p prisma-cli --release -- generate
       
       - name: Build prisma-client-rust
