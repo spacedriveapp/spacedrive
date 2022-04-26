@@ -31,7 +31,7 @@ export default function FileItem(props: Props) {
         className={clsx(
           'border-2 border-transparent rounded-lg text-center w-[100px] h-[100px] mb-1',
           {
-            'bg-gray-50 dark:bg-gray-750': props.selected
+            'bg-gray-50 dark:bg-gray-650': props.selected
           }
         )}
       >
