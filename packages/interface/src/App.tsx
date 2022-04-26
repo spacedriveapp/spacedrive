@@ -95,6 +95,8 @@ function SettingsRoutes({ modal = false }) {
           <Route path="media" element={<></>} />
           <Route path="keys" element={<></>} />
           <Route path="tags" element={<></>} />
+          <Route path="sync" element={<></>} />
+          <Route path="contacts" element={<></>} />
         </Route>
       </Routes>
     </SlideUp>

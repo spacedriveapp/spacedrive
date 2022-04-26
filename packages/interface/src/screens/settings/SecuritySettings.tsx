@@ -6,8 +6,8 @@ export default function SecuritySettings() {
   return (
     <div className="space-y-4">
       <InputContainer
-        title="Something about a vault"
-        description="Local cache storage for media previews and thumbnails."
+        title="Vault"
+        description="You'll need to set a passphrase to enable the vault."
       >
         <div className="flex flex-row">
           <Button variant="primary">Enable Vault</Button>

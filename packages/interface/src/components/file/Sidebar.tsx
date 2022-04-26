@@ -115,10 +115,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={CirclesFour} />
           Content
         </SidebarLink>
-        <SidebarLink to="debug">
+        {/* <SidebarLink to="debug">
           <Icon component={Code} />
           Debug
-        </SidebarLink>
+        </SidebarLink> */}
         {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
           Explorer
