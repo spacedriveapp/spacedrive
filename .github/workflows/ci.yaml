@@ -92,11 +92,13 @@ jobs:
       - name: Cache Rust Dependencies
         uses: ./.github/actions/rust-cache
         with:
-          key: ${{ matrix.platform }}-core-v0-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Generate Prisma client
-        working-directory: core
         run: cargo run -p prisma-cli --release -- generate
+      
+      - name: Build prisma-client-rust
+        run: cargon build -p prisma-client-rust --release
 
       - name: Build Core
         run: cargo build -p sdcore --release
@@ -131,7 +133,7 @@ jobs:
       - name: Cache Rust Dependencies
         uses: ./.github/actions/rust-cache
         with:
-          key: ${{ matrix.platform }}-core-v0-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.1
@@ -157,33 +159,33 @@ jobs:
       - name: Publish artifacts
         uses: ./.github/actions/publish-desktop-artifacts
 
-  deploy-server:
-    name: Deploy server
-    runs-on: ubuntu-latest
-    needs: build-core
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+  # deploy-server:
+  #   name: Deploy server
+  #   runs-on: ubuntu-latest
+  #   needs: build-core
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v2
 
-      - name: Install dependencies
-        uses: ./.github/actions/install-deps
+  #     - name: Install dependencies
+  #       uses: ./.github/actions/install-deps
 
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          components: rustfmt, rust-src
+  #     - name: Install Rust stable
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: stable
+  #         profile: minimal
+  #         override: true
+  #         components: rustfmt, rust-src
 
-      - name: Cache Rust Dependencies
-        uses: ./.github/actions/rust-cache
-        with:
-          key: ${{ matrix.platform }}-core-v0-${{ hashFiles('**/Cargo.lock') }}
+  #     - name: Cache Rust Dependencies
+  #       uses: ./.github/actions/rust-cache
+  #       with:
+  #         key: ${{ matrix.platform }}-core-v0-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Publish docker image
-        uses: ./.github/actions/publish-server
-        with:
-          gh_token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Publish docker image
+  #       uses: ./.github/actions/publish-server
+  #       with:
+  #         gh_token: ${{ secrets.GITHUB_TOKEN }}
 
-      # TODO: Trigger deploy
+  #     # TODO: Trigger deploy
