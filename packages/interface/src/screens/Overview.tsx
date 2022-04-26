@@ -33,8 +33,8 @@ export const OverviewScreen: React.FC<{}> = (props) => {
     <div className="flex flex-col w-full h-screen overflow-x-hidden overflow-y-scroll no-scrollbar">
       <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
       <div className="flex flex-col w-full h-screen px-3">
-        <div className="flex items-center w-full ml-4">
-          <div className="flex flex-wrap p-2 space-x-6">
+        <div className="flex items-center w-full">
+          <div className="flex flex-wrap pb-4 space-x-6">
             <StatItem name="Total capacity" value="26.5" unit="TB" />
             <StatItem name="Index size" value="103" unit="MB" />
             <StatItem name="Preview media" value="23.5" unit="GB" />
@@ -43,7 +43,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             <StatItem name="Total backed up" value="25.3" unit="TB" />
           </div>
         </div>
-        <div className="mt-5" />
+        {/* <div className="mt-5" /> */}
         <div className="flex flex-col pb-4 space-y-4">
           <Device
             name="James' MBP"
