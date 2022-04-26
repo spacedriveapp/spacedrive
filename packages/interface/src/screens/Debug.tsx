@@ -10,11 +10,11 @@ export const DebugScreen: React.FC<{}> = (props) => {
   const { data: client } = useBridgeQuery('ClientGetState');
   const { data: jobs } = useBridgeQuery('JobGetRunning');
   const { data: jobHistory } = useBridgeQuery('JobGetHistory');
-  const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
-    onMutate: () => {
-      alert('Database purged');
-    }
-  });
+  // const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
+  //   onMutate: () => {
+  //     alert('Database purged');
+  //   }
+  // });
   const { mutate: identifyFiles } = useBridgeCommand('IdentifyUniqueFiles');
   return (
     <div className="flex flex-col w-full h-screen p-5 overflow-x-scroll">
@@ -24,9 +24,7 @@ export const DebugScreen: React.FC<{}> = (props) => {
           <Button className="w-40" variant="gray" size="sm" onClick={() => {}}>
             Open data folder
           </Button>
-          <Button className="w-40" variant="gray" size="sm" onClick={() => purgeDB(undefined)}>
-            Purge database
-          </Button>
+
           <Button
             className="w-40"
             variant="gray"
