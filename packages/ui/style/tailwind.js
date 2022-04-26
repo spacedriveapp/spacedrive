@@ -8,7 +8,7 @@ module.exports = function (app, options) {
       !options?.ignorePackages && '../../packages/*/src/**/*.{js,ts,jsx,tsx,html}',
       `../../apps/${app}/src/**/*.{js,ts,jsx,tsx,html}`
     ],
-    darkMode: app == 'landing' ? 'class' : 'media',
+    darkMode: app == 'landing' ? 'class' : 'class',
     mode: 'jit',
     theme: {
       fontSize: {

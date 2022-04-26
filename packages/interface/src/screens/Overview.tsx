@@ -30,7 +30,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
   }
 
   return (
-    <div className="flex flex-col w-full h-screen">
+    <div className="flex flex-col w-full h-screen overflow-x-hidden overflow-y-scroll no-scrollbar">
       <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
       <div className="flex flex-col w-full h-screen px-3">
         <div className="flex items-center w-full ml-4">
@@ -44,7 +44,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
           </div>
         </div>
         <div className="mt-5" />
-        <div className="flex flex-col space-y-4">
+        <div className="flex flex-col pb-4 space-y-4">
           <Device
             name="James' MBP"
             size="1.4TB"
@@ -65,7 +65,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             type="server"
           />
         </div>
-        <hr className="my-2 border-none dark:border-gray-600" />
+        {/* <hr className="my-4 border-none dark:border-gray-600" /> */}
 
         {/* <div className="mt-2 space-x-1">
           <FileItem
