@@ -9,6 +9,7 @@ export default defineConfig({
     port: 8002
   },
   plugins: [
+    // @ts-ignore
     react({
       jsxRuntime: 'classic'
     }),
