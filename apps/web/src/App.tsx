@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import SpacedriveInterface from '@sd/interface';
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
@@ -64,6 +64,10 @@ class Transport extends BaseTransport {
 }
 
 function App() {
+  useEffect(() => {
+    window.parent.postMessage('spacedrive-hello', '*');
+  }, []);
+
   return (
     <div className="App">
       {/* <header className="App-header"></header> */}
