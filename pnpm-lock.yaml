@@ -79,6 +79,7 @@ importers:
       '@tailwindcss/typography': ^0.5.2
       '@types/compression': ^1.7.2
       '@types/express': ^4.17.13
+      '@types/lodash': ^4.14.182
       '@types/prismjs': ^1.26.0
       '@types/react': ^18.0.0
       '@types/react-dom': ^18.0.0
@@ -135,6 +136,7 @@ importers:
       vite-plugin-markdown: 2.0.2_vite@2.9.5
     devDependencies:
       '@babel/preset-react': 7.16.7
+      '@types/lodash': 4.14.182
       '@types/prismjs': 1.26.0
       '@types/react': 18.0.5
       '@types/react-dom': 18.0.1
@@ -1784,6 +1786,10 @@ packages:
 
   /@types/linkify-it/3.0.2:
     resolution: {integrity: sha512-HZQYqbiFVWufzCwexrvh694SOim8z2d+xJl5UNamcvQFejLY/2YUtzXHYi3cHdI7PMlS8ejH2slRAOJQ32aNbA==}
+    dev: true
+
+  /@types/lodash/4.14.182:
+    resolution: {integrity: sha512-/THyiqyQAP9AfARo4pF+aCGcyiQ94tX/Is2I7HofNRqoYLgN1PBoOWu2/zTA5zMxzP5EFutMtWtGAFRKUe961Q==}
     dev: true
 
   /@types/markdown-it/12.2.3:
