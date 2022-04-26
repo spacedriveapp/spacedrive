@@ -46,14 +46,14 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <div className="mt-5" />
         <div className="flex flex-col space-y-4">
           <Device
-            name="Spacedad"
+            name="Spacedad MBP"
             size="1.4TB"
             runningJob={{ amount: 65, task: 'Generating preview media' }}
             locations={[{ name: 'Pictures' }, { name: 'Downloads' }, { name: 'Minecraft' }]}
             type="laptop"
           />
           <Device
-            name="Jamies iPhone"
+            name={`James' iPhone 12`}
             size="47.7GB"
             locations={[{ name: 'Camera Roll' }, { name: 'Notes' }]}
             type="phone"
