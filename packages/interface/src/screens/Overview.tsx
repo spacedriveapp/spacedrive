@@ -32,7 +32,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
   return (
     <div className="flex flex-col w-full h-screen">
       <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
-      <div className="flex flex-col w-full h-screen px-3 overflow-scroll">
+      <div className="flex flex-col w-full h-screen px-3">
         <div className="flex items-center w-full ml-4">
           <div className="flex flex-wrap p-2 space-x-6">
             <StatItem name="Total capacity" value="26.5" unit="TB" />

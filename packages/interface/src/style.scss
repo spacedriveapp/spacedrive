@@ -3,10 +3,17 @@ button {
   @apply cursor-default;
 }
 
-// ::-webkit-scrollbar {
-//   display: none;
-// }
 
+
+.no-scrollbar {
+  -ms-overflow-style: none; /* for Internet Explorer, Edge */
+  scrollbar-width: none; /* for Firefox */
+  overflow-y: scroll; 
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 .explorer-scroll {
   &::-webkit-scrollbar {
     height: 6px;
