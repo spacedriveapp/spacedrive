@@ -7,7 +7,7 @@
   </p>
   <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
-   The universal file manager.
+   The <b>universal</b> file manager.
     <br />
     <a href="https://spacedrive.app"><strong>spacedrive.app »</strong></a>
     <br />
@@ -39,7 +39,7 @@ For independent creatives, hoarders and those that want to own their digital foo
 <br />
 <br />
 <p align="center">
-  <img src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_screenshot.jpg" alt="Logo">
+  <img src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_screenshot.jpg" alt="Logo" style="border-radius: 8px">
   <br />
   <br />
   <a href="https://discord.gg/gTaF2Z44f5">
