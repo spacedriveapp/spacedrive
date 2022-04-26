@@ -332,7 +332,7 @@ pub enum ClientCommand {
   // System
   SysVolumeUnmount { id: i32 },
   GenerateThumbsForLocation { id: i32, path: String },
-  PurgeDatabase,
+  // PurgeDatabase,
   IdentifyUniqueFiles,
 }
 
