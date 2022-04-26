@@ -19,8 +19,15 @@
     "paths": {
       "@sd/interface": ["../../packages/interface/src/index.ts"],
       "@sd/ui": ["../../packages/ui/src/index.ts"],
-      "@sd/client": ["../../packages/client/src/index.ts"]
+      "@sd/client": ["../../packages/client/src/index.ts"],
+      "@sd/core": ["../../core/index.ts"],
+    },
+  },
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "CommonJS"
     }
   },
-  "include": ["src"]
+  "include": ["src"],
 }
