@@ -48,10 +48,7 @@ export default function GeneralSettings() {
         </div>
       </InputContainer> */}
 
-      <InputContainer
-        title="Locations"
-        description="Local cache storage for media previews and thumbnails."
-      >
+      <InputContainer title="Volumes" description="A list of volumes running on this device.">
         <div className="flex flex-row space-x-2">
           <div className="flex flex-grow">
             <Listbox

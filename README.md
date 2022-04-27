@@ -57,7 +57,7 @@ For independent creatives, hoarders and those that want to own their digital foo
   <br />
 </p>
 
-> NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change. Additionally, most of the links on this page are broken but will be working once the repository is made public.
+> NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change.
 
 # What is a VDFS?
 
