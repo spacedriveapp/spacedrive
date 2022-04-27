@@ -30,7 +30,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
   }
 
   return (
-    <div className="flex flex-col w-full h-screen overflow-x-hidden overflow-y-scroll no-scrollbar">
+    <div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
       <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
       <div className="flex flex-col w-full h-screen px-3">
         <div className="flex items-center w-full">
