@@ -28,7 +28,8 @@
     <i>~ links will be added once release available ~</i>
   </p>
 
-Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust. 
+Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust.
+
 <!-- <a href="https://spacedrive.app"><strong>Learn more »</strong></a> -->
 <br/>
 <br/>
@@ -70,6 +71,7 @@ The first implementation of a VDFS can be found in this UC Berkeley [paper](http
 Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. We depend on cloud services like Google Photos and iCloud, but are locked in with limited capacity and almost zero interoperability between services and operating systems. Photo albums shouldn’t be stuck in a device ecosystem, or harvested for advertising data. They should be OS agnostic, permanent and personally owned. Data we create is our legacy, that will long outlive us—open source technology is the only way to ensure we retain absolute control over the data that defines our lives, at unlimited scale.
 
 # Features
+
 Feature list moved to the [roadmap](docs/product/roadmap.md).
 
 # Developer Installation Instructions
@@ -103,7 +105,7 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 - Prisma on the front-end? 🤯 Made possible thanks to [prisma-client-rust](https://github.com/brendonovich/prisma-client-rust), developed by [Brendonovich](https://github.com/brendonovich). Gives us access to the powerful migration CLI in development, along with the Prisma syntax for our schema. The application bundles with the Prisma query engine and codegen for a beautiful Rust API. Our lightweight migration runner is custom built for a desktop app context.
 - Tauri allows us to create a pure Rust native OS webview, without the overhead of your average Electron app. This brings the bundle size and average memory usage down dramatically. It also contributes to a more native feel, especially on macOS due to Safari's close integration with the OS.
 - The core (`sdcore`) is written in pure Rust.
-- Typesafe communication for an RPC-like message passing system between Rust and React Query. 
+- Typesafe communication for an RPC-like message passing system between Rust and React Query.
 
 ## Monorepo structure:
 

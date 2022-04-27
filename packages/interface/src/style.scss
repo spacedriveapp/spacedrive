@@ -3,12 +3,14 @@ button {
   @apply cursor-default;
 }
 
-body { font-family: "InterVariable", sans-serif; }
+body {
+  font-family: 'InterVariable', sans-serif;
+}
 
 .no-scrollbar {
   -ms-overflow-style: none; /* for Internet Explorer, Edge */
   scrollbar-width: none; /* for Firefox */
-  overflow-y: scroll; 
+  overflow-y: scroll;
 }
 
 .no-scrollbar::-webkit-scrollbar {

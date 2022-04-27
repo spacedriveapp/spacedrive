@@ -20,7 +20,7 @@
     "paths": {
       "@sd/ui": ["../ui/src/index.ts"],
       "@sd/client": ["../client/src/index.ts"],
-      "@sd/core": ["../../core/index.ts"],
+      "@sd/core": ["../../core/index.ts"]
     }
   },
   "include": ["src", "scripts"]
