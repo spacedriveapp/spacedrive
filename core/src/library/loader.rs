@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::state::client::LibraryState;
 use crate::{db::migrate, prisma::library, state};
-use crate::{prisma, Core};
+use crate::Core;
 
 use super::LibraryError;
 

@@ -33,6 +33,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
   {
     Ok(data) => {
       if data.len() == 0 {
+        #[cfg(debug_assertions)]
         println!("Migration table does not exist");
         // execute migration
         match client._execute_raw(INIT_MIGRATION).await {
@@ -47,8 +48,10 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
           .await
           .unwrap();
 
+        #[cfg(debug_assertions)]
         println!("Migration table created: {:?}", value);
       } else {
+        #[cfg(debug_assertions)]
         println!("Migration table exists: {:?}", data);
       }
 
@@ -93,6 +96,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
           .await?;
 
         if existing_migration.is_none() {
+          #[cfg(debug_assertions)]
           println!("Running migration: {}", name);
 
           let steps = migration_sql.split(";").collect::<Vec<&str>>();
@@ -111,6 +115,7 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
           for (i, step) in steps.iter().enumerate() {
             match client._execute_raw(&format!("{};", step)).await {
               Ok(_) => {
+                #[cfg(debug_assertions)]
                 println!("Step {} ran successfully", i);
                 client
                   .migration()
@@ -127,8 +132,10 @@ pub async fn run_migrations(db_url: &str) -> Result<()> {
             }
           }
 
+          #[cfg(debug_assertions)]
           println!("Migration {} recorded successfully", name);
         } else {
+          #[cfg(debug_assertions)]
           println!("Migration {} already exists", name);
         }
       }
