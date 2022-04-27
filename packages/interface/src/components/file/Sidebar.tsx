@@ -21,7 +21,7 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
     {({ isActive }) => (
       <span
         className={clsx(
-          'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
+          'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
           { '!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive },
           props.className
         )}
@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       <Dropdown
         buttonProps={{
           justifyLeft: true,
-          className: `flex w-full text-left max-w-full mb-1 mt-1 shadow-xs rounded 
+          className: `flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
           !bg-gray-50 
           border-gray-150 
           hover:!bg-gray-1000 

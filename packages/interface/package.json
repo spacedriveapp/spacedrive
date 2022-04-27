@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@apollo/client": "^3.5.10",
+    "@fontsource/inter": "^4.5.7",
     "@headlessui/react": "^1.5.0",
     "@heroicons/react": "^1.0.6",
     "@radix-ui/react-dialog": "^0.1.7",
