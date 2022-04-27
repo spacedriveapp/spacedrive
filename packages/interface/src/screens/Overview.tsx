@@ -1,4 +1,5 @@
 import { useBridgeQuery } from '@sd/client';
+import byteSize from 'byte-size';
 import { DotsSixVertical, Laptop, LineSegments } from 'phosphor-react';
 import React, { useState } from 'react';
 import { Device } from '../components/device/Device';
@@ -34,8 +35,8 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             <StatItem name="Total capacity" value="26.5" unit="TB" />
             <StatItem
               name="Index size"
-              value={libraryStatistics?.library_db_size ?? '0'}
-              unit="MB"
+              value={byteSize(Number(libraryStatistics?.library_db_size)).value}
+              unit={byteSize(Number(libraryStatistics?.library_db_size)).unit}
             />
             <StatItem name="Preview media" value="23.5" unit="GB" />
             <StatItem name="Free space" value="9.2" unit="TB" />
