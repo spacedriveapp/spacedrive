@@ -1,20 +1,27 @@
-use crate::prisma::library_statistics;
+use crate::{
+  prisma::{library, library_statistics::*},
+  state::client,
+  CoreContext,
+};
 use serde::{Deserialize, Serialize};
+use std::fs;
 use ts_rs::TS;
+
+use super::LibraryError;
 
 #[derive(Debug, Serialize, Deserialize, TS, Clone)]
 #[ts(export)]
 pub struct Statistics {
-  total_file_count: i32,
-  total_bytes_used: String,
-  total_bytes_capacity: String,
-  total_bytes_free: String,
-  total_unique_bytes: String,
-  preview_media_bytes: String,
-  library_db_size: String,
+  pub total_file_count: i32,
+  pub total_bytes_used: String,
+  pub total_bytes_capacity: String,
+  pub total_bytes_free: String,
+  pub total_unique_bytes: String,
+  pub preview_media_bytes: String,
+  pub library_db_size: String,
 }
 
-impl Into<Statistics> for library_statistics::Data {
+impl Into<Statistics> for Data {
   fn into(self) -> Statistics {
     Statistics {
       total_file_count: self.total_file_count,
@@ -42,24 +49,88 @@ impl Default for Statistics {
   }
 }
 
-// impl Statistics {
-//   pub async fn recalculate(ctx: &CoreContext) -> Result<(), LibraryError> {
-//     let config = client::get();
-//     let db = &ctx.database;
+impl Statistics {
+  pub async fn retrieve(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
+    let config = client::get();
+    let db = &ctx.database;
+    let library_data = config.get_current_library();
 
-//     let library_data = config.get_current_library();
+    let library_statistics_db = match db
+      .library_statistics()
+      .find_unique(id::equals(library_data.library_id))
+      .exec()
+      .await?
+    {
+      Some(library_statistics_db) => library_statistics_db.into(),
+      // create the default values if database has no entry
+      None => Statistics::default(),
+    };
+    Ok(library_statistics_db.into())
+  }
+  pub async fn calculate(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
+    let config = client::get();
+    let db = &ctx.database;
+    // get library from client state
+    let library_data = config.get_current_library();
 
-//     let library_statistics_db = match db
-//       .library_statistics()
-//       .find_unique(library_statistics::id::equals(library_data.library_id))
-//       .exec()
-//       .await?
-//     {
-//       Some(library_statistics_db) => library_statistics_db.into(),
-//       // create the default values if database has no entry
-//       None => Statistics::default(),
-//     };
+    println!(
+      "Calculating library statistics {:?}",
+      library_data.library_uuid
+    );
+    // get library from db
+    let library = db
+      .library()
+      .find_unique(library::pub_id::equals(
+        library_data.library_uuid.to_string(),
+      ))
+      .exec()
+      .await?;
 
-//     Ok(())
-//   }
-// }
+    if library.is_none() {
+      return Err(LibraryError::LibraryNotFound);
+    }
+
+    let library_statistics = db
+      .library_statistics()
+      .find_unique(id::equals(library_data.library_id))
+      .exec()
+      .await?;
+
+    let library_db_size = match fs::metadata(library_data.library_path.as_str()) {
+      Ok(metadata) => metadata.len(),
+      Err(_) => 0,
+    };
+
+    println!("{:?}", library_statistics);
+
+    let statistics = Statistics {
+      library_db_size: library_db_size.to_string(),
+      ..Statistics::default()
+    };
+
+    let library_local_id = match library {
+      Some(library) => library.id,
+      None => library_data.library_id,
+    };
+
+    db.library_statistics()
+      .upsert(library_id::equals(library_local_id))
+      .create(
+        library_id::set(library_local_id),
+        vec![library_db_size::set(statistics.library_db_size.clone())],
+      )
+      .update(vec![
+        total_file_count::set(statistics.total_file_count.clone()),
+        total_bytes_used::set(statistics.total_bytes_used.clone()),
+        total_bytes_capacity::set(statistics.total_bytes_capacity.clone()),
+        total_bytes_free::set(statistics.total_bytes_free.clone()),
+        total_unique_bytes::set(statistics.total_unique_bytes.clone()),
+        preview_media_bytes::set(statistics.preview_media_bytes.clone()),
+        library_db_size::set(statistics.library_db_size.clone()),
+      ])
+      .exec()
+      .await?;
+
+    Ok(statistics)
+  }
+}

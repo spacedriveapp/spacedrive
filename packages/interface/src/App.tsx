@@ -31,6 +31,7 @@ import { ContentScreen } from './screens/Content';
 import LibrarySettings from './screens/settings/LibrarySettings';
 
 import '@fontsource/inter/variable.css';
+import { TagScreen } from './screens/Tag';
 
 const queryClient = new QueryClient();
 
@@ -126,6 +127,7 @@ function Router() {
           <Route path="debug" element={<DebugScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
           <Route path="explorer/:id" element={<ExplorerScreen />} />
+          <Route path="tag/:id" element={<TagScreen />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

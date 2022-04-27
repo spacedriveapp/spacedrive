@@ -67,9 +67,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },
     { id: 2, name: 'OBS', color: '#BF88FF' },
-    { id: 2, name: 'BlackMagic', color: '#F0C94A' },
-    { id: 2, name: 'Camera Roll', color: '#00F0DB' },
-    { id: 2, name: 'Spacedrive', color: '#00F079' }
+    { id: 3, name: 'BlackMagic', color: '#F0C94A' },
+    { id: 4, name: 'Camera Roll', color: '#00F0DB' },
+    { id: 5, name: 'Spacedrive', color: '#00F079' }
   ];
 
   return (
@@ -174,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <Heading>Tags</Heading>
         <div className="mb-2">
           {tags.map((tag, index) => (
-            <SidebarLink key={index} to="/" className="">
+            <SidebarLink key={index} to={`tag/${tag.id}`} className="">
               <div
                 className="w-[12px] h-[12px] rounded-full"
                 style={{ backgroundColor: tag.color }}

@@ -3,12 +3,17 @@ use uuid::Uuid;
 
 use crate::state::client::LibraryState;
 use crate::{db::migrate, prisma::library, state};
-use crate::Core;
+use crate::{Core, CoreContext};
 
 use super::LibraryError;
 
 pub static LIBRARY_DB_NAME: &str = "library.db";
 pub static DEFAULT_NAME: &str = "My Library";
+
+pub fn get_library_path(data_path: &str) -> String {
+  let path = data_path.to_owned();
+  format!("{}/{}", path, LIBRARY_DB_NAME)
+}
 
 pub async fn get(core: &Core) -> Result<library::Data, LibraryError> {
   let config = state::client::get();
@@ -37,7 +42,7 @@ pub async fn get(core: &Core) -> Result<library::Data, LibraryError> {
   Ok(library.unwrap())
 }
 
-pub async fn load(library_path: &str, library_id: &str) -> Result<()> {
+pub async fn load(ctx: &CoreContext, library_path: &str, library_id: &str) -> Result<()> {
   let mut config = state::client::get();
 
   println!("Initializing library: {} {}", &library_id, library_path);
@@ -47,12 +52,12 @@ pub async fn load(library_path: &str, library_id: &str) -> Result<()> {
     config.save();
   }
   // create connection with library database & run migrations
-  migrate::run_migrations(&library_path).await?;
+  migrate::run_migrations(&ctx).await?;
   // if doesn't exist, mark as offline
   Ok(())
 }
 
-pub async fn create(core: &Core, name: Option<String>) -> Result<()> {
+pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<()> {
   let mut config = state::client::get();
 
   let uuid = Uuid::new_v4().to_string();
@@ -61,11 +66,11 @@ pub async fn create(core: &Core, name: Option<String>) -> Result<()> {
 
   let library_state = LibraryState {
     library_uuid: uuid.clone(),
-    library_path: format!("{}/{}", config.data_path, LIBRARY_DB_NAME),
+    library_path: get_library_path(&config.data_path),
     ..LibraryState::default()
   };
 
-  migrate::run_migrations(&library_state.library_path).await?;
+  migrate::run_migrations(&ctx).await?;
 
   config.libraries.push(library_state);
 
@@ -73,7 +78,7 @@ pub async fn create(core: &Core, name: Option<String>) -> Result<()> {
 
   config.save();
 
-  let db = &core.database;
+  let db = &ctx.database;
 
   let _library = db
     .library()
@@ -84,6 +89,8 @@ pub async fn create(core: &Core, name: Option<String>) -> Result<()> {
     )
     .exec()
     .await;
+
+  println!("library created in database: {:?}", _library);
 
   Ok(())
 }
