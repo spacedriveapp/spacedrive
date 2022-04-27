@@ -14,6 +14,13 @@ export default function AppEmbed() {
     }
   }
 
+  // after five minutes kill the live demo
+  useEffect(() => {
+    setTimeout(() => {
+      setIframeAppReady(false);
+    }, 300000);
+  }, []);
+
   useEffect(() => {
     window.addEventListener('message', handleEvent, false);
     setShowApp(true);
@@ -28,21 +35,21 @@ export default function AppEmbed() {
   }, []);
 
   return (
-    <div className="w-screen ">
-      <div className="relative z-30 h-[300px] lg:h-[628px] mt-16 overflow-hidden ">
-        {imgFallback && <div className="h-full fade-in-image landing-img" />}
+    <div className="w-screen">
+      <div className="relative z-30 h-[200px] p-2 sm:p-0 sm:h-[328px] lg:h-[628px] mt-8 sm:mt-16 overflow-hidden ">
         {showApp && (
           <iframe
             referrerPolicy="origin-when-cross-origin"
             className={clsx(
-              'opacity-0 pointer-events-none absolute w-[1200px] h-[300px] lg:h-[628px] z-30 border rounded-lg shadow-2xl inset-center bg-gray-850 border-gray-550',
-              iFrameAppReady && 'fade-in-image !opacity-100  !pointer-events-auto'
+              'absolute w-[1200px] h-[300px] lg:h-[628px] z-30 border rounded-lg shadow-2xl inset-center bg-gray-850 border-gray-550',
+              iFrameAppReady ? 'fade-in-image opacity-100' : 'opacity-0 -ml-[10000px]'
             )}
             src={`${
               import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
             }?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
           />
         )}
+        {imgFallback && <div className="z-40 h-full fade-in-image landing-img" />}
       </div>
     </div>
   );
