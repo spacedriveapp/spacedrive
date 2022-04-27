@@ -1,3 +1,4 @@
+import { useBridgeQuery } from '@sd/client';
 import { DotsSixVertical, Laptop, LineSegments } from 'phosphor-react';
 import React, { useState } from 'react';
 import { Device } from '../components/device/Device';
@@ -22,12 +23,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 };
 
 export const OverviewScreen: React.FC<{}> = (props) => {
-  const [selectedFile, setSelectedFile] = useState<null | string>(null);
-
-  function handleSelect(key: string) {
-    if (selectedFile === key) setSelectedFile(null);
-    else setSelectedFile(key);
-  }
+  const { data: libraryStatistics } = useBridgeQuery('GetLibraryStatistics');
 
   return (
     <div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
@@ -36,7 +32,11 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         <div className="flex items-center w-full">
           <div className="flex flex-wrap pb-4 space-x-6">
             <StatItem name="Total capacity" value="26.5" unit="TB" />
-            <StatItem name="Index size" value="103" unit="MB" />
+            <StatItem
+              name="Index size"
+              value={libraryStatistics?.library_db_size ?? '0'}
+              unit="MB"
+            />
             <StatItem name="Preview media" value="23.5" unit="GB" />
             <StatItem name="Free space" value="9.2" unit="TB" />
             <StatItem name="Total at-risk" value="1.5" unit="TB" />

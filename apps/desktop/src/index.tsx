@@ -53,6 +53,7 @@ function App() {
 
   return (
     <SpacedriveInterface
+      useMemoryRouter
       transport={new Transport()}
       platform={platform}
       convertFileSrc={function (url: string): string {

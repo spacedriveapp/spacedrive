@@ -46,6 +46,7 @@ export interface AppProps {
   onClose?: () => void;
   onMinimize?: () => void;
   onFullscreen?: () => void;
+  useMemoryRouter: boolean;
 }
 
 function AppLayout() {
@@ -174,7 +175,16 @@ function NotFound() {
   );
 }
 
-function AppContainer() {
+function MemoryRouterContainer() {
+  useCoreEvents();
+  return (
+    <MemoryRouter>
+      <Router />
+    </MemoryRouter>
+  );
+}
+
+function BrowserRouterContainer() {
   useCoreEvents();
   return (
     <MemoryRouter>
@@ -204,7 +214,7 @@ export default function App(props: AppProps) {
         <QueryClientProvider client={queryClient} contextSharing={false}>
           <AppPropsContext.Provider value={props}>
             <ClientProvider>
-              <AppContainer />
+              {props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
             </ClientProvider>
           </AppPropsContext.Provider>
         </QueryClientProvider>

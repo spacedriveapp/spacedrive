@@ -44,13 +44,15 @@ export function MacOSTrafficLights() {
   const appPropsContext = useContext(AppPropsContext);
 
   return (
-    <div data-tauri-drag-region className="mt-2 mb-1 -ml-1 ">
-      <TrafficLights
-        onClose={appPropsContext?.onClose}
-        onFullscreen={appPropsContext?.onFullscreen}
-        onMinimize={appPropsContext?.onMinimize}
-        className="p-1.5 z-50 absolute"
-      />
+    <div data-tauri-drag-region className="h-7">
+      <div className="mt-2 mb-1 -ml-1 ">
+        <TrafficLights
+          onClose={appPropsContext?.onClose}
+          onFullscreen={appPropsContext?.onFullscreen}
+          onMinimize={appPropsContext?.onMinimize}
+          className="p-1.5 z-50 absolute"
+        />
+      </div>
     </div>
   );
 }
@@ -71,10 +73,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
   ];
 
   return (
-    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 pb-1 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
       {appPropsContext?.platform === 'macOS' ? (
         <>
-          <MacOSTrafficLights /> <div className="mt-6" />
+          <MacOSTrafficLights />
         </>
       ) : null}
 
