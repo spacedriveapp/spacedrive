@@ -9,7 +9,10 @@
   <p align="center">
    The <b>universal</b> file manager.
     <br />
-    <a href="https://spacedrive.app"><strong>spacedrive.app »</strong></a>
+    <br />
+    <a href="https://spacedrive.app">
+      <img src="https://img.shields.io/badge/-Spacedrive.app-blueviolet?style=for-the-badge" />
+    </a>
     <br />
     <br />
     <b>Download for </b>
