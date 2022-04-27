@@ -5,6 +5,7 @@ import {
   LockClosedIcon,
   PhotographIcon,
   TagIcon,
+  TerminalIcon,
   UsersIcon
 } from '@heroicons/react/outline';
 import React from 'react';
@@ -44,6 +45,10 @@ export const SettingsScreen: React.FC<{}> = () => {
         <SidebarLink to="/settings/appearance">
           <Icon component={PaintBrush} />
           Appearance
+        </SidebarLink>
+        <SidebarLink to="/settings/experimental">
+          <Icon component={TerminalIcon} />
+          Experimental
         </SidebarLink>
 
         <Heading>Library</Heading>

@@ -50,5 +50,8 @@
     "npm": "pnpm",
     "yarn": "pnpm",
     "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "zustand": "^3.7.2"
   }
 }

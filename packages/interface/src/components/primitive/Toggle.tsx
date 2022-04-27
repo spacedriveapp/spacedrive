@@ -1,11 +1,21 @@
 import React, { useState } from 'react';
 import { Switch } from '@headlessui/react';
 import clsx from 'clsx';
+import { useStore } from '../device/Stores';
 
 export const Toggle = (
-  props: { initialState: boolean; size: 'sm' | 'md' } = { initialState: false, size: 'sm' }
+  props: { initialState: boolean; size: 'sm' | 'md'; type: string } = {
+    initialState: false,
+    size: 'sm',
+    type: ''
+  }
 ) => {
   const [enabled, setEnabled] = useState(props.initialState || false);
+  if (enabled && props.type == 'experimental') {
+    useStore.setState({ experimental: true });
+  } else {
+    useStore.setState({ experimental: false });
+  }
 
   return (
     <Switch

@@ -31,6 +31,7 @@ import { ContentScreen } from './screens/Content';
 import LibrarySettings from './screens/settings/LibrarySettings';
 
 import '@fontsource/inter/variable.css';
+import ExperimentalSettings from './screens/settings/ExperimentalSettings';
 
 const queryClient = new QueryClient();
 
@@ -94,6 +95,7 @@ function SettingsRoutes({ modal = false }) {
           <Route path="general" element={<GeneralSettings />} />
           <Route path="security" element={<SecuritySettings />} />
           <Route path="appearance" element={<></>} />
+          <Route path="experimental" element={<ExperimentalSettings />} />
           <Route path="locations" element={<LocationSettings />} />
           <Route path="library" element={<LibrarySettings />} />
           <Route path="media" element={<></>} />
