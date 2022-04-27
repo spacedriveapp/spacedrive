@@ -70,6 +70,7 @@ importers:
   apps/landing:
     specifiers:
       '@babel/preset-react': ^7.16.7
+      '@fontsource/inter': ^4.5.7
       '@headlessui/react': ^1.5.0
       '@heroicons/react': ^1.0.6
       '@icons-pack/react-simple-icons': ^4.6.1
@@ -114,6 +115,7 @@ importers:
       vite-plugin-ssr: ^0.3.64
       vite-plugin-svgr: ^1.1.0
     dependencies:
+      '@fontsource/inter': 4.5.7
       '@headlessui/react': 1.5.0_react-dom@18.0.0+react@18.0.0
       '@heroicons/react': 1.0.6_react@18.0.0
       '@icons-pack/react-simple-icons': 4.6.1_react@18.0.0
@@ -168,6 +170,7 @@ importers:
 
   apps/web:
     specifiers:
+      '@fontsource/inter': ^4.5.7
       '@sd/client': '*'
       '@sd/core': '*'
       '@sd/interface': '*'
@@ -186,6 +189,7 @@ importers:
       vite: ^2.9.5
       vite-plugin-svgr: ^1.1.0
     dependencies:
+      '@fontsource/inter': 4.5.7
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -246,6 +250,7 @@ importers:
   packages/interface:
     specifiers:
       '@apollo/client': ^3.5.10
+      '@fontsource/inter': ^4.5.7
       '@headlessui/react': ^1.5.0
       '@heroicons/react': ^1.0.6
       '@radix-ui/react-dialog': ^0.1.7
@@ -303,6 +308,7 @@ importers:
       zustand: ^3.7.2
     dependencies:
       '@apollo/client': 3.5.10_react@18.0.0
+      '@fontsource/inter': 4.5.7
       '@headlessui/react': 1.5.0_react-dom@18.0.0+react@18.0.0
       '@heroicons/react': 1.0.6_react@18.0.0
       '@radix-ui/react-dialog': 0.1.7_761282c47ea27a9f40e1344337910648
@@ -838,6 +844,10 @@ packages:
   /@cush/relative/1.0.0:
     resolution: {integrity: sha512-RpfLEtTlyIxeNPGKcokS+p3BZII/Q3bYxryFRglh5H3A3T8q9fsLYm72VYAMEOOIBLEa8o93kFLiBDUWKrwXZA==}
     dev: true
+
+  /@fontsource/inter/4.5.7:
+    resolution: {integrity: sha512-25k3thupaOEBexuU+jAkGqieKPbuhSuA+sinDwp1iBNhqQPiJ9QHDvsXgoCgCbZ4sGlE8aCwZmSlDJrPdJHNkw==}
+    dev: false
 
   /@graphql-typed-document-node/core/3.1.1:
     resolution: {integrity: sha512-NQ17ii0rK1b34VZonlmT2QMJFI70m0TRwbknO/ihlbatXyaktDhN/98vBiUU6kNBPljqGqyIrl2T4nY2RpFANg==}
@@ -6446,7 +6456,7 @@ packages:
       vite: ^2.6.0
     dependencies:
       '@svgr/core': 6.2.1
-      vite: 2.9.5_sass@1.50.0
+      vite: 2.9.5
     transitivePeerDependencies:
       - supports-color
     dev: true

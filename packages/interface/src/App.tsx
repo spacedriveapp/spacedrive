@@ -30,6 +30,8 @@ import './style.scss';
 import { ContentScreen } from './screens/Content';
 import LibrarySettings from './screens/settings/LibrarySettings';
 
+import '@fontsource/inter/variable.css';
+
 const queryClient = new QueryClient();
 
 export const AppPropsContext = React.createContext<AppProps | null>(null);

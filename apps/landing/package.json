@@ -8,6 +8,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
+    "@fontsource/inter": "^4.5.7",
     "@headlessui/react": "^1.5.0",
     "@heroicons/react": "^1.0.6",
     "@icons-pack/react-simple-icons": "^4.6.1",
