@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import {
-  BrowserRouter,
+  MemoryRouter,
   Location,
   Outlet,
   Route,
@@ -177,9 +177,9 @@ function NotFound() {
 function AppContainer() {
   useCoreEvents();
   return (
-    <BrowserRouter>
+    <MemoryRouter>
       <Router />
-    </BrowserRouter>
+    </MemoryRouter>
   );
 }
 
