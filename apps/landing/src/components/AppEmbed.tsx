@@ -50,7 +50,9 @@ export default function AppEmbed() {
             }?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
           />
         )}
-        {imgFallback && <div className="z-40 h-full fade-in-image landing-img" />}
+        {imgFallback && !iFrameAppReady && (
+          <div className="z-40 h-full fade-in-image landing-img" />
+        )}
       </div>
     </div>
   );
