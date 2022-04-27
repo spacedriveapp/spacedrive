@@ -5,24 +5,42 @@ button {
 
 body { font-family: "InterVariable", sans-serif; }
 
-.no-scrollbar {
-  -ms-overflow-style: none; /* for Internet Explorer, Edge */
-  scrollbar-width: none; /* for Firefox */
-  overflow-y: scroll; 
+html { scroll-behavior: smooth; }
+
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+	transition: 1.0s;
+}
+::-webkit-scrollbar-thumb {
+	background-color: rgba(127, 127, 127, 0.6);
+	background-clip: padding-box;
+	border: 2px solid transparent;
+	border-radius: 5px;
+	transition: 1.0s;
+	&:vertical {
+		&:hover {
+			background-color: rgb(110, 110, 110);
+			transition: 0.3s;
+		}
+		&:active {
+			background: rgba(95, 91, 91, 1);
+		}
+	}
+	&:horizontal {
+		&:hover {
+			background-color: rgb(110, 110, 110);
+			transition: 0.3s;
+		}
+		&:active {
+			background: rgba(95, 91, 91, 1);
+		}
+	}
+}
+::-webkit-scrollbar-track {
+	background-color: transparent;
+}
+::-webkit-scrollbar-corner {
+	background: none;
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.explorer-scroll {
-  &::-webkit-scrollbar {
-    height: 6px;
-    width: 8px;
-  }
-  &::-webkit-scrollbar-track {
-    @apply bg-[#00000006] dark:bg-[#00000030] mt-[55px] rounded-[6px];
-  }
-  &::-webkit-scrollbar-thumb {
-    @apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
-  }
-}
