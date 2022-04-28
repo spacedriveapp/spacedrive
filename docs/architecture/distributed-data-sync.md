@@ -167,7 +167,7 @@ For the sake of compatibility with local relations, some resource properties can
 
 In some cases we are able to create many shared data resources at once and resolve conflicts on the fly by merging where the oldest resource takes priority.
 
-This is intended for the `files` resource. It requires Shared data behaviour as most other shared resources are related at a database level and user defined metadata can be assigned, however it is initially derived from `file_paths` which is Owned data.
+This is intended for the `files` resource. It requires Shared data behavior as most other shared resources are related at a database level and user defined metadata can be assigned, however it is initially derived from `file_paths` which is Owned data.
 
 As `files` are created in abundance (hundreds of thousands at a time), it would be inefficient to record these changes in the `pending_operations` table. But we are also unable to sync in the same way as Owned data due to the possibility of conflicts.
 
@@ -226,7 +226,7 @@ Then inside the `sync` function we send the event to the
 	}
 ```
 
-Files also impempent `OperationalMerge` would use
+Files also implement `OperationalMerge` would use
 
 # Resources
 
