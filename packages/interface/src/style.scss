@@ -31,11 +31,12 @@ body { font-family: "InterVariable", sans-serif; }
     height: 6px;
     width: 8px;
   }
+  &::-webkit-scrollbar-track {
+    @apply bg-transparent rounded-[6px]  my-[10px]
+  }
   &::-webkit-scrollbar-thumb {
-  
     @apply rounded-[6px] bg-gray-300  dark:bg-gray-550;
   }
-}
 
 
 
