@@ -53,16 +53,12 @@ export const OverviewScreen: React.FC<{}> = (props) => {
               value={libraryStatistics?.total_bytes_free}
               unit={libraryStatistics?.total_bytes_free}
             />
-            <StatItem
+            {/* <StatItem
               name="Total at-risk"
               value={'0'}
               unit={libraryStatistics?.preview_media_bytes}
             />
-            <StatItem
-              name="Total backed up"
-              value={libraryStatistics?.preview_media_bytes}
-              unit={libraryStatistics?.preview_media_bytes}
-            />
+            <StatItem name="Total backed up" value={'0'} unit={''} /> */}
           </div>
         </div>
         {/* <div className="mt-5" /> */}

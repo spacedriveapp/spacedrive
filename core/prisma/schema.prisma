@@ -83,8 +83,10 @@ model Volume {
     total_bytes_available String   @default("0")
     disk_type             String?
     filesystem            String?
+    is_system             Boolean  @default(false)
     date_modified         DateTime @default(now())
 
+    @@unique([client_id, mount_point, name])
     @@map("volumes")
 }
 
