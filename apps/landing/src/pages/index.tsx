@@ -91,7 +91,7 @@ function Page() {
           </Button>
         </a>
       </div>
-      <p className="px-6 mt-3 text-xs text-center text-gray-500">
+      <p className="px-6 mt-3 text-sm text-center opacity-75 text-gray-450">
         Coming soon on macOS, Windows and Linux.
         <br />
         Shortly after to iOS & Android.

@@ -17,7 +17,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
       <span className="text-sm text-gray-400">{props.name}</span>
       <span className="text-2xl font-bold">
         {props.value}
-        <span className="ml-1 text-sm text-gray-400">{props.unit}</span>
+        <span className="ml-1 text-[16px] text-gray-400">{props.unit}</span>
       </span>
     </div>
   );
@@ -32,16 +32,36 @@ export const OverviewScreen: React.FC<{}> = (props) => {
       <div className="flex flex-col w-full h-screen px-3">
         <div className="flex items-center w-full">
           <div className="flex flex-wrap pb-4 space-x-6">
-            <StatItem name="Total capacity" value="26.5" unit="TB" />
+            <StatItem
+              name="Total capacity"
+              value={byteSize(Number(libraryStatistics?.total_bytes_capacity)).value || '0'}
+              unit={byteSize(Number(libraryStatistics?.total_bytes_capacity)).unit}
+            />
             <StatItem
               name="Index size"
-              value={byteSize(Number(libraryStatistics?.library_db_size)).value}
+              value={byteSize(Number(libraryStatistics?.library_db_size)).value || '0'}
               unit={byteSize(Number(libraryStatistics?.library_db_size)).unit}
             />
-            <StatItem name="Preview media" value="23.5" unit="GB" />
-            <StatItem name="Free space" value="9.2" unit="TB" />
-            <StatItem name="Total at-risk" value="1.5" unit="TB" />
-            <StatItem name="Total backed up" value="25.3" unit="TB" />
+            <StatItem
+              name="Preview media"
+              value={byteSize(Number(libraryStatistics?.preview_media_bytes)).value || '0'}
+              unit={byteSize(Number(libraryStatistics?.preview_media_bytes)).unit}
+            />
+            <StatItem
+              name="Free space"
+              value={byteSize(Number(libraryStatistics?.total_bytes_free)).value || '0'}
+              unit={byteSize(Number(libraryStatistics?.total_bytes_free)).unit}
+            />
+            <StatItem
+              name="Total at-risk"
+              value={'0'}
+              unit={byteSize(Number(libraryStatistics?.preview_media_bytes)).unit}
+            />
+            <StatItem
+              name="Total backed up"
+              value={byteSize(Number(libraryStatistics?.preview_media_bytes)).value || '0'}
+              unit={byteSize(Number(libraryStatistics?.preview_media_bytes)).unit}
+            />
           </div>
         </div>
         {/* <div className="mt-5" /> */}

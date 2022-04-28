@@ -74,6 +74,20 @@ model Client {
     @@map("clients")
 }
 
+model Volume {
+    id                    Int      @id() @default(autoincrement())
+    client_id             Int
+    name                  String
+    mount_point           String
+    total_bytes_capacity  String   @default("0")
+    total_bytes_available String   @default("0")
+    disk_type             String?
+    filesystem            String?
+    date_modified         DateTime @default(now())
+
+    @@map("volumes")
+}
+
 model Location {
     id                 Int      @id @default(autoincrement())
     pub_id             String   @unique
