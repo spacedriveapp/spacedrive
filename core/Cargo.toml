@@ -43,6 +43,7 @@ image = "0.24.1"
 webp = "0.2.2"
 uhlc = "0.4.1"
 ffmpeg-next = "5.0.3"
+fs_extra = "1.2.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = "0.2.3"

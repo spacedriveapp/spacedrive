@@ -1,8 +1,10 @@
 use crate::{
   prisma::{library, library_statistics::*},
   state::client,
+  sys::{self, volumes::Volume},
   CoreContext,
 };
+use fs_extra::dir::get_size;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use ts_rs::TS;
@@ -72,7 +74,6 @@ impl Statistics {
     let db = &ctx.database;
     // get library from client state
     let library_data = config.get_current_library();
-
     println!(
       "Calculating library statistics {:?}",
       library_data.library_uuid
@@ -96,6 +97,20 @@ impl Statistics {
       .exec()
       .await?;
 
+    // TODO: get from database, not sys
+    let volumes = Volume::get_volumes();
+    Volume::save(&ctx).await?;
+
+    // println!("{:?}", volumes);
+
+    let mut available_capacity: u64 = 0;
+    if volumes.is_ok() {
+      for volume in volumes.unwrap() {
+        println!("{:?}", volume.available_capacity);
+        available_capacity += volume.available_capacity
+      }
+    }
+
     let library_db_size = match fs::metadata(library_data.library_path.as_str()) {
       Ok(metadata) => metadata.len(),
       Err(_) => 0,
@@ -103,8 +118,12 @@ impl Statistics {
 
     println!("{:?}", library_statistics);
 
+    let thumbnail_folder_size = get_size(&format!("{}/{}", config.data_path, "thumbnails"));
+
     let statistics = Statistics {
       library_db_size: library_db_size.to_string(),
+      total_bytes_capacity: available_capacity.to_string(),
+      preview_media_bytes: thumbnail_folder_size.unwrap_or(0).to_string(),
       ..Statistics::default()
     };
 

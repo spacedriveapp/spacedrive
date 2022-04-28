@@ -13,6 +13,7 @@ import { dialog, invoke, os } from '@tauri-apps/api';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 
 import '@sd/ui/style';
+import { appWindow } from '@tauri-apps/api/window';
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
@@ -64,6 +65,9 @@ function App() {
       }): Promise<string | string[]> {
         return dialog.open(options);
       }}
+      onClose={() => appWindow.close()}
+      onFullscreen={() => appWindow.setFullscreen(true)}
+      onMinimize={() => appWindow.minimize()}
     />
   );
 }

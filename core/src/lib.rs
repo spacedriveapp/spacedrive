@@ -294,7 +294,9 @@ impl Core {
       // return the client state from memory
       ClientQuery::ClientGetState => CoreResponse::ClientGetState(self.state.clone()),
       // get system volumes without saving to library
-      ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get_volumes()?),
+      ClientQuery::SysGetVolumes => {
+        CoreResponse::SysGetVolumes(sys::volumes::Volume::get_volumes()?)
+      }
       ClientQuery::SysGetLocations => {
         CoreResponse::SysGetLocations(sys::locations::get_locations(&ctx).await?)
       }
