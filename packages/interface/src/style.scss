@@ -15,27 +15,10 @@ html { scroll-behavior: smooth; }
 ::-webkit-scrollbar-thumb {
 	background-color: rgba(127, 127, 127, 0.6);
 	background-clip: padding-box;
-	border: 2px solid transparent;
+	border: 1px solid transparent;
 	border-radius: 5px;
 	transition: 1.0s;
-	&:vertical {
-		&:hover {
-			background-color: rgb(110, 110, 110);
-			transition: 0.3s;
-		}
-		&:active {
-			background: rgba(95, 91, 91, 1);
-		}
-	}
-	&:horizontal {
-		&:hover {
-			background-color: rgb(110, 110, 110);
-			transition: 0.3s;
-		}
-		&:active {
-			background: rgba(95, 91, 91, 1);
-		}
-	}
+	@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
 }
 ::-webkit-scrollbar-track {
 	background-color: transparent;
