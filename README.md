@@ -73,15 +73,23 @@ Many of us have multiple cloud accounts, drives that aren’t backed up and data
 Feature list moved to the [roadmap](docs/product/roadmap.md).
 
 # Developer Installation Instructions
+## Requirements
+This environment uses the following tools. Ensure you have them installed before continuing.
+- [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+- [Clang](https://releases.llvm.org/download.html)
+- [FFMPEG](https://www.ffmpeg.org/download.html)
+- [Node.js](https://nodejs.org/en/download/)
+- [pnpm](https://pnpm.io/installation)
 
-This environment uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
-
+> If you are having issues ensure you are using the following versions of Rust and Node:
+> - Rust version: **1.58.1**
+> - Node version: **17**
+## Install
 - `$ git clone https://github.com/spacedriveapp/spacedrive`
-- IMPORTANT: _Install [FFMPEG](https://www.ffmpeg.org/download.html) if you don't have it already_
 - `$ cd spacedrive`
 - `$ pnpm i`
 - `$ pnpm prep` - Runs all necessary codegen & builds required dependencies.
-
+## Run
 To quickly run only the desktop app after `prep` you can use:
 
 - `$ pnpm desktop dev`
@@ -90,11 +98,6 @@ To run the landing page
 
 - `$ pnpm web dev` - runs the web app for the embed
 - `$ pnpm landing dev`
-
-If you are having issues ensure you are using the following versions of Rust and Node:
-
-- Rust version: **1.58.1**
-- Node version: **17**
 
 # Architecture
 
