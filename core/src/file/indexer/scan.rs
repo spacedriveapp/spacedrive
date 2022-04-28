@@ -89,7 +89,10 @@ pub async fn scan_path(
       ]);
 
       let file_id = get_id();
-      paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
+
+      if entry.file_type().is_dir() || entry.file_type().is_file() {
+        paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
+      }
 
       if entry.file_type().is_dir() {
         let _path = match path.to_str() {
