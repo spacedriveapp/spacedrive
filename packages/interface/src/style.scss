@@ -3,27 +3,61 @@ button {
   @apply cursor-default;
 }
 
-body { font-family: "InterVariable", sans-serif; }
-
 html { scroll-behavior: smooth; }
 
+body { font-family: "InterVariable", sans-serif; }
+
+.custom-scroll {
+  -ms-overflow-style: none; /* for Internet Explorer, Edge */
+  scrollbar-width: none; /* for Firefox */
+  overflow-y: scroll; 
+}
+
+.explorer-scroll {
+  &::-webkit-scrollbar {
+    height: 6px;
+    width: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    @apply bg-[#00000006] dark:bg-[#00000030] mt-[55px] rounded-[6px];
+  }
+  &::-webkit-scrollbar-thumb {
+    @apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
+  }
+}
+
+.page-scroll {
+  &::-webkit-scrollbar {
+    height: 6px;
+    width: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+  
+    @apply rounded-[6px] bg-gray-300  dark:bg-gray-550;
+  }
+}
+
+
+
+/* DEFAULT SCROLLBAR */
+/* will apply automatically without a custom class */
+/* if a custom class is specified, the properties of the class will be applied instead of the default style */
+
 ::-webkit-scrollbar {
-	width: 10px;
-	height: 10px;
+	width: 6px;
+	height: 8px;
 	transition: 1.0s;
 }
 ::-webkit-scrollbar-thumb {
-	background-color: rgba(127, 127, 127, 0.6);
 	background-clip: padding-box;
-	border: 1px solid transparent;
-	border-radius: 5px;
+	/*border: 1px solid transparent;*/
+	border-radius: 6px;
 	transition: 1.0s;
-	@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
+	@apply bg-gray-300  dark:bg-gray-550;
 }
 ::-webkit-scrollbar-track {
-	background-color: transparent;
+	@apply bg-transparent rounded-[6px];
 }
 ::-webkit-scrollbar-corner {
 	background: none;
 }
-
