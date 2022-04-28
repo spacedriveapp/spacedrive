@@ -74,6 +74,13 @@ Feature list moved to the [roadmap](docs/product/roadmap.md).
 
 # Developer Installation Instructions
 
+## Prerequisites
+
+### Installing on debian-based systems
+```
+sudo apt install libssl-dev libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavresample-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
+```
+
 This environment uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
 
 - `$ git clone https://github.com/spacedriveapp/spacedrive`
