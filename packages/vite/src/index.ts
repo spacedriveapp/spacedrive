@@ -54,7 +54,7 @@ export default function svgrPlugin({ svgrOptions, esbuildOptions }: Options = {}
 
         return {
           code: res.code,
-          map: null // TODO:
+          map: null
         };
       }
     }
