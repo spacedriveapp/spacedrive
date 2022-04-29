@@ -55,7 +55,7 @@ To run the landing page
 
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.58.1**
+- Rust version: **1.60.0**
 - Node version: **17**
 
 ### Pull Request
