@@ -19,7 +19,8 @@
     "paths": {
       "@sd/interface": ["../../packages/interface/src/index.ts"],
       "@sd/ui": ["../../packages/ui/src/index.ts"],
-      "@sd/client": ["../../packages/client/src/index.ts"]
+      "@sd/client": ["../../packages/client/src/index.ts"],
+      "@sd/vite": ["../../packages/vite/src/index.ts"]
     }
   },
   "include": ["src"]
