@@ -7,7 +7,7 @@
   </p>
   <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
-   The universal file manager.
+  A file explorer from the future.
     <br />
     <a href="https://spacedrive.app"><strong>spacedrive.app »</strong></a>
     <br />
@@ -29,17 +29,18 @@
   </p>
 </p>
 Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust. 
-<!-- <a href="https://spacedrive.app"><strong>Learn more »</strong></a> -->
 <br/>
 <br/>
-Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use. 
-<br />
-<br />
+
+> NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change.
+
+Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.
+
 For independent creatives, hoarders and those that want to own their digital footprint. Spacedrive provides a file management experience like no other, and its completely free.
-<br />
-<br />
+
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_screenshot.jpg" alt="Logo">
+  <img src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/app.png" alt="Logo">
   <br />
   <br />
   <a href="https://discord.gg/gTaF2Z44f5">
@@ -57,7 +58,7 @@ For independent creatives, hoarders and those that want to own their digital foo
   <br />
 </p>
 
-> NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change. Additionally, most of the links on this page are broken but will be working once the repository is made public.
+
 
 # What is a VDFS?
 
