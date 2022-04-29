@@ -1,8 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { name, version } from './package.json';
-import * as path from 'path';
-import svg from 'vite-plugin-svgr';
+import svg from '@sd/vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -14,6 +13,7 @@ export default defineConfig({
     react({
       jsxRuntime: 'classic'
     }),
+    //@ts-ignore
     svg({ svgrOptions: { icon: true } })
   ],
   root: 'src',
