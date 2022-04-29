@@ -15,10 +15,11 @@ function App() {
     <Suspense fallback={<p>Loading...</p>}>
       <div className="dark:bg-black dark:text-white ">
         <a
-          className="hidden md:block -translate-y-16 focus:translate-y-0 fixed ml-8 mt-3 left-0 z-50"
+          tabIndex={1}
+          className="duration-200 -translate-y-16 focus:translate-y-0 fixed ml-8 mt-3 left-0 z-50"
           href="#content"
         >
-          <Button tabIndex={1} className="cursor-pointer" variant="gray">
+          <Button className="cursor-pointer " variant="gray">
             Skip to content
           </Button>
         </a>
