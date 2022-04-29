@@ -56,7 +56,10 @@ function Page() {
   return (
     <>
       <div className="mt-28 lg:mt-36" />
-      <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl ">
+      <h1
+        id="content"
+        className="px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl "
+      >
         A file explorer from the future.
       </h1>
       <p className="max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">

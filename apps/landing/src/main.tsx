@@ -8,11 +8,20 @@ import { Footer } from './components/Footer';
 
 import '@sd/ui/style';
 import './style.scss';
+import { Button } from '@sd/ui';
 
 function App() {
   return (
     <Suspense fallback={<p>Loading...</p>}>
       <div className="dark:bg-black dark:text-white ">
+        <a
+          className="hidden md:block -translate-y-16 focus:translate-y-0 fixed ml-8 mt-3 left-0 z-50"
+          href="#content"
+        >
+          <Button tabIndex={1} className="cursor-pointer" variant="gray">
+            Skip to content
+          </Button>
+        </a>
         <NavBar />
         <div className="container z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden sm:overflow-x-visible ">
           {useRoutes(routes)}
