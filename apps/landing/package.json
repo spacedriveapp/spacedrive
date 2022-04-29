@@ -16,6 +16,7 @@
     "@sd/core": "workspace:*",
     "@sd/interface": "workspace:*",
     "@sd/ui": "workspace:*",
+    "@sd/vite": "workspace:*",
     "@tailwindcss/typography": "^0.5.2",
     "@types/compression": "^1.7.2",
     "@types/express": "^4.17.13",
@@ -53,7 +54,6 @@
     "vite-plugin-md": "^0.13.0",
     "vite-plugin-pages": "^0.23.0",
     "vite-plugin-pages-sitemap": "^1.2.2",
-    "vite-plugin-ssr": "^0.3.64",
-    "vite-plugin-svgr": "^1.1.0"
+    "vite-plugin-ssr": "^0.3.64"
   }
 }
