@@ -62,7 +62,7 @@ function AppLayout() {
     if (appPropsContext?.platform === 'browser') {
       setHasWindowBorder(false);
     }
-    else {
+    else if (appPropsContext?.platform !== 'macOS') {
       setIsWindowRounded(false);
     }
   }, []);
