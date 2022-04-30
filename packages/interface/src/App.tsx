@@ -62,6 +62,9 @@ function AppLayout() {
     if (appPropsContext?.platform === 'browser') {
       setHasWindowBorder(false);
     }
+    else {
+      setHasWindowBorder(false);
+    }
   }, []);
 
   return (
