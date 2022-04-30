@@ -13,6 +13,7 @@ cli/turbo.exe
 .DS_Store
 cache
 .env
+.pnpm-store
 vendor/
 dist
 data

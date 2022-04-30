@@ -15,24 +15,29 @@ if [ $? -eq 1 ]; then
 fi
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        if (( $EUID != 0 )); then
+                echo "Please run as root"
+                exit
+        fi
+
         if which apt-get &> /dev/null; then
                 echo "Detected 'apt' based distro!"
                 DEBIAN_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libappindicator3-dev librsvg2-dev" # Tauri dependencies
                 DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavresample-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg" # FFMPEG dependencies
                 DEBIAN_BINDGEN_DEPS="pkg-config clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
 
-                sudo apt-get -y update
-                sudo apt-get -y install $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
+                apt-get -y update
+                apt-get -y install $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
         elif which pacman &> /dev/null; then
                 echo "Detected 'pacman' based distro!"
-                 sudo pacman -S --needed webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips
+                 pacman -S --needed webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips
 
                 ARCH_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libappindicator3-dev librsvg2-dev" # Tauri dependencies
                 ARCH_FFMPEG_DEPS="" # FFMPEG dependencies # TODO
                 ARCH_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
 
-                sudo pacman -Syu
-                sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS
+                pacman -Syu
+                pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS
 
                 # TODO: Remove warning
                 echo "The FFMPEG dependencies are not yet included in this script for your Linux Distro. Please install them manually."
@@ -44,9 +49,9 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
                 FEDORA_FFMPEG_DEPS="" # FFMPEG dependencies # TODO
                 FEDORA_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
 
-                sudo dnf check-update
-                sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
-                sudo dnf group install "C Development Tools and Libraries"
+                dnf check-update
+                dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
+                dnf group install "C Development Tools and Libraries"
 
                 # TODO: Remove warning
                 echo "The FFMPEG dependencies are not yet included in this script for your Linux Distro. Please install them manually."
