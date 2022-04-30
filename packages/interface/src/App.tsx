@@ -63,7 +63,7 @@ function AppLayout() {
       setHasWindowBorder(false);
     }
     else {
-      setHasWindowBorder(false);
+      setIsWindowRounded(false);
     }
   }, []);
 
