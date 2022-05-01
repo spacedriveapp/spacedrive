@@ -47,10 +47,6 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
                 sudo dnf check-update
                 sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
                 sudo dnf group install "C Development Tools and Libraries"
-
-                # TODO: Remove warning
-                echo "It would also be greatly appreciated if you could ping @oscartbeaumont in the Discord or GitHub so that you can help me work these out and update the script for everyone."
-                exit 1
         else
                 echo "Your Linux distro '$(lsb_release -s -d)' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
                 exit 1
