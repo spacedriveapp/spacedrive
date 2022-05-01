@@ -4,7 +4,6 @@ import { Button } from '@sd/ui';
 import React, { useState } from 'react';
 
 import Listbox from '../../components/primitive/Listbox';
-
 import Slider from '../../components/primitive/Slider';
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 
