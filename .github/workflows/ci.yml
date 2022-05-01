@@ -97,9 +97,6 @@ jobs:
       - name: Generate Prisma client
         working-directory: core
         run: cargo run -p prisma-cli --release -- generate
-      
-      - name: Build prisma-client-rust
-        run: cargo build -p prisma-client-rust --release
 
       - name: Build Core
         run: cargo build -p sdcore --release
