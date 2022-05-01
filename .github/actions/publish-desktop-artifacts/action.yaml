@@ -3,31 +3,23 @@ description: Publishes desktop artifacts after Tauri build
 runs:
   using: 'composite'
   steps:
-    - name: Debug
-      if: matrix.platform == 'ubuntu-latest'
-      shell: bash
-      run: |
-        ls ./target/release/bundle/appimage
-        ls ./target/release/bundle/
-        ls ./target/release/
-
     - name: Publish artifacts (Ubuntu)
       if: matrix.platform == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: Spacedrive-Ubuntu.AppImage
+        name: Spacedrive-Ubuntu
         path: ./target/release/bundle/appimage
             
     - name: Publish artifacts (Windows)
       if: matrix.platform == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: Spacedrive-Windows.msi
+        name: Spacedrive-Windows
         path: .\target\release\bundle\msi
     
     - name: Publish artifacts (macOS)
       if: matrix.platform == 'macos-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: Spacedrive-macOS.app
+        name: Spacedrive-macOS
         path: ./target/release/bundle/macos

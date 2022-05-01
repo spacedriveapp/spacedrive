@@ -90,7 +90,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: brendonovich/rust-cache@v1 
+        uses: brendonovich/rust-cache@v1
         with:
           key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
 
@@ -147,9 +147,6 @@ jobs:
       - name: Generate Prisma client
         working-directory: core
         run: cargo run -p prisma-cli --release -- generate
-
-      - name: Build desktop
-        run: cargo build -p spacedrive --release
 
       - name: Bundle
         run: pnpm desktop tauri build
