@@ -1,7 +1,26 @@
-import React from 'react';
+import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { useBridgeQuery } from '@sd/client';
 import ProgressBar from '../primitive/ProgressBar';
 import { Transition } from '@headlessui/react';
+import clsx from 'clsx';
+
+const MiddleTruncatedText = ({ children, ...props }: DetailedHTMLProps<HTMLAttributes<HTMLSpanElement>, HTMLSpanElement>) => {
+  const text = children?.toString() ?? "";
+  const first = text.substring(0, text.length / 2);
+  const last = text.substring(first.length);
+
+  // Literally black magic
+  const fontFaceScaleFactor = 1.61;
+  const startWidth = fontFaceScaleFactor * 5;
+  const endWidth = fontFaceScaleFactor * 4;
+
+  return (
+    <div className="whitespace-nowrap overflow-hidden w-full">
+      <span {...props} style={{ maxWidth: `calc(100% - (1em * ${endWidth}))`, minWidth: startWidth }} className={clsx(props?.className, "text-ellipsis inline-block align-bottom whitespace-nowrap overflow-hidden")}>{first}</span>
+      <span {...props} style={{ maxWidth: `calc(100% - (1em * ${startWidth}))`, direction: "rtl" }} className={clsx(props?.className, "inline-block align-bottom whitespace-nowrap overflow-hidden")}>{last}</span>
+    </div>
+  )
+}
 
 export default function RunningJobsWidget() {
   const { data: jobs } = useBridgeQuery('JobGetRunning');
@@ -20,7 +39,7 @@ export default function RunningJobsWidget() {
         >
           <div key={job.id} className="flex flex-col px-2 pt-1.5 pb-2 bg-gray-700 rounded">
             {/* <span className="mb-0.5 text-tiny font-bold text-gray-400">{job.status} Job</span> */}
-            <span className="mb-1.5 truncate text-gray-450 text-tiny">{job.message}</span>
+            <MiddleTruncatedText className="mb-1.5 text-gray-450 text-tiny">{job.message}</MiddleTruncatedText>
             <ProgressBar value={job.completed_task_count} total={job.task_count} />
           </div>
         </Transition>

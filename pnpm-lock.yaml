@@ -1,4 +1,4 @@
-lockfileVersion: 5.3
+lockfileVersion: 5.4
 
 importers:
 
@@ -130,10 +130,10 @@ importers:
       phosphor-react: 1.4.1_react@18.0.0
       prismjs: 1.28.0
       react: 18.0.0
-      react-device-detect: 2.2.2_react-dom@18.0.0+react@18.0.0
+      react-device-detect: 2.2.2_zpnidt7m3osuk7shl3s4oenomq
       react-dom: 18.0.0_react@18.0.0
       react-helmet: 6.1.0_react@18.0.0
-      react-router-dom: 6.3.0_react-dom@18.0.0+react@18.0.0
+      react-router-dom: 6.3.0_zpnidt7m3osuk7shl3s4oenomq
       react-tsparticles: 2.0.6_react@18.0.0
       simple-icons: 6.19.0
       tsparticles: 2.0.6
@@ -212,7 +212,7 @@ importers:
       typescript: ^4.6.3
     devDependencies:
       '@types/node': 17.0.23
-      ts-node: 10.7.0_ee885bc7281b682b6adbed6ae09ee090
+      ts-node: 10.7.0_52efxrzidnucw2w35vvobhxasa
       typescript: 4.6.3
 
   packages/client:
@@ -319,7 +319,7 @@ importers:
       byte-size: 8.1.0
       clsx: 1.1.1
       immer: 9.0.12
-      jotai: 1.6.2_93601786fa530d88c1ee895759fb3c90
+      jotai: 1.6.2_snqbpbx2kmgyrqporflvt6z4sa
       moment: 2.29.2
       phosphor-react: 1.4.1_react@18.0.0
       pretty-bytes: 6.0.0
@@ -330,15 +330,15 @@ importers:
       react-hotkeys-hook: 3.4.4_react-dom@18.0.0+react@18.0.0
       react-json-view: 1.21.3_8fc472ebaf0018fcdf7cf55b2750c96e
       react-loading-icons: 1.0.8
-      react-portal: 4.2.2_react-dom@18.0.0+react@18.0.0
-      react-query: 3.34.19_react-dom@18.0.0+react@18.0.0
+      react-portal: 4.2.2_zpnidt7m3osuk7shl3s4oenomq
+      react-query: 3.34.19_zpnidt7m3osuk7shl3s4oenomq
       react-router: 6.3.0_react@18.0.0
-      react-router-dom: 6.3.0_react-dom@18.0.0+react@18.0.0
-      react-scrollbars-custom: 4.0.27_react-dom@18.0.0+react@18.0.0
+      react-router-dom: 6.3.0_zpnidt7m3osuk7shl3s4oenomq
+      react-scrollbars-custom: 4.0.27_zpnidt7m3osuk7shl3s4oenomq
       react-spline: 1.2.1_react@18.0.0
-      react-transition-group: 4.4.2_react-dom@18.0.0+react@18.0.0
+      react-transition-group: 4.4.2_zpnidt7m3osuk7shl3s4oenomq
       react-virtuoso: 2.9.0_react@18.0.0
-      rooks: 5.11.0_react-dom@18.0.0+react@18.0.0
+      rooks: 5.11.0_zpnidt7m3osuk7shl3s4oenomq
       tailwindcss: 3.0.23_autoprefixer@10.4.4
       zustand: 3.7.2_react@18.0.0
     devDependencies:
@@ -863,17 +863,6 @@ packages:
       graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
     dev: false
 
-  /@headlessui/react/1.5.0_react-dom@18.0.0+react@18.0.0:
-    resolution: {integrity: sha512-aaRnYxBb3MU2FNJf3Ut9RMTUqqU3as0aI1lQhgo2n9Fa67wRu14iOGqx93xB+uMNVfNwZ5B3y/Ndm7qZGuFeMQ==}
-    engines: {node: '>=10'}
-    peerDependencies:
-      react: ^16 || ^17 || ^18
-      react-dom: ^16 || ^17 || ^18
-    dependencies:
-      react: 18.0.0
-      react-dom: 18.0.0_react@18.0.0
-    dev: false
-
   /@headlessui/react/1.5.0_react@18.0.0:
     resolution: {integrity: sha512-aaRnYxBb3MU2FNJf3Ut9RMTUqqU3as0aI1lQhgo2n9Fa67wRu14iOGqx93xB+uMNVfNwZ5B3y/Ndm7qZGuFeMQ==}
     engines: {node: '>=10'}
@@ -882,6 +871,17 @@ packages:
       react-dom: ^16 || ^17 || ^18
     dependencies:
       react: 18.0.0
+    dev: false
+
+  /@headlessui/react/1.5.0_zpnidt7m3osuk7shl3s4oenomq:
+    resolution: {integrity: sha512-aaRnYxBb3MU2FNJf3Ut9RMTUqqU3as0aI1lQhgo2n9Fa67wRu14iOGqx93xB+uMNVfNwZ5B3y/Ndm7qZGuFeMQ==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: ^16 || ^17 || ^18
+      react-dom: ^16 || ^17 || ^18
+    dependencies:
+      react: 18.0.0
+      react-dom: 18.0.0_react@18.0.0
     dev: false
 
   /@heroicons/react/1.0.6_react@18.0.0:
@@ -1381,7 +1381,7 @@ packages:
       '@radix-ui/react-focus-guards': 0.1.0_react@18.0.0
       '@radix-ui/react-focus-scope': 0.1.4_react@18.0.0
       '@radix-ui/react-id': 0.1.5_react@18.0.0
-      '@radix-ui/react-portal': 0.1.4_react-dom@18.0.0+react@18.0.0
+      '@radix-ui/react-portal': 0.1.4_zpnidt7m3osuk7shl3s4oenomq
       '@radix-ui/react-presence': 0.1.2_react@18.0.0
       '@radix-ui/react-primitive': 0.1.4_react@18.0.0
       '@radix-ui/react-slot': 0.1.2_react@18.0.0
@@ -1484,7 +1484,7 @@ packages:
       '@radix-ui/react-focus-scope': 0.1.4_react@18.0.0
       '@radix-ui/react-id': 0.1.5_react@18.0.0
       '@radix-ui/react-popper': 0.1.4_react@18.0.0
-      '@radix-ui/react-portal': 0.1.4_react-dom@18.0.0+react@18.0.0
+      '@radix-ui/react-portal': 0.1.4_zpnidt7m3osuk7shl3s4oenomq
       '@radix-ui/react-presence': 0.1.2_react@18.0.0
       '@radix-ui/react-primitive': 0.1.4_react@18.0.0
       '@radix-ui/react-roving-focus': 0.1.5_react@18.0.0
@@ -1515,7 +1515,7 @@ packages:
       react: 18.0.0
     dev: false
 
-  /@radix-ui/react-portal/0.1.4_react-dom@18.0.0+react@18.0.0:
+  /@radix-ui/react-portal/0.1.4_zpnidt7m3osuk7shl3s4oenomq:
     resolution: {integrity: sha512-MO0wRy2eYRTZ/CyOri9NANCAtAtq89DEtg90gicaTlkCfdqCLEBsLb+/q66BZQTr3xX/Vq01nnVfc/TkCqoqvw==}
     peerDependencies:
       react: ^16.8 || ^17.0
@@ -5304,7 +5304,7 @@ packages:
     dependencies:
       immer: 9.0.12
       react: 18.0.0
-      react-query: 3.34.19_react-dom@18.0.0+react@18.0.0
+      react-query: 3.34.19_zpnidt7m3osuk7shl3s4oenomq
     dev: false
 
   /jpeg-js/0.4.2:
@@ -6650,7 +6650,7 @@ packages:
       pure-color: 1.3.0
     dev: false
 
-  /react-device-detect/2.2.2_react-dom@18.0.0+react@18.0.0:
+  /react-device-detect/2.2.2_zpnidt7m3osuk7shl3s4oenomq:
     resolution: {integrity: sha512-zSN1gIAztUekp5qUT/ybHwQ9fmOqVT1psxpSlTn1pe0CO+fnJHKRLOWWac5nKxOxvOpD/w84hk1I+EydrJp7SA==}
     peerDependencies:
       react: '>= 0.14.0'
@@ -6721,7 +6721,7 @@ packages:
       react-side-effect: 2.1.1_react@18.0.0
     dev: false
 
-  /react-hotkeys-hook/3.4.4_react-dom@18.0.0+react@18.0.0:
+  /react-hotkeys-hook/3.4.4_zpnidt7m3osuk7shl3s4oenomq:
     resolution: {integrity: sha512-vaORq07rWgmuF3owWRhgFV/3VL8/l2q9lz0WyVEddJnWTtKW+AOgU5YgYKuwN6h6h7bCcLG3MFsJIjCrM/5DvQ==}
     peerDependencies:
       react: '>=16.8.1'
@@ -6761,32 +6761,13 @@ packages:
     resolution: {integrity: sha512-j0myUwDUPoo3qaPkbgnA7U2RNHqLLC+wXcpMWe+rtk3Iw+mGHltZ3QitPSHFKtsFKlpM9UlMmZGZ6sw6WVVW7w==}
     dev: false
 
-  /react-portal/4.2.2_react-dom@18.0.0+react@18.0.0:
+  /react-portal/4.2.2_zpnidt7m3osuk7shl3s4oenomq:
     resolution: {integrity: sha512-vS18idTmevQxyQpnde0Td6ZcUlv+pD8GTyR42n3CHUQq9OHi1C4jDE4ZWEbEsrbrLRhSECYiao58cvocwMtP7Q==}
     peerDependencies:
       react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
       react-dom: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
     dependencies:
       prop-types: 15.8.1
-      react: 18.0.0
-      react-dom: 18.0.0_react@18.0.0
-    dev: false
-
-  /react-query/3.34.19_react-dom@18.0.0+react@18.0.0:
-    resolution: {integrity: sha512-JO0Ymi58WKmvnhgg6bGIrYIeKb64KsKaPWo8JcGnmK2jJxAs2XmMBzlP75ZepSU7CHzcsWtIIyhMrLbX3pb/3w==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0
-      react-dom: '*'
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
-    dependencies:
-      '@babel/runtime': 7.17.9
-      broadcast-channel: 3.7.0
-      match-sorter: 6.3.1
       react: 18.0.0
       react-dom: 18.0.0_react@18.0.0
     dev: false
@@ -6808,6 +6789,25 @@ packages:
       match-sorter: 6.3.1
       react: 18.0.0
     dev: true
+
+  /react-query/3.34.19_zpnidt7m3osuk7shl3s4oenomq:
+    resolution: {integrity: sha512-JO0Ymi58WKmvnhgg6bGIrYIeKb64KsKaPWo8JcGnmK2jJxAs2XmMBzlP75ZepSU7CHzcsWtIIyhMrLbX3pb/3w==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0
+      react-dom: '*'
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.17.9
+      broadcast-channel: 3.7.0
+      match-sorter: 6.3.1
+      react: 18.0.0
+      react-dom: 18.0.0_react@18.0.0
+    dev: false
 
   /react-refresh/0.12.0:
     resolution: {integrity: sha512-suLIhrU2IHKL5JEKR/fAwJv7bbeq4kJ+pJopf77jHwuR+HmJS/HbrPIGsTBUVfw7tXPOmYv7UJ7PCaN49e8x4A==}
@@ -6848,7 +6848,7 @@ packages:
       use-sidecar: 1.0.5_react@18.0.0
     dev: false
 
-  /react-router-dom/6.3.0_react-dom@18.0.0+react@18.0.0:
+  /react-router-dom/6.3.0_zpnidt7m3osuk7shl3s4oenomq:
     resolution: {integrity: sha512-uaJj7LKytRxZNQV8+RbzJWnJ8K2nPsOOEuX7aQstlMZKQT0164C+X2w6bnkqU3sjtLvpd5ojrezAyfZ1+0sStw==}
     peerDependencies:
       react: '>=16.8'
@@ -6869,7 +6869,7 @@ packages:
       react: 18.0.0
     dev: false
 
-  /react-scrollbars-custom/4.0.27_react-dom@18.0.0+react@18.0.0:
+  /react-scrollbars-custom/4.0.27_zpnidt7m3osuk7shl3s4oenomq:
     resolution: {integrity: sha512-vEIvb+AbxWHtU6yqNfIEtnm06vguFFxDK8UTC6hPMlgEPvrQX7ayoLp9MT+vyszouQ9NgcEtipLmNGEw31pQpQ==}
     peerDependencies:
       react: '>=16.0.0'
@@ -6931,7 +6931,7 @@ packages:
       - '@types/react'
     dev: false
 
-  /react-transition-group/4.4.2_react-dom@18.0.0+react@18.0.0:
+  /react-transition-group/4.4.2_zpnidt7m3osuk7shl3s4oenomq:
     resolution: {integrity: sha512-/RNYfRAMlZwDSr6z4zNKV6xu53/e2BuaBbGhbyYIXTrmgu/bGHzmqOs7mJSJBHy9Ud+ApHx3QjrkKSp1pxvlFg==}
     peerDependencies:
       react: '>=16.6.0'
@@ -7184,7 +7184,7 @@ packages:
       fsevents: 2.3.2
     dev: true
 
-  /rooks/5.11.0_react-dom@18.0.0+react@18.0.0:
+  /rooks/5.11.0_zpnidt7m3osuk7shl3s4oenomq:
     resolution: {integrity: sha512-acyTuaYbB021hhHAN6uiU6QUUSuGucK9YOU16nOUM0oypqpckYm7nX5v9xnopoX4pNtrxzIM/mtjC8O7fF3/8A==}
     engines: {node: '>=10'}
     peerDependencies:
@@ -7942,7 +7942,7 @@ packages:
       tslib: 2.3.1
     dev: false
 
-  /ts-node/10.7.0_ee885bc7281b682b6adbed6ae09ee090:
+  /ts-node/10.7.0_52efxrzidnucw2w35vvobhxasa:
     resolution: {integrity: sha512-TbIGS4xgJoX2i3do417KSaep1uRAW/Lu+WAL2doDHC0D6ummjirVOXU5/7aiZotbQ5p1Zp9tP7U6cYhA0O7M8A==}
     hasBin: true
     peerDependencies:
