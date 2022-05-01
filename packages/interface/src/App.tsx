@@ -47,6 +47,7 @@ export interface AppProps {
   onClose?: () => void;
   onMinimize?: () => void;
   onFullscreen?: () => void;
+  onOpen?: (path: string) => void;
   useMemoryRouter: boolean;
 }
 
