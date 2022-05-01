@@ -26,24 +26,8 @@
     "prettier": "^2.6.2",
     "turbo": "^1.2.4"
   },
-  "turbo": {
-    "pipeline": {
-      "build": {
-        "dependsOn": [
-          "^build"
-        ],
-        "outputs": [
-          "dist/**",
-          ".next/**"
-        ]
-      },
-      "lint": {
-        "outputs": []
-      },
-      "dev": {
-        "cache": false
-      }
-    }
+  "overrides": {
+    "vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84"
   },
   "engines": {
     "pnpm": ">=6.0.0",
