@@ -1,4 +1,4 @@
-name: Publish Server
+name: Build Server Image 
 description: Builds and publishes the docker image for the Spacedrive server
 inputs:
   gh_token:
