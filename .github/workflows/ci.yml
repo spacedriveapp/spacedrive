@@ -92,7 +92,7 @@ jobs:
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
+          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Generate Prisma client
         working-directory: core
@@ -131,7 +131,7 @@ jobs:
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
+          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.1
@@ -176,7 +176,7 @@ jobs:
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
+          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Generate Prisma client
         working-directory: core
