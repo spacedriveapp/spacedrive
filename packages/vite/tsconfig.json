@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "lib": ["es6"],
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "src"
+  },
+  "paths": {
+    "@sd/core": ["../../core/index.ts"],
+  },
+  "extends": "../config/tsconfig/base.json",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
+}

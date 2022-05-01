@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-//@ts-expect-error
-import svg from 'vite-plugin-svgr';
+import svg from '@sd/vite';
 import pages from 'vite-plugin-pages';
 import md, { Mode } from 'vite-plugin-markdown';
 import generateSitemap from 'vite-plugin-pages-sitemap';

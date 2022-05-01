@@ -14,11 +14,12 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react",
-    "types": ["vite-plugin-svgr/client", "vite/client"],
+    "types": ["@sc/vite/client", "vite/client"],
     "paths": {
       "@sd/interface": ["../../packages/interface/src/index.ts"],
       "@sd/ui": ["../../packages/ui/src/index.ts"],
-      "@sd/client": ["../../packages/client/src/index.ts"]
+      "@sd/client": ["../../packages/client/src/index.ts"],
+      "@sd/vite": ["../../packages/vite/src/index.ts"]
     }
   },
   "ts-node": {

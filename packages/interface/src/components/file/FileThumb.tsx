@@ -22,7 +22,7 @@ export default function FileThumb(props: {
   if (client?.data_path && (props.file.has_local_thumbnail || props.hasThumbnailOverride)) {
     return (
       <img
-        className="mt-0.5 pointer-events-none z-90"
+        className="pointer-events-none z-90"
         src={appPropsContext?.convertFileSrc(
           `${client.data_path}/thumbnails/${props.locationId}/${props.file.temp_cas_id}.webp`
         )}
