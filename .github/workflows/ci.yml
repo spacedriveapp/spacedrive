@@ -164,6 +164,7 @@ jobs:
     name: Deploy server
     runs-on: ubuntu-latest
     needs: build-core
+    if: github.event_name != 'pull_request'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -189,13 +190,11 @@ jobs:
         run: cargo run -p prisma-cli --release -- generate
 
       - name: Build and publish server
-        if: github.event_name != 'pull_request'
         uses: ./.github/actions/build-and-publish-server
         with:
           gh_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy Spacedrive Server to Kubernetes
-        if: github.event_name != 'pull_request'
         env:
           K8S_KUBECONFIG: ${{ secrets.K8S_KUBECONFIG }}
         run: |
