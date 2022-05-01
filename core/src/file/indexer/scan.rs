@@ -179,12 +179,12 @@ fn prepare_values(
 
   // if 'file_path' is a directory, set extension to an empty string to avoid periods in folder names
   // - being interpreted as file extensions
-  if !file_path.is_dir() {
-    extension = extract_name(file_path.extension());
-    name = extract_name(file_path.file_stem());
-  } else {
+  if file_path.is_dir() {
     extension = "".to_string();
     name = extract_name(file_path.file_name());
+  } else {
+    extension = extract_name(file_path.extension());
+    name = extract_name(file_path.file_stem());
   }
 
   let materialized_path = match file_path.to_str() {
