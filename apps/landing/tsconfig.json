@@ -1,41 +1,5 @@
 {
-  "compilerOptions": {
-    "target": "ESNext",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "allowJs": false,
-    "skipLibCheck": false,
-    "esModuleInterop": false,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react",
-    "types": ["@sc/vite/client", "vite/client"],
-    "paths": {
-      "@sd/interface": ["../../packages/interface/src/index.ts"],
-      "@sd/ui": ["../../packages/ui/src/index.ts"],
-      "@sd/client": ["../../packages/client/src/index.ts"],
-      "@sd/vite": ["../../packages/vite/src/index.ts"]
-    }
-  },
-  "ts-node": {
-    "transpileOnly": true,
-    "compilerOptions": {
-      "module": "CommonJS"
-    }
-  },
-  "include": [
-    "src",
-    "env.d.ts",
-    "src/vite-env.d.ts",
-    "src/components",
-    "src/pages",
-    "renderer",
-    "server"
-  ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "extends": "../../packages/config/interface.tsconfig.json",
+  "compilerOptions": {},
+  "include": ["src"]
 }

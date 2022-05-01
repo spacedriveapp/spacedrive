@@ -16,7 +16,6 @@
     "@sd/core": "workspace:*",
     "@sd/interface": "workspace:*",
     "@sd/ui": "workspace:*",
-    "@sd/vite": "workspace:*",
     "@tailwindcss/typography": "^0.5.2",
     "@types/compression": "^1.7.2",
     "@types/express": "^4.17.13",
@@ -32,8 +31,7 @@
     "react-router-dom": "6.3.0",
     "react-tsparticles": "^2.0.6",
     "simple-icons": "^6.19.0",
-    "tsparticles": "^2.0.6",
-    "vite-plugin-markdown": "^2.0.2"
+    "tsparticles": "^2.0.6"
   },
   "devDependencies": {
     "@babel/preset-react": "^7.16.7",
@@ -51,9 +49,11 @@
     "ts-node": "^10.7.0",
     "typescript": "^4.6.3",
     "vite": "^2.9.5",
+    "vite-plugin-markdown": "^2.0.2",
     "vite-plugin-md": "^0.13.0",
     "vite-plugin-pages": "^0.23.0",
     "vite-plugin-pages-sitemap": "^1.2.2",
-    "vite-plugin-ssr": "^0.3.64"
+    "vite-plugin-ssr": "^0.3.64",
+    "vite-plugin-svgr": "^1.1.0"
   }
 }

@@ -107,7 +107,7 @@ jobs:
   package-desktop:
     name: Package desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
-    needs: build-core
+    needs: [typescript, build-js, build-core]
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]

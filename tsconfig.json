@@ -9,6 +9,15 @@
     },
     {
       "path": "apps/landing"
+    },
+    {
+      "path": "packages/client"
+    },
+    {
+      "path": "packages/interface"
+    },
+    {
+      "path": "packages/ui"
     }
   ]
 }

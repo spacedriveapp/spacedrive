@@ -1,14 +1,6 @@
 {
-  "compilerOptions": {
-    "lib": ["esnext"],
-    "module": "esnext",
-    "rootDir": "src",
-    "jsx": "react"
-  },
-  "paths": {
-    "@sd/core": ["../../core/index.ts"],
-  },
-  "extends": "../config/tsconfig/base.json",
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "dist"]
+  "extends": "../config/base.tsconfig.json",
+  "compilerOptions": {},
+  "include": ["src"],
+  "exclude": ["node_modules"]
 }

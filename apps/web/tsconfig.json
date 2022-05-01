@@ -1,34 +1,5 @@
 {
-  "compilerOptions": {
-    "target": "ESNext",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "allowJs": false,
-    "skipLibCheck": true,
-    "esModuleInterop": false,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react",
-    "types": ["vite-plugin-svgr/client"],
-    "baseUrl": "./",
-    "types": ["vite-plugin-svgr/client", "vite/client"],
-    "paths": {
-      "@sd/interface": ["../../packages/interface/src/index.ts"],
-      "@sd/ui": ["../../packages/ui/src/index.ts"],
-      "@sd/client": ["../../packages/client/src/index.ts"],
-      "@sd/core": ["../../core/index.ts"],
-    },
-  },
-  "ts-node": {
-    "transpileOnly": true,
-    "compilerOptions": {
-      "module": "CommonJS"
-    }
-  },
-  "include": ["src"],
+  "extends": "../../packages/config/interface.tsconfig.json",
+  "compilerOptions": {},
+  "include": ["src"]
 }
