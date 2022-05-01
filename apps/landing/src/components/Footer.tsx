@@ -71,10 +71,10 @@ export function Footer() {
         </div>
         <div className="flex flex-col col-span-1 space-y-2">
           <h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>
-          <FooterLink link="https://github.com/jamiepine/spacedrive/tree/main/docs">
+          <FooterLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">
             Documentation
           </FooterLink>
-          <FooterLink link="https://github.com/jamiepine/spacedrive/tree/main/docs/developer/contributing.md">
+          <FooterLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs/developer/contributing.md">
             Contribute
           </FooterLink>
           <div className="opacity-50 pointer-events-none">
@@ -87,7 +87,7 @@ export function Footer() {
         <div className="flex flex-col col-span-1 space-y-2">
           <h3 className="mb-1 text-xs font-bold uppercase ">Org</h3>
           <FooterLink link="https://opencollective.com/spacedrive">Open Collective</FooterLink>
-          <FooterLink link="https://github.com/jamiepine/spacedrive/blob/main/LICENSE">
+          <FooterLink link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE">
             License
           </FooterLink>
           <div className="opacity-50 pointer-events-none">
