@@ -182,8 +182,8 @@ jobs:
         working-directory: core
         run: cargo run -p prisma-cli --release -- generate
 
-      - name: Build server
-        uses: ./.github/actions/build-and-publish-server
+      - name: Build server image
+        uses: ./.github/actions/build-server-image
         with:
           gh_token: ${{ secrets.GITHUB_TOKEN }}
 
