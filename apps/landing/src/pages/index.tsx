@@ -87,12 +87,15 @@ function Page() {
           Download
         </Button> */}
 
-        <a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
-          <Button className="cursor-pointer" variant="gray">
-            <Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
-            Star on GitHub
-          </Button>
-        </a>
+        <Button
+          href="https://github.com/spacedriveapp/spacedrive"
+          target="_blank"
+          className="cursor-pointer"
+          variant="gray"
+        >
+          <Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
+          Star on GitHub
+        </Button>
       </div>
       <p className="px-6 mt-3 text-sm text-center opacity-75 text-gray-450">
         Coming soon on macOS, Windows and Linux.

@@ -113,7 +113,7 @@ export const Button: Button = ({ loading, justifyLeft, ...props }) => {
     <Element
       {...props}
       className={clsx(
-        'border rounded-md items-center transition-colors duration-100 cursor-default',
+        'border rounded-md items-center transition-colors duration-100 cursor-default no-underline',
         { 'opacity-5': loading, '!p-1': props.noPadding },
         { 'justify-center': !justifyLeft },
         sizes[props.size || 'default'],
