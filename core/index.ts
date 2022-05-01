@@ -15,4 +15,5 @@ export * from './bindings/JobStatus';
 export * from './bindings/LibraryState';
 export * from './bindings/LocationResource';
 export * from './bindings/Platform';
+export * from './bindings/Statistics';
 export * from './bindings/Volume';

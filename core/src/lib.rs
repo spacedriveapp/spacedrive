@@ -1,5 +1,5 @@
+use crate::{file::cas::identifier::FileIdentifierJob, library::loader::get_library_path};
 use job::jobs::{Job, JobReport, Jobs};
-use log::{error, info};
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
 use state::client::ClientState;
@@ -21,6 +21,7 @@ pub mod encode;
 pub mod file;
 pub mod job;
 pub mod library;
+#[cfg(target_os = "p2p")]
 pub mod p2p;
 pub mod prisma;
 pub mod state;
@@ -90,12 +91,12 @@ impl CoreContext {
       .internal_sender
       .send(InternalEvent::JobIngest(job))
       .unwrap_or_else(|e| {
-        error!("Failed to spawn job. {:?}", e);
+        println!("Failed to spawn job. {:?}", e);
       });
   }
   pub async fn emit(&self, event: CoreEvent) {
     self.event_sender.send(event).await.unwrap_or_else(|e| {
-      error!("Failed to emit event. {:?}", e);
+      println!("Failed to emit event. {:?}", e);
     });
   }
 }
@@ -137,15 +138,20 @@ impl Core {
     // prepare basic client state
     let mut state = ClientState::new(data_dir, "diamond-mastering-space-dragon").unwrap();
     // load from disk
-    state
-      .read_disk()
-      .unwrap_or(error!("No client state found, creating new one..."));
+    state.read_disk().unwrap_or(println!(
+      "Error: No client state found, creating new one..."
+    ));
 
     state.save();
 
     println!("Client State: {:?}", state);
 
-    let database = Arc::new(db::create_connection().await.unwrap());
+    // connect to default library
+    let database = Arc::new(
+      db::create_connection(&get_library_path(&data_dir))
+        .await
+        .unwrap(),
+    );
 
     let internal_channel = unbounded_channel::<InternalEvent>();
 
@@ -159,6 +165,7 @@ impl Core {
       internal_channel,
     };
 
+    #[cfg(feature = "p2p")]
     tokio::spawn(async move {
       p2p::listener::listen(None).await.unwrap_or(());
     });
@@ -210,24 +217,26 @@ impl Core {
   // load library database + initialize client with db
   pub async fn initializer(&self) {
     println!("Initializing...");
+    let ctx = self.get_context();
+
     if self.state.libraries.len() == 0 {
-      match library::loader::create(&self, None).await {
-        Ok(library) => info!("Created new library: {:?}", library),
-        Err(e) => info!("Error creating library: {:?}", e),
+      match library::loader::create(&ctx, None).await {
+        Ok(library) => println!("Created new library: {:?}", library),
+        Err(e) => println!("Error creating library: {:?}", e),
       }
     } else {
       for library in self.state.libraries.iter() {
         // init database for library
-        match library::loader::load(&library.library_path, &library.library_uuid).await {
-          Ok(library) => info!("Loaded library: {:?}", library),
-          Err(e) => info!("Error loading library: {:?}", e),
+        match library::loader::load(&ctx, &library.library_path, &library.library_uuid).await {
+          Ok(library) => println!("Loaded library: {:?}", library),
+          Err(e) => println!("Error loading library: {:?}", e),
         }
       }
     }
     // init client
     match client::create(&self).await {
-      Ok(_) => info!("Spacedrive online"),
-      Err(e) => info!("Error initializing client: {:?}", e),
+      Ok(_) => println!("Spacedrive online"),
+      Err(e) => println!("Error initializing client: {:?}", e),
     };
   }
 
@@ -264,9 +273,13 @@ impl Core {
         }));
         CoreResponse::Success(())
       }
-      ClientCommand::PurgeDatabase => {
-        println!("Purging database...");
-        fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
+      // ClientCommand::PurgeDatabase => {
+      //   println!("Purging database...");
+      //   fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
+      //   CoreResponse::Success(())
+      // }
+      ClientCommand::IdentifyUniqueFiles => {
+        ctx.spawn_job(Box::new(FileIdentifierJob));
         CoreResponse::Success(())
       }
     })
@@ -274,13 +287,16 @@ impl Core {
 
   // query sources of data
   async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
+    #[cfg(fdebug_assertions)]
     println!("Core query: {:?}", query);
     let ctx = self.get_context();
     Ok(match query {
       // return the client state from memory
       ClientQuery::ClientGetState => CoreResponse::ClientGetState(self.state.clone()),
       // get system volumes without saving to library
-      ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get_volumes()?),
+      ClientQuery::SysGetVolumes => {
+        CoreResponse::SysGetVolumes(sys::volumes::Volume::get_volumes()?)
+      }
       ClientQuery::SysGetLocations => {
         CoreResponse::SysGetLocations(sys::locations::get_locations(&ctx).await?)
       }
@@ -300,6 +316,9 @@ impl Core {
       ClientQuery::JobGetRunning => CoreResponse::JobGetRunning(self.jobs.get_running().await),
       // TODO: FIX THIS
       ClientQuery::JobGetHistory => CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?),
+      ClientQuery::GetLibraryStatistics => {
+        CoreResponse::GetLibraryStatistics(library::statistics::Statistics::calculate(&ctx).await?)
+      }
     })
   }
 }
@@ -327,7 +346,8 @@ pub enum ClientCommand {
   // System
   SysVolumeUnmount { id: i32 },
   GenerateThumbsForLocation { id: i32, path: String },
-  PurgeDatabase,
+  // PurgeDatabase,
+  IdentifyUniqueFiles,
 }
 
 // represents an event this library can emit
@@ -349,6 +369,7 @@ pub enum ClientQuery {
     path: String,
     limit: i32,
   },
+  GetLibraryStatistics,
 }
 
 // represents an event this library can emit
@@ -378,6 +399,7 @@ pub enum CoreResponse {
   LocCreate(sys::locations::LocationResource),
   JobGetRunning(Vec<JobReport>),
   JobGetHistory(Vec<JobReport>),
+  GetLibraryStatistics(library::statistics::Statistics),
 }
 
 #[derive(Error, Debug)]
@@ -392,6 +414,8 @@ pub enum CoreError {
   JobError(#[from] job::JobError),
   #[error("Database error")]
   DatabaseError(#[from] prisma::QueryError),
+  #[error("Database error")]
+  LibraryError(#[from] library::LibraryError),
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]

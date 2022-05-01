@@ -1,12 +1,7 @@
 use crate::{
-  file::indexer::IndexerJob,
-  prisma::{file_path, location},
-  state::client,
-  sys::{volumes, volumes::Volume},
-  ClientQuery, CoreContext, CoreEvent,
+  file::indexer::IndexerJob, prisma::location, state::client, ClientQuery, CoreContext, CoreEvent,
 };
 use anyhow::Result;
-use log::info;
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
 use thiserror::Error;
@@ -80,7 +75,7 @@ pub async fn get_location(
     None => Err(LocationError::NotFound(location_id.to_string()))?,
   };
 
-  info!("Retrieved location: {:?}", location);
+  println!("Retrieved location: {:?}", location);
 
   Ok(location.into())
 }
@@ -100,7 +95,6 @@ pub async fn new_location_and_scan(
 
 pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, SysError> {
   let db = &ctx.database;
-  let config = client::get();
 
   let locations = db.location().find_many(vec![]).exec().await?;
 
@@ -119,7 +113,7 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 
   // check if we have access to this location
   match fs::File::open(&path) {
-    Ok(_) => info!("Path is valid, creating location for '{}'", &path),
+    Ok(_) => println!("Path is valid, creating location for '{}'", &path),
     Err(e) => Err(LocationError::FileReadError(e))?,
   }
   // check if location already exists
@@ -131,7 +125,7 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
   {
     Some(location) => location,
     None => {
-      info!(
+      println!(
         "Location does not exist, creating new location for '{}'",
         &path
       );
@@ -152,7 +146,7 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
         .exec()
         .await?;
 
-      info!("Created location: {:?}", location);
+      println!("Created location: {:?}", location);
 
       // write a file called .spacedrive to path containing the location id in JSON format
       let mut dotfile = match fs::File::create(format!("{}/{}", path.clone(), DOTFILE_NAME)) {

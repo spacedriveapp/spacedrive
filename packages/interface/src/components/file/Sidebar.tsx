@@ -1,12 +1,11 @@
 import { LockClosedIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
-import { CirclesFour, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
+import { CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
 import React, { useContext, useEffect, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
-import { Button } from '@sd/ui';
-import { Dropdown } from '../primitive/Dropdown';
+import { Button, Dropdown } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
@@ -22,7 +21,7 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
     {({ isActive }) => (
       <span
         className={clsx(
-          'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
+          'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
           { '!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive },
           props.className
         )}
@@ -45,13 +44,15 @@ export function MacOSTrafficLights() {
   const appPropsContext = useContext(AppPropsContext);
 
   return (
-    <div data-tauri-drag-region className="mt-2 mb-1 -ml-1 ">
-      <TrafficLights
-        onClose={appPropsContext?.onClose}
-        onFullscreen={appPropsContext?.onFullscreen}
-        onMinimize={appPropsContext?.onMinimize}
-        className="p-1.5 z-50 absolute"
-      />
+    <div data-tauri-drag-region className="h-7">
+      <div className="mt-2 mb-1 -ml-1 ">
+        <TrafficLights
+          onClose={appPropsContext?.onClose}
+          onFullscreen={appPropsContext?.onFullscreen}
+          onMinimize={appPropsContext?.onMinimize}
+          className="p-1.5 z-50 absolute"
+        />
+      </div>
     </div>
   );
 }
@@ -59,42 +60,45 @@ export function MacOSTrafficLights() {
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const appPropsContext = useContext(AppPropsContext);
   const { data: locations } = useBridgeQuery('SysGetLocations');
+  const { data: clientState } = useBridgeQuery('ClientGetState');
+
   const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },
     { id: 2, name: 'OBS', color: '#BF88FF' },
-    { id: 2, name: 'BlackMagic', color: '#F0C94A' },
-    { id: 2, name: 'Camera Roll', color: '#00F0DB' },
-    { id: 2, name: 'Spacedrive', color: '#00F079' }
+    { id: 3, name: 'BlackMagic', color: '#F0C94A' },
+    { id: 4, name: 'Camera Roll', color: '#00F0DB' },
+    { id: 5, name: 'Spacedrive', color: '#00F079' }
   ];
 
   return (
-    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 pb-1 overflow-x-hidden overflow-y-scroll border-r border-gray-100 bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
       {appPropsContext?.platform === 'macOS' ? (
         <>
-          <MacOSTrafficLights /> <div className="mt-6" />
+          <MacOSTrafficLights />
         </>
       ) : null}
+
       <Dropdown
         buttonProps={{
           justifyLeft: true,
-          className: `flex w-full mb-1 mt-1 shadow-xs rounded flex-shrink-0  
-            !bg-gray-50 
-            border-gray-150 
-            hover:!bg-gray-1000 
-            
-            dark:!bg-gray-550 
-            dark:hover:!bg-gray-550
-
-            dark:!border-gray-550 
-            dark:hover:!border-gray-500`,
+          className: `flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
+          !bg-gray-50 
+          border-gray-150 
+          hover:!bg-gray-1000 
+          
+          dark:!bg-gray-550 
+          dark:hover:!bg-gray-550
+          
+          dark:!border-gray-550 
+          dark:hover:!border-gray-500`,
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText="Jeff's Library"
+        buttonText={clientState?.client_name || 'Loading...'}
         items={[
-          [{ name: `Jeff's Library`, selected: true }, { name: 'Private Library' }],
+          [{ name: clientState?.client_name || '', selected: true }, { name: 'Private Library' }],
           [
             { name: 'Library Settings', icon: CogIcon },
             { name: 'Add Library', icon: PlusIcon },
@@ -109,9 +113,13 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={Planet} />
           Overview
         </SidebarLink>
-        <SidebarLink to="spaces">
+        <SidebarLink to="content">
           <Icon component={CirclesFour} />
           Content
+        </SidebarLink>
+        <SidebarLink to="debug">
+          <Icon component={Code} />
+          Debug
         </SidebarLink>
         {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
@@ -139,7 +147,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
                     )}
                   >
                     <div className="w-[18px] mr-2 -mt-0.5">
-                      {isActive ? <FolderWhite /> : <Folder />}
+                      <FolderWhite className={clsx(!isActive && 'hidden')} />
+                      <Folder className={clsx(isActive && 'hidden')} />
                     </div>
                     {location.name}
                     <div className="flex-grow" />
@@ -165,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <Heading>Tags</Heading>
         <div className="mb-2">
           {tags.map((tag, index) => (
-            <SidebarLink key={index} to="/" className="">
+            <SidebarLink key={index} to={`tag/${tag.id}`} className="">
               <div
                 className="w-[12px] h-[12px] rounded-full"
                 style={{ backgroundColor: tag.color }}

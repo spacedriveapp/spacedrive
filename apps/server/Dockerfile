@@ -19,7 +19,8 @@ RUN mkdir /data
 ENV DATA_DIR /data
 
 # Drop privledges to non-root user
-RUN adduser --system --no-create-home --shell /usr/sbin/nologin $USER && \
+RUN groupadd -g 1001 $USER && \
+    adduser --system --no-create-home --shell /usr/sbin/nologin --uid 1001 --gid 1001 $USER && \
     chown -R $USER /data && \
     chmod -R 770 /data
 USER $USER

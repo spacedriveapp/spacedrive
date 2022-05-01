@@ -1,7 +1,7 @@
 extern crate ffmpeg_next as ffmpeg;
 use chrono::NaiveDateTime;
 use ffmpeg::{dictionary::Iter, format};
-use std::{env, ffi::OsStr, fs, path::Path};
+use std::{ffi::OsStr, path::Path};
 
 #[derive(Default, Debug)]
 pub struct MediaItem {

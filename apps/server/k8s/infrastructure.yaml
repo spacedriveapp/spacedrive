@@ -1,0 +1,42 @@
+# Infrastructure setups up the Kubernetes cluster for Spacedrive!
+#
+# To get the service account token use the following:
+# ```bash
+# TOKENNAME=`kubectl -n spacedrive get sa/spacedrive-ci -o jsonpath='{.secrets[0].name}'`
+# kubectl -n spacedrive get secret $TOKENNAME -o jsonpath='{.data.token}' | base64 -d
+# ```
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spacedrive
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spacedrive-ci
+  namespace: spacedrive
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spacedrive-ns-full
+  namespace: spacedrive
+rules:
+  - apiGroups: ['apps']
+    resources: ['deployments']
+    verbs: ['get', 'patch']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spacedrive-ci-rb
+  namespace: spacedrive
+subjects:
+  - kind: ServiceAccount
+    name: spacedrive-ci
+    namespace: spacedrive
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spacedrive-ns-full

@@ -1,0 +1,118 @@
+# This will deploy the Spacedrive Server container to the `spacedrive`` namespace on Kubernetes.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sdserver-ingress
+  namespace: spacedrive
+  labels:
+    app.kubernetes.io/name: sdserver
+    app.kubernetes.io/component: webserver
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: le
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-antiseo@kubernetescrd
+spec:
+  rules:
+    - host: spacedrive.otbeaumont.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sdserver-service
+                port:
+                  number: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sdserver-service
+  namespace: spacedrive
+  labels:
+    app.kubernetes.io/name: sdserver
+    app.kubernetes.io/component: webserver
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: sdserver
+    app.kubernetes.io/component: webserver
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sdserver-pvc
+  namespace: spacedrive
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 512M
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sdserver-deployment
+  namespace: spacedrive
+  labels:
+    app.kubernetes.io/name: sdserver
+    app.kubernetes.io/component: webserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sdserver
+      app.kubernetes.io/component: webserver
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sdserver
+        app.kubernetes.io/component: webserver
+    spec:
+      restartPolicy: Always
+      # refer to Dockerfile to find securityContext values
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+      containers:
+        - name: sdserver
+          image: ghcr.io/oscartbeaumont/spacedrive/server:staging
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: data-volume
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+          resources:
+            limits:
+              memory: 100Mi
+              cpu: 100m
+            requests:
+              memory: 5Mi
+              cpu: 10m
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            failureThreshold: 4
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 20
+            failureThreshold: 3
+            periodSeconds: 10
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: sdserver-pvc

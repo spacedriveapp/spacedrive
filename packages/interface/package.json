@@ -12,6 +12,8 @@
     "icons": "ts-node ./scripts/generateSvgImports.mjs"
   },
   "dependencies": {
+    "@apollo/client": "^3.5.10",
+    "@fontsource/inter": "^4.5.7",
     "@headlessui/react": "^1.5.0",
     "@heroicons/react": "^1.0.6",
     "@radix-ui/react-dialog": "^0.1.7",
@@ -37,10 +39,12 @@
     "react-error-boundary": "^3.1.4",
     "react-hotkeys-hook": "^3.4.4",
     "react-json-view": "^1.21.3",
+    "react-loading-icons": "^1.0.8",
     "react-portal": "^4.2.2",
     "react-query": "^3.34.19",
     "react-router": "6.3.0",
     "react-router-dom": "6.3.0",
+    "react-scrollbars-custom": "^4.0.27",
     "react-spline": "^1.2.1",
     "react-transition-group": "^4.4.2",
     "react-virtuoso": "^2.9.0",

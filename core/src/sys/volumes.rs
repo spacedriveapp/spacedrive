@@ -1,11 +1,13 @@
 // use crate::native;
+use crate::{prisma::volume::*, state::client};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-
 // #[cfg(not(target_os = "macos"))]
 use std::process::Command;
 // #[cfg(not(target_os = "macos"))]
 use sysinfo::{DiskExt, System, SystemExt};
+
+use crate::CoreContext;
 
 use super::SysError;
 
@@ -23,69 +25,111 @@ pub struct Volume {
   pub is_root_filesystem: bool,
 }
 
-pub fn get_volumes() -> Result<Vec<Volume>, SysError> {
-  let all_volumes: Vec<Volume> = System::new_all()
-    .disks()
-    .iter()
-    .map(|disk| {
-      let mut total_space = disk.total_space();
-      let mut mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
-      let available_space = disk.available_space();
-      let mut name = disk.name().to_str().unwrap_or("Volume").to_string();
-      let is_removable = disk.is_removable();
+impl Volume {
+  pub async fn save(ctx: &CoreContext) -> Result<(), SysError> {
+    let db = &ctx.database;
+    let config = client::get();
 
-      let file_system =
-        String::from_utf8(disk.file_system().to_vec()).unwrap_or_else(|_| "Err".to_string());
+    let volumes = Self::get_volumes()?;
 
-      let disk_type = match disk.type_() {
-        sysinfo::DiskType::SSD => "SSD".to_string(),
-        sysinfo::DiskType::HDD => "HDD".to_string(),
-        _ => "Removable Disk".to_string(),
-      };
+    // enter all volumes associate with this client add to db
+    for volume in volumes {
+      db.volume()
+        .upsert(client_id_mount_point_name(
+          config.client_id.clone(),
+          volume.mount_point.to_string(),
+          volume.name.to_string(),
+        ))
+        .create(
+          client_id::set(config.client_id),
+          name::set(volume.name),
+          mount_point::set(volume.mount_point),
+          vec![
+            disk_type::set(volume.disk_type.clone()),
+            filesystem::set(volume.file_system.clone()),
+            total_bytes_capacity::set(volume.total_capacity.to_string()),
+            total_bytes_available::set(volume.available_capacity.to_string()),
+          ],
+        )
+        .update(vec![
+          disk_type::set(volume.disk_type),
+          filesystem::set(volume.file_system),
+          total_bytes_capacity::set(volume.total_capacity.to_string()),
+          total_bytes_available::set(volume.available_capacity.to_string()),
+        ])
+        .exec()
+        .await?;
+    }
+    // cleanup: remove all unmodified volumes associate with this client
 
-      if cfg!(target_os = "macos") && mount_point == "/" || mount_point == "/System/Volumes/Data" {
-        name = "Macintosh HD".to_string();
-        mount_point = "/".to_string();
-      }
+    Ok(())
+  }
+  pub fn get_volumes() -> Result<Vec<Volume>, SysError> {
+    let all_volumes: Vec<Volume> = System::new_all()
+      .disks()
+      .iter()
+      .map(|disk| {
+        let mut total_space = disk.total_space();
+        let mut mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
+        let available_space = disk.available_space();
+        let mut name = disk.name().to_str().unwrap_or("Volume").to_string();
+        let is_removable = disk.is_removable();
 
-      if total_space < available_space && cfg!(target_os = "windows") {
-        let mut caption = mount_point.clone();
-        caption.pop();
-        let wmic_process = Command::new("cmd")
-          .args([
-            "/C",
-            &format!("wmic logical disk where Caption='{caption}' get Size"),
-          ])
-          .output()
-          .expect("failed to execute process");
-        let wmic_process_output = String::from_utf8(wmic_process.stdout).unwrap();
-        let parsed_size = wmic_process_output.split("\r\r\n").collect::<Vec<&str>>()[1].to_string();
+        let file_system =
+          String::from_utf8(disk.file_system().to_vec()).unwrap_or_else(|_| "Err".to_string());
 
-        if let Ok(n) = parsed_size.trim().parse::<u64>() {
-          total_space = n;
+        let disk_type = match disk.type_() {
+          sysinfo::DiskType::SSD => "SSD".to_string(),
+          sysinfo::DiskType::HDD => "HDD".to_string(),
+          _ => "Removable Disk".to_string(),
+        };
+
+        if cfg!(target_os = "macos") && mount_point == "/" || mount_point == "/System/Volumes/Data"
+        {
+          name = "Macintosh HD".to_string();
+          mount_point = "/".to_string();
         }
-      }
 
-      Volume {
-        name,
-        mount_point: mount_point.clone(),
-        total_capacity: total_space,
-        available_capacity: available_space,
-        is_removable,
-        disk_type: Some(disk_type),
-        file_system: Some(file_system),
-        is_root_filesystem: mount_point == "/",
-      }
-    })
-    .collect();
+        if total_space < available_space && cfg!(target_os = "windows") {
+          let mut caption = mount_point.clone();
+          caption.pop();
+          let wmic_process = Command::new("cmd")
+            .args([
+              "/C",
+              &format!("wmic logical disk where Caption='{caption}' get Size"),
+            ])
+            .output()
+            .expect("failed to execute process");
+          let wmic_process_output = String::from_utf8(wmic_process.stdout).unwrap();
+          let parsed_size =
+            wmic_process_output.split("\r\r\n").collect::<Vec<&str>>()[1].to_string();
 
-  let volumes = all_volumes
-    .clone()
-    .into_iter()
-    .filter(|volume| !volume.mount_point.starts_with("/System"))
-    .collect();
+          if let Ok(n) = parsed_size.trim().parse::<u64>() {
+            total_space = n;
+          }
+        }
 
-  Ok(volumes)
+        Volume {
+          name,
+          mount_point: mount_point.clone(),
+          total_capacity: total_space,
+          available_capacity: available_space,
+          is_removable,
+          disk_type: Some(disk_type),
+          file_system: Some(file_system),
+          is_root_filesystem: mount_point == "/",
+        }
+      })
+      .collect();
+
+    let volumes = all_volumes
+      .clone()
+      .into_iter()
+      .filter(|volume| !volume.mount_point.starts_with("/System"))
+      .collect();
+
+    Ok(volumes)
+  }
 }
 
 // #[test]

@@ -1,17 +1,21 @@
 {
   "cSpell.words": [
+    "actix",
     "bpfrpt",
     "creationdate",
     "ipfs",
     "Keepsafe",
     "pathctx",
+    "prismjs",
     "proptype",
     "quicktime",
     "repr",
+    "Roadmap",
     "svgr",
     "tailwindcss",
     "trivago",
-    "tsparticles"
+    "tsparticles",
+    "upsert"
   ],
   "rust-analyzer.procMacro.enable": true,
   "rust-analyzer.diagnostics.enableExperimental": false,

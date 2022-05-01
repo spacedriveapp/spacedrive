@@ -3,14 +3,21 @@
 // const defaultTheme = require('tailwindcss/defaultTheme');
 
 module.exports = function (app, options) {
-  return {
+  let config = {
     content: [
       !options?.ignorePackages && '../../packages/*/src/**/*.{js,ts,jsx,tsx,html}',
       `../../apps/${app}/src/**/*.{js,ts,jsx,tsx,html}`
     ],
-    darkMode: 'media',
+    darkMode: app == 'landing' ? 'class' : 'class',
     mode: 'jit',
     theme: {
+      // fontFamily: {
+      //   sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+      //   serif: ['Inter', 'ui-serif', 'Georgia'],
+      //   mono: ['ui-monospace', 'SFMono-Regular'],
+      //   display: ['Inter'],
+      //   body: ['"Inter"']
+      // },
       fontSize: {
         'tiny': '.65rem',
         'xs': '.75rem',
@@ -110,4 +117,8 @@ module.exports = function (app, options) {
     },
     plugins: []
   };
+  if (app === 'landing') {
+    config.plugins.push(require('@tailwindcss/typography'));
+  }
+  return config;
 };

@@ -3,7 +3,7 @@
     "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "allowJs": false,
-    "skipLibCheck": false,
+    "skipLibCheck": true,
     "esModuleInterop": false,
     "allowSyntheticDefaultImports": true,
     "strict": true,
@@ -16,10 +16,18 @@
     "jsx": "react",
     "types": ["vite-plugin-svgr/client"],
     "baseUrl": "./",
+    "types": ["vite-plugin-svgr/client", "vite/client"],
     "paths": {
       "@sd/interface": ["../../packages/interface/src/index.ts"],
       "@sd/ui": ["../../packages/ui/src/index.ts"],
       "@sd/client": ["../../packages/client/src/index.ts"],
+      "@sd/core": ["../../core/index.ts"],
+    },
+  },
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "CommonJS"
     }
   },
   "include": ["src"],

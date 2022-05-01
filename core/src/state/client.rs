@@ -31,6 +31,7 @@ pub static CLIENT_STATE_CONFIG_NAME: &str = "client_state.json";
 #[ts(export)]
 pub struct LibraryState {
   pub library_uuid: String,
+  pub library_id: i32,
   pub library_path: String,
   pub offline: bool,
 }
