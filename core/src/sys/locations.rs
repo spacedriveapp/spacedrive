@@ -112,10 +112,30 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
   let config = client::get();
 
   // check if we have access to this location
-  match fs::File::open(&path) {
-    Ok(_) => println!("Path is valid, creating location for '{}'", &path),
-    Err(e) => Err(LocationError::FileReadError(e))?,
+  if !Path::new(path).exists() {
+    Err(LocationError::NotFound(path.to_string()))?;
   }
+
+  // if on windows
+  if cfg!(target_family = "windows") {
+    // try and create a dummy file to see if we can write to this location
+    match fs::File::create(format!("{}/{}", path.clone(), ".spacewrite")) {
+      Ok(file) => file,
+      Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
+    };
+
+    match fs::remove_file(format!("{}/{}", path.clone(), ".spacewrite")) {
+      Ok(_) => (),
+      Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
+    }
+  } else {
+    // unix allows us to test this more directly
+    match fs::File::open(&path) {
+      Ok(_) => println!("Path is valid, creating location for '{}'", &path),
+      Err(e) => Err(LocationError::FileReadError(e))?,
+    }
+  }
+
   // check if location already exists
   let location = match db
     .location()
