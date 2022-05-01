@@ -12,6 +12,9 @@ Jamie Pine, Brendonovich, Oscar Beaumont
 
 ### Contributors
 
-Haden Fletcher, and other contributors listed [here][contributors]
-
-[contributors]: https://github.com/spacedriveapp/spacedrive/graphs/contributors
+<a href="https://github.com/spacedriveapp/spacedrive/graphs/contributors">
+  <img
+    src="https://contrib.rocks/image?repo=spacedriveapp/spacedrive&columns=8&max=40"
+    alt="Avatars of the top contributors the the Spacedrive repository. Follow link for names and data."
+  />
+</a>
