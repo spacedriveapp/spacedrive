@@ -9,7 +9,7 @@ import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 // import Spacedrive JS client
 import { BaseTransport } from '@sd/client';
 // import tauri apis
-import { dialog, invoke, os } from '@tauri-apps/api';
+import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 
 import '@sd/ui/style';
@@ -68,6 +68,7 @@ function App() {
       onClose={() => appWindow.close()}
       onFullscreen={() => appWindow.setFullscreen(true)}
       onMinimize={() => appWindow.minimize()}
+      onOpen={(path: string) => shell.open(path)}
     />
   );
 }
