@@ -76,7 +76,7 @@ const variants = {
 export type ButtonVariant = keyof typeof variants;
 export type ButtonSize = keyof typeof sizes;
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonBaseProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
@@ -87,9 +87,30 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   justifyLeft?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({ loading, justifyLeft, ...props }) => {
+type ButtonElementProps = ButtonBaseProps &
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    href?: undefined;
+  };
+
+type AnchorElementProps = ButtonBaseProps &
+  React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    href?: string;
+  };
+
+type Button = {
+  (props: ButtonElementProps): JSX.Element;
+  (props: AnchorElementProps): JSX.Element;
+};
+
+const hasHref = (props: ButtonElementProps | AnchorElementProps): props is AnchorElementProps =>
+  'href' in props;
+
+export const Button: Button = ({ loading, justifyLeft, ...props }) => {
+  const Element = hasHref(props) ? 'a' : 'button';
+
   return (
-    <button
+    // @ts-expect-error -- this does not actually dynamically adjust its expectations for some reason :P
+    <Element
       {...props}
       className={clsx(
         'border rounded-md items-center transition-colors duration-100 cursor-default',
@@ -103,6 +124,6 @@ export const Button: React.FC<ButtonProps> = ({ loading, justifyLeft, ...props }
       )}
     >
       {props.children}
-    </button>
+    </Element>
   );
 };
