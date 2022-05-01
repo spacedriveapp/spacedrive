@@ -59,7 +59,7 @@
     "@types/lodash": "^4.14.182",
     "@types/node": "^17.0.23",
     "@types/pretty-bytes": "^5.2.0",
-    "@types/react": "^18.0.6",
+    "@types/react": "^18.0.8",
     "@types/react-dom": "^18.0.0",
     "@types/react-router-dom": "^5.3.3",
     "@types/react-table": "^7.7.10",
