@@ -3,8 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prep": "pnpm db:gen && pnpm core codegen",
-    "prep:ci": "pnpm db:gen && pnpm core codegen",
+    "prep": "pnpm db:gen",
     "build": "turbo run build",
     "landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
     "db:migrate": "pnpm core prisma migrate dev",
