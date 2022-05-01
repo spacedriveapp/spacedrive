@@ -9,7 +9,7 @@ import {
   Twitch
 } from '@icons-pack/react-simple-icons';
 
-function FooterLink(props: { children: string | JSX.Element | any; link: string }) {
+function FooterLink(props: { children: string | JSX.Element; link: string }) {
   return (
     <a href={props.link} target="_blank" className="text-gray-300 hover:text-white">
       {props.children}
