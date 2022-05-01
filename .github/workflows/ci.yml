@@ -90,7 +90,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: brendonovich/rust-cache@v1
+        uses: Swatinem/rust-cache@v1
         with:
           key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
 
@@ -129,7 +129,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: brendonovich/rust-cache@v1
+        uses: Swatinem/rust-cache@v1
         with:
           key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
 
@@ -154,11 +154,10 @@ jobs:
       - name: Publish artifacts
         uses: ./.github/actions/publish-desktop-artifacts
 
-  deploy-server:
-    name: Deploy server
+  build-server:
+    name: Build server
     runs-on: ubuntu-latest
     needs: build-core
-    if: github.event_name != 'pull_request'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -175,7 +174,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Cache Rust Dependencies
-        uses: brendonovich/rust-cache@v1
+        uses: Swatinem/rust-cache@v1
         with:
           key: ${{ matrix.platform }}-core-v1-${{ hashFiles('**/Cargo.lock') }}
 
@@ -183,11 +182,17 @@ jobs:
         working-directory: core
         run: cargo run -p prisma-cli --release -- generate
 
-      - name: Build and publish server
+      - name: Build server
         uses: ./.github/actions/build-and-publish-server
         with:
           gh_token: ${{ secrets.GITHUB_TOKEN }}
 
+  deploy-server:
+    name: Deploy Server
+    runs-on: ubuntu-latest
+    needs: build-server
+    if: github.event_name != 'pull_request'
+    steps:
       - name: Deploy Spacedrive Server to Kubernetes
         env:
           K8S_KUBECONFIG: ${{ secrets.K8S_KUBECONFIG }}
