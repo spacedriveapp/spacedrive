@@ -2,7 +2,7 @@
 
 Synchronizing data between clients in a Spacedrive network is accomplished using various forms of [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) combined with a hybrid logical clock, ensuring eventual constancy.
 
-Designed for synchronizing data in realtime between a [SQLite](https://www.sqlite.org/) databases potentially in the gigabytes.
+Designed for synchronizing data in realtime between [SQLite](https://www.sqlite.org/) databases potentially in the gigabytes.
 
 ```rust
 mod sync {

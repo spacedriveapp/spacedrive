@@ -13,6 +13,7 @@
     "@sd/core": "*",
     "@sd/interface": "*",
     "@sd/ui": "*",
+    "@sd/vite": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-tsparticles": "^2.0.6",
