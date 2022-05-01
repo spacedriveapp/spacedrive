@@ -1,7 +1,7 @@
 ---
 name: Feature request
 about: Suggest an idea for this project
-title: '[FEATURE] Give a suitable title'
+title: 'Give a suitable title'
 labels: 'enhancement'
 assignees: ''
 

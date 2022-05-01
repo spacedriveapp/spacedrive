@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A virtual distributed filesystem."
 authors = ["Jamie Pine"]
 license = "GNU GENERAL PUBLIC LICENSE"
-repository = "https://github.com/jamiepine/spacedrive"
+repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
 
 [features]

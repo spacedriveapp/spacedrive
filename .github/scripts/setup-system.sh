@@ -52,10 +52,11 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
                 exit 1
         fi
 
-        
+        echo "Your machine has been setup for Spacedrive development!"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew install ffmpeg
 else
         echo "Your OS '$OSTYPE' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
         exit 1
+
 fi

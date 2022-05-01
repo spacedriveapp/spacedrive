@@ -19,6 +19,7 @@
     "@sd/core": "workspace:*",
     "@sd/interface": "workspace:*",
     "@sd/ui": "workspace:*",
+    "@sd/vite": "workspace:*",
     "@tauri-apps/api": "^1.0.0-rc.3",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
@@ -41,7 +42,6 @@
     "vite": "^2.9.5",
     "vite-plugin-filter-replace": "^0.1.9",
     "vite-plugin-react-svg": "^0.2.0",
-    "vite-plugin-svgr": "^1.1.0",
     "vite-tsconfig-paths": "^3.4.1"
   }
 }

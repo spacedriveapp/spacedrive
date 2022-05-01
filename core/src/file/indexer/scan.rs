@@ -83,13 +83,24 @@ pub async fn scan_path(
         .unwrap_or("");
       let parent_dir_id = dirs.get(&*parent_path);
 
+      let str = match path.as_os_str().to_str() {
+        Some(str) => str,
+        None => {
+          println!("Error reading file {}", &path.display());
+          continue;
+        }
+      };
+
       on_progress(vec![
-        ScanProgress::Message(format!("Found: {:?}", &path)),
+        ScanProgress::Message(format!("{}", str)),
         ScanProgress::ChunkCount(paths.len() / 100),
       ]);
 
       let file_id = get_id();
-      paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
+
+      if entry.file_type().is_dir() || entry.file_type().is_file() {
+        paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
+      }
 
       if entry.file_type().is_dir() {
         let _path = match path.to_str() {

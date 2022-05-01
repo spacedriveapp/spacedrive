@@ -226,7 +226,7 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath
     case 'name':
       return (
         <div className="flex flex-row items-center overflow-hidden">
-          <div className="w-6 h-6 mr-3">
+          <div className="flex items-center justify-center shrink-0 w-6 h-6 mr-3">
             <FileThumb
               hasThumbnailOverride={hasNewThumbnail}
               file={row}
