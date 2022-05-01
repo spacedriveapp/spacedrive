@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import {
-  BrowserRouter,
+  MemoryRouter,
   Location,
   Outlet,
   Route,
@@ -14,7 +14,7 @@ import { ExplorerScreen } from './screens/Explorer';
 import { useCoreEvents } from './hooks/useCoreEvents';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
 import { OverviewScreen } from './screens/Overview';
-import { SpacesScreen } from './screens/Spaces';
+import { DebugScreen } from './screens/Debug';
 import { Modal } from './components/layout/Modal';
 import GeneralSettings from './screens/settings/GeneralSettings';
 import SlideUp from './components/transitions/SlideUp';
@@ -26,6 +26,12 @@ import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 import { Button } from '@sd/ui';
 import { CoreEvent } from '@sd/core';
 import clsx from 'clsx';
+import './style.scss';
+import { ContentScreen } from './screens/Content';
+import LibrarySettings from './screens/settings/LibrarySettings';
+
+import '@fontsource/inter/variable.css';
+import { TagScreen } from './screens/Tag';
 
 const queryClient = new QueryClient();
 
@@ -42,6 +48,7 @@ export interface AppProps {
   onClose?: () => void;
   onMinimize?: () => void;
   onFullscreen?: () => void;
+  useMemoryRouter: boolean;
 }
 
 function AppLayout() {
@@ -91,9 +98,12 @@ function SettingsRoutes({ modal = false }) {
           <Route path="security" element={<SecuritySettings />} />
           <Route path="appearance" element={<></>} />
           <Route path="locations" element={<LocationSettings />} />
+          <Route path="library" element={<LibrarySettings />} />
           <Route path="media" element={<></>} />
           <Route path="keys" element={<></>} />
           <Route path="tags" element={<></>} />
+          <Route path="sync" element={<></>} />
+          <Route path="contacts" element={<></>} />
         </Route>
       </Routes>
     </SlideUp>
@@ -114,9 +124,11 @@ function Router() {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<RedirectPage to="/overview" />} />
           <Route path="overview" element={<OverviewScreen />} />
-          <Route path="spaces" element={<SpacesScreen />} />
+          <Route path="content" element={<ContentScreen />} />
+          <Route path="debug" element={<DebugScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
           <Route path="explorer/:id" element={<ExplorerScreen />} />
+          <Route path="tag/:id" element={<TagScreen />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
@@ -166,12 +178,21 @@ function NotFound() {
   );
 }
 
-function AppContainer() {
+function MemoryRouterContainer() {
   useCoreEvents();
   return (
-    <BrowserRouter>
+    <MemoryRouter>
       <Router />
-    </BrowserRouter>
+    </MemoryRouter>
+  );
+}
+
+function BrowserRouterContainer() {
+  useCoreEvents();
+  return (
+    <MemoryRouter>
+      <Router />
+    </MemoryRouter>
   );
 }
 
@@ -184,9 +205,7 @@ export default function App(props: AppProps) {
     window.ReactQueryClient = queryClient;
   }
 
-  useEffect(() => {
-    setTransport(props.transport);
-  }, [props.transport]);
+  setTransport(props.transport);
 
   console.log('App props', props);
 
@@ -198,7 +217,7 @@ export default function App(props: AppProps) {
         <QueryClientProvider client={queryClient} contextSharing={false}>
           <AppPropsContext.Provider value={props}>
             <ClientProvider>
-              <AppContainer />
+              {props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
             </ClientProvider>
           </AppPropsContext.Provider>
         </QueryClientProvider>

@@ -2,5 +2,10 @@
 
 // use sdcore::{prisma, sync::engine::test, sync::FakeCoreContext};
 
-#[tokio::main]
-async fn main() {}
+use std::fs::File;
+
+fn main() {
+	let file = File::open("/Users/james/Desktop/Cloud/preview.mp4").unwrap();
+
+	println!("{:?}", file.metadata().unwrap())
+}

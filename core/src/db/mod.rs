@@ -13,13 +13,8 @@ pub enum DatabaseError {
   ClientError(#[from] prisma::NewClientError),
 }
 
-pub async fn create_connection() -> Result<PrismaClient, DatabaseError> {
-  let config = state::client::get();
-
-  let current_library = config.get_current_library();
-
-  let path = current_library.library_path.clone();
-
+pub async fn create_connection(path: &str) -> Result<PrismaClient, DatabaseError> {
+  println!("Creating database connection: {:?}", path);
   let client = prisma::new_client_with_url(&format!("file:{}", &path)).await?;
 
   Ok(client)

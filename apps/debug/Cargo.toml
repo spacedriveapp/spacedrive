@@ -3,19 +3,17 @@ name = "debug"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-anyhow = "1.0.56"
-data-encoding = "2.3.2"
-kamadak-exif = "0.5.4"
-ring = "0.16.20"
-thumbnailer = "0.4.0"
-mime = "0.3.16"
-sha256 = "1.0.3"
-ffmpeg-next = "5.0.3"
-sdcore = { path = "../../core" }
-uhlc = "0.4.1"
-matroska = "0.11.0"
+# anyhow = "1.0.56"
+# data-encoding = "2.3.2"
+# kamadak-exif = "0.5.4"
+# ring = "0.16.20"
+# thumbnailer = "0.4.0"
+# mime = "0.3.16"
+# sha256 = "1.0.3"
+# ffmpeg-next = "5.0.3"
+# sdcore = { path = "../../core" }
+# uhlc = "0.4.1"
+# matroska = "0.11.0"
 tokio = { version = "1.17.0", features = ["sync", "rt"] }
-chrono = "0.4.19"
+# chrono = "0.4.19"

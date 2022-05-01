@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/inter": "^4.5.7",
     "@sd/client": "*",
     "@sd/core": "*",
     "@sd/interface": "*",

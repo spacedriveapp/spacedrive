@@ -29,7 +29,7 @@ impl PropertyOperation for Tag {
   type Create = TagCreate;
   type Update = TagUpdate;
 
-  async fn create(_data: Self::Create, ctx: SyncContext) {}
-  async fn update(_data: Self::Update, ctx: SyncContext) {}
-  async fn delete(ctx: SyncContext) {}
+  async fn create(_data: Self::Create, _ctx: SyncContext) {}
+  async fn update(_data: Self::Update, _ctx: SyncContext) {}
+  async fn delete(_ctx: SyncContext) {}
 }
