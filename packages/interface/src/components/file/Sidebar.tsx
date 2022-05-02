@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText={clientState?.client_name || 'Loading...'}
+        buttonText={clientState?.client_name || 'Private Landing'}
         items={[
           [{ name: clientState?.client_name || '', selected: true }, { name: 'Private Library' }],
           [

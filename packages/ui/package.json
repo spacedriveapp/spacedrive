@@ -18,15 +18,15 @@
     "@headlessui/react": "^1.5.0",
     "@heroicons/react": "^1.0.6",
     "clsx": "^1.1.1",
-    "postcss": "^8.4.12",
-    "react": "^18.0.0",
+    "postcss": "^8.4.13",
+    "react": "^18.1.0",
     "tailwind": "^4.0.0"
   },
   "devDependencies": {
     "@sd/config": "workspace:*",
     "@types/react": "^18.0.8",
-    "@types/react-dom": "^18.0.0",
-    "sass": "^1.50.0",
-    "typescript": "^4.6.3"
+    "@types/react-dom": "^18.0.3",
+    "sass": "^1.51.0",
+    "typescript": "^4.6.4"
   }
 }
