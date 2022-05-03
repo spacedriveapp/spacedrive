@@ -60,7 +60,7 @@ function App() {
       }}
       openDialog={function (options: {
         directory?: boolean | undefined;
-      }): Promise<string | string[]> {
+      }): Promise<string | string[] | any> {
         return dialog.open(options);
       }}
       onClose={() => appWindow.close()}
