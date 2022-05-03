@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-
 // import Spacedrive interface
 import SpacedriveInterface, { Platform } from '@sd/interface';
-import { emit, listen, Event } from '@tauri-apps/api/event';
+import { listen, Event } from '@tauri-apps/api/event';
 // import types from Spacedrive core (TODO: re-export from client would be cleaner)
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 // import Spacedrive JS client
 import { BaseTransport } from '@sd/client';
 // import tauri apis
-import { dialog, invoke, os } from '@tauri-apps/api';
+import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
-
 import '@sd/ui/style';
 import { appWindow } from '@tauri-apps/api/window';
 
@@ -68,6 +66,7 @@ function App() {
       onClose={() => appWindow.close()}
       onFullscreen={() => appWindow.setFullscreen(true)}
       onMinimize={() => appWindow.minimize()}
+      onOpen={(path: string) => shell.open(path)}
     />
   );
 }
