@@ -1,0 +1,43 @@
+name: Install dependencies
+description: Installs OS-specific dependencies for builds
+runs:
+  using: "composite"
+  steps:  
+    - name: Install ffmpeg & tauri deps (Ubuntu)
+      if: matrix.platform == 'ubuntu-latest'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libssl-dev \
+          libavcodec-dev \
+          libavdevice-dev \
+          libavfilter-dev \
+          libavformat-dev \
+          libavresample-dev \
+          libavutil-dev \
+          libswscale-dev \
+          ffmpeg \
+          libgtk-3-dev \
+          webkit2gtk-4.0 \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf
+    
+    - name: Install ffmpeg (macOS)
+      if: matrix.platform == 'macos-latest'
+      shell: bash
+      run: brew install ffmpeg
+      
+    - name: Install vcpkg & ffmpeg (Windows)
+      if: matrix.platform == 'windows-latest'
+      shell: powershell
+      run: |
+        $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+        Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
+        Invoke-WebRequest "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z" -OutFile ffmpeg-release-full-shared.7z
+        7z x ffmpeg-release-full-shared.7z
+        mkdir ffmpeg
+        mv ffmpeg-*/* ffmpeg/
+        Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+        Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
