@@ -101,6 +101,7 @@ type Button = {
   (props: ButtonElementProps): JSX.Element;
   (props: AnchorElementProps): JSX.Element;
 };
+export type ButtonProps = Parameters<Button>[0];
 
 const hasHref = (props: ButtonElementProps | AnchorElementProps): props is AnchorElementProps =>
   'href' in props;
