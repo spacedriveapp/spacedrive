@@ -1,9 +1,15 @@
+import { CloudIcon } from '@heroicons/react/outline';
+import { CogIcon, MenuIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery } from '@sd/client';
+import { Button } from '@sd/ui';
 import byteSize from 'byte-size';
-import { DotsSixVertical, Laptop, LineSegments } from 'phosphor-react';
+import { DotsSixVertical, Laptop, LineSegments, Plus } from 'phosphor-react';
 import React, { useState } from 'react';
 import { Device } from '../components/device/Device';
 import FileItem from '../components/file/FileItem';
+import Dialog from '../components/layout/Dialog';
+import { Input } from '../components/primitive';
+import { InputContainer } from '../components/primitive/InputContainer';
 
 interface StatItemProps {
   name: string;
@@ -26,13 +32,14 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 export const OverviewScreen: React.FC<{}> = (props) => {
   const { data: libraryStatistics } = useBridgeQuery('GetLibraryStatistics');
+  const { data: clientState } = useBridgeQuery('ClientGetState');
 
   return (
     <div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
       <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
       <div className="flex flex-col w-full h-screen px-3">
-        <div className="flex items-center w-full">
-          <div className="flex flex-wrap pb-4 space-x-6">
+        <div className="flex w-full">
+          <div className="flex flex-wrap flex-grow pb-4 space-x-6">
             <StatItem
               name="Total capacity"
               value={libraryStatistics?.total_bytes_capacity}
@@ -60,11 +67,51 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             />
             <StatItem name="Total backed up" value={'0'} unit={''} /> */}
           </div>
+          <div className="space-x-2">
+            <Dialog
+              title="Add Device"
+              description="Connect a new device to your library. Either enter another device's code or copy this one."
+              ctaAction={() => {}}
+              ctaLabel="Connect"
+              trigger={
+                <Button
+                  size="sm"
+                  icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 mr-1" />}
+                  variant="gray"
+                >
+                  Add Device
+                </Button>
+              }
+            >
+              <div className="flex flex-col mt-2 space-y-3">
+                <div className="flex flex-col">
+                  <span className="mb-1 text-xs font-bold uppercase text-gray-450">
+                    This Device
+                  </span>
+                  <Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="mb-1 text-xs font-bold uppercase text-gray-450">
+                    Enter a device code
+                  </span>
+                  <Input value="" />
+                </div>
+              </div>
+            </Dialog>
+
+            <Button
+              size="sm"
+              className="w-8"
+              noPadding
+              icon={<MenuIcon className="inline w-4 h-4" />}
+              variant="gray"
+            ></Button>
+          </div>
         </div>
         {/* <div className="mt-5" /> */}
         <div className="flex flex-col pb-4 space-y-4">
           <Device
-            name="James' MBP"
+            name={clientState?.client_name ?? ''}
             size="1.4TB"
             runningJob={{ amount: 65, task: 'Generating preview media' }}
             locations={[{ name: 'Pictures' }, { name: 'Downloads' }, { name: 'Minecraft' }]}
@@ -75,6 +122,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             size="47.7GB"
             locations={[{ name: 'Camera Roll' }, { name: 'Notes' }]}
             type="phone"
+            removeThisSoon
           />
           <Device
             name={`Spacedrive Server`}
