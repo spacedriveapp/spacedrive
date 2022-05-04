@@ -17,6 +17,7 @@ runs:
           libavresample-dev \
           libavutil-dev \
           libswscale-dev \
+          libswresample-dev \
           ffmpeg \
           libgtk-3-dev \
           webkit2gtk-4.0 \
