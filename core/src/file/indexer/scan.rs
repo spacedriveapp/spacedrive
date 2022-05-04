@@ -186,6 +186,7 @@ fn prepare_values(
 
   let cas_id = {
     if !metadata.is_dir() {
+      // TODO: remove unwrap, skip and make sure to continue loop
       let mut x = generate_cas_id(&file_path.to_str().unwrap(), metadata.len()).unwrap();
       x.truncate(16);
       x

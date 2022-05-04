@@ -117,10 +117,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={CirclesFour} />
           Content
         </SidebarLink>
-        <SidebarLink to="debug">
+        {/* <SidebarLink to="debug">
           <Icon component={Code} />
           Debug
-        </SidebarLink>
+        </SidebarLink> */}
         {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
           Explorer
@@ -192,9 +192,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <NavLink to="/settings/general">
           {({ isActive }) => (
             <Button
+              noPadding
               variant={isActive ? 'default' : 'default'}
               className={clsx(
-                'px-[4px]'
+                'px-[4px] mb-1'
                 // isActive && '!bg-gray-550'
               )}
             >
