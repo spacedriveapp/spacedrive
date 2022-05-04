@@ -47,6 +47,7 @@ model LibraryStatistics {
     date_captured        DateTime @default(now())
     library_id           Int      @unique
     total_file_count     Int      @default(0)
+    library_db_size      String   @default("0")
     total_bytes_used     String   @default("0")
     total_bytes_capacity String   @default("0")
     total_unique_bytes   String   @default("0")
@@ -71,6 +72,22 @@ model Client {
     jobs        Job[]
 
     @@map("clients")
+}
+
+model Volume {
+    id                    Int      @id() @default(autoincrement())
+    client_id             Int
+    name                  String
+    mount_point           String
+    total_bytes_capacity  String   @default("0")
+    total_bytes_available String   @default("0")
+    disk_type             String?
+    filesystem            String?
+    is_system             Boolean  @default(false)
+    date_modified         DateTime @default(now())
+
+    @@unique([client_id, mount_point, name])
+    @@map("volumes")
 }
 
 model Location {
@@ -167,6 +184,8 @@ model FilePath {
 model FileConflict {
     original_file_id   Int @unique
     detactched_file_id Int @unique
+
+    @@map("file_conflicts")
 }
 
 model MediaData {

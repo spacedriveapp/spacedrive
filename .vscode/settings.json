@@ -14,7 +14,8 @@
     "svgr",
     "tailwindcss",
     "trivago",
-    "tsparticles"
+    "tsparticles",
+    "upsert"
   ],
   "rust-analyzer.procMacro.enable": true,
   "rust-analyzer.diagnostics.enableExperimental": false,

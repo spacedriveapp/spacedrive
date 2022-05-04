@@ -1,4 +1,4 @@
-use crate::file::cas::identifier::FileIdentifierJob;
+use crate::{file::cas::identifier::FileIdentifierJob, library::loader::get_library_path};
 use job::jobs::{Job, JobReport, Jobs};
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
@@ -146,7 +146,12 @@ impl Core {
 
     println!("Client State: {:?}", state);
 
-    let database = Arc::new(db::create_connection().await.unwrap());
+    // connect to default library
+    let database = Arc::new(
+      db::create_connection(&get_library_path(&data_dir))
+        .await
+        .unwrap(),
+    );
 
     let internal_channel = unbounded_channel::<InternalEvent>();
 
@@ -212,15 +217,17 @@ impl Core {
   // load library database + initialize client with db
   pub async fn initializer(&self) {
     println!("Initializing...");
+    let ctx = self.get_context();
+
     if self.state.libraries.len() == 0 {
-      match library::loader::create(&self, None).await {
+      match library::loader::create(&ctx, None).await {
         Ok(library) => println!("Created new library: {:?}", library),
         Err(e) => println!("Error creating library: {:?}", e),
       }
     } else {
       for library in self.state.libraries.iter() {
         // init database for library
-        match library::loader::load(&library.library_path, &library.library_uuid).await {
+        match library::loader::load(&ctx, &library.library_path, &library.library_uuid).await {
           Ok(library) => println!("Loaded library: {:?}", library),
           Err(e) => println!("Error loading library: {:?}", e),
         }
@@ -287,7 +294,9 @@ impl Core {
       // return the client state from memory
       ClientQuery::ClientGetState => CoreResponse::ClientGetState(self.state.clone()),
       // get system volumes without saving to library
-      ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::volumes::get_volumes()?),
+      ClientQuery::SysGetVolumes => {
+        CoreResponse::SysGetVolumes(sys::volumes::Volume::get_volumes()?)
+      }
       ClientQuery::SysGetLocations => {
         CoreResponse::SysGetLocations(sys::locations::get_locations(&ctx).await?)
       }
@@ -307,6 +316,9 @@ impl Core {
       ClientQuery::JobGetRunning => CoreResponse::JobGetRunning(self.jobs.get_running().await),
       // TODO: FIX THIS
       ClientQuery::JobGetHistory => CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?),
+      ClientQuery::GetLibraryStatistics => {
+        CoreResponse::GetLibraryStatistics(library::statistics::Statistics::calculate(&ctx).await?)
+      }
     })
   }
 }
@@ -357,6 +369,7 @@ pub enum ClientQuery {
     path: String,
     limit: i32,
   },
+  GetLibraryStatistics,
 }
 
 // represents an event this library can emit
@@ -386,6 +399,7 @@ pub enum CoreResponse {
   LocCreate(sys::locations::LocationResource),
   JobGetRunning(Vec<JobReport>),
   JobGetHistory(Vec<JobReport>),
+  GetLibraryStatistics(library::statistics::Statistics),
 }
 
 #[derive(Error, Debug)]
@@ -400,6 +414,8 @@ pub enum CoreError {
   JobError(#[from] job::JobError),
   #[error("Database error")]
   DatabaseError(#[from] prisma::QueryError),
+  #[error("Database error")]
+  LibraryError(#[from] library::LibraryError),
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]

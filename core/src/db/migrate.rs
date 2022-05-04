@@ -1,4 +1,5 @@
 use crate::prisma::{self, migration};
+use crate::CoreContext;
 use anyhow::Result;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
@@ -22,8 +23,8 @@ pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
   Ok(context.finish())
 }
 
-pub async fn run_migrations(db_url: &str) -> Result<()> {
-  let client = prisma::new_client_with_url(&format!("file:{}", &db_url)).await?;
+pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
+  let client = &ctx.database;
 
   match client
     ._query_raw::<serde_json::Value>(

@@ -3,9 +3,9 @@
 **Complete (Still Testing):** 
 - **File discovery** - Scan devices, drives and cloud accounts to build a directory of all files with metadata.
 - **Preview generation** - Auto generate lower resolution stand-ins for image and video.
+- **Statistics** - Total capacity, index size, preview media size, free space etc.
 
 **In progress:**
-- **Statistics** - Total capacity, index size, preview media size, free space etc.
 - **File Explorer** - Browse online/offline storage locations, view files with metadata, perform basic CRUD.
 - **Realtime synchronization** - Data index synchronized in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).
 - **Self hosted** - Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.
@@ -14,7 +14,7 @@
 - **Photos** - Photo and video albums similar to Apple/Google photos.
 - **Search** - Deep search into your filesystem with a keybind, including offline locations.
 - **Tags** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
-- **Extensions** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.app/extensions.
+- **Extensions** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.app/extensions](/extensions).
 
 **To be developed (Post-MVP):**
 - **Spacedrive Cloud** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.

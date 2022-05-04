@@ -45,13 +45,15 @@ export function MacOSTrafficLights() {
   const appPropsContext = useContext(AppPropsContext);
 
   return (
-    <div data-tauri-drag-region className="mt-2 mb-1 -ml-1 ">
-      <TrafficLights
-        onClose={appPropsContext?.onClose}
-        onFullscreen={appPropsContext?.onFullscreen}
-        onMinimize={appPropsContext?.onMinimize}
-        className="p-1.5 z-50 absolute"
-      />
+    <div data-tauri-drag-region className="h-7">
+      <div className="mt-2 mb-1 -ml-1 ">
+        <TrafficLights
+          onClose={appPropsContext?.onClose}
+          onFullscreen={appPropsContext?.onFullscreen}
+          onMinimize={appPropsContext?.onMinimize}
+          className="p-1.5 z-50 absolute"
+        />
+      </div>
     </div>
   );
 }
@@ -68,16 +70,16 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
   const tags = [
     { id: 1, name: 'Keepsafe', color: '#FF6788' },
     { id: 2, name: 'OBS', color: '#BF88FF' },
-    { id: 2, name: 'BlackMagic', color: '#F0C94A' },
-    { id: 2, name: 'Camera Roll', color: '#00F0DB' },
-    { id: 2, name: 'Spacedrive', color: '#00F079' }
+    { id: 3, name: 'BlackMagic', color: '#F0C94A' },
+    { id: 4, name: 'Camera Roll', color: '#00F0DB' },
+    { id: 5, name: 'Spacedrive', color: '#00F079' }
   ];
 
   return (
-    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 pb-1 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
       {appPropsContext?.platform === 'macOS' ? (
         <>
-          <MacOSTrafficLights /> <div className="mt-6" />
+          <MacOSTrafficLights />
         </>
       ) : null}
 
@@ -118,6 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={CirclesFour} />
           Content
         </SidebarLink>
+
         {experimental ? (
           <SidebarLink to="debug">
             <Icon component={Code} />
@@ -126,6 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         ) : (
           <></>
         )}
+
         {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
           Explorer
@@ -179,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <Heading>Tags</Heading>
         <div className="mb-2">
           {tags.map((tag, index) => (
-            <SidebarLink key={index} to="/" className="">
+            <SidebarLink key={index} to={`tag/${tag.id}`} className="">
               <div
                 className="w-[12px] h-[12px] rounded-full"
                 style={{ backgroundColor: tag.color }}
@@ -197,9 +201,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <NavLink to="/settings/general">
           {({ isActive }) => (
             <Button
+              noPadding
               variant={isActive ? 'default' : 'default'}
               className={clsx(
-                'px-[4px]'
+                'px-[4px] mb-1'
                 // isActive && '!bg-gray-550'
               )}
             >

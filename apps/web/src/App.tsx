@@ -72,6 +72,8 @@ function App() {
     <div className="App">
       {/* <header className="App-header"></header> */}
       <SpacedriveInterface
+        demoMode
+        useMemoryRouter={true}
         transport={new Transport()}
         platform={'browser'}
         convertFileSrc={function (url: string): string {

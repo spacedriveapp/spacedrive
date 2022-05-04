@@ -1,6 +1,6 @@
 import Markdown from '../components/Markdown';
 import React from 'react';
-import { ReactComponent as Content } from '../../../../docs/product/roadmap.md';
+import { ReactComponent as Content } from '~/docs/product/roadmap.md';
 import { Helmet } from 'react-helmet';
 import { ReactComponent as Folder } from '../../../../packages/interface/src/assets/svg/folder.svg';
 

@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import {
-  BrowserRouter,
+  MemoryRouter,
   Location,
   Outlet,
   Route,
@@ -31,7 +31,11 @@ import { ContentScreen } from './screens/Content';
 import LibrarySettings from './screens/settings/LibrarySettings';
 
 import '@fontsource/inter/variable.css';
+
 import ExperimentalSettings from './screens/settings/ExperimentalSettings';
+
+import { TagScreen } from './screens/Tag';
+
 
 const queryClient = new QueryClient();
 
@@ -47,6 +51,9 @@ export interface AppProps {
   onClose?: () => void;
   onMinimize?: () => void;
   onFullscreen?: () => void;
+  onOpen?: (path: string) => void;
+  useMemoryRouter: boolean;
+  demoMode?: boolean;
 }
 
 function AppLayout() {
@@ -127,6 +134,7 @@ function Router() {
           <Route path="debug" element={<DebugScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
           <Route path="explorer/:id" element={<ExplorerScreen />} />
+          <Route path="tag/:id" element={<TagScreen />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
@@ -176,12 +184,21 @@ function NotFound() {
   );
 }
 
-function AppContainer() {
+function MemoryRouterContainer() {
   useCoreEvents();
   return (
-    <BrowserRouter>
+    <MemoryRouter>
       <Router />
-    </BrowserRouter>
+    </MemoryRouter>
+  );
+}
+
+function BrowserRouterContainer() {
+  useCoreEvents();
+  return (
+    <MemoryRouter>
+      <Router />
+    </MemoryRouter>
   );
 }
 
@@ -206,7 +223,7 @@ export default function App(props: AppProps) {
         <QueryClientProvider client={queryClient} contextSharing={false}>
           <AppPropsContext.Provider value={props}>
             <ClientProvider>
-              <AppContainer />
+              {props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
             </ClientProvider>
           </AppPropsContext.Provider>
         </QueryClientProvider>
