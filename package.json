@@ -1,7 +1,7 @@
 {
   "name": "spacedrive",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.0", // please, start versioning.
+  "private": false,
   "scripts": {
     "prep": "pnpm db:gen",
     "build": "turbo run build",
