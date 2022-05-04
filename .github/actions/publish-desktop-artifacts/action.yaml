@@ -8,23 +8,29 @@ runs:
       shell: bash
       run: chmod +x ./target/release/bundle/appimage/spacedrive*.AppImage
 
+    - name: Determine short GitHub SHA
+      shell: bash
+      run: |
+        export GITHUB_SHA_SHORT=$(git rev-parse --short "$GITHUB_SHA")
+        echo "GITHUB_SHA_SHORT=$GITHUB_SHA_SHORT" >> $GITHUB_ENV
+
     - name: Publish artifacts (AppImage)
       if: matrix.platform == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: Spacedrive-AppImage-${{ GITHUB_SHA::8 }}
+        name: Spacedrive-AppImage-${{ env.GITHUB_SHA_SHORT }}
         path: ./target/release/bundle/appimage/spacedrive*.AppImage
 
     - name: Publish artifacts (Windows)
       if: matrix.platform == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: Spacedrive-Windows-${{ GITHUB_SHA::8 }}
+        name: Spacedrive-Windows-${{ env.GITHUB_SHA_SHORT }}
         path: .\target\release\bundle\msi\*.msi
 
     - name: Publish artifacts (macOS)
       if: matrix.platform == 'macos-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: Spacedrive-macOS-${{ GITHUB_SHA::8 }}
+        name: Spacedrive-macOS-${{ env.GITHUB_SHA_SHORT }}
         path: ./target/release/bundle/macos/*.app
