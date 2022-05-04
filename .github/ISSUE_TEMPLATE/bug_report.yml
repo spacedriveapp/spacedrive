@@ -1,6 +1,8 @@
 name: 🐞 Bug Report
 description: Report a bug
-labels: 'type: bug'
+labels: 
+  - kind/bug
+  - status/needs-triage
 
 body:
   - type: markdown
