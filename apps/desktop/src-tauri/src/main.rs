@@ -1,4 +1,5 @@
 use std::time::{Duration, Instant};
+use std::env::consts;
 
 use sdcore::{ClientCommand, ClientQuery, Core, CoreController, CoreEvent, CoreResponse};
 use tauri::api::path;
@@ -58,9 +59,16 @@ async fn main() {
         app.windows().iter().for_each(|(_, window)| {
           window_shadows::set_shadow(&window, true).unwrap_or(());
 
+          if consts::OS == "windows" {
+              window.set_decorations(true);
+              println!("Hello World!");
+          }
+
           window.start_dragging().unwrap_or(());
         });
       }
+
+      
 
       // core event transport
       tokio::spawn(async move {
