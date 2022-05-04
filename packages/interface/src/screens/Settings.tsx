@@ -5,6 +5,7 @@ import {
   LockClosedIcon,
   PhotographIcon,
   TagIcon,
+  TerminalIcon,
   UsersIcon
 } from '@heroicons/react/outline';
 import React from 'react';
@@ -31,6 +32,7 @@ const Heading: React.FC<{ className?: string; children: string }> = ({ children,
 export const SettingsScreen: React.FC<{}> = () => {
   return (
     <div className="flex flex-row w-full">
+
       <div className="h-full border-r border-gray-100 w-60 dark:border-gray-550">
         <div data-tauri-drag-region className="w-full h-7" />
         <div className="p-5 pt-0">
@@ -47,6 +49,10 @@ export const SettingsScreen: React.FC<{}> = () => {
             <Icon component={PaintBrush} />
             Appearance
           </SidebarLink>
+        <SidebarLink to="/settings/experimental">
+          <Icon component={TerminalIcon} />
+          Experimental
+        </SidebarLink>
 
           <Heading>Library</Heading>
           <SidebarLink to="/settings/library">
