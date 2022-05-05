@@ -36,7 +36,7 @@ Spacedrive is an open source cross-platform file manager, powered by a virtual d
 
 Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.
 
-For independent creatives, hoarders and those that want to own their digital footprint. Spacedrive provides a file management experience like no other, and its completely free.
+For independent creatives, hoarders and those that want to own their digital footprint. Spacedrive provides a file management experience like no other, and it's completely free.
 
 
 <p align="center">
@@ -58,7 +58,7 @@ For independent creatives, hoarders and those that want to own their digital foo
   <br />
 </p>
 
-
+> NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change. Additionally, most of the links on this page are broken but will be working once the repository is made public.
 
 # What is a VDFS?
 

@@ -3,9 +3,9 @@
 **Complete (Still Testing):** 
 - **File discovery** - Scan devices, drives and cloud accounts to build a directory of all files with metadata.
 - **Preview generation** - Auto generate lower resolution stand-ins for image and video.
+- **Statistics** - Total capacity, index size, preview media size, free space etc.
 
 **In progress:**
-- **Statistics** - Total capacity, index size, preview media size, free space etc.
 - **File Explorer** - Browse online/offline storage locations, view files with metadata, perform basic CRUD.
 - **Realtime synchronization** - Data index synchronized in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).
 - **Self hosted** - Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.

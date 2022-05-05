@@ -102,6 +102,7 @@ export const Button: React.FC<ButtonProps> = ({ loading, justifyLeft, ...props }
         props.className
       )}
     >
+      {props.icon}
       {props.children}
     </button>
   );

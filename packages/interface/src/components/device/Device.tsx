@@ -21,6 +21,7 @@ export interface DeviceProps {
   type: 'laptop' | 'desktop' | 'phone' | 'server';
   locations: { name: string }[];
   runningJob?: { amount: number; task: string };
+  removeThisSoon?: boolean;
 }
 
 export function Device(props: DeviceProps) {
@@ -87,6 +88,24 @@ export function Device(props: DeviceProps) {
             folder
           />
         ))}
+        {props.removeThisSoon && (
+          <>
+            <FileItem
+              selected={selectedFile == 'tsx'}
+              onClick={() => handleSelect('tsx')}
+              fileName="App.tsx"
+              format="tsx"
+              iconName="reactts"
+            />
+            <FileItem
+              selected={selectedFile == 'vite'}
+              onClick={() => handleSelect('vite')}
+              fileName="vite.config.js"
+              format="vite"
+              iconName="vite"
+            />
+          </>
+        )}
       </div>
     </div>
   );

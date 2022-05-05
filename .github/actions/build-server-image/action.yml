@@ -1,4 +1,4 @@
-name: Build and Publish Server
+name: Build Server Image 
 description: Builds and publishes the docker image for the Spacedrive server
 inputs:
   gh_token:
@@ -34,10 +34,15 @@ runs:
         echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
         echo "Building $IMAGE_NAME:$IMAGE_TAG"
 
-    - name: Build & push Docker image
+    - name: Build Docker image
       shell: bash
       run: |
         docker build ./apps/server --tag $IMAGE_NAME:$IMAGE_TAG
+
+    - name: Push Docker image
+      shell: bash
+      if: github.event_name != 'pull_request'
+      run: |
         docker push $IMAGE_NAME:$IMAGE_TAG
 
     - name: Tag & push image as latest staging image
