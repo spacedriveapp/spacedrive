@@ -27,7 +27,7 @@ If you find an issue with the repository or have a feature request with Spacedri
 
 #### Solve an issue
 
-Scan through our [existing issues](https://github.com/github/docs/issues) to find one that interests you. You can narrow down the search using `labels` as filters. See [Labels](https://github.com/spacedriveapp/spacedrive/labels) for more information. As a general rule. If you find an issue to work on, you are welcome to open a PR with a fix.
+Scan through our [existing issues](https://github.com/spacedriveapp/spacedrive/issues) to find one that interests you. You can narrow down the search using `labels` as filters. See [Labels](https://github.com/spacedriveapp/spacedrive/labels) for more information. As a general rule. If you find an issue to work on, you are welcome to open a PR with a fix.
 
 ### Make Changes
 
