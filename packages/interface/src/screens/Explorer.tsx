@@ -5,14 +5,14 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useBridgeQuery } from '@sd/client';
 import { Inspector } from '../components/file/Inspector';
 
-export const ExplorerScreen: React.FC<{}> = () => {
-  let [searchParams] = useSearchParams();
-  let path = searchParams.get('path') || '';
+export const ExplorerScreen: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const path = searchParams.get('path') || '';
 
-  let { id } = useParams();
-  let location_id = Number(id);
+  const { id } = useParams();
+  const location_id = Number(id);
 
-  let [limit, setLimit] = React.useState(100);
+  const [limit] = React.useState(100);
 
   useEffect(() => {
     console.log({ location_id, path, limit });

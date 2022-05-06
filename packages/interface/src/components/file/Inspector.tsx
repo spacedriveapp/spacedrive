@@ -1,11 +1,10 @@
 import React from 'react';
 import { Transition } from '@headlessui/react';
 import moment from 'moment';
-import { Input, TextArea } from '../primitive';
+import { TextArea } from '../primitive';
 import { Button } from '@sd/ui';
 import { ShareIcon } from '@heroicons/react/solid';
 import { Heart, Link } from 'phosphor-react';
-import { useExplorerState } from './FileList';
 import { FilePath } from '@sd/core';
 import FileThumb from './FileThumb';
 import { default as types } from '../../constants/file-types.json';

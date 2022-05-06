@@ -10,7 +10,7 @@ interface FileExplorerStore extends FileExplorerState {
   update_row_limit: (new_limit: number) => void;
 }
 
-export const useFileExplorerState = create<FileExplorerStore>((set, get) => ({
+export const useFileExplorerState = create<FileExplorerStore>((set) => ({
   current_location_id: null,
   row_limit: 10,
   update_row_limit: (new_limit: number) => {

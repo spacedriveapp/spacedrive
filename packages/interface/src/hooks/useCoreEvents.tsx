@@ -1,9 +1,8 @@
-import { useContext, useEffect } from 'react';
+import { useEffect } from 'react';
 import { CoreEvent } from '@sd/core';
 import { transport } from '@sd/client';
 import { useQueryClient } from 'react-query';
 import { useExplorerState } from '../components/file/FileList';
-import { AppPropsContext } from '../App';
 
 export function useCoreEvents() {
   const client = useQueryClient();
@@ -12,12 +11,13 @@ export function useCoreEvents() {
   useEffect(() => {
     function handleCoreEvent(e: CoreEvent) {
       switch (e?.key) {
-        case 'NewThumbnail':
+        case 'NewThumbnail': {
           addNewThumbnail(e.data.cas_id);
           break;
+        }
         case 'InvalidateQuery':
-        case 'InvalidateQueryDebounced':
-          let query = [e.data.key];
+        case 'InvalidateQueryDebounced': {
+          const query = [e.data.key];
           // TODO: find a way to make params accessible in TS
           // also this method will only work for queries that use the whole params obj as the second key
           // @ts-expect-error
@@ -27,9 +27,11 @@ export function useCoreEvents() {
           }
           client.invalidateQueries(e.data.key);
           break;
+        }
 
-        default:
+        default: {
           break;
+        }
       }
     }
     // check Tauri Event type

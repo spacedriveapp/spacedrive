@@ -1,17 +1,10 @@
-import { Button, Dropdown } from '@sd/ui';
+import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
-import { Link, List, MapPin, Question } from 'phosphor-react';
+import { List } from 'phosphor-react';
 import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 import { Discord, Github } from '@icons-pack/react-simple-icons';
-import {
-  ClockIcon,
-  CogIcon,
-  HeartIcon,
-  LockClosedIcon,
-  MapIcon,
-  QuestionMarkCircleIcon
-} from '@heroicons/react/solid';
+import { HeartIcon, MapIcon, QuestionMarkCircleIcon } from '@heroicons/react/solid';
 
 function NavLink(props: { link?: string; children: string }) {
   return (
@@ -19,6 +12,7 @@ function NavLink(props: { link?: string; children: string }) {
       href={props.link ?? '#'}
       target={props.link?.startsWith('http') ? '_blank' : undefined}
       className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50"
+      rel="noreferrer"
     >
       {props.children}
     </a>
@@ -28,7 +22,7 @@ function NavLink(props: { link?: string; children: string }) {
 export default function NavBar() {
   const [isAtTop, setIsAtTop] = useState(window.pageYOffset < 20);
 
-  function onScroll(event: Event) {
+  function onScroll() {
     if (window.pageYOffset < 20) setIsAtTop(true);
     else if (isAtTop) setIsAtTop(false);
   }
@@ -116,10 +110,10 @@ export default function NavBar() {
           buttonProps={{ className: '!p-1 ml-[140px]' }}
         />
         <div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
-          <a href="https://discord.gg/gTaF2Z44f5" target="_blank">
+          <a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
             <Discord className="text-white" />
           </a>
-          <a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
+          <a href="https://github.com/spacedriveapp/spacedrive" target="_blank" rel="noreferrer">
             <Github className="text-white" />
           </a>
         </div>

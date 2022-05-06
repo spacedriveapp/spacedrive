@@ -1,22 +1,20 @@
-import React from 'react';
-
 interface StyleState {
   active: string[];
   hover: string[];
   normal: string[];
 }
 
-interface Varient {
+interface Variant {
   base: string;
   light: StyleState;
   dark: StyleState;
 }
 
-function tw(varient: Varient): string {
-  return `${varient.base} ${varient.light}`;
+export function tw(variant: Variant): string {
+  return `${variant.base} ${variant.light}`;
 }
 
-const variants: Record<string, string> = {
+export const variants: Record<string, string> = {
   default: tw({
     base: 'shadow-sm',
     light: {

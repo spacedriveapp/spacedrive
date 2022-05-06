@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 
 import SpacedriveInterface from '@sd/interface';
-import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
+import { ClientCommand, ClientQuery } from '@sd/core';
 import { BaseTransport } from '@sd/client';
 
 const websocket = new WebSocket(import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws');
@@ -79,9 +79,7 @@ function App() {
         convertFileSrc={function (url: string): string {
           return url;
         }}
-        openDialog={function (options: {
-          directory?: boolean | undefined;
-        }): Promise<string | string[]> {
+        openDialog={function (): Promise<string | string[]> {
           return Promise.resolve([]);
         }}
       />

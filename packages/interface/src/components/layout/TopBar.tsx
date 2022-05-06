@@ -1,23 +1,15 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
 import clsx from 'clsx';
-import {
-  ArrowsClockwise,
-  ArrowsLeftRight,
-  Cloud,
-  FolderPlus,
-  Key,
-  Tag,
-  TerminalWindow
-} from 'phosphor-react';
+import { ArrowsClockwise, Cloud, FolderPlus, Key, Tag, TerminalWindow } from 'phosphor-react';
 import React from 'react';
 import { ButtonProps } from '@sd/ui';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useBridgeCommand } from '@sd/client';
 import { useExplorerState } from '../file/FileList';
 
-export interface TopBarProps extends DefaultProps {}
+export type TopBarProps = DefaultProps;
 export interface TopBarButtonProps extends ButtonProps {
   icon: any;
   group?: boolean;
@@ -46,14 +38,14 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
   );
 };
 
-export const TopBar: React.FC<TopBarProps> = (props) => {
+export const TopBar: React.FC<TopBarProps> = () => {
   const { locationId } = useExplorerState();
   const { mutate: generateThumbsForLocation } = useBridgeCommand('GenerateThumbsForLocation', {
     onMutate: (data) => {
       console.log('GenerateThumbsForLocation', data);
     }
   });
-  let navigate = useNavigate();
+  const navigate = useNavigate();
   return (
     <>
       <div

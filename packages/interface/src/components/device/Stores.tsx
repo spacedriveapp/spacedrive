@@ -1,5 +1,5 @@
 import create from 'zustand';
 
-export const useStore = create((set) => ({
+export const useStore = create(() => ({
   experimental: false
 }));

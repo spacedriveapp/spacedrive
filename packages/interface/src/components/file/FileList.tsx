@@ -2,13 +2,11 @@ import { DotsVerticalIcon } from '@heroicons/react/solid';
 import { useBridgeQuery } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
-import byteSize from 'pretty-bytes';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import create from 'zustand';
 import { useKey, useWindowSize } from 'rooks';
 import { useSearchParams } from 'react-router-dom';
-import { AppPropsContext } from '../../App';
 import FileThumb from './FileThumb';
 
 type ExplorerState = {
@@ -35,8 +33,6 @@ interface IColumn {
   key: string;
   width: number;
 }
-
-const PADDING_SIZE = 130;
 
 // Function ensure no types are loss, but guarantees that they are Column[]
 function ensureIsColumns<T extends IColumn[]>(data: T) {
@@ -167,7 +163,7 @@ const RenderRow: React.FC<{
   const { selectedRowIndex, setSelectedRowIndex } = useExplorerState();
   const isActive = selectedRowIndex === rowIndex;
 
-  let [_, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
 
   function selectFileHandler() {
     if (selectedRowIndex == rowIndex) setSelectedRowIndex(-1);
@@ -212,7 +208,6 @@ const RenderCell: React.FC<{ colKey?: ColumnKey; dirId?: number; file?: FilePath
   if (!file || !colKey || !dirId) return <></>;
   const row = file;
   if (!row) return <></>;
-  const appPropsContext = useContext(AppPropsContext);
 
   const value = row[colKey];
   if (!value) return <></>;

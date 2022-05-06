@@ -4,7 +4,6 @@ import React from 'react';
 import { XIcon } from '@heroicons/react/solid';
 import { Button } from '@sd/ui';
 import { useNavigate } from 'react-router-dom';
-import { MacOSTrafficLights } from '../file/Sidebar';
 
 export interface ModalProps {
   full?: boolean;

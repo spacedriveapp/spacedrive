@@ -1,11 +1,8 @@
 import { InputContainer } from '../../components/primitive/InputContainer';
-import { Input } from '../../components/primitive';
-import { Button } from '@sd/ui';
-import React, { useState } from 'react';
+import React from 'react';
 
 import Listbox from '../../components/primitive/Listbox';
-import Slider from '../../components/primitive/Slider';
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { useBridgeQuery } from '@sd/client';
 
 export default function GeneralSettings() {
   const { data: volumes } = useBridgeQuery('SysGetVolumes');

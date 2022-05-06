@@ -19,7 +19,9 @@
     "core": "pnpm --filter @sd/core -- ",
     "docs": "pnpm --filter @sd/docs -- ",
     "client": "pnpm --filter @sd/client -- ",
-    "server": "pnpm --filter @sd/server -- "
+    "server": "pnpm --filter @sd/server -- ",
+    "eslint": "eslint \"**/*.{ts,tsx}\"",
+    "eslint:fix": "eslint --fix \"**/*.{ts,tsx}\""
   },
   "devDependencies": {
     "prettier": "^2.6.2",
@@ -35,6 +37,12 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.22.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.14.0",
+    "eslint-plugin-react": "^7.29.4",
+    "eslint-plugin-unused-imports": "^2.0.0",
+    "typescript": ">=2.8.0",
     "zustand": "^3.7.2"
   }
 }

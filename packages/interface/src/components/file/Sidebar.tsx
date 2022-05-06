@@ -1,8 +1,8 @@
 import { LockClosedIcon } from '@heroicons/react/outline';
-import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
+import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
-import { CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
-import React, { useContext, useEffect, useState } from 'react';
+import { CirclesFour, Code, Planet } from 'phosphor-react';
+import React, { useContext } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
 import { Button, Dropdown } from '@sd/ui';
@@ -15,7 +15,7 @@ import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
 import { useStore } from '../device/Stores';
 
-interface SidebarProps extends DefaultProps {}
+type SidebarProps = DefaultProps;
 
 export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode }) => (
   <NavLink {...props}>
@@ -58,7 +58,7 @@ export function MacOSTrafficLights() {
   );
 }
 
-export const Sidebar: React.FC<SidebarProps> = (props) => {
+export const Sidebar: React.FC<SidebarProps> = () => {
   const experimental = useStore((state) => state.experimental);
 
   const appPropsContext = useContext(AppPropsContext);
@@ -99,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText={clientState?.client_name || 'Loading...'}
+        buttonText={clientState?.client_name || 'Private Library'}
         items={[
           [{ name: clientState?.client_name || '', selected: true }, { name: 'Private Library' }],
           [

@@ -1,15 +1,12 @@
-import { CloudIcon } from '@heroicons/react/outline';
-import { CogIcon, MenuIcon, PlusIcon } from '@heroicons/react/solid';
+import { MenuIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import byteSize from 'byte-size';
-import { DotsSixVertical, Laptop, LineSegments, Plus } from 'phosphor-react';
-import React, { useState } from 'react';
+import React from 'react';
 import { Device } from '../components/device/Device';
-import FileItem from '../components/file/FileItem';
 import Dialog from '../components/layout/Dialog';
 import { Input } from '../components/primitive';
-import { InputContainer } from '../components/primitive/InputContainer';
+import { totalCapacity, previewMedia, freeSpace } from './Constants';
 
 interface StatItemProps {
   name: string;
@@ -18,7 +15,7 @@ interface StatItemProps {
 }
 
 const StatItem: React.FC<StatItemProps> = (props) => {
-  let size = byteSize(Number(props.value) || 0);
+  const size = byteSize(Number(props.value));
   return (
     <div className="flex flex-col px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600">
       <span className="text-sm text-gray-400">{props.name}</span>
@@ -30,19 +27,18 @@ const StatItem: React.FC<StatItemProps> = (props) => {
   );
 };
 
-export const OverviewScreen: React.FC<{}> = (props) => {
+export const OverviewScreen: React.FC = () => {
   const { data: libraryStatistics } = useBridgeQuery('GetLibraryStatistics');
   const { data: clientState } = useBridgeQuery('ClientGetState');
 
   return (
     <div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
-      <div data-tauri-drag-region className="flex flex-shrink-0 w-full h-7" />
       <div className="flex flex-col w-full h-screen px-3">
         <div className="flex w-full">
           <div className="flex flex-wrap flex-grow pb-4 space-x-6">
             <StatItem
               name="Total capacity"
-              value={libraryStatistics?.total_bytes_capacity}
+              value={String(totalCapacity)}
               unit={libraryStatistics?.total_bytes_capacity}
             />
             <StatItem
@@ -52,12 +48,12 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             />
             <StatItem
               name="Preview media"
-              value={libraryStatistics?.preview_media_bytes}
+              value={String(previewMedia)}
               unit={libraryStatistics?.preview_media_bytes}
             />
             <StatItem
               name="Free space"
-              value={libraryStatistics?.total_bytes_free}
+              value={String(freeSpace)}
               unit={libraryStatistics?.total_bytes_free}
             />
             {/* <StatItem

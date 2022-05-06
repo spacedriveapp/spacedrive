@@ -31,7 +31,7 @@ export default function FileThumb(props: {
   }
 
   if (icons[props.file.extension as keyof typeof icons]) {
-    let Icon = icons[props.file.extension as keyof typeof icons];
+    const Icon = icons[props.file.extension as keyof typeof icons];
     return <Icon className={clsx('max-w-[170px] w-full h-full', props.className)} />;
   }
   return <div></div>;

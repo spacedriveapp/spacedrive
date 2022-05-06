@@ -3,7 +3,6 @@ import {
   CogIcon,
   KeyIcon,
   LockClosedIcon,
-  PhotographIcon,
   TagIcon,
   TerminalIcon,
   UsersIcon
@@ -11,11 +10,10 @@ import {
 import React from 'react';
 // import { dummyIFile, FileList } from '../components/file/FileList';
 import { SidebarLink } from '../components/file/Sidebar';
-import { Book, Database, HardDrive, PaintBrush } from 'phosphor-react';
+import { Database, HardDrive, PaintBrush } from 'phosphor-react';
 import clsx from 'clsx';
 import { Outlet } from 'react-router-dom';
 
-//@ts-ignore
 // import { Spline } from 'react-spline';
 // import WINDOWS_SCENE from '../assets/spline/scene.json';
 
@@ -29,10 +27,9 @@ const Heading: React.FC<{ className?: string; children: string }> = ({ children,
   </div>
 );
 
-export const SettingsScreen: React.FC<{}> = () => {
+export const SettingsScreen: React.FC = () => {
   return (
     <div className="flex flex-row w-full">
-
       <div className="h-full border-r border-gray-100 w-60 dark:border-gray-550">
         <div data-tauri-drag-region className="w-full h-7" />
         <div className="p-5 pt-0">
@@ -49,10 +46,10 @@ export const SettingsScreen: React.FC<{}> = () => {
             <Icon component={PaintBrush} />
             Appearance
           </SidebarLink>
-        <SidebarLink to="/settings/experimental">
-          <Icon component={TerminalIcon} />
-          Experimental
-        </SidebarLink>
+          <SidebarLink to="/settings/experimental">
+            <Icon component={TerminalIcon} />
+            Experimental
+          </SidebarLink>
 
           <Heading>Library</Heading>
           <SidebarLink to="/settings/library">

@@ -1,12 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Button } from '@sd/ui';
 import { Bubbles } from '../components/Bubbles';
 
-import NavBar from '../components/NavBar';
-import { Footer } from '../components/Footer';
-import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
-import { useState } from 'react';
-import clsx from 'clsx';
+import { Github } from '@icons-pack/react-simple-icons';
 import AppEmbed from '../components/AppEmbed';
 
 interface SectionProps {
@@ -17,7 +13,7 @@ interface SectionProps {
 }
 
 function Section(props: SectionProps = { orientation: 'left' }) {
-  let info = (
+  const info = (
     <div className="p-10">
       {props.heading && <h1 className="text-4xl font-black">{props.heading}</h1>}
       {props.description && <p className="mt-5 text-xl text-gray-450">{props.description}</p>}
@@ -84,7 +80,7 @@ function Page() {
           Download
         </Button> */}
 
-        <a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
+        <a href="https://github.com/spacedriveapp/spacedrive" target="_blank" rel="noreferrer">
           <Button className="cursor-pointer" variant="gray">
             <Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
             Star on GitHub
@@ -111,7 +107,7 @@ function Page() {
             <a
               className="transition text-primary-600 hover:text-primary-500"
               href="https://github.com/spacedriveapp"
-              target="_blank"
+              target="_blank" rel="noreferrer"
             >
               Find out more →
             </a>

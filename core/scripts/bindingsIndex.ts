@@ -16,11 +16,11 @@ import * as path from 'path';
   let str = '';
   // str += `export * from './types';\n`;
 
-  for (let binding of bindings) {
+  for (const binding of bindings) {
     str += `export * from './bindings/${binding.split('.')[0]}';\n`;
   }
 
-  let indexExists = await exists(path.join(__dirname, '../index.ts'));
+  const indexExists = await exists(path.join(__dirname, '../index.ts'));
 
   if (indexExists) {
     await fs.rm(path.join(__dirname, '../index.ts'));
