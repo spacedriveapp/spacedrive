@@ -11,7 +11,12 @@ import {
 
 function FooterLink(props: { children: string | JSX.Element; link: string }) {
   return (
-    <a href={props.link} target="_blank" className="text-gray-300 hover:text-white" rel="noreferrer">
+    <a
+      href={props.link}
+      target="_blank"
+      className="text-gray-300 hover:text-white"
+      rel="noreferrer"
+    >
       {props.children}
     </a>
   );
