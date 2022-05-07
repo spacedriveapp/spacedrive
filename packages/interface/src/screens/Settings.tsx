@@ -86,7 +86,7 @@ export const SettingsScreen: React.FC<{}> = () => {
       </div>
       <div className="">
         <div data-tauri-drag-region className="w-full h-7" />
-        <div className="flex flex-grow-0 w-full h-full max-h-screen custom-scrollbar page-scroll">
+        <div className="flex flex-grow-0 w-full h-full max-h-screen custom-scroll page-scroll">
           <div className="flex flex-grow px-12 pb-5">
             <Outlet />
             <div className="block h-20" />
