@@ -10,7 +10,7 @@ Only if you compile it yourself, but it is not stable yet. Follow [@spacedriveap
 
 ## How does it work?
 
-Using a "Virtual Distributed Filesystem" (VDFS), in other words; a decentralized database that emulates a filesystem. It indexes hardware filesystems to create a master database that is synchronized in realtime between your devices running Spacedrive.
+Using a "Virtual Distributed Filesystem" (VDFS), in other words; a decentralized database that emulates a filesystem. It indexes hardware file systems to create a master database that is synchronized in realtime between your devices running Spacedrive.
 
 ## Who is this for?
 
