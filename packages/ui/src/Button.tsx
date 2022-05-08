@@ -80,7 +80,7 @@ export interface ButtonBaseProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
-  icon?: typeof React.Children;
+  icon?: React.ReactNode;
   noPadding?: boolean;
   noBorder?: boolean;
   pressEffect?: boolean;
