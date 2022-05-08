@@ -2,7 +2,7 @@ import React from 'react';
 import { Menu } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
-import { Button, ButtonProps } from './Button';
+import { Button } from './Button';
 
 type Section = {
   name: string;
@@ -14,7 +14,7 @@ type Section = {
 export interface DropdownProps {
   items: Section[];
   buttonText?: string;
-  buttonProps: ButtonProps;
+  buttonProps: React.ComponentProps<typeof Button>;
   buttonIcon?: any;
   className?: string;
   itemsClassName?: string;

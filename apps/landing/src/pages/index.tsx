@@ -52,7 +52,10 @@ function Page() {
   return (
     <>
       <div className="mt-28 lg:mt-36" />
-      <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl ">
+      <h1
+        id="content"
+        className="px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl "
+      >
         A file explorer from the future.
       </h1>
       <p className="max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
@@ -86,6 +89,15 @@ function Page() {
             Star on GitHub
           </Button>
         </a>
+        <Button
+          href="https://github.com/spacedriveapp/spacedrive"
+          target="_blank"
+          className="cursor-pointer"
+          variant="gray"
+        >
+          <Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
+          Star on GitHub
+        </Button>
       </div>
       <p className="px-6 mt-3 text-sm text-center opacity-75 text-gray-450">
         Coming soon on macOS, Windows and Linux.
