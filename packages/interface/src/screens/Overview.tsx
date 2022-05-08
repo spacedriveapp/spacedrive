@@ -6,7 +6,6 @@ import React from 'react';
 import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
 import { Input } from '../components/primitive';
-import { totalCapacity, previewMedia, freeSpace } from './Constants';
 
 interface StatItemProps {
   name: string;
@@ -39,7 +38,7 @@ export const OverviewScreen: React.FC = () => {
           <div className="flex flex-wrap flex-grow pb-4 space-x-6">
             <StatItem
               name="Total capacity"
-              value={String(totalCapacity)}
+              value={libraryStatistics?.total_bytes_capacity}
               unit={libraryStatistics?.total_bytes_capacity}
             />
             <StatItem
@@ -49,12 +48,12 @@ export const OverviewScreen: React.FC = () => {
             />
             <StatItem
               name="Preview media"
-              value={String(previewMedia)}
+              value={libraryStatistics?.preview_media_bytes}
               unit={libraryStatistics?.preview_media_bytes}
             />
             <StatItem
               name="Free space"
-              value={String(freeSpace)}
+              value={libraryStatistics?.total_bytes_free}
               unit={libraryStatistics?.total_bytes_free}
             />
             {/* <StatItem
