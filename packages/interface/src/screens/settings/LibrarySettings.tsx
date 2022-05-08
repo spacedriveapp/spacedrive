@@ -23,7 +23,7 @@ export default function LibrarySettings() {
         description="Enable if library contains sensitive data and should not be synced to the cloud without full encryption."
       >
         <div className="flex items-center h-full">
-          <Toggle initialState={true} size={'sm'} />
+          <Toggle initialState={true} size={'sm'} type={''} />
         </div>
       </InputContainer>
     </div>
