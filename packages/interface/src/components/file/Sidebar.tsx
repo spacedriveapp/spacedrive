@@ -13,6 +13,7 @@ import { AppPropsContext } from '../../App';
 
 import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
+import { useStore } from '../device/Stores';
 
 interface SidebarProps extends DefaultProps {}
 
@@ -58,6 +59,8 @@ export function MacOSTrafficLights() {
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
+  const experimental = useStore((state) => state.experimental);
+
   const appPropsContext = useContext(AppPropsContext);
   const { data: locations } = useBridgeQuery('SysGetLocations');
   const { data: clientState } = useBridgeQuery('ClientGetState');
@@ -117,10 +120,16 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={CirclesFour} />
           Content
         </SidebarLink>
-        <SidebarLink to="debug">
-          <Icon component={Code} />
-          Debug
-        </SidebarLink>
+
+        {experimental ? (
+          <SidebarLink to="debug">
+            <Icon component={Code} />
+            Debug
+          </SidebarLink>
+        ) : (
+          <></>
+        )}
+
         {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
           Explorer
@@ -192,9 +201,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <NavLink to="/settings/general">
           {({ isActive }) => (
             <Button
+              noPadding
               variant={isActive ? 'default' : 'default'}
               className={clsx(
-                'px-[4px]'
+                'px-[4px] mb-1'
                 // isActive && '!bg-gray-550'
               )}
             >

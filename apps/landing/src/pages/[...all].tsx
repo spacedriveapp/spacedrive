@@ -15,16 +15,16 @@ function Page() {
         <h1 className="mb-2 text-center">In the quantum realm this page potentially exists.</h1>
         <p>In other words, thats a 404.</p>
         <div className="flex flex-wrap justify-center">
-          <a onClick={() => window.history.back()}>
-            <Button className="mt-2 mr-3 cursor-pointer " variant="gray">
-              ← Back
-            </Button>
-          </a>
-          <a href="/">
-            <Button className="mt-2 cursor-pointer" variant="primary">
-              Discover Spacedrive →
-            </Button>
-          </a>
+          <Button
+            href={document.referrer || 'javascript:history.back()'}
+            className="mt-2 mr-3 cursor-pointer "
+            variant="gray"
+          >
+            ← Back
+          </Button>
+          <Button href="/" className="mt-2 cursor-pointer" variant="primary">
+            Discover Spacedrive →
+          </Button>
         </div>
       </div>
       <div className="h-96" />

@@ -1,6 +1,6 @@
 use crate::{
   prisma::{self, client},
-  state, Core,
+  state, Core, CoreContext,
 };
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
@@ -33,6 +33,19 @@ pub enum Platform {
   IOS = 4,
   Android = 5,
 }
+
+// impl Into<Client> for client::Data {
+//   fn into(self) -> Client {
+//     Client {
+//       uuid: self.pub_id,
+//       name: self.name,
+//       platform: ,
+//       tcp_address: self.tcp_address,
+//       last_seen: self.last_seen,
+//       last_synchronized: self.last_synchronized,
+//     }
+//   }
+// }
 
 pub async fn create(core: &Core) -> Result<(), ClientError> {
   println!("Creating client...");
@@ -83,8 +96,18 @@ pub async fn create(core: &Core) -> Result<(), ClientError> {
   Ok(())
 }
 
+pub async fn get_clients(ctx: &CoreContext) -> Result<Vec<client::Data>, ClientError> {
+  let db = &ctx.database;
+
+  let client = db.client().find_many(vec![]).exec().await?;
+
+  Ok(client)
+}
+
 #[derive(Error, Debug)]
 pub enum ClientError {
   #[error("Database error")]
   DatabaseError(#[from] prisma::QueryError),
+  #[error("Client not found error")]
+  ClientNotFound,
 }
