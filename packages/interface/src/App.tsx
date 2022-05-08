@@ -31,14 +31,17 @@ import { ContentScreen } from './screens/Content';
 import LibrarySettings from './screens/settings/LibrarySettings';
 
 import '@fontsource/inter/variable.css';
+
+import ExperimentalSettings from './screens/settings/ExperimentalSettings';
+
 import { TagScreen } from './screens/Tag';
+
 
 const queryClient = new QueryClient();
 
 export const AppPropsContext = React.createContext<AppProps | null>(null);
 
 export type Platform = 'browser' | 'macOS' | 'windows' | 'linux';
-
 
 export interface AppProps {
   transport: BaseTransport;
@@ -50,6 +53,7 @@ export interface AppProps {
   onFullscreen?: () => void;
   onOpen?: (path: string) => void;
   useMemoryRouter: boolean;
+  demoMode?: boolean;
 }
 
 function AppLayout() {
@@ -98,6 +102,7 @@ function SettingsRoutes({ modal = false }) {
           <Route path="general" element={<GeneralSettings />} />
           <Route path="security" element={<SecuritySettings />} />
           <Route path="appearance" element={<></>} />
+          <Route path="experimental" element={<ExperimentalSettings />} />
           <Route path="locations" element={<LocationSettings />} />
           <Route path="library" element={<LibrarySettings />} />
           <Route path="media" element={<></>} />

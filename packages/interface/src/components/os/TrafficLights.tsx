@@ -38,22 +38,24 @@ const Light: React.FC<LightProps> = (props) => {
     <div
       onClick={props.action}
       className={clsx('w-[13px] h-[13px] rounded-full bg-gray-500', {
-        '!bg-red-400': props.mode == 'close' && props.focused,
-        '!bg-green-400': props.mode == 'fullscreen' && props.focused,
-        '!bg-yellow-400': props.mode == 'minimize' && props.focused
+        '!bg-red-400 active:!bg-red-300': props.mode == 'close' && props.focused,
+        '!bg-green-400 active:!bg-green-300': props.mode == 'fullscreen' && props.focused,
+        '!bg-yellow-400 active:!bg-yellow-300': props.mode == 'minimize' && props.focused
       })}
     >
       {(() => {
         switch (props.mode) {
           case 'close':
-            return <Close className=" w-[13px] -mt-[1px] opacity-0 group-hover:opacity-100" />;
+            return (
+              <Close className=" w-[13px] -mt-[1px] h-[15px] opacity-0 group-hover:opacity-100" />
+            );
           case 'minimize':
             return (
-              <Minimize className="ml-[2px] w-[9px] -mt-[1px] opacity-0 group-hover:opacity-100" />
+              <Minimize className="ml-[2px] w-[9px] -mt-[1px] h-[15px] opacity-0 group-hover:opacity-100" />
             );
           case 'fullscreen':
             return (
-              <Fullscreen className="ml-[1px] w-[11px] -mt-[1px] opacity-0 group-hover:opacity-100" />
+              <Fullscreen className="ml-[1px] w-[11px] -mt-[1px] h-[15px]  opacity-0 group-hover:opacity-100" />
             );
         }
       })()}

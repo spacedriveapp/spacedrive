@@ -35,7 +35,8 @@ module.exports = function (app, options) {
       extend: {
         boxShadow: {
           box: '0px 4px 9px rgba(0, 0, 0, 0.05)',
-          backdrop: '0px 4px 66px rgba(0, 0, 0, 0.08)'
+          backdrop: '0px 4px 66px rgba(0, 0, 0, 0.08)',
+          deep: '0px 4px 66px rgba(0, 0, 0, 0.68)'
         },
         bg: {
           funky: 'linear-gradient(90.63deg,#46bcff 12.1%,#85edfb 50.85%,#e04cf8 91.09%)'

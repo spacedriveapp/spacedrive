@@ -6,6 +6,9 @@ importers:
     specifiers:
       prettier: ^2.6.2
       turbo: ^1.2.4
+      zustand: ^3.7.2
+    dependencies:
+      zustand: 3.7.2
     devDependencies:
       prettier: 2.6.2
       turbo: 1.2.4
@@ -6631,8 +6634,8 @@ packages:
       scheduler: 0.21.0
     dev: false
 
-  /react-draggable/4.4.4_zpnidt7m3osuk7shl3s4oenomq:
-    resolution: {integrity: sha512-6e0WdcNLwpBx/YIDpoyd2Xb04PB0elrDrulKUgdrIlwuYvxh5Ok9M+F8cljm8kPXXs43PmMzek9RrB1b7mLMqA==}
+  /react-draggable/4.4.5_zpnidt7m3osuk7shl3s4oenomq:
+    resolution: {integrity: sha512-OMHzJdyJbYTZo4uQE393fHcqqPYsEtkjfMgvCHr6rejT+Ezn4OZbNyGH50vv+SunC1RMvwOTSWkEODQLzw1M9g==}
     peerDependencies:
       react: '>= 16.3.0'
       react-dom: '>= 16.3.0'
@@ -6835,7 +6838,7 @@ packages:
     dependencies:
       cnbuilder: 2.7.1
       react: 18.0.0
-      react-draggable: 4.4.4_zpnidt7m3osuk7shl3s4oenomq
+      react-draggable: 4.4.5_zpnidt7m3osuk7shl3s4oenomq
       zoom-level: 2.5.0
     transitivePeerDependencies:
       - react-dom
