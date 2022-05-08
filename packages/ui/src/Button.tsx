@@ -80,31 +80,29 @@ export interface ButtonBaseProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
-  icon?: React.ReactNode;
+  icon?: typeof React.Children;
   noPadding?: boolean;
   noBorder?: boolean;
   pressEffect?: boolean;
   justifyLeft?: boolean;
 }
 
-type ButtonElementProps = ButtonBaseProps &
+export type ButtonProps = ButtonBaseProps &
   React.ButtonHTMLAttributes<HTMLButtonElement> & {
     href?: undefined;
   };
 
-type AnchorElementProps = ButtonBaseProps &
+export type LinkButtonProps = ButtonBaseProps &
   React.AnchorHTMLAttributes<HTMLAnchorElement> & {
     href?: string;
   };
 
 type Button = {
-  (props: ButtonElementProps): JSX.Element;
-  (props: AnchorElementProps): JSX.Element;
+  (props: ButtonProps): JSX.Element;
+  (props: LinkButtonProps): JSX.Element;
 };
-export type ButtonProps = Parameters<Button>[0];
 
-const hasHref = (props: ButtonElementProps | AnchorElementProps): props is AnchorElementProps =>
-  'href' in props;
+const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
 export const Button: Button = ({
   loading,
@@ -131,13 +129,13 @@ export const Button: Button = ({
 
   if (hasHref(props))
     return (
-      <a {...(props as AnchorElementProps)} className={className}>
+      <a {...(props as LinkButtonProps)} className={className}>
         {props.children}
       </a>
     );
   else
     return (
-      <button {...(props as ButtonElementProps)} className={className}>
+      <button {...(props as ButtonProps)} className={className}>
         {props.children}
       </button>
     );
