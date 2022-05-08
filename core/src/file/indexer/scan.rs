@@ -172,8 +172,20 @@ fn prepare_values(
   let metadata = fs::metadata(&file_path)?;
   let location_path = location.path.as_ref().unwrap().as_str();
   // let size = metadata.len();
-  let name = extract_name(file_path.file_stem());
-  let extension = extract_name(file_path.extension());
+  let name;
+  let extension;
+
+  // if the 'file_path' is not a directory, then get the extension and name.
+
+  // if 'file_path' is a directory, set extension to an empty string to avoid periods in folder names
+  // - being interpreted as file extensions
+  if file_path.is_dir() {
+    extension = "".to_string();
+    name = extract_name(file_path.file_name());
+  } else {
+    extension = extract_name(file_path.extension());
+    name = extract_name(file_path.file_stem());
+  }
 
   let materialized_path = match file_path.to_str() {
     Some(p) => p
@@ -186,6 +198,7 @@ fn prepare_values(
 
   let cas_id = {
     if !metadata.is_dir() {
+      // TODO: remove unwrap, skip and make sure to continue loop
       let mut x = generate_cas_id(&file_path.to_str().unwrap(), metadata.len()).unwrap();
       x.truncate(16);
       x
