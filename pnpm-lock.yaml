@@ -8,9 +8,11 @@ importers:
       react: ^18.1.0
       react-dom: ^18
       turbo: ^1.2.4
+      zustand: ^3.7.2
     dependencies:
       react: 18.1.0
       react-dom: 18.1.0_react@18.1.0
+      zustand: 3.7.2_react@18.1.0
     devDependencies:
       prettier: 2.6.2
       turbo: 1.2.4
