@@ -42,6 +42,8 @@
     "eslint": "^8.14.0",
     "eslint-plugin-react": "^7.29.4",
     "eslint-plugin-unused-imports": "^2.0.0",
+    "react": "18",
+    "react-dom": "^18",
     "typescript": ">=2.8.0",
     "zustand": "^3.7.2"
   }
