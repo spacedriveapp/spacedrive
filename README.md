@@ -9,7 +9,7 @@
   <p align="center">
   A file explorer from the future.
     <br />
-    <a href="https://spacedrive.com"><strong>spacedrive.app »</strong></a>
+    <a href="https://spacedrive.com"><strong>spacedrive.com »</strong></a>
     <br />
     <br />
     <b>Download for </b>
