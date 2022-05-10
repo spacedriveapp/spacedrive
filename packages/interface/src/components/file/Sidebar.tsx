@@ -1,7 +1,7 @@
-import { LockClosedIcon } from '@heroicons/react/outline';
+import { CameraIcon, LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
-import { CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
+import { Camera, CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
 import React, { useContext, useEffect, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
   return (
     <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
-      {appPropsContext?.platform === 'macOS' ? (
+      {appPropsContext?.platform === 'macOS' || appPropsContext?.demoMode ? (
         <>
           <MacOSTrafficLights />
         </>
@@ -119,6 +119,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <SidebarLink to="content">
           <Icon component={CirclesFour} />
           Content
+        </SidebarLink>
+        <SidebarLink to="photos">
+          <Icon component={PhotographIcon} />
+          Photos
         </SidebarLink>
 
         {experimental ? (

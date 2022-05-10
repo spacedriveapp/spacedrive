@@ -16,7 +16,7 @@ function App() {
       <div className="dark:bg-black dark:text-white ">
         <Button
           href="#content"
-          className="cursor-pointer duration-200 -translate-y-16 focus:translate-y-0 fixed ml-8 mt-3 left-0 z-50"
+          className="fixed left-0 z-50 mt-3 ml-8 duration-200 -translate-y-16 cursor-pointer focus:translate-y-0"
           variant="gray"
         >
           Skip to content

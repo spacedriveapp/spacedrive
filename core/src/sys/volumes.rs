@@ -1,5 +1,5 @@
 // use crate::native;
-use crate::{prisma::volume::*, state::client};
+use crate::{node::state, prisma::volume::*};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 // #[cfg(not(target_os = "macos"))]
@@ -28,20 +28,20 @@ pub struct Volume {
 impl Volume {
   pub async fn save(ctx: &CoreContext) -> Result<(), SysError> {
     let db = &ctx.database;
-    let config = client::get();
+    let config = state::get();
 
     let volumes = Self::get_volumes()?;
 
     // enter all volumes associate with this client add to db
     for volume in volumes {
       db.volume()
-        .upsert(client_id_mount_point_name(
-          config.client_id.clone(),
+        .upsert(node_id_mount_point_name(
+          config.node_id.clone(),
           volume.mount_point.to_string(),
           volume.name.to_string(),
         ))
         .create(
-          client_id::set(config.client_id),
+          node_id::set(config.node_id),
           name::set(volume.name),
           mount_point::set(volume.mount_point),
           vec![
