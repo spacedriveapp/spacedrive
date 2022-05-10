@@ -9,23 +9,21 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, TS)]
 #[ts(export)]
-pub struct ClientState {
-  // client id is a uniquely generated UUID
-  pub client_uuid: String,
-  pub client_id: i32,
-  // client_name is the name of the device running the client
-  pub client_name: String,
+pub struct NodeState {
+  pub node_pub_id: String,
+  pub node_id: i32,
+  pub node_name: String,
   // config path is stored as struct can exist only in memory during startup and be written to disk later without supplying path
   pub data_path: String,
-  // the port this client uses to listen for incoming connections
+  // the port this node uses to listen for incoming connections
   pub tcp_port: u32,
-  // all the libraries loaded by this client
+  // all the libraries loaded by this node
   pub libraries: Vec<LibraryState>,
   // used to quickly find the default library
   pub current_library_uuid: String,
 }
 
-pub static CLIENT_STATE_CONFIG_NAME: &str = "client_state.json";
+pub static NODE_STATE_CONFIG_NAME: &str = "node_state.json";
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, TS)]
 #[ts(export)]
@@ -36,26 +34,26 @@ pub struct LibraryState {
   pub offline: bool,
 }
 
-// global, thread-safe storage for client state
+// global, thread-safe storage for node state
 lazy_static! {
-  static ref CONFIG: RwLock<Option<ClientState>> = RwLock::new(None);
+  static ref CONFIG: RwLock<Option<NodeState>> = RwLock::new(None);
 }
 
-pub fn get() -> ClientState {
+pub fn get() -> NodeState {
   match CONFIG.read() {
-    Ok(guard) => guard.clone().unwrap_or(ClientState::default()),
-    Err(_) => return ClientState::default(),
+    Ok(guard) => guard.clone().unwrap_or(NodeState::default()),
+    Err(_) => return NodeState::default(),
   }
 }
 
-impl ClientState {
-  pub fn new(data_path: &str, client_name: &str) -> Result<Self> {
+impl NodeState {
+  pub fn new(data_path: &str, node_name: &str) -> Result<Self> {
     let uuid = Uuid::new_v4().to_string();
     // create struct and assign defaults
     let config = Self {
-      client_uuid: uuid,
+      node_pub_id: uuid,
       data_path: data_path.to_string(),
-      client_name: client_name.to_string(),
+      node_name: node_name.to_string(),
       ..Default::default()
     };
     Ok(config)
@@ -65,7 +63,7 @@ impl ClientState {
     self.write_memory();
     // only write to disk if config path is set
     if !&self.data_path.is_empty() {
-      let config_path = format!("{}/{}", &self.data_path, CLIENT_STATE_CONFIG_NAME);
+      let config_path = format!("{}/{}", &self.data_path, NODE_STATE_CONFIG_NAME);
       let mut file = fs::File::create(config_path).unwrap();
       let json = serde_json::to_string(&self).unwrap();
       file.write_all(json.as_bytes()).unwrap();
@@ -73,7 +71,7 @@ impl ClientState {
   }
 
   pub fn read_disk(&mut self) -> Result<()> {
-    let config_path = format!("{}/{}", &self.data_path, CLIENT_STATE_CONFIG_NAME);
+    let config_path = format!("{}/{}", &self.data_path, NODE_STATE_CONFIG_NAME);
     // open the file and parse json
     let file = fs::File::open(config_path)?;
     let reader = BufReader::new(file);

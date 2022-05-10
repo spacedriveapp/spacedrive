@@ -36,7 +36,6 @@ import ExperimentalSettings from './screens/settings/ExperimentalSettings';
 
 import { TagScreen } from './screens/Tag';
 
-
 const queryClient = new QueryClient();
 
 export const AppPropsContext = React.createContext<AppProps | null>(null);

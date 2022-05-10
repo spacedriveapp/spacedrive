@@ -44,6 +44,7 @@ const Light: React.FC<LightProps> = (props) => {
       })}
     >
       {(() => {
+        if (!props.focused) return <></>;
         switch (props.mode) {
           case 'close':
             return (

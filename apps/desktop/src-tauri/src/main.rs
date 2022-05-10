@@ -1,7 +1,7 @@
-use std::time::{Duration, Instant};
 use std::env::consts;
+use std::time::{Duration, Instant};
 
-use sdcore::{ClientCommand, ClientQuery, Core, CoreController, CoreEvent, CoreResponse};
+use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
 use tauri::api::path;
 use tauri::Manager;
 mod menu;
@@ -38,14 +38,14 @@ async fn client_command_transport(
 async fn main() {
   let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
   // create an instance of the core
-  let (mut core, mut event_receiver) = Core::new(data_dir).await;
+  let (mut node, mut event_receiver) = Node::new(data_dir).await;
   // run startup tasks
-  core.initializer().await;
-  // extract the core controller
-  let controller = core.get_controller();
-  // throw the core into a dedicated thread
+  node.initializer().await;
+  // extract the node controller
+  let controller = node.get_controller();
+  // throw the node into a dedicated thread
   tokio::spawn(async move {
-    core.start().await;
+    node.start().await;
   });
   // create tauri app
   tauri::Builder::default()
@@ -60,15 +60,13 @@ async fn main() {
           window_shadows::set_shadow(&window, true).unwrap_or(());
 
           if consts::OS == "windows" {
-              window.set_decorations(true);
-              println!("Hello World!");
+            window.set_decorations(true).unwrap_or(());
+            println!("Hello World!");
           }
 
           window.start_dragging().unwrap_or(());
         });
       }
-
-      
 
       // core event transport
       tokio::spawn(async move {

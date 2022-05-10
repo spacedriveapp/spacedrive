@@ -21,7 +21,7 @@ export default function ExperimentalSettings() {
         title="Debug Menu"
         description="Shows data about Spacedrive such as Jobs, Job History and Client State."
       >
-        <div className="flex items-center h-full">
+        <div className="flex items-center h-full pl-10">
           <Toggle initialState={experimental} size={'sm'} type="experimental" />
         </div>
       </InputContainer>

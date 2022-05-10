@@ -15,6 +15,8 @@ pub enum ScanProgress {
   Message(String),
 }
 
+static BATCH_SIZE: usize = 100;
+
 // creates a vector of valid path buffers from a directory
 pub async fn scan_path(
   ctx: &CoreContext,
@@ -49,7 +51,7 @@ pub async fn scan_path(
   // spawn a dedicated thread to scan the directory for performance
   let (paths, scan_start, on_progress) = tokio::task::spawn_blocking(move || {
     // store every valid path discovered
-    let mut paths: Vec<(PathBuf, i32, Option<i32>)> = Vec::new();
+    let mut paths: Vec<(PathBuf, i32, Option<i32>, bool)> = Vec::new();
     // store a hashmap of directories to their file ids for fast lookup
     let mut dirs: HashMap<String, i32> = HashMap::new();
     // begin timer for logging purposes
@@ -76,6 +78,8 @@ pub async fn scan_path(
       };
       let path = entry.path();
 
+      println!("found: {:?}", path);
+
       let parent_path = path
         .parent()
         .unwrap_or(Path::new(""))
@@ -93,16 +97,18 @@ pub async fn scan_path(
 
       on_progress(vec![
         ScanProgress::Message(format!("{}", str)),
-        ScanProgress::ChunkCount(paths.len() / 100),
+        ScanProgress::ChunkCount(paths.len() / BATCH_SIZE),
       ]);
 
       let file_id = get_id();
+      let file_type = entry.file_type();
+      let is_dir = file_type.is_dir();
 
-      if entry.file_type().is_dir() || entry.file_type().is_file() {
-        paths.push((path.to_owned(), file_id, parent_dir_id.cloned()));
+      if is_dir || file_type.is_file() {
+        paths.push((path.to_owned(), file_id, parent_dir_id.cloned(), is_dir));
       }
 
-      if entry.file_type().is_dir() {
+      if is_dir {
         let _path = match path.to_str() {
           Some(path) => path.to_owned(),
           None => continue,
@@ -118,11 +124,11 @@ pub async fn scan_path(
   let db_write_start = Instant::now();
   let scan_read_time = scan_start.elapsed();
 
-  for (i, chunk) in paths.chunks(100).enumerate() {
+  for (i, chunk) in paths.chunks(BATCH_SIZE).enumerate() {
     on_progress(vec![
       ScanProgress::SavedChunks(i as usize),
       ScanProgress::Message(format!(
-        "Writing {} of {} to db",
+        "Writing {} of {} to library",
         i * chunk.len(),
         paths.len(),
       )),
@@ -130,9 +136,9 @@ pub async fn scan_path(
 
     // vector to store active models
     let mut files: Vec<String> = Vec::new();
-    for (file_path, file_id, parent_dir_id) in chunk {
+    for (file_path, file_id, parent_dir_id, is_dir) in chunk {
       files.push(
-        match prepare_values(&file_path, *file_id, &location, parent_dir_id) {
+        match prepare_values(&file_path, *file_id, &location, parent_dir_id, *is_dir) {
           Ok(file) => file,
           Err(e) => {
             println!("Error creating file model from path {:?}: {}", file_path, e);
@@ -143,7 +149,7 @@ pub async fn scan_path(
     }
     let raw_sql = format!(
       r#"
-		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_created, temp_cas_id) 
+		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id) 
 		VALUES {}
       "#,
       files.join(", ")
@@ -168,8 +174,9 @@ fn prepare_values(
   id: i32,
   location: &LocationResource,
   parent_id: &Option<i32>,
+  is_dir: bool,
 ) -> Result<String> {
-  let metadata = fs::metadata(&file_path)?;
+  // let metadata = fs::metadata(&file_path)?;
   let location_path = location.path.as_ref().unwrap().as_str();
   // let size = metadata.len();
   let name;
@@ -179,7 +186,7 @@ fn prepare_values(
 
   // if 'file_path' is a directory, set extension to an empty string to avoid periods in folder names
   // - being interpreted as file extensions
-  if file_path.is_dir() {
+  if is_dir {
     extension = "".to_string();
     name = extract_name(file_path.file_name());
   } else {
@@ -196,24 +203,24 @@ fn prepare_values(
     None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
   };
 
-  let cas_id = {
-    if !metadata.is_dir() {
-      // TODO: remove unwrap, skip and make sure to continue loop
-      let mut x = generate_cas_id(&file_path.to_str().unwrap(), metadata.len()).unwrap();
-      x.truncate(16);
-      x
-    } else {
-      "".to_string()
-    }
-  };
+  // let cas_id = {
+  //   if !metadata.is_dir() {
+  //     // TODO: remove unwrap, skip and make sure to continue loop
+  //     let mut x = generate_cas_id(&file_path.to_str().unwrap(), metadata.len()).unwrap();
+  //     x.truncate(16);
+  //     x
+  //   } else {
+  //     "".to_string()
+  //   }
+  // };
 
-  let date_created: DateTime<Utc> = metadata.created().unwrap().into();
-  let parsed_date_created = date_created.to_rfc3339_opts(SecondsFormat::Millis, true);
+  // let date_created: DateTime<Utc> = metadata.created().unwrap().into();
+  // let parsed_date_created = date_created.to_rfc3339_opts(SecondsFormat::Millis, true);
 
   let values = format!(
-    "({}, {}, {}, \"{}\", \"{}\", \"{}\", {},\"{}\", \"{}\")",
+    "({}, {}, {}, \"{}\", \"{}\", \"{}\", {})",
     id,
-    metadata.is_dir(),
+    is_dir,
     location.id,
     materialized_path,
     name,
@@ -222,8 +229,8 @@ fn prepare_values(
       .clone()
       .map(|id| format!("\"{}\"", &id))
       .unwrap_or("NULL".to_string()),
-    parsed_date_created,
-    cas_id
+    // parsed_date_created,
+    // cas_id
   );
 
   println!("{}", values);

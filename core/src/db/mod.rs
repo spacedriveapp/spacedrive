@@ -1,4 +1,3 @@
-use crate::state;
 use crate::{prisma, prisma::PrismaClient};
 use thiserror::Error;
 pub mod migrate;

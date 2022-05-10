@@ -1,5 +1,5 @@
 use crate::job::jobs::JobReportUpdate;
-use crate::state::client;
+use crate::node::state;
 use crate::{
   job::{jobs::Job, worker::WorkerContext},
   prisma::file_path,
@@ -27,7 +27,7 @@ pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 #[async_trait::async_trait]
 impl Job for ThumbnailJob {
   async fn run(&self, ctx: WorkerContext) -> Result<()> {
-    let config = client::get();
+    let config = state::get();
     let core_ctx = ctx.core_ctx.clone();
 
     let location = sys::locations::get_location(&core_ctx, self.location_id).await?;
