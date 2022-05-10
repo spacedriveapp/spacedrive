@@ -23,6 +23,6 @@ jobs:
           source_file: 'README.md'
           destination_repo: 'spacedriveapp/.github'
           destination_folder: 'profile'
-          user_email: 'actions@spacedrive.app'
+          user_email: 'actions@spacedrive.com'
           user_name: 'GH Actions'
           commit_message: 'Update README'
