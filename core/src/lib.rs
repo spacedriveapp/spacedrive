@@ -247,7 +247,9 @@ impl Node {
     Ok(match cmd {
       // CRUD for locations
       ClientCommand::LocCreate { path } => {
-        CoreResponse::LocCreate(sys::locations::new_location_and_scan(&ctx, &path).await?)
+        let loc = sys::locations::new_location_and_scan(&ctx, &path).await?;
+        ctx.spawn_job(Box::new(FileIdentifierJob));
+        CoreResponse::LocCreate(loc)
       }
       ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
       ClientCommand::LocDelete { id: _ } => todo!(),
