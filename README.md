@@ -9,7 +9,7 @@
   <p align="center">
   A file explorer from the future.
     <br />
-    <a href="https://spacedrive.app"><strong>spacedrive.app »</strong></a>
+    <a href="https://spacedrive.com"><strong>spacedrive.com »</strong></a>
     <br />
     <br />
     <b>Download for </b>
@@ -90,7 +90,7 @@ _Note: Links are for highlight purposes only until feature specific documentatio
 - **[Photos](#features)** - Photo and video albums similar to Apple/Google photos.
 - **[Search](#features)** - Deep search into your filesystem with a keybind, including offline locations.
 - **[Tags](#features)** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
-- **[Extensions](#features)** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.app/extensions](#features).
+- **[Extensions](#features)** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.com/extensions](#features).
 
 **To be developed (Post-MVP):**
 
