@@ -67,14 +67,8 @@ function App() {
       useMemoryRouter
       transport={new Transport()}
       platform={platform}
-      convertFileSrc={function (url: string): string {
-        return convertFileSrc(url);
-      }}
-      openDialog={function (options: {
-        directory?: boolean | undefined;
-      }): Promise<string | string[]> {
-        return dialog.open(options);
-      }}
+      convertFileSrc={(url: string) => convertFileSrc(url)}
+      openDialog={(options: { directory?: boolean }) => dialog.open(options)}
       isFocused={focused}
       onClose={() => appWindow.close()}
       onFullscreen={() => appWindow.setFullscreen(true)}
