@@ -37,6 +37,29 @@ jobs:
       - name: Perform typechecks
         run: pnpm -r exec tsc
 
+  eslint:
+    name: Eslint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 17
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.1
+        with:
+          version: 7.x.x
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+
+      - name: Check Eslint
+        run: pnpm eslint
+
   build-js:
     name: Build JS
     runs-on: ubuntu-latest
