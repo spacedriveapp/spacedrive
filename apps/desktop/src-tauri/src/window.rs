@@ -2,15 +2,15 @@ use tauri::{GlobalWindowEvent, Runtime, Window, Wry};
 
 pub(crate) fn handle_window_event(event: GlobalWindowEvent<Wry>) {
   match event.event() {
-    tauri::WindowEvent::Resized(_size) => {
-      let fullscreen = event.window().is_fullscreen().unwrap_or(false);
+    tauri::WindowEvent::Focused(_focus) => {
+      // let fullscreen = event.window().is_fullscreen().unwrap_or(false);
 
-      println!("fullscreen, {}", fullscreen);
+      // println!("fullscreen, {}", fullscreen);
 
-      #[cfg(target_os = "macos")]
-      event
-        .window()
-        .set_transparent_titlebar(!fullscreen, !fullscreen);
+      // #[cfg(target_os = "macos")]
+      // event
+      //   .window()
+      //   .set_transparent_titlebar(!fullscreen, !fullscreen);
     }
     _ => {}
   }
@@ -56,8 +56,13 @@ impl<R: Runtime> WindowExt for Window<R> {
       let id = self.ns_window().unwrap() as cocoa::base::id;
 
       let mut style_mask = id.styleMask();
+      // println!("existing style mask, {:#?}", style_mask);
       style_mask.set(
         NSWindowStyleMask::NSFullSizeContentViewWindowMask,
+        transparent,
+      );
+      style_mask.set(
+        NSWindowStyleMask::NSTexturedBackgroundWindowMask,
         transparent,
       );
       style_mask.set(
