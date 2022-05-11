@@ -56,12 +56,17 @@ fn custom_menu_bar() -> Menu {
       ))
       .add_item(CustomMenuItem::new("jeffd".to_string(), "Layout")),
   );
+  let window = Submenu::new(
+    "Window",
+    Menu::new().add_native_item(MenuItem::EnterFullScreen),
+  );
 
   let menu = Menu::new()
     .add_submenu(spacedrive)
     .add_submenu(file)
     .add_submenu(edit)
-    .add_submenu(view);
+    .add_submenu(view)
+    .add_submenu(window);
 
   menu
 }

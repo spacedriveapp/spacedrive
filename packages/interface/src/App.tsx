@@ -36,7 +36,6 @@ import ExperimentalSettings from './screens/settings/ExperimentalSettings';
 
 import { TagScreen } from './screens/Tag';
 
-
 const queryClient = new QueryClient();
 
 export const AppPropsContext = React.createContext<AppProps | null>(null);
@@ -52,6 +51,7 @@ export interface AppProps {
   onMinimize?: () => void;
   onFullscreen?: () => void;
   onOpen?: (path: string) => void;
+  isFocused?: boolean;
   useMemoryRouter: boolean;
   demoMode?: boolean;
 }
@@ -214,6 +214,9 @@ export default function App(props: AppProps) {
   setTransport(props.transport);
 
   console.log('App props', props);
+
+  // default prop values
+  props.isFocused ??= true;
 
   return (
     <>

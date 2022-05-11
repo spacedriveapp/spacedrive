@@ -45,9 +45,21 @@ function App() {
   }
 
   const [platform, setPlatform] = useState<Platform>('macOS');
+  const [focused, setFocused] = useState(true);
 
   useEffect(() => {
     os.platform().then((platform) => setPlatform(getPlatform(platform)));
+    invoke('app_ready');
+  }, []);
+
+  useEffect(() => {
+    const unlistenFocus = listen('tauri://focus', () => setFocused(true));
+    const unlistenBlur = listen('tauri://blur', () => setFocused(false));
+
+    return () => {
+      unlistenFocus.then((unlisten) => unlisten());
+      unlistenBlur.then((unlisten) => unlisten());
+    };
   }, []);
 
   return (
@@ -63,6 +75,7 @@ function App() {
       }): Promise<string | string[] | any> {
         return dialog.open(options);
       }}
+      isFocused={focused}
       onClose={() => appWindow.close()}
       onFullscreen={() => appWindow.setFullscreen(true)}
       onMinimize={() => appWindow.minimize()}
