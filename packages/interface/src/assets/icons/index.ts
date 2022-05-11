@@ -171,7 +171,6 @@ import { ReactComponent as Yarn } from './yarn.svg';
 import { ReactComponent as Yarnerror } from './yarnerror.svg';
 import { ReactComponent as Zip } from './zip.svg';
 
-
 export default {
   ai: Ai,
   angular: Angular,
@@ -344,5 +343,5 @@ export default {
   yaml: Yaml,
   yarn: Yarn,
   yarnerror: Yarnerror,
-  zip: Zip,
-}
+  zip: Zip
+};
