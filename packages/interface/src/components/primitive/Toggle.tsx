@@ -4,7 +4,7 @@ import clsx from 'clsx';
 
 export interface ToggleProps {
   value: boolean;
-  onChange: (value: boolean) => void;
+  onChange?: (newValue: boolean) => void;
   size?: 'sm' | 'md';
 }
 
