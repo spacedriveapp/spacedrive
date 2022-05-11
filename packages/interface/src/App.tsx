@@ -1,7 +1,15 @@
+import '@fontsource/inter/variable.css';
+import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
+// global window type extensions
+import '@sd/client/src/window';
+import { Button } from '@sd/ui';
+import clsx from 'clsx';
 import React, { useContext, useEffect, useState } from 'react';
+import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
+import { QueryClient, QueryClientProvider } from 'react-query';
 import {
-  MemoryRouter,
   Location,
+  MemoryRouter,
   Outlet,
   Route,
   Routes,
@@ -9,32 +17,22 @@ import {
   useNavigate
 } from 'react-router-dom';
 import { Sidebar } from './components/file/Sidebar';
-import { SettingsScreen } from './screens/Settings';
-import { ExplorerScreen } from './screens/Explorer';
-import { useCoreEvents } from './hooks/useCoreEvents';
-import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
-import { OverviewScreen } from './screens/Overview';
-import { DebugScreen } from './screens/Debug';
 import { Modal } from './components/layout/Modal';
-import GeneralSettings from './screens/settings/GeneralSettings';
 import SlideUp from './components/transitions/SlideUp';
-import SecuritySettings from './screens/settings/SecuritySettings';
-import LocationSettings from './screens/settings/LocationSettings';
-import { RedirectPage } from './screens/Redirect';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
-import { Button } from '@sd/ui';
-import { CoreEvent } from '@sd/core';
-import clsx from 'clsx';
-import './style.scss';
+import { useCoreEvents } from './hooks/useCoreEvents';
 import { ContentScreen } from './screens/Content';
-import LibrarySettings from './screens/settings/LibrarySettings';
-
-import '@fontsource/inter/variable.css';
-
+import { DebugScreen } from './screens/Debug';
+import { ExplorerScreen } from './screens/Explorer';
+import { OverviewScreen } from './screens/Overview';
+import { RedirectPage } from './screens/Redirect';
+import { SettingsScreen } from './screens/Settings';
 import ExperimentalSettings from './screens/settings/ExperimentalSettings';
-
+import GeneralSettings from './screens/settings/GeneralSettings';
+import LibrarySettings from './screens/settings/LibrarySettings';
+import LocationSettings from './screens/settings/LocationSettings';
+import SecuritySettings from './screens/settings/SecuritySettings';
 import { TagScreen } from './screens/Tag';
+import './style.scss';
 
 const queryClient = new QueryClient();
 
@@ -205,18 +203,14 @@ function BrowserRouterContainer() {
 export function bindCoreEvent() {}
 
 export default function App(props: AppProps) {
-  // @ts-ignore: TODO: This is a hack and a better solution should probably be found. This exists so that the queryClient can be accessed within the subpackage '@sd/client'. Refer to <ClientProvider /> for where this is used.
-  if (window.ReactQueryClient === undefined) {
-    // @ts-ignore
-    window.ReactQueryClient = queryClient;
-  }
+  // TODO: This is a hack and a better solution should probably be found.
+  // This exists so that the queryClient can be accessed within the subpackage '@sd/client'.
+  // Refer to <ClientProvider /> for where this is used.
+  window.ReactQueryClient ??= queryClient;
 
   setTransport(props.transport);
 
   console.log('App props', props);
-
-  // default prop values
-  props.isFocused ??= true;
 
   return (
     <>
@@ -224,7 +218,7 @@ export default function App(props: AppProps) {
       <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
         {/* @ts-ignore */}
         <QueryClientProvider client={queryClient} contextSharing={false}>
-          <AppPropsContext.Provider value={props}>
+          <AppPropsContext.Provider value={Object.assign({ isFocused: true }, props)}>
             <ClientProvider>
               {props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
             </ClientProvider>
