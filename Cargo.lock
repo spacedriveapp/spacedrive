@@ -7067,6 +7067,7 @@ dependencies = [
 name = "spacedrive"
 version = "0.1.0"
 dependencies = [
+ "cocoa",
  "sdcore",
  "swift-rs",
  "tauri",

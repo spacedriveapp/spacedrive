@@ -69,7 +69,7 @@
         "alwaysOnTop": false,
         "focus": true,
         "fileDropEnabled": false,
-        "decorations": false,
+        "decorations": true,
         "transparent": true,
         "center": true
       }
