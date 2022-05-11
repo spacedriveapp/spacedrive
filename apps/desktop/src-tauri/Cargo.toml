@@ -19,12 +19,13 @@ tauri = { version = "1.0.0-rc.6", features = ["api-all", "macos-private-api"] }
 sdcore = { path = "../../../core" }
 # tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
 
-# macOS system libs
-cocoa = "0.24.0"
-
 # Universal Dependencies
 tokio = { version = "1.17.0", features = ["sync"] }
 window-shadows = "0.1.2"
+
+# macOS system libs
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.24.0"
 
 [features]
 default = [ "custom-protocol" ]

@@ -48,6 +48,7 @@ function App() {
 
   useEffect(() => {
     os.platform().then((platform) => setPlatform(getPlatform(platform)));
+    invoke('app_ready');
   }, []);
 
   return (

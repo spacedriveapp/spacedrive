@@ -61,9 +61,10 @@ function AppLayout() {
   const [hasWindowBorder, setHasWindowBorder] = useState(true);
 
   useEffect(() => {
-    if (appPropsContext?.platform === 'macOS') {
-      setIsWindowRounded(true);
-    }
+    // no longer need this with our window mask fixes
+    // if (appPropsContext?.platform === 'macOS') {
+    //   setIsWindowRounded(false);
+    // }
     if (appPropsContext?.platform === 'browser') {
       setHasWindowBorder(false);
     }
