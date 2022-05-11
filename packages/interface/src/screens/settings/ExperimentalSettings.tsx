@@ -22,7 +22,15 @@ export default function ExperimentalSettings() {
         description="Shows data about Spacedrive such as Jobs, Job History and Client State."
       >
         <div className="flex items-center h-full">
-          <Toggle initialState={experimental} size={'sm'} type="experimental" />
+          <Toggle
+            value={experimental}
+            size={'sm'}
+            onChange={(newValue) => {
+              useStore.setState({
+                experimental: newValue
+              });
+            }}
+          />
         </div>
       </InputContainer>
     </div>
