@@ -22,27 +22,30 @@ interface StatItemProps {
 
 const StatItem: React.FC<StatItemProps> = (props) => {
   const countUpRef = React.useRef(null);
-
+  const appPropsContext = useContext(AppPropsContext);
   let size = byteSize(Number(props.value) || 0);
 
   let amount = parseFloat(size.value);
 
   const [hasRun, setHasRun] = useState(false);
 
-  useCountUp({
+  const { update } = useCountUp({
     startOnMount: !hasRun,
     ref: countUpRef,
-    start: amount / 2,
+    // start: amount / 2,
     end: amount,
     delay: 0.1,
     decimals: 1,
-    duration: 2,
-    enableScrollSpy: true,
+    duration: appPropsContext?.demoMode ? 2 : 1,
     useEasing: true,
     onEnd: () => {
       setHasRun(true);
     }
   });
+
+  useEffect(() => {
+    update(amount);
+  }, [amount]);
 
   return (
     <div className="flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600">
@@ -75,6 +78,8 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         total_bytes_used: '8093333345230',
         total_unique_bytes: '9347397'
       });
+    } else {
+      setStats(libraryStatistics as Statistics);
     }
   }, [appPropsContext, libraryStatistics]);
 
