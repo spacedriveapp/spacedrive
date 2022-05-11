@@ -1,13 +1,13 @@
-use std::env::consts;
 use std::time::{Duration, Instant};
 
-use cocoa::appkit::{NSWindow, NSWindowStyleMask};
-use cocoa::base::nil;
-use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
+use sdcore::{ClientCommand, ClientQuery, Core, CoreController, CoreEvent, CoreResponse};
 use tauri::api::path;
 use tauri::Manager;
-use tauri::{Runtime, Window};
+
 mod menu;
+mod window;
+
+use window::WindowExt;
 
 #[tauri::command(async)]
 async fn client_query_transport(
@@ -37,56 +37,17 @@ async fn client_command_transport(
   }
 }
 
-pub trait WindowExt {
+#[tauri::command(async)]
+async fn app_ready(app_handle: tauri::AppHandle) {
+  let window = app_handle.get_window("main").unwrap();
+
+  window.show().unwrap();
+
   #[cfg(target_os = "macos")]
-  fn set_transparent_titlebar(&self, transparent: bool);
-}
-
-impl<R: Runtime> WindowExt for Window<R> {
-  #[cfg(target_os = "macos")]
-  fn set_transparent_titlebar(&self, transparent: bool) {
-    use cocoa::{
-      appkit::{NSApplication, NSToolbar, NSWindowTitleVisibility},
-      foundation::NSString,
-    };
-
-    unsafe {
-      let id = self.ns_window().unwrap() as cocoa::base::id;
-
-      let mut style_mask = id.styleMask();
-      style_mask.set(
-        NSWindowStyleMask::NSFullSizeContentViewWindowMask
-          | NSWindowStyleMask::NSUnifiedTitleAndToolbarWindowMask,
-        transparent,
-      );
-      id.setStyleMask_(style_mask);
-
-      // TODO: figure out if this is how to correctly hide the toolbar in full screen
-      // and if so, figure out why tf it panics:
-
-      // let mut presentation_options = id.presentationOptions_();
-      // presentation_options.set(
-      //   NSApplicationPresentationOptions::NSApplicationPresentationAutoHideToolbar,
-      //   transparent,
-      // );
-      // id.setPresentationOptions_(presentation_options);
-
-      let toolbar = NSToolbar::alloc(nil).initWithIdentifier_(NSString::alloc(nil).init_str("wat"));
-      toolbar.setShowsBaselineSeparator_(false);
-      id.setToolbar_(toolbar);
-
-      id.setTitleVisibility_(if transparent {
-        NSWindowTitleVisibility::NSWindowTitleHidden
-      } else {
-        NSWindowTitleVisibility::NSWindowTitleVisible
-      });
-
-      id.setTitlebarAppearsTransparent_(if transparent {
-        cocoa::base::YES
-      } else {
-        cocoa::base::NO
-      });
-    }
+  {
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+    println!("fixing shadow for, {:?}", window.ns_window().unwrap());
+    window.fix_shadow();
   }
 }
 
@@ -110,22 +71,15 @@ async fn main() {
     .setup(|app| {
       let app = app.handle();
 
-      #[cfg(not(target_os = "linux"))]
-      {
-        app.windows().iter().for_each(|(_, window)| {
-          window_shadows::set_shadow(&window, true).unwrap_or(());
+      app.windows().iter().for_each(|(_, window)| {
+        window.hide().unwrap();
 
-          if consts::OS == "windows" {
-            let _ = window.set_decorations(true);
-          }
-        });
-      }
+        #[cfg(target_os = "windows")]
+        window.set_decorations(true).unwrap();
 
-      #[cfg(target_os = "macos")]
-      {
-        let win = app.get_window("main").unwrap();
-        win.set_transparent_titlebar(true);
-      }
+        #[cfg(target_os = "macos")]
+        window.set_transparent_titlebar(true, true);
+      });
 
       // core event transport
       tokio::spawn(async move {
@@ -150,9 +104,11 @@ async fn main() {
       Ok(())
     })
     .on_menu_event(|event| menu::handle_menu_event(event))
+    .on_window_event(|event| window::handle_window_event(event))
     .invoke_handler(tauri::generate_handler![
       client_query_transport,
       client_command_transport,
+      app_ready,
     ])
     .menu(menu::get_menu())
     .run(tauri::generate_context!())
