@@ -1,7 +1,8 @@
 import '@fontsource/inter/variable.css';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 // global window type extensions
-import '@sd/client/src/window';
+// only load at TS compile time
+import type {} from '@sd/client/src/window';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useState } from 'react';
