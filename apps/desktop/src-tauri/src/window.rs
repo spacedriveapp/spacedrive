@@ -2,16 +2,6 @@ use tauri::{GlobalWindowEvent, Runtime, Window, Wry};
 
 pub(crate) fn handle_window_event(event: GlobalWindowEvent<Wry>) {
   match event.event() {
-    tauri::WindowEvent::Focused(_focus) => {
-      // let fullscreen = event.window().is_fullscreen().unwrap_or(false);
-
-      // println!("fullscreen, {}", fullscreen);
-
-      // #[cfg(target_os = "macos")]
-      // event
-      //   .window()
-      //   .set_transparent_titlebar(!fullscreen, !fullscreen);
-    }
     _ => {}
   }
 }

@@ -51,6 +51,7 @@ export interface AppProps {
   onMinimize?: () => void;
   onFullscreen?: () => void;
   onOpen?: (path: string) => void;
+  isFocused?: boolean;
   useMemoryRouter: boolean;
   demoMode?: boolean;
 }
@@ -213,6 +214,9 @@ export default function App(props: AppProps) {
   setTransport(props.transport);
 
   console.log('App props', props);
+
+  // default prop values
+  props.isFocused ??= true;
 
   return (
     <>
