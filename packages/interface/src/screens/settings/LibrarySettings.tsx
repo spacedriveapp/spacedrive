@@ -4,6 +4,7 @@ import { Toggle } from '../../components/primitive';
 
 export default function LibrarySettings() {
   // const locations = useBridgeQuery("SysGetLocation")
+  const [encryptOnCloud, setEncryptOnCloud] = React.useState<boolean>(false);
 
   return (
     <div className="flex flex-col flex-grow max-w-4xl space-y-4">

@@ -1,10 +1,13 @@
 use std::time::{Duration, Instant};
-use std::env::consts;
 
 use sdcore::{ClientCommand, ClientQuery, Core, CoreController, CoreEvent, CoreResponse};
 use tauri::api::path;
 use tauri::Manager;
+
 mod menu;
+mod window;
+
+use window::WindowExt;
 
 #[tauri::command(async)]
 async fn client_query_transport(
@@ -59,16 +62,13 @@ async fn main() {
         app.windows().iter().for_each(|(_, window)| {
           window_shadows::set_shadow(&window, true).unwrap_or(());
 
-          if consts::OS == "windows" {
-              window.set_decorations(true);
-              println!("Hello World!");
-          }
+          #[cfg(target_os = "windows")]
+          window.set_decorations(true).unwrap();
 
-          window.start_dragging().unwrap_or(());
+          #[cfg(target_os = "macos")]
+          window.set_transparent_titlebar(true);
         });
       }
-
-      
 
       // core event transport
       tokio::spawn(async move {
