@@ -2,7 +2,7 @@ use crate::{
   encode::thumb::THUMBNAIL_CACHE_DIR_NAME,
   file::{DirectoryWithContents, File, FileError},
   node::state,
-  prisma::file_path,
+  prisma::{file, file_path},
   sys::locations::get_location,
   CoreContext,
 };
@@ -30,21 +30,15 @@ pub async fn open_dir(
     .await?
     .ok_or(FileError::DirectoryNotFound(path.to_string()))?;
 
-  let files = db
-    .file_path()
-    .find_many(vec![file_path::parent_id::equals(Some(directory.id))])
-    .with(file_path::file::fetch())
+  let files: Vec<File> = db
+    .file()
+    .find_many(vec![file::paths::some(vec![file_path::parent_id::equals(
+      Some(directory.id),
+    )])])
     .exec()
-    .await?;
-
-  // convert database structs into a File
-  let files: Vec<File> = files
+    .await?
     .into_iter()
-    .map(|l| {
-      let mut file: File = l.file().unwrap_or_default().unwrap().clone().into();
-      file.paths.push(l.into());
-      file
-    })
+    .map(Into::into)
     .collect();
 
   let mut contents: Vec<File> = vec![];
