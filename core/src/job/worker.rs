@@ -48,10 +48,11 @@ impl Worker {
   pub fn new(job: Box<dyn Job>) -> Self {
     let (worker_sender, worker_receiver) = unbounded_channel();
     let uuid = uuid::Uuid::new_v4().to_string();
+    let name = job.name();
 
     Self {
       state: WorkerState::Pending(job, worker_receiver),
-      job_report: JobReport::new(uuid),
+      job_report: JobReport::new(uuid, name.to_string()),
       worker_sender,
     }
   }

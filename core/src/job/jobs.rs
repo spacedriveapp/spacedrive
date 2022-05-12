@@ -20,6 +20,7 @@ const MAX_WORKERS: usize = 4;
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
   async fn run(&self, ctx: WorkerContext) -> Result<()>;
+  fn name(&self) -> &'static str;
 }
 
 // jobs struct is maintained by the core
@@ -86,6 +87,7 @@ pub enum JobReportUpdate {
 #[ts(export)]
 pub struct JobReport {
   pub id: String,
+  pub name: String,
   // client_id: i32,
   #[ts(type = "string")]
   pub date_created: chrono::DateTime<chrono::Utc>,
@@ -107,6 +109,7 @@ impl Into<JobReport> for job::Data {
   fn into(self) -> JobReport {
     JobReport {
       id: self.id,
+      name: self.name,
       // client_id: self.client_id,
       status: JobStatus::from_int(self.status).unwrap(),
       task_count: self.task_count,
@@ -120,9 +123,10 @@ impl Into<JobReport> for job::Data {
 }
 
 impl JobReport {
-  pub fn new(uuid: String) -> Self {
+  pub fn new(uuid: String, name: String) -> Self {
     Self {
       id: uuid,
+      name,
       // client_id: 0,
       date_created: chrono::Utc::now(),
       date_modified: chrono::Utc::now(),
@@ -140,6 +144,7 @@ impl JobReport {
       .job()
       .create(
         job::id::set(self.id.clone()),
+        job::name::set(self.name.clone()),
         job::action::set(1),
         job::nodes::link(node::id::equals(config.node_id)),
         vec![],
