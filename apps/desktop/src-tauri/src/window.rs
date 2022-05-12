@@ -20,7 +20,7 @@ impl<R: Runtime> WindowExt for Window<R> {
   fn set_toolbar(&self, shown: bool) {
     use cocoa::{
       appkit::{NSToolbar, NSWindow},
-      base::nil,
+      base::{nil, NO},
       foundation::NSString,
     };
 
@@ -30,7 +30,7 @@ impl<R: Runtime> WindowExt for Window<R> {
       if shown {
         let toolbar =
           NSToolbar::alloc(nil).initWithIdentifier_(NSString::alloc(nil).init_str("wat"));
-        toolbar.setShowsBaselineSeparator_(false);
+        toolbar.setShowsBaselineSeparator_(NO);
         id.setToolbar_(toolbar);
       } else {
         id.setToolbar_(nil);
