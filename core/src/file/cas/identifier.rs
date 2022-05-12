@@ -25,7 +25,11 @@ pub struct FileIdentifierJob;
 
 #[async_trait::async_trait]
 impl Job for FileIdentifierJob {
+  fn name(&self) -> &'static str {
+    "file_identifier"
+  }
   async fn run(&self, ctx: WorkerContext) -> Result<()> {
+    println!("Identifying files");
     let total_count = count_orphan_file_paths(&ctx.core_ctx).await?;
     println!("Found {} orphan file paths", total_count);
 

@@ -278,6 +278,7 @@ model LabelOnFile {
 
 model Job {
     id      String @id
+    name    String
     node_id Int
     action  Int
     status  Int    @default(0)

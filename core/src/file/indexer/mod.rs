@@ -17,6 +17,9 @@ pub struct IndexerJob {
 
 #[async_trait::async_trait]
 impl Job for IndexerJob {
+  fn name(&self) -> &'static str {
+    "indexer"
+  }
   async fn run(&self, ctx: WorkerContext) -> Result<()> {
     let core_ctx = ctx.core_ctx.clone();
     scan_path(&core_ctx, self.path.as_str(), move |p| {
