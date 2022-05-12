@@ -20,10 +20,10 @@ model Migration {
 
 model SyncEvent {
     id        Int    @id @default(autoincrement())
-    client_id Int
+    node_id   Int
     timestamp String
     data      String
-    client    Client @relation(fields: [client_id], references: [id])
+    node      Node   @relation(fields: [node_id], references: [id])
 
     @@map("sync_events")
 }
@@ -34,10 +34,8 @@ model Library {
     name         String
     remote_id    String?
     is_primary   Boolean  @default(true)
-    encryption   Int      @default(0)
     date_created DateTime @default(now())
     timezone     String?
-    spaces       Space[]
 
     @@map("libraries")
 }
@@ -57,7 +55,7 @@ model LibraryStatistics {
     @@map("library_statistics")
 }
 
-model Client {
+model Node {
     id           Int      @id @default(autoincrement())
     pub_id       String   @unique
     name         String
@@ -71,27 +69,29 @@ model Client {
     sync_events SyncEvent[]
     jobs        Job[]
 
-    @@map("clients")
+    @@map("nodes")
 }
 
 model Volume {
     id                    Int      @id() @default(autoincrement())
-    client_id             Int
+    node_id               Int
     name                  String
     mount_point           String
     total_bytes_capacity  String   @default("0")
     total_bytes_available String   @default("0")
     disk_type             String?
     filesystem            String?
+    is_system             Boolean  @default(false)
     date_modified         DateTime @default(now())
 
+    @@unique([node_id, mount_point, name])
     @@map("volumes")
 }
 
 model Location {
     id                 Int      @id @default(autoincrement())
     pub_id             String   @unique
-    client_id          Int?
+    node_id            Int?
     name               String?
     local_path         String?
     total_capacity     Int?
@@ -116,8 +116,7 @@ model File {
     // basic metadata
     kind               Int      @default(0)
     size_in_bytes      String
-    // mark uniqely as encrypted, will lead to all file paths being encrypted
-    encryption         Int      @default(0)
+    key_id             Int?
     // handy ways to mark a file
     hidden             Boolean  @default(false)
     favorite           Boolean  @default(false)
@@ -144,6 +143,8 @@ model File {
     comments   Comment[]
     media_data MediaData?
 
+    key Key? @relation(fields: [key_id], references: [id])
+
     @@map("files")
 }
 
@@ -159,11 +160,11 @@ model FilePath {
     extension         String?
     // the unique File for this file path
     file_id           Int?
-    //
+    // the parent in the file tree
     parent_id         Int?
-    encryption        Int     @default(0)
-    permissions       String?
-    temp_cas_id       String? // so a filepath can be created without its File, as they're created lazily
+    key_id            Int? // replacement for encryption
+    // permissions       String?
+    // temp_cas_id       String? // so a filepath can be created without its File, as they're created lazily
 
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
@@ -173,6 +174,8 @@ model FilePath {
     location Location?  @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
     parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id])
     children FilePath[] @relation("directory_file_paths")
+
+    key Key? @relation(fields: [key_id], references: [id])
 
     @@unique([location_id, materialized_path, name, extension])
     @@map("file_paths")
@@ -184,6 +187,23 @@ model FileConflict {
     detactched_file_id Int @unique
 
     @@map("file_conflicts")
+}
+
+// keys allow us to know exactly which files can be decrypted with a given key
+// they can be "mounted" to a client, and then used to decrypt files automatically
+model Key {
+    id           Int       @id @default(autoincrement())
+    // used to identify the key when it is entered by user
+    checksum     String    @unique
+    name         String?
+    // nullable if concealed for security
+    date_created DateTime? @default(now())
+    // so we know which algorithm to use, can be null if user must select
+    algorithm    Int?      @default(0)
+
+    files      File[]
+    file_paths FilePath[]
+    @@map("keys")
 }
 
 model MediaData {
@@ -210,7 +230,6 @@ model Tag {
     id              Int      @id @default(autoincrement())
     pub_id          String   @unique
     name            String?
-    encryption      Int?     @default(0)
     total_files     Int?     @default(0)
     redundancy_goal Int?     @default(1)
     date_created    DateTime @default(now())
@@ -258,10 +277,10 @@ model LabelOnFile {
 }
 
 model Job {
-    id        String @id
-    client_id Int
-    action    Int
-    status    Int    @default(0)
+    id      String @id
+    node_id Int
+    action  Int
+    status  Int    @default(0)
 
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
@@ -269,21 +288,8 @@ model Job {
     date_modified        DateTime @default(now())
     seconds_elapsed      Int      @default(0)
 
-    clients Client @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
     @@map("jobs")
-}
-
-model Space {
-    id            Int      @id @default(autoincrement())
-    pub_id        String   @unique
-    name          String
-    encryption    Int?     @default(0) // remove
-    date_created  DateTime @default(now())
-    date_modified DateTime @default(now())
-    Library       Library? @relation(fields: [libraryId], references: [id])
-    libraryId     Int?
-
-    @@map("spaces")
 }
 
 model Album {

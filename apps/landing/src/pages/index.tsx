@@ -14,6 +14,7 @@ interface SectionProps {
   heading?: string;
   description?: string | React.ReactNode;
   children?: React.ReactNode;
+  className?: string;
 }
 
 function Section(props: SectionProps = { orientation: 'left' }) {
@@ -24,7 +25,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
     </div>
   );
   return (
-    <div className="grid grid-cols-1 my-10 lg:grid-cols-2 lg:my-44">
+    <div className={clsx('grid grid-cols-1 my-10 lg:grid-cols-2 lg:my-44', props.className)}>
       {props.orientation === 'right' ? (
         <>
           {info}
@@ -41,25 +42,21 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 }
 
 function Page() {
-  // const [appLoaded, setAppLoaded] = useState(false);
-
-  // function handleResize(event: Event) {
-  //   if (window.innerWidth > 1000) setShowApp(true);
-  //   else if (showApp) setShowApp(false);
-  // }
-
-  // useEffect(() => {
-  //   window.addEventListener('resize', handleResize);
-  //   return () => window.removeEventListener('resize', handleResize);
-  // }, []);
-
   return (
     <>
       <div className="mt-28 lg:mt-36" />
-      <h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl ">
+      <div className="absolute w-full max-w-[1200px] overflow-visible top-[500px] h-32">
+        <div className="left-0 mt-22 bloom bloom-one " />
+        <div className="left-[34%] -mt-32 bloom bloom-three " />
+        <div className="right-0 invisible sm:visible bloom bloom-two" />
+      </div>
+      <h1
+        id="content"
+        className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl"
+      >
         A file explorer from the future.
       </h1>
-      <p className="max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
+      <p className="z-30 max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
         Combine your drives and clouds into one database that you can organize and explore from any
         device.
         <br />
@@ -67,31 +64,18 @@ function Page() {
           Designed for creators, hoarders and the painfully disorganized.
         </span>
       </p>
-      <div className="flex flex-row space-x-4">
-        {/* <Button className="px-2">
-          <WindowsLogo className="" fill="white" />
-        </Button> */}
-
-        {/* <Button
-          onClick={() =>
-            alert(
-              "You're here early! This is the only button on this page that does not work, I promise. Release build coming very soon—follow @spacedriveapp for updates."
-            )
-          }
-          className="opacity-50 cursor-not-allowed select-none"
-          variant="primary"
+      <div className="flex flex-row space-x-4 delay-3 ">
+        <Button
+          href="https://github.com/spacedriveapp/spacedrive"
+          target="_blank"
+          className="z-30 cursor-pointer"
+          variant="gray"
         >
-          Download
-        </Button> */}
-
-        <a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
-          <Button className="cursor-pointer" variant="gray">
-            <Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
-            Star on GitHub
-          </Button>
-        </a>
+          <Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
+          Star on GitHub
+        </Button>
       </div>
-      <p className="px-6 mt-3 text-sm text-center opacity-75 text-gray-450">
+      <p className="z-30 px-6 mt-3 text-sm text-center text-gray-450 ">
         Coming soon on macOS, Windows and Linux.
         <br />
         Shortly after to iOS & Android.
@@ -101,6 +85,7 @@ function Page() {
       <Section
         orientation="right"
         heading="Never leave a file behind."
+        className="z-30"
         description={
           <>
             Spacedrive accounts for every file you own, uniquely fingerprinting and extracting

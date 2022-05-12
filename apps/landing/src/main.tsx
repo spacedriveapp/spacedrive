@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { BrowserRouter as Router, useRoutes } from 'react-router-dom';
 
 import routes from '~react-pages';
@@ -8,11 +8,20 @@ import { Footer } from './components/Footer';
 
 import '@sd/ui/style';
 import './style.scss';
+import { Button } from '@sd/ui';
 
 function App() {
   return (
     <Suspense fallback={<p>Loading...</p>}>
       <div className="dark:bg-black dark:text-white ">
+        <Button
+          href="#content"
+          className="fixed left-0 z-50 mt-3 ml-8 duration-200 -translate-y-16 cursor-pointer focus:translate-y-0"
+          variant="gray"
+        >
+          Skip to content
+        </Button>
+
         <NavBar />
         <div className="container z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden sm:overflow-x-visible ">
           {useRoutes(routes)}
@@ -23,11 +32,12 @@ function App() {
   );
 }
 
-ReactDOM.render(
+const root = createRoot(document.getElementById('root')!);
+
+root.render(
   <React.StrictMode>
     <Router>
       <App />
     </Router>
-  </React.StrictMode>,
-  document.getElementById('root')
+  </React.StrictMode>
 );

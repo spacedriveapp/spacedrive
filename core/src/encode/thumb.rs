@@ -1,5 +1,5 @@
 use crate::job::jobs::JobReportUpdate;
-use crate::state::client;
+use crate::node::state;
 use crate::{
   job::{jobs::Job, worker::WorkerContext},
   prisma::file_path,
@@ -27,7 +27,7 @@ pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 #[async_trait::async_trait]
 impl Job for ThumbnailJob {
   async fn run(&self, ctx: WorkerContext) -> Result<()> {
-    let config = client::get();
+    let config = state::get();
     let core_ctx = ctx.core_ctx.clone();
 
     let location = sys::locations::get_location(&core_ctx, self.location_id).await?;
@@ -60,13 +60,13 @@ impl Job for ThumbnailJob {
           image_file.materialized_path.clone()
         ))]);
         let path = format!("{}{}", root_path, image_file.materialized_path);
-        let checksum = image_file.temp_cas_id.as_ref().unwrap();
+        let cas_id = image_file.file().unwrap().unwrap().cas_id.clone();
 
         // Define and write the WebP-encoded file to a given path
         let output_path = Path::new(&config.data_path)
           .join(THUMBNAIL_CACHE_DIR_NAME)
           .join(format!("{}", location_id))
-          .join(checksum)
+          .join(&cas_id)
           .with_extension("webp");
 
         // check if file exists at output path
@@ -81,9 +81,7 @@ impl Job for ThumbnailJob {
           ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
 
           if !is_background {
-            block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail {
-              cas_id: checksum.to_string(),
-            }));
+            block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail { cas_id }));
           };
         } else {
           println!("Thumb exists, skipping... {}", output_path.display());
@@ -140,7 +138,13 @@ pub async fn get_images(
     params.push(file_path::materialized_path::starts_with(path.to_string()))
   }
 
-  let image_files = ctx.database.file_path().find_many(params).exec().await?;
+  let image_files = ctx
+    .database
+    .file_path()
+    .find_many(params)
+    .with(file_path::file::fetch())
+    .exec()
+    .await?;
 
   Ok(image_files)
 }

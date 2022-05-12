@@ -2,24 +2,24 @@ import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
 import clsx from 'clsx';
 import {
   ArrowsClockwise,
-  ArrowsLeftRight,
   Cloud,
   FolderPlus,
+  IconProps,
   Key,
   Tag,
   TerminalWindow
 } from 'phosphor-react';
-import React from 'react';
-import { ButtonProps } from '@sd/ui';
+import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useBridgeCommand } from '@sd/client';
 import { useExplorerState } from '../file/FileList';
 
 export interface TopBarProps extends DefaultProps {}
-export interface TopBarButtonProps extends ButtonProps {
-  icon: any;
+export interface TopBarButtonProps
+  extends DetailedHTMLProps<HTMLAttributes<HTMLButtonElement>, HTMLButtonElement> {
+  icon: React.ComponentType<IconProps>;
   group?: boolean;
   active?: boolean;
   left?: boolean;

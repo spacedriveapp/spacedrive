@@ -29,7 +29,7 @@ pub struct File {
   pub has_thumbnail: bool,
   pub has_thumbstrip: bool,
   pub has_video_preview: bool,
-  pub encryption: EncryptionAlgorithm,
+  // pub encryption: EncryptionAlgorithm,
   pub ipfs_id: Option<String>,
   pub comment: Option<String>,
 
@@ -58,7 +58,7 @@ pub struct FilePath {
   pub extension: Option<String>,
   pub file_id: Option<i32>,
   pub parent_id: Option<i32>,
-  pub temp_cas_id: Option<String>,
+  // pub temp_cas_id: Option<String>,
   pub has_local_thumbnail: bool,
   #[ts(type = "string")]
   pub date_created: chrono::DateTime<chrono::Utc>,
@@ -66,7 +66,6 @@ pub struct FilePath {
   pub date_modified: chrono::DateTime<chrono::Utc>,
   #[ts(type = "string")]
   pub date_indexed: chrono::DateTime<chrono::Utc>,
-  pub permissions: Option<String>,
 }
 
 #[repr(i32)]
@@ -92,7 +91,7 @@ impl Into<File> for file::Data {
       integrity_checksum: self.integrity_checksum,
       kind: IntEnum::from_int(self.kind).unwrap(),
       size_in_bytes: self.size_in_bytes.to_string(),
-      encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
+      // encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
       ipfs_id: self.ipfs_id,
       hidden: self.hidden,
       favorite: self.favorite,
@@ -119,11 +118,11 @@ impl Into<FilePath> for file_path::Data {
       parent_id: self.parent_id,
       location_id: self.location_id,
       date_indexed: self.date_indexed,
-      permissions: self.permissions,
+      // permissions: self.permissions,
       has_local_thumbnail: false,
       name: self.name,
       extension: self.extension,
-      temp_cas_id: self.temp_cas_id,
+      // temp_cas_id: self.temp_cas_id,
       date_created: self.date_created,
       date_modified: self.date_modified,
     }
@@ -134,7 +133,7 @@ impl Into<FilePath> for file_path::Data {
 #[ts(export)]
 pub struct DirectoryWithContents {
   pub directory: FilePath,
-  pub contents: Vec<FilePath>,
+  pub contents: Vec<File>,
 }
 
 #[derive(Error, Debug)]

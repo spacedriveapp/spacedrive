@@ -1,3 +1,5 @@
+use std::fs;
+
 use crate::job::jobs::JobReportUpdate;
 use crate::{
   file::FileError,
@@ -9,6 +11,8 @@ use anyhow::Result;
 use futures::executor::block_on;
 use serde::{Deserialize, Serialize};
 use prisma_client_rust::Direction;
+
+use super::checksum::generate_cas_id;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FileCreated {
@@ -46,8 +50,9 @@ impl Job for FileIdentifierJob {
         let mut rows: Vec<String> = Vec::new();
         // only rows that have a valid cas_id to be inserted
         for file_path in file_paths.iter() {
-          if file_path.temp_cas_id.is_some() {
-            rows.push(prepare_file_values(file_path));
+          let data = prepare_file_values(file_path);
+          if let Ok(d) = data {
+            rows.push(d);
           }
         }
         if rows.len() == 0 {
@@ -133,10 +138,22 @@ pub async fn get_orphan_file_paths(
   Ok(files)
 }
 
-pub fn prepare_file_values(file_path: &file_path::Data) -> String {
-  format!(
+pub fn prepare_file_values(file_path: &file_path::Data) -> Result<String> {
+  let metadata = fs::metadata(&file_path.materialized_path)?;
+  let cas_id = {
+    if !file_path.is_dir {
+      // TODO: remove unwrap
+      let mut x = generate_cas_id(&file_path.materialized_path, metadata.len()).unwrap();
+      x.truncate(16);
+      x
+    } else {
+      "".to_string()
+    }
+  };
+  // TODO: add all metadata
+  Ok(format!(
     "(\"{}\",\"{}\")",
-    file_path.temp_cas_id.as_ref().unwrap(),
+    cas_id,
     "0"
-  )
+  ))
 }
