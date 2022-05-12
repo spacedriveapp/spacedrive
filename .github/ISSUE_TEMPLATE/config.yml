@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: 📝 Report Typo
+    url: https://github.com/spacedriveapp/spacedrive/discussions/142
+    about: If you find a typo anywhere on the product, documentation or website.
   - name: 🙏 Get Help
     url: https://github.com/spacedriveapp/spacedrive/discussions/new?category=help
     about: If you can't get something to work the way you expect, open a question in our discussion forums.
