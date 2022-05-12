@@ -58,8 +58,6 @@ For independent creatives, hoarders and those that want to own their digital foo
   <br />
 </p>
 
-> NOTE: Spacedrive is under active development, most of the listed features are still experimental and subject to change. Additionally, most of the links on this page are broken but will be working once the repository is made public.
-
 # What is a VDFS?
 
 A VDFS (virtual distributed filesystem) is a filesystem designed to work atop a variety of storage layers. It is not restricted to a single machine, with a uniform API to manipulate and access content across many devices. It achieves this by maintaining a virtual index of all storage locations, synchronizing the database between clients in realtime. This implementation also uses [CAS](https://en.wikipedia.org/wiki/Content-addressable_storage) (Content-addressable storage) to uniquely identify files, while keeping record of logical file paths relative to the storage locations.
