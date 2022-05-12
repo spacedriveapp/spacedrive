@@ -76,7 +76,7 @@ const variants = {
 export type ButtonVariant = keyof typeof variants;
 export type ButtonSize = keyof typeof sizes;
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonBaseProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
@@ -87,22 +87,51 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   justifyLeft?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({ loading, justifyLeft, ...props }) => {
-  return (
-    <button
-      {...props}
-      className={clsx(
-        'border rounded-md items-center transition-colors duration-100 cursor-default',
-        { 'opacity-5': loading, '!p-1': props.noPadding },
-        { 'justify-center': !justifyLeft },
-        sizes[props.size || 'default'],
-        variants[props.variant || 'default'],
-        { 'active:translate-y-[1px]': props.pressEffect },
-        { 'border-0': props.noBorder },
-        props.className
-      )}
-    >
-      {props.children}
-    </button>
+export type ButtonProps = ButtonBaseProps &
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    href?: undefined;
+  };
+
+export type LinkButtonProps = ButtonBaseProps &
+  React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    href?: string;
+  };
+
+type Button = {
+  (props: ButtonProps): JSX.Element;
+  (props: LinkButtonProps): JSX.Element;
+};
+
+const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
+
+export const Button: Button = ({ loading, justifyLeft, className, ...props }) => {
+  className = clsx(
+    'border rounded-md items-center transition-colors duration-100 cursor-default',
+    { 'opacity-5': loading, '!p-1': props.noPadding },
+    { 'justify-center': !justifyLeft },
+    sizes[props.size || 'default'],
+    variants[props.variant || 'default'],
+    { 'active:translate-y-[1px]': props.pressEffect },
+    { 'border-0': props.noBorder },
+    className
   );
+
+  if (hasHref(props))
+    return (
+      <a {...(props as LinkButtonProps)} className={className}>
+        <>
+          {props.icon}
+          {props.children}
+        </>
+      </a>
+    );
+  else
+    return (
+      <button {...(props as ButtonProps)} className={className}>
+        <>
+          {props.icon}
+          {props.children}
+        </>
+      </button>
+    );
 };

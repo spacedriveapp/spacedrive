@@ -1,6 +1,6 @@
 use crate::{
+  node::state,
   prisma::{library, library_statistics::*},
-  state::client,
   sys::{self, volumes::Volume},
   CoreContext,
 };
@@ -53,7 +53,7 @@ impl Default for Statistics {
 
 impl Statistics {
   pub async fn retrieve(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
-    let config = client::get();
+    let config = state::get();
     let db = &ctx.database;
     let library_data = config.get_current_library();
 
@@ -70,7 +70,7 @@ impl Statistics {
     Ok(library_statistics_db.into())
   }
   pub async fn calculate(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
-    let config = client::get();
+    let config = state::get();
     let db = &ctx.database;
     // get library from client state
     let library_data = config.get_current_library();
@@ -104,10 +104,11 @@ impl Statistics {
     // println!("{:?}", volumes);
 
     let mut available_capacity: u64 = 0;
+    let mut total_capacity: u64 = 0;
     if volumes.is_ok() {
       for volume in volumes.unwrap() {
-        println!("{:?}", volume.available_capacity);
-        available_capacity += volume.available_capacity
+        total_capacity += volume.total_capacity;
+        available_capacity += volume.available_capacity;
       }
     }
 
@@ -122,7 +123,8 @@ impl Statistics {
 
     let statistics = Statistics {
       library_db_size: library_db_size.to_string(),
-      total_bytes_capacity: available_capacity.to_string(),
+      total_bytes_free: available_capacity.to_string(),
+      total_bytes_capacity: total_capacity.to_string(),
       preview_media_bytes: thumbnail_folder_size.unwrap_or(0).to_string(),
       ..Statistics::default()
     };

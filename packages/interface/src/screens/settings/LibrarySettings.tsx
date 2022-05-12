@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from '@sd/ui';
 import { InputContainer } from '../../components/primitive/InputContainer';
 import { Toggle } from '../../components/primitive';
 
@@ -7,6 +6,7 @@ type LibrarySecurity = 'public' | 'password' | 'vault';
 
 export default function LibrarySettings() {
   // const locations = useBridgeQuery("SysGetLocation")
+  const [encryptOnCloud, setEncryptOnCloud] = React.useState<boolean>(false);
 
   return (
     <div className="flex flex-col flex-grow max-w-4xl space-y-4">
@@ -22,8 +22,8 @@ export default function LibrarySettings() {
         title="Encrypt on cloud"
         description="Enable if library contains sensitive data and should not be synced to the cloud without full encryption."
       >
-        <div className="flex items-center h-full">
-          <Toggle initialState={true} size={'sm'} />
+        <div className="flex items-center h-full pl-10">
+          <Toggle value={encryptOnCloud} onChange={setEncryptOnCloud} size={'sm'} />
         </div>
       </InputContainer>
     </div>

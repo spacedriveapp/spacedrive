@@ -1,7 +1,7 @@
-import { LockClosedIcon } from '@heroicons/react/outline';
+import { CameraIcon, LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
-import { CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
+import { Camera, CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
 import React, { useContext, useEffect, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import { TrafficLights } from '../os/TrafficLights';
@@ -13,6 +13,7 @@ import { AppPropsContext } from '../../App';
 
 import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
+import { useStore } from '../device/Stores';
 
 interface SidebarProps extends DefaultProps {}
 
@@ -58,6 +59,8 @@ export function MacOSTrafficLights() {
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
+  const experimental = useStore((state) => state.experimental);
+
   const appPropsContext = useContext(AppPropsContext);
   const { data: locations } = useBridgeQuery('SysGetLocations');
   const { data: clientState } = useBridgeQuery('ClientGetState');
@@ -73,11 +76,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
   ];
 
   return (
-    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+      {appPropsContext?.platform === 'browser' ? <MacOSTrafficLights /> : null}
       {appPropsContext?.platform === 'macOS' ? (
-        <>
-          <MacOSTrafficLights />
-        </>
+        <div data-tauri-drag-region className="h-[23px]" />
       ) : null}
 
       <Dropdown
@@ -117,10 +119,20 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           <Icon component={CirclesFour} />
           Content
         </SidebarLink>
-        <SidebarLink to="debug">
-          <Icon component={Code} />
-          Debug
+        <SidebarLink to="photos">
+          <Icon component={PhotographIcon} />
+          Photos
         </SidebarLink>
+
+        {experimental ? (
+          <SidebarLink to="debug">
+            <Icon component={Code} />
+            Debug
+          </SidebarLink>
+        ) : (
+          <></>
+        )}
+
         {/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
           Explorer
@@ -192,9 +204,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <NavLink to="/settings/general">
           {({ isActive }) => (
             <Button
+              noPadding
               variant={isActive ? 'default' : 'default'}
               className={clsx(
-                'px-[4px]'
+                'px-[4px] mb-1'
                 // isActive && '!bg-gray-550'
               )}
             >

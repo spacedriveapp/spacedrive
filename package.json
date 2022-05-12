@@ -3,15 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prep": "pnpm db:gen && pnpm core codegen",
-    "prep:ci": "pnpm db:gen && pnpm core codegen",
+    "prep": "pnpm db:gen",
     "build": "turbo run build",
     "landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
     "db:migrate": "pnpm core prisma migrate dev",
     "db:gen": "pnpm core prisma generate",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "desktop": "pnpm --filter @sd/desktop -- ",
+    "desktop": "pnpm --filter @sd/desktop --",
     "mobile": "pnpm --filter @sd/mobile -- ",
     "web": "pnpm --filter @sd/web -- ",
     "landing": "pnpm --filter @sd/landing -- ",
@@ -24,31 +23,18 @@
   },
   "devDependencies": {
     "prettier": "^2.6.2",
-    "turbo": "^1.2.1"
+    "turbo": "^1.2.4"
   },
-  "turbo": {
-    "pipeline": {
-      "build": {
-        "dependsOn": [
-          "^build"
-        ],
-        "outputs": [
-          "dist/**",
-          ".next/**"
-        ]
-      },
-      "lint": {
-        "outputs": []
-      },
-      "dev": {
-        "cache": false
-      }
-    }
+  "overrides": {
+    "vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84"
   },
   "engines": {
     "pnpm": ">=6.0.0",
     "npm": "pnpm",
     "yarn": "pnpm",
     "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "zustand": "^3.7.2"
   }
 }

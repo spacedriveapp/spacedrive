@@ -34,11 +34,11 @@ struct File {
 }
 ```
 
-- `partial_checksum ` - A SHA256 checksum generated from 5 samples of 10,000 bytes throughout the file data, including the begining and end + total byte count. This is used to identify a file as _likely_ unique in under 100µs.
+- `partial_checksum ` - A SHA256 checksum generated from 5 samples of 10,000 bytes throughout the file data, including the beginning and end + total byte count. This is used to identify a file as _likely_ unique in under 100µs.
 
-> ~~It is impossible to have a unique constraint at a database level for the `partial_checksum` however we can asyncronously resolve conflicts by querying for duplicates and generating full checksums at a later date.~~
+> ~~It is impossible to have a unique constraint at a database level for the `partial_checksum` however we can asynchronously resolve conflicts by querying for duplicates and generating full checksums at a later date.~~
 >
-> For synchronization of this resource we can tolerate temporary duplicates, any client can calculate that two files resources are duplicate and merge them into a single resource. In turn, triggering a shared data merge operation, whereby the older record is prioritsed at a property level during the merge.
+> For synchronization of this resource we can tolerate temporary duplicates, any client can calculate that two files resources are duplicate and merge them into a single resource. In turn, triggering a shared data merge operation, whereby the older record is prioritised at a property level during the merge.
 
 - `checksum` - A full SHA256 checksum of the file data used to verify uniqueness should a `partial_checksum` conflict occur.
 

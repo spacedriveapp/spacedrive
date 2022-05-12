@@ -1,33 +1,37 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Switch } from '@headlessui/react';
 import clsx from 'clsx';
 
-export const Toggle = (
-  props: { initialState: boolean; size: 'sm' | 'md' } = { initialState: false, size: 'sm' }
-) => {
-  const [enabled, setEnabled] = useState(props.initialState || false);
+export interface ToggleProps {
+  value: boolean;
+  onChange?: (newValue: boolean) => void;
+  size?: 'sm' | 'md';
+}
+
+export const Toggle: React.FC<ToggleProps> = (props) => {
+  const { value: isEnabled = false, onChange = (val) => null, size = 'sm' } = props;
 
   return (
     <Switch
-      checked={enabled}
-      onChange={setEnabled}
+      checked={isEnabled}
+      onChange={onChange}
       className={clsx(
         'transition relative flex-shrink-0 inline-flex items-center h-6 w-11 rounded-full bg-gray-200 dark:bg-gray-550',
         {
-          'bg-primary-500 dark:bg-primary-500': enabled,
-          'h-6 w-11': props.size === 'sm',
-          'h-8 w-[55px]': props.size === 'md'
+          'bg-primary-500 dark:bg-primary-500': isEnabled,
+          'h-6 w-11': size === 'sm',
+          'h-8 w-[55px]': size === 'md'
         }
       )}
     >
       <span
         className={clsx(
           'transition inline-block w-4 h-4 transform bg-white rounded-full',
-          enabled ? 'translate-x-6' : 'translate-x-1',
+          isEnabled ? 'translate-x-6' : 'translate-x-1',
           {
-            'w-4 h-4': props.size === 'sm',
-            'h-6 w-6': props.size === 'md',
-            'translate-x-7': props.size === 'md' && enabled
+            'w-4 h-4': size === 'sm',
+            'h-6 w-6': size === 'md',
+            'translate-x-7': size === 'md' && isEnabled
           }
         )}
       />

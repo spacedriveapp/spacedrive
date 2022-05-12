@@ -17,7 +17,6 @@ export const Modal: React.FC<ModalProps> = (props) => {
     <div
       className={clsx('absolute w-screen h-screen z-30', { 'pointer-events-none hidden': !open })}
     >
-      <MacOSTrafficLights />
       <div className="flex w-screen h-screen p-2 pt-12">
         <Transition
           show
@@ -52,7 +51,7 @@ export const Modal: React.FC<ModalProps> = (props) => {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="z-30 flex flex-grow mx-auto bg-white rounded-lg shadow-xl shadow-2xl max-w-7xl dark:bg-gray-650 ">
+          <div className="z-30 flex flex-grow mx-auto bg-white rounded-lg shadow-2xl max-w-7xl dark:bg-gray-650 ">
             {props.children}
           </div>
         </Transition>

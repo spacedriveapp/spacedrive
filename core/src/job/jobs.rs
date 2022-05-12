@@ -3,8 +3,8 @@ use super::{
   JobError,
 };
 use crate::{
-  prisma::{client, job},
-  state,
+  node::state,
+  prisma::{job, node},
   sync::{crdt::Replicate, engine::SyncContext},
   CoreContext,
 };
@@ -134,14 +134,14 @@ impl JobReport {
     }
   }
   pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
-    let config = state::client::get();
+    let config = state::get();
     ctx
       .database
       .job()
       .create(
         job::id::set(self.id.clone()),
         job::action::set(1),
-        job::clients::link(client::id::equals(config.client_id)),
+        job::nodes::link(node::id::equals(config.node_id)),
         vec![],
       )
       .exec()
