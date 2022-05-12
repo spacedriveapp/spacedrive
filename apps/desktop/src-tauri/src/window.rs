@@ -40,7 +40,10 @@ impl<R: Runtime> WindowExt for Window<R> {
 
   #[cfg(target_os = "macos")]
   fn set_transparent_titlebar(&self, transparent: bool, large: bool) {
-    use cocoa::appkit::{NSWindow, NSWindowStyleMask, NSWindowTitleVisibility};
+    use cocoa::{
+      appkit::{NSWindow, NSWindowStyleMask, NSWindowTitleVisibility},
+      base::{NO, YES},
+    };
 
     unsafe {
       let id = self.ns_window().unwrap() as cocoa::base::id;
@@ -71,11 +74,7 @@ impl<R: Runtime> WindowExt for Window<R> {
         NSWindowTitleVisibility::NSWindowTitleVisible
       });
 
-      id.setTitlebarAppearsTransparent_(if transparent {
-        cocoa::base::YES
-      } else {
-        cocoa::base::NO
-      });
+      id.setTitlebarAppearsTransparent_(if transparent { YES } else { NO });
     }
   }
 
