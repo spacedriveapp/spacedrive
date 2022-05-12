@@ -17,8 +17,7 @@
     "@types/react": "^18.0.8",
     "scripts": "*",
     "tsconfig": "*",
-    "typescript": "^4.6.4",
-    "react": "^18.0.0"
+    "typescript": "^4.6.4"
   },
   "jest": {
     "preset": "scripts/jest/node"
@@ -33,7 +32,6 @@
   },
   "peerDependencies": {
     "react": "^18.0.0",
-    "react-query": "^3.38.1",
-    "react-dom": "^18.0.0"
+    "react-query": "^3.38.1"
   }
 }

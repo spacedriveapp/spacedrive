@@ -104,7 +104,6 @@ importers:
       react-tsparticles: ^2.0.6
       sass: ^1.51.0
       simple-icons: ^6.20.0
-      tailwind: ^4.0.0
       tailwindcss: 3.0.0
       ts-node: ^10.7.0
       tsparticles: ^2.0.6
@@ -155,7 +154,6 @@ importers:
       nodemon: 2.0.16
       postcss: 8.4.13
       sass: 1.51.0
-      tailwind: 4.0.0
       tailwindcss: 3.0.0_hqu7j45oxtlo2g5y3qitzppg3y
       ts-node: 10.7.0_l47be6km5p57gglrggidw5gsgm
       typescript: 4.6.4
@@ -229,7 +227,6 @@ importers:
       '@types/react': ^18.0.8
       eventemitter3: ^4.0.7
       immer: ^9.0.12
-      react: ^18.0.0
       react-query: ^3.38.1
       scripts: '*'
       tsconfig: '*'
@@ -240,11 +237,10 @@ importers:
       '@sd/core': link:../../core
       eventemitter3: 4.0.7
       immer: 9.0.12
-      react-query: 3.38.1_react@18.1.0
-      zustand: 3.7.2_react@18.1.0
+      react-query: 3.38.1
+      zustand: 3.7.2
     devDependencies:
       '@types/react': 18.0.8
-      react: 18.1.0
       scripts: 0.1.0
       tsconfig: 7.0.0
       typescript: 4.6.4
@@ -292,7 +288,7 @@ importers:
       prettier: ^2.6.2
       pretty-bytes: ^6.0.0
       react: ^18.0.0
-      react-dom: ^18.0.0
+      react-dom: ^18.1.0
       react-dropzone: ^12.0.4
       react-error-boundary: ^3.1.4
       react-hotkeys-hook: ^3.4.4
@@ -6860,6 +6856,23 @@ packages:
       react-dom: 18.1.0_react@18.1.0
     dev: false
 
+  /react-query/3.38.1:
+    resolution: {integrity: sha512-CM9hsz6oib17hsBguGaMJr+a0swMzou2gvNHHjAusnXvkfTx6CTzx0Iwuplox1jI2j3WiY91BGrcIN6bp1n1Iw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: '*'
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.17.9
+      broadcast-channel: 3.7.0
+      match-sorter: 6.3.1
+    dev: false
+
   /react-query/3.38.1_ef5jwxihqo6n7gxfmzogljlgcm:
     resolution: {integrity: sha512-CM9hsz6oib17hsBguGaMJr+a0swMzou2gvNHHjAusnXvkfTx6CTzx0Iwuplox1jI2j3WiY91BGrcIN6bp1n1Iw==}
     peerDependencies:
@@ -6877,24 +6890,6 @@ packages:
       match-sorter: 6.3.1
       react: 18.1.0
       react-dom: 18.1.0_react@18.1.0
-    dev: false
-
-  /react-query/3.38.1_react@18.1.0:
-    resolution: {integrity: sha512-CM9hsz6oib17hsBguGaMJr+a0swMzou2gvNHHjAusnXvkfTx6CTzx0Iwuplox1jI2j3WiY91BGrcIN6bp1n1Iw==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-dom: '*'
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
-    dependencies:
-      '@babel/runtime': 7.17.9
-      broadcast-channel: 3.7.0
-      match-sorter: 6.3.1
-      react: 18.1.0
     dev: false
 
   /react-refresh/0.13.0:
@@ -7062,6 +7057,7 @@ packages:
     engines: {node: '>=0.10.0'}
     dependencies:
       loose-envify: 1.4.0
+    dev: false
 
   /read-chunk/4.0.2:
     resolution: {integrity: sha512-MwxmBiv62Dp+xbkm77q/WxeBMa6DfK8ad59OtdSsKSgUCK8mATQeA4RG7bmuUyXu2efSraZL21h0SI5k6wEVdA==}
