@@ -1,15 +1,11 @@
-import { CloudIcon } from '@heroicons/react/outline';
-import { CogIcon, MenuIcon, PlusIcon } from '@heroicons/react/solid';
+import { MenuIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import byteSize from 'byte-size';
-import { DotsSixVertical, Laptop, LineSegments, Plus } from 'phosphor-react';
-import React, { useState } from 'react';
+import React from 'react';
 import { Device } from '../components/device/Device';
-import FileItem from '../components/file/FileItem';
 import Dialog from '../components/layout/Dialog';
 import { Input } from '../components/primitive';
-import { InputContainer } from '../components/primitive/InputContainer';
 
 interface StatItemProps {
   name: string;
@@ -18,7 +14,7 @@ interface StatItemProps {
 }
 
 const StatItem: React.FC<StatItemProps> = (props) => {
-  let size = byteSize(Number(props.value) || 0);
+  const size = byteSize(Number(props.value) || 0);
   return (
     <div className="flex flex-col px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600">
       <span className="text-sm text-gray-400">{props.name}</span>
@@ -30,7 +26,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
   );
 };
 
-export const OverviewScreen: React.FC<{}> = (props) => {
+export const OverviewScreen: React.FC = () => {
   const { data: libraryStatistics } = useBridgeQuery('GetLibraryStatistics');
   const { data: clientState } = useBridgeQuery('ClientGetState');
 

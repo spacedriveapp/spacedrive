@@ -2,8 +2,6 @@ import React from 'react';
 import { InputContainer } from '../../components/primitive/InputContainer';
 import { Toggle } from '../../components/primitive';
 
-type LibrarySecurity = 'public' | 'password' | 'vault';
-
 export default function LibrarySettings() {
   // const locations = useBridgeQuery("SysGetLocation")
   const [encryptOnCloud, setEncryptOnCloud] = React.useState<boolean>(false);

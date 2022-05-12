@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-export const ContentScreen: React.FC<{}> = (props) => {
+export const ContentScreen: React.FC = () => {
   return (
     <div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll">
       <div className="flex flex-col space-y-5 pb-7">

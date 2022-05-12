@@ -24,7 +24,6 @@ import { RedirectPage } from './screens/Redirect';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 import { Button } from '@sd/ui';
-import { CoreEvent } from '@sd/core';
 import clsx from 'clsx';
 import './style.scss';
 import { ContentScreen } from './screens/Content';
@@ -117,8 +116,8 @@ function SettingsRoutes({ modal = false }) {
 }
 
 function Router() {
-  let location = useLocation();
-  let state = location.state as { backgroundLocation?: Location };
+  const location = useLocation();
+  const state = location.state as { backgroundLocation?: Location };
 
   useEffect(() => {
     console.log({ url: location.pathname });

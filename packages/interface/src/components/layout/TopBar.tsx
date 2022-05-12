@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useBridgeCommand } from '@sd/client';
 import { useExplorerState } from '../file/FileList';
 
-export interface TopBarProps extends DefaultProps {}
+export type TopBarProps = DefaultProps;
 export interface TopBarButtonProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLButtonElement>, HTMLButtonElement> {
   icon: React.ComponentType<IconProps>;
@@ -46,14 +46,14 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
   );
 };
 
-export const TopBar: React.FC<TopBarProps> = (props) => {
+export const TopBar: React.FC<TopBarProps> = () => {
   const { locationId } = useExplorerState();
   const { mutate: generateThumbsForLocation } = useBridgeCommand('GenerateThumbsForLocation', {
     onMutate: (data) => {
       console.log('GenerateThumbsForLocation', data);
     }
   });
-  let navigate = useNavigate();
+  const navigate = useNavigate();
   return (
     <>
       <div

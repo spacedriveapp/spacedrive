@@ -4,7 +4,7 @@ import React, { useContext } from 'react';
 import { AppPropsContext } from '../App';
 import CodeBlock from '../components/primitive/Codeblock';
 
-export const DebugScreen: React.FC<{}> = (props) => {
+export const DebugScreen: React.FC = () => {
   const appPropsContext = useContext(AppPropsContext);
   const { data: client } = useBridgeQuery('ClientGetState');
   const { data: jobs } = useBridgeQuery('JobGetRunning');

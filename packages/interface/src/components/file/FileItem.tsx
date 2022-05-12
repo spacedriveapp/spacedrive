@@ -71,7 +71,7 @@ export default function FileItem(props: Props) {
               {props.iconName && icons[props.iconName] ? (
                 (() => {
                   // @ts-ignore
-                  let Icon = icons[props.iconName];
+                  const Icon = icons[props.iconName];
                   return (
                     <Icon className="mt-2 pointer-events-none margin-auto w-[40px] h-[40px]" />
                   );

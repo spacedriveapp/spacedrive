@@ -9,7 +9,7 @@ export interface ToggleProps {
 }
 
 export const Toggle: React.FC<ToggleProps> = (props) => {
-  const { value: isEnabled = false, onChange = (val) => null, size = 'sm' } = props;
+  const { value: isEnabled = false, onChange = () => null, size = 'sm' } = props;
 
   return (
     <Switch

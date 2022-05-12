@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from '@sd/ui';
 import { InputContainer } from '../../components/primitive/InputContainer';
 import { Toggle } from '../../components/primitive';
 import { useStore } from '../../components/device/Stores';

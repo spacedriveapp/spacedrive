@@ -3,9 +3,7 @@ import {
   Desktop,
   DeviceMobileCamera,
   DotsSixVertical,
-  Laptop,
-  Phone,
-  PhoneX
+  Laptop
 } from 'phosphor-react';
 import React, { useState } from 'react';
 import FileItem from '../file/FileItem';
@@ -13,7 +11,7 @@ import { Button } from '@sd/ui';
 import ProgressBar from '../primitive/ProgressBar';
 import { CogIcon, LockClosedIcon } from '@heroicons/react/solid';
 import { KeyIcon } from '@heroicons/react/outline';
-import LoadingIcons, { Rings } from 'react-loading-icons';
+import { Rings } from 'react-loading-icons';
 
 export interface DeviceProps {
   name: string;

@@ -4,7 +4,6 @@ import {
   useMutation,
   useQuery,
   UseQueryOptions,
-  UseQueryResult,
   UseMutationOptions
 } from 'react-query';
 
