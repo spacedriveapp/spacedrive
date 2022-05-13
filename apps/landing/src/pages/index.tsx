@@ -41,13 +41,7 @@ function Page() {
   return (
     <>
       <div className="mt-28 lg:mt-36" />
-      <div className="relative w-full max-w-full">
-        <div className="absolute w-full overflow-visible top-[500px] h-32">
-          <div className="left-0 mt-22 bloom bloom-one" />
-          <div className="left-[34%] -mt-32 bloom bloom-three " />
-          <div className="right-0 invisible sm:visible bloom bloom-two" />
-        </div>
-      </div>
+
       <h1
         id="content"
         className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl"

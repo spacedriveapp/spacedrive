@@ -20,9 +20,7 @@ export default function AppEmbed() {
 
   useEffect(() => {
     window.addEventListener('resize', handleResize);
-    setTimeout(() => {
-      handleResize();
-    }, 500);
+    handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -50,17 +48,29 @@ export default function AppEmbed() {
   useEffect(() => {
     setTimeout(() => {
       if (!iFrameAppReady) setImageFallback(true);
-    }, 1000);
+    }, 1500);
   }, []);
 
   const renderImage = (imgFallback && !iFrameAppReady) || forceImg;
 
+  const renderBloom = renderImage || iFrameAppReady;
+
   return (
     <div className="w-screen">
+      {renderBloom && (
+        <div className="relative w-full max-w-full">
+          <div className="absolute w-full overflow-visible top-[100px] h-32">
+            <div className="left-0 mt-22 bloom bloom-one" />
+            <div className="left-[34%] -mt-32 bloom bloom-three " />
+            <div className="right-0 invisible sm:visible bloom bloom-two" />
+          </div>
+        </div>
+      )}
       <div className="relative z-30 h-[228px] px-5 sm:h-[428px] md:h-[428px] lg:h-[628px] mt-8 sm:mt-16">
         <div
           className={clsx(
-            'relative h-full m-auto border rounded-lg max-w-7xl bg-gray-850 border-gray-550',
+            'relative h-full m-auto border rounded-lg max-w-7xl transition-opacity bg-gray-850 border-gray-550 opacity-0',
+            renderBloom && '!opacity-100',
             renderImage && 'bg-transparent border-none'
           )}
         >
