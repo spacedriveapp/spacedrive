@@ -58,7 +58,7 @@ export default function AppEmbed() {
   return (
     <div className="w-screen">
       {renderBloom && (
-        <div className="relative w-full max-w-full">
+        <div className="relative max-w-full sm:w-full sm:max-w-[1200px] mx-auto">
           <div className="absolute w-full overflow-visible top-[100px] h-32">
             <div className="left-0 mt-22 bloom bloom-one" />
             <div className="left-[34%] -mt-32 bloom bloom-three " />
