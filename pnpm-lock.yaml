@@ -6,10 +6,8 @@ importers:
     specifiers:
       prettier: ^2.6.2
       turbo: ^1.2.4
-      typescript: 4.6.4
       zustand: ^3.7.2
     dependencies:
-      typescript: 4.6.4
       zustand: 3.7.2
     devDependencies:
       prettier: 2.6.2
@@ -8429,12 +8427,6 @@ packages:
     engines: {node: '>=4.2.0'}
     hasBin: true
     dev: true
-
-  /typescript/4.6.4:
-    resolution: {integrity: sha512-9ia/jWHIEbo49HfjrLGfKbZSuWo9iTMwXO+Ca3pRsSpbsMbc7/IU8NKdCZVRRBafVPGnoJeFL76ZOAA84I9fEg==}
-    engines: {node: '>=4.2.0'}
-    hasBin: true
-    dev: false
 
   /ua-parser-js/0.7.31:
     resolution: {integrity: sha512-qLK/Xe9E2uzmYI3qLeOmI0tEOt+TBBQyUIAh4aAgU05FVYzeZrKUdkAZfBNVGRaHVgV0TDkdEngJSw/SyQchkQ==}
