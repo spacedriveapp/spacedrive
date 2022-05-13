@@ -27,6 +27,7 @@
     "@sd/core": "workspace:*",
     "eventemitter3": "^4.0.7",
     "immer": "^9.0.12",
+    "react": "^18.0.0",
     "react-query": "^3.38.1",
     "zustand": "^3.7.2"
   },

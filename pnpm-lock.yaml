@@ -82,7 +82,7 @@ importers:
       '@types/compression': ^1.7.2
       '@types/express': ^4.17.13
       '@types/lodash': ^4.14.182
-      '@types/node': '*'
+      '@types/node': 17.0.33
       '@types/prismjs': ^1.26.0
       '@types/react': ^18.0.8
       '@types/react-dom': ^18.0.3
@@ -144,7 +144,7 @@ importers:
       '@babel/core': 7.17.10
       '@babel/preset-react': 7.16.7_@babel+core@7.17.10
       '@types/lodash': 4.14.182
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
       '@types/prismjs': 1.26.0
       '@types/react': 18.0.8
       '@types/react-dom': 18.0.3
@@ -155,7 +155,7 @@ importers:
       postcss: 8.4.13
       sass: 1.51.0
       tailwindcss: 3.0.0_hqu7j45oxtlo2g5y3qitzppg3y
-      ts-node: 10.7.0_l47be6km5p57gglrggidw5gsgm
+      ts-node: 10.7.0_2e3zkt3gzqz6r43dj4x46rot3i
       typescript: 4.6.4
       vite: 2.9.7_sass@1.51.0
       vite-plugin-markdown: 2.0.2_vite@2.9.7
@@ -227,6 +227,7 @@ importers:
       '@types/react': ^18.0.8
       eventemitter3: ^4.0.7
       immer: ^9.0.12
+      react: ^18.0.0
       react-query: ^3.38.1
       scripts: '*'
       tsconfig: '*'
@@ -237,8 +238,9 @@ importers:
       '@sd/core': link:../../core
       eventemitter3: 4.0.7
       immer: 9.0.12
-      react-query: 3.38.1
-      zustand: 3.7.2
+      react: 18.1.0
+      react-query: 3.38.1_react@18.1.0
+      zustand: 3.7.2_react@18.1.0
     devDependencies:
       '@types/react': 18.0.8
       scripts: 0.1.0
@@ -389,12 +391,12 @@ importers:
       clsx: 1.1.1
       postcss: 8.4.13
       react: 18.1.0
+      react-dom: 18.1.0_react@18.1.0
       tailwind: 4.0.0
     devDependencies:
       '@sd/config': link:../config
       '@types/react': 18.0.8
       '@types/react-dom': 18.0.3
-      react-dom: 18.1.0_react@18.1.0
       sass: 1.51.0
       typescript: 4.6.4
 
@@ -2087,7 +2089,7 @@ packages:
     resolution: {integrity: sha512-ALYone6pm6QmwZoAgeyNksccT9Q4AWZQ6PvfwR37GT6r6FWUPguq6sUmNGSMV2Wr761oQoBxwGGa6DR5o1DC9g==}
     dependencies:
       '@types/connect': 3.4.35
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
     dev: false
 
   /@types/byte-size/8.1.0:
@@ -2099,7 +2101,7 @@ packages:
     dependencies:
       '@types/http-cache-semantics': 4.0.1
       '@types/keyv': 3.1.4
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
       '@types/responselike': 1.0.0
     dev: true
 
@@ -2112,7 +2114,7 @@ packages:
   /@types/connect/3.4.35:
     resolution: {integrity: sha512-cdeYyv4KWoEgpBISTxWvqYsVy444DOqehiF3fM3ne10AmJ62RSyNkUnxMJXHQWRQQX2eR94m5y1IZyDwBjV9FQ==}
     dependencies:
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
     dev: false
 
   /@types/debug/4.1.7:
@@ -2124,7 +2126,7 @@ packages:
   /@types/express-serve-static-core/4.17.28:
     resolution: {integrity: sha512-P1BJAEAW3E2DJUlkgq4tOL3RyMunoWXqbSCygWo5ZIWTjUgN1YnaXWW4VWl/oc8vs/XoYibEGBKP0uZyF4AHig==}
     dependencies:
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
       '@types/qs': 6.9.7
       '@types/range-parser': 1.2.4
     dev: false
@@ -2153,7 +2155,7 @@ packages:
   /@types/keyv/3.1.4:
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
     dependencies:
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
     dev: true
 
   /@types/linkify-it/3.0.2:
@@ -2193,6 +2195,10 @@ packages:
 
   /@types/node/17.0.31:
     resolution: {integrity: sha512-AR0x5HbXGqkEx9CadRH3EBYx/VkiUgZIhP4wvPn/+5KIsgpNoyFaRlVe0Zlx9gRtg8fA06a9tskE2MSN7TcG4Q==}
+    dev: true
+
+  /@types/node/17.0.33:
+    resolution: {integrity: sha512-miWq2m2FiQZmaHfdZNcbpp9PuXg34W5JZ5CrJ/BaS70VuhoJENBEQybeiYSaPBRNq6KQGnjfEnc/F3PN++D+XQ==}
 
   /@types/parse-json/4.0.0:
     resolution: {integrity: sha512-//oorEZjL6sbPcKUaCdIGlIUeH26mgzimjBB77G6XRgnDl/L5wOnpyBGRe/Mmf5CVW3PwEBE1NjiMZ/ssFh4wA==}
@@ -2271,7 +2277,7 @@ packages:
   /@types/responselike/1.0.0:
     resolution: {integrity: sha512-85Y2BjiufFzaMIlvJDvTTB8Fxl2xfLo4HgmHzVBz08w4wDePCTjYw66PdrolO0kzli3yam/YCgRufyo1DdQVTA==}
     dependencies:
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
     dev: true
 
   /@types/scheduler/0.16.2:
@@ -2282,7 +2288,7 @@ packages:
     resolution: {integrity: sha512-nCkHGI4w7ZgAdNkrEu0bv+4xNV/XDqW+DydknebMOQwkpDGx8G+HTlj7R7ABI8i8nKxVw0wtKPi1D+lPOkh4YQ==}
     dependencies:
       '@types/mime': 1.3.2
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
     dev: false
 
   /@types/strip-bom/3.0.0:
@@ -5627,6 +5633,7 @@ packages:
     hasBin: true
     dependencies:
       js-tokens: 4.0.0
+    dev: false
 
   /loud-rejection/1.6.0:
     resolution: {integrity: sha1-W0b4AUft7leIcPCG0Eghz5mOVR8=}
@@ -6451,7 +6458,7 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
     dependencies:
-      '@types/node': 17.0.31
+      '@types/node': 17.0.33
       jimp: 0.16.1
       minimist: 1.2.6
     dev: true
@@ -6498,7 +6505,7 @@ packages:
     dependencies:
       lilconfig: 2.0.5
       postcss: 8.4.13
-      ts-node: 10.7.0_l47be6km5p57gglrggidw5gsgm
+      ts-node: 10.7.0_2e3zkt3gzqz6r43dj4x46rot3i
       yaml: 1.10.2
     dev: true
 
@@ -6754,6 +6761,7 @@ packages:
       loose-envify: 1.4.0
       react: 18.1.0
       scheduler: 0.22.0
+    dev: false
 
   /react-draggable/4.4.5_ef5jwxihqo6n7gxfmzogljlgcm:
     resolution: {integrity: sha512-OMHzJdyJbYTZo4uQE393fHcqqPYsEtkjfMgvCHr6rejT+Ezn4OZbNyGH50vv+SunC1RMvwOTSWkEODQLzw1M9g==}
@@ -6856,23 +6864,6 @@ packages:
       react-dom: 18.1.0_react@18.1.0
     dev: false
 
-  /react-query/3.38.1:
-    resolution: {integrity: sha512-CM9hsz6oib17hsBguGaMJr+a0swMzou2gvNHHjAusnXvkfTx6CTzx0Iwuplox1jI2j3WiY91BGrcIN6bp1n1Iw==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-dom: '*'
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
-    dependencies:
-      '@babel/runtime': 7.17.9
-      broadcast-channel: 3.7.0
-      match-sorter: 6.3.1
-    dev: false
-
   /react-query/3.38.1_ef5jwxihqo6n7gxfmzogljlgcm:
     resolution: {integrity: sha512-CM9hsz6oib17hsBguGaMJr+a0swMzou2gvNHHjAusnXvkfTx6CTzx0Iwuplox1jI2j3WiY91BGrcIN6bp1n1Iw==}
     peerDependencies:
@@ -6890,6 +6881,24 @@ packages:
       match-sorter: 6.3.1
       react: 18.1.0
       react-dom: 18.1.0_react@18.1.0
+    dev: false
+
+  /react-query/3.38.1_react@18.1.0:
+    resolution: {integrity: sha512-CM9hsz6oib17hsBguGaMJr+a0swMzou2gvNHHjAusnXvkfTx6CTzx0Iwuplox1jI2j3WiY91BGrcIN6bp1n1Iw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: '*'
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.17.9
+      broadcast-channel: 3.7.0
+      match-sorter: 6.3.1
+      react: 18.1.0
     dev: false
 
   /react-refresh/0.13.0:
@@ -7326,6 +7335,7 @@ packages:
     resolution: {integrity: sha512-6QAm1BgQI88NPYymgGQLCZgvep4FyePDWFpXVK+zNSUgHwlqpJy8VEh8Et0KxTACS4VWwMousBElAZOH9nkkoQ==}
     dependencies:
       loose-envify: 1.4.0
+    dev: false
 
   /scripts/0.1.0:
     resolution: {integrity: sha1-PrGXE7WtH1i8PjnOY2Bta+qgBpM=}
@@ -8073,6 +8083,37 @@ packages:
       tslib: 2.4.0
     dev: false
 
+  /ts-node/10.7.0_2e3zkt3gzqz6r43dj4x46rot3i:
+    resolution: {integrity: sha512-TbIGS4xgJoX2i3do417KSaep1uRAW/Lu+WAL2doDHC0D6ummjirVOXU5/7aiZotbQ5p1Zp9tP7U6cYhA0O7M8A==}
+    hasBin: true
+    peerDependencies:
+      '@swc/core': '>=1.2.50'
+      '@swc/wasm': '>=1.2.50'
+      '@types/node': '*'
+      typescript: '>=2.7'
+    peerDependenciesMeta:
+      '@swc/core':
+        optional: true
+      '@swc/wasm':
+        optional: true
+    dependencies:
+      '@cspotcode/source-map-support': 0.7.0
+      '@tsconfig/node10': 1.0.8
+      '@tsconfig/node12': 1.0.9
+      '@tsconfig/node14': 1.0.1
+      '@tsconfig/node16': 1.0.2
+      '@types/node': 17.0.33
+      acorn: 8.7.0
+      acorn-walk: 8.2.0
+      arg: 4.1.3
+      create-require: 1.1.1
+      diff: 4.0.2
+      make-error: 1.3.6
+      typescript: 4.6.4
+      v8-compile-cache-lib: 3.0.0
+      yn: 3.1.1
+    dev: true
+
   /ts-node/10.7.0_52efxrzidnucw2w35vvobhxasa:
     resolution: {integrity: sha512-TbIGS4xgJoX2i3do417KSaep1uRAW/Lu+WAL2doDHC0D6ummjirVOXU5/7aiZotbQ5p1Zp9tP7U6cYhA0O7M8A==}
     hasBin: true
@@ -8100,37 +8141,6 @@ packages:
       diff: 4.0.2
       make-error: 1.3.6
       typescript: 4.6.3
-      v8-compile-cache-lib: 3.0.0
-      yn: 3.1.1
-    dev: true
-
-  /ts-node/10.7.0_l47be6km5p57gglrggidw5gsgm:
-    resolution: {integrity: sha512-TbIGS4xgJoX2i3do417KSaep1uRAW/Lu+WAL2doDHC0D6ummjirVOXU5/7aiZotbQ5p1Zp9tP7U6cYhA0O7M8A==}
-    hasBin: true
-    peerDependencies:
-      '@swc/core': '>=1.2.50'
-      '@swc/wasm': '>=1.2.50'
-      '@types/node': '*'
-      typescript: '>=2.7'
-    peerDependenciesMeta:
-      '@swc/core':
-        optional: true
-      '@swc/wasm':
-        optional: true
-    dependencies:
-      '@cspotcode/source-map-support': 0.7.0
-      '@tsconfig/node10': 1.0.8
-      '@tsconfig/node12': 1.0.9
-      '@tsconfig/node14': 1.0.1
-      '@tsconfig/node16': 1.0.2
-      '@types/node': 17.0.31
-      acorn: 8.7.0
-      acorn-walk: 8.2.0
-      arg: 4.1.3
-      create-require: 1.1.1
-      diff: 4.0.2
-      make-error: 1.3.6
-      typescript: 4.6.4
       v8-compile-cache-lib: 3.0.0
       yn: 3.1.1
     dev: true

@@ -37,7 +37,7 @@
     "@babel/core": "^7.0.0-0",
     "@babel/preset-react": "^7.16.7",
     "@types/lodash": "^4.14.182",
-    "@types/node": "*",
+    "@types/node": "17.0.33",
     "@types/prismjs": "^1.26.0",
     "@types/react": "^18.0.8",
     "@types/react-dom": "^18.0.3",
