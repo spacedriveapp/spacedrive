@@ -25,6 +25,7 @@ import { ContentScreen } from './screens/Content';
 import { DebugScreen } from './screens/Debug';
 import { ExplorerScreen } from './screens/Explorer';
 import { OverviewScreen } from './screens/Overview';
+import { PhotosScreen } from './screens/Photos';
 import { RedirectPage } from './screens/Redirect';
 import { SettingsScreen } from './screens/Settings';
 import ExperimentalSettings from './screens/settings/ExperimentalSettings';
@@ -130,6 +131,7 @@ function Router() {
           <Route index element={<RedirectPage to="/overview" />} />
           <Route path="overview" element={<OverviewScreen />} />
           <Route path="content" element={<ContentScreen />} />
+          <Route path="photos" element={<PhotosScreen />} />
           <Route path="debug" element={<DebugScreen />} />
           <Route path="settings/*" element={<SettingsRoutes />} />
           <Route path="explorer/:id" element={<ExplorerScreen />} />

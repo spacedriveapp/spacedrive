@@ -54,10 +54,17 @@ impl Job for FileIdentifierJob {
         let mut rows: Vec<String> = Vec::new();
         // only rows that have a valid cas_id to be inserted
         for file_path in file_paths.iter() {
-          let data = prepare_file_values(file_path);
-          if let Ok(d) = data {
-            rows.push(d);
-          }
+          match prepare_file_values(file_path) {
+            Ok(data) => {
+              rows.push(data);
+            }
+            Err(e) => {
+             
+             
+            println!("Error processing file: {}", e);
+             continue;
+            }
+          };
         }
         if rows.len() == 0 {
           println!("No orphan files to process, finishing...");

@@ -20,7 +20,9 @@ export default function AppEmbed() {
 
   useEffect(() => {
     window.addEventListener('resize', handleResize);
-    handleResize();
+    setTimeout(() => {
+      handleResize();
+    }, 500);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 

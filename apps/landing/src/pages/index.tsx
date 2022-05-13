@@ -1,11 +1,7 @@
 import React, { useEffect } from 'react';
 import { Button } from '@sd/ui';
 import { Bubbles } from '../components/Bubbles';
-
-import NavBar from '../components/NavBar';
-import { Footer } from '../components/Footer';
-import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
-import { useState } from 'react';
+import { Github } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import AppEmbed from '../components/AppEmbed';
 
@@ -45,10 +41,12 @@ function Page() {
   return (
     <>
       <div className="mt-28 lg:mt-36" />
-      <div className="absolute w-full max-w-[1200px] overflow-visible top-[500px] h-32">
-        <div className="left-0 mt-22 bloom bloom-one " />
-        <div className="left-[34%] -mt-32 bloom bloom-three " />
-        <div className="right-0 invisible sm:visible bloom bloom-two" />
+      <div className="relative w-full max-w-full">
+        <div className="absolute w-full overflow-visible top-[500px] h-32">
+          <div className="left-0 mt-22 bloom bloom-one" />
+          <div className="left-[34%] -mt-32 bloom bloom-three " />
+          <div className="right-0 invisible sm:visible bloom bloom-two" />
+        </div>
       </div>
       <h1
         id="content"
