@@ -30,6 +30,7 @@ pub async fn open_dir(
     .await?
     .ok_or(FileError::DirectoryNotFound(path.to_string()))?;
 
+  // TODO: this is incorrect, we need to query on file paths
   let files: Vec<File> = db
     .file()
     .find_many(vec![file::paths::some(vec![file_path::parent_id::equals(

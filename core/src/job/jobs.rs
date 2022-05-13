@@ -25,7 +25,7 @@ pub trait Job: Send + Sync + Debug {
 
 // jobs struct is maintained by the core
 pub struct Jobs {
-  // job_queue: Vec<Box<dyn Job>>,
+  job_queue: Vec<Box<dyn Job>>,
   // workers are spawned when jobs are picked off the queue
   running_workers: HashMap<String, Arc<Mutex<Worker>>>,
 }
@@ -33,26 +33,36 @@ pub struct Jobs {
 impl Jobs {
   pub fn new() -> Self {
     Self {
-      // job_queue: vec![],
+      job_queue: vec![],
       running_workers: HashMap::new(),
     }
   }
   pub async fn ingest(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
     // create worker to process job
-    let worker = Worker::new(job);
-    let id = worker.id();
-
     if self.running_workers.len() < MAX_WORKERS {
+      let worker = Worker::new(job);
+      let id = worker.id();
+
       let wrapped_worker = Arc::new(Mutex::new(worker));
 
       Worker::spawn(wrapped_worker.clone(), ctx).await;
 
       self.running_workers.insert(id, wrapped_worker);
+    } else {
+      self.job_queue.push(job);
     }
   }
-  pub fn complete(&mut self, job_id: String) {
+  pub fn ingest_queue(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
+    self.job_queue.push(job);
+  }
+  pub async fn complete(&mut self, ctx: &CoreContext, job_id: String) {
     // remove worker from running workers
     self.running_workers.remove(&job_id);
+    // continue queue
+    let job = self.job_queue.pop();
+    if let Some(job) = job {
+      self.ingest(ctx, job).await;
+    }
   }
   pub async fn get_running(&self) -> Vec<JobReport> {
     let mut ret = vec![];

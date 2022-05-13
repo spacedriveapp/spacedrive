@@ -76,6 +76,7 @@ impl CoreController {
 #[derive(Debug)]
 pub enum InternalEvent {
   JobIngest(Box<dyn Job>),
+  JobQueue(Box<dyn Job>),
   JobComplete(String),
 }
 
@@ -93,6 +94,14 @@ impl CoreContext {
       .send(InternalEvent::JobIngest(job))
       .unwrap_or_else(|e| {
         println!("Failed to spawn job. {:?}", e);
+      });
+  }
+  pub fn queue_job(&self, job: Box<dyn Job>) {
+    self
+      .internal_sender
+      .send(InternalEvent::JobIngest(job))
+      .unwrap_or_else(|e| {
+        println!("Failed to queue job. {:?}", e);
       });
   }
   pub async fn emit(&self, event: CoreEvent) {
@@ -207,8 +216,11 @@ impl Node {
                   InternalEvent::JobIngest(job) => {
                       self.jobs.ingest(&ctx, job).await;
                   },
+                  InternalEvent::JobQueue(job) => {
+                      self.jobs.ingest_queue(&ctx, job);
+                  },
                   InternalEvent::JobComplete(id) => {
-                      self.jobs.complete(id);
+                      self.jobs.complete(&ctx, id).await;
                   },
               }
           }
@@ -248,7 +260,7 @@ impl Node {
       // CRUD for locations
       ClientCommand::LocCreate { path } => {
         let loc = sys::locations::new_location_and_scan(&ctx, &path).await?;
-        ctx.spawn_job(Box::new(FileIdentifierJob));
+        ctx.queue_job(Box::new(FileIdentifierJob));
         CoreResponse::LocCreate(loc)
       }
       ClientCommand::LocUpdate { id: _, name: _ } => todo!(),

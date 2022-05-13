@@ -63,7 +63,12 @@ impl Job for ThumbnailJob {
           image_file.materialized_path.clone()
         ))]);
         let path = format!("{}{}", root_path, image_file.materialized_path);
-        let cas_id = image_file.file().unwrap().unwrap().cas_id.clone();
+        println!("image_file {:?}", image_file);
+
+        let cas_id = match image_file.file() {
+          Ok(i) => i.unwrap().cas_id.clone(),
+          Err(_) => todo!(),
+        };
 
         // Define and write the WebP-encoded file to a given path
         let output_path = Path::new(&config.data_path)

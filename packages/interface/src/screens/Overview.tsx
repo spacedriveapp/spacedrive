@@ -166,7 +166,7 @@ export const OverviewScreen: React.FC<{}> = (props) => {
         {/* <div className="mt-5" /> */}
         <div className="flex flex-col pb-4 space-y-4">
           <Device
-            name={clientState?.client_name ?? ''}
+            name="James' MacBook Pro"
             size="1.4TB"
             runningJob={{ amount: 65, task: 'Generating preview media' }}
             locations={[{ name: 'Pictures' }, { name: 'Downloads' }, { name: 'Minecraft' }]}
@@ -186,7 +186,11 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             type="server"
           />
         </div>
-        {/* <hr className="my-4 border-none dark:border-gray-600" /> */}
+        <div className="px-5 py-3 text-sm text-gray-400 rounded-md bg-gray-50 dark:text-gray-400 dark:bg-gray-600">
+          <b>Note: </b>This is a pre-alpha build of Spacedrive, many features are yet to be
+          functional.
+        </div>
+        <div className="flex flex-shrink-0 w-full h-4" />
 
         {/* <div className="mt-2 space-x-1">
           <FileItem
@@ -277,7 +281,6 @@ export const OverviewScreen: React.FC<{}> = (props) => {
           />
         </div>
         <hr className="my-5 border-gray-50 dark:border-gray-600" /> */}
-
         {/* <hr className="my-5 dark:border-gray-600" /> */}
       </div>
     </div>
