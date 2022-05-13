@@ -6,14 +6,14 @@ interface StyleState {
   normal: string[];
 }
 
-interface Varient {
+interface Variant {
   base: string;
   light: StyleState;
   dark: StyleState;
 }
 
-function tw(varient: Varient): string {
-  return `${varient.base} ${varient.light}`;
+function tw(variant: Variant): string {
+  return `${variant.base} ${variant.light}`;
 }
 
 const variants: Record<string, string> = {

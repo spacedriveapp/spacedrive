@@ -38,23 +38,29 @@ fn custom_menu_bar() -> Menu {
   let file = Submenu::new(
     "File",
     Menu::new()
-      .add_item(CustomMenuItem::new("quit".to_string(), "Quit"))
-      .add_item(CustomMenuItem::new("close".to_string(), "Close")),
+      .add_item(
+        CustomMenuItem::new("new_window".to_string(), "New Window")
+          .accelerator("CmdOrCtrl+N")
+          .disabled(),
+      )
+      .add_item(
+        CustomMenuItem::new("close".to_string(), "Close Window").accelerator("CmdOrCtrl+W"),
+      ),
   );
   let edit = Submenu::new(
     "Edit",
     Menu::new()
-      .add_item(CustomMenuItem::new("jeff".to_string(), "Copy"))
-      .add_item(CustomMenuItem::new("jeffd".to_string(), "Paste")),
+      .add_native_item(MenuItem::Copy)
+      .add_native_item(MenuItem::Paste),
   );
   let view = Submenu::new(
     "View",
     Menu::new()
-      .add_item(CustomMenuItem::new(
-        "command_pallete".to_string(),
-        "Command Pallete",
-      ))
-      .add_item(CustomMenuItem::new("jeffd".to_string(), "Layout")),
+      .add_item(
+        CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
+          .accelerator("CmdOrCtrl+P"),
+      )
+      .add_item(CustomMenuItem::new("layout".to_string(), "Layout").disabled()),
   );
   let window = Submenu::new(
     "Window",

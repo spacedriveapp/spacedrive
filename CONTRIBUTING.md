@@ -38,9 +38,9 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
 > Note: MacOS M1 users should choose the customize option in the rustup init script and enter `x86_64-apple-darwin` as the default host triple instead of the default `aarch64-apple-darwin`
 
 - `$ git clone https://github.com/spacedriveapp/spacedrive`
+- `$ cd spacedrive`
 - For Linux or MacOS users run: `chmod +x ./.github/scripts/setup-system.sh && ./.github/scripts/setup-system.sh`
   - This will install FFMPEG and any other required dependencies for Spacedrive to build.
-- `$ cd spacedrive`
 - `$ pnpm i`
 - `$ pnpm prep` - Runs all necessary codegen & builds required dependencies.
 
