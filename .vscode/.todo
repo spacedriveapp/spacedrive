@@ -18,40 +18,33 @@
 ✔ Upgrade to mono-repo @done(21-12-27 18:30)
 ✔ Create project readme @done(21-12-28 18:30)
 ✔ Refactor indexer to scan efficiently @done(21-12-29 18:30)
-
+✔ File previews
+✔ Generate CAS ids
+✔ Settings screen
+✔ Job queue system
+✔ Landing page
+✔ Volume identification
+✔ Statistic calucations
+    Folder size, Volume size, Total capacity, Total unique etc..
+    
 ####
 # Next up 
 ####
-✔ Auto create Client in DB & persist id as JSON in data folder @done(21-12-30 23:42)
-☐ Auto discover root volume <- CURRENT 
-☐ Create locations from volumes 
-✔ Path rules for loctions @done(21-12-30 23:39)
-☐ Locations UI
-☐ Auto create path rules for macOS
+☐ Tag creation and assignment
+☐ Right click menu
+☐ Set up Tauri updater
+☐ Onboarding flow
+☐ Explorer grid view
+☐ Changelog
 
 ####
 # Planned features
 ####
-☐ Native file previews
-☐ Generate buffer hash
 ☐ Action system & command pallete
-☐ Settings screen
-☐ Tag creation and assignment
-☐ Job queue system
-☐ Right click menu
-☐ Volume identification
-☐ Set up Tauri updater
-☐ Statistic calucations
-    Folder size, Volume size, Total capacity, Total unique etc..
-☐ Onboarding flow
-☐ Explorer grid view
 ☐ Explorer path viewer / editor
 ☐ File encryptor
 ☐ File viewer / player
 ☐ Secret keystore
 ☐ Search 
-Efficient way to search sqlite: make file table WITHOUT ROWID
+    Efficient way to search sqlite: make file table WITHOUT ROWID
 ☐ Open with
-
-☐ Changelog
-☐ Landing page
