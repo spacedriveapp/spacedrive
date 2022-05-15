@@ -20,6 +20,7 @@
     "docs": "pnpm --filter @sd/docs -- ",
     "client": "pnpm --filter @sd/client -- ",
     "server": "pnpm --filter @sd/server -- ",
+    "typecheck": "pnpm -r exec tsc",
     "eslint": "eslint \"**/*.{ts,tsx}\"",
     "eslint:fix": "eslint --fix \"**/*.{ts,tsx}\""
   },
