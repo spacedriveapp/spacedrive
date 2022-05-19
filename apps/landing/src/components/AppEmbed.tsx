@@ -35,7 +35,7 @@ export default function AppEmbed() {
     }, 1000);
   }, []);
 
-  return (
+  return isMobile ? null : (
     <div className="w-screen">
       <div className="relative z-30 h-[200px] p-2 sm:p-0 sm:h-[328px] lg:h-[628px] mt-8 sm:mt-16 overflow-hidden ">
         {showApp && (
