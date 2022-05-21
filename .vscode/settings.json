@@ -21,7 +21,6 @@
     "editor.defaultFormatter": "matklad.rust-analyzer"
   },
   "rust-analyzer.procMacro.enable": true,
-  "rust-analyzer.inlayHints.enable": false,
   "rust-analyzer.diagnostics.experimental.enable": false,
   "rust-analyzer.inlayHints.parameterHints.enable": false,
   "rust-analyzer.inlayHints.typeHints.enable": false
