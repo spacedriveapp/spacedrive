@@ -1,0 +1,58 @@
+{
+  "node_state": {
+    "node_pub_id": "f4deae23-e578-456e-8897-9ff59444c08b",
+    "node_id": 1,
+    "node_name": "Jamie's MacBook Pro",
+    "data_path": "/Users/jamie/Library/Application Support/spacedrive",
+    "tcp_port": 0,
+    "libraries": [
+      {
+        "library_uuid": "9816efb4-5f2d-4c84-8674-818767bb1184",
+        "library_id": 0,
+        "library_path": "/Users/jamie/Library/Application Support/spacedrive/library.db",
+        "offline": false
+      }
+    ],
+    "current_library_uuid": "9816efb4-5f2d-4c84-8674-818767bb1184"
+  },
+  "libraries": [
+    {
+      "id": 1,
+      "pub_id": "9816efb4-5f2d-4c84-8674-818767bb1184",
+      "date_created": "2020-04-01T00:00:00.000Z",
+      "is_primary": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "pub_id": "f4deae23-e578-456e-8897-9ff59444c08b",
+      "name": "Jamie's MacBook Pro",
+      "platform": "macos",
+      "version": "0.0.1",
+      "date_created": "2020-04-01T00:00:00.000Z",
+      "last_seen": "2020-04-01T00:00:00.000Z",
+      "timezone": "America/Los_Angeles"
+    },
+    {
+      "id": 1,
+      "pub_id": "8fec7649-08d8-4828-baa3-e1078d9f15ee",
+      "name": "Jamie's iPhone 12",
+      "platform": "ios",
+      "version": "0.0.1",
+      "date_created": "2020-04-01T00:00:00.000Z",
+      "last_seen": "2020-04-01T00:00:00.000Z",
+      "timezone": "America/Los_Angeles"
+    },
+    {
+      "id": 1,
+      "pub_id": "67f66377-d38e-4fb7-961a-c1193a58b458",
+      "name": "Spacedrive Server",
+      "platform": "server",
+      "version": "0.0.1",
+      "date_created": "2020-04-01T00:00:00.000Z",
+      "last_seen": "2020-04-01T00:00:00.000Z",
+      "timezone": "America/Los_Angeles"
+    }
+  ]
+}

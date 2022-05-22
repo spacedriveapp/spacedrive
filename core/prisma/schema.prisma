@@ -32,7 +32,6 @@ model Library {
     id           Int      @id @default(autoincrement())
     pub_id       String   @unique
     name         String
-    remote_id    String?
     is_primary   Boolean  @default(true)
     date_created DateTime @default(now())
     timezone     String?
@@ -61,7 +60,6 @@ model Node {
     name         String
     platform     Int      @default(0)
     version      String?
-    online       Boolean? @default(true)
     last_seen    DateTime @default(now())
     timezone     String?
     date_created DateTime @default(now())
