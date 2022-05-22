@@ -35,7 +35,7 @@ jobs:
         run: pnpm i --frozen-lockfile
 
       - name: Perform typechecks
-        run: pnpm -r exec tsc
+        run: pnpm typecheck
 
   build-js:
     name: Build JS

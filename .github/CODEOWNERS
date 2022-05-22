@@ -1,0 +1,42 @@
+# default
+# disabled for now because we have some dead code that doesn't really need reviewed yet
+# * @spacedriveapp
+
+# documentation
+/apps/landing/src/pages/docs/ @jamiepine
+/docs/ @jamiepine
+
+# frontend apps (Rust bridges and tech functionality -- no real visual implications)
+/apps/desktop/ @jamiepine @Brendonovich @oscartbeaumont
+/apps/mobile/ @jamiepine @Brendonovich @oscartbeaumont
+/apps/web/ @jamiepine @maxichrome
+
+# core logic
+/core/ @jamiepine @Brendonovich @oscartbeaumont
+/packages/macos/ @jamiepine @Brendonovich @oscartbeaumont
+
+# server app
+/apps/server/ @oscartbeaumont
+
+# landing site
+/apps/landing/ @jamiepine @maxichrome
+
+# UI
+/packages/interface/ @jamiepine @maxichrome
+/packages/ui/ @jamiepine @maxichrome
+
+# base config files
+/* @jamiepine
+
+# workspace settings
+/.vscode/.todo @jamiepine
+/.vscode/settings.json @jamiepine
+/.github/* @jamiepine @Brendonovich @maxichrome @oscartbeaumont
+
+# CI
+/.github/actions/ @Brendonovich @oscartbeaumont
+/.github/workflows/ @Brendonovich @oscartbeaumont
+
+# development workflow
+/.github/scripts/ @oscartbeaumont
+/.github/ISSUES_TEMPLATE/ @jamiepine @Brendonovich @maxichrome @oscartbeaumont
