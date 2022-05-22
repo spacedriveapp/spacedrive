@@ -163,7 +163,6 @@ export const OverviewScreen: React.FC<{}> = (props) => {
             ></Button>
           </div>
         </div>
-        {/* <div className="mt-5" /> */}
         <div className="flex flex-col pb-4 space-y-4">
           <Device
             name="James' MacBook Pro"
@@ -191,97 +190,6 @@ export const OverviewScreen: React.FC<{}> = (props) => {
           functional.
         </div>
         <div className="flex flex-shrink-0 w-full h-4" />
-
-        {/* <div className="mt-2 space-x-1">
-          <FileItem
-            selected={selectedFile == 'assets'}
-            onClick={() => handleSelect('assets')}
-            fileName="assets"
-            folder
-          />
-          <FileItem
-            selected={selectedFile == 'tsx'}
-            onClick={() => handleSelect('tsx')}
-            fileName="App.tsx"
-            format="tsx"
-            iconName="reactts"
-          />
-          <FileItem
-            selected={selectedFile == 'asc'}
-            onClick={() => handleSelect('asc')}
-            fileName="asc"
-            folder
-          />
-          <FileItem
-            selected={selectedFile == 'scss'}
-            onClick={() => handleSelect('scss')}
-            fileName="styles.scss"
-            format="scss"
-            iconName="scss"
-          />
-          <FileItem
-            selected={selectedFile == 'pug'}
-            onClick={() => handleSelect('pug')}
-            fileName="tailwind.conf.js"
-            format="pug"
-            iconName="tailwind"
-          />
-          <FileItem
-            selected={selectedFile == 'vite'}
-            onClick={() => handleSelect('vite')}
-            fileName="vite.config.js"
-            format="vite"
-            iconName="vite"
-          />
-          <FileItem
-            selected={selectedFile == 'dot'}
-            onClick={() => handleSelect('dot')}
-            fileName=".prettierrc"
-            format="dot"
-            iconName="prettier"
-          />
-          <FileItem
-            selected={selectedFile == 'folder'}
-            onClick={() => handleSelect('folder')}
-            fileName="src"
-            folder
-          />
-          <FileItem
-            selected={selectedFile == 'wwcwefwe'}
-            onClick={() => handleSelect('wwcwefwe')}
-            fileName="index.ts"
-            format="ts"
-            iconName="typescript"
-          />
-          <FileItem
-            selected={selectedFile == 'werf'}
-            onClick={() => handleSelect('werf')}
-            fileName="server.ts"
-            format="ts"
-            iconName="typescript"
-          />
-          <FileItem
-            selected={selectedFile == 'tsex'}
-            onClick={() => handleSelect('tsex')}
-            fileName="config.json"
-            format="json"
-            iconName="json"
-          />
-          <FileItem
-            selected={selectedFile == 'tsx3'}
-            onClick={() => handleSelect('tsx3')}
-            fileName=".vscode"
-            folder
-          />
-          <FileItem
-            selected={selectedFile == 'tsx3d'}
-            onClick={() => handleSelect('tsx3d')}
-            fileName="node_modules"
-            folder
-          />
-        </div>
-        <hr className="my-5 border-gray-50 dark:border-gray-600" /> */}
-        {/* <hr className="my-5 dark:border-gray-600" /> */}
       </div>
     </div>
   );

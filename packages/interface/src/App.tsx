@@ -54,6 +54,7 @@ export interface AppProps {
   isFocused?: boolean;
   useMemoryRouter: boolean;
   demoMode?: boolean;
+  demoData: string;
 }
 
 function AppLayout() {
