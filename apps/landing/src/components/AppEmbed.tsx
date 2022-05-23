@@ -47,7 +47,7 @@ export default function AppEmbed() {
 						)}
 						src={`${
 							import.meta.env.VITE_SDWEB_BASE_URL || 'http://localhost:8002'
-						}?library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
+						}?showControls&library_id=9068c6ec-cf90-451b-bb30-4174781e7bc6`}
 					/>
 				)}
 				{imgFallback && !iFrameAppReady && (
