@@ -1,10 +1,22 @@
 -- CreateTable
+CREATE TABLE "_migrations" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "name" TEXT NOT NULL,
+    "checksum" TEXT NOT NULL,
+    "steps_applied" INTEGER NOT NULL DEFAULT 0,
+    "applied_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
 CREATE TABLE "sync_events" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "client_id" INTEGER NOT NULL,
+    "node_id" INTEGER NOT NULL,
     "timestamp" TEXT NOT NULL,
-    "data" TEXT NOT NULL,
-    CONSTRAINT "sync_events_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "record_id" TEXT NOT NULL,
+    "kind" INTEGER NOT NULL,
+    "column" TEXT,
+    "value" TEXT NOT NULL,
+    CONSTRAINT "sync_events_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -12,9 +24,7 @@ CREATE TABLE "libraries" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "remote_id" TEXT,
     "is_primary" BOOLEAN NOT NULL DEFAULT true,
-    "encryption" INTEGER NOT NULL DEFAULT 0,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "timezone" TEXT
 );
@@ -25,38 +35,52 @@ CREATE TABLE "library_statistics" (
     "date_captured" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "library_id" INTEGER NOT NULL,
     "total_file_count" INTEGER NOT NULL DEFAULT 0,
+    "library_db_size" TEXT NOT NULL DEFAULT '0',
     "total_bytes_used" TEXT NOT NULL DEFAULT '0',
-    "total_byte_capacity" TEXT NOT NULL DEFAULT '0',
-    "total_unique_bytes" TEXT NOT NULL DEFAULT '0'
+    "total_bytes_capacity" TEXT NOT NULL DEFAULT '0',
+    "total_unique_bytes" TEXT NOT NULL DEFAULT '0',
+    "total_bytes_free" TEXT NOT NULL DEFAULT '0',
+    "preview_media_bytes" TEXT NOT NULL DEFAULT '0'
 );
 
 -- CreateTable
-CREATE TABLE "clients" (
+CREATE TABLE "nodes" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "platform" INTEGER NOT NULL DEFAULT 0,
     "version" TEXT,
-    "online" BOOLEAN DEFAULT true,
     "last_seen" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "timezone" TEXT,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateTable
+CREATE TABLE "volumes" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "node_id" INTEGER NOT NULL,
+    "name" TEXT NOT NULL,
+    "mount_point" TEXT NOT NULL,
+    "total_bytes_capacity" TEXT NOT NULL DEFAULT '0',
+    "total_bytes_available" TEXT NOT NULL DEFAULT '0',
+    "disk_type" TEXT,
+    "filesystem" TEXT,
+    "is_system" BOOLEAN NOT NULL DEFAULT false,
+    "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
 CREATE TABLE "locations" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" TEXT NOT NULL,
-    "client_id" INTEGER,
+    "node_id" INTEGER,
     "name" TEXT,
     "local_path" TEXT,
     "total_capacity" INTEGER,
     "available_capacity" INTEGER,
     "filesystem" TEXT,
     "disk_type" INTEGER,
-    "is_removable" BOOLEAN NOT NULL DEFAULT true,
-    "is_ejectable" BOOLEAN NOT NULL DEFAULT true,
-    "is_root_filesystem" BOOLEAN NOT NULL DEFAULT true,
+    "is_removable" BOOLEAN,
     "is_online" BOOLEAN NOT NULL DEFAULT true,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -68,7 +92,7 @@ CREATE TABLE "files" (
     "integrity_checksum" TEXT,
     "kind" INTEGER NOT NULL DEFAULT 0,
     "size_in_bytes" TEXT NOT NULL,
-    "encryption" INTEGER NOT NULL DEFAULT 0,
+    "key_id" INTEGER,
     "hidden" BOOLEAN NOT NULL DEFAULT false,
     "favorite" BOOLEAN NOT NULL DEFAULT false,
     "important" BOOLEAN NOT NULL DEFAULT false,
@@ -79,7 +103,8 @@ CREATE TABLE "files" (
     "comment" TEXT,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_indexed" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "date_indexed" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "files_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "keys" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -92,15 +117,29 @@ CREATE TABLE "file_paths" (
     "extension" TEXT,
     "file_id" INTEGER,
     "parent_id" INTEGER,
-    "encryption" INTEGER NOT NULL DEFAULT 0,
-    "permissions" TEXT,
-    "temp_cas_id" TEXT,
+    "key_id" INTEGER,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_indexed" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "file_paths_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "locations" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "file_paths_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "file_paths_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "file_paths" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "file_paths_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "file_paths" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "file_paths_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "keys" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "file_conflicts" (
+    "original_file_id" INTEGER NOT NULL,
+    "detactched_file_id" INTEGER NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "keys" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "checksum" TEXT NOT NULL,
+    "name" TEXT,
+    "date_created" DATETIME DEFAULT CURRENT_TIMESTAMP,
+    "algorithm" INTEGER DEFAULT 0
 );
 
 -- CreateTable
@@ -110,8 +149,13 @@ CREATE TABLE "media_data" (
     "pixel_height" INTEGER,
     "longitude" REAL,
     "latitude" REAL,
-    "capture_device" TEXT,
-    "duration" INTEGER,
+    "fps" INTEGER,
+    "capture_device_make" TEXT,
+    "capture_device_model" TEXT,
+    "capture_device_software" TEXT,
+    "duration_seconds" INTEGER,
+    "codecs" TEXT,
+    "streams" INTEGER,
     CONSTRAINT "media_data_id_fkey" FOREIGN KEY ("id") REFERENCES "files" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -120,7 +164,6 @@ CREATE TABLE "tags" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" TEXT NOT NULL,
     "name" TEXT,
-    "encryption" INTEGER DEFAULT 0,
     "total_files" INTEGER DEFAULT 0,
     "redundancy_goal" INTEGER DEFAULT 1,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -161,7 +204,8 @@ CREATE TABLE "label_on_files" (
 -- CreateTable
 CREATE TABLE "jobs" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "client_id" INTEGER NOT NULL,
+    "name" TEXT NOT NULL,
+    "node_id" INTEGER NOT NULL,
     "action" INTEGER NOT NULL,
     "status" INTEGER NOT NULL DEFAULT 0,
     "task_count" INTEGER NOT NULL DEFAULT 1,
@@ -169,19 +213,7 @@ CREATE TABLE "jobs" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "seconds_elapsed" INTEGER NOT NULL DEFAULT 0,
-    CONSTRAINT "jobs_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-
--- CreateTable
-CREATE TABLE "spaces" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "pub_id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "encryption" INTEGER DEFAULT 0,
-    "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "libraryId" INTEGER,
-    CONSTRAINT "spaces_libraryId_fkey" FOREIGN KEY ("libraryId") REFERENCES "libraries" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "jobs_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -217,16 +249,25 @@ CREATE TABLE "comments" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "_migrations_checksum_key" ON "_migrations"("checksum");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "libraries_pub_id_key" ON "libraries"("pub_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "library_statistics_library_id_key" ON "library_statistics"("library_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "clients_pub_id_key" ON "clients"("pub_id");
+CREATE UNIQUE INDEX "nodes_pub_id_key" ON "nodes"("pub_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "volumes_node_id_mount_point_name_key" ON "volumes"("node_id", "mount_point", "name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "locations_pub_id_key" ON "locations"("pub_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "files_cas_id_key" ON "files"("cas_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "files_integrity_checksum_key" ON "files"("integrity_checksum");
@@ -235,13 +276,19 @@ CREATE UNIQUE INDEX "files_integrity_checksum_key" ON "files"("integrity_checksu
 CREATE UNIQUE INDEX "file_paths_location_id_materialized_path_name_extension_key" ON "file_paths"("location_id", "materialized_path", "name", "extension");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "file_conflicts_original_file_id_key" ON "file_conflicts"("original_file_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "file_conflicts_detactched_file_id_key" ON "file_conflicts"("detactched_file_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "keys_checksum_key" ON "keys"("checksum");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "tags_pub_id_key" ON "tags"("pub_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "labels_pub_id_key" ON "labels"("pub_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "spaces_pub_id_key" ON "spaces"("pub_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "albums_pub_id_key" ON "albums"("pub_id");

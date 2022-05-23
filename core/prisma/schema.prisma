@@ -25,7 +25,7 @@ model SyncEvent {
     // individual record pub id OR compound many-to-many pub ids
     record_id String
     // the type of operation, I.E: CREATE, UPDATE, DELETE as an enum
-    type      Int
+    kind      Int
     // the column name for atomic update operations
     column    String?
     // the new value for create/update operations, msgpack encoded
