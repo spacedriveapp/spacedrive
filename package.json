@@ -9,7 +9,7 @@
 		"db:migrate": "pnpm core prisma migrate dev",
 		"db:gen": "pnpm core prisma generate",
 		"lint": "turbo run lint",
-		"format": "prettier --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
+		"format": "prettier --config .prettierrc.cli.js --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
 		"desktop": "pnpm --filter @sd/desktop --",
 		"mobile": "pnpm --filter @sd/mobile -- ",
 		"web": "pnpm --filter @sd/web -- ",
