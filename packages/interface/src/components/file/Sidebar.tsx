@@ -1,10 +1,11 @@
 import { LockClosedIcon } from '@heroicons/react/outline';
-import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
+import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
-import React, { useContext, useEffect, useState } from 'react';
+import { CirclesFour, Code, Planet } from 'phosphor-react';
+import React, { useContext } from 'react';
+import { useParams } from 'react-router';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
 import { AppPropsContext } from '../../App';
@@ -49,7 +50,7 @@ export const MacWindowControlsSpace: React.FC<{
 	const { children } = props;
 
 	return (
-		<div data-tauri-drag-region className="h-7">
+		<div data-tauri-drag-region className="h-7 flex-shrink-0">
 			{children}
 		</div>
 	);
@@ -72,6 +73,7 @@ export function MacWindowControls() {
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const experimental = useStore((state) => state.experimental);
+	const params = useParams();
 
 	const appPropsContext = useContext(AppPropsContext);
 	const { data: locations } = useBridgeQuery('SysGetLocations');
@@ -89,7 +91,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	return (
 		<div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
-			{appPropsContext?.platform === 'browser' ? <MacWindowControls /> : null}
+			{appPropsContext?.platform === 'browser' &&
+			window.location.search.includes('showControls') ? (
+				<MacWindowControls />
+			) : null}
 			{appPropsContext?.platform === 'macOS' ? <MacWindowControlsSpace /> : null}
 
 			<Dropdown
