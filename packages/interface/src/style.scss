@@ -1,114 +1,114 @@
 a,
 button {
-  @apply cursor-default;
+	@apply cursor-default;
 }
 
 body {
-  font-family: 'InterVariable', sans-serif;
+	font-family: 'InterVariable', sans-serif;
 }
 
 .no-scrollbar {
-  -ms-overflow-style: none; /* for Internet Explorer, Edge */
-  scrollbar-width: none; /* for Firefox */
-  overflow-y: scroll;
+	-ms-overflow-style: none; /* for Internet Explorer, Edge */
+	scrollbar-width: none; /* for Firefox */
+	overflow-y: scroll;
 }
 
 .no-scrollbar::-webkit-scrollbar {
-  display: none;
+	display: none;
 }
 
 .custom-scroll {
-  -ms-overflow-style: none; /* for Internet Explorer, Edge */
-  scrollbar-width: none; /* for Firefox */
-  overflow-y: scroll;
+	-ms-overflow-style: none; /* for Internet Explorer, Edge */
+	scrollbar-width: none; /* for Firefox */
+	overflow-y: scroll;
 }
 
 .explorer-scroll {
-  &::-webkit-scrollbar {
-    height: 6px;
-    width: 8px;
-  }
-  &::-webkit-scrollbar-track {
-    @apply bg-[#00000006] dark:bg-[#00000030] mt-[55px] rounded-[6px];
-  }
-  &::-webkit-scrollbar-thumb {
-    @apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
-  }
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-[#00000006] dark:bg-[#00000030] mt-[55px] rounded-[6px];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
+	}
 }
 .default-scroll {
-  &::-webkit-scrollbar {
-    height: 6px;
-    width: 8px;
-  }
-  &::-webkit-scrollbar-track {
-    @apply bg-transparent rounded-[6px];
-  }
-  &::-webkit-scrollbar-thumb {
-    @apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
-  }
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-transparent rounded-[6px];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
+	}
 }
 .page-scroll {
-  &::-webkit-scrollbar {
-    height: 6px;
-    width: 8px;
-  }
-  &::-webkit-scrollbar-track {
-    @apply bg-transparent rounded-[6px]  my-[10px];
-  }
-  &::-webkit-scrollbar-thumb {
-    @apply rounded-[6px] bg-gray-300  dark:bg-gray-550;
-  }
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 8px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-transparent rounded-[6px]  my-[10px];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-gray-300  dark:bg-gray-550;
+	}
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 @keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
 }
 
 @-webkit-keyframes slide-top {
-  0% {
-    -webkit-transform: translateY(0);
-    transform: translateY(0);
-  }
-  100% {
-    -webkit-transform: translateY(-50px);
-    transform: translateY(-50px);
-  }
+	0% {
+		-webkit-transform: translateY(0);
+		transform: translateY(0);
+	}
+	100% {
+		-webkit-transform: translateY(-50px);
+		transform: translateY(-50px);
+	}
 }
 @keyframes slide-top {
-  0% {
-    -webkit-transform: translateY(0);
-    transform: translateY(0);
-  }
-  100% {
-    -webkit-transform: translateY(-50px);
-    transform: translateY(-50px);
-  }
+	0% {
+		-webkit-transform: translateY(0);
+		transform: translateY(0);
+	}
+	100% {
+		-webkit-transform: translateY(-50px);
+		transform: translateY(-50px);
+	}
 }
 
 .dialog-overlay[data-state='open'] {
-  animation: fadeIn 200ms ease-out forwards;
+	animation: fadeIn 200ms ease-out forwards;
 }
 .dialog-overlay[data-state='closed'] {
-  animation: fadeIn 200ms ease-out forwards;
+	animation: fadeIn 200ms ease-out forwards;
 }
 .dialog-content[data-state='open'] {
-  -webkit-animation: slide-top 0.3s cubic-bezier(0.215, 0.61, 0.355, 1) both;
-  animation: slide-top 0.3s cubic-bezier(0.215, 0.61, 0.355, 1) both;
+	-webkit-animation: slide-top 0.3s cubic-bezier(0.215, 0.61, 0.355, 1) both;
+	animation: slide-top 0.3s cubic-bezier(0.215, 0.61, 0.355, 1) both;
 }
 .dialog-content[data-state='closed'] {
-  animation: bounceDown 100ms ease-in forwards;
+	animation: bounceDown 100ms ease-in forwards;
 }
