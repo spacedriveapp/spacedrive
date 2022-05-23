@@ -71,33 +71,34 @@ export function MacWindowControls() {
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
-  const experimental = useStore((state) => state.experimental);
+	const experimental = useStore((state) => state.experimental);
 
-  const appPropsContext = useContext(AppPropsContext);
-  const { data: locations } = useBridgeQuery('SysGetLocations');
-  const { data: clientState } = useBridgeQuery('NodeGetState');
+	const appPropsContext = useContext(AppPropsContext);
+	const { data: locations } = useBridgeQuery('SysGetLocations');
+	const { data: clientState } = useBridgeQuery('NodeGetState');
 
-  const { mutate: createLocation } = useBridgeCommand('LocCreate');
+	const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
-  const tags = [
-    { id: 1, name: 'Keepsafe', color: '#FF6788' },
-    { id: 2, name: 'OBS', color: '#BF88FF' },
-    { id: 3, name: 'BlackMagic', color: '#F0C94A' },
-    { id: 4, name: 'Camera Roll', color: '#00F0DB' },
-    { id: 5, name: 'Spacedrive', color: '#00F079' }
-  ];
+	const tags = [
+		{ id: 1, name: 'Keepsafe', color: '#FF6788' },
+		{ id: 2, name: 'OBS', color: '#BF88FF' },
+		{ id: 3, name: 'BlackMagic', color: '#F0C94A' },
+		{ id: 4, name: 'Camera Roll', color: '#00F0DB' },
+		{ id: 5, name: 'Spacedrive', color: '#00F079' }
+	];
 
-  return (
-    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
-      {appPropsContext?.platform === 'browser' ? <MacTrafficLights /> : null}
-      {appPropsContext?.platform === 'macOS' ? (
-        <div data-tauri-drag-region className="h-[23px]" />
-      ) : null}
+	return (
+		<div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+			{appPropsContext?.platform === 'browser' &&
+			window.location.search.includes('showControls') ? (
+				<MacWindowControls />
+			) : null}
+			{appPropsContext?.platform === 'macOS' ? <MacWindowControlsSpace /> : null}
 
-      <Dropdown
-        buttonProps={{
-          justifyLeft: true,
-          className: `flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
+			<Dropdown
+				buttonProps={{
+					justifyLeft: true,
+					className: `flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
           !bg-gray-50 
           border-gray-150 
           hover:!bg-gray-1000 
@@ -107,45 +108,45 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           
           dark:!border-gray-550 
           dark:hover:!border-gray-500`,
-          variant: 'gray'
-        }}
-        // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText={clientState?.node_name || 'Loading...'}
-        items={[
-          [{ name: clientState?.node_name || '', selected: true }, { name: 'Private Library' }],
-          [
-            { name: 'Library Settings', icon: CogIcon },
-            { name: 'Add Library', icon: PlusIcon },
-            { name: 'Lock', icon: LockClosedIcon },
-            { name: 'Hide', icon: EyeOffIcon }
-          ]
-        ]}
-      />
+					variant: 'gray'
+				}}
+				// buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
+				buttonText={clientState?.node_name || 'Loading...'}
+				items={[
+					[{ name: clientState?.node_name || '', selected: true }, { name: 'Private Library' }],
+					[
+						{ name: 'Library Settings', icon: CogIcon },
+						{ name: 'Add Library', icon: PlusIcon },
+						{ name: 'Lock', icon: LockClosedIcon },
+						{ name: 'Hide', icon: EyeOffIcon }
+					]
+				]}
+			/>
 
-      <div className="pt-1">
-        <SidebarLink to="/overview">
-          <Icon component={Planet} />
-          Overview
-        </SidebarLink>
-        <SidebarLink to="content">
-          <Icon component={CirclesFour} />
-          Content
-        </SidebarLink>
-        <SidebarLink to="photos">
-          <Icon component={PhotographIcon} />
-          Photos
-        </SidebarLink>
+			<div className="pt-1">
+				<SidebarLink to="/overview">
+					<Icon component={Planet} />
+					Overview
+				</SidebarLink>
+				<SidebarLink to="content">
+					<Icon component={CirclesFour} />
+					Content
+				</SidebarLink>
+				<SidebarLink to="photos">
+					<Icon component={PhotographIcon} />
+					Photos
+				</SidebarLink>
 
-        {experimental ? (
-          <SidebarLink to="debug">
-            <Icon component={Code} />
-            Debug
-          </SidebarLink>
-        ) : (
-          <></>
-        )}
+				{experimental ? (
+					<SidebarLink to="debug">
+						<Icon component={Code} />
+						Debug
+					</SidebarLink>
+				) : (
+					<></>
+				)}
 
-        {/* <SidebarLink to="explorer">
+				{/* <SidebarLink to="explorer">
           <Icon component={MonitorPlay} />
           Explorer
         </SidebarLink> */}
