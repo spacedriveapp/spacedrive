@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
   const appPropsContext = useContext(AppPropsContext);
   const { data: locations } = useBridgeQuery('SysGetLocations');
-  const { data: clientState } = useBridgeQuery('ClientGetState');
+  const { data: clientState } = useBridgeQuery('NodeGetState');
 
   const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
@@ -77,10 +77,11 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
   return (
     <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
-      {appPropsContext?.platform === 'browser' ? <MacOSTrafficLights /> : null}
-      {appPropsContext?.platform === 'macOS' ? (
-        <div data-tauri-drag-region className="h-[23px]" />
+      {appPropsContext?.platform === 'browser' &&
+      window.location.search.includes('showControls') ? (
+        <MacWindowControls />
       ) : null}
+      {appPropsContext?.platform === 'macOS' ? <MacWindowControlsSpace /> : null}
 
       <Dropdown
         buttonProps={{
@@ -98,9 +99,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText={clientState?.client_name || 'Loading...'}
+        buttonText={clientState?.node_name || 'Loading...'}
         items={[
-          [{ name: clientState?.client_name || '', selected: true }, { name: 'Private Library' }],
+          [{ name: clientState?.node_name || '', selected: true }, { name: 'Private Library' }],
           [
             { name: 'Library Settings', icon: CogIcon },
             { name: 'Add Library', icon: PlusIcon },
