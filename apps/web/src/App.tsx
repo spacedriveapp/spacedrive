@@ -1,8 +1,7 @@
-import React, { useEffect } from 'react';
-
-import SpacedriveInterface from '@sd/interface';
-import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 import { BaseTransport } from '@sd/client';
+import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
+import SpacedriveInterface from '@sd/interface';
+import React, { useEffect } from 'react';
 
 const websocket = new WebSocket(import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws');
 

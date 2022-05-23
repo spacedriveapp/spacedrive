@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 import svg from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-plugin-tsconfig-paths';
 
