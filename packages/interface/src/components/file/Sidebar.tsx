@@ -1,5 +1,5 @@
 import { LockClosedIcon } from '@heroicons/react/outline';
-import { CogIcon, EyeOffIcon, PhotographIcon, PlusIcon } from '@heroicons/react/solid';
+import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
@@ -7,6 +7,7 @@ import { CirclesFour, Code, Planet } from 'phosphor-react';
 import React, { useContext } from 'react';
 import { useParams } from 'react-router';
 import { NavLink, NavLinkProps } from 'react-router-dom';
+
 import { AppPropsContext } from '../../App';
 import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
 import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
@@ -23,7 +24,9 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
       <span
         className={clsx(
           'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
-          { '!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive },
+          {
+            '!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
+          },
           props.className
         )}
       >
@@ -74,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
   const appPropsContext = useContext(AppPropsContext);
   const { data: locations } = useBridgeQuery('SysGetLocations');
-  const { data: clientState } = useBridgeQuery('NodeGetState');
+  const { data: clientState } = useBridgeQuery('ClientGetState');
 
   const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
@@ -110,9 +113,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText={clientState?.node_nam || 'Loading...'}
+        buttonText={clientState?.client_name || 'Loading...'}
         items={[
-          [{ name: clientState?.node_name || '', selected: true }, { name: 'Private Library' }],
+          [{ name: clientState?.client_name || '', selected: true }, { name: 'Private Library' }],
           [
             { name: 'Library Settings', icon: CogIcon },
             { name: 'Add Library', icon: PlusIcon },
@@ -130,10 +133,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <SidebarLink to="content">
           <Icon component={CirclesFour} />
           Content
-        </SidebarLink>
-        <SidebarLink to="photos">
-          <Icon component={PhotographIcon} />
-          Photos
         </SidebarLink>
 
         {experimental ? (
