@@ -1,13 +1,13 @@
-import React from 'react';
 import clsx from 'clsx';
+import React from 'react';
 
 const sizes = {
-  default: 'py-1 px-3 text-md font-medium',
-  sm: 'py-1 px-2 text-sm font-medium'
+	default: 'py-1 px-3 text-md font-medium',
+	sm: 'py-1 px-2 text-sm font-medium'
 };
 
 const variants = {
-  default: `
+	default: `
     bg-gray-50 
     shadow-sm 
     hover:bg-gray-100 
@@ -31,7 +31,7 @@ const variants = {
     dark:active:text-white 
     dark:hover:text-white 
   `,
-  gray: `
+	gray: `
     bg-gray-100 
     shadow-sm
     hover:bg-gray-200 
@@ -58,7 +58,7 @@ const variants = {
     dark:hover:text-white 
     
   `,
-  primary: `
+	primary: `
     bg-primary-600
     text-white 
     shadow-sm 
@@ -68,7 +68,7 @@ const variants = {
     hover:border-primary-500
     active:border-primary-700 
   `,
-  selected: `bg-gray-100 dark:bg-gray-500 
+	selected: `bg-gray-100 dark:bg-gray-500 
     text-black hover:text-black active:text-black dark:hover:text-white dark:text-white 
     `
 };
@@ -77,61 +77,61 @@ export type ButtonVariant = keyof typeof variants;
 export type ButtonSize = keyof typeof sizes;
 
 export interface ButtonBaseProps {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  loading?: boolean;
-  icon?: React.ReactNode;
-  noPadding?: boolean;
-  noBorder?: boolean;
-  pressEffect?: boolean;
-  justifyLeft?: boolean;
+	variant?: ButtonVariant;
+	size?: ButtonSize;
+	loading?: boolean;
+	icon?: React.ReactNode;
+	noPadding?: boolean;
+	noBorder?: boolean;
+	pressEffect?: boolean;
+	justifyLeft?: boolean;
 }
 
 export type ButtonProps = ButtonBaseProps &
-  React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    href?: undefined;
-  };
+	React.ButtonHTMLAttributes<HTMLButtonElement> & {
+		href?: undefined;
+	};
 
 export type LinkButtonProps = ButtonBaseProps &
-  React.AnchorHTMLAttributes<HTMLAnchorElement> & {
-    href?: string;
-  };
+	React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+		href?: string;
+	};
 
 type Button = {
-  (props: ButtonProps): JSX.Element;
-  (props: LinkButtonProps): JSX.Element;
+	(props: ButtonProps): JSX.Element;
+	(props: LinkButtonProps): JSX.Element;
 };
 
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
 export const Button: Button = ({ loading, justifyLeft, className, ...props }) => {
-  className = clsx(
-    'border rounded-md items-center transition-colors duration-100 cursor-default',
-    { 'opacity-5': loading, '!p-1': props.noPadding },
-    { 'justify-center': !justifyLeft },
-    sizes[props.size || 'default'],
-    variants[props.variant || 'default'],
-    { 'active:translate-y-[1px]': props.pressEffect },
-    { 'border-0': props.noBorder },
-    className
-  );
+	className = clsx(
+		'border rounded-md items-center transition-colors duration-100 cursor-default',
+		{ 'opacity-5': loading, '!p-1': props.noPadding },
+		{ 'justify-center': !justifyLeft },
+		sizes[props.size || 'default'],
+		variants[props.variant || 'default'],
+		{ 'active:translate-y-[1px]': props.pressEffect },
+		{ 'border-0': props.noBorder },
+		className
+	);
 
-  if (hasHref(props))
-    return (
-      <a {...(props as LinkButtonProps)} className={className}>
-        <>
-          {props.icon}
-          {props.children}
-        </>
-      </a>
-    );
-  else
-    return (
-      <button {...(props as ButtonProps)} className={className}>
-        <>
-          {props.icon}
-          {props.children}
-        </>
-      </button>
-    );
+	if (hasHref(props))
+		return (
+			<a {...(props as LinkButtonProps)} className={className}>
+				<>
+					{props.icon}
+					{props.children}
+				</>
+			</a>
+		);
+	else
+		return (
+			<button {...(props as ButtonProps)} className={className}>
+				<>
+					{props.icon}
+					{props.children}
+				</>
+			</button>
+		);
 };

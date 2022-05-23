@@ -15,28 +15,28 @@ use syn::{parse_macro_input, Data, DeriveInput};
 /// ```
 #[proc_macro_derive(PropertyOperationApply)]
 pub fn property_operation_apply(input: TokenStream) -> TokenStream {
-  let DeriveInput { ident, data, .. } = parse_macro_input!(input);
+	let DeriveInput { ident, data, .. } = parse_macro_input!(input);
 
-  if let Data::Enum(data) = data {
-    let impls = data.variants.iter().map(|variant| {
-      let variant_ident = &variant.ident;
-      quote! {
-        #ident::#variant_ident(method) => method.apply(ctx),
-      }
-    });
+	if let Data::Enum(data) = data {
+		let impls = data.variants.iter().map(|variant| {
+			let variant_ident = &variant.ident;
+			quote! {
+			  #ident::#variant_ident(method) => method.apply(ctx),
+			}
+		});
 
-    let expanded = quote! {
-      impl #ident {
-        fn apply(operation: CrdtCtx<PropertyOperation>, ctx: self::engine::SyncContext) {
-          match operation.resource {
-            #(#impls)*
-          };
-        }
-      }
-    };
+		let expanded = quote! {
+		  impl #ident {
+			fn apply(operation: CrdtCtx<PropertyOperation>, ctx: self::engine::SyncContext) {
+			  match operation.resource {
+				#(#impls)*
+			  };
+			}
+		  }
+		};
 
-    TokenStream::from(expanded)
-  } else {
-    panic!("The 'PropertyOperationApply' macro can only be used on enums!");
-  }
+		TokenStream::from(expanded)
+	} else {
+		panic!("The 'PropertyOperationApply' macro can only be used on enums!");
+	}
 }

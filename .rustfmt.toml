@@ -1,5 +1,4 @@
 hard_tabs = true
-tab_spaces = 4
 match_block_trailing_comma = true
 max_width = 90
 newline_style = "Unix"

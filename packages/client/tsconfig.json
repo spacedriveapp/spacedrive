@@ -1,6 +1,6 @@
 {
-  "extends": "../config/base.tsconfig.json",
-  "compilerOptions": {},
-  "include": ["src"],
-  "exclude": ["node_modules"]
+	"extends": "../config/base.tsconfig.json",
+	"compilerOptions": {},
+	"include": ["src"],
+	"exclude": ["node_modules"]
 }
