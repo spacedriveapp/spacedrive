@@ -53,5 +53,3 @@ We call it "PRRTT"; [Prisma](https://prisma.io), [Rust](https://rustlang.org), [
 ## Why Rust?
 
 Rust is a powerful, fast, memory safe, cross-platform, low-level language and thanks to [Tauri](https://tauri.studio)—its the perfect tool to power a desktop application.
-
-[twitch-live]: https://jamiepine.live/
