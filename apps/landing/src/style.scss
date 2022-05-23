@@ -23,18 +23,56 @@ html {
 }
 
 .fade-in-heading {
-	animation: fadeInUp 1s;
+	animation: fadeInDown 1s forwards;
+	opacity: 0;
+}
+
+.fade-in {
+	animation: fadeIn 1s forwards;
+	opacity: 0;
+}
+
+.fade-in-whats-new {
+	animation: fadeInDown 1s forwards;
+	animation-delay: 2s;
+	opacity: 0;
+}
+
+.animation-delay-1 {
+	animation-delay: 200ms;
+}
+.animation-delay-2 {
+	animation-delay: 500ms;
+}
+.animation-delay-3 {
+	animation-delay: 700ms;
+}
+
+@keyframes fadeInDown {
+	from {
+		opacity: 0;
+		transform: translateY(-20px);
+	}
+	to {
+		transform: translateY(0px);
+		opacity: 1;
+	}
+}
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 @keyframes fadeInUp {
 	0% {
 		opacity: 0;
-		// transform: translateY(10px);
 	}
 	100% {
 		opacity: 1;
-
-		// transform: translateY(0px);
 	}
 }
 
@@ -61,7 +99,7 @@ html {
 	}
 	&.bloom-three {
 		background: conic-gradient(from 90deg at 50% 50%, #2d53c6, #1d054b);
-		animation-delay: 1100ms;
+		animation-delay: 1s;
 	}
 }
 

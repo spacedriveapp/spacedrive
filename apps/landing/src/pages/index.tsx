@@ -8,6 +8,7 @@ import AppEmbed from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import { Footer } from '../components/Footer';
 import NavBar from '../components/NavBar';
+import NewBanner from '../components/NewBanner';
 
 interface SectionProps {
 	orientation: 'left' | 'right';
@@ -45,14 +46,14 @@ function Page() {
 	return (
 		<>
 			<div className="mt-28 lg:mt-36" />
-
+			<NewBanner />
 			<h1
 				id="content"
-				className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl"
+				className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center fade-in-heading md:text-6xl"
 			>
 				A file explorer from the future.
 			</h1>
-			<p className="z-30 max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
+			<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
 				Combine your drives and clouds into one database that you can organize and explore from any
 				device.
 				<br />
@@ -60,7 +61,15 @@ function Page() {
 					Designed for creators, hoarders and the painfully disorganized.
 				</span>
 			</p>
-			<div className="flex flex-row space-x-4 delay-3 ">
+			<div className="z-50 flex flex-row space-x-4 animation-delay-2 fade-in">
+			<Button
+					href="https://github.com/spacedriveapp/spacedrive"
+					target="_blank"
+					className="z-30 border-0 cursor-pointer bg-opacity-80"
+					variant="primary"
+				>
+					Join Waitlist
+				</Button>
 				<Button
 					href="https://github.com/spacedriveapp/spacedrive"
 					target="_blank"
@@ -71,7 +80,7 @@ function Page() {
 					Star on GitHub
 				</Button>
 			</div>
-			<p className="z-30 px-6 mt-3 text-sm text-center text-gray-450 ">
+			<p className="z-30 px-6 mt-3 text-sm text-center text-gray-450 animation-delay-3 fade-in">
 				Coming soon on macOS, Windows and Linux.
 				<br />
 				Shortly after to iOS & Android.

@@ -41,6 +41,7 @@
     "react-hotkeys-hook": "^3.4.4",
     "react-json-view": "^1.21.3",
     "react-loading-icons": "^1.0.8",
+    "react-loading-skeleton": "^3.1.0",
     "react-portal": "^4.2.2",
     "react-query": "^3.34.19",
     "react-router": "6.3.0",
