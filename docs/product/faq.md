@@ -44,7 +44,7 @@ The users that gain the most value will be creative people whose work produces o
 
 ## How will this make money?
 
-During the early development and beta stages it will rely on donations via Open Collective and [Twitch][twitch-live]. However there are plans to create a business around hosted instances of Spacedrive. Otherwise it will remain entirely open and free.
+During the early development and beta stages it will rely on donations via Open Collective and Twitch. However there are plans to create a business around hosted instances of Spacedrive. Otherwise it will remain entirely open and free.
 
 ## What is the stack?
 
