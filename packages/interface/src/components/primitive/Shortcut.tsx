@@ -1,16 +1,17 @@
 import clsx from 'clsx';
 import React from 'react';
+
 import { DefaultProps } from './types';
 
 export interface ShortcutProps extends DefaultProps {
-  chars: string;
+	chars: string;
 }
 
 export const Shortcut: React.FC<ShortcutProps> = (props) => {
-  return (
-    <span
-      className={clsx(
-        `
+	return (
+		<span
+			className={clsx(
+				`
           px-1
           py-0.5
           text-xs
@@ -24,10 +25,10 @@ export const Shortcut: React.FC<ShortcutProps> = (props) => {
           border-t-2
           rounded-lg
   `,
-        props.className
-      )}
-    >
-      {props.chars}
-    </span>
-  );
+				props.className
+			)}
+		>
+			{props.chars}
+		</span>
+	);
 };

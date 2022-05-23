@@ -1,6 +1,7 @@
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
+
 import { AppPropsContext } from '../App';
 import CodeBlock from '../components/primitive/Codeblock';
 
@@ -33,22 +34,22 @@ export const DebugScreen: React.FC<{}> = (props) => {
             Open data folder
           </Button>
 
-          <Button
-            className="w-40"
-            variant="gray"
-            size="sm"
-            onClick={() => identifyFiles(undefined)}
-          >
-            Identify unique files
-          </Button>
-        </div>
-        <h1 className="text-sm font-bold ">Running Jobs</h1>
-        <CodeBlock src={{ ...jobs }} />
-        <h1 className="text-sm font-bold ">Job History</h1>
-        <CodeBlock src={{ ...jobHistory }} />
-        <h1 className="text-sm font-bold ">Client State</h1>
-        <CodeBlock src={{ ...client }} />
-      </div>
-    </div>
-  );
+					<Button
+						className="w-40"
+						variant="gray"
+						size="sm"
+						onClick={() => identifyFiles(undefined)}
+					>
+						Identify unique files
+					</Button>
+				</div>
+				<h1 className="text-sm font-bold ">Running Jobs</h1>
+				<CodeBlock src={{ ...jobs }} />
+				<h1 className="text-sm font-bold ">Job History</h1>
+				<CodeBlock src={{ ...jobHistory }} />
+				<h1 className="text-sm font-bold ">Client State</h1>
+				<CodeBlock src={{ ...client }} />
+			</div>
+		</div>
+	);
 };
