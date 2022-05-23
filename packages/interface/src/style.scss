@@ -3,12 +3,14 @@ button {
   @apply cursor-default;
 }
 
-body { font-family: "InterVariable", sans-serif; }
+body {
+  font-family: 'InterVariable', sans-serif;
+}
 
 .no-scrollbar {
   -ms-overflow-style: none; /* for Internet Explorer, Edge */
   scrollbar-width: none; /* for Firefox */
-  overflow-y: scroll; 
+  overflow-y: scroll;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -18,7 +20,7 @@ body { font-family: "InterVariable", sans-serif; }
 .custom-scroll {
   -ms-overflow-style: none; /* for Internet Explorer, Edge */
   scrollbar-width: none; /* for Firefox */
-  overflow-y: scroll; 
+  overflow-y: scroll;
 }
 
 .explorer-scroll {
@@ -51,13 +53,12 @@ body { font-family: "InterVariable", sans-serif; }
     width: 8px;
   }
   &::-webkit-scrollbar-track {
-    @apply bg-transparent rounded-[6px]  my-[10px]
+    @apply bg-transparent rounded-[6px]  my-[10px];
   }
   &::-webkit-scrollbar-thumb {
     @apply rounded-[6px] bg-gray-300  dark:bg-gray-550;
   }
 }
-
 
 @keyframes fadeIn {
   from {
@@ -80,24 +81,23 @@ body { font-family: "InterVariable", sans-serif; }
 @-webkit-keyframes slide-top {
   0% {
     -webkit-transform: translateY(0);
-            transform: translateY(0);
+    transform: translateY(0);
   }
   100% {
     -webkit-transform: translateY(-50px);
-            transform: translateY(-50px);
+    transform: translateY(-50px);
   }
 }
 @keyframes slide-top {
   0% {
     -webkit-transform: translateY(0);
-            transform: translateY(0);
+    transform: translateY(0);
   }
   100% {
     -webkit-transform: translateY(-50px);
-            transform: translateY(-50px);
+    transform: translateY(-50px);
   }
 }
-
 
 .dialog-overlay[data-state='open'] {
   animation: fadeIn 200ms ease-out forwards;
@@ -106,8 +106,8 @@ body { font-family: "InterVariable", sans-serif; }
   animation: fadeIn 200ms ease-out forwards;
 }
 .dialog-content[data-state='open'] {
-  -webkit-animation: slide-top 0.3s cubic-bezier(0.215, 0.610, 0.355, 1.000) both;
-  animation: slide-top 0.3s cubic-bezier(0.215, 0.610, 0.355, 1.000) both;
+  -webkit-animation: slide-top 0.3s cubic-bezier(0.215, 0.61, 0.355, 1) both;
+  animation: slide-top 0.3s cubic-bezier(0.215, 0.61, 0.355, 1) both;
 }
 .dialog-content[data-state='closed'] {
   animation: bounceDown 100ms ease-in forwards;

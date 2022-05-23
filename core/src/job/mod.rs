@@ -8,10 +8,10 @@ pub mod worker;
 
 #[derive(Error, Debug)]
 pub enum JobError {
-  #[error("Failed to create job (job_id {job_id:?})")]
-  CreateFailure { job_id: String },
-  #[error("Database error")]
-  DatabaseError(#[from] prisma::QueryError),
+	#[error("Failed to create job (job_id {job_id:?})")]
+	CreateFailure { job_id: String },
+	#[error("Database error")]
+	DatabaseError(#[from] prisma::QueryError),
 }
 
 // pub struct JobContext {
