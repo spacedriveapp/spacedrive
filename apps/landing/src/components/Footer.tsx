@@ -1,10 +1,10 @@
 import {
-	Twitter,
 	Discord,
-	Instagram,
 	Github,
+	Instagram,
 	Opencollective,
-	Twitch
+	Twitch,
+	Twitter
 } from '@icons-pack/react-simple-icons';
 import React from 'react';
 
