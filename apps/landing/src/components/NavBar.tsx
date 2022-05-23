@@ -61,6 +61,7 @@ export default function NavBar() {
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/faq">FAQ</NavLink>
 					<NavLink link="/team">Team</NavLink>
+					<NavLink link="https://spacedrive.hashnode.dev">Blog</NavLink>
 					{/* <NavLink link="/change-log">Changelog</NavLink>
           <NavLink link="/privacy">Privacy</NavLink> */}
 					<NavLink link="https://opencollective.com/spacedrive">Sponsor us</NavLink>

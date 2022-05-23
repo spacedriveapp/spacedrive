@@ -45,7 +45,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 function Page() {
 	return (
 		<>
-			<div className="mt-28 lg:mt-36" />
+			<div className="mt-22 lg:mt-28" />
 			<NewBanner />
 			<h1
 				id="content"
@@ -61,11 +61,11 @@ function Page() {
 					Designed for creators, hoarders and the painfully disorganized.
 				</span>
 			</p>
-			<div className="z-50 flex flex-row space-x-4 animation-delay-2 fade-in">
-			<Button
+			<div className="z-30 flex flex-row space-x-4 animation-delay-2 fade-in">
+				<Button
 					href="https://github.com/spacedriveapp/spacedrive"
 					target="_blank"
-					className="z-30 border-0 cursor-pointer bg-opacity-80"
+					className="z-30 border-0 cursor-pointer"
 					variant="primary"
 				>
 					Join Waitlist
