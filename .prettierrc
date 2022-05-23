@@ -1,19 +1,18 @@
 {
-  "useTabs": false,
-  "printWidth": 100,
-  "tabWidth": 2,
-  "singleQuote": true,
-  "trailingComma": "none",
-  "jsxBracketSameLine": false,
-  "semi": true,
-  "quoteProps": "consistent",
-  "importOrder": [
-    "^@sd/core/(.*)$",
-    "^@sd/interface/(.*)$",
-    "^@sd/client/(.*)$",
-    "^@sd/ui/(.*)$",
-    "^[./]"
-  ],
-  "importOrderSeparation": true,
-  "importOrderSortSpecifiers": true
+	"useTabs": true,
+	"printWidth": 100,
+	"singleQuote": true,
+	"trailingComma": "none",
+	"jsxBracketSameLine": false,
+	"semi": true,
+	"quoteProps": "consistent",
+	"importOrder": [
+		"^@sd/core/(.*)$",
+		"^@sd/interface/(.*)$",
+		"^@sd/client/(.*)$",
+		"^@sd/ui/(.*)$",
+		"^[./]"
+	],
+	"importOrderSeparation": true,
+	"importOrderSortSpecifiers": true
 }
