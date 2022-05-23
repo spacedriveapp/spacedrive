@@ -1,18 +1,18 @@
 {
-  "name": "@sd/core",
-  "version": "0.0.0",
-  "main": "index.js",
-  "license": "MIT",
-  "scripts": {
-    "codegen": "cargo test && ts-node ./scripts/bindingsIndex.ts",
-    "build": "cargo build",
-    "test": "cargo test",
-    "test:log": "cargo test -- --nocapture",
-    "prisma": "cargo prisma"
-  },
-  "devDependencies": {
-    "@types/node": "^17.0.23",
-    "ts-node": "^10.7.0",
-    "typescript": "^4.6.3"
-  }
+	"name": "@sd/core",
+	"version": "0.0.0",
+	"main": "index.js",
+	"license": "MIT",
+	"scripts": {
+		"codegen": "cargo test && ts-node ./scripts/bindingsIndex.ts",
+		"build": "cargo build",
+		"test": "cargo test",
+		"test:log": "cargo test -- --nocapture",
+		"prisma": "cargo prisma"
+	},
+	"devDependencies": {
+		"@types/node": "^17.0.23",
+		"ts-node": "^10.7.0",
+		"typescript": "^4.6.3"
+	}
 }

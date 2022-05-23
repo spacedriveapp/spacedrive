@@ -4,15 +4,15 @@ import { ReactComponent as Content } from '~/docs/changelog/index.md';
 import { Helmet } from 'react-helmet';
 
 function Page() {
-  return (
-    <Markdown>
-      <Helmet>
-        <title>Changelog - Spacedrive</title>
-        <meta name="description" content="Updates and release builds of the Spacedrive app." />
-      </Helmet>
-      <Content />
-    </Markdown>
-  );
+	return (
+		<Markdown>
+			<Helmet>
+				<title>Changelog - Spacedrive</title>
+				<meta name="description" content="Updates and release builds of the Spacedrive app." />
+			</Helmet>
+			<Content />
+		</Markdown>
+	);
 }
 
 export default Page;

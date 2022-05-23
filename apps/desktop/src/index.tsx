@@ -15,79 +15,79 @@ import { appWindow } from '@tauri-apps/api/window';
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
-  constructor() {
-    super();
+	constructor() {
+		super();
 
-    listen('core_event', (e: Event<CoreEvent>) => {
-      this.emit('core_event', e.payload);
-    });
-  }
-  async query(query: ClientQuery) {
-    return await invoke('client_query_transport', { data: query });
-  }
-  async command(query: ClientCommand) {
-    return await invoke('client_command_transport', { data: query });
-  }
+		listen('core_event', (e: Event<CoreEvent>) => {
+			this.emit('core_event', e.payload);
+		});
+	}
+	async query(query: ClientQuery) {
+		return await invoke('client_query_transport', { data: query });
+	}
+	async command(query: ClientCommand) {
+		return await invoke('client_command_transport', { data: query });
+	}
 }
 
 function App() {
-  function getPlatform(platform: string): Platform {
-    switch (platform) {
-      case 'darwin':
-        return 'macOS';
-      case 'win32':
-        return 'windows';
-      case 'linux':
-        return 'linux';
-      default:
-        return 'browser';
-    }
-  }
+	function getPlatform(platform: string): Platform {
+		switch (platform) {
+			case 'darwin':
+				return 'macOS';
+			case 'win32':
+				return 'windows';
+			case 'linux':
+				return 'linux';
+			default:
+				return 'browser';
+		}
+	}
 
-  const [platform, setPlatform] = useState<Platform>('macOS');
-  const [focused, setFocused] = useState(true);
+	const [platform, setPlatform] = useState<Platform>('macOS');
+	const [focused, setFocused] = useState(true);
 
-  useEffect(() => {
-    os.platform().then((platform) => setPlatform(getPlatform(platform)));
-    invoke('app_ready');
-  }, []);
+	useEffect(() => {
+		os.platform().then((platform) => setPlatform(getPlatform(platform)));
+		invoke('app_ready');
+	}, []);
 
-  useEffect(() => {
-    const unlistenFocus = listen('tauri://focus', () => setFocused(true));
-    const unlistenBlur = listen('tauri://blur', () => setFocused(false));
+	useEffect(() => {
+		const unlistenFocus = listen('tauri://focus', () => setFocused(true));
+		const unlistenBlur = listen('tauri://blur', () => setFocused(false));
 
-    return () => {
-      unlistenFocus.then((unlisten) => unlisten());
-      unlistenBlur.then((unlisten) => unlisten());
-    };
-  }, []);
+		return () => {
+			unlistenFocus.then((unlisten) => unlisten());
+			unlistenBlur.then((unlisten) => unlisten());
+		};
+	}, []);
 
-  return (
-    <SpacedriveInterface
-      useMemoryRouter
-      transport={new Transport()}
-      platform={platform}
-      convertFileSrc={function (url: string): string {
-        return convertFileSrc(url);
-      }}
-      openDialog={function (options: {
-        directory?: boolean | undefined;
-      }): Promise<string | string[]> {
-        return dialog.open(options);
-      }}
-      isFocused={focused}
-      onClose={() => appWindow.close()}
-      onFullscreen={() => appWindow.setFullscreen(true)}
-      onMinimize={() => appWindow.minimize()}
-      onOpen={(path: string) => shell.open(path)}
-    />
-  );
+	return (
+		<SpacedriveInterface
+			useMemoryRouter
+			transport={new Transport()}
+			platform={platform}
+			convertFileSrc={function (url: string): string {
+				return convertFileSrc(url);
+			}}
+			openDialog={function (options: {
+				directory?: boolean | undefined;
+			}): Promise<string | string[]> {
+				return dialog.open(options);
+			}}
+			isFocused={focused}
+			onClose={() => appWindow.close()}
+			onFullscreen={() => appWindow.setFullscreen(true)}
+			onMinimize={() => appWindow.minimize()}
+			onOpen={(path: string) => shell.open(path)}
+		/>
+	);
 }
 
 const root = createRoot(document.getElementById('root')!);
 
 root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+	<React.StrictMode>
+		<App />
+	</React.StrictMode>
 );

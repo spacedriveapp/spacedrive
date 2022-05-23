@@ -1,83 +1,83 @@
 {
-  "package": {
-    "productName": "Spacedrive",
-    "version": "0.1.0"
-  },
-  "build": {
-    "distDir": "../dist",
-    "devPath": "http://localhost:8001",
-    "beforeDevCommand": "",
-    "beforeBuildCommand": ""
-  },
-  "tauri": {
-    "macOSPrivateApi": true,
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "app.spacedrive.desktop",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "resources": [],
-      "externalBin": [],
-      "copyright": "Jamie Pine",
-      "shortDescription": "The Universal File Explorer",
-      "longDescription": "A cross-platform file explorer, powered by an open source virtual distributed filesystem.",
-      "deb": {
-        "depends": [],
-        "useBootstrapper": false
-      },
-      "macOS": {
-        "frameworks": [],
-        "minimumSystemVersion": "",
-        "useBootstrapper": false,
-        "exceptionDomain": "",
-        "signingIdentity": null,
-        "entitlements": null
-      },
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
-      }
-    },
-    "updater": {
-      "active": false
-    },
-    "allowlist": {
-      "all": true,
-      "protocol": {
-        "assetScope": ["*"]
-      },
-      "dialog": {
-        "all": true,
-        "open": true,
-        "save": true
-      }
-    },
-    "windows": [
-      {
-        "title": "Spacedrive",
-        "width": 1200,
-        "height": 725,
-        "minWidth": 700,
-        "minHeight": 500,
-        "resizable": true,
-        "fullscreen": false,
-        "alwaysOnTop": false,
-        "focus": false,
-        "fileDropEnabled": false,
-        "decorations": true,
-        "transparent": true,
-        "center": true
-      }
-    ],
-    "security": {
-      "csp": "default-src asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
-    }
-  }
+	"package": {
+		"productName": "Spacedrive",
+		"version": "0.1.0"
+	},
+	"build": {
+		"distDir": "../dist",
+		"devPath": "http://localhost:8001",
+		"beforeDevCommand": "",
+		"beforeBuildCommand": ""
+	},
+	"tauri": {
+		"macOSPrivateApi": true,
+		"bundle": {
+			"active": true,
+			"targets": "all",
+			"identifier": "app.spacedrive.desktop",
+			"icon": [
+				"icons/32x32.png",
+				"icons/128x128.png",
+				"icons/128x128@2x.png",
+				"icons/icon.icns",
+				"icons/icon.ico"
+			],
+			"resources": [],
+			"externalBin": [],
+			"copyright": "Jamie Pine",
+			"shortDescription": "The Universal File Explorer",
+			"longDescription": "A cross-platform file explorer, powered by an open source virtual distributed filesystem.",
+			"deb": {
+				"depends": [],
+				"useBootstrapper": false
+			},
+			"macOS": {
+				"frameworks": [],
+				"minimumSystemVersion": "",
+				"useBootstrapper": false,
+				"exceptionDomain": "",
+				"signingIdentity": null,
+				"entitlements": null
+			},
+			"windows": {
+				"certificateThumbprint": null,
+				"digestAlgorithm": "sha256",
+				"timestampUrl": ""
+			}
+		},
+		"updater": {
+			"active": false
+		},
+		"allowlist": {
+			"all": true,
+			"protocol": {
+				"assetScope": ["*"]
+			},
+			"dialog": {
+				"all": true,
+				"open": true,
+				"save": true
+			}
+		},
+		"windows": [
+			{
+				"title": "Spacedrive",
+				"width": 1200,
+				"height": 725,
+				"minWidth": 700,
+				"minHeight": 500,
+				"resizable": true,
+				"fullscreen": false,
+				"alwaysOnTop": false,
+				"focus": false,
+				"fileDropEnabled": false,
+				"decorations": true,
+				"transparent": true,
+				"center": true
+			}
+		],
+		"security": {
+			"csp": "default-src asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
+		}
+	}
 }
