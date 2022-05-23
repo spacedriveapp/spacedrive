@@ -3,17 +3,17 @@
 @tailwind utilities;
 
 .html {
-  background: #404040;
+	background: #404040;
 }
 
 .backdrop-blur {
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+	backdrop-filter: blur(18px);
+	-webkit-backdrop-filter: blur(18px);
 }
 
 .inset-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
 }

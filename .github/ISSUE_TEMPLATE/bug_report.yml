@@ -1,6 +1,6 @@
 name: 🐞 Bug Report
 description: Report a bug
-labels: 
+labels:
   - kind/bug
   - status/needs-triage
 
@@ -43,8 +43,8 @@ body:
     id: info
     attributes:
       label: Platform and versions
-      description: "Please include the output of `pnpm --version && cargo --version && rustc --version` along with information about your Operating System such as version and/or specific distribution if revelant."
-      render: shell
+      description: 'Please include the output of `pnpm --version && cargo --version && rustc --version` along with information about your Operating System such as version and/or specific distribution if revelant.'
+      render: Shell
     validations:
       required: true
 
@@ -52,8 +52,8 @@ body:
     id: logs
     attributes:
       label: Stack trace
-      render: shell
-  
+      render: Shell
+
   - type: textarea
     id: context
     attributes:

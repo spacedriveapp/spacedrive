@@ -2,22 +2,22 @@ use std::fs;
 
 use crate::job::jobs::JobReportUpdate;
 use crate::{
-  file::FileError,
-  job::{jobs::Job, worker::WorkerContext},
-  prisma::{file_path},
-  CoreContext,
+	file::FileError,
+	job::{jobs::Job, worker::WorkerContext},
+	prisma::file_path,
+	CoreContext,
 };
 use anyhow::Result;
 use futures::executor::block_on;
-use serde::{Deserialize, Serialize};
 use prisma_client_rust::Direction;
+use serde::{Deserialize, Serialize};
 
 use super::checksum::generate_cas_id;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FileCreated {
-  pub id: i32,
-  pub cas_id: String,
+	pub id: i32,
+	pub cas_id: String,
 }
 
 #[derive(Debug)]
@@ -25,24 +25,24 @@ pub struct FileIdentifierJob;
 
 #[async_trait::async_trait]
 impl Job for FileIdentifierJob {
-  fn name(&self) -> &'static str {
-    "file_identifier"
-  }
-  async fn run(&self, ctx: WorkerContext) -> Result<()> {
-    println!("Identifying files");
-    let total_count = count_orphan_file_paths(&ctx.core_ctx).await?;
-    println!("Found {} orphan file paths", total_count);
+	fn name(&self) -> &'static str {
+		"file_identifier"
+	}
+	async fn run(&self, ctx: WorkerContext) -> Result<()> {
+		println!("Identifying files");
+		let total_count = count_orphan_file_paths(&ctx.core_ctx).await?;
+		println!("Found {} orphan file paths", total_count);
 
-    let task_count = (total_count as f64 / 100f64).ceil() as usize;
+		let task_count = (total_count as f64 / 100f64).ceil() as usize;
 
-    println!("Will process {} tasks", task_count);
+		println!("Will process {} tasks", task_count);
 
-    // update job with total task count based on orphan file_paths count
-    ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
+		// update job with total task count based on orphan file_paths count
+		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-    let db = ctx.core_ctx.database.clone();
+		let db = ctx.core_ctx.database.clone();
 
-    let ctx = tokio::task::spawn_blocking(move || {
+		let ctx = tokio::task::spawn_blocking(move || {
       let mut completed: usize = 0;
       let mut cursor: i32 = 1;
 
@@ -102,69 +102,68 @@ impl Job for FileIdentifierJob {
       ctx
     }).await?;
 
-    let remaining = count_orphan_file_paths(&ctx.core_ctx).await?;
+		let remaining = count_orphan_file_paths(&ctx.core_ctx).await?;
 
-    println!("Finished with {} files remaining because your code is bad.", remaining);
+		println!(
+			"Finished with {} files remaining because your code is bad.",
+			remaining
+		);
 
-    // if remaining > 0 {
-    //   ctx.core_ctx.spawn_job(Box::new(FileIdentifierJob));
-    // }
+		// if remaining > 0 {
+		//   ctx.core_ctx.spawn_job(Box::new(FileIdentifierJob));
+		// }
 
-    Ok(())
-  }
+		Ok(())
+	}
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 struct CountRes {
-  count: Option<usize>,
+	count: Option<usize>,
 }
 
 pub async fn count_orphan_file_paths(ctx: &CoreContext) -> Result<usize, FileError> {
-  let db = &ctx.database;
-  let files_count = db
-    ._query_raw::<CountRes>(
-      r#"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE"#,
-    )
-    .await?;
-  Ok(files_count[0].count.unwrap_or(0))
+	let db = &ctx.database;
+	let files_count = db
+		._query_raw::<CountRes>(
+			r#"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE"#,
+		)
+		.await?;
+	Ok(files_count[0].count.unwrap_or(0))
 }
 
 pub async fn get_orphan_file_paths(
-  ctx: &CoreContext,
-  cursor: i32,
+	ctx: &CoreContext,
+	cursor: i32,
 ) -> Result<Vec<file_path::Data>, FileError> {
-  let db = &ctx.database;
-  println!("cursor: {:?}", cursor);
-  let files = db
-    .file_path()
-    .find_many(vec![
-      file_path::file_id::equals(None),
-      file_path::is_dir::equals(false),
-    ])
-    .order_by(file_path::id::order(Direction::Asc))
-    .cursor(file_path::id::cursor(cursor))
-    .take(100)
-    .exec()
-    .await?;
-  Ok(files)
+	let db = &ctx.database;
+	println!("cursor: {:?}", cursor);
+	let files = db
+		.file_path()
+		.find_many(vec![
+			file_path::file_id::equals(None),
+			file_path::is_dir::equals(false),
+		])
+		.order_by(file_path::id::order(Direction::Asc))
+		.cursor(file_path::id::cursor(cursor))
+		.take(100)
+		.exec()
+		.await?;
+	Ok(files)
 }
 
 pub fn prepare_file_values(file_path: &file_path::Data) -> Result<String> {
-  let metadata = fs::metadata(&file_path.materialized_path)?;
-  let cas_id = {
-    if !file_path.is_dir {
-      // TODO: remove unwrap
-      let mut x = generate_cas_id(&file_path.materialized_path, metadata.len()).unwrap();
-      x.truncate(16);
-      x
-    } else {
-      "".to_string()
-    }
-  };
-  // TODO: add all metadata
-  Ok(format!(
-    "(\"{}\",\"{}\")",
-    cas_id,
-    "0"
-  ))
+	let metadata = fs::metadata(&file_path.materialized_path)?;
+	let cas_id = {
+		if !file_path.is_dir {
+			// TODO: remove unwrap
+			let mut x = generate_cas_id(&file_path.materialized_path, metadata.len()).unwrap();
+			x.truncate(16);
+			x
+		} else {
+			"".to_string()
+		}
+	};
+	// TODO: add all metadata
+	Ok(format!("(\"{}\",\"{}\")", cas_id, "0"))
 }

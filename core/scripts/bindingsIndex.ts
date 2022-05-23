@@ -2,29 +2,29 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 (async function main() {
-  async function exists(path: string) {
-    try {
-      await fs.access(path);
-      return true;
-    } catch {
-      return false;
-    }
-  }
+	async function exists(path: string) {
+		try {
+			await fs.access(path);
+			return true;
+		} catch {
+			return false;
+		}
+	}
 
-  const files = await fs.readdir(path.join(__dirname, '../bindings'));
-  const bindings = files.filter((f) => f.endsWith('.ts'));
-  let str = '';
-  // str += `export * from './types';\n`;
+	const files = await fs.readdir(path.join(__dirname, '../bindings'));
+	const bindings = files.filter((f) => f.endsWith('.ts'));
+	let str = '';
+	// str += `export * from './types';\n`;
 
-  for (let binding of bindings) {
-    str += `export * from './bindings/${binding.split('.')[0]}';\n`;
-  }
+	for (let binding of bindings) {
+		str += `export * from './bindings/${binding.split('.')[0]}';\n`;
+	}
 
-  let indexExists = await exists(path.join(__dirname, '../index.ts'));
+	let indexExists = await exists(path.join(__dirname, '../index.ts'));
 
-  if (indexExists) {
-    await fs.rm(path.join(__dirname, '../index.ts'));
-  }
+	if (indexExists) {
+		await fs.rm(path.join(__dirname, '../index.ts'));
+	}
 
-  await fs.writeFile(path.join(__dirname, '../index.ts'), str);
+	await fs.writeFile(path.join(__dirname, '../index.ts'), str);
 })();
