@@ -59,19 +59,20 @@ const TrafficLight: React.FC<TrafficLightProps> = (props) => {
 				{
 					'border-red-900 !bg-[#EC6A5E] active:hover:!bg-red-700 dark:active:hover:!bg-red-300':
 						type === 'close' && colorful,
-					'border-yellow-900 !bg-[#F4BE4F] active:hover:!bg-yellow-600 dark:active:hover:!bg-yellow-200':
+					'group-hover:!bg-[#EC6A5E] ': type === 'close',
+					'border-yellow-900 !bg-[#F4BE4F]  active:hover:!bg-yellow-600 dark:active:hover:!bg-yellow-200':
 						type === 'minimize' && colorful,
-					'border-green-900 !bg-[#61C253] active:hover:!bg-green-700 dark:active:hover:!bg-green-300':
-						type === 'fullscreen' && colorful
+					'group-hover:!bg-[#F4BE4F]': type === 'minimize',
+					'border-green-900 !bg-[#61C253]  active:hover:!bg-green-700 dark:active:hover:!bg-green-300':
+						type === 'fullscreen' && colorful,
+					' group-hover:!bg-[#61C253] ': type === 'fullscreen'
 				}
 			)}
 		>
-			{colorful && (
-				<img
-					src={iconPath.current}
-					className="opacity-0 group-hover:opacity-100 group-active:opacity-100 pointer-events-none"
-				/>
-			)}
+			<img
+				src={iconPath.current}
+				className="opacity-0 group-hover:opacity-100 group-active:opacity-100 pointer-events-none"
+			/>
 		</div>
 	);
 };
