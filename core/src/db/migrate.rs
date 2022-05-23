@@ -70,15 +70,15 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 				})
 				.collect::<Vec<_>>();
 
-			migration_subdirs.sort_by(|a, b| {
-				let a_name = a.path().file_name().unwrap().to_str().unwrap();
-				let b_name = b.path().file_name().unwrap().to_str().unwrap();
+			// migration_subdirs.sort_by(|a, b| {
+			// 	let a_name = a.path().file_name().unwrap().to_str().unwrap();
+			// 	let b_name = b.path().file_name().unwrap().to_str().unwrap();
 
-				let a_time = a_name[..14].parse::<i64>().unwrap();
-				let b_time = b_name[..14].parse::<i64>().unwrap();
+			// 	let a_time = a_name[..14].parse::<i64>().unwrap();
+			// 	let b_time = b_name[..14].parse::<i64>().unwrap();
 
-				a_time.cmp(&b_time)
-			});
+			// 	a_time.cmp(&b_time)
+			// });
 
 			for subdir in migration_subdirs {
 				println!("{:?}", subdir.path());

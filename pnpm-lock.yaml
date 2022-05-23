@@ -290,6 +290,7 @@ importers:
       react-hotkeys-hook: ^3.4.4
       react-json-view: ^1.21.3
       react-loading-icons: ^1.0.8
+      react-loading-skeleton: ^3.1.0
       react-portal: ^4.2.2
       react-query: ^3.34.19
       react-router: 6.3.0
@@ -334,6 +335,7 @@ importers:
       react-hotkeys-hook: 3.4.4_zpnidt7m3osuk7shl3s4oenomq
       react-json-view: 1.21.3_ca3iilkt5tbo43h35hmeecyxuu
       react-loading-icons: 1.0.8
+      react-loading-skeleton: 3.1.0_react@18.0.0
       react-portal: 4.2.2_zpnidt7m3osuk7shl3s4oenomq
       react-query: 3.34.19_zpnidt7m3osuk7shl3s4oenomq
       react-router: 6.3.0_react@18.0.0
@@ -6773,6 +6775,14 @@ packages:
 
   /react-loading-icons/1.0.8:
     resolution: {integrity: sha512-j0myUwDUPoo3qaPkbgnA7U2RNHqLLC+wXcpMWe+rtk3Iw+mGHltZ3QitPSHFKtsFKlpM9UlMmZGZ6sw6WVVW7w==}
+    dev: false
+
+  /react-loading-skeleton/3.1.0_react@18.0.0:
+    resolution: {integrity: sha512-j1U1CWWs68nBPOg7tkQqnlFcAMFF6oEK6MgqAo15f8A5p7mjH6xyKn2gHbkcimpwfO0VQXqxAswnSYVr8lWzjw==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.0.0
     dev: false
 
   /react-portal/4.2.2_zpnidt7m3osuk7shl3s4oenomq:

@@ -13,8 +13,8 @@ export default function FileThumb(props: {
 	hasThumbnailOverride: boolean;
 	className?: string;
 }) {
-	const appPropsContext = useContext(AppPropsContext);
-	const { data: client } = useBridgeQuery('ClientGetState');
+  const appPropsContext = useContext(AppPropsContext);
+  const { data: client } = useBridgeQuery('NodeGetState');
 
 	if (props.file.is_dir) {
 		return <Folder className="max-w-[170px]" />;

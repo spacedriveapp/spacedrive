@@ -305,7 +305,7 @@ impl Node {
 		let ctx = self.get_context();
 		Ok(match query {
 			// return the client state from memory
-			ClientQuery::ClientGetState => CoreResponse::ClientGetState(self.state.clone()),
+			ClientQuery::NodeGetState => CoreResponse::NodeGetState(self.state.clone()),
 			// get system volumes without saving to library
 			ClientQuery::SysGetVolumes => {
 				CoreResponse::SysGetVolumes(sys::volumes::Volume::get_volumes()?)
@@ -372,7 +372,7 @@ pub enum ClientCommand {
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientQuery {
-	ClientGetState,
+	NodeGetState,
 	SysGetVolumes,
 	LibGetTags,
 	JobGetRunning,
@@ -413,7 +413,7 @@ pub enum CoreResponse {
 	SysGetLocation(sys::locations::LocationResource),
 	SysGetLocations(Vec<sys::locations::LocationResource>),
 	LibGetExplorerDir(file::DirectoryWithContents),
-	ClientGetState(NodeState),
+	NodeGetState(NodeState),
 	LocCreate(sys::locations::LocationResource),
 	JobGetRunning(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),
