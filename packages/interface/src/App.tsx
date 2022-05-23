@@ -1,8 +1,5 @@
 import '@fontsource/inter/variable.css';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
-// global window type extensions
-// only load at TS compile time
-import type {} from '@sd/client/src/window';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useState } from 'react';
@@ -17,6 +14,7 @@ import {
 	useLocation,
 	useNavigate
 } from 'react-router-dom';
+
 import { Sidebar } from './components/file/Sidebar';
 import { Modal } from './components/layout/Modal';
 import SlideUp from './components/transitions/SlideUp';
@@ -28,12 +26,12 @@ import { OverviewScreen } from './screens/Overview';
 import { PhotosScreen } from './screens/Photos';
 import { RedirectPage } from './screens/Redirect';
 import { SettingsScreen } from './screens/Settings';
+import { TagScreen } from './screens/Tag';
 import ExperimentalSettings from './screens/settings/ExperimentalSettings';
 import GeneralSettings from './screens/settings/GeneralSettings';
 import LibrarySettings from './screens/settings/LibrarySettings';
 import LocationSettings from './screens/settings/LocationSettings';
 import SecuritySettings from './screens/settings/SecuritySettings';
-import { TagScreen } from './screens/Tag';
 import './style.scss';
 
 const queryClient = new QueryClient();
@@ -43,18 +41,18 @@ export const AppPropsContext = React.createContext<AppProps | null>(null);
 export type Platform = 'browser' | 'macOS' | 'windows' | 'linux';
 
 export interface AppProps {
-  transport: BaseTransport;
-  platform: Platform;
-  convertFileSrc: (url: string) => string;
-  openDialog: (options: { directory?: boolean }) => Promise<string | string[]>;
-  onClose?: () => void;
-  onMinimize?: () => void;
-  onFullscreen?: () => void;
-  onOpen?: (path: string) => void;
-  isFocused?: boolean;
-  useMemoryRouter: boolean;
-  demoMode?: boolean;
-  demoData: string;
+	transport: BaseTransport;
+	platform: Platform;
+	convertFileSrc: (url: string) => string;
+	openDialog: (options: { directory?: boolean }) => Promise<string | string[]>;
+	onClose?: () => void;
+	onMinimize?: () => void;
+	onFullscreen?: () => void;
+	onOpen?: (path: string) => void;
+	isFocused?: boolean;
+	useMemoryRouter: boolean;
+	demoMode?: boolean;
+	demoData: string;
 }
 
 function AppLayout() {
@@ -118,31 +116,31 @@ function SettingsRoutes({ modal = false }) {
 }
 
 function Router() {
-  let location = useLocation();
-  let state = location.state as { backgroundLocation?: Location };
+	let location = useLocation();
+	let state = location.state as { backgroundLocation?: Location };
 
-  useEffect(() => {
-    console.log({ url: location.pathname });
-  }, [state]);
+	useEffect(() => {
+		console.log({ url: location.pathname });
+	}, [state]);
 
-  return (
-    <>
-      <Routes location={state?.backgroundLocation || location}>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={<RedirectPage to="/overview" />} />
-          <Route path="overview" element={<OverviewScreen />} />
-          <Route path="content" element={<ContentScreen />} />
-          <Route path="photos" element={<PhotosScreen />} />
-          <Route path="debug" element={<DebugScreen />} />
-          <Route path="settings/*" element={<SettingsRoutes />} />
-          <Route path="explorer/:id" element={<ExplorerScreen />} />
-          <Route path="tag/:id" element={<TagScreen />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-      {state?.backgroundLocation && <SettingsRoutes modal />}
-    </>
-  );
+	return (
+		<>
+			<Routes location={state?.backgroundLocation || location}>
+				<Route path="/" element={<AppLayout />}>
+					<Route index element={<RedirectPage to="/overview" />} />
+					<Route path="overview" element={<OverviewScreen />} />
+					<Route path="content" element={<ContentScreen />} />
+					<Route path="photos" element={<PhotosScreen />} />
+					<Route path="debug" element={<DebugScreen />} />
+					<Route path="settings/*" element={<SettingsRoutes />} />
+					<Route path="explorer/:id" element={<ExplorerScreen />} />
+					<Route path="tag/:id" element={<TagScreen />} />
+					<Route path="*" element={<NotFound />} />
+				</Route>
+			</Routes>
+			{state?.backgroundLocation && <SettingsRoutes modal />}
+		</>
+	);
 }
 
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
