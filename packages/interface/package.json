@@ -54,7 +54,6 @@
     "zustand": "^3.7.2"
   },
   "devDependencies": {
-    "@trivago/prettier-plugin-sort-imports": "^3.2.0",
     "@types/babel-core": "^6.25.7",
     "@types/byte-size": "^8.1.0",
     "@types/lodash": "^4.14.182",

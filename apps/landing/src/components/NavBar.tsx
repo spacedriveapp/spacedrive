@@ -1,9 +1,3 @@
-import { Button, Dropdown } from '@sd/ui';
-import clsx from 'clsx';
-import React, { useEffect, useState } from 'react';
-import { Link, List, MapPin, Question } from 'phosphor-react';
-import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
-import { Discord, Github } from '@icons-pack/react-simple-icons';
 import {
 	ClockIcon,
 	CogIcon,
@@ -12,6 +6,13 @@ import {
 	MapIcon,
 	QuestionMarkCircleIcon
 } from '@heroicons/react/solid';
+import { Discord, Github } from '@icons-pack/react-simple-icons';
+import { Button, Dropdown } from '@sd/ui';
+import clsx from 'clsx';
+import { Link, List, MapPin, Question } from 'phosphor-react';
+import React, { useEffect, useState } from 'react';
+
+import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 
 function NavLink(props: { link?: string; children: string }) {
 	return (

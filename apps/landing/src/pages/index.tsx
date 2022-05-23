@@ -1,9 +1,13 @@
-import React, { useEffect } from 'react';
+import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
 import { Button } from '@sd/ui';
-import { Bubbles } from '../components/Bubbles';
-import { Github } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
+import React, { useEffect } from 'react';
+import { useState } from 'react';
+
 import AppEmbed from '../components/AppEmbed';
+import { Bubbles } from '../components/Bubbles';
+import { Footer } from '../components/Footer';
+import NavBar from '../components/NavBar';
 
 interface SectionProps {
 	orientation: 'left' | 'right';

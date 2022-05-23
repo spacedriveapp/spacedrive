@@ -1,7 +1,8 @@
-import React from 'react';
 import { Menu } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
+import React from 'react';
+
 import { Button } from './Button';
 
 type Section = {

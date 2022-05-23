@@ -81,7 +81,7 @@ This allows us to entirely avoid the need to synchronize time between clients, a
 
 Sync happens in the following order:
 
-Owned data → Bulk shared data → Shared data 
+Owned data → Bulk shared data → Shared data
 
 ### Types of CRDT:
 

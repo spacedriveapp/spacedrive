@@ -1,5 +1,3 @@
-import React from 'react';
-import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 import {
 	Twitter,
 	Discord,
@@ -8,6 +6,9 @@ import {
 	Opencollective,
 	Twitch
 } from '@icons-pack/react-simple-icons';
+import React from 'react';
+
+import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
 
 function FooterLink(props: { children: string | JSX.Element; link: string }) {
 	return (

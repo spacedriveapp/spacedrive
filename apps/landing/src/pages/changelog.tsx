@@ -1,7 +1,8 @@
-import Markdown from '../components/Markdown';
 import React from 'react';
-import { ReactComponent as Content } from '~/docs/changelog/index.md';
 import { Helmet } from 'react-helmet';
+import { ReactComponent as Content } from '~/docs/changelog/index.md';
+
+import Markdown from '../components/Markdown';
 
 function Page() {
 	return (

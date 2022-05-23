@@ -1,14 +1,14 @@
+import { Button } from '@sd/ui';
 import React, { Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter as Router, useRoutes } from 'react-router-dom';
-
 import routes from '~react-pages';
-import NavBar from './components/NavBar';
-import { Footer } from './components/Footer';
 
 import '@sd/ui/style';
+
+import { Footer } from './components/Footer';
+import NavBar from './components/NavBar';
 import './style.scss';
-import { Button } from '@sd/ui';
 
 function App() {
 	return (

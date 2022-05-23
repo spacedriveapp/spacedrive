@@ -67,10 +67,7 @@ impl LibraryNode {
 					.create(
 						node::pub_id::set(config.node_pub_id.clone()),
 						node::name::set(hostname.clone()),
-						vec![
-							node::platform::set(platform as i32),
-							node::online::set(Some(true)),
-						],
+						vec![node::platform::set(platform as i32)],
 					)
 					.exec()
 					.await?

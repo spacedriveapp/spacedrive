@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import pages from 'vite-plugin-pages';
+import { defineConfig } from 'vite';
 import md, { Mode } from 'vite-plugin-markdown';
+import pages from 'vite-plugin-pages';
 import svg from 'vite-plugin-svgr';
 
 // https://vitejs.dev/config/

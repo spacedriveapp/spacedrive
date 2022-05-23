@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
-
 import Prism from 'prismjs';
 import 'prismjs/components/prism-rust';
+import React, { useEffect } from 'react';
+
 import '../atom-one.css';
 
 interface MarkdownPageProps {

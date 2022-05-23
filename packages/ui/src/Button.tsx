@@ -1,5 +1,5 @@
-import React from 'react';
 import clsx from 'clsx';
+import React from 'react';
 
 const sizes = {
 	default: 'py-1 px-3 text-md font-medium',

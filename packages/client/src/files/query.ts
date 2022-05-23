@@ -1,7 +1,8 @@
-import { useQuery } from 'react-query';
 import { useState } from 'react';
-import { useFileExplorerState } from './state';
+import { useQuery } from 'react-query';
+
 import { useBridgeCommand, useBridgeQuery } from '../bridge';
+import { useFileExplorerState } from './state';
 
 // this hook initializes the explorer state and queries the core
 export function useFileExplorer(initialPath = '/', initialLocation: number | null = null) {

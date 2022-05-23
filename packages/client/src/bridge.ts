@@ -1,11 +1,11 @@
 import { ClientCommand, ClientQuery, CoreResponse } from '@sd/core';
 import { EventEmitter } from 'eventemitter3';
 import {
-	useMutation,
-	useQuery,
+	UseMutationOptions,
 	UseQueryOptions,
 	UseQueryResult,
-	UseMutationOptions
+	useMutation,
+	useQuery
 } from 'react-query';
 
 // global var to store the transport TODO: not global :D
