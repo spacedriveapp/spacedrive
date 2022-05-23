@@ -33,7 +33,7 @@ const Heading: React.FC<{ className?: string; children: string }> = ({ children,
 export const SettingsScreen: React.FC<{}> = () => {
 	return (
 		<div className="flex flex-row w-full">
-			<div className="h-full border-r border-gray-100 w-60 dark:border-gray-550">
+			<div className="h-full border-r max-w-[200px] border-gray-100 w-60 dark:border-gray-550">
 				<div data-tauri-drag-region className="w-full h-7" />
 				<div className="p-5 pt-0">
 					<Heading className="mt-0">Client</Heading>

@@ -63,16 +63,12 @@ const LocationContext = React.createContext<{
 	data_path: ''
 });
 
-export const FileList: React.FC<{
-	location_id: number;
-	path: string;
-	limit: number;
-}> = (props) => {
+export const FileList: React.FC<{ location_id: number; path: string; limit: number }> = (props) => {
 	const size = useWindowSize();
 	const tableContainer = useRef<null | HTMLDivElement>(null);
 	const VList = useRef<null | VirtuosoHandle>(null);
 
-	const { data: client } = useBridgeQuery('ClientGetState', undefined, {
+	const { data: client } = useBridgeQuery('NodeGetState', undefined, {
 		refetchOnWindowFocus: false
 	});
 
@@ -151,10 +147,7 @@ export const FileList: React.FC<{
 				className="w-full pl-2 bg-white cursor-default table-container dark:bg-gray-650"
 			>
 				<LocationContext.Provider
-					value={{
-						location_id: props.location_id,
-						data_path: client?.data_path as string
-					}}
+					value={{ location_id: props.location_id, data_path: client?.data_path as string }}
 				>
 					<Virtuoso
 						data={currentDir?.contents}
@@ -240,7 +233,7 @@ const RenderCell: React.FC<{
 		case 'name':
 			return (
 				<div className="flex flex-row items-center overflow-hidden">
-					<div className="flex items-center justify-center shrink-0 w-6 h-6 mr-3">
+					<div className="flex items-center justify-center w-6 h-6 mr-3 shrink-0">
 						<FileThumb
 							hasThumbnailOverride={hasNewThumbnail}
 							file={row}

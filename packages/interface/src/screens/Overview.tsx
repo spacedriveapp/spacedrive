@@ -33,7 +33,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 		end: amount,
 		delay: 0.1,
 		decimals: 1,
-		duration: appPropsContext?.demoMode ? 2 : 1,
+		duration: appPropsContext?.demoMode ? 1 : 0.5,
 		useEasing: true,
 		onEnd: () => {
 			setHasRun(true);
@@ -57,7 +57,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 export const OverviewScreen: React.FC<{}> = (props) => {
 	const { data: libraryStatistics } = useBridgeQuery('GetLibraryStatistics');
-	const { data: clientState } = useBridgeQuery('ClientGetState');
+	const { data: clientState } = useBridgeQuery('NodeGetState');
 
 	const [stats, setStats] = useState<Statistics>(libraryStatistics || ({} as Statistics));
 
