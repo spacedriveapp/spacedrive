@@ -19,12 +19,19 @@ model Migration {
 }
 
 model SyncEvent {
-    id        Int    @id @default(autoincrement())
+    id        Int     @id @default(autoincrement())
     node_id   Int
     timestamp String
-    data      String
-    node      Node   @relation(fields: [node_id], references: [id])
+    // individual record pub id OR compound many-to-many pub ids
+    record_id String
+    // the type of operation, I.E: CREATE, UPDATE, DELETE as an enum
+    type      Int
+    // the column name for atomic update operations
+    column    String?
+    // the new value for create/update operations, msgpack encoded
+    value     String
 
+    node Node @relation(fields: [node_id], references: [id])
     @@map("sync_events")
 }
 
