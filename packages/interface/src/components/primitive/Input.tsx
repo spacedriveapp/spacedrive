@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import React from 'react';
 
 const variants = {
-  default: `
+	default: `
     shadow-sm
     bg-white
     hover:bg-white
@@ -26,46 +26,46 @@ const variants = {
     dark:text-white 
     placeholder-gray-300
   `,
-  primary: ''
+	primary: ''
 };
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  variant?: keyof typeof variants;
+	variant?: keyof typeof variants;
 }
 
 export const Input = ({ ...props }: InputProps) => {
-  return (
-    <input
-      {...props}
-      className={clsx(
-        `px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
-        variants[props.variant || 'default'],
-        props.className
-      )}
-    />
-  );
+	return (
+		<input
+			{...props}
+			className={clsx(
+				`px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
+				variants[props.variant || 'default'],
+				props.className
+			)}
+		/>
+	);
 };
 
 interface TextAreaProps extends React.InputHTMLAttributes<HTMLTextAreaElement> {
-  variant?: keyof typeof variants;
+	variant?: keyof typeof variants;
 }
 
 export const TextArea = ({ size, ...props }: TextAreaProps) => {
-  return (
-    <textarea
-      {...props}
-      className={clsx(
-        `px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
-        variants[props.variant || 'default'],
-        size && '',
-        props.className
-      )}
-    />
-  );
+	return (
+		<textarea
+			{...props}
+			className={clsx(
+				`px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
+				variants[props.variant || 'default'],
+				size && '',
+				props.className
+			)}
+		/>
+	);
 };
 
 export const Label: React.FC<{ slug?: string; children: string }> = (props) => (
-  <label className="text-sm font-bold" htmlFor={props.slug}>
-    {props.children}
-  </label>
+	<label className="text-sm font-bold" htmlFor={props.slug}>
+		{props.children}
+	</label>
 );
