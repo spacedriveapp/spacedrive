@@ -13,7 +13,7 @@ export default function FileThumb(props: {
   className?: string;
 }) {
   const appPropsContext = useContext(AppPropsContext);
-  const { data: client } = useBridgeQuery('ClientGetState');
+  const { data: client } = useBridgeQuery('NodeGetState');
 
   if (props.file.is_dir) {
     return <Folder className="max-w-[170px]" />;

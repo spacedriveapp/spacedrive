@@ -6,7 +6,7 @@ import CodeBlock from '../components/primitive/Codeblock';
 
 export const DebugScreen: React.FC<{}> = (props) => {
   const appPropsContext = useContext(AppPropsContext);
-  const { data: client } = useBridgeQuery('ClientGetState');
+  const { data: client } = useBridgeQuery('NodeGetState');
   const { data: jobs } = useBridgeQuery('JobGetRunning');
   const { data: jobHistory } = useBridgeQuery('JobGetHistory');
   // const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
