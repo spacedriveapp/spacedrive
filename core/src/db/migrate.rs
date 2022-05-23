@@ -7,7 +7,8 @@ use ring::digest::{Context, Digest, SHA256};
 use std::ffi::OsStr;
 use std::io::{BufReader, Read};
 
-const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
+const INIT_MIGRATION: &str =
+	include_str!("../../prisma/migrations/0_migration_table/migration.sql");
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
 pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
