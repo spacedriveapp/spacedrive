@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import React, { useEffect } from 'react';
+
 import closeIconPath from '../../assets/svg/macos_close.svg';
 import fullscreenIconPath from '../../assets/svg/macos_fullscreen.svg';
 import minimizeIconPath from '../../assets/svg/macos_minimize.svg';
@@ -54,7 +55,7 @@ const TrafficLight: React.FC<TrafficLightProps> = (props) => {
     <div
       onClick={onClick}
       className={clsx(
-        'rounded-full box-border w-[12px] h-[12px] border-[0.5px] border-transparent bg-[#CDCED0] dark:bg-[#2B2C2F] flex justify-center items-center',
+        'rounded-full box-content w-[12px] h-[12px] border-[0.5px] border-transparent bg-[#CDCED0] dark:bg-[#2B2C2F] flex justify-center items-center',
         {
           'border-red-900 !bg-[#EC6A5E] active:hover:!bg-red-700 dark:active:hover:!bg-red-400':
             type === 'close' && colorful,
