@@ -1,19 +1,19 @@
-import { CameraIcon, LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
-import { CogIcon, EyeOffIcon, PlusIcon, ServerIcon } from '@heroicons/react/solid';
-import clsx from 'clsx';
-import { Camera, CirclesFour, Code, EjectSimple, MonitorPlay, Planet } from 'phosphor-react';
-import React, { useContext, useEffect, useState } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
-import { TrafficLights } from '../os/TrafficLights';
-import { Button, Dropdown } from '@sd/ui';
-import { DefaultProps } from '../primitive/types';
+import { LockClosedIcon } from '@heroicons/react/outline';
+import { CogIcon, EyeOffIcon, PhotographIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
-import RunningJobsWidget from '../jobs/RunningJobsWidget';
+import { Button, Dropdown } from '@sd/ui';
+import clsx from 'clsx';
+import { CirclesFour, Code, Planet } from 'phosphor-react';
+import React, { useContext } from 'react';
+import { useParams } from 'react-router';
+import { NavLink, NavLinkProps } from 'react-router-dom';
 import { AppPropsContext } from '../../App';
-
-import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
+import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 import { useStore } from '../device/Stores';
+import RunningJobsWidget from '../jobs/RunningJobsWidget';
+import { MacTrafficLights } from '../os/TrafficLights';
+import { DefaultProps } from '../primitive/types';
 
 interface SidebarProps extends DefaultProps {}
 
@@ -41,25 +41,36 @@ const Heading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300">{children}</div>
 );
 
-export function MacOSTrafficLights() {
+export const MacWindowControlsSpace: React.FC<{
+  children?: React.ReactNode;
+}> = (props) => {
+  const { children } = props;
+
+  return (
+    <div data-tauri-drag-region className="h-7 flex-shrink-0">
+      {children}
+    </div>
+  );
+};
+
+export function MacWindowControls() {
   const appPropsContext = useContext(AppPropsContext);
 
   return (
-    <div data-tauri-drag-region className="h-7">
-      <div className="mt-2 mb-1 -ml-1 ">
-        <TrafficLights
-          onClose={appPropsContext?.onClose}
-          onFullscreen={appPropsContext?.onFullscreen}
-          onMinimize={appPropsContext?.onMinimize}
-          className="p-1.5 z-50 absolute"
-        />
-      </div>
-    </div>
+    <MacWindowControlsSpace>
+      <MacTrafficLights
+        onClose={appPropsContext?.onClose}
+        onFullscreen={appPropsContext?.onFullscreen}
+        onMinimize={appPropsContext?.onMinimize}
+        className="z-50 absolute top-[13px] left-[13px]"
+      />
+    </MacWindowControlsSpace>
   );
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const experimental = useStore((state) => state.experimental);
+  const params = useParams();
 
   const appPropsContext = useContext(AppPropsContext);
   const { data: locations } = useBridgeQuery('SysGetLocations');
@@ -76,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
   ];
 
   return (
-    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+    <div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
       {appPropsContext?.platform === 'browser' &&
       window.location.search.includes('showControls') ? (
         <MacWindowControls />
@@ -99,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
           variant: 'gray'
         }}
         // buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-        buttonText={clientState?.node_name || 'Loading...'}
+        buttonText={clientState?.node_nam || 'Loading...'}
         items={[
           [{ name: clientState?.node_name || '', selected: true }, { name: 'Private Library' }],
           [
