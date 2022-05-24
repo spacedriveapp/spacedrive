@@ -1,8 +1,8 @@
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { Button } from '@sd/ui';
+import { Input } from '@sd/ui';
 import React, { useState } from 'react';
 
-import { Input } from '../../components/primitive';
 import { InputContainer } from '../../components/primitive/InputContainer';
 import Listbox from '../../components/primitive/Listbox';
 import Slider from '../../components/primitive/Slider';
