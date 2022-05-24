@@ -87,8 +87,15 @@ function Page() {
 					<form
 						onSubmit={(e) => {
 							e.preventDefault();
-							// TODO: MAKE POST REQUEST HERE OSCAR :D
-							console.log({ waitlistEmail });
+							fetch('https://waitlist-api.spacedrive.com/api/expression-of-interest', {
+								method: 'POST',
+								headers: {
+									'Content-Type': 'application/json'
+								},
+								body: JSON.stringify({
+									email: waitlistEmail
+								})
+							});
 						}}
 					>
 						<div className="flex flex-row">
