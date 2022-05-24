@@ -2,5 +2,5 @@
 	"name": "@sd/server",
 	"version": "0.0.0",
 	"main": "index.js",
-	"license": "MIT"
+	"license": "GPL-3.0-only"
 }
