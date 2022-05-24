@@ -45,7 +45,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 function Page() {
 	return (
 		<>
-			<div className="mt-22 lg:mt-28" />
+			<div className="mt-24 lg:mt-28" />
 			<NewBanner />
 			<h1
 				id="content"

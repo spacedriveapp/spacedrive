@@ -88,7 +88,7 @@ export default function AppEmbed() {
 						/>
 					)}
 
-					{renderImage && <div className="z-40 h-[300px] sm:h-full fade-in-app-embed landing-img" />}
+					{renderImage && <div className="z-40 h-full fade-in-app-embed landing-img" />}
 				</div>
 			</div>
 		</div>
