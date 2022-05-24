@@ -118,7 +118,7 @@ export const Button: Button = ({ loading, justifyLeft, className, ...props }) =>
 
 	if (hasHref(props))
 		return (
-			<a {...(props as LinkButtonProps)} className={className}>
+			<a {...(props as LinkButtonProps)} className={clsx(className, 'no-underline')}>
 				<>
 					{props.icon}
 					{props.children}
