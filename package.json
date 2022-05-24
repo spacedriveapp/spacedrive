@@ -1,41 +1,42 @@
 {
-  "name": "spacedrive",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "prep": "pnpm db:gen",
-    "build": "turbo run build",
-    "landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
-    "db:migrate": "pnpm core prisma migrate dev",
-    "db:gen": "pnpm core prisma generate",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "desktop": "pnpm --filter @sd/desktop --",
-    "mobile": "pnpm --filter @sd/mobile -- ",
-    "web": "pnpm --filter @sd/web -- ",
-    "landing": "pnpm --filter @sd/landing -- ",
-    "ui": "pnpm --filter @sd/ui -- ",
-    "interface": "pnpm --filter @sd/interface -- ",
-    "core": "pnpm --filter @sd/core -- ",
-    "docs": "pnpm --filter @sd/docs -- ",
-    "client": "pnpm --filter @sd/client -- ",
-    "server": "pnpm --filter @sd/server -- ",
-    "typecheck": "pnpm -r exec tsc"
-  },
-  "devDependencies": {
-    "prettier": "^2.6.2",
-    "turbo": "^1.2.4"
-  },
-  "overrides": {
-    "vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84"
-  },
-  "engines": {
-    "pnpm": ">=6.0.0",
-    "npm": "pnpm",
-    "yarn": "pnpm",
-    "node": ">=14.0.0"
-  },
-  "dependencies": {
-    "zustand": "^3.7.2"
-  }
+	"name": "spacedrive",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"prep": "pnpm db:gen",
+		"build": "turbo run build",
+		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
+		"db:migrate": "pnpm core prisma migrate dev",
+		"db:gen": "pnpm core prisma generate",
+		"lint": "turbo run lint",
+		"format": "prettier --config .prettierrc.cli.js --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
+		"desktop": "pnpm --filter @sd/desktop --",
+		"mobile": "pnpm --filter @sd/mobile -- ",
+		"web": "pnpm --filter @sd/web -- ",
+		"landing": "pnpm --filter @sd/landing -- ",
+		"ui": "pnpm --filter @sd/ui -- ",
+		"interface": "pnpm --filter @sd/interface -- ",
+		"core": "pnpm --filter @sd/core -- ",
+		"docs": "pnpm --filter @sd/docs -- ",
+		"client": "pnpm --filter @sd/client -- ",
+		"server": "pnpm --filter @sd/server -- ",
+		"typecheck": "pnpm -r exec tsc"
+	},
+	"devDependencies": {
+		"@trivago/prettier-plugin-sort-imports": "^3.2.0",
+		"prettier": "^2.6.2",
+		"turbo": "^1.2.4"
+	},
+	"overrides": {
+		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84"
+	},
+	"engines": {
+		"pnpm": ">=6.0.0",
+		"npm": "pnpm",
+		"yarn": "pnpm",
+		"node": ">=14.0.0"
+	},
+	"dependencies": {
+		"zustand": "^3.7.2"
+	}
 }

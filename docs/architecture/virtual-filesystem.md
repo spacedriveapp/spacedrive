@@ -68,14 +68,14 @@ struct FilePath {
 
 ```typescript
 export function useBridgeCommand<
-  K extends CommandKeyType,
-  CC extends CCType<K>,
-  CR extends CRType<K>
+	K extends CommandKeyType,
+	CC extends CCType<K>,
+	CR extends CRType<K>
 >(key: K, options: UseMutationOptions<ExtractData<CC>> = {}) {
-  return useMutation<ExtractData<CR>, unknown, any>(
-    [key],
-    async (vars: ExtractParams<CC>) => await commandBridge(key, vars),
-    options
-  );
+	return useMutation<ExtractData<CR>, unknown, any>(
+		[key],
+		async (vars: ExtractParams<CC>) => await commandBridge(key, vars),
+		options
+	);
 }
 ```
