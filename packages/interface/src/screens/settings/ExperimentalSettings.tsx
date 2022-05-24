@@ -1,4 +1,3 @@
-import { Button } from '@sd/ui';
 import React from 'react';
 
 import { useStore } from '../../components/device/Stores';
