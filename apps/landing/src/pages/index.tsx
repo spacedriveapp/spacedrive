@@ -1,5 +1,5 @@
 import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
-import { Button } from '@sd/ui';
+import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useEffect } from 'react';
 import { useState } from 'react';
@@ -7,6 +7,7 @@ import { useState } from 'react';
 import AppEmbed from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import { Footer } from '../components/Footer';
+import HomeCTA from '../components/HomeCTA';
 import NavBar from '../components/NavBar';
 import NewBanner from '../components/NewBanner';
 
@@ -47,7 +48,11 @@ function Page() {
 		<>
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 
-			<NewBanner headline="Spacedrive raises $1.9M led by OSS Capital" href="#" link="Read post" />
+			<NewBanner
+				headline="Spacedrive raises $1.9M led by OSS Capital"
+				href="https://spacedrive.hashnode.dev/spacedrive-funding-announcement"
+				link="Read post"
+			/>
 			<h1 className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center fade-in-heading md:text-6xl">
 				A file explorer from the future.
 			</h1>
@@ -59,36 +64,7 @@ function Page() {
 					Designed for creators, hoarders and the painfully disorganized.
 				</span>
 			</p>
-			<div className="z-30 flex flex-row space-x-4 animation-delay-2 fade-in">
-				<Button
-					href="https://github.com/spacedriveapp/spacedrive"
-					target="_blank"
-					className="z-30 border-0 cursor-pointer"
-					variant="primary"
-				>
-					Join Waitlist
-				</Button>
-				<Button
-					href="https://github.com/spacedriveapp/spacedrive"
-					target="_blank"
-					className="z-30 cursor-pointer"
-					variant="gray"
-				>
-					<Github
-						role="img"
-						aria-label=""
-						className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2"
-						fill="white"
-					/>
-					Star on GitHub
-				</Button>
-			</div>
-			<p className="z-30 px-6 mt-3 text-sm text-center text-gray-450 animation-delay-3 fade-in">
-				Coming soon on macOS, Windows and Linux.
-				<br />
-				Shortly after to iOS & Android.
-			</p>
-
+			<HomeCTA />
 			<AppEmbed />
 			<Section
 				orientation="right"

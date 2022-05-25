@@ -258,7 +258,7 @@ impl Node {
 			// CRUD for locations
 			ClientCommand::LocCreate { path } => {
 				let loc = sys::locations::new_location_and_scan(&ctx, &path).await?;
-				ctx.queue_job(Box::new(FileIdentifierJob));
+				// ctx.queue_job(Box::new(FileIdentifierJob));
 				CoreResponse::LocCreate(loc)
 			}
 			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),

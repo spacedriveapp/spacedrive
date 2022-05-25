@@ -70,7 +70,10 @@ impl Job for ThumbnailJob {
 
 				let cas_id = match image_file.file() {
 					Ok(i) => i.unwrap().cas_id.clone(),
-					Err(_) => todo!(),
+					Err(_) => {
+						println!("Error getting cas_id {:?}", image_file.materialized_path);
+						continue;
+					}
 				};
 
 				// Define and write the WebP-encoded file to a given path

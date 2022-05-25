@@ -2,6 +2,7 @@ import { MenuIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button } from '@sd/ui';
+import { Input } from '@sd/ui';
 import byteSize from 'byte-size';
 import React, { useContext, useEffect, useState } from 'react';
 import { useCountUp } from 'react-countup';
@@ -9,7 +10,6 @@ import { useCountUp } from 'react-countup';
 import { AppPropsContext } from '../App';
 import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
-import { Input } from '../components/primitive';
 
 interface StatItemProps {
 	name: string;

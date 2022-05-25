@@ -1,5 +1,6 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
 import { useBridgeCommand } from '@sd/client';
+import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
 	ArrowsClockwise,
@@ -7,6 +8,7 @@ import {
 	FolderPlus,
 	IconProps,
 	Key,
+	List,
 	Tag,
 	TerminalWindow
 } from 'phosphor-react';
@@ -54,6 +56,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			console.log('GenerateThumbsForLocation', data);
 		}
 	});
+
+	const { mutate: identifyUniqueFiles } = useBridgeCommand('IdentifyUniqueFiles', {});
+
 	let navigate = useNavigate();
 	return (
 		<>
@@ -102,6 +107,26 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           src="/images/spacedrive_logo.png"
           className="w-8 h-8 mt-[1px] mr-2 pointer-events-none"
         /> */}
+				<div className="flex mr-3 space-x-2">
+					<Dropdown
+						// className="absolute block h-6 w-44 top-2 right-4"
+						items={[
+							[
+								{
+									name: 'Generate Thumbs',
+									icon: ArrowsClockwise,
+									onPress: () => generateThumbsForLocation({ id: locationId, path: '' })
+								},
+								{
+									name: 'Identify Unique',
+									icon: ArrowsClockwise,
+									onPress: () => identifyUniqueFiles({})
+								}
+							]
+						]}
+						buttonComponent={<TopBarButton icon={List} />}
+					/>
+				</div>
 				{/*<TopBarButton onClick={() => {*/}
 				{/*  setSettingsOpen(!settingsOpen);*/}
 				{/*}} className="mr-[8px]" icon={CogIcon} />*/}
