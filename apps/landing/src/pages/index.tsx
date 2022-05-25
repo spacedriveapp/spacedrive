@@ -45,12 +45,10 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 function Page() {
 	return (
 		<>
-			<div className="mt-22 lg:mt-28" />
-			<NewBanner />
-			<h1
-				id="content"
-				className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center fade-in-heading md:text-6xl"
-			>
+			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
+
+			<NewBanner headline="Spacedrive raises $1.9M led by OSS Capital" href="#" link="Read post" />
+			<h1 className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center fade-in-heading md:text-6xl">
 				A file explorer from the future.
 			</h1>
 			<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
@@ -76,7 +74,12 @@ function Page() {
 					className="z-30 cursor-pointer"
 					variant="gray"
 				>
-					<Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
+					<Github
+						role="img"
+						aria-label=""
+						className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2"
+						fill="white"
+					/>
 					Star on GitHub
 				</Button>
 			</div>
