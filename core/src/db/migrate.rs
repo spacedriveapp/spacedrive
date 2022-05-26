@@ -1,14 +1,15 @@
-use crate::prisma::{self, migration};
+use crate::prisma::migration;
 use crate::CoreContext;
 use anyhow::Result;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
+use prisma_client_rust::raw;
 use ring::digest::{Context, Digest, SHA256};
 use std::ffi::OsStr;
 use std::io::{BufReader, Read};
 
 const INIT_MIGRATION: &str =
-	include_str!("../../prisma/migrations/0_migration_table/migration.sql");
+	include_str!("../../prisma/migrations/migration_table/migration.sql");
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
 pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
@@ -28,9 +29,9 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 	let client = &ctx.database;
 
 	match client
-		._query_raw::<serde_json::Value>(
-			"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'",
-		)
+		._query_raw::<serde_json::Value>(raw!(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
+		))
 		.await
 	{
 		Ok(data) => {
@@ -38,7 +39,7 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 				#[cfg(debug_assertions)]
 				println!("Migration table does not exist");
 				// execute migration
-				match client._execute_raw(INIT_MIGRATION).await {
+				match client._execute_raw(raw!(INIT_MIGRATION)).await {
 					Ok(_) => {}
 					Err(e) => {
 						println!("Failed to create migration table: {}", e);
@@ -46,9 +47,9 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 				};
 
 				let value: Vec<serde_json::Value> = client
-					._query_raw(
-						"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'",
-					)
+					._query_raw(raw!(
+						"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
+					))
 					.await
 					.unwrap();
 
@@ -70,15 +71,15 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 				})
 				.collect::<Vec<_>>();
 
-			// migration_subdirs.sort_by(|a, b| {
-			// 	let a_name = a.path().file_name().unwrap().to_str().unwrap();
-			// 	let b_name = b.path().file_name().unwrap().to_str().unwrap();
+			migration_subdirs.sort_by(|a, b| {
+				let a_name = a.path().file_name().unwrap().to_str().unwrap();
+				let b_name = b.path().file_name().unwrap().to_str().unwrap();
 
-			// 	let a_time = a_name[..14].parse::<i64>().unwrap();
-			// 	let b_time = b_name[..14].parse::<i64>().unwrap();
+				let a_time = a_name[..14].parse::<i64>().unwrap();
+				let b_time = b_name[..14].parse::<i64>().unwrap();
 
-			// 	a_time.cmp(&b_time)
-			// });
+				a_time.cmp(&b_time)
+			});
 
 			for subdir in migration_subdirs {
 				println!("{:?}", subdir.path());
@@ -117,7 +118,7 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 						.await?;
 
 					for (i, step) in steps.iter().enumerate() {
-						match client._execute_raw(&format!("{};", step)).await {
+						match client._execute_raw(raw!(*step)).await {
 							Ok(_) => {
 								#[cfg(debug_assertions)]
 								println!("Step {} ran successfully", i);

@@ -19,7 +19,7 @@
 		"upsert"
 	],
 	"[rust]": {
-		"editor.defaultFormatter": "matklad.rust-analyzer"
+		"editor.defaultFormatter": "rust-lang.rust-analyzer"
 	},
 	"rust-analyzer.procMacro.enable": true,
 	"rust-analyzer.diagnostics.experimental.enable": false
