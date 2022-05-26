@@ -10,11 +10,11 @@ use crate::{
 };
 use anyhow::Result;
 use futures::executor::block_on;
-use prisma_client_rust::Direction;
+use prisma_client_rust::prisma_models::PrismaValue;
+use prisma_client_rust::{raw, Direction};
 use serde::{Deserialize, Serialize};
 
 use super::checksum::generate_cas_id;
-
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FileCreated {
 	pub id: i32,
@@ -51,62 +51,74 @@ impl Job for FileIdentifierJob {
 		let location_path = location.path.unwrap_or("".to_string());
 
 		let ctx = tokio::task::spawn_blocking(move || {
-      let mut completed: usize = 0;
-      let mut cursor: i32 = 1;
+			let completed: usize = 0;
+			let cursor: i32 = 1;
 
-      while completed < task_count {
-        let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
-        println!("Processing {:?} orphan files. ({} completed of {})", file_paths.len(), completed, task_count);
+			while completed < task_count {
+				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
+				println!(
+					"Processing {:?} orphan files. ({} completed of {})",
+					file_paths.len(),
+					completed,
+					task_count
+				);
 
-        let mut rows: Vec<String> = Vec::new();
-        // only rows that have a valid cas_id to be inserted
-        for file_path in file_paths.iter() {
-          match prepare_file_values(&location_path, file_path) {
-            Ok(data) => {
-              rows.push(data);
-            }
-            Err(e) => {
-             
-            println!("Error processing file: {}", e);
-             continue;
-            }
-          };
-        }
-        if rows.len() == 0 {
-          println!("No orphan files to process, finishing...");
-          break;
-        }
-        let insert_files = format!(
-          r#"INSERT INTO files (cas_id, size_in_bytes) VALUES {} ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id"#,
-          rows.join(", ")
-        );
-        
-        let files: Vec<FileCreated> = block_on(db._query_raw(&insert_files)).unwrap();
+				let mut rows = Vec::new();
+				// only rows that have a valid cas_id to be inserted
+				for file_path in file_paths.iter() {
+					match prepare_file_values(&location_path, file_path) {
+						Ok(data) => {
+							rows.push(PrismaValue::List(data));
+						}
+						Err(e) => {
+							println!("Error processing file: {}", e);
+							continue;
+						}
+					};
+				}
+				if rows.len() == 0 {
+					println!("No orphan files to process, finishing...");
+					break;
+				}
 
-        for file in files.iter() {
-          let update_file_path = format!(
-            r#"UPDATE file_paths SET file_id = "{}" WHERE temp_cas_id = "{}""#,
-            file.id, file.cas_id
-          );
-          block_on(db._execute_raw(&update_file_path)).unwrap();
-        }
+				panic!("temp_cas_id no longer exists. please fix this code!");
 
-        let last_row = file_paths.last().unwrap();
+				// let files: Vec<FileCreated> = block_on(db._query_raw(raw!(
+				//   &format!(
+				//     "INSERT INTO files (cas_id, size_in_bytes) VALUES {} ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
+				//     vec!["({}, {}, {})"; rows.len()].join(",")
+				//   ),
+				//   PrismaValue::List(rows)
+				// ))).unwrap();
 
-        cursor = last_row.id;
-        
-        completed += 1;
-        ctx.progress(vec![
-          JobReportUpdate::CompletedTaskCount(completed),
-          JobReportUpdate::Message(format!(
-            "Processed {} of {} orphan files",
-            completed,
-            task_count
-          )),
-        ]);
-      }
-      ctx
-    }).await?;
+				// for file in files.iter() {
+				//   block_on(
+				//     db.file_path()
+				//       .find_many(vec![file_path::temp_cas_id::equals(Some(file.cas_id.clone()))])
+				//       .update(vec![
+				//         file_path::id::set(file.id)
+				//       ])
+				//       .exec()
+				//   ).unwrap();
+				// }
+
+				// let last_row = file_paths.last().unwrap();
+
+				// cursor = last_row.id;
+
+				// completed += 1;
+				// ctx.progress(vec![
+				//   JobReportUpdate::CompletedTaskCount(completed),
+				//   JobReportUpdate::Message(format!(
+				//     "Processed {} of {} orphan files",
+				//     completed,
+				//     task_count
+				//   )),
+				// ]);
+			}
+			ctx
+		})
+		.await?;
 
 		let remaining = count_orphan_file_paths(&ctx.core_ctx).await?;
 
@@ -131,11 +143,10 @@ struct CountRes {
 pub async fn count_orphan_file_paths(ctx: &CoreContext) -> Result<usize, FileError> {
 	let db = &ctx.database;
 	let files_count = db
-		._query_raw::<CountRes>(
-			r#"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE"#,
-		)
+		._query_raw::<CountRes>(raw!(
+			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE"
+		))
 		.await?;
-	println!("files: {:?}", files_count);
 	Ok(files_count[0].count.unwrap_or(0))
 }
 
@@ -159,19 +170,21 @@ pub async fn get_orphan_file_paths(
 	Ok(files)
 }
 
-pub fn prepare_file_values(location_path: &str, file_path: &file_path::Data) -> Result<String> {
+pub fn prepare_file_values(
+	location_path: &str,
+	file_path: &file_path::Data,
+) -> Result<Vec<PrismaValue>> {
 	let path = format!("{}/{}", location_path, file_path.materialized_path);
 	let metadata = fs::metadata(&path)?;
 	let cas_id = {
 		if !file_path.is_dir {
-			// TODO: remove unwrap
-			let mut x = generate_cas_id(&path, metadata.len()).unwrap();
-			x.truncate(16);
-			x
+			let mut ret = generate_cas_id(&path, metadata.len()).unwrap();
+			ret.truncate(16);
+			ret
 		} else {
 			"".to_string()
 		}
 	};
-	// TODO: add all metadata
-	Ok(format!("(\"{}\",\"{}\")", cas_id, "0"))
+
+	Ok(vec![PrismaValue::String(cas_id), PrismaValue::Int(0)])
 }
