@@ -1,8 +1,9 @@
-use crate::file::cas::checksum::generate_cas_id;
 use crate::sys::locations::{create_location, LocationResource};
 use crate::CoreContext;
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, SecondsFormat, Utc};
+use prisma_client_rust::prisma_models::PrismaValue;
+use prisma_client_rust::raw;
+use prisma_client_rust::raw::Raw;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::{collections::HashMap, fs, path::Path, path::PathBuf, time::Instant};
@@ -35,7 +36,7 @@ pub async fn scan_path(
 	}
 	// grab the next id so we can increment in memory for batch inserting
 	let first_file_id = match db
-		._query_raw::<QueryRes>(r#"SELECT MAX(id) id FROM file_paths"#)
+		._query_raw::<QueryRes>(raw!("SELECT MAX(id) id FROM file_paths"))
 		.await
 	{
 		Ok(rows) => rows[0].id.unwrap_or(0),
@@ -87,8 +88,8 @@ pub async fn scan_path(
 				.unwrap_or("");
 			let parent_dir_id = dirs.get(&*parent_path);
 
-			let str = match path.as_os_str().to_str() {
-				Some(str) => str,
+			let path_str = match path.as_os_str().to_str() {
+				Some(path_str) => path_str,
 				None => {
 					println!("Error reading file {}", &path.display());
 					continue;
@@ -96,7 +97,7 @@ pub async fn scan_path(
 			};
 
 			on_progress(vec![
-				ScanProgress::Message(format!("{}", str)),
+				ScanProgress::Message(format!("{}", path_str)),
 				ScanProgress::ChunkCount(paths.len() / BATCH_SIZE),
 			]);
 
@@ -128,18 +129,19 @@ pub async fn scan_path(
 		on_progress(vec![
 			ScanProgress::SavedChunks(i as usize),
 			ScanProgress::Message(format!(
-				"Writing {} of {} to library",
+				"Writing {} of {} to db",
 				i * chunk.len(),
 				paths.len(),
 			)),
 		]);
 
 		// vector to store active models
-		let mut files: Vec<String> = Vec::new();
+		let mut files: Vec<PrismaValue> = Vec::new();
+
 		for (file_path, file_id, parent_dir_id, is_dir) in chunk {
-			files.push(
+			files.extend(
 				match prepare_values(&file_path, *file_id, &location, parent_dir_id, *is_dir) {
-					Ok(file) => file,
+					Ok(values) => values.to_vec(),
 					Err(e) => {
 						println!("Error creating file model from path {:?}: {}", file_path, e);
 						continue;
@@ -147,15 +149,19 @@ pub async fn scan_path(
 				},
 			);
 		}
-		let raw_sql = format!(
-			r#"
-		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id) 
-		VALUES {}
-      "#,
-			files.join(", ")
+
+		let raw = Raw::new(
+			&format!("
+		      		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id) 
+		      		VALUES {}
+		        ", 
+		        vec!["({}, {}, {}, {}, {}, {}, {})"; chunk.len()].join(", ")
+			),
+			files
 		);
-		// println!("{}", raw_sql);
-		let count = db._execute_raw(&raw_sql).await;
+
+		let count = db._execute_raw(raw).await;
+
 		println!("Inserted {:?} records", count);
 	}
 	println!(
@@ -175,8 +181,8 @@ fn prepare_values(
 	location: &LocationResource,
 	parent_id: &Option<i32>,
 	is_dir: bool,
-) -> Result<String> {
-	// let metadata = fs::metadata(&file_path)?;
+) -> Result<[PrismaValue; 7]> {
+	let metadata = fs::metadata(&file_path)?;
 	let location_path = location.path.as_ref().unwrap().as_str();
 	// let size = metadata.len();
 	let name;
@@ -203,37 +209,18 @@ fn prepare_values(
 		None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
 	};
 
-	// let cas_id = {
-	//   if !metadata.is_dir() {
-	//     // TODO: remove unwrap, skip and make sure to continue loop
-	//     let mut x = generate_cas_id(&file_path.to_str().unwrap(), metadata.len()).unwrap();
-	//     x.truncate(16);
-	//     x
-	//   } else {
-	//     "".to_string()
-	//   }
-	// };
-
-	// let date_created: DateTime<Utc> = metadata.created().unwrap().into();
-	// let parsed_date_created = date_created.to_rfc3339_opts(SecondsFormat::Millis, true);
-
-	let values = format!(
-		"({}, {}, {}, \"{}\", \"{}\", \"{}\", {})",
-		id,
-		is_dir,
-		location.id,
-		materialized_path,
-		name,
-		extension.to_lowercase(),
+	let values = [
+		PrismaValue::Int(id as i64),
+		PrismaValue::Boolean(metadata.is_dir()),
+		PrismaValue::Int(location.id as i64),
+		PrismaValue::String(materialized_path.to_string()),
+		PrismaValue::String(name),
+		PrismaValue::String(extension.to_lowercase()),
 		parent_id
 			.clone()
-			.map(|id| format!("\"{}\"", &id))
-			.unwrap_or("NULL".to_string()),
-		// parsed_date_created,
-		// cas_id
-	);
-
-	println!("{}", values);
+			.map(|id| PrismaValue::Int(id as i64))
+			.unwrap_or(PrismaValue::Null),
+	];
 
 	Ok(values)
 }

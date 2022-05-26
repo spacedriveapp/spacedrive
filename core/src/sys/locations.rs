@@ -33,7 +33,7 @@ impl Into<LocationResource> for location::Data {
 			available_capacity: self.available_capacity,
 			is_removable: self.is_removable,
 			is_online: self.is_online,
-			date_created: self.date_created,
+			date_created: self.date_created.into(),
 		}
 	}
 }

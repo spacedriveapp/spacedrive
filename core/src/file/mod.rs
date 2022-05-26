@@ -4,7 +4,6 @@ use thiserror::Error;
 use ts_rs::TS;
 
 use crate::{
-	crypto::encryption::EncryptionAlgorithm,
 	prisma::{self, file, file_path},
 	sys::SysError,
 };
@@ -91,7 +90,7 @@ impl Into<File> for file::Data {
 			integrity_checksum: self.integrity_checksum,
 			kind: IntEnum::from_int(self.kind).unwrap(),
 			size_in_bytes: self.size_in_bytes.to_string(),
-			// encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
+			//   encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
 			ipfs_id: self.ipfs_id,
 			hidden: self.hidden,
 			favorite: self.favorite,
@@ -100,9 +99,9 @@ impl Into<File> for file::Data {
 			has_thumbstrip: self.has_thumbstrip,
 			has_video_preview: self.has_video_preview,
 			comment: self.comment,
-			date_created: self.date_created,
-			date_modified: self.date_modified,
-			date_indexed: self.date_indexed,
+			date_created: self.date_created.into(),
+			date_modified: self.date_modified.into(),
+			date_indexed: self.date_indexed.into(),
 			paths: vec![],
 		}
 	}
@@ -117,14 +116,14 @@ impl Into<FilePath> for file_path::Data {
 			file_id: self.file_id,
 			parent_id: self.parent_id,
 			location_id: self.location_id,
-			date_indexed: self.date_indexed,
-			// permissions: self.permissions,
+			date_indexed: self.date_indexed.into(),
+			//   permissions: self.permissions,
 			has_local_thumbnail: false,
 			name: self.name,
 			extension: self.extension,
-			// temp_cas_id: self.temp_cas_id,
-			date_created: self.date_created,
-			date_modified: self.date_modified,
+			//   temp_cas_id: self.temp_cas_id,
+			date_created: self.date_created.into(),
+			date_modified: self.date_modified.into(),
 		}
 	}
 }
