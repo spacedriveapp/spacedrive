@@ -291,8 +291,8 @@ impl Node {
 			//   fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
 			//   CoreResponse::Success(())
 			// }
-			ClientCommand::IdentifyUniqueFiles => {
-				ctx.spawn_job(Box::new(FileIdentifierJob));
+			ClientCommand::IdentifyUniqueFiles { id, path }  => {
+				ctx.spawn_job(Box::new(FileIdentifierJob { location_id: id, path}));
 				CoreResponse::Success(())
 			}
 		})
@@ -364,7 +364,7 @@ pub enum ClientCommand {
 	SysVolumeUnmount { id: i32 },
 	GenerateThumbsForLocation { id: i32, path: String },
 	// PurgeDatabase,
-	IdentifyUniqueFiles,
+	IdentifyUniqueFiles { id: i32, path: String },
 }
 
 // represents an event this library can emit

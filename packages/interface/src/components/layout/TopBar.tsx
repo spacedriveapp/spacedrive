@@ -57,7 +57,14 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		}
 	});
 
-	const { mutate: identifyUniqueFiles } = useBridgeCommand('IdentifyUniqueFiles', {});
+	const { mutate: identifyUniqueFiles } = useBridgeCommand('IdentifyUniqueFiles', {
+		onMutate: (data) => {
+			console.log('IdentifyUniqueFiles', data);
+		},
+		onError: (error) => {
+			console.error('IdentifyUniqueFiles', error);
+		}
+	});
 
 	let navigate = useNavigate();
 	return (
@@ -120,7 +127,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								{
 									name: 'Identify Unique',
 									icon: ArrowsClockwise,
-									onPress: () => identifyUniqueFiles({})
+									onPress: () => identifyUniqueFiles(undefined)
 								}
 							]
 						]}
