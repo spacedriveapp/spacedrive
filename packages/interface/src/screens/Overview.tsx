@@ -151,13 +151,13 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 							</div>
 						</Dialog>
 
-						<Button
+						{/* <Button
 							size="sm"
 							className="w-8"
 							noPadding
 							icon={<MenuIcon className="inline w-4 h-4" />}
 							variant="gray"
-						></Button>
+						></Button> */}
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 space-y-4">

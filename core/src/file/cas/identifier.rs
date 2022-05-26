@@ -1,6 +1,7 @@
 use std::fs;
 
 use crate::job::jobs::JobReportUpdate;
+use crate::sys::locations::get_location;
 use crate::{
 	file::FileError,
 	job::{jobs::Job, worker::WorkerContext},
@@ -21,7 +22,10 @@ pub struct FileCreated {
 }
 
 #[derive(Debug)]
-pub struct FileIdentifierJob;
+pub struct FileIdentifierJob {
+	pub location_id: i32,
+	pub path: String,
+}
 
 #[async_trait::async_trait]
 impl Job for FileIdentifierJob {
@@ -42,24 +46,26 @@ impl Job for FileIdentifierJob {
 
 		let db = ctx.core_ctx.database.clone();
 
+		let location = get_location(&ctx.core_ctx, self.location_id).await?;
+
+		let location_path = location.path.unwrap_or("".to_string());
+
 		let ctx = tokio::task::spawn_blocking(move || {
       let mut completed: usize = 0;
       let mut cursor: i32 = 1;
 
       while completed < task_count {
-
         let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
         println!("Processing {:?} orphan files. ({} completed of {})", file_paths.len(), completed, task_count);
 
         let mut rows: Vec<String> = Vec::new();
         // only rows that have a valid cas_id to be inserted
         for file_path in file_paths.iter() {
-          match prepare_file_values(file_path) {
+          match prepare_file_values(&location_path, file_path) {
             Ok(data) => {
               rows.push(data);
             }
             Err(e) => {
-             
              
             println!("Error processing file: {}", e);
              continue;
@@ -129,6 +135,7 @@ pub async fn count_orphan_file_paths(ctx: &CoreContext) -> Result<usize, FileErr
 			r#"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE"#,
 		)
 		.await?;
+	println!("files: {:?}", files_count);
 	Ok(files_count[0].count.unwrap_or(0))
 }
 
@@ -152,12 +159,13 @@ pub async fn get_orphan_file_paths(
 	Ok(files)
 }
 
-pub fn prepare_file_values(file_path: &file_path::Data) -> Result<String> {
-	let metadata = fs::metadata(&file_path.materialized_path)?;
+pub fn prepare_file_values(location_path: &str, file_path: &file_path::Data) -> Result<String> {
+	let path = format!("{}/{}", location_path, file_path.materialized_path);
+	let metadata = fs::metadata(&path)?;
 	let cas_id = {
 		if !file_path.is_dir {
 			// TODO: remove unwrap
-			let mut x = generate_cas_id(&file_path.materialized_path, metadata.len()).unwrap();
+			let mut x = generate_cas_id(&path, metadata.len()).unwrap();
 			x.truncate(16);
 			x
 		} else {
