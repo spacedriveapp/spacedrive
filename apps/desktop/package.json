@@ -2,7 +2,7 @@
 	"name": "@sd/desktop",
 	"version": "1.0.0",
 	"main": "index.js",
-	"license": "MIT",
+	"license": "GPL-3.0-only",
 	"private": true,
 	"scripts": {
 		"vite": "vite",
