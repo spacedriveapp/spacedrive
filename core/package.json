@@ -2,7 +2,7 @@
 	"name": "@sd/core",
 	"version": "0.0.0",
 	"main": "index.js",
-	"license": "MIT",
+	"license": "GPL-3.0-only",
 	"scripts": {
 		"codegen": "cargo test && ts-node ./scripts/bindingsIndex.ts",
 		"build": "cargo build",
