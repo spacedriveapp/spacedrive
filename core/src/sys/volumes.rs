@@ -35,28 +35,30 @@ impl Volume {
 		// enter all volumes associate with this client add to db
 		for volume in volumes {
 			db.volume()
-				.upsert(node_id_mount_point_name(
-					config.node_id.clone(),
-					volume.mount_point.to_string(),
-					volume.name.to_string(),
-				))
-				.create(
-					node_id::set(config.node_id),
-					name::set(volume.name),
-					mount_point::set(volume.mount_point),
+				.upsert(
+					node_id_mount_point_name(
+						config.node_id.clone(),
+						volume.mount_point.to_string(),
+						volume.name.to_string(),
+					),
+					(
+						node_id::set(config.node_id),
+						name::set(volume.name),
+						mount_point::set(volume.mount_point),
+						vec![
+							disk_type::set(volume.disk_type.clone()),
+							filesystem::set(volume.file_system.clone()),
+							total_bytes_capacity::set(volume.total_capacity.to_string()),
+							total_bytes_available::set(volume.available_capacity.to_string()),
+						],
+					),
 					vec![
-						disk_type::set(volume.disk_type.clone()),
-						filesystem::set(volume.file_system.clone()),
+						disk_type::set(volume.disk_type),
+						filesystem::set(volume.file_system),
 						total_bytes_capacity::set(volume.total_capacity.to_string()),
 						total_bytes_available::set(volume.available_capacity.to_string()),
 					],
 				)
-				.update(vec![
-					disk_type::set(volume.disk_type),
-					filesystem::set(volume.file_system),
-					total_bytes_capacity::set(volume.total_capacity.to_string()),
-					total_bytes_available::set(volume.available_capacity.to_string()),
-				])
 				.exec()
 				.await?;
 		}

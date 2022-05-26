@@ -52,7 +52,7 @@ impl Jobs {
 			self.job_queue.push(job);
 		}
 	}
-	pub fn ingest_queue(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
+	pub fn ingest_queue(&mut self, _ctx: &CoreContext, job: Box<dyn Job>) {
 		self.job_queue.push(job);
 	}
 	pub async fn complete(&mut self, ctx: &CoreContext, job_id: String) {
@@ -124,8 +124,8 @@ impl Into<JobReport> for job::Data {
 			status: JobStatus::from_int(self.status).unwrap(),
 			task_count: self.task_count,
 			completed_task_count: self.completed_task_count,
-			date_created: self.date_created,
-			date_modified: self.date_modified,
+			date_created: self.date_created.into(),
+			date_modified: self.date_modified.into(),
 			message: String::new(),
 			seconds_elapsed: self.seconds_elapsed,
 		}
@@ -170,7 +170,7 @@ impl JobReport {
 				job::status::set(self.status.int_value()),
 				job::task_count::set(self.task_count),
 				job::completed_task_count::set(self.completed_task_count),
-				job::date_modified::set(chrono::Utc::now()),
+				job::date_modified::set(chrono::Utc::now().into()),
 				job::seconds_elapsed::set(self.seconds_elapsed),
 			])
 			.exec()
