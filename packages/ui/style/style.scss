@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@use './tailwind.pcss';
 
 .html {
 	background: #404040;

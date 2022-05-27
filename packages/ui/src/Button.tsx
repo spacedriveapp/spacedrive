@@ -104,21 +104,30 @@ type Button = {
 
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
-export const Button: Button = ({ loading, justifyLeft, className, ...props }) => {
-	className = clsx(
+export const Button: Button = (props) => {
+	const {
+		loading = false,
+		justifyLeft = false,
+		noPadding = false,
+		size = 'default',
+		variant = 'default',
+		...rest
+	} = props;
+
+	const className = clsx(
 		'border rounded-md items-center transition-colors duration-100 cursor-default',
-		{ 'opacity-5': loading, '!p-1': props.noPadding },
+		{ 'opacity-5': loading, '!p-1': noPadding },
 		{ 'justify-center': !justifyLeft },
-		sizes[props.size || 'default'],
-		variants[props.variant || 'default'],
+		sizes[size || 'default'],
+		variants[variant || 'default'],
 		{ 'active:translate-y-[1px]': props.pressEffect },
 		{ 'border-0': props.noBorder },
-		className
+		rest.className
 	);
 
 	if (hasHref(props))
 		return (
-			<a {...(props as LinkButtonProps)} className={className}>
+			<a {...(rest as LinkButtonProps)} className={className}>
 				<>
 					{props.icon}
 					{props.children}
@@ -127,7 +136,7 @@ export const Button: Button = ({ loading, justifyLeft, className, ...props }) =>
 		);
 	else
 		return (
-			<button {...(props as ButtonProps)} className={className}>
+			<button {...(rest as ButtonProps)} className={className}>
 				<>
 					{props.icon}
 					{props.children}
