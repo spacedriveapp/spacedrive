@@ -9,7 +9,7 @@
 		"./types": "./src/types"
 	},
 	"scripts": {
-		"icons": "ts-node ./scripts/generateSvgImports.mjs"
+		"icons": "./scripts/generateSvgImports.mjs"
 	},
 	"dependencies": {
 		"@apollo/client": "^3.5.10",
