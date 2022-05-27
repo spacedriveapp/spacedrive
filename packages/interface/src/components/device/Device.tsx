@@ -1,19 +1,24 @@
 import { KeyIcon } from '@heroicons/react/outline';
 import { CogIcon, LockClosedIcon } from '@heroicons/react/solid';
-import { Button } from '@sd/ui';
+import { Button, ContextMenu } from '@sd/ui';
 import {
+	ArrowArcRight,
 	Cloud,
 	Desktop,
 	DeviceMobileCamera,
 	DotsSixVertical,
 	Laptop,
 	Phone,
-	PhoneX
+	PhoneX,
+	PlusCircle,
+	Share,
+	Trash
 } from 'phosphor-react';
 import React, { useState } from 'react';
 import LoadingIcons, { Rings } from 'react-loading-icons';
 
 import FileItem from '../file/FileItem';
+import { useMenu } from '../layout/MenuOverlay';
 import ProgressBar from '../primitive/ProgressBar';
 
 export interface DeviceProps {
@@ -27,11 +32,13 @@ export interface DeviceProps {
 
 export function Device(props: DeviceProps) {
 	const [selectedFile, setSelectedFile] = useState<null | string>(null);
+	const menu = useMenu();
 
 	function handleSelect(key: string) {
 		if (selectedFile === key) setSelectedFile(null);
 		else setSelectedFile(key);
 	}
+
 	return (
 		<div className="w-full bg-gray-600 border rounded-md border-gray-550 ">
 			<div className="flex flex-row items-center px-4 pt-2 pb-2">
@@ -85,6 +92,43 @@ export function Device(props: DeviceProps) {
 						key={key}
 						selected={selectedFile == location.name}
 						onClick={() => handleSelect(location.name)}
+						onContextMenu={(e) => {
+							e.preventDefault();
+							e.stopPropagation();
+
+							menu.showMenu(
+								<ContextMenu
+									sections={[
+										{
+											items: [
+												{
+													label: 'Share',
+													icon: Share,
+													onClick() {}
+												}
+											]
+										},
+										{
+											items: [
+												{
+													label: 'Move to Library...',
+													icon: ArrowArcRight,
+													onClick() {}
+												},
+												{
+													label: 'Delete',
+													icon: Trash,
+													danger: true,
+													onClick() {}
+												}
+											]
+										}
+									]}
+								/>,
+								{ x: e.clientX, y: e.clientY },
+								e.target as HTMLElement
+							);
+						}}
 						fileName={location.name}
 						folder
 					/>

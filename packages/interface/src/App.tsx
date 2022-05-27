@@ -17,7 +17,9 @@ import {
 	useLocation,
 	useNavigate
 } from 'react-router-dom';
+
 import { Sidebar } from './components/file/Sidebar';
+import { MenuOverlay } from './components/layout/MenuOverlay';
 import { Modal } from './components/layout/Modal';
 import SlideUp from './components/transitions/SlideUp';
 import { useCoreEvents } from './hooks/useCoreEvents';
@@ -27,12 +29,12 @@ import { ExplorerScreen } from './screens/Explorer';
 import { OverviewScreen } from './screens/Overview';
 import { RedirectPage } from './screens/Redirect';
 import { SettingsScreen } from './screens/Settings';
+import { TagScreen } from './screens/Tag';
 import ExperimentalSettings from './screens/settings/ExperimentalSettings';
 import GeneralSettings from './screens/settings/GeneralSettings';
 import LibrarySettings from './screens/settings/LibrarySettings';
 import LocationSettings from './screens/settings/LocationSettings';
 import SecuritySettings from './screens/settings/SecuritySettings';
-import { TagScreen } from './screens/Tag';
 import './style.scss';
 
 const queryClient = new QueryClient();
@@ -220,9 +222,11 @@ export default function App(props: AppProps) {
 				{/* @ts-ignore */}
 				<QueryClientProvider client={queryClient} contextSharing={false}>
 					<AppPropsContext.Provider value={Object.assign({ isFocused: true }, props)}>
-						<ClientProvider>
-							{props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
-						</ClientProvider>
+						<MenuOverlay>
+							<ClientProvider>
+								{props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
+							</ClientProvider>
+						</MenuOverlay>
 					</AppPropsContext.Provider>
 				</QueryClientProvider>
 			</ErrorBoundary>
