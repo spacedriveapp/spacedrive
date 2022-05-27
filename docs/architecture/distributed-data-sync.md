@@ -17,7 +17,7 @@ mod sync {
     transport: SyncTransport,    // method of data transport (msg or binary)
   }
 
-  // we can now impl specfic CRDT traits to given resources
+  // we can now impl specific CRDT traits to given resources
   enum SyncResource {
     FilePath(dyn Replicate),
     File(dyn PropertyOperation),
