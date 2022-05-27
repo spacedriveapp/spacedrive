@@ -10,6 +10,7 @@ cli/turbo
 cli/turbo-new
 cli/turbo-new.exe
 cli/turbo.exe
+storybook-static/
 .DS_Store
 cache
 .env
