@@ -15,15 +15,20 @@ export interface ContextMenuProps {
 		heading?: string;
 		items: ContextMenuItem[];
 	}[];
+	className?: string;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
-	const { sections = [] } = props;
+	const { sections = [], className, ...rest } = props;
 
 	return (
 		<div
 			role="menu"
-			className="flex flex-col select-none cursor-default bg-gray-600 text-gray-100 text-left text-sm font-semibold rounded p-1.5 gap-1.5 border-2 border-gray-500"
+			className={clsx(
+				'flex flex-col select-none cursor-default bg-gray-600 text-gray-100 text-left text-sm font-semibold rounded p-1.5 gap-1.5 border-2 border-gray-500',
+				className
+			)}
+			{...rest}
 		>
 			{sections.map((sec, i) => (
 				<>

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React from 'react';
+import React, { MouseEventHandler } from 'react';
 
 import icons from '../../assets/icons';
 import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
@@ -11,7 +11,8 @@ interface Props extends DefaultProps {
 	format?: string;
 	folder?: boolean;
 	selected?: boolean;
-	onClick?: () => void;
+	onClick?: MouseEventHandler<HTMLDivElement>;
+	onContextMenu?: MouseEventHandler<HTMLDivElement>;
 }
 
 export default function FileItem(props: Props) {
@@ -26,7 +27,12 @@ export default function FileItem(props: Props) {
 	//   );
 	// };
 	return (
-		<div onClick={props.onClick} className="inline-block w-[100px] mb-3" draggable>
+		<div
+			onClick={props.onClick}
+			onContextMenu={props.onContextMenu}
+			className="inline-block w-[100px] mb-3"
+			draggable
+		>
 			<div
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center w-[100px] h-[100px] mb-1',
