@@ -382,6 +382,7 @@ importers:
       babel-loader: ^8.2.5
       clsx: ^1.1.1
       css-loader: ^6.7.1
+      phosphor-react: ^1.4.1
       postcss: ^8.4.12
       postcss-loader: ^7.0.0
       react: ^18.0.0
@@ -395,6 +396,7 @@ importers:
       '@headlessui/react': 1.5.0_zpnidt7m3osuk7shl3s4oenomq
       '@heroicons/react': 1.0.6_react@18.0.0
       clsx: 1.1.1
+      phosphor-react: 1.4.1_react@18.0.0
       postcss: 8.4.12
       react: 18.0.0
       react-dom: 18.0.0_react@18.0.0
