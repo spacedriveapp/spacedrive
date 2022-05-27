@@ -11,7 +11,6 @@ export const ClientProvider: React.FC<ClientProviderProps> = ({ children, ...pro
 	return (
 		// This exists to add the QueryClientProvider to the current subpackage '@sd/client'.
 		// The ReactQueryClient is fetched from the window object (which is set in the parent application).
-		// @ts-expect-error: react-query depends on the react@^17 FC type which includes children -- once v4.0 is released this will not be necessary
 		<QueryClientProvider {...props} client={window.ReactQueryClient}>
 			{children}
 		</QueryClientProvider>
