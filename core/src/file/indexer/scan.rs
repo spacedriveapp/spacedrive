@@ -150,6 +150,8 @@ pub async fn scan_path(
 			);
 		}
 
+		println!("Creating {} file paths. {:?}", files.len(), files);
+
 		let raw = Raw::new(
 			&format!("
 		      		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id) 
@@ -183,7 +185,7 @@ fn prepare_values(
 	is_dir: bool,
 ) -> Result<[PrismaValue; 7]> {
 	let metadata = fs::metadata(&file_path)?;
-	let location_path = location.path.as_ref().unwrap().as_str();
+	let location_path = Path::new(location.path.as_ref().unwrap().as_str());
 	// let size = metadata.len();
 	let name;
 	let extension;
@@ -200,20 +202,14 @@ fn prepare_values(
 		name = extract_name(file_path.file_stem());
 	}
 
-	let materialized_path = match file_path.to_str() {
-		Some(p) => p
-			.clone()
-			.strip_prefix(&location_path)
-			// .and_then(|p| p.strip_suffix(format!("{}{}", name, extension).as_str()))
-			.unwrap_or_default(),
-		None => return Err(anyhow!("{}", file_path.to_str().unwrap_or_default())),
-	};
+	let materialized_path = file_path.strip_prefix(location_path)?;
+	let materialized_path_as_string = materialized_path.to_str().unwrap_or("").to_owned();
 
 	let values = [
 		PrismaValue::Int(id as i64),
 		PrismaValue::Boolean(metadata.is_dir()),
 		PrismaValue::Int(location.id as i64),
-		PrismaValue::String(materialized_path.to_string()),
+		PrismaValue::String(materialized_path_as_string),
 		PrismaValue::String(name),
 		PrismaValue::String(extension.to_lowercase()),
 		parent_id

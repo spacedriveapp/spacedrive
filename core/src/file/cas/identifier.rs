@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 
 use crate::job::jobs::JobReportUpdate;
 use crate::sys::locations::get_location;
@@ -11,6 +12,7 @@ use crate::{
 use anyhow::Result;
 use futures::executor::block_on;
 use prisma_client_rust::prisma_models::PrismaValue;
+use prisma_client_rust::raw::Raw;
 use prisma_client_rust::{raw, Direction};
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +36,11 @@ impl Job for FileIdentifierJob {
 	}
 	async fn run(&self, ctx: WorkerContext) -> Result<()> {
 		println!("Identifying files");
-		let total_count = count_orphan_file_paths(&ctx.core_ctx).await?;
+		let location = get_location(&ctx.core_ctx, self.location_id).await?;
+		let location_path = location.path.unwrap_or("".to_string());
+
+		let total_count = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+
 		println!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / 100f64).ceil() as usize;
@@ -46,13 +52,9 @@ impl Job for FileIdentifierJob {
 
 		let db = ctx.core_ctx.database.clone();
 
-		let location = get_location(&ctx.core_ctx, self.location_id).await?;
-
-		let location_path = location.path.unwrap_or("".to_string());
-
 		let ctx = tokio::task::spawn_blocking(move || {
-			let completed: usize = 0;
-			let cursor: i32 = 1;
+			let mut completed: usize = 0;
+			let mut cursor: i32 = 1;
 
 			while completed < task_count {
 				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
@@ -63,12 +65,12 @@ impl Job for FileIdentifierJob {
 					task_count
 				);
 
-				let mut rows = Vec::new();
+				let mut values: Vec<PrismaValue> = Vec::new();
 				// only rows that have a valid cas_id to be inserted
 				for file_path in file_paths.iter() {
 					match prepare_file_values(&location_path, file_path) {
 						Ok(data) => {
-							rows.push(PrismaValue::List(data));
+							values.extend(data);
 						}
 						Err(e) => {
 							println!("Error processing file: {}", e);
@@ -76,51 +78,57 @@ impl Job for FileIdentifierJob {
 						}
 					};
 				}
-				if rows.len() == 0 {
+				if values.len() == 0 {
 					println!("No orphan files to process, finishing...");
 					break;
 				}
 
-				panic!("temp_cas_id no longer exists. please fix this code!");
+				println!("Creating {} unique file records. {:?}", values.len(), values);
+				
+				let files: Vec<FileCreated> = block_on(db._query_raw(Raw::new(
+				  &format!(
+				    "INSERT INTO files (cas_id, size_in_bytes) VALUES {} ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
+				    vec!["({}, {})"; file_paths.len()].join(",")
+				  ),
+				  values
+				))).unwrap_or_else(|e| {
+					println!("Error inserting files: {}", e);
+					Vec::new()
+				});
 
-				// let files: Vec<FileCreated> = block_on(db._query_raw(raw!(
-				//   &format!(
-				//     "INSERT INTO files (cas_id, size_in_bytes) VALUES {} ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
-				//     vec!["({}, {}, {})"; rows.len()].join(",")
-				//   ),
-				//   PrismaValue::List(rows)
-				// ))).unwrap();
+				// assign unique file to file path
+				println!("Assigning {} unique file ids to origin file_paths", files.len());
+				for (index, file) in files.iter().enumerate() {
+					let file_path_id = file_paths[index].id;
+				  block_on(
+				    db.file_path()
+				      .find_many(vec![file_path::id::equals(file_path_id)])
+				      .update(vec![
+				        file_path::file_id::set(Some(file.id))
+				      ])
+				      .exec()
+				  ).unwrap();
+				}
 
-				// for file in files.iter() {
-				//   block_on(
-				//     db.file_path()
-				//       .find_many(vec![file_path::temp_cas_id::equals(Some(file.cas_id.clone()))])
-				//       .update(vec![
-				//         file_path::id::set(file.id)
-				//       ])
-				//       .exec()
-				//   ).unwrap();
-				// }
+				let last_row = file_paths.last().unwrap();
 
-				// let last_row = file_paths.last().unwrap();
+				cursor = last_row.id;
 
-				// cursor = last_row.id;
-
-				// completed += 1;
-				// ctx.progress(vec![
-				//   JobReportUpdate::CompletedTaskCount(completed),
-				//   JobReportUpdate::Message(format!(
-				//     "Processed {} of {} orphan files",
-				//     completed,
-				//     task_count
-				//   )),
-				// ]);
+				completed += 1;
+				ctx.progress(vec![
+				  JobReportUpdate::CompletedTaskCount(completed),
+				  JobReportUpdate::Message(format!(
+				    "Processed {} of {} orphan files",
+				    completed,
+				    task_count
+				  )),
+				]);
 			}
 			ctx
 		})
 		.await?;
 
-		let remaining = count_orphan_file_paths(&ctx.core_ctx).await?;
+		let remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
 
 		println!(
 			"Finished with {} files remaining because your code is bad.",
@@ -140,11 +148,15 @@ struct CountRes {
 	count: Option<usize>,
 }
 
-pub async fn count_orphan_file_paths(ctx: &CoreContext) -> Result<usize, FileError> {
+pub async fn count_orphan_file_paths(
+	ctx: &CoreContext,
+	location_id: i64,
+) -> Result<usize, FileError> {
 	let db = &ctx.database;
 	let files_count = db
 		._query_raw::<CountRes>(raw!(
-			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE"
+			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
+			PrismaValue::Int(location_id)
 		))
 		.await?;
 	Ok(files_count[0].count.unwrap_or(0))
@@ -173,12 +185,13 @@ pub async fn get_orphan_file_paths(
 pub fn prepare_file_values(
 	location_path: &str,
 	file_path: &file_path::Data,
-) -> Result<Vec<PrismaValue>> {
-	let path = format!("{}/{}", location_path, file_path.materialized_path);
+) -> Result<[PrismaValue; 2]> {
+	let path = Path::new(&location_path).join(Path::new(file_path.materialized_path.as_str()));
+	// println!("Processing file: {:?}", path);
 	let metadata = fs::metadata(&path)?;
 	let cas_id = {
 		if !file_path.is_dir {
-			let mut ret = generate_cas_id(&path, metadata.len()).unwrap();
+			let mut ret = generate_cas_id(path, metadata.len()).unwrap();
 			ret.truncate(16);
 			ret
 		} else {
@@ -186,5 +199,5 @@ pub fn prepare_file_values(
 		}
 	};
 
-	Ok(vec![PrismaValue::String(cas_id), PrismaValue::Int(0)])
+	Ok([PrismaValue::String(cas_id), PrismaValue::Int(0)])
 }

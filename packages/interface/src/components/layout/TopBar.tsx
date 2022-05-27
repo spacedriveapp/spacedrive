@@ -127,7 +127,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								{
 									name: 'Identify Unique',
 									icon: ArrowsClockwise,
-									onPress: () => identifyUniqueFiles(undefined)
+									onPress: () => identifyUniqueFiles({ id: locationId, path: '' })
 								}
 							]
 						]}
