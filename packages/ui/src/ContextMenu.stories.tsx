@@ -22,7 +22,7 @@ Default.args = {
 				{
 					label: 'New Item',
 					icon: Plus,
-					onClick: () => alert('Item clicked')
+					onClick: () => {}
 				}
 			]
 		},
@@ -31,13 +31,13 @@ Default.args = {
 				{
 					label: 'View Info',
 					icon: FileText,
-					onClick: () => alert('Info!!!')
+					onClick: () => {}
 				},
 				{
 					label: 'Delete',
 					icon: Trash,
 					danger: true,
-					onClick: () => alert('Delete item clicked')
+					onClick: () => {}
 				}
 			]
 		}

@@ -389,6 +389,7 @@ importers:
       react-dom: ^18.0.0
       sass: ^1.50.0
       sass-loader: ^13.0.0
+      storybook-tailwind-dark-mode: ^1.0.12
       style-loader: ^3.3.1
       tailwindcss: ^3.0.23
       typescript: ^4.6.3
@@ -421,6 +422,7 @@ importers:
       postcss-loader: 7.0.0_postcss@8.4.12
       sass: 1.50.0
       sass-loader: 13.0.0_sass@1.50.0
+      storybook-tailwind-dark-mode: 1.0.12_zpnidt7m3osuk7shl3s4oenomq
       style-loader: 3.3.1
       typescript: 4.6.3
 
@@ -7992,7 +7994,7 @@ packages:
     dev: true
 
   /default-browser-id/1.0.4:
-    resolution: {integrity: sha1-5Z0JpdFXuCi4dsJoFuYcPSosIDo=}
+    resolution: {integrity: sha512-qPy925qewwul9Hifs+3sx1ZYn14obHxpkX+mPD369w4Rzg+YkJBgi3SOvwUq81nWSjqGUegIgEPwD8u+HUnxlw==}
     engines: {node: '>=0.10.0'}
     hasBin: true
     requiresBuild: true
@@ -15349,6 +15351,26 @@ packages:
 
   /store2/2.13.2:
     resolution: {integrity: sha512-CMtO2Uneg3SAz/d6fZ/6qbqqQHi2ynq6/KzMD/26gTkiEShCcpqFfTHgOxsE0egAq6SX3FmN4CeSqn8BzXQkJg==}
+    dev: true
+
+  /storybook-tailwind-dark-mode/1.0.12_zpnidt7m3osuk7shl3s4oenomq:
+    resolution: {integrity: sha512-0/JryZmq43dT0zYawjtQAZeYdm2ejlj0yV5P7ITgNPZ75Bv0r5voI6M4h2rpSK79Snw3qmmmfxiS5OpvsLluAw==}
+    peerDependencies:
+      '@storybook/addons': ^6.2.9
+      '@storybook/api': ^6.2.9
+      '@storybook/components': ^6.2.9
+      '@storybook/core-events': ^6.2.9
+      '@storybook/theming': ^6.2.9
+      react: ^16.8.0 || ^17.0.0
+      react-dom: ^16.8.0 || ^17.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+    dependencies:
+      react: 18.0.0
+      react-dom: 18.0.0_react@18.0.0
     dev: true
 
   /stream-browserify/2.0.2:
