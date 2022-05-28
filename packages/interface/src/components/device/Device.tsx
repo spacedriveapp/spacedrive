@@ -6,7 +6,6 @@ import React, { useState } from 'react';
 import { Rings } from 'react-loading-icons';
 
 import FileItem from '../file/FileItem';
-import { useMenu } from '../layout/MenuOverlay';
 import ProgressBar from '../primitive/ProgressBar';
 
 export interface DeviceProps {
@@ -19,7 +18,6 @@ export interface DeviceProps {
 
 export function Device(props: DeviceProps) {
 	const [selectedFile, setSelectedFile] = useState<null | string>(null);
-	const menu = useMenu();
 
 	function handleSelect(key: string) {
 		if (selectedFile === key) setSelectedFile(null);
@@ -27,7 +25,7 @@ export function Device(props: DeviceProps) {
 	}
 
 	return (
-		<div className="w-full bg-gray-600 border rounded-md border-gray-550 ">
+		<div className="w-full bg-gray-50 dark:bg-gray-600 border rounded-md border-gray-100 dark:border-gray-550">
 			<div className="flex flex-row items-center px-4 pt-2 pb-2">
 				<DotsSixVertical weight="bold" className="mr-3 opacity-30" />
 				{props.type === 'phone' && <DeviceMobileCamera weight="fill" size={20} className="mr-2" />}
@@ -36,17 +34,17 @@ export function Device(props: DeviceProps) {
 				{props.type === 'server' && <Cloud weight="fill" size={20} className="mr-2" />}
 				<h3 className="font-semibold text-md">{props.name}</h3>
 				<div className="flex flex-row space-x-1.5 mt-0.5">
-					<span className="font-semibold flex flex-row h-[19px] -mt-0.5 ml-3 py-0.5 px-1.5 text-[10px] rounded  bg-gray-500 text-gray-400">
+					<span className="font-semibold flex flex-row h-[19px] -mt-0.5 ml-3 py-0.5 px-1.5 text-[10px] rounded bg-gray-250 text-gray-500 dark:bg-gray-500 dark:text-gray-400">
 						<LockClosedIcon className="w-3 h-3 mr-1 -ml-0.5 m-[1px]" />
 						P2P
 					</span>
 				</div>
-				<span className="font-semibold  py-0.5 px-1.5 text-sm ml-2  text-gray-400 ">
+				<span className="font-semibold py-0.5 px-1.5 text-sm ml-2  text-gray-400 ">
 					{props.size}
 				</span>
 				<div className="flex flex-grow" />
 				{props.runningJob && (
-					<div className="flex flex-row ml-5 bg-opacity-50 rounded-md bg-gray-550 ">
+					<div className="flex flex-row ml-5 bg-opacity-50 rounded-md bg-gray-300 dark:bg-gray-550">
 						<Rings
 							stroke="#2599FF"
 							strokeOpacity={4}

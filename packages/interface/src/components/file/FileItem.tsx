@@ -119,7 +119,7 @@ export default function FileItem(props: Props) {
 				<div className="flex justify-center">
 					<span
 						className={clsx(
-							'px-1.5 py-[1px] rounded-md text-sm font-medium text-gray-300 cursor-default',
+							'px-1.5 py-[1px] rounded-md text-sm font-medium text-gray-550 dark:text-gray-300 cursor-default',
 							{
 								'bg-primary !text-white': props.selected
 							}
