@@ -1,21 +1,9 @@
 import { KeyIcon } from '@heroicons/react/outline';
 import { CogIcon, LockClosedIcon } from '@heroicons/react/solid';
-import { Button, ContextMenu } from '@sd/ui';
-import {
-	ArrowArcRight,
-	Cloud,
-	Desktop,
-	DeviceMobileCamera,
-	DotsSixVertical,
-	Laptop,
-	Phone,
-	PhoneX,
-	PlusCircle,
-	Share,
-	Trash
-} from 'phosphor-react';
+import { Button } from '@sd/ui';
+import { Cloud, Desktop, DeviceMobileCamera, DotsSixVertical, Laptop } from 'phosphor-react';
 import React, { useState } from 'react';
-import LoadingIcons, { Rings } from 'react-loading-icons';
+import { Rings } from 'react-loading-icons';
 
 import FileItem from '../file/FileItem';
 import { useMenu } from '../layout/MenuOverlay';
@@ -25,9 +13,8 @@ export interface DeviceProps {
 	name: string;
 	size: string;
 	type: 'laptop' | 'desktop' | 'phone' | 'server';
-	locations: { name: string }[];
+	locations: { name: string; folder?: boolean; format?: string; icon?: string }[];
 	runningJob?: { amount: number; task: string };
-	removeThisSoon?: boolean;
 }
 
 export function Device(props: DeviceProps) {
@@ -90,67 +77,14 @@ export function Device(props: DeviceProps) {
 				{props.locations.map((location, key) => (
 					<FileItem
 						key={key}
-						selected={selectedFile == location.name}
+						selected={selectedFile === location.name}
 						onClick={() => handleSelect(location.name)}
-						onContextMenu={(e) => {
-							e.preventDefault();
-							e.stopPropagation();
-
-							menu.showMenu(
-								<ContextMenu
-									sections={[
-										{
-											items: [
-												{
-													label: 'Share',
-													icon: Share,
-													onClick() {}
-												}
-											]
-										},
-										{
-											items: [
-												{
-													label: 'Move to Library...',
-													icon: ArrowArcRight,
-													onClick() {}
-												},
-												{
-													label: 'Delete',
-													icon: Trash,
-													danger: true,
-													onClick() {}
-												}
-											]
-										}
-									]}
-								/>,
-								{ x: e.clientX, y: e.clientY },
-								e.target as HTMLElement
-							);
-						}}
 						fileName={location.name}
-						folder
+						folder={location.folder}
+						format={location.format}
+						iconName={location.icon}
 					/>
 				))}
-				{props.removeThisSoon && (
-					<>
-						<FileItem
-							selected={selectedFile == 'tsx'}
-							onClick={() => handleSelect('tsx')}
-							fileName="App.tsx"
-							format="tsx"
-							iconName="reactts"
-						/>
-						<FileItem
-							selected={selectedFile == 'vite'}
-							onClick={() => handleSelect('vite')}
-							fileName="vite.config.js"
-							format="vite"
-							iconName="vite"
-						/>
-					</>
-				)}
 			</div>
 		</div>
 	);
