@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { ArrowArcRight, Share, Trash } from 'phosphor-react';
+import { FilePlus, FileText, Share, Trash } from 'phosphor-react';
 import React, { MouseEventHandler } from 'react';
 
 import icons from '../../assets/icons';
@@ -30,30 +30,46 @@ export default function FileItem(props: Props) {
 	return (
 		<WithContextMenu
 			menu={[
-				{
-					items: [
-						{
-							label: 'Share',
-							icon: Share,
-							onClick() {}
+				[
+					{
+						label: 'Details',
+						icon: FileText,
+						onClick() {
+							alert('There are no details ඞ');
 						}
-					]
-				},
-				{
-					items: [
-						{
-							label: 'Move to Library...',
-							icon: ArrowArcRight,
-							onClick() {}
-						},
-						{
-							label: 'Delete',
-							icon: Trash,
-							danger: true,
-							onClick() {}
+					},
+					{
+						label: 'Share',
+						icon: Share,
+						onClick() {
+							navigator.share?.({
+								text: 'Check out this cool app',
+								url: 'https://spacedrive.com'
+							});
 						}
-					]
-				}
+					}
+				],
+				[
+					{
+						label: 'Copy to Library...',
+						icon: FilePlus,
+						onClick() {
+							if (window?.location) {
+								window.location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+							} else {
+								alert('Please view tutorial: https://youtu.be/dQw4w9WgXcQ');
+							}
+						}
+					}
+				],
+				[
+					{
+						label: 'Delete',
+						icon: Trash,
+						danger: true,
+						onClick() {}
+					}
+				]
 			]}
 		>
 			<div onClick={props.onClick} className="inline-block w-[100px] mb-3" draggable>
