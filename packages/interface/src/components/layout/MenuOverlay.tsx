@@ -29,7 +29,7 @@ export const MenuContext = React.createContext<MenuContextData & MenuContextActi
 export const useMenu = () => React.useContext(MenuContext);
 
 export const WithContextMenu: React.FC<{
-	menu: ContextMenuProps['sections'];
+	menu: ContextMenuProps['items'];
 	children: React.ReactElement<{ onContextMenu: MouseEventHandler }>;
 }> = (props) => {
 	const { menu: sections = [], children } = props;
@@ -45,7 +45,7 @@ export const WithContextMenu: React.FC<{
 						e.stopPropagation();
 
 						menu.showMenu(
-							<ContextMenu sections={sections} />,
+							<ContextMenu items={sections} />,
 							{ x: e.clientX, y: e.clientY },
 							e.target as HTMLElement
 						);

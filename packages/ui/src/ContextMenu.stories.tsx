@@ -16,30 +16,26 @@ const Template: ComponentStory<typeof ContextMenu> = (args) => <ContextMenu {...
 
 export const Default = Template.bind({});
 Default.args = {
-	sections: [
-		{
-			items: [
-				{
-					label: 'New Item',
-					icon: Plus,
-					onClick: () => {}
-				}
-			]
-		},
-		{
-			items: [
-				{
-					label: 'View Info',
-					icon: FileText,
-					onClick: () => {}
-				},
-				{
-					label: 'Delete',
-					icon: Trash,
-					danger: true,
-					onClick: () => {}
-				}
-			]
-		}
+	items: [
+		[
+			{
+				label: 'New Item',
+				icon: Plus,
+				onClick: () => {}
+			}
+		],
+		[
+			{
+				label: 'View Info',
+				icon: FileText,
+				onClick: () => {}
+			},
+			{
+				label: 'Delete',
+				icon: Trash,
+				danger: true,
+				onClick: () => {}
+			}
+		]
 	]
 };
