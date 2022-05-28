@@ -100,7 +100,7 @@ function Page() {
 			<p className="px-6 mt-3 text-sm text-center opacity-75 text-gray-450">
 				Coming soon to macOS, Windows, and Linux.
 				<br />
-				Then shortly after to iOS & Android.
+				Shortly thereafter to iOS & Android.
 			</p>
 
 			<AppEmbed />
