@@ -115,20 +115,32 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 						name={clientState?.client_name ?? ''}
 						size="1.4TB"
 						runningJob={{ amount: 65, task: 'Generating preview media' }}
-						locations={[{ name: 'Pictures' }, { name: 'Downloads' }, { name: 'Minecraft' }]}
+						locations={[
+							{ name: 'Pictures', folder: true },
+							{ name: 'Downloads', folder: true },
+							{ name: 'Minecraft', folder: true }
+						]}
 						type="laptop"
 					/>
 					<Device
 						name={`James' iPhone 12`}
 						size="47.7GB"
-						locations={[{ name: 'Camera Roll' }, { name: 'Notes' }]}
+						locations={[
+							{ name: 'Camera Roll', folder: true },
+							{ name: 'Notes', folder: true },
+							{ name: 'App.tsx', format: 'tsx', icon: 'reactts' },
+							{ name: 'vite.config.js', format: 'js', icon: 'vite' }
+						]}
 						type="phone"
-						removeThisSoon
 					/>
 					<Device
 						name={`Spacedrive Server`}
 						size="5GB"
-						locations={[{ name: 'Cached' }, { name: 'Photos' }, { name: 'Documents' }]}
+						locations={[
+							{ name: 'Cached', folder: true },
+							{ name: 'Photos', folder: true },
+							{ name: 'Documents', folder: true }
+						]}
 						type="server"
 					/>
 				</div>
