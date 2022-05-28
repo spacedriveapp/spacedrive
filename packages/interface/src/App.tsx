@@ -2,7 +2,7 @@ import '@fontsource/inter/variable.css';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 // global window type extensions
 // only load at TS compile time
-import type {} from '@sd/client/src/window';
+import type { } from '@sd/client/src/window';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useState } from 'react';
@@ -17,7 +17,6 @@ import {
 	useLocation,
 	useNavigate
 } from 'react-router-dom';
-
 import { Sidebar } from './components/file/Sidebar';
 import { MenuOverlay } from './components/layout/MenuOverlay';
 import { Modal } from './components/layout/Modal';
@@ -29,13 +28,14 @@ import { ExplorerScreen } from './screens/Explorer';
 import { OverviewScreen } from './screens/Overview';
 import { RedirectPage } from './screens/Redirect';
 import { SettingsScreen } from './screens/Settings';
-import { TagScreen } from './screens/Tag';
 import ExperimentalSettings from './screens/settings/ExperimentalSettings';
 import GeneralSettings from './screens/settings/GeneralSettings';
 import LibrarySettings from './screens/settings/LibrarySettings';
 import LocationSettings from './screens/settings/LocationSettings';
 import SecuritySettings from './screens/settings/SecuritySettings';
+import { TagScreen } from './screens/Tag';
 import './style.scss';
+
 
 const queryClient = new QueryClient();
 
@@ -73,6 +73,12 @@ function AppLayout() {
 
 	return (
 		<div
+			onContextMenu={(e) => {
+				// TODO: allow this on some UI text at least
+				// disable default browser context menu
+				e.preventDefault();
+				return false;
+			}}
 			className={clsx(
 				'flex flex-row h-screen overflow-hidden text-gray-900 bg-white select-none dark:text-white dark:bg-gray-650',
 				isWindowRounded && 'rounded-xl',
