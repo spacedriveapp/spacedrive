@@ -1,5 +1,6 @@
+import { ContextMenu, ContextMenuProps } from '@sd/ui';
 import clsx from 'clsx';
-import React, { useEffect, useLayoutEffect } from 'react';
+import React, { MouseEventHandler, useLayoutEffect } from 'react';
 
 type MenuElement = React.ReactElement<{ style?: React.CSSProperties; className?: string }>;
 type Position = {
@@ -26,6 +27,33 @@ export const MenuContext = React.createContext<MenuContextData & MenuContextActi
 });
 
 export const useMenu = () => React.useContext(MenuContext);
+
+export const WithContextMenu: React.FC<{
+	menu: ContextMenuProps['sections'];
+	children: React.ReactElement<{ onContextMenu: MouseEventHandler }>;
+}> = (props) => {
+	const { menu: sections = [], children } = props;
+
+	const menu = useMenu();
+
+	return (
+		<>
+			{React.isValidElement(children) &&
+				React.cloneElement(children, {
+					onContextMenu(e: React.MouseEvent) {
+						e.preventDefault();
+						e.stopPropagation();
+
+						menu.showMenu(
+							<ContextMenu sections={sections} />,
+							{ x: e.clientX, y: e.clientY },
+							e.target as HTMLElement
+						);
+					}
+				})}
+		</>
+	);
+};
 
 export const MenuOverlay: React.FC<{ children: React.ReactNode }> = (props) => {
 	const { children } = props;
