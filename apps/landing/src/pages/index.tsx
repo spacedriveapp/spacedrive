@@ -98,9 +98,9 @@ function Page() {
 				</Button>
 			</div>
 			<p className="px-6 mt-3 text-sm text-center opacity-75 text-gray-450">
-				Coming soon on macOS, Windows and Linux.
+				Coming soon to macOS, Windows, and Linux.
 				<br />
-				Shortly after to iOS & Android.
+				Shortly thereafter to iOS & Android.
 			</p>
 
 			<AppEmbed />
