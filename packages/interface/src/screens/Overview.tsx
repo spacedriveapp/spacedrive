@@ -111,17 +111,19 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 				</div>
 				{/* <div className="mt-5" /> */}
 				<div className="flex flex-col pb-4 space-y-4">
-					<Device
-						name={clientState?.client_name ?? ''}
-						size="1.4TB"
-						runningJob={{ amount: 65, task: 'Generating preview media' }}
-						locations={[
-							{ name: 'Pictures', folder: true },
-							{ name: 'Downloads', folder: true },
-							{ name: 'Minecraft', folder: true }
-						]}
-						type="laptop"
-					/>
+					{clientState && (
+						<Device
+							name={clientState?.client_name ?? 'This Device'}
+							size="1.4TB"
+							runningJob={{ amount: 65, task: 'Generating preview media' }}
+							locations={[
+								{ name: 'Pictures', folder: true },
+								{ name: 'Downloads', folder: true },
+								{ name: 'Minecraft', folder: true }
+							]}
+							type="laptop"
+						/>
+					)}
 					<Device
 						name={`James' iPhone 12`}
 						size="47.7GB"
