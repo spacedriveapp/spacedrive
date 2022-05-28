@@ -12,7 +12,8 @@ module.exports = {
 					implementation: require('postcss')
 				}
 			}
-		}
+		},
+		'storybook-tailwind-dark-mode'
 	],
 	webpackFinal: async (config) => {
 		config.module.rules.push({
