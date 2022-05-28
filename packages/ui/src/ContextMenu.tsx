@@ -41,7 +41,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 							<span className="text-xs ml-2 mt-1 uppercase text-gray-400">{sec.heading}</span>
 						)}
 
-						<ul className="flex flex-col gap-[2px]">
+						<ul>
 							{sec.items.map(({ icon: ItemIcon = Question, ...item }) => (
 								<li key={item.label} className="flex">
 									<button
@@ -54,7 +54,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 										})}
 										onClick={item.onClick}
 									>
-										<div className="px-1.5 py-1 group-focus-visible:bg-gray-150 group-hover:bg-gray-150 dark:group-focus-visible:bg-gray-500 dark:group-hover:bg-gray-500 flex flex-row gap-1.5 items-center rounded-sm">
+										<div className="px-1.5 py-[0.4em] group-focus-visible:bg-gray-150 group-hover:bg-gray-150 dark:group-focus-visible:bg-gray-500 dark:group-hover:bg-gray-500 flex flex-row gap-1.5 items-center rounded-sm">
 											{<ItemIcon size={18} />}
 											<span className="leading-snug">{item.label}</span>
 										</div>
