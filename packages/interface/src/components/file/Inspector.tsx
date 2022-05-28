@@ -7,8 +7,7 @@ import { Heart, Link } from 'phosphor-react';
 import React from 'react';
 
 import { default as types } from '../../constants/file-types.json';
-import { Input, TextArea } from '../primitive';
-import { useExplorerState } from './FileList';
+import { TextArea } from '../primitive';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {

@@ -1,16 +1,12 @@
-import { CloudIcon } from '@heroicons/react/outline';
-import { CogIcon, MenuIcon, PlusIcon } from '@heroicons/react/solid';
+import { MenuIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import byteSize from 'byte-size';
-import { DotsSixVertical, Laptop, LineSegments, Plus } from 'phosphor-react';
-import React, { useState } from 'react';
+import React from 'react';
 
 import { Device } from '../components/device/Device';
-import FileItem from '../components/file/FileItem';
 import Dialog from '../components/layout/Dialog';
 import { Input } from '../components/primitive';
-import { InputContainer } from '../components/primitive/InputContainer';
 
 interface StatItemProps {
 	name: string;
