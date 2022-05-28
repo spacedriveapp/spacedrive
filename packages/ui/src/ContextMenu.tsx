@@ -25,7 +25,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 		<div
 			role="menu"
 			className={clsx(
-				'shadow-box shadow-gray-300 dark:shadow-gray-700 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500 text-left text-sm font-semibold rounded gap-1.5 border-2 py-1.5',
+				'shadow-2xl min-w-[15rem] shadow-gray-300 dark:shadow-gray-600 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500 text-left text-sm rounded gap-1.5 border py-1.5',
 				className
 			)}
 			{...rest}
@@ -54,9 +54,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 										})}
 										onClick={item.onClick}
 									>
-										<div className="px-1.5 py-[0.4em] group-focus-visible:bg-gray-150 group-hover:bg-gray-150 dark:group-focus-visible:bg-gray-500 dark:group-hover:bg-gray-500 flex flex-row gap-1.5 items-center rounded-sm">
+										<div className="px-1.5 py-[0.4em] group-focus-visible:bg-gray-150 group-hover:bg-gray-150 dark:group-focus-visible:bg-gray-500 dark:group-hover:bg-gray-500 flex flex-row gap-2.5 items-center rounded-sm">
 											{<ItemIcon size={18} />}
-											<span className="leading-snug">{item.label}</span>
+											<span className="leading-snug text-[14px] font-normal">{item.label}</span>
 										</div>
 									</button>
 								</li>
