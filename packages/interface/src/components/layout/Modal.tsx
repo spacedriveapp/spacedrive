@@ -5,8 +5,6 @@ import clsx from 'clsx';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { MacWindowControls } from '../file/Sidebar';
-
 export interface ModalProps {
 	full?: boolean;
 	children: React.ReactNode;
