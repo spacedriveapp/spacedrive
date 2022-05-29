@@ -1,6 +1,6 @@
 use crate::{
 	encode::thumb::THUMBNAIL_CACHE_DIR_NAME,
-	file::{DirectoryWithContents, File, FileError},
+	file::{DirectoryWithContents, File, FileError, FilePath},
 	node::state,
 	prisma::{file, file_path},
 	sys::locations::get_location,
@@ -30,33 +30,35 @@ pub async fn open_dir(
 		.await?
 		.ok_or(FileError::DirectoryNotFound(path.to_string()))?;
 
-	// TODO: this is incorrect, we need to query on file paths
-	let files: Vec<File> = db
-		.file()
-		.find_many(vec![file::paths::some(vec![file_path::parent_id::equals(
-			Some(directory.id),
-		)])])
+	println!("DIRECTORY: {:?}", directory);
+
+	let mut file_paths: Vec<FilePath> = db
+		.file_path()
+		.find_many(vec![
+			file_path::location_id::equals(location.id),
+			file_path::parent_id::equals(Some(directory.id)),
+		])
+		.with(file_path::file::fetch())
 		.exec()
 		.await?
 		.into_iter()
 		.map(Into::into)
 		.collect();
 
-	let mut contents: Vec<File> = vec![];
+	for file_path in &mut file_paths {
+		if let Some(file) = &mut file_path.file {
+			let thumb_path = Path::new(&config.data_path)
+				.join(THUMBNAIL_CACHE_DIR_NAME)
+				.join(format!("{}", location.id))
+				.join(file.cas_id.clone())
+				.with_extension("webp");
 
-	for mut file in files {
-		let thumb_path = Path::new(&config.data_path)
-			.join(THUMBNAIL_CACHE_DIR_NAME)
-			.join(format!("{}", location.id))
-			.join(file.cas_id.clone())
-			.with_extension("webp");
-
-		file.has_thumbnail = thumb_path.exists();
-		contents.push(file);
+			file.has_thumbnail = thumb_path.exists();
+		}
 	}
 
 	Ok(DirectoryWithContents {
 		directory: directory.into(),
-		contents,
+		contents: file_paths,
 	})
 }

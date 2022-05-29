@@ -217,8 +217,6 @@ export default function App(props: AppProps) {
 
 	setTransport(props.transport);
 
-	console.log('App props', props);
-
 	return (
 		<>
 			{/* @ts-ignore */}

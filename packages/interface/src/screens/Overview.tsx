@@ -148,7 +148,6 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 									size="sm"
 									icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 mr-1" />}
 									variant="gray"
-									className="hidden sm:visible"
 								>
 									Add Device
 								</Button>
@@ -169,14 +168,6 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 								</div>
 							</div>
 						</Dialog>
-
-						{/* <Button
-							size="sm"
-							className="w-8"
-							noPadding
-							icon={<MenuIcon className="inline w-4 h-4" />}
-							variant="gray"
-						></Button> */}
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 space-y-4">
