@@ -67,7 +67,13 @@ impl Job for ThumbnailJob {
 				println!("image_file {:?}", image_file);
 
 				let cas_id = match image_file.file() {
-					Ok(i) => i.unwrap().cas_id.clone(),
+					Ok(file) => {
+						if let Some(f) = file {
+							f.cas_id.clone()
+						} else {
+							continue;
+						}
+					}
 					Err(_) => {
 						println!("Error getting cas_id {:?}", image_file.materialized_path);
 						continue;
