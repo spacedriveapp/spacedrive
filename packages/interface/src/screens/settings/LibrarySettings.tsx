@@ -5,7 +5,7 @@ import { InputContainer } from '../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 
-type LibrarySecurity = 'public' | 'password' | 'vault';
+// type LibrarySecurity = 'public' | 'password' | 'vault';
 
 export default function LibrarySettings() {
 	// const locations = useBridgeQuery("SysGetLocation")

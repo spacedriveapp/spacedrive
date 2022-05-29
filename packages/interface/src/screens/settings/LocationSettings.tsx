@@ -1,15 +1,14 @@
-import { Button } from '@sd/ui';
 import React from 'react';
 
 import { InputContainer } from '../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 
-const exampleLocations = [
-	{ option: 'Macintosh HD', key: 'macintosh_hd' },
-	{ option: 'LaCie External', key: 'lacie_external' },
-	{ option: 'Seagate 8TB', key: 'seagate_8tb' }
-];
+// const exampleLocations = [
+// 	{ option: 'Macintosh HD', key: 'macintosh_hd' },
+// 	{ option: 'LaCie External', key: 'lacie_external' },
+// 	{ option: 'Seagate 8TB', key: 'seagate_8tb' }
+// ];
 
 export default function LocationSettings() {
 	// const locations = useBridgeQuery("SysGetLocation")
