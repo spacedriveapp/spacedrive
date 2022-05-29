@@ -2,6 +2,8 @@ import { Button } from '@sd/ui';
 import React from 'react';
 
 import { InputContainer } from '../../components/primitive/InputContainer';
+import { SettingsContainer } from '../../components/settings/SettingsContainer';
+import { SettingsHeader } from '../../components/settings/SettingsHeader';
 
 const exampleLocations = [
 	{ option: 'Macintosh HD', key: 'macintosh_hd' },
@@ -13,14 +15,15 @@ export default function LocationSettings() {
 	// const locations = useBridgeQuery("SysGetLocation")
 
 	return (
-		<div className="flex flex-col flex-grow max-w-4xl space-y-4">
+		<SettingsContainer>
 			{/*<Button size="sm">Add Location</Button>*/}
+			<SettingsHeader title="Locations" description="Manage your settings related to locations." />
 			<InputContainer
 				title="Something about a vault"
 				description="Local cache storage for media previews and thumbnails."
 			>
 				<div className="flex flex-row space-x-2"></div>
 			</InputContainer>
-		</div>
+		</SettingsContainer>
 	);
 }

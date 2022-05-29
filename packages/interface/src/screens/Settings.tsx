@@ -33,7 +33,7 @@ const Heading: React.FC<{ className?: string; children: string }> = ({ children,
 export const SettingsScreen: React.FC<{}> = () => {
 	return (
 		<div className="flex flex-row w-full">
-			<div className="h-full border-r max-w-[200px] border-gray-100 w-60 dark:border-gray-550">
+			<div className="h-full border-r max-w-[200px] flex-shrink-0 border-gray-100 w-60 dark:border-gray-550">
 				<div data-tauri-drag-region className="w-full h-7" />
 				<div className="p-5 pt-0">
 					<Heading className="mt-0">Client</Heading>
@@ -84,7 +84,7 @@ export const SettingsScreen: React.FC<{}> = () => {
 					</SidebarLink>
 				</div>
 			</div>
-			<div className="">
+			<div className="w-full">
 				<div data-tauri-drag-region className="w-full h-7" />
 				<div className="flex flex-grow-0 w-full h-full max-h-screen custom-scroll page-scroll">
 					<div className="flex flex-grow px-12 pb-5">
