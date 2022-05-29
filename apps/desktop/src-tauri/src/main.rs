@@ -78,7 +78,10 @@ async fn main() {
 				window.set_decorations(true).unwrap();
 
 				#[cfg(target_os = "macos")]
-				window.set_transparent_titlebar(true, true);
+				{
+					window.set_transparent_titlebar(true, true);
+					window.set_blurs_behind(true);
+				}
 			});
 
 			// core event transport
