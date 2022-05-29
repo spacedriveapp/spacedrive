@@ -25,7 +25,8 @@ window-shadows = "0.1.2"
 
 # macOS system libs
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.24.0"
+cocoa = { git = "https://github.com/maxichrome/core-foundation-rs.git", branch = "add-window-utils" }
+objc = "0.2.7"
 
 [features]
 default = [ "custom-protocol" ]
