@@ -46,11 +46,14 @@ export default function GeneralSettings() {
 					<div className="flex flex-grow">
 						<Listbox
 							options={
-								volumes?.map((volume) => ({
-									key: volume.name,
-									option: volume.name,
-									description: volume.mount_point
-								})) ?? []
+								volumes?.map((volume) => {
+									const name = volume.name && volume.name.length ? volume.name : volume.mount_point;
+									return {
+										key: name,
+										option: name,
+										description: volume.mount_point
+									};
+								}) ?? []
 							}
 						/>
 					</div>
