@@ -32,7 +32,7 @@ export function Device(props: DeviceProps) {
 				{props.type === 'laptop' && <Laptop weight="fill" size={20} className="mr-2" />}
 				{props.type === 'desktop' && <Desktop weight="fill" size={20} className="mr-2" />}
 				{props.type === 'server' && <Cloud weight="fill" size={20} className="mr-2" />}
-				<h3 className="font-semibold text-md">{props.name}</h3>
+				<h3 className="font-semibold text-md">{props.name || 'Unnamed Device'}</h3>
 				<div className="flex flex-row space-x-1.5 mt-0.5">
 					<span className="font-semibold flex flex-row h-[19px] -mt-0.5 ml-3 py-0.5 px-1.5 text-[10px] rounded bg-gray-250 text-gray-500 dark:bg-gray-500 dark:text-gray-400">
 						<LockClosedIcon className="w-3 h-3 mr-1 -ml-0.5 m-[1px]" />

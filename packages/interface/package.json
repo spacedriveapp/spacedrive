@@ -9,7 +9,7 @@
 		"./types": "./src/types"
 	},
 	"scripts": {
-		"icons": "ts-node ./scripts/generateSvgImports.mjs"
+		"icons": "./scripts/generateSvgImports.mjs"
 	},
 	"dependencies": {
 		"@apollo/client": "^3.5.10",
@@ -34,12 +34,14 @@
 		"phosphor-react": "^1.4.1",
 		"pretty-bytes": "^6.0.0",
 		"react": "^18.0.0",
+		"react-countup": "^6.2.0",
 		"react-dom": "^18.0.0",
 		"react-dropzone": "^12.0.4",
 		"react-error-boundary": "^3.1.4",
 		"react-hotkeys-hook": "^3.4.4",
 		"react-json-view": "^1.21.3",
 		"react-loading-icons": "^1.0.8",
+		"react-loading-skeleton": "^3.1.0",
 		"react-portal": "^4.2.2",
 		"react-query": "^3.34.19",
 		"react-router": "6.3.0",
