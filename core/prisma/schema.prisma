@@ -186,7 +186,7 @@ model FilePath {
     @@map("file_paths")
 }
 
-// if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the feild is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
+// if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
 model FileConflict {
     original_file_id   Int @unique
     detactched_file_id Int @unique

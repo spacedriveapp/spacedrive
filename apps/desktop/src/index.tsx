@@ -73,7 +73,7 @@ function App() {
 			}}
 			openDialog={function (options: {
 				directory?: boolean | undefined;
-			}): Promise<string | string[]> {
+			}): Promise<string | string[] | null> {
 				return dialog.open(options);
 			}}
 			isFocused={focused}

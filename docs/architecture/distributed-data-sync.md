@@ -7,12 +7,11 @@ Designed for synchronizing data in realtime between [SQLite](https://www.sqlite.
 ```rust
 // we can now impl specfic CRDT traits to given resources
 enum SyncResource {
-    FilePath(dyn Replicate),
-    File(dyn PropertyOperation),
-    Tag(dyn PropertyOperation),
-    TagOnFile(dyn LastWriteWin),
-    Jobs(dyn Replicate + OperationalTransform)
-  }
+  FilePath(dyn Replicate),
+  File(dyn PropertyOperation),
+  Tag(dyn PropertyOperation),
+  TagOnFile(dyn LastWriteWin),
+  Jobs(dyn Replicate + OperationalTransform)
 }
 ```
 

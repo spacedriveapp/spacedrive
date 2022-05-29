@@ -59,7 +59,7 @@ For independent creatives, hoarders and those that want to own their digital foo
 
 # What is a VDFS?
 
-A VDFS (virtual distributed filesystem) is a filesystem designed to work atop a variety of storage layers. It is not restricted to a single machine, with a uniform API to manipulate and access content across many devices. It achieves this by maintaining a virtual index of all storage locations, synchronizing the database between clients in realtime. This implementation also uses [CAS](https://en.wikipedia.org/wiki/Content-addressable_storage) (Content-addressable storage) to uniquely identify files, while keeping record of logical file paths relative to the storage locations.
+A VDFS (virtual distributed filesystem) is a filesystem designed to work across a variety of storage layers. It is not restricted to a single machine, with a uniform API to manipulate and access content across many devices. It achieves this by maintaining a virtual index of all storage locations, synchronizing the database between clients in realtime. This implementation also uses [CAS](https://en.wikipedia.org/wiki/Content-addressable_storage) (Content-addressable storage) to uniquely identify files, while keeping record of logical file paths relative to the storage locations.
 
 The first implementation of a VDFS can be found in this UC Berkeley [paper](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.pdf) by Haoyuan Li. This paper describes its use for cloud computing, however the underlying concepts can be translated to open consumer software.
 

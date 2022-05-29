@@ -6,7 +6,7 @@ module.exports = function (app, options) {
 	let config = {
 		content: [
 			!options?.ignorePackages && '../../packages/*/src/**/*.{js,ts,jsx,tsx,html}',
-			`../../apps/${app}/src/**/*.{js,ts,jsx,tsx,html}`
+			app ? `../../apps/${app}/src/**/*.{js,ts,jsx,tsx,html}` : `./src/**/*.{js,ts,jsx,tsx,html}`
 		],
 		darkMode: app == 'landing' ? 'class' : 'class',
 		mode: 'jit',
