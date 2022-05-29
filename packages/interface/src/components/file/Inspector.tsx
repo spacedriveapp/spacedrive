@@ -1,14 +1,12 @@
 import { Transition } from '@headlessui/react';
 import { ShareIcon } from '@heroicons/react/solid';
 import { FilePath } from '@sd/core';
-import { Button } from '@sd/ui';
-import { Input, TextArea } from '@sd/ui';
+import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
 import React from 'react';
 
 import { default as types } from '../../constants/file-types.json';
-import { useExplorerState } from './FileList';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {

@@ -2,7 +2,7 @@ import '@fontsource/inter/variable.css';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import {
@@ -34,7 +34,6 @@ import KeysSettings from './screens/settings/KeysSetting';
 import LibrarySettings from './screens/settings/LibrarySettings';
 import LocationSettings from './screens/settings/LocationSettings';
 import SecuritySettings from './screens/settings/SecuritySettings';
-import ContactsSettings from './screens/settings/SharingSettings';
 import SharingSettings from './screens/settings/SharingSettings';
 import SyncSettings from './screens/settings/SyncSettings';
 import TagsSettings from './screens/settings/TagsSettings';
@@ -64,10 +63,17 @@ function AppLayout() {
 	const appPropsContext = useContext(AppPropsContext);
 
 	const isWindowRounded = appPropsContext?.platform === 'macOS';
-	const hasWindowBorder = appPropsContext?.platform !== 'browser' && appPropsContext?.platform !== 'windows';
+	const hasWindowBorder =
+		appPropsContext?.platform !== 'browser' && appPropsContext?.platform !== 'windows';
 
 	return (
 		<div
+			onContextMenu={(e) => {
+				// TODO: allow this on some UI text at least
+				// disable default browser context menu
+				e.preventDefault();
+				return false;
+			}}
 			className={clsx(
 				'flex flex-row h-screen overflow-hidden text-gray-900 bg-white select-none dark:text-white dark:bg-gray-650',
 				isWindowRounded && 'rounded-xl',

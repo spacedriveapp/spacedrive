@@ -1,8 +1,7 @@
-import { MenuIcon, PlusIcon } from '@heroicons/react/solid';
+import { PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery } from '@sd/client';
 import { Statistics } from '@sd/core';
-import { Button } from '@sd/ui';
-import { Input } from '@sd/ui';
+import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useState } from 'react';
@@ -171,24 +170,38 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 space-y-4">
-					<Device
-						name="James' MacBook Pro"
-						size="1.4TB"
-						runningJob={{ amount: 65, task: 'Generating preview media' }}
-						locations={[{ name: 'Pictures' }, { name: 'Downloads' }, { name: 'Minecraft' }]}
-						type="laptop"
-					/>
+					{clientState && (
+						<Device
+							name={clientState?.node_name ?? 'This Device'}
+							size="1.4TB"
+							runningJob={{ amount: 65, task: 'Generating preview media' }}
+							locations={[
+								{ name: 'Pictures', folder: true },
+								{ name: 'Downloads', folder: true },
+								{ name: 'Minecraft', folder: true }
+							]}
+							type="laptop"
+						/>
+					)}
 					<Device
 						name={`James' iPhone 12`}
 						size="47.7GB"
-						locations={[{ name: 'Camera Roll' }, { name: 'Notes' }]}
+						locations={[
+							{ name: 'Camera Roll', folder: true },
+							{ name: 'Notes', folder: true },
+							{ name: 'App.tsx', format: 'tsx', icon: 'reactts' },
+							{ name: 'vite.config.js', format: 'js', icon: 'vite' }
+						]}
 						type="phone"
-						removeThisSoon
 					/>
 					<Device
 						name={`Spacedrive Server`}
 						size="5GB"
-						locations={[{ name: 'Cached' }, { name: 'Photos' }, { name: 'Documents' }]}
+						locations={[
+							{ name: 'Cached', folder: true },
+							{ name: 'Photos', folder: true },
+							{ name: 'Documents', folder: true }
+						]}
 						type="server"
 					/>
 				</div>
