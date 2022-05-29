@@ -11,6 +11,7 @@ use std::os::unix::prelude::FileExt;
 
 #[cfg(target_family = "windows")]
 use std::os::windows::prelude::*;
+use std::path::PathBuf;
 
 static SAMPLE_COUNT: u64 = 4;
 static SAMPLE_SIZE: u64 = 10000;
@@ -27,7 +28,7 @@ fn read_at(file: &File, offset: u64, size: u64) -> Result<Vec<u8>> {
 	Ok(buf)
 }
 
-pub fn generate_cas_id(path: &str, size: u64) -> Result<String> {
+pub fn generate_cas_id(path: PathBuf, size: u64) -> Result<String> {
 	// open file reference
 	let file = File::open(path)?;
 

@@ -39,24 +39,24 @@ export const Bubbles = () => {
 						enable: true
 					},
 					move: {
-						direction: 'none',
+						direction: 'top',
 						enable: true,
 						outModes: {
-							default: 'bounce'
+							default: 'destroy'
 						},
 						random: false,
 						speed: 0.2,
-						straight: false
+						straight: true
 					},
 					number: {
 						density: {
 							enable: true,
-							area: 800
+							area: 900
 						},
-						value: 80
+						value: 100
 					},
 					opacity: {
-						value: 0.2
+						value: 0.1
 					},
 					shape: {
 						type: 'circle'

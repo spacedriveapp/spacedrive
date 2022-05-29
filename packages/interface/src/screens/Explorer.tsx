@@ -27,6 +27,8 @@ export const ExplorerScreen: React.FC<{}> = () => {
 		{ enabled: !!location_id }
 	);
 
+	console.log({ currentDir });
+
 	return (
 		<div className="flex flex-col w-full h-full">
 			<TopBar />
