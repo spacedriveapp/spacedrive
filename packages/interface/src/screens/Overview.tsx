@@ -4,8 +4,10 @@ import { Statistics } from '@sd/core';
 import { Button } from '@sd/ui';
 import { Input } from '@sd/ui';
 import byteSize from 'byte-size';
+import clsx from 'clsx';
 import React, { useContext, useEffect, useState } from 'react';
 import { useCountUp } from 'react-countup';
+import create from 'zustand';
 
 import { AppPropsContext } from '../App';
 import { Device } from '../components/device/Device';
@@ -17,38 +19,55 @@ interface StatItemProps {
 	unit?: string;
 }
 
+type OverviewState = {
+	hasOverviewStatsRan: boolean;
+	setOverviewStatsRan: (ran: boolean) => void;
+};
+
+export const useOverviewState = create<OverviewState>((set) => ({
+	hasOverviewStatsRan: false,
+	setOverviewStatsRan: (ran: boolean) =>
+		set((state) => ({
+			...state,
+			hasOverviewStatsRan: ran
+		}))
+}));
+
 const StatItem: React.FC<StatItemProps> = (props) => {
-	const countUpRef = React.useRef(null);
+	const countUp = React.useRef(null);
+	const hiddenCountUp = React.useRef(null);
 	const appPropsContext = useContext(AppPropsContext);
 	let size = byteSize(Number(props.value) || 0);
 
 	let amount = parseFloat(size.value);
 
-	const [hasRun, setHasRun] = useState(false);
+	const { hasOverviewStatsRan, setOverviewStatsRan } = useOverviewState();
 
 	const { update } = useCountUp({
-		startOnMount: !hasRun,
-		ref: countUpRef,
-		// start: amount / 2,
+		ref: hasOverviewStatsRan ? hiddenCountUp : countUp,
 		end: amount,
 		delay: 0.1,
 		decimals: 1,
 		duration: appPropsContext?.demoMode ? 1 : 0.5,
 		useEasing: true,
 		onEnd: () => {
-			setHasRun(true);
+			setOverviewStatsRan(true);
 		}
 	});
 
-	useEffect(() => {
-		update(amount);
-	}, [amount]);
+	useEffect(() => update(amount), [amount]);
 
 	return (
-		<div className="flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600">
+		<div
+			className={clsx(
+				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600',
+				!amount && 'hidden'
+			)}
+		>
 			<span className="text-sm text-gray-400">{props.name}</span>
 			<span className="text-2xl font-bold">
-				<span ref={countUpRef} />
+				<span className="hidden" ref={hiddenCountUp} />
+				{hasOverviewStatsRan ? <span>{size.value}</span> : <span ref={countUp} />}
 				<span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>
 			</span>
 		</div>
