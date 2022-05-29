@@ -370,6 +370,7 @@ importers:
       '@babel/core': ^7.18.2
       '@headlessui/react': ^1.5.0
       '@heroicons/react': ^1.0.6
+      '@radix-ui/react-context-menu': ^0.1.6
       '@sd/config': workspace:*
       '@storybook/addon-actions': ^6.5.5
       '@storybook/addon-essentials': ^6.5.5
@@ -400,6 +401,7 @@ importers:
     dependencies:
       '@headlessui/react': 1.5.0_zpnidt7m3osuk7shl3s4oenomq
       '@heroicons/react': 1.0.6_react@18.0.0
+      '@radix-ui/react-context-menu': 0.1.6_ca3iilkt5tbo43h35hmeecyxuu
       clsx: 1.1.1
       phosphor-react: 1.4.1_react@18.0.0
       postcss: 8.4.12
@@ -2877,6 +2879,24 @@ packages:
     dependencies:
       '@babel/runtime': 7.17.9
       react: 18.0.0
+    dev: false
+
+  /@radix-ui/react-context-menu/0.1.6_ca3iilkt5tbo43h35hmeecyxuu:
+    resolution: {integrity: sha512-0qa6ABaeqD+WYI+8iT0jH0QLLcV8Kv0xI+mZL4FFnG4ec9H0v+yngb5cfBBfs9e/KM8mDzFFpaeegqsQlLNqyQ==}
+    peerDependencies:
+      react: ^16.8 || ^17.0
+      react-dom: ^16.8 || ^17.0
+    dependencies:
+      '@babel/runtime': 7.17.9
+      '@radix-ui/primitive': 0.1.0
+      '@radix-ui/react-context': 0.1.1_react@18.0.0
+      '@radix-ui/react-menu': 0.1.6_ca3iilkt5tbo43h35hmeecyxuu
+      '@radix-ui/react-primitive': 0.1.4_react@18.0.0
+      '@radix-ui/react-use-callback-ref': 0.1.0_react@18.0.0
+      react: 18.0.0
+      react-dom: 18.0.0_react@18.0.0
+    transitivePeerDependencies:
+      - '@types/react'
     dev: false
 
   /@radix-ui/react-context/0.1.1_react@18.0.0:

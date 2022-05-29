@@ -19,6 +19,7 @@
 	"dependencies": {
 		"@headlessui/react": "^1.5.0",
 		"@heroicons/react": "^1.0.6",
+		"@radix-ui/react-context-menu": "^0.1.6",
 		"clsx": "^1.1.1",
 		"phosphor-react": "^1.4.1",
 		"postcss": "^8.4.12",

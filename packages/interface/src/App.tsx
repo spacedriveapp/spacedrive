@@ -16,7 +16,6 @@ import {
 } from 'react-router-dom';
 
 import { Sidebar } from './components/file/Sidebar';
-import { MenuOverlay } from './components/layout/MenuOverlay';
 import { Modal } from './components/layout/Modal';
 import SlideUp from './components/transitions/SlideUp';
 import { useCoreEvents } from './hooks/useCoreEvents';
@@ -223,11 +222,9 @@ export default function App(props: AppProps) {
 				{/* @ts-ignore */}
 				<QueryClientProvider client={queryClient} contextSharing={false}>
 					<AppPropsContext.Provider value={Object.assign({ isFocused: true }, props)}>
-						<MenuOverlay>
-							<ClientProvider>
-								{props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
-							</ClientProvider>
-						</MenuOverlay>
+						<ClientProvider>
+							{props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
+						</ClientProvider>
 					</AppPropsContext.Provider>
 				</QueryClientProvider>
 			</ErrorBoundary>

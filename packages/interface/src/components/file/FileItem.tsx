@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { FilePlus, FileText, Share, Trash } from 'phosphor-react';
+import { ArrowLineRight, FilePlus, FileText, Plus, Share, Trash } from 'phosphor-react';
 import React, { MouseEventHandler } from 'react';
 
 import icons from '../../assets/icons';
@@ -43,6 +43,7 @@ export default function FileItem(props: Props) {
 						icon: Share,
 						onClick() {
 							navigator.share?.({
+								title: 'Spacedrive',
 								text: 'Check out this cool app',
 								url: 'https://spacedrive.com'
 							});
@@ -51,15 +52,19 @@ export default function FileItem(props: Props) {
 				],
 				[
 					{
-						label: 'Copy to Library...',
-						icon: FilePlus,
-						onClick() {
-							if (window?.location) {
-								window.location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-							} else {
-								alert('Please view tutorial: https://youtu.be/dQw4w9WgXcQ');
-							}
-						}
+						label: 'More More More',
+						icon: Plus,
+						onClick() {},
+						children: [
+							[
+								{
+									label: 'Super cool nested item',
+									onClick() {
+										alert("That's right, you clicked the cool item");
+									}
+								}
+							]
+						]
 					}
 				],
 				[
