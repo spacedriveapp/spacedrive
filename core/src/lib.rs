@@ -1,9 +1,11 @@
-use crate::{file::cas::identifier::FileIdentifierJob, library::loader::get_library_path};
+use crate::{
+	file::cas::identifier::FileIdentifierJob, library::loader::get_library_path,
+	node::state::NodeState,
+};
 use job::jobs::{Job, JobReport, Jobs};
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
-use state::client::ClientState;
-use std::{fs, path::Path, sync::Arc};
+use std::{fs, sync::Arc};
 use thiserror::Error;
 use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -14,17 +16,16 @@ use ts_rs::TS;
 use crate::encode::thumb::ThumbnailJob;
 
 // init modules
-pub mod client;
 pub mod crypto;
 pub mod db;
 pub mod encode;
 pub mod file;
 pub mod job;
 pub mod library;
+pub mod node;
 #[cfg(target_os = "p2p")]
 pub mod p2p;
 pub mod prisma;
-pub mod state;
 pub mod sync;
 pub mod sys;
 pub mod util;
@@ -73,6 +74,7 @@ impl CoreController {
 #[derive(Debug)]
 pub enum InternalEvent {
 	JobIngest(Box<dyn Job>),
+	JobQueue(Box<dyn Job>),
 	JobComplete(String),
 }
 
@@ -91,6 +93,13 @@ impl CoreContext {
 				println!("Failed to spawn job. {:?}", e);
 			});
 	}
+	pub fn queue_job(&self, job: Box<dyn Job>) {
+		self.internal_sender
+			.send(InternalEvent::JobIngest(job))
+			.unwrap_or_else(|e| {
+				println!("Failed to queue job. {:?}", e);
+			});
+	}
 	pub async fn emit(&self, event: CoreEvent) {
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
 			println!("Failed to emit event. {:?}", e);
@@ -98,8 +107,8 @@ impl CoreContext {
 	}
 }
 
-pub struct Core {
-	state: ClientState,
+pub struct Node {
+	state: NodeState,
 	jobs: job::jobs::Jobs,
 	database: Arc<PrismaClient>,
 	// filetype_registry: library::TypeRegistry,
@@ -123,9 +132,9 @@ pub struct Core {
 	),
 }
 
-impl Core {
-	// create new instance of core, run startup tasks
-	pub async fn new(mut data_dir: std::path::PathBuf) -> (Core, mpsc::Receiver<CoreEvent>) {
+impl Node {
+	// create new instance of node, run startup tasks
+	pub async fn new(mut data_dir: std::path::PathBuf) -> (Node, mpsc::Receiver<CoreEvent>) {
 		let (event_sender, event_recv) = mpsc::channel(100);
 
 		data_dir = data_dir.join("spacedrive");
@@ -133,15 +142,15 @@ impl Core {
 		// create data directory if it doesn't exist
 		fs::create_dir_all(&data_dir).unwrap();
 		// prepare basic client state
-		let mut state = ClientState::new(data_dir, "diamond-mastering-space-dragon").unwrap();
+		let mut state = NodeState::new(data_dir, "diamond-mastering-space-dragon").unwrap();
 		// load from disk
-		state.read_disk().unwrap_or(println!(
-			"Error: No client state found, creating new one..."
-		));
+		state
+			.read_disk()
+			.unwrap_or(println!("Error: No node state found, creating new one..."));
 
 		state.save();
 
-		println!("Client State: {:?}", state);
+		println!("Node State: {:?}", state);
 
 		// connect to default library
 		let database = Arc::new(
@@ -152,7 +161,7 @@ impl Core {
 
 		let internal_channel = unbounded_channel::<InternalEvent>();
 
-		let core = Core {
+		let node = Node {
 			state,
 			query_channel: unbounded_channel(),
 			command_channel: unbounded_channel(),
@@ -167,7 +176,7 @@ impl Core {
 			p2p::listener::listen(None).await.unwrap_or(());
 		});
 
-		(core, event_recv)
+		(node, event_recv)
 	}
 
 	pub fn get_context(&self) -> CoreContext {
@@ -203,8 +212,11 @@ impl Core {
 						InternalEvent::JobIngest(job) => {
 							self.jobs.ingest(&ctx, job).await;
 						},
+						InternalEvent::JobQueue(job) => {
+							self.jobs.ingest_queue(&ctx, job);
+						},
 						InternalEvent::JobComplete(id) => {
-							self.jobs.complete(id);
+							self.jobs.complete(&ctx, id).await;
 						},
 					}
 				}
@@ -232,10 +244,10 @@ impl Core {
 				}
 			}
 		}
-		// init client
-		match client::create(&self).await {
+		// init node data within library
+		match node::LibraryNode::create(&self).await {
 			Ok(_) => println!("Spacedrive online"),
-			Err(e) => println!("Error initializing client: {:?}", e),
+			Err(e) => println!("Error initializing node: {:?}", e),
 		};
 	}
 
@@ -245,7 +257,9 @@ impl Core {
 		Ok(match cmd {
 			// CRUD for locations
 			ClientCommand::LocCreate { path } => {
-				CoreResponse::LocCreate(sys::locations::new_location_and_scan(&ctx, &path).await?)
+				let loc = sys::locations::new_location_and_scan(&ctx, &path).await?;
+				// ctx.queue_job(Box::new(FileIdentifierJob));
+				CoreResponse::LocCreate(loc)
 			}
 			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
 			ClientCommand::LocDelete { id: _ } => todo!(),
@@ -277,8 +291,8 @@ impl Core {
 			//   fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
 			//   CoreResponse::Success(())
 			// }
-			ClientCommand::IdentifyUniqueFiles => {
-				ctx.spawn_job(Box::new(FileIdentifierJob));
+			ClientCommand::IdentifyUniqueFiles { id, path }  => {
+				ctx.spawn_job(Box::new(FileIdentifierJob { location_id: id, path}));
 				CoreResponse::Success(())
 			}
 		})
@@ -291,7 +305,7 @@ impl Core {
 		let ctx = self.get_context();
 		Ok(match query {
 			// return the client state from memory
-			ClientQuery::ClientGetState => CoreResponse::ClientGetState(self.state.clone()),
+			ClientQuery::NodeGetState => CoreResponse::NodeGetState(self.state.clone()),
 			// get system volumes without saving to library
 			ClientQuery::SysGetVolumes => {
 				CoreResponse::SysGetVolumes(sys::volumes::Volume::get_volumes()?)
@@ -315,13 +329,13 @@ impl Core {
 			ClientQuery::JobGetRunning => {
 				CoreResponse::JobGetRunning(self.jobs.get_running().await)
 			}
-			// TODO: FIX THIS
 			ClientQuery::JobGetHistory => {
 				CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?)
 			}
 			ClientQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
 				library::statistics::Statistics::calculate(&ctx).await?,
 			),
+			ClientQuery::GetNodes => todo!(),
 		})
 	}
 }
@@ -350,7 +364,7 @@ pub enum ClientCommand {
 	SysVolumeUnmount { id: i32 },
 	GenerateThumbsForLocation { id: i32, path: String },
 	// PurgeDatabase,
-	IdentifyUniqueFiles,
+	IdentifyUniqueFiles { id: i32, path: String },
 }
 
 // represents an event this library can emit
@@ -358,7 +372,7 @@ pub enum ClientCommand {
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientQuery {
-	ClientGetState,
+	NodeGetState,
 	SysGetVolumes,
 	LibGetTags,
 	JobGetRunning,
@@ -373,6 +387,7 @@ pub enum ClientQuery {
 		limit: i32,
 	},
 	GetLibraryStatistics,
+	GetNodes,
 }
 
 // represents an event this library can emit
@@ -398,7 +413,7 @@ pub enum CoreResponse {
 	SysGetLocation(sys::locations::LocationResource),
 	SysGetLocations(Vec<sys::locations::LocationResource>),
 	LibGetExplorerDir(file::DirectoryWithContents),
-	ClientGetState(ClientState),
+	NodeGetState(NodeState),
 	LocCreate(sys::locations::LocationResource),
 	JobGetRunning(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),

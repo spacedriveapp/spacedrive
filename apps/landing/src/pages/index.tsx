@@ -1,5 +1,5 @@
 import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
-import { Button } from '@sd/ui';
+import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useEffect } from 'react';
 import { useState } from 'react';
@@ -7,13 +7,16 @@ import { useState } from 'react';
 import AppEmbed from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import { Footer } from '../components/Footer';
+import HomeCTA from '../components/HomeCTA';
 import NavBar from '../components/NavBar';
+import NewBanner from '../components/NewBanner';
 
 interface SectionProps {
 	orientation: 'left' | 'right';
 	heading?: string;
 	description?: string | React.ReactNode;
 	children?: React.ReactNode;
+	className?: string;
 }
 
 function Section(props: SectionProps = { orientation: 'left' }) {
@@ -24,7 +27,7 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 		</div>
 	);
 	return (
-		<div className="grid grid-cols-1 my-10 lg:grid-cols-2 lg:my-44">
+		<div className={clsx('grid grid-cols-1 my-10 lg:grid-cols-2 lg:my-44', props.className)}>
 			{props.orientation === 'right' ? (
 				<>
 					{info}
@@ -41,28 +44,19 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 }
 
 function Page() {
-	// const [appLoaded, setAppLoaded] = useState(false);
-
-	// function handleResize(event: Event) {
-	//   if (window.innerWidth > 1000) setShowApp(true);
-	//   else if (showApp) setShowApp(false);
-	// }
-
-	// useEffect(() => {
-	//   window.addEventListener('resize', handleResize);
-	//   return () => window.removeEventListener('resize', handleResize);
-	// }, []);
-
 	return (
 		<>
-			<div className="mt-28 lg:mt-36" />
-			<h1
-				id="content"
-				className="px-2 mb-3 text-4xl font-black leading-tight text-center md:text-6xl "
-			>
+			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
+
+			<NewBanner
+				headline="Spacedrive raises $1.9M led by OSS Capital"
+				href="https://spacedrive.hashnode.dev/spacedrive-funding-announcement"
+				link="Read post"
+			/>
+			<h1 className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center fade-in-heading md:text-6xl">
 				A file explorer from the future.
 			</h1>
-			<p className="max-w-4xl mt-1 mb-8 text-center text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
+			<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
 				Combine your drives and clouds into one database that you can organize and explore from any
 				device.
 				<br />
@@ -70,43 +64,12 @@ function Page() {
 					Designed for creators, hoarders and the painfully disorganized.
 				</span>
 			</p>
-			<div className="flex flex-row space-x-4">
-				{/* <Button className="px-2">
-          <WindowsLogo className="" fill="white" />
-        </Button> */}
-
-				{/* <Button
-          onClick={() =>
-            alert(
-              "You're here early! This is the only button on this page that does not work, I promise. Release build coming very soon—follow @spacedriveapp for updates."
-            )
-          }
-          className="opacity-50 cursor-not-allowed select-none"
-          variant="primary"
-        >
-          Download
-        </Button> */}
-
-				<Button
-					href="https://github.com/spacedriveapp/spacedrive"
-					target="_blank"
-					className="cursor-pointer"
-					variant="gray"
-				>
-					<Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
-					Star on GitHub
-				</Button>
-			</div>
-			<p className="px-6 mt-3 text-sm text-center opacity-75 text-gray-450">
-				Coming soon to macOS, Windows, and Linux.
-				<br />
-				Shortly thereafter to iOS & Android.
-			</p>
-
+			<HomeCTA />
 			<AppEmbed />
 			<Section
 				orientation="right"
 				heading="Never leave a file behind."
+				className="z-30"
 				description={
 					<>
 						Spacedrive accounts for every file you own, uniquely fingerprinting and extracting

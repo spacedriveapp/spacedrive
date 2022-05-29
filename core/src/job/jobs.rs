@@ -3,8 +3,8 @@ use super::{
 	JobError,
 };
 use crate::{
-	prisma::{client, job},
-	state,
+	node::state,
+	prisma::{job, node},
 	sync::{crdt::Replicate, engine::SyncContext},
 	CoreContext,
 };
@@ -20,11 +20,12 @@ const MAX_WORKERS: usize = 4;
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
 	async fn run(&self, ctx: WorkerContext) -> Result<()>;
+	fn name(&self) -> &'static str;
 }
 
 // jobs struct is maintained by the core
 pub struct Jobs {
-	// job_queue: Vec<Box<dyn Job>>,
+	job_queue: Vec<Box<dyn Job>>,
 	// workers are spawned when jobs are picked off the queue
 	running_workers: HashMap<String, Arc<Mutex<Worker>>>,
 }
@@ -32,26 +33,36 @@ pub struct Jobs {
 impl Jobs {
 	pub fn new() -> Self {
 		Self {
-			// job_queue: vec![],
+			job_queue: vec![],
 			running_workers: HashMap::new(),
 		}
 	}
 	pub async fn ingest(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
 		// create worker to process job
-		let worker = Worker::new(job);
-		let id = worker.id();
-
 		if self.running_workers.len() < MAX_WORKERS {
+			let worker = Worker::new(job);
+			let id = worker.id();
+
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
 			Worker::spawn(wrapped_worker.clone(), ctx).await;
 
 			self.running_workers.insert(id, wrapped_worker);
+		} else {
+			self.job_queue.push(job);
 		}
 	}
-	pub fn complete(&mut self, job_id: String) {
+	pub fn ingest_queue(&mut self, _ctx: &CoreContext, job: Box<dyn Job>) {
+		self.job_queue.push(job);
+	}
+	pub async fn complete(&mut self, ctx: &CoreContext, job_id: String) {
 		// remove worker from running workers
 		self.running_workers.remove(&job_id);
+		// continue queue
+		let job = self.job_queue.pop();
+		if let Some(job) = job {
+			self.ingest(ctx, job).await;
+		}
 	}
 	pub async fn get_running(&self) -> Vec<JobReport> {
 		let mut ret = vec![];
@@ -86,6 +97,7 @@ pub enum JobReportUpdate {
 #[ts(export)]
 pub struct JobReport {
 	pub id: String,
+	pub name: String,
 	// client_id: i32,
 	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
@@ -107,12 +119,13 @@ impl Into<JobReport> for job::Data {
 	fn into(self) -> JobReport {
 		JobReport {
 			id: self.id,
+			name: self.name,
 			// client_id: self.client_id,
 			status: JobStatus::from_int(self.status).unwrap(),
 			task_count: self.task_count,
 			completed_task_count: self.completed_task_count,
-			date_created: self.date_created,
-			date_modified: self.date_modified,
+			date_created: self.date_created.into(),
+			date_modified: self.date_modified.into(),
 			message: String::new(),
 			seconds_elapsed: self.seconds_elapsed,
 		}
@@ -120,9 +133,10 @@ impl Into<JobReport> for job::Data {
 }
 
 impl JobReport {
-	pub fn new(uuid: String) -> Self {
+	pub fn new(uuid: String, name: String) -> Self {
 		Self {
 			id: uuid,
+			name,
 			// client_id: 0,
 			date_created: chrono::Utc::now(),
 			date_modified: chrono::Utc::now(),
@@ -134,13 +148,14 @@ impl JobReport {
 		}
 	}
 	pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
-		let config = state::client::get();
+		let config = state::get();
 		ctx.database
 			.job()
 			.create(
 				job::id::set(self.id.clone()),
+				job::name::set(self.name.clone()),
 				job::action::set(1),
-				job::clients::link(client::id::equals(config.client_id)),
+				job::nodes::link(node::id::equals(config.node_id)),
 				vec![],
 			)
 			.exec()
@@ -155,7 +170,7 @@ impl JobReport {
 				job::status::set(self.status.int_value()),
 				job::task_count::set(self.task_count),
 				job::completed_task_count::set(self.completed_task_count),
-				job::date_modified::set(chrono::Utc::now()),
+				job::date_modified::set(chrono::Utc::now().into()),
 				job::seconds_elapsed::set(self.seconds_elapsed),
 			])
 			.exec()
