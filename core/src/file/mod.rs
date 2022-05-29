@@ -32,11 +32,8 @@ pub struct File {
 	pub ipfs_id: Option<String>,
 	pub comment: Option<String>,
 
-	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_modified: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_indexed: chrono::DateTime<chrono::Utc>,
 
 	pub paths: Vec<FilePath>,
@@ -57,14 +54,12 @@ pub struct FilePath {
 	pub extension: Option<String>,
 	pub file_id: Option<i32>,
 	pub parent_id: Option<i32>,
-	// pub temp_cas_id: Option<String>,
-	pub has_local_thumbnail: bool,
-	#[ts(type = "string")]
+
 	pub date_created: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_modified: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_indexed: chrono::DateTime<chrono::Utc>,
+
+	pub file: Option<File>,
 }
 
 #[repr(i32)]
@@ -108,7 +103,7 @@ impl Into<File> for file::Data {
 }
 
 impl Into<FilePath> for file_path::Data {
-	fn into(self) -> FilePath {
+	fn into(mut self) -> FilePath {
 		FilePath {
 			id: self.id,
 			is_dir: self.is_dir,
@@ -117,13 +112,11 @@ impl Into<FilePath> for file_path::Data {
 			parent_id: self.parent_id,
 			location_id: self.location_id,
 			date_indexed: self.date_indexed.into(),
-			//   permissions: self.permissions,
-			has_local_thumbnail: false,
 			name: self.name,
 			extension: self.extension,
-			//   temp_cas_id: self.temp_cas_id,
 			date_created: self.date_created.into(),
 			date_modified: self.date_modified.into(),
+			file: self.file.take().unwrap_or(None).map(|file| (*file).into()),
 		}
 	}
 }
@@ -132,7 +125,7 @@ impl Into<FilePath> for file_path::Data {
 #[ts(export)]
 pub struct DirectoryWithContents {
 	pub directory: FilePath,
-	pub contents: Vec<File>,
+	pub contents: Vec<FilePath>,
 }
 
 #[derive(Error, Debug)]

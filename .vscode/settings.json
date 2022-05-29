@@ -3,6 +3,7 @@
 		"actix",
 		"bpfrpt",
 		"consts",
+		"countup",
 		"creationdate",
 		"ipfs",
 		"Keepsafe",
@@ -16,6 +17,7 @@
 		"tailwindcss",
 		"trivago",
 		"tsparticles",
+		"unlisten",
 		"upsert"
 	],
 	"[rust]": {
