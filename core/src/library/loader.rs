@@ -1,9 +1,9 @@
 use anyhow::Result;
 use uuid::Uuid;
 
-use crate::state::client::LibraryState;
-use crate::{db::migrate, prisma::library, state};
-use crate::{Core, CoreContext};
+use crate::node::state::LibraryState;
+use crate::{db::migrate, node::state, prisma::library};
+use crate::{CoreContext, Node};
 
 use super::LibraryError;
 
@@ -15,8 +15,8 @@ pub fn get_library_path(data_path: &str) -> String {
 	format!("{}/{}", path, LIBRARY_DB_NAME)
 }
 
-pub async fn get(core: &Core) -> Result<library::Data, LibraryError> {
-	let config = state::client::get();
+pub async fn get(core: &Node) -> Result<library::Data, LibraryError> {
+	let config = state::get();
 	let db = &core.database;
 
 	let library_state = config.get_current_library();
@@ -43,7 +43,7 @@ pub async fn get(core: &Core) -> Result<library::Data, LibraryError> {
 }
 
 pub async fn load(ctx: &CoreContext, library_path: &str, library_id: &str) -> Result<()> {
-	let mut config = state::client::get();
+	let mut config = state::get();
 
 	println!("Initializing library: {} {}", &library_id, library_path);
 
@@ -58,7 +58,7 @@ pub async fn load(ctx: &CoreContext, library_path: &str, library_id: &str) -> Re
 }
 
 pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<()> {
-	let mut config = state::client::get();
+	let mut config = state::get();
 
 	let uuid = Uuid::new_v4().to_string();
 

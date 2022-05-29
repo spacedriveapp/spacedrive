@@ -4,7 +4,6 @@ use thiserror::Error;
 use ts_rs::TS;
 
 use crate::{
-	crypto::encryption::EncryptionAlgorithm,
 	prisma::{self, file, file_path},
 	sys::SysError,
 };
@@ -29,15 +28,12 @@ pub struct File {
 	pub has_thumbnail: bool,
 	pub has_thumbstrip: bool,
 	pub has_video_preview: bool,
-	pub encryption: EncryptionAlgorithm,
+	// pub encryption: EncryptionAlgorithm,
 	pub ipfs_id: Option<String>,
 	pub comment: Option<String>,
 
-	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_modified: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_indexed: chrono::DateTime<chrono::Utc>,
 
 	pub paths: Vec<FilePath>,
@@ -58,15 +54,12 @@ pub struct FilePath {
 	pub extension: Option<String>,
 	pub file_id: Option<i32>,
 	pub parent_id: Option<i32>,
-	pub temp_cas_id: Option<String>,
-	pub has_local_thumbnail: bool,
-	#[ts(type = "string")]
+
 	pub date_created: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_modified: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_indexed: chrono::DateTime<chrono::Utc>,
-	pub permissions: Option<String>,
+
+	pub file: Option<File>,
 }
 
 #[repr(i32)]
@@ -92,7 +85,7 @@ impl Into<File> for file::Data {
 			integrity_checksum: self.integrity_checksum,
 			kind: IntEnum::from_int(self.kind).unwrap(),
 			size_in_bytes: self.size_in_bytes.to_string(),
-			encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
+			//   encryption: EncryptionAlgorithm::from_int(self.encryption).unwrap(),
 			ipfs_id: self.ipfs_id,
 			hidden: self.hidden,
 			favorite: self.favorite,
@@ -101,16 +94,16 @@ impl Into<File> for file::Data {
 			has_thumbstrip: self.has_thumbstrip,
 			has_video_preview: self.has_video_preview,
 			comment: self.comment,
-			date_created: self.date_created,
-			date_modified: self.date_modified,
-			date_indexed: self.date_indexed,
+			date_created: self.date_created.into(),
+			date_modified: self.date_modified.into(),
+			date_indexed: self.date_indexed.into(),
 			paths: vec![],
 		}
 	}
 }
 
 impl Into<FilePath> for file_path::Data {
-	fn into(self) -> FilePath {
+	fn into(mut self) -> FilePath {
 		FilePath {
 			id: self.id,
 			is_dir: self.is_dir,
@@ -118,14 +111,12 @@ impl Into<FilePath> for file_path::Data {
 			file_id: self.file_id,
 			parent_id: self.parent_id,
 			location_id: self.location_id,
-			date_indexed: self.date_indexed,
-			permissions: self.permissions,
-			has_local_thumbnail: false,
+			date_indexed: self.date_indexed.into(),
 			name: self.name,
 			extension: self.extension,
-			temp_cas_id: self.temp_cas_id,
-			date_created: self.date_created,
-			date_modified: self.date_modified,
+			date_created: self.date_created.into(),
+			date_modified: self.date_modified.into(),
+			file: self.file.take().unwrap_or(None).map(|file| (*file).into()),
 		}
 	}
 }

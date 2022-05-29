@@ -1,6 +1,3 @@
-import type { FilePath } from './FilePath';
+import type { FilePath } from "./FilePath";
 
-export interface DirectoryWithContents {
-	directory: FilePath;
-	contents: Array<FilePath>;
-}
+export interface DirectoryWithContents { directory: FilePath, contents: Array<FilePath>, }
