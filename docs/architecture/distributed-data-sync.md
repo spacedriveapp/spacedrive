@@ -5,26 +5,13 @@ Synchronizing data between clients in a Spacedrive network is accomplished using
 Designed for synchronizing data in realtime between [SQLite](https://www.sqlite.org/) databases potentially in the gigabytes.
 
 ```rust
-mod sync {
-  struct SyncEngine {
-    pending: Vec<SyncEvent>,     // events waiting to be sent
-  }
-
-  struct SyncEvent {
-    client_uuid: String,         // client that created change
-    timestamp: uhlc::Timestamp,  // unique hybrid logical clock timestamp
-    resource: SyncResource,      // the CRDT resource
-    transport: SyncTransport,    // method of data transport (msg or binary)
-  }
-
-  // we can now impl specfic CRDT traits to given resources
-  enum SyncResource {
-    FilePath(dyn Replicate),
-    File(dyn PropertyOperation),
-    Tag(dyn PropertyOperation),
-    TagOnFile(dyn LastWriteWin),
-    Jobs(dyn Replicate + OperationalTransform)
-  }
+// we can now impl specfic CRDT traits to given resources
+enum SyncResource {
+  FilePath(dyn Replicate),
+  File(dyn PropertyOperation),
+  Tag(dyn PropertyOperation),
+  TagOnFile(dyn LastWriteWin),
+  Jobs(dyn Replicate + OperationalTransform)
 }
 ```
 
@@ -46,32 +33,32 @@ Data is divided into several kinds, Shared and Owned.
 
 \*_Shared data doesn't always use this method, in some cases we can create shared resources in bulk, where conflicts are handled by simply merging. More on that in [Synchronization Strategy]()_.
 
-## Client Pool
+## Node Pool
 
-The client pool maintains record of all clients in your network.
+The node pool maintains record of all nodes in your network.
 
 An exact replica of the client pool is synchronized on each client. When a given client has a state change, it will notify every other client in the pool via the `connection` struct.
 
 The `ClientConnection` is maintained in memory and is established on startup.
 
 ```rust
-struct ClientPool {
+struct NodePool {
   clients: Vec<Client>
 }
 
-struct Client {
+struct Node {
   uuid: String,
   last_seen: DateTime<Utc>,
   last_synchronized: DateTime<Utc>,
-  connection: Option<ClientConnection>
+  connection: Option<NodeConnection>
 }
 ```
 
-Clients will ping-pong to ensure their connection stays alive, this logic is contained within the `ClientConnection` instance.
+Nodes will ping-pong to ensure their connection stays alive, this logic is contained within the `NodeConnection` instance.
 
-**Handling stale clients**
+**Handling stale nodes**
 
-If a client has not been seen in X amount of time, other clients will not persist pending operations for them. Clients take care of flushing the pending operation queue once all non-stale clients have received the pending operations.
+If a node has not been seen in X amount of time, other nodes will not persist pending operations for them. Nodes take care of flushing the pending operation queue once all non-stale nodes have received the pending operations.
 
 ## Clock
 
@@ -93,7 +80,7 @@ This allows us to entirely avoid the need to synchronize time between clients, a
 
 Sync happens in the following order:
 
-Owned data → Bulk shared data → Shared data → Relational data
+Owned data → Bulk shared data → Shared data
 
 ### Types of CRDT:
 

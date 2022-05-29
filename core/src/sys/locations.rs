@@ -1,5 +1,5 @@
 use crate::{
-	file::indexer::IndexerJob, prisma::location, state::client, ClientQuery, CoreContext, CoreEvent,
+	file::indexer::IndexerJob, node::state, prisma::location, ClientQuery, CoreContext, CoreEvent,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,7 @@ impl Into<LocationResource> for location::Data {
 			available_capacity: self.available_capacity,
 			is_removable: self.is_removable,
 			is_online: self.is_online,
-			date_created: self.date_created,
+			date_created: self.date_created.into(),
 		}
 	}
 }
@@ -110,7 +110,7 @@ pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, S
 
 pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
 	let db = &ctx.database;
-	let config = client::get();
+	let config = state::get();
 
 	// check if we have access to this location
 	if !Path::new(path).exists() {

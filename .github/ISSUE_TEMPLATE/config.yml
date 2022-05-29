@@ -1,3 +1,5 @@
+# tell yaml plugin that this is the config file and not a template of its own:
+# yaml-language-server: $schema=https://json.schemastore.org/github-issue-config.json
 blank_issues_enabled: false
 contact_links:
   - name: 📝 Report Typo

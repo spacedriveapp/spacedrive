@@ -1,5 +1,5 @@
 use crate::job::jobs::JobReportUpdate;
-use crate::state::client;
+use crate::node::state;
 use crate::{
 	job::{jobs::Job, worker::WorkerContext},
 	prisma::file_path,
@@ -26,8 +26,11 @@ pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 
 #[async_trait::async_trait]
 impl Job for ThumbnailJob {
+	fn name(&self) -> &'static str {
+		"file_identifier"
+	}
 	async fn run(&self, ctx: WorkerContext) -> Result<()> {
-		let config = client::get();
+		let config = state::get();
 		let core_ctx = ctx.core_ctx.clone();
 
 		let location = sys::locations::get_location(&core_ctx, self.location_id).await?;
@@ -41,8 +44,6 @@ impl Job for ThumbnailJob {
 		let root_path = location.path.unwrap();
 
 		let image_files = get_images(&core_ctx, self.location_id, &self.path).await?;
-
-		let location_id = location.id.clone();
 
 		println!("Found {:?} files", image_files.len());
 
@@ -63,13 +64,27 @@ impl Job for ThumbnailJob {
 					image_file.materialized_path.clone()
 				))]);
 				let path = format!("{}{}", root_path, image_file.materialized_path);
-				let checksum = image_file.temp_cas_id.as_ref().unwrap();
+				println!("image_file {:?}", image_file);
+
+				let cas_id = match image_file.file() {
+					Ok(file) => {
+						if let Some(f) = file {
+							f.cas_id.clone()
+						} else {
+							continue;
+						}
+					}
+					Err(_) => {
+						println!("Error getting cas_id {:?}", image_file.materialized_path);
+						continue;
+					}
+				};
 
 				// Define and write the WebP-encoded file to a given path
 				let output_path = Path::new(&config.data_path)
 					.join(THUMBNAIL_CACHE_DIR_NAME)
-					.join(format!("{}", location_id))
-					.join(checksum)
+					.join(format!("{}", location.id))
+					.join(&cas_id)
 					.with_extension("webp");
 
 				// check if file exists at output path
@@ -84,9 +99,7 @@ impl Job for ThumbnailJob {
 					ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
 
 					if !is_background {
-						block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail {
-							cas_id: checksum.to_string(),
-						}));
+						block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail { cas_id }));
 					};
 				} else {
 					println!("Thumb exists, skipping... {}", output_path.display());
@@ -143,7 +156,13 @@ pub async fn get_images(
 		params.push(file_path::materialized_path::starts_with(path.to_string()))
 	}
 
-	let image_files = ctx.database.file_path().find_many(params).exec().await?;
+	let image_files = ctx
+		.database
+		.file_path()
+		.find_many(params)
+		.with(file_path::file::fetch())
+		.exec()
+		.await?;
 
 	Ok(image_files)
 }
