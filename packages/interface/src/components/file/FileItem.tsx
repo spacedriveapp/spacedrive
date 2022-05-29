@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { ArrowLineRight, FilePlus, FileText, Plus, Share, Trash } from 'phosphor-react';
+import { FilePlus, FileText, Plus, Share, Trash } from 'phosphor-react';
 import React, { MouseEventHandler } from 'react';
 
 import icons from '../../assets/icons';
@@ -34,9 +34,7 @@ export default function FileItem(props: Props) {
 					{
 						label: 'Details',
 						icon: FileText,
-						onClick() {
-							alert('There are no details ඞ');
-						}
+						onClick() {}
 					},
 					{
 						label: 'Share',
@@ -52,16 +50,15 @@ export default function FileItem(props: Props) {
 				],
 				[
 					{
-						label: 'More More More',
+						label: 'More actions...',
 						icon: Plus,
 						onClick() {},
 						children: [
 							[
 								{
-									label: 'Super cool nested item',
-									onClick() {
-										alert("That's right, you clicked the cool item");
-									}
+									label: 'Move to library',
+									icon: FilePlus,
+									onClick() {}
 								}
 							]
 						]
