@@ -1,8 +1,5 @@
 import '@fontsource/inter/variable.css';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
-// global window type extensions
-// only load at TS compile time
-import type {} from '@sd/client/src/window';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useState } from 'react';
@@ -17,6 +14,7 @@ import {
 	useLocation,
 	useNavigate
 } from 'react-router-dom';
+
 import { Sidebar } from './components/file/Sidebar';
 import { Modal } from './components/layout/Modal';
 import SlideUp from './components/transitions/SlideUp';
@@ -25,14 +23,21 @@ import { ContentScreen } from './screens/Content';
 import { DebugScreen } from './screens/Debug';
 import { ExplorerScreen } from './screens/Explorer';
 import { OverviewScreen } from './screens/Overview';
+import { PhotosScreen } from './screens/Photos';
 import { RedirectPage } from './screens/Redirect';
 import { SettingsScreen } from './screens/Settings';
+import { TagScreen } from './screens/Tag';
+import AppearanceSettings from './screens/settings/AppearanceSettings';
 import ExperimentalSettings from './screens/settings/ExperimentalSettings';
 import GeneralSettings from './screens/settings/GeneralSettings';
+import KeysSettings from './screens/settings/KeysSetting';
 import LibrarySettings from './screens/settings/LibrarySettings';
 import LocationSettings from './screens/settings/LocationSettings';
 import SecuritySettings from './screens/settings/SecuritySettings';
-import { TagScreen } from './screens/Tag';
+import ContactsSettings from './screens/settings/SharingSettings';
+import SharingSettings from './screens/settings/SharingSettings';
+import SyncSettings from './screens/settings/SyncSettings';
+import TagsSettings from './screens/settings/TagsSettings';
 import './style.scss';
 
 const queryClient = new QueryClient();
@@ -57,17 +62,9 @@ export interface AppProps {
 
 function AppLayout() {
 	const appPropsContext = useContext(AppPropsContext);
-	const [isWindowRounded, setIsWindowRounded] = useState(false);
-	const [hasWindowBorder, setHasWindowBorder] = useState(true);
 
-	useEffect(() => {
-		if (appPropsContext?.platform === 'macOS') {
-			setIsWindowRounded(true);
-		}
-		if (appPropsContext?.platform === 'browser') {
-			setHasWindowBorder(false);
-		}
-	}, []);
+	const isWindowRounded = appPropsContext?.platform === 'macOS';
+	const hasWindowBorder = appPropsContext?.platform !== 'browser' && appPropsContext?.platform !== 'windows';
 
 	return (
 		<div
@@ -98,17 +95,17 @@ function SettingsRoutes({ modal = false }) {
 					element={modal ? <Modal children={<SettingsScreen />} /> : <SettingsScreen />}
 				>
 					<Route index element={<GeneralSettings />} />
-					<Route path="general" element={<GeneralSettings />} />
-					<Route path="security" element={<SecuritySettings />} />
-					<Route path="appearance" element={<></>} />
+
+					<Route path="appearance" element={<AppearanceSettings />} />
 					<Route path="experimental" element={<ExperimentalSettings />} />
-					<Route path="locations" element={<LocationSettings />} />
+					<Route path="general" element={<GeneralSettings />} />
+					<Route path="keys" element={<KeysSettings />} />
 					<Route path="library" element={<LibrarySettings />} />
-					<Route path="media" element={<></>} />
-					<Route path="keys" element={<></>} />
-					<Route path="tags" element={<></>} />
-					<Route path="sync" element={<></>} />
-					<Route path="contacts" element={<></>} />
+					<Route path="security" element={<SecuritySettings />} />
+					<Route path="locations" element={<LocationSettings />} />
+					<Route path="sharing" element={<SharingSettings />} />
+					<Route path="sync" element={<SyncSettings />} />
+					<Route path="tags" element={<TagsSettings />} />
 				</Route>
 			</Routes>
 		</SlideUp>
@@ -130,6 +127,7 @@ function Router() {
 					<Route index element={<RedirectPage to="/overview" />} />
 					<Route path="overview" element={<OverviewScreen />} />
 					<Route path="content" element={<ContentScreen />} />
+					<Route path="photos" element={<PhotosScreen />} />
 					<Route path="debug" element={<DebugScreen />} />
 					<Route path="settings/*" element={<SettingsRoutes />} />
 					<Route path="explorer/:id" element={<ExplorerScreen />} />
@@ -210,8 +208,6 @@ export default function App(props: AppProps) {
 	window.ReactQueryClient ??= queryClient;
 
 	setTransport(props.transport);
-
-	console.log('App props', props);
 
 	return (
 		<>

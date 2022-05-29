@@ -1,4 +1,4 @@
-use sdcore::{ClientCommand, ClientQuery, Core, CoreController, CoreEvent, CoreResponse};
+use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
 use std::{env, path::Path};
 
 use actix::{
@@ -196,14 +196,14 @@ async fn setup() -> (
 		},
 	};
 
-	let (mut core, event_receiver) = Core::new(data_dir_path).await;
+	let (mut node, event_receiver) = Node::new(data_dir_path).await;
 
-	core.initializer().await;
+	node.initializer().await;
 
-	let controller = core.get_controller();
+	let controller = node.get_controller();
 
 	tokio::spawn(async move {
-		core.start().await;
+		node.start().await;
 	});
 
 	(web::Data::new(event_receiver), web::Data::new(controller))

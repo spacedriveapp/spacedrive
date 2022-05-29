@@ -1,7 +1,7 @@
 use crate::{
+	node::state,
 	prisma::{library, library_statistics::*},
-	state::client,
-	sys::{self, volumes::Volume},
+	sys::volumes::Volume,
 	CoreContext,
 };
 use fs_extra::dir::get_size;
@@ -53,7 +53,7 @@ impl Default for Statistics {
 
 impl Statistics {
 	pub async fn retrieve(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
-		let config = client::get();
+		let config = state::get();
 		let db = &ctx.database;
 		let library_data = config.get_current_library();
 
@@ -69,8 +69,9 @@ impl Statistics {
 		};
 		Ok(library_statistics_db.into())
 	}
+
 	pub async fn calculate(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
-		let config = client::get();
+		let config = state::get();
 		let db = &ctx.database;
 		// get library from client state
 		let library_data = config.get_current_library();
@@ -135,20 +136,22 @@ impl Statistics {
 		};
 
 		db.library_statistics()
-			.upsert(library_id::equals(library_local_id))
-			.create(
-				library_id::set(library_local_id),
-				vec![library_db_size::set(statistics.library_db_size.clone())],
+			.upsert(
+				library_id::equals(library_local_id),
+				(
+					library_id::set(library_local_id),
+					vec![library_db_size::set(statistics.library_db_size.clone())],
+				),
+				vec![
+					total_file_count::set(statistics.total_file_count.clone()),
+					total_bytes_used::set(statistics.total_bytes_used.clone()),
+					total_bytes_capacity::set(statistics.total_bytes_capacity.clone()),
+					total_bytes_free::set(statistics.total_bytes_free.clone()),
+					total_unique_bytes::set(statistics.total_unique_bytes.clone()),
+					preview_media_bytes::set(statistics.preview_media_bytes.clone()),
+					library_db_size::set(statistics.library_db_size.clone()),
+				],
 			)
-			.update(vec![
-				total_file_count::set(statistics.total_file_count.clone()),
-				total_bytes_used::set(statistics.total_bytes_used.clone()),
-				total_bytes_capacity::set(statistics.total_bytes_capacity.clone()),
-				total_bytes_free::set(statistics.total_bytes_free.clone()),
-				total_unique_bytes::set(statistics.total_unique_bytes.clone()),
-				preview_media_bytes::set(statistics.preview_media_bytes.clone()),
-				library_db_size::set(statistics.library_db_size.clone()),
-			])
 			.exec()
 			.await?;
 
