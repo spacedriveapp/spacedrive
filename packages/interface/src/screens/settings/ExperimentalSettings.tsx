@@ -1,14 +1,14 @@
 import { Button } from '@sd/ui';
 import React from 'react';
 
-import { useStore } from '../../components/device/Stores';
+import { useNodeStore } from '../../components/device/Stores';
 import { Toggle } from '../../components/primitive';
 import { InputContainer } from '../../components/primitive/InputContainer';
 
 export default function ExperimentalSettings() {
 	// const locations = useBridgeQuery("SysGetLocation")
 
-	const experimental = useStore((state) => state.experimental);
+	const { isExperimental, setIsExperimental } = useNodeStore();
 
 	return (
 		<div className="flex flex-col flex-grow max-w-4xl space-y-4">
@@ -24,12 +24,10 @@ export default function ExperimentalSettings() {
 			>
 				<div className="flex items-center h-full">
 					<Toggle
-						value={experimental}
+						value={isExperimental}
 						size={'sm'}
 						onChange={(newValue) => {
-							useStore.setState({
-								experimental: newValue
-							});
+							setIsExperimental(!isExperimental);
 						}}
 					/>
 				</div>
