@@ -50,7 +50,7 @@ export interface AppProps {
 	transport: BaseTransport;
 	platform: Platform;
 	convertFileSrc: (url: string) => string;
-	openDialog: (options: { directory?: boolean }) => Promise<string | string[]>;
+	openDialog: (options: { directory?: boolean }) => Promise<string | string[] | null>;
 	onClose?: () => void;
 	onMinimize?: () => void;
 	onFullscreen?: () => void;

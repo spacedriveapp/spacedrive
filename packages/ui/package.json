@@ -12,7 +12,9 @@
 		"./package.json": "./package.json"
 	},
 	"scripts": {
-		"build": "tsc"
+		"build": "tsc",
+		"storybook": "NODE_OPTIONS=--openssl-legacy-provider start-storybook -p 6006",
+		"storybook:build": "build-storybook"
 	},
 	"dependencies": {
 		"@headlessui/react": "^1.5.0",
@@ -20,13 +22,30 @@
 		"clsx": "^1.1.1",
 		"postcss": "^8.4.12",
 		"react": "^18.0.0",
-		"tailwind": "^4.0.0"
+		"react-dom": "^18.0.0",
+		"tailwindcss": "^3.0.23"
 	},
 	"devDependencies": {
+		"@babel/core": "^7.18.2",
 		"@sd/config": "workspace:*",
+		"@storybook/addon-actions": "^6.5.5",
+		"@storybook/addon-essentials": "^6.5.5",
+		"@storybook/addon-interactions": "^6.5.5",
+		"@storybook/addon-links": "^6.5.5",
+		"@storybook/addon-postcss": "^2.0.0",
+		"@storybook/builder-webpack5": "^6.5.5",
+		"@storybook/manager-webpack5": "^6.5.5",
+		"@storybook/preset-scss": "^1.0.3",
+		"@storybook/react": "^6.5.5",
+		"@storybook/testing-library": "^0.0.11",
 		"@types/react": "^18.0.8",
 		"@types/react-dom": "^18.0.0",
+		"babel-loader": "^8.2.5",
+		"css-loader": "^6.7.1",
+		"postcss-loader": "^7.0.0",
 		"sass": "^1.50.0",
+		"sass-loader": "^13.0.0",
+		"style-loader": "^3.3.1",
 		"typescript": "^4.6.3"
 	}
 }
