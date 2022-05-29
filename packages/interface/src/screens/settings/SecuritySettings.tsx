@@ -2,10 +2,13 @@ import { Button } from '@sd/ui';
 import React from 'react';
 
 import { InputContainer } from '../../components/primitive/InputContainer';
+import { SettingsContainer } from '../../components/settings/SettingsContainer';
+import { SettingsHeader } from '../../components/settings/SettingsHeader';
 
 export default function SecuritySettings() {
 	return (
-		<div className="space-y-4">
+		<SettingsContainer>
+			<SettingsHeader title="Security" description="Keep your client safe." />
 			<InputContainer
 				title="Vault"
 				description="You'll need to set a passphrase to enable the vault."
@@ -15,6 +18,6 @@ export default function SecuritySettings() {
 					{/*<Input className="flex-grow" value="jeff" placeholder="/users/jamie/Desktop" />*/}
 				</div>
 			</InputContainer>
-		</div>
+		</SettingsContainer>
 	);
 }
