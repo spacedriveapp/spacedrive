@@ -1,43 +1,60 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
+#!/usr/bin/env node
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { format as prettierFormat } from 'prettier';
+
+import prettierConfig from '../../../.prettierrc.json' assert { type: 'json' };
+
+/**
+ * Make a friendly name from an svg filename
+ *
+ * @example `folder-light` => `FolderLight`
+ * @example `folder-open` => `FolderOpen`
+ * @param {string} iconName Icon name to convert
+ */
+function iconFriendlyName(iconName, delimeter = '-') {
+	return iconName
+		.split(delimeter)
+		.map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1))
+		.join('');
+}
+
+function iconBaseName(filePath) {
+	return path.basename(filePath, path.extname(filePath))
+}
+
+async function exists(path) {
+	try {
+		await fs.access(path);
+		return true;
+	} catch {
+		return false;
+	}
+}
 
 (async function main() {
-  async function exists(path) {
-    try {
-      await fs.access(path);
-      return true;
-    } catch {
-      return false;
-    }
-  }
+	const files = await fs.readdir('./src/assets/icons');
+	const icons = files.filter((path) => path.endsWith('.svg'));
 
-  const files = await fs.readdir('./src/assets/icons');
-  const icons = files.filter((f) => f.endsWith('.svg'));
-  let str = '';
+	const generatedCode = `\
+${icons
+	.map((path) => iconBaseName(path))
+	.map((baseName) => `import { ReactComponent as ${iconFriendlyName(baseName)} } from './${baseName}.svg';`)
+	.join('\n')}
 
-  for (let binding of icons) {
-    let name = binding.split('.')[0];
-    str += `import { ReactComponent as ${
-      name.charAt(0).toUpperCase() + name.slice(1)
-    } } from './${name}.svg';\n`;
-  }
-  str += '\n\nexport default {\n';
+export default {
+${icons
+	.map((path) => iconFriendlyName(iconBaseName(path)))
+	.map((baseName) => `\t${iconFriendlyName(baseName)},`)
+	.join('\n')}
+};
+`;
 
-  for (let binding of icons) {
-    let name = binding.split('.')[0];
-    let componentName = name.charAt(0).toUpperCase() + name.slice(1);
-    str += `  ${name}: ${componentName},\n`;
-  }
+	const outPath = path.resolve('./src/assets/icons/index.ts');
 
-  str += '}\n';
+	if (await exists(outPath)) {
+		await fs.rm(outPath);
+	}
 
-  let outPath = './src/assets/icons/index.ts';
-
-  let indexExists = await exists(outPath);
-
-  if (indexExists) {
-    await fs.rm(outPath);
-  }
-
-  await fs.writeFile(outPath, str);
+	await fs.writeFile(outPath, prettierFormat( generatedCode, prettierConfig));
 })();
