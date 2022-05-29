@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React from 'react';
+import React, { forwardRef } from 'react';
 
 const sizes = {
 	default: 'py-1 px-3 text-md font-medium',
@@ -104,43 +104,39 @@ type Button = {
 
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
-export const Button: Button = (props) => {
-	const {
-		loading = false,
-		justifyLeft = false,
-		noPadding = false,
-		size = 'default',
-		variant = 'default',
-		...rest
-	} = props;
+export const Button = forwardRef<
+	HTMLButtonElement | HTMLAnchorElement,
+	ButtonProps | LinkButtonProps
+>(
+	(
+		{ loading, justifyLeft, className, pressEffect, noBorder, noPadding, size, variant, ...props },
+		ref
+	) => {
+		className = clsx(
+			'border rounded-md items-center transition-colors duration-100 cursor-default',
+			{ 'opacity-5': loading, '!p-1': noPadding },
+			{ 'justify-center': !justifyLeft },
+			sizes[size || 'default'],
+			variants[variant || 'default'],
+			{ 'active:translate-y-[1px]': pressEffect },
+			{ 'border-0': noBorder },
+			className
+		);
 
-	const className = clsx(
-		'border rounded-md items-center transition-colors duration-100 cursor-default',
-		{ 'opacity-5': loading, '!p-1': noPadding },
-		{ 'justify-center': !justifyLeft },
-		sizes[size || 'default'],
-		variants[variant || 'default'],
-		{ 'active:translate-y-[1px]': props.pressEffect },
-		{ 'border-0': props.noBorder },
-		rest.className
-	);
-
-	if (hasHref(props))
-		return (
-			<a {...(rest as LinkButtonProps)} className={className}>
+		return hasHref(props) ? (
+			<a {...props} ref={ref as any} className={clsx(className, 'no-underline')}>
 				<>
 					{props.icon}
 					{props.children}
 				</>
 			</a>
-		);
-	else
-		return (
-			<button {...(rest as ButtonProps)} className={className}>
+		) : (
+			<button {...(props as ButtonProps)} ref={ref as any} className={className}>
 				<>
 					{props.icon}
 					{props.children}
 				</>
 			</button>
 		);
-};
+	}
+);

@@ -6,3 +6,123 @@ html {
 		display: none;
 	}
 }
+
+.landing-img {
+	background-image: url('/app.png');
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center top;
+}
+
+.fade-in-app-embed {
+	animation: fadeInUp 3s;
+	-webkit-animation: fadeInUp 3s;
+	-moz-animation: fadeInUp 3s;
+	-o-animation: fadeInUp 3s;
+	-ms-animation: fadeInUp 3s;
+}
+
+.fade-in-heading {
+	animation: fadeInDown 1s forwards;
+	opacity: 0;
+}
+
+.fade-in {
+	animation: fadeIn 1s forwards;
+	opacity: 0;
+}
+
+.fade-in-whats-new {
+	animation: fadeInDown 1s forwards;
+	animation-delay: 1.5s;
+	opacity: 0;
+}
+
+.animation-delay-1 {
+	animation-delay: 200ms;
+}
+.animation-delay-2 {
+	animation-delay: 500ms;
+}
+.animation-delay-3 {
+	animation-delay: 700ms;
+}
+
+@keyframes fadeInDown {
+	from {
+		opacity: 0;
+		transform: translateY(-20px);
+	}
+	to {
+		transform: translateY(0px);
+		opacity: 1;
+	}
+}
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fadeInUp {
+	0% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+.bloom {
+	@apply absolute w-96 h-96;
+	will-change: opacity;
+	opacity: 0;
+	filter: blur(160px);
+	border-radius: 50%;
+	transform: scale(1.5);
+	animation-name: bloomBurst;
+	animation-duration: 1s;
+	animation-timing-function: ease-in-out;
+	animation-fill-mode: forwards;
+	animation-iteration-count: 1;
+	animation-direction: forwards;
+	&.bloom-one {
+		background: conic-gradient(from 90deg at 50% 50%, #255bef, #aa1cca);
+		animation-delay: 300ms;
+	}
+	&.bloom-two {
+		background: conic-gradient(from 90deg at 50% 50%, #c62dbb, #1d054b);
+		animation-delay: 0ms;
+	}
+	&.bloom-three {
+		background: conic-gradient(from 90deg at 50% 50%, #6c2ca0, #0b0b98);
+		animation-delay: 600ms;
+		margin-top: 200px;
+	}
+}
+
+@keyframes bloomBurst {
+	from {
+		opacity: 0;
+	}
+	40% {
+		opacity: 1;
+	}
+	to {
+		opacity: 0.6;
+	}
+}
+
+.shadow-iframe {
+	box-shadow: 0px 0px 100px 0px rgba(0, 0, 0, 0.5);
+}
+
+// Gradient colors
+// #3916BA
+// #7A1D77
+// #8E4CAB
+// #1D054B
+// #9A3F8C

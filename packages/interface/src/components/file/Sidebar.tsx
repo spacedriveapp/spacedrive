@@ -1,11 +1,10 @@
-import { LockClosedIcon } from '@heroicons/react/outline';
+import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import { CirclesFour, Code, Planet } from 'phosphor-react';
 import React, { useContext } from 'react';
-import { useParams } from 'react-router';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
 import { AppPropsContext } from '../../App';
@@ -50,7 +49,7 @@ export const MacWindowControlsSpace: React.FC<{
 	const { children } = props;
 
 	return (
-		<div data-tauri-drag-region className="h-7 flex-shrink-0">
+		<div data-tauri-drag-region className="flex-shrink-0 h-7">
 			{children}
 		</div>
 	);
@@ -76,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const appPropsContext = useContext(AppPropsContext);
 	const { data: locations } = useBridgeQuery('SysGetLocations');
-	const { data: clientState } = useBridgeQuery('ClientGetState');
+	const { data: clientState } = useBridgeQuery('NodeGetState');
 
 	const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
@@ -89,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 	];
 
 	return (
-		<div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-3 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+		<div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
 			{appPropsContext?.platform === 'browser' &&
 			window.location.search.includes('showControls') ? (
 				<MacWindowControls />
@@ -112,9 +111,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					variant: 'gray'
 				}}
 				// buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-				buttonText={clientState?.client_name || 'Loading...'}
+				buttonText={clientState?.node_name || 'Loading...'}
 				items={[
-					[{ name: clientState?.client_name || '', selected: true }, { name: 'Private Library' }],
+					[{ name: clientState?.node_name || '', selected: true }, { name: 'Private Library' }],
 					[
 						{ name: 'Library Settings', icon: CogIcon },
 						{ name: 'Add Library', icon: PlusIcon },
@@ -132,6 +131,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				<SidebarLink to="content">
 					<Icon component={CirclesFour} />
 					Content
+				</SidebarLink>
+				<SidebarLink to="photos">
+					<Icon component={PhotographIcon} />
+					Photos
 				</SidebarLink>
 
 				{isExperimental ? (
