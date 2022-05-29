@@ -13,19 +13,19 @@ export default function FileThumb(props: {
 	hasThumbnailOverride: boolean;
 	className?: string;
 }) {
-  const appPropsContext = useContext(AppPropsContext);
-  const { data: client } = useBridgeQuery('NodeGetState');
+	const appPropsContext = useContext(AppPropsContext);
+	const { data: client } = useBridgeQuery('NodeGetState');
 
 	if (props.file.is_dir) {
 		return <Folder className="max-w-[170px]" />;
 	}
 
-	if (client?.data_path && (props.file.has_local_thumbnail || props.hasThumbnailOverride)) {
+	if (client?.data_path && (props.file.file?.has_thumbnail || props.hasThumbnailOverride)) {
 		return (
 			<img
 				className="pointer-events-none z-90"
 				src={appPropsContext?.convertFileSrc(
-					`${client.data_path}/thumbnails/${props.locationId}/${props.file.temp_cas_id}.webp`
+					`${client.data_path}/thumbnails/${props.locationId}/${props.file.file?.cas_id}.webp`
 				)}
 			/>
 		);
