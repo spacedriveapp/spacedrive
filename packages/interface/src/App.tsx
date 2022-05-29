@@ -62,17 +62,9 @@ export interface AppProps {
 
 function AppLayout() {
 	const appPropsContext = useContext(AppPropsContext);
-	const [isWindowRounded, setIsWindowRounded] = useState(false);
-	const [hasWindowBorder, setHasWindowBorder] = useState(true);
 
-	useEffect(() => {
-		if (appPropsContext?.platform === 'macOS') {
-			setIsWindowRounded(true);
-		}
-		if (appPropsContext?.platform === 'browser') {
-			setHasWindowBorder(false);
-		}
-	}, []);
+	const isWindowRounded = appPropsContext?.platform === 'macOS';
+	const hasWindowBorder = appPropsContext?.platform !== 'browser' && appPropsContext?.platform !== 'windows';
 
 	return (
 		<div

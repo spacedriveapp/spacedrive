@@ -28,13 +28,11 @@
 			"shortDescription": "The Universal File Explorer",
 			"longDescription": "A cross-platform file explorer, powered by an open source virtual distributed filesystem.",
 			"deb": {
-				"depends": [],
-				"useBootstrapper": false
+				"depends": []
 			},
 			"macOS": {
 				"frameworks": [],
 				"minimumSystemVersion": "",
-				"useBootstrapper": false,
 				"exceptionDomain": "",
 				"signingIdentity": null,
 				"entitlements": null
