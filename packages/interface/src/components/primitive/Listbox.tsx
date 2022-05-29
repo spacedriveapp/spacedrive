@@ -21,7 +21,7 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 	return (
 		<>
 			<ListboxPrimitive value={selected} onChange={setSelected}>
-				<div className='relative w-full'>
+				<div className="relative w-full">
 					<ListboxPrimitive.Button
 						className={clsx(
 							`relative w-full py-2 pl-3 pr-10 text-left bg-white dark:bg-gray-500 
@@ -32,13 +32,13 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 						)}
 					>
 						{selected?.option ? (
-							<span className='block truncate'>{selected?.option}</span>
+							<span className="block truncate">{selected?.option}</span>
 						) : (
-							<span className='block truncate opacity-70'>Nothing selected...</span>
+							<span className="block truncate opacity-70">Nothing selected...</span>
 						)}
 
-						<span className='absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none'>
-							<SelectorIcon className='w-5 h-5 text-gray-400' aria-hidden='true' />
+						<span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+							<SelectorIcon className="w-5 h-5 text-gray-400" aria-hidden="true" />
 						</span>
 					</ListboxPrimitive.Button>
 
@@ -78,9 +78,9 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 										</span>
 
 										{selected ? (
-											<span className='absolute inset-y-0 left-0 flex items-center pl-2 text-white'>
-												<CheckIcon className='w-5 h-5' aria-hidden='true' />
-                      </span>
+											<span className="absolute inset-y-0 left-0 flex items-center pl-2 text-white">
+												<CheckIcon className="w-5 h-5" aria-hidden="true" />
+											</span>
 										) : null}
 									</>
 								)}
