@@ -3,6 +3,8 @@ import React from 'react';
 import { useStore } from '../../components/device/Stores';
 import { Toggle } from '../../components/primitive';
 import { InputContainer } from '../../components/primitive/InputContainer';
+import { SettingsContainer } from '../../components/settings/SettingsContainer';
+import { SettingsHeader } from '../../components/settings/SettingsHeader';
 
 export default function ExperimentalSettings() {
 	// const locations = useBridgeQuery("SysGetLocation")
@@ -10,12 +12,9 @@ export default function ExperimentalSettings() {
 	const experimental = useStore((state) => state.experimental);
 
 	return (
-		<div className="flex flex-col flex-grow max-w-4xl space-y-4">
+		<SettingsContainer>
 			{/*<Button size="sm">Add Location</Button>*/}
-			<div className="mt-3 mb-3">
-				<h1 className="text-2xl font-bold">Experimental</h1>
-				<p className="mt-1 text-sm text-gray-400">Experimental features within Spacedrive.</p>
-			</div>
+			<SettingsHeader title="Experimental" description="Experimental features within Spacedrive." />
 			<InputContainer
 				mini
 				title="Debug Menu"
@@ -33,6 +32,6 @@ export default function ExperimentalSettings() {
 					/>
 				</div>
 			</InputContainer>
-		</div>
+		</SettingsContainer>
 	);
 }
