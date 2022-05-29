@@ -15,7 +15,8 @@ type Section = {
 export interface DropdownProps {
 	items: Section[];
 	buttonText?: string;
-	buttonProps: React.ComponentProps<typeof Button>;
+	buttonProps?: React.ComponentProps<typeof Button>;
+	buttonComponent?: React.ReactNode;
 	buttonIcon?: any;
 	className?: string;
 	itemsClassName?: string;
@@ -26,24 +27,28 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 		<div className={clsx('w-full mt-2', props.className)}>
 			<Menu as="div" className="relative flex w-full text-left">
 				<Menu.Button as="div" className="flex-1 outline-none">
-					<Button size="sm" {...props.buttonProps}>
-						{props.buttonIcon}
-						{props.buttonText && (
-							<>
-								<span className="w-32 truncate"> {props.buttonText}</span>
-								<div className="flex-grow" />
-								<ChevronDownIcon
-									className="w-5 h-5 ml-2 -mr-1 text-violet-200 hover:text-violet-100 "
-									aria-hidden="true"
-								/>
-							</>
-						)}
-					</Button>
+					{props.buttonComponent ? (
+						props.buttonComponent
+					) : (
+						<Button size="sm" {...props.buttonProps}>
+							{props.buttonIcon}
+							{props.buttonText && (
+								<>
+									<span className="w-32 truncate"> {props.buttonText}</span>
+									<div className="flex-grow" />
+									<ChevronDownIcon
+										className="w-5 h-5 ml-2 -mr-1 text-violet-200 hover:text-violet-100 "
+										aria-hidden="true"
+									/>
+								</>
+							)}
+						</Button>
+					)}
 				</Menu.Button>
 
 				<Menu.Items
 					className={clsx(
-						'absolute z-50 w-full bg-white border divide-y divide-gray-100 rounded shadow-xl top-full dark:bg-gray-550 dark:divide-gray-500 dark:border-gray-600 ring-1 ring-black ring-opacity-5 focus:outline-none',
+						'absolute z-50 min-w-[100px] w-full bg-white border divide-y divide-gray-100 rounded shadow-xl top-full dark:bg-gray-550 dark:divide-gray-500 dark:border-gray-600 ring-1 ring-black ring-opacity-5 focus:outline-none',
 						props.itemsClassName
 					)}
 				>
