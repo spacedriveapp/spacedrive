@@ -35,7 +35,7 @@ export const Inspector = (props: { selectedFile?: FilePath; locationId: number }
 	// const { selectedRowIndex } = useExplorerState();
 	// const isOpen = !!props.selectedFile;
 
-	const file = props.selectedFile;
+	const file_path = props.selectedFile;
 
 	return (
 		<Transition
@@ -48,17 +48,17 @@ export const Inspector = (props: { selectedFile?: FilePath; locationId: number }
 			leaveTo="translate-x-64"
 		>
 			<div className="top-0 right-0 h-full m-2 border border-gray-100 rounded-lg w-60 dark:border-gray-850 ">
-				{!!file && (
+				{!!file_path && (
 					<div className="flex flex-col h-full overflow-hidden bg-white rounded-lg select-text dark:bg-gray-600 bg-opacity-70">
 						<div className="flex items-center justify-center w-full h-64 overflow-hidden rounded-t-lg bg-gray-50 dark:bg-gray-900">
 							<FileThumb
 								hasThumbnailOverride={false}
 								className="!m-0 flex flex-shrink flex-grow-0"
-								file={file}
+								file={file_path}
 								locationId={props.locationId}
 							/>
 						</div>
-						<h3 className="pt-3 pl-3 text-base font-bold">{file?.name}</h3>
+						<h3 className="pt-3 pl-3 text-base font-bold">{file_path?.name}</h3>
 						<div className="flex flex-row m-3 space-x-2">
 							<Button size="sm" noPadding>
 								<Heart className="w-[18px] h-[18px]" />
@@ -70,34 +70,34 @@ export const Inspector = (props: { selectedFile?: FilePath; locationId: number }
 								<Link className="w-[18px] h-[18px]" />
 							</Button>
 						</div>
-						{file?.temp_cas_id && (
-							<MetaItem title="Unique Content ID" value={file.temp_cas_id as string} />
+						{file_path?.file?.cas_id && (
+							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
 						)}
 						<Divider />
-						<MetaItem title="Uri" value={file?.materialized_path as string} />
+						<MetaItem title="Uri" value={file_path?.materialized_path as string} />
 						<Divider />
 						<MetaItem
 							title="Date Created"
-							value={moment(file?.date_created).format('MMMM Do YYYY, h:mm:ss a')}
+							value={moment(file_path?.date_created).format('MMMM Do YYYY, h:mm:ss a')}
 						/>
 						<Divider />
 						<MetaItem
 							title="Date Indexed"
-							value={moment(file?.date_indexed).format('MMMM Do YYYY, h:mm:ss a')}
+							value={moment(file_path?.date_indexed).format('MMMM Do YYYY, h:mm:ss a')}
 						/>
 						<Divider />
-						{!file?.is_dir && (
+						{!file_path?.is_dir && (
 							<>
 								<div className="flex flex-row items-center px-3 py-2 meta-item">
-									{file?.extension && (
+									{file_path?.extension && (
 										<span className="inline px-1 mr-1 text-xs font-bold uppercase bg-gray-500 rounded-md text-gray-150">
-											{file?.extension}
+											{file_path?.extension}
 										</span>
 									)}
 									<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">
-										{file?.extension
+										{file_path?.extension
 											? //@ts-ignore
-											  types[file.extension.toUpperCase()]?.descriptions.join(' / ')
+											  types[file_path.extension.toUpperCase()]?.descriptions.join(' / ')
 											: 'Unknown'}
 									</p>
 								</div>

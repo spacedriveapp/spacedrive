@@ -45,8 +45,6 @@ impl Job for ThumbnailJob {
 
 		let image_files = get_images(&core_ctx, self.location_id, &self.path).await?;
 
-		let location_id = location.id.clone();
-
 		println!("Found {:?} files", image_files.len());
 
 		let is_background = self.background.clone();
@@ -79,7 +77,7 @@ impl Job for ThumbnailJob {
 				// Define and write the WebP-encoded file to a given path
 				let output_path = Path::new(&config.data_path)
 					.join(THUMBNAIL_CACHE_DIR_NAME)
-					.join(format!("{}", location_id))
+					.join(format!("{}", location.id))
 					.join(&cas_id)
 					.with_extension("webp");
 

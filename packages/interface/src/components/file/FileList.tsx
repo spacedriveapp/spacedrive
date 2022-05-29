@@ -227,7 +227,7 @@ const RenderCell: React.FC<{
 	const location = useContext(LocationContext);
 	const { newThumbnails } = useExplorerState();
 
-	const hasNewThumbnail = !!newThumbnails[row?.temp_cas_id ?? ''];
+	const hasNewThumbnail = !!newThumbnails[row?.file?.cas_id ?? ''];
 
 	switch (colKey) {
 		case 'name':
