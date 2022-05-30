@@ -7,7 +7,6 @@ use crate::{
 	prisma::{job, node},
 	CoreContext,
 };
-use anyhow::Result;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
@@ -18,7 +17,7 @@ const MAX_WORKERS: usize = 4;
 
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
-	async fn run(&self, ctx: WorkerContext) -> Result<()>;
+	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>>;
 	fn name(&self) -> &'static str;
 }
 

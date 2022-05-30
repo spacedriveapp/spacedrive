@@ -6285,7 +6285,6 @@ dependencies = [
 name = "sdcore"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "base64 0.13.0",
  "chrono",

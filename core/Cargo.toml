@@ -14,7 +14,6 @@ p2p = ["dep:libp2p"] # This feature controlls whether the Spacedrive Core contai
 hostname = "0.3.1"
 
 # Universal Dependencies
-anyhow = "1.0.44"
 base64 = "0.13.0"
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4.0", features = ["serde"] }

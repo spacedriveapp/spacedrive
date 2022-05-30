@@ -1,12 +1,11 @@
 use crate::prisma::{self, migration, PrismaClient};
 use crate::CoreContext;
-use anyhow::Result;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
 use prisma_client_rust::raw;
 use ring::digest::{Context, Digest, SHA256};
 use std::ffi::OsStr;
-use std::io::{BufReader, Read};
+use std::io::{self, BufReader, Read};
 use thiserror::Error;
 
 const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
@@ -25,7 +24,7 @@ pub async fn create_connection(path: &str) -> Result<PrismaClient, DatabaseError
 	Ok(client)
 }
 
-pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
+pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest, io::Error> {
 	let mut context = Context::new(&SHA256);
 	let mut buffer = [0; 1024];
 	loop {
@@ -38,7 +37,7 @@ pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
 	Ok(context.finish())
 }
 
-pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
+pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
 	let client = &ctx.database;
 
 	match client
@@ -96,7 +95,7 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 					.unwrap();
 				let migration_sql = migration_file.contents_utf8().unwrap();
 
-				let digest = sha256_digest(BufReader::new(migration_file.contents()))?;
+				let digest = sha256_digest(BufReader::new(migration_file.contents())).unwrap();
 				// create a lowercase hash from
 				let checksum = HEXLOWER.encode(digest.as_ref());
 				let name = subdir.path().file_name().unwrap().to_str().unwrap();
@@ -106,7 +105,8 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 					.migration()
 					.find_unique(migration::checksum::equals(checksum.clone()))
 					.exec()
-					.await?;
+					.await
+					.unwrap();
 
 				if existing_migration.is_none() {
 					#[cfg(debug_assertions)]
@@ -123,7 +123,8 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 							vec![],
 						)
 						.exec()
-						.await?;
+						.await
+						.unwrap();
 
 					for (i, step) in steps.iter().enumerate() {
 						match client._execute_raw(raw!(*step)).await {
@@ -133,7 +134,8 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 									.find_unique(migration::checksum::equals(checksum.clone()))
 									.update(vec![migration::steps_applied::set(i as i32 + 1)])
 									.exec()
-									.await?;
+									.await
+									.unwrap();
 							}
 							Err(e) => {
 								println!("Error running migration: {}", name);
