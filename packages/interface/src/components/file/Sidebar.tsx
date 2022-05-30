@@ -10,7 +10,7 @@ import { NavLink, NavLinkProps } from 'react-router-dom';
 import { AppPropsContext } from '../../App';
 import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
 import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
-import { useStore } from '../device/Stores';
+import { useNodeStore } from '../device/Stores';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { DefaultProps } from '../primitive/types';
@@ -71,7 +71,7 @@ export function MacWindowControls() {
 }
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
-	const experimental = useStore((state) => state.experimental);
+	const { isExperimental } = useNodeStore();
 
 	const appPropsContext = useContext(AppPropsContext);
 	const { data: locations } = useBridgeQuery('SysGetLocations');
@@ -137,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					Photos
 				</SidebarLink>
 
-				{experimental ? (
+				{isExperimental ? (
 					<SidebarLink to="debug">
 						<Icon component={Code} />
 						Debug
