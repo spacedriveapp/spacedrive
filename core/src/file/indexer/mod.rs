@@ -1,5 +1,4 @@
 use crate::job::{Job, JobReportUpdate, WorkerContext};
-use anyhow::Result;
 
 use self::scan::ScanProgress;
 mod scan;
@@ -18,7 +17,7 @@ impl Job for IndexerJob {
 	fn name(&self) -> &'static str {
 		"indexer"
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<()> {
+	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
 		let core_ctx = ctx.core_ctx.clone();
 		scan_path(&core_ctx, self.path.as_str(), move |p| {
 			ctx.progress(
@@ -31,8 +30,7 @@ impl Job for IndexerJob {
 					.collect(),
 			)
 		})
-		.await?;
-		Ok(())
+		.await
 	}
 }
 

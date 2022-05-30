@@ -1,6 +1,5 @@
 use crate::sys::{create_location, LocationResource};
 use crate::CoreContext;
-use anyhow::{anyhow, Result};
 use prisma_client_rust::prisma_models::PrismaValue;
 use prisma_client_rust::raw;
 use prisma_client_rust::raw::Raw;
@@ -23,7 +22,7 @@ pub async fn scan_path(
 	ctx: &CoreContext,
 	path: &str,
 	on_progress: impl Fn(Vec<ScanProgress>) + Send + Sync + 'static,
-) -> Result<()> {
+) -> Result<(), Box<dyn std::error::Error>> {
 	let db = &ctx.database;
 	let path = path.to_string();
 
@@ -40,12 +39,13 @@ pub async fn scan_path(
 		.await
 	{
 		Ok(rows) => rows[0].id.unwrap_or(0),
-		Err(e) => Err(anyhow!("Error querying for next file id: {}", e))?,
+		Err(e) => panic!("Error querying for next file id: {}", e),
 	};
 
 	//check is path is a directory
 	if !PathBuf::from(&path).is_dir() {
-		return Err(anyhow::anyhow!("{} is not a directory", &path));
+		// return Err(anyhow::anyhow!("{} is not a directory", &path));
+		panic!("{} is not a directory", &path);
 	}
 	let dir_path = path.clone();
 
@@ -183,7 +183,7 @@ fn prepare_values(
 	location: &LocationResource,
 	parent_id: &Option<i32>,
 	is_dir: bool,
-) -> Result<[PrismaValue; 7]> {
+) -> Result<[PrismaValue; 7], std::io::Error> {
 	let metadata = fs::metadata(&file_path)?;
 	let location_path = Path::new(location.path.as_ref().unwrap().as_str());
 	// let size = metadata.len();
@@ -202,7 +202,7 @@ fn prepare_values(
 		name = extract_name(file_path.file_stem());
 	}
 
-	let materialized_path = file_path.strip_prefix(location_path)?;
+	let materialized_path = file_path.strip_prefix(location_path).unwrap();
 	let materialized_path_as_string = materialized_path.to_str().unwrap_or("").to_owned();
 
 	let values = [

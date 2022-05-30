@@ -2,7 +2,6 @@ use crate::{
 	file::indexer::IndexerJob, node::get_nodestate, prisma::location, ClientQuery, CoreContext,
 	CoreEvent,
 };
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
 use thiserror::Error;

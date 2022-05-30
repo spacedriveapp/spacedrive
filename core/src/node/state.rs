@@ -1,4 +1,3 @@
-use anyhow::Result;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -47,7 +46,7 @@ pub fn get_nodestate() -> NodeState {
 }
 
 impl NodeState {
-	pub fn new(data_path: &str, node_name: &str) -> Result<Self> {
+	pub fn new(data_path: &str, node_name: &str) -> Result<Self, ()> {
 		let uuid = Uuid::new_v4().to_string();
 		// create struct and assign defaults
 		let config = Self {
@@ -70,12 +69,12 @@ impl NodeState {
 		}
 	}
 
-	pub fn read_disk(&mut self) -> Result<()> {
+	pub fn read_disk(&mut self) -> Result<(), ()> {
 		let config_path = format!("{}/{}", &self.data_path, NODE_STATE_CONFIG_NAME);
 		// open the file and parse json
-		let file = fs::File::open(config_path)?;
+		let file = fs::File::open(config_path).unwrap();
 		let reader = BufReader::new(file);
-		let data = serde_json::from_reader(reader)?;
+		let data = serde_json::from_reader(reader).unwrap();
 		// assign to self
 		*self = data;
 		Ok(())
