@@ -1,11 +1,11 @@
 use std::fs;
 use std::path::Path;
 
-use crate::job::jobs::JobReportUpdate;
-use crate::sys::locations::get_location;
+use crate::job::JobReportUpdate;
+use crate::sys::get_location;
 use crate::{
 	file::FileError,
-	job::{jobs::Job, worker::WorkerContext},
+	job::{Job, WorkerContext},
 	prisma::file_path,
 	CoreContext,
 };

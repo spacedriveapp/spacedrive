@@ -3,8 +3,11 @@ use thiserror::Error;
 
 use crate::prisma;
 
-pub mod jobs;
-pub mod worker;
+mod jobs;
+mod worker;
+
+pub use jobs::*;
+pub use worker::*;
 
 #[derive(Error, Debug)]
 pub enum JobError {

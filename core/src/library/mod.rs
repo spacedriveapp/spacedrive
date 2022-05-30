@@ -1,5 +1,8 @@
-pub mod loader;
-pub mod statistics;
+mod loader;
+mod statistics;
+
+pub use loader::*;
+pub use statistics::*;
 
 use thiserror::Error;
 

@@ -10,7 +10,6 @@ use crate::{
 pub mod cas;
 pub mod explorer;
 pub mod indexer;
-pub mod watcher;
 
 // A unique file
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

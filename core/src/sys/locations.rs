@@ -1,5 +1,6 @@
 use crate::{
-	file::indexer::IndexerJob, node::state, prisma::location, ClientQuery, CoreContext, CoreEvent,
+	file::indexer::IndexerJob, node::get_nodestate, prisma::location, ClientQuery, CoreContext,
+	CoreEvent,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -49,15 +50,15 @@ static DOTFILE_NAME: &str = ".spacedrive";
 // checks to see if a location is:
 // - accessible on from the local filesystem
 // - already exists in the database
-pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> {
-	let dotfile: DotSpacedrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME))
-	{
-		Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpacedrive::default()),
-		Err(e) => return Err(LocationError::DotfileReadFailure(e)),
-	};
+// pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> {
+// 	let dotfile: DotSpacedrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME))
+// 	{
+// 		Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpacedrive::default()),
+// 		Err(e) => return Err(LocationError::DotfileReadFailure(e)),
+// 	};
 
-	Ok(dotfile)
-}
+// 	Ok(dotfile)
+// }
 
 pub async fn get_location(
 	ctx: &CoreContext,
@@ -110,7 +111,7 @@ pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, S
 
 pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
 	let db = &ctx.database;
-	let config = state::get();
+	let config = get_nodestate();
 
 	// check if we have access to this location
 	if !Path::new(path).exists() {

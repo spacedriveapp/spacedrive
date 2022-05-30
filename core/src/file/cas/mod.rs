@@ -1,2 +1,5 @@
-pub mod checksum;
-pub mod identifier;
+mod checksum;
+mod identifier;
+
+pub use checksum::*;
+pub use identifier::*;

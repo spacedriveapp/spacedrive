@@ -3,9 +3,8 @@ use super::{
 	JobError,
 };
 use crate::{
-	node::state,
+	node::get_nodestate,
 	prisma::{job, node},
-	sync::{crdt::Replicate, engine::SyncContext},
 	CoreContext,
 };
 use anyhow::Result;
@@ -148,7 +147,7 @@ impl JobReport {
 		}
 	}
 	pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
-		let config = state::get();
+		let config = get_nodestate();
 		ctx.database
 			.job()
 			.create(
@@ -177,17 +176,6 @@ impl JobReport {
 			.await?;
 		Ok(())
 	}
-}
-
-#[derive(Clone)]
-pub struct JobReportCreate {}
-
-#[async_trait::async_trait]
-impl Replicate for JobReport {
-	type Create = JobReportCreate;
-
-	async fn create(_data: Self::Create, _ctx: SyncContext) {}
-	async fn delete(_ctx: SyncContext) {}
 }
 
 #[repr(i32)]

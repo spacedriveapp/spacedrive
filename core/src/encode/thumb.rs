@@ -1,7 +1,7 @@
-use crate::job::jobs::JobReportUpdate;
-use crate::node::state;
+use crate::job::JobReportUpdate;
+use crate::node::get_nodestate;
 use crate::{
-	job::{jobs::Job, worker::WorkerContext},
+	job::{Job, WorkerContext},
 	prisma::file_path,
 	CoreContext,
 };
@@ -30,9 +30,9 @@ impl Job for ThumbnailJob {
 		"file_identifier"
 	}
 	async fn run(&self, ctx: WorkerContext) -> Result<()> {
-		let config = state::get();
+		let config = get_nodestate();
 		let core_ctx = ctx.core_ctx.clone();
-		let location = sys::locations::get_location(&core_ctx, self.location_id).await?;
+		let location = sys::get_location(&core_ctx, self.location_id).await?;
 
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(
