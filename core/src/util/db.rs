@@ -1,4 +1,4 @@
-use crate::prisma::migration;
+use crate::prisma::{self, migration, PrismaClient};
 use crate::CoreContext;
 use anyhow::Result;
 use data_encoding::HEXLOWER;
@@ -7,10 +7,23 @@ use prisma_client_rust::raw;
 use ring::digest::{Context, Digest, SHA256};
 use std::ffi::OsStr;
 use std::io::{BufReader, Read};
+use thiserror::Error;
 
-const INIT_MIGRATION: &str =
-	include_str!("../../prisma/migrations/migration_table/migration.sql");
+const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
+
+#[derive(Error, Debug)]
+pub enum DatabaseError {
+	#[error("Unable to initialize the Prisma client")]
+	ClientError(#[from] prisma::NewClientError),
+}
+
+pub async fn create_connection(path: &str) -> Result<PrismaClient, DatabaseError> {
+	println!("Creating database connection: {:?}", path);
+	let client = prisma::new_client_with_url(&format!("file:{}", &path)).await?;
+
+	Ok(client)
+}
 
 pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
 	let mut context = Context::new(&SHA256);
@@ -36,8 +49,6 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 	{
 		Ok(data) => {
 			if data.len() == 0 {
-				#[cfg(debug_assertions)]
-				println!("Migration table does not exist");
 				// execute migration
 				match client._execute_raw(raw!(INIT_MIGRATION)).await {
 					Ok(_) => {}
@@ -55,9 +66,6 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 
 				#[cfg(debug_assertions)]
 				println!("Migration table created: {:?}", value);
-			} else {
-				#[cfg(debug_assertions)]
-				println!("Migration table exists: {:?}", data);
 			}
 
 			let mut migration_subdirs = MIGRATIONS_DIR
@@ -120,8 +128,6 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 					for (i, step) in steps.iter().enumerate() {
 						match client._execute_raw(raw!(*step)).await {
 							Ok(_) => {
-								#[cfg(debug_assertions)]
-								println!("Step {} ran successfully", i);
 								client
 									.migration()
 									.find_unique(migration::checksum::equals(checksum.clone()))
@@ -139,9 +145,6 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 
 					#[cfg(debug_assertions)]
 					println!("Migration {} recorded successfully", name);
-				} else {
-					#[cfg(debug_assertions)]
-					println!("Migration {} already exists", name);
 				}
 			}
 		}

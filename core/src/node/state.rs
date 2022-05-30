@@ -39,7 +39,7 @@ lazy_static! {
 	static ref CONFIG: RwLock<Option<NodeState>> = RwLock::new(None);
 }
 
-pub fn get() -> NodeState {
+pub fn get_nodestate() -> NodeState {
 	match CONFIG.read() {
 		Ok(guard) => guard.clone().unwrap_or(NodeState::default()),
 		Err(_) => return NodeState::default(),

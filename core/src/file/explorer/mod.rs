@@ -1,1 +1,3 @@
-pub mod open;
+mod open;
+
+pub use open::*;

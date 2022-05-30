@@ -1,14 +1,12 @@
-use crate::job::{
-	jobs::{Job, JobReportUpdate},
-	worker::WorkerContext,
-};
+use crate::job::{Job, JobReportUpdate, WorkerContext};
 use anyhow::Result;
 
 use self::scan::ScanProgress;
-pub mod pathctx;
-pub mod scan;
+mod scan;
 
-pub use {pathctx::PathContext, scan::scan_path};
+pub use scan::*;
+
+pub use scan::scan_path;
 
 #[derive(Debug)]
 pub struct IndexerJob {
@@ -37,3 +35,17 @@ impl Job for IndexerJob {
 		Ok(())
 	}
 }
+
+// // PathContext provides the indexer with instruction to handle particular directory structures and identify rich context.
+// pub struct PathContext {
+// 	// an app specific key "com.github.repo"
+// 	pub key: String,
+// 	pub name: String,
+// 	pub is_dir: bool,
+// 	// possible file extensions for this path
+// 	pub extensions: Vec<String>,
+// 	// sub-paths that must be found
+// 	pub must_contain_sub_paths: Vec<String>,
+// 	// sub-paths that are ignored
+// 	pub always_ignored_sub_paths: Option<String>,
+// }

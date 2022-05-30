@@ -1,4 +1,4 @@
-use crate::sys::locations::{create_location, LocationResource};
+use crate::sys::{create_location, LocationResource};
 use crate::CoreContext;
 use anyhow::{anyhow, Result};
 use prisma_client_rust::prisma_models::PrismaValue;
