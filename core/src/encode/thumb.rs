@@ -32,19 +32,18 @@ impl Job for ThumbnailJob {
 	async fn run(&self, ctx: WorkerContext) -> Result<()> {
 		let config = state::get();
 		let core_ctx = ctx.core_ctx.clone();
-
 		let location = sys::locations::get_location(&core_ctx, self.location_id).await?;
 
+		// create all necessary directories if they don't exist
 		fs::create_dir_all(
 			Path::new(&config.data_path)
 				.join(THUMBNAIL_CACHE_DIR_NAME)
 				.join(format!("{}", self.location_id)),
 		)?;
-
 		let root_path = location.path.unwrap();
 
+		// query database for all files in this location that need thumbnails
 		let image_files = get_images(&core_ctx, self.location_id, &self.path).await?;
-
 		println!("Found {:?} files", image_files.len());
 
 		let is_background = self.background.clone();
@@ -63,9 +62,12 @@ impl Job for ThumbnailJob {
 					"Processing {}",
 					image_file.materialized_path.clone()
 				))]);
-				let path = format!("{}{}", root_path, image_file.materialized_path);
+
+				// assemble the file path
+				let path = Path::new(&root_path).join(&image_file.materialized_path);
 				println!("image_file {:?}", image_file);
 
+				// get cas_id, if none found skip
 				let cas_id = match image_file.file() {
 					Ok(file) => {
 						if let Some(f) = file {
@@ -89,7 +91,7 @@ impl Job for ThumbnailJob {
 
 				// check if file exists at output path
 				if !output_path.exists() {
-					println!("writing {:?} to {}", output_path, path);
+					println!("writing {:?} to {:?}", path, output_path);
 					generate_thumbnail(&path, &output_path)
 						.map_err(|e| {
 							println!("error generating thumb {:?}", e);
@@ -112,7 +114,7 @@ impl Job for ThumbnailJob {
 	}
 }
 
-pub fn generate_thumbnail(file_path: &str, output_path: &PathBuf) -> Result<()> {
+pub fn generate_thumbnail(file_path: &PathBuf, output_path: &PathBuf) -> Result<()> {
 	// Using `image` crate, open the included .jpg file
 	let img = image::open(file_path)?;
 	let (w, h) = img.dimensions();
@@ -128,8 +130,6 @@ pub fn generate_thumbnail(file_path: &str, output_path: &PathBuf) -> Result<()> 
 
 	// Encode the image at a specified quality 0-100
 	let webp: WebPMemory = encoder.encode(THUMBNAIL_QUALITY);
-
-	println!("Writing to {}", output_path.display());
 
 	std::fs::write(&output_path, &*webp)?;
 
