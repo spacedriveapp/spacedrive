@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
 	node::Platform,
 	prisma::{self, library, node},
-	util::db::{create_connection, run_migrations},
+	util::db::load_and_migrate,
 	NodeContext,
 };
 
@@ -151,8 +151,11 @@ impl LibraryManager {
 		config: LibraryConfig,
 		node_context: NodeContext,
 	) -> Result<LibraryContext, LibraryManagerError> {
-		let db = Arc::new(create_connection(db_path).await.unwrap());
-		run_migrations(db.clone()).await.unwrap();
+		let db = Arc::new(
+			load_and_migrate(&format!("file:{}", db_path))
+				.await
+				.unwrap(),
+		);
 
 		let platform = match env::consts::OS {
 			"windows" => Platform::Windows,
