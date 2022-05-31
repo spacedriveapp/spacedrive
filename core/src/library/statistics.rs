@@ -1,7 +1,7 @@
 use crate::{
-	node::state,
+	node::get_nodestate,
 	prisma::{library, library_statistics::*},
-	sys::volumes::Volume,
+	sys::Volume,
 	CoreContext,
 };
 use fs_extra::dir::get_size;
@@ -53,7 +53,7 @@ impl Default for Statistics {
 
 impl Statistics {
 	pub async fn retrieve(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
-		let config = state::get();
+		let config = get_nodestate();
 		let db = &ctx.database;
 		let library_data = config.get_current_library();
 
@@ -71,7 +71,7 @@ impl Statistics {
 	}
 
 	pub async fn calculate(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
-		let config = state::get();
+		let config = get_nodestate();
 		let db = &ctx.database;
 		// get library from client state
 		let library_data = config.get_current_library();

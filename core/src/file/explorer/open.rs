@@ -1,9 +1,9 @@
 use crate::{
-	encode::thumb::THUMBNAIL_CACHE_DIR_NAME,
-	file::{DirectoryWithContents, File, FileError, FilePath},
-	node::state,
-	prisma::{file, file_path},
-	sys::locations::get_location,
+	encode::THUMBNAIL_CACHE_DIR_NAME,
+	file::{DirectoryWithContents, FileError, FilePath},
+	node::get_nodestate,
+	prisma::file_path,
+	sys::get_location,
 	CoreContext,
 };
 use std::path::Path;
@@ -14,7 +14,7 @@ pub async fn open_dir(
 	path: &str,
 ) -> Result<DirectoryWithContents, FileError> {
 	let db = &ctx.database;
-	let config = state::get();
+	let config = get_nodestate();
 
 	// get location
 	let location = get_location(ctx, location_id.clone()).await?;
