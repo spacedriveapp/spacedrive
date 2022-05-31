@@ -57,7 +57,7 @@ impl Job for FileIdentifierJob {
 			let mut cursor: i32 = 1;
 
 			while completed < task_count {
-				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
+				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, location.id, cursor)).unwrap();
 				println!(
 					"Processing {:?} orphan files. ({} completed of {})",
 					file_paths.len(),
@@ -164,6 +164,7 @@ pub async fn count_orphan_file_paths(
 
 pub async fn get_orphan_file_paths(
 	ctx: &CoreContext,
+	location_id: i32,
 	cursor: i32,
 ) -> Result<Vec<file_path::Data>, FileError> {
 	let db = &ctx.database;
@@ -171,6 +172,7 @@ pub async fn get_orphan_file_paths(
 	let files = db
 		.file_path()
 		.find_many(vec![
+			file_path::location_id::equals(location_id),
 			file_path::file_id::equals(None),
 			file_path::is_dir::equals(false),
 		])
@@ -187,7 +189,7 @@ pub fn prepare_file_values(
 	file_path: &file_path::Data,
 ) -> Result<[PrismaValue; 2]> {
 	let path = Path::new(&location_path).join(Path::new(file_path.materialized_path.as_str()));
-	// println!("Processing file: {:?}", path);
+	println!("Processing file: {:?}", path);
 	let metadata = fs::metadata(&path)?;
 	let cas_id = {
 		if !file_path.is_dir {

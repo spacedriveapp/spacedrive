@@ -27,7 +27,7 @@ pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 #[async_trait::async_trait]
 impl Job for ThumbnailJob {
 	fn name(&self) -> &'static str {
-		"file_identifier"
+		"thumbnailer"
 	}
 	async fn run(&self, ctx: WorkerContext) -> Result<()> {
 		let config = state::get();
