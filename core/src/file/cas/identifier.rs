@@ -1,15 +1,14 @@
-use std::fs;
+use std::{fs, io};
 use std::path::Path;
 
-use crate::job::jobs::JobReportUpdate;
-use crate::sys::locations::get_location;
+use crate::job::JobReportUpdate;
+use crate::sys::get_location;
 use crate::{
 	file::FileError,
-	job::{jobs::Job, worker::WorkerContext},
+	job::{Job, WorkerContext},
 	prisma::file_path,
 	CoreContext,
 };
-use anyhow::Result;
 use futures::executor::block_on;
 use prisma_client_rust::prisma_models::PrismaValue;
 use prisma_client_rust::raw::Raw;
@@ -34,7 +33,7 @@ impl Job for FileIdentifierJob {
 	fn name(&self) -> &'static str {
 		"file_identifier"
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<()> {
+	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
 		println!("Identifying files");
 		let location = get_location(&ctx.core_ctx, self.location_id).await?;
 		let location_path = location.path.unwrap_or("".to_string());
@@ -185,7 +184,7 @@ pub async fn get_orphan_file_paths(
 pub fn prepare_file_values(
 	location_path: &str,
 	file_path: &file_path::Data,
-) -> Result<[PrismaValue; 2]> {
+) -> Result<[PrismaValue; 2], io::Error> {
 	let path = Path::new(&location_path).join(Path::new(file_path.materialized_path.as_str()));
 	// println!("Processing file: {:?}", path);
 	let metadata = fs::metadata(&path)?;

@@ -1,6 +1,6 @@
 use crate::{
 	prisma::{self, node},
-	CoreContext, Node,
+	Node,
 };
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
@@ -9,7 +9,9 @@ use std::env;
 use thiserror::Error;
 use ts_rs::TS;
 
-pub mod state;
+mod state;
+
+pub use state::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -39,7 +41,7 @@ pub enum Platform {
 impl LibraryNode {
 	pub async fn create(node: &Node) -> Result<(), NodeError> {
 		println!("Creating node...");
-		let mut config = state::get();
+		let mut config = state::get_nodestate();
 
 		let db = &node.database;
 
@@ -83,19 +85,17 @@ impl LibraryNode {
 		Ok(())
 	}
 
-	pub async fn get_nodes(ctx: &CoreContext) -> Result<Vec<node::Data>, NodeError> {
-		let db = &ctx.database;
+	// pub async fn get_nodes(ctx: &CoreContext) -> Result<Vec<node::Data>, NodeError> {
+	// 	let db = &ctx.database;
 
-		let _node = db.node().find_many(vec![]).exec().await?;
+	// 	let _node = db.node().find_many(vec![]).exec().await?;
 
-		Ok(_node)
-	}
+	// 	Ok(_node)
+	// }
 }
 
 #[derive(Error, Debug)]
 pub enum NodeError {
 	#[error("Database error")]
 	DatabaseError(#[from] prisma::QueryError),
-	#[error("Client not found error")]
-	ClientNotFound,
 }

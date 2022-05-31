@@ -1,8 +1,8 @@
 use crate::{
-	file::cas::identifier::FileIdentifierJob, library::loader::get_library_path,
-	node::state::NodeState,
+	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState,
+	util::db::create_connection,
 };
-use job::jobs::{Job, JobReport, Jobs};
+use job::{Job, JobReport, Jobs};
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
 use std::{fs, sync::Arc};
@@ -13,23 +13,16 @@ use tokio::sync::{
 };
 use ts_rs::TS;
 
-use crate::encode::thumb::ThumbnailJob;
+use crate::encode::ThumbnailJob;
 
-// init modules
-pub mod crypto;
-pub mod db;
-pub mod encode;
-pub mod file;
-pub mod job;
-pub mod library;
-pub mod node;
-#[cfg(target_os = "p2p")]
-pub mod p2p;
-pub mod prisma;
-pub mod sync;
-pub mod sys;
-pub mod util;
-// pub mod native;
+mod encode;
+mod file;
+mod job;
+mod library;
+mod node;
+mod prisma;
+mod sys;
+mod util;
 
 // a wrapper around external input with a returning sender channel for core to respond
 #[derive(Debug)]
@@ -109,7 +102,7 @@ impl CoreContext {
 
 pub struct Node {
 	state: NodeState,
-	jobs: job::jobs::Jobs,
+	jobs: job::Jobs,
 	database: Arc<PrismaClient>,
 	// filetype_registry: library::TypeRegistry,
 	// extension_registry: library::ExtensionRegistry,
@@ -154,7 +147,7 @@ impl Node {
 
 		// connect to default library
 		let database = Arc::new(
-			db::create_connection(&get_library_path(&data_dir))
+			create_connection(&get_library_path(&data_dir))
 				.await
 				.unwrap(),
 		);
@@ -229,16 +222,14 @@ impl Node {
 		let ctx = self.get_context();
 
 		if self.state.libraries.len() == 0 {
-			match library::loader::create(&ctx, None).await {
+			match library::create(&ctx, None).await {
 				Ok(library) => println!("Created new library: {:?}", library),
 				Err(e) => println!("Error creating library: {:?}", e),
 			}
 		} else {
 			for library in self.state.libraries.iter() {
 				// init database for library
-				match library::loader::load(&ctx, &library.library_path, &library.library_uuid)
-					.await
-				{
+				match library::load(&ctx, &library.library_path, &library.library_uuid).await {
 					Ok(library) => println!("Loaded library: {:?}", library),
 					Err(e) => println!("Error loading library: {:?}", e),
 				}
@@ -257,7 +248,7 @@ impl Node {
 		Ok(match cmd {
 			// CRUD for locations
 			ClientCommand::LocCreate { path } => {
-				let loc = sys::locations::new_location_and_scan(&ctx, &path).await?;
+				let loc = sys::new_location_and_scan(&ctx, &path).await?;
 				// ctx.queue_job(Box::new(FileIdentifierJob));
 				CoreResponse::LocCreate(loc)
 			}
@@ -291,8 +282,11 @@ impl Node {
 			//   fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
 			//   CoreResponse::Success(())
 			// }
-			ClientCommand::IdentifyUniqueFiles { id, path }  => {
-				ctx.spawn_job(Box::new(FileIdentifierJob { location_id: id, path}));
+			ClientCommand::IdentifyUniqueFiles { id, path } => {
+				ctx.spawn_job(Box::new(FileIdentifierJob {
+					location_id: id,
+					path,
+				}));
 				CoreResponse::Success(())
 			}
 		})
@@ -300,22 +294,18 @@ impl Node {
 
 	// query sources of data
 	async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
-		#[cfg(fdebug_assertions)]
-		println!("Core query: {:?}", query);
 		let ctx = self.get_context();
 		Ok(match query {
 			// return the client state from memory
 			ClientQuery::NodeGetState => CoreResponse::NodeGetState(self.state.clone()),
 			// get system volumes without saving to library
-			ClientQuery::SysGetVolumes => {
-				CoreResponse::SysGetVolumes(sys::volumes::Volume::get_volumes()?)
-			}
+			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::Volume::get_volumes()?),
 			ClientQuery::SysGetLocations => {
-				CoreResponse::SysGetLocations(sys::locations::get_locations(&ctx).await?)
+				CoreResponse::SysGetLocations(sys::get_locations(&ctx).await?)
 			}
 			// get location from library
 			ClientQuery::SysGetLocation { id } => {
-				CoreResponse::SysGetLocation(sys::locations::get_location(&ctx, id).await?)
+				CoreResponse::SysGetLocation(sys::get_location(&ctx, id).await?)
 			}
 			// return contents of a directory for the explorer
 			ClientQuery::LibGetExplorerDir {
@@ -323,7 +313,7 @@ impl Node {
 				location_id,
 				limit: _,
 			} => CoreResponse::LibGetExplorerDir(
-				file::explorer::open::open_dir(&ctx, &location_id, &path).await?,
+				file::explorer::open_dir(&ctx, &location_id, &path).await?,
 			),
 			ClientQuery::LibGetTags => todo!(),
 			ClientQuery::JobGetRunning => {
@@ -332,9 +322,9 @@ impl Node {
 			ClientQuery::JobGetHistory => {
 				CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?)
 			}
-			ClientQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
-				library::statistics::Statistics::calculate(&ctx).await?,
-			),
+			ClientQuery::GetLibraryStatistics => {
+				CoreResponse::GetLibraryStatistics(library::Statistics::calculate(&ctx).await?)
+			}
 			ClientQuery::GetNodes => todo!(),
 		})
 	}
@@ -409,15 +399,15 @@ pub enum CoreEvent {
 #[ts(export)]
 pub enum CoreResponse {
 	Success(()),
-	SysGetVolumes(Vec<sys::volumes::Volume>),
-	SysGetLocation(sys::locations::LocationResource),
-	SysGetLocations(Vec<sys::locations::LocationResource>),
+	SysGetVolumes(Vec<sys::Volume>),
+	SysGetLocation(sys::LocationResource),
+	SysGetLocations(Vec<sys::LocationResource>),
 	LibGetExplorerDir(file::DirectoryWithContents),
 	NodeGetState(NodeState),
-	LocCreate(sys::locations::LocationResource),
+	LocCreate(sys::LocationResource),
 	JobGetRunning(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),
-	GetLibraryStatistics(library::statistics::Statistics),
+	GetLibraryStatistics(library::Statistics),
 }
 
 #[derive(Error, Debug)]
@@ -441,7 +431,7 @@ pub enum CoreError {
 pub enum CoreResource {
 	Client,
 	Library,
-	Location(sys::locations::LocationResource),
+	Location(sys::LocationResource),
 	File(file::File),
 	Job(JobReport),
 	Tag,
