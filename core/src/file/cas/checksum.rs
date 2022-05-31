@@ -15,7 +15,7 @@ fn read_at(file: &File, offset: u64, size: u64) -> Result<Vec<u8>, io::Error> {
 
 	#[cfg(target_family = "unix")]
 	{
-		use std::os::unix::prelude::FileExt;
+		use std::os::unix::prelude::*;
 		file.read_exact_at(&mut buf, offset)?;
 	}
 
