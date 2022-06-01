@@ -7,6 +7,8 @@ import type { ByteSizeResult } from 'byte-size';
 import clsx from 'clsx';
 import React, { useContext, useEffect } from 'react';
 import { useCountUp } from 'react-countup';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
 
 import { AppPropsContext } from '../App';
@@ -17,6 +19,7 @@ interface StatItemProps {
 	name: string;
 	value: string;
 	statistics_key: keyof Statistics;
+	isLoading: boolean;
 }
 
 const StatItemNames: Record<string, string> = {
@@ -54,7 +57,7 @@ export const useOverviewState = create<OverviewState>((set) => ({
 	}
 }));
 
-const StatItem: React.FC<StatItemProps> = ({ name, statistics_key, value }) => {
+const StatItem: React.FC<StatItemProps> = ({ name, statistics_key, value, isLoading }) => {
 	const countUp = React.useRef(null);
 	const appPropsContext = useContext(AppPropsContext);
 
@@ -108,17 +111,25 @@ const StatItem: React.FC<StatItemProps> = ({ name, statistics_key, value }) => {
 			<span className="text-sm text-gray-400">{name}</span>
 			<span className="text-2xl font-bold">
 				{/* <span className="hidden" aria-hidden="true" ref={hiddenCountUp} /> */}
-				<span ref={countUp} />
-				<span className="ml-1 text-[16px] text-gray-400">{size?.unit}</span>
+				{!isLoading ? (
+					<div>
+						<Skeleton enableAnimation={true} baseColor={'#21212e'} highlightColor={'#13131a'} />
+						<span ref={countUp} hidden={true} />
+					</div>
+				) : (
+					<span ref={countUp} />
+				)}
+				{!isLoading ? <></> : <span className="ml-1 text-[16px] text-gray-400">{size?.unit}</span>}
 			</span>
-			{JSON.stringify(shouldAnimate)}
+			{/* {JSON.stringify(shouldAnimate)} */}
 		</div>
 	);
 };
 
 export const OverviewScreen = () => {
-	const { data: libraryStatistics } = useBridgeQuery('GetLibraryStatistics');
-	const { data: clientState } = useBridgeQuery('NodeGetState');
+	const { data: libraryStatistics, isLoading: isStatisticsLoading } =
+		useBridgeQuery('GetLibraryStatistics');
+	const { data: nodeState } = useBridgeQuery('NodeGetState');
 
 	const { overviewStats, setOverviewStats, setOverviewStatsItem } = useOverviewState();
 
@@ -182,6 +193,7 @@ export const OverviewScreen = () => {
 									name={StatItemNames[key]}
 									value={value.long}
 									statistics_key={key as keyof Statistics}
+									isLoading={isStatisticsLoading}
 								/>
 							);
 						})}
@@ -221,9 +233,9 @@ export const OverviewScreen = () => {
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 space-y-4">
-					{clientState && (
+					{nodeState && (
 						<Device
-							name={clientState?.node_name ?? 'This Device'}
+							name={nodeState?.node_name ?? 'This Device'}
 							size="1.4TB"
 							runningJob={{ amount: 65, task: 'Generating preview media' }}
 							locations={[
