@@ -50,7 +50,7 @@ function Page() {
 
 			<NewBanner
 				headline="Spacedrive raises $1.9M led by OSS Capital"
-				href="https://spacedrive.hashnode.dev/spacedrive-funding-announcement"
+				href="https://spacedrive.com/blog/spacedrive-funding-announcement"
 				link="Read post"
 			/>
 			<h1 className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center fade-in-heading md:text-6xl">

@@ -58,9 +58,7 @@ export function Footer() {
 						Mission
 					</FooterLink>
 					<FooterLink link="/changelog">Changelog</FooterLink>
-					<div className="opacity-50 pointer-events-none">
-						<FooterLink link="#">Blog</FooterLink>
-					</div>
+					<FooterLink link="/blog">Blog</FooterLink>
 				</div>
 				<div className="flex flex-col col-span-1 space-y-2 pointer-events-none">
 					<h3 className="mb-1 text-xs font-bold uppercase">Downloads</h3>
