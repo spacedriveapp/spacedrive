@@ -9,7 +9,8 @@ import { NavLink, NavLinkProps } from 'react-router-dom';
 
 import { AppPropsContext } from '../../App';
 import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
-import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
+import folderWhiteSvg from '../../assets/svg/folder-white.svg';
+import folderSvg from '../../assets/svg/folder.svg';
 import { useNodeStore } from '../device/Stores';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
@@ -172,8 +173,16 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 										)}
 									>
 										<div className="w-[18px] mr-2 -mt-0.5">
-											<FolderWhite className={clsx(!isActive && 'hidden')} />
-											<Folder className={clsx(isActive && 'hidden')} />
+											<img
+												src={folderWhiteSvg}
+												className={clsx(!isActive && 'hidden')}
+												alt="Folder icon"
+											/>
+											<img
+												src={folderSvg}
+												className={clsx(isActive && 'hidden')}
+												alt="Folder icon"
+											/>
 										</div>
 										{location.name}
 										<div className="flex-grow" />
