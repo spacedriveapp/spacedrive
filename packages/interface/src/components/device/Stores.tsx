@@ -10,7 +10,7 @@ type NodeState = {
 };
 
 export const useNodeStore = create<NodeState>((set) => ({
-	isExperimental: getLocalStorage('isExperimental') || false,
+	isExperimental: (getLocalStorage('isExperimental') as boolean) === true || false,
 	setIsExperimental: (experimental: boolean) =>
 		set((state) => {
 			setLocalStorage('isExperimental', experimental);
