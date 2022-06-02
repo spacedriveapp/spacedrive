@@ -89,6 +89,7 @@ html {
 	animation-fill-mode: forwards;
 	animation-iteration-count: 1;
 	animation-direction: forwards;
+	will-change: scroll-position;
 	&.bloom-one {
 		background: conic-gradient(from 90deg at 50% 50%, #255bef, #aa1cca);
 		animation-delay: 300ms;
