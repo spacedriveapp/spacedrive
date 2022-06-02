@@ -26,11 +26,12 @@ pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 #[async_trait::async_trait]
 impl Job for ThumbnailJob {
 	fn name(&self) -> &'static str {
-		"file_identifier"
+		"thumbnailer"
 	}
 	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
 		let config = get_nodestate();
 		let core_ctx = ctx.core_ctx.clone();
+
 		let location = sys::get_location(&core_ctx, self.location_id).await?;
 
 		// create all necessary directories if they don't exist
@@ -118,7 +119,7 @@ pub fn generate_thumbnail(
 	output_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	// Using `image` crate, open the included .jpg file
-	let img = image::open(file_path).unwrap();
+	let img = image::open(file_path)?;
 	let (w, h) = img.dimensions();
 	// Optionally, resize the existing photo and convert back into DynamicImage
 	let img: DynamicImage = image::DynamicImage::ImageRgba8(imageops::resize(
@@ -128,7 +129,7 @@ pub fn generate_thumbnail(
 		imageops::FilterType::Triangle,
 	));
 	// Create the WebP encoder for the above image
-	let encoder: Encoder = Encoder::from_image(&img).unwrap();
+	let encoder: Encoder = Encoder::from_image(&img)?;
 
 	// Encode the image at a specified quality 0-100
 	let webp: WebPMemory = encoder.encode(THUMBNAIL_QUALITY);

@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::{fs, io};
 use std::path::Path;
 
 use crate::job::JobReportUpdate;
+use crate::prisma::file;
 use crate::sys::get_location;
 use crate::{
 	file::FileError,
@@ -54,6 +56,8 @@ impl Job for FileIdentifierJob {
 		let ctx = tokio::task::spawn_blocking(move || {
 			let mut completed: usize = 0;
 			let mut cursor: i32 = 1;
+			// map cas_id to file_path ids
+			let mut cas_id_lookup: HashMap<i32, String> = HashMap::new();
 
 			while completed < task_count {
 				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
@@ -64,11 +68,14 @@ impl Job for FileIdentifierJob {
 					task_count
 				);
 
+				// raw values to be inserted into the database
 				let mut values: Vec<PrismaValue> = Vec::new();
+
 				// only rows that have a valid cas_id to be inserted
 				for file_path in file_paths.iter() {
 					match prepare_file_values(&location_path, file_path) {
-						Ok(data) => {
+						Ok((cas_id, data)) => {
+							cas_id_lookup.insert(file_path.id, cas_id);
 							values.extend(data);
 						}
 						Err(e) => {
@@ -82,7 +89,7 @@ impl Job for FileIdentifierJob {
 					break;
 				}
 
-				println!("Creating {} unique file records. {:?}", values.len(), values);
+				println!("Inserting {} unique file records ({:?} values)", file_paths.len(), values.len());
 				
 				let files: Vec<FileCreated> = block_on(db._query_raw(Raw::new(
 				  &format!(
@@ -95,15 +102,38 @@ impl Job for FileIdentifierJob {
 					Vec::new()
 				});
 
+				println!("Unique files: {:?}" , files);
+
 				// assign unique file to file path
 				println!("Assigning {} unique file ids to origin file_paths", files.len());
-				for (index, file) in files.iter().enumerate() {
-					let file_path_id = file_paths[index].id;
+				for (file_path_id, cas_id) in cas_id_lookup.iter() {
+					// get the cas id from the lookup table
+					let file = files.iter().find(|f| &f.cas_id == cas_id);
+					let file_id: i32;
+					if let Some(file) = file {
+						file_id = file.id;
+					} else {
+						let unique_file = match block_on(db.file().find_unique(file::cas_id::equals(cas_id.clone())).exec()) {
+							Ok(f) => match f {
+								Some(f) => f,
+								None => {
+									println!("Unique file does not exist, this shouldn't happen: {}", cas_id);
+									continue;
+								}
+							},
+							Err(e) => {
+								println!("Error finding unique file: {}", e);
+								continue;
+							}
+						};
+						file_id = unique_file.id;
+					}
+					
 				  block_on(
 				    db.file_path()
-				      .find_many(vec![file_path::id::equals(file_path_id)])
+				      .find_unique(file_path::id::equals(file_path_id.clone()))
 				      .update(vec![
-				        file_path::file_id::set(Some(file.id))
+				        file_path::file_id::set(Some(file_id))
 				      ])
 				      .exec()
 				  ).unwrap();
@@ -112,7 +142,6 @@ impl Job for FileIdentifierJob {
 				let last_row = file_paths.last().unwrap();
 
 				cursor = last_row.id;
-
 				completed += 1;
 				ctx.progress(vec![
 				  JobReportUpdate::CompletedTaskCount(completed),
@@ -128,15 +157,6 @@ impl Job for FileIdentifierJob {
 		.await?;
 
 		let remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
-
-		println!(
-			"Finished with {} files remaining because your code is bad.",
-			remaining
-		);
-
-		// if remaining > 0 {
-		//   ctx.core_ctx.spawn_job(Box::new(FileIdentifierJob));
-		// }
 
 		Ok(())
 	}
@@ -184,13 +204,13 @@ pub async fn get_orphan_file_paths(
 pub fn prepare_file_values(
 	location_path: &str,
 	file_path: &file_path::Data,
-) -> Result<[PrismaValue; 2], io::Error> {
+) -> Result<(String, [PrismaValue; 2]), io::Error> {
 	let path = Path::new(&location_path).join(Path::new(file_path.materialized_path.as_str()));
 	// println!("Processing file: {:?}", path);
 	let metadata = fs::metadata(&path)?;
 	let cas_id = {
 		if !file_path.is_dir {
-			let mut ret = generate_cas_id(path, metadata.len()).unwrap();
+			let mut ret = generate_cas_id(path.clone(), metadata.len()).unwrap();
 			ret.truncate(16);
 			ret
 		} else {
@@ -198,5 +218,7 @@ pub fn prepare_file_values(
 		}
 	};
 
-	Ok([PrismaValue::String(cas_id), PrismaValue::Int(0)])
+	println!("cas id for path {:?} is {:?}", path, cas_id);
+
+	Ok((cas_id.clone(), [PrismaValue::String(cas_id), PrismaValue::Int(0)]))
 }
