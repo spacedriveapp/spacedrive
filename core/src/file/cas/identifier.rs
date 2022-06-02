@@ -3,6 +3,7 @@ use std::{fs, io};
 use std::path::Path;
 
 use crate::job::JobReportUpdate;
+use crate::prisma::file;
 use crate::sys::get_location;
 use crate::{
 	file::FileError,
@@ -55,6 +56,8 @@ impl Job for FileIdentifierJob {
 		let ctx = tokio::task::spawn_blocking(move || {
 			let mut completed: usize = 0;
 			let mut cursor: i32 = 1;
+			// map cas_id to file_path ids
+			let mut cas_id_lookup: HashMap<i32, String> = HashMap::new();
 
 			while completed < task_count {
 				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
@@ -65,8 +68,6 @@ impl Job for FileIdentifierJob {
 					task_count
 				);
 
-				// map cas_id to file_path ids
-				let mut cas_id_lookup: HashMap<i32, String> = HashMap::new();
 				// raw values to be inserted into the database
 				let mut values: Vec<PrismaValue> = Vec::new();
 
@@ -105,9 +106,29 @@ impl Job for FileIdentifierJob {
 
 				// assign unique file to file path
 				println!("Assigning {} unique file ids to origin file_paths", files.len());
-				for (_, (file_path_id, cas_id)) in cas_id_lookup.iter().enumerate() {
+				for (file_path_id, cas_id) in cas_id_lookup.iter() {
 					// get the cas id from the lookup table
-					let file_id = files.iter().find(|f| &f.cas_id == cas_id).unwrap().id;
+					let file = files.iter().find(|f| &f.cas_id == cas_id);
+					let file_id: i32;
+					if let Some(file) = file {
+						file_id = file.id;
+					} else {
+						let unique_file = match block_on(db.file().find_unique(file::cas_id::equals(cas_id.clone())).exec()) {
+							Ok(f) => match f {
+								Some(f) => f,
+								None => {
+									println!("Unique file does not exist, this shouldn't happen: {}", cas_id);
+									continue;
+								}
+							},
+							Err(e) => {
+								println!("Error finding unique file: {}", e);
+								continue;
+							}
+						};
+						file_id = unique_file.id;
+					}
+					
 				  block_on(
 				    db.file_path()
 				      .find_unique(file_path::id::equals(file_path_id.clone()))

@@ -119,7 +119,7 @@ pub fn generate_thumbnail(
 	output_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	// Using `image` crate, open the included .jpg file
-	let img = image::open(file_path).unwrap();
+	let img = image::open(file_path)?;
 	let (w, h) = img.dimensions();
 	// Optionally, resize the existing photo and convert back into DynamicImage
 	let img: DynamicImage = image::DynamicImage::ImageRgba8(imageops::resize(
@@ -129,7 +129,7 @@ pub fn generate_thumbnail(
 		imageops::FilterType::Triangle,
 	));
 	// Create the WebP encoder for the above image
-	let encoder: Encoder = Encoder::from_image(&img).unwrap();
+	let encoder: Encoder = Encoder::from_image(&img)?;
 
 	// Encode the image at a specified quality 0-100
 	let webp: WebPMemory = encoder.encode(THUMBNAIL_QUALITY);
