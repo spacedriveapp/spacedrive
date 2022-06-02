@@ -15,7 +15,7 @@ import prettierConfig from '../../../.prettierrc.json' assert { type: 'json' };
 function iconFriendlyName(iconName, delimeter = '-') {
 	return iconName
 		.split(delimeter)
-		.map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1))
+		.map((seg) => seg.toLowerCase())
 		.join('');
 }
 
@@ -33,7 +33,7 @@ async function exists(path) {
 }
 
 (async function main() {
-	const files = await fs.readdir('./src/assets/icons');
+	const files = await fs.readdir('./packages/interface/src/assets/icons');
 	const icons = files.filter((path) => path.endsWith('.svg'));
 
 	const generatedCode = `\
@@ -50,7 +50,7 @@ ${icons
 };
 `;
 
-	const outPath = path.resolve('./src/assets/icons/index.ts');
+	const outPath = path.resolve('./packages/interface/src/assets/icons/index.ts');
 
 	if (await exists(outPath)) {
 		await fs.rm(outPath);
