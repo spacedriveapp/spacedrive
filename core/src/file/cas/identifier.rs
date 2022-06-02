@@ -1,15 +1,15 @@
-use std::fs;
+use std::collections::HashMap;
+use std::{fs, io};
 use std::path::Path;
 
-use crate::job::jobs::JobReportUpdate;
-use crate::sys::locations::get_location;
+use crate::job::JobReportUpdate;
+use crate::sys::get_location;
 use crate::{
 	file::FileError,
-	job::{jobs::Job, worker::WorkerContext},
+	job::{Job, WorkerContext},
 	prisma::file_path,
 	CoreContext,
 };
-use anyhow::Result;
 use futures::executor::block_on;
 use prisma_client_rust::prisma_models::PrismaValue;
 use prisma_client_rust::raw::Raw;
@@ -34,7 +34,7 @@ impl Job for FileIdentifierJob {
 	fn name(&self) -> &'static str {
 		"file_identifier"
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<()> {
+	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
 		println!("Identifying files");
 		let location = get_location(&ctx.core_ctx, self.location_id).await?;
 		let location_path = location.path.unwrap_or("".to_string());
@@ -57,7 +57,7 @@ impl Job for FileIdentifierJob {
 			let mut cursor: i32 = 1;
 
 			while completed < task_count {
-				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, location.id, cursor)).unwrap();
+				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
 				println!(
 					"Processing {:?} orphan files. ({} completed of {})",
 					file_paths.len(),
@@ -65,11 +65,16 @@ impl Job for FileIdentifierJob {
 					task_count
 				);
 
+				// map cas_id to file_path ids
+				let mut cas_id_lookup: HashMap<i32, String> = HashMap::new();
+				// raw values to be inserted into the database
 				let mut values: Vec<PrismaValue> = Vec::new();
+
 				// only rows that have a valid cas_id to be inserted
 				for file_path in file_paths.iter() {
 					match prepare_file_values(&location_path, file_path) {
-						Ok(data) => {
+						Ok((cas_id, data)) => {
+							cas_id_lookup.insert(file_path.id, cas_id);
 							values.extend(data);
 						}
 						Err(e) => {
@@ -83,7 +88,7 @@ impl Job for FileIdentifierJob {
 					break;
 				}
 
-				println!("Creating {} unique file records. {:?}", values.len(), values);
+				println!("Inserting {} unique file records ({:?} values)", file_paths.len(), values.len());
 				
 				let files: Vec<FileCreated> = block_on(db._query_raw(Raw::new(
 				  &format!(
@@ -96,15 +101,18 @@ impl Job for FileIdentifierJob {
 					Vec::new()
 				});
 
+				println!("Unique files: {:?}" , files);
+
 				// assign unique file to file path
 				println!("Assigning {} unique file ids to origin file_paths", files.len());
-				for (index, file) in files.iter().enumerate() {
-					let file_path_id = file_paths[index].id;
+				for (_, (file_path_id, cas_id)) in cas_id_lookup.iter().enumerate() {
+					// get the cas id from the lookup table
+					let file_id = files.iter().find(|f| &f.cas_id == cas_id).unwrap().id;
 				  block_on(
 				    db.file_path()
-				      .find_many(vec![file_path::id::equals(file_path_id)])
+				      .find_unique(file_path::id::equals(file_path_id.clone()))
 				      .update(vec![
-				        file_path::file_id::set(Some(file.id))
+				        file_path::file_id::set(Some(file_id))
 				      ])
 				      .exec()
 				  ).unwrap();
@@ -113,7 +121,6 @@ impl Job for FileIdentifierJob {
 				let last_row = file_paths.last().unwrap();
 
 				cursor = last_row.id;
-
 				completed += 1;
 				ctx.progress(vec![
 				  JobReportUpdate::CompletedTaskCount(completed),
@@ -129,15 +136,6 @@ impl Job for FileIdentifierJob {
 		.await?;
 
 		let remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
-
-		println!(
-			"Finished with {} files remaining because your code is bad.",
-			remaining
-		);
-
-		// if remaining > 0 {
-		//   ctx.core_ctx.spawn_job(Box::new(FileIdentifierJob));
-		// }
 
 		Ok(())
 	}
@@ -164,7 +162,6 @@ pub async fn count_orphan_file_paths(
 
 pub async fn get_orphan_file_paths(
 	ctx: &CoreContext,
-	location_id: i32,
 	cursor: i32,
 ) -> Result<Vec<file_path::Data>, FileError> {
 	let db = &ctx.database;
@@ -172,7 +169,6 @@ pub async fn get_orphan_file_paths(
 	let files = db
 		.file_path()
 		.find_many(vec![
-			file_path::location_id::equals(location_id),
 			file_path::file_id::equals(None),
 			file_path::is_dir::equals(false),
 		])
@@ -187,13 +183,13 @@ pub async fn get_orphan_file_paths(
 pub fn prepare_file_values(
 	location_path: &str,
 	file_path: &file_path::Data,
-) -> Result<[PrismaValue; 2]> {
+) -> Result<(String, [PrismaValue; 2]), io::Error> {
 	let path = Path::new(&location_path).join(Path::new(file_path.materialized_path.as_str()));
-	println!("Processing file: {:?}", path);
+	// println!("Processing file: {:?}", path);
 	let metadata = fs::metadata(&path)?;
 	let cas_id = {
 		if !file_path.is_dir {
-			let mut ret = generate_cas_id(path, metadata.len()).unwrap();
+			let mut ret = generate_cas_id(path.clone(), metadata.len()).unwrap();
 			ret.truncate(16);
 			ret
 		} else {
@@ -201,5 +197,7 @@ pub fn prepare_file_values(
 		}
 	};
 
-	Ok([PrismaValue::String(cas_id), PrismaValue::Int(0)])
+	println!("cas id for path {:?} is {:?}", path, cas_id);
+
+	Ok((cas_id.clone(), [PrismaValue::String(cas_id), PrismaValue::Int(0)]))
 }

@@ -72,12 +72,18 @@ impl NodeState {
 
 	pub fn read_disk(&mut self) -> Result<()> {
 		let config_path = format!("{}/{}", &self.data_path, NODE_STATE_CONFIG_NAME);
+
 		// open the file and parse json
-		let file = fs::File::open(config_path)?;
-		let reader = BufReader::new(file);
-		let data = serde_json::from_reader(reader)?;
-		// assign to self
-		*self = data;
+		match fs::File::open(config_path) {
+			Ok(file) => {
+				let reader = BufReader::new(file);
+				let data = serde_json::from_reader(reader).unwrap();
+				// assign to self
+				*self = data;
+			}
+			_ => {}
+		}
+
 		Ok(())
 	}
 
