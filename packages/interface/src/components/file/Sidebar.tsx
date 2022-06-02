@@ -8,7 +8,6 @@ import React, { useContext } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
 import { AppPropsContext } from '../../App';
-import { ReactComponent as FolderWhite } from '../../assets/svg/folder-white.svg';
 import folderWhiteSvg from '../../assets/svg/folder-white.svg';
 import folderSvg from '../../assets/svg/folder.svg';
 import { useNodeStore } from '../device/Stores';
