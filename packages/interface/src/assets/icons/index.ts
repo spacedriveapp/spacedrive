@@ -1,347 +1,347 @@
-import { ReactComponent as Ai } from './ai.svg';
-import { ReactComponent as Angular } from './angular.svg';
-import { ReactComponent as AudioMp3 } from './audio-mp3.svg';
-import { ReactComponent as AudioOgg } from './audio-ogg.svg';
-import { ReactComponent as AudioWav } from './audio-wav.svg';
-import { ReactComponent as Audio } from './audio.svg';
-import { ReactComponent as Babel } from './babel.svg';
-import { ReactComponent as Bat } from './bat.svg';
-import { ReactComponent as Bicep } from './bicep.svg';
-import { ReactComponent as Binary } from './binary.svg';
-import { ReactComponent as Blade } from './blade.svg';
-import { ReactComponent as Browserslist } from './browserslist.svg';
-import { ReactComponent as Bsconfig } from './bsconfig.svg';
-import { ReactComponent as Bundler } from './bundler.svg';
-import { ReactComponent as C } from './c.svg';
-import { ReactComponent as Cert } from './cert.svg';
-import { ReactComponent as Cheader } from './cheader.svg';
-import { ReactComponent as Cli } from './cli.svg';
-import { ReactComponent as Compodoc } from './compodoc.svg';
-import { ReactComponent as Composer } from './composer.svg';
-import { ReactComponent as Conf } from './conf.svg';
-import { ReactComponent as Cpp } from './cpp.svg';
-import { ReactComponent as Csharp } from './csharp.svg';
-import { ReactComponent as Cshtml } from './cshtml.svg';
-import { ReactComponent as CssMap } from './css-map.svg';
-import { ReactComponent as Css } from './css.svg';
-import { ReactComponent as Csv } from './csv.svg';
-import { ReactComponent as Dartlang } from './dartlang.svg';
-import { ReactComponent as DockerDebug } from './docker-debug.svg';
-import { ReactComponent as DockerIgnore } from './docker-ignore.svg';
-import { ReactComponent as Docker } from './docker.svg';
-import { ReactComponent as Editorconfig } from './editorconfig.svg';
-import { ReactComponent as Eex } from './eex.svg';
-import { ReactComponent as Elixir } from './elixir.svg';
-import { ReactComponent as Elm } from './elm.svg';
-import { ReactComponent as Env } from './env.svg';
-import { ReactComponent as Erb } from './erb.svg';
-import { ReactComponent as Erlang } from './erlang.svg';
-import { ReactComponent as Eslint } from './eslint.svg';
-import { ReactComponent as Exs } from './exs.svg';
-import { ReactComponent as Exx } from './exx.svg';
-import { ReactComponent as File } from './file.svg';
-import { ReactComponent as FolderLight } from './folder-light.svg';
-import { ReactComponent as FolderOpen } from './folder-open.svg';
-import { ReactComponent as Folder } from './folder.svg';
-import { ReactComponent as FontOtf } from './font-otf.svg';
-import { ReactComponent as FontTtf } from './font-ttf.svg';
-import { ReactComponent as FontWoff2 } from './font-woff2.svg';
-import { ReactComponent as FontWoff } from './font-woff.svg';
-import { ReactComponent as Git } from './git.svg';
-import { ReactComponent as GoPackage } from './go-package.svg';
-import { ReactComponent as Go } from './go.svg';
-import { ReactComponent as Gradle } from './gradle.svg';
-import { ReactComponent as Graphql } from './graphql.svg';
-import { ReactComponent as Groovy } from './groovy.svg';
-import { ReactComponent as Grunt } from './grunt.svg';
-import { ReactComponent as Gulp } from './gulp.svg';
-import { ReactComponent as Haml } from './haml.svg';
-import { ReactComponent as Handlebars } from './handlebars.svg';
-import { ReactComponent as Haskell } from './haskell.svg';
-import { ReactComponent as Html } from './html.svg';
-import { ReactComponent as ImageGif } from './image-gif.svg';
-import { ReactComponent as ImageIco } from './image-ico.svg';
-import { ReactComponent as ImageJpg } from './image-jpg.svg';
-import { ReactComponent as ImagePng } from './image-png.svg';
-import { ReactComponent as ImageWebp } from './image-webp.svg';
-import { ReactComponent as Image } from './image.svg';
-import { ReactComponent as Info } from './info.svg';
-import { ReactComponent as Ipynb } from './ipynb.svg';
-import { ReactComponent as Java } from './java.svg';
-import { ReactComponent as Jenkins } from './jenkins.svg';
-import { ReactComponent as Jest } from './jest.svg';
-import { ReactComponent as Jinja } from './jinja.svg';
-import { ReactComponent as JsMap } from './js-map.svg';
-import { ReactComponent as Js } from './js.svg';
-import { ReactComponent as Json } from './json.svg';
-import { ReactComponent as Jsp } from './jsp.svg';
-import { ReactComponent as Julia } from './julia.svg';
-import { ReactComponent as Karma } from './karma.svg';
-import { ReactComponent as Key } from './key.svg';
-import { ReactComponent as Less } from './less.svg';
-import { ReactComponent as License } from './license.svg';
-import { ReactComponent as Lighteditorconfig } from './lighteditorconfig.svg';
-import { ReactComponent as Liquid } from './liquid.svg';
-import { ReactComponent as Llvm } from './llvm.svg';
-import { ReactComponent as Log } from './log.svg';
-import { ReactComponent as Lua } from './lua.svg';
-import { ReactComponent as M } from './m.svg';
-import { ReactComponent as Markdown } from './markdown.svg';
-import { ReactComponent as Mint } from './mint.svg';
-import { ReactComponent as Mov } from './mov.svg';
-import { ReactComponent as Mp4 } from './mp4.svg';
-import { ReactComponent as NestjsController } from './nestjs-controller.svg';
-import { ReactComponent as NestjsDecorator } from './nestjs-decorator.svg';
-import { ReactComponent as NestjsFilter } from './nestjs-filter.svg';
-import { ReactComponent as NestjsGuard } from './nestjs-guard.svg';
-import { ReactComponent as NestjsModule } from './nestjs-module.svg';
-import { ReactComponent as NestjsService } from './nestjs-service.svg';
-import { ReactComponent as Nestjs } from './nestjs.svg';
-import { ReactComponent as Netlify } from './netlify.svg';
-import { ReactComponent as Nginx } from './nginx.svg';
-import { ReactComponent as Nim } from './nim.svg';
-import { ReactComponent as Njk } from './njk.svg';
-import { ReactComponent as Nodemon } from './nodemon.svg';
-import { ReactComponent as NpmLock } from './npm-lock.svg';
-import { ReactComponent as Npm } from './npm.svg';
-import { ReactComponent as Nuxt } from './nuxt.svg';
-import { ReactComponent as Nvm } from './nvm.svg';
-import { ReactComponent as Opengl } from './opengl.svg';
-import { ReactComponent as Pdf } from './pdf.svg';
-import { ReactComponent as Photoshop } from './photoshop.svg';
-import { ReactComponent as Php } from './php.svg';
-import { ReactComponent as PostcssConfig } from './postcss-config.svg';
-import { ReactComponent as PowershellData } from './powershell-data.svg';
-import { ReactComponent as PowershellModule } from './powershell-module.svg';
-import { ReactComponent as Powershell } from './powershell.svg';
-import { ReactComponent as Prettier } from './prettier.svg';
-import { ReactComponent as Prisma } from './prisma.svg';
-import { ReactComponent as Prolog } from './prolog.svg';
-import { ReactComponent as Pug } from './pug.svg';
-import { ReactComponent as Python } from './python.svg';
-import { ReactComponent as Qt } from './qt.svg';
-import { ReactComponent as Razor } from './razor.svg';
-import { ReactComponent as ReactJs } from './react-js.svg';
-import { ReactComponent as ReactTs } from './react-ts.svg';
-import { ReactComponent as Readme } from './readme.svg';
-import { ReactComponent as Rescript } from './rescript.svg';
-import { ReactComponent as Rjson } from './rjson.svg';
-import { ReactComponent as Robots } from './robots.svg';
-import { ReactComponent as Rollup } from './rollup.svg';
-import { ReactComponent as Ruby } from './ruby.svg';
-import { ReactComponent as Rust } from './rust.svg';
-import { ReactComponent as Sass } from './sass.svg';
-import { ReactComponent as Scss } from './scss.svg';
-import { ReactComponent as Shell } from './shell.svg';
-import { ReactComponent as Smarty } from './smarty.svg';
-import { ReactComponent as Sol } from './sol.svg';
-import { ReactComponent as Sql } from './sql.svg';
-import { ReactComponent as Storybook } from './storybook.svg';
-import { ReactComponent as Stylelint } from './stylelint.svg';
-import { ReactComponent as Stylus } from './stylus.svg';
-import { ReactComponent as Svelte } from './svelte.svg';
-import { ReactComponent as Svg } from './svg.svg';
-import { ReactComponent as Swift } from './swift.svg';
-import { ReactComponent as Symfony } from './symfony.svg';
-import { ReactComponent as Tailwind } from './tailwind.svg';
-import { ReactComponent as TestJs } from './test-js.svg';
-import { ReactComponent as TestTs } from './test-ts.svg';
-import { ReactComponent as Tmpl } from './tmpl.svg';
-import { ReactComponent as Toml } from './toml.svg';
-import { ReactComponent as Travis } from './travis.svg';
-import { ReactComponent as Tsconfig } from './tsconfig.svg';
-import { ReactComponent as Tsx } from './tsx.svg';
-import { ReactComponent as Twig } from './twig.svg';
-import { ReactComponent as Txt } from './txt.svg';
-import { ReactComponent as TypescriptDef } from './typescript-def.svg';
-import { ReactComponent as Typescript } from './typescript.svg';
-import { ReactComponent as Ui } from './ui.svg';
-import { ReactComponent as User } from './user.svg';
-import { ReactComponent as Vercel } from './vercel.svg';
-import { ReactComponent as Video } from './video.svg';
-import { ReactComponent as Vite } from './vite.svg';
-import { ReactComponent as Vscode } from './vscode.svg';
-import { ReactComponent as Vue } from './vue.svg';
-import { ReactComponent as Wasm } from './wasm.svg';
-import { ReactComponent as Webpack } from './webpack.svg';
-import { ReactComponent as Windi } from './windi.svg';
-import { ReactComponent as Xml } from './xml.svg';
-import { ReactComponent as Yaml } from './yaml.svg';
-import { ReactComponent as YarnError } from './yarn-error.svg';
-import { ReactComponent as Yarn } from './yarn.svg';
-import { ReactComponent as Zip } from './zip.svg';
+import { ReactComponent as ai } from './ai.svg';
+import { ReactComponent as angular } from './angular.svg';
+import { ReactComponent as audiomp3 } from './audio-mp3.svg';
+import { ReactComponent as audioogg } from './audio-ogg.svg';
+import { ReactComponent as audiowav } from './audio-wav.svg';
+import { ReactComponent as audio } from './audio.svg';
+import { ReactComponent as babel } from './babel.svg';
+import { ReactComponent as bat } from './bat.svg';
+import { ReactComponent as bicep } from './bicep.svg';
+import { ReactComponent as binary } from './binary.svg';
+import { ReactComponent as blade } from './blade.svg';
+import { ReactComponent as browserslist } from './browserslist.svg';
+import { ReactComponent as bsconfig } from './bsconfig.svg';
+import { ReactComponent as bundler } from './bundler.svg';
+import { ReactComponent as c } from './c.svg';
+import { ReactComponent as cert } from './cert.svg';
+import { ReactComponent as cheader } from './cheader.svg';
+import { ReactComponent as cli } from './cli.svg';
+import { ReactComponent as compodoc } from './compodoc.svg';
+import { ReactComponent as composer } from './composer.svg';
+import { ReactComponent as conf } from './conf.svg';
+import { ReactComponent as cpp } from './cpp.svg';
+import { ReactComponent as csharp } from './csharp.svg';
+import { ReactComponent as cshtml } from './cshtml.svg';
+import { ReactComponent as cssmap } from './css-map.svg';
+import { ReactComponent as css } from './css.svg';
+import { ReactComponent as csv } from './csv.svg';
+import { ReactComponent as dartlang } from './dartlang.svg';
+import { ReactComponent as dockerdebug } from './docker-debug.svg';
+import { ReactComponent as dockerignore } from './docker-ignore.svg';
+import { ReactComponent as docker } from './docker.svg';
+import { ReactComponent as editorconfig } from './editorconfig.svg';
+import { ReactComponent as eex } from './eex.svg';
+import { ReactComponent as elixir } from './elixir.svg';
+import { ReactComponent as elm } from './elm.svg';
+import { ReactComponent as env } from './env.svg';
+import { ReactComponent as erb } from './erb.svg';
+import { ReactComponent as erlang } from './erlang.svg';
+import { ReactComponent as eslint } from './eslint.svg';
+import { ReactComponent as exs } from './exs.svg';
+import { ReactComponent as exx } from './exx.svg';
+import { ReactComponent as file } from './file.svg';
+import { ReactComponent as folderlight } from './folder-light.svg';
+import { ReactComponent as folderopen } from './folder-open.svg';
+import { ReactComponent as folder } from './folder.svg';
+import { ReactComponent as fontotf } from './font-otf.svg';
+import { ReactComponent as fontttf } from './font-ttf.svg';
+import { ReactComponent as fontwoff2 } from './font-woff2.svg';
+import { ReactComponent as fontwoff } from './font-woff.svg';
+import { ReactComponent as git } from './git.svg';
+import { ReactComponent as gopackage } from './go-package.svg';
+import { ReactComponent as go } from './go.svg';
+import { ReactComponent as gradle } from './gradle.svg';
+import { ReactComponent as graphql } from './graphql.svg';
+import { ReactComponent as groovy } from './groovy.svg';
+import { ReactComponent as grunt } from './grunt.svg';
+import { ReactComponent as gulp } from './gulp.svg';
+import { ReactComponent as haml } from './haml.svg';
+import { ReactComponent as handlebars } from './handlebars.svg';
+import { ReactComponent as haskell } from './haskell.svg';
+import { ReactComponent as html } from './html.svg';
+import { ReactComponent as imagegif } from './image-gif.svg';
+import { ReactComponent as imageico } from './image-ico.svg';
+import { ReactComponent as imagejpg } from './image-jpg.svg';
+import { ReactComponent as imagepng } from './image-png.svg';
+import { ReactComponent as imagewebp } from './image-webp.svg';
+import { ReactComponent as image } from './image.svg';
+import { ReactComponent as info } from './info.svg';
+import { ReactComponent as ipynb } from './ipynb.svg';
+import { ReactComponent as java } from './java.svg';
+import { ReactComponent as jenkins } from './jenkins.svg';
+import { ReactComponent as jest } from './jest.svg';
+import { ReactComponent as jinja } from './jinja.svg';
+import { ReactComponent as jsmap } from './js-map.svg';
+import { ReactComponent as js } from './js.svg';
+import { ReactComponent as json } from './json.svg';
+import { ReactComponent as jsp } from './jsp.svg';
+import { ReactComponent as julia } from './julia.svg';
+import { ReactComponent as karma } from './karma.svg';
+import { ReactComponent as key } from './key.svg';
+import { ReactComponent as less } from './less.svg';
+import { ReactComponent as license } from './license.svg';
+import { ReactComponent as lighteditorconfig } from './lighteditorconfig.svg';
+import { ReactComponent as liquid } from './liquid.svg';
+import { ReactComponent as llvm } from './llvm.svg';
+import { ReactComponent as log } from './log.svg';
+import { ReactComponent as lua } from './lua.svg';
+import { ReactComponent as m } from './m.svg';
+import { ReactComponent as markdown } from './markdown.svg';
+import { ReactComponent as mint } from './mint.svg';
+import { ReactComponent as mov } from './mov.svg';
+import { ReactComponent as mp4 } from './mp4.svg';
+import { ReactComponent as nestjscontroller } from './nestjs-controller.svg';
+import { ReactComponent as nestjsdecorator } from './nestjs-decorator.svg';
+import { ReactComponent as nestjsfilter } from './nestjs-filter.svg';
+import { ReactComponent as nestjsguard } from './nestjs-guard.svg';
+import { ReactComponent as nestjsmodule } from './nestjs-module.svg';
+import { ReactComponent as nestjsservice } from './nestjs-service.svg';
+import { ReactComponent as nestjs } from './nestjs.svg';
+import { ReactComponent as netlify } from './netlify.svg';
+import { ReactComponent as nginx } from './nginx.svg';
+import { ReactComponent as nim } from './nim.svg';
+import { ReactComponent as njk } from './njk.svg';
+import { ReactComponent as nodemon } from './nodemon.svg';
+import { ReactComponent as npmlock } from './npm-lock.svg';
+import { ReactComponent as npm } from './npm.svg';
+import { ReactComponent as nuxt } from './nuxt.svg';
+import { ReactComponent as nvm } from './nvm.svg';
+import { ReactComponent as opengl } from './opengl.svg';
+import { ReactComponent as pdf } from './pdf.svg';
+import { ReactComponent as photoshop } from './photoshop.svg';
+import { ReactComponent as php } from './php.svg';
+import { ReactComponent as postcssconfig } from './postcss-config.svg';
+import { ReactComponent as powershelldata } from './powershell-data.svg';
+import { ReactComponent as powershellmodule } from './powershell-module.svg';
+import { ReactComponent as powershell } from './powershell.svg';
+import { ReactComponent as prettier } from './prettier.svg';
+import { ReactComponent as prisma } from './prisma.svg';
+import { ReactComponent as prolog } from './prolog.svg';
+import { ReactComponent as pug } from './pug.svg';
+import { ReactComponent as python } from './python.svg';
+import { ReactComponent as qt } from './qt.svg';
+import { ReactComponent as razor } from './razor.svg';
+import { ReactComponent as reactjs } from './react-js.svg';
+import { ReactComponent as reactts } from './react-ts.svg';
+import { ReactComponent as readme } from './readme.svg';
+import { ReactComponent as rescript } from './rescript.svg';
+import { ReactComponent as rjson } from './rjson.svg';
+import { ReactComponent as robots } from './robots.svg';
+import { ReactComponent as rollup } from './rollup.svg';
+import { ReactComponent as ruby } from './ruby.svg';
+import { ReactComponent as rust } from './rust.svg';
+import { ReactComponent as sass } from './sass.svg';
+import { ReactComponent as scss } from './scss.svg';
+import { ReactComponent as shell } from './shell.svg';
+import { ReactComponent as smarty } from './smarty.svg';
+import { ReactComponent as sol } from './sol.svg';
+import { ReactComponent as sql } from './sql.svg';
+import { ReactComponent as storybook } from './storybook.svg';
+import { ReactComponent as stylelint } from './stylelint.svg';
+import { ReactComponent as stylus } from './stylus.svg';
+import { ReactComponent as svelte } from './svelte.svg';
+import { ReactComponent as svg } from './svg.svg';
+import { ReactComponent as swift } from './swift.svg';
+import { ReactComponent as symfony } from './symfony.svg';
+import { ReactComponent as tailwind } from './tailwind.svg';
+import { ReactComponent as testjs } from './test-js.svg';
+import { ReactComponent as testts } from './test-ts.svg';
+import { ReactComponent as tmpl } from './tmpl.svg';
+import { ReactComponent as toml } from './toml.svg';
+import { ReactComponent as travis } from './travis.svg';
+import { ReactComponent as tsconfig } from './tsconfig.svg';
+import { ReactComponent as tsx } from './tsx.svg';
+import { ReactComponent as twig } from './twig.svg';
+import { ReactComponent as txt } from './txt.svg';
+import { ReactComponent as typescriptdef } from './typescript-def.svg';
+import { ReactComponent as typescript } from './typescript.svg';
+import { ReactComponent as ui } from './ui.svg';
+import { ReactComponent as user } from './user.svg';
+import { ReactComponent as vercel } from './vercel.svg';
+import { ReactComponent as video } from './video.svg';
+import { ReactComponent as vite } from './vite.svg';
+import { ReactComponent as vscode } from './vscode.svg';
+import { ReactComponent as vue } from './vue.svg';
+import { ReactComponent as wasm } from './wasm.svg';
+import { ReactComponent as webpack } from './webpack.svg';
+import { ReactComponent as windi } from './windi.svg';
+import { ReactComponent as xml } from './xml.svg';
+import { ReactComponent as yaml } from './yaml.svg';
+import { ReactComponent as yarnerror } from './yarn-error.svg';
+import { ReactComponent as yarn } from './yarn.svg';
+import { ReactComponent as zip } from './zip.svg';
 
 export default {
-	Ai,
-	Angular,
-	AudioMp3,
-	AudioOgg,
-	AudioWav,
-	Audio,
-	Babel,
-	Bat,
-	Bicep,
-	Binary,
-	Blade,
-	Browserslist,
-	Bsconfig,
-	Bundler,
-	C,
-	Cert,
-	Cheader,
-	Cli,
-	Compodoc,
-	Composer,
-	Conf,
-	Cpp,
-	Csharp,
-	Cshtml,
-	CssMap,
-	Css,
-	Csv,
-	Dartlang,
-	DockerDebug,
-	DockerIgnore,
-	Docker,
-	Editorconfig,
-	Eex,
-	Elixir,
-	Elm,
-	Env,
-	Erb,
-	Erlang,
-	Eslint,
-	Exs,
-	Exx,
-	File,
-	FolderLight,
-	FolderOpen,
-	Folder,
-	FontOtf,
-	FontTtf,
-	FontWoff,
-	FontWoff2,
-	Git,
-	GoPackage,
-	Go,
-	Gradle,
-	Graphql,
-	Groovy,
-	Grunt,
-	Gulp,
-	Haml,
-	Handlebars,
-	Haskell,
-	Html,
-	ImageGif,
-	ImageIco,
-	ImageJpg,
-	ImagePng,
-	ImageWebp,
-	Image,
-	Info,
-	Ipynb,
-	Java,
-	Jenkins,
-	Jest,
-	Jinja,
-	JsMap,
-	Js,
-	Json,
-	Jsp,
-	Julia,
-	Karma,
-	Key,
-	Less,
-	License,
-	Lighteditorconfig,
-	Liquid,
-	Llvm,
-	Log,
-	Lua,
-	M,
-	Markdown,
-	Mint,
-	Mov,
-	Mp4,
-	NestjsController,
-	NestjsDecorator,
-	NestjsFilter,
-	NestjsGuard,
-	NestjsModule,
-	NestjsService,
-	Nestjs,
-	Netlify,
-	Nginx,
-	Nim,
-	Njk,
-	Nodemon,
-	NpmLock,
-	Npm,
-	Nuxt,
-	Nvm,
-	Opengl,
-	Pdf,
-	Photoshop,
-	Php,
-	PostcssConfig,
-	PowershellData,
-	PowershellModule,
-	Powershell,
-	Prettier,
-	Prisma,
-	Prolog,
-	Pug,
-	Python,
-	Qt,
-	Razor,
-	ReactJs,
-	ReactTs,
-	Readme,
-	Rescript,
-	Rjson,
-	Robots,
-	Rollup,
-	Ruby,
-	Rust,
-	Sass,
-	Scss,
-	Shell,
-	Smarty,
-	Sol,
-	Sql,
-	Storybook,
-	Stylelint,
-	Stylus,
-	Svelte,
-	Svg,
-	Swift,
-	Symfony,
-	Tailwind,
-	TestJs,
-	TestTs,
-	Tmpl,
-	Toml,
-	Travis,
-	Tsconfig,
-	Tsx,
-	Twig,
-	Txt,
-	TypescriptDef,
-	Typescript,
-	Ui,
-	User,
-	Vercel,
-	Video,
-	Vite,
-	Vscode,
-	Vue,
-	Wasm,
-	Webpack,
-	Windi,
-	Xml,
-	Yaml,
-	YarnError,
-	Yarn,
-	Zip
+	ai,
+	angular,
+	audiomp3,
+	audioogg,
+	audiowav,
+	audio,
+	babel,
+	bat,
+	bicep,
+	binary,
+	blade,
+	browserslist,
+	bsconfig,
+	bundler,
+	c,
+	cert,
+	cheader,
+	cli,
+	compodoc,
+	composer,
+	conf,
+	cpp,
+	csharp,
+	cshtml,
+	cssmap,
+	css,
+	csv,
+	dartlang,
+	dockerdebug,
+	dockerignore,
+	docker,
+	editorconfig,
+	eex,
+	elixir,
+	elm,
+	env,
+	erb,
+	erlang,
+	eslint,
+	exs,
+	exx,
+	file,
+	folderlight,
+	folderopen,
+	folder,
+	fontotf,
+	fontttf,
+	fontwoff,
+	fontwoff2,
+	git,
+	gopackage,
+	go,
+	gradle,
+	graphql,
+	groovy,
+	grunt,
+	gulp,
+	haml,
+	handlebars,
+	haskell,
+	html,
+	imagegif,
+	imageico,
+	imagejpg,
+	imagepng,
+	imagewebp,
+	image,
+	info,
+	ipynb,
+	java,
+	jenkins,
+	jest,
+	jinja,
+	jsmap,
+	js,
+	json,
+	jsp,
+	julia,
+	karma,
+	key,
+	less,
+	license,
+	lighteditorconfig,
+	liquid,
+	llvm,
+	log,
+	lua,
+	m,
+	markdown,
+	mint,
+	mov,
+	mp4,
+	nestjscontroller,
+	nestjsdecorator,
+	nestjsfilter,
+	nestjsguard,
+	nestjsmodule,
+	nestjsservice,
+	nestjs,
+	netlify,
+	nginx,
+	nim,
+	njk,
+	nodemon,
+	npmlock,
+	npm,
+	nuxt,
+	nvm,
+	opengl,
+	pdf,
+	photoshop,
+	php,
+	postcssconfig,
+	powershelldata,
+	powershellmodule,
+	powershell,
+	prettier,
+	prisma,
+	prolog,
+	pug,
+	python,
+	qt,
+	razor,
+	reactjs,
+	reactts,
+	readme,
+	rescript,
+	rjson,
+	robots,
+	rollup,
+	ruby,
+	rust,
+	sass,
+	scss,
+	shell,
+	smarty,
+	sol,
+	sql,
+	storybook,
+	stylelint,
+	stylus,
+	svelte,
+	svg,
+	swift,
+	symfony,
+	tailwind,
+	testjs,
+	testts,
+	tmpl,
+	toml,
+	travis,
+	tsconfig,
+	tsx,
+	twig,
+	txt,
+	typescriptdef,
+	typescript,
+	ui,
+	user,
+	vercel,
+	video,
+	vite,
+	vscode,
+	vue,
+	wasm,
+	webpack,
+	windi,
+	xml,
+	yaml,
+	yarnerror,
+	yarn,
+	zip
 };

@@ -25,7 +25,7 @@
 	"devDependencies": {
 		"@trivago/prettier-plugin-sort-imports": "^3.2.0",
 		"prettier": "^2.6.2",
-		"turbo": "^1.2.4"
+		"turbo": "^1.2.14"
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84"
@@ -35,8 +35,5 @@
 		"npm": "pnpm",
 		"yarn": "pnpm",
 		"node": ">=14.0.0"
-	},
-	"dependencies": {
-		"zustand": "^3.7.2"
 	}
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { useStore } from '../../components/device/Stores';
+import { useNodeStore } from '../../components/device/Stores';
 import { Toggle } from '../../components/primitive';
 import { InputContainer } from '../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../components/settings/SettingsContainer';
@@ -9,7 +9,7 @@ import { SettingsHeader } from '../../components/settings/SettingsHeader';
 export default function ExperimentalSettings() {
 	// const locations = useBridgeQuery("SysGetLocation")
 
-	const experimental = useStore((state) => state.experimental);
+	const { isExperimental, setIsExperimental } = useNodeStore();
 
 	return (
 		<SettingsContainer>
@@ -22,12 +22,10 @@ export default function ExperimentalSettings() {
 			>
 				<div className="flex items-center h-full pl-10">
 					<Toggle
-						value={experimental}
+						value={isExperimental}
 						size={'sm'}
 						onChange={(newValue) => {
-							useStore.setState({
-								experimental: newValue
-							});
+							setIsExperimental(!isExperimental);
 						}}
 					/>
 				</div>

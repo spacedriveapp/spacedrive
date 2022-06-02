@@ -1,10 +1,12 @@
-pub mod locations;
-pub mod volumes;
+mod locations;
+mod volumes;
+
+pub use locations::*;
+pub use volumes::*;
+
 use thiserror::Error;
 
 use crate::{job, prisma};
-
-use self::locations::LocationError;
 
 #[derive(Error, Debug)]
 pub enum SysError {

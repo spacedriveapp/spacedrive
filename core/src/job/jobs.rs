@@ -3,12 +3,10 @@ use super::{
 	JobError,
 };
 use crate::{
-	node::state,
+	node::get_nodestate,
 	prisma::{job, node},
-	sync::{crdt::Replicate, engine::SyncContext},
 	CoreContext,
 };
-use anyhow::Result;
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
@@ -19,7 +17,7 @@ const MAX_WORKERS: usize = 4;
 
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
-	async fn run(&self, ctx: WorkerContext) -> Result<()>;
+	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>>;
 	fn name(&self) -> &'static str;
 }
 
@@ -148,7 +146,7 @@ impl JobReport {
 		}
 	}
 	pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
-		let config = state::get();
+		let config = get_nodestate();
 		ctx.database
 			.job()
 			.create(
@@ -177,17 +175,6 @@ impl JobReport {
 			.await?;
 		Ok(())
 	}
-}
-
-#[derive(Clone)]
-pub struct JobReportCreate {}
-
-#[async_trait::async_trait]
-impl Replicate for JobReport {
-	type Create = JobReportCreate;
-
-	async fn create(_data: Self::Create, _ctx: SyncContext) {}
-	async fn delete(_ctx: SyncContext) {}
 }
 
 #[repr(i32)]

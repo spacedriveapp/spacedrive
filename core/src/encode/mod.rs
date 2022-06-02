@@ -1,2 +1,5 @@
-pub mod metadata;
-pub mod thumb;
+mod metadata;
+mod thumb;
+
+pub use metadata::*;
+pub use thumb::*;

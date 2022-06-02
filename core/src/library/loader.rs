@@ -1,11 +1,9 @@
-use anyhow::Result;
 use uuid::Uuid;
 
-use crate::node::state::LibraryState;
-use crate::{db::migrate, node::state, prisma::library};
-use crate::{CoreContext, Node};
-
-use super::LibraryError;
+use crate::node::{get_nodestate, LibraryState};
+use crate::prisma::library;
+use crate::util::db::{run_migrations, DatabaseError};
+use crate::CoreContext;
 
 pub static LIBRARY_DB_NAME: &str = "library.db";
 pub static DEFAULT_NAME: &str = "My Library";
@@ -15,35 +13,39 @@ pub fn get_library_path(data_path: &str) -> String {
 	format!("{}/{}", path, LIBRARY_DB_NAME)
 }
 
-pub async fn get(core: &Node) -> Result<library::Data, LibraryError> {
-	let config = state::get();
-	let db = &core.database;
+// pub async fn get(core: &Node) -> Result<library::Data, LibraryError> {
+// 	let config = get_nodestate();
+// 	let db = &core.database;
 
-	let library_state = config.get_current_library();
+// 	let library_state = config.get_current_library();
 
-	println!("{:?}", library_state);
+// 	println!("{:?}", library_state);
 
-	// get library from db
-	let library = match db
-		.library()
-		.find_unique(library::pub_id::equals(library_state.library_uuid.clone()))
-		.exec()
-		.await?
-	{
-		Some(library) => Ok(library),
-		None => {
-			// update config library state to offline
-			// config.libraries
+// 	// get library from db
+// 	let library = match db
+// 		.library()
+// 		.find_unique(library::pub_id::equals(library_state.library_uuid.clone()))
+// 		.exec()
+// 		.await?
+// 	{
+// 		Some(library) => Ok(library),
+// 		None => {
+// 			// update config library state to offline
+// 			// config.libraries
 
-			Err(anyhow::anyhow!("library_not_found"))
-		}
-	};
+// 			Err(anyhow::anyhow!("library_not_found"))
+// 		}
+// 	};
 
-	Ok(library.unwrap())
-}
+// 	Ok(library.unwrap())
+// }
 
-pub async fn load(ctx: &CoreContext, library_path: &str, library_id: &str) -> Result<()> {
-	let mut config = state::get();
+pub async fn load(
+	ctx: &CoreContext,
+	library_path: &str,
+	library_id: &str,
+) -> Result<(), DatabaseError> {
+	let mut config = get_nodestate();
 
 	println!("Initializing library: {} {}", &library_id, library_path);
 
@@ -52,13 +54,13 @@ pub async fn load(ctx: &CoreContext, library_path: &str, library_id: &str) -> Re
 		config.save();
 	}
 	// create connection with library database & run migrations
-	migrate::run_migrations(&ctx).await?;
+	run_migrations(&ctx).await?;
 	// if doesn't exist, mark as offline
 	Ok(())
 }
 
-pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<()> {
-	let mut config = state::get();
+pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<(), ()> {
+	let mut config = get_nodestate();
 
 	let uuid = Uuid::new_v4().to_string();
 
@@ -70,7 +72,7 @@ pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<()> {
 		..LibraryState::default()
 	};
 
-	migrate::run_migrations(&ctx).await?;
+	run_migrations(&ctx).await.unwrap();
 
 	config.libraries.push(library_state);
 
@@ -80,7 +82,7 @@ pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<()> {
 
 	let db = &ctx.database;
 
-	let _library = db
+	let library = db
 		.library()
 		.create(
 			library::pub_id::set(config.current_library_uuid),
@@ -88,9 +90,10 @@ pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<()> {
 			vec![],
 		)
 		.exec()
-		.await;
+		.await
+		.unwrap();
 
-	println!("library created in database: {:?}", _library);
+	println!("library created in database: {:?}", library);
 
 	Ok(())
 }
