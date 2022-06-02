@@ -1,7 +1,7 @@
 import { BaseTransport } from '@sd/client';
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 import SpacedriveInterface from '@sd/interface';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const websocket = new WebSocket(import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws');
 
@@ -81,7 +81,17 @@ function App() {
 				openDialog={function (options: {
 					directory?: boolean | undefined;
 				}): Promise<string | string[]> {
-					return Promise.resolve([]);
+					return new Promise((resolve, reject) => {
+						const input = document.createElement('input');
+						input.webkitdirectory = true;
+						input.type = 'file';
+						input.addEventListener('change', () => {
+							if (!input.files?.length) return reject();
+
+							resolve(input.files instanceof Array ? input.files[0] : input.files);
+						});
+						input.click();
+					});
 				}}
 			/>
 		</div>
