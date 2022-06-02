@@ -1,11 +1,13 @@
 use crate::{
-	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState,
+	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState, p2p::NetworkManager,
 	util::db::create_connection,
 };
 use job::{Job, JobReport, Jobs};
+use libp2p::PeerId;
+use p2p::NetworkManagerState;
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
-use std::{fs, sync::Arc};
+use std::{fs, str::FromStr, sync::Arc};
 use thiserror::Error;
 use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -20,6 +22,7 @@ mod file;
 mod job;
 mod library;
 mod node;
+mod p2p;
 mod prisma;
 mod sys;
 mod util;
@@ -76,6 +79,7 @@ pub struct CoreContext {
 	pub database: Arc<PrismaClient>,
 	pub event_sender: mpsc::Sender<CoreEvent>,
 	pub internal_sender: UnboundedSender<InternalEvent>,
+	pub network_manager: Arc<NetworkManager>,
 }
 
 impl CoreContext {
@@ -104,6 +108,7 @@ pub struct Node {
 	state: NodeState,
 	jobs: job::Jobs,
 	database: Arc<PrismaClient>,
+	network_manager: Arc<NetworkManager>,
 	// filetype_registry: library::TypeRegistry,
 	// extension_registry: library::ExtensionRegistry,
 
@@ -152,12 +157,21 @@ impl Node {
 				.unwrap(),
 		);
 
+		let network_manager = NetworkManager::new(state.clone(), database.clone())
+			.await
+			.unwrap();
+		println!(
+			"P2P Listening with id '{}'",
+			network_manager.peer_id().to_base58()
+		);
+
 		let internal_channel = unbounded_channel::<InternalEvent>();
 
 		let node = Node {
 			state,
 			query_channel: unbounded_channel(),
 			command_channel: unbounded_channel(),
+			network_manager,
 			jobs: Jobs::new(),
 			event_sender,
 			database,
@@ -177,6 +191,7 @@ impl Node {
 			database: self.database.clone(),
 			event_sender: self.event_sender.clone(),
 			internal_sender: self.internal_channel.0.clone(),
+			network_manager: self.network_manager.clone(),
 		}
 	}
 
@@ -289,6 +304,20 @@ impl Node {
 				}));
 				CoreResponse::Success(())
 			}
+			ClientCommand::PairNode { id } => match PeerId::from_str(&id) {
+				Ok(peer_id) => {
+					ctx.network_manager.pair(peer_id).await.unwrap();
+					CoreResponse::Success(())
+				}
+				Err(e) => CoreResponse::Error(format!("{:?}", e)),
+			},
+			ClientCommand::UnpairNode { id } => match PeerId::from_str(&id) {
+				Ok(peer_id) => {
+					ctx.network_manager.unpair(peer_id).await.unwrap();
+					CoreResponse::Success(())
+				}
+				Err(e) => CoreResponse::Error(format!("{:?}", e)),
+			},
 		})
 	}
 
@@ -325,7 +354,9 @@ impl Node {
 			ClientQuery::GetLibraryStatistics => {
 				CoreResponse::GetLibraryStatistics(library::Statistics::calculate(&ctx).await?)
 			}
-			ClientQuery::GetNodes => todo!(),
+			ClientQuery::GetNetworkState => {
+				CoreResponse::GetNetworkState(ctx.network_manager.get_state().await)
+			}
 		})
 	}
 }
@@ -355,6 +386,8 @@ pub enum ClientCommand {
 	GenerateThumbsForLocation { id: i32, path: String },
 	// PurgeDatabase,
 	IdentifyUniqueFiles { id: i32, path: String },
+	PairNode { id: String },
+	UnpairNode { id: String },
 }
 
 // represents an event this library can emit
@@ -377,7 +410,7 @@ pub enum ClientQuery {
 		limit: i32,
 	},
 	GetLibraryStatistics,
-	GetNodes,
+	GetNetworkState,
 }
 
 // represents an event this library can emit
@@ -399,6 +432,7 @@ pub enum CoreEvent {
 #[ts(export)]
 pub enum CoreResponse {
 	Success(()),
+	Error(String),
 	SysGetVolumes(Vec<sys::Volume>),
 	SysGetLocation(sys::LocationResource),
 	SysGetLocations(Vec<sys::LocationResource>),
@@ -408,6 +442,7 @@ pub enum CoreResponse {
 	JobGetRunning(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),
 	GetLibraryStatistics(library::Statistics),
+	GetNetworkState(NetworkManagerState),
 }
 
 #[derive(Error, Debug)]

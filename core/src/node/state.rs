@@ -20,6 +20,8 @@ pub struct NodeState {
 	pub libraries: Vec<LibraryState>,
 	// used to quickly find the default library
 	pub current_library_uuid: String,
+	// keypair used for P2P communication
+	pub keypair: Option<Vec<u8>>, // TODO: This shouldn't be optional but it would be a breaking change
 }
 
 pub static NODE_STATE_CONFIG_NAME: &str = "node_state.json";

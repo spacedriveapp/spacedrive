@@ -1,5 +1,5 @@
 import { PlusIcon } from '@heroicons/react/solid';
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
@@ -76,8 +76,13 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 export const OverviewScreen: React.FC<{}> = (props) => {
 	const { data: libraryStatistics } = useBridgeQuery('GetLibraryStatistics');
 	const { data: clientState } = useBridgeQuery('NodeGetState');
+	const { data: getNetworkState } = useBridgeQuery('GetNetworkState', undefined, {
+		refetchInterval: 500
+	});
+	const { mutate: pairNode } = useBridgeCommand('PairNode', {});
 
 	const [stats, setStats] = useState<Statistics>(libraryStatistics || ({} as Statistics));
+	const [deviceCode, setDeviceCode] = useState('');
 
 	// get app props context
 	const appPropsContext = useContext(AppPropsContext);
@@ -140,7 +145,11 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 						<Dialog
 							title="Add Device"
 							description="Connect a new device to your library. Either enter another device's code or copy this one."
-							ctaAction={() => {}}
+							ctaAction={() => {
+								pairNode({
+									id: deviceCode
+								});
+							}}
 							ctaLabel="Connect"
 							trigger={
 								<Button
@@ -157,13 +166,18 @@ export const OverviewScreen: React.FC<{}> = (props) => {
 									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
 										This Device
 									</span>
-									<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
+									<Input readOnly disabled value={getNetworkState?.peer_id || ''} />
 								</div>
 								<div className="flex flex-col">
 									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
 										Enter a device code
 									</span>
-									<Input value="" />
+									<Input value={deviceCode} onChange={(e) => setDeviceCode(e.target.value)} />
+								</div>
+								<div>
+									{(getNetworkState?.discovered_peers || []).map((peer_id) => (
+										<p>{peer_id}</p>
+									))}
 								</div>
 							</div>
 						</Dialog>

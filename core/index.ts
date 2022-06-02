@@ -15,6 +15,7 @@ export * from './bindings/JobStatus';
 export * from './bindings/LibraryNode';
 export * from './bindings/LibraryState';
 export * from './bindings/LocationResource';
+export * from './bindings/NetworkManagerState';
 export * from './bindings/NodeState';
 export * from './bindings/Platform';
 export * from './bindings/Statistics';

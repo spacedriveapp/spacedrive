@@ -7,9 +7,6 @@ license = "GNU GENERAL PUBLIC LICENSE"
 repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
 
-[features]
-p2p = ["dep:libp2p"] # This feature controlls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
-
 [dependencies]
 hostname = "0.3.1"
 
@@ -27,7 +24,7 @@ int-enum = "0.4.0"
 ts-rs = { version = "6.1", features = ["chrono-impl"] }
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
 walkdir = "^2.3.2"
-libp2p = { version = "0.43.0", optional = true }
+libp2p = "0.45.0"
 lazy_static = "1.4.0"
 uuid = "0.8"
 sysinfo = "0.23.9"
@@ -42,3 +39,4 @@ webp = "0.2.2"
 uhlc = "0.4.1"
 ffmpeg-next = "5.0.3"
 fs_extra = "1.2.0"
+dashmap = "5.3.4"

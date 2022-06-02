@@ -57,30 +57,28 @@ impl LibraryNode {
 			_ => Platform::Unknown,
 		};
 
-		let _node = match db
-			.node()
-			.find_unique(node::pub_id::equals(config.node_pub_id.clone()))
-			.exec()
-			.await?
-		{
-			Some(node) => node,
-			None => {
-				db.node()
-					.create(
-						node::pub_id::set(config.node_pub_id.clone()),
-						node::name::set(hostname.clone()),
-						vec![node::platform::set(platform as i32)],
-					)
-					.exec()
-					.await?
-			}
-		};
+		// let _node = match db
+		// 	.node()
+		// 	.find_unique(node::pub_id::equals(config.node_pub_id.clone()))
+		// 	.exec()
+		// 	.await?
+		// {
+		// 	Some(node) => node,
+		// 	None => {
+		// 		db.node()
+		// 			.create(
+		// 				node::pub_id::set(config.node_pub_id.clone()),
+		// 				node::name::set(hostname.clone()),
+		// 				vec![node::platform::set(platform as i32)],
+		// 			)
+		// 			.exec()
+		// 			.await?
+		// 	}
+		// };
 
 		config.node_name = hostname;
-		config.node_id = _node.id;
+		// config.node_id = config.node_pub_id.clone();
 		config.save();
-
-		println!("node: {:?}", &_node);
 
 		Ok(())
 	}
