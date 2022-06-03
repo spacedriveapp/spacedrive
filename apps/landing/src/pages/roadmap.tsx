@@ -2,7 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import { ReactComponent as Content } from '~/docs/product/roadmap.md';
 
-import folderSvg from '../../../../packages/interface/src/assets/svg/folder.svg';
+import { Folder } from '../../../../packages/interface/src/components/icons/Folder';
 import Markdown from '../components/Markdown';
 
 function Page() {
@@ -13,7 +13,7 @@ function Page() {
 				<meta name="description" content="What can Spacedrive do?" />
 			</Helmet>
 			<div className="w-24 mb-10">
-				<img src={folderSvg} alt="Folder icon" />
+				<Folder />
 			</div>
 			<Content />
 		</Markdown>
