@@ -5,7 +5,7 @@ import React, { useContext } from 'react';
 
 import { AppPropsContext } from '../../App';
 import icons from '../../assets/icons';
-import folderSvg from '../../assets/svg/folder.svg';
+import { Folder } from '../icons/Folder';
 
 export default function FileThumb(props: {
 	file: FilePath;
@@ -17,7 +17,7 @@ export default function FileThumb(props: {
 	const { data: client } = useBridgeQuery('NodeGetState');
 
 	if (props.file.is_dir) {
-		return <img src={folderSvg} className="max-w-[20px]" alt="Folder icon" />;
+		return <Folder className="max-w-[20px]" />;
 	}
 
 	if (client?.data_path && (props.file.file?.has_thumbnail || props.hasThumbnailOverride)) {
