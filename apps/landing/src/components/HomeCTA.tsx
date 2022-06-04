@@ -15,13 +15,16 @@ export function HomeCTA() {
 	const [waitlistEmail, setWaitlistEmail] = useState('');
 	const [fire, setFire] = useState<boolean | number>(false);
 
+	const prod = process.env.NODE_ENV === 'production';
+	const url = prod ? 'https://waitlist-api.spacedrive.com' : 'http://localhost:3000';
+
 	async function handleWaitlistSubmit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
 		if (!waitlistEmail.trim().length) return;
 
 		setLoading(true);
 
-		const req = await fetch('https://waitlist-api.spacedrive.com/api/waitlist', {
+		const req = await fetch(`${url}/api/waitlist`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'

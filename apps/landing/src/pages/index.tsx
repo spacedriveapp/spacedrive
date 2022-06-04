@@ -50,13 +50,24 @@ function Page() {
 		if (!cuid) return;
 
 		(async () => {
-			const req = await fetch(`https://waitlist-api.spacedrive.com/api/waitlist?i=${cuid}`, {
+			const prod = process.env.NODE_ENV === 'production';
+			const url = prod ? 'https://waitlist-api.spacedrive.com' : 'http://localhost:3000';
+
+			const req = await fetch(`${url}/api/waitlist?i=${cuid}`, {
 				method: 'DELETE'
 			});
 
 			if (req.status === 200) {
 				setUnsubscribedFromWaitlist(true);
-				window.history.replaceState({}, '', 'https://spacedrive.com/');
+				window.history.replaceState(
+					{},
+					'',
+					prod ? 'https://spacedrive.com' : 'http://localhost:8003'
+				);
+
+				setTimeout(() => {
+					setUnsubscribedFromWaitlist(false);
+				}, 5000);
 			} else if (req.status >= 400 && req.status < 500) {
 				alert('An error occurred while unsubscribing from waitlist');
 			}

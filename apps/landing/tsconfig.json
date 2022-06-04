@@ -1,5 +1,11 @@
 {
-	"extends": "../../packages/config/interface.tsconfig.json",
-	"compilerOptions": {},
-	"include": ["src"]
+    "extends": "../../packages/config/interface.tsconfig.json",
+    "compilerOptions": {
+        "types": [
+            "node"
+        ]
+    },
+    "include": [
+        "src"
+    ]
 }

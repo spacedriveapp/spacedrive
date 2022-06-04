@@ -37,6 +37,7 @@
 	"devDependencies": {
 		"@babel/preset-react": "^7.17.12",
 		"@types/lodash": "^4.14.182",
+		"@types/node": "^17.0.36",
 		"@types/prismjs": "^1.26.0",
 		"@types/react": "^18.0.9",
 		"@types/react-dom": "^18.0.5",
