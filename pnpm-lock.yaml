@@ -99,6 +99,7 @@ importers:
       react-device-detect: ^2.2.2
       react-dom: ^18.1.0
       react-helmet: ^6.1.0
+      react-hook-form: ^7.31.3
       react-router-dom: 6.3.0
       react-tsparticles: ^2.0.6
       sass: ^1.52.1
@@ -136,6 +137,7 @@ importers:
       react-device-detect: 2.2.2_ef5jwxihqo6n7gxfmzogljlgcm
       react-dom: 18.1.0_react@18.1.0
       react-helmet: 6.1.0_react@18.1.0
+      react-hook-form: 7.31.3_react@18.1.0
       react-router-dom: 6.3.0_ef5jwxihqo6n7gxfmzogljlgcm
       react-tsparticles: 2.0.6_react@18.1.0
       simple-icons: 7.0.0
@@ -13953,6 +13955,15 @@ packages:
       react: 18.1.0
       react-fast-compare: 3.2.0
       react-side-effect: 2.1.1_react@18.1.0
+    dev: false
+
+  /react-hook-form/7.31.3_react@18.1.0:
+    resolution: {integrity: sha512-NVZdCWViIWXXXlQ3jxVQH0NuNfwPf8A/0KvuCxrM9qxtP1qYosfR2ZudarziFrVOC7eTUbWbm1T4OyYCwv9oSQ==}
+    engines: {node: '>=12.22.0'}
+    peerDependencies:
+      react: ^16.8.0 || ^17 || ^18
+    dependencies:
+      react: 18.1.0
     dev: false
 
   /react-hotkeys-hook/3.4.6_ef5jwxihqo6n7gxfmzogljlgcm:
