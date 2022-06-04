@@ -72,7 +72,6 @@ importers:
       '@headlessui/react': ^1.6.4
       '@heroicons/react': ^1.0.6
       '@icons-pack/react-simple-icons': ^4.7.0
-      '@radix-ui/react-context-menu': ^0.1.6
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -119,7 +118,6 @@ importers:
       '@headlessui/react': 1.6.4_ef5jwxihqo6n7gxfmzogljlgcm
       '@heroicons/react': 1.0.6_react@18.1.0
       '@icons-pack/react-simple-icons': 4.7.0_react@18.1.0
-      '@radix-ui/react-context-menu': 0.1.6_ohobp6rpsmerwlq5ipwfh5yigy
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -17232,7 +17230,7 @@ packages:
       vite: ^2.6.0
     dependencies:
       '@svgr/core': 6.2.1
-      vite: 2.9.9
+      vite: 2.9.9_sass@1.52.1
     transitivePeerDependencies:
       - supports-color
     dev: true
