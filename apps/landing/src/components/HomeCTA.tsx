@@ -29,8 +29,6 @@ export function HomeCTA() {
 	async function handleWaitlistSubmit<SubmitHandler>({ email }: WaitlistInputs) {
 		if (!email.trim().length) return;
 
-		console.log('email', email);
-
 		setLoading(true);
 
 		const req = await fetch(`${url}/api/waitlist`, {
