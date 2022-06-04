@@ -50,7 +50,7 @@ function Page() {
 		if (!cuid) return;
 
 		(async () => {
-			const prod = process.env.NODE_ENV === 'production';
+			const prod = import.meta.env.NODE_ENV === 'production';
 			const url = prod ? 'https://waitlist-api.spacedrive.com' : 'http://localhost:3000';
 
 			const req = await fetch(`${url}/api/waitlist?i=${cuid}`, {

@@ -16,7 +16,7 @@ export function HomeCTA() {
 	const [waitlistEmail, setWaitlistEmail] = useState('');
 	const [fire, setFire] = useState<boolean | number>(false);
 
-	const prod = process.env.NODE_ENV === 'production';
+	const prod = import.meta.env.NODE_ENV === 'production';
 	const url = prod ? 'https://waitlist-api.spacedrive.com' : 'http://localhost:3000';
 
 	async function handleWaitlistSubmit(e: FormEvent<HTMLFormElement>) {
