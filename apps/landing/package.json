@@ -29,6 +29,7 @@
 		"react-device-detect": "^2.2.2",
 		"react-dom": "^18.1.0",
 		"react-helmet": "^6.1.0",
+		"react-hook-form": "^7.31.3",
 		"react-router-dom": "6.3.0",
 		"react-tsparticles": "^2.0.6",
 		"simple-icons": "^7.0.0",

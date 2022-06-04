@@ -3,25 +3,37 @@ import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
 import React, { FormEvent, useState } from 'react';
 import ReactCanvasConfetti from 'react-canvas-confetti';
+import { SubmitHandler, useForm } from 'react-hook-form';
 
 import { ReactComponent as Alert } from '../../../../packages/interface/src/assets/svg/alert.svg';
 import { ReactComponent as Info } from '../../../../packages/interface/src/assets/svg/info.svg';
 import { ReactComponent as Spinner } from '../../../../packages/interface/src/assets/svg/spinner.svg';
 
+interface WaitlistInputs {
+	email: string;
+}
+
 export function HomeCTA() {
-	const [showWaitlistInput, setShowWaitlistInput] = useState(false);
+	const {
+		register,
+		handleSubmit,
+		watch,
+		formState: { errors }
+	} = useForm<WaitlistInputs>();
+
 	const [loading, setLoading] = useState(false);
+	const [showWaitlistInput, setShowWaitlistInput] = useState(false);
 	const [waitlistError, setWaitlistError] = useState('');
 	const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
-	const [waitlistEmail, setWaitlistEmail] = useState('');
 	const [fire, setFire] = useState<boolean | number>(false);
 
 	const prod = import.meta.env.NODE_ENV === 'production';
 	const url = prod ? 'https://waitlist-api.spacedrive.com' : 'http://localhost:3000';
 
-	async function handleWaitlistSubmit(e: FormEvent<HTMLFormElement>) {
-		e.preventDefault();
-		if (!waitlistEmail.trim().length) return;
+	async function handleWaitlistSubmit<SubmitHandler>({ email }: WaitlistInputs) {
+		if (!email.trim().length) return;
+
+		console.log('email', email);
 
 		setLoading(true);
 
@@ -31,7 +43,7 @@ export function HomeCTA() {
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				email: waitlistEmail
+				email
 			})
 		});
 
@@ -98,7 +110,7 @@ export function HomeCTA() {
 						</Button>
 					</>
 				) : (
-					<form onSubmit={handleWaitlistSubmit}>
+					<form onSubmit={handleSubmit(handleWaitlistSubmit)}>
 						<div className="flex flex-col justify-center">
 							{(waitlistError || waitlistSubmitted) && (
 								<div
@@ -127,12 +139,10 @@ export function HomeCTA() {
 							)}
 							<div className={'flex flex-row'}>
 								<Input
+									{...register('email')}
 									type="email"
-									name="email"
 									autoFocus
-									value={waitlistEmail}
 									autoComplete="off"
-									onChange={(e) => setWaitlistEmail(e.target.value)}
 									placeholder="Enter your email"
 									className={clsx({
 										'hidden': waitlistSubmitted,
