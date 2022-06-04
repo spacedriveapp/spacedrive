@@ -12,7 +12,6 @@
 		"@headlessui/react": "^1.6.4",
 		"@heroicons/react": "^1.0.6",
 		"@icons-pack/react-simple-icons": "^4.7.0",
-		"@radix-ui/react-context-menu": "^0.1.6",
 		"@sd/client": "workspace:*",
 		"@sd/core": "workspace:*",
 		"@sd/interface": "workspace:*",
