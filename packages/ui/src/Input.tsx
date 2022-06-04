@@ -33,10 +33,9 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 	variant?: keyof typeof variants;
 }
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ ...props }, ref) => {
+export const Input = ({ ...props }: InputProps) => {
 	return (
 		<input
-			ref={ref}
 			{...props}
 			className={clsx(
 				`px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
@@ -45,7 +44,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ ...props 
 			)}
 		/>
 	);
-});
+};
 
 interface TextAreaProps extends React.InputHTMLAttributes<HTMLTextAreaElement> {
 	variant?: keyof typeof variants;
