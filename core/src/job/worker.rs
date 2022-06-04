@@ -1,5 +1,8 @@
-use super::jobs::{JobReport, JobReportUpdate, JobStatus};
-use crate::{ClientQuery, CoreContext, CoreEvent, InternalEvent, Job};
+use super::{
+	jobs::{JobReport, JobReportUpdate, JobStatus},
+	Job,
+};
+use crate::{ClientQuery, CoreContext, CoreEvent, InternalEvent};
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{

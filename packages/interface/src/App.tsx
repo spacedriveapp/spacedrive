@@ -28,6 +28,7 @@ import { RedirectPage } from './screens/Redirect';
 import { SettingsScreen } from './screens/Settings';
 import { TagScreen } from './screens/Tag';
 import AppearanceSettings from './screens/settings/AppearanceSettings';
+import ContactsSettings from './screens/settings/ContactsSettings';
 import ExperimentalSettings from './screens/settings/ExperimentalSettings';
 import GeneralSettings from './screens/settings/GeneralSettings';
 import KeysSettings from './screens/settings/KeysSetting';
@@ -103,6 +104,7 @@ function SettingsRoutes({ modal = false }) {
 					<Route index element={<GeneralSettings />} />
 
 					<Route path="appearance" element={<AppearanceSettings />} />
+					<Route path="contacts" element={<ContactsSettings />} />
 					<Route path="experimental" element={<ExperimentalSettings />} />
 					<Route path="general" element={<GeneralSettings />} />
 					<Route path="keys" element={<KeysSettings />} />

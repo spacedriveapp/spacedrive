@@ -1,12 +1,11 @@
-use crate::job::jobs::JobReportUpdate;
-use crate::node::state;
+use crate::job::JobReportUpdate;
+use crate::node::get_nodestate;
 use crate::{
-	job::{jobs::Job, worker::WorkerContext},
+	job::{Job, WorkerContext},
 	prisma::file_path,
 	CoreContext,
 };
 use crate::{sys, CoreEvent};
-use anyhow::Result;
 use futures::executor::block_on;
 use image::*;
 use std::fs;
@@ -27,12 +26,13 @@ pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 #[async_trait::async_trait]
 impl Job for ThumbnailJob {
 	fn name(&self) -> &'static str {
-		"file_identifier"
+		"thumbnailer"
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<()> {
-		let config = state::get();
+	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
+		let config = get_nodestate();
 		let core_ctx = ctx.core_ctx.clone();
-		let location = sys::locations::get_location(&core_ctx, self.location_id).await?;
+
+		let location = sys::get_location(&core_ctx, self.location_id).await?;
 
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(
@@ -114,7 +114,10 @@ impl Job for ThumbnailJob {
 	}
 }
 
-pub fn generate_thumbnail(file_path: &PathBuf, output_path: &PathBuf) -> Result<()> {
+pub fn generate_thumbnail(
+	file_path: &PathBuf,
+	output_path: &PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
 	// Using `image` crate, open the included .jpg file
 	let img = image::open(file_path)?;
 	let (w, h) = img.dimensions();
@@ -126,7 +129,7 @@ pub fn generate_thumbnail(file_path: &PathBuf, output_path: &PathBuf) -> Result<
 		imageops::FilterType::Triangle,
 	));
 	// Create the WebP encoder for the above image
-	let encoder: Encoder = Encoder::from_image(&img).map_err(|_| anyhow::anyhow!("jeff"))?;
+	let encoder: Encoder = Encoder::from_image(&img)?;
 
 	// Encode the image at a specified quality 0-100
 	let webp: WebPMemory = encoder.encode(THUMBNAIL_QUALITY);
@@ -140,7 +143,7 @@ pub async fn get_images(
 	ctx: &CoreContext,
 	location_id: i32,
 	path: &str,
-) -> Result<Vec<file_path::Data>> {
+) -> Result<Vec<file_path::Data>, std::io::Error> {
 	let mut params = vec![
 		file_path::location_id::equals(location_id),
 		file_path::extension::in_vec(vec![
@@ -162,7 +165,8 @@ pub async fn get_images(
 		.find_many(params)
 		.with(file_path::file::fetch())
 		.exec()
-		.await?;
+		.await
+		.unwrap();
 
 	Ok(image_files)
 }

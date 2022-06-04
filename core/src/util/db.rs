@@ -1,18 +1,30 @@
-use crate::prisma::migration;
+use crate::prisma::{self, migration, PrismaClient};
 use crate::CoreContext;
-use anyhow::Result;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
 use prisma_client_rust::raw;
 use ring::digest::{Context, Digest, SHA256};
 use std::ffi::OsStr;
-use std::io::{BufReader, Read};
+use std::io::{self, BufReader, Read};
+use thiserror::Error;
 
-const INIT_MIGRATION: &str =
-	include_str!("../../prisma/migrations/migration_table/migration.sql");
+const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
-pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
+#[derive(Error, Debug)]
+pub enum DatabaseError {
+	#[error("Unable to initialize the Prisma client")]
+	ClientError(#[from] prisma::NewClientError),
+}
+
+pub async fn create_connection(path: &str) -> Result<PrismaClient, DatabaseError> {
+	println!("Creating database connection: {:?}", path);
+	let client = prisma::new_client_with_url(&format!("file:{}", &path)).await?;
+
+	Ok(client)
+}
+
+pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest, io::Error> {
 	let mut context = Context::new(&SHA256);
 	let mut buffer = [0; 1024];
 	loop {
@@ -25,7 +37,7 @@ pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest> {
 	Ok(context.finish())
 }
 
-pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
+pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
 	let client = &ctx.database;
 
 	match client
@@ -36,8 +48,6 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 	{
 		Ok(data) => {
 			if data.len() == 0 {
-				#[cfg(debug_assertions)]
-				println!("Migration table does not exist");
 				// execute migration
 				match client._execute_raw(raw!(INIT_MIGRATION)).await {
 					Ok(_) => {}
@@ -55,9 +65,6 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 
 				#[cfg(debug_assertions)]
 				println!("Migration table created: {:?}", value);
-			} else {
-				#[cfg(debug_assertions)]
-				println!("Migration table exists: {:?}", data);
 			}
 
 			let mut migration_subdirs = MIGRATIONS_DIR
@@ -88,7 +95,7 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 					.unwrap();
 				let migration_sql = migration_file.contents_utf8().unwrap();
 
-				let digest = sha256_digest(BufReader::new(migration_file.contents()))?;
+				let digest = sha256_digest(BufReader::new(migration_file.contents())).unwrap();
 				// create a lowercase hash from
 				let checksum = HEXLOWER.encode(digest.as_ref());
 				let name = subdir.path().file_name().unwrap().to_str().unwrap();
@@ -98,7 +105,8 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 					.migration()
 					.find_unique(migration::checksum::equals(checksum.clone()))
 					.exec()
-					.await?;
+					.await
+					.unwrap();
 
 				if existing_migration.is_none() {
 					#[cfg(debug_assertions)]
@@ -115,19 +123,19 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 							vec![],
 						)
 						.exec()
-						.await?;
+						.await
+						.unwrap();
 
 					for (i, step) in steps.iter().enumerate() {
 						match client._execute_raw(raw!(*step)).await {
 							Ok(_) => {
-								#[cfg(debug_assertions)]
-								println!("Step {} ran successfully", i);
 								client
 									.migration()
 									.find_unique(migration::checksum::equals(checksum.clone()))
 									.update(vec![migration::steps_applied::set(i as i32 + 1)])
 									.exec()
-									.await?;
+									.await
+									.unwrap();
 							}
 							Err(e) => {
 								println!("Error running migration: {}", name);
@@ -139,9 +147,6 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<()> {
 
 					#[cfg(debug_assertions)]
 					println!("Migration {} recorded successfully", name);
-				} else {
-					#[cfg(debug_assertions)]
-					println!("Migration {} already exists", name);
 				}
 			}
 		}
