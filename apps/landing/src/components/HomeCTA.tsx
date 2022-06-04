@@ -26,8 +26,6 @@ export function HomeCTA() {
 		? 'https://waitlist-api.spacedrive.com'
 		: 'http://localhost:3000';
 
-	console.log(import.meta.env);
-
 	async function handleWaitlistSubmit<SubmitHandler>({ email }: WaitlistInputs) {
 		if (!email.trim().length) return;
 
