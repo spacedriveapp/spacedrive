@@ -4,12 +4,12 @@ import { loadFull } from 'tsparticles';
 
 export const Bubbles = () => {
 	const particlesInit = async (main: any) => {
-		console.log(main);
+		// console.log(main);
 		await loadFull(main);
 	};
 
 	const particlesLoaded = (container: any) => {
-		console.log(container);
+		// console.log(container);
 	};
 
 	return (
