@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { Info } from '../../../../packages/interface/src/components/icons/Info';
+import { ReactComponent as Info } from '../../../../packages/interface/src/assets/svg/info.svg';
 import AppEmbed from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';

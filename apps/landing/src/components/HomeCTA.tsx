@@ -4,9 +4,9 @@ import clsx from 'clsx';
 import React, { FormEvent, useState } from 'react';
 import ReactCanvasConfetti from 'react-canvas-confetti';
 
+import { ReactComponent as Alert } from '../../../../packages/interface/src/assets/svg/Alert.svg';
+import { ReactComponent as Info } from '../../../../packages/interface/src/assets/svg/info.svg';
 import { ReactComponent as Spinner } from '../../../../packages/interface/src/assets/svg/spinner.svg';
-import { Alert } from '../../../../packages/interface/src/components/icons/Alert';
-import { Info } from '../../../../packages/interface/src/components/icons/Info';
 
 export function HomeCTA() {
 	const [showWaitlistInput, setShowWaitlistInput] = useState(false);
