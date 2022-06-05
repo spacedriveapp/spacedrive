@@ -1,15 +1,11 @@
-import { Apple, Github, Linux, Windows } from '@icons-pack/react-simple-icons';
-import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
-import React, { useEffect } from 'react';
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
+import { ReactComponent as Info } from '../../../../packages/interface/src/assets/svg/info.svg';
 import AppEmbed from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
-import { Footer } from '../components/Footer';
 import HomeCTA from '../components/HomeCTA';
-import NavBar from '../components/NavBar';
-import NewBanner from '../components/NewBanner';
 
 interface SectionProps {
 	orientation: 'left' | 'right';
@@ -44,6 +40,40 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 }
 
 function Page() {
+	const [searchParams, setSearchParams] = useSearchParams();
+	const [unsubscribedFromWaitlist, setUnsubscribedFromWaitlist] = useState(false);
+
+	useEffect(() => {
+		if (!window) return;
+
+		const cuid = searchParams.get('wunsub');
+		if (!cuid) return;
+
+		(async () => {
+			const prod = import.meta.env.PROD;
+			const url = prod ? 'https://waitlist-api.spacedrive.com' : 'http://localhost:3000';
+
+			const req = await fetch(`${url}/api/waitlist?i=${cuid}`, {
+				method: 'DELETE'
+			});
+
+			if (req.status === 200) {
+				setUnsubscribedFromWaitlist(true);
+				window.history.replaceState(
+					{},
+					'',
+					prod ? 'https://spacedrive.com' : 'http://localhost:8003'
+				);
+
+				setTimeout(() => {
+					setUnsubscribedFromWaitlist(false);
+				}, 5000);
+			} else if (req.status >= 400 && req.status < 500) {
+				alert('An error occurred while unsubscribing from waitlist');
+			}
+		})();
+	}, []);
+
 	return (
 		<>
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
@@ -53,6 +83,17 @@ function Page() {
 				href="https://spacedrive.hashnode.dev/spacedrive-funding-announcement"
 				link="Read post"
 			/> */}
+			{unsubscribedFromWaitlist && (
+				<div
+					className={
+						'-mt-8 flex flex-row items-center bg-opacity-20 border-2 my-2 px-2 rounded-md bg-green-800 border-green-900'
+					}
+				>
+					<Info className="fill-green-500 w-5 mr-1" />
+					<p className={'text-sm text-green-500'}>You have been unsubscribed from the waitlist</p>
+				</div>
+			)}
+
 			<h1 className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center fade-in-heading md:text-6xl">
 				A file explorer from the future.
 			</h1>
