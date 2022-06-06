@@ -3,7 +3,6 @@ import { useBridgeQuery } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
-import type { ByteSizeResult } from 'byte-size';
 import clsx from 'clsx';
 import React, { useContext, useEffect } from 'react';
 import { useCountUp } from 'react-countup';
@@ -16,112 +15,83 @@ import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
 
 interface StatItemProps {
-	name: string;
-	value: string;
-	statistics_key: keyof Statistics;
+	title: string;
+	bytes: string;
+
 	isLoading: boolean;
 }
 
-const StatItemNames: Record<string, string> = {
+const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_capacity: 'Total capacity',
 	preview_media_bytes: 'Preview media',
 	library_db_size: 'Index size',
 	total_bytes_free: 'Free space'
 };
 
+type OverviewStats = Partial<Record<keyof Statistics, string>>;
 type OverviewState = {
-	overviewStats: Record<keyof Statistics, { long: string; short: number }>;
-	setOverviewStatsItem: (
-		statName: keyof Statistics,
-		statAmount: number | string,
-		type: 'long' | 'short'
-	) => void;
-	setOverviewStats: (stats: Record<keyof Statistics, { long: string; short: number }>) => void;
+	overviewStats: OverviewStats;
+	setOverviewStat: (name: keyof OverviewStats, newValue: string) => void;
+	setOverviewStats: (stats: OverviewStats) => void;
 };
 
 export const useOverviewState = create<OverviewState>((set) => ({
-	overviewStats: {} as Record<keyof Statistics, { long: string; short: number }>,
-	setOverviewStatsItem: (statName, statAmount, type) =>
+	overviewStats: {},
+	setOverviewStat: (name, newValue) =>
 		set((state) => ({
 			...state,
 			overviewStats: {
 				...state.overviewStats,
-				[statName]: { ...state.overviewStats[statName], [type]: statAmount }
+				[name]: newValue
 			}
 		})),
-	setOverviewStats(stats) {
+	setOverviewStats: (stats) =>
 		set((state) => ({
 			...state,
 			overviewStats: stats
-		}));
-	}
+		}))
 }));
 
-const StatItem: React.FC<StatItemProps> = ({ name, statistics_key, value, isLoading }) => {
-	const countUp = React.useRef(null);
-	const appPropsContext = useContext(AppPropsContext);
+const StatItem: React.FC<StatItemProps> = (props) => {
+	const { title, bytes = '0', isLoading } = props;
 
-	const [size, setSize] = React.useState<ByteSizeResult | null>(null);
+	const appProps = useContext(AppPropsContext);
 
-	let amount = size ? +size.value : 0;
+	const size = byteSize(+bytes);
+	const counterRef = React.useRef<HTMLElement>(null);
 
-	const { overviewStats, setOverviewStatsItem } = useOverviewState();
-	const shouldAnimate = amount !== 0 && overviewStats[statistics_key].short !== amount;
-
-	useEffect(() => {
-		setSize(byteSize(+value));
-	}, [value]);
-
-	useEffect(() => {
-		console.log({
-			name,
-			stat: overviewStats[statistics_key],
-			amount,
-			shouldAnimate,
-			amountsEqual: overviewStats[statistics_key].short === amount
-		});
-	}, [amount, overviewStats]);
-
-	const { update: countTo } = useCountUp({
-		ref: countUp,
-		start: 0,
-		end: 0,
+	const counter = useCountUp({
+		end: +size.value,
+		ref: counterRef,
 		delay: 0.1,
 		decimals: 1,
-		duration: appPropsContext?.demoMode ? 1 : 0.5,
+		duration: appProps?.demoMode ? 1 : 0.5,
 		useEasing: true
 	});
 
 	useEffect(() => {
-		if (shouldAnimate) {
-			console.log('updating to', amount);
-			countTo(amount);
-		}
-
-		setOverviewStatsItem(statistics_key, amount, 'short');
-	}, [amount]);
+		counter.update(+size.value);
+	}, [bytes]);
 
 	return (
 		<div
 			className={clsx(
 				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600',
-				!amount && 'hidden'
+				!+bytes && 'hidden'
 			)}
 		>
-			<span className="text-sm text-gray-400">{name}</span>
+			<span className="text-sm text-gray-400">{title}</span>
 			<span className="text-2xl font-bold">
 				{/* <span className="hidden" aria-hidden="true" ref={hiddenCountUp} /> */}
 				{!isLoading ? (
 					<div>
 						<Skeleton enableAnimation={true} baseColor={'#21212e'} highlightColor={'#13131a'} />
-						<span ref={countUp} hidden={true} />
 					</div>
 				) : (
-					<span ref={countUp} />
+					<span className="tabular-nums" ref={counterRef}></span>
 				)}
-				{!isLoading ? <></> : <span className="ml-1 text-[16px] text-gray-400">{size?.unit}</span>}
+				{!isLoading ? <></> : <span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>}
 			</span>
-			{/* {JSON.stringify(shouldAnimate)} */}
 		</div>
 	);
 };
@@ -131,49 +101,50 @@ export const OverviewScreen = () => {
 		useBridgeQuery('GetLibraryStatistics');
 	const { data: nodeState } = useBridgeQuery('NodeGetState');
 
-	const { overviewStats, setOverviewStats, setOverviewStatsItem } = useOverviewState();
+	const { overviewStats, setOverviewStats, setOverviewStat } = useOverviewState();
 
-	// get app props context
-	const appPropsContext = useContext(AppPropsContext);
+	// get app props from context
+	const appProps = useContext(AppPropsContext);
 
 	useEffect(() => {
-		if (appPropsContext?.demoMode == true && !libraryStatistics?.library_db_size) {
+		if (appProps?.demoMode === true) {
 			if (!Object.entries(overviewStats).length)
 				setOverviewStats({
-					total_bytes_capacity: { long: '8093333345230', short: 0 },
-					preview_media_bytes: { long: '2304387532', short: 0 },
-					library_db_size: { long: '83345230', short: 0 },
-					total_file_count: { long: '20342345', short: 0 },
-					total_bytes_free: { long: '89734502034', short: 0 },
-					total_bytes_used: { long: '8093333345230', short: 0 },
-					total_unique_bytes: { long: '9347397', short: 0 }
+					total_bytes_capacity: '8093333345230',
+					preview_media_bytes: '2304387532',
+					library_db_size: '83345230',
+					total_file_count: '20342345',
+					total_bytes_free: '89734502034',
+					total_bytes_used: '8093333345230',
+					total_unique_bytes: '9347397'
 				});
 		} else {
-			const newStatistics = {
-				total_bytes_capacity: { long: '', short: 0 },
-				preview_media_bytes: { long: '', short: 0 },
-				library_db_size: { long: '', short: 0 },
-				total_file_count: { long: '', short: 0 },
-				total_bytes_free: { long: '', short: 0 },
-				total_bytes_used: { long: '', short: 0 },
-				total_unique_bytes: { long: '', short: 0 }
+			const newStatistics: OverviewStats = {
+				total_bytes_capacity: '0',
+				preview_media_bytes: '0',
+				library_db_size: '0',
+				total_file_count: '0',
+				total_bytes_free: '0',
+				total_bytes_used: '0',
+				total_unique_bytes: '0'
 			};
 
-			Object.entries(libraryStatistics as Statistics).map(([key, value]) => {
-				newStatistics[key as keyof Statistics] = { long: value as string, short: 0 };
+			Object.entries(libraryStatistics as Statistics).forEach(([key, value]) => {
+				newStatistics[key as keyof Statistics] = `${value}`;
 			});
 
 			setOverviewStats(newStatistics);
 		}
-	}, [appPropsContext, libraryStatistics]);
+	}, [appProps, libraryStatistics]);
 
 	useEffect(() => {
 		setTimeout(() => {
-			setOverviewStatsItem('total_bytes_capacity', '4093333345230', 'long');
-		}, 10000);
+			setOverviewStat('total_bytes_capacity', '4093333345230');
+		}, 2000);
 	}, [overviewStats]);
 
-	const validStatItems = Object.keys(StatItemNames);
+	// forgive me, father, for i have sinned with the typescript... except this literally makes sense
+	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
 	return (
 		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
@@ -185,14 +156,13 @@ export const OverviewScreen = () => {
 					{/* STAT CONTAINER */}
 					<div className="flex pb-4 overflow-hidden">
 						{Object.entries(overviewStats).map(([key, value]) => {
-							if (!validStatItems.includes(key)) return <></>;
+							if (!displayableStatItems.includes(key)) return null;
 
 							return (
 								<StatItem
 									key={key}
-									name={StatItemNames[key]}
-									value={value.long}
-									statistics_key={key as keyof Statistics}
+									title={StatItemNames[key as keyof Statistics]!}
+									bytes={value}
 									isLoading={isStatisticsLoading}
 								/>
 							);
