@@ -219,7 +219,7 @@ const RenderCell: React.FC<{
 	if (!file || !colKey || !dirId) return <></>;
 	const row = file;
 	if (!row) return <></>;
-	const appPropsContext = useContext(AppPropsContext);
+	const appProps = useContext(AppPropsContext);
 
 	const value = row[colKey];
 	if (!value) return <></>;
