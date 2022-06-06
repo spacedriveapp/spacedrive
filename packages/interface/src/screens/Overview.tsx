@@ -82,15 +82,19 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 		>
 			<span className="text-sm text-gray-400">{title}</span>
 			<span className="text-2xl font-bold">
-				{/* <span className="hidden" aria-hidden="true" ref={hiddenCountUp} /> */}
-				{!isLoading ? (
+				{isLoading && (
 					<div>
 						<Skeleton enableAnimation={true} baseColor={'#21212e'} highlightColor={'#13131a'} />
 					</div>
-				) : (
-					<span className="tabular-nums" ref={counterRef}></span>
 				)}
-				{!isLoading ? <></> : <span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>}
+				<div
+					className={clsx({
+						hidden: isLoading
+					})}
+				>
+					<span className="tabular-nums" ref={counterRef} />
+					<span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>
+				</div>
 			</span>
 		</div>
 	);
@@ -101,7 +105,7 @@ export const OverviewScreen = () => {
 		useBridgeQuery('GetLibraryStatistics');
 	const { data: nodeState } = useBridgeQuery('NodeGetState');
 
-	const { overviewStats, setOverviewStats, setOverviewStat } = useOverviewState();
+	const { overviewStats, setOverviewStats } = useOverviewState();
 
 	// get app props from context
 	const appProps = useContext(AppPropsContext);
@@ -129,7 +133,7 @@ export const OverviewScreen = () => {
 				total_unique_bytes: '0'
 			};
 
-			Object.entries(libraryStatistics as Statistics).forEach(([key, value]) => {
+			Object.entries((libraryStatistics as Statistics) || {}).forEach(([key, value]) => {
 				newStatistics[key as keyof Statistics] = `${value}`;
 			});
 
@@ -137,13 +141,12 @@ export const OverviewScreen = () => {
 		}
 	}, [appProps, libraryStatistics]);
 
-	useEffect(() => {
-		setTimeout(() => {
-			setOverviewStat('total_bytes_capacity', '4093333345230');
-		}, 2000);
-	}, [overviewStats]);
+	// useEffect(() => {
+	// 	setTimeout(() => {
+	// 		setOverviewStat('total_bytes_capacity', '4093333345230');
+	// 	}, 2000);
+	// }, [overviewStats]);
 
-	// forgive me, father, for i have sinned with the typescript... except this literally makes sense
 	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
 	return (
