@@ -13,7 +13,7 @@ export default function FileThumb(props: {
 	hasThumbnailOverride: boolean;
 	className?: string;
 }) {
-	const appPropsContext = useContext(AppPropsContext);
+	const appProps = useContext(AppPropsContext);
 	const { data: client } = useBridgeQuery('NodeGetState');
 
 	if (props.file.is_dir) {
@@ -24,7 +24,7 @@ export default function FileThumb(props: {
 		return (
 			<img
 				className="pointer-events-none z-90"
-				src={appPropsContext?.convertFileSrc(
+				src={appProps?.convertFileSrc(
 					`${client.data_path}/thumbnails/${props.locationId}/${props.file.file?.cas_id}.webp`
 				)}
 			/>

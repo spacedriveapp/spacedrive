@@ -61,11 +61,10 @@ export interface AppProps {
 }
 
 function AppLayout() {
-	const appPropsContext = useContext(AppPropsContext);
+	const appProps = useContext(AppPropsContext);
 
-	const isWindowRounded = appPropsContext?.platform === 'macOS';
-	const hasWindowBorder =
-		appPropsContext?.platform !== 'browser' && appPropsContext?.platform !== 'windows';
+	const isWindowRounded = appProps?.platform === 'macOS';
+	const hasWindowBorder = appProps?.platform !== 'browser' && appProps?.platform !== 'windows';
 
 	return (
 		<div
@@ -223,7 +222,11 @@ export default function App(props: AppProps) {
 			<ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
 				{/* @ts-ignore */}
 				<QueryClientProvider client={queryClient} contextSharing={false}>
-					<AppPropsContext.Provider value={Object.assign({ isFocused: true }, props)}>
+					<AppPropsContext.Provider
+						value={Object.assign({ isFocused: true }, props, {
+							demoMode: true
+						})}
+					>
 						<ClientProvider>
 							{props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
 						</ClientProvider>
