@@ -33,16 +33,19 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 			{...rest}
 		>
 			{sections.map((sec, i) => (
-				<>
+				<React.Fragment key={i}>
 					{i !== 0 && (
 						<ContextMenuPrimitive.Separator className="border-0 border-b border-b-gray-300 dark:border-b-gray-550 mx-2" />
 					)}
 
-					<ContextMenuPrimitive.Group key={i} className="flex items-stretch flex-col gap-0.5">
+					<ContextMenuPrimitive.Group className="flex items-stretch flex-col gap-0.5">
 						{sec.map((item) => {
 							if (typeof item === 'string')
 								return (
-									<ContextMenuPrimitive.Label className="text-xs ml-2 mt-1 uppercase text-gray-400">
+									<ContextMenuPrimitive.Label
+										key={item}
+										className="text-xs ml-2 mt-1 uppercase text-gray-400"
+									>
 										{item}
 									</ContextMenuPrimitive.Label>
 								);
@@ -94,7 +97,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 							);
 						})}
 					</ContextMenuPrimitive.Group>
-				</>
+				</React.Fragment>
 			))}
 		</ContextMenuPrimitive.Content>
 	);
