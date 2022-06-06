@@ -222,11 +222,7 @@ export default function App(props: AppProps) {
 			<ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
 				{/* @ts-ignore */}
 				<QueryClientProvider client={queryClient} contextSharing={false}>
-					<AppPropsContext.Provider
-						value={Object.assign({ isFocused: true }, props, {
-							demoMode: true
-						})}
-					>
+					<AppPropsContext.Provider value={Object.assign({ isFocused: true }, props)}>
 						<ClientProvider>
 							{props.useMemoryRouter ? <MemoryRouterContainer /> : <BrowserRouterContainer />}
 						</ClientProvider>
