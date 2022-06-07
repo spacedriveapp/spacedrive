@@ -25,7 +25,7 @@ packages/*/data
 apps/*/data
 docs/public/*.st
 docs/public/*.toml
-dev.db
+*.db*
 
 !cli/cmd/turbo
 cli/npm/turbo-android-arm64/bin
@@ -59,6 +59,8 @@ yalc.lock
 !create-turbo/templates/**/*
 todos.md
 examples/*/*.lock
-/target
+target/
+
+/core/src/prisma.rs
 
 /sdserver_data

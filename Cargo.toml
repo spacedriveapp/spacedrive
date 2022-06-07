@@ -4,5 +4,6 @@ members = [
 	"core",
 	"core/prisma",
 	"core/derive",
-	"apps/server"
+	"core/p2p",
+	"apps/server",
 ]
