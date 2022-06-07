@@ -64,7 +64,6 @@ export default function NavBar() {
 					<NavLink link="https://spacedrive.hashnode.dev">Blog</NavLink>
 					{/* <NavLink link="/change-log">Changelog</NavLink>
           <NavLink link="/privacy">Privacy</NavLink> */}
-					<NavLink link="/jobs">Jobs</NavLink>
 				</div>
 				<Dropdown
 					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
