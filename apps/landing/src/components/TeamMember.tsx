@@ -22,6 +22,27 @@ interface TeamMemberProps {
 	};
 }
 
+interface LinkProps {
+	// Elements inside anchor tag
+	children: React.ReactNode;
+
+	// Anchor href
+	href: string;
+}
+
+function Link(props: LinkProps) {
+	return (
+		<a
+			className="hover:scale-105 hover:opacity-80 duration-300"
+			href={props.href}
+			rel="noreferer"
+			target="_blank"
+		>
+			{props.children}
+		</a>
+	);
+}
+
 export function TeamMember(props: TeamMemberProps) {
 	return (
 		<div>
@@ -38,34 +59,19 @@ export function TeamMember(props: TeamMemberProps) {
 			<p className="text-sm mb-2">{props.role}</p>
 			<div className="flex flex-row space-x-2">
 				{props.socials.twitter && (
-					<a
-						className="hover:scale-105 hover:opacity-80 duration-300"
-						href={props.socials.twitter}
-						rel="noreferer"
-						target="_blank"
-					>
+					<Link href={props.socials.twitter}>
 						<Twitter />
-					</a>
+					</Link>
 				)}
 				{props.socials.github && (
-					<a
-						className="hover:scale-105 hover:opacity-80 duration-300"
-						href={props.socials.github}
-						rel="noreferer"
-						target="_blank"
-					>
+					<Link href={props.socials.github}>
 						<Github />
-					</a>
+					</Link>
 				)}
 				{props.socials.twitch && (
-					<a
-						className="hover:scale-105 hover:opacity-80 duration-300"
-						href={props.socials.twitch}
-						rel="noreferer"
-						target="_blank"
-					>
+					<Link href={props.socials.twitch}>
 						<Twitch />
-					</a>
+					</Link>
 				)}
 			</div>
 		</div>
