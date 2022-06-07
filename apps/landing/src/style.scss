@@ -7,6 +7,20 @@ html {
 	}
 }
 
+.title-gradient {
+	background: linear-gradient(94.79deg, #e86aff 33.64%, #ffd056 68.78%), #ffffff;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.oss-credit-gradient {
+	background: linear-gradient(90.85deg, #ffffff 8.44%, #d1d1d1 21.35%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
 .landing-img {
 	background-image: url('/app.png');
 	background-size: contain;
