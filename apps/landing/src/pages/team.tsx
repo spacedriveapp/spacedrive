@@ -89,13 +89,11 @@ function Page() {
 						unlimited scale.
 					</p>
 					<a
-						href="https://google.com/"
+						href="/faq"
 						className="text-[#979BAE] duration-150 opacity-50 hover:opacity-100 text-underline underline-offset-4 flex flex-row items-center"
-						target="_blank"
-						rel="noreferrer"
 					>
 						<ArrowRight className="mr-2" />
-						Read our philosophy
+						Read more
 					</a>
 					<h2 className="leading-relaxed text-xl mt-10 sm:mt-20">
 						Meet the minds coming together to form the future of data sharing
