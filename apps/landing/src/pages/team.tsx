@@ -161,6 +161,12 @@ function Page() {
 			role: 'CEO, Belong',
 			joined: 'Seed',
 			image: '/investors/sharma.jpeg'
+		},
+		{
+			name: 'Naveen R',
+			role: 'NocoDB',
+			joined: 'Seed',
+			image: '/investors/naveen.jpg'
 		}
 	];
 
@@ -181,8 +187,8 @@ function Page() {
 					}}
 				></div>
 				<div className="relative z-10">
-					<h1 className="text-2xl leading-relaxed">
-						We believe data should be <span className="title-gradient">interoperable</span>
+					<h1 className="text-5xl leading-snug">
+						We believe data should be <span className="title-gradient">interoperable</span>.
 					</h1>
 					<p className="text-[#979BAE]">
 						Data shouldn't be stuck in a device ecosystem. It should be OS agnostic, permanent and
