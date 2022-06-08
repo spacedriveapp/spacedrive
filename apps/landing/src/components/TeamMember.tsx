@@ -46,18 +46,10 @@ function Link(props: LinkProps) {
 
 export function TeamMember(props: TeamMemberProps) {
 	const size = props.investmentRound ? 144 : 111;
-	const [image, setImage] = React.useState<string | null>(null);
-
-	useEffect(() => {
-		import(`../assets/images/${props.image}`).then(({ default: path }) => {
-			setImage(path);
-		});
-	}, [props.image]);
-
 	return (
 		<div className="flex flex-col">
 			<img
-				src={image ?? ''}
+				src={new URL(`../assets/images/${props.image}`, import.meta.url).href}
 				role="img"
 				alt={`Portrait of ${props.name}`}
 				width={size}
