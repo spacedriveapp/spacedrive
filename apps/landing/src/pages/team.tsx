@@ -3,182 +3,182 @@ import { Helmet } from 'react-helmet';
 
 import { ReactComponent as ArrowRight } from '../../../../packages/interface/src/assets/svg/arrow-right.svg';
 import Markdown from '../components/Markdown';
-import { TeamMember } from '../components/TeamMember';
+import { TeamMember, TeamMemberProps } from '../components/TeamMember';
+
+const teamMembers: Array<TeamMemberProps> = [
+	{
+		name: 'Jamie Pine',
+		role: 'Founder, Developer & Designer',
+		image: 'team/jamie.jpg',
+		socials: {
+			twitter: 'https://twitter.com/jamiepine',
+			twitch: 'https://twitch.tv/jamiepinelive',
+			github: 'https://github.com/jamiepine'
+		}
+	},
+	{
+		name: 'Brendan Allan',
+		role: 'Rust Backend Engineer',
+		image: 'team/brendan.jpg',
+		socials: {
+			twitter: 'https://twitter.com/brendonovichdev',
+			twitch: 'https://twitch.tv/brendonovich',
+			github: 'https://github.com/brendonovich'
+		}
+	},
+	{
+		name: 'Oscar Beaumont',
+		role: 'Rust Backend Engineer',
+		image: 'team/oscar.jpg',
+		socials: {
+			twitter: 'https://twitter.com/oscartbeaumont',
+			twitch: 'https://twitch.tv/oscartbeaumont',
+			github: 'https://github.com/oscartbeaumont'
+		}
+	},
+	{
+		name: 'Haden Fletcher',
+		role: 'Engineer & Designer',
+		image: 'team/haden.jpg',
+		socials: {
+			twitter: 'https://twitter.com/heymaxichrome',
+			twitch: 'https://twitch.tv/maxichrome',
+			github: 'https://github.com/maxichrome'
+		}
+	},
+	{
+		name: 'Benjamin Akar',
+		role: 'Engineer & Designer',
+		image: 'team/benja.jpg',
+		socials: {
+			twitter: 'https://twitter.com/benjaminakar',
+			twitch: 'https://twitch.tv/akawr',
+			github: 'https://github.com/benja'
+		}
+	},
+	{
+		name: 'Haris Mehrzad',
+		role: 'Engineer Intern',
+		image: 'team/haris.jpg',
+		socials: {
+			twitter: 'https://twitter.com/xPolarrr',
+			github: 'https://github.com/xPolar'
+		}
+	}
+];
+
+const investors: Array<TeamMemberProps> = [
+	{
+		name: 'Joseph Jacks',
+		role: 'Founder, OSSC',
+		investmentRound: 'Lead Seed',
+		image: 'investors/josephjacks.jpg'
+	},
+	{
+		name: 'Guillermo Rauch',
+		role: 'CEO, Vercel',
+		investmentRound: 'Co-Lead Seed',
+		image: 'investors/guillermo.jpg'
+	},
+	{
+		name: 'Naval Ravikant',
+		role: 'Founder, AngelList',
+		investmentRound: 'Co-Lead Seed',
+		image: 'investors/naval.jpg'
+	},
+	{
+		name: 'Neha Narkhede',
+		role: 'Confluent, Apache Kafka',
+		investmentRound: 'Seed',
+		image: 'investors/neha.jpg'
+	},
+	{
+		name: 'Austen Allred',
+		role: 'CEO, Bloom Institute of Technology',
+		investmentRound: 'Seed',
+		image: 'investors/austen.jpg'
+	},
+	{
+		name: 'Tom Preston-Werner',
+		role: 'Co-founder, GitHub',
+		investmentRound: 'Seed',
+		image: 'investors/TOM.jpg'
+	},
+	{
+		name: 'Justin Hoffman',
+		role: 'Former VP Sales, Elasticsearch',
+		investmentRound: 'Seed',
+		image: 'investors/justinhoffman.jpg'
+	},
+	{
+		name: 'Tobias Lütke',
+		role: 'CEO, Shopify',
+		investmentRound: 'Seed',
+		image: 'investors/tobiaslutke.jpg'
+	},
+	{
+		name: 'Ry Walker',
+		role: 'Founder, Astronomer',
+		investmentRound: 'Seed',
+		image: 'investors/rywalker.jpg'
+	},
+	{
+		name: 'Zachary Smith',
+		role: 'Head of Edge Infrastructure, Equinix',
+		investmentRound: 'Seed',
+		image: 'investors/zacharysmith.jpg'
+	},
+	{
+		name: 'Sanjay Poonen',
+		role: 'Former COO, VMware',
+		investmentRound: 'Seed',
+		image: 'investors/sanjay.jpg'
+	},
+	{
+		name: 'David Mytton',
+		role: 'CEO, console.dev',
+		investmentRound: 'Seed',
+		image: 'investors/davidmytton.jpg'
+	},
+	{
+		name: 'Peer Richelsen',
+		role: 'CEO, Cal.com',
+		investmentRound: 'Seed',
+		image: 'investors/peer.jpg'
+	},
+	{
+		name: 'Lester Lee',
+		role: 'Founder, Slapdash',
+		investmentRound: 'Seed',
+		image: 'investors/lesterlee.jpg'
+	},
+	{
+		name: 'Haoyuan Li',
+		role: 'Founder, Alluxio',
+		investmentRound: 'Seed',
+		image: 'investors/haoyuan.jpg'
+	},
+	{
+		name: 'Augusto Marietti',
+		role: 'CEO, Kong',
+		investmentRound: 'Seed',
+		image: 'investors/augusto.jpg'
+	},
+	{
+		name: 'Vijay Sharma',
+		role: 'CEO, Belong',
+		investmentRound: 'Seed',
+		image: 'investors/sharma.jpg'
+	},
+	{
+		name: 'Naveen R',
+		role: 'NocoDB',
+		investmentRound: 'Seed',
+		image: 'investors/naveen.jpg'
+	}
+];
 
 function Page() {
-	const teamMembers = [
-		{
-			name: 'Jamie Pine',
-			role: 'Founder, Developer & Designer',
-			image: 'team/jamie.jpg',
-			socials: {
-				twitter: 'https://twitter.com/jamiepine',
-				twitch: 'https://twitch.tv/jamiepinelive',
-				github: 'https://github.com/jamiepine'
-			}
-		},
-		{
-			name: 'Brendan Allan',
-			role: 'Rust Backend Engineer',
-			image: 'team/brendan.jpg',
-			socials: {
-				twitter: 'https://twitter.com/brendonovichdev',
-				twitch: 'https://twitch.tv/brendonovich',
-				github: 'https://github.com/brendonovich'
-			}
-		},
-		{
-			name: 'Oscar Beaumont',
-			role: 'Rust Backend Engineer',
-			image: 'team/oscar.jpg',
-			socials: {
-				twitter: 'https://twitter.com/oscartbeaumont',
-				twitch: 'https://twitch.tv/oscartbeaumont',
-				github: 'https://github.com/oscartbeaumont'
-			}
-		},
-		{
-			name: 'Haden Fletcher',
-			role: 'Engineer & Designer',
-			image: 'team/haden.jpg',
-			socials: {
-				twitter: 'https://twitter.com/heymaxichrome',
-				twitch: 'https://twitch.tv/maxichrome',
-				github: 'https://github.com/maxichrome'
-			}
-		},
-		{
-			name: 'Benjamin Akar',
-			role: 'Engineer & Designer',
-			image: 'team/benja.jpg',
-			socials: {
-				twitter: 'https://twitter.com/benjaminakar',
-				twitch: 'https://twitch.tv/akawr',
-				github: 'https://github.com/benja'
-			}
-		},
-		{
-			name: 'Haris Mehrzad',
-			role: 'Engineer Intern',
-			image: '/team/harismehrzad.gif',
-			socials: {
-				twitter: 'https://twitter.com/xPolarrr',
-				github: 'https://github.com/xPolar'
-			}
-		}
-	];
-
-	const investors = [
-		{
-			name: 'Joseph Jacks',
-			role: 'Founder, OSSC',
-			joined: 'Lead Seed',
-			image: 'investors/josephjacks.jpg'
-		},
-		{
-			name: 'Guillermo Rauch',
-			role: 'CEO, Vercel',
-			joined: 'Co-Lead Seed',
-			image: 'investors/guillermo.jpg'
-		},
-		{
-			name: 'Naval Ravikant',
-			role: 'Founder, AngelList',
-			joined: 'Co-Lead Seed',
-			image: 'investors/naval.jpg'
-		},
-		{
-			name: 'Neha Narkhede',
-			role: 'Confluent, Apache Kafka',
-			joined: 'Seed',
-			image: 'investors/neha.jpg'
-		},
-		{
-			name: 'Austen Allred',
-			role: 'CEO, Bloom Institute of Technology',
-			joined: 'Seed',
-			image: 'investors/austen.jpg'
-		},
-		{
-			name: 'Tom Preston-Werner',
-			role: 'Co-founder, GitHub',
-			joined: 'Seed',
-			image: 'investors/TOM.jpg'
-		},
-		{
-			name: 'Justin Hoffman',
-			role: 'Former VP Sales, Elasticsearch',
-			joined: 'Seed',
-			image: 'investors/justinhoffman.jpg'
-		},
-		{
-			name: 'Tobias Lütke',
-			role: 'CEO, Shopify',
-			joined: 'Seed',
-			image: 'investors/tobiaslutke.jpg'
-		},
-		{
-			name: 'Ry Walker',
-			role: 'Founder, Astronomer',
-			joined: 'Seed',
-			image: 'investors/rywalker.jpg'
-		},
-		{
-			name: 'Zachary Smith',
-			role: 'Head of Edge Infrastructure, Equinix',
-			joined: 'Seed',
-			image: 'investors/zacharysmith.jpg'
-		},
-		{
-			name: 'Sanjay Poonen',
-			role: 'Former COO, VMware',
-			joined: 'Seed',
-			image: 'investors/sanjay.jpg'
-		},
-		{
-			name: 'David Mytton',
-			role: 'CEO, console.dev',
-			joined: 'Seed',
-			image: 'investors/davidmytton.jpg'
-		},
-		{
-			name: 'Peer Richelsen',
-			role: 'CEO, Cal.com',
-			joined: 'Seed',
-			image: 'investors/peer.jpg'
-		},
-		{
-			name: 'Lester Lee',
-			role: 'Founder, Slapdash',
-			joined: 'Seed',
-			image: 'investors/lesterlee.jpg'
-		},
-		{
-			name: 'Haoyuan Li',
-			role: 'Founder, Alluxio',
-			joined: 'Seed',
-			image: 'investors/haoyuan.jpg'
-		},
-		{
-			name: 'Augusto Marietti',
-			role: 'CEO, Kong',
-			joined: 'Seed',
-			image: 'investors/augusto.jpg'
-		},
-		{
-			name: 'Vijay Sharma',
-			role: 'CEO, Belong',
-			joined: 'Seed',
-			image: 'investors/sharma.jpg'
-		},
-		{
-			name: 'Naveen R',
-			role: 'NocoDB',
-			joined: 'Seed',
-			image: 'investors/naveen.jpg'
-		}
-	];
-
 	return (
 		<Markdown>
 			<Helmet>
@@ -197,7 +197,7 @@ function Page() {
 				></div>
 				<div className="relative z-10">
 					<h1 className="text-5xl leading-snug">
-						We believe data should be <span className="title-gradient">interoperable</span>.
+						We believe that your data should be <span className="title-gradient">universal</span>.
 					</h1>
 					<p className="text-[#979BAE]">
 						Data shouldn't be stuck in a device ecosystem. It should be OS agnostic, permanent and
@@ -220,7 +220,7 @@ function Page() {
 					</h2>
 					<div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 my-10 gap-x-5 gap-y-10">
 						{teamMembers.map((member) => (
-							<TeamMember {...member} />
+							<TeamMember key={member.name} {...member} />
 						))}
 					</div>
 					<p className="text-[#979BAE] text-sm">
@@ -238,7 +238,7 @@ function Page() {
 					<h2 className="leading-relaxed text-xl mt-10 sm:mt-20">People who believe in us</h2>
 					<div className="my-10 grid grid-cols-3 sm:grid-cols-5 gap-x-5 gap-y-10">
 						{investors.map((investor) => (
-							<TeamMember {...investor} />
+							<TeamMember key={investor.name + investor.investmentRound} {...investor} />
 						))}
 					</div>
 				</div>
