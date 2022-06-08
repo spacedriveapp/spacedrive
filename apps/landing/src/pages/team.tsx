@@ -10,7 +10,7 @@ function Page() {
 		{
 			name: 'Jamie Pine',
 			role: 'Founder, Developer & Designer',
-			image: '/team/jamiepine.jpeg',
+			image: 'team/jamie.jpg',
 			socials: {
 				twitter: 'https://twitter.com/jamiepine',
 				twitch: 'https://twitch.tv/jamiepinelive',
@@ -20,7 +20,7 @@ function Page() {
 		{
 			name: 'Brendan Allan',
 			role: 'Backend Developer',
-			image: '/team/brendanallan.jpeg',
+			image: 'team/brendan.jpg',
 			socials: {
 				twitter: 'https://twitter.com/brendonovichdev',
 				twitch: 'https://twitch.tv/brendonovich',
@@ -30,7 +30,7 @@ function Page() {
 		{
 			name: 'Oscar Beaumont',
 			role: 'Backend Developer',
-			image: '/team/oscarbeaumont.jpeg',
+			image: 'team/oscar.jpg',
 			socials: {
 				twitter: 'https://twitter.com/oscartbeaumont',
 				twitch: 'https://twitch.tv/oscartbeaumont',
@@ -40,7 +40,7 @@ function Page() {
 		{
 			name: 'Haden Fletcher',
 			role: 'Developer & Designer',
-			image: '/team/hadenfletcher.jpeg',
+			image: 'team/haden.jpg',
 			socials: {
 				twitter: 'https://twitter.com/heymaxichrome',
 				twitch: 'https://twitch.tv/maxichrome',
@@ -50,7 +50,7 @@ function Page() {
 		{
 			name: 'Benjamin Akar',
 			role: 'Developer & Designer',
-			image: '/team/benjaminakar.jpg',
+			image: 'team/benja.jpg',
 			socials: {
 				twitter: 'https://twitter.com/benjaminakar',
 				twitch: 'https://twitch.tv/akawr',
@@ -64,109 +64,109 @@ function Page() {
 			name: 'Joseph Jacks',
 			role: 'Founder, OSSC',
 			joined: 'Lead Seed',
-			image: '/investors/josephjacks.jpeg'
+			image: 'investors/josephjacks.jpg'
 		},
 		{
 			name: 'Guillermo Rauch',
 			role: 'CEO, Vercel',
 			joined: 'Co-Lead Seed',
-			image: '/investors/rauchg.jpeg'
+			image: 'investors/guillermo.jpg'
 		},
 		{
 			name: 'Naval Ravikant',
 			role: 'Founder, AngelList',
 			joined: 'Co-Lead Seed',
-			image: '/investors/naval.jpeg'
+			image: 'investors/naval.jpg'
 		},
 		{
 			name: 'Neha Narkhede',
 			role: 'Confluent, Apache Kafka',
 			joined: 'Seed',
-			image: '/investors/neha.jpeg'
+			image: 'investors/neha.jpg'
 		},
 		{
 			name: 'Austen Allred',
 			role: 'CEO, Bloom Institute of Technology',
 			joined: 'Seed',
-			image: '/investors/austen.jpeg'
+			image: 'investors/austen.jpg'
 		},
 		{
 			name: 'Tom Preston-Werner',
 			role: 'Co-founder, GitHub',
 			joined: 'Seed',
-			image: '/investors/TOM.png'
+			image: 'investors/TOM.jpg'
 		},
 		{
 			name: 'Justin Hoffman',
 			role: 'Former VP Sales, Elasticsearch',
 			joined: 'Seed',
-			image: '/investors/justinhoffman.webp'
+			image: 'investors/justinhoffman.jpg'
 		},
 		{
 			name: 'Tobias Lütke',
 			role: 'CEO, Shopify',
 			joined: 'Seed',
-			image: '/investors/tobiaslutke.jpeg'
+			image: 'investors/tobiaslutke.jpg'
 		},
 		{
 			name: 'Ry Walker',
 			role: 'Founder, Astronomer',
 			joined: 'Seed',
-			image: '/investors/rywalker.jpeg'
+			image: 'investors/rywalker.jpg'
 		},
 		{
 			name: 'Zachary Smith',
 			role: 'Head of Edge Infrastructure, Equinix',
 			joined: 'Seed',
-			image: '/investors/zacharysmith.jpeg'
+			image: 'investors/zacharysmith.jpg'
 		},
 		{
 			name: 'Sanjay Poonen',
 			role: 'Former COO, VMware',
 			joined: 'Seed',
-			image: '/investors/sanjay.jpeg'
+			image: 'investors/sanjay.jpg'
 		},
 		{
 			name: 'David Mytton',
 			role: 'CEO, console.dev',
 			joined: 'Seed',
-			image: '/investors/davidmytton.jpeg'
+			image: 'investors/davidmytton.jpg'
 		},
 		{
 			name: 'Peer Richelsen',
 			role: 'CEO, Cal.com',
 			joined: 'Seed',
-			image: '/investors/peer.jpeg'
+			image: 'investors/peer.jpg'
 		},
 		{
 			name: 'Lester Lee',
 			role: 'Founder, Slapdash',
 			joined: 'Seed',
-			image: '/investors/lesterlee.jpeg'
+			image: 'investors/lesterlee.jpg'
 		},
 		{
 			name: 'Haoyuan Li',
 			role: 'Founder, Alluxio',
 			joined: 'Seed',
-			image: '/investors/haoyuan.jpeg'
+			image: 'investors/haoyuan.jpg'
 		},
 		{
 			name: 'Augusto Marietti',
 			role: 'CEO, Kong',
 			joined: 'Seed',
-			image: '/investors/augusto.webp'
+			image: 'investors/augusto.jpg'
 		},
 		{
 			name: 'Vijay Sharma',
 			role: 'CEO, Belong',
 			joined: 'Seed',
-			image: '/investors/sharma.jpeg'
+			image: 'investors/sharma.jpg'
 		},
 		{
 			name: 'Naveen R',
 			role: 'NocoDB',
 			joined: 'Seed',
-			image: '/investors/naveen.jpg'
+			image: 'investors/naveen.jpg'
 		}
 	];
 
