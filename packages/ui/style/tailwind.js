@@ -1,6 +1,8 @@
 // const colors = require('tailwindcss/colors');
 // const plugin = require('tailwindcss/plugin');
-// const defaultTheme = require('tailwindcss/defaultTheme');
+const defaultTheme = require('tailwindcss/defaultTheme');
+
+console.log(defaultTheme.screens);
 
 module.exports = function (app, options) {
 	let config = {
@@ -11,6 +13,10 @@ module.exports = function (app, options) {
 		darkMode: app == 'landing' ? 'class' : 'class',
 		mode: 'jit',
 		theme: {
+			screens: {
+				xs: '475px',
+				...defaultTheme.screens
+			},
 			// fontFamily: {
 			//   sans: ['Inter', 'ui-sans-serif', 'system-ui'],
 			//   serif: ['Inter', 'ui-serif', 'Georgia'],

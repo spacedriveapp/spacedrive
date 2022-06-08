@@ -19,8 +19,8 @@ interface TeamMemberProps {
 		github?: string;
 	};
 
-	// When person joined
-	joined?: string;
+	// Which round an investor joined at
+	investmentRound?: string;
 }
 
 interface LinkProps {
@@ -59,19 +59,22 @@ export function TeamMember(props: TeamMemberProps) {
 				src={image ?? ''}
 				role="img"
 				alt={`Portrait of ${props.name}`}
-				width="144"
-				height="144"
-				className="rounded-md"
+				className={clsx('rounded-md', {
+					'w-40 h-40 xs:w-32 xs:h-32 sm:w-36 sm:h-36': !props.investmentRound,
+					'w-28 h-28': props.investmentRound
+				})}
 			/>
 			<h3 className="text-base mb-0 mt-4">{props.name}</h3>
 			<p
 				className={clsx('text-sm', {
-					'mb-0': props.joined
+					'mb-0': props.investmentRound
 				})}
 			>
 				{props.role}
 			</p>
-			{props.joined && <p className="text-sm font-semibold mt-1 mb-0">{props.joined}</p>}
+			{props.investmentRound && (
+				<p className="text-sm font-semibold mt-1 mb-0">{props.investmentRound}</p>
+			)}
 			<div className="flex flex-row space-x-2 mt-3">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>

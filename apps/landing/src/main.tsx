@@ -23,7 +23,7 @@ function App() {
 				</Button>
 
 				<NavBar />
-				<div className="container z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden sm:overflow-x-visible ">
+				<div className="sm:container w-full z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden sm:overflow-x-visible ">
 					{useRoutes(routes)}
 					<Footer />
 				</div>
