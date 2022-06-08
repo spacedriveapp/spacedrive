@@ -58,7 +58,7 @@ export function Footer() {
 						Mission
 					</FooterLink>
 					<FooterLink link="/changelog">Changelog</FooterLink>
-					<FooterLink link="https://blog.spacedrive.com/">Blog</FooterLink>
+					<FooterLink link="https://blog.spacedrive.com">Blog</FooterLink>
 				</div>
 				<div className="flex flex-col col-span-1 space-y-2 pointer-events-none">
 					<h3 className="mb-1 text-xs font-bold uppercase">Downloads</h3>
