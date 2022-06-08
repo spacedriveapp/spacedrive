@@ -1,6 +1,6 @@
 import { Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface TeamMemberProps {
 	// Name of team member
@@ -45,15 +45,23 @@ function Link(props: LinkProps) {
 }
 
 export function TeamMember(props: TeamMemberProps) {
+	const [image, setImage] = React.useState<string | null>(null);
+
+	useEffect(() => {
+		import(`../assets/images/${props.image}`).then(({ default: path }) => {
+			setImage(path);
+		});
+	}, [props.image]);
+
 	return (
 		<div>
-			<div
+			<img
+				src={image ?? ''}
 				role="img"
-				aria-label={`Image of ${props.name}`}
-				className="w-36 h-36 bg-cover bg-center rounded-md"
-				style={{
-					backgroundImage: `url('${props.image}')`
-				}}
+				alt={`Portrait of ${props.name}`}
+				width="144"
+				height="144"
+				className="rounded-md"
 			/>
 			<h3 className="text-base mb-0 mt-4">{props.name}</h3>
 			<p
