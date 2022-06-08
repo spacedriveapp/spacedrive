@@ -45,6 +45,7 @@ function Link(props: LinkProps) {
 }
 
 export function TeamMember(props: TeamMemberProps) {
+	const size = props.investmentRound ? 144 : 111;
 	const [image, setImage] = React.useState<string | null>(null);
 
 	useEffect(() => {
@@ -54,13 +55,15 @@ export function TeamMember(props: TeamMemberProps) {
 	}, [props.image]);
 
 	return (
-		<div>
+		<div className="flex flex-col">
 			<img
 				src={image ?? ''}
 				role="img"
 				alt={`Portrait of ${props.name}`}
-				className={clsx('rounded-md', {
-					'w-40 h-40 xs:w-32 xs:h-32 sm:w-36 sm:h-36': !props.investmentRound,
+				width={size}
+				height={size}
+				className={clsx('inline-flex m-0 rounded-md', {
+					'w-32 h-32 !xs:w-36 !xs:h-36 !sm:w-40 !sm:h-40': !props.investmentRound,
 					'w-28 h-28': props.investmentRound
 				})}
 			/>
