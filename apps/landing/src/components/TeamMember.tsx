@@ -1,8 +1,6 @@
+import { Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
+import clsx from 'clsx';
 import React from 'react';
-
-import { ReactComponent as Github } from '../../../../packages/interface/src/assets/svg/github.svg';
-import { ReactComponent as Twitch } from '../../../../packages/interface/src/assets/svg/twitch.svg';
-import { ReactComponent as Twitter } from '../../../../packages/interface/src/assets/svg/twitter.svg';
 
 interface TeamMemberProps {
 	// Name of team member
@@ -15,11 +13,14 @@ interface TeamMemberProps {
 	image: string;
 
 	// Socials
-	socials: {
-		twitter: string;
-		twitch: string;
-		github: string;
+	socials?: {
+		twitter?: string;
+		twitch?: string;
+		github?: string;
 	};
+
+	// When person joined
+	joined?: string;
 }
 
 interface LinkProps {
@@ -49,28 +50,34 @@ export function TeamMember(props: TeamMemberProps) {
 			<div
 				role="img"
 				aria-label={`Image of ${props.name}`}
-				className="w-36 h-36 bg-cover bg-center"
+				className="w-36 h-36 bg-cover bg-center rounded-md"
 				style={{
-					boxShadow: 'inset 0px 0px 0px 5px rgba(255, 255, 255, 0.13)',
 					backgroundImage: `url('${props.image}')`
 				}}
 			/>
 			<h3 className="text-base mb-0 mt-4">{props.name}</h3>
-			<p className="text-sm mb-2">{props.role}</p>
-			<div className="flex flex-row space-x-2">
-				{props.socials.twitter && (
+			<p
+				className={clsx('text-sm', {
+					'mb-0': props.joined
+				})}
+			>
+				{props.role}
+			</p>
+			{props.joined && <p className="text-sm font-semibold mt-1 mb-0">{props.joined}</p>}
+			<div className="flex flex-row space-x-2 mt-3">
+				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
-						<Twitter />
+						<Twitter className="w-[20px] h-[20px]" />
 					</Link>
 				)}
-				{props.socials.github && (
+				{props.socials?.github && (
 					<Link href={props.socials.github}>
-						<Github />
+						<Github className="w-[20px] h-[20px]" />
 					</Link>
 				)}
-				{props.socials.twitch && (
+				{props.socials?.twitch && (
 					<Link href={props.socials.twitch}>
-						<Twitch />
+						<Twitch className="w-[20px] h-[20px]" />
 					</Link>
 				)}
 			</div>

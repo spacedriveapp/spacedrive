@@ -59,6 +59,111 @@ function Page() {
 		}
 	];
 
+	const investors = [
+		{
+			name: 'Joseph Jacks',
+			role: 'Founder, OSSC',
+			joined: 'Seed',
+			image: '/investors/josephjacks.jpeg'
+		},
+		{
+			name: 'Guillermo Rauch',
+			role: 'CEO Vercel',
+			joined: 'Seed',
+			image: '/investors/rauchg.jpeg'
+		},
+		{
+			name: 'Naval Ravikant',
+			role: 'Founder, AngelList',
+			joined: 'Seed',
+			image: '/investors/naval.jpeg'
+		},
+		{
+			name: 'Neha Narkhede',
+			role: 'Confluent, Apache Kafka',
+			joined: 'Seed',
+			image: '/investors/neha.jpeg'
+		},
+		{
+			name: 'Austen Allred',
+			role: 'CEO Bloom Institute of Technology',
+			joined: 'Seed',
+			image: '/investors/austen.jpeg'
+		},
+		{
+			name: 'Tom Preston-Werner',
+			role: 'Co-founder GitHub',
+			joined: 'Seed',
+			image: '/investors/TOM.png'
+		},
+		{
+			name: 'Justin Hoffman',
+			role: 'Elasticsearch',
+			joined: 'Seed',
+			image: '/investors/justinhoffman.webp'
+		},
+		{
+			name: 'Tobias Lütke',
+			role: 'CEO Shopify',
+			joined: 'Seed',
+			image: '/investors/tobiaslutke.jpeg'
+		},
+		{
+			name: 'Ry Walker',
+			role: 'Astronomer',
+			joined: 'Seed',
+			image: '/investors/rywalker.jpeg'
+		},
+		{
+			name: 'Zachary Smith',
+			role: 'Equinix',
+			joined: 'Seed',
+			image: '/investors/zacharysmith.jpeg'
+		},
+		{
+			name: 'Sanjay Poonen',
+			role: 'COO VMware',
+			joined: 'Seed',
+			image: '/investors/sanjay.jpeg'
+		},
+		{
+			name: 'David Mytton',
+			role: 'CEO console.dev',
+			joined: 'Seed',
+			image: '/investors/davidmytton.jpeg'
+		},
+		{
+			name: 'Peer Rich',
+			role: 'CEO Cal.com',
+			joined: 'Seed',
+			image: '/investors/peer.jpeg'
+		},
+		{
+			name: 'Lester Lee',
+			role: 'Slapdash',
+			joined: 'Seed',
+			image: '/investors/lesterlee.jpeg'
+		},
+		{
+			name: 'Haoyuan Li',
+			role: 'Alluxio',
+			joined: 'Seed',
+			image: '/investors/haoyuan.jpeg'
+		},
+		{
+			name: 'Augusto Marietti',
+			role: 'CEO Kong',
+			joined: 'Seed',
+			image: '/investors/augusto.webp'
+		},
+		{
+			name: 'Vijay Sharma',
+			role: 'CEO Belong',
+			joined: 'Seed',
+			image: '/investors/sharma.jpeg'
+		}
+	];
+
 	return (
 		<Markdown>
 			<Helmet>
@@ -115,6 +220,12 @@ function Page() {
 						</a>{' '}
 						to OSS technology.
 					</p>
+					<h2 className="leading-relaxed text-xl mt-10 sm:mt-20">People who believe in us</h2>
+					<div className="my-10 grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-10">
+						{investors.map((investor) => (
+							<TeamMember {...investor} />
+						))}
+					</div>
 				</div>
 			</div>
 		</Markdown>
