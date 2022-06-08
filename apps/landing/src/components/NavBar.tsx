@@ -48,7 +48,7 @@ export default function NavBar() {
 					: 'border-gray-550 bg-gray-750 bg-opacity-80 backdrop-blur'
 			)}
 		>
-			<div className="container relative flex items-center h-full px-5 m-auto">
+			<div className="sm:container relative flex items-center h-full px-5 m-auto">
 				<a href="/" className="absolute flex flex-row items-center">
 					<AppLogo className="z-30 w-8 h-8 mr-3" />
 					<h3 className="text-xl font-bold text-white">

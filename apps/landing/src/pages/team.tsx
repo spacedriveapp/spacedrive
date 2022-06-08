@@ -19,7 +19,7 @@ function Page() {
 		},
 		{
 			name: 'Brendan Allan',
-			role: 'Backend Developer',
+			role: 'Rust Backend Engineer',
 			image: '/team/brendanallan.jpeg',
 			socials: {
 				twitter: 'https://twitter.com/brendonovichdev',
@@ -29,7 +29,7 @@ function Page() {
 		},
 		{
 			name: 'Oscar Beaumont',
-			role: 'Backend Developer',
+			role: 'Rust Backend Engineer',
 			image: '/team/oscarbeaumont.jpeg',
 			socials: {
 				twitter: 'https://twitter.com/oscartbeaumont',
@@ -39,7 +39,7 @@ function Page() {
 		},
 		{
 			name: 'Haden Fletcher',
-			role: 'Developer & Designer',
+			role: 'Engineer & Designer',
 			image: '/team/hadenfletcher.jpeg',
 			socials: {
 				twitter: 'https://twitter.com/heymaxichrome',
@@ -49,12 +49,21 @@ function Page() {
 		},
 		{
 			name: 'Benjamin Akar',
-			role: 'Developer & Designer',
+			role: 'Engineer & Designer',
 			image: '/team/benjaminakar.jpg',
 			socials: {
 				twitter: 'https://twitter.com/benjaminakar',
 				twitch: 'https://twitch.tv/akawr',
 				github: 'https://github.com/benja'
+			}
+		},
+		{
+			name: 'Haris Mehrzad',
+			role: 'Engineer Intern',
+			image: '/team/harismehrzad.gif',
+			socials: {
+				twitter: 'https://twitter.com/xPolarrr',
+				github: 'https://github.com/xPolar'
 			}
 		}
 	];
@@ -209,7 +218,7 @@ function Page() {
 					<h2 className="mt-10 text-xl leading-relaxed sm:mt-20">
 						Meet the minds coming together to form the future of data sharing
 					</h2>
-					<div className="grid grid-cols-2 my-10 sm:grid-cols-3 gap-x-5 gap-y-10">
+					<div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 my-10 gap-x-5 gap-y-10">
 						{teamMembers.map((member) => (
 							<TeamMember {...member} />
 						))}
@@ -226,8 +235,8 @@ function Page() {
 						</a>{' '}
 						to OSS technology.
 					</p>
-					<h2 className="mt-10 text-xl leading-relaxed sm:mt-20">People who believe in us</h2>
-					<div className="grid grid-cols-2 my-10 sm:grid-cols-3 gap-x-5 gap-y-10">
+					<h2 className="leading-relaxed text-xl mt-10 sm:mt-20">People who believe in us</h2>
+					<div className="my-10 grid grid-cols-3 sm:grid-cols-5 gap-x-5 gap-y-10">
 						{investors.map((investor) => (
 							<TeamMember {...investor} />
 						))}
