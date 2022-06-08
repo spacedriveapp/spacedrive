@@ -51,7 +51,7 @@ export function TeamMember(props: TeamMemberProps) {
 				role="img"
 				aria-label={`Image of ${props.name}`}
 				className={clsx(' bg-cover bg-center rounded-md', {
-					'w-40 h-40 sm:w-36 sm:h-36': !props.joined,
+					'w-40 h-40 xs:w-32 xs:h-32 sm:w-36 sm:h-36': !props.joined,
 					'w-28 h-28': props.joined
 				})}
 				style={{
