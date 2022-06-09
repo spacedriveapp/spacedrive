@@ -166,7 +166,7 @@ export const OverviewScreen = () => {
 									key={key}
 									title={StatItemNames[key as keyof Statistics]!}
 									bytes={value}
-									isLoading={isStatisticsLoading}
+									isLoading={appProps?.demoMode === true ? false : isStatisticsLoading}
 								/>
 							);
 						})}
