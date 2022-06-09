@@ -2,8 +2,6 @@
 // const plugin = require('tailwindcss/plugin');
 const defaultTheme = require('tailwindcss/defaultTheme');
 
-console.log(defaultTheme.screens);
-
 module.exports = function (app, options) {
 	let config = {
 		content: [
