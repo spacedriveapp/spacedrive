@@ -100,7 +100,7 @@ const investors: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Tom Preston-Werner',
-		role: 'Co-founder, GitHub',
+		role: 'Founder, GitHub',
 		investmentRound: 'Seed',
 		image: 'investors/TOM.jpg'
 	},
@@ -187,7 +187,7 @@ function Page() {
 			</Helmet>
 			<div className="relative team-page">
 				<div
-					className="absolute -top-60 -right-[400px] opacity-60 w-[1000px] h-[800px]"
+					className="absolute -top-60 -right-[400px] opacity-60 w-[1000px] h-[800px] fade-in"
 					style={{
 						background:
 							'linear-gradient(180deg, rgba(180, 180, 180, 0.76) 0%, rgba(19, 4, 168, 0.41) 95.73%)',
@@ -196,34 +196,34 @@ function Page() {
 					}}
 				></div>
 				<div className="relative z-10">
-					<h1 className="text-5xl leading-snug">
-						We believe your data should be <span className="title-gradient">universal</span>.
+					<h1 className="text-5xl leading-snug animation-delay-1 fade-in-heading ">
+						We believe file management should be <span className="title-gradient">universal</span>.
 					</h1>
-					<p className="text-[#979BAE]">
-						Data shouldn't be stuck in a device ecosystem. It should be OS agnostic, permanent and
-						personally owned.
+					<p className="text-gray-400 animation-delay-2 fade-in-heading ">
+						Your priceless personal data shouldn't be stuck in a device ecosystem. It should be OS
+						agnostic, permanent and owned by you.
 					</p>
-					<p className="text-[#979BAE]">
-						Data we create is our legacy, that will long outlive us—open source technology is the
-						only way to ensure we retain absolute control over the data that defines our lives, at
-						unlimited scale.
+					<p className="text-gray-400 animation-delay-2 fade-in-heading ">
+						The data we create daily is our legacy—that will long outlive us. Open source technology
+						is the only way to ensure we retain absolute control over the files that define our
+						lives, at unlimited scale.
 					</p>
 					<a
 						href="/faq"
-						className="text-[#979BAE] duration-150 opacity-50 hover:opacity-100 text-underline underline-offset-4 flex flex-row items-center"
+						className="flex flex-row items-center text-gray-400 duration-150 animation-delay-3 fade-in-heading hover:text-white text-underline underline-offset-4"
 					>
 						<ArrowRight className="mr-2" />
 						Read more
 					</a>
-					<h2 className="mt-10 text-xl leading-relaxed sm:mt-20">
-						Meet the minds behind the future of file management.
+					<h2 className="mt-10 text-2xl leading-relaxed sm:mt-20 animation-delay-4 fade-in-heading ">
+						Meet the team
 					</h2>
-					<div className="grid grid-cols-2 my-10 xs:grid-cols-3 sm:grid-cols-4 gap-x-5 gap-y-10">
+					<div className="grid grid-cols-2 my-10 xs:grid-cols-3 sm:grid-cols-4 gap-x-5 gap-y-10 animation-delay-4 fade-in-heading">
 						{teamMembers.map((member) => (
 							<TeamMember key={member.name} {...member} />
 						))}
 					</div>
-					<p className="text-[#979BAE] text-sm">
+					<p className="text-sm text-gray-400">
 						... and all the awesome{' '}
 						<a
 							href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
@@ -235,8 +235,8 @@ function Page() {
 						</a>{' '}
 						on GitHub.
 					</p>
-					<h2 className="mt-10 mb-2 text-xl leading-relaxed sm:mt-20">Our Investors</h2>
-					<p className="text-[#979BAE] text-sm">
+					<h2 className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20">Our investors</h2>
+					<p className="text-sm text-gray-400">
 						We're backed by some of the greatest leaders in the technology industry.
 					</p>
 					<div className="grid grid-cols-3 my-10 sm:grid-cols-5 gap-x-5 gap-y-10">

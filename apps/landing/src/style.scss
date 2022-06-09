@@ -8,7 +8,7 @@ html {
 }
 
 .title-gradient {
-	background: linear-gradient(94.79deg, #e86aff 33.64%, #8ac7fc 68.78%), #ffffff;
+	background: linear-gradient(94.79deg, #e86aff 33.64%, #53afff 68.78%), #ffffff;
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
@@ -60,6 +60,9 @@ html {
 }
 .animation-delay-3 {
 	animation-delay: 700ms;
+}
+.animation-delay-4 {
+	animation-delay: 1s;
 }
 
 @keyframes fadeInDown {
