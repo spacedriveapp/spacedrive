@@ -1,5 +1,5 @@
 // use crate::native;
-use crate::{node::get_nodestate, prisma::volume::*};
+use crate::prisma::volume::*;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 // #[cfg(not(target_os = "macos"))]
@@ -28,7 +28,7 @@ pub struct Volume {
 impl Volume {
 	pub async fn save(ctx: &CoreContext) -> Result<(), SysError> {
 		let db = &ctx.database;
-		let config = get_nodestate();
+		let config = ctx.config.get().await;
 
 		let volumes = Self::get_volumes()?;
 

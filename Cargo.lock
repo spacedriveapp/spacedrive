@@ -6297,7 +6297,6 @@ dependencies = [
  "image",
  "include_dir",
  "int-enum",
- "lazy_static",
  "libp2p",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",

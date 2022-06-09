@@ -1,7 +1,4 @@
-use crate::{
-	file::indexer::IndexerJob, node::get_nodestate, prisma::location, ClientQuery, CoreContext,
-	CoreEvent,
-};
+use crate::{file::indexer::IndexerJob, prisma::location, ClientQuery, CoreContext, CoreEvent};
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
 use thiserror::Error;
@@ -110,7 +107,7 @@ pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, S
 
 pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
 	let db = &ctx.database;
-	let config = get_nodestate();
+	let config = ctx.config.get().await;
 
 	// check if we have access to this location
 	if !Path::new(path).exists() {

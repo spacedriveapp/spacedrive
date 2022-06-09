@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::{fs, io};
 use std::path::Path;
+use std::{fs, io};
 
 use crate::job::JobReportUpdate;
 use crate::prisma::file;
@@ -220,5 +220,8 @@ pub fn prepare_file_values(
 
 	println!("cas id for path {:?} is {:?}", path, cas_id);
 
-	Ok((cas_id.clone(), [PrismaValue::String(cas_id), PrismaValue::Int(0)]))
+	Ok((
+		cas_id.clone(),
+		[PrismaValue::String(cas_id), PrismaValue::Int(0)],
+	))
 }

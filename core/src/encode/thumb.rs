@@ -1,5 +1,4 @@
 use crate::job::JobReportUpdate;
-use crate::node::get_nodestate;
 use crate::{
 	job::{Job, WorkerContext},
 	prisma::file_path,
@@ -29,7 +28,7 @@ impl Job for ThumbnailJob {
 		"thumbnailer"
 	}
 	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
-		let config = get_nodestate();
+		let config = ctx.core_ctx.config.get().await;
 		let core_ctx = ctx.core_ctx.clone();
 
 		let location = sys::get_location(&core_ctx, self.location_id).await?;

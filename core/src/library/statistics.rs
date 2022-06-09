@@ -1,5 +1,4 @@
 use crate::{
-	node::get_nodestate,
 	prisma::{library, library_statistics::*},
 	sys::Volume,
 	CoreContext,
@@ -53,9 +52,8 @@ impl Default for Statistics {
 
 impl Statistics {
 	pub async fn retrieve(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
-		let config = get_nodestate();
 		let db = &ctx.database;
-		let library_data = config.get_current_library();
+		let library_data = ctx.config.get_current_library().await;
 
 		let library_statistics_db = match db
 			.library_statistics()
@@ -71,10 +69,10 @@ impl Statistics {
 	}
 
 	pub async fn calculate(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
-		let config = get_nodestate();
+		let config = ctx.config.get().await;
 		let db = &ctx.database;
 		// get library from client state
-		let library_data = config.get_current_library();
+		let library_data = ctx.config.get_current_library().await;
 		println!(
 			"Calculating library statistics {:?}",
 			library_data.library_uuid

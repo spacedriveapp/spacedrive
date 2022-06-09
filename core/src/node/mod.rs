@@ -9,9 +9,9 @@ use std::env;
 use thiserror::Error;
 use ts_rs::TS;
 
-mod state;
+mod config;
 
-pub use state::*;
+pub use config::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -40,10 +40,7 @@ pub enum Platform {
 
 impl LibraryNode {
 	pub async fn create(node: &Node) -> Result<(), NodeError> {
-		println!("Creating node...");
-		let mut config = state::get_nodestate();
-
-		let db = &node.database;
+		let mut config = node.config.get().await;
 
 		let hostname = match hostname::get() {
 			Ok(hostname) => hostname.to_str().unwrap_or_default().to_owned(),
@@ -57,7 +54,8 @@ impl LibraryNode {
 			_ => Platform::Unknown,
 		};
 
-		let _node = match db
+		let node_data = match node
+			.db
 			.node()
 			.find_unique(node::pub_id::equals(config.node_pub_id.clone()))
 			.exec()
@@ -65,7 +63,8 @@ impl LibraryNode {
 		{
 			Some(node) => node,
 			None => {
-				db.node()
+				node.db
+					.node()
 					.create(
 						node::pub_id::set(config.node_pub_id.clone()),
 						node::name::set(hostname.clone()),
@@ -76,22 +75,17 @@ impl LibraryNode {
 			}
 		};
 
-		config.node_name = hostname;
-		config.node_id = _node.id;
-		config.save();
-
-		println!("node: {:?}", &_node);
+		config = node
+			.config
+			.write(move |mut config| {
+				config.node_name = hostname;
+				config.node_id = node_data.id;
+			})
+			.await
+			.unwrap();
 
 		Ok(())
 	}
-
-	// pub async fn get_nodes(ctx: &CoreContext) -> Result<Vec<node::Data>, NodeError> {
-	// 	let db = &ctx.database;
-
-	// 	let _node = db.node().find_many(vec![]).exec().await?;
-
-	// 	Ok(_node)
-	// }
 }
 
 #[derive(Error, Debug)]

@@ -28,7 +28,6 @@ ts-rs = { version = "6.1", features = ["chrono-impl"] }
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
 walkdir = "^2.3.2"
 libp2p = { version = "0.43.0", optional = true }
-lazy_static = "1.4.0"
 uuid = "0.8"
 sysinfo = "0.23.9"
 thiserror = "1.0.30"

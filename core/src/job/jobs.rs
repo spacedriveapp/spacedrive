@@ -3,7 +3,6 @@ use super::{
 	JobError,
 };
 use crate::{
-	node::get_nodestate,
 	prisma::{job, node},
 	CoreContext,
 };
@@ -146,7 +145,7 @@ impl JobReport {
 		}
 	}
 	pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
-		let config = get_nodestate();
+		let config = ctx.config.get().await;
 		ctx.database
 			.job()
 			.create(

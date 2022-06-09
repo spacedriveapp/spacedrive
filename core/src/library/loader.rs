@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-use crate::node::{get_nodestate, LibraryState};
+use crate::node::LibraryState;
 use crate::prisma::library;
 use crate::util::db::{run_migrations, DatabaseError};
 use crate::CoreContext;
@@ -45,13 +45,18 @@ pub async fn load(
 	library_path: &str,
 	library_id: &str,
 ) -> Result<(), DatabaseError> {
-	let mut config = get_nodestate();
+	let mut config = ctx.config.get().await;
 
 	println!("Initializing library: {} {}", &library_id, library_path);
 
 	if config.current_library_uuid != library_id {
-		config.current_library_uuid = library_id.to_string();
-		config.save();
+		config = ctx
+			.config
+			.write(|mut config| {
+				config.current_library_uuid = library_id.to_string();
+			})
+			.await
+			.unwrap();
 	}
 	// create connection with library database & run migrations
 	run_migrations(&ctx).await?;
@@ -60,7 +65,7 @@ pub async fn load(
 }
 
 pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<(), ()> {
-	let mut config = get_nodestate();
+	let mut config = ctx.config.get().await;
 
 	let uuid = Uuid::new_v4().to_string();
 
@@ -74,11 +79,14 @@ pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<(), ()> {
 
 	run_migrations(&ctx).await.unwrap();
 
-	config.libraries.push(library_state);
-
-	config.current_library_uuid = uuid;
-
-	config.save();
+	config = ctx
+		.config
+		.write(|mut config| {
+			config.libraries.push(library_state);
+			config.current_library_uuid = uuid;
+		})
+		.await
+		.unwrap();
 
 	let db = &ctx.database;
 

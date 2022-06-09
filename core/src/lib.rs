@@ -1,8 +1,9 @@
 use crate::{
-	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState,
+	file::cas::FileIdentifierJob, library::get_library_path, node::NodeConfig,
 	util::db::create_connection,
 };
 use job::{Job, JobReport, Jobs};
+use node::NodeConfigManager;
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
 use std::{fs, sync::Arc};
@@ -76,6 +77,7 @@ pub struct CoreContext {
 	pub database: Arc<PrismaClient>,
 	pub event_sender: mpsc::Sender<CoreEvent>,
 	pub internal_sender: UnboundedSender<InternalEvent>,
+	pub config: Arc<NodeConfigManager>,
 }
 
 impl CoreContext {
@@ -86,6 +88,7 @@ impl CoreContext {
 				println!("Failed to spawn job. {:?}", e);
 			});
 	}
+
 	pub fn queue_job(&self, job: Box<dyn Job>) {
 		self.internal_sender
 			.send(InternalEvent::JobIngest(job))
@@ -93,6 +96,7 @@ impl CoreContext {
 				println!("Failed to queue job. {:?}", e);
 			});
 	}
+
 	pub async fn emit(&self, event: CoreEvent) {
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
 			println!("Failed to emit event. {:?}", e);
@@ -101,9 +105,9 @@ impl CoreContext {
 }
 
 pub struct Node {
-	state: NodeState,
+	config: Arc<NodeConfigManager>,
 	jobs: job::Jobs,
-	database: Arc<PrismaClient>,
+	db: Arc<PrismaClient>,
 	// filetype_registry: library::TypeRegistry,
 	// extension_registry: library::ExtensionRegistry,
 
@@ -134,16 +138,6 @@ impl Node {
 		let data_dir = data_dir.to_str().unwrap();
 		// create data directory if it doesn't exist
 		fs::create_dir_all(&data_dir).unwrap();
-		// prepare basic client state
-		let mut state = NodeState::new(data_dir, "diamond-mastering-space-dragon").unwrap();
-		// load from disk
-		state
-			.read_disk()
-			.unwrap_or(println!("Error: No node state found, creating new one..."));
-
-		state.save();
-
-		println!("Node State: {:?}", state);
 
 		// connect to default library
 		let database = Arc::new(
@@ -155,12 +149,12 @@ impl Node {
 		let internal_channel = unbounded_channel::<InternalEvent>();
 
 		let node = Node {
-			state,
+			config: NodeConfigManager::new(data_dir.to_string()).await.unwrap(),
 			query_channel: unbounded_channel(),
 			command_channel: unbounded_channel(),
 			jobs: Jobs::new(),
 			event_sender,
-			database,
+			db: database,
 			internal_channel,
 		};
 
@@ -174,9 +168,10 @@ impl Node {
 
 	pub fn get_context(&self) -> CoreContext {
 		CoreContext {
-			database: self.database.clone(),
+			database: self.db.clone(),
 			event_sender: self.event_sender.clone(),
 			internal_sender: self.internal_channel.0.clone(),
+			config: self.config.clone(),
 		}
 	}
 
@@ -218,16 +213,16 @@ impl Node {
 	}
 	// load library database + initialize client with db
 	pub async fn initializer(&self) {
-		println!("Initializing...");
 		let ctx = self.get_context();
+		let config = self.config.get().await;
 
-		if self.state.libraries.len() == 0 {
+		if config.libraries.len() == 0 {
 			match library::create(&ctx, None).await {
 				Ok(library) => println!("Created new library: {:?}", library),
 				Err(e) => println!("Error creating library: {:?}", e),
 			}
 		} else {
-			for library in self.state.libraries.iter() {
+			for library in config.libraries.iter() {
 				// init database for library
 				match library::load(&ctx, &library.library_path, &library.library_uuid).await {
 					Ok(library) => println!("Loaded library: {:?}", library),
@@ -297,7 +292,7 @@ impl Node {
 		let ctx = self.get_context();
 		Ok(match query {
 			// return the client state from memory
-			ClientQuery::NodeGetState => CoreResponse::NodeGetState(self.state.clone()),
+			ClientQuery::NodeGetState => CoreResponse::NodeGetState(self.config.get().await),
 			// get system volumes without saving to library
 			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::Volume::get_volumes()?),
 			ClientQuery::SysGetLocations => {
@@ -403,7 +398,7 @@ pub enum CoreResponse {
 	SysGetLocation(sys::LocationResource),
 	SysGetLocations(Vec<sys::LocationResource>),
 	LibGetExplorerDir(file::DirectoryWithContents),
-	NodeGetState(NodeState),
+	NodeGetState(NodeConfig),
 	LocCreate(sys::LocationResource),
 	JobGetRunning(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),
