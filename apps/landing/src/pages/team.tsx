@@ -196,7 +196,7 @@ function Page() {
 					}}
 				></div>
 				<div className="relative z-10">
-					<h1 className="text-5xl leading-snug animation-delay-1 fade-in-heading ">
+					<h1 className="text-5xl leading-snug fade-in-heading ">
 						We believe file management should be <span className="title-gradient">universal</span>.
 					</h1>
 					<p className="text-gray-400 animation-delay-2 fade-in-heading ">
@@ -215,34 +215,34 @@ function Page() {
 						<ArrowRight className="mr-2" />
 						Read more
 					</a>
-					<h2 className="mt-10 text-2xl leading-relaxed sm:mt-20 animation-delay-4 fade-in-heading ">
-						Meet the team
-					</h2>
-					<div className="grid grid-cols-2 my-10 xs:grid-cols-3 sm:grid-cols-4 gap-x-5 gap-y-10 animation-delay-4 fade-in-heading">
-						{teamMembers.map((member) => (
-							<TeamMember key={member.name} {...member} />
-						))}
-					</div>
-					<p className="text-sm text-gray-400">
-						... and all the awesome{' '}
-						<a
-							href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
-							target="_blank"
-							rel="noreferer"
-							className="duration-200 oss-credit-gradient hover:opacity-75"
-						>
-							open source contributors
-						</a>{' '}
-						on GitHub.
-					</p>
-					<h2 className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20">Our investors</h2>
-					<p className="text-sm text-gray-400">
-						We're backed by some of the greatest leaders in the technology industry.
-					</p>
-					<div className="grid grid-cols-3 my-10 sm:grid-cols-5 gap-x-5 gap-y-10">
-						{investors.map((investor) => (
-							<TeamMember key={investor.name + investor.investmentRound} {...investor} />
-						))}
+					<div className="fade-in-heading animation-delay-5">
+						<h2 className="mt-10 text-2xl leading-relaxed sm:mt-20 ">Meet the team</h2>
+						<div className="grid grid-cols-2 my-10 xs:grid-cols-3 sm:grid-cols-4 gap-x-5 gap-y-10">
+							{teamMembers.map((member) => (
+								<TeamMember key={member.name} {...member} />
+							))}
+						</div>
+						<p className="text-sm text-gray-400">
+							... and all the awesome{' '}
+							<a
+								href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
+								target="_blank"
+								rel="noreferer"
+								className="duration-200 oss-credit-gradient hover:opacity-75"
+							>
+								open source contributors
+							</a>{' '}
+							on GitHub.
+						</p>
+						<h2 className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20 ">Our investors</h2>
+						<p className="text-sm text-gray-400 ">
+							We're backed by some of the greatest leaders in the technology industry.
+						</p>
+						<div className="grid grid-cols-3 my-10 sm:grid-cols-5 gap-x-5 gap-y-10">
+							{investors.map((investor) => (
+								<TeamMember key={investor.name + investor.investmentRound} {...investor} />
+							))}
+						</div>
 					</div>
 				</div>
 			</div>
