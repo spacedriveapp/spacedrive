@@ -48,7 +48,7 @@ export default function NavBar() {
 					: 'border-gray-550 bg-gray-750 bg-opacity-80 backdrop-blur'
 			)}
 		>
-			<div className="sm:container relative flex items-center h-full px-5 m-auto">
+			<div className="relative flex items-center h-full px-5 m-auto sm:container">
 				<a href="/" className="absolute flex flex-row items-center">
 					<AppLogo className="z-30 w-8 h-8 mr-3" />
 					<h3 className="text-xl font-bold text-white">
@@ -62,8 +62,6 @@ export default function NavBar() {
 					<NavLink link="/faq">FAQ</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					<NavLink link="https://spacedrive.hashnode.dev">Blog</NavLink>
-					{/* <NavLink link="/change-log">Changelog</NavLink>
-          <NavLink link="/privacy">Privacy</NavLink> */}
 				</div>
 				<Dropdown
 					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
