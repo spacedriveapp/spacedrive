@@ -1,6 +1,6 @@
 import { Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
-import React, { useEffect } from 'react';
+import React from 'react';
 
 export interface TeamMemberProps {
 	// Name of team member
@@ -46,6 +46,7 @@ function Link(props: LinkProps) {
 
 export function TeamMember(props: TeamMemberProps) {
 	const size = props.investmentRound ? 144 : 111;
+
 	return (
 		<div className="flex flex-col">
 			<img
@@ -56,7 +57,7 @@ export function TeamMember(props: TeamMemberProps) {
 				height={size}
 				className={clsx('inline-flex m-0 rounded-md', {
 					'w-32 h-32 !xs:w-36 !xs:h-36 !sm:w-40 !sm:h-40': !props.investmentRound,
-					'w-28 h-28': props.investmentRound
+					'lg:w-28 lg:h-28': props.investmentRound
 				})}
 			/>
 			<h3 className="mt-4 mb-0 text-base">{props.name}</h3>
