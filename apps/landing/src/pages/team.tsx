@@ -197,7 +197,7 @@ function Page() {
 				></div>
 				<div className="relative z-10">
 					<h1 className="text-5xl leading-snug">
-						We believe that your data should be <span className="title-gradient">universal</span>.
+						We believe your data should be <span className="title-gradient">universal</span>.
 					</h1>
 					<p className="text-[#979BAE]">
 						Data shouldn't be stuck in a device ecosystem. It should be OS agnostic, permanent and

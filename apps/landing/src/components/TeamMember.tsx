@@ -34,7 +34,7 @@ interface LinkProps {
 function Link(props: LinkProps) {
 	return (
 		<a
-			className="hover:scale-105 hover:opacity-80 duration-300"
+			className="duration-300 hover:scale-105 hover:opacity-80"
 			href={props.href}
 			rel="noreferer"
 			target="_blank"
@@ -59,18 +59,18 @@ export function TeamMember(props: TeamMemberProps) {
 					'w-28 h-28': props.investmentRound
 				})}
 			/>
-			<h3 className="text-base mb-0 mt-4">{props.name}</h3>
+			<h3 className="mt-4 mb-0 text-base">{props.name}</h3>
 			<p
-				className={clsx('text-sm', {
+				className={clsx('text-xs', {
 					'mb-0': props.investmentRound
 				})}
 			>
 				{props.role}
 			</p>
 			{props.investmentRound && (
-				<p className="text-sm font-semibold mt-1 mb-0">{props.investmentRound}</p>
+				<p className="mt-0 mb-0 text-sm font-semibold text-gray-450">{props.investmentRound}</p>
 			)}
-			<div className="flex flex-row space-x-2 mt-3">
+			<div className="flex flex-row mt-3 space-x-2">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
 						<Twitter className="w-[20px] h-[20px]" />
