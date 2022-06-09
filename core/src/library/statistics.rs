@@ -1,7 +1,7 @@
 use crate::{
 	prisma::{library, library_statistics::*},
 	sys::Volume,
-	CoreContext,
+	NodeContext,
 };
 use fs_extra::dir::get_size;
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,7 @@ impl Default for Statistics {
 }
 
 impl Statistics {
-	pub async fn retrieve(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
+	pub async fn retrieve(ctx: &NodeContext) -> Result<Statistics, LibraryError> {
 		let db = &ctx.database;
 		let library_data = ctx.config.get_current_library().await;
 
@@ -68,7 +68,7 @@ impl Statistics {
 		Ok(library_statistics_db.into())
 	}
 
-	pub async fn calculate(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
+	pub async fn calculate(ctx: &NodeContext) -> Result<Statistics, LibraryError> {
 		let config = ctx.config.get().await;
 		let db = &ctx.database;
 		// get library from client state

@@ -1,4 +1,4 @@
-use crate::{file::indexer::IndexerJob, prisma::location, ClientQuery, CoreContext, CoreEvent};
+use crate::{file::indexer::IndexerJob, prisma::location, ClientQuery, CoreEvent, NodeContext};
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
 use thiserror::Error;
@@ -57,7 +57,7 @@ static DOTFILE_NAME: &str = ".spacedrive";
 // }
 
 pub async fn get_location(
-	ctx: &CoreContext,
+	ctx: &NodeContext,
 	location_id: i32,
 ) -> Result<LocationResource, SysError> {
 	let db = &ctx.database;
@@ -79,7 +79,7 @@ pub async fn get_location(
 }
 
 pub async fn new_location_and_scan(
-	ctx: &CoreContext,
+	ctx: &NodeContext,
 	path: &str,
 ) -> Result<LocationResource, SysError> {
 	let location = create_location(&ctx, path).await?;
@@ -91,7 +91,7 @@ pub async fn new_location_and_scan(
 	Ok(location)
 }
 
-pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, SysError> {
+pub async fn get_locations(ctx: &NodeContext) -> Result<Vec<LocationResource>, SysError> {
 	let db = &ctx.database;
 
 	let locations = db.location().find_many(vec![]).exec().await?;
@@ -105,7 +105,7 @@ pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, S
 	Ok(locations)
 }
 
-pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
+pub async fn create_location(ctx: &NodeContext, path: &str) -> Result<LocationResource, SysError> {
 	let db = &ctx.database;
 	let config = ctx.config.get().await;
 

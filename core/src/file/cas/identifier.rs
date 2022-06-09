@@ -9,7 +9,7 @@ use crate::{
 	file::FileError,
 	job::{Job, WorkerContext},
 	prisma::file_path,
-	CoreContext,
+	NodeContext,
 };
 use futures::executor::block_on;
 use prisma_client_rust::prisma_models::PrismaValue;
@@ -168,7 +168,7 @@ struct CountRes {
 }
 
 pub async fn count_orphan_file_paths(
-	ctx: &CoreContext,
+	ctx: &NodeContext,
 	location_id: i64,
 ) -> Result<usize, FileError> {
 	let db = &ctx.database;
@@ -182,7 +182,7 @@ pub async fn count_orphan_file_paths(
 }
 
 pub async fn get_orphan_file_paths(
-	ctx: &CoreContext,
+	ctx: &NodeContext,
 	cursor: i32,
 ) -> Result<Vec<file_path::Data>, FileError> {
 	let db = &ctx.database;

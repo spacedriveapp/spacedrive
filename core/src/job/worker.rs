@@ -2,7 +2,7 @@ use super::{
 	jobs::{JobReport, JobReportUpdate, JobStatus},
 	Job,
 };
-use crate::{ClientQuery, CoreContext, CoreEvent, InternalEvent};
+use crate::{ClientQuery, CoreEvent, InternalEvent, NodeContext};
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -26,7 +26,7 @@ enum WorkerState {
 #[derive(Clone)]
 pub struct WorkerContext {
 	pub uuid: String,
-	pub core_ctx: CoreContext,
+	pub core_ctx: NodeContext,
 	pub sender: UnboundedSender<WorkerEvent>,
 }
 
@@ -59,7 +59,7 @@ impl Worker {
 		}
 	}
 	// spawns a thread and extracts channel sender to communicate with it
-	pub async fn spawn(worker: Arc<Mutex<Self>>, ctx: &CoreContext) {
+	pub async fn spawn(worker: Arc<Mutex<Self>>, ctx: &NodeContext) {
 		// we capture the worker receiver channel so state can be updated from inside the worker
 		let mut worker_mut = worker.lock().await;
 		// extract owned job and receiver from Self
@@ -133,7 +133,7 @@ impl Worker {
 	async fn track_progress(
 		worker: Arc<Mutex<Self>>,
 		mut channel: UnboundedReceiver<WorkerEvent>,
-		ctx: CoreContext,
+		ctx: NodeContext,
 	) {
 		while let Some(command) = channel.recv().await {
 			let mut worker = worker.lock().await;

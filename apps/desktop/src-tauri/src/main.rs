@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
+use sdcore::{ClientCommand, ClientQuery, CoreEvent, CoreResponse, Node, NodeController};
 use tauri::api::path;
 use tauri::Manager;
 
@@ -11,7 +11,7 @@ use window::WindowExt;
 
 #[tauri::command(async)]
 async fn client_query_transport(
-	core: tauri::State<'_, CoreController>,
+	core: tauri::State<'_, NodeController>,
 	data: ClientQuery,
 ) -> Result<CoreResponse, String> {
 	match core.query(data).await {
@@ -25,7 +25,7 @@ async fn client_query_transport(
 
 #[tauri::command(async)]
 async fn client_command_transport(
-	core: tauri::State<'_, CoreController>,
+	core: tauri::State<'_, NodeController>,
 	data: ClientCommand,
 ) -> Result<CoreResponse, String> {
 	match core.command(data).await {

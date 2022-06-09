@@ -1,5 +1,5 @@
 use crate::prisma::{self, migration, PrismaClient};
-use crate::CoreContext;
+use crate::NodeContext;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
 use prisma_client_rust::raw;
@@ -37,7 +37,7 @@ pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest, io::Error> {
 	Ok(context.finish())
 }
 
-pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
+pub async fn run_migrations(ctx: &NodeContext) -> Result<(), DatabaseError> {
 	let client = &ctx.database;
 
 	match client

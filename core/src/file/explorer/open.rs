@@ -3,12 +3,12 @@ use crate::{
 	file::{DirectoryWithContents, FileError, FilePath},
 	prisma::file_path,
 	sys::get_location,
-	CoreContext,
+	NodeContext,
 };
 use std::path::Path;
 
 pub async fn open_dir(
-	ctx: &CoreContext,
+	ctx: &NodeContext,
 	location_id: &i32,
 	path: &str,
 ) -> Result<DirectoryWithContents, FileError> {

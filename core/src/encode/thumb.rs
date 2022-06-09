@@ -2,7 +2,7 @@ use crate::job::JobReportUpdate;
 use crate::{
 	job::{Job, WorkerContext},
 	prisma::file_path,
-	CoreContext,
+	NodeContext,
 };
 use crate::{sys, CoreEvent};
 use futures::executor::block_on;
@@ -139,7 +139,7 @@ pub fn generate_thumbnail(
 }
 
 pub async fn get_images(
-	ctx: &CoreContext,
+	ctx: &NodeContext,
 	location_id: i32,
 	path: &str,
 ) -> Result<Vec<file_path::Data>, std::io::Error> {

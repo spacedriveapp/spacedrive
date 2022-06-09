@@ -33,12 +33,12 @@ pub struct ReturnableMessage<D, R = Result<CoreResponse, CoreError>> {
 }
 
 // core controller is passed to the client to communicate with the core which runs in a dedicated thread
-pub struct CoreController {
+pub struct NodeController {
 	query_sender: UnboundedSender<ReturnableMessage<ClientQuery>>,
 	command_sender: UnboundedSender<ReturnableMessage<ClientCommand>>,
 }
 
-impl CoreController {
+impl NodeController {
 	pub async fn query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
 		// a one time use channel to send and await a response
 		let (sender, recv) = oneshot::channel();
@@ -73,14 +73,14 @@ pub enum InternalEvent {
 }
 
 #[derive(Clone)]
-pub struct CoreContext {
+pub struct NodeContext {
 	pub database: Arc<PrismaClient>,
 	pub event_sender: mpsc::Sender<CoreEvent>,
 	pub internal_sender: UnboundedSender<InternalEvent>,
 	pub config: Arc<NodeConfigManager>,
 }
 
-impl CoreContext {
+impl NodeContext {
 	pub fn spawn_job(&self, job: Box<dyn Job>) {
 		self.internal_sender
 			.send(InternalEvent::JobIngest(job))
@@ -166,8 +166,8 @@ impl Node {
 		(node, event_recv)
 	}
 
-	pub fn get_context(&self) -> CoreContext {
-		CoreContext {
+	pub fn get_context(&self) -> NodeContext {
+		NodeContext {
 			database: self.db.clone(),
 			event_sender: self.event_sender.clone(),
 			internal_sender: self.internal_channel.0.clone(),
@@ -175,8 +175,8 @@ impl Node {
 		}
 	}
 
-	pub fn get_controller(&self) -> CoreController {
-		CoreController {
+	pub fn get_controller(&self) -> NodeController {
+		NodeController {
 			query_sender: self.query_channel.0.clone(),
 			command_sender: self.command_channel.0.clone(),
 		}

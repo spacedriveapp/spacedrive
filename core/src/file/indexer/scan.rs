@@ -1,5 +1,5 @@
 use crate::sys::{create_location, LocationResource};
-use crate::CoreContext;
+use crate::NodeContext;
 use prisma_client_rust::prisma_models::PrismaValue;
 use prisma_client_rust::raw;
 use prisma_client_rust::raw::Raw;
@@ -19,7 +19,7 @@ static BATCH_SIZE: usize = 100;
 
 // creates a vector of valid path buffers from a directory
 pub async fn scan_path(
-	ctx: &CoreContext,
+	ctx: &NodeContext,
 	path: &str,
 	on_progress: impl Fn(Vec<ScanProgress>) + Send + Sync + 'static,
 ) -> Result<(), Box<dyn std::error::Error>> {

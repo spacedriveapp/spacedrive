@@ -7,7 +7,7 @@ use std::process::Command;
 // #[cfg(not(target_os = "macos"))]
 use sysinfo::{DiskExt, System, SystemExt};
 
-use crate::CoreContext;
+use crate::NodeContext;
 
 use super::SysError;
 
@@ -26,7 +26,7 @@ pub struct Volume {
 }
 
 impl Volume {
-	pub async fn save(ctx: &CoreContext) -> Result<(), SysError> {
+	pub async fn save(ctx: &NodeContext) -> Result<(), SysError> {
 		let db = &ctx.database;
 		let config = ctx.config.get().await;
 

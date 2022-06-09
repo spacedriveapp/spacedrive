@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
 	prisma::{job, node},
-	CoreContext,
+	NodeContext,
 };
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ impl Jobs {
 			running_workers: HashMap::new(),
 		}
 	}
-	pub async fn ingest(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
+	pub async fn ingest(&mut self, ctx: &NodeContext, job: Box<dyn Job>) {
 		// create worker to process job
 		if self.running_workers.len() < MAX_WORKERS {
 			let worker = Worker::new(job);
@@ -49,10 +49,10 @@ impl Jobs {
 			self.job_queue.push(job);
 		}
 	}
-	pub fn ingest_queue(&mut self, _ctx: &CoreContext, job: Box<dyn Job>) {
+	pub fn ingest_queue(&mut self, _ctx: &NodeContext, job: Box<dyn Job>) {
 		self.job_queue.push(job);
 	}
-	pub async fn complete(&mut self, ctx: &CoreContext, job_id: String) {
+	pub async fn complete(&mut self, ctx: &NodeContext, job_id: String) {
 		// remove worker from running workers
 		self.running_workers.remove(&job_id);
 		// continue queue
@@ -70,7 +70,7 @@ impl Jobs {
 		}
 		ret
 	}
-	pub async fn get_history(ctx: &CoreContext) -> Result<Vec<JobReport>, JobError> {
+	pub async fn get_history(ctx: &NodeContext) -> Result<Vec<JobReport>, JobError> {
 		let db = &ctx.database;
 		let jobs = db
 			.job()
@@ -144,7 +144,7 @@ impl JobReport {
 			seconds_elapsed: 0,
 		}
 	}
-	pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
+	pub async fn create(&self, ctx: &NodeContext) -> Result<(), JobError> {
 		let config = ctx.config.get().await;
 		ctx.database
 			.job()
@@ -159,7 +159,7 @@ impl JobReport {
 			.await?;
 		Ok(())
 	}
-	pub async fn update(&self, ctx: &CoreContext) -> Result<(), JobError> {
+	pub async fn update(&self, ctx: &NodeContext) -> Result<(), JobError> {
 		ctx.database
 			.job()
 			.find_unique(job::id::equals(self.id.clone()))

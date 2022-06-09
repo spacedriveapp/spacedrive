@@ -3,7 +3,7 @@ use uuid::Uuid;
 use crate::node::LibraryState;
 use crate::prisma::library;
 use crate::util::db::{run_migrations, DatabaseError};
-use crate::CoreContext;
+use crate::NodeContext;
 
 pub static LIBRARY_DB_NAME: &str = "library.db";
 pub static DEFAULT_NAME: &str = "My Library";
@@ -41,7 +41,7 @@ pub fn get_library_path(data_path: &str) -> String {
 // }
 
 pub async fn load(
-	ctx: &CoreContext,
+	ctx: &NodeContext,
 	library_path: &str,
 	library_id: &str,
 ) -> Result<(), DatabaseError> {
@@ -64,7 +64,7 @@ pub async fn load(
 	Ok(())
 }
 
-pub async fn create(ctx: &CoreContext, name: Option<String>) -> Result<(), ()> {
+pub async fn create(ctx: &NodeContext, name: Option<String>) -> Result<(), ()> {
 	let mut config = ctx.config.get().await;
 
 	let uuid = Uuid::new_v4().to_string();

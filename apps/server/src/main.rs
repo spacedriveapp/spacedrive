@@ -1,4 +1,4 @@
-use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
+use sdcore::{ClientCommand, ClientQuery, CoreEvent, CoreResponse, Node, NodeController};
 use std::{env, path::Path};
 
 use actix::{
@@ -19,7 +19,7 @@ const DATA_DIR_ENV_VAR: &'static str = "DATA_DIR";
 /// Define HTTP actor
 struct Socket {
 	_event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
-	core: web::Data<CoreController>,
+	core: web::Data<NodeController>,
 }
 
 impl Actor for Socket {
@@ -133,7 +133,7 @@ async fn ws_handler(
 	req: HttpRequest,
 	stream: web::Payload,
 	event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
-	controller: web::Data<CoreController>,
+	controller: web::Data<NodeController>,
 ) -> Result<HttpResponse, Error> {
 	let resp = ws::start(
 		Socket {
@@ -178,7 +178,7 @@ async fn main() -> std::io::Result<()> {
 
 async fn setup() -> (
 	web::Data<mpsc::Receiver<CoreEvent>>,
-	web::Data<CoreController>,
+	web::Data<NodeController>,
 ) {
 	let data_dir_path = match env::var(DATA_DIR_ENV_VAR) {
 		Ok(path) => Path::new(&path).to_path_buf(),
