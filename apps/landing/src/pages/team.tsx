@@ -172,7 +172,7 @@ const investors: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Naveen R',
-		role: 'NocoDB',
+		role: 'Founder, NocoDB',
 		investmentRound: 'Seed',
 		image: 'investors/naveen.jpg'
 	}
