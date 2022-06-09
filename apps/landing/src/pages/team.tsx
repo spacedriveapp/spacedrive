@@ -8,7 +8,7 @@ import { TeamMember, TeamMemberProps } from '../components/TeamMember';
 const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Jamie Pine',
-		role: 'Founder, Developer & Designer',
+		role: 'Founder, Engineer & Designer',
 		image: 'team/jamie.jpg',
 		socials: {
 			twitter: 'https://twitter.com/jamiepine',
