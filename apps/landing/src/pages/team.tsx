@@ -105,16 +105,16 @@ const investors: Array<TeamMemberProps> = [
 		image: 'investors/TOM.jpg'
 	},
 	{
-		name: 'Justin Hoffman',
-		role: 'Former VP Sales, Elasticsearch',
-		investmentRound: 'Seed',
-		image: 'investors/justinhoffman.jpg'
-	},
-	{
 		name: 'Tobias Lütke',
 		role: 'CEO, Shopify',
 		investmentRound: 'Seed',
 		image: 'investors/tobiaslutke.jpg'
+	},
+	{
+		name: 'Justin Hoffman',
+		role: 'Former VP Sales, Elasticsearch',
+		investmentRound: 'Seed',
+		image: 'investors/justinhoffman.jpg'
 	},
 	{
 		name: 'Ry Walker',
@@ -216,27 +216,30 @@ function Page() {
 						Read more
 					</a>
 					<h2 className="mt-10 text-xl leading-relaxed sm:mt-20">
-						Meet the minds coming together to form the future of data sharing
+						Meet the minds behind the future of file management.
 					</h2>
-					<div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 my-10 gap-x-5 gap-y-10">
+					<div className="grid grid-cols-2 my-10 xs:grid-cols-3 sm:grid-cols-4 gap-x-5 gap-y-10">
 						{teamMembers.map((member) => (
 							<TeamMember key={member.name} {...member} />
 						))}
 					</div>
 					<p className="text-[#979BAE] text-sm">
-						... and{' '}
+						... and all the awesome{' '}
 						<a
 							href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
 							target="_blank"
 							rel="noreferer"
 							className="duration-200 oss-credit-gradient hover:opacity-75"
 						>
-							all the awesome contributors
+							open source contributors
 						</a>{' '}
-						to OSS technology.
+						on GitHub.
 					</p>
-					<h2 className="leading-relaxed text-xl mt-10 sm:mt-20">People who believe in us</h2>
-					<div className="my-10 grid grid-cols-3 sm:grid-cols-5 gap-x-5 gap-y-10">
+					<h2 className="mt-10 mb-2 text-xl leading-relaxed sm:mt-20">Our Investors</h2>
+					<p className="text-[#979BAE] text-sm">
+						We're backed by some of the greatest leaders in the technology industry.
+					</p>
+					<div className="grid grid-cols-3 my-10 sm:grid-cols-5 gap-x-5 gap-y-10">
 						{investors.map((investor) => (
 							<TeamMember key={investor.name + investor.investmentRound} {...investor} />
 						))}
