@@ -1,10 +1,10 @@
 ## Spacedrive
 
-_&copy; Copyright 2022-Present Jamie Pine_
+Copyright &copy; 2022-present Spacedrive Technology Inc.
 
 ### Business contact
 
-hello@jamiepine.com
+jamie@spacedrive.com
 
 ### Developers
 
