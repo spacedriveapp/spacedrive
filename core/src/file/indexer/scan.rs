@@ -1,5 +1,6 @@
+use crate::job::JobResult;
+use crate::library::LibraryContext;
 use crate::sys::{create_location, LocationResource};
-use crate::NodeContext;
 use prisma_client_rust::prisma_models::PrismaValue;
 use prisma_client_rust::raw;
 use prisma_client_rust::raw::Raw;
@@ -19,11 +20,10 @@ static BATCH_SIZE: usize = 100;
 
 // creates a vector of valid path buffers from a directory
 pub async fn scan_path(
-	ctx: &NodeContext,
+	ctx: &LibraryContext,
 	path: &str,
 	on_progress: impl Fn(Vec<ScanProgress>) + Send + Sync + 'static,
-) -> Result<(), Box<dyn std::error::Error>> {
-	let db = &ctx.database;
+) -> JobResult {
 	let path = path.to_string();
 
 	let location = create_location(&ctx, &path).await?;
@@ -34,7 +34,8 @@ pub async fn scan_path(
 		id: Option<i32>,
 	}
 	// grab the next id so we can increment in memory for batch inserting
-	let first_file_id = match db
+	let first_file_id = match ctx
+		.db
 		._query_raw::<QueryRes>(raw!("SELECT MAX(id) id FROM file_paths"))
 		.await
 	{
@@ -162,7 +163,7 @@ pub async fn scan_path(
 			files
 		);
 
-		let count = db._execute_raw(raw).await;
+		let count = ctx.db._execute_raw(raw).await;
 
 		println!("Inserted {:?} records", count);
 	}

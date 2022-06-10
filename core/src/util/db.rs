@@ -1,11 +1,11 @@
 use crate::prisma::{self, migration, PrismaClient};
-use crate::NodeContext;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
 use prisma_client_rust::raw;
 use ring::digest::{Context, Digest, SHA256};
 use std::ffi::OsStr;
 use std::io::{self, BufReader, Read};
+use std::sync::Arc;
 use thiserror::Error;
 
 const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
@@ -37,10 +37,8 @@ pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest, io::Error> {
 	Ok(context.finish())
 }
 
-pub async fn run_migrations(ctx: &NodeContext) -> Result<(), DatabaseError> {
-	let client = &ctx.database;
-
-	match client
+pub async fn run_migrations(db: Arc<PrismaClient>) -> Result<(), DatabaseError> {
+	match db
 		._query_raw::<serde_json::Value>(raw!(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
 		))
@@ -49,14 +47,14 @@ pub async fn run_migrations(ctx: &NodeContext) -> Result<(), DatabaseError> {
 		Ok(data) => {
 			if data.len() == 0 {
 				// execute migration
-				match client._execute_raw(raw!(INIT_MIGRATION)).await {
+				match db._execute_raw(raw!(INIT_MIGRATION)).await {
 					Ok(_) => {}
 					Err(e) => {
 						println!("Failed to create migration table: {}", e);
 					}
 				};
 
-				let value: Vec<serde_json::Value> = client
+				let value: Vec<serde_json::Value> = db
 					._query_raw(raw!(
 						"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
 					))
@@ -101,7 +99,7 @@ pub async fn run_migrations(ctx: &NodeContext) -> Result<(), DatabaseError> {
 				let name = subdir.path().file_name().unwrap().to_str().unwrap();
 
 				// get existing migration by checksum, if it doesn't exist run the migration
-				let existing_migration = client
+				let existing_migration = db
 					.migration()
 					.find_unique(migration::checksum::equals(checksum.clone()))
 					.exec()
@@ -115,8 +113,7 @@ pub async fn run_migrations(ctx: &NodeContext) -> Result<(), DatabaseError> {
 					let steps = migration_sql.split(";").collect::<Vec<&str>>();
 					let steps = &steps[0..steps.len() - 1];
 
-					client
-						.migration()
+					db.migration()
 						.create(
 							migration::name::set(name.to_string()),
 							migration::checksum::set(checksum.clone()),
@@ -127,10 +124,9 @@ pub async fn run_migrations(ctx: &NodeContext) -> Result<(), DatabaseError> {
 						.unwrap();
 
 					for (i, step) in steps.iter().enumerate() {
-						match client._execute_raw(raw!(*step)).await {
+						match db._execute_raw(raw!(*step)).await {
 							Ok(_) => {
-								client
-									.migration()
+								db.migration()
 									.find_unique(migration::checksum::equals(checksum.clone()))
 									.update(vec![migration::steps_applied::set(i as i32 + 1)])
 									.exec()

@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::{fs, io};
 
-use crate::job::JobReportUpdate;
+use crate::job::{JobReportUpdate, JobResult};
+use crate::library::LibraryContext;
 use crate::prisma::file;
 use crate::sys::get_location;
 use crate::{
 	file::FileError,
 	job::{Job, WorkerContext},
 	prisma::file_path,
-	NodeContext,
 };
 use futures::executor::block_on;
 use prisma_client_rust::prisma_models::PrismaValue;
@@ -35,12 +35,12 @@ impl Job for FileIdentifierJob {
 	fn name(&self) -> &'static str {
 		"file_identifier"
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
+	async fn run(&self, ctx: WorkerContext) -> JobResult {
 		println!("Identifying files");
-		let location = get_location(&ctx.core_ctx, self.location_id).await?;
+		let location = get_location(&ctx.library_ctx(), self.location_id).await?;
 		let location_path = location.path.unwrap_or("".to_string());
 
-		let total_count = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+		let total_count = count_orphan_file_paths(&ctx.library_ctx(), location.id.into()).await?;
 
 		println!("Found {} orphan file paths", total_count);
 
@@ -51,7 +51,7 @@ impl Job for FileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let db = ctx.core_ctx.database.clone();
+		let db = ctx.library_ctx().db;
 
 		let ctx = tokio::task::spawn_blocking(move || {
 			let mut completed: usize = 0;
@@ -60,7 +60,7 @@ impl Job for FileIdentifierJob {
 			let mut cas_id_lookup: HashMap<i32, String> = HashMap::new();
 
 			while completed < task_count {
-				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
+				let file_paths = block_on(get_orphan_file_paths(&ctx.library_ctx(), cursor)).unwrap();
 				println!(
 					"Processing {:?} orphan files. ({} completed of {})",
 					file_paths.len(),
@@ -156,7 +156,7 @@ impl Job for FileIdentifierJob {
 		})
 		.await?;
 
-		let remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+		let _remaining = count_orphan_file_paths(&ctx.library_ctx(), location.id.into()).await?;
 
 		Ok(())
 	}
@@ -168,11 +168,10 @@ struct CountRes {
 }
 
 pub async fn count_orphan_file_paths(
-	ctx: &NodeContext,
+	ctx: &LibraryContext,
 	location_id: i64,
 ) -> Result<usize, FileError> {
-	let db = &ctx.database;
-	let files_count = db
+	let files_count = ctx.db
 		._query_raw::<CountRes>(raw!(
 			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
 			PrismaValue::Int(location_id)
@@ -182,12 +181,11 @@ pub async fn count_orphan_file_paths(
 }
 
 pub async fn get_orphan_file_paths(
-	ctx: &NodeContext,
+	ctx: &LibraryContext,
 	cursor: i32,
 ) -> Result<Vec<file_path::Data>, FileError> {
-	let db = &ctx.database;
-	println!("cursor: {:?}", cursor);
-	let files = db
+	let files = ctx
+		.db
 		.file_path()
 		.find_many(vec![
 			file_path::file_id::equals(None),

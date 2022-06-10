@@ -3,20 +3,22 @@ use super::{
 	JobError,
 };
 use crate::{
+	library::LibraryContext,
 	prisma::{job, node},
-	NodeContext,
 };
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, error::Error, fmt::Debug, sync::Arc};
 use tokio::sync::Mutex;
 use ts_rs::TS;
 
 const MAX_WORKERS: usize = 4;
 
+pub type JobResult = Result<(), Box<dyn Error + Send + Sync>>;
+
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>>;
+	async fn run(&self, ctx: WorkerContext) -> JobResult;
 	fn name(&self) -> &'static str;
 }
 
@@ -34,7 +36,7 @@ impl Jobs {
 			running_workers: HashMap::new(),
 		}
 	}
-	pub async fn ingest(&mut self, ctx: &NodeContext, job: Box<dyn Job>) {
+	pub async fn ingest(&mut self, ctx: &LibraryContext, job: Box<dyn Job>) {
 		// create worker to process job
 		if self.running_workers.len() < MAX_WORKERS {
 			let worker = Worker::new(job);
@@ -49,10 +51,10 @@ impl Jobs {
 			self.job_queue.push(job);
 		}
 	}
-	pub fn ingest_queue(&mut self, _ctx: &NodeContext, job: Box<dyn Job>) {
+	pub fn ingest_queue(&mut self, _ctx: &LibraryContext, job: Box<dyn Job>) {
 		self.job_queue.push(job);
 	}
-	pub async fn complete(&mut self, ctx: &NodeContext, job_id: String) {
+	pub async fn complete(&mut self, ctx: &LibraryContext, job_id: String) {
 		// remove worker from running workers
 		self.running_workers.remove(&job_id);
 		// continue queue
@@ -70,9 +72,9 @@ impl Jobs {
 		}
 		ret
 	}
-	pub async fn get_history(ctx: &NodeContext) -> Result<Vec<JobReport>, JobError> {
-		let db = &ctx.database;
-		let jobs = db
+	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, JobError> {
+		let jobs = ctx
+			.db
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
 			.exec()
@@ -144,23 +146,22 @@ impl JobReport {
 			seconds_elapsed: 0,
 		}
 	}
-	pub async fn create(&self, ctx: &NodeContext) -> Result<(), JobError> {
-		let config = ctx.config.get().await;
-		ctx.database
+	pub async fn create(&self, ctx: &LibraryContext) -> Result<(), JobError> {
+		ctx.db
 			.job()
 			.create(
 				job::id::set(self.id.clone()),
 				job::name::set(self.name.clone()),
 				job::action::set(1),
-				job::nodes::link(node::id::equals(config.node_id)),
+				job::nodes::link(node::id::equals(ctx.node_local_id)),
 				vec![],
 			)
 			.exec()
 			.await?;
 		Ok(())
 	}
-	pub async fn update(&self, ctx: &NodeContext) -> Result<(), JobError> {
-		ctx.database
+	pub async fn update(&self, ctx: &LibraryContext) -> Result<(), JobError> {
+		ctx.db
 			.job()
 			.find_unique(job::id::equals(self.id.clone()))
 			.update(vec![

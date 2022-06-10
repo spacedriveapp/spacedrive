@@ -1,24 +1,22 @@
 use crate::{
 	encode::THUMBNAIL_CACHE_DIR_NAME,
 	file::{DirectoryWithContents, FileError, FilePath},
+	library::LibraryContext,
 	prisma::file_path,
 	sys::get_location,
-	NodeContext,
 };
 use std::path::Path;
 
 pub async fn open_dir(
-	ctx: &NodeContext,
+	ctx: &LibraryContext,
 	location_id: &i32,
 	path: &str,
 ) -> Result<DirectoryWithContents, FileError> {
-	let db = &ctx.database;
-	let config = ctx.config.get().await;
-
 	// get location
 	let location = get_location(ctx, location_id.clone()).await?;
 
-	let directory = db
+	let directory = ctx
+		.db
 		.file_path()
 		.find_first(vec![
 			file_path::location_id::equals(location.id),
@@ -31,7 +29,8 @@ pub async fn open_dir(
 
 	println!("DIRECTORY: {:?}", directory);
 
-	let mut file_paths: Vec<FilePath> = db
+	let mut file_paths: Vec<FilePath> = ctx
+		.db
 		.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(location.id),
@@ -46,7 +45,7 @@ pub async fn open_dir(
 
 	for file_path in &mut file_paths {
 		if let Some(file) = &mut file_path.file {
-			let thumb_path = Path::new(&config.data_path)
+			let thumb_path = Path::new(&ctx.config().data_directory())
 				.join(THUMBNAIL_CACHE_DIR_NAME)
 				.join(format!("{}", location.id))
 				.join(file.cas_id.clone())

@@ -53,17 +53,11 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 
 #[tokio::main]
 async fn main() {
-	let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
+	let mut data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
+	data_dir = data_dir.join("spacedrive");
 	// create an instance of the core
-	let (mut node, mut event_receiver) = Node::new(data_dir).await;
-	// run startup tasks
-	node.initializer().await;
-	// extract the node controller
-	let controller = node.get_controller();
-	// throw the node into a dedicated thread
-	tokio::spawn(async move {
-		node.start().await;
-	});
+	let (controller, mut event_receiver, node) = Node::new(data_dir).await;
+	tokio::spawn(node.start());
 	// create tauri app
 	tauri::Builder::default()
 		// pass controller to the tauri state manager

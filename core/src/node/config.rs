@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{self, BufReader, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::{RwLock, RwLockWriteGuard};
@@ -15,17 +15,12 @@ pub const NODE_STATE_CONFIG_NAME: &str = "node_state.json";
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[ts(export)]
 pub struct NodeConfig {
-	pub node_pub_id: String,
-	pub node_id: i32,
-	pub node_name: String,
-	// config path is stored as struct can exist only in memory during startup and be written to disk later without supplying path
-	pub data_path: String,
-	// the port this node uses to listen for incoming connections
-	pub tcp_port: u32,
-	// all the libraries loaded by this node
-	pub libraries: Vec<LibraryState>,
-	// used to quickly find the default library
-	pub current_library_uuid: String,
+	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
+	pub id: Uuid,
+	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
+	pub name: String,
+	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
+	pub p2p_port: Option<u32>,
 }
 
 #[derive(Error, Debug)]
@@ -37,35 +32,26 @@ pub enum NodeConfigError {
 }
 
 impl NodeConfig {
-	fn default(data_path: String) -> Self {
-		// TODO: Make these initialise to good values
+	fn default() -> Self {
 		NodeConfig {
-			node_pub_id: Uuid::new_v4().to_string(),
-			node_id: 0,
-			node_name: "diamond-mastering-space-dragon".into(), // TODO: Get from OS hostname or generate random
-			data_path,
-			tcp_port: 0,
-			libraries: vec![],
-			current_library_uuid: "".into(),
+			id: Uuid::new_v4(),
+			name: match hostname::get() {
+				Ok(hostname) => hostname.to_string_lossy().into_owned(),
+				Err(err) => {
+					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{}'", err);
+					"my-spacedrive".into()
+				}
+			},
+			p2p_port: None,
 		}
 	}
 }
 
-/// LibraryState stores information about a library that the user has.
-#[derive(Debug, Serialize, Deserialize, Clone, Default, TS)]
-#[ts(export)]
-pub struct LibraryState {
-	pub library_uuid: String,
-	pub library_id: i32,
-	pub library_path: String,
-	pub offline: bool,
-}
-
-pub struct NodeConfigManager(RwLock<NodeConfig>, String);
+pub struct NodeConfigManager(RwLock<NodeConfig>, PathBuf);
 
 impl NodeConfigManager {
 	/// new will create a new NodeConfigManager with the given path to the config file.
-	pub(crate) async fn new(data_path: String) -> Result<Arc<Self>, NodeConfigError> {
+	pub(crate) async fn new(data_path: PathBuf) -> Result<Arc<Self>, NodeConfigError> {
 		Ok(Arc::new(Self(
 			RwLock::new(Self::read(&data_path).await?),
 			data_path,
@@ -88,16 +74,9 @@ impl NodeConfigManager {
 	// 		.map(|lib| lib.clone())
 	// }
 
-	/// TODO: Move this function onto the `LibraryContext` when adding multi-library support.
-	pub(crate) async fn get_current_library(&self) -> LibraryState {
-		let config = self.0.read().await;
-
-		config
-			.libraries
-			.iter()
-			.find(|lib| lib.library_uuid == config.current_library_uuid)
-			.map(|lib| lib.clone())
-			.unwrap_or(LibraryState::default())
+	/// data_directory returns the path to the directory storing the configuration data.
+	pub(crate) fn data_directory(&self) -> PathBuf {
+		self.1.clone()
 	}
 
 	/// write allows the user to update the configuration. This is done in a closure while a Mutex lock is held so that the user can't cause a race condition if the config were to be updated in multiple parts of the app at the same time.
@@ -112,7 +91,7 @@ impl NodeConfigManager {
 	}
 
 	/// read will read the configuration from disk and return it.
-	async fn read(base_path: &str) -> Result<NodeConfig, NodeConfigError> {
+	async fn read(base_path: &PathBuf) -> Result<NodeConfig, NodeConfigError> {
 		let path = Path::new(base_path).join(NODE_STATE_CONFIG_NAME);
 
 		match path.exists() {
@@ -121,7 +100,7 @@ impl NodeConfigManager {
 				Ok(serde_json::from_reader(reader).map_err(NodeConfigError::JsonError)?)
 			}
 			false => {
-				let config = NodeConfig::default(base_path.into());
+				let config = NodeConfig::default();
 				Self::save(base_path, &config).await?;
 				Ok(config)
 			}
@@ -129,7 +108,7 @@ impl NodeConfigManager {
 	}
 
 	/// save will write the configuration back to disk
-	async fn save(base_path: &str, config: &NodeConfig) -> Result<(), NodeConfigError> {
+	async fn save(base_path: &PathBuf, config: &NodeConfig) -> Result<(), NodeConfigError> {
 		let path = Path::new(base_path).join(NODE_STATE_CONFIG_NAME);
 		File::create(path)
 			.map_err(NodeConfigError::IOError)?

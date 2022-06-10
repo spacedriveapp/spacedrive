@@ -1,13 +1,11 @@
 // use crate::native;
-use crate::prisma::volume::*;
+use crate::{library::LibraryContext, prisma::volume::*};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 // #[cfg(not(target_os = "macos"))]
 use std::process::Command;
 // #[cfg(not(target_os = "macos"))]
 use sysinfo::{DiskExt, System, SystemExt};
-
-use crate::NodeContext;
 
 use super::SysError;
 
@@ -26,23 +24,21 @@ pub struct Volume {
 }
 
 impl Volume {
-	pub async fn save(ctx: &NodeContext) -> Result<(), SysError> {
-		let db = &ctx.database;
-		let config = ctx.config.get().await;
-
+	pub async fn save(ctx: &LibraryContext) -> Result<(), SysError> {
 		let volumes = Self::get_volumes()?;
 
 		// enter all volumes associate with this client add to db
 		for volume in volumes {
-			db.volume()
+			ctx.db
+				.volume()
 				.upsert(
 					node_id_mount_point_name(
-						config.node_id.clone(),
+						ctx.node_local_id.clone(),
 						volume.mount_point.to_string(),
 						volume.name.to_string(),
 					),
 					(
-						node_id::set(config.node_id),
+						node_id::set(ctx.node_local_id),
 						name::set(volume.name),
 						mount_point::set(volume.mount_point),
 						vec![

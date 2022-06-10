@@ -24,7 +24,7 @@ ring = "0.17.0-alpha.10"
 int-enum = "0.4.0"
 
 # Project dependencies
-ts-rs = { version = "6.1", features = ["chrono-impl"] }
+ts-rs = { version = "6.1", features = ["chrono-impl", "uuid-impl"] }
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
 walkdir = "^2.3.2"
 libp2p = { version = "0.43.0", optional = true }

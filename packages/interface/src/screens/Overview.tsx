@@ -208,7 +208,7 @@ export const OverviewScreen = () => {
 				<div className="flex flex-col pb-4 space-y-4">
 					{nodeState && (
 						<Device
-							name={nodeState?.node_name ?? 'This Device'}
+							name={nodeState?.name ?? 'This Device'}
 							size="1.4TB"
 							runningJob={{ amount: 65, task: 'Generating preview media' }}
 							locations={[

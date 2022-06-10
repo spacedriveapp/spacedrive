@@ -196,15 +196,8 @@ async fn setup() -> (
 		},
 	};
 
-	let (mut node, event_receiver) = Node::new(data_dir_path).await;
-
-	node.initializer().await;
-
-	let controller = node.get_controller();
-
-	tokio::spawn(async move {
-		node.start().await;
-	});
+	let (controller, event_receiver, node) = Node::new(data_dir_path).await;
+	tokio::spawn(node.start());
 
 	(web::Data::new(event_receiver), web::Data::new(controller))
 }

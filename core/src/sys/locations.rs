@@ -1,4 +1,6 @@
-use crate::{file::indexer::IndexerJob, prisma::location, ClientQuery, CoreEvent, NodeContext};
+use crate::{
+	file::indexer::IndexerJob, library::LibraryContext, prisma::location, ClientQuery, CoreEvent,
+};
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
 use thiserror::Error;
@@ -57,13 +59,12 @@ static DOTFILE_NAME: &str = ".spacedrive";
 // }
 
 pub async fn get_location(
-	ctx: &NodeContext,
+	ctx: &LibraryContext,
 	location_id: i32,
 ) -> Result<LocationResource, SysError> {
-	let db = &ctx.database;
-
 	// get location by location_id from db and include location_paths
-	let location = match db
+	let location = match ctx
+		.db
 		.location()
 		.find_unique(location::id::equals(location_id))
 		.exec()
@@ -79,7 +80,7 @@ pub async fn get_location(
 }
 
 pub async fn new_location_and_scan(
-	ctx: &NodeContext,
+	ctx: &LibraryContext,
 	path: &str,
 ) -> Result<LocationResource, SysError> {
 	let location = create_location(&ctx, path).await?;
@@ -91,10 +92,8 @@ pub async fn new_location_and_scan(
 	Ok(location)
 }
 
-pub async fn get_locations(ctx: &NodeContext) -> Result<Vec<LocationResource>, SysError> {
-	let db = &ctx.database;
-
-	let locations = db.location().find_many(vec![]).exec().await?;
+pub async fn get_locations(ctx: &LibraryContext) -> Result<Vec<LocationResource>, SysError> {
+	let locations = ctx.db.location().find_many(vec![]).exec().await?;
 
 	// turn locations into LocationResource
 	let locations: Vec<LocationResource> = locations
@@ -105,10 +104,10 @@ pub async fn get_locations(ctx: &NodeContext) -> Result<Vec<LocationResource>, S
 	Ok(locations)
 }
 
-pub async fn create_location(ctx: &NodeContext, path: &str) -> Result<LocationResource, SysError> {
-	let db = &ctx.database;
-	let config = ctx.config.get().await;
-
+pub async fn create_location(
+	ctx: &LibraryContext,
+	path: &str,
+) -> Result<LocationResource, SysError> {
 	// check if we have access to this location
 	if !Path::new(path).exists() {
 		Err(LocationError::NotFound(path.to_string()))?;
@@ -135,7 +134,8 @@ pub async fn create_location(ctx: &NodeContext, path: &str) -> Result<LocationRe
 	}
 
 	// check if location already exists
-	let location = match db
+	let location = match ctx
+		.db
 		.location()
 		.find_first(vec![location::local_path::equals(Some(path.to_string()))])
 		.exec()
@@ -151,7 +151,8 @@ pub async fn create_location(ctx: &NodeContext, path: &str) -> Result<LocationRe
 
 			let p = Path::new(&path);
 
-			let location = db
+			let location = ctx
+				.db
 				.location()
 				.create(
 					location::pub_id::set(uuid.to_string()),
@@ -176,7 +177,7 @@ pub async fn create_location(ctx: &NodeContext, path: &str) -> Result<LocationRe
 
 			let data = DotSpacedrive {
 				location_uuid: uuid.to_string(),
-				library_uuid: config.current_library_uuid,
+				library_uuid: ctx.id.to_string(),
 			};
 
 			let json = match serde_json::to_string(&data) {

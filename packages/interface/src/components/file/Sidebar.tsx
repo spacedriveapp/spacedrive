@@ -74,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const appProps = useContext(AppPropsContext);
 	const { data: locations } = useBridgeQuery('SysGetLocations');
-	const { data: clientState } = useBridgeQuery('NodeGetState');
+	const { data: nodeState } = useBridgeQuery('NodeGetState');
 
 	const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
@@ -109,9 +109,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					variant: 'gray'
 				}}
 				// buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-				buttonText={clientState?.node_name || 'Loading...'}
+				buttonText={nodeState?.name || 'Loading...'}
 				items={[
-					[{ name: clientState?.node_name || '', selected: true }, { name: 'Private Library' }],
+					[{ name: nodeState?.name || '', selected: true }, { name: 'Private Library' }],
 					[
 						{ name: 'Library Settings', icon: CogIcon },
 						{ name: 'Add Library', icon: PlusIcon },

@@ -1,12 +1,13 @@
-use crate::{
-	file::cas::FileIdentifierJob, library::get_library_path, node::NodeConfig,
-	util::db::create_connection,
-};
+use crate::{file::cas::FileIdentifierJob, node::NodeConfig};
 use job::{Job, JobReport, Jobs};
+use library::{LibraryConfig, LibraryManager};
 use node::NodeConfigManager;
-use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
-use std::{fs, sync::Arc};
+use std::{
+	fs,
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 use thiserror::Error;
 use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -74,7 +75,6 @@ pub enum InternalEvent {
 
 #[derive(Clone)]
 pub struct NodeContext {
-	pub database: Arc<PrismaClient>,
 	pub event_sender: mpsc::Sender<CoreEvent>,
 	pub internal_sender: UnboundedSender<InternalEvent>,
 	pub config: Arc<NodeConfigManager>,
@@ -106,10 +106,8 @@ impl NodeContext {
 
 pub struct Node {
 	config: Arc<NodeConfigManager>,
+	library_manager: Arc<LibraryManager>,
 	jobs: job::Jobs,
-	db: Arc<PrismaClient>,
-	// filetype_registry: library::TypeRegistry,
-	// extension_registry: library::ExtensionRegistry,
 
 	// global messaging channels
 	query_channel: (
@@ -131,59 +129,52 @@ pub struct Node {
 
 impl Node {
 	// create new instance of node, run startup tasks
-	pub async fn new(mut data_dir: std::path::PathBuf) -> (Node, mpsc::Receiver<CoreEvent>) {
-		let (event_sender, event_recv) = mpsc::channel(100);
-
-		data_dir = data_dir.join("spacedrive");
-		let data_dir = data_dir.to_str().unwrap();
-		// create data directory if it doesn't exist
+	pub async fn new(data_dir: PathBuf) -> (NodeController, mpsc::Receiver<CoreEvent>, Node) {
 		fs::create_dir_all(&data_dir).unwrap();
 
-		// connect to default library
-		let database = Arc::new(
-			create_connection(&get_library_path(&data_dir))
-				.await
-				.unwrap(),
-		);
+		let (event_sender, event_recv) = mpsc::channel(100);
 
-		let internal_channel = unbounded_channel::<InternalEvent>();
+		let internal_channel = unbounded_channel();
+		let config = NodeConfigManager::new(data_dir.clone()).await.unwrap();
+
+		let node_ctx = NodeContext {
+			event_sender: event_sender.clone(),
+			internal_sender: internal_channel.0.clone(),
+			config: config.clone(),
+		};
 
 		let node = Node {
-			config: NodeConfigManager::new(data_dir.to_string()).await.unwrap(),
+			config,
+			library_manager: LibraryManager::new(Path::new(&data_dir).join("libraries"), node_ctx)
+				.await
+				.unwrap(),
 			query_channel: unbounded_channel(),
 			command_channel: unbounded_channel(),
 			jobs: Jobs::new(),
 			event_sender,
-			db: database,
 			internal_channel,
 		};
 
-		#[cfg(feature = "p2p")]
-		tokio::spawn(async move {
-			p2p::listener::listen(None).await.unwrap_or(());
-		});
-
-		(node, event_recv)
+		(
+			NodeController {
+				query_sender: node.query_channel.0.clone(),
+				command_sender: node.command_channel.0.clone(),
+			},
+			event_recv,
+			node,
+		)
 	}
 
 	pub fn get_context(&self) -> NodeContext {
 		NodeContext {
-			database: self.db.clone(),
 			event_sender: self.event_sender.clone(),
 			internal_sender: self.internal_channel.0.clone(),
 			config: self.config.clone(),
 		}
 	}
 
-	pub fn get_controller(&self) -> NodeController {
-		NodeController {
-			query_sender: self.query_channel.0.clone(),
-			command_sender: self.command_channel.0.clone(),
-		}
-	}
-
-	pub async fn start(&mut self) {
-		let ctx = self.get_context();
+	pub async fn start(mut self) {
+		let ctx = self.library_manager.get_ctx().await.unwrap();
 		loop {
 			// listen on global messaging channels for incoming messages
 			tokio::select! {
@@ -211,36 +202,21 @@ impl Node {
 			}
 		}
 	}
-	// load library database + initialize client with db
-	pub async fn initializer(&self) {
-		let ctx = self.get_context();
-		let config = self.config.get().await;
-
-		if config.libraries.len() == 0 {
-			match library::create(&ctx, None).await {
-				Ok(library) => println!("Created new library: {:?}", library),
-				Err(e) => println!("Error creating library: {:?}", e),
-			}
-		} else {
-			for library in config.libraries.iter() {
-				// init database for library
-				match library::load(&ctx, &library.library_path, &library.library_uuid).await {
-					Ok(library) => println!("Loaded library: {:?}", library),
-					Err(e) => println!("Error loading library: {:?}", e),
-				}
-			}
-		}
-		// init node data within library
-		match node::LibraryNode::create(&self).await {
-			Ok(_) => println!("Spacedrive online"),
-			Err(e) => println!("Error initializing node: {:?}", e),
-		};
-	}
 
 	async fn exec_command(&mut self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
-		println!("Core command: {:?}", cmd);
-		let ctx = self.get_context();
+		let ctx = self.library_manager.get_ctx().await.unwrap();
 		Ok(match cmd {
+			ClientCommand::CreateLibrary { name } => {
+				self.library_manager
+					.create(LibraryConfig {
+						name: name.to_string(),
+						..Default::default()
+					})
+					.await
+					.unwrap();
+
+				CoreResponse::Success(())
+			}
 			// CRUD for locations
 			ClientCommand::LocCreate { path } => {
 				let loc = sys::new_location_and_scan(&ctx, &path).await?;
@@ -289,10 +265,12 @@ impl Node {
 
 	// query sources of data
 	async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
-		let ctx = self.get_context();
+		let ctx = self.library_manager.get_ctx().await.unwrap();
 		Ok(match query {
-			// return the client state from memory
-			ClientQuery::NodeGetState => CoreResponse::NodeGetState(self.config.get().await),
+			ClientQuery::NodeGetState => CoreResponse::NodeGetState(NodeState {
+				config: self.config.get().await,
+				data_path: self.config.data_directory().to_str().unwrap().to_string(),
+			}),
 			// get system volumes without saving to library
 			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::Volume::get_volumes()?),
 			ClientQuery::SysGetLocations => {
@@ -330,6 +308,8 @@ impl Node {
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientCommand {
+	// Libraries
+	CreateLibrary { name: String },
 	// Files
 	FileRead { id: i32 },
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
@@ -390,6 +370,14 @@ pub enum CoreEvent {
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]
+#[ts(export)]
+pub struct NodeState {
+	#[serde(flatten)]
+	pub config: NodeConfig,
+	pub data_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, TS)]
 #[serde(tag = "key", content = "data")]
 #[ts(export)]
 pub enum CoreResponse {
@@ -398,7 +386,7 @@ pub enum CoreResponse {
 	SysGetLocation(sys::LocationResource),
 	SysGetLocations(Vec<sys::LocationResource>),
 	LibGetExplorerDir(file::DirectoryWithContents),
-	NodeGetState(NodeConfig),
+	NodeGetState(NodeState),
 	LocCreate(sys::LocationResource),
 	JobGetRunning(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),

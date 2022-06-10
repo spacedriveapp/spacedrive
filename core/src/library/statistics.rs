@@ -1,14 +1,13 @@
 use crate::{
 	prisma::{library, library_statistics::*},
 	sys::Volume,
-	NodeContext,
 };
 use fs_extra::dir::get_size;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use ts_rs::TS;
 
-use super::LibraryError;
+use super::{LibraryContext, LibraryError};
 
 #[derive(Debug, Serialize, Deserialize, TS, Clone)]
 #[ts(export)]
@@ -51,13 +50,11 @@ impl Default for Statistics {
 }
 
 impl Statistics {
-	pub async fn retrieve(ctx: &NodeContext) -> Result<Statistics, LibraryError> {
-		let db = &ctx.database;
-		let library_data = ctx.config.get_current_library().await;
-
-		let library_statistics_db = match db
+	pub async fn retrieve(ctx: &LibraryContext) -> Result<Statistics, LibraryError> {
+		let library_statistics_db = match ctx
+			.db
 			.library_statistics()
-			.find_unique(id::equals(library_data.library_id))
+			.find_unique(id::equals(ctx.node_local_id))
 			.exec()
 			.await?
 		{
@@ -68,21 +65,12 @@ impl Statistics {
 		Ok(library_statistics_db.into())
 	}
 
-	pub async fn calculate(ctx: &NodeContext) -> Result<Statistics, LibraryError> {
-		let config = ctx.config.get().await;
-		let db = &ctx.database;
-		// get library from client state
-		let library_data = ctx.config.get_current_library().await;
-		println!(
-			"Calculating library statistics {:?}",
-			library_data.library_uuid
-		);
+	pub async fn calculate(ctx: &LibraryContext) -> Result<Statistics, LibraryError> {
 		// get library from db
-		let library = db
+		let library = ctx
+			.db
 			.library()
-			.find_unique(library::pub_id::equals(
-				library_data.library_uuid.to_string(),
-			))
+			.find_unique(library::pub_id::equals(ctx.id.to_string()))
 			.exec()
 			.await?;
 
@@ -90,9 +78,10 @@ impl Statistics {
 			return Err(LibraryError::LibraryNotFound);
 		}
 
-		let library_statistics = db
+		let _library_statistics = ctx
+			.db
 			.library_statistics()
-			.find_unique(id::equals(library_data.library_id))
+			.find_unique(id::equals(ctx.node_local_id))
 			.exec()
 			.await?;
 
@@ -111,14 +100,15 @@ impl Statistics {
 			}
 		}
 
-		let library_db_size = match fs::metadata(library_data.library_path.as_str()) {
+		let library_db_size = match fs::metadata(ctx.config().data_directory()) {
 			Ok(metadata) => metadata.len(),
 			Err(_) => 0,
 		};
 
-		println!("{:?}", library_statistics);
+		let mut thumbsnails_dir = ctx.config().data_directory();
+		thumbsnails_dir.push("thumbnails");
 
-		let thumbnail_folder_size = get_size(&format!("{}/{}", config.data_path, "thumbnails"));
+		let thumbnail_folder_size = get_size(&thumbsnails_dir);
 
 		let statistics = Statistics {
 			library_db_size: library_db_size.to_string(),
@@ -130,10 +120,11 @@ impl Statistics {
 
 		let library_local_id = match library {
 			Some(library) => library.id,
-			None => library_data.library_id,
+			None => ctx.node_local_id,
 		};
 
-		db.library_statistics()
+		ctx.db
+			.library_statistics()
 			.upsert(
 				library_id::equals(library_local_id),
 				(
