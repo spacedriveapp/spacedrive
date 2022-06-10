@@ -1,7 +1,7 @@
 [package]
 name = "spacedrive"
 version = "0.1.0"
-description = "The next gen private virtual filesystem."
+description = "The universal file manager."
 authors = ["Spacedrive Technology Inc."]
 license = ""
 repository = "https://github.com/spacedriveapp/spacedrive"
