@@ -8,7 +8,7 @@ jamie@spacedrive.com
 
 ### Developers
 
-Jamie Pine, Brendonovich, Oscar Beaumont
+Jamie Pine, Brendan Allan, Oscar Beaumont, Haden Fletcher, Benjamin Akar, Haris Mehrzad, and all other contributors displayed below!
 
 ### Contributors
 
