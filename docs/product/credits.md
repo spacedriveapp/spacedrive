@@ -1,16 +1,16 @@
-## Spacedrive
+# Spacedrive
 
 Copyright &copy; 2022-present Spacedrive Technology Inc.
 
-### Business contact
+## Business contact
 
 jamie@spacedrive.com
 
-### Developers
+## Developers
 
 Jamie Pine, Brendan Allan, Oscar Beaumont, Haden Fletcher, Benjamin Akar, Haris Mehrzad, and all other contributors displayed below!
 
-### Contributors
+## Contributors
 
 <a href="https://github.com/spacedriveapp/spacedrive/graphs/contributors">
   <img
