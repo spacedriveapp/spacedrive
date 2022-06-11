@@ -10,13 +10,6 @@ pub(crate) fn get_menu() -> Menu {
 }
 
 fn custom_menu_bar() -> Menu {
-	// let quit = CustomMenuItem::new("quit".to_string(), "Quit");
-	// let close = CustomMenuItem::new("close".to_string(), "Close");
-	// let jeff = CustomMenuItem::new("jeff".to_string(), "Jeff");
-	// let submenu = Submenu::new(
-	//   "File",
-	//   Menu::new().add_item(quit).add_item(close).add_item(jeff),
-	// );
 	let app_menu = Menu::new()
 		.add_native_item(MenuItem::About(
 			"Spacedrive".to_string(),
