@@ -4,7 +4,6 @@ use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuItem, Submenu, WindowMenuEv
 
 pub(crate) fn get_menu() -> Menu {
 	match consts::OS {
-		"linux" => Menu::new(),
 		"macos" => custom_menu_bar(),
 		_ => Menu::new(),
 	}
