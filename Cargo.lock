@@ -6763,6 +6763,7 @@ name = "spacedrive"
 version = "0.1.0"
 dependencies = [
  "cocoa",
+ "objc",
  "sdcore",
  "swift-rs",
  "tauri",

@@ -1,4 +1,4 @@
-use std::env::consts;
+use std::{env::consts, ffi::c_void};
 
 use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuItem, Submenu, WindowMenuEvent, Wry};
 
@@ -44,10 +44,22 @@ fn custom_menu_bar() -> Menu {
 		.add_item(CustomMenuItem::new("layout".to_string(), "Layout").disabled());
 	let window_menu = Menu::new().add_native_item(MenuItem::EnterFullScreen);
 
-	let window = Submenu::new(
-		"Window",
-		Menu::new().add_native_item(MenuItem::EnterFullScreen),
-	);
+	#[cfg(debug_assertions)]
+	let view_menu = {
+		let view_menu = view_menu.add_native_item(MenuItem::Separator);
+
+		#[cfg(target_os = "macos")]
+		let view_menu = view_menu.add_item(
+			CustomMenuItem::new("reload_app".to_string(), "Reload").accelerator("CmdOrCtrl+R"),
+		);
+
+		let view_menu = view_menu.add_item(
+			CustomMenuItem::new("toggle_devtools".to_string(), "Toggle Developer Tools")
+				.accelerator("CmdOrCtrl+Alt+I"),
+		);
+
+		view_menu
+	};
 
 	let menu = Menu::new()
 		.add_submenu(Submenu::new("Spacedrive", app_menu))
@@ -60,12 +72,35 @@ fn custom_menu_bar() -> Menu {
 }
 
 pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
+	let window = event.window();
 	match event.menu_item_id() {
 		"quit" => {
 			std::process::exit(0);
 		}
 		"close" => {
-			event.window().close().unwrap();
+			if window.is_devtools_open() {
+				window.close_devtools();
+			} else {
+				window.close().unwrap();
+			}
+		}
+		"reload_app" => {
+			window
+				.with_webview(|webview| {
+					#[cfg(target_os = "macos")]
+					unsafe {
+						use objc::{msg_send, sel, sel_impl};
+						let _result: c_void = msg_send![webview.inner(), reload];
+					};
+				})
+				.unwrap();
+		}
+		"toggle_devtools" => {
+			if window.is_devtools_open() {
+				window.close_devtools();
+			} else {
+				window.open_devtools();
+			}
 		}
 		_ => {}
 	}
