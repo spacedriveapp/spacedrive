@@ -42,13 +42,6 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
 	window.show().unwrap();
-
-	#[cfg(target_os = "macos")]
-	{
-		std::thread::sleep(std::time::Duration::from_millis(1000));
-		println!("fixing shadow for, {:?}", window.ns_window().unwrap());
-		window.fix_shadow();
-	}
 }
 
 #[tokio::main]

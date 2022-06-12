@@ -1,5 +1,22 @@
 use tauri::{GlobalWindowEvent, Runtime, Window, Wry};
 
+#[cfg(target_os = "macos")]
+use cocoa::{
+	appkit::{
+		NSToolbar, NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState,
+		NSWindow, NSWindowStyleMask, NSWindowTitleVisibility,
+	},
+	base::{id, nil, NO, YES},
+	delegate,
+	foundation::NSString,
+};
+#[cfg(target_os = "macos")]
+use objc::{
+	class, msg_send,
+	runtime::{Object, Sel},
+	sel, sel_impl,
+};
+
 pub(crate) fn handle_window_event(event: GlobalWindowEvent<Wry>) {
 	match event.event() {
 		_ => {}
@@ -20,12 +37,6 @@ pub trait WindowExt {
 impl<R: Runtime> WindowExt for Window<R> {
 	#[cfg(target_os = "macos")]
 	fn set_toolbar(&self, shown: bool) {
-		use cocoa::{
-			appkit::{NSToolbar, NSWindow},
-			base::{nil, NO},
-			foundation::NSString,
-		};
-
 		unsafe {
 			let id = self.ns_window().unwrap() as cocoa::base::id;
 
@@ -42,71 +53,36 @@ impl<R: Runtime> WindowExt for Window<R> {
 
 	#[cfg(target_os = "macos")]
 	fn set_blurs_behind(&self, blurs: bool) {
-		use cocoa::{
-			appkit::{
-				NSView, NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState,
-				NSVisualEffectView, NSWindow,
-			},
-			base::{id, nil},
-			delegate,
-		};
-		use objc::{
-			class, msg_send,
-			runtime::{Object, Sel},
-			sel, sel_impl,
-		};
+		let our_ns_window = self.ns_window().unwrap() as id;
+
+		if !blurs {
+			()
+		}
+
+		window_set_blurry_background(our_ns_window);
+
+		#[cfg(target_os = "macos")]
+		extern "C" fn on_window_loaded(this: &Object, _cmd: Sel, _notification: id) {
+			println!("Window loaded! Setting blurry background...");
+
+			unsafe {
+				let window_object: id = *this.get_ivar("window");
+				window_set_blurry_background(window_object);
+			}
+		}
 
 		unsafe {
-			let id = self.ns_window().unwrap() as cocoa::base::id;
+			let delegate: id = delegate!("SpacedriveMainWindowDelegate", {
+				window: id = our_ns_window,
+				(windowDidLoad:) => on_window_loaded as extern fn(&Object, Sel, id)
+			});
 
-			println!("ASDFGHJKL; Running set_blurs_behind");
-
-			if !blurs {
-				()
-			}
-
-			println!("ASDFGHJKL; Still running set_blurs_behind!");
-
-			extern "C" fn on_window_loaded(this: &Object, _cmd: Sel, _notification: id) {
-				println!("ASDFGHJKL; Window loaded!");
-
-				unsafe {
-					let window: id = *this.get_ivar("window");
-
-					window.setOpaque_(false);
-					// window.setAlphaValue_(0.98 as _);
-
-					let visual_effect = NSVisualEffectView::alloc(nil);
-					visual_effect.setMaterial(
-						NSVisualEffectMaterial::NSVisualEffectMaterialContentBackground,
-					);
-					visual_effect.setState(NSVisualEffectState::NSVisualEffectStateActive);
-					visual_effect.setBlendingMode(
-						NSVisualEffectBlendingMode::NSVisualEffectBlendingModeBehindWindow,
-					);
-					visual_effect.setWantsLayer(true);
-
-					window.addSubview_(visual_effect);
-				}
-			}
-
-			println!("ASDFGHJKL; Setting delegate!");
-			id.setDelegate_(delegate!("SpacedriveMainWindowDelegate", {
-					window: id = id,
-					(windowDidLoad:) => on_window_loaded as extern fn(&Object, Sel, id)
-			}));
-
-			// visual_effect.setFrameSize(id.bounds());
+			let _: () = msg_send![our_ns_window, setDelegate: delegate];
 		}
 	}
 
 	#[cfg(target_os = "macos")]
 	fn set_transparent_titlebar(&self, transparent: bool, large: bool) {
-		use cocoa::{
-			appkit::{NSWindow, NSWindowStyleMask, NSWindowTitleVisibility},
-			base::{NO, YES},
-		};
-
 		unsafe {
 			let id = self.ns_window().unwrap() as cocoa::base::id;
 
@@ -142,8 +118,6 @@ impl<R: Runtime> WindowExt for Window<R> {
 
 	#[cfg(target_os = "macos")]
 	fn fix_shadow(&self) {
-		use cocoa::appkit::NSWindow;
-
 		unsafe {
 			let id = self.ns_window().unwrap() as cocoa::base::id;
 
@@ -151,5 +125,40 @@ impl<R: Runtime> WindowExt for Window<R> {
 
 			id.invalidateShadow();
 		}
+	}
+}
+
+// I tried going raw with the objc package here instead of relying on bindings...
+// unfortunately this still isn't working.
+// I try the delegate up above and its action for window load never seems to run
+// And calling this manually does nothing. I wish the next person to attempt making this work the best of luck.
+// - maxichrome | 12 jun 2022
+#[cfg(target_os = "macos")]
+fn window_set_blurry_background(window_object: id) {
+	#[allow(non_snake_case)]
+	let NSVisualEffectView = class!(NSVisualEffectView);
+
+	unsafe {
+		let content_view: id = msg_send![window_object, contentView];
+		let content_view_bounds: i64 = msg_send![content_view, bounds];
+
+		let visual_effect: *mut Object = msg_send![NSVisualEffectView, new];
+		let _: () = msg_send![
+			visual_effect,
+			setMaterial: NSVisualEffectMaterial::NSVisualEffectMaterialSidebar
+		];
+		let _: () = msg_send![
+			visual_effect,
+			setState: NSVisualEffectState::NSVisualEffectStateFollowsWindowActiveState
+		];
+		let _: () = msg_send![
+			visual_effect,
+			setBlendingMode: NSVisualEffectBlendingMode::NSVisualEffectBlendingModeBehindWindow
+		];
+		let _: () = msg_send![visual_effect, setWantsLayer: YES];
+
+		let _: () = msg_send![visual_effect, setFrameSize: content_view_bounds];
+
+		let _: () = msg_send![content_view, addSubview: visual_effect];
 	}
 }

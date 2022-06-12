@@ -70,7 +70,7 @@
 				"focus": false,
 				"fileDropEnabled": false,
 				"decorations": true,
-				"transparent": false,
+				"transparent": true,
 				"center": true
 			}
 		],
