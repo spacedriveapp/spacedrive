@@ -72,20 +72,27 @@ fn custom_menu_bar() -> Menu {
 }
 
 pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
-	let window = event.window();
 	match event.menu_item_id() {
 		"quit" => {
 			std::process::exit(0);
 		}
 		"close" => {
+			let window = event.window();
+
+			#[cfg(debug_assertions)]
 			if window.is_devtools_open() {
 				window.close_devtools();
+				return;
 			} else {
 				window.close().unwrap();
 			}
+
+			#[cfg(not(debug_assertions))]
+			window.close().unwrap();
 		}
 		"reload_app" => {
-			window
+			event
+				.window()
 				.with_webview(|webview| {
 					#[cfg(target_os = "macos")]
 					unsafe {
@@ -95,7 +102,10 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 				})
 				.unwrap();
 		}
+		#[cfg(debug_assertions)]
 		"toggle_devtools" => {
+			let window = event.window();
+
 			if window.is_devtools_open() {
 				window.close_devtools();
 			} else {
