@@ -6,9 +6,9 @@
 	"private": true,
 	"scripts": {
 		"vite": "vite",
-		"dev": "concurrently \"pnpm tauri dev\" \"vite\"",
+		"dev": "tauri dev",
 		"tauri": "tauri",
-		"build": "vite build"
+		"build": "tauri build"
 	},
 	"dependencies": {
 		"@sd/client": "workspace:*",
