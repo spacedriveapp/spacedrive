@@ -1,11 +1,14 @@
 use crate::{
-	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState,
+	file::cas::FileIdentifierJob,
+	library::get_library_path,
+	node::NodeState,
+	prisma::{file as prisma_file, tag, tag_on_file},
 	util::db::create_connection,
 };
 use job::{Job, JobReport, Jobs};
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
-use std::{fs, sync::Arc};
+use std::{f32::consts::E, fs, sync::Arc};
 use thiserror::Error;
 use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -259,12 +262,42 @@ impl Node {
 			// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
 			ClientCommand::FileDelete { id: _ } => todo!(),
 			// CRUD for tags
-			ClientCommand::TagCreate { name: _, color: _ } => todo!(),
-			ClientCommand::TagAssign {
-				file_id: _,
-				tag_id: _,
-			} => todo!(),
-			ClientCommand::TagDelete { id: _ } => todo!(),
+			ClientCommand::TagCreate { name, color } => {
+				let created_tag = ctx
+					.database
+					.tag()
+					.create(
+						tag::pub_id::set(uuid::Uuid::new_v4().to_string()),
+						vec![tag::name::set(Some(name)), tag::color::set(Some(color))],
+					)
+					.exec()
+					.await
+					.unwrap();
+
+				CoreResponse::TagCreateResponse {
+					pub_id: created_tag.pub_id,
+				}
+			}
+			ClientCommand::TagAssign { file_id, tag_id } => {
+				ctx.database.tag_on_file().create(
+					tag_on_file::tag::link(tag::UniqueWhereParam::IdEquals(tag_id)),
+					tag_on_file::file::link(prisma_file::UniqueWhereParam::IdEquals(file_id)),
+					vec![],
+				);
+
+				CoreResponse::Success(())
+			}
+			ClientCommand::TagDelete { id } => {
+				ctx.database
+					.tag()
+					.find_unique(tag::id::equals(id))
+					.delete()
+					.exec()
+					.await
+					.unwrap();
+
+				CoreResponse::Success(())
+			}
 			// CRUD for libraries
 			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
 			ClientCommand::LibDelete { id: _ } => todo!(),
@@ -399,6 +432,7 @@ pub enum CoreEvent {
 #[ts(export)]
 pub enum CoreResponse {
 	Success(()),
+	TagCreateResponse { pub_id: String },
 	SysGetVolumes(Vec<sys::Volume>),
 	SysGetLocation(sys::LocationResource),
 	SysGetLocations(Vec<sys::LocationResource>),

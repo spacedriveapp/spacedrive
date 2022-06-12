@@ -235,6 +235,7 @@ model Tag {
     id              Int      @id @default(autoincrement())
     pub_id          String   @unique
     name            String?
+    color           String?
     total_files     Int?     @default(0)
     redundancy_goal Int?     @default(1)
     date_created    DateTime @default(now())
