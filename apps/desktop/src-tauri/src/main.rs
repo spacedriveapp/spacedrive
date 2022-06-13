@@ -72,8 +72,10 @@ async fn main() {
 
 				#[cfg(target_os = "macos")]
 				{
+					window::window_set_blurry_background(window.ns_window().unwrap() as _);
+
 					window.set_transparent_titlebar(true, true);
-					window.set_blurs_behind(true);
+					// window.set_blurs_behind(true);
 				}
 			});
 

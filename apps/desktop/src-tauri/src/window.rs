@@ -59,7 +59,7 @@ impl<R: Runtime> WindowExt for Window<R> {
 			()
 		}
 
-		window_set_blurry_background(our_ns_window);
+		// window_set_blurry_background(our_ns_window);
 
 		#[cfg(target_os = "macos")]
 		extern "C" fn on_window_loaded(this: &Object, _cmd: Sel, _notification: id) {
@@ -72,21 +72,21 @@ impl<R: Runtime> WindowExt for Window<R> {
 		}
 
 		unsafe {
-			let delegate: id = delegate!("SpacedriveMainWindowDelegate", {
+			let delegate: id = delegate!("SpacedriveWindowBlurryDelegate", {
 				window: id = our_ns_window,
 				(windowDidLoad:) => on_window_loaded as extern fn(&Object, Sel, id)
 			});
 
-			let _: () = msg_send![our_ns_window, setDelegate: delegate];
-		}
+			our_ns_window.setDelegate_(delegate);
+		};
 	}
 
 	#[cfg(target_os = "macos")]
 	fn set_transparent_titlebar(&self, transparent: bool, large: bool) {
 		unsafe {
-			let id = self.ns_window().unwrap() as cocoa::base::id;
+			let window = self.ns_window().unwrap() as id;
 
-			let mut style_mask = id.styleMask();
+			let mut style_mask = window.styleMask();
 			// println!("existing style mask, {:#?}", style_mask);
 			style_mask.set(
 				NSWindowStyleMask::NSFullSizeContentViewWindowMask,
@@ -100,19 +100,19 @@ impl<R: Runtime> WindowExt for Window<R> {
 				NSWindowStyleMask::NSUnifiedTitleAndToolbarWindowMask,
 				transparent && large,
 			);
-			id.setStyleMask_(style_mask);
+			window.setStyleMask_(style_mask);
 
 			if large {
 				self.set_toolbar(true);
 			}
 
-			id.setTitleVisibility_(if transparent {
+			window.setTitleVisibility_(if transparent {
 				NSWindowTitleVisibility::NSWindowTitleHidden
 			} else {
 				NSWindowTitleVisibility::NSWindowTitleVisible
 			});
 
-			id.setTitlebarAppearsTransparent_(if transparent { YES } else { NO });
+			window.setTitlebarAppearsTransparent_(if transparent { YES } else { NO });
 		}
 	}
 
@@ -134,13 +134,14 @@ impl<R: Runtime> WindowExt for Window<R> {
 // And calling this manually does nothing. I wish the next person to attempt making this work the best of luck.
 // - maxichrome | 12 jun 2022
 #[cfg(target_os = "macos")]
-fn window_set_blurry_background(window_object: id) {
+pub(crate) fn window_set_blurry_background(window: id) {
+	println!("setting blurry background on {:#?}", window);
+
 	#[allow(non_snake_case)]
 	let NSVisualEffectView = class!(NSVisualEffectView);
 
 	unsafe {
-		let content_view: id = msg_send![window_object, contentView];
-		let content_view_bounds: i64 = msg_send![content_view, bounds];
+		let content_view: id = msg_send![window, contentView];
 
 		let visual_effect: *mut Object = msg_send![NSVisualEffectView, new];
 		let _: () = msg_send![
@@ -157,8 +158,10 @@ fn window_set_blurry_background(window_object: id) {
 		];
 		let _: () = msg_send![visual_effect, setWantsLayer: YES];
 
-		let _: () = msg_send![visual_effect, setFrameSize: content_view_bounds];
+		let _: () = msg_send![visual_effect, addSubview: content_view];
+		let _: () = msg_send![window, setContentView: visual_effect];
 
-		let _: () = msg_send![content_view, addSubview: visual_effect];
+		// let content_frame: id = msg_send![window, frame];
+		// let _: () = msg_send![content_view, setFrame: content_frame];
 	}
 }
