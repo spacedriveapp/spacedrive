@@ -5,7 +5,9 @@ use quinn::{Connecting, Endpoint, NewConnection, VarInt};
 use rustls::{Certificate, PrivateKey};
 use tokio::sync::{mpsc, oneshot, RwLock};
 
-use crate::{quic, ConnectionType, NetworkManagerError, NetworkManagerEvent, Peer, PeerId};
+use crate::{
+	quic, ConnectionType, NetworkManagerError, NetworkManagerEvent, P2PApplication, Peer, PeerId,
+};
 
 /// TODO
 ///
@@ -23,15 +25,19 @@ pub(crate) struct Server {
 	pub(crate) connected_peers: RwLock<HashMap<PeerId, Peer>>, // TODO: Move back to DashMap????
 	/// endpoint is the QUIC endpoint that the NetworkManager will use to listen for incoming connections.
 	pub(crate) endpoint: Endpoint,
+	// p2p_application is a trait implemented by the application embedded the network manager. This allows the application to take control of the actions of the network manager.
+	pub(crate) p2p_application: Arc<dyn P2PApplication + Send + Sync>,
 }
 
 impl Server {
 	pub(crate) fn new(
 		identity: (Certificate, PrivateKey),
 		application_channel: mpsc::Sender<NetworkManagerEvent>,
+		p2p_application: Arc<dyn P2PApplication + Send + Sync>,
 	) -> Result<Arc<Self>, NetworkManagerError> {
 		let peer_id = PeerId::from_cert(&identity.0);
-		let (endpoint, mut incoming, listen_addr) = quic::new_server(identity.clone())?;
+		let (endpoint, mut incoming, listen_addr) =
+			quic::new_server(identity.clone(), p2p_application.clone())?;
 
 		let this = Arc::new(Self {
 			peer_id,
@@ -40,6 +46,7 @@ impl Server {
 			application_channel,
 			connected_peers: Default::default(),
 			endpoint,
+			p2p_application,
 		});
 
 		let this2 = this.clone();
@@ -79,18 +86,19 @@ impl Server {
 
 		let peer_id = PeerId::from_cert(&y[0]); // TODO: handle missing [0]
 
-		let (tx, rx) = oneshot::channel();
-		self.application_channel
-			.send(NetworkManagerEvent::ConnectionRequest {
-				peer_id: peer_id.clone(),
-				resp: tx,
-			})
-			.await
-			.unwrap();
+		// TODO: Remove this event
+		// let (tx, rx) = oneshot::channel();
+		// self.application_channel
+		// 	.send(NetworkManagerEvent::ConnectionRequest {
+		// 		peer_id: peer_id.clone(),
+		// 		resp: tx,
+		// 	})
+		// 	.await
+		// 	.unwrap();
 
-		if !rx.await.unwrap() {
-			panic!("TODO");
-		}
+		// if !rx.await.unwrap() {
+		// 	panic!("TODO");
+		// }
 
 		// self.connected_peers.insert();
 		//     self.application_channel

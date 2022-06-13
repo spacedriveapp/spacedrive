@@ -4,8 +4,9 @@ use quinn::{NewConnection, VarInt};
 use tokio::sync::mpsc;
 
 use crate::{
-	quic::new_client, server::Server, ConnectionType, DiscoveryManager, Identity,
-	NetworkManagerError, NetworkManagerEvent, Peer, PeerCandidate, PeerId, PeerMetadata,
+	p2p_application, quic::new_client, server::Server, ConnectionType, DiscoveryManager, Identity,
+	NetworkManagerError, NetworkManagerEvent, P2PApplication, Peer, PeerCandidate, PeerId,
+	PeerMetadata,
 };
 
 /// NetworkManager is used to manage the P2P networking between cores. This implementation is completely decoupled from the Spacedrive core to aid future refactoring and unit testing.
@@ -16,20 +17,24 @@ pub struct NetworkManager {
 
 impl NetworkManager {
 	/// Create a new NetworkManager. The 'app_name' argument must be alphanumeric.
-	pub async fn new<TGetMetadata: Fn() -> PeerMetadata + Send + Sync + 'static>(
+	pub async fn new<TApplication: P2PApplication + Send + Sync + 'static>(
 		app_name: &'static str,
+		p2p_application: TApplication,
 		identity: Identity,
 		application_channel: mpsc::Sender<NetworkManagerEvent>,
-		get_metadata: TGetMetadata,
 	) -> Result<Arc<Self>, NetworkManagerError> {
 		if !app_name.chars().all(char::is_alphanumeric) {
 			return Err(NetworkManagerError::InvalidAppName);
 		}
 
-		let server = Server::new(identity.into_rustls(), application_channel)?;
+		let p2p_application = Arc::new(p2p_application);
+		let server = Server::new(
+			identity.into_rustls(),
+			application_channel,
+			p2p_application.clone(),
+		)?;
 		Ok(Arc::new(Self {
-			discovery: DiscoveryManager::new(app_name, server.clone(), Box::new(get_metadata))
-				.await?,
+			discovery: DiscoveryManager::new(app_name, server.clone(), p2p_application).await?,
 			server,
 		}))
 	}

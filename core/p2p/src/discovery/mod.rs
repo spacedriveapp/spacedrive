@@ -10,7 +10,9 @@ use dashmap::{DashMap, DashSet};
 use if_watch::{IfEvent, IfWatcher};
 use tokio::sync::broadcast;
 
-use crate::{server::Server, NetworkManagerError, PeerCandidate, PeerId, PeerMetadata};
+use crate::{
+	server::Server, NetworkManagerError, P2PApplication, PeerCandidate, PeerId, PeerMetadata,
+};
 
 use self::mdns::MDNS;
 
@@ -24,15 +26,15 @@ pub(crate) struct DiscoveryManager {
 	discovery_channel: broadcast::Sender<()>,
 	/// discovered_peers is a map of all peers that has been discovered on your local network. Be aware a peer could be offline and remain in this map for many minutes but it will eventually be removed once the peer is detected to be offline.
 	pub(crate) discovered_peers: DashMap<PeerId, PeerCandidate>,
-	/// get_metadata is a closure function that is called to retrieve metadata about the current peer. This exists so the application embedding the NetworkManager can update the information without a restart.
-	pub(crate) get_metadata: Box<dyn Fn() -> PeerMetadata + Send + Sync>,
+	/// p2p_application is a trait implemented by the application embedded the network manager. This allows the application to take control of the actions of the network manager.
+	pub(crate) p2p_application: Arc<dyn P2PApplication + Send + Sync>,
 }
 
 impl DiscoveryManager {
 	pub async fn new(
 		app_name: &'static str,
 		server: Arc<Server>,
-		get_metadata: Box<dyn Fn() -> PeerMetadata + Send + Sync>,
+		p2p_application: Arc<dyn P2PApplication + Send + Sync>,
 	) -> Result<Arc<Self>, NetworkManagerError> {
 		let mut if_watcher = IfWatcher::new()
 			.await
@@ -56,7 +58,7 @@ impl DiscoveryManager {
 				.collect::<DashSet<_>>(),
 			discovery_channel: tx,
 			discovered_peers: DashMap::new(),
-			get_metadata,
+			p2p_application,
 		});
 
 		// Mount providers
