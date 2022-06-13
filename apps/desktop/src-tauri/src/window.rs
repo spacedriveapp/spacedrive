@@ -7,15 +7,10 @@ use cocoa::{
 		NSWindow, NSWindowStyleMask, NSWindowTitleVisibility,
 	},
 	base::{id, nil, NO, YES},
-	delegate,
 	foundation::NSString,
 };
 #[cfg(target_os = "macos")]
-use objc::{
-	class, msg_send,
-	runtime::{Object, Sel},
-	sel, sel_impl,
-};
+use objc::{class, msg_send, runtime::Object, sel, sel_impl};
 
 pub(crate) fn handle_window_event(event: GlobalWindowEvent<Wry>) {
 	match event.event() {
@@ -29,7 +24,7 @@ pub trait WindowExt {
 	#[cfg(target_os = "macos")]
 	fn set_transparent_titlebar(&self, transparent: bool, large: bool);
 	#[cfg(target_os = "macos")]
-	fn set_blurs_behind(&self, blurs: bool);
+	fn set_blurs_behind(&self);
 	#[cfg(target_os = "macos")]
 	fn fix_shadow(&self);
 }
@@ -52,33 +47,9 @@ impl<R: Runtime> WindowExt for Window<R> {
 	}
 
 	#[cfg(target_os = "macos")]
-	fn set_blurs_behind(&self, blurs: bool) {
+	fn set_blurs_behind(&self) {
 		let our_ns_window = self.ns_window().unwrap() as id;
-
-		if !blurs {
-			()
-		}
-
-		// window_set_blurry_background(our_ns_window);
-
-		#[cfg(target_os = "macos")]
-		extern "C" fn on_window_loaded(this: &Object, _cmd: Sel, _notification: id) {
-			println!("Window loaded! Setting blurry background...");
-
-			unsafe {
-				let window_object: id = *this.get_ivar("window");
-				window_set_blurry_background(window_object);
-			}
-		}
-
-		unsafe {
-			let delegate: id = delegate!("SpacedriveWindowBlurryDelegate", {
-				window: id = our_ns_window,
-				(windowDidLoad:) => on_window_loaded as extern fn(&Object, Sel, id)
-			});
-
-			our_ns_window.setDelegate_(delegate);
-		};
+		window_set_blurry_background(our_ns_window);
 	}
 
 	#[cfg(target_os = "macos")]
@@ -128,11 +99,6 @@ impl<R: Runtime> WindowExt for Window<R> {
 	}
 }
 
-// I tried going raw with the objc package here instead of relying on bindings...
-// unfortunately this still isn't working.
-// I try the delegate up above and its action for window load never seems to run
-// And calling this manually does nothing. I wish the next person to attempt making this work the best of luck.
-// - maxichrome | 12 jun 2022
 #[cfg(target_os = "macos")]
 pub(crate) fn window_set_blurry_background(window: id) {
 	println!("setting blurry background on {:#?}", window);
@@ -158,8 +124,8 @@ pub(crate) fn window_set_blurry_background(window: id) {
 		];
 		let _: () = msg_send![visual_effect, setWantsLayer: YES];
 
-		let _: () = msg_send![visual_effect, addSubview: content_view];
 		let _: () = msg_send![window, setContentView: visual_effect];
+		let _: () = msg_send![visual_effect, addSubview: content_view];
 
 		// let content_frame: id = msg_send![window, frame];
 		// let _: () = msg_send![content_view, setFrame: content_frame];
