@@ -156,7 +156,7 @@ impl Job for FileIdentifierJob {
 		})
 		.await?;
 
-		let remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+		let _remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
 
 		Ok(())
 	}
