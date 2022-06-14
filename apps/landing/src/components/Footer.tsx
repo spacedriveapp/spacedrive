@@ -8,7 +8,7 @@ import {
 } from '@icons-pack/react-simple-icons';
 import React from 'react';
 
-import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
+import AppLogo from '../assets/images/logo.png';
 
 function FooterLink(props: { children: string | JSX.Element; link: string }) {
 	return (
@@ -23,7 +23,7 @@ export function Footer() {
 		<footer id="footer" className="z-50 w-screen pt-3 border-t border-gray-550 bg-gray-850">
 			<div className="container grid grid-cols-2 gap-6 p-8 pt-10 pb-20 m-auto text-white min-h-64 sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
-					<AppLogo className="w-10 h-10 mb-5" />
+					<img src={AppLogo} className="w-10 h-10 mb-5" />
 
 					<h3 className="mb-1 text-xl font-bold">Spacedrive</h3>
 					<p className="text-sm text-gray-350">&copy; Copyright 2022 Spacedrive Technology Inc.</p>

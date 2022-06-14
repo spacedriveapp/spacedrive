@@ -1,14 +1,15 @@
 import clsx from 'clsx';
-import React, { useRef, useState } from 'react';
-import { useEffect } from 'react';
-import { isMobile } from 'react-device-detect';
+import React, { useEffect, useRef, useState } from 'react';
 
-export default function AppEmbed() {
+import { getWindow } from '../utils';
+
+const AppEmbed = () => {
 	const [showApp, setShowApp] = useState(false);
 	const [iFrameAppReady, setIframeAppReady] = useState(false);
 	const [forceImg, setForceImg] = useState(false);
 	const [imgFallback, setImageFallback] = useState(false);
 	const iFrame = useRef<HTMLIFrameElement>(null);
+	const window = getWindow()!;
 
 	function handleResize() {
 		if (window.innerWidth < 1000) {
@@ -93,4 +94,12 @@ export default function AppEmbed() {
 			</div>
 		</div>
 	);
-}
+};
+
+export const AppEmbedPlaceholder = () => {
+	return (
+		<div className="w-screen relative z-30 h-[228px] px-5 sm:h-[428px] md:h-[428px] lg:h-[628px] mt-8 sm:mt-16" />
+	);
+};
+
+export default AppEmbed;

@@ -6,13 +6,14 @@ import {
 	MapIcon,
 	QuestionMarkCircleIcon
 } from '@heroicons/react/solid';
-import { Discord, Github } from '@icons-pack/react-simple-icons';
-import { Button, Dropdown } from '@sd/ui';
+import { Discord, Github, Icon } from '@icons-pack/react-simple-icons';
+import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
 import { BookmarkSimple, Link, List, MapPin } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
-import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
+import AppLogo from '../assets/images/logo.png';
+import { getWindow } from '../utils';
 
 function NavLink(props: { link?: string; children: string }) {
 	return (
@@ -26,23 +27,45 @@ function NavLink(props: { link?: string; children: string }) {
 	);
 }
 
-export default function NavBar() {
-	const [isAtTop, setIsAtTop] = useState(window.pageYOffset < 20);
+function dropdownItem(
+	props: { name: string; icon: Icon } & ({ href: string } | { path: string })
+): DropdownItem[number] {
+	if ('href' in props) {
+		return {
+			name: props.name,
+			icon: props.icon,
+			onPress: () => (window.location.href = props.href)
+		};
+	} else {
+		return {
+			name: props.name,
+			icon: props.icon,
+			onPress: () => (window.location.href = props.path),
+			selected: getWindow()?.location.href.includes(props.path)
+		};
+	}
+}
 
-	function onScroll(event: Event) {
-		if (window.pageYOffset < 20) setIsAtTop(true);
+export default function NavBar() {
+	const [isAtTop, setIsAtTop] = useState(true);
+	const window = getWindow();
+
+	function onScroll() {
+		if ((getWindow()?.pageYOffset || 0) < 20) setIsAtTop(true);
 		else if (isAtTop) setIsAtTop(false);
 	}
 
 	useEffect(() => {
-		window.addEventListener('scroll', onScroll);
-		return () => window.removeEventListener('scroll', onScroll);
+		if (!window) return;
+		setTimeout(onScroll, 0);
+		getWindow()?.addEventListener('scroll', onScroll);
+		return () => getWindow()?.removeEventListener('scroll', onScroll);
 	}, []);
 
 	return (
 		<div
 			className={clsx(
-				'fixed transition z-40 w-full h-16 border-b ',
+				'fixed transition-opacity z-40 w-full h-16 border-b ',
 				isAtTop
 					? 'bg-transparent border-transparent'
 					: 'border-gray-550 bg-gray-750 bg-opacity-80 backdrop-blur'
@@ -50,7 +73,7 @@ export default function NavBar() {
 		>
 			<div className="relative flex items-center h-full px-5 m-auto sm:container">
 				<a href="/" className="absolute flex flex-row items-center">
-					<AppLogo className="z-30 w-8 h-8 mr-3" />
+					<img src={AppLogo} className="z-30 w-8 h-8 mr-3" />
 					<h3 className="text-xl font-bold text-white">
 						Spacedrive
 						{/* <span className="ml-2 text-xs text-gray-400 uppercase">ALPHA</span> */}
@@ -68,37 +91,33 @@ export default function NavBar() {
 					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
 					items={[
 						[
-							{
+							dropdownItem({
 								name: 'Repository',
 								icon: Github,
-								onPress: () =>
-									(window.location.href = 'https://github.com/spacedriveapp/spacedrive')
-							},
-							{
+								href: 'https://github.com/spacedriveapp/spacedrive'
+							}),
+							dropdownItem({
 								name: 'Join Discord',
 								icon: Discord,
-								onPress: () => (window.location.href = 'https://discord.gg/gTaF2Z44f5')
-							}
+								href: 'https://discord.gg/gTaF2Z44f5'
+							})
 						],
 						[
-							{
+							dropdownItem({
 								name: 'Blog',
 								icon: BookmarkSimple,
-								onPress: () => (window.location.href = '/blog'),
-								selected: window.location.href.includes('/blog')
-							},
-							{
+								path: '/blog'
+							}),
+							dropdownItem({
 								name: 'Roadmap',
 								icon: MapIcon,
-								onPress: () => (window.location.href = '/roadmap'),
-								selected: window.location.href.includes('/roadmap')
-							},
-							{
+								path: '/roadmap'
+							}),
+							dropdownItem({
 								name: 'FAQ',
 								icon: QuestionMarkCircleIcon,
-								onPress: () => (window.location.href = '/faq'),
-								selected: window.location.href.includes('/faq')
-							},
+								path: '/faq'
+							}),
 							// {
 							//   name: 'Changelog',
 							//   icon: ClockIcon,
@@ -111,11 +130,11 @@ export default function NavBar() {
 							//   onPress: () => (window.location.href = '/privacy'),
 							//   selected: window.location.href.includes('/privacy')
 							// },
-							{
+							dropdownItem({
 								name: 'Sponsor us',
 								icon: HeartIcon,
-								onPress: () => (window.location.href = 'https://opencollective.com/spacedrive')
-							}
+								href: 'https://opencollective.com/spacedrive'
+							})
 						]
 					]}
 					buttonIcon={<List weight="bold" className="w-6 h-6" />}

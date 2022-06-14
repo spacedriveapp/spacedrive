@@ -101,6 +101,7 @@ html {
 	will-change: opacity;
 	opacity: 0;
 	filter: blur(160px);
+	will-change: filter opacity;
 	border-radius: 50%;
 	transform: scale(1.5);
 	animation-name: bloomBurst;

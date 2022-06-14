@@ -2,19 +2,19 @@ import { Github } from '@icons-pack/react-simple-icons';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
 import React, { FormEvent, useState } from 'react';
-import ReactCanvasConfetti from 'react-canvas-confetti';
+// import ReactCanvasConfetti from 'react-canvas-confetti';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
-import { ReactComponent as Alert } from '../../../../packages/interface/src/assets/svg/alert.svg';
-import { ReactComponent as Info } from '../../../../packages/interface/src/assets/svg/info.svg';
-import { ReactComponent as Spinner } from '../../../../packages/interface/src/assets/svg/spinner.svg';
+import { ReactComponent as Alert } from '@sd/interface/assets/svg/alert.svg';
+import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
+import { ReactComponent as Spinner } from '@sd/interface/assets/svg/spinner.svg';
 
 interface WaitlistInputs {
 	email: string;
 }
 
 export function HomeCTA() {
-	const { register, handleSubmit } = useForm<WaitlistInputs>();
+	// const { register, handleSubmit } = useForm<WaitlistInputs>();
 
 	const [loading, setLoading] = useState(false);
 	const [showWaitlistInput, setShowWaitlistInput] = useState(false);
@@ -61,7 +61,7 @@ export function HomeCTA() {
 
 	return (
 		<>
-			<ReactCanvasConfetti
+			{/* <ReactCanvasConfetti
 				fire={fire}
 				angle={44}
 				className="absolute top-48"
@@ -82,7 +82,7 @@ export function HomeCTA() {
 				ticks={600}
 				useWorker
 				zIndex={-1}
-			/>
+			/> */}
 			<div className="z-30 flex flex-row items-center h-10 space-x-4 animation-delay-2 fade-in">
 				{!showWaitlistInput ? (
 					<>

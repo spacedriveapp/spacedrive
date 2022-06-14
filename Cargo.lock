@@ -3776,9 +3776,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm-derive"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daf2fe8c80b43561355f4d51875273b5b6dfbac37952e8f64b1270769305c9d7"
+checksum = "4f693c8c68213034d472cbb93a379c63f4f307d97c06f1c41e4985de481687a5"
 dependencies = [
  "quote",
  "syn",
