@@ -17225,7 +17225,7 @@ packages:
       vite: ^2.6.0
     dependencies:
       '@svgr/core': 6.2.1
-      vite: 2.9.9_sass@1.52.1
+      vite: 2.9.9
     transitivePeerDependencies:
       - supports-color
     dev: true

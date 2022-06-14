@@ -6,8 +6,8 @@
 	"build": {
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
-		"beforeDevCommand": "",
-		"beforeBuildCommand": ""
+		"beforeDevCommand": "pnpm exec vite --clearScreen=false",
+		"beforeBuildCommand": "pnpm exec vite build"
 	},
 	"tauri": {
 		"bundle": {

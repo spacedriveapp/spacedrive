@@ -1,6 +1,6 @@
 use crate::{
-	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState,
-	util::db::create_connection,
+	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState, prisma::location,
+	prisma::file as prisma_file, util::db::create_connection,
 };
 use job::{Job, JobReport, Jobs};
 use prisma::PrismaClient;
@@ -164,11 +164,6 @@ impl Node {
 			internal_channel,
 		};
 
-		#[cfg(feature = "p2p")]
-		tokio::spawn(async move {
-			p2p::listener::listen(None).await.unwrap_or(());
-		});
-
 		(node, event_recv)
 	}
 
@@ -252,12 +247,39 @@ impl Node {
 				// ctx.queue_job(Box::new(FileIdentifierJob));
 				CoreResponse::LocCreate(loc)
 			}
-			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
-			ClientCommand::LocDelete { id: _ } => todo!(),
+			ClientCommand::LocUpdate { id, name } => {
+				ctx.database
+					.location()
+					.find_unique(location::id::equals(id))
+					.update(vec![location::name::set(name)])
+					.exec()
+					.await?;
+
+				CoreResponse::Success(())
+			}
+			ClientCommand::LocDelete { id } => {
+				ctx.database
+					.location()
+					.find_unique(location::id::equals(id))
+					.delete()
+					.exec()
+					.await?;
+
+				CoreResponse::Success(())
+			}
 			// CRUD for files
-			ClientCommand::FileRead { id: _ } => todo!(),
+			ClientCommand::FileReadMetaData { id: _ } => todo!(),
 			// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
-			ClientCommand::FileDelete { id: _ } => todo!(),
+			ClientCommand::FileDelete { id } => {
+				ctx.database
+					.file()
+					.find_unique(prisma_file::id::equals(id))
+					.delete()
+					.exec()
+					.await?;
+
+				CoreResponse::Success(())
+			}
 			// CRUD for tags
 			ClientCommand::TagCreate { name: _, color: _ } => todo!(),
 			ClientCommand::TagAssign {
@@ -336,7 +358,7 @@ impl Node {
 #[ts(export)]
 pub enum ClientCommand {
 	// Files
-	FileRead { id: i32 },
+	FileReadMetaData { id: i32 },
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
 	FileDelete { id: i32 },
 	// Library
