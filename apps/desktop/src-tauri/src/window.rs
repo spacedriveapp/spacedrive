@@ -54,24 +54,27 @@ impl<R: Runtime> WindowExt for Window<R> {
 
 	#[cfg(target_os = "macos")]
 	fn set_transparent_titlebar(&self, transparent: bool, large: bool) {
+		use cocoa::appkit::{NSApp, NSAppearanceNameVibrantDark};
+
 		unsafe {
 			let window = self.ns_window().unwrap() as id;
 
 			let mut style_mask = window.styleMask();
-			// println!("existing style mask, {:#?}", style_mask);
-			style_mask.set(
-				NSWindowStyleMask::NSFullSizeContentViewWindowMask,
-				transparent,
-			);
-			style_mask.set(
-				NSWindowStyleMask::NSTexturedBackgroundWindowMask,
-				transparent,
-			);
 			style_mask.set(
 				NSWindowStyleMask::NSUnifiedTitleAndToolbarWindowMask,
 				transparent && large,
 			);
+			style_mask.set(NSWindowStyleMask::NSBorderlessWindowMask, true);
 			window.setStyleMask_(style_mask);
+
+			let ns_app = NSApp() as id;
+			#[allow(non_snake_case)]
+			let NSAppearance = class!(NSAppearance);
+
+			// stay in dark mode across user changing system modes
+			let dark_aqua: id =
+				msg_send![NSAppearance, appearanceNamed: NSAppearanceNameVibrantDark];
+			let _: () = msg_send![ns_app, setAppearance: dark_aqua];
 
 			if large {
 				self.set_toolbar(true);
