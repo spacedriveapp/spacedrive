@@ -11,7 +11,6 @@ on:
 
 env:
   CARGO_INCREMENTAL: 1
-  # CARGO_LOG: cargo::core::compiler::fingerprint=trace
   CUSTOM_APT_FLAGS: --no-install-recommends
 
 jobs:
@@ -59,8 +58,16 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [ubuntu-latest, macos-latest] # TODO: Windows: , windows-latest
+        platform: [ubuntu-latest, macos-latest, windows-latest]
     steps:
+      - name: Log in to the Container registry
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ inputs.gh_token }}
+
       - name: Checkout repository
         uses: actions/checkout@v2
 
@@ -91,6 +98,10 @@ jobs:
       - name: Run 'setup-system.sh' script
         if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
         run: ./.github/scripts/setup-system.sh
+      
+      - name: Run 'setup-system.ps1' script
+        if: matrix.platform == 'windows-latest'
+        run: ./.github/scripts/setup-system.ps1
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -129,9 +140,45 @@ jobs:
 
       - name: Build Server
         if: matrix.platform == 'ubuntu-latest'
-        run: cargo build --frozen --offline -p server --release
+        run: |
+          cargo build --frozen --offline -p server --release
+          cp ./target/release/server ./apps/server/server
 
-      # TODO: If ubuntu and on main branch publish new docker image for server
+      - name: Determine image name & tag
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" == "release" ]; then
+            export IMAGE_TAG=${GITHUB_REF##*/}
+          else
+            export IMAGE_TAG=$(git rev-parse --short "$GITHUB_SHA")
+          fi
+          export GITHUB_REPOSITORY_LOWER=$(echo $GITHUB_REPOSITORY | awk '{print tolower($0)}')
+          export IMAGE_NAME="ghcr.io/$GITHUB_REPOSITORY_LOWER/server"
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "Building $IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Build Docker image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        run: |
+          docker build ./apps/server --tag $IMAGE_NAME:$IMAGE_TAG
+
+      - name: Push Docker image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        run: |
+          docker push $IMAGE_NAME:$IMAGE_TAG
+
+      - name: Tag & push image as latest staging image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request' && github.event_name != 'release'
+        run: |
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:staging
+          docker push $IMAGE_NAME:staging
+
+      - name: Tag & push image as latest production image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name == 'release'
+        run: |
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:production
+          docker push $IMAGE_NAME:production
 
       - name: Publish artifacts
-        uses: ./.github/actions/publish-desktop-artifacts
+        uses: ./.github/actions/publish-artifacts
