@@ -80,7 +80,7 @@ function Page() {
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 			<div className="mt-24 lg:mt-5" />
 			<NewBanner
-				headline="Spacedrive raises $1.9M led by OSS Capital"
+				headline="Spacedrive raises $2M led by OSS Capital"
 				href="https://spacedrive.com/blog/spacedrive-funding-announcement"
 				link="Read post"
 			/>
