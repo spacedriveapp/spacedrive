@@ -1,6 +1,7 @@
 import { PostOrPage, PostsOrPages, Tag } from '@tryghost/content-api';
 import React, { useEffect, useState } from 'react';
 
+import { BlogTag } from '../../components/BlogTag';
 import { blogEnabled, getPosts } from './posts';
 
 function Page() {
@@ -19,55 +20,41 @@ function Page() {
 		get();
 	}, []);
 
-	console.log(posts);
-
 	return (
-		<div className="container max-w-4xl p-4 mt-32 mb-20 m-auto prose lg:prose-xs dark:prose-invert flex flex-col gap-20">
+		<div className="container flex flex-col max-w-4xl gap-20 p-4 m-auto mt-32 mb-20 prose lg:prose-xs dark:prose-invert">
 			<section>
 				<h1 className="m-0">Blog</h1>
-				<p className="m-0">Get the latest from Spacedrive.</p>
+				<p className="">Get the latest from Spacedrive.</p>
 			</section>
-			<section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+			<section className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-1">
 				{posts.map((post: PostOrPage) => {
 					return (
 						<div
 							onClick={() => {
 								window.location.href = `/blog/${post.slug}`;
 							}}
-							className="cursor-pointer transition-colors relative p-8 rounded-xl flex flex-col gap-2 
-							bg-gray-850/80 hover:bg-gray-850/100 z-0 overflow-hidden"
+							className="relative z-0 flex flex-col gap-2 mb-8 overflow-hidden transition-colors border border-gray-500 cursor-pointer rounded-xl"
 						>
 							{post.feature_image && (
 								<img
 									src={post.feature_image}
 									alt=""
-									className="-z-10 blur-md absolute inset-0 object-cover m-0 rounded-xl h-full w-full opacity-10"
+									className="inset-0 object-cover w-full m-0 h-96 -z-10 rounded-t-xl"
 								/>
 							)}
-							<h2 className="m-0">{post.title}</h2>
-							<small className="m-0">{post.reading_time} minute read.</small>
-							<p className="my-2 line-clamp-3">{post.excerpt}</p>
-							<p className="m-0 text-white">
-								by {post.primary_author?.name} &middot;{' '}
-								{new Date(post.published_at ?? '').toLocaleDateString()}
-							</p>
-							<div className="flex flex-wrap gap-2">
-								{post.tags?.map((tag: Tag) => {
-									return (
-										<span
-											className={`px-2 py-1 rounded-full text-sm`}
-											style={{
-												backgroundColor: tag.accent_color + '' ?? '',
-												color:
-													parseInt(tag.accent_color?.slice(1) ?? '', 16) > 0xffffff / 2
-														? '#000'
-														: '#fff'
-											}}
-										>
-											{tag.name}
-										</span>
-									);
-								})}
+							<div className="p-8">
+								<h2 className="m-0 text-4xl">{post.title}</h2>
+								<small className="m-0">{post.reading_time} minute read.</small>
+								<p className="my-2 line-clamp-3">{post.excerpt}</p>
+								<p className="m-0 text-white">
+									by {post.primary_author?.name} &middot;{' '}
+									{new Date(post.published_at ?? '').toLocaleDateString()}
+								</p>
+								<div className="flex flex-wrap gap-2 mt-4">
+									{post.tags?.map((tag: Tag) => {
+										return <BlogTag tag={tag} />;
+									})}
+								</div>
 							</div>
 						</div>
 					);
