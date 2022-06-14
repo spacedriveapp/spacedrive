@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 echo "Setting up your system for Spacedrive development!"
 
 which cargo &> /dev/null
