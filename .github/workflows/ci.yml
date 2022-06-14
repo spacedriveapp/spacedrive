@@ -118,26 +118,18 @@ jobs:
         if: steps.cache-prisma.outputs.cache-hit != 'true'
         run: cargo run --frozen --locked -p prisma-cli --release -- generate
 
+      - name: Cargo fetch
+        run: cargo fetch --frozen -p sdcore --release
+
       - name: Check Core
-        run: cargo check --frozen --locked -p sdcore --release
-
-      - name: Check Server
-        run: cargo check --frozen --locked -p server --release
-
-      - name: Build Core
-        run: cargo build --frozen --locked -p sdcore --release
-
-      - name: Build Server
-        run: cargo build --frozen --locked -p server --release
-
-      - name: Build Server (x2)
-        run: cargo build --frozen --locked -p server --release
+        run: cargo check --frozen --offline -p sdcore --release
 
       - name: Bundle Desktop
-        run: pnpm desktop tauri build -v
-      
-      - name: Bundle Desktop (x2)
-        run: pnpm desktop tauri build -v
+        run: pnpm desktop tauri build
+
+      - name: Build Server
+        if: matrix.platform == 'ubuntu-latest'
+        run: cargo build --frozen --offline -p server --release
 
       # TODO: If ubuntu and on main branch publish new docker image for server
 
