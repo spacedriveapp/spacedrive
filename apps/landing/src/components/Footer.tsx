@@ -73,7 +73,7 @@ export function Footer() {
 					<FooterLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">
 						Documentation
 					</FooterLink>
-					<FooterLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs/developer/contributing.md">
+					<FooterLink link="https://github.com/spacedriveapp/spacedrive/blob/main/CONTRIBUTING.md">
 						Contribute
 					</FooterLink>
 					<div className="opacity-50 pointer-events-none">
