@@ -9,7 +9,7 @@ import {
 import { Discord, Github } from '@icons-pack/react-simple-icons';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { Link, List, MapPin, Question } from 'phosphor-react';
+import { BookmarkSimple, Link, List, MapPin } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
 import { ReactComponent as AppLogo } from '../assets/app-logo.svg';
@@ -61,7 +61,8 @@ export default function NavBar() {
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/faq">FAQ</NavLink>
 					<NavLink link="/team">Team</NavLink>
-					<NavLink link="https://spacedrive.hashnode.dev">Blog</NavLink>
+					<NavLink link="/blog">Blog</NavLink>
+					{/* <NavLink link="/jobs">Jobs</NavLink> */}
 				</div>
 				<Dropdown
 					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
@@ -80,6 +81,12 @@ export default function NavBar() {
 							}
 						],
 						[
+							{
+								name: 'Blog',
+								icon: BookmarkSimple,
+								onPress: () => (window.location.href = '/blog'),
+								selected: window.location.href.includes('/blog')
+							},
 							{
 								name: 'Roadmap',
 								icon: MapIcon,

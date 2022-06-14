@@ -81,7 +81,7 @@ function Page() {
 			<div className="mt-24 lg:mt-5" />
 			<NewBanner
 				headline="Spacedrive raises $1.9M led by OSS Capital"
-				href="https://spacedrive.hashnode.dev/spacedrive-funding-announcement"
+				href="https://spacedrive.com/blog/spacedrive-funding-announcement"
 				link="Read post"
 			/>
 			{unsubscribedFromWaitlist && (
