@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 			className={clsx(
 				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600',
 				{
-					'!bg-transparent': appProps?.platform === 'macOS'
+					'dark:!bg-opacity-40': appProps?.platform === 'macOS'
 				}
 			)}
 		>
@@ -162,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					return (
 						<div key={index} className="flex flex-row items-center">
 							<NavLink
-								className="'relative w-full group'"
+								className="relative w-full group"
 								to={{
 									pathname: `explorer/${location.id}`
 								}}
@@ -172,7 +172,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 										className={clsx(
 											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
 											{
-												'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
+												'!bg-[-apple-system-control-accent] !text-white hover:bg-[-apple-system-control-accent] dark:hover:bg-[-apple-system-control-accent]':
+													isActive
 											}
 										)}
 									>
@@ -195,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							createLocation({ path: result });
 						});
 					}}
-					className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 dark:text-gray-500 border border-dashed rounded border-transparent cursor-normal border-gray-350 dark:border-gray-550 hover:dark:border-gray-500 transition"
+					className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 dark:text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 dark:border-gray-450 hover:dark:border-gray-400 transition"
 				>
 					Add Location
 				</button>
