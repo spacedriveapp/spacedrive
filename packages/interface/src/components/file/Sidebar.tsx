@@ -170,19 +170,18 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 								{({ isActive }) => (
 									<span
 										className={clsx(
-											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
+											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center hover:bg-gray-100 truncate dark:hover:bg-gray-600 text-sm',
 											{
-												'!bg-[-apple-system-control-accent] !text-white hover:bg-[-apple-system-control-accent] dark:hover:bg-[-apple-system-control-accent]':
-													isActive
+												'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 											}
 										)}
 									>
-										<div className="w-[18px] mr-2 -mt-0.5">
-											<Folder className={clsx(!isActive && 'hidden')} white />
-											<Folder className={clsx(isActive && 'hidden')} />
+										<div className="-mt-0.5 flex-grow-0 flex-shrink-0">
+											<Folder size={18} className={clsx(!isActive && 'hidden')} white />
+											<Folder size={18} className={clsx(isActive && 'hidden')} />
 										</div>
-										{location.name}
-										<div className="flex-grow" />
+
+										<span className="flex-grow flex-shrink-0">{location.name}</span>
 									</span>
 								)}
 							</NavLink>
