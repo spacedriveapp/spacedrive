@@ -129,8 +129,5 @@ pub(crate) fn window_set_blurry_background(window: id) {
 
 		let _: () = msg_send![window, setContentView: visual_effect];
 		let _: () = msg_send![visual_effect, addSubview: content_view];
-
-		// let content_frame: id = msg_send![window, frame];
-		// let _: () = msg_send![content_view, setFrame: content_frame];
 	}
 }
