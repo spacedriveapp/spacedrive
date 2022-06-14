@@ -1,8 +1,6 @@
 import { Button } from '@sd/ui';
 import React, { Suspense } from 'react';
-import { createRoot } from 'react-dom/client';
 import { BrowserRouter as Router, useRoutes } from 'react-router-dom';
-import routes from '~react-pages';
 
 import '@sd/ui/style';
 
@@ -10,7 +8,7 @@ import { Footer } from './components/Footer';
 import NavBar from './components/NavBar';
 import './style.scss';
 
-function App() {
+export function App() {
 	return (
 		<Suspense fallback={<p>Loading...</p>}>
 			<div className="dark:bg-black dark:text-white ">
@@ -31,13 +29,3 @@ function App() {
 		</Suspense>
 	);
 }
-
-const root = createRoot(document.getElementById('root')!);
-
-root.render(
-	<React.StrictMode>
-		<Router>
-			<App />
-		</Router>
-	</React.StrictMode>
-);

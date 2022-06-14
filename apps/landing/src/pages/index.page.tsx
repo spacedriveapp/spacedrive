@@ -1,12 +1,14 @@
 import clsx from 'clsx';
-import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { Suspense, useEffect, useState } from 'react';
 
-import { ReactComponent as Info } from '../../../../packages/interface/src/assets/svg/info.svg';
-import AppEmbed from '../components/AppEmbed';
+import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
+
+import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';
 import NewBanner from '../components/NewBanner';
+import { usePageContext } from '../renderer/usePageContext';
+import { getWindow } from '../utils';
 
 interface SectionProps {
 	orientation: 'left' | 'right';
@@ -41,13 +43,13 @@ function Section(props: SectionProps = { orientation: 'left' }) {
 }
 
 function Page() {
-	const [searchParams, setSearchParams] = useSearchParams();
+	const { urlParsed } = usePageContext();
 	const [unsubscribedFromWaitlist, setUnsubscribedFromWaitlist] = useState(false);
 
 	useEffect(() => {
-		if (!window) return;
+		if (!getWindow()) return;
 
-		const cuid = searchParams.get('wunsub');
+		const cuid = urlParsed.search?.['wunsub'];
 		if (!cuid) return;
 
 		(async () => {
@@ -95,7 +97,7 @@ function Page() {
 				</div>
 			)}
 
-			<h1 className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center fade-in-heading md:text-6xl">
+			<h1 className="z-30 px-2 mb-3 text-4xl text-white font-black leading-tight text-center fade-in-heading md:text-6xl">
 				A file explorer from the future.
 			</h1>
 			<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
@@ -129,7 +131,7 @@ function Page() {
 					</>
 				}
 			/>
-			<Bubbles />
+			{/* <Bubbles /> */}
 		</>
 	);
 }

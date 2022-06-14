@@ -1,0 +1,7 @@
+{
+    "extends": "../../packages/config/interface.tsconfig.json",
+    "compilerOptions": {},
+    "include": [
+        "src"
+    ]
+}
