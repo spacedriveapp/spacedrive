@@ -84,7 +84,7 @@ function AppLayout() {
 			<div className="flex flex-col w-full min-h-full">
 				{/* <TopBar /> */}
 
-				<div className="relative flex w-full bg-white dark:bg-gray-650">
+				<div className="relative flex w-full min-h-full bg-white dark:bg-gray-650">
 					<Outlet />
 				</div>
 			</div>
