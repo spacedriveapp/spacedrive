@@ -119,7 +119,7 @@ jobs:
         run: cargo run --frozen --locked -p prisma-cli --release -- generate
 
       - name: Cargo fetch
-        run: cargo fetch --frozen -p sdcore --release
+        run: cargo fetch --frozen
 
       - name: Check Core
         run: cargo check --frozen --offline -p sdcore --release
