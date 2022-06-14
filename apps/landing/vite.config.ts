@@ -18,11 +18,5 @@ export default defineConfig({
 	server: {
 		port: 8003
 	},
-	build: {
-		polyfillDynamicImport: false
-	},
-	vercel: {
-		// Tweak what you need, check TS definition for details
-	},
 	publicDir: 'public'
 });
