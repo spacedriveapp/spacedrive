@@ -7,11 +7,10 @@ license = ""
 repository = "https://github.com/spacedriveapp/spacedrive"
 default-run = "spacedrive"
 edition = "2021"
-build = "src/build.rs"
+build = "build.rs"
 
 [build-dependencies]
 tauri-build = { version = "1.0.0-rc.5", features = [] }
-swift-rs = "0.2.3"
 
 [dependencies]
 # Project dependencies
@@ -27,6 +26,10 @@ window-shadows = "0.1.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = { git = "https://github.com/maxichrome/core-foundation-rs.git", branch = "add-window-utils" }
 objc = "0.2.7"
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease" }
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = ["build"] }
 
 [features]
 default = [ "custom-protocol" ]

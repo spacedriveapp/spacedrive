@@ -4,10 +4,9 @@ use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse
 use tauri::api::path;
 use tauri::Manager;
 
+#[cfg(target_os = "macos")]
+mod macos;
 mod menu;
-mod window;
-
-use window::WindowExt;
 
 #[tauri::command(async)]
 async fn client_query_transport(
@@ -64,6 +63,11 @@ async fn main() {
 		.setup(|app| {
 			let app = app.handle();
 
+			#[cfg(target_os = "macos")]
+			{
+				macos::lock_app_theme(1);
+			}
+
 			app.windows().iter().for_each(|(_, window)| {
 				window.hide().unwrap();
 
@@ -72,8 +76,12 @@ async fn main() {
 
 				#[cfg(target_os = "macos")]
 				{
-					window.set_transparent_titlebar(true, true);
-					window.set_blurs_behind();
+					use macos::*;
+
+					let window = window.ns_window().unwrap();
+					blur_window_background(window);
+					add_invisible_toolbar(window, true);
+					set_transparent_titlebar(window, true, true);
 				}
 			});
 
@@ -100,7 +108,6 @@ async fn main() {
 			Ok(())
 		})
 		.on_menu_event(|event| menu::handle_menu_event(event))
-		.on_window_event(|event| window::handle_window_event(event))
 		.invoke_handler(tauri::generate_handler![
 			client_query_transport,
 			client_command_transport,
