@@ -9,3 +9,9 @@ pub_swift_fn!(set_titlebar_style(
 	transparent: Bool,
 	large: Bool
 ));
+
+#[allow(dead_code)]
+pub enum AppThemeType {
+	Light = 0 as Int,
+	Dark = 1 as Int,
+}

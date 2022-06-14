@@ -1,8 +1,22 @@
 import AppKit
 
+@objc
+public enum AppThemeType: Int {
+	case light = 0;
+	case dark = 1;
+}
+
 @_cdecl("lock_app_theme")
-public func lockAppTheme(themeType: Int) {
-	let theme = themeType == 0 ? NSAppearance(named: .aqua) :  NSAppearance(named: .darkAqua);
+public func lockAppTheme(themeType: AppThemeType) {
+	var theme: NSAppearance;
+
+	switch themeType {
+		case .dark:
+			theme = NSAppearance(named: .darkAqua)!;
+		case .light:
+			theme = NSAppearance(named: .aqua)!;
+	}
+
 	NSApp.appearance = theme;
 }
 
