@@ -1096,24 +1096,9 @@ checksum = "6f63902e9223530efb4e26ccd0cf55ec30d592d3b42e21a28defc42a9586e832"
 dependencies = [
  "bitflags",
  "block",
- "cocoa-foundation 0.1.0",
- "core-foundation 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-graphics 0.22.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "foreign-types",
- "libc",
- "objc",
-]
-
-[[package]]
-name = "cocoa"
-version = "0.24.0"
-source = "git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils#8f41553e6a1d4a35283141ee4a0d7e8e8a84de47"
-dependencies = [
- "bitflags",
- "block",
- "cocoa-foundation 0.1.1",
- "core-foundation 0.9.3 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
- "core-graphics 0.22.3 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
+ "cocoa-foundation",
+ "core-foundation",
+ "core-graphics",
  "foreign-types",
  "libc",
  "objc",
@@ -1127,22 +1112,8 @@ checksum = "7ade49b65d560ca58c403a479bb396592b155c0185eada742ee323d1d68d6318"
 dependencies = [
  "bitflags",
  "block",
- "core-foundation 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-graphics-types 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "foreign-types",
- "libc",
- "objc",
-]
-
-[[package]]
-name = "cocoa-foundation"
-version = "0.1.1"
-source = "git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils#8f41553e6a1d4a35283141ee4a0d7e8e8a84de47"
-dependencies = [
- "bitflags",
- "block",
- "core-foundation 0.9.3 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
- "core-graphics-types 0.1.1 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
+ "core-foundation",
+ "core-graphics-types",
  "foreign-types",
  "libc",
  "objc",
@@ -1244,16 +1215,7 @@ version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "194a7a9e6de53fa55116934067c844d9d749312f75c6f6d0980e8c252f8c2146"
 dependencies = [
- "core-foundation-sys 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc",
-]
-
-[[package]]
-name = "core-foundation"
-version = "0.9.3"
-source = "git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils#8f41553e6a1d4a35283141ee4a0d7e8e8a84de47"
-dependencies = [
- "core-foundation-sys 0.8.3 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
+ "core-foundation-sys",
  "libc",
 ]
 
@@ -1264,31 +1226,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
-name = "core-foundation-sys"
-version = "0.8.3"
-source = "git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils#8f41553e6a1d4a35283141ee4a0d7e8e8a84de47"
-
-[[package]]
 name = "core-graphics"
 version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2581bbab3b8ffc6fcbd550bf46c355135d16e9ff2a6ea032ad6b9bf1d7efe4fb"
 dependencies = [
  "bitflags",
- "core-foundation 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-graphics-types 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "foreign-types",
- "libc",
-]
-
-[[package]]
-name = "core-graphics"
-version = "0.22.3"
-source = "git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils#8f41553e6a1d4a35283141ee4a0d7e8e8a84de47"
-dependencies = [
- "bitflags",
- "core-foundation 0.9.3 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
- "core-graphics-types 0.1.1 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
+ "core-foundation",
+ "core-graphics-types",
  "foreign-types",
  "libc",
 ]
@@ -1300,18 +1245,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a68b68b3446082644c91ac778bf50cd4104bfb002b5a6a7c44cca5a2c70788b"
 dependencies = [
  "bitflags",
- "core-foundation 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "foreign-types",
- "libc",
-]
-
-[[package]]
-name = "core-graphics-types"
-version = "0.1.1"
-source = "git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils#8f41553e6a1d4a35283141ee4a0d7e8e8a84de47"
-dependencies = [
- "bitflags",
- "core-foundation 0.9.3 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
+ "core-foundation",
  "foreign-types",
  "libc",
 ]
@@ -2967,7 +2901,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae8f4a3c3d4c89351ca83e120c1c00b27df945d38e05695668c9d4b4f7bc52f3"
 dependencies = [
  "async-io",
- "core-foundation 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation",
  "fnv",
  "futures",
  "if-addrs",
@@ -6378,8 +6312,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dc14f172faf8a0194a3aded622712b0de276821addc574fa54fc0a1167e10dc"
 dependencies = [
  "bitflags",
- "core-foundation 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-foundation-sys 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation",
+ "core-foundation-sys",
  "libc",
  "security-framework-sys",
 ]
@@ -6390,7 +6324,7 @@ version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0160a13a177a45bfb43ce71c01580998474f556ad854dcbca936dd2841a5c556"
 dependencies = [
- "core-foundation-sys 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation-sys",
  "libc",
 ]
 
@@ -6831,8 +6765,6 @@ dependencies = [
 name = "spacedrive"
 version = "0.1.0"
 dependencies = [
- "cocoa 0.24.0 (git+https://github.com/maxichrome/core-foundation-rs.git?branch=add-window-utils)",
- "objc",
  "sdcore",
  "swift-rs",
  "tauri",
@@ -7051,7 +6983,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3977ec2e0520829be45c8a2df70db2bf364714d8a748316a10c3c35d4d2b01c9"
 dependencies = [
  "cfg-if 1.0.0",
- "core-foundation-sys 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation-sys",
  "libc",
  "ntapi",
  "once_cell",
@@ -7066,7 +6998,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d75182f12f490e953596550b65ee31bda7c8e043d9386174b353bda50838c3fd"
 dependencies = [
  "bitflags",
- "core-foundation 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation",
  "system-configuration-sys",
 ]
 
@@ -7076,7 +7008,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a75fb188eb626b924683e3b95e3a48e63551fcfb51949de2f06a9d91dbee93c9"
 dependencies = [
- "core-foundation-sys 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation-sys",
  "libc",
 ]
 
@@ -7121,9 +7053,9 @@ dependencies = [
  "bitflags",
  "cairo-rs",
  "cc",
- "cocoa 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-foundation 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-graphics 0.22.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cocoa",
+ "core-foundation",
+ "core-graphics",
  "crossbeam-channel",
  "dispatch",
  "gdk",
@@ -7163,7 +7095,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "271450eb289cb4d8d0720c6ce70c72c8c858c93dd61fc625881616752e6b98f6"
 dependencies = [
  "cfg-if 1.0.0",
- "core-foundation-sys 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation-sys",
  "libc",
  "objc",
 ]
@@ -7193,7 +7125,7 @@ checksum = "cb533e95e09fd191ef8e0a0ee6b61701b5f32175e48f82854a71a8f8367bdb41"
 dependencies = [
  "anyhow",
  "attohttpc",
- "cocoa 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cocoa",
  "dirs-next",
  "embed_plist",
  "flate2",
@@ -7315,7 +7247,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2cbc41ea88305f3e5dc133cc5c717c6913a15f121f99e7a238a0135dac083e"
 dependencies = [
- "cocoa 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cocoa",
  "gtk",
  "percent-encoding",
  "rand 0.8.5",
@@ -8391,7 +8323,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "796156ad1a67853e927727809bb6138ddc1f19ebced0dc976c0d109d5e2576f7"
 dependencies = [
- "cocoa 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cocoa",
  "objc",
  "raw-window-handle",
  "windows-sys",
@@ -8649,8 +8581,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e84a6f7f0ef90004a244a6dd4125b5fb78074b48c4369ab52b3cac68a863e"
 dependencies = [
  "block",
- "cocoa 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-graphics 0.22.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cocoa",
+ "core-graphics",
  "gdk",
  "gio",
  "glib",
