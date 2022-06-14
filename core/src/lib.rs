@@ -266,10 +266,12 @@ impl Node {
 				tag::tag_assign(ctx, file_id, tag_id).await?
 			}
 			ClientCommand::TagDelete { id } => tag::tag_delete(ctx, id).await?,
+			ClientCommand::TagUpdate { id, name, color } => {
+				tag::update_tag(ctx, id, name, color).await?
+			}
 			// CRUD for libraries
 			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
 			ClientCommand::LibDelete { id: _ } => todo!(),
-			ClientCommand::TagUpdate { name: _, color: _ } => todo!(),
 			ClientCommand::GenerateThumbsForLocation { id, path } => {
 				ctx.spawn_job(Box::new(ThumbnailJob {
 					location_id: id,
@@ -339,25 +341,58 @@ impl Node {
 #[ts(export)]
 pub enum ClientCommand {
 	// Files
-	FileRead { id: i32 },
+	FileRead {
+		id: i32,
+	},
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
-	FileDelete { id: i32 },
+	FileDelete {
+		id: i32,
+	},
 	// Library
-	LibDelete { id: i32 },
+	LibDelete {
+		id: i32,
+	},
 	// Tags
-	TagCreate { name: String, color: String },
-	TagUpdate { name: String, color: String },
-	TagAssign { file_id: i32, tag_id: i32 },
-	TagDelete { id: i32 },
+	TagCreate {
+		name: String,
+		color: String,
+	},
+	TagUpdate {
+		id: i32,
+		name: Option<String>,
+		color: Option<String>,
+	},
+	TagAssign {
+		file_id: i32,
+		tag_id: i32,
+	},
+	TagDelete {
+		id: i32,
+	},
 	// Locations
-	LocCreate { path: String },
-	LocUpdate { id: i32, name: Option<String> },
-	LocDelete { id: i32 },
+	LocCreate {
+		path: String,
+	},
+	LocUpdate {
+		id: i32,
+		name: Option<String>,
+	},
+	LocDelete {
+		id: i32,
+	},
 	// System
-	SysVolumeUnmount { id: i32 },
-	GenerateThumbsForLocation { id: i32, path: String },
+	SysVolumeUnmount {
+		id: i32,
+	},
+	GenerateThumbsForLocation {
+		id: i32,
+		path: String,
+	},
 	// PurgeDatabase,
-	IdentifyUniqueFiles { id: i32, path: String },
+	IdentifyUniqueFiles {
+		id: i32,
+		path: String,
+	},
 }
 
 // represents an event this library can emit

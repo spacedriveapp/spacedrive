@@ -29,6 +29,23 @@ pub async fn create_tag(
 	})
 }
 
+pub async fn update_tag(
+	ctx: CoreContext,
+	id: i32,
+	name: Option<String>,
+	color: Option<String>,
+) -> Result<CoreResponse, CoreError> {
+	ctx.database
+		.tag()
+		.find_unique(tag::id::equals(id))
+		.update(vec![tag::name::set(name), tag::color::set(color)])
+		.exec()
+		.await
+		.unwrap();
+
+	Ok(CoreResponse::Success(()))
+}
+
 pub async fn tag_assign(
 	ctx: CoreContext,
 	file_id: i32,
