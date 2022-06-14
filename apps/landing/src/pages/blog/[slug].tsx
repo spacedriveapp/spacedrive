@@ -32,7 +32,9 @@ function MarkdownPage() {
 					</figure>
 					<section className="flex flex-wrap gap-4 px-8 -mx-8 rounded-xl">
 						<div className="flex-grow">
-							<h1 className="m-0 leading-normal">{post?.title}</h1>
+							<h1 className="m-0 text-2xl leading-snug sm:leading-normal sm:text-4xl">
+								{post?.title}
+							</h1>
 							<p className="m-0 mt-2">
 								by <b>{post?.primary_author?.name}</b> &middot;{' '}
 								{new Date(post?.published_at ?? '').toLocaleDateString()}
