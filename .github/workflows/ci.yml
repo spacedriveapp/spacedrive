@@ -22,18 +22,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Setup Node
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 17
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.1
+        uses: pnpm/action-setup@v2.0.1
         with:
-          version: 7.x.x
+          version: 7
+          run_install: false
 
-      - name: Install dependencies
-        run: pnpm i --frozen-lockfile
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
+      
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install pnpm dependencies
+        run: pnpm --frozen-lockfile i
 
       - name: Perform typechecks
         run: pnpm typecheck
@@ -41,6 +55,7 @@ jobs:
   build-core:
     name: Build Core (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
+    needs: typescript
     strategy:
       fail-fast: true
       matrix:
@@ -89,13 +104,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
       - name: Install pnpm dependencies
-        run: pnpm --frozen-lockfile install
+        run: pnpm --frozen-lockfile i
       
       - name: Cache Prisma codegen
         id: cache-prisma
         uses: actions/cache@v3
         with:
-          path: ./src/prisma.rs
+          path: ./core/src/prisma.rs
           key: prisma-${{ hashFiles('./core/prisma/Cargo.toml', './core/prisma/schema.prisma', './core/prisma/src/main.rs') }}
 
       - name: Generate Prisma client
@@ -103,9 +118,15 @@ jobs:
         if: steps.cache-prisma.outputs.cache-hit != 'true'
         run: cargo run --frozen --locked -p prisma-cli --release -- generate
 
+      - name: Check Core
+        run: cargo check --frozen --locked -p sdcore --release
+
+      - name: Check Server
+        run: cargo check --frozen --locked -p server --release
+
       - name: Build Core
         run: cargo build --frozen --locked -p sdcore --release
-      
+
       - name: Build Server
         run: cargo build --frozen --locked -p server --release
 
@@ -118,92 +139,7 @@ jobs:
       - name: Bundle Desktop (x2)
         run: pnpm desktop tauri build -v
 
+      # TODO: If ubuntu and on main branch publish new docker image for server
+
       - name: Publish artifacts
         uses: ./.github/actions/publish-desktop-artifacts
-
-  # package-desktop:
-  #   name: Package desktop (${{ matrix.platform }})
-  #   runs-on: ${{ matrix.platform }}
-  #   needs: [typescript, build-core]
-  #   strategy:
-  #     matrix:
-  #       platform: [ubuntu-latest, macos-latest, windows-latest]
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v2
-
-  #     - name: Install dependencies
-  #       uses: ./.github/actions/install-deps
-
-  #     - name: Setup Node
-  #       uses: actions/setup-node@v1
-  #       with:
-  #         node-version: 17
-
-  #     - name: Install Rust stable
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #         profile: minimal
-  #         override: true
-  #         components: rustfmt, rust-src
-
-  #     - name: Cache Rust Dependencies
-  #       uses: Swatinem/rust-cache@v1
-  #       with:
-  #         sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
-
-  #     - name: Install pnpm
-  #       uses: pnpm/action-setup@v2.2.1
-  #       with:
-  #         version: 7.x.x
-
-  #     - name: Install pnpm dependencies
-  #       run: pnpm i --frozen-lockfile
-
-  #     - name: Build frontend
-  #       run: pnpm desktop build
-
-  #     - name: Generate Prisma client
-  #       working-directory: core
-  #       run: cargo run -p prisma-cli --release -- generate
-
-  #     - name: Bundle
-  #       run: pnpm desktop tauri build
-
-  #     - name: Publish artifacts
-  #       uses: ./.github/actions/publish-desktop-artifacts
-
-  # TODO: Do at same time as building core for extra speed
-  # build-server:
-  #   name: Build server
-  #   runs-on: ubuntu-latest
-  #   needs: build-core
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v2
-
-  #     - name: Install dependencies
-  #       uses: ./.github/actions/install-deps
-
-  #     - name: Install Rust stable
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #         profile: minimal
-  #         override: true
-  #         components: rustfmt, rust-src
-
-  #     - name: Cache Rust Dependencies
-  #       uses: Swatinem/rust-cache@v1
-  #       with:
-  #         sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
-
-  #     - name: Generate Prisma client
-  #       working-directory: core
-  #       run: cargo run -p prisma-cli --release -- generate
-
-  #     - name: Build server image
-  #       uses: ./.github/actions/build-server-image
-  #       with:
-  #         gh_token: ${{ secrets.GITHUB_TOKEN }}

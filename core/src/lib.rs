@@ -164,11 +164,6 @@ impl Node {
 			internal_channel,
 		};
 
-		#[cfg(feature = "p2p")]
-		tokio::spawn(async move {
-			p2p::listener::listen(None).await.unwrap_or(());
-		});
-
 		(node, event_recv)
 	}
 
