@@ -79,9 +79,8 @@ async fn main() {
 					use macos::*;
 
 					let window = window.ns_window().unwrap();
+					set_titlebar_style(window, true, true);
 					blur_window_background(window);
-					add_invisible_toolbar(window, true);
-					set_transparent_titlebar(window, true, true);
 				}
 			});
 

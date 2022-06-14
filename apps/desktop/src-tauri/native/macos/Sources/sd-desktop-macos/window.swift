@@ -20,9 +20,9 @@ public func blurWindowBackground(window: NSWindow) {
 	blurryView.addSubview(windowContent);
 }
 
-@_cdecl("add_invisible_toolbar")
-public func addInvisibleToolbar(window: NSWindow, shown: Bool) {
-	if !shown {
+@_cdecl("set_invisible_toolbar")
+public func setInvisibleToolbar(window: NSWindow, hasToolbar: Bool) {
+	if !hasToolbar {
 		window.toolbar = nil;
 		return;
 	}
@@ -33,8 +33,8 @@ public func addInvisibleToolbar(window: NSWindow, shown: Bool) {
 	window.toolbar = toolbar;
 }
 
-@_cdecl("set_transparent_titlebar")
-public func setTransparentTitlebar(window: NSWindow, transparent: Bool, large: Bool) {
+@_cdecl("set_titlebar_style")
+public func setTitlebarStyle(window: NSWindow, transparent: Bool, large: Bool) {
 	var styleMask = window.styleMask;
 
 	if transparent && large {
@@ -44,7 +44,7 @@ public func setTransparentTitlebar(window: NSWindow, transparent: Bool, large: B
 	window.styleMask = styleMask;
 
 	if large {
-		addInvisibleToolbar(window: window, shown: true);
+		setInvisibleToolbar(window: window, hasToolbar: true);
 	}
 
 	window.titleVisibility = transparent ? .hidden : .visible;
