@@ -206,19 +206,19 @@ export const OverviewScreen = () => {
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 space-y-4">
-					{nodeState && (
-						<Device
-							name={nodeState?.node_name ?? 'This Device'}
-							size="1.4TB"
-							runningJob={{ amount: 65, task: 'Generating preview media' }}
-							locations={[
-								{ name: 'Pictures', folder: true },
-								{ name: 'Downloads', folder: true },
-								{ name: 'Minecraft', folder: true }
-							]}
-							type="laptop"
-						/>
-					)}
+					<Device
+						name={`James' MacBook Pro`}
+						size="1TB"
+						locations={[
+							{ name: 'Documents', folder: true },
+							{ name: 'Movies', folder: true },
+							{ name: 'Downloads', folder: true },
+							{ name: 'Minecraft', folder: true },
+							{ name: 'Projects', folder: true },
+							{ name: 'Notes', folder: true }
+						]}
+						type="desktop"
+					/>
 					<Device
 						name={`James' iPhone 12`}
 						size="47.7GB"

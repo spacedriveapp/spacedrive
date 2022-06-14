@@ -6,6 +6,7 @@ import { ReactComponent as Info } from '../../../../packages/interface/src/asset
 import AppEmbed from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';
+import NewBanner from '../components/NewBanner';
 
 interface SectionProps {
 	orientation: 'left' | 'right';
@@ -78,18 +79,18 @@ function Page() {
 		<>
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 			<div className="mt-24 lg:mt-5" />
-			{/* <NewBanner
-				headline="Spacedrive raises $1.9M led by OSS Capital"
-				href="https://spacedrive.hashnode.dev/spacedrive-funding-announcement"
+			<NewBanner
+				headline="Spacedrive raises $2M led by OSS Capital"
+				href="https://spacedrive.com/blog/spacedrive-funding-announcement"
 				link="Read post"
-			/> */}
+			/>
 			{unsubscribedFromWaitlist && (
 				<div
 					className={
 						'-mt-8 flex flex-row items-center bg-opacity-20 border-2 my-2 px-2 rounded-md bg-green-800 border-green-900'
 					}
 				>
-					<Info className="fill-green-500 w-5 mr-1" />
+					<Info className="w-5 mr-1 fill-green-500" />
 					<p className={'text-sm text-green-500'}>You have been unsubscribed from the waitlist</p>
 				</div>
 			)}

@@ -13,7 +13,7 @@ function MarkdownPage(props: MarkdownPageProps) {
 		Prism.highlightAll();
 	}, []);
 	return (
-		<div className="container max-w-4xl p-4 mt-32 mb-20">
+		<div className="sm:container max-w-4xl p-4 mt-32 mb-20">
 			<article id="content" className="m-auto prose lg:prose-xs dark:prose-invert">
 				{props.children}
 			</article>
