@@ -2,6 +2,7 @@
 	"scripts": {
 		"dev": "npm run server",
 		"prod": "npm run build && npm run server:prod",
+		"vercel-build": "./vercel/deploy.sh",
 		"build": "vite build && vite build --ssr && vite-plugin-ssr prerender",
 		"server": "ts-node ./server",
 		"server:prod": "cross-env NODE_ENV=production ts-node ./server"
@@ -39,7 +40,7 @@
 	},
 	"devDependencies": {
 		"@babel/preset-react": "^7.17.12",
-		"@magne4000/vite-plugin-vercel-ssr": "^0.0.1",
+		"@magne4000/vite-plugin-vercel-ssr": "^0.0.7",
 		"@tailwindcss/line-clamp": "^0.4.0",
 		"@types/compression": "^1.7.2",
 		"@types/express": "^4.17.13",
@@ -65,6 +66,6 @@
 		"vite-plugin-pages-sitemap": "^1.2.2",
 		"vite-plugin-ssr": "^0.3.64",
 		"vite-plugin-svgr": "^2.1.0",
-		"vite-plugin-vercel": "0.0.0-alpha.0"
+		"vite-plugin-vercel": "0.1.1"
 	}
 }
