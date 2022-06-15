@@ -63,7 +63,7 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 										<button
 											onClick={button.onPress}
 											className={clsx(
-												'text-sm group flex grow shrink-0 rounded items-center w-fit whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-500',
+												'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-500',
 												{
 													'bg-gray-300 dark:!bg-gray-500 dark:hover:bg-gray-500': button.selected
 													// 'text-gray-900 dark:text-gray-200': !active
