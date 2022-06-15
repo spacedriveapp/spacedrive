@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import React, { Suspense, useEffect, useState } from 'react';
+import { Helmet } from 'react-helmet';
 
 import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
 
@@ -79,6 +80,22 @@ function Page() {
 
 	return (
 		<>
+			<Helmet>
+				<title>Spacedrive — A file manager from the future.</title>
+				<meta
+					name="description"
+					content="Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized."
+				/>
+				<meta
+					property="og:image"
+					content="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_icon.png"
+				/>
+				<meta
+					name="keywords"
+					content="files,file manager,spacedrive,file explorer,vdfs,distributed filesystem,cas,content addressable storage,virtual filesystem,photos app, video organizer,video encoder,tags,tag based filesystem"
+				/>
+				<meta name="author" content="Spacedrive Technology Inc." />
+			</Helmet>
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 			<div className="mt-24 lg:mt-5" />
 			<NewBanner
