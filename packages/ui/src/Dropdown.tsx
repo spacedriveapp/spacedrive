@@ -5,7 +5,7 @@ import React from 'react';
 
 import { Button } from './Button';
 
-type Section = {
+export type DropdownItem = {
 	name: string;
 	icon?: any;
 	selected?: boolean;
@@ -13,7 +13,7 @@ type Section = {
 }[];
 
 export interface DropdownProps {
-	items: Section[];
+	items: DropdownItem[];
 	buttonText?: string;
 	buttonProps?: React.ComponentProps<typeof Button>;
 	buttonComponent?: React.ReactNode;

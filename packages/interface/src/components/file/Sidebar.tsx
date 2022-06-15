@@ -116,9 +116,12 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					variant: 'gray'
 				}}
 				// buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
-				buttonText={clientState?.node_name || 'Loading...'}
+				buttonText={clientState?.node_name || 'My Library'}
 				items={[
-					[{ name: clientState?.node_name || '', selected: true }, { name: 'Private Library' }],
+					[
+						{ name: clientState?.node_name || 'My Library', selected: true },
+						{ name: 'Private Library' }
+					],
 					[
 						{ name: 'Library Settings', icon: CogIcon },
 						{ name: 'Add Library', icon: PlusIcon },

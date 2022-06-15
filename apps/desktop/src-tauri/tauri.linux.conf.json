@@ -17,9 +17,9 @@
 			"icon": ["icons/icon.icns"],
 			"resources": [],
 			"externalBin": [],
-			"copyright": "Jamie Pine",
-			"shortDescription": "Your personal virtual cloud.",
-			"longDescription": "Spacedrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. Spacedrive makes it possible to create a limitless directory of your digital life that will stand the test of time.",
+			"copyright": "Spacedrive Technology Inc.",
+			"shortDescription": "The universal file manager.",
+			"longDescription": "A cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
 				"depends": []
 			},
