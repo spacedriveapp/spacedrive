@@ -1,15 +1,8 @@
-import {
-	ClockIcon,
-	CogIcon,
-	HeartIcon,
-	LockClosedIcon,
-	MapIcon,
-	QuestionMarkCircleIcon
-} from '@heroicons/react/solid';
+import { BookOpenIcon, MapIcon, QuestionMarkCircleIcon } from '@heroicons/react/solid';
 import { Discord, Github, Icon } from '@icons-pack/react-simple-icons';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
-import { BookmarkSimple, Link, List, MapPin } from 'phosphor-react';
+import { List } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
 import AppLogo from '../assets/images/logo.png';
@@ -85,7 +78,7 @@ export default function NavBar() {
 					<NavLink link="/faq">FAQ</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					<NavLink link="/blog">Blog</NavLink>
-					{/* <NavLink link="/jobs">Jobs</NavLink> */}
+					<NavLink link="/careers">Careers</NavLink>
 				</div>
 				<Dropdown
 					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
@@ -105,7 +98,7 @@ export default function NavBar() {
 						[
 							dropdownItem({
 								name: 'Blog',
-								icon: BookmarkSimple,
+								icon: BookOpenIcon,
 								path: '/blog'
 							}),
 							dropdownItem({
@@ -117,23 +110,6 @@ export default function NavBar() {
 								name: 'FAQ',
 								icon: QuestionMarkCircleIcon,
 								path: '/faq'
-							}),
-							// {
-							//   name: 'Changelog',
-							//   icon: ClockIcon,
-							//   onPress: () => (window.location.href = '/changelog'),
-							//   selected: window.location.href.includes('/changelog')
-							// },
-							// {
-							//   name: 'Privacy',
-							//   icon: LockClosedIcon,
-							//   onPress: () => (window.location.href = '/privacy'),
-							//   selected: window.location.href.includes('/privacy')
-							// },
-							dropdownItem({
-								name: 'Sponsor us',
-								icon: HeartIcon,
-								href: 'https://opencollective.com/spacedrive'
 							})
 						]
 					]}
