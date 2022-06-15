@@ -13,7 +13,7 @@ function Page() {
 				<meta name="description" content="What can Spacedrive do?" />
 			</Helmet>
 			<div className="w-24 mb-10">
-				<Folder />
+				<Folder className="w-44" />
 			</div>
 			<Content />
 		</Markdown>

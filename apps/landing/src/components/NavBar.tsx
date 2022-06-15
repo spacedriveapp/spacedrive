@@ -78,7 +78,12 @@ export default function NavBar() {
 					<NavLink link="/faq">FAQ</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					<NavLink link="/blog">Blog</NavLink>
-					<NavLink link="/careers">Careers</NavLink>
+					<div className="relative inline">
+						<NavLink link="/careers">Careers</NavLink>
+						<span className="absolute bg-opacity-80 px-[5px] text-xs rounded-md bg-primary -top-1 -right-2">
+							3
+						</span>
+					</div>
 				</div>
 				<Dropdown
 					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
