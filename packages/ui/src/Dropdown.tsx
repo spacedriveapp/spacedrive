@@ -20,6 +20,7 @@ export interface DropdownProps {
 	buttonIcon?: any;
 	className?: string;
 	itemsClassName?: string;
+	itemButtonClassName?: string;
 }
 
 export const Dropdown: React.FC<DropdownProps> = (props) => {
@@ -64,7 +65,8 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 												{
 													'bg-gray-300 dark:!bg-gray-500 dark:hover:bg-gray-500': button.selected
 													// 'text-gray-900 dark:text-gray-200': !active
-												}
+												},
+												props.itemButtonClassName
 											)}
 										>
 											{button.icon && (

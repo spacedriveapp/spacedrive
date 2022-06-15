@@ -21,7 +21,7 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
 		{({ isActive }) => (
 			<span
 				className={clsx(
-					'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
+					'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
 						'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 					},
@@ -69,6 +69,10 @@ export function MacWindowControls() {
 	);
 }
 
+// cute little helper to decrease code clutter
+const macOnly = (platform: string | undefined, classnames: string) =>
+	platform === 'macOS' ? classnames : '';
+
 export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const { isExperimental } = useNodeStore();
 
@@ -103,19 +107,32 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 			<Dropdown
 				buttonProps={{
 					justifyLeft: true,
-					className: `flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
+					className: clsx(
+						`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
           !bg-gray-50 
           border-gray-150 
           hover:!bg-gray-1000 
-          
-          dark:!bg-gray-550 
-          dark:hover:!bg-gray-550
-          
-          dark:!border-gray-550 
-          dark:hover:!border-gray-500`,
+					
+          dark:!bg-gray-500 
+					dark:hover:!bg-gray-500
+
+          dark:!border-gray-550
+          dark:hover:!border-gray-500
+					`,
+						appProps?.platform === 'macOS' &&
+							'dark:!bg-opacity-40 dark:hover:!bg-opacity-70 dark:!border-[#333949] dark:hover:!border-[#394052]'
+					),
+
 					variant: 'gray'
 				}}
-				// buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
+				// to support the transparent sidebar on macOS we use slightly adjusted styles
+				itemsClassName={macOnly(appProps?.platform, 'dark:bg-gray-800	dark:divide-gray-600')}
+				itemButtonClassName={macOnly(
+					appProps?.platform,
+					'dark:hover:bg-gray-550 dark:hover:bg-opacity-50'
+				)}
+				// this shouldn't default to "My Library", it is only this way for landing demo
+				// TODO: implement demo mode for the sidebar and show loading indicator instead of "My Library"
 				buttonText={clientState?.node_name || 'My Library'}
 				items={[
 					[
@@ -153,11 +170,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				) : (
 					<></>
 				)}
-
-				{/* <SidebarLink to="explorer">
-          <Icon component={MonitorPlay} />
-          Explorer
-        </SidebarLink> */}
 			</div>
 			<div>
 				<Heading>Locations</Heading>
@@ -173,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 								{({ isActive }) => (
 									<span
 										className={clsx(
-											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center hover:bg-gray-100 truncate dark:hover:bg-gray-600 text-sm',
+											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center  truncate text-sm',
 											{
 												'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 											}
