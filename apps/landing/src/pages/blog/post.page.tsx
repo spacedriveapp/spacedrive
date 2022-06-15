@@ -12,15 +12,13 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 		Prism.highlightAll();
 	}, []);
 
-	console.log(post);
-
 	return (
 		<>
 			<Helmet>
 				<title>{post?.title} - Spacedrive Blog</title>
-				<meta name="description" content={post?.excerpt} />
-				<meta property="og:title" content={post?.title} />
-				<meta property="og:description" content={post?.excerpt} />
+				<meta name="description" content={post?.excerpt?.substring(0, 160)} />
+				<meta property="og:title" content={post?.title?.substring(0, 60)} />
+				<meta property="og:description" content={post?.excerpt?.substring(0, 160)} />
 				<meta property="og:image" content={post?.feature_image as string} />
 				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} />
 			</Helmet>

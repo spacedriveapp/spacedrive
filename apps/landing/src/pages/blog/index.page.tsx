@@ -1,5 +1,6 @@
 import { PostOrPage, PostsOrPages, Tag } from '@tryghost/content-api';
 import React, { useEffect, useState } from 'react';
+import { Helmet } from 'react-helmet';
 
 import { BlogTag } from '../../components/BlogTag';
 import { getWindow } from '../../utils';
@@ -15,6 +16,10 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 
 	return (
 		<div className="container flex flex-col max-w-4xl gap-20 p-4 m-auto mt-32 mb-20 prose lg:prose-xs dark:prose-invert">
+			<Helmet>
+				<title>Spacedrive Blog</title>
+				<meta name="description" content="Get the latest from Spacedrive." />
+			</Helmet>
 			<section>
 				<h1 className="m-0">Blog</h1>
 				<p className="">Get the latest from Spacedrive.</p>
