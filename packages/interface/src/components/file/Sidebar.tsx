@@ -210,7 +210,12 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							createLocation({ path: result });
 						});
 					}}
-					className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 dark:text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 dark:border-gray-450 hover:dark:border-gray-400 transition"
+					className={clsx(
+						'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 transition',
+						appProps?.platform === 'macOS'
+							? 'dark:text-gray-400 dark:border-gray-450 hover:dark:border-gray-400'
+							: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
+					)}
 				>
 					Add Location
 				</button>
