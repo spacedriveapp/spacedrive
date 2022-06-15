@@ -75,7 +75,7 @@ function AppLayout() {
 				return false;
 			}}
 			className={clsx(
-				'flex flex-row h-screen overflow-hidden text-gray-900 bg-white select-none dark:text-white dark:bg-gray-650',
+				'flex flex-row h-screen overflow-hidden text-gray-900 select-none dark:text-white',
 				isWindowRounded && 'rounded-xl',
 				hasWindowBorder && 'border border-gray-200 dark:border-gray-500'
 			)}
@@ -84,7 +84,7 @@ function AppLayout() {
 			<div className="flex flex-col w-full min-h-full">
 				{/* <TopBar /> */}
 
-				<div className="relative flex w-full">
+				<div className="relative flex w-full min-h-full bg-white dark:bg-gray-650">
 					<Outlet />
 				</div>
 			</div>
