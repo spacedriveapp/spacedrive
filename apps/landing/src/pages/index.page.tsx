@@ -83,7 +83,7 @@ function Page() {
 			<div className="mt-24 lg:mt-5" />
 			<NewBanner
 				headline="Spacedrive raises $2M led by OSS Capital"
-				href="https://spacedrive.com/blog/spacedrive-funding-announcement"
+				href="/blog/spacedrive-funding-announcement"
 				link="Read post"
 			/>
 			{unsubscribedFromWaitlist && (
@@ -97,7 +97,7 @@ function Page() {
 				</div>
 			)}
 
-			<h1 className="z-30 px-2 mb-3 text-4xl text-white font-black leading-tight text-center fade-in-heading md:text-6xl">
+			<h1 className="z-30 px-2 mb-3 text-4xl font-black leading-tight text-center text-white fade-in-heading md:text-6xl">
 				A file explorer from the future.
 			</h1>
 			<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md lg:text-lg leading-2 lg:leading-8 text-gray-450">
