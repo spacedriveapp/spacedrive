@@ -21,7 +21,7 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
 		{({ isActive }) => (
 			<span
 				className={clsx(
-					'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
+					'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
 						'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 					},
@@ -69,6 +69,10 @@ export function MacWindowControls() {
 	);
 }
 
+// cute little helper to decrease code clutter
+const macOnly = (platform: string | undefined, classnames: string) =>
+	platform === 'macOS' ? classnames : '';
+
 export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const { isExperimental } = useNodeStore();
 
@@ -87,7 +91,14 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 	];
 
 	return (
-		<div className="flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600">
+		<div
+			className={clsx(
+				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600',
+				{
+					'dark:!bg-opacity-40': appProps?.platform === 'macOS'
+				}
+			)}
+		>
 			{appProps?.platform === 'browser' && window.location.search.includes('showControls') ? (
 				<MacWindowControls />
 			) : null}
@@ -96,19 +107,32 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 			<Dropdown
 				buttonProps={{
 					justifyLeft: true,
-					className: `flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
+					className: clsx(
+						`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
           !bg-gray-50 
           border-gray-150 
           hover:!bg-gray-1000 
-          
-          dark:!bg-gray-550 
-          dark:hover:!bg-gray-550
-          
-          dark:!border-gray-550 
-          dark:hover:!border-gray-500`,
+					
+          dark:!bg-gray-500 
+					dark:hover:!bg-gray-500
+
+          dark:!border-gray-550
+          dark:hover:!border-gray-500
+					`,
+						appProps?.platform === 'macOS' &&
+							'dark:!bg-opacity-40 dark:hover:!bg-opacity-70 dark:!border-[#333949] dark:hover:!border-[#394052]'
+					),
+
 					variant: 'gray'
 				}}
-				// buttonIcon={<Book weight="bold" className="w-4 h-4 mt-0.5 mr-1" />}
+				// to support the transparent sidebar on macOS we use slightly adjusted styles
+				itemsClassName={macOnly(appProps?.platform, 'dark:bg-gray-800	dark:divide-gray-600')}
+				itemButtonClassName={macOnly(
+					appProps?.platform,
+					'dark:hover:bg-gray-550 dark:hover:bg-opacity-50'
+				)}
+				// this shouldn't default to "My Library", it is only this way for landing demo
+				// TODO: implement demo mode for the sidebar and show loading indicator instead of "My Library"
 				buttonText={clientState?.node_name || 'My Library'}
 				items={[
 					[
@@ -146,11 +170,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				) : (
 					<></>
 				)}
-
-				{/* <SidebarLink to="explorer">
-          <Icon component={MonitorPlay} />
-          Explorer
-        </SidebarLink> */}
 			</div>
 			<div>
 				<Heading>Locations</Heading>
@@ -158,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					return (
 						<div key={index} className="flex flex-row items-center">
 							<NavLink
-								className="'relative w-full group'"
+								className="relative w-full group"
 								to={{
 									pathname: `explorer/${location.id}`
 								}}
@@ -166,18 +185,18 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 								{({ isActive }) => (
 									<span
 										className={clsx(
-											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center hover:bg-gray-100 dark:hover:bg-gray-600 text-sm',
+											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center  truncate text-sm',
 											{
 												'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 											}
 										)}
 									>
-										<div className="w-[18px] mr-2 -mt-0.5">
-											<Folder className={clsx(!isActive && 'hidden')} white />
-											<Folder className={clsx(isActive && 'hidden')} />
+										<div className="-mt-0.5 flex-grow-0 flex-shrink-0">
+											<Folder size={18} className={clsx(!isActive && 'hidden')} white />
+											<Folder size={18} className={clsx(isActive && 'hidden')} />
 										</div>
-										{location.name}
-										<div className="flex-grow" />
+
+										<span className="flex-grow flex-shrink-0">{location.name}</span>
 									</span>
 								)}
 							</NavLink>
@@ -191,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							createLocation({ path: result });
 						});
 					}}
-					className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 dark:text-gray-500 border border-dashed rounded border-transparent cursor-normal border-gray-350 dark:border-gray-550 hover:dark:border-gray-500 transition"
+					className="w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 dark:text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 dark:border-gray-450 hover:dark:border-gray-400 transition"
 				>
 					Add Location
 				</button>
