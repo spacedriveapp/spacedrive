@@ -174,7 +174,7 @@ const investors: Array<TeamMemberProps> = [
 		name: 'Vijay Sharma',
 		role: 'CEO, Belong',
 		investmentRound: 'Seed',
-		image: investorImages['sharma.jpg']
+		image: investorImages['vijay.jpg']
 	},
 	{
 		name: 'Naveen R',
