@@ -10,9 +10,13 @@ import React from 'react';
 
 import AppLogo from '../assets/images/logo.png';
 
-function FooterLink(props: { children: string | JSX.Element; link: string }) {
+function FooterLink(props: { children: string | JSX.Element; link: string; blank?: boolean }) {
 	return (
-		<a href={props.link} target="_blank" className="text-gray-300 hover:text-white">
+		<a
+			href={props.link}
+			target={props.blank ? '_blank' : ''}
+			className="text-gray-300 hover:text-white"
+		>
 			{props.children}
 		</a>
 	);
@@ -68,10 +72,13 @@ export function Footer() {
 				</div>
 				<div className="flex flex-col col-span-1 space-y-2">
 					<h3 className="mb-1 text-xs font-bold uppercase ">Developers</h3>
-					<FooterLink link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">
+					<FooterLink blank link="https://github.com/spacedriveapp/spacedrive/tree/main/docs">
 						Documentation
 					</FooterLink>
-					<FooterLink link="https://github.com/spacedriveapp/spacedrive/blob/main/CONTRIBUTING.md">
+					<FooterLink
+						blank
+						link="https://github.com/spacedriveapp/spacedrive/blob/main/CONTRIBUTING.md"
+					>
 						Contribute
 					</FooterLink>
 					<div className="opacity-50 pointer-events-none">
@@ -83,8 +90,10 @@ export function Footer() {
 				</div>
 				<div className="flex flex-col col-span-1 space-y-2">
 					<h3 className="mb-1 text-xs font-bold uppercase ">Org</h3>
-					<FooterLink link="https://opencollective.com/spacedrive">Open Collective</FooterLink>
-					<FooterLink link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE">
+					<FooterLink blank link="https://opencollective.com/spacedrive">
+						Open Collective
+					</FooterLink>
+					<FooterLink blank link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE">
 						License
 					</FooterLink>
 					<div className="opacity-50 pointer-events-none">
