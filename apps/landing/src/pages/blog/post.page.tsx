@@ -25,7 +25,7 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 				<title>{post?.title} - Spacedrive Blog</title>
 				<meta name="description" content={description} />
 				<meta property="og:title" content={post?.title} />
-				{/* <meta property="og:description" content={description} /> */}
+				<meta property="og:description" content={description} />
 				<meta property="og:image" content={featured_image} />
 				<meta content="summary_large_image" name="twitter:card" />
 				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} />
