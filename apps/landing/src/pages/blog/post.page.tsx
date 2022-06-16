@@ -50,7 +50,9 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 						<article
 							id="content"
 							className="text-lg"
-							dangerouslySetInnerHTML={{ __html: post.html as string }}
+							dangerouslySetInnerHTML={{
+								__html: post.html?.replaceAll('<a href=', `<a target="_blank" href=`) as string
+							}}
 						></article>
 					</>
 				)}
