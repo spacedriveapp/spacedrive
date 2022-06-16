@@ -234,7 +234,9 @@ function Page() {
 							</a>{' '}
 							on GitHub.
 						</p>
-						<h2 className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20 ">Our investors</h2>
+						<h2 id="investors" className="mt-10 mb-2 text-2xl leading-relaxed sm:mt-20 ">
+							Our investors
+						</h2>
 						<p className="text-sm text-gray-400 ">
 							We're backed by some of the greatest leaders in the technology industry.
 						</p>
