@@ -1,10 +1,8 @@
-import vercelSsr from '@magne4000/vite-plugin-vercel-ssr';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import md, { Mode } from 'vite-plugin-markdown';
 import ssr from 'vite-plugin-ssr/plugin';
 import svg from 'vite-plugin-svgr';
-import vercel from 'vite-plugin-vercel';
 
 // https://vitejs.dev/config/
 export default defineConfig({

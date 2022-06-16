@@ -26,21 +26,21 @@ async function render(pageContext: PageContextBuiltIn & PageContext) {
 
 	const documentHtml = escapeInject`
 		<!DOCTYPE html>
-    <html lang="en" class="dark" ${dangerouslySkipEscape(helmet.htmlAttributes.toString())}>
-    <head>
-			<meta charset="UTF-8" />
-			<link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-			<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-			<meta name="theme-color" content="#E751ED" media="not screen" />
-			<meta name="robots" content="index, follow" />
-			${dangerouslySkipEscape(helmet.title.toString())}
-			${dangerouslySkipEscape(helmet.meta.toString())}
-			${dangerouslySkipEscape(helmet.link.toString())}
-    </head>
-      <body ${dangerouslySkipEscape(helmet.bodyAttributes.toString())}>
-        <div id="page-view">${dangerouslySkipEscape(pageHtml)}</div>
-      </body>
-    </html>
+	    <html lang="en" class="dark" ${dangerouslySkipEscape(helmet.htmlAttributes.toString())}>
+	    <head>
+				<meta charset="UTF-8" />
+				<link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+				<meta name="theme-color" content="#E751ED" media="not screen" />
+				<meta name="robots" content="index, follow" />
+				${dangerouslySkipEscape(helmet.title.toString())}
+				${dangerouslySkipEscape(helmet.meta.toString())}
+				${dangerouslySkipEscape(helmet.link.toString())}
+	    </head>
+	      <body ${dangerouslySkipEscape(helmet.bodyAttributes.toString())}>
+	        <div id="page-view">${dangerouslySkipEscape(pageHtml)}</div>
+	      </body>
+	    </html>
 		`;
 
 	return {

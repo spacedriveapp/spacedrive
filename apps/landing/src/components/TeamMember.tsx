@@ -50,7 +50,7 @@ export function TeamMember(props: TeamMemberProps) {
 	return (
 		<div className="flex flex-col">
 			<img
-				src={new URL(`../assets/images/${props.image}`, import.meta.url).href}
+				src={props.image}
 				role="img"
 				alt={`Portrait of ${props.name}`}
 				width={size}
