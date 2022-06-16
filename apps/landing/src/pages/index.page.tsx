@@ -21,8 +21,8 @@ interface SectionProps {
 
 function Section(props: SectionProps = { orientation: 'left' }) {
 	let info = (
-		<div className="p-10">
-			{props.heading && <h1 className="text-3xl font-black sm:text-4xl">{props.heading}</h1>}
+		<div className="px-4 py-10 sm:px-10">
+			{props.heading && <h1 className="text-2xl font-black sm:text-4xl">{props.heading}</h1>}
 			{props.description && (
 				<p className="mt-5 text-md sm:text-xl text-gray-450">{props.description}</p>
 			)}
