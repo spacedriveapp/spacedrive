@@ -1,15 +1,20 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 
-import { ReactComponent as ArrowRight } from '../../../../packages/interface/src/assets/svg/arrow-right.svg';
+import { ReactComponent as ArrowRight } from '@sd/interface/assets/svg/arrow-right.svg';
+
 import Markdown from '../components/Markdown';
 import { TeamMember, TeamMemberProps } from '../components/TeamMember';
+import { resolveFilesGlob } from '../utils';
+
+const teamImages = resolveFilesGlob(import.meta.globEager('../assets/images/team/*'));
+const investorImages = resolveFilesGlob(import.meta.globEager('../assets/images/investors/*'));
 
 const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Jamie Pine',
 		role: 'Founder, Engineer & Designer',
-		image: 'team/jamie.jpg',
+		image: teamImages['jamie.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/jamiepine',
 			twitch: 'https://twitch.tv/jamiepinelive',
@@ -19,7 +24,7 @@ const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Brendan Allan',
 		role: 'Rust Backend Engineer',
-		image: 'team/brendan.jpg',
+		image: teamImages['brendan.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/brendonovichdev',
 			twitch: 'https://twitch.tv/brendonovich',
@@ -29,7 +34,7 @@ const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Oscar Beaumont',
 		role: 'Rust Backend Engineer',
-		image: 'team/oscar.jpg',
+		image: teamImages['oscar.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/oscartbeaumont',
 			twitch: 'https://twitch.tv/oscartbeaumont',
@@ -39,7 +44,7 @@ const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Haden Fletcher',
 		role: 'Engineer & Designer',
-		image: 'team/haden.jpg',
+		image: teamImages['haden.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/heymaxichrome',
 			twitch: 'https://twitch.tv/maxichrome',
@@ -49,7 +54,7 @@ const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Benjamin Akar',
 		role: 'Engineer & Designer',
-		image: 'team/benja.jpg',
+		image: teamImages['benja.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/benjaminakar',
 			twitch: 'https://twitch.tv/akawr',
@@ -59,7 +64,7 @@ const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Haris Mehrzad',
 		role: 'Engineer Intern',
-		image: 'team/haris.jpg',
+		image: teamImages['haris.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/xPolarrr',
 			twitch: 'https://twitch.tv/polar_dev',
@@ -73,109 +78,109 @@ const investors: Array<TeamMemberProps> = [
 		name: 'Joseph Jacks',
 		role: 'Founder, OSSC',
 		investmentRound: 'Lead Seed',
-		image: 'investors/josephjacks.jpg'
+		image: investorImages['josephjacks.jpg']
 	},
 	{
 		name: 'Guillermo Rauch',
 		role: 'CEO, Vercel',
 		investmentRound: 'Co-Lead Seed',
-		image: 'investors/guillermo.jpg'
+		image: investorImages['guillermo.jpg']
 	},
 	{
 		name: 'Naval Ravikant',
 		role: 'Founder, AngelList',
 		investmentRound: 'Co-Lead Seed',
-		image: 'investors/naval.jpg'
+		image: investorImages['naval.jpg']
 	},
 	{
 		name: 'Neha Narkhede',
 		role: 'Confluent, Apache Kafka',
 		investmentRound: 'Seed',
-		image: 'investors/neha.jpg'
+		image: investorImages['neha.jpg']
 	},
 	{
 		name: 'Austen Allred',
 		role: 'CEO, Bloom Institute of Technology',
 		investmentRound: 'Seed',
-		image: 'investors/austen.jpg'
+		image: investorImages['austen.jpg']
 	},
 	{
 		name: 'Tom Preston-Werner',
 		role: 'Founder, GitHub',
 		investmentRound: 'Seed',
-		image: 'investors/TOM.jpg'
+		image: investorImages['TOM.jpg']
 	},
 	{
 		name: 'Tobias Lütke',
 		role: 'CEO, Shopify',
 		investmentRound: 'Seed',
-		image: 'investors/tobiaslutke.jpg'
+		image: investorImages['tobiaslutke.jpg']
 	},
 	{
 		name: 'Justin Hoffman',
 		role: 'Former VP Sales, Elasticsearch',
 		investmentRound: 'Seed',
-		image: 'investors/justinhoffman.jpg'
+		image: investorImages['justinhoffman.jpg']
 	},
 	{
 		name: 'Ry Walker',
 		role: 'Founder, Astronomer',
 		investmentRound: 'Seed',
-		image: 'investors/rywalker.jpg'
+		image: investorImages['rywalker.jpg']
 	},
 	{
 		name: 'Zachary Smith',
 		role: 'Head of Edge Infrastructure, Equinix',
 		investmentRound: 'Seed',
-		image: 'investors/zacharysmith.jpg'
+		image: investorImages['zacharysmith.jpg']
 	},
 	{
 		name: 'Sanjay Poonen',
 		role: 'Former COO, VMware',
 		investmentRound: 'Seed',
-		image: 'investors/sanjay.jpg'
+		image: investorImages['sanjay.jpg']
 	},
 	{
 		name: 'David Mytton',
 		role: 'CEO, console.dev',
 		investmentRound: 'Seed',
-		image: 'investors/davidmytton.jpg'
+		image: investorImages['davidmytton.jpg']
 	},
 	{
 		name: 'Peer Richelsen',
 		role: 'CEO, Cal.com',
 		investmentRound: 'Seed',
-		image: 'investors/peer.jpg'
+		image: investorImages['peer.jpg']
 	},
 	{
 		name: 'Lester Lee',
 		role: 'Founder, Slapdash',
 		investmentRound: 'Seed',
-		image: 'investors/lesterlee.jpg'
+		image: investorImages['lesterlee.jpg']
 	},
 	{
 		name: 'Haoyuan Li',
 		role: 'Founder, Alluxio',
 		investmentRound: 'Seed',
-		image: 'investors/haoyuan.jpg'
+		image: investorImages['haoyuan.jpg']
 	},
 	{
 		name: 'Augusto Marietti',
 		role: 'CEO, Kong',
 		investmentRound: 'Seed',
-		image: 'investors/augusto.jpg'
+		image: investorImages['augusto.jpg']
 	},
 	{
 		name: 'Vijay Sharma',
 		role: 'CEO, Belong',
 		investmentRound: 'Seed',
-		image: 'investors/sharma.jpg'
+		image: investorImages['sharma.jpg']
 	},
 	{
 		name: 'Naveen R',
 		role: 'Founder, NocoDB',
 		investmentRound: 'Seed',
-		image: 'investors/naveen.jpg'
+		image: investorImages['naveen.jpg']
 	}
 ];
 
