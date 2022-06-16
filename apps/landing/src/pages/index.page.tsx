@@ -150,7 +150,7 @@ function Page() {
 					</>
 				}
 			/>
-			{/* <Bubbles /> */}
+			<Bubbles />
 		</>
 	);
 }
