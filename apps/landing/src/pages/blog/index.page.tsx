@@ -21,10 +21,10 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 				<meta name="description" content="Get the latest from Spacedrive." />
 			</Helmet>
 			<section>
-				<h1 className="m-0">Blog</h1>
-				<p className="">Get the latest from Spacedrive.</p>
+				<h1 className="m-0 fade-in-heading">Blog</h1>
+				<p className="fade-in-heading animation-delay-1">Get the latest from Spacedrive.</p>
 			</section>
-			<section className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-1">
+			<section className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-1 fade-in will-change-transform animation-delay-2">
 				{posts.map((post) => {
 					return (
 						<div

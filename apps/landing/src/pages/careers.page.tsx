@@ -106,7 +106,7 @@ function Page() {
 			</Helmet>
 			<div className="container relative max-w-4xl min-h-screen p-4 m-auto mt-32 mb-20 prose text-white prose-invert">
 				<div
-					className="absolute pointer-events-none z-0 -top-60 -right-[400px] w-[1000px] h-[800px] fade-in"
+					className="absolute pointer-events-none z-0 -top-60 -right-[400px] w-[1000px] h-[800px] fade-in will-change-transform"
 					style={{
 						background: 'linear-gradient(180deg, #040CA8 0%, #9704A8 95.73%)',
 						filter: 'blur(300px)',
