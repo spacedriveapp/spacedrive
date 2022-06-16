@@ -14,7 +14,7 @@ interface WaitlistInputs {
 }
 
 export function HomeCTA() {
-	// const { register, handleSubmit } = useForm<WaitlistInputs>();
+	const { register, handleSubmit } = useForm<WaitlistInputs>();
 
 	const [loading, setLoading] = useState(false);
 	const [showWaitlistInput, setShowWaitlistInput] = useState(false);
