@@ -21,10 +21,10 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 				<meta name="description" content="Get the latest from Spacedrive." />
 			</Helmet>
 			<section>
-				<h1 className="m-0">Blog</h1>
-				<p className="">Get the latest from Spacedrive.</p>
+				<h1 className="m-0 fade-in-heading">Blog</h1>
+				<p className="fade-in-heading animation-delay-1">Get the latest from Spacedrive.</p>
 			</section>
-			<section className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-1">
+			<section className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-1 fade-in will-change-transform animation-delay-2">
 				{posts.map((post) => {
 					return (
 						<div
@@ -37,11 +37,11 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 								<img
 									src={post.feature_image}
 									alt=""
-									className="inset-0 object-cover w-full m-0 h-96 -z-10 rounded-t-xl"
+									className="inset-0 object-cover w-full m-0 md:h-96 -z-10 rounded-t-xl"
 								/>
 							)}
 							<div className="p-8">
-								<h2 className="m-0 text-4xl">{post.title}</h2>
+								<h2 className="m-0 text2xl md:text-4xl">{post.title}</h2>
 								<small className="m-0">{post.reading_time} minute read.</small>
 								<p className="my-2 line-clamp-3">{post.excerpt}</p>
 								<p className="m-0 text-white">

@@ -21,9 +21,11 @@ interface SectionProps {
 
 function Section(props: SectionProps = { orientation: 'left' }) {
 	let info = (
-		<div className="p-10">
-			{props.heading && <h1 className="text-4xl font-black">{props.heading}</h1>}
-			{props.description && <p className="mt-5 text-xl text-gray-450">{props.description}</p>}
+		<div className="px-4 py-10 sm:px-10">
+			{props.heading && <h1 className="text-2xl font-black sm:text-4xl">{props.heading}</h1>}
+			{props.description && (
+				<p className="mt-5 text-md sm:text-xl text-gray-450">{props.description}</p>
+			)}
 		</div>
 	);
 	return (
@@ -130,7 +132,7 @@ function Page() {
 			<Section
 				orientation="right"
 				heading="Never leave a file behind."
-				className="z-30"
+				className="z-30 mt-0 sm:mt-8"
 				description={
 					<>
 						Spacedrive accounts for every file you own, uniquely fingerprinting and extracting
@@ -148,7 +150,7 @@ function Page() {
 					</>
 				}
 			/>
-			{/* <Bubbles /> */}
+			<Bubbles />
 		</>
 	);
 }
