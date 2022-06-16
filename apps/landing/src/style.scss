@@ -100,10 +100,11 @@ html {
 	@apply absolute w-96 h-96;
 	will-change: opacity;
 	opacity: 0;
-	filter: blur(160px);
 	will-change: filter opacity;
 	border-radius: 50%;
 	transform: scale(1.5);
+	-webkit-filter: blur(120px);
+	filter: blur(120px);
 	animation-name: bloomBurst;
 	animation-duration: 1s;
 	animation-timing-function: ease-in-out;
@@ -117,11 +118,12 @@ html {
 	&.bloom-two {
 		background: conic-gradient(from 90deg at 50% 50%, #c62dbb, #1d054b);
 		animation-delay: 0ms;
+		margin-top: -20px;
 	}
 	&.bloom-three {
 		background: conic-gradient(from 90deg at 50% 50%, #6c2ca0, #0b0b98);
 		animation-delay: 600ms;
-		margin-top: -200px;
+		margin-top: 0px;
 	}
 }
 
@@ -134,6 +136,20 @@ html {
 	}
 	to {
 		opacity: 0.8;
+	}
+}
+
+@-moz-document url-prefix() {
+	@keyframes bloomBurst {
+		from {
+			opacity: 0;
+		}
+		40% {
+			opacity: 0.5;
+		}
+		to {
+			opacity: 0.3;
+		}
 	}
 }
 

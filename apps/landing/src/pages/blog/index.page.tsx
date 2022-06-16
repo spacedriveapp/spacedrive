@@ -37,11 +37,11 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 								<img
 									src={post.feature_image}
 									alt=""
-									className="inset-0 object-cover w-full m-0 h-96 -z-10 rounded-t-xl"
+									className="inset-0 object-cover w-full m-0 md:h-96 -z-10 rounded-t-xl"
 								/>
 							)}
 							<div className="p-8">
-								<h2 className="m-0 text-4xl">{post.title}</h2>
+								<h2 className="m-0 text2xl md:text-4xl">{post.title}</h2>
 								<small className="m-0">{post.reading_time} minute read.</small>
 								<p className="my-2 line-clamp-3">{post.excerpt}</p>
 								<p className="m-0 text-white">

@@ -1,4 +1,4 @@
-import { BookOpenIcon, MapIcon, QuestionMarkCircleIcon } from '@heroicons/react/solid';
+import { BookOpenIcon, MapIcon, QuestionMarkCircleIcon, UsersIcon } from '@heroicons/react/solid';
 import { Discord, Github, Icon } from '@icons-pack/react-simple-icons';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
@@ -102,11 +102,6 @@ export default function NavBar() {
 						],
 						[
 							dropdownItem({
-								name: 'Blog',
-								icon: BookOpenIcon,
-								path: '/blog'
-							}),
-							dropdownItem({
 								name: 'Roadmap',
 								icon: MapIcon,
 								path: '/roadmap'
@@ -115,6 +110,21 @@ export default function NavBar() {
 								name: 'FAQ',
 								icon: QuestionMarkCircleIcon,
 								path: '/faq'
+							}),
+							dropdownItem({
+								name: 'Team',
+								icon: UsersIcon,
+								path: '/team'
+							}),
+							dropdownItem({
+								name: 'Blog',
+								icon: BookOpenIcon,
+								path: '/blog'
+							}),
+							dropdownItem({
+								name: 'Careers',
+								icon: QuestionMarkCircleIcon,
+								path: '/careers'
 							})
 						]
 					]}

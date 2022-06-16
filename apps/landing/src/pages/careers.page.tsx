@@ -75,7 +75,7 @@ const perks = [
 		title: 'Paid Time Off',
 		desc: `Rest is important, you deliver your best work when you've had your downtime. We offer 2 weeks paid time off per year, and if you need more, we'll give you more.`,
 		icon: EmojiHappyIcon,
-		color: '#550DD1'
+		color: '#9210FF'
 	},
 	{
 		title: 'Work From Home',
@@ -98,6 +98,9 @@ const perks = [
 ];
 
 function Page() {
+	const openPositionsRef = React.useRef<HTMLDivElement>(null);
+	const scrollToPositions = () => openPositionsRef.current?.scrollIntoView({ behavior: 'smooth' });
+
 	return (
 		<>
 			<Helmet>
@@ -112,8 +115,8 @@ function Page() {
 						filter: 'blur(300px)',
 						transform: 'rotate(56.81deg)'
 					}}
-				></div>
-				<h1 className="px-2 mb-3 text-3xl font-black leading-tight text-center text-white fade-in-heading md:text-5xl">
+				/>
+				<h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center text-white fade-in-heading md:text-5xl">
 					Build the future of files.
 				</h1>
 				<div className="z-30 flex flex-col items-center fade-in animation-delay-1">
@@ -122,15 +125,19 @@ function Page() {
 						ecosystem to help preserve your digital legacy and make cross-platform file management a
 						breeze.
 					</p>
-					<Button className="z-30 border-0 cursor-pointer" variant="primary">
+					<Button
+						onClick={scrollToPositions}
+						className="z-30 border-0 cursor-pointer"
+						variant="primary"
+					>
 						See Open Positions
 					</Button>
 					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" />
-					<h1 className="px-2 mb-0 text-3xl font-black leading-tight text-center ">Our Values</h1>
-					<p>What drives us daily.</p>
-					<div className="grid w-full grid-cols-2 gap-4 mt-5">
+					<h1 className="px-2 mb-0 text-4xl font-black leading-tight text-center">Our Values</h1>
+					<p className="mt-2 mb-4">What drives us daily.</p>
+					<div className="grid w-full grid-cols-1 gap-4 mt-5 sm:grid-cols-2">
 						{values.map((value) => (
-							<div className="flex flex-col p-10 rounded-md bg-gray-550 bg-opacity-30 ">
+							<div className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550">
 								<value.icon className="w-8 m-0" />
 								<h2 className="mt-4 mb-1">{value.title}</h2>
 								<p className="mt-1 mb-0 text-gray-350">{value.desc}</p>
@@ -138,15 +145,15 @@ function Page() {
 						))}
 					</div>
 					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" />
-					<h1 className="px-2 mb-0 text-3xl font-black leading-tight text-center text-white">
+					<h1 className="px-2 mb-0 text-4xl font-black leading-tight text-center text-white">
 						Perks and Benefits
 					</h1>
-					<p>We're behind you 100%.</p>
-					<div className="grid w-full grid-cols-3 gap-4 mt-5">
+					<p className="mt-2 mb-4">We're behind you 100%.</p>
+					<div className="grid w-full grid-cols-1 gap-4 mt-5 sm:grid-cols-3">
 						{perks.map((value) => (
 							<div
-								style={{ backgroundColor: value.color + '30' }}
-								className="flex flex-col p-8 rounded-md bg-gray-550 bg-opacity-30"
+								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
+								className="flex flex-col p-8 border rounded-md bg-gray-550 bg-opacity-30"
 							>
 								<value.icon className="w-8 m-0" color={value.color} />
 								<h3 className="mt-4 mb-1">{value.title}</h3>
@@ -155,23 +162,28 @@ function Page() {
 						))}
 					</div>
 					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" />
-					<h1 className="px-2 mb-0 text-3xl font-black leading-tight text-center text-white">
+					<h1
+						ref={openPositionsRef}
+						className="px-2 mb-0 text-4xl font-black leading-tight text-center text-white"
+					>
 						Open Positions
 					</h1>
-					<p>Any of these suit you? Apply now!</p>
+					<p className="mt-2 mb-4">Any of these suit you? Apply now!</p>
 					<div className="grid w-full grid-cols-1 gap-4 mt-5">
 						{positions.map((value) => (
-							<div className="flex flex-col p-10 rounded-md bg-gray-550 bg-opacity-30 ">
-								<div className="flex">
+							<div className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550">
+								<div className="flex flex-col sm:flex-row">
 									<h2 className="m-0">{value.name}</h2>
-									<span className="ml-4 mt-1.5 text-sm font-semibold text-gray-300">
-										<CurrencyDollarIcon className="inline w-4 mr-1 -mt-1" />
-										{value.salary}
-									</span>
-									<span className="ml-4 mt-1.5 text-sm font-semibold text-gray-300">
-										<ClockIcon className="inline w-4 mr-1 -mt-1" />
-										{value.type}
-									</span>
+									<div className="mt-3 sm:mt-0.5">
+										<span className="text-sm font-semibold text-gray-300 sm:ml-4">
+											<CurrencyDollarIcon className="inline w-4 mr-1 -mt-1" />
+											{value.salary}
+										</span>
+										<span className="ml-4 text-sm font-semibold text-gray-300">
+											<ClockIcon className="inline w-4 mr-1 -mt-1" />
+											{value.type}
+										</span>
+									</div>
 								</div>
 								<p className="mt-3 mb-0 text-gray-350">{value.description}</p>
 							</div>

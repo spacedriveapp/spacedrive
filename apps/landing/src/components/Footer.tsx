@@ -54,9 +54,7 @@ export function Footer() {
 
 					<FooterLink link="/team">Team</FooterLink>
 					<FooterLink link="/faq">FAQ</FooterLink>
-					<FooterLink link="https://github.com/spacedriveapp/spacedrive#motivation">
-						Mission
-					</FooterLink>
+					<FooterLink link="/careers">Careers</FooterLink>
 					<FooterLink link="/changelog">Changelog</FooterLink>
 					<FooterLink link="/blog">Blog</FooterLink>
 				</div>
