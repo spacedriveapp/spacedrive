@@ -193,7 +193,7 @@ function Page() {
 			</Helmet>
 			<div className="relative team-page">
 				<div
-					className="absolute -top-60 -right-[400px] opacity-60 w-[1000px] h-[800px] fade-in will-change-transform"
+					className="page-bloom absolute -top-60 -right-[400px] opacity-60 w-[1000px] h-[800px] fade-in will-change-transform"
 					style={{
 						background: 'linear-gradient(180deg, #040CA8 0%, #0474A8 95.73%)',
 						filter: 'blur(300px)',
