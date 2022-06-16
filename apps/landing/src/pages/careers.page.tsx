@@ -19,19 +19,19 @@ const positions = [
 	{
 		name: 'TypeScript React UI/UX Engineer',
 		type: 'Full-time',
-		salary: '$100k - $120k',
+		salary: '$80k - $120k',
 		description: `You'll build the primary desktop interface for Spacedrive in React, with TypeScript and Tailwind. You'll need an eye for design as well as a solid understanding of the React ecosystem.`
 	},
 	{
 		name: 'Rust Backend Engineer',
 		type: 'Full-time',
-		salary: '$100k - $120k',
+		salary: '$80k - $120k',
 		description: `You'll build out our Rust core, the decentralized backend that powers our app. From the virtual filesystem to encryption and search. You'll need to live and breathe Rust, not be afraid to get low-level.`
 	},
 	{
 		name: 'TypeScript React Native Engineer',
 		type: 'Full-time',
-		salary: '$100k - $120k',
+		salary: '$80k - $120k',
 		description: `You'll build out the majority of our mobile app in TypeScript and React Native. Developing a mobile first component library based on the design of our desktop application. You'll need to be passionate for building React Native apps that look and feel native.`
 	}
 ];
