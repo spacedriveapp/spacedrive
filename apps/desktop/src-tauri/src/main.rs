@@ -65,7 +65,9 @@ async fn main() {
 
 			#[cfg(target_os = "macos")]
 			{
-				macos::lock_app_theme(macos::AppThemeType::Dark as _);
+				use macos::{lock_app_theme, AppThemeType};
+
+				lock_app_theme(AppThemeType::Dark as _);
 			}
 
 			app.windows().iter().for_each(|(_, window)| {
