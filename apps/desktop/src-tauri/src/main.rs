@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use macos::AppThemeType;
 use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
 use tauri::api::path;
 use tauri::Manager;
@@ -66,7 +65,7 @@ async fn main() {
 
 			#[cfg(target_os = "macos")]
 			{
-				macos::lock_app_theme(AppThemeType::Dark as _);
+				macos::lock_app_theme(macos::AppThemeType::Dark as _);
 			}
 
 			app.windows().iter().for_each(|(_, window)| {
