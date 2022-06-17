@@ -50,14 +50,10 @@ async fn main() {
 								nm.connect(peer).await.unwrap();
 							}
 						}
-						NetworkManagerEvent::ConnectionRequest { peer_id, resp } => {
-							println!("ConnectionRequest from peer '{}'!", peer_id);
-							let peer_is_known = true /* Peer exists in loaded library */;
-							resp.send(peer_is_known).unwrap();
-						}
 						NetworkManagerEvent::ConnectionEstablished { peer } => {
 							println!("ConnectionEstablished to peer '{}'!", peer.id);
 						},
+						// TODO: Replace this with internal handler?
 						NetworkManagerEvent::AcceptStream { peer, stream: (mut send, mut recv) } => {
 							println!("AcceptStream from peer '{}'!", peer.id);
 
@@ -79,6 +75,13 @@ async fn main() {
 								}
 							});
 						},
+						NetworkManagerEvent::PeerRequest { peer, data } => {
+							if data == b"Ping" {
+								println!("Received ping from peer '{}'!", peer.id);
+							} else {
+								println!("Received message from peer '{}': {:?}", peer.id, data);
+							}
+						}
 						NetworkManagerEvent::ConnectionClosed { peer } => {
 							println!("ConnectionClosed to peer '{}'!", peer.id);
 						}
@@ -91,12 +94,12 @@ async fn main() {
 				println!("Connected: {:?} Discovered: {:?}", nm.connected_peers().await.into_iter().map(|x| x.0).collect::<Vec<_>>(), nm.discovered_peers().into_iter().map(|x| x.0).collect::<Vec<_>>());
 
 				for (_, peer) in nm.connected_peers().await.iter() {
-					let (mut tx, mut _rx) = peer.stream().await.unwrap();
-					tx.write(b"Ping").await.unwrap();
-
-					// TODO: rx is dropped here which will cause the stream to be closed before getting the 'Pong' response.
-					// TODO: Hence this API is going to change in the near future.
+					peer.send(b"Ping").await.map_err(|err| println!("Error sending ping: {:?}", err));
 				}
+
+				// Alternatively you can get a dedicated stream, however this requires you to keep the stream alive until a response is received
+				// let (mut tx, mut _rx) = peer.stream().await.unwrap();
+				// tx.write(b"Ping").await.unwrap();
 			}
 		}
 	}

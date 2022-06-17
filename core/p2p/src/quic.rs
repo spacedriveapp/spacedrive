@@ -10,9 +10,7 @@ use rustls::{
 	Certificate, DistinguishedNames, Error, PrivateKey,
 };
 
-use crate::{
-	p2p_application, server::Server, NetworkManagerError, P2PApplication, PeerCandidate, PeerId,
-};
+use crate::{NetworkManagerError, P2PApplication, PeerCandidate, PeerId};
 
 /// The Application-Layer Protocol Negotiation (ALPN) value for QUIC.
 const ALPN_QUIC_HTTP: &[&[u8]] = &[b"hq-29"];
@@ -50,18 +48,18 @@ pub(crate) fn new_server(
 
 /// new_client will create a new QUIC client with a standard configuration.
 pub(crate) async fn new_client(
-	server: Arc<Server>,
+	endpoint: &Endpoint,
+	identity: (Certificate, PrivateKey),
 	peer: PeerCandidate,
 ) -> Result<NewConnection, Box<dyn std::error::Error>> {
 	let mut client_crypto = rustls::ClientConfig::builder()
 		.with_safe_defaults()
 		.with_custom_certificate_verifier(ServerCertificateVerifier::new())
-		.with_single_cert(vec![server.identity.0.clone()], server.identity.1.clone())?;
+		.with_single_cert(vec![identity.0], identity.1)?;
 	client_crypto.alpn_protocols = ALPN_QUIC_HTTP.iter().map(|&x| x.into()).collect();
 
 	// TODO: Handle connecting on address other than the first one
-	Ok(server
-		.endpoint
+	Ok(endpoint
 		.connect_with(
 			ClientConfig::new(Arc::new(client_crypto.clone())),
 			SocketAddrV4::new(peer.addresses[0], peer.port).into(),

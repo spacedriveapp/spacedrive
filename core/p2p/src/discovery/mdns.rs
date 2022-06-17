@@ -84,7 +84,7 @@ impl MDNS {
 					.replace(&format!(".{}", self.service_type), "");
 
 				// Prevent discovery of the current node.
-				if raw_peer_id == self.discovery.server.peer_id.to_string() {
+				if raw_peer_id == self.discovery.state.peer_id.to_string() {
 					return Ok(());
 				}
 
@@ -103,7 +103,7 @@ impl MDNS {
 
 						let is_peer_connected = self
 							.discovery
-							.server
+							.state
 							.connected_peers
 							.read()
 							.await
@@ -114,7 +114,7 @@ impl MDNS {
 
 						if !is_peer_connected {
 							self.discovery
-                                .server
+                                .state
                                 .application_channel
                                 .send(NetworkManagerEvent::PeerDiscovered { peer })
                                 .await
@@ -133,7 +133,7 @@ impl MDNS {
 				let raw_peer_id = fullname.replace(&format!(".{}", self.service_type), "");
 
 				// Prevent discovery of the current node.
-				if raw_peer_id == self.discovery.server.peer_id.to_string() {
+				if raw_peer_id == self.discovery.state.peer_id.to_string() {
 					return Ok(());
 				}
 
@@ -156,15 +156,15 @@ impl MDNS {
 	pub fn register_service(self: Arc<Self>) {
 		let service_info = ServiceInfo::new(
 			&self.service_type,
-			&self.discovery.server.peer_id.to_string(),
-			&format!("{}.", self.discovery.server.peer_id.to_string()),
+			&self.discovery.state.peer_id.to_string(),
+			&format!("{}.", self.discovery.state.peer_id.to_string()),
 			self.discovery
 				.local_addrs
 				.iter()
 				.map(|v| v.to_string())
 				.collect::<Vec<_>>()
 				.join(","),
-			self.discovery.server.listen_addr.port(),
+			self.discovery.listen_addr.port(),
 			Some(self.discovery.p2p_application.get_metadata().to_hashmap()),
 		);
 
@@ -188,7 +188,7 @@ impl MDNS {
 		self.mdns
 			.unregister(&format!(
 				"{}.{}",
-				self.discovery.server.peer_id, self.service_type
+				self.discovery.state.peer_id, self.service_type
 			))
 			.expect("Error unregistering the mDNS service")
 			.recv()

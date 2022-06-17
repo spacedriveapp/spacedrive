@@ -1,5 +1,5 @@
 use std::{
-	net::{IpAddr, Ipv4Addr},
+	net::{IpAddr, Ipv4Addr, SocketAddr},
 	pin::Pin,
 	sync::Arc,
 };
@@ -10,16 +10,16 @@ use dashmap::{DashMap, DashSet};
 use if_watch::{IfEvent, IfWatcher};
 use tokio::sync::broadcast;
 
-use crate::{
-	server::Server, NetworkManagerError, P2PApplication, PeerCandidate, PeerId, PeerMetadata,
-};
+use crate::{NetworkManagerError, NetworkManagerState, P2PApplication, PeerCandidate, PeerId};
 
 use self::mdns::MDNS;
 
 /// DiscoveryManager is responsible for discovering other peers on the network.
 pub(crate) struct DiscoveryManager {
 	/// TODO
-	server: Arc<Server>,
+	state: Arc<NetworkManagerState>,
+	/// listen_addr is the address that the NetworkManager will listen on for incoming connections.
+	listen_addr: SocketAddr,
 	/// local_addrs is a list of all the IP addresses that are associated with the current node.
 	local_addrs: DashSet<Ipv4Addr>,
 	/// discovery_channel is called whenever a change is made to the [local_addrs] map. This will trigger all discovery systems (mDNS or Global) to publish this change to other peers in the network.
@@ -33,7 +33,8 @@ pub(crate) struct DiscoveryManager {
 impl DiscoveryManager {
 	pub async fn new(
 		app_name: &'static str,
-		server: Arc<Server>,
+		state: Arc<NetworkManagerState>,
+		listen_addr: SocketAddr,
 		p2p_application: Arc<dyn P2PApplication + Send + Sync>,
 	) -> Result<Arc<Self>, NetworkManagerError> {
 		let mut if_watcher = IfWatcher::new()
@@ -42,7 +43,8 @@ impl DiscoveryManager {
 
 		let (tx, rx) = broadcast::channel(25);
 		let this = Arc::new(Self {
-			server,
+			state,
+			listen_addr,
 			local_addrs: if_watcher
 				.iter()
 				.filter_map(|iface| match iface.addr() {
