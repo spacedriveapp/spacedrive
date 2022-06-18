@@ -4,7 +4,7 @@ import { useContext, useEffect } from 'react';
 import { useQueryClient } from 'react-query';
 
 import { AppPropsContext } from '../App';
-import { useExplorerState } from '../components/file/FileList';
+import { useExplorerState } from './useExplorerState';
 
 export function useCoreEvents() {
 	const client = useQueryClient();

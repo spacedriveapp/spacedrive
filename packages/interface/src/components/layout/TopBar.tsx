@@ -15,7 +15,7 @@ import {
 import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useExplorerState } from '../file/FileList';
+import { useExplorerState } from '../../hooks/useExplorerState';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 

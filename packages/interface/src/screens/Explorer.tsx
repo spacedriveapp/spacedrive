@@ -1,10 +1,11 @@
 import { useBridgeQuery } from '@sd/client';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { FileList, useExplorerState } from '../components/file/FileList';
+import { FileList } from '../components/file/FileList';
 import { Inspector } from '../components/file/Inspector';
 import { TopBar } from '../components/layout/TopBar';
+import { useExplorerState } from '../hooks/useExplorerState';
 
 export const ExplorerScreen: React.FC<{}> = () => {
 	let [searchParams] = useSearchParams();
@@ -13,21 +14,19 @@ export const ExplorerScreen: React.FC<{}> = () => {
 	let { id } = useParams();
 	let location_id = Number(id);
 
-	let [limit, setLimit] = React.useState(100);
-
-	useEffect(() => {
-		console.log({ location_id, path, limit });
-	}, [location_id, path]);
+	const [limit, setLimit] = React.useState(100);
 
 	const { selectedRowIndex } = useExplorerState();
 
+	// Current Location
+	const { data: currentLocation } = useBridgeQuery('SysGetLocation', { id: location_id });
+
+	// Current Directory
 	const { data: currentDir } = useBridgeQuery(
 		'LibGetExplorerDir',
 		{ location_id: location_id!, path, limit },
 		{ enabled: !!location_id }
 	);
-
-	console.log({ currentDir });
 
 	return (
 		<div className="flex flex-col w-full h-full">
@@ -36,6 +35,7 @@ export const ExplorerScreen: React.FC<{}> = () => {
 				<FileList location_id={location_id} path={path} limit={limit} />
 				{currentDir?.contents && (
 					<Inspector
+						location={currentLocation}
 						selectedFile={currentDir.contents[selectedRowIndex]}
 						locationId={location_id}
 					/>

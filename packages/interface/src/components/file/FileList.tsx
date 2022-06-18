@@ -2,37 +2,14 @@ import { DotsVerticalIcon } from '@heroicons/react/solid';
 import { useBridgeQuery } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
-import byteSize from 'pretty-bytes';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { useKey, useWindowSize } from 'rooks';
-import create from 'zustand';
 
-import { AppPropsContext } from '../../App';
+import { AppPropsContext } from '../../AppPropsContext';
+import { useExplorerState } from '../../hooks/useExplorerState';
 import FileThumb from './FileThumb';
-
-type ExplorerState = {
-	selectedRowIndex: number;
-	setSelectedRowIndex: (index: number) => void;
-	locationId: number;
-	setLocationId: (index: number) => void;
-	newThumbnails: Record<string, boolean>;
-	addNewThumbnail: (cas_id: string) => void;
-};
-
-export const useExplorerState = create<ExplorerState>((set) => ({
-	selectedRowIndex: 1,
-	setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index })),
-	locationId: -1,
-	setLocationId: (id: number) => set((state) => ({ ...state, locationId: id })),
-	newThumbnails: {},
-	addNewThumbnail: (cas_id: string) =>
-		set((state) => ({
-			...state,
-			newThumbnails: { ...state.newThumbnails, [cas_id]: true }
-		}))
-}));
 
 interface IColumn {
 	column: string;
