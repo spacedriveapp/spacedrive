@@ -98,7 +98,7 @@ const perks = [
 ];
 
 function Page() {
-	const openPositionsRef = React.useRef<HTMLDivElement>(null);
+	const openPositionsRef = React.useRef<HTMLHRElement>(null);
 	const scrollToPositions = () => openPositionsRef.current?.scrollIntoView({ behavior: 'smooth' });
 
 	return (
@@ -161,9 +161,8 @@ function Page() {
 							</div>
 						))}
 					</div>
-					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" />
+					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" ref={openPositionsRef} />
 					<h1
-						ref={openPositionsRef}
 						className="px-2 mb-0 text-4xl font-black leading-tight text-center text-white"
 					>
 						Open Positions
