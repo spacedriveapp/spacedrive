@@ -23,7 +23,7 @@ Data is divided into several kinds, Shared and Owned.
 
   _Sync Method:_ `Property operation*`
 
-  > Shared resources could be,`files`, `tags`, `comments`, `albums` and `labels`. Since these can be created, updated or deleted by any client at any time.
+  > Shared resources could be,`files`, `tags`, `notes`, `albums` and `labels`. Since these can be created, updated or deleted by any client at any time.
 
 - **Owned data** - Can only be modified by the client that created it. Has a `client_id` and `uuid`.
 

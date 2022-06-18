@@ -106,7 +106,7 @@ export const Inspector = (props: {
 							</>
 						)}
 						<MetaItem
-							title="Comment"
+							title="Note"
 							value={<TextArea className="mt-2 text-xs leading-snug !py-2" />}
 						/>
 
