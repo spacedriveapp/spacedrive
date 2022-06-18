@@ -3,7 +3,7 @@ import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext } from 'react';
 
-import { AppPropsContext } from '../../App';
+import { AppPropsContext } from '../../AppPropsContext';
 import icons from '../../assets/icons';
 import { Folder } from '../icons/Folder';
 

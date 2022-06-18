@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import React, { useContext } from 'react';
 import { Outlet } from 'react-router-dom';
 
-import { AppPropsContext } from './App';
+import { AppPropsContext } from './AppPropsContext';
 import { Sidebar } from './components/file/Sidebar';
 
 export function AppLayout() {

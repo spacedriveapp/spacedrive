@@ -36,8 +36,6 @@ export const Inspector = (props: {
 }) => {
 	const file_path = props.selectedFile;
 
-	console.log({ location: props.location, file_path });
-
 	let full_path = `${props.location?.path}/${file_path?.materialized_path}`;
 
 	return (
@@ -50,7 +48,7 @@ export const Inspector = (props: {
 			leaveFrom="translate-x-0"
 			leaveTo="translate-x-64"
 		>
-			<div className="top-0 right-0 h-[400px] m-2 border border-gray-100 w-60 dark:border-gray-850 custom-scroll page-scroll">
+			<div className="top-0 right-0 m-2 border border-gray-100 w-60 dark:border-gray-850 custom-scroll page-scroll">
 				{!!file_path && (
 					<div className="flex flex-col overflow-x-hidden bg-white rounded-lg select-text dark:bg-gray-600 bg-opacity-70">
 						<div className="flex items-center justify-center w-full h-64 overflow-hidden rounded-t-lg bg-gray-50 dark:bg-gray-900">
