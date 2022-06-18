@@ -7,7 +7,7 @@ import { CirclesFour, Code, Planet } from 'phosphor-react';
 import React, { useContext } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
-import { AppPropsContext } from '../../App';
+import { AppPropsContext } from '../../AppPropsContext';
 import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
@@ -244,10 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						<Button
 							noPadding
 							variant={isActive ? 'default' : 'default'}
-							className={clsx(
-								'px-[4px] mb-1'
-								// isActive && '!bg-gray-550'
-							)}
+							className={clsx('px-[4px] mb-1')}
 						>
 							<CogIcon className="w-5 h-5" />
 						</Button>

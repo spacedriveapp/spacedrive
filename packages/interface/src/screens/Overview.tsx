@@ -10,7 +10,7 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
 
-import { AppPropsContext } from '../App';
+import { AppPropsContext } from '../AppPropsContext';
 import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
 
