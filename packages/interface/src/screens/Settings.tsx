@@ -12,9 +12,22 @@ import {
 import clsx from 'clsx';
 import { Book, Database, HardDrive, PaintBrush } from 'phosphor-react';
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Route, Routes } from 'react-router-dom';
 
 import { SidebarLink } from '../components/file/Sidebar';
+import { Modal } from '../components/layout/Modal';
+import SlideUp from '../components/transitions/SlideUp';
+import AppearanceSettings from './settings/AppearanceSettings';
+import ContactsSettings from './settings/ContactsSettings';
+import ExperimentalSettings from './settings/ExperimentalSettings';
+import GeneralSettings from './settings/GeneralSettings';
+import KeysSettings from './settings/KeysSetting';
+import LibrarySettings from './settings/LibrarySettings';
+import LocationSettings from './settings/LocationSettings';
+import SecuritySettings from './settings/SecuritySettings';
+import SharingSettings from './settings/SharingSettings';
+import SyncSettings from './settings/SyncSettings';
+import TagsSettings from './settings/TagsSettings';
 
 //@ts-ignore
 // import { Spline } from 'react-spline';
@@ -29,6 +42,33 @@ const Heading: React.FC<{ className?: string; children: string }> = ({ children,
 		{children}
 	</div>
 );
+
+export function SettingsRoutes({ modal = false }) {
+	return (
+		<SlideUp>
+			<Routes>
+				<Route
+					path={modal ? '/settings' : '/'}
+					element={modal ? <Modal children={<SettingsScreen />} /> : <SettingsScreen />}
+				>
+					<Route index element={<GeneralSettings />} />
+
+					<Route path="appearance" element={<AppearanceSettings />} />
+					<Route path="contacts" element={<ContactsSettings />} />
+					<Route path="experimental" element={<ExperimentalSettings />} />
+					<Route path="general" element={<GeneralSettings />} />
+					<Route path="keys" element={<KeysSettings />} />
+					<Route path="library" element={<LibrarySettings />} />
+					<Route path="security" element={<SecuritySettings />} />
+					<Route path="locations" element={<LocationSettings />} />
+					<Route path="sharing" element={<SharingSettings />} />
+					<Route path="sync" element={<SyncSettings />} />
+					<Route path="tags" element={<TagsSettings />} />
+				</Route>
+			</Routes>
+		</SlideUp>
+	);
+}
 
 export const SettingsScreen: React.FC<{}> = () => {
 	return (

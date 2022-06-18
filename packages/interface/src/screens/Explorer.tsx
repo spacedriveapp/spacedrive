@@ -15,11 +15,9 @@ export const ExplorerScreen: React.FC<{}> = () => {
 
 	let [limit, setLimit] = React.useState(100);
 
-	useEffect(() => {
-		console.log({ location_id, path, limit });
-	}, [location_id, path]);
-
 	const { selectedRowIndex } = useExplorerState();
+
+	const { data: currentLocation } = useBridgeQuery('SysGetLocation', { id: location_id });
 
 	const { data: currentDir } = useBridgeQuery(
 		'LibGetExplorerDir',
@@ -36,6 +34,7 @@ export const ExplorerScreen: React.FC<{}> = () => {
 				<FileList location_id={location_id} path={path} limit={limit} />
 				{currentDir?.contents && (
 					<Inspector
+						location={currentLocation}
 						selectedFile={currentDir.contents[selectedRowIndex]}
 						locationId={location_id}
 					/>

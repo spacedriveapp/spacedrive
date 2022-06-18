@@ -1,6 +1,6 @@
 import { Transition } from '@headlessui/react';
 import { ShareIcon } from '@heroicons/react/solid';
-import { FilePath } from '@sd/core';
+import { FilePath, LocationResource } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
@@ -16,7 +16,7 @@ interface MetaItemProps {
 
 const MetaItem = (props: MetaItemProps) => {
 	return (
-		<div className="flex flex-col px-3 py-1 meta-item">
+		<div data-tip={props.value} className="flex flex-col px-3 py-1 meta-item">
 			<h5 className="text-xs font-bold">{props.title}</h5>
 			{typeof props.value === 'string' ? (
 				<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">{props.value}</p>
@@ -29,11 +29,16 @@ const MetaItem = (props: MetaItemProps) => {
 
 const Divider = () => <div className="w-full my-1 h-[1px] bg-gray-100 dark:bg-gray-550" />;
 
-export const Inspector = (props: { selectedFile?: FilePath; locationId: number }) => {
-	// const { selectedRowIndex } = useExplorerState();
-	// const isOpen = !!props.selectedFile;
-
+export const Inspector = (props: {
+	locationId: number;
+	location?: LocationResource;
+	selectedFile?: FilePath;
+}) => {
 	const file_path = props.selectedFile;
+
+	console.log({ location: props.location, file_path });
+
+	let full_path = `${props.location?.path}/${file_path?.materialized_path}`;
 
 	return (
 		<Transition
@@ -45,9 +50,9 @@ export const Inspector = (props: { selectedFile?: FilePath; locationId: number }
 			leaveFrom="translate-x-0"
 			leaveTo="translate-x-64"
 		>
-			<div className="top-0 right-0 h-full m-2 border border-gray-100 rounded-lg w-60 dark:border-gray-850 ">
+			<div className="top-0 right-0 h-[400px] m-2 border border-gray-100 w-60 dark:border-gray-850 custom-scroll page-scroll">
 				{!!file_path && (
-					<div className="flex flex-col h-full overflow-hidden bg-white rounded-lg select-text dark:bg-gray-600 bg-opacity-70">
+					<div className="flex flex-col overflow-x-hidden bg-white rounded-lg select-text dark:bg-gray-600 bg-opacity-70">
 						<div className="flex items-center justify-center w-full h-64 overflow-hidden rounded-t-lg bg-gray-50 dark:bg-gray-900">
 							<FileThumb
 								hasThumbnailOverride={false}
@@ -72,7 +77,7 @@ export const Inspector = (props: { selectedFile?: FilePath; locationId: number }
 							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
 						)}
 						<Divider />
-						<MetaItem title="Uri" value={file_path?.materialized_path as string} />
+						<MetaItem title="Uri" value={full_path} />
 						<Divider />
 						<MetaItem
 							title="Date Created"
