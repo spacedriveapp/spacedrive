@@ -10,11 +10,11 @@ edition = "2021"
 build = "build.rs"
 
 [build-dependencies]
-tauri-build = { version = "1.0.0-rc.5", features = [] }
+tauri-build = { version = "1.0.0", features = [] }
 
 [dependencies]
 # Project dependencies
-tauri = { version = "1.0.0-rc.6", features = ["api-all", "macos-private-api"] }
+tauri = { version = "1.0.0", features = ["api-all", "macos-private-api"] }
 sdcore = { path = "../../../core" }
 # tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
 
