@@ -103,7 +103,7 @@ _Note: Links are for highlight purposes only until feature specific documentatio
 
 # Developer Guide
 
-Please refer to the [contributing guide](CONTRIBUTING.md) for how to install Spacedrive from sources.
+Please refer to the [contributing guide](./CONTRIBUTING.md) for how to install Spacedrive from sources.
 
 # Architecture
 
@@ -118,25 +118,25 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 ### Apps:
 
 - `desktop`: A [Tauri](https://tauri.studio) app.
-- `mobile`: A [React Native](https://reactnative.dev/) app.
+- `mobile`: A [React Native](https://reactnative.dev) app.
 - `web`: A [React](https://reactjs.org) webapp.
 - `landing`: A [React](https://reactjs.org) app using Vite SSR & Vite pages.
 
 ### Core:
 
-- `core`: The [Rust](#) core, referred to internally as `sdcore`. Contains filesystem, database and networking logic. Can be deployed in a variety of host applications.
+- `core`: The [Rust](https://www.rust-lang.org) core, referred to internally as `sdcore`. Contains filesystem, database and networking logic. Can be deployed in a variety of host applications.
 
 ### Packages:
 
-- `client`: A [TypeScript](#) client library to handle dataflow via RPC between UI and the Rust core.
-- `ui`: A [React](<[#](https://reactjs.org)>) Shared component library.
+- `client`: A [TypeScript](https://www.typescriptlang.org) client library to handle dataflow via RPC between UI and the Rust core.
+- `ui`: A [React](https://reactjs.org) Shared component library.
 - `interface`: The complete user interface in React (used by apps `desktop`, `web` and `landing`)
 - `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo.
-- `macos`: A [Swift](#) Native binary for MacOS system extensions.
-- `ios`: A [Swift](#) Native binary (planned).
-- `windows`: A [C#](#) Native binary (planned).
-- `android`: A [Kotlin](#) Native binary (planned).
+- `macOS`: A [Swift](https://developer.apple.com/swift) Native binary for MacOS system extensions.
+- `iOS`: A [Swift](https://developer.apple.com/swift) Native binary (planned).
+- `Windows`: A [C#](https://docs.microsoft.com/en-us/dotnet/csharp) Native binary (planned).
+- `Android`: A [Kotlin](https://kotlinlang.org) Native binary (planned).
 
 ### Repo structure:
-![Visualization of the codebase](./diagram.svg)
 
+![Visualization of the codebase](./diagram.svg)
