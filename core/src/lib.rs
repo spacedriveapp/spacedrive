@@ -1,12 +1,12 @@
 use crate::{
-	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState, prisma::location,
-	prisma::file as prisma_file, util::db::create_connection,
+	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState,
+	prisma::file as prisma_file, prisma::location, util::db::create_connection,
 };
 use job::{Job, JobReport, Jobs};
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
 use std::{fs, sync::Arc};
-use tag::TagWithFiles;
+use tag::{Tag, TagWithFiles};
 use thiserror::Error;
 use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -291,6 +291,10 @@ impl Node {
 			ClientCommand::TagUpdate { id, name, color } => {
 				tag::update_tag(ctx, id, name, color).await?
 			}
+			ClientCommand::GetTag { id } => tag::get_tag(ctx, id).await?,
+			ClientCommand::GetAllTags { name_starts_with } => {
+				tag::get_all_tags(ctx, name_starts_with).await?
+			}
 			// CRUD for libraries
 			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
 			ClientCommand::LibDelete { id: _ } => todo!(),
@@ -363,7 +367,9 @@ impl Node {
 #[ts(export)]
 pub enum ClientCommand {
 	// Files
-	FileReadMetaData { id: i32 },
+	FileReadMetaData {
+		id: i32,
+	},
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
 	FileDelete {
 		id: i32,
@@ -388,6 +394,12 @@ pub enum ClientCommand {
 	},
 	TagDelete {
 		id: i32,
+	},
+	GetTag {
+		id: i32,
+	},
+	GetAllTags {
+		name_starts_with: Option<String>,
 	},
 	// Locations
 	LocCreate {
@@ -461,6 +473,8 @@ pub enum CoreResponse {
 	Success(()),
 	LibGetTags(TagWithFiles),
 	TagCreateResponse { pub_id: String },
+	GetTags(Vec<Tag>),
+	GetTag(Option<Tag>),
 	SysGetVolumes(Vec<sys::Volume>),
 	SysGetLocation(sys::LocationResource),
 	SysGetLocations(Vec<sys::LocationResource>),

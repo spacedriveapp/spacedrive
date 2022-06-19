@@ -4,73 +4,13 @@ use ts_rs::TS;
 
 use crate::{
 	file::File,
-	prisma::{self, file, tag, tag_on_file},
+	prisma::{
+		self, file,
+		tag::{self},
+		tag_on_file,
+	},
 	CoreContext, CoreError, CoreResponse,
 };
-
-pub async fn create_tag(
-	ctx: CoreContext,
-	name: String,
-	color: String,
-) -> Result<CoreResponse, CoreError> {
-	let created_tag = ctx
-		.database
-		.tag()
-		.create(
-			tag::pub_id::set(uuid::Uuid::new_v4().to_string()),
-			vec![tag::name::set(Some(name)), tag::color::set(Some(color))],
-		)
-		.exec()
-		.await
-		.unwrap();
-
-	Ok(CoreResponse::TagCreateResponse {
-		pub_id: created_tag.pub_id,
-	})
-}
-
-pub async fn update_tag(
-	ctx: CoreContext,
-	id: i32,
-	name: Option<String>,
-	color: Option<String>,
-) -> Result<CoreResponse, CoreError> {
-	ctx.database
-		.tag()
-		.find_unique(tag::id::equals(id))
-		.update(vec![tag::name::set(name), tag::color::set(color)])
-		.exec()
-		.await
-		.unwrap();
-
-	Ok(CoreResponse::Success(()))
-}
-
-pub async fn tag_assign(
-	ctx: CoreContext,
-	file_id: i32,
-	tag_id: i32,
-) -> Result<CoreResponse, CoreError> {
-	ctx.database.tag_on_file().create(
-		tag_on_file::tag::link(tag::UniqueWhereParam::IdEquals(tag_id)),
-		tag_on_file::file::link(file::UniqueWhereParam::IdEquals(file_id)),
-		vec![],
-	);
-
-	Ok(CoreResponse::Success(()))
-}
-
-pub async fn tag_delete(ctx: CoreContext, id: i32) -> Result<CoreResponse, CoreError> {
-	ctx.database
-		.tag()
-		.find_unique(tag::id::equals(id))
-		.delete()
-		.exec()
-		.await
-		.unwrap();
-
-	Ok(CoreResponse::Success(()))
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -139,4 +79,99 @@ pub enum TagError {
 	TagNotFound(i32),
 	#[error("Database error")]
 	DatabaseError(#[from] prisma::QueryError),
+}
+
+pub async fn create_tag(
+	ctx: CoreContext,
+	name: String,
+	color: String,
+) -> Result<CoreResponse, CoreError> {
+	let created_tag = ctx
+		.database
+		.tag()
+		.create(
+			tag::pub_id::set(uuid::Uuid::new_v4().to_string()),
+			vec![tag::name::set(Some(name)), tag::color::set(Some(color))],
+		)
+		.exec()
+		.await
+		.unwrap();
+
+	Ok(CoreResponse::TagCreateResponse {
+		pub_id: created_tag.pub_id,
+	})
+}
+
+pub async fn update_tag(
+	ctx: CoreContext,
+	id: i32,
+	name: Option<String>,
+	color: Option<String>,
+) -> Result<CoreResponse, CoreError> {
+	ctx.database
+		.tag()
+		.find_unique(tag::id::equals(id))
+		.update(vec![tag::name::set(name), tag::color::set(color)])
+		.exec()
+		.await
+		.unwrap();
+
+	Ok(CoreResponse::Success(()))
+}
+
+pub async fn tag_assign(
+	ctx: CoreContext,
+	file_id: i32,
+	tag_id: i32,
+) -> Result<CoreResponse, CoreError> {
+	ctx.database.tag_on_file().create(
+		tag_on_file::tag::link(tag::UniqueWhereParam::IdEquals(tag_id)),
+		tag_on_file::file::link(file::UniqueWhereParam::IdEquals(file_id)),
+		vec![],
+	);
+
+	Ok(CoreResponse::Success(()))
+}
+
+pub async fn tag_delete(ctx: CoreContext, id: i32) -> Result<CoreResponse, CoreError> {
+	ctx.database
+		.tag()
+		.find_unique(tag::id::equals(id))
+		.delete()
+		.exec()
+		.await?
+		.unwrap();
+
+	Ok(CoreResponse::Success(()))
+}
+
+pub async fn get_tag(ctx: CoreContext, id: i32) -> Result<CoreResponse, CoreError> {
+	let tag = ctx
+		.database
+		.tag()
+		.find_unique(tag::id::equals(id))
+		.exec()
+		.await?
+		.map(Into::into);
+
+	Ok(CoreResponse::GetTag(tag))
+}
+
+pub async fn get_all_tags(
+	ctx: CoreContext,
+	name_starts_with: Option<String>,
+) -> Result<CoreResponse, CoreError> {
+	let tags: Vec<Tag> = ctx
+		.database
+		.tag()
+		.find_many(vec![tag::name::starts_with(
+			name_starts_with.unwrap_or(String::new()),
+		)])
+		.exec()
+		.await?
+		.into_iter()
+		.map(Into::into)
+		.collect();
+
+	Ok(CoreResponse::GetTags(tags))
 }
