@@ -1,4 +1,4 @@
-use std::{env::consts, ffi::c_void};
+use std::env::consts;
 
 use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuItem, Submenu, WindowMenuEvent, Wry};
 
@@ -95,10 +95,11 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 				.window()
 				.with_webview(|webview| {
 					#[cfg(target_os = "macos")]
-					unsafe {
-						use objc::{msg_send, sel, sel_impl};
-						let _result: c_void = msg_send![webview.inner(), reload];
-					};
+					{
+						use crate::macos::reload_webview;
+
+						reload_webview(webview.inner() as _);
+					}
 				})
 				.unwrap();
 		}

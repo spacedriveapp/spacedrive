@@ -1,21 +1,20 @@
 [package]
 name = "spacedrive"
 version = "0.1.0"
-description = "The next gen private virtual filesystem."
-authors = ["Jamie Pine"]
+description = "The universal file manager."
+authors = ["Spacedrive Technology Inc."]
 license = ""
 repository = "https://github.com/spacedriveapp/spacedrive"
 default-run = "spacedrive"
 edition = "2021"
-build = "src/build.rs"
+build = "build.rs"
 
 [build-dependencies]
-tauri-build = { version = "1.0.0-rc.5", features = [] }
-swift-rs = "0.2.3"
+tauri-build = { version = "1.0.0", features = [] }
 
 [dependencies]
 # Project dependencies
-tauri = { version = "1.0.0-rc.6", features = ["api-all", "macos-private-api"] }
+tauri = { version = "1.0.0", features = ["api-all", "macos-private-api"] }
 sdcore = { path = "../../../core" }
 # tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
 
@@ -25,8 +24,10 @@ window-shadows = "0.1.2"
 
 # macOS system libs
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.24.0"
-objc = "0.2.7"
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease" }
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = ["build"] }
 
 [features]
 default = [ "custom-protocol" ]

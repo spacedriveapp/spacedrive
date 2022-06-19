@@ -5,7 +5,7 @@ import React from 'react';
 
 import { Button } from './Button';
 
-type Section = {
+export type DropdownItem = {
 	name: string;
 	icon?: any;
 	selected?: boolean;
@@ -13,13 +13,14 @@ type Section = {
 }[];
 
 export interface DropdownProps {
-	items: Section[];
+	items: DropdownItem[];
 	buttonText?: string;
 	buttonProps?: React.ComponentProps<typeof Button>;
 	buttonComponent?: React.ReactNode;
 	buttonIcon?: any;
 	className?: string;
 	itemsClassName?: string;
+	itemButtonClassName?: string;
 }
 
 export const Dropdown: React.FC<DropdownProps> = (props) => {
@@ -64,7 +65,8 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 												{
 													'bg-gray-300 dark:!bg-gray-500 dark:hover:bg-gray-500': button.selected
 													// 'text-gray-900 dark:text-gray-200': !active
-												}
+												},
+												props.itemButtonClassName
 											)}
 										>
 											{button.icon && (

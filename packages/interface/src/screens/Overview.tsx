@@ -10,7 +10,7 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
 
-import { AppPropsContext } from '../App';
+import { AppPropsContext } from '../AppPropsContext';
 import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
 
@@ -153,7 +153,7 @@ export const OverviewScreen = () => {
 		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
 			{/* PAGE */}
-			<div className="flex flex-col w-full h-screen px-3">
+			<div className="flex flex-col w-full h-screen px-4">
 				{/* STAT HEADER */}
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
@@ -206,19 +206,19 @@ export const OverviewScreen = () => {
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 space-y-4">
-					{nodeState && (
-						<Device
-							name={nodeState?.node_name ?? 'This Device'}
-							size="1.4TB"
-							runningJob={{ amount: 65, task: 'Generating preview media' }}
-							locations={[
-								{ name: 'Pictures', folder: true },
-								{ name: 'Downloads', folder: true },
-								{ name: 'Minecraft', folder: true }
-							]}
-							type="laptop"
-						/>
-					)}
+					<Device
+						name={`James' MacBook Pro`}
+						size="1TB"
+						locations={[
+							{ name: 'Documents', folder: true },
+							{ name: 'Movies', folder: true },
+							{ name: 'Downloads', folder: true },
+							{ name: 'Minecraft', folder: true },
+							{ name: 'Projects', folder: true },
+							{ name: 'Notes', folder: true }
+						]}
+						type="desktop"
+					/>
 					<Device
 						name={`James' iPhone 12`}
 						size="47.7GB"
