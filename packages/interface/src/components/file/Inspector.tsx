@@ -6,6 +6,7 @@ import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
+import { useDebounce } from 'rooks';
 
 import { default as types } from '../../constants/file-types.json';
 import FileThumb from './FileThumb';
@@ -43,9 +44,10 @@ export const Inspector = (props: {
 
 	const { mutate: fileSetNote } = useBridgeCommand('FileSetNote', {});
 
+	const fileSetNoteDebounced = useDebounce(fileSetNote, 500);
+
 	useEffect(() => {
-		console.log(props.selectedFile?.file);
-		if (props.selectedFile?.file) fileSetNote({ id: props.selectedFile?.file.id, note });
+		if (props.selectedFile?.file) fileSetNoteDebounced({ id: props.selectedFile?.file.id, note });
 	}, [note]);
 
 	useEffect(() => {
@@ -90,7 +92,7 @@ export const Inspector = (props: {
 							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
 						)}
 						<Divider />
-						<MetaItem title="Uri" value={full_path} />
+						<MetaItem title="URI" value={full_path} />
 						<Divider />
 						<MetaItem
 							title="Date Created"

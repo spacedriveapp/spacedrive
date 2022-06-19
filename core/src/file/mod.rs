@@ -6,7 +6,7 @@ use ts_rs::TS;
 use crate::{
 	prisma::{self, file, file_path},
 	sys::SysError,
-	CoreContext, CoreError, CoreResponse,
+	ClientQuery, CoreContext, CoreError, CoreEvent, CoreResponse,
 };
 pub mod cas;
 pub mod explorer;
@@ -154,7 +154,12 @@ pub async fn set_note(
 		.await
 		.unwrap();
 
-	println!("{:?}, {:?}, {:?}", id, note, response);
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibGetExplorerDir {
+		limit: 0,
+		path: "".to_string(),
+		location_id: 0,
+	}))
+	.await;
 
 	Ok(CoreResponse::Success(()))
 }
