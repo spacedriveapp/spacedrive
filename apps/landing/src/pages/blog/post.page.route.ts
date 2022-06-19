@@ -1,0 +1,1 @@
+export default '/blog/:slug';

@@ -1,6 +1,6 @@
 // const colors = require('tailwindcss/colors');
 // const plugin = require('tailwindcss/plugin');
-// const defaultTheme = require('tailwindcss/defaultTheme');
+const defaultTheme = require('tailwindcss/defaultTheme');
 
 module.exports = function (app, options) {
 	let config = {
@@ -11,6 +11,10 @@ module.exports = function (app, options) {
 		darkMode: app == 'landing' ? 'class' : 'class',
 		mode: 'jit',
 		theme: {
+			screens: {
+				xs: '475px',
+				...defaultTheme.screens
+			},
 			// fontFamily: {
 			//   sans: ['Inter', 'ui-sans-serif', 'system-ui'],
 			//   serif: ['Inter', 'ui-serif', 'Georgia'],
@@ -120,6 +124,7 @@ module.exports = function (app, options) {
 	};
 	if (app === 'landing') {
 		config.plugins.push(require('@tailwindcss/typography'));
+		config.plugins.push(require('@tailwindcss/line-clamp'));
 	}
 	return config;
 };

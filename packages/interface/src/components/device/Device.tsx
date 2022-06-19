@@ -25,7 +25,7 @@ export function Device(props: DeviceProps) {
 	}
 
 	return (
-		<div className="w-full bg-gray-50 dark:bg-gray-600 border rounded-md border-gray-100 dark:border-gray-550">
+		<div className="w-full border border-gray-100 rounded-md bg-gray-50 dark:bg-gray-600 dark:border-gray-550">
 			<div className="flex flex-row items-center px-4 pt-2 pb-2">
 				<DotsSixVertical weight="bold" className="mr-3 opacity-30" />
 				{props.type === 'phone' && <DeviceMobileCamera weight="fill" size={20} className="mr-2" />}
@@ -44,7 +44,7 @@ export function Device(props: DeviceProps) {
 				</span>
 				<div className="flex flex-grow" />
 				{props.runningJob && (
-					<div className="flex flex-row ml-5 bg-opacity-50 rounded-md bg-gray-300 dark:bg-gray-550">
+					<div className="flex flex-row ml-5 bg-gray-300 bg-opacity-50 rounded-md dark:bg-gray-550">
 						<Rings
 							stroke="#2599FF"
 							strokeOpacity={4}

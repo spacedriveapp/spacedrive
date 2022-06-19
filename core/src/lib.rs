@@ -1,4 +1,7 @@
-use crate::{file::cas::FileIdentifierJob, node::NodeConfig};
+use crate::{
+	file::cas::FileIdentifierJob, prisma::location,
+	prisma::file as prisma_file, node::NodeConfig
+};
 use job::{Job, JobReport, Jobs};
 use library::{LibraryConfig, LibraryManager};
 use node::NodeConfigManager;
@@ -154,7 +157,7 @@ impl Node {
 			event_sender,
 			internal_channel,
 		};
-
+		
 		(
 			NodeController {
 				query_sender: node.query_channel.0.clone(),
@@ -223,12 +226,39 @@ impl Node {
 				// ctx.queue_job(Box::new(FileIdentifierJob));
 				CoreResponse::LocCreate(loc)
 			}
-			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
-			ClientCommand::LocDelete { id: _ } => todo!(),
+			ClientCommand::LocUpdate { id, name } => {
+				ctx.db
+					.location()
+					.find_unique(location::id::equals(id))
+					.update(vec![location::name::set(name)])
+					.exec()
+					.await?;
+
+				CoreResponse::Success(())
+			}
+			ClientCommand::LocDelete { id } => {
+				ctx.db
+					.location()
+					.find_unique(location::id::equals(id))
+					.delete()
+					.exec()
+					.await?;
+
+				CoreResponse::Success(())
+			}
 			// CRUD for files
-			ClientCommand::FileRead { id: _ } => todo!(),
+			ClientCommand::FileReadMetaData { id: _ } => todo!(),
 			// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
-			ClientCommand::FileDelete { id: _ } => todo!(),
+			ClientCommand::FileDelete { id } => {
+				ctx.db
+					.file()
+					.find_unique(prisma_file::id::equals(id))
+					.delete()
+					.exec()
+					.await?;
+
+				CoreResponse::Success(())
+			}
 			// CRUD for tags
 			ClientCommand::TagCreate { name: _, color: _ } => todo!(),
 			ClientCommand::TagAssign {
@@ -311,7 +341,7 @@ pub enum ClientCommand {
 	// Libraries
 	CreateLibrary { name: String },
 	// Files
-	FileRead { id: i32 },
+	FileReadMetaData { id: i32 },
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
 	FileDelete { id: i32 },
 	// Library

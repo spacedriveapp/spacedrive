@@ -3,7 +3,7 @@ import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext } from 'react';
 
-import { AppPropsContext } from '../../App';
+import { AppPropsContext } from '../../AppPropsContext';
 import icons from '../../assets/icons';
 import { Folder } from '../icons/Folder';
 
@@ -17,7 +17,7 @@ export default function FileThumb(props: {
 	const { data: client } = useBridgeQuery('NodeGetState');
 
 	if (props.file.is_dir) {
-		return <Folder className="max-w-[20px]" />;
+		return <Folder size={100} />;
 	}
 
 	if (client?.data_path && (props.file.file?.has_thumbnail || props.hasThumbnailOverride)) {

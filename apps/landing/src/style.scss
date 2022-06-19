@@ -7,6 +7,20 @@ html {
 	}
 }
 
+.title-gradient {
+	background: linear-gradient(94.79deg, #e86aff 33.64%, #53afff 68.78%), #ffffff;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.oss-credit-gradient {
+	background: linear-gradient(90.85deg, #ffffff 8.44%, #d1d1d1 21.35%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
 .landing-img {
 	background-image: url('/app.png');
 	background-size: contain;
@@ -34,7 +48,7 @@ html {
 
 .fade-in-whats-new {
 	animation: fadeInDown 1s forwards;
-	animation-delay: 1.5s;
+	animation-delay: 600ms;
 	opacity: 0;
 }
 
@@ -46,6 +60,12 @@ html {
 }
 .animation-delay-3 {
 	animation-delay: 700ms;
+}
+.animation-delay-4 {
+	animation-delay: 1000ms;
+}
+.animation-delay-5 {
+	animation-delay: 1200ms;
 }
 
 @keyframes fadeInDown {
@@ -80,9 +100,11 @@ html {
 	@apply absolute w-96 h-96;
 	will-change: opacity;
 	opacity: 0;
-	filter: blur(160px);
+	will-change: filter opacity;
 	border-radius: 50%;
 	transform: scale(1.5);
+	-webkit-filter: blur(120px);
+	filter: blur(120px);
 	animation-name: bloomBurst;
 	animation-duration: 1s;
 	animation-timing-function: ease-in-out;
@@ -96,11 +118,12 @@ html {
 	&.bloom-two {
 		background: conic-gradient(from 90deg at 50% 50%, #c62dbb, #1d054b);
 		animation-delay: 0ms;
+		margin-top: -20px;
 	}
 	&.bloom-three {
 		background: conic-gradient(from 90deg at 50% 50%, #6c2ca0, #0b0b98);
 		animation-delay: 600ms;
-		margin-top: 200px;
+		margin-top: 0px;
 	}
 }
 
@@ -112,7 +135,24 @@ html {
 		opacity: 1;
 	}
 	to {
-		opacity: 0.6;
+		opacity: 0.8;
+	}
+}
+
+@-moz-document url-prefix() {
+	@keyframes bloomBurst {
+		from {
+			opacity: 0;
+		}
+		40% {
+			opacity: 0.5;
+		}
+		to {
+			opacity: 0.3;
+		}
+	}
+	.page-bloom {
+		display: none;
 	}
 }
 

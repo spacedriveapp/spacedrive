@@ -1,24 +1,18 @@
-// import { dummyIFile, FileList } from '../components/file/FileList';
 import {
 	CloudIcon,
 	CogIcon,
 	KeyIcon,
 	LockClosedIcon,
-	PhotographIcon,
 	TagIcon,
 	TerminalIcon,
 	UsersIcon
 } from '@heroicons/react/outline';
 import clsx from 'clsx';
-import { Book, Database, HardDrive, PaintBrush } from 'phosphor-react';
+import { Database, HardDrive, PaintBrush } from 'phosphor-react';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { SidebarLink } from '../components/file/Sidebar';
-
-//@ts-ignore
-// import { Spline } from 'react-spline';
-// import WINDOWS_SCENE from '../assets/spline/scene.json';
 
 const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />

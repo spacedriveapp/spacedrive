@@ -1,7 +1,9 @@
 {
-    "extends": "../../packages/config/interface.tsconfig.json",
-    "compilerOptions": {},
-    "include": [
-        "src"
-    ]
+	"extends": "../../packages/config/interface.tsconfig.json",
+	"compilerOptions": {
+		"paths": {
+			"~/docs/*": ["../../docs/*"]
+		}
+	},
+	"include": ["src"]
 }
