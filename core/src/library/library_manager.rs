@@ -28,16 +28,27 @@ pub struct LibraryManager {
 	node_context: NodeContext,
 }
 
+#[derive(Error, Debug)]
+pub enum LibraryManagerError {
+	#[error("error saving or loading the config from the filesystem")]
+	IOError(#[from] io::Error),
+	#[error("error serializing or deserializing the JSON in the config file")]
+	JsonError(#[from] serde_json::Error),
+	#[error("Database error")]
+	DatabaseError(#[from] prisma::QueryError),
+	#[error("error migrating the config file")]
+	MigrationError(String),
+}
+
 impl LibraryManager {
 	pub(crate) async fn new(
 		libraries_dir: PathBuf,
 		node_context: NodeContext,
 	) -> Result<Arc<Self>, LibraryManagerError> {
-		fs::create_dir_all(&libraries_dir).map_err(LibraryManagerError::IOError)?;
+		fs::create_dir_all(&libraries_dir)?;
 
 		let mut libraries = Vec::new();
-		for entry in fs::read_dir(&libraries_dir)
-			.map_err(LibraryManagerError::IOError)?
+		for entry in fs::read_dir(&libraries_dir)?
 			.into_iter()
 			.filter_map(|entry| entry.ok())
 			.filter(|entry| {
@@ -130,8 +141,7 @@ impl LibraryManager {
 				vec![],
 			)
 			.exec()
-			.await
-			.map_err(LibraryManagerError::DatabaseError)?;
+			.await?;
 
 		self.libraries.write().await.push(library);
 
@@ -176,8 +186,7 @@ impl LibraryManager {
 				vec![node::name::set(config.name.clone())],
 			)
 			.exec()
-			.await
-			.map_err(LibraryManagerError::DatabaseError)?;
+			.await?;
 
 		Ok(LibraryContext {
 			id,
@@ -187,14 +196,4 @@ impl LibraryManager {
 			node_context,
 		})
 	}
-}
-
-#[derive(Error, Debug)]
-pub enum LibraryManagerError {
-	#[error("error saving or loading the config from the filesystem")]
-	IOError(io::Error),
-	#[error("error serializing or deserializing the JSON in the config file")]
-	JsonError(serde_json::Error),
-	#[error("Database error")]
-	DatabaseError(#[from] prisma::QueryError),
 }

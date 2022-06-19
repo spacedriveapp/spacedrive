@@ -1,8 +1,14 @@
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{
+	fs::File,
+	io::{BufReader, Seek, SeekFrom},
+	path::PathBuf,
+};
 
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use ts_rs::TS;
+
+use crate::node::ConfigMetadata;
 
 use super::LibraryManagerError;
 
@@ -10,6 +16,8 @@ use super::LibraryManagerError;
 #[derive(Debug, Serialize, Deserialize, Clone, TS, Default)]
 #[ts(export)]
 pub struct LibraryConfig {
+	#[serde(flatten)]
+	pub metadata: ConfigMetadata,
 	/// name is the display name of the library. This is used in the UI and is set by the user.
 	pub name: String,
 	/// description is a user set description of the library. This is used in the UI and is set by the user.
@@ -19,8 +27,13 @@ pub struct LibraryConfig {
 impl LibraryConfig {
 	/// read will read the configuration from disk and return it.
 	pub(super) async fn read(file_dir: PathBuf) -> Result<LibraryConfig, LibraryManagerError> {
-		let reader = BufReader::new(File::open(file_dir).map_err(LibraryManagerError::IOError)?);
-		Ok(serde_json::from_reader(reader).map_err(LibraryManagerError::JsonError)?)
+		let mut file = File::open(&file_dir)?;
+		let base_config: ConfigMetadata = serde_json::from_reader(BufReader::new(&mut file))?;
+
+		Self::migrate_config(base_config.version, file_dir)?;
+
+		file.seek(SeekFrom::Start(0))?;
+		Ok(serde_json::from_reader(BufReader::new(&mut file))?)
 	}
 
 	/// save will write the configuration back to disk
@@ -30,12 +43,22 @@ impl LibraryConfig {
 	) -> Result<(), LibraryManagerError> {
 		File::create(file_dir)
 			.map_err(LibraryManagerError::IOError)?
-			.write_all(
-				serde_json::to_string(config)
-					.map_err(LibraryManagerError::JsonError)?
-					.as_bytes(),
-			)
+			.write_all(serde_json::to_string(config)?.as_bytes())
 			.map_err(LibraryManagerError::IOError)?;
 		Ok(())
+	}
+
+	/// migrate_config is a function used to apply breaking changes to the library config file.
+	fn migrate_config(
+		current_version: Option<String>,
+		config_path: PathBuf,
+	) -> Result<(), LibraryManagerError> {
+		match current_version {
+			None => Err(LibraryManagerError::MigrationError(format!(
+				"Your Spacedrive library at '{}' is missing the `version` field",
+				config_path.display()
+			))),
+			_ => Ok(()),
+		}
 	}
 }

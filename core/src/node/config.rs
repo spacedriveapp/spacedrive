@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{self, BufReader, Write};
+use std::io::{self, BufReader, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
@@ -11,10 +11,29 @@ use uuid::Uuid;
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.json";
 
+/// ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
+/// This allows us to migrate breaking changes to the config format between Spacedrive releases.
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+pub struct ConfigMetadata {
+	/// version of Spacedrive. Determined from `CARGO_PKG_VERSION` environment variable.
+	pub version: Option<String>,
+}
+
+impl Default for ConfigMetadata {
+	fn default() -> Self {
+		Self {
+			version: Some(env!("CARGO_PKG_VERSION").into()),
+		}
+	}
+}
+
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]
 #[ts(export)]
 pub struct NodeConfig {
+	#[serde(flatten)]
+	pub metadata: ConfigMetadata,
 	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
@@ -26,9 +45,11 @@ pub struct NodeConfig {
 #[derive(Error, Debug)]
 pub enum NodeConfigError {
 	#[error("error saving or loading the config from the filesystem")]
-	IOError(io::Error),
+	IOError(#[from] io::Error),
 	#[error("error serializing or deserializing the JSON in the config file")]
-	JsonError(serde_json::Error),
+	JsonError(#[from] serde_json::Error),
+	#[error("error migrating the config file")]
+	MigrationError(String),
 }
 
 impl NodeConfig {
@@ -43,6 +64,9 @@ impl NodeConfig {
 				}
 			},
 			p2p_port: None,
+			metadata: ConfigMetadata {
+				version: Some(env!("CARGO_PKG_VERSION").into()),
+			},
 		}
 	}
 }
@@ -96,8 +120,14 @@ impl NodeConfigManager {
 
 		match path.exists() {
 			true => {
-				let reader = BufReader::new(File::open(path).map_err(NodeConfigError::IOError)?);
-				Ok(serde_json::from_reader(reader).map_err(NodeConfigError::JsonError)?)
+				let mut file = File::open(&path)?;
+				let base_config: ConfigMetadata =
+					serde_json::from_reader(BufReader::new(&mut file))?;
+
+				Self::migrate_config(base_config.version, path)?;
+
+				file.seek(SeekFrom::Start(0))?;
+				Ok(serde_json::from_reader(BufReader::new(&mut file))?)
 			}
 			false => {
 				let config = NodeConfig::default();
@@ -110,14 +140,20 @@ impl NodeConfigManager {
 	/// save will write the configuration back to disk
 	async fn save(base_path: &PathBuf, config: &NodeConfig) -> Result<(), NodeConfigError> {
 		let path = Path::new(base_path).join(NODE_STATE_CONFIG_NAME);
-		File::create(path)
-			.map_err(NodeConfigError::IOError)?
-			.write_all(
-				serde_json::to_string(config)
-					.map_err(NodeConfigError::JsonError)?
-					.as_bytes(),
-			)
-			.map_err(NodeConfigError::IOError)?;
+		File::create(path)?.write_all(serde_json::to_string(config)?.as_bytes())?;
 		Ok(())
+	}
+
+	/// migrate_config is a function used to apply breaking changes to the config file.
+	fn migrate_config(
+		current_version: Option<String>,
+		config_path: PathBuf,
+	) -> Result<(), NodeConfigError> {
+		match current_version {
+			None => {
+				Err(NodeConfigError::MigrationError(format!("Your Spacedrive config file stored at '{}' is missing the `version` field. If you just upgraded please delete the file and restart Spacedrive! Please note this upgrade will stop using your old 'library.db' as the folder structure has changed.", config_path.display())))
+			}
+			_ => Ok(()),
+		}
 	}
 }
