@@ -10,10 +10,11 @@
 		"beforeBuildCommand": "pnpm exec vite build"
 	},
 	"tauri": {
+		"macOSPrivateApi": true,
 		"bundle": {
 			"active": true,
 			"targets": "all",
-			"identifier": "co.spacedrive.desktop",
+			"identifier": "com.spacedrive.desktop",
 			"icon": ["icons/icon.icns"],
 			"resources": [],
 			"externalBin": [],
@@ -25,7 +26,7 @@
 			},
 			"macOS": {
 				"frameworks": [],
-				"minimumSystemVersion": "",
+				"minimumSystemVersion": "10.14",
 				"exceptionDomain": "",
 				"signingIdentity": null,
 				"entitlements": null
@@ -41,6 +42,9 @@
 		},
 		"allowlist": {
 			"all": true,
+			"protocol": {
+				"assetScope": ["*"]
+			},
 			"os": {
 				"all": true
 			},
@@ -53,15 +57,17 @@
 		"windows": [
 			{
 				"title": "Spacedrive",
-				"width": 1250,
-				"height": 625,
+				"width": 1200,
+				"height": 725,
+				"minWidth": 700,
+				"minHeight": 500,
 				"resizable": true,
 				"fullscreen": false,
 				"alwaysOnTop": false,
-				"focus": true,
+				"focus": false,
 				"fileDropEnabled": false,
 				"decorations": true,
-				"transparent": false,
+				"transparent": true,
 				"center": true
 			}
 		],

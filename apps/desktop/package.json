@@ -15,12 +15,12 @@
 		"@sd/core": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@tauri-apps/api": "1.0.0-rc.6",
+		"@tauri-apps/api": "1.0.0",
 		"react": "^18.1.0",
 		"react-dom": "^18.1.0"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "1.0.0-rc.13",
+		"@tauri-apps/cli": "1.0.0",
 		"@tauri-apps/tauricon": "github:tauri-apps/tauricon",
 		"@types/babel-core": "^6.25.7",
 		"@types/byte-size": "^8.1.0",

@@ -14,7 +14,7 @@
 		"bundle": {
 			"active": true,
 			"targets": "all",
-			"identifier": "app.spacedrive.desktop",
+			"identifier": "com.spacedrive.desktop",
 			"icon": [
 				"icons/32x32.png",
 				"icons/128x128.png",
@@ -32,7 +32,7 @@
 			},
 			"macOS": {
 				"frameworks": [],
-				"minimumSystemVersion": "",
+				"minimumSystemVersion": "10.15",
 				"exceptionDomain": "",
 				"signingIdentity": null,
 				"entitlements": null
@@ -50,6 +50,9 @@
 			"all": true,
 			"protocol": {
 				"assetScope": ["*"]
+			},
+			"os": {
+				"all": true
 			},
 			"dialog": {
 				"all": true,
