@@ -15,6 +15,9 @@ jobs:
       
       - run: rustup component add clippy
       
+      - name: Install Dependencies
+      - run: sudo apt update && sudo apt install libdbus-1-dev pkg-config
+      
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
