@@ -140,18 +140,21 @@ pub enum FileError {
 	SysError(#[from] SysError),
 }
 
-pub async fn add_note(
+pub async fn set_note(
 	ctx: CoreContext,
 	id: i32,
 	note: Option<String>,
 ) -> Result<CoreResponse, CoreError> {
-	ctx.database
+	let response = ctx
+		.database
 		.file()
 		.find_unique(file::id::equals(id))
-		.update(vec![file::note::set(note)])
+		.update(vec![file::note::set(note.clone())])
 		.exec()
 		.await
 		.unwrap();
+
+	println!("{:?}, {:?}, {:?}", id, note, response);
 
 	Ok(CoreResponse::Success(()))
 }

@@ -7,5 +7,5 @@ fn main() {
 		link_swift_package("sd-desktop-macos", "./native/macos/");
 	}
 
-	// tauri_build::build();
+	tauri_build::build();
 }

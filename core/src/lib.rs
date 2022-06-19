@@ -269,7 +269,7 @@ impl Node {
 			}
 			// CRUD for files
 			ClientCommand::FileReadMetaData { id: _ } => todo!(),
-			ClientCommand::FileAddNote { id, note } => file::add_note(ctx, id, note).await?,
+			ClientCommand::FileSetNote { id, note } => file::set_note(ctx, id, note).await?,
 			// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
 			ClientCommand::FileDelete { id } => {
 				ctx.database
@@ -360,7 +360,7 @@ impl Node {
 pub enum ClientCommand {
 	// Files
 	FileReadMetaData { id: i32 },
-	FileAddNote { id: i32, note: Option<String> },
+	FileSetNote { id: i32, note: Option<String> },
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
 	FileDelete { id: i32 },
 	// Library
