@@ -10,10 +10,14 @@ if [ $? -eq 1 ]; then
         exit 1
 fi
 
-which pnpm &> /dev/null
-if [ $? -eq 1 ]; then
-        echo "PNPM was not detected on your system. Ensure the 'pnpm' command is in your \$PATH. You are **not** able to use Yarn or NPM."
-        exit 1
+if [ "${SPACEDRIVE_SKIP_PNPM_CHECK:-}" != "true" ]; then
+        which pnpm &> /dev/null
+        if [ $? -eq 1 ]; then
+                echo "PNPM was not detected on your system. Ensure the 'pnpm' command is in your \$PATH. You are not able to use Yarn or NPM."
+                exit 1
+        fi
+else
+        echo "Skipped PNPM check!"
 fi
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -24,7 +28,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
                 DEBIAN_BINDGEN_DEPS="pkg-config clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
                 
                 sudo apt-get -y update
-                sudo apt-get -y install ${CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
+                sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
         elif which pacman &> /dev/null; then
                 echo "Detected 'pacman' based distro!"
                 ARCH_TAURI_DEPS="webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips" # Tauri deps https://tauri.studio/guides/getting-started/setup/linux#1-system-dependencies

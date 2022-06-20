@@ -11,7 +11,7 @@ on:
 
 env:
   CARGO_INCREMENTAL: 1
-  CUSTOM_APT_FLAGS: --no-install-recommends
+  SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
 jobs:
   typescript:
