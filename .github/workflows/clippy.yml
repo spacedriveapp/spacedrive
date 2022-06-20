@@ -5,17 +5,52 @@ on:
   push:
     paths:
       - '**.rs'
+      - '**.toml'
+      - ./.github/workflows
   workflow_dispatch:
+
+env:
+  CARGO_INCREMENTAL: 1
+  SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
+  SPACEDRIVE_SKIP_PNPM_CHECK: true
 
 jobs:
   clippy_check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
       
-      - run: rustup component add clippy
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: clippy
       
-      - uses: actions-rs/clippy-check@v1
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v1
+        with:
+          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run 'setup-system.sh' script
+        run: ./.github/scripts/setup-system.sh
+      
+      - name: Cache Prisma codegen
+        id: cache-prisma
+        uses: actions/cache@v3
+        with:
+          path: ./core/src/prisma.rs
+          key: prisma-${{ hashFiles('./core/prisma/Cargo.toml', './core/prisma/schema.prisma', './core/prisma/src/main.rs') }}
+
+      - name: Generate Prisma client
+        working-directory: core
+        if: steps.cache-prisma.outputs.cache-hit != 'true'
+        run: cargo run --frozen -p prisma-cli --release -- generate
+      
+      - name: Run Clippy
+        uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
