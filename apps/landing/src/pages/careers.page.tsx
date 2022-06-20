@@ -109,12 +109,8 @@ function Page() {
 			</Helmet>
 			<div className="container relative max-w-4xl min-h-screen p-4 m-auto mt-32 mb-20 prose text-white prose-invert">
 				<div
-					className="page-bloom absolute pointer-events-none z-0 -top-60 -right-[400px] w-[1000px] h-[800px]  fade-in will-change-transform"
-					style={{
-						background: 'linear-gradient(180deg, #040CA8 0%, #9704A8 95.73%)',
-						filter: 'blur(300px)',
-						transform: 'rotate(56.81deg)'
-					}}
+					className="bloom subtle egg-bloom-two -top-60 -right-[400px]"
+					style={{ transform: 'scale(2)' }}
 				/>
 				<h1 className="px-2 mb-3 text-4xl font-black leading-tight text-center text-white fade-in-heading md:text-5xl">
 					Build the future of files.
@@ -162,9 +158,7 @@ function Page() {
 						))}
 					</div>
 					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" ref={openPositionsRef} />
-					<h1
-						className="px-2 mb-0 text-4xl font-black leading-tight text-center text-white"
-					>
+					<h1 className="px-2 mb-0 text-4xl font-black leading-tight text-center text-white">
 						Open Positions
 					</h1>
 					<p className="mt-2 mb-4">Any of these suit you? Apply now!</p>
