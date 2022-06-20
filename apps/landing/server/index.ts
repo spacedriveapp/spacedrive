@@ -1,5 +1,6 @@
 import compression from 'compression';
 import express from 'express';
+import { networkInterfaces } from 'os';
 import { createPageRenderer } from 'vite-plugin-ssr';
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -40,4 +41,17 @@ async function startServer() {
 	const port = process.env.PORT || 8003;
 	app.listen(port);
 	console.log(`Server running at http://localhost:${port}`);
+
+	const nets = networkInterfaces();
+
+	for (const name of Object.keys(nets)) {
+		// @ts-ignore
+		for (const net of nets[name]) {
+			if (net.family === 'IPv4' && !net.internal) {
+				app.listen(Number(port), net.address, () => {
+					console.log(`Server running at http://${net.address}:${port}`);
+				});
+			}
+		}
+	}
 }
