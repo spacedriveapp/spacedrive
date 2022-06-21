@@ -5,6 +5,8 @@ import clsx from 'clsx';
 import { List } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
+import { positions } from '../pages/careers.page';
+
 import AppLogo from '../assets/images/logo.png';
 import { getWindow } from '../utils';
 
@@ -80,9 +82,7 @@ export default function NavBar() {
 					<NavLink link="/blog">Blog</NavLink>
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
-						<span className="absolute bg-opacity-80 px-[5px] text-xs rounded-md bg-primary -top-1 -right-2">
-							3
-						</span>
+						{positions.length > 0 ? <span className="absolute bg-opacity-80 px-[5px] text-xs rounded-md bg-primary -top-1 -right-2"> {positions.length} </span> : null}
 					</div>
 				</div>
 				<Dropdown
