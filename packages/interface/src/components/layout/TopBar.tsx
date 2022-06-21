@@ -71,7 +71,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 rounded-tr-2xl flex-shrink-0 items-center border-b  dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-60 backdrop-blur"
+				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-b  dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-60 backdrop-blur"
 			>
 				<div className="flex">
 					<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />

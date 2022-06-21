@@ -25,10 +25,8 @@ export function AppLayout() {
 			)}
 		>
 			<Sidebar />
-			<div className="flex flex-col w-full min-h-full">
-				<div className="relative flex w-full min-h-full bg-white dark:bg-gray-650">
-					<Outlet />
-				</div>
+			<div className="relative flex w-full h-screen max-h-screen bg-white dark:bg-gray-650">
+				<Outlet />
 			</div>
 		</div>
 	);

@@ -57,6 +57,7 @@ export const Inspector = (props: {
 
 	return (
 		<Transition
+			as={React.Fragment}
 			show={true}
 			enter="transition-translate ease-in-out duration-200"
 			enterFrom="translate-x-64"
@@ -65,9 +66,9 @@ export const Inspector = (props: {
 			leaveFrom="translate-x-0"
 			leaveTo="translate-x-64"
 		>
-			<div className="top-0 right-0 m-2 border border-gray-100 w-60 dark:border-gray-850 custom-scroll page-scroll">
+			<div className="flex p-2 pr-1 mr-1 pb-[51px] w-72 flex-wrap overflow-x-hidden custom-scroll inspector-scroll">
 				{!!file_path && (
-					<div className="flex flex-col overflow-x-hidden bg-white rounded-lg select-text dark:bg-gray-600 bg-opacity-70">
+					<div className="flex flex-col pb-2 overflow-hidden bg-white rounded-lg select-text dark:bg-gray-600 bg-opacity-70">
 						<div className="flex items-center justify-center w-full h-64 overflow-hidden rounded-t-lg bg-gray-50 dark:bg-gray-900">
 							<FileThumb
 								hasThumbnailOverride={false}
