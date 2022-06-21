@@ -22,7 +22,7 @@ struct File {
   paths: Vec<FilePath>,
   tags: Vec<Tag>,
   labels: Vec<Label>,
-  comments: Vec<Comment>,
+  notes: Vec<Note>,
   albums: Vec<Album>,
   media_data: Option<MediaData>,
   date_created: DateTime<Utc>,

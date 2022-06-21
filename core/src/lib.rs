@@ -1,6 +1,6 @@
 use crate::{
-	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState, prisma::location,
-	prisma::file as prisma_file, util::db::create_connection,
+	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState,
+	prisma::file as prisma_file, prisma::location, util::db::create_connection,
 };
 use job::{Job, JobReport, Jobs};
 use prisma::PrismaClient;
@@ -269,6 +269,7 @@ impl Node {
 			}
 			// CRUD for files
 			ClientCommand::FileReadMetaData { id: _ } => todo!(),
+			ClientCommand::FileSetNote { id, note } => file::set_note(ctx, id, note).await?,
 			// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
 			ClientCommand::FileDelete { id } => {
 				ctx.database
@@ -359,6 +360,7 @@ impl Node {
 pub enum ClientCommand {
 	// Files
 	FileReadMetaData { id: i32 },
+	FileSetNote { id: i32, note: Option<String> },
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
 	FileDelete { id: i32 },
 	// Library

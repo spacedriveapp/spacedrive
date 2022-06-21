@@ -132,8 +132,8 @@ model File {
     has_video_preview  Boolean  @default(false)
     // integration with ipfs
     ipfs_id            String?
-    // plain text comment
-    comment            String?
+    // plain text note
+    note               String?
     // the original known creation date of this file
     date_created       DateTime @default(now())
     // the last time this file was modified

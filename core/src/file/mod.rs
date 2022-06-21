@@ -6,6 +6,7 @@ use ts_rs::TS;
 use crate::{
 	prisma::{self, file, file_path},
 	sys::SysError,
+	ClientQuery, CoreContext, CoreError, CoreEvent, CoreResponse,
 };
 pub mod cas;
 pub mod explorer;
@@ -29,7 +30,7 @@ pub struct File {
 	pub has_video_preview: bool,
 	// pub encryption: EncryptionAlgorithm,
 	pub ipfs_id: Option<String>,
-	pub comment: Option<String>,
+	pub note: Option<String>,
 
 	pub date_created: chrono::DateTime<chrono::Utc>,
 	pub date_modified: chrono::DateTime<chrono::Utc>,
@@ -92,7 +93,7 @@ impl Into<File> for file::Data {
 			has_thumbnail: self.has_thumbnail,
 			has_thumbstrip: self.has_thumbstrip,
 			has_video_preview: self.has_video_preview,
-			comment: self.comment,
+			note: self.note,
 			date_created: self.date_created.into(),
 			date_modified: self.date_modified.into(),
 			date_indexed: self.date_indexed.into(),
@@ -137,4 +138,28 @@ pub enum FileError {
 	DatabaseError(#[from] prisma::QueryError),
 	#[error("System error")]
 	SysError(#[from] SysError),
+}
+
+pub async fn set_note(
+	ctx: CoreContext,
+	id: i32,
+	note: Option<String>,
+) -> Result<CoreResponse, CoreError> {
+	let response = ctx
+		.database
+		.file()
+		.find_unique(file::id::equals(id))
+		.update(vec![file::note::set(note.clone())])
+		.exec()
+		.await
+		.unwrap();
+
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibGetExplorerDir {
+		limit: 0,
+		path: "".to_string(),
+		location_id: 0,
+	}))
+	.await;
+
+	Ok(CoreResponse::Success(()))
 }
