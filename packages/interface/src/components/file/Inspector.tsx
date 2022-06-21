@@ -1,10 +1,12 @@
 import { Transition } from '@headlessui/react';
 import { ShareIcon } from '@heroicons/react/solid';
+import { useBridgeCommand } from '@sd/client';
 import { FilePath, LocationResource } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useDebounce } from 'rooks';
 
 import { default as types } from '../../constants/file-types.json';
 import FileThumb from './FileThumb';
@@ -37,6 +39,21 @@ export const Inspector = (props: {
 	const file_path = props.selectedFile;
 
 	let full_path = `${props.location?.path}/${file_path?.materialized_path}`;
+
+	const [note, setNote] = useState('');
+
+	const { mutate: fileSetNote } = useBridgeCommand('FileSetNote', {});
+
+	const fileSetNoteDebounced = useDebounce(fileSetNote, 500);
+
+	useEffect(() => {
+		if (props.selectedFile?.file) fileSetNoteDebounced({ id: props.selectedFile?.file.id, note });
+	}, [note]);
+
+	useEffect(() => {
+		if (props.selectedFile?.file) setNote(props.selectedFile?.file?.note || '');
+		else setNote('');
+	}, [props.selectedFile]);
 
 	return (
 		<Transition
@@ -75,7 +92,7 @@ export const Inspector = (props: {
 							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
 						)}
 						<Divider />
-						<MetaItem title="Uri" value={full_path} />
+						<MetaItem title="URI" value={full_path} />
 						<Divider />
 						<MetaItem
 							title="Date Created"
@@ -86,9 +103,9 @@ export const Inspector = (props: {
 							title="Date Indexed"
 							value={moment(file_path?.date_indexed).format('MMMM Do YYYY, h:mm:ss a')}
 						/>
-						<Divider />
 						{!file_path?.is_dir && (
 							<>
+								<Divider />
 								<div className="flex flex-row items-center px-3 py-2 meta-item">
 									{file_path?.extension && (
 										<span className="inline px-1 mr-1 text-xs font-bold uppercase bg-gray-500 rounded-md text-gray-150">
@@ -102,14 +119,25 @@ export const Inspector = (props: {
 											: 'Unknown'}
 									</p>
 								</div>
-								<Divider />
+								{file_path.file && (
+									<>
+										<Divider />
+										<MetaItem
+											title="Note"
+											value={
+												<TextArea
+													className="mt-2 text-xs leading-snug !py-2"
+													value={note}
+													onChange={(e) => {
+														setNote(e.target.value);
+													}}
+												/>
+											}
+										/>
+									</>
+								)}
 							</>
 						)}
-						<MetaItem
-							title="Comment"
-							value={<TextArea className="mt-2 text-xs leading-snug !py-2" />}
-						/>
-
 						{/* <div className="flex flex-row m-3">
               <Button size="sm">Mint</Button>
             </div> */}
