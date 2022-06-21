@@ -137,6 +137,3 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 - `windows`: A [C#](#) Native binary (planned).
 - `android`: A [Kotlin](#) Native binary (planned).
 
-### Repo structure:
-![Visualization of the codebase](./diagram.svg)
-
