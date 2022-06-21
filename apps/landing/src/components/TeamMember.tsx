@@ -71,7 +71,7 @@ export function TeamMember(props: TeamMemberProps) {
 			{props.investmentRound && (
 				<p className="mt-0 mb-0 text-sm font-semibold text-gray-450">{props.investmentRound}</p>
 			)}
-			<div className="flex flex-row mt-3 space-x-2">
+			<div className="flex flex-row mt-auto space-x-2">
 				{props.socials?.twitter && (
 					<Link href={props.socials.twitter}>
 						<Twitter className="w-[20px] h-[20px]" />
