@@ -1,5 +1,6 @@
 use crate::sys::{create_location, LocationResource};
 use crate::CoreContext;
+use chrono::{DateTime, FixedOffset, Utc};
 use prisma_client_rust::prisma_models::PrismaValue;
 use prisma_client_rust::raw;
 use prisma_client_rust::raw::Raw;
@@ -154,10 +155,10 @@ pub async fn scan_path(
 
 		let raw = Raw::new(
 			&format!("
-		      		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id) 
+		      		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_created) 
 		      		VALUES {}
 		        ", 
-		        vec!["({}, {}, {}, {}, {}, {}, {})"; chunk.len()].join(", ")
+		        vec!["({}, {}, {}, {}, {}, {}, {}, {})"; chunk.len()].join(", ")
 			),
 			files
 		);
@@ -183,12 +184,13 @@ fn prepare_values(
 	location: &LocationResource,
 	parent_id: &Option<i32>,
 	is_dir: bool,
-) -> Result<[PrismaValue; 7], std::io::Error> {
+) -> Result<[PrismaValue; 8], std::io::Error> {
 	let metadata = fs::metadata(&file_path)?;
 	let location_path = Path::new(location.path.as_ref().unwrap().as_str());
 	// let size = metadata.len();
 	let name;
 	let extension;
+	let date_created: DateTime<Utc> = metadata.created().unwrap().into();
 
 	// if the 'file_path' is not a directory, then get the extension and name.
 
@@ -216,6 +218,7 @@ fn prepare_values(
 			.clone()
 			.map(|id| PrismaValue::Int(id as i64))
 			.unwrap_or(PrismaValue::Null),
+		PrismaValue::DateTime(date_created.into()),
 	];
 
 	Ok(values)
