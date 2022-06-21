@@ -13,7 +13,7 @@ use rustls::{
 use crate::{NetworkManagerError, P2PApplication, PeerCandidate, PeerId};
 
 /// The Application-Layer Protocol Negotiation (ALPN) value for QUIC.
-const ALPN_QUIC_HTTP: &[&[u8]] = &[b"hq-29"];
+pub(crate) const ALPN_QUIC_HTTP: &[&[u8]] = &[b"hq-29"]; // TODO: private this
 
 /// new_server will make a new QUIC server with a standard configuration.
 pub(crate) fn new_server(
@@ -69,10 +69,11 @@ pub(crate) async fn new_client(
 }
 
 /// ServerCertificateVerifier is a custom certificate verifier that is responsible for verifying the server certificate when making a QUIC connection.
-struct ServerCertificateVerifier;
+pub(crate) struct ServerCertificateVerifier; // TODO: Private this
 
 impl ServerCertificateVerifier {
-	fn new() -> Arc<Self> {
+	// TODO: Private this
+	pub(crate) fn new() -> Arc<Self> {
 		Arc::new(Self)
 	}
 }

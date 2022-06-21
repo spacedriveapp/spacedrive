@@ -6,8 +6,8 @@ use rustls::Certificate;
 use tokio::sync::mpsc;
 
 use crate::{
-	quic, ConnectionType, DiscoveryManager, Identity, NetworkManagerError, NetworkManagerEvent,
-	NetworkManagerState, P2PApplication, Peer, PeerCandidate, PeerId,
+	quic, ConnectionType, DiscoveryManager, GlobalDiscovery, Identity, NetworkManagerError,
+	NetworkManagerEvent, NetworkManagerState, P2PApplication, Peer, PeerCandidate, PeerId,
 };
 
 /// NetworkManager is used to manage the P2P networking between cores. This implementation is completely decoupled from the Spacedrive core to aid future refactoring and unit testing.
@@ -44,6 +44,15 @@ impl NetworkManager {
 		});
 		let (endpoint, mut incoming, listen_addr) =
 			quic::new_server(identity, state.p2p_application.clone())?;
+
+		// TODO
+		let config = GlobalDiscovery::load_from_env();
+		config
+			.do_client_announcement(endpoint.clone())
+			.await
+			.unwrap();
+		unimplemented!();
+		// END TODO
 
 		let discovery = DiscoveryManager::new(
 			app_name,

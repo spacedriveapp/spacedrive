@@ -17,3 +17,5 @@ ring = "0.16.20"
 rustls = { version = "0.20.6", default-features = false, features = ["quic", "dangerous_configuration"] } # 'dangerous_configuration' is required to implement custom certificate verifiers which we use due to the self-signed nature of the protocol.
 thiserror = "1.0.31"
 tokio = { version = "1.19.0", features = ["rt-multi-thread", "macros", "sync"] }
+lifesupport = { path = "../../apps/lifesupport" }
+ureq = "2.4.0"
