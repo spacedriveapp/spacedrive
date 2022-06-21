@@ -29,9 +29,9 @@ export const ExplorerScreen: React.FC<{}> = () => {
 	);
 
 	return (
-		<div className="flex flex-col w-full h-full">
+		<div className="relative flex flex-col w-full">
 			<TopBar />
-			<div className="relative flex flex-row w-full ">
+			<div className="relative flex flex-row w-full max-h-full">
 				<FileList location_id={location_id} path={path} limit={limit} />
 				{currentDir?.contents && (
 					<Inspector
