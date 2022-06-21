@@ -239,7 +239,7 @@ pub fn prepare_file(
 
 	let metadata = fs::metadata(&path)?;
 
-	let date_created: DateTime<Utc> = metadata.created().unwrap().into();
+	// let date_created: DateTime<Utc> = metadata.created().unwrap().into();
 
 	let size = metadata.len();
 
@@ -256,6 +256,6 @@ pub fn prepare_file(
 	Ok(CreateFile {
 		cas_id,
 		size_in_bytes: size as i64,
-		date_created: date_created.into(),
+		date_created: file_path.date_created,
 	})
 }
