@@ -78,9 +78,6 @@ pub async fn get_location(
 		Some(location) => location,
 		None => Err(LocationError::NotFound(location_id.to_string()))?,
 	};
-
-	println!("Retrieved location: {:?}", location);
-
 	Ok(location.into())
 }
 
@@ -101,7 +98,7 @@ pub async fn new_location_and_scan(
 
 	ctx.queue_job(Box::new(ThumbnailJob {
 		location_id: location.id,
-		path: path.to_string(),
+		path: "".to_string(),
 		background: false,
 	}));
 
