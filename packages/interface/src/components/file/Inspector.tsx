@@ -1,15 +1,13 @@
 import { Transition } from '@headlessui/react';
 import { ShareIcon } from '@heroicons/react/solid';
-import { useBridgeCommand } from '@sd/client';
 import { FilePath, LocationResource } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useDebounce } from 'rooks';
+import React, { useEffect } from 'react';
 
 import { default as types } from '../../constants/file-types.json';
-import { updateNote, useInspectorState } from '../../hooks/useInspectorState';
+import { useInspectorState } from '../../hooks/useInspectorState';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
