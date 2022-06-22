@@ -4825,6 +4825,7 @@ dependencies = [
  "include_dir",
  "int-enum",
  "lazy_static",
+ "log",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",
  "serde",
