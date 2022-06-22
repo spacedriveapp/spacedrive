@@ -20,7 +20,7 @@ export default defineConfig({
 		})
 	],
 	root: 'src',
-	publicDir: '../../packages/interface/src/assets',
+	publicDir: '../../packages/ui/src/assets',
 	define: {
 		pkgJson: { name, version }
 	},

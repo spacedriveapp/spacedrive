@@ -3,7 +3,7 @@ import { BaseTransport } from '@sd/client';
 // import types from Spacedrive core (TODO: re-export from client would be cleaner)
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 // import Spacedrive interface
-import SpacedriveInterface, { Platform } from '@sd/interface';
+import SpacedriveInterface, { Platform } from '@sd/ui';
 // import tauri apis
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { Event, listen } from '@tauri-apps/api/event';

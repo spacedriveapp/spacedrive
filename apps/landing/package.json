@@ -15,7 +15,6 @@
 		"@icons-pack/react-simple-icons": "^4.7.0",
 		"@sd/client": "workspace:*",
 		"@sd/core": "workspace:*",
-		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@tailwindcss/typography": "^0.5.2",
 		"@tryghost/content-api": "^1.11.0",

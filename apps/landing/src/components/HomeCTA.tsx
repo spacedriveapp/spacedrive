@@ -5,9 +5,9 @@ import React, { FormEvent, useState } from 'react';
 // import ReactCanvasConfetti from 'react-canvas-confetti';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
-import { ReactComponent as Alert } from '@sd/interface/assets/svg/alert.svg';
-import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
-import { ReactComponent as Spinner } from '@sd/interface/assets/svg/spinner.svg';
+import { ReactComponent as Alert } from '@sd/ui/assets/svg/alert.svg';
+import { ReactComponent as Info } from '@sd/ui/assets/svg/info.svg';
+import { ReactComponent as Spinner } from '@sd/ui/assets/svg/spinner.svg';
 
 interface WaitlistInputs {
 	email: string;

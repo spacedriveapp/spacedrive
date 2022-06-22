@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import React, { Suspense, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 
-import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
+import { ReactComponent as Info } from '@sd/ui/assets/svg/info.svg';
 
 import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';

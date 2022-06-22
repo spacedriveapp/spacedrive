@@ -14,9 +14,6 @@
 			"path": "packages/client"
 		},
 		{
-			"path": "packages/interface"
-		},
-		{
 			"path": "packages/ui"
 		}
 	]

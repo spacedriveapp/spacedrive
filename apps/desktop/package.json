@@ -13,7 +13,6 @@
 	"dependencies": {
 		"@sd/client": "workspace:*",
 		"@sd/core": "workspace:*",
-		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@tauri-apps/api": "1.0.0",
 		"react": "^18.1.0",

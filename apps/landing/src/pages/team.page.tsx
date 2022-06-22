@@ -1,7 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 
-import { ReactComponent as ArrowRight } from '@sd/interface/assets/svg/arrow-right.svg';
+import { ReactComponent as ArrowRight } from '@sd/ui/assets/svg/arrow-right.svg';
 
 import Markdown from '../components/Markdown';
 import { TeamMember, TeamMemberProps } from '../components/TeamMember';

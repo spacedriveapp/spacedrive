@@ -22,7 +22,6 @@
 /apps/landing/ @jamiepine @maxichrome
 
 # UI
-/packages/interface/ @jamiepine @maxichrome
 /packages/ui/ @jamiepine @maxichrome
 
 # base config files

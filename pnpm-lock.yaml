@@ -18,7 +18,6 @@ importers:
     specifiers:
       '@sd/client': workspace:*
       '@sd/core': workspace:*
-      '@sd/interface': workspace:*
       '@sd/ui': workspace:*
       '@tauri-apps/api': 1.0.0
       '@tauri-apps/cli': 1.0.0
@@ -43,7 +42,6 @@ importers:
     dependencies:
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
-      '@sd/interface': link:../../packages/interface
       '@sd/ui': link:../../packages/ui
       '@tauri-apps/api': 1.0.0
       react: 18.1.0
@@ -74,7 +72,6 @@ importers:
       '@icons-pack/react-simple-icons': ^4.7.0
       '@sd/client': workspace:*
       '@sd/core': workspace:*
-      '@sd/interface': workspace:*
       '@sd/ui': workspace:*
       '@tailwindcss/line-clamp': ^0.4.0
       '@tailwindcss/typography': ^0.5.2
@@ -123,7 +120,6 @@ importers:
       '@icons-pack/react-simple-icons': 4.7.0_react@18.1.0
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
-      '@sd/interface': link:../../packages/interface
       '@sd/ui': link:../../packages/ui
       '@tailwindcss/typography': 0.5.2
       '@tryghost/content-api': 1.11.0
@@ -181,7 +177,6 @@ importers:
       '@fontsource/inter': ^4.5.10
       '@sd/client': workspace:*
       '@sd/core': workspace:*
-      '@sd/interface': workspace:*
       '@sd/ui': workspace:*
       '@types/react': ^18.0.9
       '@types/react-dom': ^18.0.5
@@ -199,7 +194,6 @@ importers:
       '@fontsource/inter': 4.5.11
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
-      '@sd/interface': link:../../packages/interface
       '@sd/ui': link:../../packages/ui
       react: 18.1.0
       react-dom: 18.1.0_react@18.1.0
@@ -253,8 +247,29 @@ importers:
   packages/config:
     specifiers: {}
 
-  packages/interface:
+  packages/ui:
     specifiers:
+      '@babel/core': ^7.18.2
+      '@radix-ui/react-context-menu': ^0.1.6
+      '@sd/config': workspace:*
+      '@storybook/addon-actions': ^6.5.6
+      '@storybook/addon-essentials': ^6.5.6
+      '@storybook/addon-interactions': ^6.5.6
+      '@storybook/addon-links': ^6.5.6
+      '@storybook/addon-postcss': ^2.0.0
+      '@storybook/builder-webpack5': ^6.5.6
+      '@storybook/manager-webpack5': ^6.5.6
+      '@storybook/preset-scss': ^1.0.3
+      '@storybook/react': ^6.5.6
+      '@storybook/testing-library': ^0.0.11
+      babel-loader: ^8.2.5
+      css-loader: ^6.7.1
+      postcss: ^8.4.14
+      postcss-loader: ^7.0.0
+      sass: ^1.52.1
+      sass-loader: ^13.0.0
+      storybook-tailwind-dark-mode: ^1.0.12
+      style-loader: ^3.3.1
       '@apollo/client': ^3.6.5
       '@fontsource/inter': ^4.5.10
       '@headlessui/react': ^1.6.4
@@ -313,6 +328,8 @@ importers:
       vite-plugin-svgr: ^2.1.0
       zustand: 4.0.0-rc.1
     dependencies:
+      '@radix-ui/react-context-menu': 0.1.6_ohobp6rpsmerwlq5ipwfh5yigy
+      postcss: 8.4.14
       '@apollo/client': 3.6.8_react@18.1.0
       '@fontsource/inter': 4.5.11
       '@headlessui/react': 1.6.4_ef5jwxihqo6n7gxfmzogljlgcm
@@ -355,6 +372,25 @@ importers:
       tailwindcss: 3.1.3
       zustand: 4.0.0-rc.1_immer@9.0.15+react@18.1.0
     devDependencies:
+      '@babel/core': 7.18.2
+      '@sd/config': link:../config
+      '@storybook/addon-actions': 6.5.9_ef5jwxihqo6n7gxfmzogljlgcm
+      '@storybook/addon-essentials': 6.5.9_iow3xjfu456hl37nb6idb6dywa
+      '@storybook/addon-interactions': 6.5.9_xoovx4hxz2nixqs56cxvqx54jm
+      '@storybook/addon-links': 6.5.9_ef5jwxihqo6n7gxfmzogljlgcm
+      '@storybook/addon-postcss': 2.0.0
+      '@storybook/builder-webpack5': 6.5.9_u2exkxizvkyextcvjs2xzsijbe
+      '@storybook/manager-webpack5': 6.5.9_u2exkxizvkyextcvjs2xzsijbe
+      '@storybook/preset-scss': 1.0.3_v2gua2jrfgtrb4venamkw47b7i
+      '@storybook/react': 6.5.9_bggyew72ssrbcsmitgicgq73ei
+      '@storybook/testing-library': 0.0.11_ef5jwxihqo6n7gxfmzogljlgcm
+      babel-loader: 8.2.5_@babel+core@7.18.2
+      css-loader: 6.7.1
+      postcss-loader: 7.0.0_postcss@8.4.14
+      sass: 1.52.1
+      sass-loader: 13.0.0_sass@1.52.1
+      storybook-tailwind-dark-mode: 1.0.12_ef5jwxihqo6n7gxfmzogljlgcm
+      style-loader: 3.3.1
       '@types/babel-core': 6.25.7
       '@types/byte-size': 8.1.0
       '@types/lodash': 4.14.182
@@ -371,73 +407,6 @@ importers:
       typescript: 4.7.2
       vite: 2.9.9
       vite-plugin-svgr: 2.1.0_vite@2.9.9
-
-  packages/ui:
-    specifiers:
-      '@babel/core': ^7.18.2
-      '@headlessui/react': ^1.6.4
-      '@heroicons/react': ^1.0.6
-      '@radix-ui/react-context-menu': ^0.1.6
-      '@sd/config': workspace:*
-      '@storybook/addon-actions': ^6.5.6
-      '@storybook/addon-essentials': ^6.5.6
-      '@storybook/addon-interactions': ^6.5.6
-      '@storybook/addon-links': ^6.5.6
-      '@storybook/addon-postcss': ^2.0.0
-      '@storybook/builder-webpack5': ^6.5.6
-      '@storybook/manager-webpack5': ^6.5.6
-      '@storybook/preset-scss': ^1.0.3
-      '@storybook/react': ^6.5.6
-      '@storybook/testing-library': ^0.0.11
-      '@types/react': ^18.0.9
-      '@types/react-dom': ^18.0.5
-      babel-loader: ^8.2.5
-      clsx: ^1.1.1
-      css-loader: ^6.7.1
-      phosphor-react: ^1.4.1
-      postcss: ^8.4.14
-      postcss-loader: ^7.0.0
-      react: ^18.1.0
-      react-dom: ^18.1.0
-      sass: ^1.52.1
-      sass-loader: ^13.0.0
-      storybook-tailwind-dark-mode: ^1.0.12
-      style-loader: ^3.3.1
-      tailwindcss: ^3.0.24
-      typescript: ^4.7.2
-    dependencies:
-      '@headlessui/react': 1.6.4_ef5jwxihqo6n7gxfmzogljlgcm
-      '@heroicons/react': 1.0.6_react@18.1.0
-      '@radix-ui/react-context-menu': 0.1.6_ohobp6rpsmerwlq5ipwfh5yigy
-      clsx: 1.1.1
-      phosphor-react: 1.4.1_react@18.1.0
-      postcss: 8.4.14
-      react: 18.1.0
-      react-dom: 18.1.0_react@18.1.0
-      tailwindcss: 3.1.3
-    devDependencies:
-      '@babel/core': 7.18.2
-      '@sd/config': link:../config
-      '@storybook/addon-actions': 6.5.9_ef5jwxihqo6n7gxfmzogljlgcm
-      '@storybook/addon-essentials': 6.5.9_iow3xjfu456hl37nb6idb6dywa
-      '@storybook/addon-interactions': 6.5.9_xoovx4hxz2nixqs56cxvqx54jm
-      '@storybook/addon-links': 6.5.9_ef5jwxihqo6n7gxfmzogljlgcm
-      '@storybook/addon-postcss': 2.0.0
-      '@storybook/builder-webpack5': 6.5.9_u2exkxizvkyextcvjs2xzsijbe
-      '@storybook/manager-webpack5': 6.5.9_u2exkxizvkyextcvjs2xzsijbe
-      '@storybook/preset-scss': 1.0.3_v2gua2jrfgtrb4venamkw47b7i
-      '@storybook/react': 6.5.9_bggyew72ssrbcsmitgicgq73ei
-      '@storybook/testing-library': 0.0.11_ef5jwxihqo6n7gxfmzogljlgcm
-      '@types/react': 18.0.9
-      '@types/react-dom': 18.0.5
-      babel-loader: 8.2.5_@babel+core@7.18.2
-      css-loader: 6.7.1
-      postcss-loader: 7.0.0_postcss@8.4.14
-      sass: 1.52.1
-      sass-loader: 13.0.0_sass@1.52.1
-      storybook-tailwind-dark-mode: 1.0.12_ef5jwxihqo6n7gxfmzogljlgcm
-      style-loader: 3.3.1
-      typescript: 4.7.2
 
 packages:
 

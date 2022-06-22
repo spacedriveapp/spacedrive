@@ -15,7 +15,6 @@
 		"web": "pnpm --filter @sd/web -- ",
 		"landing": "pnpm --filter @sd/landing -- ",
 		"ui": "pnpm --filter @sd/ui -- ",
-		"interface": "pnpm --filter @sd/interface -- ",
 		"core": "pnpm --filter @sd/core -- ",
 		"docs": "pnpm --filter @sd/docs -- ",
 		"client": "pnpm --filter @sd/client -- ",

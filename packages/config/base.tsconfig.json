@@ -21,10 +21,10 @@
 		"resolveJsonModule": true,
 		"jsx": "react",
 		"paths": {
-			"@sd/interface": ["../../packages/interface"],
 			"@sd/ui": ["../../packages/ui"],
 			"@sd/client": ["../../packages/client"]
-		}
+		},
+		"types": ["vite-plugin-svgr/client", "vite/client", "@sd/client/src/window"]
 	},
 	"exclude": ["node_modules"]
 }

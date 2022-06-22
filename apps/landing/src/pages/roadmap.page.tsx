@@ -2,7 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import { ReactComponent as Content } from '~/docs/product/roadmap.md';
 
-import { Folder } from '../../../../packages/interface/src/components/icons/Folder';
+import { Folder } from '../../../../packages/ui/src/components/icons/Folder';
 import Markdown from '../components/Markdown';
 
 function Page() {
