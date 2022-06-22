@@ -88,7 +88,7 @@ impl CoreContext {
 	}
 	pub fn queue_job(&self, job: Box<dyn Job>) {
 		self.internal_sender
-			.send(InternalEvent::JobIngest(job))
+			.send(InternalEvent::JobQueue(job))
 			.unwrap_or_else(|e| {
 				println!("Failed to queue job. {:?}", e);
 			});

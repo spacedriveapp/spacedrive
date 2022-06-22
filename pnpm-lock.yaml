@@ -285,6 +285,7 @@ importers:
       concurrently: ^7.2.1
       immer: ^9.0.14
       jotai: ^1.7.0
+      lodash: ^4.17.21
       moment: ^2.29.3
       phosphor-react: ^1.4.1
       prettier: ^2.6.2
@@ -331,6 +332,7 @@ importers:
       clsx: 1.1.1
       immer: 9.0.15
       jotai: 1.7.2_mpj3nhqjq7gooak672z2nctrhm
+      lodash: 4.17.21
       moment: 2.29.3
       phosphor-react: 1.4.1_react@18.1.0
       pretty-bytes: 6.0.0
@@ -11567,7 +11569,6 @@ packages:
 
   /lodash/4.17.21:
     resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
-    dev: true
 
   /lodash/4.17.5:
     resolution: {integrity: sha512-svL3uiZf1RwhH+cWrfZn3A4+U58wbP0tGVTLQPbjplZxZ8ROD9VLuNgsRniTlLe7OlSqR79RUehXgpBW/s0IQw==}
