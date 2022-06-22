@@ -8,6 +8,7 @@ use crate::{
 	CoreContext,
 };
 use int_enum::IntEnum;
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::Mutex;
@@ -38,6 +39,8 @@ impl Jobs {
 	pub async fn ingest(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
 		// create worker to process job
 		if self.running_workers.len() < MAX_WORKERS {
+			info!("Running job: {:?}", job.name());
+
 			let worker = Worker::new(job);
 			let id = worker.id();
 
