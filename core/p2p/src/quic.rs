@@ -68,6 +68,7 @@ pub(crate) async fn new_client(
 		.await?)
 }
 
+// TODO: This exists here and in sd-tunnel-utils. Remove it from here in favour of other one!
 /// ServerCertificateVerifier is a custom certificate verifier that is responsible for verifying the server certificate when making a QUIC connection.
 pub(crate) struct ServerCertificateVerifier; // TODO: Private this
 

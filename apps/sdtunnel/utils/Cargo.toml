@@ -1,0 +1,13 @@
+[package]
+name = "sd-tunnel-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+quinn = "0.8.3"
+ring = "0.16.20"
+rmp = "0.8.11"
+rmp-serde = "1.1.0"
+rustls = { version = "0.20.6", default-features = false, features = ["quic", "dangerous_configuration"] } # 'dangerous_configuration' is required to implement custom certificate verifiers which we use due to the self-signed nature of the protocol.
+serde = { version = "1.0.137", features = ["derive"] }
+thiserror = "1.0.31"

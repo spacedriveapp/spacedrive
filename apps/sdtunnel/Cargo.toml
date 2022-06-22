@@ -1,22 +1,19 @@
 [package]
-name = "lifesupport"
+name = "sd-tunnel"
 version = "0.1.0"
 edition = "2021"
-default-run = "lifesupport"
+default-run = "sd-tunnel"
 
 [dependencies]
+sd-tunnel-utils = { path = "./utils" }
+
 base64 = "0.13.0"
-capnp = "0.14.6"
 dotenv = "0.15.0"
 futures = "0.3.21"
 quinn = "0.8.3"
 rcgen = "0.9.2"
 rustls = "0.20.6"
-# serde = { version = "1.0.137", features = ["derive"] }
-# serde_json = "1.0.81"
+serde = { version = "1.0.137", features = ["derive"] }
 tokio = { version = "1.19.2", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
-
-[build-dependencies]
-capnpc = "0.14.7"

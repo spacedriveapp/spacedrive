@@ -4,7 +4,7 @@ use base64::encode;
 use rcgen::generate_simple_self_signed;
 
 fn main() {
-	println!("Issuing lifesupport certificate...");
+	println!("Issuing sdtunnel certificate...");
 
 	let env_file = Path::new("./.env");
 	if env_file.exists() {
@@ -14,7 +14,7 @@ fn main() {
 
 	// TODO: Replace 'generate_simple_self_signed' with full code so we have full control over generated certificate.
 	let cert =
-		generate_simple_self_signed(vec!["lifesupport.spacedrive.com".into()]).unwrap();
+		generate_simple_self_signed(vec!["sdtunnel.spacedrive.com".into()]).unwrap();
 
 	match fs::write(
 		env_file,

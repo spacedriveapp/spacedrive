@@ -930,21 +930,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "capnp"
-version = "0.14.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21d5d7da973146f1720672faa44f1523cc8f923636190ca1a931c7bc8834de68"
-
-[[package]]
-name = "capnpc"
-version = "0.14.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7ed9b80f792ac01a8b328ccbc509c2bd756fb5dec18af0163e7963dde23c0b5"
-dependencies = [
- "capnp",
-]
-
-[[package]]
 name = "cargo_toml"
 version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4016,23 +4001,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lifesupport"
-version = "0.1.0"
-dependencies = [
- "base64 0.13.0",
- "capnp",
- "capnpc",
- "dotenv",
- "futures",
- "quinn",
- "rcgen",
- "rustls",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "linked-hash-map"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6326,6 +6294,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmp"
+version = "0.8.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44519172358fd6d58656c86ab8e7fbc9e1490c3e8f14d35ed78ca0dd07403c9f"
+dependencies = [
+ "byteorder",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "rmp-serde"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25786b0d276110195fa3d6f3f31299900cf71dfbd6c28450f3f58a0e7f7a347e"
+dependencies = [
+ "byteorder",
+ "rmp",
+ "serde",
+]
+
+[[package]]
 name = "rtnetlink"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6581,15 +6571,44 @@ dependencies = [
  "dashmap",
  "futures-util",
  "if-watch",
- "lifesupport",
  "mdns-sd",
  "quinn",
  "rcgen",
- "ring 0.16.20",
  "rustls",
+ "sd-tunnel-utils",
  "thiserror",
  "tokio",
  "ureq",
+]
+
+[[package]]
+name = "sd-tunnel"
+version = "0.1.0"
+dependencies = [
+ "base64 0.13.0",
+ "dotenv",
+ "futures",
+ "quinn",
+ "rcgen",
+ "rustls",
+ "sd-tunnel-utils",
+ "serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "sd-tunnel-utils"
+version = "0.1.0"
+dependencies = [
+ "quinn",
+ "ring 0.16.20",
+ "rmp",
+ "rmp-serde",
+ "rustls",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

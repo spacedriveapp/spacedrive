@@ -3,11 +3,12 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use futures_util::StreamExt;
 use quinn::{Connecting, Endpoint, NewConnection, VarInt};
 use rustls::Certificate;
+use sd_tunnel_utils::{Client, Message, PeerId};
 use tokio::sync::mpsc;
 
 use crate::{
-	quic, ConnectionType, DiscoveryManager, GlobalDiscovery, Identity, NetworkManagerError,
-	NetworkManagerEvent, NetworkManagerState, P2PApplication, Peer, PeerCandidate, PeerId,
+	quic, ConnectionType, DiscoveryManager, Identity, NetworkManagerError, NetworkManagerEvent,
+	NetworkManagerState, P2PApplication, Peer, PeerCandidate,
 };
 
 /// NetworkManager is used to manage the P2P networking between cores. This implementation is completely decoupled from the Spacedrive core to aid future refactoring and unit testing.
@@ -46,11 +47,15 @@ impl NetworkManager {
 			quic::new_server(identity, state.p2p_application.clone())?;
 
 		// TODO
-		let config = GlobalDiscovery::load_from_env();
-		config
-			.do_client_announcement(endpoint.clone())
+		let tunnel_client = Client::new(endpoint.clone());
+		let msg = tunnel_client
+			.send_message(Message::ClientAnnouncement {
+				peer_id: state.peer_id.clone(),
+				addresses: vec!["1.1.1.1".into()],
+			})
 			.await
 			.unwrap();
+		println!("{:?}", msg);
 		unimplemented!();
 		// END TODO
 

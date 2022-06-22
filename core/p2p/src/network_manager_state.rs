@@ -1,9 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
 use rustls::{Certificate, PrivateKey};
+use sd_tunnel_utils::PeerId;
 use tokio::sync::{mpsc, RwLock};
 
-use crate::{NetworkManagerEvent, P2PApplication, Peer, PeerId};
+use crate::{NetworkManagerEvent, P2PApplication, Peer};
 
 // TODO: Can some of this be moved onto the NetworkManger itself????
 pub struct NetworkManagerState {

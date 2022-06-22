@@ -1,11 +1,12 @@
-use std::fmt;
+use std::{fmt, ops::Deref};
 
 use ring::digest::digest;
 use rustls::Certificate;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// PeerId is a unique identifier for a peer. These are derived from the public key of the peer.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Serialize, Deserialize)]
 pub struct PeerId(String);
 
 impl PeerId {
@@ -35,6 +36,14 @@ impl PeerId {
 impl fmt::Display for PeerId {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.0)
+	}
+}
+
+impl Deref for PeerId {
+	type Target = String;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
 	}
 }
 

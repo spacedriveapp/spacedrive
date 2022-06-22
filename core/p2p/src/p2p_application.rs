@@ -1,4 +1,6 @@
-use crate::{PeerId, PeerMetadata};
+use sd_tunnel_utils::PeerId;
+
+use crate::PeerMetadata;
 
 /// P2PApplication is a trait implementation by the application embedding sd-p2p and it allows the application to communicate with the networking layer.
 pub trait P2PApplication {

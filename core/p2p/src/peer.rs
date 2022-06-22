@@ -5,8 +5,9 @@ use std::{
 
 use futures_util::StreamExt;
 use quinn::{Connection, ConnectionError, IncomingBiStreams, RecvStream, SendStream};
+use sd_tunnel_utils::PeerId;
 
-use crate::{NetworkManager, NetworkManagerEvent, PeerId, PeerMetadata};
+use crate::{NetworkManager, NetworkManagerEvent, PeerMetadata};
 
 /// ConnectionType is used to determine the type of connection that is being established.
 /// QUIC is a client/server protocol so when communication one client will be the server and one will be the client. The protocol is bi-directional so this doesn't matter a huge amount.

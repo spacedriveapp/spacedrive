@@ -8,7 +8,7 @@ repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
 
 [dependencies]
-hostname = "0.3.1"
+core-derive = { path = "./derive" }
 
 # Universal Dependencies
 base64 = "0.13.0"
@@ -29,7 +29,6 @@ lazy_static = "1.4.0"
 uuid = "0.8"
 sysinfo = "0.23.9"
 thiserror = "1.0.30"
-core-derive = { path = "./derive" }
 
 tokio = { version = "1.17.0", features = ["sync", "rt"] }
 include_dir = {version = "0.7.2", features = ["glob"]}
@@ -40,3 +39,4 @@ uhlc = "0.4.1"
 ffmpeg-next = "5.0.3"
 fs_extra = "1.2.0"
 dashmap = "5.3.4"
+hostname = "0.3.1"

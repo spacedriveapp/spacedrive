@@ -2,20 +2,14 @@ use base64::decode;
 use dotenv::dotenv;
 use futures::StreamExt;
 use quinn::{ApplicationClose, Endpoint, ServerConfig};
+use sd_tunnel_utils::Message;
 use std::{
 	env,
 	error::Error,
+	io::Cursor,
 	net::{Ipv4Addr, SocketAddr},
-	path::Path,
 };
 
-use lifesupport::service_capnp::{
-	client_announcement,
-	discovery_system::{
-		self, PublishAnnouncementParams, PublishAnnouncementResults,
-		QueryAnnouncementParams, QueryAnnouncementResults,
-	},
-};
 use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -32,7 +26,8 @@ async fn main() {
 		.with(
 			EnvFilter::from_default_env().add_directive(
 				"trace".parse().expect("Error invalid tracing directive!"),
-			), // .add_directive(
+			), // TODO
+			   // .add_directive(
 			   // 	"mattrax=trace"
 			   // 		.parse()
 			   // 		.expect("Error invalid tracing directive!"),
@@ -79,7 +74,6 @@ async fn main() {
 		tokio::spawn(async move {
 			if let Err(e) = fut.await {
 				error!("connection failed: {reason}", reason = e.to_string())
-				// panic!("TODO")
 			}
 		});
 	}
@@ -96,7 +90,7 @@ async fn handle_connection(conn: quinn::Connecting) -> Result<(), Box<dyn Error>
 
 	info!("established");
 
-	// TODO: Apply limit to number of quic streams and number of connections from each client. -> rate limitting!
+	// TODO: Apply limit to number of quic streams and number of connections from each client. -> rate limiting!
 
 	while let Some(stream) = bi_streams.next().await {
 		let stream = match stream {
@@ -113,91 +107,41 @@ async fn handle_connection(conn: quinn::Connecting) -> Result<(), Box<dyn Error>
 			Ok(s) => s,
 		};
 		let fut = handle_request(stream);
-		tokio::spawn(
-			async move {
-				if let Err(e) = fut.await {
-					error!("failed: {reason}", reason = e.to_string());
-				}
-			}, // .instrument(info_span!("request")),
-		);
+		tokio::spawn(async move {
+			if let Err(e) = fut.await {
+				error!("failed: {reason}", reason = e.to_string());
+			}
+		});
 	}
 
 	Ok(())
-
-	// let span = info_span!(
-	// 	"connection",
-	// 	remote = %connection.remote_address(),
-	// 	protocol = %connection
-	// 		.handshake_data()
-	// 		.unwrap()
-	// 		.downcast::<quinn::crypto::rustls::HandshakeData>().unwrap()
-	// 		.protocol
-	// 		.map_or_else(|| "<none>".into(), |x| String::from_utf8_lossy(&x).into_owned())
-	// );
-	// async {
-	// 	info!("established");
-
-	// 	// Each stream initiated by the client constitutes a new request.
-	// 	while let Some(stream) = bi_streams.next().await {
-	// 		let stream = match stream {
-	// 			Err(quinn::ConnectionError::ApplicationClosed { .. }) => {
-	// 				info!("connection closed");
-	// 				return Ok(());
-	// 			},
-	// 			Err(e) => {
-	// 				return Err(e);
-	// 			},
-	// 			Ok(s) => s,
-	// 		};
-	// 		let fut = handle_request(root.clone(), stream);
-	// 		tokio::spawn(
-	// 			async move {
-	// 				if let Err(e) = fut.await {
-	// 					error!("failed: {reason}", reason = e.to_string());
-	// 				}
-	// 			}
-	// 			.instrument(info_span!("request")),
-	// 		);
-	// 	}
-	// 	Ok(())
-	// }
-	// .instrument(span)
-	// .await?;
 }
 
 async fn handle_request(
-	(mut send, recv): (quinn::SendStream, quinn::RecvStream),
+	(mut send, mut recv): (quinn::SendStream, quinn::RecvStream),
 ) -> Result<(), Box<dyn Error>> {
-	info!("bruh");
+	info!("handling request");
 
-	let req = recv.read_to_end(64 * 1024).await?;
+	// TODO: Handle multiple messages in a single session
+	// TODO: Ensure connections are closed after an inactivity timeout
 
-	info!("{:?}", req);
+	info!("A");
+	let mut req = recv
+		.read_chunk(64 * 1024 /* TODO: Constant */, true)
+		.await?
+		.unwrap();
+	let mut bytes: &[u8] = &req.bytes;
+	info!("B");
+	let msg = match Message::read(&mut bytes)? {
+		Message::ClientAnnouncement { peer_id, addresses } => {
+			info!("ClientAnnouncement {} {:?}", peer_id, addresses);
+			Message::ClientAnnouncementResponse
+		},
+		_ => unimplemented!(),
+	};
+	info!("C");
+	send.write_all(&msg.encode()?).await?;
+	info!("D");
 
 	Ok(())
-	// let req = recv
-	//     .read_to_end(64 * 1024)
-	//     .await
-	//     .map_err(|e| anyhow!("failed reading request: {}", e))?;
-	// let mut escaped = String::new();
-	// for &x in &req[..] {
-	//     let part = ascii::escape_default(x).collect::<Vec<_>>();
-	//     escaped.push_str(str::from_utf8(&part).unwrap());
-	// }
-	// info!(content = %escaped);
-	// // Execute the request
-	// let resp = process_get(&root, &req).unwrap_or_else(|e| {
-	//     error!("failed: {}", e);
-	//     format!("failed to process request: {}\n", e).into_bytes()
-	// });
-	// // Write the response
-	// send.write_all(&resp)
-	//     .await
-	//     .map_err(|e| anyhow!("failed to send response: {}", e))?;
-	// // Gracefully terminate the stream
-	// send.finish()
-	//     .await
-	//     .map_err(|e| anyhow!("failed to shutdown stream: {}", e))?;
-	// info!("complete");
-	// Ok(())
 }

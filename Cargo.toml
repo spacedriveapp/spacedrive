@@ -2,9 +2,10 @@
 members = [
 	"apps/desktop/src-tauri",
 	"apps/server",
-	"apps/lifesupport",
+	"apps/sdtunnel",
+	"apps/sdtunnel/utils",
 	"core",
 	"core/prisma",
 	"core/derive",
-	"core/p2p",
+	"core/p2p"
 ]
