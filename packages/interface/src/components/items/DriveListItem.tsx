@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import React from 'react';
 
-import { DefaultProps } from '../primitive/types';
+import { DefaultProps } from '../../../../ui/src/types';
 
 export interface DriveListItemProps extends DefaultProps {
 	name: string;

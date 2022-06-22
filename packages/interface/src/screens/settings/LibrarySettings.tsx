@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { Toggle } from '../../components/primitive';
-import { InputContainer } from '../../components/primitive/InputContainer';
+import { Toggle } from '../../../../ui/src/Toggle';
+import { InputContainer } from '../../../../ui/src/InputContainer';
 import { SettingsContainer } from '../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 

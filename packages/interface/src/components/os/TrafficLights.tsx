@@ -5,7 +5,7 @@ import closeIconPath from '../../assets/svg/macos_close.svg';
 import fullscreenIconPath from '../../assets/svg/macos_fullscreen.svg';
 import minimizeIconPath from '../../assets/svg/macos_minimize.svg';
 import { useFocusState } from '../../hooks/useFocusState';
-import { DefaultProps } from '../primitive/types';
+import { DefaultProps } from '../../../../ui/src/types';
 
 export interface TrafficLightsProps extends DefaultProps {
 	onClose?: () => void;

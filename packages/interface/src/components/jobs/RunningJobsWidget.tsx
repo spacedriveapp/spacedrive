@@ -3,7 +3,7 @@ import { useBridgeQuery } from '@sd/client';
 import clsx from 'clsx';
 import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 
-import ProgressBar from '../primitive/ProgressBar';
+import ProgressBar from '../../../../ui/src/ProgressBar';
 
 const MiddleTruncatedText = ({
 	children,
