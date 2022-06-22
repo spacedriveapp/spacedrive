@@ -8,6 +8,7 @@ use crate::{
 use crate::{sys, CoreEvent};
 use futures::executor::block_on;
 use image::*;
+use log::{error, info};
 use std::fs;
 use std::path::{Path, PathBuf};
 use webp::*;
@@ -34,6 +35,11 @@ impl Job for ThumbnailJob {
 
 		let location = sys::get_location(&core_ctx, self.location_id).await?;
 
+		info!(
+			"Searching for images in location {} at path {}",
+			location.id, self.path
+		);
+
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(
 			Path::new(&config.data_path)
@@ -44,7 +50,7 @@ impl Job for ThumbnailJob {
 
 		// query database for all files in this location that need thumbnails
 		let image_files = get_images(&core_ctx, self.location_id, &self.path).await?;
-		println!("Found {:?} files", image_files.len());
+		info!("Found {:?} files", image_files.len());
 
 		let is_background = self.background.clone();
 
@@ -65,7 +71,7 @@ impl Job for ThumbnailJob {
 
 				// assemble the file path
 				let path = Path::new(&root_path).join(&image_file.materialized_path);
-				println!("image_file {:?}", image_file);
+				error!("image_file {:?}", image_file);
 
 				// get cas_id, if none found skip
 				let cas_id = match image_file.file() {
@@ -77,7 +83,7 @@ impl Job for ThumbnailJob {
 						}
 					}
 					Err(_) => {
-						println!("Error getting cas_id {:?}", image_file.materialized_path);
+						error!("Error getting cas_id {:?}", image_file.materialized_path);
 						continue;
 					}
 				};
@@ -91,10 +97,10 @@ impl Job for ThumbnailJob {
 
 				// check if file exists at output path
 				if !output_path.exists() {
-					println!("writing {:?} to {:?}", path, output_path);
+					info!("Writing {:?} to {:?}", path, output_path);
 					generate_thumbnail(&path, &output_path)
 						.map_err(|e| {
-							println!("error generating thumb {:?}", e);
+							info!("Error generating thumb {:?}", e);
 						})
 						.unwrap_or(());
 
@@ -104,7 +110,7 @@ impl Job for ThumbnailJob {
 						block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail { cas_id }));
 					};
 				} else {
-					println!("Thumb exists, skipping... {}", output_path.display());
+					info!("Thumb exists, skipping... {}", output_path.display());
 				}
 			}
 		})
