@@ -10,7 +10,11 @@ use crate::{
 use int_enum::IntEnum;
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{
+	collections::{HashMap, VecDeque},
+	fmt::Debug,
+	sync::Arc,
+};
 use tokio::sync::Mutex;
 use ts_rs::TS;
 
@@ -24,7 +28,7 @@ pub trait Job: Send + Sync + Debug {
 
 // jobs struct is maintained by the core
 pub struct Jobs {
-	job_queue: Vec<Box<dyn Job>>,
+	job_queue: VecDeque<Box<dyn Job>>,
 	// workers are spawned when jobs are picked off the queue
 	running_workers: HashMap<String, Arc<Mutex<Worker>>>,
 }
@@ -32,7 +36,7 @@ pub struct Jobs {
 impl Jobs {
 	pub fn new() -> Self {
 		Self {
-			job_queue: vec![],
+			job_queue: VecDeque::new(),
 			running_workers: HashMap::new(),
 		}
 	}
@@ -50,17 +54,17 @@ impl Jobs {
 
 			self.running_workers.insert(id, wrapped_worker);
 		} else {
-			self.job_queue.push(job);
+			self.job_queue.push_back(job);
 		}
 	}
 	pub fn ingest_queue(&mut self, _ctx: &CoreContext, job: Box<dyn Job>) {
-		self.job_queue.push(job);
+		self.job_queue.push_back(job);
 	}
 	pub async fn complete(&mut self, ctx: &CoreContext, job_id: String) {
 		// remove worker from running workers
 		self.running_workers.remove(&job_id);
 		// continue queue
-		let job = self.job_queue.pop();
+		let job = self.job_queue.pop_front();
 		if let Some(job) = job {
 			self.ingest(ctx, job).await;
 		}

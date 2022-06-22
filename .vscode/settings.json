@@ -5,6 +5,7 @@
 		"consts",
 		"countup",
 		"creationdate",
+		"Deque",
 		"dotenv",
 		"dotenvy",
 		"fontsource",
