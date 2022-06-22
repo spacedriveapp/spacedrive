@@ -1,9 +1,9 @@
 use std::time::{Duration, Instant};
 
+use dotenvy::dotenv;
 use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
 use tauri::api::path;
 use tauri::Manager;
-
 #[cfg(target_os = "macos")]
 mod macos;
 mod menu;
@@ -45,6 +45,9 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 
 #[tokio::main]
 async fn main() {
+	dotenv().ok();
+	env_logger::init();
+
 	let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
 	// create an instance of the core
 	let (mut node, mut event_receiver) = Node::new(data_dir).await;

@@ -121,7 +121,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 			<div
 				ref={tableContainer}
 				style={{ marginTop: -44 }}
-				className="w-full pl-2 bg-white cursor-default table-container dark:bg-gray-650"
+				className="w-full pl-2 bg-white cursor-default dark:bg-gray-650"
 			>
 				<LocationContext.Provider
 					value={{ location_id: props.location_id, data_path: client?.data_path as string }}
