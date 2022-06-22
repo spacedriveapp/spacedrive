@@ -32,6 +32,7 @@
 		"clsx": "^1.1.1",
 		"immer": "^9.0.14",
 		"jotai": "^1.7.0",
+		"lodash": "^4.17.21",
 		"moment": "^2.29.3",
 		"phosphor-react": "^1.4.1",
 		"pretty-bytes": "^6.0.0",

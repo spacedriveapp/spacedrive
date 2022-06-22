@@ -207,7 +207,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				<button
 					onClick={() => {
 						appProps?.openDialog({ directory: true }).then((result) => {
-							createLocation({ path: result });
+							if (result) createLocation({ path: result as string });
 						});
 					}}
 					className={clsx(

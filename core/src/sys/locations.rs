@@ -1,6 +1,9 @@
 use crate::{
-	file::indexer::IndexerJob, node::get_nodestate, prisma::location, ClientQuery, CoreContext,
-	CoreEvent,
+	encode::ThumbnailJob,
+	file::{cas::FileIdentifierJob, indexer::IndexerJob},
+	node::get_nodestate,
+	prisma::location,
+	ClientQuery, CoreContext, CoreEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
@@ -89,6 +92,17 @@ pub async fn new_location_and_scan(
 
 	ctx.spawn_job(Box::new(IndexerJob {
 		path: path.to_string(),
+	}));
+
+	ctx.queue_job(Box::new(FileIdentifierJob {
+		location_id: location.id,
+		path: path.to_string(),
+	}));
+
+	ctx.queue_job(Box::new(ThumbnailJob {
+		location_id: location.id,
+		path: path.to_string(),
+		background: false,
 	}));
 
 	Ok(location)
