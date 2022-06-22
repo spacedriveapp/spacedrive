@@ -1,8 +1,5 @@
-sudo npm install -y -g npm@latest pnpm
-sudo apt install -y cargo pnpm
-
 # OS specific part
-brew install ffmpeg
+brew install ffmpeg rust pnpm
 
 pnpm i
 cargo install tauri-cli
