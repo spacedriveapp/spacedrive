@@ -1,14 +1,13 @@
 import { Transition } from '@headlessui/react';
 import { ShareIcon } from '@heroicons/react/solid';
-import { useBridgeCommand } from '@sd/client';
 import { FilePath, LocationResource } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
-import React, { useEffect, useState } from 'react';
-import { useDebounce } from 'rooks';
+import React, { useEffect } from 'react';
 
 import { default as types } from '../../constants/file-types.json';
+import { useInspectorState } from '../../hooks/useInspectorState';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
@@ -37,32 +36,31 @@ export const Inspector = (props: {
 	selectedFile?: FilePath;
 }) => {
 	const file_path = props.selectedFile;
-
 	let full_path = `${props.location?.path}/${file_path?.materialized_path}`;
 
-	const [note, setNote] = useState('');
-	const [lastFileId, setLastFileId] = useState(-1);
+	// notes are stored in global state by their file id
+	// this is so we can ensure every note has been sent to Rust even
+	// when quickly navigating files, which cancels update function
+	const { notes, setNote, unCacheNote } = useInspectorState();
 
-	const { mutate: fileSetNote } = useBridgeCommand('FileSetNote', {});
+	const file_id = props.selectedFile?.file?.id || -1;
+	// show cached note over server note
+	const note =
+		notes[file_id] === undefined ? props.selectedFile?.file?.note || null : notes[file_id];
 
-	const fileSetNoteDebounced = useDebounce(fileSetNote, 500);
-
-	useEffect(() => {
-		if (props.selectedFile?.file) fileSetNoteDebounced({ id: props.selectedFile?.file.id, note });
-	}, [note]);
-
-	useEffect(() => {
-		if (props.selectedFile?.file) {
-			if (lastFileId) {
-				fileSetNote({ id: lastFileId, note });
-			}
-			setLastFileId(props.selectedFile?.file?.id);
-
-			setNote(props.selectedFile?.file?.note || '');
-		} else {
-			setNote('');
+	// when input is updated
+	function handleNoteUpdate(e: React.ChangeEvent<HTMLTextAreaElement>) {
+		if (e.target.value !== note) {
+			setNote(file_id, e.target.value);
 		}
-	}, [props.selectedFile]);
+	}
+
+	useEffect(() => {
+		// if the notes are synced, remove cache
+		if (notes[file_id] === props.selectedFile?.file?.note) {
+			unCacheNote(file_id);
+		}
+	}, [note]);
 
 	return (
 		<Transition
@@ -137,10 +135,8 @@ export const Inspector = (props: {
 											value={
 												<TextArea
 													className="mt-2 text-xs leading-snug !py-2"
-													value={note}
-													onChange={(e) => {
-														setNote(e.target.value);
-													}}
+													value={note || ''}
+													onChange={handleNoteUpdate}
 												/>
 											}
 										/>
