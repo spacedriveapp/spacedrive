@@ -41,6 +41,7 @@ export const Inspector = (props: {
 	let full_path = `${props.location?.path}/${file_path?.materialized_path}`;
 
 	const [note, setNote] = useState('');
+	const [lastFileId, setLastFileId] = useState(-1);
 
 	const { mutate: fileSetNote } = useBridgeCommand('FileSetNote', {});
 
@@ -51,8 +52,16 @@ export const Inspector = (props: {
 	}, [note]);
 
 	useEffect(() => {
-		if (props.selectedFile?.file) setNote(props.selectedFile?.file?.note || '');
-		else setNote('');
+		if (props.selectedFile?.file) {
+			if (lastFileId) {
+				fileSetNote({ id: lastFileId, note });
+			}
+			setLastFileId(props.selectedFile?.file?.id);
+
+			setNote(props.selectedFile?.file?.note || '');
+		} else {
+			setNote('');
+		}
 	}, [props.selectedFile]);
 
 	return (
