@@ -7,3 +7,7 @@ DEBIAN_BINDGEN_DEPS="pkg-config clang" # Bindgen dependencies - it's used by a d
 
 sudo apt-get -y update
 sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
+
+pnpm i
+cargo install tauri-cli
+pnpm prep
