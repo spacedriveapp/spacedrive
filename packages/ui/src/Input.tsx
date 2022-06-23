@@ -39,7 +39,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ ...props 
 			ref={ref}
 			{...props}
 			className={clsx(
-				`px-2 py-1 rounded-md border leading-5 outline-none shadow-xs focus:ring-2 transition-all`,
+				`px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
 				variants[props.variant || 'default'],
 				props.className
 			)}
@@ -56,7 +56,7 @@ export const TextArea = ({ size, ...props }: TextAreaProps) => {
 		<textarea
 			{...props}
 			className={clsx(
-				`px-3 py-1 rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
+				`px-2 py-1 rounded-md border leading-5 outline-none shadow-xs focus:ring-2 transition-all`,
 				variants[props.variant || 'default'],
 				size && '',
 				props.className
