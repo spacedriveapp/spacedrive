@@ -15,7 +15,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import { ReactComponent as Content } from '~/docs/changelog/index.md';
 
-const positions = [
+export const positions = [
 	{
 		name: 'TypeScript React UI/UX Engineer',
 		type: 'Full-time',
