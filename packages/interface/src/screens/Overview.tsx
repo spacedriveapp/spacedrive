@@ -181,10 +181,10 @@ export const OverviewScreen = () => {
 							trigger={
 								<Button
 									size="sm"
-									icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 mr-1" />}
+									icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 md:mr-1" />}
 									variant="gray"
 								>
-									Add Device
+									<span className="hidden md:inline-block">Add Device</span>
 								</Button>
 							}
 						>
