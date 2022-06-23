@@ -29,14 +29,14 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 			<Folder size={30} className="mr-3" />
 			<div className="flex flex-col">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
-				<p className="mt-1 text-sm select-text text-gray-250">
-					<span className="py-0.5 px-1 bg-gray-500 rounded mr-1">{location.node?.name}</span>
+				<p className="mt-0.5 text-sm select-text text-gray-250">
+					<span className="py-[1px] px-1 bg-gray-500 rounded mr-1">{location.node?.name}</span>
 					{location.path}
 				</p>
 			</div>
 			<div className="flex flex-grow" />
 			<div className="flex h-[45px] p-2 space-x-2">
-				<Button disabled variant="gray" className="!p-1.5 pointer-events-none flex">
+				<Button disabled variant="gray" className="!py-1.5 !px-2 pointer-events-none flex">
 					<>
 						<div
 							className={clsx(
