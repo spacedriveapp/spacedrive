@@ -19,7 +19,7 @@ export function AppLayout() {
 				return false;
 			}}
 			className={clsx(
-				'flex flex-row h-screen overflow-hidden text-gray-900 select-none dark:text-white',
+				'flex flex-row h-screen overflow-hidden text-gray-900 select-none dark:text-white cursor-default',
 				isWindowRounded && 'rounded-xl',
 				hasWindowBorder && 'border border-gray-200 dark:border-gray-500'
 			)}

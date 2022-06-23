@@ -258,13 +258,7 @@ impl Node {
 				CoreResponse::Success(())
 			}
 			ClientCommand::LocDelete { id } => {
-				ctx.database
-					.location()
-					.find_unique(location::id::equals(id))
-					.delete()
-					.exec()
-					.await?;
-
+				sys::delete_location(&ctx, id).await?;
 				CoreResponse::Success(())
 			}
 			// CRUD for files

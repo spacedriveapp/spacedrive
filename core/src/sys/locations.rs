@@ -1,8 +1,8 @@
 use crate::{
 	encode::ThumbnailJob,
 	file::{cas::FileIdentifierJob, indexer::IndexerJob},
-	node::get_nodestate,
-	prisma::location,
+	node::{get_nodestate, LibraryNode},
+	prisma::{file_path, location},
 	ClientQuery, CoreContext, CoreEvent,
 };
 use serde::{Deserialize, Serialize};
@@ -21,13 +21,14 @@ pub struct LocationResource {
 	pub total_capacity: Option<i32>,
 	pub available_capacity: Option<i32>,
 	pub is_removable: Option<bool>,
+	pub node: Option<LibraryNode>,
 	pub is_online: bool,
 	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
 }
 
 impl Into<LocationResource> for location::Data {
-	fn into(self) -> LocationResource {
+	fn into(mut self) -> LocationResource {
 		LocationResource {
 			id: self.id,
 			name: self.name,
@@ -35,6 +36,7 @@ impl Into<LocationResource> for location::Data {
 			total_capacity: self.total_capacity,
 			available_capacity: self.available_capacity,
 			is_removable: self.is_removable,
+			node: self.node.take().unwrap_or(None).map(|node| (*node).into()),
 			is_online: self.is_online,
 			date_created: self.date_created.into(),
 		}
@@ -96,11 +98,12 @@ pub async fn new_location_and_scan(
 		path: path.to_string(),
 	}));
 
-	ctx.queue_job(Box::new(ThumbnailJob {
-		location_id: location.id,
-		path: "".to_string(),
-		background: false,
-	}));
+	// TODO: make a way to stop jobs so this can be canceled without rebooting app
+	// ctx.queue_job(Box::new(ThumbnailJob {
+	// 	location_id: location.id,
+	// 	path: "".to_string(),
+	// 	background: false,
+	// }));
 
 	Ok(location)
 }
@@ -108,7 +111,12 @@ pub async fn new_location_and_scan(
 pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, SysError> {
 	let db = &ctx.database;
 
-	let locations = db.location().find_many(vec![]).exec().await?;
+	let locations = db
+		.location()
+		.find_many(vec![])
+		.with(location::node::fetch())
+		.exec()
+		.await?;
 
 	// turn locations into LocationResource
 	let locations: Vec<LocationResource> = locations
@@ -175,6 +183,7 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 						)),
 						location::is_online::set(true),
 						location::local_path::set(Some(path.to_string())),
+						location::node_id::set(Some(config.node_id)),
 					],
 				)
 				.exec()
@@ -211,6 +220,28 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 	};
 
 	Ok(location.into())
+}
+
+pub async fn delete_location(ctx: &CoreContext, location_id: i32) -> Result<(), SysError> {
+	let db = &ctx.database;
+
+	// db.file_path()
+	// 	.find_many(vec![file_path::location::is(vec![location::id::equals(
+	// 		location_id,
+	// 	)])])
+	// 	.delete()
+	// 	.exec()
+	// 	.await?;
+
+	db.location()
+		.find_unique(location::id::equals(location_id))
+		.delete()
+		.exec()
+		.await?;
+
+	println!("Location {} deleted", location_id);
+
+	Ok(())
 }
 
 #[derive(Error, Debug)]
