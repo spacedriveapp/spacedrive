@@ -115,8 +115,7 @@ model Location {
 
 model File {
     id                 Int      @id @default(autoincrement())
-    // content addressable storage id - sha256
-    // this does not need to be unique, as incoming replicas will always ignore if at least one exists
+    // content addressable storage id - sha256 sampled checksum
     cas_id             String   @unique
     // full byte contents digested into sha256 checksum
     integrity_checksum String?  @unique

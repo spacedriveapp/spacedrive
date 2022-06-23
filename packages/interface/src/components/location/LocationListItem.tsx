@@ -1,4 +1,4 @@
-import { RefreshIcon } from '@heroicons/react/outline';
+import { DotsVerticalIcon, RefreshIcon } from '@heroicons/react/outline';
 import { CogIcon, TrashIcon } from '@heroicons/react/solid';
 import { command, useBridgeCommand } from '@sd/client';
 import { LocationResource } from '@sd/core';
@@ -16,6 +16,8 @@ interface LocationListItemProps {
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const [hide, setHide] = useState(false);
 
+	const { mutate: identifyUniqueFiles } = useBridgeCommand('IdentifyUniqueFiles');
+
 	const { mutate: deleteLoc, isLoading: locDeletePending } = useBridgeCommand('LocDelete', {
 		onSuccess: () => {
 			setHide(true);
@@ -26,6 +28,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 
 	return (
 		<div className="flex w-full px-4 py-2 border border-gray-500 rounded-lg bg-gray-550">
+			<DotsVerticalIcon className="w-5 h-5 mt-3 mr-1 -ml-3 cursor-move drag-handle opacity-10" />
 			<Folder size={30} className="mr-3" />
 			<div className="flex flex-col">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
@@ -64,7 +67,14 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 						</Button>
 					}
 				/>
-				<Button variant="gray" className="!p-1.5">
+				<Button
+					variant="gray"
+					className="!p-1.5"
+					onClick={() => {
+						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
+						identifyUniqueFiles({ id: location.id, path: '' });
+					}}
+				>
 					<RefreshIcon className="w-4 h-4" />
 				</Button>
 				{/* <Button variant="gray" className="!p-1.5">

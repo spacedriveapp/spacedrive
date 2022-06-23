@@ -104,7 +104,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						<TopBarButton
 							icon={ArrowsClockwise}
 							onClick={() => {
-								generateThumbsForLocation({ id: locationId, path: '' });
+								// generateThumbsForLocation({ id: locationId, path: '' });
 							}}
 						/>
 					</div>

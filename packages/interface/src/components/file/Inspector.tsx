@@ -35,20 +35,20 @@ export const Inspector = (props: {
 	location?: LocationResource;
 	selectedFile?: FilePath;
 }) => {
-	const file_path = props.selectedFile;
-	let full_path = `${props.location?.path}/${file_path?.materialized_path}`;
+	const file_path = props.selectedFile,
+		full_path = `${props.location?.path}/${file_path?.materialized_path}`,
+		file_id = props.selectedFile?.file?.id || -1;
 
-	// notes are stored in global state by their file id
+	// notes are cached in a store by their file id
 	// this is so we can ensure every note has been sent to Rust even
 	// when quickly navigating files, which cancels update function
 	const { notes, setNote, unCacheNote } = useInspectorState();
 
-	const file_id = props.selectedFile?.file?.id || -1;
-	// show cached note over server note
+	// show cached note over server note, important to check for undefined not falsey
 	const note =
 		notes[file_id] === undefined ? props.selectedFile?.file?.note || null : notes[file_id];
 
-	// when input is updated
+	// when input is updated, cache note
 	function handleNoteUpdate(e: React.ChangeEvent<HTMLTextAreaElement>) {
 		if (e.target.value !== note) {
 			setNote(file_id, e.target.value);
