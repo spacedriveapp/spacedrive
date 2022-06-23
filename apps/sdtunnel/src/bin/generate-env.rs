@@ -19,8 +19,9 @@ fn main() {
 	match fs::write(
 		env_file,
 		format!(
-			r#"SD_ROOT_CERTIFICATE="{}"
-SD_ROOT_CERTIFICATE_KEY="{}""#,
+			r#"SD_ROOT_CERTIFICATE={}
+SD_ROOT_CERTIFICATE_KEY={}
+SD_REDIS_URL=redis://127.0.0.1/"#,
 			encode(cert.serialize_der().unwrap()),
 			encode(cert.serialize_private_key_der())
 		),

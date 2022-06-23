@@ -1,8 +1,8 @@
 [package]
-name = "sd-tunnel"
+name = "tunnel"
 version = "0.1.0"
 edition = "2021"
-default-run = "sd-tunnel"
+default-run = "tunnel"
 
 [dependencies]
 sd-tunnel-utils = { path = "./utils" }
@@ -17,3 +17,8 @@ serde = { version = "1.0.137", features = ["derive"] }
 tokio = { version = "1.19.2", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
+metrics = "0.19.0"
+metrics-exporter-prometheus = { version = "0.10.0", features = ["http-listener"] }
+thiserror = "1.0.31"
+rmp-serde = "1.1.0"
+bb8-redis = "0.11.0"

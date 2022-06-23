@@ -47,15 +47,23 @@ impl NetworkManager {
 			quic::new_server(identity, state.p2p_application.clone())?;
 
 		// TODO
-		let tunnel_client = Client::new(endpoint.clone());
+		let tunnel_client = Client::new(endpoint.clone(), state.identity.clone());
+
 		let msg = tunnel_client
 			.send_message(Message::ClientAnnouncement {
 				peer_id: state.peer_id.clone(),
-				addresses: vec!["1.1.1.1".into()],
+				addresses: vec!["1.1.1.1".into(), "2.2.2.2".into()],
 			})
 			.await
 			.unwrap();
 		println!("{:?}", msg);
+
+		let msg = tunnel_client
+			.send_message(Message::QueryClientAnnouncement(state.peer_id.clone()))
+			.await
+			.unwrap();
+		println!("{:?}", msg);
+
 		unimplemented!();
 		// END TODO
 

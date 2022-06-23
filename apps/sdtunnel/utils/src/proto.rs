@@ -4,7 +4,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::PeerId;
 
-/// Message is a single request that is sent between a client and the Spacedrive Tunnel server.
+/// MAX_MESSAGE_SIZE is the maximum size of a single message.
+pub const MAX_MESSAGE_SIZE: usize = 64 * 1024;
+
+/// MessageError is an error that occurs when a message is malformed.
+/// NEVER REMOVE OR REORDER VARIANTS OF THIS ENUM OR YOU WILL BREAK STUFF DUE TO SUBOPTIMAL MSGPACK ENCODING.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum MessageError {
+	InvalidAuthErr,
+	InvalidReqErr,
+	InternalServerErr,
+}
+
+/// Message is a single request that is sent between a client and the Spacetunnel server.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Message {
 	// Announce your current device addresses
@@ -12,13 +24,14 @@ pub enum Message {
 		peer_id: PeerId,
 		addresses: Vec<String>,
 	},
-	ClientAnnouncementResponse,
+	ClientAnnouncementOk,
 	// Query for an existing client announcement
 	QueryClientAnnouncement(PeerId),
 	QueryClientAnnouncementResponse {
 		peer_id: PeerId,
 		addresses: Vec<String>,
 	},
+	Error(MessageError),
 }
 
 impl Message {

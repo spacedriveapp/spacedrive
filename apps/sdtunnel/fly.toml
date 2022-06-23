@@ -1,0 +1,21 @@
+app = "sdtunnel"
+
+[env]
+SD_PORT = 9000
+SD_BIND_ADDR = "fly-global-services"
+
+[metrics]
+port = 9000
+path = "/metrics"
+
+[experimental]
+  allowed_public_ports = []
+  auto_rollback = true
+
+[[services]]
+  protocol = "udp"
+  internal_port = 9000
+
+  [[services.ports]]
+    handlers = []
+    port = 443

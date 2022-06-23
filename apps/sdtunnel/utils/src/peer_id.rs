@@ -33,6 +33,12 @@ impl PeerId {
 	}
 }
 
+impl PartialEq<PeerId> for &PeerId {
+	fn eq(&self, other: &PeerId) -> bool {
+		self.0 == other.0
+	}
+}
+
 impl fmt::Display for PeerId {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.0)
