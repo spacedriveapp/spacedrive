@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { Toggle } from '../../../../ui/src/Toggle';
-import { InputContainer } from '../../../../ui/src/InputContainer';
+import { Toggle } from '@sd/ui';
+import { InputContainer } from '@sd/ui';
 import { SettingsContainer } from '../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 
