@@ -120,12 +120,15 @@ html {
 @keyframes shining {
 	0% {
 		width: 0;
+		opacity: 0;
 	}
 	50% {
 		width: 30px;
+		opacity: 1;
 	}
 	100% {
 		width: 0;
+		opacity: 0;
 	}
 }
 @keyframes shooting {

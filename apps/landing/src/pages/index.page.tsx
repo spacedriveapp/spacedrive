@@ -9,6 +9,7 @@ import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';
 import NewBanner from '../components/NewBanner';
+import { PaymentTier } from '../components/PaymentTiers';
 import { ShootingStars } from '../components/ShootingStar';
 import { usePageContext } from '../renderer/usePageContext';
 import { getWindow } from '../utils';
@@ -152,93 +153,18 @@ function Page() {
 					</>
 				}
 			/>
-			<div className="w-full h-full text-center z-30 pb-12">
+			<div className="w-full h-full text-center z-30 mb-16 flex flex-col justify-center items-center">
 				<h1 className="text-2xl font-black sm:text-4xl">
-					Lorem ipsum dolor sit amet, consectetur.
+					Designed by developers for creative people.
 				</h1>
-				<p className="mt-5 text-md sm:text-xl text-gray-450">
-					Lorem ipsum dolor sit amet, consectetur.
+				<p className="mt-5 text-md sm:text-xl text-gray-450 max-w-xl">
+					Here at Spacedrive we believe that all you should have access to your data all in one
+					place with no strings attached.
 				</p>
-				<div className="relative w-full h-full flex flex-col sm:flex-row justify-center mt-4">
-					<div className=" flex flex-col items-center w-full p-4 rounded-xl mx-2 my-2 sm:my-2 bg-gray-650  hover:bg-gray-750  border border-gray-600 hover:border-gray-550  duration-300 ease-in-out">
-						<h1 className="text-2xl font-bold sm:text-3xl pt-4 pb-2">Lorem ipsum dolor</h1>
-						<p className="text-gray-450 text-md">Lorem ipsum dolor sit amet, consectetur.</p>
-						<p className="text-6xl font-black pt-4">
-							$0 <small className="text-base font-light text-gray-450">/month</small>
-						</p>
-						<ul className="mb-8 space-y-4 text-left items-center  mt-0 xl:mt-12">
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-gray-450 dark:text-gray-450" />
-								<span className="text-gray-450">Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-gray-450 dark:text-gray-450" />
-								<span className="text-gray-450">Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400" />
-								<span>Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400" />
-								<span>Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-						</ul>
-					</div>
-					<div className=" flex flex-col items-center w-full p-4 rounded-xl mx-2 my-2 sm:my-2 bg-gray-650 hover:bg-gray-750  border border-gray-600 hover:border-gray-550  duration-300 ease-in-out">
-						<h1 className="text-2xl font-bold sm:text-3xl pt-4 pb-2">Lorem ipsum dolor</h1>
-						<p className="text-gray-450 text-md">Lorem ipsum dolor sit amet, consectetur.</p>
-						<p className="text-6xl font-black pt-4">
-							$0 <small className="text-base font-light text-gray-450">/month</small>
-						</p>
-						<ul className="mb-8 space-y-4 text-left items-center  mt-0 xl:mt-12">
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-gray-450 dark:text-gray-450" />
-								<span className="text-gray-450">Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-gray-450 dark:text-gray-450" />
-								<span className="text-gray-450">Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400" />
-								<span>Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400" />
-								<span>Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-						</ul>
-					</div>
-					<div className=" flex flex-col items-center w-full p-4 rounded-xl mx-2 my-2 sm:my-2 bg-gray-650  hover:bg-gray-750  border border-gray-600 hover:border-gray-550  duration-300 ease-in-out">
-						<h1 className="text-2xl font-bold sm:text-3xl pt-4 pb-2">Lorem ipsum dolor</h1>
-						<p className="text-gray-450 text-md">Lorem ipsum dolor sit amet, consectetur.</p>
-						<p className="text-6xl font-black pt-4">
-							$0 <small className="text-base font-light text-gray-450">/month</small>
-						</p>
-						<ul className="mb-8 space-y-4 text-left items-center  mt-0 xl:mt-12">
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-gray-450 dark:text-gray-450" />
-								<span className="text-gray-450">Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-gray-450 dark:text-gray-450" />
-								<span className="text-gray-450">Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400" />
-								<span>Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-							<li className="flex items-center space-x-3">
-								<CheckIcon className="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400" />
-								<span>Lorem ipsum dolor sit amet, consectetur.</span>
-							</li>
-						</ul>
-					</div>
-				</div>
+				<PaymentTier />
 			</div>
 			<Bubbles />
-			<ShootingStars />
+			{/* <ShootingStars /> */}
 		</>
 	);
 }
