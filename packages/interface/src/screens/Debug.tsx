@@ -3,7 +3,7 @@ import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
 
 import { AppPropsContext } from '../AppPropsContext';
-import CodeBlock from '../../../ui/src/Codeblock';
+import CodeBlock from '@sd/ui';
 
 export const DebugScreen: React.FC<{}> = (props) => {
 	const appPropsContext = useContext(AppPropsContext);
