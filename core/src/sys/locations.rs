@@ -223,20 +223,6 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 pub async fn delete_location(ctx: &CoreContext, location_id: i32) -> Result<(), SysError> {
 	let db = &ctx.database;
 
-	// db.file_path()
-	// 	.find_many(vec![file_path::location::is(vec![location::id::equals(
-	// 		location_id,
-	// 	)])])
-	// 	.delete()
-	// 	.exec()
-	// 	.await?;
-
-	// db._execute_raw(raw!(
-	// 	"DELETE FROM file_paths WHERE location_id = {}",
-	// 	PrismaValue::Int(location_id as i64)
-	// ))
-	// .await?;
-
 	db.location()
 		.find_unique(location::id::equals(location_id))
 		.delete()
