@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Rings } from 'react-loading-icons';
 
 import FileItem from '../file/FileItem';
+import Loader from '../primitive/Loader';
 import ProgressBar from '../primitive/ProgressBar';
 
 export interface DeviceProps {
@@ -45,13 +46,7 @@ export function Device(props: DeviceProps) {
 				<div className="flex flex-grow" />
 				{props.runningJob && (
 					<div className="flex flex-row ml-5 bg-gray-300 bg-opacity-50 rounded-md dark:bg-gray-550">
-						<Rings
-							stroke="#2599FF"
-							strokeOpacity={4}
-							strokeWidth={10}
-							speed={0.5}
-							className="ml-0.5 mt-[2px] -mr-1 w-7 h-7"
-						/>
+						<Loader />
 						<div className="flex flex-col p-2">
 							<span className="mb-[2px] -mt-1 truncate text-gray-450 text-tiny">
 								{props.runningJob.task}...

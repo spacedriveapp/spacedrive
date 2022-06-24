@@ -258,13 +258,11 @@ impl Node {
 				CoreResponse::Success(())
 			}
 			ClientCommand::LocDelete { id } => {
-				ctx.database
-					.location()
-					.find_unique(location::id::equals(id))
-					.delete()
-					.exec()
-					.await?;
-
+				sys::delete_location(&ctx, id).await?;
+				CoreResponse::Success(())
+			}
+			ClientCommand::LocRescan { id } => {
+				sys::scan_location(&ctx, id, String::new());
 				CoreResponse::Success(())
 			}
 			// CRUD for files
@@ -374,6 +372,7 @@ pub enum ClientCommand {
 	LocCreate { path: String },
 	LocUpdate { id: i32, name: Option<String> },
 	LocDelete { id: i32 },
+	LocRescan { id: i32 },
 	// System
 	SysVolumeUnmount { id: i32 },
 	GenerateThumbsForLocation { id: i32, path: String },

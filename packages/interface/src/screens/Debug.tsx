@@ -17,8 +17,9 @@ export const DebugScreen: React.FC<{}> = (props) => {
 	// });
 	const { mutate: identifyFiles } = useBridgeCommand('IdentifyUniqueFiles');
 	return (
-		<div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll">
-			<div className="flex flex-col space-y-5 pb-7">
+		<div className="flex flex-col w-full h-screen custom-scroll page-scroll">
+			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
+			<div className="flex flex-col p-5 pt-2 space-y-5 pb-7">
 				<h1 className="text-lg font-bold ">Developer Debugger</h1>
 				<div className="flex flex-row pb-4 space-x-2">
 					<Button
