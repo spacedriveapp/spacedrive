@@ -12,7 +12,7 @@ import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
-import { DefaultProps } from '../../../../ui/src/types';
+import { DefaultProps } from '@sd/ui/types';
 
 interface SidebarProps extends DefaultProps {}
 
