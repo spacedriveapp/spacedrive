@@ -16,8 +16,8 @@ import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useExplorerState } from '../../hooks/useExplorerState';
-import { Shortcut } from '../../../../ui/src/Shortcut';
-import { DefaultProps } from '../../../../ui/src/types';
+import { Shortcut } from '@sd/ui';
+import { DefaultProps } from '@sd/ui/types';
 
 export interface TopBarProps extends DefaultProps {}
 export interface TopBarButtonProps
