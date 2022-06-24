@@ -193,13 +193,9 @@ function Page() {
 			</Helmet>
 			<div className="relative team-page">
 				<div
-					className="page-bloom absolute -top-60 -right-[400px] opacity-60 w-[1000px] h-[800px] fade-in will-change-transform"
-					style={{
-						background: 'linear-gradient(180deg, #040CA8 0%, #0474A8 95.73%)',
-						filter: 'blur(300px)',
-						transform: 'rotate(56.81deg)'
-					}}
-				></div>
+					className="bloom subtle egg-bloom-one -top-60 -right-[400px]"
+					style={{ transform: 'scale(2)' }}
+				/>
 				<div className="relative z-10">
 					<h1 className="text-5xl leading-snug fade-in-heading ">
 						We believe file management should be <span className="title-gradient">universal</span>.

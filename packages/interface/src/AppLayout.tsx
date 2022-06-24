@@ -19,16 +19,14 @@ export function AppLayout() {
 				return false;
 			}}
 			className={clsx(
-				'flex flex-row h-screen overflow-hidden text-gray-900 select-none dark:text-white',
+				'flex flex-row h-screen overflow-hidden text-gray-900 select-none dark:text-white cursor-default',
 				isWindowRounded && 'rounded-xl',
 				hasWindowBorder && 'border border-gray-200 dark:border-gray-500'
 			)}
 		>
 			<Sidebar />
-			<div className="flex flex-col w-full min-h-full">
-				<div className="relative flex w-full min-h-full bg-white dark:bg-gray-650">
-					<Outlet />
-				</div>
+			<div className="relative flex w-full h-screen max-h-screen bg-white dark:bg-gray-650">
+				<Outlet />
 			</div>
 		</div>
 	);

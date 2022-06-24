@@ -1,5 +1,9 @@
 use crate::{
-	file::indexer::IndexerJob, library::LibraryContext, prisma::location, ClientQuery, CoreEvent,
+	file::{cas::FileIdentifierJob, indexer::IndexerJob},
+	library::LibraryContext,
+	node::LibraryNode,
+	prisma::{file_path, location},
+	ClientQuery, CoreEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
@@ -17,13 +21,14 @@ pub struct LocationResource {
 	pub total_capacity: Option<i32>,
 	pub available_capacity: Option<i32>,
 	pub is_removable: Option<bool>,
+	pub node: Option<LibraryNode>,
 	pub is_online: bool,
 	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
 }
 
 impl Into<LocationResource> for location::Data {
-	fn into(self) -> LocationResource {
+	fn into(mut self) -> LocationResource {
 		LocationResource {
 			id: self.id,
 			name: self.name,
@@ -31,6 +36,7 @@ impl Into<LocationResource> for location::Data {
 			total_capacity: self.total_capacity,
 			available_capacity: self.available_capacity,
 			is_removable: self.is_removable,
+			node: self.node.take().unwrap_or(None).map(|node| (*node).into()),
 			is_online: self.is_online,
 			date_created: self.date_created.into(),
 		}
@@ -73,10 +79,18 @@ pub async fn get_location(
 		Some(location) => location,
 		None => Err(LocationError::NotFound(location_id.to_string()))?,
 	};
-
-	println!("Retrieved location: {:?}", location);
-
 	Ok(location.into())
+}
+
+pub fn scan_location(ctx: &LibraryContext, location_id: i32, path: String) {
+	ctx.spawn_job(Box::new(IndexerJob { path: path.clone() }));
+	ctx.queue_job(Box::new(FileIdentifierJob { location_id, path }));
+	// TODO: make a way to stop jobs so this can be canceled without rebooting app
+	// ctx.queue_job(Box::new(ThumbnailJob {
+	// 	location_id,
+	// 	path: "".to_string(),
+	// 	background: false,
+	// }));
 }
 
 pub async fn new_location_and_scan(
@@ -85,15 +99,20 @@ pub async fn new_location_and_scan(
 ) -> Result<LocationResource, SysError> {
 	let location = create_location(&ctx, path).await?;
 
-	ctx.spawn_job(Box::new(IndexerJob {
-		path: path.to_string(),
-	}));
+	scan_location(&ctx, location.id, path.to_string());
 
 	Ok(location)
 }
 
 pub async fn get_locations(ctx: &LibraryContext) -> Result<Vec<LocationResource>, SysError> {
-	let locations = ctx.db.location().find_many(vec![]).exec().await?;
+	let db = &ctx.db;
+
+	let locations = db
+		.location()
+		.find_many(vec![])
+		.with(location::node::fetch())
+		.exec()
+		.await?;
 
 	// turn locations into LocationResource
 	let locations: Vec<LocationResource> = locations
@@ -162,6 +181,7 @@ pub async fn create_location(
 						)),
 						location::is_online::set(true),
 						location::local_path::set(Some(path.to_string())),
+						location::node_id::set(Some(ctx.node_local_id)),
 					],
 				)
 				.exec()
@@ -198,6 +218,29 @@ pub async fn create_location(
 	};
 
 	Ok(location.into())
+}
+
+pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), SysError> {
+	let db = &ctx.db;
+
+	db.file_path()
+		.find_many(vec![file_path::location_id::equals(Some(location_id))])
+		.delete()
+		.exec()
+		.await?;
+
+	db.location()
+		.find_unique(location::id::equals(location_id))
+		.delete()
+		.exec()
+		.await?;
+
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
+		.await;
+
+	println!("Location {} deleted", location_id);
+
+	Ok(())
 }
 
 #[derive(Error, Debug)]

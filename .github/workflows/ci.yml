@@ -11,7 +11,7 @@ on:
 
 env:
   CARGO_INCREMENTAL: 1
-  CUSTOM_APT_FLAGS: --no-install-recommends
+  SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
 jobs:
   typescript:
@@ -127,13 +127,13 @@ jobs:
       - name: Generate Prisma client
         working-directory: core
         if: steps.cache-prisma.outputs.cache-hit != 'true'
-        run: cargo run --frozen --locked -p prisma-cli --release -- generate
+        run: cargo run --frozen -p prisma-cli --release -- generate
 
       - name: Cargo fetch
-        run: cargo fetch --frozen
+        run: cargo fetch
 
       - name: Check Core
-        run: cargo check --frozen --offline -p sdcore --release
+        run: cargo check --frozen -p sdcore --release
 
       - name: Bundle Desktop
         run: pnpm desktop tauri build
@@ -141,7 +141,7 @@ jobs:
       - name: Build Server
         if: matrix.platform == 'ubuntu-latest'
         run: |
-          cargo build --frozen --offline -p server --release
+          cargo build --frozen -p server --release
           cp ./target/release/server ./apps/server/server
 
       - name: Determine image name & tag

@@ -7,6 +7,7 @@ use crate::{
 use crate::{sys, CoreEvent};
 use futures::executor::block_on;
 use image::*;
+use log::{error, info};
 use std::fs;
 use std::path::{Path, PathBuf};
 use webp::*;
@@ -35,6 +36,11 @@ impl Job for ThumbnailJob {
 
 		let location = sys::get_location(&library_ctx, self.location_id).await?;
 
+		info!(
+			"Searching for images in location {} at path {}",
+			location.id, self.path
+		);
+
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(&thumbnail_dir)?;
 		let root_path = location.path.unwrap();
@@ -62,7 +68,7 @@ impl Job for ThumbnailJob {
 
 				// assemble the file path
 				let path = Path::new(&root_path).join(&image_file.materialized_path);
-				println!("image_file {:?}", image_file);
+				error!("image_file {:?}", image_file);
 
 				// get cas_id, if none found skip
 				let cas_id = match image_file.file() {
@@ -74,7 +80,7 @@ impl Job for ThumbnailJob {
 						}
 					}
 					Err(_) => {
-						println!("Error getting cas_id {:?}", image_file.materialized_path);
+						error!("Error getting cas_id {:?}", image_file.materialized_path);
 						continue;
 					}
 				};
@@ -86,10 +92,10 @@ impl Job for ThumbnailJob {
 
 				// check if file exists at output path
 				if !output_path.exists() {
-					println!("writing {:?} to {:?}", path, output_path);
+					info!("Writing {:?} to {:?}", path, output_path);
 					generate_thumbnail(&path, &output_path)
 						.map_err(|e| {
-							println!("error generating thumb {:?}", e);
+							info!("Error generating thumb {:?}", e);
 						})
 						.unwrap_or(());
 
@@ -99,7 +105,7 @@ impl Job for ThumbnailJob {
 						block_on(ctx.library_ctx().emit(CoreEvent::NewThumbnail { cas_id }));
 					};
 				} else {
-					println!("Thumb exists, skipping... {}", output_path.display());
+					info!("Thumb exists, skipping... {}", output_path.display());
 				}
 			}
 		})
@@ -140,7 +146,7 @@ pub async fn get_images(
 	path: &str,
 ) -> Result<Vec<file_path::Data>, std::io::Error> {
 	let mut params = vec![
-		file_path::location_id::equals(location_id),
+		file_path::location_id::equals(Some(location_id)),
 		file_path::extension::in_vec(vec![
 			"png".to_string(),
 			"jpeg".to_string(),

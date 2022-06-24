@@ -18,10 +18,10 @@ export const Bubbles = () => {
 				interactivity: {
 					events: {
 						onClick: {
-							enable: true,
+							enable: false,
 							mode: 'push'
 						},
-						resize: true
+						resize: false
 					}
 				},
 				particles: {
@@ -29,7 +29,7 @@ export const Bubbles = () => {
 						value: '#ffffff'
 					},
 					collisions: {
-						enable: true
+						enable: false
 					},
 					move: {
 						direction: 'top',

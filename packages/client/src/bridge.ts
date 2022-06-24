@@ -71,9 +71,16 @@ export function useBridgeCommand<
 	CC extends CCType<K>,
 	CR extends CRType<K>
 >(key: K, options: UseMutationOptions<ExtractData<CC>> = {}) {
-	return useMutation<ExtractData<CR>, unknown, any>(
+	return useMutation<ExtractData<CR>, unknown, ExtractParams<CC>>(
 		[key],
-		async (vars: ExtractParams<CC>) => await commandBridge(key, vars),
+		async (vars?: ExtractParams<CC>) => await commandBridge(key, vars),
 		options
 	);
+}
+
+export function command<K extends CommandKeyType, CC extends CCType<K>, CR extends CRType<K>>(
+	key: K,
+	vars: ExtractParams<CC>
+): Promise<ExtractData<CR>> {
+	return commandBridge(key, vars);
 }

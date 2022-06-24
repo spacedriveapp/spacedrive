@@ -1,10 +1,7 @@
-use crate::{
-	file::cas::FileIdentifierJob, prisma::location,
-	prisma::file as prisma_file, node::NodeConfig
-};
+use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
 use job::{Job, JobReport, Jobs};
 use library::{LibraryConfig, LibraryManager};
-use node::NodeConfigManager;
+use node::{NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
 use std::{
 	fs,
@@ -94,7 +91,7 @@ impl NodeContext {
 
 	pub fn queue_job(&self, job: Box<dyn Job>) {
 		self.internal_sender
-			.send(InternalEvent::JobIngest(job))
+			.send(InternalEvent::JobQueue(job))
 			.unwrap_or_else(|e| {
 				println!("Failed to queue job. {:?}", e);
 			});
@@ -157,7 +154,7 @@ impl Node {
 			event_sender,
 			internal_channel,
 		};
-		
+
 		(
 			NodeController {
 				query_sender: node.query_channel.0.clone(),
@@ -237,17 +234,17 @@ impl Node {
 				CoreResponse::Success(())
 			}
 			ClientCommand::LocDelete { id } => {
-				ctx.db
-					.location()
-					.find_unique(location::id::equals(id))
-					.delete()
-					.exec()
-					.await?;
+				sys::delete_location(&ctx, id).await?;
+				CoreResponse::Success(())
+			}
+			ClientCommand::LocRescan { id } => {
+				sys::scan_location(&ctx, id, String::new());
 
 				CoreResponse::Success(())
 			}
 			// CRUD for files
 			ClientCommand::FileReadMetaData { id: _ } => todo!(),
+			ClientCommand::FileSetNote { id, note } => file::set_note(ctx, id, note).await?,
 			// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
 			ClientCommand::FileDelete { id } => {
 				ctx.db
@@ -342,6 +339,7 @@ pub enum ClientCommand {
 	CreateLibrary { name: String },
 	// Files
 	FileReadMetaData { id: i32 },
+	FileSetNote { id: i32, note: Option<String> },
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
 	FileDelete { id: i32 },
 	// Library
@@ -355,6 +353,7 @@ pub enum ClientCommand {
 	LocCreate { path: String },
 	LocUpdate { id: i32, name: Option<String> },
 	LocDelete { id: i32 },
+	LocRescan { id: i32 },
 	// System
 	SysVolumeUnmount { id: i32 },
 	GenerateThumbsForLocation { id: i32, path: String },

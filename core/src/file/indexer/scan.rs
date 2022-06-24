@@ -1,6 +1,8 @@
 use crate::job::JobResult;
 use crate::library::LibraryContext;
 use crate::sys::{create_location, LocationResource};
+use chrono::{DateTime, Utc};
+use log::{error, info};
 use prisma_client_rust::prisma_models::PrismaValue;
 use prisma_client_rust::raw;
 use prisma_client_rust::raw::Raw;
@@ -74,13 +76,13 @@ pub async fn scan_path(
 			let entry = match entry {
 				Ok(entry) => entry,
 				Err(e) => {
-					println!("Error reading file {}", e);
+					error!("Error reading file {}", e);
 					continue;
 				}
 			};
 			let path = entry.path();
 
-			println!("found: {:?}", path);
+			info!("Found filesystem path: {:?}", path);
 
 			let parent_path = path
 				.parent()
@@ -92,7 +94,7 @@ pub async fn scan_path(
 			let path_str = match path.as_os_str().to_str() {
 				Some(path_str) => path_str,
 				None => {
-					println!("Error reading file {}", &path.display());
+					error!("Error reading file {}", &path.display());
 					continue;
 				}
 			};
@@ -144,30 +146,28 @@ pub async fn scan_path(
 				match prepare_values(&file_path, *file_id, &location, parent_dir_id, *is_dir) {
 					Ok(values) => values.to_vec(),
 					Err(e) => {
-						println!("Error creating file model from path {:?}: {}", file_path, e);
+						error!("Error creating file model from path {:?}: {}", file_path, e);
 						continue;
 					}
 				},
 			);
 		}
 
-		println!("Creating {} file paths. {:?}", files.len(), files);
-
 		let raw = Raw::new(
 			&format!("
-		      		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id) 
+		      		INSERT INTO file_paths (id, is_dir, location_id, materialized_path, name, extension, parent_id, date_created) 
 		      		VALUES {}
 		        ", 
-		        vec!["({}, {}, {}, {}, {}, {}, {})"; chunk.len()].join(", ")
+		        vec!["({}, {}, {}, {}, {}, {}, {}, {})"; chunk.len()].join(", ")
 			),
 			files
 		);
 
 		let count = ctx.db._execute_raw(raw).await;
 
-		println!("Inserted {:?} records", count);
+		info!("Inserted {:?} records", count);
 	}
-	println!(
+	info!(
 		"scan of {:?} completed in {:?}. {:?} files found. db write completed in {:?}",
 		&path,
 		scan_read_time,
@@ -184,12 +184,13 @@ fn prepare_values(
 	location: &LocationResource,
 	parent_id: &Option<i32>,
 	is_dir: bool,
-) -> Result<[PrismaValue; 7], std::io::Error> {
+) -> Result<[PrismaValue; 8], std::io::Error> {
 	let metadata = fs::metadata(&file_path)?;
 	let location_path = Path::new(location.path.as_ref().unwrap().as_str());
 	// let size = metadata.len();
 	let name;
 	let extension;
+	let date_created: DateTime<Utc> = metadata.created().unwrap().into();
 
 	// if the 'file_path' is not a directory, then get the extension and name.
 
@@ -217,6 +218,7 @@ fn prepare_values(
 			.clone()
 			.map(|id| PrismaValue::Int(id as i64))
 			.unwrap_or(PrismaValue::Null),
+		PrismaValue::DateTime(date_created.into()),
 	];
 
 	Ok(values)

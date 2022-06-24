@@ -40,6 +40,10 @@ impl WorkerContext {
 	pub fn library_ctx(&self) -> LibraryContext {
 		self.library_ctx.clone()
 	}
+
+	// save the job data to
+	// pub fn save_data () {
+	// }
 }
 
 // a worker is a dedicated thread that runs a single job

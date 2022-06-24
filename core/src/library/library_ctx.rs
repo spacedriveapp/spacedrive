@@ -32,6 +32,14 @@ impl LibraryContext {
 				println!("Failed to spawn job. {:?}", e);
 			});
 	}
+	pub(crate) fn queue_job(&self, job: Box<dyn Job>) {
+		self.node_context
+			.internal_sender
+			.send(InternalEvent::JobQueue(job))
+			.unwrap_or_else(|e| {
+				println!("Failed to queue job. {:?}", e);
+			});
+	}
 
 	pub(crate) async fn emit(&self, event: CoreEvent) {
 		self.node_context

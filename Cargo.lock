@@ -1278,6 +1278,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1340,6 +1349,15 @@ dependencies = [
  "datamodel",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "dotenvy"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e851a83c30366fd01d75b913588e95e74a1705c1ecc5d58b1f8e1a6d556525f"
+dependencies = [
+ "dirs",
 ]
 
 [[package]]
@@ -1485,6 +1503,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b2cf0344971ee6c64c31be0d530793fba457d322dfec2810c453d0ef228f9c3"
+dependencies = [
+ "atty",
+ "humantime",
+ "log",
+ "regex",
+ "termcolor",
 ]
 
 [[package]]
@@ -2325,6 +2356,12 @@ name = "httpdate"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
+
+[[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
@@ -4823,6 +4860,7 @@ dependencies = [
  "chrono",
  "core-derive",
  "data-encoding",
+ "env_logger",
  "ffmpeg-next",
  "fs_extra",
  "futures",
@@ -4830,6 +4868,7 @@ dependencies = [
  "image",
  "include_dir",
  "int-enum",
+ "log",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",
  "serde",
@@ -5216,6 +5255,8 @@ dependencies = [
 name = "spacedrive"
 version = "0.1.0"
 dependencies = [
+ "dotenvy",
+ "env_logger",
  "sdcore",
  "swift-rs",
  "tauri",

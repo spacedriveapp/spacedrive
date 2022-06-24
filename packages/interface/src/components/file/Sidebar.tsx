@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-600',
+				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-750',
 				{
 					'dark:!bg-opacity-40': appProps?.platform === 'macOS'
 				}
@@ -204,7 +204,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				<button
 					onClick={() => {
 						appProps?.openDialog({ directory: true }).then((result) => {
-							createLocation({ path: result });
+							if (result) createLocation({ path: result as string });
 						});
 					}}
 					className={clsx(

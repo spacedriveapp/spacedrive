@@ -14,7 +14,7 @@ To get an overview of the project, read the [README](README.md). Here are some r
 - [Set up Git](https://docs.github.com/en/get-started/quickstart/set-up-git)
 - [GitHub flow](https://docs.github.com/en/get-started/quickstart/github-flow)
 - [Collaborating with pull requests](https://docs.github.com/en/github/collaborating-with-pull-requests)
-- [Your First Tauri App](https://tauri.studio/guides/getting-started/beginning-tutorial)
+- [Getting started with Tauri](https://tauri.app/v1/guides/getting-started/prerequisites)
 - [pnpm CLI](https://pnpm.io/pnpm-cli)
 
 ## Getting started
