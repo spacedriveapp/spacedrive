@@ -1,7 +1,7 @@
 import { Button } from '@sd/ui';
 import React from 'react';
 
-import { InputContainer } from '../../../../ui/src/InputContainer';
+import { InputContainer } from '@sd/ui';
 import { SettingsContainer } from '../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 
