@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Rings } from 'react-loading-icons';
 
 import FileItem from '../file/FileItem';
-import ProgressBar from '../../../../ui/src/ProgressBar';
+import { ProgressBar } from '@sd/ui';
 
 export interface DeviceProps {
 	name: string;
