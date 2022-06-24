@@ -5,6 +5,7 @@ use crate::{
 	prisma::{file_path, location},
 	ClientQuery, CoreContext, CoreEvent,
 };
+use prisma_client_rust::{raw, PrismaValue};
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
 use thiserror::Error;
@@ -83,27 +84,24 @@ pub async fn get_location(
 	Ok(location.into())
 }
 
+pub fn scan_location(ctx: &CoreContext, location_id: i32, path: String) {
+	ctx.spawn_job(Box::new(IndexerJob { path: path.clone() }));
+	ctx.queue_job(Box::new(FileIdentifierJob { location_id, path }));
+	// TODO: make a way to stop jobs so this can be canceled without rebooting app
+	// ctx.queue_job(Box::new(ThumbnailJob {
+	// 	location_id,
+	// 	path: "".to_string(),
+	// 	background: false,
+	// }));
+}
+
 pub async fn new_location_and_scan(
 	ctx: &CoreContext,
 	path: &str,
 ) -> Result<LocationResource, SysError> {
 	let location = create_location(&ctx, path).await?;
 
-	ctx.spawn_job(Box::new(IndexerJob {
-		path: path.to_string(),
-	}));
-
-	ctx.queue_job(Box::new(FileIdentifierJob {
-		location_id: location.id,
-		path: path.to_string(),
-	}));
-
-	// TODO: make a way to stop jobs so this can be canceled without rebooting app
-	// ctx.queue_job(Box::new(ThumbnailJob {
-	// 	location_id: location.id,
-	// 	path: "".to_string(),
-	// 	background: false,
-	// }));
+	scan_location(&ctx, location.id, path.to_string());
 
 	Ok(location)
 }
@@ -232,6 +230,12 @@ pub async fn delete_location(ctx: &CoreContext, location_id: i32) -> Result<(), 
 	// 	.delete()
 	// 	.exec()
 	// 	.await?;
+
+	// db._execute_raw(raw!(
+	// 	"DELETE FROM file_paths WHERE location_id = {}",
+	// 	PrismaValue::Int(location_id as i64)
+	// ))
+	// .await?;
 
 	db.location()
 		.find_unique(location::id::equals(location_id))

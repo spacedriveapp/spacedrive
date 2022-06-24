@@ -261,6 +261,10 @@ impl Node {
 				sys::delete_location(&ctx, id).await?;
 				CoreResponse::Success(())
 			}
+			ClientCommand::LocRescan { id } => {
+				sys::scan_location(&ctx, id, String::new());
+				CoreResponse::Success(())
+			}
 			// CRUD for files
 			ClientCommand::FileReadMetaData { id: _ } => todo!(),
 			ClientCommand::FileSetNote { id, note } => file::set_note(ctx, id, note).await?,
@@ -368,6 +372,7 @@ pub enum ClientCommand {
 	LocCreate { path: String },
 	LocUpdate { id: i32, name: Option<String> },
 	LocDelete { id: i32 },
+	LocRescan { id: i32 },
 	// System
 	SysVolumeUnmount { id: i32 },
 	GenerateThumbsForLocation { id: i32, path: String },

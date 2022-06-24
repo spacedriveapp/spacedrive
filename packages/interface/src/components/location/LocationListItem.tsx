@@ -16,7 +16,7 @@ interface LocationListItemProps {
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const [hide, setHide] = useState(false);
 
-	const { mutate: identifyUniqueFiles } = useBridgeCommand('IdentifyUniqueFiles');
+	const { mutate: locRescan } = useBridgeCommand('LocRescan');
 
 	const { mutate: deleteLoc, isLoading: locDeletePending } = useBridgeCommand('LocDelete', {
 		onSuccess: () => {
@@ -72,7 +72,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					className="!p-1.5"
 					onClick={() => {
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						identifyUniqueFiles({ id: location.id, path: '' });
+						locRescan({ id: location.id });
 					}}
 				>
 					<RefreshIcon className="w-4 h-4" />
