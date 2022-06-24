@@ -1,3 +1,4 @@
+import { CheckIcon } from '@heroicons/react/solid';
 import clsx from 'clsx';
 import React, { Suspense, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
@@ -8,6 +9,8 @@ import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';
 import NewBanner from '../components/NewBanner';
+import { PaymentTier } from '../components/PaymentTiers';
+import { ShootingStars } from '../components/ShootingStar';
 import { usePageContext } from '../renderer/usePageContext';
 import { getWindow } from '../utils';
 
@@ -150,7 +153,18 @@ function Page() {
 					</>
 				}
 			/>
+			<div className="w-full h-full text-center z-30 mb-16 flex flex-col justify-center items-center">
+				<h1 className="text-2xl font-black sm:text-4xl">
+					Designed by developers for creative people.
+				</h1>
+				<p className="mt-5 text-md sm:text-xl text-gray-450 max-w-xl">
+					Here at Spacedrive we believe that all you should have access to your data all in one
+					place with no strings attached.
+				</p>
+				<PaymentTier />
+			</div>
 			<Bubbles />
+			{/* <ShootingStars /> */}
 		</>
 	);
 }

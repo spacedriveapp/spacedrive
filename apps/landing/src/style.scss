@@ -78,6 +78,16 @@ html {
 		opacity: 1;
 	}
 }
+
+@keyframes fadeInBottom {
+	0% {
+		transform: translateY(30px);
+	}
+	100% {
+		transform: translateY(0px);
+	}
+}
+
 @keyframes fadeIn {
 	from {
 		opacity: 0;
@@ -94,6 +104,76 @@ html {
 	100% {
 		opacity: 1;
 	}
+}
+
+@keyframes tail {
+	0% {
+		width: 0%;
+	}
+	30% {
+		width: 100px;
+	}
+	100% {
+		width: 0;
+	}
+}
+@keyframes shining {
+	0% {
+		width: 0;
+		opacity: 0;
+	}
+	50% {
+		width: 30px;
+		opacity: 1;
+	}
+	100% {
+		width: 0;
+		opacity: 0;
+	}
+}
+@keyframes shooting {
+	0% {
+		transform: translateX(0);
+	}
+	100% {
+		transform: translatex(320px);
+	}
+}
+
+.fadeInBottom {
+	animation: fadeInBottom 1s;
+	-webkit-animation: fadeInBottom 1s;
+	-moz-animation: fadeInBottom 1s;
+	-o-animation: fadeInBottom 1s;
+	-ms-animation: fadeInBottom 1s;
+}
+
+.star {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	height: 2px;
+	opacity: 50%;
+	background: linear-gradient(-45deg, #cddbf9, rgba(0, 0, 255, 0));
+	filter: drop-shadow(0 0 6px #699bff);
+	animation: tail 3000ms ease-in-out, shooting 3000ms ease-in-out;
+}
+.star::before,
+.star::after {
+	position: absolute;
+	content: '';
+	top: calc(50% - 1px);
+	right: 0;
+	height: 2px;
+	width: 30px;
+	opacity: 50%;
+	background: linear-gradient(-45deg, #cddbf9, rgba(0, 0, 255, 0));
+	border-radius: 100%;
+	transform: translateX(50%) rotateZ(45deg);
+	animation: shining 3000ms ease-in-out;
+}
+.star::after {
+	transform: translateX(50%) rotateZ(-45deg);
 }
 
 .bloom {
@@ -116,7 +196,7 @@ html {
 	&.bloom-one {
 		@apply left-0 -ml-[300px];
 		background: url('/bloom-one.png') no-repeat center center;
-		background-size: contain;    
+		background-size: contain;
 		animation-delay: 300ms;
 	}
 	&.bloom-two {
@@ -139,7 +219,6 @@ html {
 		background: url('/egg-bloom-two.png') no-repeat center center;
 		background-size: contain;
 	}
-
 }
 
 @keyframes bloomBurst {
