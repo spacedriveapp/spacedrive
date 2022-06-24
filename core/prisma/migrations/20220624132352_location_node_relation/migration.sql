@@ -1,5 +1,27 @@
+-- AlterTable
+ALTER TABLE "jobs" ADD COLUMN "data" TEXT;
+
 -- RedefineTables
 PRAGMA foreign_keys=OFF;
+CREATE TABLE "new_locations" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "pub_id" TEXT NOT NULL,
+    "node_id" INTEGER,
+    "name" TEXT,
+    "local_path" TEXT,
+    "total_capacity" INTEGER,
+    "available_capacity" INTEGER,
+    "filesystem" TEXT,
+    "disk_type" INTEGER,
+    "is_removable" BOOLEAN,
+    "is_online" BOOLEAN NOT NULL DEFAULT true,
+    "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "locations_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO "new_locations" ("available_capacity", "date_created", "disk_type", "filesystem", "id", "is_online", "is_removable", "local_path", "name", "node_id", "pub_id", "total_capacity") SELECT "available_capacity", "date_created", "disk_type", "filesystem", "id", "is_online", "is_removable", "local_path", "name", "node_id", "pub_id", "total_capacity" FROM "locations";
+DROP TABLE "locations";
+ALTER TABLE "new_locations" RENAME TO "locations";
+CREATE UNIQUE INDEX "locations_pub_id_key" ON "locations"("pub_id");
 CREATE TABLE "new_file_paths" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "is_dir" BOOLEAN NOT NULL DEFAULT false,
