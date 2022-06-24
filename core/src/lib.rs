@@ -217,6 +217,20 @@ impl Node {
 
 				CoreResponse::Success(())
 			}
+			ClientCommand::EditLibrary {
+				id,
+				name,
+				description,
+			} => {
+				// TODO: @Oscar finish this as part of multi-library PR
+
+				CoreResponse::Success(())
+			}
+			ClientCommand::DeleteLibrary { id } => {
+				// TODO: @Oscar finish this as part of multi-library PR
+
+				CoreResponse::Success(())
+			}
 			// CRUD for locations
 			ClientCommand::LocCreate { path } => {
 				let loc = sys::new_location_and_scan(&ctx, &path).await?;
@@ -294,6 +308,9 @@ impl Node {
 	async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
 		let ctx = self.library_manager.get_ctx().await.unwrap();
 		Ok(match query {
+			ClientQuery::NodeGetLibraries => CoreResponse::NodeGetLibraries(
+				self.library_manager.get_all_libraries_config().await,
+			),
 			ClientQuery::NodeGetState => CoreResponse::NodeGetState(NodeState {
 				config: self.config.get().await,
 				data_path: self.config.data_directory().to_str().unwrap().to_string(),
@@ -336,29 +353,76 @@ impl Node {
 #[ts(export)]
 pub enum ClientCommand {
 	// Libraries
-	CreateLibrary { name: String },
+	CreateLibrary {
+		name: String,
+	},
+	EditLibrary {
+		id: String,
+		name: Option<String>,
+		description: Option<String>,
+	},
+	DeleteLibrary {
+		id: String,
+	},
 	// Files
-	FileReadMetaData { id: i32 },
-	FileSetNote { id: i32, note: Option<String> },
+	FileReadMetaData {
+		id: i32,
+	},
+	FileSetNote {
+		id: i32,
+		note: Option<String>,
+	},
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
-	FileDelete { id: i32 },
+	FileDelete {
+		id: i32,
+	},
 	// Library
-	LibDelete { id: i32 },
+	LibDelete {
+		id: i32,
+	},
 	// Tags
-	TagCreate { name: String, color: String },
-	TagUpdate { name: String, color: String },
-	TagAssign { file_id: i32, tag_id: i32 },
-	TagDelete { id: i32 },
+	TagCreate {
+		name: String,
+		color: String,
+	},
+	TagUpdate {
+		name: String,
+		color: String,
+	},
+	TagAssign {
+		file_id: i32,
+		tag_id: i32,
+	},
+	TagDelete {
+		id: i32,
+	},
 	// Locations
-	LocCreate { path: String },
-	LocUpdate { id: i32, name: Option<String> },
-	LocDelete { id: i32 },
-	LocRescan { id: i32 },
+	LocCreate {
+		path: String,
+	},
+	LocUpdate {
+		id: i32,
+		name: Option<String>,
+	},
+	LocDelete {
+		id: i32,
+	},
+	LocRescan {
+		id: i32,
+	},
 	// System
-	SysVolumeUnmount { id: i32 },
-	GenerateThumbsForLocation { id: i32, path: String },
+	SysVolumeUnmount {
+		id: i32,
+	},
+	GenerateThumbsForLocation {
+		id: i32,
+		path: String,
+	},
 	// PurgeDatabase,
-	IdentifyUniqueFiles { id: i32, path: String },
+	IdentifyUniqueFiles {
+		id: i32,
+		path: String,
+	},
 }
 
 // represents an event this library can emit
@@ -366,6 +430,7 @@ pub enum ClientCommand {
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientQuery {
+	NodeGetLibraries,
 	NodeGetState,
 	SysGetVolumes,
 	LibGetTags,
@@ -411,6 +476,7 @@ pub struct NodeState {
 #[ts(export)]
 pub enum CoreResponse {
 	Success(()),
+	NodeGetLibraries(Vec<LibraryConfig>),
 	SysGetVolumes(Vec<sys::Volume>),
 	SysGetLocation(sys::LocationResource),
 	SysGetLocations(Vec<sys::LocationResource>),

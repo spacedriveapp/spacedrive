@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -33,9 +34,9 @@ pub struct File {
 	pub ipfs_id: Option<String>,
 	pub note: Option<String>,
 
-	pub date_created: chrono::DateTime<chrono::Utc>,
-	pub date_modified: chrono::DateTime<chrono::Utc>,
-	pub date_indexed: chrono::DateTime<chrono::Utc>,
+	pub date_created: DateTime<Utc>,
+	pub date_modified: DateTime<Utc>,
+	pub date_indexed: DateTime<Utc>,
 
 	pub paths: Vec<FilePath>,
 	// pub media_data: Option<MediaData>,
@@ -56,9 +57,9 @@ pub struct FilePath {
 	pub file_id: Option<i32>,
 	pub parent_id: Option<i32>,
 
-	pub date_created: chrono::DateTime<chrono::Utc>,
-	pub date_modified: chrono::DateTime<chrono::Utc>,
-	pub date_indexed: chrono::DateTime<chrono::Utc>,
+	pub date_created: DateTime<chrono::Utc>,
+	pub date_modified: DateTime<chrono::Utc>,
+	pub date_indexed: DateTime<chrono::Utc>,
 
 	pub file: Option<File>,
 }

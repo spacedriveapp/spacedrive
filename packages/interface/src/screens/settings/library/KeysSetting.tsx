@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { SettingsContainer } from '../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../components/settings/SettingsHeader';
+import { SettingsContainer } from '../../../components/settings/SettingsContainer';
+import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function KeysSettings() {
 	return (

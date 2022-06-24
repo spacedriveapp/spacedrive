@@ -9,19 +9,19 @@ import { ExplorerScreen } from './screens/Explorer';
 import { OverviewScreen } from './screens/Overview';
 import { PhotosScreen } from './screens/Photos';
 import { RedirectPage } from './screens/Redirect';
-import { SettingsScreen } from './screens/Settings';
 import { TagScreen } from './screens/Tag';
-import AppearanceSettings from './screens/settings/AppearanceSettings';
-import ContactsSettings from './screens/settings/ContactsSettings';
-import ExperimentalSettings from './screens/settings/ExperimentalSettings';
-import GeneralSettings from './screens/settings/GeneralSettings';
-import KeysSettings from './screens/settings/KeysSetting';
-import LibrarySettings from './screens/settings/LibrarySettings';
-import LocationSettings from './screens/settings/LocationSettings';
-import SecuritySettings from './screens/settings/SecuritySettings';
-import SharingSettings from './screens/settings/SharingSettings';
-import SyncSettings from './screens/settings/SyncSettings';
-import TagsSettings from './screens/settings/TagsSettings';
+import { SettingsScreen } from './screens/settings/NodeSettings';
+import AppearanceSettings from './screens/settings/client/AppearanceSettings';
+import ContactsSettings from './screens/settings/library/ContactsSettings';
+import KeysSettings from './screens/settings/library/KeysSetting';
+import LocationSettings from './screens/settings/library/LocationSettings';
+import SecuritySettings from './screens/settings/library/SecuritySettings';
+import SharingSettings from './screens/settings/library/SharingSettings';
+import SyncSettings from './screens/settings/library/SyncSettings';
+import TagsSettings from './screens/settings/library/TagsSettings';
+import ExperimentalSettings from './screens/settings/node/ExperimentalSettings';
+import GeneralSettings from './screens/settings/node/GeneralSettings';
+import LibrarySettings from './screens/settings/node/LibrariesSettings';
 
 export function AppRouter() {
 	let location = useLocation();
@@ -42,10 +42,10 @@ export function AppRouter() {
 					<Route path="debug" element={<DebugScreen />} />
 					<Route path={'settings'} element={<SettingsScreen />}>
 						<Route index element={<GeneralSettings />} />
+						<Route path="general" element={<GeneralSettings />} />
 						<Route path="appearance" element={<AppearanceSettings />} />
 						<Route path="contacts" element={<ContactsSettings />} />
 						<Route path="experimental" element={<ExperimentalSettings />} />
-						<Route path="general" element={<GeneralSettings />} />
 						<Route path="keys" element={<KeysSettings />} />
 						<Route path="library" element={<LibrarySettings />} />
 						<Route path="security" element={<SecuritySettings />} />

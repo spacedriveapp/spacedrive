@@ -1,7 +1,10 @@
 import {
+	BookOpenIcon,
 	CloudIcon,
 	CogIcon,
+	CollectionIcon,
 	KeyIcon,
+	LibraryIcon,
 	LockClosedIcon,
 	TagIcon,
 	TerminalIcon,
@@ -12,7 +15,7 @@ import { Database, HardDrive, PaintBrush } from 'phosphor-react';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 
-import { SidebarLink } from '../components/file/Sidebar';
+import { SidebarLink } from '../../components/file/Sidebar';
 
 const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
@@ -30,28 +33,37 @@ export const SettingsScreen: React.FC<{}> = () => {
 			<div className="h-full border-r max-w-[200px] flex-shrink-0 border-gray-100 w-60 dark:border-gray-550">
 				<div data-tauri-drag-region className="w-full h-7" />
 				<div className="p-5 pt-0">
-					<Heading className="mt-0">Client</Heading>
+					<Heading className="!mt-0">Client</Heading>
+					<SidebarLink to="/settings/appearance">
+						<Icon component={PaintBrush} />
+						Appearance
+					</SidebarLink>
+
+					<Heading>Node</Heading>
 					<SidebarLink to="/settings/general">
 						<Icon component={CogIcon} />
 						General
 					</SidebarLink>
-					<SidebarLink to="/settings/security">
-						<Icon component={LockClosedIcon} />
-						Security
+					<SidebarLink to="/settings/library">
+						<Icon component={CollectionIcon} />
+						Libraries
 					</SidebarLink>
-					<SidebarLink to="/settings/appearance">
-						<Icon component={PaintBrush} />
-						Appearance
+					<SidebarLink to="/settings/locations">
+						<Icon component={HardDrive} />
+						Locations
+					</SidebarLink>
+					<SidebarLink to="/settings/security">
+						<Icon component={KeyIcon} />
+						Security
 					</SidebarLink>
 					<SidebarLink to="/settings/experimental">
 						<Icon component={TerminalIcon} />
 						Experimental
 					</SidebarLink>
-
-					<Heading>Library</Heading>
+					{/* <Heading>Library</Heading>
 					<SidebarLink to="/settings/library">
-						<Icon component={Database} />
-						Database
+						<Icon component={CollectionIcon} />
+						My Libraries
 					</SidebarLink>
 					<SidebarLink to="/settings/locations">
 						<Icon component={HardDrive} />
@@ -65,9 +77,9 @@ export const SettingsScreen: React.FC<{}> = () => {
 					<SidebarLink to="/settings/tags">
 						<Icon component={TagIcon} />
 						Tags
-					</SidebarLink>
+					</SidebarLink> */}
 
-					<Heading>Cloud</Heading>
+					{/* <Heading>Cloud</Heading>
 					<SidebarLink to="/settings/sync">
 						<Icon component={CloudIcon} />
 						Sync
@@ -75,7 +87,7 @@ export const SettingsScreen: React.FC<{}> = () => {
 					<SidebarLink to="/settings/contacts">
 						<Icon component={UsersIcon} />
 						Contacts
-					</SidebarLink>
+					</SidebarLink> */}
 				</div>
 			</div>
 			<div className="w-full">

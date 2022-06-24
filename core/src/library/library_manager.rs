@@ -148,6 +148,15 @@ impl LibraryManager {
 		Ok(())
 	}
 
+	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfig> {
+		self.libraries
+			.read()
+			.await
+			.iter()
+			.map(|lib| lib.config.clone())
+			.collect()
+	}
+
 	// get_ctx will return the library context for the given library id.
 	// TODO: Return the context based on a library_id. This currently only returns the first because the UI isn't ready for multi-library support yet.
 	pub(crate) async fn get_ctx(&self) -> Option<LibraryContext> {

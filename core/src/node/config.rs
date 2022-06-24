@@ -9,7 +9,7 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
-pub const NODE_STATE_CONFIG_NAME: &str = "node_state.json";
+pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
 /// ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
 /// This allows us to migrate breaking changes to the config format between Spacedrive releases.

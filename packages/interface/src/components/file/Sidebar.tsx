@@ -79,6 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const appProps = useContext(AppPropsContext);
 	const { data: locations } = useBridgeQuery('SysGetLocations');
 	const { data: nodeState } = useBridgeQuery('NodeGetState');
+	const { data: libraries } = useBridgeQuery('NodeGetLibraries');
 
 	const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
@@ -133,9 +134,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				)}
 				// this shouldn't default to "My Library", it is only this way for landing demo
 				// TODO: implement demo mode for the sidebar and show loading indicator instead of "My Library"
-				buttonText={nodeState?.name || 'My Library'}
+				buttonText={libraries?.[0].name || ' '}
 				items={[
-					[{ name: nodeState?.name || 'My Library', selected: true }, { name: 'Private Library' }],
+					libraries?.map((library) => ({ name: library.name })) || [],
 					[
 						{ name: 'Library Settings', icon: CogIcon },
 						{ name: 'Add Library', icon: PlusIcon },
@@ -201,21 +202,23 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					);
 				})}
 
-				<button
-					onClick={() => {
-						appProps?.openDialog({ directory: true }).then((result) => {
-							if (result) createLocation({ path: result as string });
-						});
-					}}
-					className={clsx(
-						'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 transition',
-						appProps?.platform === 'macOS'
-							? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
-							: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
-					)}
-				>
-					Add Location
-				</button>
+				{(locations?.length || 0) < 1 && (
+					<button
+						onClick={() => {
+							appProps?.openDialog({ directory: true }).then((result) => {
+								if (result) createLocation({ path: result as string });
+							});
+						}}
+						className={clsx(
+							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 transition',
+							appProps?.platform === 'macOS'
+								? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
+								: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
+						)}
+					>
+						Add Location
+					</button>
+				)}
 			</div>
 			<div>
 				<Heading>Tags</Heading>

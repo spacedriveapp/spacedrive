@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import React, { useState } from 'react';
 
 import { Folder } from '../icons/Folder';
+import Card from '../layout/Card';
 import Dialog from '../layout/Dialog';
 
 interface LocationListItemProps {
@@ -27,7 +28,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 	if (hide) return <></>;
 
 	return (
-		<div className="flex w-full px-4 py-2 border border-gray-500 rounded-lg bg-gray-550">
+		<Card>
 			<DotsVerticalIcon className="w-5 h-5 mt-3 mr-1 -ml-3 cursor-move drag-handle opacity-10" />
 			<Folder size={30} className="mr-3" />
 			<div className="flex flex-col">
@@ -39,7 +40,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 			</div>
 			<div className="flex flex-grow" />
 			<div className="flex h-[45px] p-2 space-x-2">
-				<Button disabled variant="gray" className="!py-1.5 !px-2 pointer-events-none flex">
+				<Button disabled variant="gray" className="!py-1.5 !px-2.5 pointer-events-none flex">
 					<>
 						<div
 							className={clsx(
@@ -47,9 +48,9 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 								location.is_online ? 'bg-green-500' : 'bg-red-500'
 							)}
 						/>
-						<span className="ml-1.5 text-xs text-gray-350">
+						{/* <span className="ml-1.5 text-xs text-gray-350">
 							{location.is_online ? 'Online' : 'Offline'}
-						</span>
+						</span> */}
 					</>
 				</Button>
 				<Dialog
@@ -81,6 +82,6 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					<CogIcon className="w-4 h-4" />
 				</Button> */}
 			</div>
-		</div>
+		</Card>
 	);
 }
