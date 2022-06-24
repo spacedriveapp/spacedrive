@@ -5,7 +5,7 @@ import React, { MouseEventHandler } from 'react';
 import icons from '../../assets/icons';
 import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 import { WithContextMenu } from '../layout/MenuOverlay';
-import { DefaultProps } from '../../../../ui/src/types';
+import { DefaultProps } from '@sd/ui/src/types';
 
 interface Props extends DefaultProps {
 	fileName: string;
