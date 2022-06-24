@@ -1,8 +1,8 @@
 import { useBridgeQuery } from '@sd/client';
 import React from 'react';
 
-import { InputContainer } from '../../components/primitive/InputContainer';
-import Listbox from '../../components/primitive/Listbox';
+import { InputContainer } from '@sd/ui';
+import { Listbox } from '@sd/ui';
 import { SettingsContainer } from '../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
 
