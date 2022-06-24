@@ -223,11 +223,20 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 pub async fn delete_location(ctx: &CoreContext, location_id: i32) -> Result<(), SysError> {
 	let db = &ctx.database;
 
+	db.file_path()
+		.find_many(vec![file_path::location_id::equals(Some(location_id))])
+		.delete()
+		.exec()
+		.await?;
+
 	db.location()
 		.find_unique(location::id::equals(location_id))
 		.delete()
 		.exec()
 		.await?;
+
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
+		.await;
 
 	println!("Location {} deleted", location_id);
 
