@@ -18,7 +18,8 @@ use std::{
 use tokio::sync::Mutex;
 use ts_rs::TS;
 
-const MAX_WORKERS: usize = 4;
+// db is single threaded, nerd
+const MAX_WORKERS: usize = 1;
 
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
@@ -40,6 +41,7 @@ impl Jobs {
 			running_workers: HashMap::new(),
 		}
 	}
+
 	pub async fn ingest(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
 		// create worker to process job
 		if self.running_workers.len() < MAX_WORKERS {
@@ -57,6 +59,7 @@ impl Jobs {
 			self.job_queue.push_back(job);
 		}
 	}
+
 	pub fn ingest_queue(&mut self, _ctx: &CoreContext, job: Box<dyn Job>) {
 		self.job_queue.push_back(job);
 	}
@@ -69,6 +72,7 @@ impl Jobs {
 			self.ingest(ctx, job).await;
 		}
 	}
+
 	pub async fn get_running(&self) -> Vec<JobReport> {
 		let mut ret = vec![];
 
@@ -78,6 +82,19 @@ impl Jobs {
 		}
 		ret
 	}
+
+	pub async fn queue_pending_job(ctx: &CoreContext) -> Result<(), JobError> {
+		let db = &ctx.database;
+
+		let next_job = db
+			.job()
+			.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
+			.exec()
+			.await?;
+
+		Ok(())
+	}
+
 	pub async fn get_history(ctx: &CoreContext) -> Result<Vec<JobReport>, JobError> {
 		let db = &ctx.database;
 		let jobs = db
@@ -103,6 +120,7 @@ pub enum JobReportUpdate {
 pub struct JobReport {
 	pub id: String,
 	pub name: String,
+	pub data: Option<String>,
 	// client_id: i32,
 	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
@@ -131,6 +149,7 @@ impl Into<JobReport> for job::Data {
 			completed_task_count: self.completed_task_count,
 			date_created: self.date_created.into(),
 			date_modified: self.date_modified.into(),
+			data: self.data,
 			message: String::new(),
 			seconds_elapsed: self.seconds_elapsed,
 		}
@@ -147,6 +166,7 @@ impl JobReport {
 			date_modified: chrono::Utc::now(),
 			status: JobStatus::Queued,
 			task_count: 0,
+			data: None,
 			completed_task_count: 0,
 			message: String::new(),
 			seconds_elapsed: 0,
@@ -154,6 +174,13 @@ impl JobReport {
 	}
 	pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
 		let config = get_nodestate();
+
+		let mut params = Vec::new();
+
+		if let Some(_) = &self.data {
+			params.push(job::data::set(self.data.clone()))
+		}
+
 		ctx.database
 			.job()
 			.create(
@@ -161,7 +188,7 @@ impl JobReport {
 				job::name::set(self.name.clone()),
 				job::action::set(1),
 				job::nodes::link(node::id::equals(config.node_id)),
-				vec![],
+				params,
 			)
 			.exec()
 			.await?;

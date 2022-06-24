@@ -22,7 +22,7 @@ pub async fn open_dir(
 	let directory = db
 		.file_path()
 		.find_first(vec![
-			file_path::location_id::equals(location.id),
+			file_path::location_id::equals(Some(location.id)),
 			file_path::materialized_path::equals(path.into()),
 			file_path::is_dir::equals(true),
 		])
@@ -35,7 +35,7 @@ pub async fn open_dir(
 	let mut file_paths: Vec<FilePath> = db
 		.file_path()
 		.find_many(vec![
-			file_path::location_id::equals(location.id),
+			file_path::location_id::equals(Some(location.id)),
 			file_path::parent_id::equals(Some(directory.id)),
 		])
 		.with(file_path::file::fetch())
