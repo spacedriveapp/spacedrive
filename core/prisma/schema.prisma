@@ -176,10 +176,12 @@ model FilePath {
     date_modified DateTime @default(now())
     date_indexed  DateTime @default(now())
 
-    file     File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-    location Location?  @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-    parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: SetNull)
-    children FilePath[] @relation("directory_file_paths")
+    file     File?     @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    location Location? @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
+    // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    // children FilePath[] @relation("directory_file_paths")
 
     key Key? @relation(fields: [key_id], references: [id])
 
