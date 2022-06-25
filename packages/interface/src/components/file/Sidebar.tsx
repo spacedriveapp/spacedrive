@@ -108,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				buttonProps={{
 					justifyLeft: true,
 					className: clsx(
-						`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded 
+						`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded outline-none
           !bg-gray-50 
           border-gray-150 
           hover:!bg-gray-1000 

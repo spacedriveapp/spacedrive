@@ -1,5 +1,6 @@
 node_modules
 .next
+.idea
 dist
 *.tsbuildinfo
 package-lock.json
