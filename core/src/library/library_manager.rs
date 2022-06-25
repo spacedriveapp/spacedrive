@@ -5,13 +5,14 @@ use std::{
 	sync::Arc,
 };
 
+use log::info;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
 	node::Platform,
-	prisma::{self, library, node},
+	prisma::{self, node},
 	util::db::load_and_migrate,
 	ClientQuery, CoreEvent, NodeContext,
 };
@@ -134,17 +135,6 @@ impl LibraryManager {
 		)
 		.await?;
 
-		library
-			.db
-			.library()
-			.create(
-				library::pub_id::set(library.id.to_string()),
-				library::name::set(name),
-				vec![],
-			)
-			.exec()
-			.await?;
-
 		self.libraries.write().await.push(library);
 
 		Ok(())
@@ -162,12 +152,13 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn rename_library(
+	pub(crate) async fn edit_library(
 		&self,
 		ctx: &LibraryContext,
-		name: String,
+		name: Option<String>,
+		description: Option<String>,
 	) -> Result<(), LibraryManagerError> {
-		println!("renaming library: {}", name);
+		info!("Editing library '{:?}'", ctx.config);
 		// check library is valid
 		let mut libraries = self.libraries.write().await;
 
@@ -177,7 +168,12 @@ impl LibraryManager {
 			.find(|lib| lib.id == ctx.id)
 			.ok_or(LibraryManagerError::LibraryNotFoundError)?;
 
-		library.config.name = name;
+		if let Some(name) = name {
+			library.config.name = name;
+		}
+		if let Some(description) = description {
+			library.config.description = description;
+		}
 
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", ctx.id.to_string())),

@@ -1,7 +1,4 @@
-use crate::{
-	prisma::{library, library_statistics::*},
-	sys::Volume,
-};
+use crate::{prisma::statistics::*, sys::Volume};
 use fs_extra::dir::get_size;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -53,7 +50,7 @@ impl Statistics {
 	pub async fn retrieve(ctx: &LibraryContext) -> Result<Statistics, LibraryError> {
 		let library_statistics_db = match ctx
 			.db
-			.library_statistics()
+			.statistics()
 			.find_unique(id::equals(ctx.node_local_id))
 			.exec()
 			.await?
@@ -66,21 +63,9 @@ impl Statistics {
 	}
 
 	pub async fn calculate(ctx: &LibraryContext) -> Result<Statistics, LibraryError> {
-		// get library from db
-		let library = ctx
+		let _statistics = ctx
 			.db
-			.library()
-			.find_unique(library::pub_id::equals(ctx.id.to_string()))
-			.exec()
-			.await?;
-
-		if library.is_none() {
-			return Err(LibraryError::LibraryNotFound);
-		}
-
-		let _library_statistics = ctx
-			.db
-			.library_statistics()
+			.statistics()
 			.find_unique(id::equals(ctx.node_local_id))
 			.exec()
 			.await?;
@@ -118,19 +103,11 @@ impl Statistics {
 			..Statistics::default()
 		};
 
-		let library_local_id = match library {
-			Some(library) => library.id,
-			None => ctx.node_local_id,
-		};
-
 		ctx.db
-			.library_statistics()
+			.statistics()
 			.upsert(
-				library_id::equals(library_local_id),
-				(
-					library_id::set(library_local_id),
-					vec![library_db_size::set(statistics.library_db_size.clone())],
-				),
+				id::equals(1),
+				vec![library_db_size::set(statistics.library_db_size.clone())],
 				vec![
 					total_file_count::set(statistics.total_file_count.clone()),
 					total_bytes_used::set(statistics.total_bytes_used.clone()),

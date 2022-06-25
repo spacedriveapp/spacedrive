@@ -310,6 +310,7 @@ importers:
       rooks: ^5.11.2
       tailwindcss: ^3.0.24
       typescript: ^4.7.2
+      use-debounce: ^8.0.1
       vite: ^2.9.9
       vite-plugin-svgr: ^2.1.0
       zustand: 4.0.0-rc.1
@@ -355,6 +356,7 @@ importers:
       react-virtuoso: 2.13.2_ef5jwxihqo6n7gxfmzogljlgcm
       rooks: 5.11.2_ef5jwxihqo6n7gxfmzogljlgcm
       tailwindcss: 3.1.3
+      use-debounce: 8.0.1_react@18.1.0
       zustand: 4.0.0-rc.1_immer@9.0.15+react@18.1.0
     devDependencies:
       '@types/babel-core': 6.25.7
@@ -16792,6 +16794,15 @@ packages:
     resolution: {integrity: sha512-GLMG0Jc/jiKov/3Ulid1wbv3r54K9HlMW29IWcDFPEqFkSO2nS0MuefWgMJpeHQ9YJeXDL3ZUF+P3jdXlZX/cQ==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.1.0
+    dev: false
+
+  /use-debounce/8.0.1_react@18.1.0:
+    resolution: {integrity: sha512-6tGAFJKJ0qCalecaV7/gm/M6n238nmitNppvR89ff1yfwSFjwFKR7IQZzIZf1KZRQhqNireBzytzU6jgb29oVg==}
+    engines: {node: '>= 10.0.0'}
+    peerDependencies:
+      react: '>=16.8.0'
     dependencies:
       react: 18.1.0
     dev: false

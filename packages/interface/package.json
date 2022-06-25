@@ -55,6 +55,7 @@
 		"react-virtuoso": "^2.12.1",
 		"rooks": "^5.11.2",
 		"tailwindcss": "^3.0.24",
+		"use-debounce": "^8.0.1",
 		"zustand": "4.0.0-rc.1"
 	},
 	"devDependencies": {

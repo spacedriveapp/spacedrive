@@ -219,10 +219,9 @@ impl Node {
 			}
 			ClientCommand::EditLibrary { name, description } => {
 				self.library_manager
-					.rename_library(&ctx, name.unwrap())
+					.edit_library(&ctx, name, description)
 					.await
 					.unwrap();
-
 				CoreResponse::Success(())
 			}
 			ClientCommand::DeleteLibrary { id } => {
