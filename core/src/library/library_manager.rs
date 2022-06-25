@@ -13,10 +13,10 @@ use crate::{
 	node::Platform,
 	prisma::{self, library, node},
 	util::db::load_and_migrate,
-	NodeContext,
+	ClientQuery, CoreEvent, NodeContext,
 };
 
-use super::{LibraryConfig, LibraryContext};
+use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
@@ -36,6 +36,8 @@ pub enum LibraryManagerError {
 	JsonError(#[from] serde_json::Error),
 	#[error("Database error")]
 	DatabaseError(#[from] prisma::QueryError),
+	#[error("Library not found error")]
+	LibraryNotFoundError,
 	#[error("error migrating the config file")]
 	MigrationError(String),
 }
@@ -148,13 +150,44 @@ impl LibraryManager {
 		Ok(())
 	}
 
-	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfig> {
+	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfigWrapped> {
 		self.libraries
 			.read()
 			.await
 			.iter()
-			.map(|lib| lib.config.clone())
+			.map(|lib| LibraryConfigWrapped {
+				config: lib.config.clone(),
+				uuid: lib.id.to_string(),
+			})
 			.collect()
+	}
+
+	pub(crate) async fn rename_library(
+		&self,
+		ctx: &LibraryContext,
+		name: String,
+	) -> Result<(), LibraryManagerError> {
+		println!("renaming library: {}", name);
+		// check library is valid
+		let mut libraries = self.libraries.write().await;
+
+		// update name of current library
+		let library = libraries
+			.iter_mut()
+			.find(|lib| lib.id == ctx.id)
+			.ok_or(LibraryManagerError::LibraryNotFoundError)?;
+
+		library.config.name = name;
+
+		LibraryConfig::save(
+			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", ctx.id.to_string())),
+			&library.config,
+		)
+		.await?;
+
+		ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+			.await;
+		Ok(())
 	}
 
 	// get_ctx will return the library context for the given library id.

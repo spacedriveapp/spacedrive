@@ -1,6 +1,6 @@
 use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
 use job::{Job, JobReport, Jobs};
-use library::{LibraryConfig, LibraryManager};
+use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
 use node::{NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -217,12 +217,11 @@ impl Node {
 
 				CoreResponse::Success(())
 			}
-			ClientCommand::EditLibrary {
-				id,
-				name,
-				description,
-			} => {
-				// TODO: @Oscar finish this as part of multi-library PR
+			ClientCommand::EditLibrary { name, description } => {
+				self.library_manager
+					.rename_library(&ctx, name.unwrap())
+					.await
+					.unwrap();
 
 				CoreResponse::Success(())
 			}
@@ -357,7 +356,6 @@ pub enum ClientCommand {
 		name: String,
 	},
 	EditLibrary {
-		id: String,
 		name: Option<String>,
 		description: Option<String>,
 	},
@@ -476,7 +474,7 @@ pub struct NodeState {
 #[ts(export)]
 pub enum CoreResponse {
 	Success(()),
-	NodeGetLibraries(Vec<LibraryConfig>),
+	NodeGetLibraries(Vec<LibraryConfigWrapped>),
 	SysGetVolumes(Vec<sys::Volume>),
 	SysGetLocation(sys::LocationResource),
 	SysGetLocations(Vec<sys::LocationResource>),

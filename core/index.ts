@@ -12,6 +12,7 @@ export * from './bindings/FileKind';
 export * from './bindings/FilePath';
 export * from './bindings/JobReport';
 export * from './bindings/JobStatus';
+export * from './bindings/LibraryConfigWrapped';
 export * from './bindings/LibraryConfig';
 export * from './bindings/LibraryNode';
 export * from './bindings/LibraryState';

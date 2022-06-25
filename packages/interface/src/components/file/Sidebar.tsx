@@ -4,10 +4,11 @@ import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import { CirclesFour, Code, Planet } from 'phosphor-react';
-import React, { useContext } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
+import React, { useContext, useEffect, useMemo } from 'react';
+import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
 import { AppPropsContext } from '../../AppPropsContext';
+import { useCurrentLibrary, useLibraryState } from '../../hooks/useLibraryState';
 import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
@@ -76,10 +77,20 @@ const macOnly = (platform: string | undefined, classnames: string) =>
 export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const { isExperimental } = useNodeStore();
 
+	const navigate = useNavigate();
+
 	const appProps = useContext(AppPropsContext);
+
 	const { data: locations } = useBridgeQuery('SysGetLocations');
-	const { data: nodeState } = useBridgeQuery('NodeGetState');
-	const { data: libraries } = useBridgeQuery('NodeGetLibraries');
+
+	// initialize libraries
+	const { init: initLibraries, switchLibrary } = useLibraryState();
+
+	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
+
+	useEffect(() => {
+		if (libraries && !currentLibraryUuid) initLibraries(libraries);
+	}, [libraries, currentLibraryUuid]);
 
 	const { mutate: createLocation } = useBridgeCommand('LocCreate');
 
@@ -123,7 +134,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						appProps?.platform === 'macOS' &&
 							'dark:!bg-opacity-40 dark:hover:!bg-opacity-70 dark:!border-[#333949] dark:hover:!border-[#394052]'
 					),
-
 					variant: 'gray'
 				}}
 				// to support the transparent sidebar on macOS we use slightly adjusted styles
@@ -134,11 +144,19 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				)}
 				// this shouldn't default to "My Library", it is only this way for landing demo
 				// TODO: implement demo mode for the sidebar and show loading indicator instead of "My Library"
-				buttonText={libraries?.[0].name || ' '}
+				buttonText={currentLibrary?.config.name || ' '}
 				items={[
-					libraries?.map((library) => ({ name: library.name })) || [],
+					libraries?.map((library) => ({
+						name: library.config.name,
+						selected: library.uuid === currentLibraryUuid,
+						onPress: () => switchLibrary(library.uuid)
+					})) || [],
 					[
-						{ name: 'Library Settings', icon: CogIcon },
+						{
+							name: 'Library Settings',
+							icon: CogIcon,
+							onPress: () => navigate('library-settings/general')
+						},
 						{ name: 'Add Library', icon: PlusIcon },
 						{ name: 'Lock', icon: LockClosedIcon },
 						{ name: 'Hide', icon: EyeOffIcon }
