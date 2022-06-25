@@ -40,14 +40,12 @@ const variants = {
     dark:hover:bg-gray-500
     dark:bg-opacity-80
     dark:hover:bg-opacity-100
-    dark:active:bg-gray-550
     dark:active:opacity-80
     
     border-gray-200 
     hover:border-gray-300
     active:border-gray-200
     dark:border-gray-500 
-    dark:active:border-gray-600 
     dark:hover:border-gray-500
 
     text-gray-700
@@ -68,6 +66,12 @@ const variants = {
     hover:border-primary-500
     active:border-primary-700 
   `,
+	colored: `
+		text-white 
+		shadow-sm 
+		hover:bg-opacity-90
+		active:bg-opacity-100
+`,
 	selected: `bg-gray-100 dark:bg-gray-500 
     text-black hover:text-black active:text-black dark:hover:text-white dark:text-white 
     `
@@ -114,7 +118,7 @@ export const Button = forwardRef<
 	) => {
 		className = clsx(
 			'border rounded-md items-center transition-colors duration-100 cursor-default',
-			{ 'opacity-5': loading, '!p-1': noPadding },
+			{ 'opacity-70': loading, '!p-1': noPadding },
 			{ 'justify-center': !justifyLeft },
 			sizes[size || 'default'],
 			variants[variant || 'default'],

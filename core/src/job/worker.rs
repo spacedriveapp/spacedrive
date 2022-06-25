@@ -36,6 +36,10 @@ impl WorkerContext {
 			.send(WorkerEvent::Progressed(updates))
 			.unwrap_or(());
 	}
+	// save the job data to
+	// pub fn save_data () {
+
+	// }
 }
 
 // a worker is a dedicated thread that runs a single job

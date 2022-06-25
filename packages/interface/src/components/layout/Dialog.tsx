@@ -1,14 +1,19 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Button } from '@sd/ui';
+import clsx from 'clsx';
 import React, { ReactNode } from 'react';
+
+import Loader from '../primitive/Loader';
 
 export interface DialogProps {
 	trigger: ReactNode;
 	ctaLabel?: string;
+	ctaDanger?: boolean;
 	ctaAction?: () => void;
 	title?: string;
 	description?: string;
-	children: ReactNode;
+	children?: ReactNode;
+	loading?: boolean;
 }
 
 export default function Dialog(props: DialogProps) {
@@ -26,12 +31,21 @@ export default function Dialog(props: DialogProps) {
 							{props.children}
 						</div>
 						<div className="flex flex-row justify-end px-3 py-3 space-x-2 bg-gray-600 border-t border-gray-550">
+							{props.loading && <Loader />}
+							<div className="flex-grow" />
 							<DialogPrimitive.Close asChild>
-								<Button size="sm" variant="gray">
+								<Button loading={props.loading} disabled={props.loading} size="sm" variant="gray">
 									Close
 								</Button>
 							</DialogPrimitive.Close>
-							<Button onClick={props.ctaAction} size="sm" variant="primary">
+							<Button
+								onClick={props.ctaAction}
+								size="sm"
+								loading={props.loading}
+								disabled={props.loading}
+								variant={props.ctaDanger ? 'colored' : 'primary'}
+								className={clsx(props.ctaDanger && 'bg-red-500 border-red-500')}
+							>
 								{props.ctaLabel}
 							</Button>
 						</div>
