@@ -1,4 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
+import { Tooltip } from '../tooltip/Tooltip';
 import { useBridgeCommand } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
@@ -84,9 +85,18 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
         </div> */}
 				<div data-tauri-drag-region className="flex flex-row justify-center flex-grow ">
 					<div className="flex mx-8 space-x-2 pointer-events-auto">
-						<TopBarButton icon={Tag} />
+						<Tooltip label="View Tags">
+					<TopBarButton icon={Tag} />
+						</Tooltip>
+
+						<Tooltip label="Create Folder">
+
 						<TopBarButton icon={FolderPlus} />
+						</Tooltip>
+						<Tooltip label="Open Terminal">
+							 
 						<TopBarButton icon={TerminalWindow} />
+						</Tooltip>
 					</div>
 					<div className="relative flex h-7">
 						<input
