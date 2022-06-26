@@ -109,14 +109,22 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						</div>
 					</div>
 					<div className="flex mx-8 space-x-2">
+					<Tooltip label="Major Key Alert">
 						<TopBarButton icon={Key} />
+						</Tooltip>
+						<Tooltip label="Cloud">
+
 						<TopBarButton icon={Cloud} />
+						</Tooltip>
+						<Tooltip label="Generate Thumbnails">
+
 						<TopBarButton
 							icon={ArrowsClockwise}
 							onClick={() => {
 								// generateThumbsForLocation({ id: locationId, path: '' });
 							}}
-						/>
+							/>
+							</Tooltip>
 					</div>
 				</div>
 				{/* <img
