@@ -15,17 +15,15 @@ interface LocationListItemProps {
 }
 
 export default function LocationListItem({ location }: LocationListItemProps) {
-	const [hide, setHide] = useState(false);
+	const [showDeleteLocModal, setShowDeleteLocModal] = useState(false);
 
 	const { mutate: locRescan } = useBridgeCommand('LocRescan');
 
 	const { mutate: deleteLoc, isLoading: locDeletePending } = useBridgeCommand('LocDelete', {
 		onSuccess: () => {
-			setHide(true);
+			setShowDeleteLocModal(false);
 		}
 	});
-
-	if (hide) return <></>;
 
 	return (
 		<Card>
@@ -48,12 +46,11 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 								location.is_online ? 'bg-green-500' : 'bg-red-500'
 							)}
 						/>
-						{/* <span className="ml-1.5 text-xs text-gray-350">
-							{location.is_online ? 'Online' : 'Offline'}
-						</span> */}
 					</>
 				</Button>
 				<Dialog
+					open={showDeleteLocModal}
+					onOpenChange={setShowDeleteLocModal}
 					title="Delete Location"
 					description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 					ctaAction={() => {

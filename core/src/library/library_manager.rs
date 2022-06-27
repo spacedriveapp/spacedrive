@@ -41,6 +41,8 @@ pub enum LibraryManagerError {
 	LibraryNotFoundError,
 	#[error("error migrating the config file")]
 	MigrationError(String),
+	#[error("failed to parse uuid")]
+	UuidError(#[from] uuid::Error),
 }
 
 impl LibraryManager {
@@ -186,6 +188,38 @@ impl LibraryManager {
 		Ok(())
 	}
 
+	pub async fn delete_library(
+		&self,
+		ctx: &LibraryContext,
+		id: String,
+	) -> Result<(), LibraryManagerError> {
+		let mut libraries = self.libraries.write().await;
+
+		let id = Uuid::parse_str(&id)?;
+
+		let library = match libraries.iter().find(|l| l.id == id) {
+			Some(lib) => lib,
+			None => return Err(LibraryManagerError::LibraryNotFoundError),
+		};
+
+		fs::remove_file(
+			Path::new(&self.libraries_dir).join(format!("{}.db", library.id.to_string())),
+		)
+		.unwrap_or(());
+
+		fs::remove_file(
+			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id.to_string())),
+		)
+		.unwrap_or(());
+
+		libraries.retain(|l| l.id != id);
+
+		ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+			.await;
+
+		Ok(())
+	}
+
 	// get_ctx will return the library context for the given library id.
 	// TODO: Return the context based on a library_id. This currently only returns the first because the UI isn't ready for multi-library support yet.
 	pub(crate) async fn get_ctx(&self) -> Option<LibraryContext> {
@@ -205,6 +239,8 @@ impl LibraryManager {
 				.unwrap(),
 		);
 
+		let node_config = node_context.config.get().await;
+
 		let platform = match env::consts::OS {
 			"windows" => Platform::Windows,
 			"macos" => Platform::MacOS,
@@ -218,10 +254,10 @@ impl LibraryManager {
 				node::pub_id::equals(id.to_string()),
 				(
 					node::pub_id::set(id.to_string()),
-					node::name::set(config.name.clone()),
+					node::name::set(node_config.name.clone()),
 					vec![node::platform::set(platform as i32)],
 				),
-				vec![node::name::set(config.name.clone())],
+				vec![node::name::set(node_config.name.clone())],
 			)
 			.exec()
 			.await?;

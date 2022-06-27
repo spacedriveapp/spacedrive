@@ -215,6 +215,9 @@ impl Node {
 					.await
 					.unwrap();
 
+				ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+					.await;
+
 				CoreResponse::Success(())
 			}
 			ClientCommand::EditLibrary { name, description } => {
@@ -225,8 +228,7 @@ impl Node {
 				CoreResponse::Success(())
 			}
 			ClientCommand::DeleteLibrary { id } => {
-				// TODO: @Oscar finish this as part of multi-library PR
-
+				self.library_manager.delete_library(&ctx, id).await.unwrap();
 				CoreResponse::Success(())
 			}
 			// CRUD for locations

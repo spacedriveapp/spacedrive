@@ -3,6 +3,7 @@ import { Button, Input } from '@sd/ui';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDebounce } from 'use-debounce';
 
+import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
@@ -15,6 +16,7 @@ export default function LibraryGeneralSettings() {
 
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');
+	const [encryptLibrary, setEncryptLibrary] = useState(false);
 
 	const [nameDebounced] = useDebounce(name, 500);
 	const [descriptionDebounced] = useDebounce(description, 500);
@@ -45,27 +47,42 @@ export default function LibraryGeneralSettings() {
 				title="Library Settings"
 				description="General settings related to the currently active library."
 			/>
-			<InputContainer title="Library Name" description="Configure the name of your library.">
-				<div className="flex flex-row mt-1 space-x-2">
+			<div className="flex flex-row pb-3 space-x-5">
+				<div className="flex flex-col flex-grow ">
+					<span className="mt-2 mb-1 text-xs font-semibold text-gray-300">Name</span>
 					<Input
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="flex-grow"
 						defaultValue="My Default Library"
 					/>
 				</div>
-			</InputContainer>
-			<InputContainer
-				title="Library Description"
-				// description="Add a short description about this library, what is it for?"
-			>
-				<div className="flex mt-1">
+				<div className="flex flex-col flex-grow">
+					<span className="mt-2 mb-1 text-xs font-semibold text-gray-300">Description</span>
 					<Input
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}
-						className="flex-grow"
-						placeholder="Write something about this library"
+						placeholder=""
 					/>
+				</div>
+			</div>
+
+			<InputContainer
+				mini
+				title="Encrypt Library"
+				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
+			>
+				<div className="flex items-center ml-3">
+					<Toggle value={encryptLibrary} onChange={setEncryptLibrary} />
+				</div>
+			</InputContainer>
+			<InputContainer
+				title="Delete Library"
+				description="This is permanent, your files will not be deleted, only the Spacedrive library."
+			>
+				<div className="mt-2">
+					<Button size="sm" variant="colored" className="bg-red-500 border-red-500">
+						Delete Library
+					</Button>
 				</div>
 			</InputContainer>
 		</SettingsContainer>
