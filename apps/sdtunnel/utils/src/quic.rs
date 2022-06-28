@@ -6,8 +6,6 @@ use rustls::{
 	Certificate, DistinguishedNames, Error, ServerName,
 };
 
-use crate::PeerId;
-
 /// The Application-Layer Protocol Negotiation (ALPN) value for QUIC.
 const ALPN_QUIC_HTTP: &[&[u8]] = &[b"hq-29"];
 

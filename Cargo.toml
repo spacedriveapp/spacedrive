@@ -7,5 +7,6 @@ members = [
 	"core",
 	"core/prisma",
 	"core/derive",
-	"core/p2p"
+	"core/p2p",
+	"core/p2p2"
 ]

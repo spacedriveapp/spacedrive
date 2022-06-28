@@ -65,8 +65,8 @@ async fn main() {
 		},
 	};
 	let server_port = env::var("SD_PORT")
-		.map(|port| port.parse::<u16>().unwrap_or(443))
-		.unwrap_or(443);
+		.map(|port| port.parse::<u16>().unwrap_or(9000))
+		.unwrap_or(9000);
 	let bind_addr = env::var("SD_BIND_ADDR").unwrap_or(Ipv4Addr::UNSPECIFIED.to_string());
 
 	let manager = RedisConnectionManager::new(redis_url)

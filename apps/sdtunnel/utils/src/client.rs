@@ -46,8 +46,6 @@ impl Client {
 				()
 			})?;
 
-		println!("B");
-
 		let (mut tx, mut rx) = connection.open_bi().await.map_err(|err| {
 			panic!("{}", err);
 			()
@@ -60,8 +58,6 @@ impl Client {
 				()
 			})?;
 
-		println!("C");
-
 		let mut resp = rx
 			.read_chunk(MAX_MESSAGE_SIZE, true)
 			.await
@@ -70,8 +66,6 @@ impl Client {
 				()
 			})?
 			.unwrap();
-
-		println!("D");
 
 		let mut bytes: &[u8] = &resp.bytes;
 		let msg = Message::read(&mut bytes).map_err(|err| ())?;

@@ -20,3 +20,4 @@ rustls = { version = "0.20.6", default-features = false, features = ["quic", "da
 thiserror = "1.0.31"
 tokio = { version = "1.19.0", features = ["rt-multi-thread", "macros", "sync"] }
 ureq = "2.4.0"
+stun = "0.4.2"

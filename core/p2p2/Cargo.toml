@@ -1,0 +1,20 @@
+[package]
+name = "p2p"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sd-tunnel-utils = { path = "../../apps/sdtunnel/utils" }
+
+dashmap = "5.3.4"
+rcgen = "0.9.2"
+rustls = "0.20.6"
+tokio = { version = "1.19.2", features = ["macros"] }
+if-watch = "1.1.1"
+thiserror = "1.0.31"
+mdns-sd = "0.5.3"
+quinn = "0.8.3"
+futures-util = "0.3.21"
+
+[dev-dependencies]
+tokio = { version = "1.19.2", features = ["rt-multi-thread"] }
