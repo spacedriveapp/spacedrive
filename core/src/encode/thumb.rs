@@ -4,10 +4,10 @@ use crate::{
 	prisma::file_path,
 	sys, CoreContext, CoreEvent,
 };
-use futures::executor::block_on;
 use image::{self, imageops, DynamicImage, GenericImageView};
 use log::{error, info};
 use std::error::Error;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use webp::Encoder;
@@ -55,72 +55,62 @@ impl Job for ThumbnailJob {
 		let image_files = get_images(&ctx.core_ctx, self.location_id, &self.path).await?;
 		info!("Found {:?} files", image_files.len());
 
-		let is_background = self.background;
+		ctx.progress(vec![
+			JobReportUpdate::TaskCount(image_files.len()),
+			JobReportUpdate::Message(format!("Preparing to process {} files", image_files.len())),
+		]);
 
-		tokio::task::spawn_blocking(move || {
-			ctx.progress(vec![
-				JobReportUpdate::TaskCount(image_files.len()),
-				JobReportUpdate::Message(format!(
-					"Preparing to process {} files",
-					image_files.len()
-				)),
-			]);
+		for (i, image_file) in image_files.iter().enumerate() {
+			ctx.progress(vec![JobReportUpdate::Message(format!(
+				"Processing {}",
+				image_file.materialized_path.clone()
+			))]);
 
-			for (i, image_file) in image_files.iter().enumerate() {
-				ctx.progress(vec![JobReportUpdate::Message(format!(
-					"Processing {}",
-					image_file.materialized_path.clone()
-				))]);
+			// assemble the file path
+			let path = Path::new(&root_path).join(&image_file.materialized_path);
+			error!("image_file {:?}", image_file);
 
-				// assemble the file path
-				let path = Path::new(&root_path).join(&image_file.materialized_path);
-				error!("image_file {:?}", image_file);
-
-				// get cas_id, if none found skip
-				let cas_id = match image_file.file() {
-					Ok(file) => {
-						if let Some(f) = file {
-							f.cas_id.clone()
-						} else {
-							continue;
-						}
-					}
-					Err(_) => {
-						error!("Error getting cas_id {:?}", image_file.materialized_path);
+			// get cas_id, if none found skip
+			let cas_id = match image_file.file() {
+				Ok(file) => {
+					if let Some(f) = file {
+						f.cas_id.clone()
+					} else {
 						continue;
 					}
-				};
-
-				// Define and write the WebP-encoded file to a given path
-				let output_path = config
-					.data_path
-					.as_ref()
-					.unwrap()
-					.join(THUMBNAIL_CACHE_DIR_NAME)
-					.join(format!("{}", location.id))
-					.join(&cas_id)
-					.with_extension("webp");
-
-				// check if file exists at output path
-				if !output_path.exists() {
-					info!("Writing {:?} to {:?}", path, output_path);
-					block_on(generate_thumbnail(&path, &output_path))
-						.map_err(|e| {
-							info!("Error generating thumb {:?}", e);
-						})
-						.unwrap_or(());
-
-					ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
-
-					if !is_background {
-						block_on(ctx.core_ctx.emit(CoreEvent::NewThumbnail { cas_id }));
-					};
-				} else {
-					info!("Thumb exists, skipping... {}", output_path.display());
 				}
+				Err(_) => {
+					error!("Error getting cas_id {:?}", image_file.materialized_path);
+					continue;
+				}
+			};
+
+			// Define and write the WebP-encoded file to a given path
+			let output_path = config
+				.data_path
+				.as_ref()
+				.unwrap()
+				.join(THUMBNAIL_CACHE_DIR_NAME)
+				.join(format!("{}", location.id))
+				.join(&cas_id)
+				.with_extension("webp");
+
+			// check if file exists at output path
+			if !output_path.exists() {
+				info!("Writing {:?} to {:?}", path, output_path);
+				if let Err(e) = generate_thumbnail(&path, &output_path).await {
+					error!("Error generating thumb {:?}", e);
+				}
+
+				ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
+
+				if !self.background {
+					ctx.core_ctx.emit(CoreEvent::NewThumbnail { cas_id }).await;
+				};
+			} else {
+				info!("Thumb exists, skipping... {}", output_path.display());
 			}
-		})
-		.await?;
+		}
 
 		Ok(())
 	}
@@ -144,9 +134,12 @@ pub async fn generate_thumbnail<P: AsRef<Path>>(
 	let encoder = Encoder::from_image(&img)?;
 
 	// Encode the image at a specified quality 0-100
-	let webp = encoder.encode(THUMBNAIL_QUALITY);
 
-	fs::write(output_path, &*webp).await?;
+	// Type WebPMemory is !Send, which makes the Future in this function !Send,
+	// this make us `deref` to have a `&[u8]` and then `to_owned` to make a Vec<u8>
+	// which implies on a unwanted clone...
+	let webp = encoder.encode(THUMBNAIL_QUALITY).deref().to_owned();
+	fs::write(output_path, &webp).await?;
 
 	Ok(())
 }
