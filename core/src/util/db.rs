@@ -2,10 +2,13 @@ use crate::prisma::{self, migration, PrismaClient};
 use crate::CoreContext;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
+use log::{error, info};
 use prisma_client_rust::raw;
 use ring::digest::{Context, Digest, SHA256};
 use std::ffi::OsStr;
+use std::fmt::Debug;
 use std::io::{self, BufReader, Read};
+use std::path::Path;
 use thiserror::Error;
 
 const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
@@ -17,9 +20,12 @@ pub enum DatabaseError {
 	ClientError(#[from] prisma::NewClientError),
 }
 
-pub async fn create_connection(path: &str) -> Result<PrismaClient, DatabaseError> {
-	println!("Creating database connection: {:?}", path);
-	let client = prisma::new_client_with_url(&format!("file:{}", &path)).await?;
+pub async fn create_connection(
+	path: impl AsRef<Path> + Debug,
+) -> Result<PrismaClient, DatabaseError> {
+	info!("Creating database connection: {:?}", path);
+	let client =
+		prisma::new_client_with_url(&format!("file:{}", path.as_ref().to_string_lossy())).await?;
 
 	Ok(client)
 }
@@ -47,12 +53,12 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
 		.await
 	{
 		Ok(data) => {
-			if data.len() == 0 {
+			if data.is_empty() {
 				// execute migration
 				match client._execute_raw(raw!(INIT_MIGRATION)).await {
 					Ok(_) => {}
 					Err(e) => {
-						println!("Failed to create migration table: {}", e);
+						info!("Failed to create migration table: {}", e);
 					}
 				};
 
@@ -64,7 +70,7 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
 					.unwrap();
 
 				#[cfg(debug_assertions)]
-				println!("Migration table created: {:?}", value);
+				info!("Migration table created: {:?}", value);
 			}
 
 			let mut migration_subdirs = MIGRATIONS_DIR
@@ -89,7 +95,7 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
 			});
 
 			for subdir in migration_subdirs {
-				println!("{:?}", subdir.path());
+				info!("{:?}", subdir.path());
 				let migration_file = subdir
 					.get_file(subdir.path().join("./migration.sql"))
 					.unwrap();
@@ -110,9 +116,9 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
 
 				if existing_migration.is_none() {
 					#[cfg(debug_assertions)]
-					println!("Running migration: {}", name);
+					info!("Running migration: {}", name);
 
-					let steps = migration_sql.split(";").collect::<Vec<&str>>();
+					let steps = migration_sql.split(';').collect::<Vec<&str>>();
 					let steps = &steps[0..steps.len() - 1];
 
 					client
@@ -138,15 +144,15 @@ pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
 									.unwrap();
 							}
 							Err(e) => {
-								println!("Error running migration: {}", name);
-								println!("{}", e);
+								error!("Error running migration: {}", name);
+								error!("{:?}", e);
 								break;
 							}
 						}
 					}
 
 					#[cfg(debug_assertions)]
-					println!("Migration {} recorded successfully", name);
+					info!("Migration {} recorded successfully", name);
 				}
 			}
 		}

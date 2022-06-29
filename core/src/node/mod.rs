@@ -4,6 +4,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::env;
 use thiserror::Error;
@@ -22,17 +23,24 @@ pub struct LibraryNode {
 	pub last_seen: DateTime<Utc>,
 }
 
-impl Into<LibraryNode> for node::Data {
-	fn into(self) -> LibraryNode {
-		LibraryNode {
-			uuid: self.pub_id,
-			name: self.name,
-			platform: IntEnum::from_int(self.platform).unwrap(),
-			last_seen: self.last_seen.into(),
+impl From<node::Data> for LibraryNode {
+	fn from(data: node::Data) -> Self {
+		Self {
+			uuid: data.pub_id,
+			name: data.name,
+			platform: IntEnum::from_int(data.platform).unwrap(),
+			last_seen: data.last_seen.into(),
 		}
 	}
 }
 
+impl From<Box<node::Data>> for LibraryNode {
+	fn from(data: Box<node::Data>) -> Self {
+		Self::from(*data)
+	}
+}
+
+#[allow(clippy::upper_case_acronyms)]
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
 #[ts(export)]
@@ -47,10 +55,8 @@ pub enum Platform {
 
 impl LibraryNode {
 	pub async fn create(node: &Node) -> Result<(), NodeError> {
-		println!("Creating node...");
+		info!("Creating node...");
 		let mut config = state::get_nodestate();
-
-		let db = &node.database;
 
 		let hostname = match hostname::get() {
 			Ok(hostname) => hostname.to_str().unwrap_or_default().to_owned(),
@@ -64,30 +70,31 @@ impl LibraryNode {
 			_ => Platform::Unknown,
 		};
 
-		let _node = match db
+		let node = if let Some(node) = node
+			.database
 			.node()
 			.find_unique(node::pub_id::equals(config.node_pub_id.clone()))
 			.exec()
 			.await?
 		{
-			Some(node) => node,
-			None => {
-				db.node()
-					.create(
-						node::pub_id::set(config.node_pub_id.clone()),
-						node::name::set(hostname.clone()),
-						vec![node::platform::set(platform as i32)],
-					)
-					.exec()
-					.await?
-			}
+			node
+		} else {
+			node.database
+				.node()
+				.create(
+					node::pub_id::set(config.node_pub_id.clone()),
+					node::name::set(hostname.clone()),
+					vec![node::platform::set(platform as i32)],
+				)
+				.exec()
+				.await?
 		};
 
 		config.node_name = hostname;
-		config.node_id = _node.id;
-		config.save();
+		config.node_id = node.id;
+		config.save().await;
 
-		println!("node: {:?}", &_node);
+		info!("node: {:?}", node);
 
 		Ok(())
 	}

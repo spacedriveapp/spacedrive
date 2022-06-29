@@ -3,13 +3,18 @@ use crate::{
 	prisma::file as prisma_file, prisma::location, util::db::create_connection,
 };
 use job::{Job, JobReport, Jobs};
+use log::{error, info};
 use prisma::PrismaClient;
 use serde::{Deserialize, Serialize};
-use std::{fs, sync::Arc};
+use std::path::PathBuf;
+use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::{
-	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
-	oneshot,
+use tokio::{
+	fs,
+	sync::{
+		mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
+		oneshot,
+	},
 };
 use ts_rs::TS;
 
@@ -83,19 +88,19 @@ impl CoreContext {
 		self.internal_sender
 			.send(InternalEvent::JobIngest(job))
 			.unwrap_or_else(|e| {
-				println!("Failed to spawn job. {:?}", e);
+				error!("Failed to spawn job. {:?}", e);
 			});
 	}
 	pub fn queue_job(&self, job: Box<dyn Job>) {
 		self.internal_sender
 			.send(InternalEvent::JobQueue(job))
 			.unwrap_or_else(|e| {
-				println!("Failed to queue job. {:?}", e);
+				error!("Failed to queue job. {:?}", e);
 			});
 	}
 	pub async fn emit(&self, event: CoreEvent) {
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
-			println!("Failed to emit event. {:?}", e);
+			error!("Failed to emit event. {:?}", e);
 		});
 	}
 }
@@ -127,23 +132,23 @@ pub struct Node {
 
 impl Node {
 	// create new instance of node, run startup tasks
-	pub async fn new(mut data_dir: std::path::PathBuf) -> (Node, mpsc::Receiver<CoreEvent>) {
+	pub async fn new(mut data_dir: PathBuf) -> (Node, mpsc::Receiver<CoreEvent>) {
 		let (event_sender, event_recv) = mpsc::channel(100);
 
-		data_dir = data_dir.join("spacedrive");
-		let data_dir = data_dir.to_str().unwrap();
+		data_dir.push("spacedrive");
 		// create data directory if it doesn't exist
-		fs::create_dir_all(&data_dir).unwrap();
+		fs::create_dir_all(&data_dir).await.unwrap();
 		// prepare basic client state
-		let mut state = NodeState::new(data_dir, "diamond-mastering-space-dragon").unwrap();
+		let mut state = NodeState::new(data_dir.clone(), "diamond-mastering-space-dragon").unwrap();
 		// load from disk
 		state
 			.read_disk()
-			.unwrap_or(println!("Error: No node state found, creating new one..."));
+			.await
+			.unwrap_or_else(|_| error!("Error: No node state found, creating new one..."));
 
-		state.save();
+		state.save().await;
 
-		println!("Node State: {:?}", state);
+		info!("Node State: {:?}", state);
 
 		// connect to default library
 		let database = Arc::new(
@@ -213,32 +218,32 @@ impl Node {
 	}
 	// load library database + initialize client with db
 	pub async fn initializer(&self) {
-		println!("Initializing...");
+		info!("Initializing...");
 		let ctx = self.get_context();
 
-		if self.state.libraries.len() == 0 {
+		if self.state.libraries.is_empty() {
 			match library::create(&ctx, None).await {
-				Ok(library) => println!("Created new library: {:?}", library),
-				Err(e) => println!("Error creating library: {:?}", e),
+				Ok(library) => info!("Created new library: {:?}", library),
+				Err(e) => error!("Error creating library: {:?}", e),
 			}
 		} else {
 			for library in self.state.libraries.iter() {
 				// init database for library
 				match library::load(&ctx, &library.library_path, &library.library_uuid).await {
-					Ok(library) => println!("Loaded library: {:?}", library),
-					Err(e) => println!("Error loading library: {:?}", e),
+					Ok(library) => info!("Loaded library: {:?}", library),
+					Err(e) => error!("Error loading library: {:?}", e),
 				}
 			}
 		}
 		// init node data within library
-		match node::LibraryNode::create(&self).await {
-			Ok(_) => println!("Spacedrive online"),
-			Err(e) => println!("Error initializing node: {:?}", e),
+		match node::LibraryNode::create(self).await {
+			Ok(_) => info!("Spacedrive online"),
+			Err(e) => error!("Error initializing node: {:?}", e),
 		};
 	}
 
 	async fn exec_command(&mut self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
-		println!("Core command: {:?}", cmd);
+		info!("Core command: {:?}", cmd);
 		let ctx = self.get_context();
 		Ok(match cmd {
 			// CRUD for locations
@@ -299,7 +304,7 @@ impl Node {
 				CoreResponse::Success(())
 			}
 			// ClientCommand::PurgeDatabase => {
-			//   println!("Purging database...");
+			//   info!("Purging database...");
 			//   fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
 			//   CoreResponse::Success(())
 			// }
@@ -334,7 +339,7 @@ impl Node {
 				location_id,
 				limit: _,
 			} => CoreResponse::LibGetExplorerDir(
-				file::explorer::open_dir(&ctx, &location_id, &path).await?,
+				file::explorer::open_dir(&ctx, location_id, &path).await?,
 			),
 			ClientQuery::LibGetTags => todo!(),
 			ClientQuery::JobGetRunning => {
@@ -369,15 +374,15 @@ pub enum ClientCommand {
 	TagAssign { file_id: i32, tag_id: i32 },
 	TagDelete { id: i32 },
 	// Locations
-	LocCreate { path: String },
+	LocCreate { path: PathBuf },
 	LocUpdate { id: i32, name: Option<String> },
 	LocDelete { id: i32 },
 	LocRescan { id: i32 },
 	// System
 	SysVolumeUnmount { id: i32 },
-	GenerateThumbsForLocation { id: i32, path: String },
+	GenerateThumbsForLocation { id: i32, path: PathBuf },
 	// PurgeDatabase,
-	IdentifyUniqueFiles { id: i32, path: String },
+	IdentifyUniqueFiles { id: i32, path: PathBuf },
 }
 
 // represents an event this library can emit

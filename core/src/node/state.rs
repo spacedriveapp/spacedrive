@@ -1,8 +1,12 @@
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io::{BufReader, Write};
+use std::path::PathBuf;
 use std::sync::RwLock;
+use tokio::io::AsyncReadExt;
+use tokio::{
+	fs,
+	io::{AsyncWriteExt, BufReader},
+};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -13,7 +17,7 @@ pub struct NodeState {
 	pub node_id: i32,
 	pub node_name: String,
 	// config path is stored as struct can exist only in memory during startup and be written to disk later without supplying path
-	pub data_path: String,
+	pub data_path: Option<PathBuf>,
 	// the port this node uses to listen for incoming connections
 	pub tcp_port: u32,
 	// all the libraries loaded by this node
@@ -29,7 +33,7 @@ pub static NODE_STATE_CONFIG_NAME: &str = "node_state.json";
 pub struct LibraryState {
 	pub library_uuid: String,
 	pub library_id: i32,
-	pub library_path: String,
+	pub library_path: PathBuf,
 	pub offline: bool,
 }
 
@@ -39,49 +43,50 @@ lazy_static! {
 }
 
 pub fn get_nodestate() -> NodeState {
-	match CONFIG.read() {
-		Ok(guard) => guard.clone().unwrap_or(NodeState::default()),
-		Err(_) => return NodeState::default(),
+	if let Ok(guard) = CONFIG.read() {
+		guard.clone().unwrap_or_default()
+	} else {
+		NodeState::default()
 	}
 }
 
 impl NodeState {
-	pub fn new(data_path: &str, node_name: &str) -> Result<Self, ()> {
+	pub fn new(data_path: PathBuf, node_name: &str) -> Result<Self, ()> {
 		let uuid = Uuid::new_v4().to_string();
 		// create struct and assign defaults
 		let config = Self {
 			node_pub_id: uuid,
-			data_path: data_path.to_string(),
+			data_path: Some(data_path),
 			node_name: node_name.to_string(),
 			..Default::default()
 		};
 		Ok(config)
 	}
 
-	pub fn save(&self) {
+	pub async fn save(&self) {
 		self.write_memory();
 		// only write to disk if config path is set
-		if !&self.data_path.is_empty() {
-			let config_path = format!("{}/{}", &self.data_path, NODE_STATE_CONFIG_NAME);
-			let mut file = fs::File::create(config_path).unwrap();
+		if let Some(ref data_path) = self.data_path {
+			let config_path = data_path.join(NODE_STATE_CONFIG_NAME);
+			let mut file = fs::File::create(config_path).await.unwrap();
 			let json = serde_json::to_string(&self).unwrap();
-			file.write_all(json.as_bytes()).unwrap();
+			file.write_all(json.as_bytes()).await.unwrap();
 		}
 	}
 
-	pub fn read_disk(&mut self) -> Result<(), ()> {
-		let config_path = format!("{}/{}", &self.data_path, NODE_STATE_CONFIG_NAME);
-
-		// open the file and parse json
-		match fs::File::open(config_path) {
-			Ok(file) => {
-				let reader = BufReader::new(file);
-				let data = serde_json::from_reader(reader).unwrap();
+	pub async fn read_disk(&mut self) -> Result<(), ()> {
+		if let Some(ref data_path) = self.data_path {
+			let config_path = data_path.join(NODE_STATE_CONFIG_NAME);
+			// open the file and parse json
+			if let Ok(file) = fs::File::open(config_path).await {
+				let mut buf = vec![];
+				let bytes = BufReader::new(file).read_to_end(&mut buf).await.unwrap();
+				let data = serde_json::from_slice(&buf[..bytes]).unwrap();
 				// assign to self
 				*self = data;
 			}
-			_ => {}
 		}
+
 		Ok(())
 	}
 
@@ -91,17 +96,14 @@ impl NodeState {
 	}
 
 	pub fn get_current_library(&self) -> LibraryState {
-		match self
-			.libraries
+		self.libraries
 			.iter()
 			.find(|lib| lib.library_uuid == self.current_library_uuid)
-		{
-			Some(lib) => lib.clone(),
-			None => LibraryState::default(),
-		}
+			.cloned()
+			.unwrap_or_default()
 	}
 
-	pub fn get_current_library_db_path(&self) -> String {
-		format!("{}/library.db", &self.get_current_library().library_path)
+	pub fn get_current_library_db_path(&self) -> PathBuf {
+		self.get_current_library().library_path.join("library.db")
 	}
 }

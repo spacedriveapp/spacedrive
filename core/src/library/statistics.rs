@@ -5,13 +5,14 @@ use crate::{
 	CoreContext,
 };
 use fs_extra::dir::get_size;
+use log::info;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use tokio::fs;
 use ts_rs::TS;
 
 use super::LibraryError;
 
-#[derive(Debug, Serialize, Deserialize, TS, Clone)]
+#[derive(Debug, Serialize, Deserialize, TS, Clone, Default)]
 #[ts(export)]
 pub struct Statistics {
 	pub total_file_count: i32,
@@ -23,29 +24,15 @@ pub struct Statistics {
 	pub library_db_size: String,
 }
 
-impl Into<Statistics> for Data {
-	fn into(self) -> Statistics {
-		Statistics {
-			total_file_count: self.total_file_count,
-			total_bytes_used: self.total_bytes_used,
-			total_bytes_capacity: self.total_bytes_capacity,
-			total_bytes_free: self.total_bytes_free,
-			total_unique_bytes: self.total_unique_bytes,
-			preview_media_bytes: self.preview_media_bytes,
-			library_db_size: String::new(),
-		}
-	}
-}
-
-impl Default for Statistics {
-	fn default() -> Self {
+impl From<Data> for Statistics {
+	fn from(data: Data) -> Self {
 		Self {
-			total_file_count: 0,
-			total_bytes_used: String::new(),
-			total_bytes_capacity: String::new(),
-			total_bytes_free: String::new(),
-			total_unique_bytes: String::new(),
-			preview_media_bytes: String::new(),
+			total_file_count: data.total_file_count,
+			total_bytes_used: data.total_bytes_used,
+			total_bytes_capacity: data.total_bytes_capacity,
+			total_bytes_free: data.total_bytes_free,
+			total_unique_bytes: data.total_unique_bytes,
+			preview_media_bytes: data.preview_media_bytes,
 			library_db_size: String::new(),
 		}
 	}
@@ -54,33 +41,29 @@ impl Default for Statistics {
 impl Statistics {
 	pub async fn retrieve(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
 		let config = get_nodestate();
-		let db = &ctx.database;
 		let library_data = config.get_current_library();
 
-		let library_statistics_db = match db
+		let library_statistics_db = ctx
+			.database
 			.library_statistics()
 			.find_unique(id::equals(library_data.library_id))
 			.exec()
 			.await?
-		{
-			Some(library_statistics_db) => library_statistics_db.into(),
-			// create the default values if database has no entry
-			None => Statistics::default(),
-		};
-		Ok(library_statistics_db.into())
+			.map_or_else(Default::default, Into::into);
+		Ok(library_statistics_db)
 	}
 
 	pub async fn calculate(ctx: &CoreContext) -> Result<Statistics, LibraryError> {
 		let config = get_nodestate();
-		let db = &ctx.database;
 		// get library from client state
 		let library_data = config.get_current_library();
-		println!(
+		info!(
 			"Calculating library statistics {:?}",
 			library_data.library_uuid
 		);
 		// get library from db
-		let library = db
+		let library = ctx
+			.database
 			.library()
 			.find_unique(library::pub_id::equals(
 				library_data.library_uuid.to_string(),
@@ -92,7 +75,8 @@ impl Statistics {
 			return Err(LibraryError::LibraryNotFound);
 		}
 
-		let library_statistics = db
+		let library_statistics = ctx
+			.database
 			.library_statistics()
 			.find_unique(id::equals(library_data.library_id))
 			.exec()
@@ -100,9 +84,9 @@ impl Statistics {
 
 		// TODO: get from database, not sys
 		let volumes = Volume::get_volumes();
-		Volume::save(&ctx).await?;
+		Volume::save(ctx).await?;
 
-		// println!("{:?}", volumes);
+		// info!("{:?}", volumes);
 
 		let mut available_capacity: u64 = 0;
 		let mut total_capacity: u64 = 0;
@@ -113,14 +97,14 @@ impl Statistics {
 			}
 		}
 
-		let library_db_size = match fs::metadata(library_data.library_path.as_str()) {
+		let library_db_size = match fs::metadata(library_data.library_path).await {
 			Ok(metadata) => metadata.len(),
 			Err(_) => 0,
 		};
 
-		println!("{:?}", library_statistics);
+		info!("{:?}", library_statistics);
 
-		let thumbnail_folder_size = get_size(&format!("{}/{}", config.data_path, "thumbnails"));
+		let thumbnail_folder_size = get_size(config.data_path.unwrap().join("thumbnails"));
 
 		let statistics = Statistics {
 			library_db_size: library_db_size.to_string(),
@@ -135,7 +119,8 @@ impl Statistics {
 			None => library_data.library_id,
 		};
 
-		db.library_statistics()
+		ctx.database
+			.library_statistics()
 			.upsert(
 				library_id::equals(library_local_id),
 				(
@@ -143,7 +128,7 @@ impl Statistics {
 					vec![library_db_size::set(statistics.library_db_size.clone())],
 				),
 				vec![
-					total_file_count::set(statistics.total_file_count.clone()),
+					total_file_count::set(statistics.total_file_count),
 					total_bytes_used::set(statistics.total_bytes_used.clone()),
 					total_bytes_capacity::set(statistics.total_bytes_capacity.clone()),
 					total_bytes_free::set(statistics.total_bytes_free.clone()),

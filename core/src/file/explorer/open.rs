@@ -6,33 +6,37 @@ use crate::{
 	sys::get_location,
 	CoreContext,
 };
+use log::info;
 use std::path::Path;
 
 pub async fn open_dir(
 	ctx: &CoreContext,
-	location_id: &i32,
-	path: &str,
+	location_id: i32,
+	path: impl AsRef<Path>,
 ) -> Result<DirectoryWithContents, FileError> {
-	let db = &ctx.database;
 	let config = get_nodestate();
 
 	// get location
-	let location = get_location(ctx, location_id.clone()).await?;
+	let location = get_location(ctx, location_id).await?;
 
-	let directory = db
+	let path_str = path.as_ref().to_string_lossy().to_string();
+
+	let directory = ctx
+		.database
 		.file_path()
 		.find_first(vec![
 			file_path::location_id::equals(Some(location.id)),
-			file_path::materialized_path::equals(path.into()),
+			file_path::materialized_path::equals(path_str),
 			file_path::is_dir::equals(true),
 		])
 		.exec()
 		.await?
-		.ok_or(FileError::DirectoryNotFound(path.to_string()))?;
+		.ok_or_else(|| FileError::DirectoryNotFound(path.as_ref().to_path_buf()))?;
 
-	println!("DIRECTORY: {:?}", directory);
+	info!("DIRECTORY: {:?}", directory);
 
-	let mut file_paths: Vec<FilePath> = db
+	let mut file_paths: Vec<FilePath> = ctx
+		.database
 		.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(Some(location.id)),
@@ -45,15 +49,17 @@ pub async fn open_dir(
 		.map(Into::into)
 		.collect();
 
-	for file_path in &mut file_paths {
-		if let Some(file) = &mut file_path.file {
-			let thumb_path = Path::new(&config.data_path)
-				.join(THUMBNAIL_CACHE_DIR_NAME)
-				.join(format!("{}", location.id))
-				.join(file.cas_id.clone())
-				.with_extension("webp");
+	if let Some(ref data_path) = config.data_path {
+		for file_path in &mut file_paths {
+			if let Some(file) = &mut file_path.file {
+				let thumb_path = data_path
+					.join(THUMBNAIL_CACHE_DIR_NAME)
+					.join(location.id.to_string())
+					.join(file.cas_id.clone())
+					.with_extension("webp");
 
-			file.has_thumbnail = thumb_path.exists();
+				file.has_thumbnail = thumb_path.exists();
+			}
 		}
 	}
 

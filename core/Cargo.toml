@@ -28,7 +28,7 @@ ts-rs = { version = "6.1", features = ["chrono-impl"] }
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
 walkdir = "^2.3.2"
 lazy_static = "1.4.0"
-uuid = "0.8"
+uuid = { version = "1.1.2", features = ["v4", "macro-diagnostics", "serde"]}
 sysinfo = "0.23.9"
 thiserror = "1.0.30"
 core-derive = { path = "./derive" }

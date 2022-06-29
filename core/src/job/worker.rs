@@ -3,6 +3,7 @@ use super::{
 	Job,
 };
 use crate::{ClientQuery, CoreContext, CoreEvent, InternalEvent};
+use log::error;
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -11,6 +12,8 @@ use tokio::{
 	},
 	time::{sleep, Instant},
 };
+use uuid::Uuid;
+
 // used to update the worker state from inside the worker thread
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
@@ -53,7 +56,7 @@ pub struct Worker {
 impl Worker {
 	pub fn new(job: Box<dyn Job>) -> Self {
 		let (worker_sender, worker_receiver) = unbounded_channel();
-		let uuid = uuid::Uuid::new_v4().to_string();
+		let uuid = Uuid::new_v4().to_string();
 		let name = job.name();
 
 		Self {
@@ -80,7 +83,7 @@ impl Worker {
 
 		worker_mut.job_report.status = JobStatus::Running;
 
-		worker_mut.job_report.create(&ctx).await.unwrap_or(());
+		worker_mut.job_report.create(ctx).await.unwrap_or(());
 
 		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
@@ -116,7 +119,7 @@ impl Worker {
 			let result = job.run(worker_ctx.clone()).await;
 
 			if let Err(e) = result {
-				println!("job failed {:?}", e);
+				error!("job failed {:?}", e);
 				worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());
 			} else {
 				// handle completion
