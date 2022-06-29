@@ -23,8 +23,8 @@ const MAX_WORKERS: usize = 1;
 
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>>;
 	fn name(&self) -> &'static str;
+	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 // jobs struct is maintained by the core
@@ -52,7 +52,7 @@ impl Jobs {
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
-			Worker::spawn(wrapped_worker.clone(), ctx).await;
+			Worker::spawn(Arc::clone(&wrapped_worker), ctx).await;
 
 			self.running_workers.insert(id, wrapped_worker);
 		} else {
@@ -84,9 +84,8 @@ impl Jobs {
 	}
 
 	pub async fn queue_pending_job(ctx: &CoreContext) -> Result<(), JobError> {
-		let db = &ctx.database;
-
-		let next_job = db
+		let _next_job = ctx
+			.database
 			.job()
 			.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
 			.exec()
@@ -96,14 +95,14 @@ impl Jobs {
 	}
 
 	pub async fn get_history(ctx: &CoreContext) -> Result<Vec<JobReport>, JobError> {
-		let db = &ctx.database;
-		let jobs = db
+		let jobs = ctx
+			.database
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
 			.exec()
 			.await?;
 
-		Ok(jobs.into_iter().map(|j| j.into()).collect())
+		Ok(jobs.into_iter().map(Into::into).collect())
 	}
 }
 
@@ -138,20 +137,20 @@ pub struct JobReport {
 }
 
 // convert database struct into a resource struct
-impl Into<JobReport> for job::Data {
-	fn into(self) -> JobReport {
+impl From<job::Data> for JobReport {
+	fn from(data: job::Data) -> JobReport {
 		JobReport {
-			id: self.id,
-			name: self.name,
-			// client_id: self.client_id,
-			status: JobStatus::from_int(self.status).unwrap(),
-			task_count: self.task_count,
-			completed_task_count: self.completed_task_count,
-			date_created: self.date_created.into(),
-			date_modified: self.date_modified.into(),
-			data: self.data,
+			id: data.id,
+			name: data.name,
+			// client_id: data.client_id,
+			status: JobStatus::from_int(data.status).unwrap(),
+			task_count: data.task_count,
+			completed_task_count: data.completed_task_count,
+			date_created: data.date_created.into(),
+			date_modified: data.date_modified.into(),
+			data: data.data,
 			message: String::new(),
-			seconds_elapsed: self.seconds_elapsed,
+			seconds_elapsed: data.seconds_elapsed,
 		}
 	}
 }
@@ -177,7 +176,7 @@ impl JobReport {
 
 		let mut params = Vec::new();
 
-		if let Some(_) = &self.data {
+		if self.data.is_some() {
 			params.push(job::data::set(self.data.clone()))
 		}
 

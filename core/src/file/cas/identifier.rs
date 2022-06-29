@@ -13,8 +13,9 @@ use log::info;
 use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
-use std::{fs, io};
+use std::error::Error;
+use std::path::{Path, PathBuf};
+use tokio::{fs, io};
 
 // FileIdentifierJob takes file_paths without a file_id and uniquely identifies them
 // first: generating the cas_id and extracting metadata
@@ -22,7 +23,7 @@ use std::{fs, io};
 #[derive(Debug)]
 pub struct FileIdentifierJob {
 	pub location_id: i32,
-	pub path: String,
+	pub path: PathBuf,
 }
 
 // we break this job into chunks of 100 to improve performance
@@ -33,11 +34,12 @@ impl Job for FileIdentifierJob {
 	fn name(&self) -> &'static str {
 		"file_identifier"
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
+
+	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn Error>> {
 		info!("Identifying orphan file paths...");
 
 		let location = get_location(&ctx.core_ctx, self.location_id).await?;
-		let location_path = location.path.unwrap_or("".to_string());
+		let location_path = location.path.unwrap_or_else(|| "".to_string());
 
 		let total_count = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
 		info!("Found {} orphan file paths", total_count);
@@ -63,7 +65,7 @@ impl Job for FileIdentifierJob {
 				let file_paths = match block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)) {
 					Ok(file_paths) => file_paths,
 					Err(e) => {
-						info!("Error getting orphan file paths: {}", e);
+						info!("Error getting orphan file paths: {:#?}", e);
 						continue;
 					}
 				};
@@ -77,7 +79,7 @@ impl Job for FileIdentifierJob {
 				// analyze each file_path
 				for file_path in file_paths.iter() {
 					// get the cas_id and extract metadata
-					match prepare_file(&location_path, file_path) {
+					match block_on(prepare_file(&location_path, file_path)) {
 						Ok(file) => {
 							let cas_id = file.cas_id.clone();
 							// create entry into chunks for created file data
@@ -85,7 +87,7 @@ impl Job for FileIdentifierJob {
 							cas_lookup.insert(cas_id, file_path.id);
 						}
 						Err(e) => {
-							info!("Error processing file: {}", e);
+							info!("Error processing file: {:#?}", e);
 							continue;
 						}
 					};
@@ -106,8 +108,8 @@ impl Job for FileIdentifierJob {
 					let file_path_id = cas_lookup.get(&file.cas_id).unwrap();
 					block_on(
 						db.file_path()
-							.find_unique(file_path::id::equals(file_path_id.clone()))
-							.update(vec![file_path::file_id::set(Some(file.id.clone()))])
+							.find_unique(file_path::id::equals(*file_path_id))
+							.update(vec![file_path::file_id::set(Some(file.id))])
 							.exec(),
 					)
 					.unwrap();
@@ -125,8 +127,8 @@ impl Job for FileIdentifierJob {
 				for file in new_files.iter() {
 					values.extend([
 						PrismaValue::String(file.cas_id.clone()),
-						PrismaValue::Int(file.size_in_bytes.clone()),
-						PrismaValue::DateTime(file.date_created.clone()),
+						PrismaValue::Int(file.size_in_bytes),
+						PrismaValue::DateTime(file.date_created),
 					]);
 				}
 
@@ -140,7 +142,7 @@ impl Job for FileIdentifierJob {
 					values,
 				)))
 				.unwrap_or_else(|e| {
-					info!("Error inserting files: {}", e);
+					info!("Error inserting files: {:#?}", e);
 					Vec::new()
 				});
 
@@ -151,8 +153,8 @@ impl Job for FileIdentifierJob {
 					let file_path_id = cas_lookup.get(&file.cas_id).unwrap();
 					block_on(
 						db.file_path()
-							.find_unique(file_path::id::equals(file_path_id.clone()))
-							.update(vec![file_path::file_id::set(Some(file.id.clone()))])
+							.find_unique(file_path::id::equals(*file_path_id))
+							.update(vec![file_path::file_id::set(Some(file.id))])
 							.exec(),
 					)
 					.unwrap();
@@ -241,13 +243,15 @@ pub struct FileCreated {
 	pub cas_id: String,
 }
 
-pub fn prepare_file(
-	location_path: &str,
+pub async fn prepare_file(
+	location_path: impl AsRef<Path>,
 	file_path: &file_path::Data,
 ) -> Result<CreateFile, io::Error> {
-	let path = Path::new(&location_path).join(Path::new(file_path.materialized_path.as_str()));
+	let path = location_path
+		.as_ref()
+		.join(file_path.materialized_path.as_str());
 
-	let metadata = fs::metadata(&path)?;
+	let metadata = fs::metadata(&path).await?;
 
 	// let date_created: DateTime<Utc> = metadata.created().unwrap().into();
 
@@ -255,7 +259,7 @@ pub fn prepare_file(
 
 	let cas_id = {
 		if !file_path.is_dir {
-			let mut ret = generate_cas_id(path.clone(), size.clone()).unwrap();
+			let mut ret = generate_cas_id(path, size).await?;
 			ret.truncate(16);
 			ret
 		} else {
