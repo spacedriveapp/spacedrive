@@ -16,6 +16,13 @@ pub enum MessageError {
 	InternalServerErr,
 }
 
+/// ClientAnnouncementResponse is returned by the server when a client queries for an announcement.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ClientAnnouncementResponse {
+	pub peer_id: PeerId,
+	pub addresses: Vec<String>,
+}
+
 /// Message is a single request that is sent between a client and the Spacetunnel server.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Message {
@@ -26,11 +33,8 @@ pub enum Message {
 	},
 	ClientAnnouncementOk,
 	// Query for an existing client announcement
-	QueryClientAnnouncement(PeerId),
-	QueryClientAnnouncementResponse {
-		peer_id: PeerId,
-		addresses: Vec<String>,
-	},
+	QueryClientAnnouncement(Vec<PeerId>),
+	QueryClientAnnouncementResponse(Vec<ClientAnnouncementResponse>),
 	Error(MessageError),
 }
 

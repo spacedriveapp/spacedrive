@@ -10,7 +10,9 @@ use metrics::increment_counter;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use quinn::{ApplicationClose, Endpoint, ServerConfig};
 use rustls::Certificate;
-use sd_tunnel_utils::{quic, Message, MessageError, PeerId, MAX_MESSAGE_SIZE};
+use sd_tunnel_utils::{
+	quic, ClientAnnouncementResponse, Message, MessageError, PeerId, MAX_MESSAGE_SIZE,
+};
 use std::{
 	collections::HashMap,
 	env,
@@ -240,27 +242,43 @@ async fn handle_stream(
 					Message::ClientAnnouncementOk
 				}
 			},
-			Message::QueryClientAnnouncement(peer_id) => {
+			Message::QueryClientAnnouncement(peer_ids) => {
 				increment_counter!("spacetunnel_discovery_announcement_queries");
-				let redis_key = format!("peer:announcement:{}", peer_id.to_string());
 
 				// TODO: Rate limit number queries that can come from each each IP
-
 				// TODO: Check if peer is authorised to query this announcement. Syncthing don't do an auth check so for now it's fine being unauthorised.
 
-				let resp: HashMap<String, String> = cmd("HGETALL")
-					.arg(&redis_key)
-					.query_async(&mut *redis)
-					.await?;
+				if peer_ids.len() > 15 {
+					error!(
+						"Client requested too many client announcements '{}'",
+						peer_ids.len()
+					);
+					increment_counter!(
+						"spacetunnel_discovery_announcement_queries_invalid"
+					);
+					Message::Error(MessageError::InvalidReqErr)
+				} else {
+					let mut peers = Vec::with_capacity(peer_ids.len());
+					for peer_id in peer_ids.iter() {
+						let redis_key =
+							format!("peer:announcement:{}", peer_id.to_string());
 
-				Message::ClientAnnouncement {
-					peer_id,
-					addresses: resp
-						.get("addresses")
-						.unwrap_or(&"".to_string())
-						.split(",")
-						.map(|v| v.to_string())
-						.collect(),
+						let resp: HashMap<String, String> = cmd("HGETALL")
+							.arg(&redis_key)
+							.query_async(&mut *redis)
+							.await?;
+
+						peers.push(ClientAnnouncementResponse {
+							peer_id: peer_id.clone(),
+							addresses: resp
+								.get("addresses")
+								.unwrap_or(&"".to_string())
+								.split(",")
+								.map(|v| v.to_string())
+								.collect(),
+						})
+					}
+					Message::QueryClientAnnouncementResponse(peers)
 				}
 			},
 			Message::ClientAnnouncementOk

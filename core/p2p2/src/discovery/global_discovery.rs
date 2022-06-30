@@ -20,20 +20,17 @@ impl<TP2PManager: P2PManager> GlobalDiscovery<TP2PManager> {
 
 	pub async fn poll(&self) {
 		// TODO: Allow the tunnel server to accept a list of PeerId's instead of doing heaps of requests
-		for peer_id in self.nm.known_peers.iter() {
-			let msg = self
-				.client
-				.send_message(Message::QueryClientAnnouncement(peer_id.clone()))
-				.await
-				.unwrap();
+		let peers = self.nm.known_peers.iter().map(|v| v.clone()).collect();
+		let msg = self
+			.client
+			.send_message(Message::QueryClientAnnouncement(peers))
+			.await
+			.unwrap();
 
-			// TODO: Handle error from discovery service
-			println!("{:?}", msg);
-
-			// self.nm.discovered_peers.insert(key, value); // TODO: make this work
-
-			// TODO: Open connection to peers if they are not already connected
-		}
+		// TODO: Handle error from discovery service
+		// println!("{:?}", msg);
+		// self.nm.discovered_peers.insert(key, value); // TODO: make this work
+		// TODO: Open connection to peers if they are not already connected
 	}
 
 	pub async fn register(&self) {

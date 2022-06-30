@@ -58,7 +58,7 @@ impl Client {
 				()
 			})?;
 
-		let mut resp = rx
+		let resp = rx
 			.read_chunk(MAX_MESSAGE_SIZE, true)
 			.await
 			.map_err(|err| {
