@@ -151,7 +151,7 @@ pub async fn get_images(
 	path: &str,
 ) -> Result<Vec<file_path::Data>, std::io::Error> {
 	let mut params = vec![
-		file_path::location_id::equals(location_id),
+		file_path::location_id::equals(Some(location_id)),
 		file_path::extension::in_vec(vec![
 			"png".to_string(),
 			"jpeg".to_string(),

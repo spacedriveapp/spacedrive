@@ -110,7 +110,7 @@ impl Into<FilePath> for file_path::Data {
 			materialized_path: self.materialized_path,
 			file_id: self.file_id,
 			parent_id: self.parent_id,
-			location_id: self.location_id,
+			location_id: self.location_id.unwrap_or(0),
 			date_indexed: self.date_indexed.into(),
 			name: self.name,
 			extension: self.extension,

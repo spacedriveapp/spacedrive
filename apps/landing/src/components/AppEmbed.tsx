@@ -65,7 +65,7 @@ const AppEmbed = () => {
 					<div className="bloom burst bloom-two" />
 				</div>
 			)}
-			<div className="relative z-30 h-[328px] px-5 sm:h-[428px] md:h-[428px] lg:h-[628px] mt-8 sm:mt-16">
+			<div className="relative z-30 h-[255px] px-1 sm:h-[428px] md:h-[428px] lg:h-[628px] mt-8 sm:mt-16">
 				<div
 					className={clsx(
 						'relative h-full m-auto border rounded-lg max-w-7xl transition-opacity bg-gray-850 border-gray-550 opacity-0',
@@ -88,7 +88,7 @@ const AppEmbed = () => {
 					)}
 
 					{renderImage && (
-						<div className="z-40 h-full w-[600px] sm:w-auto fade-in-app-embed landing-img" />
+						<div className="z-40 h-full sm:w-auto fade-in-app-embed landing-img" />
 					)}
 				</div>
 			</div>

@@ -159,7 +159,12 @@ impl Job for FileIdentifierJob {
 				}
 
 				// handle loop end
-				let last_row = file_paths.last().unwrap();
+				let last_row = match file_paths.last() {
+					Some(l) => l,
+					None => {
+						break;
+					}
+				};
 				cursor = last_row.id;
 				completed += 1;
 
