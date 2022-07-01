@@ -19,11 +19,18 @@ pub struct LibraryNode {
 	pub uuid: String,
 	pub name: String,
 	pub platform: Platform,
-	pub tcp_address: String,
-	#[ts(type = "string")]
 	pub last_seen: DateTime<Utc>,
-	#[ts(type = "string")]
-	pub last_synchronized: DateTime<Utc>,
+}
+
+impl Into<LibraryNode> for node::Data {
+	fn into(self) -> LibraryNode {
+		LibraryNode {
+			uuid: self.pub_id,
+			name: self.name,
+			platform: IntEnum::from_int(self.platform).unwrap(),
+			last_seen: self.last_seen.into(),
+		}
+	}
 }
 
 #[repr(i32)]

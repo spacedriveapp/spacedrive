@@ -104,7 +104,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						<TopBarButton
 							icon={ArrowsClockwise}
 							onClick={() => {
-								generateThumbsForLocation({ id: locationId, path: '' });
+								// generateThumbsForLocation({ id: locationId, path: '' });
 							}}
 						/>
 					</div>
@@ -117,6 +117,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				<div className="flex mr-3 space-x-2">
 					<Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
+						align="right"
 						items={[
 							[
 								{
