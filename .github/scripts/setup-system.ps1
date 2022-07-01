@@ -43,10 +43,6 @@ To set up your machine for Spacedrive development, this script will do the follo
 
 "@ 
 
-Write-Host "Press the Enter key to begin, or press CTRL + C to stop." -ForegroundColor Gray
-
-Read-Host
-
 Write-Host "Checking for Rust and Cargo..." -ForegroundColor Yellow
 Start-Sleep -Milliseconds 150
 
@@ -65,8 +61,6 @@ https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows
 Once you have installed Cargo, re-run this script.
 
 "@
-   Write-Host "Press the Enter key to close." -ForegroundColor Gray
-   Read-Host
    Exit
 }
 else {
@@ -156,5 +150,3 @@ Get-ChildItem "$HOME\$foldername\bin" -recurse -filter *.dll | Copy-Item -Destin
 
 Write-Host
 Write-Host "Your machine has been setup for Spacedrive development!"
-Write-Host "Press the Enter key to close." -ForegroundColor Gray
-Read-Host
