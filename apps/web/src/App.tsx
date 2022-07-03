@@ -3,7 +3,22 @@ import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 import SpacedriveInterface from '@sd/interface';
 import React, { useEffect } from 'react';
 
-const websocket = new WebSocket(import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws');
+const timeouts = [1, 2, 5, 10];
+
+const startWebsocket = (timeoutIndex = 0) => {
+	const ws = new WebSocket(import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws');
+
+	ws.addEventListener('close', (event) => {
+		setTimeout(
+			() => startWebsocket(timeoutIndex++),
+			timeouts[timeoutIndex] ?? timeouts[timeouts.length - 1]
+		);
+	});
+
+	return ws;
+};
+
+const websocket = startWebsocket();
 
 const randomId = () => Math.random().toString(36).slice(2);
 
