@@ -1,5 +1,7 @@
+import { useBridgeQuery } from '@sd/client';
 import React from 'react';
 
+import LocationListItem from '../../components/location/LocationListItem';
 import { InputContainer } from '../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../components/settings/SettingsHeader';
@@ -11,18 +13,20 @@ import { SettingsHeader } from '../../components/settings/SettingsHeader';
 // ];
 
 export default function LocationSettings() {
-	// const locations = useBridgeQuery("SysGetLocation")
+	const { data: locations } = useBridgeQuery('SysGetLocations');
+
+	console.log({ locations });
 
 	return (
 		<SettingsContainer>
 			{/*<Button size="sm">Add Location</Button>*/}
-			<SettingsHeader title="Locations" description="Manage your settings related to locations." />
-			<InputContainer
-				title="Something about a vault"
-				description="Local cache storage for media previews and thumbnails."
-			>
-				<div className="flex flex-row space-x-2"></div>
-			</InputContainer>
+			<SettingsHeader title="Locations" description="Manage your storage locations." />
+
+			<div className="grid space-y-2">
+				{locations?.map((location) => (
+					<LocationListItem key={location.id} location={location} />
+				))}
+			</div>
 		</SettingsContainer>
 	);
 }
