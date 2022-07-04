@@ -1,5 +1,5 @@
-import { CogIcon, KeyIcon, TagIcon } from '@heroicons/react/outline';
-import { HardDrive } from 'phosphor-react';
+import { CogIcon, DatabaseIcon, KeyIcon, TagIcon } from '@heroicons/react/outline';
+import { HardDrive, ShareNetwork } from 'phosphor-react';
 import React from 'react';
 
 import { SidebarLink } from '../../components/file/Sidebar';
@@ -28,6 +28,14 @@ export const CurrentLibrarySettings: React.FC = () => {
 			<SidebarLink to="/library-settings/keys">
 				<SettingsIcon component={KeyIcon} />
 				Keys
+			</SidebarLink>
+			<SidebarLink to="/library-settings/backups">
+				<SettingsIcon component={DatabaseIcon} />
+				Backups
+			</SidebarLink>
+			<SidebarLink to="/library-settings/backups">
+				<SettingsIcon component={ShareNetwork} />
+				Sync
 			</SidebarLink>
 		</SettingsScreenContainer>
 	);

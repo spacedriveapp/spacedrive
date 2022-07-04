@@ -125,7 +125,7 @@ impl LibraryManager {
 		)
 		.await?;
 
-		let name = config.name.clone();
+		// let name = config.name.clone();
 		let library = Self::load(
 			id,
 			&Path::new(&self.libraries_dir)
