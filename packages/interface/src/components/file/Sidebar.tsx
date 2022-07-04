@@ -1,6 +1,6 @@
 import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { useLibraryCommand, useLibraryQuery } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import { CirclesFour, Code, Planet } from 'phosphor-react';
@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const appProps = useContext(AppPropsContext);
 
-	const { data: locations } = useBridgeQuery('SysGetLocations');
+	const { data: locations } = useLibraryQuery('SysGetLocations');
 
 	// initialize libraries
 	const { init: initLibraries, switchLibrary } = useLibraryState();
@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 		if (libraries && !currentLibraryUuid) initLibraries(libraries);
 	}, [libraries, currentLibraryUuid]);
 
-	const { mutate: createLocation } = useBridgeCommand('LocCreate');
+	const { mutate: createLocation } = useLibraryCommand('LocCreate');
 
 	const tags = [
 		{ id: 1, name: 'Keepsafe', color: '#FF6788' },

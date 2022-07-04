@@ -31,10 +31,6 @@ export function AppRouter() {
 	let location = useLocation();
 	let state = location.state as { backgroundLocation?: Location };
 
-	useEffect(() => {
-		console.log({ url: location.pathname });
-	}, [state]);
-
 	return (
 		<>
 			<Routes location={state?.backgroundLocation || location}>

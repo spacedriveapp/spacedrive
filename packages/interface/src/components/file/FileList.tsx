@@ -1,5 +1,5 @@
 import { DotsVerticalIcon } from '@heroicons/react/solid';
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -54,7 +54,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	const { selectedRowIndex, setSelectedRowIndex, setLocationId } = useExplorerState();
 	const [goingUp, setGoingUp] = useState(false);
 
-	const { data: currentDir } = useBridgeQuery('LibGetExplorerDir', {
+	const { data: currentDir } = useLibraryQuery('LibGetExplorerDir', {
 		location_id: props.location_id,
 		path,
 		limit: props.limit

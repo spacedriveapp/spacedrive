@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
-import { useBridgeCommand } from '@sd/client';
+import { useLibraryCommand } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -51,13 +51,13 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
 	const { locationId } = useExplorerState();
-	const { mutate: generateThumbsForLocation } = useBridgeCommand('GenerateThumbsForLocation', {
+	const { mutate: generateThumbsForLocation } = useLibraryCommand('GenerateThumbsForLocation', {
 		onMutate: (data) => {
 			console.log('GenerateThumbsForLocation', data);
 		}
 	});
 
-	const { mutate: identifyUniqueFiles } = useBridgeCommand('IdentifyUniqueFiles', {
+	const { mutate: identifyUniqueFiles } = useLibraryCommand('IdentifyUniqueFiles', {
 		onMutate: (data) => {
 			console.log('IdentifyUniqueFiles', data);
 		},

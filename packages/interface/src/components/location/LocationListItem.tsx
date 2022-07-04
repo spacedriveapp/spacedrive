@@ -1,6 +1,6 @@
 import { DotsVerticalIcon, RefreshIcon } from '@heroicons/react/outline';
 import { CogIcon, TrashIcon } from '@heroicons/react/solid';
-import { command, useBridgeCommand } from '@sd/client';
+import { useLibraryCommand } from '@sd/client';
 import { LocationResource } from '@sd/core';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
@@ -17,9 +17,9 @@ interface LocationListItemProps {
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const [showDeleteLocModal, setShowDeleteLocModal] = useState(false);
 
-	const { mutate: locRescan } = useBridgeCommand('LocRescan');
+	const { mutate: locRescan } = useLibraryCommand('LocRescan');
 
-	const { mutate: deleteLoc, isLoading: locDeletePending } = useBridgeCommand('LocDelete', {
+	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryCommand('LocDelete', {
 		onSuccess: () => {
 			setShowDeleteLocModal(false);
 		}

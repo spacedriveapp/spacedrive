@@ -8,7 +8,7 @@ use crate::{
 	library::LibraryContext,
 	prisma::{self, file, file_path},
 	sys::SysError,
-	ClientQuery, CoreError, CoreEvent, CoreResponse,
+	CoreError, CoreResponse,
 };
 pub mod cas;
 pub mod explorer;
@@ -147,7 +147,7 @@ pub async fn set_note(
 	id: i32,
 	note: Option<String>,
 ) -> Result<CoreResponse, CoreError> {
-	let response = ctx
+	let _response = ctx
 		.db
 		.file()
 		.find_unique(file::id::equals(id))
@@ -156,12 +156,12 @@ pub async fn set_note(
 		.await
 		.unwrap();
 
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibGetExplorerDir {
-		limit: 0,
-		path: "".to_string(),
-		location_id: 0,
-	}))
-	.await;
+	// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibGetExplorerDir {
+	// 	limit: 0,
+	// 	path: "".to_string(),
+	// 	location_id: 0,
+	// }))
+	// .await;
 
 	Ok(CoreResponse::Success(()))
 }

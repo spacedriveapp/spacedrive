@@ -52,7 +52,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 		match msg {
 			Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
 			Ok(ws::Message::Text(text)) => {
-				let msg: SocketMessage = serde_json::from_str(&text).unwrap();
+				let msg = serde_json::from_str::<SocketMessage>(&text);
+
+				let msg = match msg {
+					Ok(msg) => msg,
+					Err(err) => {
+						println!("Error parsing message: {}", err);
+						return;
+					},
+				};
 
 				let core = self.core.clone();
 

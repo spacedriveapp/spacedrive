@@ -87,17 +87,17 @@ impl Jobs {
 		ret
 	}
 
-	pub async fn queue_pending_job(ctx: &LibraryContext) -> Result<(), JobError> {
-		let db = &ctx.db;
+	// pub async fn queue_pending_job(ctx: &LibraryContext) -> Result<(), JobError> {
+	// 	let db = &ctx.db;
 
-		let next_job = db
-			.job()
-			.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
-			.exec()
-			.await?;
+	// 	let next_job = db
+	// 		.job()
+	// 		.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
+	// 		.exec()
+	// 		.await?;
 
-		Ok(())
-	}
+	// 	Ok(())
+	// }
 
 	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, JobError> {
 		let db = &ctx.db;

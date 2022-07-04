@@ -3,7 +3,6 @@ use crate::{
 	library::LibraryContext,
 	node::LibraryNode,
 	prisma::{file_path, location},
-	ClientQuery, CoreEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
@@ -210,8 +209,8 @@ pub async fn create_location(
 				Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
 			}
 
-			ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
-				.await;
+			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
+			// 	.await;
 
 			location
 		}
@@ -235,8 +234,8 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.exec()
 		.await?;
 
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
-		.await;
+	// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
+	// 	.await;
 
 	println!("Location {} deleted", location_id);
 
