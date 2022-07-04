@@ -1,3 +1,3 @@
-mod network_manager;
+mod p2p;
 
-pub use network_manager::*;
+pub use self::p2p::*;

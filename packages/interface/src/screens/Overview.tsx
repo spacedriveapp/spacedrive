@@ -1,5 +1,11 @@
 import { PlusIcon } from '@heroicons/react/solid';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import {
+	libraryCommand,
+	useBridgeCommand,
+	useBridgeQuery,
+	useLibraryCommand,
+	useLibraryQuery
+} from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
@@ -104,6 +110,9 @@ export const OverviewScreen = () => {
 	const { data: libraryStatistics, isLoading: isStatisticsLoading } =
 		useLibraryQuery('GetLibraryStatistics');
 	const { data: nodeState } = useBridgeQuery('NodeGetState');
+	const { data: discoveredPeers } = useBridgeQuery('DiscoveredPeers');
+	const { data: connectedPeers } = useBridgeQuery('ConnectedPeers');
+	const { mutate: pairNode } = useLibraryCommand('PairNode');
 
 	const { overviewStats, setOverviewStats } = useOverviewState();
 
@@ -177,7 +186,7 @@ export const OverviewScreen = () => {
 							title="Add Device"
 							description="Connect a new device to your library. Either enter another device's code or copy this one."
 							ctaAction={() => {}}
-							ctaLabel="Connect"
+							ctaLabel="TODO: RemoveThisButton"
 							trigger={
 								<Button
 									size="sm"
@@ -193,13 +202,33 @@ export const OverviewScreen = () => {
 									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
 										This Device
 									</span>
+									{/* TODO: Get these values from the backend */}
+									<Input readOnly disabled value={'todo'} />
 									<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
 								</div>
-								<div className="flex flex-col">
+								{/* <div className="flex flex-col">
 									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
 										Enter a device code
 									</span>
 									<Input value="" />
+								</div> */}
+								<div className="flex flex-col gap-4">
+									{(discoveredPeers || [])
+										.filter(
+											(v) =>
+												Object.keys(connectedPeers || []).find((p) => p.id === v.id) === undefined
+										)
+										.map((peer) => (
+											<h1
+												className="bg-red-500 w-full text-white p-1"
+												onClick={() => {
+													pairNode(peer.id);
+													alert('Paired. TODO: Close modal!');
+												}}
+											>
+												{peer.metadata.name}
+											</h1>
+										))}
 								</div>
 							</div>
 						</Dialog>

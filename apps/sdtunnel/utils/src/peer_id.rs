@@ -4,9 +4,10 @@ use ring::digest::digest;
 use rustls::Certificate;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use ts_rs::TS;
 
 /// PeerId is a unique identifier for a peer. These are derived from the public key of the peer.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Serialize, Deserialize, TS)]
 pub struct PeerId(String);
 
 impl PeerId {

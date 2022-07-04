@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
 use sd_tunnel_utils::PeerId;
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// PeerMetadata represents public metadata about a peer. This is found through the discovery process.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TS, Serialize, Deserialize)]
 pub struct PeerMetadata {
 	pub name: String,
 	pub version: Option<String>,

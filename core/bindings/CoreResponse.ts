@@ -4,7 +4,10 @@ import type { JobReport } from "./JobReport";
 import type { LibraryConfigWrapped } from "./LibraryConfigWrapped";
 import type { LocationResource } from "./LocationResource";
 import type { NodeState } from "./NodeState";
+import type { PeerCandidateTS } from "./PeerCandidateTS";
+import type { PeerId } from "./PeerId";
+import type { PeerMetadata } from "./PeerMetadata";
 import type { Statistics } from "./Statistics";
 import type { Volume } from "./Volume";
 
-export type CoreResponse = { key: "Success", data: null } | { key: "Error", data: string } | { key: "NodeGetLibraries", data: Array<LibraryConfigWrapped> } | { key: "SysGetVolumes", data: Array<Volume> } | { key: "SysGetLocation", data: LocationResource } | { key: "SysGetLocations", data: Array<LocationResource> } | { key: "LibGetExplorerDir", data: DirectoryWithContents } | { key: "NodeGetState", data: NodeState } | { key: "LocCreate", data: LocationResource } | { key: "JobGetRunning", data: Array<JobReport> } | { key: "JobGetHistory", data: Array<JobReport> } | { key: "GetLibraryStatistics", data: Statistics };
+export type CoreResponse = { key: "Success", data: null } | { key: "Error", data: string } | { key: "NodeGetLibraries", data: Array<LibraryConfigWrapped> } | { key: "SysGetVolumes", data: Array<Volume> } | { key: "SysGetLocation", data: LocationResource } | { key: "SysGetLocations", data: Array<LocationResource> } | { key: "LibGetExplorerDir", data: DirectoryWithContents } | { key: "NodeGetState", data: NodeState } | { key: "LocCreate", data: LocationResource } | { key: "JobGetRunning", data: Array<JobReport> } | { key: "JobGetHistory", data: Array<JobReport> } | { key: "GetLibraryStatistics", data: Statistics } | { key: "DiscoveredPeers", data: Array<PeerCandidateTS> } | { key: "ConnectedPeers", data: Record<PeerId, PeerMetadata> };

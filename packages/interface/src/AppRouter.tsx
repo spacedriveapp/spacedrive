@@ -42,7 +42,7 @@ export function AppRouter() {
 				libraryState.switchLibrary(libraries[0].uuid);
 			}
 		}
-	}, [libraryState.currentLibraryUuid]);
+	}, [libraryState.currentLibraryUuid, libraries]);
 
 	return (
 		<>

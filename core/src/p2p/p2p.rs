@@ -1,8 +1,14 @@
-use std::{env, time::Duration};
+use std::{env, sync::Arc};
 
-use p2p::{Identity, NetworkManager, NetworkManagerConfig, P2PManager, Peer, PeerId, PeerMetadata};
-use quinn::{RecvStream, SendStream};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
+use futures::executor::block_on;
+use p2p::{
+	quinn::{RecvStream, SendStream},
+	Identity, NetworkManager, NetworkManagerConfig, NetworkManagerError, P2PManager, Peer, PeerId,
+	PeerMetadata,
+};
+use tokio::sync::mpsc::{self};
+
+use crate::node::NodeConfigManager;
 
 #[derive(Debug, Clone)]
 pub enum P2PEvent {
@@ -15,10 +21,9 @@ pub enum P2PEvent {
 // SdP2PManager is part of your application and allows you to hook into the behavior of the P2PManager.
 #[derive(Clone)]
 pub struct SdP2PManager {
-	// peer_name is the name of the current peer. In a normal application this would be a display name set by the end user.
-	peer_name: String,
-	/// event_channel is used to send events to the application
-	event_channel: UnboundedSender<P2PEvent>,
+	config: Arc<NodeConfigManager>,
+	/// event_channel is used to send events back to the Spacedrive main event loop
+	event_channel: mpsc::UnboundedSender<P2PEvent>,
 }
 
 impl P2PManager for SdP2PManager {
@@ -26,7 +31,8 @@ impl P2PManager for SdP2PManager {
 
 	fn get_metadata(&self) -> PeerMetadata {
 		PeerMetadata {
-			name: self.peer_name.clone(),
+			// TODO: `block_on` needs to be removed from here!
+			name: block_on(self.config.get()).name.clone(),
 			version: Some(env!("CARGO_PKG_VERSION").into()),
 		}
 	}
@@ -34,7 +40,7 @@ impl P2PManager for SdP2PManager {
 	fn peer_discovered(&self, nm: &NetworkManager<Self>, peer_id: &PeerId) {
 		self.event_channel
 			.send(P2PEvent::PeerConnected(peer_id.clone()));
-		nm.add_known_peer(peer_id.clone()); // Be careful doing this in a production application because it will just trust all clients
+		// nm.add_known_peer(peer_id.clone()); // Be careful doing this in a production application because it will just trust all clients
 	}
 
 	fn peer_expired(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {
@@ -59,24 +65,21 @@ impl P2PManager for SdP2PManager {
 	}
 }
 
-#[tokio::main]
-async fn main() {
-	let identity = Identity::new().unwrap();
-	let peer_id = PeerId::from_cert(&identity.clone().into_rustls().0);
-	let mut event_channel = unbounded_channel();
+pub async fn init(
+	config: Arc<NodeConfigManager>,
+) -> Result<
+	(
+		Arc<NetworkManager<SdP2PManager>>,
+		mpsc::UnboundedReceiver<P2PEvent>,
+	),
+	NetworkManagerError,
+> {
+	let identity = Identity::new().unwrap(); // TODO: Save and load from Spacedrive config
+	let event_channel = mpsc::unbounded_channel();
 	let nm = NetworkManager::new(
 		identity,
 		SdP2PManager {
-			peer_name: format!(
-				"{}-{}",
-				peer_id
-					.to_string()
-					.chars()
-					.into_iter()
-					.take(5)
-					.collect::<String>(),
-				env::consts::OS
-			),
+			config,
 			event_channel: event_channel.0,
 		},
 		NetworkManagerConfig {
@@ -84,36 +87,12 @@ async fn main() {
 			listen_port: None,
 		},
 	)
-	.await
-	.unwrap();
+	.await?;
 	println!(
 		"Peer '{}' listening on: {:?}",
 		nm.peer_id(),
 		nm.listen_addr()
 	);
 
-	loop {
-		tokio::select! {
-			event = event_channel.1.recv() => {
-				if let Some(event) = event {
-					println!("{:?}", event);
-
-					match event {
-						P2PEvent::PeerConnected(peer_id) => {
-							nm.send_to(peer_id, b"Ping on Connection").await.unwrap();
-						}
-						_ => {}
-					}
-				}
-			}
-			_ = tokio::time::sleep(Duration::from_secs(5)) => {
-				println!("");
-				for (peer_id, peer) in nm.connected_peers() {
-					println!("Sending ping to '{:?}'", peer_id);
-					let resp = nm.send_to(peer_id, b"Ping").await.unwrap();
-					println!("Peer '{}' responded to ping with message '{:?}'", peer.id, resp.bytes);
-				}
-			}
-		};
-	}
+	Ok((nm, event_channel.1))
 }

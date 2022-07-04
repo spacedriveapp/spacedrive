@@ -7,7 +7,7 @@ use std::{
 use futures_util::StreamExt;
 use if_watch::{IfEvent, IfWatcher};
 use quinn::{ClientConfig, Incoming, NewConnection, VarInt};
-use sd_tunnel_utils::quic::client_config;
+use sd_tunnel_utils::{quic::client_config, PeerId};
 use tokio::{select, sync::mpsc, time::sleep};
 
 use crate::{
@@ -19,6 +19,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub(crate) enum NetworkManagerInternalEvent {
 	Connect(PeerCandidate),
+	NewKnownPeer(PeerId),
 }
 
 impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
@@ -79,6 +80,11 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 						match event {
 							NetworkManagerInternalEvent::Connect(peer) => {
 								Self::connect_to_peer(&nm, peer).await.unwrap();
+							}
+							NetworkManagerInternalEvent::NewKnownPeer(peer_id) => {
+								if let Some(peer) = nm.get_discovered_peer(&peer_id) {
+									Self::connect_to_peer(&nm, peer).await.unwrap();
+								}
 							}
 						}
 					}

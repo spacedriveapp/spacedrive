@@ -1,8 +1,11 @@
+use crate::p2p::{P2PEvent, SdP2PManager};
 use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
+use ::p2p::{NetworkManager, PeerCandidateTS, PeerId, PeerMetadata};
 use job::{Job, JobReport, Jobs};
 use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
 use node::{NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{
 	fs,
 	path::{Path, PathBuf},
@@ -22,6 +25,7 @@ mod file;
 mod job;
 mod library;
 mod node;
+mod p2p;
 mod prisma;
 mod sys;
 mod util;
@@ -125,6 +129,10 @@ pub struct Node {
 		UnboundedSender<InternalEvent>,
 		UnboundedReceiver<InternalEvent>,
 	),
+	p2p: (
+		Arc<NetworkManager<SdP2PManager>>,
+		mpsc::UnboundedReceiver<P2PEvent>,
+	),
 }
 
 impl Node {
@@ -144,6 +152,7 @@ impl Node {
 		};
 
 		let node = Node {
+			p2p: p2p::init(config.clone()).await.unwrap(),
 			config,
 			library_manager: LibraryManager::new(Path::new(&data_dir).join("libraries"), node_ctx)
 				.await
@@ -201,6 +210,22 @@ impl Node {
 						InternalEvent::JobComplete(id) => {
 							self.jobs.complete(&ctx, id).await;
 						},
+					}
+				}
+				Some(event) = self.p2p.1.recv() => {
+					println!("P2P event: {:?}", event); // TODO: remove
+
+					match event {
+						P2PEvent::PeerExpired(_) |
+						P2PEvent::PeerDiscovered(_) => {
+							ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
+							.await;
+						}
+						P2PEvent::PeerDisconnected(_) |
+						P2PEvent::PeerConnected(_) => {
+							ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers))
+							.await;
+						}
 					}
 				}
 			}
@@ -305,6 +330,21 @@ impl Node {
 						}));
 						CoreResponse::Success(())
 					}
+					// P2P
+					LibraryCommand::PairNode(peer_id) => {
+						// TODO: Add into library database
+
+						// TODO: Integrate proper pairing protocol using PAKE system to ensure we trust the remote client.
+						self.p2p.0.add_known_peer(peer_id);
+
+						ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
+							.await;
+						ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers))
+							.await;
+
+						CoreResponse::Success(())
+					}
+					LibraryCommand::UnpairNode(_peer_id) => todo!(),
 				}
 			}
 		})
@@ -325,6 +365,22 @@ impl Node {
 				CoreResponse::JobGetRunning(self.jobs.get_running().await)
 			}
 			ClientQuery::GetNodes => todo!(),
+			ClientQuery::DiscoveredPeers => CoreResponse::DiscoveredPeers(
+				self.p2p
+					.0
+					.discovered_peers()
+					.into_iter()
+					.map(|(_, v)| v.into())
+					.collect::<Vec<_>>(),
+			),
+			ClientQuery::ConnectedPeers => CoreResponse::ConnectedPeers(
+				self.p2p
+					.0
+					.connected_peers()
+					.into_iter()
+					.map(|(_, v)| (v.id, v.metadata))
+					.collect::<HashMap<_, _>>(),
+			),
 			ClientQuery::LibraryQuery { library_id, query } => {
 				let ctx = match self.library_manager.get_ctx(library_id.clone()).await {
 					Some(ctx) => ctx,
@@ -410,6 +466,9 @@ pub enum LibraryCommand {
 	GenerateThumbsForLocation { id: i32, path: String },
 	// PurgeDatabase,
 	IdentifyUniqueFiles { id: i32, path: String },
+	// P2P
+	PairNode(PeerId),
+	UnpairNode(PeerId),
 }
 
 /// is a query destined for the core
@@ -422,6 +481,8 @@ pub enum ClientQuery {
 	SysGetVolumes,
 	JobGetRunning,
 	GetNodes,
+	DiscoveredPeers,
+	ConnectedPeers,
 	LibraryQuery {
 		library_id: String,
 		query: LibraryQuery,
@@ -485,6 +546,8 @@ pub enum CoreResponse {
 	JobGetRunning(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),
 	GetLibraryStatistics(library::Statistics),
+	DiscoveredPeers(Vec<PeerCandidateTS>),
+	ConnectedPeers(HashMap<PeerId, PeerMetadata>),
 }
 
 #[derive(Error, Debug)]

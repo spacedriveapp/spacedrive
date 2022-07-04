@@ -99,6 +99,10 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		self.manager.peer_expired(self, peer_id);
 	}
 
+	pub(crate) fn get_discovered_peer(&self, peer_id: &PeerId) -> Option<PeerCandidate> {
+		self.discovered_peers.get(peer_id).map(|v| v.clone())
+	}
+
 	pub(crate) fn is_peer_connected(&self, peer_id: &PeerId) -> bool {
 		self.connected_peers.contains_key(peer_id)
 	}
@@ -126,7 +130,10 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 	/// TODO
 	pub fn add_known_peer(&self, peer_id: PeerId) {
-		self.known_peers.insert(peer_id);
+		self.known_peers.insert(peer_id.clone());
+		self.internal_channel
+			.send(NetworkManagerInternalEvent::NewKnownPeer(peer_id))
+			.unwrap();
 	}
 
 	/// TODO: Docs + Error type
@@ -163,7 +170,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	// 	}
 
 	/// returns a list of the connected peers.
-	pub async fn connected_peers(&self) -> HashMap<PeerId, Peer<TP2PManager>> {
+	pub fn connected_peers(&self) -> HashMap<PeerId, Peer<TP2PManager>> {
 		self.connected_peers.clone().into_iter().collect()
 	}
 

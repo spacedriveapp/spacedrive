@@ -7,10 +7,10 @@ license = "GNU GENERAL PUBLIC LICENSE"
 repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
 
-[features]
-p2p = [] # This feature controlls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
-
 [dependencies]
+p2p = { path = "./p2p2" }
+core-derive = { path = "./derive" }
+
 hostname = "0.3.1"
 
 # Universal Dependencies
@@ -30,7 +30,6 @@ walkdir = "^2.3.2"
 uuid = "0.8"
 sysinfo = "0.23.9"
 thiserror = "1.0.30"
-core-derive = { path = "./derive" }
 
 tokio = { version = "1.17.0", features = ["sync", "rt"] }
 include_dir = { version = "0.7.2", features = ["glob"] }

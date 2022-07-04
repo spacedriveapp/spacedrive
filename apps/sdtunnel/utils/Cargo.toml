@@ -11,3 +11,4 @@ rmp-serde = "1.1.0"
 rustls = { version = "0.20.6", default-features = false, features = ["quic", "dangerous_configuration"] } # 'dangerous_configuration' is required to implement custom certificate verifiers which we use due to the self-signed nature of the protocol.
 serde = { version = "1.0.137", features = ["derive"] }
 thiserror = "1.0.31"
+ts-rs = "6.2.0"

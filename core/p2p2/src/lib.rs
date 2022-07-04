@@ -12,3 +12,7 @@ pub use peer::*;
 pub use proto::*;
 pub use sd_tunnel_utils::PeerId;
 pub use utils::*;
+
+pub mod quinn {
+	pub use quinn::{RecvStream, SendStream};
+}

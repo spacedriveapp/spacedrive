@@ -15,6 +15,8 @@ thiserror = "1.0.31"
 mdns-sd = "0.5.3"
 quinn = "0.8.3"
 futures-util = "0.3.21"
+ts-rs = "6.2.0"
+serde = { version = "1.0.138", features = ["derive"] }
 
 [dev-dependencies]
 tokio = { version = "1.19.2", features = ["rt-multi-thread"] }
