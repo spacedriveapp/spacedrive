@@ -1,7 +1,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { ReactNode } from 'react';
 
 import Loader from '../primitive/Loader';
 

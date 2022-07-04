@@ -8,7 +8,6 @@ import React, { useEffect } from 'react';
 
 import { default as types } from '../../constants/file-types.json';
 import { useInspectorState } from '../../hooks/useInspectorState';
-import Card from '../layout/Card';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
@@ -74,87 +73,83 @@ export const Inspector = (props: {
 		// 	leaveFrom="translate-x-0"
 		// 	leaveTo="translate-x-64"
 		// >
-		<div className="flex p-2 pr-1 mr-1 pb-[51px]  w-[330px] flex-col overflow-x-hidden custom-scroll inspector-scroll">
+		<div className="flex p-2 pr-1 mr-1 pb-[51px]  w-[330px] flex-wrap overflow-x-hidden custom-scroll inspector-scroll">
 			{!!file_path && (
-				<>
-					<div className="flex w-full overflow-hidden rounded-lg select-text">
-						<div className="flex items-center justify-center w-full h-64 overflow-hidden rounded-t-lg bg-gray-50 dark:bg-gray-900">
-							<FileThumb
-								hasThumbnailOverride={false}
-								className="!m-0 flex flex-shrink flex-grow-0"
-								file={file_path}
-								locationId={props.locationId}
-							/>
-						</div>
+				<div className="flex flex-col w-full pb-2 overflow-hidden bg-white rounded-lg select-text dark:bg-gray-600 bg-opacity-70">
+					<div className="flex items-center justify-center w-full h-64 overflow-hidden rounded-t-lg bg-gray-50 dark:bg-gray-900">
+						<FileThumb
+							hasThumbnailOverride={false}
+							className="!m-0 flex flex-shrink flex-grow-0"
+							file={file_path}
+							locationId={props.locationId}
+						/>
 					</div>
-					<div className="flex flex-col px-1 py-2 mt-2 overflow-hidden bg-gray-600 border rounded-md select-text border-gray-550">
-						<h3 className="pt-2 pl-3 text-base font-bold">{file_path?.name}</h3>
-						<div className="flex flex-row m-3 space-x-2">
-							<Button size="sm" noPadding>
-								<Heart className="w-[18px] h-[18px]" />
-							</Button>
-							<Button size="sm" noPadding>
-								<ShareIcon className="w-[18px] h-[18px]" />
-							</Button>
-							<Button size="sm" noPadding>
-								<Link className="w-[18px] h-[18px]" />
-							</Button>
-						</div>
-						{file_path?.file?.cas_id && (
-							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
-						)}
-						<Divider />
-						<MetaItem title="URI" value={full_path} />
-						<Divider />
-						<MetaItem
-							title="Date Created"
-							value={moment(file_path?.date_created).format('MMMM Do YYYY, h:mm:ss a')}
-						/>
-						<Divider />
-						<MetaItem
-							title="Date Indexed"
-							value={moment(file_path?.date_indexed).format('MMMM Do YYYY, h:mm:ss a')}
-						/>
-						{!file_path?.is_dir && (
-							<>
-								<Divider />
-								<div className="flex flex-row items-center px-3 py-2 meta-item">
-									{file_path?.extension && (
-										<span className="inline px-1 mr-1 text-xs font-bold uppercase bg-gray-500 rounded-md text-gray-150">
-											{file_path?.extension}
-										</span>
-									)}
-									<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">
-										{file_path?.extension
-											? //@ts-ignore
-											  types[file_path.extension.toUpperCase()]?.descriptions.join(' / ')
-											: 'Unknown'}
-									</p>
-								</div>
-								{file_path.file && (
-									<>
-										<Divider />
-										<MetaItem
-											title="Note"
-											value={
-												<TextArea
-													className="mt-2 text-xs leading-snug !py-2"
-													value={note || ''}
-													onChange={handleNoteUpdate}
-												/>
-											}
-										/>
-									</>
+					<h3 className="pt-3 pl-3 text-base font-bold">{file_path?.name}</h3>
+					<div className="flex flex-row m-3 space-x-2">
+						<Button size="sm" noPadding>
+							<Heart className="w-[18px] h-[18px]" />
+						</Button>
+						<Button size="sm" noPadding>
+							<ShareIcon className="w-[18px] h-[18px]" />
+						</Button>
+						<Button size="sm" noPadding>
+							<Link className="w-[18px] h-[18px]" />
+						</Button>
+					</div>
+					{file_path?.file?.cas_id && (
+						<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
+					)}
+					<Divider />
+					<MetaItem title="URI" value={full_path} />
+					<Divider />
+					<MetaItem
+						title="Date Created"
+						value={moment(file_path?.date_created).format('MMMM Do YYYY, h:mm:ss a')}
+					/>
+					<Divider />
+					<MetaItem
+						title="Date Indexed"
+						value={moment(file_path?.date_indexed).format('MMMM Do YYYY, h:mm:ss a')}
+					/>
+					{!file_path?.is_dir && (
+						<>
+							<Divider />
+							<div className="flex flex-row items-center px-3 py-2 meta-item">
+								{file_path?.extension && (
+									<span className="inline px-1 mr-1 text-xs font-bold uppercase bg-gray-500 rounded-md text-gray-150">
+										{file_path?.extension}
+									</span>
 								)}
-							</>
-						)}
-						{/* <div className="flex flex-row m-3">
+								<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">
+									{file_path?.extension
+										? //@ts-ignore
+										  types[file_path.extension.toUpperCase()]?.descriptions.join(' / ')
+										: 'Unknown'}
+								</p>
+							</div>
+							{file_path.file && (
+								<>
+									<Divider />
+									<MetaItem
+										title="Note"
+										value={
+											<TextArea
+												className="mt-2 text-xs leading-snug !py-2"
+												value={note || ''}
+												onChange={handleNoteUpdate}
+											/>
+										}
+									/>
+								</>
+							)}
+						</>
+					)}
+					{/* <div className="flex flex-row m-3">
               <Button size="sm">Mint</Button>
             </div> */}
-						{/* <MetaItem title="Date Last Modified" value={file?.date_modified} />
+					{/* <MetaItem title="Date Last Modified" value={file?.date_modified} />
             <MetaItem title="Date Indexed" value={file?.date_indexed} /> */}
-					</div>
-				</>
+				</div>
 			)}
 		</div>
 		// </Transition>

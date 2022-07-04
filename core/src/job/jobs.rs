@@ -9,14 +9,12 @@ use crate::{
 use int_enum::IntEnum;
 use log::info;
 use serde::{Deserialize, Serialize};
-
 use std::{
 	collections::{HashMap, VecDeque},
 	error::Error,
 	fmt::Debug,
 	sync::Arc,
 };
-
 use tokio::sync::Mutex;
 use ts_rs::TS;
 
@@ -90,7 +88,7 @@ impl Jobs {
 	// pub async fn queue_pending_job(ctx: &LibraryContext) -> Result<(), JobError> {
 	// 	let db = &ctx.db;
 
-	// 	let next_job = db
+	// 	let _next_job = db
 	// 		.job()
 	// 		.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
 	// 		.exec()

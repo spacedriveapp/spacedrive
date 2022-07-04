@@ -234,6 +234,7 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.exec()
 		.await?;
 
+	// TODO: multi-library
 	// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
 	// 	.await;
 

@@ -1,20 +1,20 @@
-use std::collections::HashMap;
-use std::path::Path;
-use std::{fs, io};
-
-use crate::job::{Job, JobReportUpdate, JobResult};
-use crate::library::LibraryContext;
-use crate::prisma::file;
-use crate::sys::get_location;
-
 use super::checksum::generate_cas_id;
-
-use crate::{file::FileError, job::WorkerContext, prisma::file_path};
+use crate::{
+	file::FileError,
+	job::JobReportUpdate,
+	job::{Job, JobResult, WorkerContext},
+	library::LibraryContext,
+	prisma::{file, file_path},
+	sys::get_location,
+};
 use chrono::{DateTime, FixedOffset};
 use futures::executor::block_on;
 use log::info;
 use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::Path;
+use std::{fs, io};
 
 // FileIdentifierJob takes file_paths without a file_id and uniquely identifies them
 // first: generating the cas_id and extracting metadata
@@ -35,11 +35,13 @@ impl Job for FileIdentifierJob {
 	}
 
 	async fn run(&self, ctx: WorkerContext) -> JobResult {
-		println!("Identifying files");
+		info!("Identifying orphan file paths...");
+
 		let location = get_location(&ctx.library_ctx(), self.location_id).await?;
 		let location_path = location.path.unwrap_or("".to_string());
 
 		let total_count = count_orphan_file_paths(&ctx.library_ctx(), location.id.into()).await?;
+		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
 		info!("Will process {} tasks", task_count);
@@ -47,9 +49,9 @@ impl Job for FileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let db = ctx.library_ctx().db;
-
+		// dedicated tokio thread for task
 		let _ctx = tokio::task::spawn_blocking(move || {
+			let db = ctx.library_ctx().db;
 			let mut completed: usize = 0;
 			let mut cursor: i32 = 1;
 			// loop until task count is complete
@@ -179,6 +181,8 @@ impl Job for FileIdentifierJob {
 			ctx
 		})
 		.await?;
+
+		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
 		Ok(())
 	}
 }

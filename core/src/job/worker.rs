@@ -181,16 +181,19 @@ impl Worker {
 
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning))
 						.await;
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
-						.await;
+
+					// TODO: multi-library
+					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
+					// 	.await;
 					break;
 				}
 				WorkerEvent::Failed => {
 					worker.job_report.status = JobStatus::Failed;
 					worker.job_report.update(&ctx).await.unwrap_or(());
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
-						.await;
+					// TODO: multi-library
+					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
+					// 	.await;
 					break;
 				}
 			}

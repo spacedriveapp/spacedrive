@@ -49,7 +49,6 @@ async fn main() {
 
 	let mut data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
 	data_dir = data_dir.join("spacedrive");
-
 	// create an instance of the core
 	let (controller, mut event_receiver, node) = Node::new(data_dir).await;
 	tokio::spawn(node.start());

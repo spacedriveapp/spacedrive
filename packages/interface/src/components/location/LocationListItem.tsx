@@ -1,5 +1,5 @@
 import { DotsVerticalIcon, RefreshIcon } from '@heroicons/react/outline';
-import { CogIcon, TrashIcon } from '@heroicons/react/solid';
+import { TrashIcon } from '@heroicons/react/solid';
 import { useLibraryCommand } from '@sd/client';
 import { LocationResource } from '@sd/core';
 import { Button } from '@sd/ui';
@@ -7,7 +7,6 @@ import clsx from 'clsx';
 import React, { useState } from 'react';
 
 import { Folder } from '../icons/Folder';
-import Card from '../layout/Card';
 import Dialog from '../layout/Dialog';
 
 interface LocationListItemProps {
@@ -15,18 +14,20 @@ interface LocationListItemProps {
 }
 
 export default function LocationListItem({ location }: LocationListItemProps) {
-	const [showDeleteLocModal, setShowDeleteLocModal] = useState(false);
+	const [hide, setHide] = useState(false);
 
 	const { mutate: locRescan } = useLibraryCommand('LocRescan');
 
 	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryCommand('LocDelete', {
 		onSuccess: () => {
-			setShowDeleteLocModal(false);
+			setHide(true);
 		}
 	});
 
+	if (hide) return <></>;
+
 	return (
-		<Card>
+		<div className="flex w-full px-4 py-2 border border-gray-500 rounded-lg bg-gray-550">
 			<DotsVerticalIcon className="w-5 h-5 mt-3 mr-1 -ml-3 cursor-move drag-handle opacity-10" />
 			<Folder size={30} className="mr-3" />
 			<div className="flex flex-col">
@@ -38,7 +39,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 			</div>
 			<div className="flex flex-grow" />
 			<div className="flex h-[45px] p-2 space-x-2">
-				<Button disabled variant="gray" className="!py-1.5 !px-2.5 pointer-events-none flex">
+				<Button disabled variant="gray" className="!py-1.5 !px-2 pointer-events-none flex">
 					<>
 						<div
 							className={clsx(
@@ -46,11 +47,12 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 								location.is_online ? 'bg-green-500' : 'bg-red-500'
 							)}
 						/>
+						<span className="ml-1.5 text-xs text-gray-350">
+							{location.is_online ? 'Online' : 'Offline'}
+						</span>
 					</>
 				</Button>
 				<Dialog
-					open={showDeleteLocModal}
-					onOpenChange={setShowDeleteLocModal}
 					title="Delete Location"
 					description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 					ctaAction={() => {
@@ -79,6 +81,6 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					<CogIcon className="w-4 h-4" />
 				</Button> */}
 			</div>
-		</Card>
+		</div>
 	);
 }

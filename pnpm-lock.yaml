@@ -229,7 +229,7 @@ importers:
     specifiers:
       '@sd/config': workspace:*
       '@sd/core': workspace:*
-      '@sd/interface': workspace:^1.0.0
+      '@sd/interface': workspace:*
       '@types/react': ^18.0.9
       eventemitter3: ^4.0.7
       immer: ^9.0.14
@@ -6239,7 +6239,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}

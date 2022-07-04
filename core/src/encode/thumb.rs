@@ -41,14 +41,18 @@ impl Job for ThumbnailJob {
 			location.id, self.path
 		);
 
+		info!(
+			"Searching for images in location {} at path {}",
+			location.id, self.path
+		);
+
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(&thumbnail_dir)?;
 		let root_path = location.path.unwrap();
 
 		// query database for all files in this location that need thumbnails
 		let image_files = get_images(&library_ctx, self.location_id, &self.path).await?;
-		println!("Found {:?} files", image_files.len());
-
+		info!("Found {:?} files", image_files.len());
 		let is_background = self.background.clone();
 
 		tokio::task::spawn_blocking(move || {

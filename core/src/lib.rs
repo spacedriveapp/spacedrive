@@ -262,7 +262,6 @@ impl Node {
 					}
 					LibraryCommand::LocRescan { id } => {
 						sys::scan_location(&ctx, id, String::new());
-
 						CoreResponse::Success(())
 					}
 					// CRUD for files

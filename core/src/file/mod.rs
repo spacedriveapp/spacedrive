@@ -156,6 +156,7 @@ pub async fn set_note(
 		.await
 		.unwrap();
 
+	// TODO: multi-library
 	// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibGetExplorerDir {
 	// 	limit: 0,
 	// 	path: "".to_string(),
