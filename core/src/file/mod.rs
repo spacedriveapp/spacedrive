@@ -8,7 +8,7 @@ use crate::{
 	library::LibraryContext,
 	prisma::{self, file, file_path},
 	sys::SysError,
-	CoreError, CoreResponse,
+	ClientQuery, CoreError, CoreEvent, CoreResponse, LibraryQuery,
 };
 pub mod cas;
 pub mod explorer;
@@ -156,13 +156,15 @@ pub async fn set_note(
 		.await
 		.unwrap();
 
-	// TODO: multi-library
-	// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibGetExplorerDir {
-	// 	limit: 0,
-	// 	path: "".to_string(),
-	// 	location_id: 0,
-	// }))
-	// .await;
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+		library_id: ctx.id.to_string(),
+		query: LibraryQuery::LibGetExplorerDir {
+			limit: 0,
+			path: "".to_string(),
+			location_id: 0,
+		},
+	}))
+	.await;
 
 	Ok(CoreResponse::Success(()))
 }

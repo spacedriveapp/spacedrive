@@ -3,6 +3,7 @@ use crate::{
 	library::LibraryContext,
 	node::LibraryNode,
 	prisma::{file_path, location},
+	ClientQuery, CoreEvent, LibraryQuery,
 };
 use serde::{Deserialize, Serialize};
 use std::{fs, io, io::Write, path::Path};
@@ -234,9 +235,11 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.exec()
 		.await?;
 
-	// TODO: multi-library
-	// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
-	// 	.await;
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+		library_id: ctx.id.to_string(),
+		query: LibraryQuery::SysGetLocations,
+	}))
+	.await;
 
 	println!("Location {} deleted", location_id);
 

@@ -2,7 +2,7 @@ use super::{
 	jobs::{JobReport, JobReportUpdate, JobStatus},
 	Job,
 };
-use crate::{library::LibraryContext, ClientQuery, CoreEvent, InternalEvent};
+use crate::{library::LibraryContext, ClientQuery, CoreEvent, InternalEvent, LibraryQuery};
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -182,18 +182,22 @@ impl Worker {
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning))
 						.await;
 
-					// TODO: multi-library
-					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
-					// 	.await;
+					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+						library_id: ctx.id.to_string(),
+						query: LibraryQuery::JobGetHistory,
+					}))
+					.await;
 					break;
 				}
 				WorkerEvent::Failed => {
 					worker.job_report.status = JobStatus::Failed;
 					worker.job_report.update(&ctx).await.unwrap_or(());
 
-					// TODO: multi-library
-					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
-					// 	.await;
+					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+						library_id: ctx.id.to_string(),
+						query: LibraryQuery::JobGetHistory,
+					}))
+					.await;
 					break;
 				}
 			}
