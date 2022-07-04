@@ -9,6 +9,7 @@ import React, { useEffect } from 'react';
 import { default as types } from '../../constants/file-types.json';
 import { useInspectorState } from '../../hooks/useInspectorState';
 import FileThumb from './FileThumb';
+import { AppPropsContext } from '../../AppPropsContext';
 
 interface MetaItemProps {
 	title: string;
@@ -35,9 +36,11 @@ export const Inspector = (props: {
 	location?: LocationResource;
 	selectedFile?: FilePath;
 }) => {
+	const appProps = React.useContext(AppPropsContext);
+	
 	const file_path = props.selectedFile,
 		file_id = props.selectedFile?.file?.id || -1;
-		const pathSeparator = window.navigator.platform === 'Win32' ? '\\' : '/';
+		const pathSeparator = appProps?.platform === 'windows' ? '\\' : '/';
 
 		const full_path = [props.location?.path, file_path?.materialized_path].join(pathSeparator);
 
