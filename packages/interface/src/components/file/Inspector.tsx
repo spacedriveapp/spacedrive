@@ -38,11 +38,9 @@ export const Inspector = (props: {
 	
 	const file_path = props.selectedFile,
 	file_id = props.selectedFile?.file?.id || -1;
-	if (window.navigator.platform === 'Win32') {
-		var full_path = `${props.location?.path}\\${file_path?.materialized_path}`;
-	} else {
-		var full_path = `${props.location?.path}/${file_path?.materialized_path}`;
-	}
+	const pathSeparator = window.navigator.platform === 'Win32' ? '\\' : '/';
+
+	full_path = [props.location?.path, file_path?.materialized_path].join(pathSeparator);
 
 	// notes are cached in a store by their file id
 	// this is so we can ensure every note has been sent to Rust even
