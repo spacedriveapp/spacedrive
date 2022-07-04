@@ -137,7 +137,7 @@ pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationRe
 	// if on windows
 	if cfg!(target_family = "windows") {
 		// try and create a dummy file to see if we can write to this location
-		match fs::File::create(format!("{}\\{}", path.clone(), ".spacewrite")) {
+		match fs::File::create(format!("{}/{}", path.clone(), ".spacewrite")) {
 			Ok(file) => file,
 			Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
 		};
