@@ -1,38 +1,15 @@
 import { DotsVerticalIcon } from '@heroicons/react/solid';
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
-import byteSize from 'pretty-bytes';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { useKey, useWindowSize } from 'rooks';
-import create from 'zustand';
 
-import { AppPropsContext } from '../../App';
+import { AppPropsContext } from '../../AppPropsContext';
+import { useExplorerState } from '../../hooks/useExplorerState';
 import FileThumb from './FileThumb';
-
-type ExplorerState = {
-	selectedRowIndex: number;
-	setSelectedRowIndex: (index: number) => void;
-	locationId: number;
-	setLocationId: (index: number) => void;
-	newThumbnails: Record<string, boolean>;
-	addNewThumbnail: (cas_id: string) => void;
-};
-
-export const useExplorerState = create<ExplorerState>((set) => ({
-	selectedRowIndex: 1,
-	setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index })),
-	locationId: -1,
-	setLocationId: (id: number) => set((state) => ({ ...state, locationId: id })),
-	newThumbnails: {},
-	addNewThumbnail: (cas_id: string) =>
-		set((state) => ({
-			...state,
-			newThumbnails: { ...state.newThumbnails, [cas_id]: true }
-		}))
-}));
 
 interface IColumn {
 	column: string;
@@ -77,7 +54,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	const { selectedRowIndex, setSelectedRowIndex, setLocationId } = useExplorerState();
 	const [goingUp, setGoingUp] = useState(false);
 
-	const { data: currentDir } = useBridgeQuery('LibGetExplorerDir', {
+	const { data: currentDir } = useLibraryQuery('LibGetExplorerDir', {
 		location_id: props.location_id,
 		path,
 		limit: props.limit
@@ -144,7 +121,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 			<div
 				ref={tableContainer}
 				style={{ marginTop: -44 }}
-				className="w-full pl-2 bg-white cursor-default table-container dark:bg-gray-650"
+				className="w-full pl-2 bg-white cursor-default dark:bg-gray-650"
 			>
 				<LocationContext.Provider
 					value={{ location_id: props.location_id, data_path: client?.data_path as string }}
@@ -219,7 +196,7 @@ const RenderCell: React.FC<{
 	if (!file || !colKey || !dirId) return <></>;
 	const row = file;
 	if (!row) return <></>;
-	const appPropsContext = useContext(AppPropsContext);
+	const appProps = useContext(AppPropsContext);
 
 	const value = row[colKey];
 	if (!value) return <></>;

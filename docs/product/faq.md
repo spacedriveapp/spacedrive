@@ -44,7 +44,7 @@ The users that gain the most value will be creative people whose work produces o
 
 ## How will this make money?
 
-During the early development and beta stages it will rely on donations via Open Collective and Twitch. However there are plans to create a business around hosted instances of Spacedrive. Otherwise it will remain entirely open and free.
+We will offer a range of optional services related to hosting, sharing and backing up Spacedrive data, this is slightly down the line, for now we are VC funded. Spacedrive itself will always remain open source and free.
 
 ## What is the stack?
 

@@ -7,6 +7,20 @@ html {
 	}
 }
 
+.title-gradient {
+	background: linear-gradient(94.79deg, #e86aff 33.64%, #53afff 68.78%), #ffffff;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.oss-credit-gradient {
+	background: linear-gradient(90.85deg, #ffffff 8.44%, #d1d1d1 21.35%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
 .landing-img {
 	background-image: url('/app.png');
 	background-size: contain;
@@ -34,7 +48,7 @@ html {
 
 .fade-in-whats-new {
 	animation: fadeInDown 1s forwards;
-	animation-delay: 1.5s;
+	animation-delay: 600ms;
 	opacity: 0;
 }
 
@@ -46,6 +60,12 @@ html {
 }
 .animation-delay-3 {
 	animation-delay: 700ms;
+}
+.animation-delay-4 {
+	animation-delay: 1000ms;
+}
+.animation-delay-5 {
+	animation-delay: 1200ms;
 }
 
 @keyframes fadeInDown {
@@ -77,32 +97,49 @@ html {
 }
 
 .bloom {
-	@apply absolute w-96 h-96;
+	@apply absolute w-[1200px] h-[1200px] -mt-[320px];
 	will-change: opacity;
 	opacity: 0;
-	filter: blur(160px);
-	border-radius: 50%;
-	transform: scale(1.5);
-	animation-name: bloomBurst;
-	animation-duration: 1s;
+	will-change: filter opacity;
 	animation-timing-function: ease-in-out;
 	animation-fill-mode: forwards;
 	animation-iteration-count: 1;
 	animation-direction: forwards;
-	will-change: scroll-position;
+	&.burst {
+		animation-name: bloomBurst;
+		animation-duration: 1s;
+	}
+	&.subtle {
+		animation-name: bloomSubtle;
+		animation-duration: 3s;
+	}
 	&.bloom-one {
-		background: conic-gradient(from 90deg at 50% 50%, #255bef, #aa1cca);
+		@apply left-0 -ml-[300px];
+		background: url('/bloom-one.png') no-repeat center center;
+		background-size: contain;    
 		animation-delay: 300ms;
 	}
 	&.bloom-two {
-		background: conic-gradient(from 90deg at 50% 50%, #c62dbb, #1d054b);
+		@apply right-0 -mr-[300px];
+		background: url('/bloom-two.png') no-repeat center center;
+		background-size: contain;
 		animation-delay: 0ms;
 	}
 	&.bloom-three {
-		background: conic-gradient(from 90deg at 50% 50%, #6c2ca0, #0b0b98);
-		animation-delay: 600ms;
-		margin-top: 200px;
+		@apply left-auto right-auto invisible md:visible -mt-[250px] ml-24;
+		background: url('/bloom-three.png') no-repeat center center;
+		background-size: contain;
+		animation-delay: 800ms;
 	}
+	&.egg-bloom-one {
+		background: url('/egg-bloom-one.png') no-repeat center center;
+		background-size: contain;
+	}
+	&.egg-bloom-two {
+		background: url('/egg-bloom-two.png') no-repeat center center;
+		background-size: contain;
+	}
+
 }
 
 @keyframes bloomBurst {
@@ -111,6 +148,17 @@ html {
 	}
 	40% {
 		opacity: 1;
+	}
+	to {
+		opacity: 0.8;
+	}
+}
+@keyframes bloomSubtle {
+	from {
+		opacity: 0;
+	}
+	40% {
+		opacity: 0.8;
 	}
 	to {
 		opacity: 0.6;

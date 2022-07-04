@@ -31,6 +31,16 @@ class Transport extends BaseTransport {
 		});
 	}
 	async query(query: ClientQuery) {
+		if (websocket.readyState == 0) {
+			let resolve: () => void;
+			const promise = new Promise((res) => {
+				resolve = () => res(undefined);
+			});
+			// @ts-ignore
+			websocket.addEventListener('open', resolve);
+			await promise;
+		}
+
 		const id = randomId();
 		let resolve: (data: any) => void;
 
@@ -72,7 +82,6 @@ function App() {
 			{/* <header className="App-header"></header> */}
 			<SpacedriveInterface
 				demoMode
-				useMemoryRouter={true}
 				transport={new Transport()}
 				platform={'browser'}
 				convertFileSrc={function (url: string): string {

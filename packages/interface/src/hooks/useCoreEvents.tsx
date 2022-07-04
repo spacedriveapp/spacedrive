@@ -3,8 +3,8 @@ import { CoreEvent } from '@sd/core';
 import { useContext, useEffect } from 'react';
 import { useQueryClient } from 'react-query';
 
-import { AppPropsContext } from '../App';
-import { useExplorerState } from '../components/file/FileList';
+import { AppPropsContext } from '../AppPropsContext';
+import { useExplorerState } from './useExplorerState';
 
 export function useCoreEvents() {
 	const client = useQueryClient();
@@ -18,15 +18,30 @@ export function useCoreEvents() {
 					break;
 				case 'InvalidateQuery':
 				case 'InvalidateQueryDebounced':
-					let query = [e.data.key];
-					// TODO: find a way to make params accessible in TS
-					// also this method will only work for queries that use the whole params obj as the second key
-					// @ts-expect-error
-					if (e.data.params) {
+					let query = [];
+					if (e.data.key === 'LibraryQuery') {
+						query = [e.data.params.library_id, e.data.params.query.key];
+
+						// TODO: find a way to make params accessible in TS
+						// also this method will only work for queries that use the whole params obj as the second key
 						// @ts-expect-error
-						query.push(e.data.params);
+						if (e.data.params.query.params) {
+							// @ts-expect-error
+							query.push(e.data.params.query.params);
+						}
+					} else {
+						query = [e.data.key];
+
+						// TODO: find a way to make params accessible in TS
+						// also this method will only work for queries that use the whole params obj as the second key
+						// @ts-expect-error
+						if (e.data.params) {
+							// @ts-expect-error
+							query.push(e.data.params);
+						}
 					}
-					client.invalidateQueries(e.data.key);
+
+					client.invalidateQueries(query);
 					break;
 
 				default:

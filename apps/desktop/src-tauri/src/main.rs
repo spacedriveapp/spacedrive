@@ -1,17 +1,15 @@
 use std::time::{Duration, Instant};
 
-use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
-use tauri::api::path;
-use tauri::Manager;
-
+use dotenvy::dotenv;
+use sdcore::{ClientCommand, ClientQuery, CoreEvent, CoreResponse, Node, NodeController};
+use tauri::{api::path, Manager};
+#[cfg(target_os = "macos")]
+mod macos;
 mod menu;
-mod window;
-
-use window::WindowExt;
 
 #[tauri::command(async)]
 async fn client_query_transport(
-	core: tauri::State<'_, CoreController>,
+	core: tauri::State<'_, NodeController>,
 	data: ClientQuery,
 ) -> Result<CoreResponse, String> {
 	match core.query(data).await {
@@ -25,7 +23,7 @@ async fn client_query_transport(
 
 #[tauri::command(async)]
 async fn client_command_transport(
-	core: tauri::State<'_, CoreController>,
+	core: tauri::State<'_, NodeController>,
 	data: ClientCommand,
 ) -> Result<CoreResponse, String> {
 	match core.command(data).await {
@@ -42,34 +40,31 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 	let window = app_handle.get_window("main").unwrap();
 
 	window.show().unwrap();
-
-	#[cfg(target_os = "macos")]
-	{
-		std::thread::sleep(std::time::Duration::from_millis(1000));
-		println!("fixing shadow for, {:?}", window.ns_window().unwrap());
-		window.fix_shadow();
-	}
 }
 
 #[tokio::main]
 async fn main() {
-	let data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
+	dotenv().ok();
+	env_logger::init();
+
+	let mut data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
+	data_dir = data_dir.join("spacedrive");
 	// create an instance of the core
-	let (mut node, mut event_receiver) = Node::new(data_dir).await;
-	// run startup tasks
-	node.initializer().await;
-	// extract the node controller
-	let controller = node.get_controller();
-	// throw the node into a dedicated thread
-	tokio::spawn(async move {
-		node.start().await;
-	});
+	let (controller, mut event_receiver, node) = Node::new(data_dir).await;
+	tokio::spawn(node.start());
 	// create tauri app
 	tauri::Builder::default()
 		// pass controller to the tauri state manager
 		.manage(controller)
 		.setup(|app| {
 			let app = app.handle();
+
+			#[cfg(target_os = "macos")]
+			{
+				use macos::{lock_app_theme, AppThemeType};
+
+				lock_app_theme(AppThemeType::Dark as _);
+			}
 
 			app.windows().iter().for_each(|(_, window)| {
 				window.hide().unwrap();
@@ -78,7 +73,13 @@ async fn main() {
 				window.set_decorations(true).unwrap();
 
 				#[cfg(target_os = "macos")]
-				window.set_transparent_titlebar(true, true);
+				{
+					use macos::*;
+
+					let window = window.ns_window().unwrap();
+					set_titlebar_style(window, true, true);
+					blur_window_background(window);
+				}
 			});
 
 			// core event transport
@@ -104,7 +105,6 @@ async fn main() {
 			Ok(())
 		})
 		.on_menu_event(|event| menu::handle_menu_event(event))
-		.on_window_event(|event| window::handle_window_event(event))
 		.invoke_handler(tauri::generate_handler![
 			client_query_transport,
 			client_command_transport,

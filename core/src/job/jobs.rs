@@ -3,27 +3,35 @@ use super::{
 	JobError,
 };
 use crate::{
-	node::get_nodestate,
+	library::LibraryContext,
 	prisma::{job, node},
-	CoreContext,
 };
 use int_enum::IntEnum;
+use log::info;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{
+	collections::{HashMap, VecDeque},
+	error::Error,
+	fmt::Debug,
+	sync::Arc,
+};
 use tokio::sync::Mutex;
 use ts_rs::TS;
 
-const MAX_WORKERS: usize = 4;
+// db is single threaded, nerd
+const MAX_WORKERS: usize = 1;
+
+pub type JobResult = Result<(), Box<dyn Error + Send + Sync>>;
 
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>>;
+	async fn run(&self, ctx: WorkerContext) -> JobResult;
 	fn name(&self) -> &'static str;
 }
 
 // jobs struct is maintained by the core
 pub struct Jobs {
-	job_queue: Vec<Box<dyn Job>>,
+	job_queue: VecDeque<Box<dyn Job>>,
 	// workers are spawned when jobs are picked off the queue
 	running_workers: HashMap<String, Arc<Mutex<Worker>>>,
 }
@@ -31,13 +39,16 @@ pub struct Jobs {
 impl Jobs {
 	pub fn new() -> Self {
 		Self {
-			job_queue: vec![],
+			job_queue: VecDeque::new(),
 			running_workers: HashMap::new(),
 		}
 	}
-	pub async fn ingest(&mut self, ctx: &CoreContext, job: Box<dyn Job>) {
+
+	pub async fn ingest(&mut self, ctx: &LibraryContext, job: Box<dyn Job>) {
 		// create worker to process job
 		if self.running_workers.len() < MAX_WORKERS {
+			info!("Running job: {:?}", job.name());
+
 			let worker = Worker::new(job);
 			let id = worker.id();
 
@@ -47,21 +58,23 @@ impl Jobs {
 
 			self.running_workers.insert(id, wrapped_worker);
 		} else {
-			self.job_queue.push(job);
+			self.job_queue.push_back(job);
 		}
 	}
-	pub fn ingest_queue(&mut self, _ctx: &CoreContext, job: Box<dyn Job>) {
-		self.job_queue.push(job);
+
+	pub fn ingest_queue(&mut self, _ctx: &LibraryContext, job: Box<dyn Job>) {
+		self.job_queue.push_back(job);
 	}
-	pub async fn complete(&mut self, ctx: &CoreContext, job_id: String) {
+	pub async fn complete(&mut self, ctx: &LibraryContext, job_id: String) {
 		// remove worker from running workers
 		self.running_workers.remove(&job_id);
 		// continue queue
-		let job = self.job_queue.pop();
+		let job = self.job_queue.pop_front();
 		if let Some(job) = job {
 			self.ingest(ctx, job).await;
 		}
 	}
+
 	pub async fn get_running(&self) -> Vec<JobReport> {
 		let mut ret = vec![];
 
@@ -71,8 +84,21 @@ impl Jobs {
 		}
 		ret
 	}
-	pub async fn get_history(ctx: &CoreContext) -> Result<Vec<JobReport>, JobError> {
-		let db = &ctx.database;
+
+	// pub async fn queue_pending_job(ctx: &LibraryContext) -> Result<(), JobError> {
+	// 	let db = &ctx.db;
+
+	// 	let _next_job = db
+	// 		.job()
+	// 		.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
+	// 		.exec()
+	// 		.await?;
+
+	// 	Ok(())
+	// }
+
+	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, JobError> {
+		let db = &ctx.db;
 		let jobs = db
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
@@ -96,6 +122,7 @@ pub enum JobReportUpdate {
 pub struct JobReport {
 	pub id: String,
 	pub name: String,
+	pub data: Option<String>,
 	// client_id: i32,
 	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
@@ -124,6 +151,7 @@ impl Into<JobReport> for job::Data {
 			completed_task_count: self.completed_task_count,
 			date_created: self.date_created.into(),
 			date_modified: self.date_modified.into(),
+			data: self.data,
 			message: String::new(),
 			seconds_elapsed: self.seconds_elapsed,
 		}
@@ -140,28 +168,35 @@ impl JobReport {
 			date_modified: chrono::Utc::now(),
 			status: JobStatus::Queued,
 			task_count: 0,
+			data: None,
 			completed_task_count: 0,
 			message: String::new(),
 			seconds_elapsed: 0,
 		}
 	}
-	pub async fn create(&self, ctx: &CoreContext) -> Result<(), JobError> {
-		let config = get_nodestate();
-		ctx.database
+
+	pub async fn create(&self, ctx: &LibraryContext) -> Result<(), JobError> {
+		let mut params = Vec::new();
+
+		if let Some(_) = &self.data {
+			params.push(job::data::set(self.data.clone()))
+		}
+
+		ctx.db
 			.job()
 			.create(
 				job::id::set(self.id.clone()),
 				job::name::set(self.name.clone()),
 				job::action::set(1),
-				job::nodes::link(node::id::equals(config.node_id)),
-				vec![],
+				job::nodes::link(node::id::equals(ctx.node_local_id)),
+				params,
 			)
 			.exec()
 			.await?;
 		Ok(())
 	}
-	pub async fn update(&self, ctx: &CoreContext) -> Result<(), JobError> {
-		ctx.database
+	pub async fn update(&self, ctx: &LibraryContext) -> Result<(), JobError> {
+		ctx.db
 			.job()
 			.find_unique(job::id::equals(self.id.clone()))
 			.update(vec![

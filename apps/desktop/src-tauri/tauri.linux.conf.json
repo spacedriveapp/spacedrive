@@ -6,26 +6,27 @@
 	"build": {
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
-		"beforeDevCommand": "",
-		"beforeBuildCommand": ""
+		"beforeDevCommand": "pnpm exec vite --clearScreen=false",
+		"beforeBuildCommand": "pnpm exec vite build"
 	},
 	"tauri": {
+		"macOSPrivateApi": true,
 		"bundle": {
 			"active": true,
 			"targets": "all",
-			"identifier": "co.spacedrive.desktop",
+			"identifier": "com.spacedrive.desktop",
 			"icon": ["icons/icon.icns"],
 			"resources": [],
 			"externalBin": [],
-			"copyright": "Jamie Pine",
-			"shortDescription": "Your personal virtual cloud.",
-			"longDescription": "Spacedrive is an open source virtual filesystem, a personal cloud powered by your everyday devices. Feature-rich benefits of the cloud, only its owned and hosted by you with security, privacy and ownership as a foundation. Spacedrive makes it possible to create a limitless directory of your digital life that will stand the test of time.",
+			"copyright": "Spacedrive Technology Inc.",
+			"shortDescription": "The universal file manager.",
+			"longDescription": "A cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
 			"deb": {
 				"depends": []
 			},
 			"macOS": {
 				"frameworks": [],
-				"minimumSystemVersion": "",
+				"minimumSystemVersion": "10.14",
 				"exceptionDomain": "",
 				"signingIdentity": null,
 				"entitlements": null
@@ -41,6 +42,9 @@
 		},
 		"allowlist": {
 			"all": true,
+			"protocol": {
+				"assetScope": ["*"]
+			},
 			"os": {
 				"all": true
 			},
@@ -53,15 +57,17 @@
 		"windows": [
 			{
 				"title": "Spacedrive",
-				"width": 1250,
-				"height": 625,
+				"width": 1200,
+				"height": 725,
+				"minWidth": 700,
+				"minHeight": 500,
 				"resizable": true,
 				"fullscreen": false,
 				"alwaysOnTop": false,
-				"focus": true,
+				"focus": false,
 				"fileDropEnabled": false,
 				"decorations": true,
-				"transparent": false,
+				"transparent": true,
 				"center": true
 			}
 		],

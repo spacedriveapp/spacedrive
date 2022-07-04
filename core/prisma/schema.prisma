@@ -35,21 +35,9 @@ model SyncEvent {
     @@map("sync_events")
 }
 
-model Library {
-    id           Int      @id @default(autoincrement())
-    pub_id       String   @unique
-    name         String
-    is_primary   Boolean  @default(true)
-    date_created DateTime @default(now())
-    timezone     String?
-
-    @@map("libraries")
-}
-
-model LibraryStatistics {
+model Statistics {
     id                   Int      @id @default(autoincrement())
     date_captured        DateTime @default(now())
-    library_id           Int      @unique
     total_file_count     Int      @default(0)
     library_db_size      String   @default("0")
     total_bytes_used     String   @default("0")
@@ -58,7 +46,7 @@ model LibraryStatistics {
     total_bytes_free     String   @default("0")
     preview_media_bytes  String   @default("0")
 
-    @@map("library_statistics")
+    @@map("statistics")
 }
 
 model Node {
@@ -74,6 +62,7 @@ model Node {
     sync_events SyncEvent[]
     jobs        Job[]
 
+    Location Location[]
     @@map("nodes")
 }
 
@@ -107,14 +96,14 @@ model Location {
     is_online          Boolean  @default(true)
     date_created       DateTime @default(now())
 
+    node       Node?      @relation(fields: [node_id], references: [id])
     file_paths FilePath[]
     @@map("locations")
 }
 
 model File {
     id                 Int      @id @default(autoincrement())
-    // content addressable storage id - sha256
-    // this does not need to be unique, as incoming replicas will always ignore if at least one exists
+    // content addressable storage id - sha256 sampled checksum
     cas_id             String   @unique
     // full byte contents digested into sha256 checksum
     integrity_checksum String?  @unique
@@ -132,8 +121,8 @@ model File {
     has_video_preview  Boolean  @default(false)
     // integration with ipfs
     ipfs_id            String?
-    // plain text comment
-    comment            String?
+    // plain text note
+    note               String?
     // the original known creation date of this file
     date_created       DateTime @default(now())
     // the last time this file was modified
@@ -157,7 +146,7 @@ model FilePath {
     id                Int     @id @default(autoincrement())
     is_dir            Boolean @default(false)
     // location that owns this path
-    location_id       Int
+    location_id       Int?
     // a path generated from local file_path ids eg: "34/45/67/890"
     materialized_path String
     // the name and extension
@@ -175,14 +164,17 @@ model FilePath {
     date_modified DateTime @default(now())
     date_indexed  DateTime @default(now())
 
-    file     File?      @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-    location Location?  @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-    parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id])
-    children FilePath[] @relation("directory_file_paths")
+    file     File?     @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    location Location? @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
+    // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    // children FilePath[] @relation("directory_file_paths")
 
     key Key? @relation(fields: [key_id], references: [id])
 
     @@unique([location_id, materialized_path, name, extension])
+    @@index([location_id])
     @@map("file_paths")
 }
 
@@ -282,11 +274,12 @@ model LabelOnFile {
 }
 
 model Job {
-    id      String @id
+    id      String  @id
     name    String
     node_id Int
     action  Int
-    status  Int    @default(0)
+    status  Int     @default(0)
+    data    String?
 
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)

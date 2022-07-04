@@ -5,13 +5,13 @@ on:
   push:
     branches:
       - main
-      - new-ci
     paths-ignore:
       - '**/.md'
   workflow_dispatch:
 
 env:
   CARGO_INCREMENTAL: 1
+  SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
 jobs:
   typescript:
@@ -19,153 +19,69 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Setup Node
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 17
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.1
+        uses: pnpm/action-setup@v2.2.2
         with:
           version: 7.x.x
+          run_install: false
 
-      - name: Install dependencies
-        run: pnpm i --frozen-lockfile
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
+      
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install pnpm dependencies
+        run: pnpm --frozen-lockfile i
 
       - name: Perform typechecks
         run: pnpm typecheck
 
-  build-js:
-    name: Build JS
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Setup Node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 17
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.1
-        with:
-          version: 7.x.x
-
-      - name: Install dependencies
-        run: pnpm i --frozen-lockfile
-
-      - name: Build Desktop
-        run: pnpm desktop build
-
-      - name: Build Web
-        run: pnpm web build
-
   build-core:
     name: Build Core (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
+    needs: typescript
     strategy:
       fail-fast: true
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
     steps:
+      - name: Log in to the Container registry
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Install dependencies
-        uses: ./.github/actions/install-deps
-
-      - name: Setup Node
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 17
-
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          components: rustfmt, rust-src
-
-      - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@v1
-        with:
-          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Generate Prisma client
-        working-directory: core
-        run: cargo run -p prisma-cli --release -- generate
-
-      - name: Build Core
-        run: cargo build -p sdcore --release
-
-  package-desktop:
-    name: Package desktop (${{ matrix.platform }})
-    runs-on: ${{ matrix.platform }}
-    needs: [typescript, build-js, build-core]
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Install dependencies
-        uses: ./.github/actions/install-deps
-
-      - name: Setup Node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 17
-
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          components: rustfmt, rust-src
-
-      - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@v1
-        with:
-          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.1
+        uses: pnpm/action-setup@v2.0.1
         with:
-          version: 7.x.x
-
-      - name: Install pnpm dependencies
-        run: pnpm i --frozen-lockfile
-
-      - name: Build frontend
-        run: pnpm desktop build
-
-      - name: Generate Prisma client
-        working-directory: core
-        run: cargo run -p prisma-cli --release -- generate
-
-      - name: Bundle
-        run: pnpm desktop tauri build
-
-      - name: Publish artifacts
-        uses: ./.github/actions/publish-desktop-artifacts
-
-  build-server:
-    name: Build server
-    runs-on: ubuntu-latest
-    needs: build-core
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Install dependencies
-        uses: ./.github/actions/install-deps
-
+          version: 7
+          run_install: false
+      
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
@@ -173,31 +89,96 @@ jobs:
           profile: minimal
           override: true
           components: rustfmt, rust-src
-
+      
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v1
         with:
           sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Run 'setup-system.sh' script
+        if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
+        run: ./.github/scripts/setup-system.sh
+      
+      - name: Run 'setup-system.ps1' script
+        if: matrix.platform == 'windows-latest'
+        run: ./.github/scripts/setup-system.ps1
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install pnpm dependencies
+        run: pnpm --frozen-lockfile i
+      
+      - name: Cache Prisma codegen
+        id: cache-prisma
+        uses: actions/cache@v3
+        with:
+          path: ./core/src/prisma.rs
+          key: prisma-${{ hashFiles('./core/prisma/Cargo.toml', './core/prisma/schema.prisma', './core/prisma/src/main.rs') }}
+
       - name: Generate Prisma client
         working-directory: core
-        run: cargo run -p prisma-cli --release -- generate
+        if: steps.cache-prisma.outputs.cache-hit != 'true'
+        run: cargo run --frozen -p prisma-cli --release -- generate
 
-      - name: Build server image
-        uses: ./.github/actions/build-server-image
-        with:
-          gh_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cargo fetch
+        run: cargo fetch
 
-  deploy-server:
-    name: Deploy Server
-    runs-on: ubuntu-latest
-    needs: build-server
-    if: github.event_name != 'pull_request'
-    steps:
-      - name: Deploy Spacedrive Server to Kubernetes
-        env:
-          K8S_KUBECONFIG: ${{ secrets.K8S_KUBECONFIG }}
+      - name: Check Core
+        run: cargo check --frozen -p sdcore --release
+
+      - name: Bundle Desktop
+        run: pnpm desktop tauri build
+
+      - name: Build Server
+        if: matrix.platform == 'ubuntu-latest'
         run: |
-          mkdir -p ~/.kube
-          echo "$K8S_KUBECONFIG" > ~/.kube/config 2>&1
-          kubectl rollout restart deployment/sdserver-deployment
+          cargo build --frozen -p server --release
+          cp ./target/release/server ./apps/server/server
+
+      - name: Determine image name & tag
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" == "release" ]; then
+            export IMAGE_TAG=${GITHUB_REF##*/}
+          else
+            export IMAGE_TAG=$(git rev-parse --short "$GITHUB_SHA")
+          fi
+          export GITHUB_REPOSITORY_LOWER=$(echo $GITHUB_REPOSITORY | awk '{print tolower($0)}')
+          export IMAGE_NAME="ghcr.io/$GITHUB_REPOSITORY_LOWER/server"
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "Building $IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Build Docker image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        run: |
+          docker build ./apps/server --tag $IMAGE_NAME:$IMAGE_TAG
+
+      - name: Push Docker image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        run: |
+          docker push $IMAGE_NAME:$IMAGE_TAG
+
+      - name: Tag & push image as latest staging image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request' && github.event_name != 'release'
+        run: |
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:staging
+          docker push $IMAGE_NAME:staging
+
+      - name: Tag & push image as latest production image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name == 'release'
+        run: |
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:production
+          docker push $IMAGE_NAME:production
+
+      - name: Publish artifacts
+        uses: ./.github/actions/publish-artifacts

@@ -6,7 +6,9 @@
 	"main": "src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
-		"./types": "./src/types"
+		"./types": "./src/types",
+		"./assets/*": "./src/assets/*",
+		"./components/*": "./src/components/*"
 	},
 	"scripts": {
 		"icons": "./scripts/generateSvgImports.mjs"
@@ -30,6 +32,7 @@
 		"clsx": "^1.1.1",
 		"immer": "^9.0.14",
 		"jotai": "^1.7.0",
+		"lodash": "^4.17.21",
 		"moment": "^2.29.3",
 		"phosphor-react": "^1.4.1",
 		"pretty-bytes": "^6.0.0",
@@ -52,6 +55,7 @@
 		"react-virtuoso": "^2.12.1",
 		"rooks": "^5.11.2",
 		"tailwindcss": "^3.0.24",
+		"use-debounce": "^8.0.1",
 		"zustand": "4.0.0-rc.1"
 	},
 	"devDependencies": {

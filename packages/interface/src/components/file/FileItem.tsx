@@ -27,6 +27,7 @@ export default function FileItem(props: Props) {
 	//     />
 	//   );
 	// };
+
 	return (
 		<WithContextMenu
 			menu={[
@@ -115,11 +116,9 @@ export default function FileItem(props: Props) {
 								<path d="M41.4116 40.5577H11.234C5.02962 40.5577 0 35.5281 0 29.3238V0L41.4116 40.5577Z" />
 							</svg>
 							<div className="absolute flex flex-col items-center justify-center w-full h-full">
-								{/* @ts-ignore */}
-								{props.iconName && icons[props.iconName] ? (
+								{props.iconName && icons[props.iconName as keyof typeof icons] ? (
 									(() => {
-										// @ts-ignore
-										let Icon = icons[props.iconName];
+										const Icon = icons[props.iconName as keyof typeof icons];
 										return (
 											<Icon className="mt-2 pointer-events-none margin-auto w-[40px] h-[40px]" />
 										);

@@ -1,14 +1,17 @@
 [package]
 name = "sdcore"
 version = "0.1.0"
-description = "A virtual distributed filesystem."
-authors = ["Jamie Pine"]
+description = "Virtual distributed filesystem engine that powers Spacedrive."
+authors = ["Spacedrive Technology Inc."]
 license = "GNU GENERAL PUBLIC LICENSE"
 repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
 
+[features]
+p2p = [] # This feature controlls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
+
 [dependencies]
-core-derive = { path = "./derive" }
+hostname = "0.3.1"
 
 # Universal Dependencies
 base64 = "0.13.0"
@@ -21,22 +24,20 @@ ring = "0.17.0-alpha.10"
 int-enum = "0.4.0"
 
 # Project dependencies
-ts-rs = { version = "6.1", features = ["chrono-impl"] }
+ts-rs = { version = "6.1", features = ["chrono-impl", "uuid-impl"] }
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
 walkdir = "^2.3.2"
-libp2p = "0.45.0"
-lazy_static = "1.4.0"
 uuid = "0.8"
 sysinfo = "0.23.9"
 thiserror = "1.0.30"
+core-derive = { path = "./derive" }
 
 tokio = { version = "1.17.0", features = ["sync", "rt"] }
-include_dir = {version = "0.7.2", features = ["glob"]}
+include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
-uhlc = "0.4.1"
 ffmpeg-next = "5.0.3"
 fs_extra = "1.2.0"
-dashmap = "5.3.4"
-hostname = "0.3.1"
+log = { version = "0.4.17", features = ["max_level_trace"] }
+env_logger = "0.9.0"

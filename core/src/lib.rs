@@ -1,13 +1,13 @@
-use crate::{
-	file::cas::FileIdentifierJob, library::get_library_path, node::NodeState, p2p::NetworkManager,
-	util::db::create_connection,
-};
+use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
 use job::{Job, JobReport, Jobs};
-use libp2p::PeerId;
-use p2p::NetworkManagerState;
-use prisma::PrismaClient;
+use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
+use node::{NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
-use std::{fs, str::FromStr, sync::Arc};
+use std::{
+	fs,
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 use thiserror::Error;
 use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -22,7 +22,6 @@ mod file;
 mod job;
 mod library;
 mod node;
-mod p2p;
 mod prisma;
 mod sys;
 mod util;
@@ -35,12 +34,12 @@ pub struct ReturnableMessage<D, R = Result<CoreResponse, CoreError>> {
 }
 
 // core controller is passed to the client to communicate with the core which runs in a dedicated thread
-pub struct CoreController {
+pub struct NodeController {
 	query_sender: UnboundedSender<ReturnableMessage<ClientQuery>>,
 	command_sender: UnboundedSender<ReturnableMessage<ClientCommand>>,
 }
 
-impl CoreController {
+impl NodeController {
 	pub async fn query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
 		// a one time use channel to send and await a response
 		let (sender, recv) = oneshot::channel();
@@ -75,14 +74,13 @@ pub enum InternalEvent {
 }
 
 #[derive(Clone)]
-pub struct CoreContext {
-	pub database: Arc<PrismaClient>,
+pub struct NodeContext {
 	pub event_sender: mpsc::Sender<CoreEvent>,
 	pub internal_sender: UnboundedSender<InternalEvent>,
-	pub network_manager: Arc<NetworkManager>,
+	pub config: Arc<NodeConfigManager>,
 }
 
-impl CoreContext {
+impl NodeContext {
 	pub fn spawn_job(&self, job: Box<dyn Job>) {
 		self.internal_sender
 			.send(InternalEvent::JobIngest(job))
@@ -90,13 +88,15 @@ impl CoreContext {
 				println!("Failed to spawn job. {:?}", e);
 			});
 	}
+
 	pub fn queue_job(&self, job: Box<dyn Job>) {
 		self.internal_sender
-			.send(InternalEvent::JobIngest(job))
+			.send(InternalEvent::JobQueue(job))
 			.unwrap_or_else(|e| {
 				println!("Failed to queue job. {:?}", e);
 			});
 	}
+
 	pub async fn emit(&self, event: CoreEvent) {
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
 			println!("Failed to emit event. {:?}", e);
@@ -105,12 +105,9 @@ impl CoreContext {
 }
 
 pub struct Node {
-	state: NodeState,
+	config: Arc<NodeConfigManager>,
+	library_manager: Arc<LibraryManager>,
 	jobs: job::Jobs,
-	database: Arc<PrismaClient>,
-	network_manager: Arc<NetworkManager>,
-	// filetype_registry: library::TypeRegistry,
-	// extension_registry: library::ExtensionRegistry,
 
 	// global messaging channels
 	query_channel: (
@@ -132,78 +129,56 @@ pub struct Node {
 
 impl Node {
 	// create new instance of node, run startup tasks
-	pub async fn new(mut data_dir: std::path::PathBuf) -> (Node, mpsc::Receiver<CoreEvent>) {
+	pub async fn new(data_dir: PathBuf) -> (NodeController, mpsc::Receiver<CoreEvent>, Node) {
+		fs::create_dir_all(&data_dir).unwrap();
+
 		let (event_sender, event_recv) = mpsc::channel(100);
 
-		data_dir = data_dir.join("spacedrive");
-		let data_dir = data_dir.to_str().unwrap();
-		// create data directory if it doesn't exist
-		fs::create_dir_all(&data_dir).unwrap();
-		// prepare basic client state
-		let mut state = NodeState::new(data_dir, "diamond-mastering-space-dragon").unwrap();
-		// load from disk
-		state
-			.read_disk()
-			.unwrap_or(println!("Error: No node state found, creating new one..."));
+		let internal_channel = unbounded_channel();
+		let config = NodeConfigManager::new(data_dir.clone()).await.unwrap();
 
-		state.save();
-
-		println!("Node State: {:?}", state);
-
-		// connect to default library
-		let database = Arc::new(
-			create_connection(&get_library_path(&data_dir))
-				.await
-				.unwrap(),
-		);
-
-		let network_manager = NetworkManager::new(state.clone(), database.clone())
-			.await
-			.unwrap();
-		println!(
-			"P2P Listening with id '{}'",
-			network_manager.peer_id().to_base58()
-		);
-
-		let internal_channel = unbounded_channel::<InternalEvent>();
+		let node_ctx = NodeContext {
+			event_sender: event_sender.clone(),
+			internal_sender: internal_channel.0.clone(),
+			config: config.clone(),
+		};
 
 		let node = Node {
-			state,
+			config,
+			library_manager: LibraryManager::new(Path::new(&data_dir).join("libraries"), node_ctx)
+				.await
+				.unwrap(),
 			query_channel: unbounded_channel(),
 			command_channel: unbounded_channel(),
-			network_manager,
 			jobs: Jobs::new(),
 			event_sender,
-			database,
 			internal_channel,
 		};
 
-		#[cfg(feature = "p2p")]
-		tokio::spawn(async move {
-			p2p::listener::listen(None).await.unwrap_or(());
-		});
-
-		(node, event_recv)
+		(
+			NodeController {
+				query_sender: node.query_channel.0.clone(),
+				command_sender: node.command_channel.0.clone(),
+			},
+			event_recv,
+			node,
+		)
 	}
 
-	pub fn get_context(&self) -> CoreContext {
-		CoreContext {
-			database: self.database.clone(),
+	pub fn get_context(&self) -> NodeContext {
+		NodeContext {
 			event_sender: self.event_sender.clone(),
 			internal_sender: self.internal_channel.0.clone(),
-			network_manager: self.network_manager.clone(),
+			config: self.config.clone(),
 		}
 	}
 
-	pub fn get_controller(&self) -> CoreController {
-		CoreController {
-			query_sender: self.query_channel.0.clone(),
-			command_sender: self.command_channel.0.clone(),
-		}
-	}
-
-	pub async fn start(&mut self) {
-		let ctx = self.get_context();
+	pub async fn start(mut self) {
+		let ctx = self
+			.library_manager
+			.dangerously_get_first_ctx()
+			.await
+			.unwrap();
 		loop {
 			// listen on global messaging channels for incoming messages
 			tokio::select! {
@@ -231,147 +206,195 @@ impl Node {
 			}
 		}
 	}
-	// load library database + initialize client with db
-	pub async fn initializer(&self) {
-		println!("Initializing...");
-		let ctx = self.get_context();
-
-		if self.state.libraries.len() == 0 {
-			match library::create(&ctx, None).await {
-				Ok(library) => println!("Created new library: {:?}", library),
-				Err(e) => println!("Error creating library: {:?}", e),
-			}
-		} else {
-			for library in self.state.libraries.iter() {
-				// init database for library
-				match library::load(&ctx, &library.library_path, &library.library_uuid).await {
-					Ok(library) => println!("Loaded library: {:?}", library),
-					Err(e) => println!("Error loading library: {:?}", e),
-				}
-			}
-		}
-		// init node data within library
-		match node::LibraryNode::create(&self).await {
-			Ok(_) => println!("Spacedrive online"),
-			Err(e) => println!("Error initializing node: {:?}", e),
-		};
-	}
 
 	async fn exec_command(&mut self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
-		println!("Core command: {:?}", cmd);
-		let ctx = self.get_context();
 		Ok(match cmd {
-			// CRUD for locations
-			ClientCommand::LocCreate { path } => {
-				let loc = sys::new_location_and_scan(&ctx, &path).await?;
-				// ctx.queue_job(Box::new(FileIdentifierJob));
-				CoreResponse::LocCreate(loc)
-			}
-			ClientCommand::LocUpdate { id: _, name: _ } => todo!(),
-			ClientCommand::LocDelete { id: _ } => todo!(),
-			// CRUD for files
-			ClientCommand::FileRead { id: _ } => todo!(),
-			// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
-			ClientCommand::FileDelete { id: _ } => todo!(),
-			// CRUD for tags
-			ClientCommand::TagCreate { name: _, color: _ } => todo!(),
-			ClientCommand::TagAssign {
-				file_id: _,
-				tag_id: _,
-			} => todo!(),
-			ClientCommand::TagDelete { id: _ } => todo!(),
-			// CRUD for libraries
-			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
-			ClientCommand::LibDelete { id: _ } => todo!(),
-			ClientCommand::TagUpdate { name: _, color: _ } => todo!(),
-			ClientCommand::GenerateThumbsForLocation { id, path } => {
-				ctx.spawn_job(Box::new(ThumbnailJob {
-					location_id: id,
-					path,
-					background: false, // fix
-				}));
+			ClientCommand::CreateLibrary { name } => {
+				self.library_manager
+					.create(LibraryConfig {
+						name: name.to_string(),
+						..Default::default()
+					})
+					.await
+					.unwrap();
 				CoreResponse::Success(())
 			}
-			// ClientCommand::PurgeDatabase => {
-			//   println!("Purging database...");
-			//   fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
-			//   CoreResponse::Success(())
-			// }
-			ClientCommand::IdentifyUniqueFiles { id, path } => {
-				ctx.spawn_job(Box::new(FileIdentifierJob {
-					location_id: id,
-					path,
-				}));
+			ClientCommand::EditLibrary {
+				id,
+				name,
+				description,
+			} => {
+				self.library_manager
+					.edit_library(id, name, description)
+					.await
+					.unwrap();
 				CoreResponse::Success(())
 			}
-			ClientCommand::PairNode { id } => match PeerId::from_str(&id) {
-				Ok(peer_id) => {
-					ctx.network_manager.pair(peer_id).await.unwrap();
-					CoreResponse::Success(())
+			ClientCommand::DeleteLibrary { id } => {
+				self.library_manager.delete_library(id).await.unwrap();
+				CoreResponse::Success(())
+			}
+			ClientCommand::LibraryCommand {
+				library_id,
+				command,
+			} => {
+				let ctx = self.library_manager.get_ctx(library_id).await.unwrap();
+				match command {
+					// CRUD for locations
+					LibraryCommand::LocCreate { path } => {
+						let loc = sys::new_location_and_scan(&ctx, &path).await?;
+						// ctx.queue_job(Box::new(FileIdentifierJob));
+						CoreResponse::LocCreate(loc)
+					}
+					LibraryCommand::LocUpdate { id, name } => {
+						ctx.db
+							.location()
+							.find_unique(location::id::equals(id))
+							.update(vec![location::name::set(name)])
+							.exec()
+							.await?;
+
+						CoreResponse::Success(())
+					}
+					LibraryCommand::LocDelete { id } => {
+						sys::delete_location(&ctx, id).await?;
+						CoreResponse::Success(())
+					}
+					LibraryCommand::LocRescan { id } => {
+						sys::scan_location(&ctx, id, String::new());
+						CoreResponse::Success(())
+					}
+					// CRUD for files
+					LibraryCommand::FileReadMetaData { id: _ } => todo!(),
+					LibraryCommand::FileSetNote { id, note } => {
+						file::set_note(ctx, id, note).await?
+					}
+					// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
+					LibraryCommand::FileDelete { id } => {
+						ctx.db
+							.file()
+							.find_unique(prisma_file::id::equals(id))
+							.delete()
+							.exec()
+							.await?;
+
+						CoreResponse::Success(())
+					}
+					// CRUD for tags
+					LibraryCommand::TagCreate { name: _, color: _ } => todo!(),
+					LibraryCommand::TagAssign {
+						file_id: _,
+						tag_id: _,
+					} => todo!(),
+					LibraryCommand::TagUpdate { name: _, color: _ } => todo!(),
+					LibraryCommand::TagDelete { id: _ } => todo!(),
+					// CRUD for libraries
+					LibraryCommand::SysVolumeUnmount { id: _ } => todo!(),
+					LibraryCommand::GenerateThumbsForLocation { id, path } => {
+						ctx.spawn_job(Box::new(ThumbnailJob {
+							location_id: id,
+							path,
+							background: false, // fix
+						}));
+						CoreResponse::Success(())
+					}
+					LibraryCommand::IdentifyUniqueFiles { id, path } => {
+						ctx.spawn_job(Box::new(FileIdentifierJob {
+							location_id: id,
+							path,
+						}));
+						CoreResponse::Success(())
+					}
 				}
-				Err(e) => CoreResponse::Error(format!("{:?}", e)),
-			},
-			ClientCommand::UnpairNode { id } => match PeerId::from_str(&id) {
-				Ok(peer_id) => {
-					ctx.network_manager.unpair(peer_id).await.unwrap();
-					CoreResponse::Success(())
-				}
-				Err(e) => CoreResponse::Error(format!("{:?}", e)),
-			},
+			}
 		})
 	}
 
 	// query sources of data
 	async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
-		let ctx = self.get_context();
 		Ok(match query {
-			// return the client state from memory
-			ClientQuery::NodeGetState => CoreResponse::NodeGetState(self.state.clone()),
-			// get system volumes without saving to library
-			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::Volume::get_volumes()?),
-			ClientQuery::SysGetLocations => {
-				CoreResponse::SysGetLocations(sys::get_locations(&ctx).await?)
-			}
-			// get location from library
-			ClientQuery::SysGetLocation { id } => {
-				CoreResponse::SysGetLocation(sys::get_location(&ctx, id).await?)
-			}
-			// return contents of a directory for the explorer
-			ClientQuery::LibGetExplorerDir {
-				path,
-				location_id,
-				limit: _,
-			} => CoreResponse::LibGetExplorerDir(
-				file::explorer::open_dir(&ctx, &location_id, &path).await?,
+			ClientQuery::NodeGetLibraries => CoreResponse::NodeGetLibraries(
+				self.library_manager.get_all_libraries_config().await,
 			),
-			ClientQuery::LibGetTags => todo!(),
+			ClientQuery::NodeGetState => CoreResponse::NodeGetState(NodeState {
+				config: self.config.get().await,
+				data_path: self.config.data_directory().to_str().unwrap().to_string(),
+			}),
+			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::Volume::get_volumes()?),
 			ClientQuery::JobGetRunning => {
 				CoreResponse::JobGetRunning(self.jobs.get_running().await)
 			}
-			ClientQuery::JobGetHistory => {
-				CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?)
-			}
-			ClientQuery::GetLibraryStatistics => {
-				CoreResponse::GetLibraryStatistics(library::Statistics::calculate(&ctx).await?)
-			}
-			ClientQuery::GetNetworkState => {
-				CoreResponse::GetNetworkState(ctx.network_manager.get_state().await)
+			ClientQuery::GetNodes => todo!(),
+			ClientQuery::LibraryQuery { library_id, query } => {
+				let ctx = match self.library_manager.get_ctx(library_id.clone()).await {
+					Some(ctx) => ctx,
+					None => {
+						println!("Library '{}' not found!", library_id);
+						return Ok(CoreResponse::Error("Library not found".into()));
+					}
+				};
+				match query {
+					LibraryQuery::SysGetLocations => {
+						CoreResponse::SysGetLocations(sys::get_locations(&ctx).await?)
+					}
+					// get location from library
+					LibraryQuery::SysGetLocation { id } => {
+						CoreResponse::SysGetLocation(sys::get_location(&ctx, id).await?)
+					}
+					// return contents of a directory for the explorer
+					LibraryQuery::LibGetExplorerDir {
+						path,
+						location_id,
+						limit: _,
+					} => CoreResponse::LibGetExplorerDir(
+						file::explorer::open_dir(&ctx, &location_id, &path).await?,
+					),
+					LibraryQuery::LibGetTags => todo!(),
+					LibraryQuery::JobGetHistory => {
+						CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?)
+					}
+					LibraryQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
+						library::Statistics::calculate(&ctx).await?,
+					),
+				}
 			}
 		})
 	}
 }
 
-// represents an event this library can emit
+/// is a command destined for the core
 #[derive(Serialize, Deserialize, Debug, TS)]
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientCommand {
+	// Libraries
+	CreateLibrary {
+		name: String,
+	},
+	EditLibrary {
+		id: String,
+		name: Option<String>,
+		description: Option<String>,
+	},
+	DeleteLibrary {
+		id: String,
+	},
+	LibraryCommand {
+		library_id: String,
+		command: LibraryCommand,
+	},
+}
+
+/// is a command destined for a specific library which is loaded into the core.
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[serde(tag = "key", content = "params")]
+#[ts(export)]
+pub enum LibraryCommand {
 	// Files
-	FileRead { id: i32 },
+	FileReadMetaData { id: i32 },
+	FileSetNote { id: i32, note: Option<String> },
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
 	FileDelete { id: i32 },
-	// Library
-	LibDelete { id: i32 },
 	// Tags
 	TagCreate { name: String, color: String },
 	TagUpdate { name: String, color: String },
@@ -381,24 +404,36 @@ pub enum ClientCommand {
 	LocCreate { path: String },
 	LocUpdate { id: i32, name: Option<String> },
 	LocDelete { id: i32 },
+	LocRescan { id: i32 },
 	// System
 	SysVolumeUnmount { id: i32 },
 	GenerateThumbsForLocation { id: i32, path: String },
 	// PurgeDatabase,
 	IdentifyUniqueFiles { id: i32, path: String },
-	PairNode { id: String },
-	UnpairNode { id: String },
 }
 
-// represents an event this library can emit
+/// is a query destined for the core
 #[derive(Serialize, Deserialize, Debug, TS)]
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientQuery {
+	NodeGetLibraries,
 	NodeGetState,
 	SysGetVolumes,
-	LibGetTags,
 	JobGetRunning,
+	GetNodes,
+	LibraryQuery {
+		library_id: String,
+		query: LibraryQuery,
+	},
+}
+
+/// is a query destined for a specific library which is loaded into the core.
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[serde(tag = "key", content = "params")]
+#[ts(export)]
+pub enum LibraryQuery {
+	LibGetTags,
 	JobGetHistory,
 	SysGetLocations,
 	SysGetLocation {
@@ -410,7 +445,6 @@ pub enum ClientQuery {
 		limit: i32,
 	},
 	GetLibraryStatistics,
-	GetNetworkState,
 }
 
 // represents an event this library can emit
@@ -428,11 +462,20 @@ pub enum CoreEvent {
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]
+#[ts(export)]
+pub struct NodeState {
+	#[serde(flatten)]
+	pub config: NodeConfig,
+	pub data_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, TS)]
 #[serde(tag = "key", content = "data")]
 #[ts(export)]
 pub enum CoreResponse {
 	Success(()),
 	Error(String),
+	NodeGetLibraries(Vec<LibraryConfigWrapped>),
 	SysGetVolumes(Vec<sys::Volume>),
 	SysGetLocation(sys::LocationResource),
 	SysGetLocations(Vec<sys::LocationResource>),
@@ -442,7 +485,6 @@ pub enum CoreResponse {
 	JobGetRunning(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),
 	GetLibraryStatistics(library::Statistics),
-	GetNetworkState(NetworkManagerState),
 }
 
 #[derive(Error, Debug)]
