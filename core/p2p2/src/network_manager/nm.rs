@@ -1,21 +1,19 @@
 use std::{
-	io,
-	net::{IpAddr, Ipv4Addr, SocketAddr},
+	collections::{HashMap, HashSet},
+	net::{Ipv4Addr, SocketAddr},
 	sync::Arc,
 	time::Duration,
 };
 
 use dashmap::{DashMap, DashSet};
-use futures_util::StreamExt;
-use if_watch::{IfEvent, IfWatcher};
-use quinn::{Endpoint, Incoming, ServerConfig};
+use quinn::{Chunk, Endpoint, ServerConfig};
 use rustls::{Certificate, PrivateKey};
 use sd_tunnel_utils::{quic, PeerId};
-use tokio::{select, time::sleep};
+use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-	handle_connection, GlobalDiscovery, Identity, NetworkManagerConfig, NetworkManagerError,
-	P2PManager, MDNS,
+	Identity, NetworkManagerConfig, NetworkManagerError, NetworkManagerInternalEvent, P2PManager,
+	Peer, PeerCandidate,
 };
 
 /// TODO
@@ -28,9 +26,9 @@ pub struct NetworkManager<TP2PManager: P2PManager> {
 	/// We store these so when making a request to the global discovery server we know who to lookup.
 	pub(crate) known_peers: DashSet<PeerId>,
 	/// TODO
-	pub(crate) discovered_peers: DashMap<PeerId, ()>,
+	discovered_peers: DashMap<PeerId, PeerCandidate>,
 	/// TODO
-	pub(crate) connected_peers: DashMap<PeerId, ()>,
+	connected_peers: DashMap<PeerId, Peer<TP2PManager>>,
 	/// TODO
 	pub(crate) lan_addrs: DashSet<Ipv4Addr>,
 	/// TODO
@@ -39,6 +37,8 @@ pub struct NetworkManager<TP2PManager: P2PManager> {
 	pub(crate) manager: TP2PManager,
 	/// endpoint is the QUIC endpoint that is used to send and receive network traffic between peers.
 	pub(crate) endpoint: Endpoint,
+	/// TODO
+	internal_channel: mpsc::UnboundedSender<NetworkManagerInternalEvent>,
 }
 
 impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
@@ -55,7 +55,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		}
 
 		let identity = identity.into_rustls();
-		let (endpoint, mut incoming) = Endpoint::server(
+		let (endpoint, incoming) = Endpoint::server(
 			ServerConfig::with_crypto(Arc::new(quic::server_config(
 				vec![identity.0.clone()],
 				identity.1.clone(),
@@ -66,6 +66,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		)
 		.map_err(NetworkManagerError::Server)?;
 
+		let internal_channel = mpsc::unbounded_channel();
 		let this = Arc::new(Self {
 			peer_id: PeerId::from_cert(&identity.0),
 			identity: identity,
@@ -76,9 +77,41 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			listen_addr: endpoint.local_addr().map_err(NetworkManagerError::Server)?,
 			manager,
 			endpoint,
+			internal_channel: internal_channel.0,
 		});
-		Self::event_loop(&this, incoming).await?;
+		Self::event_loop(&this, incoming, internal_channel.1).await?;
 		Ok(this)
+	}
+
+	pub(crate) fn add_discovered_peer(&self, peer: PeerCandidate) {
+		self.discovered_peers.insert(peer.id.clone(), peer.clone());
+		self.manager.peer_discovered(self, &peer.id);
+
+		if self.known_peers.contains(&peer.id) {
+			self.internal_channel
+				.send(NetworkManagerInternalEvent::Connect(peer))
+				.unwrap();
+		}
+	}
+
+	pub(crate) fn remove_discovered_peer(&self, peer_id: PeerId) {
+		self.discovered_peers.remove(&peer_id);
+		self.manager.peer_expired(self, peer_id);
+	}
+
+	pub(crate) fn is_peer_connected(&self, peer_id: &PeerId) -> bool {
+		self.connected_peers.contains_key(peer_id)
+	}
+
+	pub(crate) fn add_connected_peer(&self, peer: Peer<TP2PManager>) {
+		let peer_id = peer.id.clone();
+		self.connected_peers.insert(peer.id.clone(), peer);
+		self.manager.peer_connected(self, peer_id);
+	}
+
+	pub(crate) fn remove_connected_peer(&self, peer_id: PeerId) {
+		self.connected_peers.remove(&peer_id);
+		self.manager.peer_disconnected(self, peer_id);
 	}
 
 	/// returns the peer ID of the current node. These are unique identifier derived from the nodes public key.
@@ -91,96 +124,51 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		self.listen_addr.clone()
 	}
 
-	// /// returns a list of the connected peers.
-	// pub async fn connected_peers(&self) -> HashMap<PeerId, Peer> {
-	// 	self.state.connected_peers.read().await.clone()
-	// }
+	/// TODO
+	pub fn add_known_peer(&self, peer_id: PeerId) {
+		self.known_peers.insert(peer_id);
+	}
 
-	// /// discovered_peers returns a list of the discovered peers.
-	// pub fn discovered_peers(&self) -> HashMap<PeerId, PeerCandidate> {
-	// 	self.discovery
-	// 		.discovered_peers
-	// 		.clone()
-	// 		.into_iter()
-	// 		.collect()
-	// }
+	/// TODO: Docs + Error type
+	pub async fn send_to(&self, peer_id: PeerId, data: &[u8]) -> Result<Chunk, ()> {
+		tokio::time::sleep(Duration::from_millis(500)).await; // TODO: Fix this issue. This workaround is because DashMap is eventually consistent
 
-	async fn event_loop(
-		nm: &Arc<Self>,
-		mut quic_incoming: Incoming,
-	) -> Result<(), NetworkManagerError> {
-		let mut if_watcher = IfWatcher::new()
-			.await
-			.map_err(NetworkManagerError::IfWatch)?;
-		let mdns = MDNS::init(nm)?;
-		let global = GlobalDiscovery::init(nm)?;
-		global.poll().await;
-
-		for iface in if_watcher.iter() {
-			Self::handle_ifwatch_event(nm, IfEvent::Up(iface.clone()));
-		}
-
-		Self::register(&mdns, &global).await; // TODO: Create a discovery stack type to hold them instead of passing them all individually
-
-		let nm = nm.clone();
+		let peer = self.connected_peers.get(&peer_id).unwrap().value().clone();
+		let (mut tx, mut rx) = peer.conn.open_bi().await.map_err(|err| ())?;
+		tx.write(data).await.map_err(|_err| ())?;
+		let (oneshot_tx, oneshot_rx) = oneshot::channel();
 		tokio::spawn(async move {
-			loop {
-				// TODO: Deal with `Self::register`'s network calls blocking the main event loop
-				select! {
-					conn = quic_incoming.next() => match conn {
-						Some(conn) => handle_connection(&nm, conn),
-						None => break,
-					},
-					event = Pin::new(&mut if_watcher) => {
-						match event {
-							Ok(event) => {
-								if Self::handle_ifwatch_event(&nm, event) {
-									Self::register(&mdns, &global).await;
-								}
-							},
-							Err(_) => break,
-						}
+			// TODO: Max length of packet should be a constant in sd-tunnel-utils::quic
+			while let Ok(data) = rx.read_chunk(64 * 1024, true).await {
+				match data {
+					Some(data) => {
+						oneshot_tx.send(data).unwrap();
+						tx.finish().await;
+						return;
 					}
-					_ = mdns.handle_mdns_event() => {}
-					_ = sleep(Duration::from_secs(15 * 60 /* 15 Minutes */)) => {
-						Self::register(&mdns, &global).await;
+					None => {
+						break;
 					}
-					// TODO: Maybe use subscription system instead of polling or review this timeout!
-					_ = sleep(Duration::from_secs(30 /* 30 Seconds */)) => {
-						global.poll().await; // TODO: this does network calls and blocks. Is this ok?
-					}
-				};
+				}
 			}
 		});
-		Ok(())
+		Ok(oneshot_rx.await.map_err(|_| ())?)
 	}
 
-	fn handle_ifwatch_event(nm: &Arc<Self>, event: IfEvent) -> bool {
-		match event {
-			IfEvent::Up(iface) => {
-				let ip = match iface.addr() {
-					IpAddr::V4(ip) if ip != Ipv4Addr::LOCALHOST => ip,
-					_ => return false, // Currently IPv6 is not supported. Support will likely be added in the future.
-				};
-				nm.lan_addrs.insert(ip)
-			}
-			IfEvent::Down(iface) => {
-				let ip = match iface.addr() {
-					IpAddr::V4(ip) if ip != Ipv4Addr::LOCALHOST => ip,
-					_ => return false, // Currently IPv6 is not supported. Support will likely be added in the future.
-				};
-				nm.lan_addrs.remove(&ip).is_some()
-			}
-		}
+	// TODO: Use stream for sending large amounts of data such as a file.
+	// 	/// stream will return the tx and rx channel to a new stream.
+	// 	/// TODO: Document drop behavior on streams.
+	// 	pub async fn stream(&self) -> Result<(SendStream, RecvStream), ConnectionError> {
+	// 		self.conn.open_bi().await
+	// 	}
+
+	/// returns a list of the connected peers.
+	pub async fn connected_peers(&self) -> HashMap<PeerId, Peer<TP2PManager>> {
+		self.connected_peers.clone().into_iter().collect()
 	}
 
-	pub(crate) async fn register(mdns: &MDNS<TP2PManager>, global: &GlobalDiscovery<TP2PManager>) {
-		mdns.register().await;
-		global.register().await;
-	}
-
-	fn shutdown() {
-		// TODO: Trigger this function
-		// TODO: Deannounce MDNS + Global Discovery
+	/// discovered_peers returns a list of the discovered peers.
+	pub fn discovered_peers(&self) -> HashMap<PeerId, PeerCandidate> {
+		self.discovered_peers.clone().into_iter().collect()
 	}
 }

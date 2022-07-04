@@ -3,7 +3,7 @@ use std::sync::Arc;
 use mdns_sd::{Receiver, ServiceDaemon, ServiceEvent, ServiceInfo};
 use sd_tunnel_utils::PeerId;
 
-use crate::{NetworkManager, NetworkManagerError, P2PManager};
+use crate::{NetworkManager, NetworkManagerError, P2PManager, PeerCandidate, PeerMetadata};
 
 /// TODO
 pub(crate) struct MDNS<TP2PManager: P2PManager> {
@@ -43,9 +43,21 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 									return;
 								}
 
-								self.nm.discovered_peers.insert(peer_id, ());
+								let peer = PeerCandidate {
+									id: peer_id.clone(),
+									metadata: PeerMetadata::from_hashmap(
+										&peer_id,
+										info.get_properties(),
+									),
+									addresses: info
+										.get_addresses()
+										.iter()
+										.map(|addr| addr.clone())
+										.collect(),
+									port: info.get_port(),
+								};
 
-								// TODO: Initiate connection with client
+								self.nm.add_discovered_peer(peer);
 							}
 							Err(_) => {
 								println!("p2p warning: resolved node advertising itself with an invalid peer_id '{}'", raw_peer_id);
@@ -61,7 +73,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 									return;
 								}
 
-								self.nm.discovered_peers.remove(&peer_id);
+								self.nm.remove_discovered_peer(peer_id);
 							}
 							Err(_) => {
 								println!("p2p warning: resolved node advertising itself with an invalid peer_id '{}'", raw_peer_id);

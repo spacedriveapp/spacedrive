@@ -5,19 +5,24 @@ use rustls::{Certificate, PrivateKey};
 
 use crate::{quic::client_config, Message, MAX_MESSAGE_SIZE};
 
-/// TODO: Dynamically discover this url!
-pub const SPACETUNNEL_URL: &'static str = "213.188.211.127:9000"; // TODO: Disable IPv6 record being advertised via DNS "tunnel.spacedrive.com:443"; // TODO: This should be on port 443
-																  // pub const SPACETUNNEL_URL: &'static str = "127.0.0.1:9000";
-
 /// TODO
 pub struct Client {
+	backend_url: String,
 	endpoint: Endpoint,
 	identity: (Certificate, PrivateKey),
 }
 
 impl Client {
-	pub fn new(endpoint: Endpoint, identity: (Certificate, PrivateKey)) -> Self {
-		Self { endpoint, identity }
+	pub fn new(
+		backend_url: String,
+		endpoint: Endpoint,
+		identity: (Certificate, PrivateKey),
+	) -> Self {
+		Self {
+			backend_url,
+			endpoint,
+			identity,
+		}
 	}
 
 	pub async fn send_message(&self, msg: Message) -> Result<Message, ()> {
@@ -28,7 +33,7 @@ impl Client {
 				ClientConfig::new(Arc::new(
 					client_config(vec![identity.0], identity.1.clone()).unwrap(),
 				)),
-				SPACETUNNEL_URL
+				self.backend_url
 					.to_socket_addrs() // TODO: Make this only lookup IPv4 -> Filter IPV6's
 					.unwrap()
 					.into_iter()
