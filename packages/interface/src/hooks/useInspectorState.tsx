@@ -1,4 +1,4 @@
-import { command } from '@sd/client';
+import { libraryCommand } from '@sd/client';
 import produce from 'immer';
 import { debounce } from 'lodash';
 import create from 'zustand';
@@ -35,7 +35,7 @@ export const useInspectorState = create<UseInspectorState>((set) => ({
 
 // direct command call to update note
 export const updateNote = debounce(async (file_id: number, note: string) => {
-	return await command('FileSetNote', {
+	return await libraryCommand('FileSetNote', {
 		id: file_id,
 		note
 	});

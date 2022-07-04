@@ -1,4 +1,4 @@
-import { useBridgeQuery } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
@@ -19,10 +19,10 @@ export const ExplorerScreen: React.FC<{}> = () => {
 	const { selectedRowIndex } = useExplorerState();
 
 	// Current Location
-	const { data: currentLocation } = useBridgeQuery('SysGetLocation', { id: location_id });
+	const { data: currentLocation } = useLibraryQuery('SysGetLocation', { id: location_id });
 
 	// Current Directory
-	const { data: currentDir } = useBridgeQuery(
+	const { data: currentDir } = useLibraryQuery(
 		'LibGetExplorerDir',
 		{ location_id: location_id!, path, limit },
 		{ enabled: !!location_id }

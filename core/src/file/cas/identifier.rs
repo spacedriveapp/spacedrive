@@ -49,7 +49,7 @@ impl Job for FileIdentifierJob {
 
 		let db = ctx.library_ctx().db;
 
-		let ctx = tokio::task::spawn_blocking(move || {
+		let _ctx = tokio::task::spawn_blocking(move || {
 			let mut completed: usize = 0;
 			let mut cursor: i32 = 1;
 			// loop until task count is complete

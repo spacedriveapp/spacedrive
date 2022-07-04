@@ -5,7 +5,6 @@ use std::{
 	sync::Arc,
 };
 
-use log::info;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -125,7 +124,6 @@ impl LibraryManager {
 		)
 		.await?;
 
-		// let name = config.name.clone();
 		let library = Self::load(
 			id,
 			&Path::new(&self.libraries_dir)
@@ -138,6 +136,10 @@ impl LibraryManager {
 		.await?;
 
 		self.libraries.write().await.push(library);
+
+		self.node_context
+			.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+			.await;
 
 		Ok(())
 	}
@@ -156,20 +158,18 @@ impl LibraryManager {
 
 	pub(crate) async fn edit_library(
 		&self,
-		ctx: &LibraryContext,
+		id: String,
 		name: Option<String>,
 		description: Option<String>,
 	) -> Result<(), LibraryManagerError> {
-		info!("Editing library '{:?}'", ctx.config);
 		// check library is valid
 		let mut libraries = self.libraries.write().await;
-
-		// update name of current library
 		let library = libraries
 			.iter_mut()
-			.find(|lib| lib.id == ctx.id)
+			.find(|lib| lib.id == Uuid::from_str(&id).unwrap())
 			.ok_or(LibraryManagerError::LibraryNotFoundError)?;
 
+		// update the library
 		if let Some(name) = name {
 			library.config.name = name;
 		}
@@ -178,51 +178,54 @@ impl LibraryManager {
 		}
 
 		LibraryConfig::save(
-			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", ctx.id.to_string())),
+			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", id.to_string())),
 			&library.config,
 		)
 		.await?;
 
-		ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+		self.node_context
+			.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
 			.await;
 		Ok(())
 	}
 
-	pub async fn delete_library(
-		&self,
-		ctx: &LibraryContext,
-		id: String,
-	) -> Result<(), LibraryManagerError> {
+	pub async fn delete_library(&self, id: String) -> Result<(), LibraryManagerError> {
 		let mut libraries = self.libraries.write().await;
 
 		let id = Uuid::parse_str(&id)?;
 
-		let library = match libraries.iter().find(|l| l.id == id) {
-			Some(lib) => lib,
-			None => return Err(LibraryManagerError::LibraryNotFoundError),
-		};
+		let library = libraries
+			.iter()
+			.find(|l| l.id == id)
+			.ok_or(LibraryManagerError::LibraryNotFoundError)?;
 
 		fs::remove_file(
 			Path::new(&self.libraries_dir).join(format!("{}.db", library.id.to_string())),
-		)
-		.unwrap_or(());
-
+		)?;
 		fs::remove_file(
 			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id.to_string())),
-		)
-		.unwrap_or(());
+		)?;
 
 		libraries.retain(|l| l.id != id);
 
-		ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+		self.node_context
+			.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
 			.await;
-
 		Ok(())
 	}
 
 	// get_ctx will return the library context for the given library id.
-	// TODO: Return the context based on a library_id. This currently only returns the first because the UI isn't ready for multi-library support yet.
-	pub(crate) async fn get_ctx(&self) -> Option<LibraryContext> {
+	pub(crate) async fn get_ctx(&self, library_id: String) -> Option<LibraryContext> {
+		self.libraries
+			.read()
+			.await
+			.iter()
+			.find(|lib| lib.id.to_string() == library_id)
+			.map(|v| v.clone())
+	}
+
+	// TODO: Remove this before merging PR
+	pub(crate) async fn dangerously_get_first_ctx(&self) -> Option<LibraryContext> {
 		self.libraries.read().await.first().map(|v| v.clone())
 	}
 

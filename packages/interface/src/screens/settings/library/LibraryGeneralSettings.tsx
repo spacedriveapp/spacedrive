@@ -27,6 +27,7 @@ export default function LibraryGeneralSettings() {
 			// currentLibrary must be loaded, name must not be empty, and must be different from the current
 			if (nameDebounced && (nameDebounced !== name || descriptionDebounced !== description)) {
 				editLibrary({
+					id: currentLibraryUuid!,
 					name: nameDebounced,
 					description: descriptionDebounced
 				});

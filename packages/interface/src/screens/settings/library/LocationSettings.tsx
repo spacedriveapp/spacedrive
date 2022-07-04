@@ -1,5 +1,5 @@
 import { PlusIcon } from '@heroicons/react/solid';
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
 
@@ -16,11 +16,11 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 // ];
 
 export default function LocationSettings() {
-	const { data: locations } = useBridgeQuery('SysGetLocations');
+	const { data: locations } = useLibraryQuery('SysGetLocations');
 
 	const appProps = useContext(AppPropsContext);
 
-	const { mutate: createLocation } = useBridgeCommand('LocCreate');
+	const { mutate: createLocation } = useLibraryCommand('LocCreate');
 
 	return (
 		<SettingsContainer>

@@ -174,7 +174,11 @@ impl Node {
 	}
 
 	pub async fn start(mut self) {
-		let ctx = self.library_manager.get_ctx().await.unwrap();
+		let ctx = self
+			.library_manager
+			.dangerously_get_first_ctx()
+			.await
+			.unwrap();
 		loop {
 			// listen on global messaging channels for incoming messages
 			tokio::select! {
@@ -204,7 +208,6 @@ impl Node {
 	}
 
 	async fn exec_command(&mut self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
-		let ctx = self.library_manager.get_ctx().await.unwrap();
 		Ok(match cmd {
 			ClientCommand::CreateLibrary { name } => {
 				self.library_manager
@@ -214,99 +217,102 @@ impl Node {
 					})
 					.await
 					.unwrap();
-
-				ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
-					.await;
-
 				CoreResponse::Success(())
 			}
-			ClientCommand::EditLibrary { name, description } => {
+			ClientCommand::EditLibrary {
+				id,
+				name,
+				description,
+			} => {
 				self.library_manager
-					.edit_library(&ctx, name, description)
+					.edit_library(id, name, description)
 					.await
 					.unwrap();
 				CoreResponse::Success(())
 			}
 			ClientCommand::DeleteLibrary { id } => {
-				self.library_manager.delete_library(&ctx, id).await.unwrap();
+				self.library_manager.delete_library(id).await.unwrap();
 				CoreResponse::Success(())
 			}
-			// CRUD for locations
-			ClientCommand::LocCreate { path } => {
-				let loc = sys::new_location_and_scan(&ctx, &path).await?;
-				// ctx.queue_job(Box::new(FileIdentifierJob));
-				CoreResponse::LocCreate(loc)
-			}
-			ClientCommand::LocUpdate { id, name } => {
-				ctx.db
-					.location()
-					.find_unique(location::id::equals(id))
-					.update(vec![location::name::set(name)])
-					.exec()
-					.await?;
+			ClientCommand::LibraryCommand {
+				library_id,
+				command,
+			} => {
+				let ctx = self.library_manager.get_ctx(library_id).await.unwrap();
+				match command {
+					// CRUD for locations
+					LibraryCommand::LocCreate { path } => {
+						let loc = sys::new_location_and_scan(&ctx, &path).await?;
+						// ctx.queue_job(Box::new(FileIdentifierJob));
+						CoreResponse::LocCreate(loc)
+					}
+					LibraryCommand::LocUpdate { id, name } => {
+						ctx.db
+							.location()
+							.find_unique(location::id::equals(id))
+							.update(vec![location::name::set(name)])
+							.exec()
+							.await?;
 
-				CoreResponse::Success(())
-			}
-			ClientCommand::LocDelete { id } => {
-				sys::delete_location(&ctx, id).await?;
-				CoreResponse::Success(())
-			}
-			ClientCommand::LocRescan { id } => {
-				sys::scan_location(&ctx, id, String::new());
+						CoreResponse::Success(())
+					}
+					LibraryCommand::LocDelete { id } => {
+						sys::delete_location(&ctx, id).await?;
+						CoreResponse::Success(())
+					}
+					LibraryCommand::LocRescan { id } => {
+						sys::scan_location(&ctx, id, String::new());
 
-				CoreResponse::Success(())
-			}
-			// CRUD for files
-			ClientCommand::FileReadMetaData { id: _ } => todo!(),
-			ClientCommand::FileSetNote { id, note } => file::set_note(ctx, id, note).await?,
-			// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
-			ClientCommand::FileDelete { id } => {
-				ctx.db
-					.file()
-					.find_unique(prisma_file::id::equals(id))
-					.delete()
-					.exec()
-					.await?;
+						CoreResponse::Success(())
+					}
+					// CRUD for files
+					LibraryCommand::FileReadMetaData { id: _ } => todo!(),
+					LibraryCommand::FileSetNote { id, note } => {
+						file::set_note(ctx, id, note).await?
+					}
+					// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
+					LibraryCommand::FileDelete { id } => {
+						ctx.db
+							.file()
+							.find_unique(prisma_file::id::equals(id))
+							.delete()
+							.exec()
+							.await?;
 
-				CoreResponse::Success(())
-			}
-			// CRUD for tags
-			ClientCommand::TagCreate { name: _, color: _ } => todo!(),
-			ClientCommand::TagAssign {
-				file_id: _,
-				tag_id: _,
-			} => todo!(),
-			ClientCommand::TagDelete { id: _ } => todo!(),
-			// CRUD for libraries
-			ClientCommand::SysVolumeUnmount { id: _ } => todo!(),
-			ClientCommand::LibDelete { id: _ } => todo!(),
-			ClientCommand::TagUpdate { name: _, color: _ } => todo!(),
-			ClientCommand::GenerateThumbsForLocation { id, path } => {
-				ctx.spawn_job(Box::new(ThumbnailJob {
-					location_id: id,
-					path,
-					background: false, // fix
-				}));
-				CoreResponse::Success(())
-			}
-			// ClientCommand::PurgeDatabase => {
-			//   println!("Purging database...");
-			//   fs::remove_file(Path::new(&self.state.data_path).join("library.db")).unwrap();
-			//   CoreResponse::Success(())
-			// }
-			ClientCommand::IdentifyUniqueFiles { id, path } => {
-				ctx.spawn_job(Box::new(FileIdentifierJob {
-					location_id: id,
-					path,
-				}));
-				CoreResponse::Success(())
+						CoreResponse::Success(())
+					}
+					// CRUD for tags
+					LibraryCommand::TagCreate { name: _, color: _ } => todo!(),
+					LibraryCommand::TagAssign {
+						file_id: _,
+						tag_id: _,
+					} => todo!(),
+					LibraryCommand::TagUpdate { name: _, color: _ } => todo!(),
+					LibraryCommand::TagDelete { id: _ } => todo!(),
+					// CRUD for libraries
+					LibraryCommand::SysVolumeUnmount { id: _ } => todo!(),
+					LibraryCommand::GenerateThumbsForLocation { id, path } => {
+						ctx.spawn_job(Box::new(ThumbnailJob {
+							location_id: id,
+							path,
+							background: false, // fix
+						}));
+						CoreResponse::Success(())
+					}
+					LibraryCommand::IdentifyUniqueFiles { id, path } => {
+						ctx.spawn_job(Box::new(FileIdentifierJob {
+							location_id: id,
+							path,
+						}));
+						CoreResponse::Success(())
+					}
+				}
 			}
 		})
 	}
 
 	// query sources of data
 	async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
-		let ctx = self.library_manager.get_ctx().await.unwrap();
 		Ok(match query {
 			ClientQuery::NodeGetLibraries => CoreResponse::NodeGetLibraries(
 				self.library_manager.get_all_libraries_config().await,
@@ -315,39 +321,49 @@ impl Node {
 				config: self.config.get().await,
 				data_path: self.config.data_directory().to_str().unwrap().to_string(),
 			}),
-			// get system volumes without saving to library
 			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::Volume::get_volumes()?),
-			ClientQuery::SysGetLocations => {
-				CoreResponse::SysGetLocations(sys::get_locations(&ctx).await?)
-			}
-			// get location from library
-			ClientQuery::SysGetLocation { id } => {
-				CoreResponse::SysGetLocation(sys::get_location(&ctx, id).await?)
-			}
-			// return contents of a directory for the explorer
-			ClientQuery::LibGetExplorerDir {
-				path,
-				location_id,
-				limit: _,
-			} => CoreResponse::LibGetExplorerDir(
-				file::explorer::open_dir(&ctx, &location_id, &path).await?,
-			),
-			ClientQuery::LibGetTags => todo!(),
 			ClientQuery::JobGetRunning => {
 				CoreResponse::JobGetRunning(self.jobs.get_running().await)
 			}
-			ClientQuery::JobGetHistory => {
-				CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?)
-			}
-			ClientQuery::GetLibraryStatistics => {
-				CoreResponse::GetLibraryStatistics(library::Statistics::calculate(&ctx).await?)
-			}
 			ClientQuery::GetNodes => todo!(),
+			ClientQuery::LibraryQuery { library_id, query } => {
+				let ctx = match self.library_manager.get_ctx(library_id.clone()).await {
+					Some(ctx) => ctx,
+					None => {
+						println!("Library '{}' not found!", library_id);
+						return Ok(CoreResponse::Error("Library not found".into()));
+					}
+				};
+				match query {
+					LibraryQuery::SysGetLocations => {
+						CoreResponse::SysGetLocations(sys::get_locations(&ctx).await?)
+					}
+					// get location from library
+					LibraryQuery::SysGetLocation { id } => {
+						CoreResponse::SysGetLocation(sys::get_location(&ctx, id).await?)
+					}
+					// return contents of a directory for the explorer
+					LibraryQuery::LibGetExplorerDir {
+						path,
+						location_id,
+						limit: _,
+					} => CoreResponse::LibGetExplorerDir(
+						file::explorer::open_dir(&ctx, &location_id, &path).await?,
+					),
+					LibraryQuery::LibGetTags => todo!(),
+					LibraryQuery::JobGetHistory => {
+						CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?)
+					}
+					LibraryQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
+						library::Statistics::calculate(&ctx).await?,
+					),
+				}
+			}
 		})
 	}
 }
 
-// represents an event this library can emit
+/// is a command destined for the core
 #[derive(Serialize, Deserialize, Debug, TS)]
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
@@ -357,74 +373,47 @@ pub enum ClientCommand {
 		name: String,
 	},
 	EditLibrary {
+		id: String,
 		name: Option<String>,
 		description: Option<String>,
 	},
 	DeleteLibrary {
 		id: String,
 	},
-	// Files
-	FileReadMetaData {
-		id: i32,
-	},
-	FileSetNote {
-		id: i32,
-		note: Option<String>,
-	},
-	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
-	FileDelete {
-		id: i32,
-	},
-	// Library
-	LibDelete {
-		id: i32,
-	},
-	// Tags
-	TagCreate {
-		name: String,
-		color: String,
-	},
-	TagUpdate {
-		name: String,
-		color: String,
-	},
-	TagAssign {
-		file_id: i32,
-		tag_id: i32,
-	},
-	TagDelete {
-		id: i32,
-	},
-	// Locations
-	LocCreate {
-		path: String,
-	},
-	LocUpdate {
-		id: i32,
-		name: Option<String>,
-	},
-	LocDelete {
-		id: i32,
-	},
-	LocRescan {
-		id: i32,
-	},
-	// System
-	SysVolumeUnmount {
-		id: i32,
-	},
-	GenerateThumbsForLocation {
-		id: i32,
-		path: String,
-	},
-	// PurgeDatabase,
-	IdentifyUniqueFiles {
-		id: i32,
-		path: String,
+	LibraryCommand {
+		library_id: String,
+		command: LibraryCommand,
 	},
 }
 
-// represents an event this library can emit
+/// is a command destined for a specific library which is loaded into the core.
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[serde(tag = "key", content = "params")]
+#[ts(export)]
+pub enum LibraryCommand {
+	// Files
+	FileReadMetaData { id: i32 },
+	FileSetNote { id: i32, note: Option<String> },
+	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
+	FileDelete { id: i32 },
+	// Tags
+	TagCreate { name: String, color: String },
+	TagUpdate { name: String, color: String },
+	TagAssign { file_id: i32, tag_id: i32 },
+	TagDelete { id: i32 },
+	// Locations
+	LocCreate { path: String },
+	LocUpdate { id: i32, name: Option<String> },
+	LocDelete { id: i32 },
+	LocRescan { id: i32 },
+	// System
+	SysVolumeUnmount { id: i32 },
+	GenerateThumbsForLocation { id: i32, path: String },
+	// PurgeDatabase,
+	IdentifyUniqueFiles { id: i32, path: String },
+}
+
+/// is a query destined for the core
 #[derive(Serialize, Deserialize, Debug, TS)]
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
@@ -432,8 +421,20 @@ pub enum ClientQuery {
 	NodeGetLibraries,
 	NodeGetState,
 	SysGetVolumes,
-	LibGetTags,
 	JobGetRunning,
+	GetNodes,
+	LibraryQuery {
+		library_id: String,
+		query: LibraryQuery,
+	},
+}
+
+/// is a query destined for a specific library which is loaded into the core.
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[serde(tag = "key", content = "params")]
+#[ts(export)]
+pub enum LibraryQuery {
+	LibGetTags,
 	JobGetHistory,
 	SysGetLocations,
 	SysGetLocation {
@@ -445,7 +446,6 @@ pub enum ClientQuery {
 		limit: i32,
 	},
 	GetLibraryStatistics,
-	GetNodes,
 }
 
 // represents an event this library can emit
@@ -475,6 +475,7 @@ pub struct NodeState {
 #[ts(export)]
 pub enum CoreResponse {
 	Success(()),
+	Error(String),
 	NodeGetLibraries(Vec<LibraryConfigWrapped>),
 	SysGetVolumes(Vec<sys::Volume>),
 	SysGetLocation(sys::LocationResource),

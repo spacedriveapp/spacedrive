@@ -50,7 +50,7 @@ importers:
       react-dom: 18.1.0_react@18.1.0
     devDependencies:
       '@tauri-apps/cli': 1.0.0
-      '@tauri-apps/tauricon': github.com/tauri-apps/tauricon/f104e2af7a19e1cdf9ee8212d2d3f6456d3aa00f
+      '@tauri-apps/tauricon': github.com/tauri-apps/tauricon/74754209ec23822a43d0903693a62e58a3bb152e
       '@types/babel-core': 6.25.7
       '@types/byte-size': 8.1.0
       '@types/react': 18.0.9
@@ -229,6 +229,7 @@ importers:
     specifiers:
       '@sd/config': workspace:*
       '@sd/core': workspace:*
+      '@sd/interface': workspace:^1.0.0
       '@types/react': ^18.0.9
       eventemitter3: ^4.0.7
       immer: ^9.0.14
@@ -240,6 +241,7 @@ importers:
     dependencies:
       '@sd/config': link:../config
       '@sd/core': link:../../core
+      '@sd/interface': link:../interface
       eventemitter3: 4.0.7
       immer: 9.0.15
       react-query: 3.39.1
@@ -9739,7 +9741,7 @@ packages:
     dev: true
 
   /github-from-package/0.0.0:
-    resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
+    resolution: {integrity: sha1-l/tdlr/eiXMxPyDoKI75oWf6ZM4=}
     dev: true
 
   /github-slugger/1.4.0:
@@ -9880,8 +9882,8 @@ packages:
       slash: 2.0.0
     dev: true
 
-  /got/12.0.4:
-    resolution: {integrity: sha512-2Eyz4iU/ktq7wtMFXxzK7g5p35uNYLLdiZarZ5/Yn3IJlNEpBd5+dCgcAyxN8/8guZLszffwe3wVyw+DEVrpBg==}
+  /got/12.1.0:
+    resolution: {integrity: sha512-hBv2ty9QN2RdbJJMK3hesmSkFTjVIHyIDDbssCKnSmq62edGgImJWD10Eb1k77TiV1bxloxqcFAVK8+9pkhOig==}
     engines: {node: '>=14.16'}
     dependencies:
       '@sindresorhus/is': 4.6.0
@@ -17599,8 +17601,8 @@ packages:
     resolution: {integrity: sha512-V50KMwwzqJV0NpZIZFwfOD5/lyny3WlSzRiXgA0G7VUnRlqttta1L6UQIHzd6EuBY/cHGfwTIck7w1yH6Q5zUw==}
     dev: true
 
-  github.com/tauri-apps/tauricon/f104e2af7a19e1cdf9ee8212d2d3f6456d3aa00f:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauricon/tar.gz/f104e2af7a19e1cdf9ee8212d2d3f6456d3aa00f}
+  github.com/tauri-apps/tauricon/74754209ec23822a43d0903693a62e58a3bb152e:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauricon/tar.gz/74754209ec23822a43d0903693a62e58a3bb152e}
     name: '@tauri-apps/tauricon'
     version: 1.0.2
     engines: {node: '>= 12.13.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
@@ -17614,7 +17616,7 @@ packages:
       fs-extra: 10.1.0
       glob: 8.0.3
       global-agent: 3.0.0
-      got: 12.0.4
+      got: 12.1.0
       imagemin: 8.0.1
       imagemin-optipng: 8.0.0
       imagemin-zopfli: 7.0.0

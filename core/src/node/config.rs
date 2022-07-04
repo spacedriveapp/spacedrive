@@ -87,23 +87,13 @@ impl NodeConfigManager {
 		self.0.read().await.clone()
 	}
 
-	// /// TODO
-	// pub(crate) async fn get_library(&self, library_id: String) -> Option<LibraryState> {
-	// 	self.0
-	// 		.read()
-	// 		.await
-	// 		.libraries
-	// 		.iter()
-	// 		.find(|lib| lib.library_uuid == library_id)
-	// 		.map(|lib| lib.clone())
-	// }
-
 	/// data_directory returns the path to the directory storing the configuration data.
 	pub(crate) fn data_directory(&self) -> PathBuf {
 		self.1.clone()
 	}
 
 	/// write allows the user to update the configuration. This is done in a closure while a Mutex lock is held so that the user can't cause a race condition if the config were to be updated in multiple parts of the app at the same time.
+	#[allow(unused)]
 	pub(crate) async fn write<F: FnOnce(RwLockWriteGuard<NodeConfig>)>(
 		&self,
 		mutation_fn: F,

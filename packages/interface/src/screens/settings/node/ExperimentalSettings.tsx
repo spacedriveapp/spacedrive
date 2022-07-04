@@ -7,8 +7,6 @@ import { SettingsContainer } from '../../../components/settings/SettingsContaine
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function ExperimentalSettings() {
-	// const locations = useBridgeQuery("SysGetLocation")
-
 	const { isExperimental, setIsExperimental } = useNodeStore();
 
 	return (

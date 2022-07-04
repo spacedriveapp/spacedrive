@@ -25,6 +25,7 @@
 	"dependencies": {
 		"@sd/config": "workspace:*",
 		"@sd/core": "workspace:*",
+		"@sd/interface": "workspace:*",
 		"eventemitter3": "^4.0.7",
 		"immer": "^9.0.14",
 		"react-query": "^3.39.1",

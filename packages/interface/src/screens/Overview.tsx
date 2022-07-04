@@ -1,5 +1,5 @@
 import { PlusIcon } from '@heroicons/react/solid';
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
@@ -102,7 +102,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 export const OverviewScreen = () => {
 	const { data: libraryStatistics, isLoading: isStatisticsLoading } =
-		useBridgeQuery('GetLibraryStatistics');
+		useLibraryQuery('GetLibraryStatistics');
 	const { data: nodeState } = useBridgeQuery('NodeGetState');
 
 	const { overviewStats, setOverviewStats } = useOverviewState();
