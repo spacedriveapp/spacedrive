@@ -36,7 +36,7 @@ jobs:
         id: pnpm-cache
         run: |
           echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
-      
+
       - uses: actions/cache@v3
         name: Setup pnpm cache
         with:
@@ -44,7 +44,7 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-      
+
       - name: Install pnpm dependencies
         run: pnpm --frozen-lockfile i
 
@@ -81,7 +81,7 @@ jobs:
         with:
           version: 7
           run_install: false
-      
+
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
@@ -89,19 +89,25 @@ jobs:
           profile: minimal
           override: true
           components: rustfmt, rust-src
-      
+
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v1
         with:
           sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Install LLVM and Clang
+        if: matrix.platform == 'windows-latest'
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: '14'
+
       - name: Run 'setup-system.sh' script
         if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
         run: ./.github/scripts/setup-system.sh
-      
+
       - name: Run 'setup-system.ps1' script
         if: matrix.platform == 'windows-latest'
-        run: ./.github/scripts/setup-system.ps1
+        run: ./.github/scripts/setup-system.ps1 -ci
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -116,7 +122,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Install pnpm dependencies
         run: pnpm --frozen-lockfile i
-      
+
       - name: Cache Prisma codegen
         id: cache-prisma
         uses: actions/cache@v3
