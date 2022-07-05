@@ -84,9 +84,11 @@ function App() {
 				demoMode
 				transport={new Transport()}
 				platform={'browser'}
-				convertFileSrc={function (url: string): string {
-					return url;
-				}}
+				getThumbnailUrlById={(location_id: number, cas_id: string) =>
+					`${
+						import.meta.env.VITE_SDSERVER_BASE || 'http://localhost:8080'
+					}/spacedrive/thumbnail/${encodeURIComponent(location_id)}/${encodeURIComponent(cas_id)}`
+				}
 				openDialog={function (options: {
 					directory?: boolean | undefined;
 				}): Promise<string | string[]> {

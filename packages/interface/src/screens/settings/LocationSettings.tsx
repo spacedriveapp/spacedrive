@@ -23,7 +23,7 @@ export default function LocationSettings() {
 			<SettingsHeader title="Locations" description="Manage your storage locations." />
 
 			<div className="grid space-y-2">
-				{locations?.map((location) => (
+				{(locations || []).map((location) => (
 					<LocationListItem key={location.id} location={location} />
 				))}
 			</div>

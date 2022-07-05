@@ -6,6 +6,8 @@ use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
 use node::{NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
 use std::{
 	fs,
 	path::{Path, PathBuf},
@@ -38,7 +40,9 @@ pub struct ReturnableMessage<D, R = Result<CoreResponse, CoreError>> {
 }
 
 // core controller is passed to the client to communicate with the core which runs in a dedicated thread
+#[derive(Clone)]
 pub struct NodeController {
+	config: Arc<NodeConfigManager>,
 	query_sender: UnboundedSender<ReturnableMessage<ClientQuery>>,
 	command_sender: UnboundedSender<ReturnableMessage<ClientCommand>>,
 }
@@ -67,6 +71,52 @@ impl NodeController {
 			.unwrap_or(());
 
 		recv.await.unwrap()
+	}
+
+	// Note: this system doesn't use chunked encoding which could prove a problem with large files but I can't see an easy way to do chunked encoding with Tauri custom URIs.
+	pub fn handle_custom_uri(
+		&self,
+		path: Vec<&str>,
+	) -> (
+		u16,     /* Status Code */
+		&str,    /* Content-Type */
+		Vec<u8>, /* Body */
+	) {
+		match path.get(0).map(|v| *v) {
+			Some("thumbnail") => {
+				if path.len() != 3 {
+					return (
+						400,
+						"text/html",
+						b"Bad Request: Invalid number of parameters".to_vec(),
+					);
+				}
+
+				let filename = Path::new(&self.config.data_directory())
+					.join("thumbnails")
+					.join(path[1].clone() /* l;ocation_id */)
+					.join(path[2].clone() /* file_cas_id */)
+					.with_extension("webp");
+				println!("{:?}", filename);
+				match File::open(&filename) {
+					Ok(mut file) => {
+						let mut buf = match fs::metadata(&filename) {
+							Ok(metadata) => Vec::with_capacity(metadata.len() as usize),
+							Err(_) => Vec::new(),
+						};
+
+						file.read_to_end(&mut buf).unwrap();
+						(200, "image/webp", buf)
+					}
+					Err(_) => (404, "text/html", b"File Not Found".to_vec()),
+				}
+			}
+			_ => (
+				400,
+				"text/html",
+				b"Bad Request: Invalid operation!".to_vec(),
+			),
+		}
 	}
 }
 
@@ -153,7 +203,7 @@ impl Node {
 
 		let node = Node {
 			p2p: p2p::init(config.clone()).await.unwrap(),
-			config,
+			config: config.clone(),
 			library_manager: LibraryManager::new(Path::new(&data_dir).join("libraries"), node_ctx)
 				.await
 				.unwrap(),
@@ -166,6 +216,7 @@ impl Node {
 
 		(
 			NodeController {
+				config,
 				query_sender: node.query_channel.0.clone(),
 				command_sender: node.command_channel.0.clone(),
 			},
@@ -386,7 +437,7 @@ impl Node {
 					Some(ctx) => ctx,
 					None => {
 						println!("Library '{}' not found!", library_id);
-						return Ok(CoreResponse::Error("Library not found".into()));
+						return Ok(CoreResponse::Null);
 					}
 				};
 				match query {
@@ -534,8 +585,8 @@ pub struct NodeState {
 #[serde(tag = "key", content = "data")]
 #[ts(export)]
 pub enum CoreResponse {
+	Null,
 	Success(()),
-	Error(String),
 	NodeGetLibraries(Vec<LibraryConfigWrapped>),
 	SysGetVolumes(Vec<sys::Volume>),
 	SysGetLocation(sys::LocationResource),

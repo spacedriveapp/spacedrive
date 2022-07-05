@@ -6,8 +6,12 @@ use actix::{
 	WrapFuture,
 };
 use actix_web::{
-	get, http::StatusCode, web, App, Error, HttpRequest, HttpResponse, HttpServer,
-	Responder,
+	get,
+	http::{
+		header::{HeaderName, HeaderValue},
+		StatusCode,
+	},
+	web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use actix_web_actors::ws;
 use serde::{Deserialize, Serialize};
@@ -136,6 +140,22 @@ async fn healthcheck() -> impl Responder {
 	format!("OK")
 }
 
+#[get("/spacedrive/{path:.*}")]
+async fn spacedrive(
+	path: web::Path<String>,
+	controller: web::Data<NodeController>,
+) -> impl Responder {
+	let (status_code, content_type, body) =
+		controller.handle_custom_uri(path.split("/").collect());
+
+	let mut resp = HttpResponse::new(StatusCode::from_u16(status_code).unwrap());
+	resp.headers_mut().append(
+		HeaderName::from_static("content-type"),
+		HeaderValue::from_str(content_type).unwrap(),
+	);
+	resp.set_body(body)
+}
+
 #[get("/ws")]
 async fn ws_handler(
 	req: HttpRequest,
@@ -154,12 +174,6 @@ async fn ws_handler(
 	resp
 }
 
-#[get("/file/{file:.*}")]
-async fn file() -> impl Responder {
-	// TODO
-	format!("OK")
-}
-
 async fn not_found() -> impl Responder {
 	HttpResponse::build(StatusCode::OK).body("We're past the event horizon...")
 }
@@ -176,7 +190,7 @@ async fn main() -> std::io::Result<()> {
 			.service(index)
 			.service(healthcheck)
 			.service(ws_handler)
-			.service(file)
+			.service(spacedrive)
 			.default_service(web::route().to(not_found))
 	})
 	.bind(("0.0.0.0", 8080))?

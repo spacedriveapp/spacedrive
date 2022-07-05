@@ -24,9 +24,7 @@ export default function FileThumb(props: {
 		return (
 			<img
 				className="pointer-events-none z-90"
-				src={appProps?.convertFileSrc(
-					`${client.data_path}/thumbnails/${props.locationId}/${props.file.file?.cas_id}.webp`
-				)}
+				src={appProps?.getThumbnailUrlById(props.locationId, props.file.file!.cas_id)}
 			/>
 		);
 	}

@@ -189,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 			</div>
 			<div>
 				<Heading>Locations</Heading>
-				{locations?.map((location, index) => {
+				{(locations || []).map((location, index) => {
 					return (
 						<div key={index} className="flex flex-row items-center">
 							<NavLink

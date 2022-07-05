@@ -46,7 +46,7 @@ export default function LocationSettings() {
 			/>
 
 			<div className="grid space-y-2">
-				{locations?.map((location) => (
+				{(locations || []).map((location) => (
 					<LocationListItem key={location.id} location={location} />
 				))}
 			</div>
