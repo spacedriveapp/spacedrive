@@ -1,5 +1,5 @@
-extern crate ffmpeg_next as ffmpeg;
-use ffmpeg::format;
+// extern crate ffmpeg_next as ffmpeg;
+// use ffmpeg::format;
 
 #[derive(Default, Debug)]
 pub struct MediaItem {
@@ -27,22 +27,22 @@ pub enum StreamKind {
 	// Audio(AudioStream),
 }
 
-#[derive(Debug)]
-pub struct VideoStream {
-	pub width: u32,
-	pub height: u32,
-	pub aspect_ratio: String,
-	pub format: format::Pixel,
-	pub bitrate: usize,
-}
+// #[derive(Debug)]
+// pub struct VideoStream {
+// 	pub width: u32,
+// 	pub height: u32,
+// 	pub aspect_ratio: String,
+// 	pub format: format::Pixel,
+// 	pub bitrate: usize,
+// }
 
-#[derive(Debug)]
-pub struct AudioStream {
-	pub channels: u16,
-	pub format: format::Sample,
-	pub bitrate: usize,
-	pub rate: u32,
-}
+// #[derive(Debug)]
+// pub struct AudioStream {
+// 	pub channels: u16,
+// 	pub format: format::Sample,
+// 	pub bitrate: usize,
+// 	pub rate: u32,
+// }
 
 // fn extract(iter: &mut Iter, key: &str) -> Option<String> {
 // 	iter.find(|k| k.0.contains(key)).map(|k| k.1.to_string())
