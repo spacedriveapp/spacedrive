@@ -95,12 +95,6 @@ jobs:
         with:
           sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install LLVM and Clang
-        if: matrix.platform == 'windows-latest'
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: '14'
-
       - name: Run 'setup-system.sh' script
         if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
         run: ./.github/scripts/setup-system.sh

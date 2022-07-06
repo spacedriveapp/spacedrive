@@ -107,11 +107,13 @@ else {
 
 
 
-# We can't run the installer if running in ci, so we install LLVM through a GitHub Action instead.
+# The ci has LLVM installed already, so we instead just set the env variables.
 if ($ci -eq $True) {
    Write-Host
    Write-Host "Running with Ci, skipping LLVM install." -ForegroundColor Yellow
-}
+
+   $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+   Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
 else {
    Write-Host
    Write-Host "Downloading the LLVM installer..." -ForegroundColor Yellow
@@ -155,8 +157,15 @@ Remove-Item "$temp\ffmpeg.zip"
 Write-Host
 Write-Host "Setting environment variables..." -ForegroundColor Yellow
 
-# Sets environment variable for ffmpeg
-[System.Environment]::SetEnvironmentVariable('FFMPEG_DIR', "$HOME\$foldername", [System.EnvironmentVariableTarget]::User)
+if ($ci -eq $True) {
+   # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
+   Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
+   Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
+}
+else {
+   # Sets environment variable for ffmpeg
+   [System.Environment]::SetEnvironmentVariable('FFMPEG_DIR', "$HOME\$foldername", [System.EnvironmentVariableTarget]::User)
+}
 
 Write-Host
 Write-Host "Copying Required .dll files..." -ForegroundColor Yellow
