@@ -82,9 +82,11 @@ pub async fn get_location(
 	Ok(location.into())
 }
 
-pub fn scan_location(ctx: &LibraryContext, location_id: i32, path: String) {
-	ctx.spawn_job(Box::new(IndexerJob { path: path.clone() }));
-	ctx.queue_job(Box::new(FileIdentifierJob { location_id, path }));
+pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: String) {
+	ctx.spawn_job(Box::new(IndexerJob { path: path.clone() }))
+		.await;
+	ctx.queue_job(Box::new(FileIdentifierJob { location_id, path }))
+		.await;
 	// TODO: make a way to stop jobs so this can be canceled without rebooting app
 	// ctx.queue_job(Box::new(ThumbnailJob {
 	// 	location_id,
@@ -99,7 +101,7 @@ pub async fn new_location_and_scan(
 ) -> Result<LocationResource, SysError> {
 	let location = create_location(&ctx, path).await?;
 
-	scan_location(&ctx, location.id, path.to_string());
+	scan_location(&ctx, location.id, path.to_string()).await;
 
 	Ok(location)
 }

@@ -15,7 +15,7 @@ use std::{
 	fmt::Debug,
 	sync::Arc,
 };
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex, RwLock};
 use ts_rs::TS;
 
 // db is single threaded, nerd
@@ -29,24 +29,43 @@ pub trait Job: Send + Sync + Debug {
 	fn name(&self) -> &'static str;
 }
 
-// jobs struct is maintained by the core
-pub struct Jobs {
-	job_queue: VecDeque<Box<dyn Job>>,
-	// workers are spawned when jobs are picked off the queue
-	running_workers: HashMap<String, Arc<Mutex<Worker>>>,
+pub enum JobManagerEvent {
+	IngestJob(LibraryContext, Box<dyn Job>),
 }
 
-impl Jobs {
-	pub fn new() -> Self {
-		Self {
-			job_queue: VecDeque::new(),
-			running_workers: HashMap::new(),
-		}
+// jobs struct is maintained by the core
+pub struct JobManager {
+	job_queue: RwLock<VecDeque<Box<dyn Job>>>,
+	// workers are spawned when jobs are picked off the queue
+	running_workers: RwLock<HashMap<String, Arc<Mutex<Worker>>>>,
+	internal_sender: mpsc::UnboundedSender<JobManagerEvent>,
+}
+
+impl JobManager {
+	pub fn new() -> Arc<Self> {
+		let (internal_sender, mut internal_reciever) = mpsc::unbounded_channel();
+		let this = Arc::new(Self {
+			job_queue: RwLock::new(VecDeque::new()),
+			running_workers: RwLock::new(HashMap::new()),
+			internal_sender,
+		});
+
+		let this2 = this.clone();
+		tokio::spawn(async move {
+			while let Some(event) = internal_reciever.recv().await {
+				match event {
+					JobManagerEvent::IngestJob(ctx, job) => this2.clone().ingest(&ctx, job).await,
+				}
+			}
+		});
+
+		this
 	}
 
-	pub async fn ingest(&mut self, ctx: &LibraryContext, job: Box<dyn Job>) {
+	pub async fn ingest(self: Arc<Self>, ctx: &LibraryContext, job: Box<dyn Job>) {
 		// create worker to process job
-		if self.running_workers.len() < MAX_WORKERS {
+		let mut running_workers = self.running_workers.write().await;
+		if running_workers.len() < MAX_WORKERS {
 			info!("Running job: {:?}", job.name());
 
 			let worker = Worker::new(job);
@@ -54,31 +73,37 @@ impl Jobs {
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
-			Worker::spawn(wrapped_worker.clone(), ctx).await;
+			Worker::spawn(self.clone(), wrapped_worker.clone(), ctx).await;
 
-			self.running_workers.insert(id, wrapped_worker);
+			running_workers.insert(id, wrapped_worker);
 		} else {
-			self.job_queue.push_back(job);
+			self.job_queue.write().await.push_back(job);
 		}
 	}
 
-	pub fn ingest_queue(&mut self, _ctx: &LibraryContext, job: Box<dyn Job>) {
-		self.job_queue.push_back(job);
+	pub async fn ingest_queue(&self, _ctx: &LibraryContext, job: Box<dyn Job>) {
+		self.job_queue.write().await.push_back(job);
 	}
-	pub async fn complete(&mut self, ctx: &LibraryContext, job_id: String) {
+
+	pub async fn complete(self: Arc<Self>, ctx: &LibraryContext, job_id: String) {
 		// remove worker from running workers
-		self.running_workers.remove(&job_id);
+		self.running_workers.write().await.remove(&job_id);
 		// continue queue
-		let job = self.job_queue.pop_front();
+		let job = self.job_queue.write().await.pop_front();
 		if let Some(job) = job {
-			self.ingest(ctx, job).await;
+			// We can't directly execute `self.ingest` here because it would cause an async cycle.
+			self.internal_sender
+				.send(JobManagerEvent::IngestJob(ctx.clone(), job))
+				.unwrap_or_else(|_| {
+					println!("Failed to ingest job!");
+				});
 		}
 	}
 
 	pub async fn get_running(&self) -> Vec<JobReport> {
 		let mut ret = vec![];
 
-		for worker in self.running_workers.values() {
+		for worker in self.running_workers.read().await.values() {
 			let worker = worker.lock().await;
 			ret.push(worker.job_report.clone());
 		}

@@ -1,5 +1,5 @@
 use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
-use job::{Job, JobReport, Jobs};
+use job::{JobManager, JobReport};
 use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
 use node::{NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
@@ -66,37 +66,14 @@ impl NodeController {
 	}
 }
 
-#[derive(Debug)]
-pub enum InternalEvent {
-	JobIngest(Box<dyn Job>),
-	JobQueue(Box<dyn Job>),
-	JobComplete(String),
-}
-
 #[derive(Clone)]
 pub struct NodeContext {
 	pub event_sender: mpsc::Sender<CoreEvent>,
-	pub internal_sender: UnboundedSender<InternalEvent>,
 	pub config: Arc<NodeConfigManager>,
+	pub jobs: Arc<JobManager>,
 }
 
 impl NodeContext {
-	pub fn spawn_job(&self, job: Box<dyn Job>) {
-		self.internal_sender
-			.send(InternalEvent::JobIngest(job))
-			.unwrap_or_else(|e| {
-				println!("Failed to spawn job. {:?}", e);
-			});
-	}
-
-	pub fn queue_job(&self, job: Box<dyn Job>) {
-		self.internal_sender
-			.send(InternalEvent::JobQueue(job))
-			.unwrap_or_else(|e| {
-				println!("Failed to queue job. {:?}", e);
-			});
-	}
-
 	pub async fn emit(&self, event: CoreEvent) {
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
 			println!("Failed to emit event. {:?}", e);
@@ -107,7 +84,7 @@ impl NodeContext {
 pub struct Node {
 	config: Arc<NodeConfigManager>,
 	library_manager: Arc<LibraryManager>,
-	jobs: job::Jobs,
+	jobs: Arc<JobManager>,
 
 	// global messaging channels
 	query_channel: (
@@ -119,12 +96,6 @@ pub struct Node {
 		UnboundedReceiver<ReturnableMessage<ClientCommand>>,
 	),
 	event_sender: mpsc::Sender<CoreEvent>,
-
-	// a channel for child threads to send events back to the core
-	internal_channel: (
-		UnboundedSender<InternalEvent>,
-		UnboundedReceiver<InternalEvent>,
-	),
 }
 
 impl Node {
@@ -133,14 +104,12 @@ impl Node {
 		fs::create_dir_all(&data_dir).unwrap();
 
 		let (event_sender, event_recv) = mpsc::channel(100);
-
-		let internal_channel = unbounded_channel();
 		let config = NodeConfigManager::new(data_dir.clone()).await.unwrap();
-
+		let jobs = JobManager::new();
 		let node_ctx = NodeContext {
 			event_sender: event_sender.clone(),
-			internal_sender: internal_channel.0.clone(),
 			config: config.clone(),
+			jobs: jobs.clone(),
 		};
 
 		let node = Node {
@@ -150,9 +119,8 @@ impl Node {
 				.unwrap(),
 			query_channel: unbounded_channel(),
 			command_channel: unbounded_channel(),
-			jobs: Jobs::new(),
+			jobs,
 			event_sender,
-			internal_channel,
 		};
 
 		(
@@ -168,17 +136,12 @@ impl Node {
 	pub fn get_context(&self) -> NodeContext {
 		NodeContext {
 			event_sender: self.event_sender.clone(),
-			internal_sender: self.internal_channel.0.clone(),
 			config: self.config.clone(),
+			jobs: self.jobs.clone(),
 		}
 	}
 
 	pub async fn start(mut self) {
-		let ctx = self
-			.library_manager
-			.dangerously_get_first_ctx()
-			.await
-			.unwrap();
 		loop {
 			// listen on global messaging channels for incoming messages
 			tokio::select! {
@@ -189,19 +152,6 @@ impl Node {
 				Some(msg) = self.command_channel.1.recv() => {
 					let res = self.exec_command(msg.data).await;
 					msg.return_sender.send(res).unwrap_or(());
-				}
-				Some(event) = self.internal_channel.1.recv() => {
-					match event {
-						InternalEvent::JobIngest(job) => {
-							self.jobs.ingest(&ctx, job).await;
-						},
-						InternalEvent::JobQueue(job) => {
-							self.jobs.ingest_queue(&ctx, job);
-						},
-						InternalEvent::JobComplete(id) => {
-							self.jobs.complete(&ctx, id).await;
-						},
-					}
 				}
 			}
 		}
@@ -261,7 +211,7 @@ impl Node {
 						CoreResponse::Success(())
 					}
 					LibraryCommand::LocRescan { id } => {
-						sys::scan_location(&ctx, id, String::new());
+						sys::scan_location(&ctx, id, String::new()).await;
 						CoreResponse::Success(())
 					}
 					// CRUD for files
@@ -295,14 +245,16 @@ impl Node {
 							location_id: id,
 							path,
 							background: false, // fix
-						}));
+						}))
+						.await;
 						CoreResponse::Success(())
 					}
 					LibraryCommand::IdentifyUniqueFiles { id, path } => {
 						ctx.spawn_job(Box::new(FileIdentifierJob {
 							location_id: id,
 							path,
-						}));
+						}))
+						.await;
 						CoreResponse::Success(())
 					}
 				}
@@ -351,7 +303,7 @@ impl Node {
 					),
 					LibraryQuery::LibGetTags => todo!(),
 					LibraryQuery::JobGetHistory => {
-						CoreResponse::JobGetHistory(Jobs::get_history(&ctx).await?)
+						CoreResponse::JobGetHistory(JobManager::get_history(&ctx).await?)
 					}
 					LibraryQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
 						library::Statistics::calculate(&ctx).await?,
