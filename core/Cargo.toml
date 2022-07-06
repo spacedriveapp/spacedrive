@@ -18,6 +18,9 @@ core-derive = { path = "./derive" }
 # P2P
 brotli = "3.3.4"
 rmp = "0.8.11"
+rmp-serde = "1.1.0"
+srp = "0.6.0"
+bip39 = { version = "1.0.1", features = ["rand"] }
 
 # Universal Dependencies
 base64 = "0.13.0"
@@ -47,4 +50,3 @@ ffmpeg-next = { version = "5.0.3", optional = true }
 fs_extra = "1.2.0"
 log = { version = "0.4.17", features = ["max_level_trace"] }
 env_logger = "0.9.0"
-rmp-serde = "1.1.0"

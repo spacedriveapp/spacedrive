@@ -124,28 +124,48 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			return Ok(());
 		}
 
-		let identity = nm.identity.clone();
+		println!("{:?}", peer.addresses);
+
+		let mut i = 0;
 		let NewConnection {
 			connection,
 			bi_streams,
 			..
-		} = nm.endpoint
-			.connect_with(
+		} = loop {
+			let address = match peer.addresses.get(i) {
+				Some(address) => address,
+				None => break None,
+			};
+
+			println!("{:?}", address);
+
+			// TODO: Shorter timeout for connections!
+			let identity = nm.identity.clone();
+			let conn = match nm.endpoint.connect_with(
 				ClientConfig::new(Arc::new(
 					client_config(vec![identity.0], identity.1).unwrap(),
 				)),
-				SocketAddrV4::new(*peer.addresses.get(0).unwrap(), peer.port).into(), // TODO: Try all addresses until we can make a connection
+				SocketAddrV4::new(*address, peer.port).into(),
 				&peer.id.to_string(),
-			)
-			.map_err(|err| {
-				println!("{}", err);
-				()
-			})?
-			.await
-			.map_err(|err| {
-				println!("{}", err);
-				()
-			})?;
+			) {
+				Ok(conn) => conn,
+				Err(e) => {
+					println!("p2p error: failed to connect to peer: {}", e);
+					i += 1;
+					continue;
+				}
+			};
+
+			match conn.await {
+				Ok(conn) => break Some(conn),
+				Err(e) => {
+					println!("p2p error: failed to connect to peer: {}", e);
+					i += 1;
+					continue;
+				}
+			}
+		}
+		.unwrap();
 
 		if nm.is_peer_connected(&peer.id) && nm.peer_id <= peer.id {
 			println!(

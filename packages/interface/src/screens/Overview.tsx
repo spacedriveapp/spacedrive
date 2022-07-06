@@ -221,10 +221,13 @@ export const OverviewScreen = () => {
 										.map((peer) => (
 											<h1
 												className="bg-red-500 w-full text-white p-1"
-												onClick={() => {
-													pairNode(peer.id);
-													alert('Paired. TODO: Close modal!');
-												}}
+												onClick={() =>
+													pairNode(peer.id, {
+														onSuccess: (data) => {
+															alert(data.password);
+														}
+													})
+												}
 											>
 												{peer.metadata.name}
 											</h1>

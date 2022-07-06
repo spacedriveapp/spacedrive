@@ -1,5 +1,6 @@
 use std::{env, sync::Arc};
 
+use bip39::{Language, Mnemonic};
 use futures::executor::block_on;
 use p2p::{
 	quinn::{RecvStream, SendStream},
@@ -8,7 +9,9 @@ use p2p::{
 };
 use tokio::sync::mpsc::{self};
 
-use crate::node::NodeConfigManager;
+use crate::{
+	library::LibraryContext, node::NodeConfigManager, ClientQuery, CoreEvent, CoreResponse, Node,
+};
 
 #[derive(Debug, Clone)]
 pub enum P2PEvent {
@@ -95,4 +98,38 @@ pub async fn init(
 	);
 
 	Ok((nm, event_channel.1))
+}
+
+pub async fn pair(
+	nm: &Arc<NetworkManager<SdP2PManager>>,
+	ctx: LibraryContext,
+	peer_id: PeerId,
+) -> CoreResponse {
+	let m = Mnemonic::generate_in(
+		Language::English,
+		24, /* This library doesn't work with any number here for some reason */
+	)
+	.unwrap();
+	let password: String = m.word_iter().take(4).collect::<Vec<_>>().join("-");
+
+	// TODO: Show password to user
+
+	// TODO: Send pair request to other client
+	// nm.pair_request();
+
+	println!("{:?}", password); // TODO
+
+	// TODO: Send event to frontend
+
+	// TODO: Add into library database
+
+	// TODO: Integrate proper pairing protocol using PAKE system to ensure we trust the remote client.
+	nm.add_known_peer(peer_id);
+
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
+		.await;
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers))
+		.await;
+
+	CoreResponse::PairNode { password }
 }

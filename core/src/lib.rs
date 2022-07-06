@@ -338,19 +338,7 @@ impl Node {
 						CoreResponse::Success(())
 					}
 					// P2P
-					LibraryCommand::PairNode(peer_id) => {
-						// TODO: Add into library database
-
-						// TODO: Integrate proper pairing protocol using PAKE system to ensure we trust the remote client.
-						self.p2p.0.add_known_peer(peer_id);
-
-						ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
-							.await;
-						ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers))
-							.await;
-
-						CoreResponse::Success(())
-					}
+					LibraryCommand::PairNode(peer_id) => p2p::pair(&self.p2p.0, ctx, peer_id).await,
 					LibraryCommand::UnpairNode(_peer_id) => todo!(),
 				}
 			}
@@ -524,9 +512,21 @@ pub enum CoreEvent {
 	InvalidateQuery(ClientQuery),
 	InvalidateQueryDebounced(ClientQuery),
 	InvalidateResource(CoreResource),
-	NewThumbnail { cas_id: String },
-	Log { message: String },
-	DatabaseDisconnected { reason: Option<String> },
+	NewThumbnail {
+		cas_id: String,
+	},
+	Log {
+		message: String,
+	},
+	DatabaseDisconnected {
+		reason: Option<String>,
+	},
+	PeerPairingRequest {
+		peer_id: PeerId,
+		metadata: PeerMetadata,
+	},
+	// PeerOnline { peer_id: PeerId }
+	// PeerOffline { peer_id: PeerId }
 }
 
 #[derive(Serialize, Deserialize, Debug, TS)]
@@ -555,6 +555,7 @@ pub enum CoreResponse {
 	GetLibraryStatistics(library::Statistics),
 	DiscoveredPeers(Vec<PeerCandidateTS>),
 	ConnectedPeers(HashMap<PeerId, PeerMetadata>),
+	PairNode { password: String },
 }
 
 #[derive(Error, Debug)]

@@ -3,6 +3,7 @@ import { CoreEvent } from '@sd/core';
 import { useContext, useEffect } from 'react';
 import { useQueryClient } from 'react-query';
 
+import { useToastNotificationsStore } from '../App';
 import { AppPropsContext } from '../AppPropsContext';
 import { useExplorerState } from './useExplorerState';
 
@@ -10,6 +11,7 @@ export function useCoreEvents() {
 	const client = useQueryClient();
 
 	const { addNewThumbnail } = useExplorerState();
+	const toastNotificationsStore = useToastNotificationsStore();
 	useEffect(() => {
 		function handleCoreEvent(e: CoreEvent) {
 			switch (e?.key) {
@@ -43,6 +45,14 @@ export function useCoreEvents() {
 
 					client.invalidateQueries(query);
 					break;
+
+				case 'PeerPairingRequest':
+					console.log(e.data);
+					alert('Pairing time!');
+					toastNotificationsStore.addToast({
+						title: 'Pairing time!',
+						subtitle: 'Pairing time!'
+					});
 
 				default:
 					break;

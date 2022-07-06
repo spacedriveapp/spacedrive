@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::Ipv4Addr, sync::Arc};
 
 use mdns_sd::{Receiver, ServiceDaemon, ServiceEvent, ServiceInfo};
 use sd_tunnel_utils::PeerId;
@@ -33,6 +33,8 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 					ServiceEvent::SearchStarted(_) => {}
 					ServiceEvent::ServiceFound(_, _) => {}
 					ServiceEvent::ServiceResolved(info) => {
+						println!("RESOLVED {:?}", info);
+
 						let raw_peer_id = info
 							.get_fullname()
 							.replace(&format!(".{}", self.service_type), "");
@@ -50,9 +52,11 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 										info.get_properties(),
 									),
 									addresses: info
-										.get_addresses()
-										.iter()
-										.map(|addr| addr.clone())
+										.get_properties()
+										.get("addrs")
+										.unwrap()
+										.split(",")
+										.map(|v| v.parse::<Ipv4Addr>().unwrap())
 										.collect(),
 									port: info.get_port(),
 								};
@@ -91,19 +95,28 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 
 	pub async fn register(&self) {
 		let peer_id_str = &self.nm.peer_id.to_string();
-		let service_info = ServiceInfo::new(
-			&self.service_type,
-			&peer_id_str,
-			&format!("{}.", peer_id_str),
+
+		let mut properties = self.nm.manager.get_metadata().to_hashmap();
+		properties.insert(
+			"addrs".to_string(),
 			self.nm
 				.lan_addrs
 				.iter()
 				.map(|v| v.to_string())
-				.collect::<Vec<_>>()
+				.collect::<Vec<String>>()
 				.join(","),
-			self.nm.listen_addr.port(),
-			Some(self.nm.manager.get_metadata().to_hashmap()),
 		);
+
+		let service_info = ServiceInfo::new(
+			&self.service_type,
+			&peer_id_str,
+			&format!("{}.", peer_id_str),
+			&(vec![] as Vec<String>)[..], // We use a property for this property doesn't support multiple addresses!
+			self.nm.listen_addr.port(),
+			Some(properties),
+		);
+
+		println!("REGISTER {:?}", service_info);
 
 		match service_info {
 			Ok(service_info) => match self.mdns.register(service_info) {
