@@ -39,7 +39,7 @@ impl P2PManager for SdP2PManager {
 
 	fn peer_discovered(&self, nm: &NetworkManager<Self>, peer_id: &PeerId) {
 		self.event_channel
-			.send(P2PEvent::PeerConnected(peer_id.clone()));
+			.send(P2PEvent::PeerDiscovered(peer_id.clone()));
 		// nm.add_known_peer(peer_id.clone()); // Be careful doing this in a production application because it will just trust all clients
 	}
 

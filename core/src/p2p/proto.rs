@@ -1,16 +1,13 @@
-// mkfile -n 1g ./demo.file
-// mkfile -n 100m ./demo.file
-
 use std::{
 	fmt,
 	fs::File,
-	io::{BufReader, Cursor, Read, Write},
+	io::{BufReader, Read, Write},
 	time::Instant,
 };
 
 use brotli::CompressorWriter;
 use rmp::{
-	decode::{read_bin_len, read_ext_meta, RmpRead},
+	decode::{read_bin_len, read_ext_meta},
 	encode::{write_bin, write_ext_meta},
 };
 use serde::{Deserialize, Serialize};

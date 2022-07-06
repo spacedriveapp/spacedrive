@@ -5461,6 +5461,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64 0.13.0",
+ "brotli",
  "chrono",
  "core-derive",
  "data-encoding",
@@ -5476,6 +5477,8 @@ dependencies = [
  "p2p",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",
+ "rmp",
+ "rmp-serde",
  "serde",
  "serde_json",
  "sysinfo",

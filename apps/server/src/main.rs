@@ -182,7 +182,11 @@ async fn not_found() -> impl Responder {
 async fn main() -> std::io::Result<()> {
 	let (event_receiver, controller) = setup().await;
 
-	println!("Listening http://localhost:8080");
+	let port = env::var("PORT")
+		.map(|port| port.parse::<u16>().unwrap_or(8080))
+		.unwrap_or(8080);
+
+	println!("Listening http://localhost:{}", port);
 	HttpServer::new(move || {
 		App::new()
 			.app_data(event_receiver.clone())
@@ -193,7 +197,7 @@ async fn main() -> std::io::Result<()> {
 			.service(spacedrive)
 			.default_service(web::route().to(not_found))
 	})
-	.bind(("0.0.0.0", 8080))?
+	.bind(("0.0.0.0", port))?
 	.run()
 	.await
 }
