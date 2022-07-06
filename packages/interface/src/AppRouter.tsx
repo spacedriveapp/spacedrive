@@ -37,10 +37,8 @@ export function AppRouter() {
 
 	// TODO: This can be removed once we add a setup flow to the app
 	useEffect(() => {
-		if (libraryState.currentLibraryUuid === null) {
-			if (libraries && libraries.length === 0) {
-				libraryState.switchLibrary(libraries[0].uuid);
-			}
+		if (libraryState.currentLibraryUuid === null && libraries && libraries.length > 0) {
+			libraryState.switchLibrary(libraries[0].uuid);
 		}
 	}, [libraryState.currentLibraryUuid, libraries]);
 

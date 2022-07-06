@@ -1,8 +1,8 @@
 use super::{
 	jobs::{JobReport, JobReportUpdate, JobStatus},
-	Job,
+	Job, JobManager,
 };
-use crate::{library::LibraryContext, ClientQuery, CoreEvent, InternalEvent, LibraryQuery};
+use crate::{library::LibraryContext, ClientQuery, CoreEvent, LibraryQuery};
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -67,7 +67,11 @@ impl Worker {
 		}
 	}
 	// spawns a thread and extracts channel sender to communicate with it
-	pub async fn spawn(worker: Arc<Mutex<Self>>, ctx: &LibraryContext) {
+	pub async fn spawn(
+		job_manager: Arc<JobManager>,
+		worker: Arc<Mutex<Self>>,
+		ctx: &LibraryContext,
+	) {
 		// we capture the worker receiver channel so state can be updated from inside the worker
 		let mut worker_mut = worker.lock().await;
 		// extract owned job and receiver from Self
@@ -128,10 +132,7 @@ impl Worker {
 				}
 			}
 
-			worker_ctx
-				.library_ctx()
-				.emit_internal_event(InternalEvent::JobComplete(worker_ctx.uuid.clone()))
-				.await;
+			job_manager.complete(&ctx, worker_ctx.uuid).await;
 		});
 	}
 

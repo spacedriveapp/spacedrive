@@ -223,12 +223,7 @@ impl LibraryManager {
 			.find(|lib| lib.id.to_string() == library_id)
 			.map(|v| v.clone())
 	}
-
-	// TODO: Remove this before merging PR
-	pub(crate) async fn dangerously_get_first_ctx(&self) -> Option<LibraryContext> {
-		self.libraries.read().await.first().map(|v| v.clone())
-	}
-
+	
 	/// load the library from a given path
 	pub(crate) async fn load(
 		id: Uuid,

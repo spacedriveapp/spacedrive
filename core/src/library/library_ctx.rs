@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{
-	job::Job, node::NodeConfigManager, prisma::PrismaClient, CoreEvent, InternalEvent, NodeContext,
-};
+use crate::{job::Job, node::NodeConfigManager, prisma::PrismaClient, CoreEvent, NodeContext};
 
 use super::LibraryConfig;
 
@@ -24,21 +22,12 @@ pub struct LibraryContext {
 }
 
 impl LibraryContext {
-	pub(crate) fn spawn_job(&self, job: Box<dyn Job>) {
-		self.node_context
-			.internal_sender
-			.send(InternalEvent::JobIngest(job))
-			.unwrap_or_else(|e| {
-				println!("Failed to spawn job. {:?}", e);
-			});
+	pub(crate) async fn spawn_job(&self, job: Box<dyn Job>) {
+		self.node_context.jobs.clone().ingest(self, job).await;
 	}
-	pub(crate) fn queue_job(&self, job: Box<dyn Job>) {
-		self.node_context
-			.internal_sender
-			.send(InternalEvent::JobQueue(job))
-			.unwrap_or_else(|e| {
-				println!("Failed to queue job. {:?}", e);
-			});
+
+	pub(crate) async fn queue_job(&self, job: Box<dyn Job>) {
+		self.node_context.jobs.ingest_queue(self, job).await;
 	}
 
 	pub(crate) async fn emit(&self, event: CoreEvent) {
@@ -46,15 +35,6 @@ impl LibraryContext {
 			.event_sender
 			.send(event)
 			.await
-			.unwrap_or_else(|e| {
-				println!("Failed to emit event. {:?}", e);
-			});
-	}
-
-	pub(crate) async fn emit_internal_event(&self, event: InternalEvent) {
-		self.node_context
-			.internal_sender
-			.send(event)
 			.unwrap_or_else(|e| {
 				println!("Failed to emit event. {:?}", e);
 			});
