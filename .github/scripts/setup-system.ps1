@@ -114,7 +114,8 @@ if ($ci -eq $True) {
 
    $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
    Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
-else {
+
+} else {
    Write-Host
    Write-Host "Downloading the LLVM installer..." -ForegroundColor Yellow
    # Downloads latest installer for LLVM
