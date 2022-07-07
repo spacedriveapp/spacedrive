@@ -19,8 +19,6 @@ core-derive = { path = "./derive" }
 brotli = "3.3.4"
 rmp = "0.8.11"
 rmp-serde = "1.1.0"
-srp = "0.6.0"
-bip39 = { version = "1.0.1", features = ["rand"] }
 
 # Universal Dependencies
 base64 = "0.13.0"

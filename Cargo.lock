@@ -3349,8 +3349,7 @@ checksum = "7e6bcd6433cff03a4bfc3d9834d504467db1f1cf6d0ea765d37d330249ed629d"
 [[package]]
 name = "mdns-sd"
 version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7003e5203dc597b310b930765feb8ea4543865c0a7eb8b075d1981f284d7a024"
+source = "git+https://github.com/keepsimple1/mdns-sd.git?branch=multi-ip#0508957de86c15174dece1014567faeb798f9db3"
 dependencies = [
  "flume",
  "if-addrs",
@@ -4135,12 +4134,14 @@ dependencies = [
 name = "p2p"
 version = "0.1.0"
 dependencies = [
+ "bip39",
  "dashmap",
  "futures-util",
  "if-watch",
  "mdns-sd",
  "quinn",
  "rcgen",
+ "rmp-serde",
  "rustls 0.20.6",
  "sd-tunnel-utils",
  "serde",
@@ -5671,7 +5672,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64 0.13.0",
- "bip39",
  "brotli",
  "chrono",
  "core-derive",
@@ -5692,7 +5692,6 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "srp",
  "sysinfo",
  "thiserror",
  "tokio",
@@ -6194,19 +6193,6 @@ dependencies = [
  "tracing-opentelemetry",
  "user-facing-errors",
  "uuid 0.8.2",
-]
-
-[[package]]
-name = "srp"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cdd40049b29ab1315ccba7ffcf1eece8162982eab14edfac3cf2c2ffab18193"
-dependencies = [
- "digest 0.10.3",
- "generic-array 0.14.5",
- "lazy_static",
- "num-bigint 0.4.3",
- "subtle",
 ]
 
 [[package]]

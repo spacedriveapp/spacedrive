@@ -1,3 +1,5 @@
+use std::{collections::HashMap, future::Future, pin::Pin, process::Output};
+
 use quinn::{RecvStream, SendStream};
 use sd_tunnel_utils::PeerId;
 
@@ -21,6 +23,23 @@ pub trait P2PManager: Clone + Send + Sync + Sized + 'static {
 
 	/// TODO
 	fn peer_disconnected(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {}
+
+	/// TODO
+	/// TODO: Error type
+	fn peer_paired<'a>(
+		&'a self,
+		nm: &'a NetworkManager<Self>,
+		peer_id: &'a PeerId,
+		extra_data: &'a HashMap<String, String>,
+	) -> Pin<Box<dyn Future<Output = Result<(), ()>> + Send + 'a>>;
+
+	/// TODO
+	fn peer_paired_rollback<'a>(
+		&'a self,
+		nm: &'a NetworkManager<Self>,
+		peer_id: &'a PeerId,
+		extra_data: &'a HashMap<String, String>,
+	) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'a>>;
 
 	/// TODO
 	fn accept_stream(&self, peer: &Peer<Self>, stream: (SendStream, RecvStream)) {}

@@ -169,13 +169,16 @@ impl Node {
 			config: config.clone(),
 			jobs: jobs.clone(),
 		};
+		let library_manager = LibraryManager::new(Path::new(&data_dir).join("libraries"), node_ctx)
+			.await
+			.unwrap();
 
 		let node = Node {
-			p2p: p2p::init(config.clone()).await.unwrap(),
-			config: config.clone(),
-			library_manager: LibraryManager::new(Path::new(&data_dir).join("libraries"), node_ctx)
+			p2p: p2p::init(library_manager.clone(), config.clone())
 				.await
 				.unwrap(),
+			config: config.clone(),
+			library_manager,
 			query_channel: unbounded_channel(),
 			command_channel: unbounded_channel(),
 			jobs,

@@ -33,8 +33,6 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 					ServiceEvent::SearchStarted(_) => {}
 					ServiceEvent::ServiceFound(_, _) => {}
 					ServiceEvent::ServiceResolved(info) => {
-						println!("RESOLVED {:?}", info);
-
 						let raw_peer_id = info
 							.get_fullname()
 							.replace(&format!(".{}", self.service_type), "");
@@ -106,8 +104,6 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 			self.nm.listen_addr.port(),
 			Some(self.nm.manager.get_metadata().to_hashmap()),
 		);
-
-		println!("REGISTER {:?}", service_info);
 
 		match service_info {
 			Ok(service_info) => match self.mdns.register(service_info) {

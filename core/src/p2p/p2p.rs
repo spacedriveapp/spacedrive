@@ -1,17 +1,22 @@
-use std::{env, sync::Arc};
+use std::{collections::HashMap, env, pin::Pin, sync::Arc};
 
-use bip39::{Language, Mnemonic};
-use futures::executor::block_on;
+use futures::{executor::block_on, Future};
 use p2p::{
 	quinn::{RecvStream, SendStream},
 	Identity, NetworkManager, NetworkManagerConfig, NetworkManagerError, P2PManager, Peer, PeerId,
 	PeerMetadata,
 };
 use tokio::sync::mpsc::{self};
+use uuid::Uuid;
 
 use crate::{
-	library::LibraryContext, node::NodeConfigManager, ClientQuery, CoreEvent, CoreResponse, Node,
+	library::{LibraryConfig, LibraryContext, LibraryManager},
+	node::NodeConfigManager,
+	ClientQuery, CoreEvent, CoreResponse, Node,
 };
+
+const LIBRARY_ID_EXTRA_DATA_KEY: &'static str = "libraryId";
+const LIBRARY_CONFIG_EXTRA_DATA_KEY: &'static str = "libraryData";
 
 #[derive(Debug, Clone)]
 pub enum P2PEvent {
@@ -24,6 +29,7 @@ pub enum P2PEvent {
 // SdP2PManager is part of your application and allows you to hook into the behavior of the P2PManager.
 #[derive(Clone)]
 pub struct SdP2PManager {
+	library_manager: Arc<LibraryManager>,
 	config: Arc<NodeConfigManager>,
 	/// event_channel is used to send events back to the Spacedrive main event loop
 	event_channel: mpsc::UnboundedSender<P2PEvent>,
@@ -58,6 +64,49 @@ impl P2PManager for SdP2PManager {
 		self.event_channel.send(P2PEvent::PeerDisconnected(peer_id));
 	}
 
+	fn peer_paired<'a>(
+		&'a self,
+		nm: &'a NetworkManager<Self>,
+		peer_id: &'a PeerId,
+		extra_data: &'a HashMap<String, String>,
+	) -> Pin<Box<dyn Future<Output = Result<(), ()>> + Send + 'a>> {
+		// TODO: Checking is peer is the same or newer version of application and hence that it's safe to join
+
+		Box::pin(async move {
+			let library_id = extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap();
+			let library_config: LibraryConfig =
+				serde_json::from_str(extra_data.get(LIBRARY_CONFIG_EXTRA_DATA_KEY).unwrap())
+					.unwrap();
+
+			let ctx = self
+				.library_manager
+				.create_with_id(Uuid::parse_str(library_id).unwrap(), library_config)
+				.await
+				.unwrap();
+
+			// TODO: Create clients in the DB -> The first client should send over all the data
+
+			// TODO: Emit InvalidQuery events
+
+			Ok(())
+		})
+	}
+
+	fn peer_paired_rollback<'a>(
+		&'a self,
+		nm: &'a NetworkManager<Self>,
+		peer_id: &'a PeerId,
+		extra_data: &'a HashMap<String, String>,
+	) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'a>> {
+		Box::pin(async move {
+			println!("TODO: Rolling back changes from `peer_paired` as connection failed.");
+
+			// TODO: Undo DB changes
+
+			// TODO: Emit `InvalidateQuery` events
+		})
+	}
+
 	fn accept_stream(&self, peer: &Peer<Self>, (mut tx, mut rx): (SendStream, RecvStream)) {
 		let peer = peer.clone();
 		tokio::spawn(async move {
@@ -69,6 +118,7 @@ impl P2PManager for SdP2PManager {
 }
 
 pub async fn init(
+	library_manager: Arc<LibraryManager>,
 	config: Arc<NodeConfigManager>,
 ) -> Result<
 	(
@@ -82,11 +132,12 @@ pub async fn init(
 	let nm = NetworkManager::new(
 		identity,
 		SdP2PManager {
+			library_manager,
 			config,
 			event_channel: event_channel.0,
 		},
 		NetworkManagerConfig {
-			known_peers: Default::default(),
+			known_peers: Default::default(), // TODO: Load these from the database on startup
 			listen_port: None,
 		},
 	)
@@ -105,26 +156,27 @@ pub async fn pair(
 	ctx: LibraryContext,
 	peer_id: PeerId,
 ) -> CoreResponse {
-	let m = Mnemonic::generate_in(
-		Language::English,
-		24, /* This library doesn't work with any number here for some reason */
-	)
-	.unwrap();
-	let password: String = m.word_iter().take(4).collect::<Vec<_>>().join("-");
+	nm.clone()
+		.pair_with_peer(
+			peer_id,
+			[
+				(LIBRARY_ID_EXTRA_DATA_KEY.into(), ctx.id.to_string()),
+				(
+					LIBRARY_CONFIG_EXTRA_DATA_KEY.into(),
+					serde_json::to_string(&ctx.config).unwrap(),
+				),
+			]
+			.into_iter()
+			.collect(),
+		)
+		.await;
 
-	// TODO: Show password to user
+	let password = "todo".to_string(); // TODO: make this work with UI
 
-	// TODO: Send pair request to other client
-	// nm.pair_request();
-
-	println!("{:?}", password); // TODO
-
-	// TODO: Send event to frontend
-
-	// TODO: Add into library database
+	// TODO: Add node into library database once paired
 
 	// TODO: Integrate proper pairing protocol using PAKE system to ensure we trust the remote client.
-	nm.add_known_peer(peer_id);
+	// nm.add_known_peer(peer_id);
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
 		.await;

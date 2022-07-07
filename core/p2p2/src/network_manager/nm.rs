@@ -5,15 +5,17 @@ use std::{
 	time::Duration,
 };
 
+use bip39::{Language, Mnemonic};
 use dashmap::{DashMap, DashSet};
-use quinn::{Chunk, Endpoint, ServerConfig};
+use quinn::{Chunk, Endpoint, NewConnection, ServerConfig};
 use rustls::{Certificate, PrivateKey};
 use sd_tunnel_utils::{quic, PeerId};
+use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-	Identity, NetworkManagerConfig, NetworkManagerError, NetworkManagerInternalEvent, P2PManager,
-	Peer, PeerCandidate,
+	ConnectionType, Identity, NetworkManagerConfig, NetworkManagerError,
+	NetworkManagerInternalEvent, P2PManager, Peer, PeerCandidate, PeerMetadata,
 };
 
 /// TODO
@@ -39,6 +41,8 @@ pub struct NetworkManager<TP2PManager: P2PManager> {
 	pub(crate) endpoint: Endpoint,
 	/// TODO
 	internal_channel: mpsc::UnboundedSender<NetworkManagerInternalEvent>,
+	/// TODO
+	pairing_requests: DashMap<PeerId, PairingSession>, // TODO: Event loop clear out expired requests?
 }
 
 impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
@@ -78,6 +82,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			manager,
 			endpoint,
 			internal_channel: internal_channel.0,
+			pairing_requests: DashMap::new(),
 		});
 		Self::event_loop(&this, incoming, internal_channel.1).await?;
 		Ok(this)
@@ -178,4 +183,101 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	pub fn discovered_peers(&self) -> HashMap<PeerId, PeerCandidate> {
 		self.discovered_peers.clone().into_iter().collect()
 	}
+
+	// TODO: Should this spawn another thread -> Which event loop is it blocking????
+	pub async fn pair_with_peer(
+		self: &Arc<Self>,
+		remote_peer_id: PeerId,
+		extra_data: HashMap<String, String>,
+	) {
+		// TODO: Ensure we are not already paired with the peer
+
+		let candidate = self.discovered_peers.get(&remote_peer_id).unwrap().clone();
+
+		// let m = Mnemonic::generate_in(
+		// 	Language::English,
+		// 	24, /* This library doesn't work with any number here for some reason */
+		// )
+		// .unwrap();
+		// let password: String = m.word_iter().take(4).collect::<Vec<_>>().join("-");
+
+		let preshared_key = "very_secure".to_string(); // TODO: This is hardcoded until the UI is inplace.
+
+		// TODO: Do I need this?
+		self.pairing_requests
+			.insert(remote_peer_id.clone(), PairingSession {});
+
+		let NewConnection {
+			connection,
+			bi_streams,
+			..
+		} = Self::connect_to_peer_internal(&self.clone(), candidate)
+			.await
+			.unwrap();
+
+		let (mut tx, mut rx) = connection.open_bi().await.unwrap();
+
+		self.manager
+			.peer_paired(&self, &remote_peer_id, &extra_data)
+			.await
+			.unwrap();
+
+		// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
+		tx.write_all(
+			&rmp_serde::encode::to_vec_named(&ConnectionEstablishmentPayload::PairingRequest {
+				preshared_key,
+				metadata: self.manager.get_metadata(),
+				extra_data: extra_data.clone(),
+			})
+			.unwrap(),
+		)
+		.await
+		.unwrap();
+
+		// TODO: Get max chunk size from constant.
+		let data = rx.read_chunk(64 * 1024, true).await.unwrap().unwrap();
+		let payload: PairingPayload = rmp_serde::decode::from_read(&data.bytes[..]).unwrap();
+
+		match payload {
+			PairingPayload::PairingComplete { metadata } => {
+				// TODO: Create peer to continue using connection
+				println!("PAIRING COMPLETE!");
+
+				let peer = Peer::new(
+					ConnectionType::Client,
+					remote_peer_id,
+					connection,
+					metadata,
+					self.clone(),
+				)
+				.await
+				.unwrap();
+				tokio::spawn(peer.handler(bi_streams));
+			}
+			PairingPayload::PairingFailed => {
+				self.manager
+					.peer_paired_rollback(&self, &remote_peer_id, &extra_data)
+					.await;
+			}
+		}
+	}
+}
+
+// TODO: Move this into it's own file
+pub struct PairingSession {}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ConnectionEstablishmentPayload {
+	PairingRequest {
+		preshared_key: String,
+		metadata: PeerMetadata,
+		extra_data: HashMap<String, String>,
+	},
+	ConnectionRequest, // TODO: Add `PeerMetadata` as argument to this.
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum PairingPayload {
+	PairingComplete { metadata: PeerMetadata },
+	PairingFailed,
 }

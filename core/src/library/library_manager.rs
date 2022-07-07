@@ -117,7 +117,15 @@ impl LibraryManager {
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
 	pub(crate) async fn create(&self, config: LibraryConfig) -> Result<(), LibraryManagerError> {
-		let id = Uuid::new_v4();
+		self.create_with_id(Uuid::new_v4(), config).await
+	}
+
+	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
+	pub(crate) async fn create_with_id(
+		&self,
+		id: Uuid,
+		config: LibraryConfig,
+	) -> Result<(), LibraryManagerError> {
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", id.to_string())),
 			&config,
@@ -223,7 +231,7 @@ impl LibraryManager {
 			.find(|lib| lib.id.to_string() == library_id)
 			.map(|v| v.clone())
 	}
-	
+
 	/// load the library from a given path
 	pub(crate) async fn load(
 		id: Uuid,

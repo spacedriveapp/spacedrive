@@ -120,24 +120,53 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 	// TODO: Error type
 	async fn connect_to_peer(nm: &Arc<Self>, peer: PeerCandidate) -> Result<(), ()> {
+		let metadata = peer.metadata.clone();
+		let peer_id = peer.id.clone();
 		if nm.is_peer_connected(&peer.id) && nm.peer_id <= peer.id {
 			return Ok(());
 		}
 
-		println!("{:?}", peer.addresses);
-
-		let mut i = 0;
 		let NewConnection {
 			connection,
 			bi_streams,
 			..
-		} = loop {
+		} = Self::connect_to_peer_internal(nm, peer).await?;
+
+		if nm.is_peer_connected(&peer_id) && nm.peer_id <= peer_id {
+			println!(
+				"Closing new connection to peer '{}' as we are already connect!",
+				peer_id
+			);
+			connection.close(VarInt::from_u32(0), b"DUP_CONN");
+			return Ok(());
+		}
+
+		let peer = Peer::new(
+			ConnectionType::Client,
+			peer_id,
+			connection,
+			metadata,
+			nm.clone(),
+		)
+		.await
+		.unwrap();
+		tokio::spawn(peer.handler(bi_streams));
+		Ok(())
+	}
+
+	// TODO: Error type
+	pub(crate) async fn connect_to_peer_internal(
+		nm: &Arc<Self>,
+		peer: PeerCandidate,
+	) -> Result<NewConnection, ()> {
+		// TODO: Guess the best default IP.
+
+		let mut i = 0;
+		let conn = loop {
 			let address = match peer.addresses.get(i) {
 				Some(address) => address,
 				None => break None,
 			};
-
-			println!("{:?}", address);
 
 			// TODO: Shorter timeout for connections!
 			let identity = nm.identity.clone();
@@ -167,26 +196,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		}
 		.unwrap();
 
-		if nm.is_peer_connected(&peer.id) && nm.peer_id <= peer.id {
-			println!(
-				"Closing new connection to peer '{}' as we are already connect!",
-				peer.id
-			);
-			connection.close(VarInt::from_u32(0), b"DUP_CONN");
-			return Ok(());
-		}
-
-		let peer = Peer::new(
-			ConnectionType::Client,
-			peer.id,
-			connection,
-			peer.metadata,
-			nm.clone(),
-		)
-		.await
-		.unwrap();
-		tokio::spawn(peer.handler(bi_streams));
-		Ok(())
+		Ok(conn)
 	}
 
 	fn shutdown() {
