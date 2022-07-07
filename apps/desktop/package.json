@@ -8,8 +8,7 @@
 		"vite": "vite",
 		"dev": "tauri dev",
 		"tauri": "tauri",
-		"build": "tauri build",
-		"build-mac": "tauri build --target aarch64-apple-darwin"
+		"build": "tauri build"
 	},
 	"dependencies": {
 		"@sd/client": "workspace:*",
