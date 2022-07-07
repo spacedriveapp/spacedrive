@@ -67,6 +67,18 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	});
 
 	let navigate = useNavigate();
+	const [showSuperK, setShowSuperK] = React.useState(true);
+
+	//create function to focus on search box when cmd+k is pressed
+	const searchRef: any = React.useRef(null);
+	React.useEffect(() => {
+		document.addEventListener('keydown', (e) => {
+			if (e.metaKey && e.key === 'k' && searchRef.current) {
+				searchRef.current.focus()
+			}
+		})
+	},[])
+
 	return (
 		<>
 			<div
@@ -90,13 +102,20 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					</div>
 					<div className="relative flex h-7">
 						<input
+							ref={searchRef}
 							placeholder="Search"
+							onFocus={() => {
+								setShowSuperK(false);
+							}}
+							onBlur={() => {
+								setShowSuperK(true);
+							}}
 							className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-500 bg-[#F6F2F6] border border-gray-50 dark:bg-gray-650 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
 						/>
-						<div className="space-x-1 absolute top-[2px] right-1">
+						{showSuperK && <div className="space-x-1 absolute top-[2px] right-1">
 							<Shortcut chars="⌘K" />
 							{/* <Shortcut chars="S" /> */}
-						</div>
+						</div>}
 					</div>
 					<div className="flex mx-8 space-x-2">
 						<TopBarButton icon={Key} />
