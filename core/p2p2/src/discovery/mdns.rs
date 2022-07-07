@@ -52,11 +52,9 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 										info.get_properties(),
 									),
 									addresses: info
-										.get_properties()
-										.get("addrs")
-										.unwrap()
-										.split(",")
-										.map(|v| v.parse::<Ipv4Addr>().unwrap())
+										.get_addresses()
+										.iter()
+										.map(|v| v.clone())
 										.collect(),
 									port: info.get_port(),
 								};
@@ -95,25 +93,18 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 
 	pub async fn register(&self) {
 		let peer_id_str = &self.nm.peer_id.to_string();
-
-		let mut properties = self.nm.manager.get_metadata().to_hashmap();
-		properties.insert(
-			"addrs".to_string(),
-			self.nm
-				.lan_addrs
-				.iter()
-				.map(|v| v.to_string())
-				.collect::<Vec<String>>()
-				.join(","),
-		);
-
 		let service_info = ServiceInfo::new(
 			&self.service_type,
 			&peer_id_str,
 			&format!("{}.", peer_id_str),
-			&(vec![] as Vec<String>)[..], // We use a property for this property doesn't support multiple addresses!
+			&(self
+				.nm
+				.lan_addrs
+				.iter()
+				.map(|v| v.clone())
+				.collect::<Vec<Ipv4Addr>>())[..],
 			self.nm.listen_addr.port(),
-			Some(properties),
+			Some(self.nm.manager.get_metadata().to_hashmap()),
 		);
 
 		println!("REGISTER {:?}", service_info);

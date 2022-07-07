@@ -12,7 +12,7 @@ rustls = "0.20.6"
 tokio = { version = "1.19.2", features = ["macros", "sync"] }
 if-watch = "1.1.1"
 thiserror = "1.0.31"
-mdns-sd = "0.5.3"
+mdns-sd = { git = "https://github.com/keepsimple1/mdns-sd.git", branch = "multi-ip" }
 quinn = "0.8.3"
 futures-util = "0.3.21"
 ts-rs = "6.2.0"
