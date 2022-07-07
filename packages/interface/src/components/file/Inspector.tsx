@@ -8,6 +8,7 @@ import React, { useEffect } from 'react';
 
 import { default as types } from '../../constants/file-types.json';
 import { useInspectorState } from '../../hooks/useInspectorState';
+import { Tooltip } from '../tooltip/Tooltip';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
@@ -86,15 +87,24 @@ export const Inspector = (props: {
 					</div>
 					<h3 className="pt-3 pl-3 text-base font-bold">{file_path?.name}</h3>
 					<div className="flex flex-row m-3 space-x-2">
+						<Tooltip label='Favorite'>
+
 						<Button size="sm" noPadding>
 							<Heart className="w-[18px] h-[18px]" />
 						</Button>
+						</Tooltip>
+						<Tooltip label="Share">
+
 						<Button size="sm" noPadding>
 							<ShareIcon className="w-[18px] h-[18px]" />
 						</Button>
+						</Tooltip>
+						<Tooltip label="Link">
+
 						<Button size="sm" noPadding>
 							<Link className="w-[18px] h-[18px]" />
 						</Button>
+						</Tooltip>
 					</div>
 					{file_path?.file?.cas_id && (
 						<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />

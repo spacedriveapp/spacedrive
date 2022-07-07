@@ -264,6 +264,7 @@ importers:
       '@radix-ui/react-icons': ^1.1.1
       '@radix-ui/react-progress': ^0.1.4
       '@radix-ui/react-slider': ^0.1.4
+      '@radix-ui/react-tooltip': ^0.1.7
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/ui': workspace:*
@@ -323,6 +324,7 @@ importers:
       '@radix-ui/react-icons': 1.1.1_react@18.1.0
       '@radix-ui/react-progress': 0.1.4_react@18.1.0
       '@radix-ui/react-slider': 0.1.4_react@18.1.0
+      '@radix-ui/react-tooltip': 0.1.7_ef5jwxihqo6n7gxfmzogljlgcm
       '@sd/client': link:../client
       '@sd/core': link:../../core
       '@sd/ui': link:../ui
@@ -3151,6 +3153,31 @@ packages:
       react: 18.1.0
     dev: false
 
+  /@radix-ui/react-tooltip/0.1.7_ef5jwxihqo6n7gxfmzogljlgcm:
+    resolution: {integrity: sha512-eiBUsVOHenZ0JR16tl970bB0DafJBz6mFgSGfIGIVpflFj0LIsIDiLMsYyvYdx1KwwsIUDTEZtxcPm/sWjPzqA==}
+    peerDependencies:
+      react: ^16.8 || ^17.0
+      react-dom: ^16.8 || ^17.0
+    dependencies:
+      '@babel/runtime': 7.18.3
+      '@radix-ui/primitive': 0.1.0
+      '@radix-ui/react-compose-refs': 0.1.0_react@18.1.0
+      '@radix-ui/react-context': 0.1.1_react@18.1.0
+      '@radix-ui/react-id': 0.1.5_react@18.1.0
+      '@radix-ui/react-popper': 0.1.4_react@18.1.0
+      '@radix-ui/react-portal': 0.1.4_ef5jwxihqo6n7gxfmzogljlgcm
+      '@radix-ui/react-presence': 0.1.2_react@18.1.0
+      '@radix-ui/react-primitive': 0.1.4_react@18.1.0
+      '@radix-ui/react-slot': 0.1.2_react@18.1.0
+      '@radix-ui/react-use-controllable-state': 0.1.0_react@18.1.0
+      '@radix-ui/react-use-escape-keydown': 0.1.0_react@18.1.0
+      '@radix-ui/react-use-previous': 0.1.1_react@18.1.0
+      '@radix-ui/react-use-rect': 0.1.1_react@18.1.0
+      '@radix-ui/react-visually-hidden': 0.1.4_react@18.1.0
+      react: 18.1.0
+      react-dom: 18.1.0_react@18.1.0
+    dev: false
+
   /@radix-ui/react-use-body-pointer-events/0.1.1_react@18.1.0:
     resolution: {integrity: sha512-R8leV2AWmJokTmERM8cMXFHWSiv/fzOLhG/JLmRBhLTAzOj37EQizssq4oW0Z29VcZy2tODMi9Pk/htxwb+xpA==}
     peerDependencies:
@@ -3233,6 +3260,16 @@ packages:
       react: ^16.8 || ^17.0
     dependencies:
       '@babel/runtime': 7.18.3
+      react: 18.1.0
+    dev: false
+
+  /@radix-ui/react-visually-hidden/0.1.4_react@18.1.0:
+    resolution: {integrity: sha512-K/q6AEEzqeeEq/T0NPChvBqnwlp8Tl4NnQdrI/y8IOY7BRR+Ug0PEsVk6g48HJ7cA1//COugdxXXVVK/m0X1mA==}
+    peerDependencies:
+      react: ^16.8 || ^17.0
+    dependencies:
+      '@babel/runtime': 7.18.3
+      '@radix-ui/react-primitive': 0.1.4_react@18.1.0
       react: 18.1.0
     dev: false
 
