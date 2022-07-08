@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, pin::Pin, sync::Arc};
+use std::{collections::HashMap, env, fs::File, pin::Pin, sync::Arc};
 
 use futures::{executor::block_on, Future};
 use p2p::{
@@ -12,8 +12,10 @@ use uuid::Uuid;
 use crate::{
 	library::{LibraryConfig, LibraryContext, LibraryManager},
 	node::NodeConfigManager,
-	ClientQuery, CoreEvent, CoreResponse, Node,
+	ClientQuery, CoreEvent, CoreResponse,
 };
+
+use super::{P2PRequest, P2PResponse};
 
 const LIBRARY_ID_EXTRA_DATA_KEY: &'static str = "libraryId";
 const LIBRARY_CONFIG_EXTRA_DATA_KEY: &'static str = "libraryData";
@@ -110,9 +112,40 @@ impl P2PManager for SdP2PManager {
 	fn accept_stream(&self, peer: &Peer<Self>, (mut tx, mut rx): (SendStream, RecvStream)) {
 		let peer = peer.clone();
 		tokio::spawn(async move {
+			// TODO: Get max length from constant.
 			let msg = rx.read_chunk(1024, true).await.unwrap().unwrap();
-			println!("Received '{:?}' from peer '{}'", msg.bytes, peer.id);
-			tx.write(b"Pong").await.unwrap();
+			let req: P2PRequest = rmp_serde::from_slice(&msg.bytes).unwrap();
+
+			match req {
+				P2PRequest::Ping => {
+					println!("Received ping from '{}'", peer.id);
+					tx.write(&rmp_serde::encode::to_vec_named(&P2PResponse::Pong).unwrap())
+						.await
+						.unwrap();
+				}
+				P2PRequest::GetFile { path } => {
+					println!("Sending file at path '{}'", path);
+
+					// tokio::fs::read(&filename).unwrap();
+
+					// match File::open(&filename) {
+					// 	Ok(mut file) => {
+					// 		// file
+
+					// 		// let mut buf = match fs::metadata(&filename) {
+					// 		// 	Ok(metadata) => Vec::with_capacity(metadata.len() as usize),
+					// 		// 	Err(_) => Vec::new(),
+					// 		// };
+
+					// 		// file.read_to_end(&mut buf).unwrap();
+					// 	}
+					// 	Err(Error) => {
+					// 		println!("{}", err);
+					// 		todo!();
+					// 	}
+					// }
+				}
+			}
 		});
 	}
 }
@@ -147,6 +180,12 @@ pub async fn init(
 		nm.peer_id(),
 		nm.listen_addr()
 	);
+
+	// TODO: abstraction for this
+	// let (mut tx, mut rx) = nm.stream(peer_id).await.unwrap();
+	// tx.write_all(rmp_serde::encode::to_vec_named(&P2PRequest::Ping))
+	// 	.await
+	// 	.unwrap();
 
 	Ok((nm, event_channel.1))
 }

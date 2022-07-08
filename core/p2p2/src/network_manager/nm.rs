@@ -7,7 +7,9 @@ use std::{
 
 use bip39::{Language, Mnemonic};
 use dashmap::{DashMap, DashSet};
-use quinn::{Chunk, Endpoint, NewConnection, ServerConfig};
+use quinn::{
+	Chunk, ConnectionError, Endpoint, NewConnection, RecvStream, SendStream, ServerConfig,
+};
 use rustls::{Certificate, PrivateKey};
 use sd_tunnel_utils::{quic, PeerId};
 use serde::{Deserialize, Serialize};
@@ -167,12 +169,19 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		Ok(oneshot_rx.await.map_err(|_| ())?)
 	}
 
-	// TODO: Use stream for sending large amounts of data such as a file.
-	// 	/// stream will return the tx and rx channel to a new stream.
-	// 	/// TODO: Document drop behavior on streams.
-	// 	pub async fn stream(&self) -> Result<(SendStream, RecvStream), ConnectionError> {
-	// 		self.conn.open_bi().await
-	// 	}
+	/// stream will return the tx and rx channel to a new stream.
+	/// TODO: Document drop behavior on streams.
+	pub async fn stream(
+		&self,
+		peer_id: &PeerId,
+	) -> Result<(SendStream, RecvStream), ConnectionError> {
+		self.connected_peers
+			.get(peer_id)
+			.unwrap()
+			.conn
+			.open_bi()
+			.await
+	}
 
 	/// returns a list of the connected peers.
 	pub fn connected_peers(&self) -> HashMap<PeerId, Peer<TP2PManager>> {
