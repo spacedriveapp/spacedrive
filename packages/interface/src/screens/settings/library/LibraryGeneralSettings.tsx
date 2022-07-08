@@ -1,4 +1,5 @@
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { useCurrentLibrary } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDebounce } from 'use-debounce';
@@ -7,7 +8,6 @@ import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
-import { useCurrentLibrary } from '../../../hooks/useLibraryState';
 
 export default function LibraryGeneralSettings() {
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();

@@ -1,17 +1,18 @@
-import { useBridgeQuery } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/core';
 import produce from 'immer';
 import { useMemo } from 'react';
 import create from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
-type LibraryState = {
+import { useBridgeQuery } from '../bridge';
+
+type LibraryStore = {
 	currentLibraryUuid: string | null;
 	switchLibrary: (uuid: string) => void;
 	init: (libraries: LibraryConfigWrapped[]) => Promise<void>;
 };
 
-export const useLibraryState = create<LibraryState>()(
+export const useLibraryStore = create<LibraryStore>()(
 	devtools(
 		persist(
 			(set) => ({
@@ -34,13 +35,13 @@ export const useLibraryState = create<LibraryState>()(
 					);
 				}
 			}),
-			{ name: 'sd-library-state' }
+			{ name: 'sd-library-store' }
 		)
 	)
 );
 
 export const useCurrentLibrary = () => {
-	const { currentLibraryUuid } = useLibraryState();
+	const { currentLibraryUuid } = useLibraryStore();
 	const { data: libraries } = useBridgeQuery('NodeGetLibraries');
 
 	// memorize library to avoid re-running find function

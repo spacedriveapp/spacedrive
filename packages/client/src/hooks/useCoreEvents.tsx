@@ -1,15 +1,15 @@
 import { transport } from '@sd/client';
+import { useExplorerStore } from '@sd/client';
 import { CoreEvent } from '@sd/core';
 import { useContext, useEffect } from 'react';
 import { useQueryClient } from 'react-query';
 
-import { AppPropsContext } from '../AppPropsContext';
-import { useExplorerState } from './useExplorerState';
+import { AppPropsContext } from '../../../interface/src/AppPropsContext';
 
 export function useCoreEvents() {
 	const client = useQueryClient();
 
-	const { addNewThumbnail } = useExplorerState();
+	const { addNewThumbnail } = useExplorerStore();
 	useEffect(() => {
 		function handleCoreEvent(e: CoreEvent) {
 			switch (e?.key) {

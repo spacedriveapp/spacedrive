@@ -1,6 +1,6 @@
 import create from 'zustand';
 
-type ExplorerState = {
+type ExplorerStore = {
 	selectedRowIndex: number;
 	setSelectedRowIndex: (index: number) => void;
 	locationId: number;
@@ -9,7 +9,7 @@ type ExplorerState = {
 	addNewThumbnail: (cas_id: string) => void;
 };
 
-export const useExplorerState = create<ExplorerState>((set) => ({
+export const useExplorerStore = create<ExplorerStore>((set) => ({
 	selectedRowIndex: 1,
 	setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index })),
 	locationId: -1,

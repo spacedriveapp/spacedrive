@@ -1,10 +1,10 @@
 import { useBridgeQuery } from '@sd/client';
+import { useLibraryStore } from '@sd/client';
 import React, { useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
-import { useLibraryState } from './hooks/useLibraryState';
 import { ContentScreen } from './screens/Content';
 import { DebugScreen } from './screens/Debug';
 import { ExplorerScreen } from './screens/Explorer';
@@ -32,7 +32,7 @@ import P2PSettings from './screens/settings/node/P2PSettings';
 export function AppRouter() {
 	let location = useLocation();
 	let state = location.state as { backgroundLocation?: Location };
-	const libraryState = useLibraryState();
+	const libraryState = useLibraryStore();
 	const { data: libraries } = useBridgeQuery('NodeGetLibraries');
 
 	// TODO: This can be removed once we add a setup flow to the app

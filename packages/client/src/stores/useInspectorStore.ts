@@ -1,17 +1,18 @@
-import { libraryCommand } from '@sd/client';
 import produce from 'immer';
 import { debounce } from 'lodash';
 import create from 'zustand';
 
+import { libraryCommand } from '../bridge';
+
 export type UpdateNoteFN = (vars: { id: number; note: string }) => void;
 
-interface UseInspectorState {
+interface InspectorStore {
 	notes: Record<number, string>;
 	setNote: (file_id: number, note: string) => void;
 	unCacheNote: (file_id: number) => void;
 }
 
-export const useInspectorState = create<UseInspectorState>((set) => ({
+export const useInspectorStore = create<InspectorStore>((set) => ({
 	notes: {},
 	// set the note locally
 	setNote: (file_id, note) => {

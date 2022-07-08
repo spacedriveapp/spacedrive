@@ -230,9 +230,11 @@ importers:
       '@sd/config': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
+      '@types/lodash': ^4.14.182
       '@types/react': ^18.0.9
       eventemitter3: ^4.0.7
       immer: ^9.0.14
+      lodash: ^4.17.21
       react-query: ^3.39.1
       scripts: '*'
       tsconfig: '*'
@@ -242,8 +244,10 @@ importers:
       '@sd/config': link:../config
       '@sd/core': link:../../core
       '@sd/interface': link:../interface
+      '@types/lodash': 4.14.182
       eventemitter3: 4.0.7
       immer: 9.0.15
+      lodash: 4.17.21
       react-query: 3.39.1
       zustand: 4.0.0-rc.1_immer@9.0.15
     devDependencies:
@@ -5225,7 +5229,6 @@ packages:
 
   /@types/lodash/4.14.182:
     resolution: {integrity: sha512-/THyiqyQAP9AfARo4pF+aCGcyiQ94tX/Is2I7HofNRqoYLgN1PBoOWu2/zTA5zMxzP5EFutMtWtGAFRKUe961Q==}
-    dev: true
 
   /@types/markdown-it/12.2.3:
     resolution: {integrity: sha512-GKMHFfv3458yYy+v/N8gjufHO6MSZKCOXpZc5GXIWWy8uldwfmPn98vp81gZ5f9SVw8YYBctgfJ22a2d7AOMeQ==}
@@ -6239,6 +6242,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}

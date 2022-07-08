@@ -1,5 +1,6 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
 import { useLibraryCommand } from '@sd/client';
+import { useExplorerStore } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -15,7 +16,6 @@ import {
 import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useExplorerState } from '../../hooks/useExplorerState';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 
@@ -50,7 +50,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 };
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-	const { locationId } = useExplorerState();
+	const { locationId } = useExplorerStore();
 	const { mutate: generateThumbsForLocation } = useLibraryCommand('GenerateThumbsForLocation', {
 		onMutate: (data) => {
 			console.log('GenerateThumbsForLocation', data);
