@@ -77,6 +77,14 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				searchRef.current.focus()
 			}
 		})
+		return () => {
+			//remove event listener
+			document.removeEventListener('keydown', (e) => {
+				if (e.metaKey && e.key === 'k' && searchRef.current) {
+					searchRef.current.focus()
+				}
+			})
+		}
 	},[])
 
 	return (
