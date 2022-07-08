@@ -1,6 +1,7 @@
 import { DotsVerticalIcon } from '@heroicons/react/solid';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useExplorerStore } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -8,7 +9,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { useKey, useWindowSize } from 'rooks';
 
-import { AppPropsContext } from '../../AppPropsContext';
 import FileThumb from './FileThumb';
 
 interface IColumn {

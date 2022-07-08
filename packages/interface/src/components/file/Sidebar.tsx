@@ -2,13 +2,13 @@ import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
 import { useLibraryCommand, useLibraryQuery } from '@sd/client';
 import { useCurrentLibrary, useLibraryStore } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import { CirclesFour, Code, Planet } from 'phosphor-react';
 import React, { useContext, useEffect, useMemo } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
-import { AppPropsContext } from '../../AppPropsContext';
 import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';

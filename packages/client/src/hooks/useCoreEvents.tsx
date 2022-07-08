@@ -1,10 +1,8 @@
-import { transport } from '@sd/client';
-import { useExplorerStore } from '@sd/client';
 import { CoreEvent } from '@sd/core';
 import { useContext, useEffect } from 'react';
 import { useQueryClient } from 'react-query';
 
-import { AppPropsContext } from '../../../interface/src/AppPropsContext';
+import { transport, useExplorerStore } from '..';
 
 export function useCoreEvents() {
 	const client = useQueryClient();

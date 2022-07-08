@@ -1,8 +1,8 @@
 import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
 
-import { AppPropsContext } from '../AppPropsContext';
 import CodeBlock from '../components/primitive/Codeblock';
 
 export const DebugScreen: React.FC<{}> = (props) => {

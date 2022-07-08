@@ -1,9 +1,9 @@
 import { PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
 
-import { AppPropsContext } from '../../../AppPropsContext';
 import LocationListItem from '../../../components/location/LocationListItem';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';

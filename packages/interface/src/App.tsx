@@ -1,12 +1,12 @@
 import '@fontsource/inter/variable.css';
 import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
 import { useCoreEvents } from '@sd/client';
+import { AppProps, AppPropsContext } from '@sd/client';
 import React from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { MemoryRouter } from 'react-router-dom';
 
-import { AppProps, AppPropsContext } from './AppPropsContext';
 import { AppRouter } from './AppRouter';
 import { ErrorFallback } from './ErrorFallback';
 import './style.scss';

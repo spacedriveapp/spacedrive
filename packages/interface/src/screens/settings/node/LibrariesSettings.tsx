@@ -1,11 +1,11 @@
 import { CollectionIcon, TrashIcon } from '@heroicons/react/outline';
 import { PlusIcon } from '@heroicons/react/solid';
 import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { LibraryConfig, LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import React, { useContext, useState } from 'react';
 
-import { AppPropsContext } from '../../../AppPropsContext';
 import Card from '../../../components/layout/Card';
 import Dialog from '../../../components/layout/Dialog';
 import { Toggle } from '../../../components/primitive';
