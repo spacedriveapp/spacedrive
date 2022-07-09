@@ -23,7 +23,7 @@
 		"eventemitter3": "^4.0.7",
 		"immer": "^9.0.14",
 		"lodash": "^4.17.21",
-		"react-query": "^3.39.1",
+		"react-query": "^3.34.19",
 		"zustand": "4.0.0-rc.1"
 	},
 	"devDependencies": {
@@ -34,7 +34,6 @@
 		"@types/lodash": "^4.14.182"
 	},
 	"peerDependencies": {
-		"react": "^18.0.0",
-		"react-query": "^3.34.19"
+		"react": "^18.0.0"
 	}
 }

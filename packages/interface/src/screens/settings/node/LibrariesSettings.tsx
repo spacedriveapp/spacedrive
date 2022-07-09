@@ -35,7 +35,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 					open={openDeleteModal}
 					onOpenChange={setOpenDeleteModal}
 					title="Delete Library"
-					description="Deleting a library will permanently Spacedrive database, the files themselves will not be deleted."
+					description="Deleting a library will permanently the database, the files themselves will not be deleted."
 					ctaAction={() => {
 						deleteLib({ id: props.library.uuid });
 					}}

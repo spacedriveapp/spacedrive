@@ -9,8 +9,11 @@ import { useBridgeQuery } from '../bridge';
 import { useExplorerStore } from './useExplorerStore';
 
 type LibraryStore = {
+	// the uuid of the currently active library
 	currentLibraryUuid: string | null;
+	// for full functionality this should be triggered along-side query invalidation
 	switchLibrary: (uuid: string) => void;
+	// a function
 	init: (libraries: LibraryConfigWrapped[]) => Promise<void>;
 };
 
@@ -27,8 +30,6 @@ export const useLibraryStore = create<LibraryStore>()(
 					);
 					// reset other stores
 					useExplorerStore().reset();
-					const client = useQueryClient();
-					client.invalidateQueries();
 				},
 				init: async (libraries) => {
 					set((state) =>
@@ -46,9 +47,11 @@ export const useLibraryStore = create<LibraryStore>()(
 	)
 );
 
+// this must be used at least once in the app to correct the initial state
+// is memorized and can be used safely in any component
 export const useCurrentLibrary = () => {
 	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
-	const { data: libraries } = useBridgeQuery('NodeGetLibraries');
+	const { data: libraries } = useBridgeQuery('NodeGetLibraries', undefined, {});
 
 	// memorize library to avoid re-running find function
 	const currentLibrary = useMemo(() => {
