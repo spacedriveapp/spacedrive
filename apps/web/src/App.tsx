@@ -1,35 +1,47 @@
 import { BaseTransport } from '@sd/client';
-import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
+import { ClientCommand, ClientQuery } from '@sd/core';
 import SpacedriveInterface from '@sd/interface';
 import React, { useEffect } from 'react';
 
-const timeouts = [1, 2, 5, 10];
-
-const startWebsocket = (timeoutIndex = 0) => {
-	const ws = new WebSocket(import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws');
-
-	ws.addEventListener('close', (event) => {
-		setTimeout(
-			() => startWebsocket(timeoutIndex++),
-			timeouts[timeoutIndex] ?? timeouts[timeouts.length - 1]
-		);
-	});
-
-	return ws;
-};
-
-const websocket = startWebsocket();
+const timeouts = [1000, 2000, 5000, 10000]; // In milliseconds
 
 const randomId = () => Math.random().toString(36).slice(2);
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
+	websocket: WebSocket;
 	requestMap = new Map<string, (data: any) => void>();
 
 	constructor() {
 		super();
+		this.websocket = new WebSocket(
+			import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws'
+		);
+		this.attachEventListeners();
+	}
 
-		websocket.addEventListener('message', (event) => {
+	async reconnect(timeoutIndex = 0) {
+		let timeout =
+			(timeouts[timeoutIndex] ?? timeouts[timeouts.length - 1]) +
+			(Math.floor(Math.random() * 5000 /* 5 Seconds */) + 1);
+
+		setTimeout(() => {
+			let ws = new WebSocket(import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/ws');
+			new Promise(function (resolve, reject) {
+				ws.addEventListener('open', () => resolve(null));
+				ws.addEventListener('close', reject);
+			})
+				.then(() => {
+					this.websocket = ws;
+					this.attachEventListeners();
+					console.log('Reconnected!');
+				})
+				.catch((err) => this.reconnect(timeoutIndex++));
+		}, timeout);
+	}
+
+	attachEventListeners() {
+		this.websocket.addEventListener('message', (event) => {
 			if (!event.data) return;
 
 			const { id, payload } = JSON.parse(event.data);
@@ -44,7 +56,13 @@ class Transport extends BaseTransport {
 				}
 			}
 		});
+
+		this.websocket.addEventListener('close', () => {
+			console.log('GONE');
+			this.reconnect();
+		});
 	}
+
 	async query(query: ClientQuery) {
 		const id = randomId();
 		let resolve: (data: any) => void;
@@ -56,7 +74,7 @@ class Transport extends BaseTransport {
 		// @ts-ignore
 		this.requestMap.set(id, resolve);
 
-		websocket.send(JSON.stringify({ id, payload: { type: 'query', data: query } }));
+		this.websocket.send(JSON.stringify({ id, payload: { type: 'query', data: query } }));
 
 		return await promise;
 	}
@@ -71,11 +89,13 @@ class Transport extends BaseTransport {
 		// @ts-ignore
 		this.requestMap.set(id, resolve);
 
-		websocket.send(JSON.stringify({ id, payload: { type: 'command', data: command } }));
+		this.websocket.send(JSON.stringify({ id, payload: { type: 'command', data: command } }));
 
 		return await promise;
 	}
 }
+
+const transport = new Transport();
 
 function App() {
 	useEffect(() => {
@@ -87,7 +107,7 @@ function App() {
 			{/* <header className="App-header"></header> */}
 			<SpacedriveInterface
 				demoMode
-				transport={new Transport()}
+				transport={transport}
 				platform={'browser'}
 				convertFileSrc={function (url: string): string {
 					return url;
