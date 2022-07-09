@@ -7,6 +7,7 @@ type ExplorerStore = {
 	setLocationId: (index: number) => void;
 	newThumbnails: Record<string, boolean>;
 	addNewThumbnail: (cas_id: string) => void;
+	reset: () => void;
 };
 
 export const useExplorerStore = create<ExplorerStore>((set) => ({
@@ -19,5 +20,6 @@ export const useExplorerStore = create<ExplorerStore>((set) => ({
 		set((state) => ({
 			...state,
 			newThumbnails: { ...state.newThumbnails, [cas_id]: true }
-		}))
+		})),
+	reset: () => set(() => ({}))
 }));
