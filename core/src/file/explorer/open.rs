@@ -47,7 +47,6 @@ pub async fn open_dir(
 		if let Some(file) = &mut file_path.file {
 			let thumb_path = Path::new(&ctx.config().data_directory())
 				.join(THUMBNAIL_CACHE_DIR_NAME)
-				.join(format!("{}", location.id))
 				.join(file.cas_id.clone())
 				.with_extension("webp");
 

@@ -10,7 +10,7 @@ export interface AppProps {
 	transport: BaseTransport;
 	platform: Platform;
 	cdn_url?: CdnUrl;
-	getThumbnailUrlById: (location_id: number, cas_id: string) => string;
+	getThumbnailUrlById: (cas_id: string) => string;
 	openDialog: (options: { directory?: boolean }) => Promise<string | string[] | null>;
 	onClose?: () => void;
 	onMinimize?: () => void;

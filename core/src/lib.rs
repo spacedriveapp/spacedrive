@@ -84,7 +84,7 @@ impl NodeController {
 	) {
 		match path.get(0).map(|v| *v) {
 			Some("thumbnail") => {
-				if path.len() != 3 {
+				if path.len() != 2 {
 					return (
 						400,
 						"text/html",
@@ -94,10 +94,8 @@ impl NodeController {
 
 				let filename = Path::new(&self.config.data_directory())
 					.join("thumbnails")
-					.join(path[1].clone() /* l;ocation_id */)
-					.join(path[2].clone() /* file_cas_id */)
+					.join(path[1].clone() /* file_cas_id */)
 					.with_extension("webp");
-				println!("{:?}", filename);
 				match File::open(&filename) {
 					Ok(mut file) => {
 						let mut buf = match fs::metadata(&filename) {

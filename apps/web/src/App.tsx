@@ -84,10 +84,10 @@ function App() {
 				demoMode
 				transport={new Transport()}
 				platform={'browser'}
-				getThumbnailUrlById={(location_id: number, cas_id: string) =>
+				getThumbnailUrlById={(cas_id: string) =>
 					`${
 						import.meta.env.VITE_SDSERVER_BASE || 'http://localhost:8080'
-					}/spacedrive/thumbnail/${encodeURIComponent(location_id)}/${encodeURIComponent(cas_id)}`
+					}/spacedrive/thumbnail/${encodeURIComponent(cas_id)}`
 				}
 				openDialog={function (options: {
 					directory?: boolean | undefined;

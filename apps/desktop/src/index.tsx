@@ -67,8 +67,8 @@ function App() {
 		<SpacedriveInterface
 			transport={new Transport()}
 			platform={platform}
-			getThumbnailUrlById={(location_id: number, cas_id: string) =>
-				`spacedrive://thumbnail/${encodeURIComponent(location_id)}/${encodeURIComponent(cas_id)}`
+			getThumbnailUrlById={(cas_id: string) =>
+				`spacedrive://thumbnail/${encodeURIComponent(cas_id)}`
 			}
 			openDialog={function (options: {
 				directory?: boolean | undefined;
