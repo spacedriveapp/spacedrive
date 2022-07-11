@@ -35,21 +35,9 @@ model SyncEvent {
     @@map("sync_events")
 }
 
-model Library {
-    id           Int      @id @default(autoincrement())
-    pub_id       String   @unique
-    name         String
-    is_primary   Boolean  @default(true)
-    date_created DateTime @default(now())
-    timezone     String?
-
-    @@map("libraries")
-}
-
-model LibraryStatistics {
+model Statistics {
     id                   Int      @id @default(autoincrement())
     date_captured        DateTime @default(now())
-    library_id           Int      @unique
     total_file_count     Int      @default(0)
     library_db_size      String   @default("0")
     total_bytes_used     String   @default("0")
@@ -58,7 +46,7 @@ model LibraryStatistics {
     total_bytes_free     String   @default("0")
     preview_media_bytes  String   @default("0")
 
-    @@map("library_statistics")
+    @@map("statistics")
 }
 
 model Node {

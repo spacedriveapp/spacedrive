@@ -1,5 +1,7 @@
 import { DotsVerticalIcon } from '@heroicons/react/solid';
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { useExplorerStore } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -7,8 +9,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { useKey, useWindowSize } from 'rooks';
 
-import { AppPropsContext } from '../../AppPropsContext';
-import { useExplorerState } from '../../hooks/useExplorerState';
 import FileThumb from './FileThumb';
 
 interface IColumn {
@@ -51,10 +51,10 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 
 	const path = props.path;
 
-	const { selectedRowIndex, setSelectedRowIndex, setLocationId } = useExplorerState();
+	const { selectedRowIndex, setSelectedRowIndex, setLocationId } = useExplorerStore();
 	const [goingUp, setGoingUp] = useState(false);
 
-	const { data: currentDir } = useBridgeQuery('LibGetExplorerDir', {
+	const { data: currentDir } = useLibraryQuery('LibGetExplorerDir', {
 		location_id: props.location_id,
 		path,
 		limit: props.limit
@@ -148,7 +148,7 @@ const RenderRow: React.FC<{
 	rowIndex: number;
 	dirId: number;
 }> = ({ row, rowIndex, dirId }) => {
-	const { selectedRowIndex, setSelectedRowIndex } = useExplorerState();
+	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
 	const isActive = selectedRowIndex === rowIndex;
 
 	let [_, setSearchParams] = useSearchParams();
@@ -202,7 +202,7 @@ const RenderCell: React.FC<{
 	if (!value) return <></>;
 
 	const location = useContext(LocationContext);
-	const { newThumbnails } = useExplorerState();
+	const { newThumbnails } = useExplorerStore();
 
 	const hasNewThumbnail = !!newThumbnails[row?.file?.cas_id ?? ''];
 

@@ -2,10 +2,10 @@ use super::checksum::generate_cas_id;
 use crate::{
 	file::FileError,
 	job::JobReportUpdate,
-	job::{Job, WorkerContext},
+	job::{Job, JobResult, WorkerContext},
+	library::LibraryContext,
 	prisma::{file, file_path},
 	sys::get_location,
-	CoreContext,
 };
 use chrono::{DateTime, FixedOffset};
 use futures::future::join_all;
@@ -13,7 +13,6 @@ use log::{error, info};
 use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
 use std::path::{Path, PathBuf};
 use tokio::{fs, io};
 
@@ -35,13 +34,13 @@ impl Job for FileIdentifierJob {
 		"file_identifier"
 	}
 
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn Error>> {
+	async fn run(&self, ctx: WorkerContext) -> JobResult {
 		info!("Identifying orphan file paths...");
 
-		let location = get_location(&ctx.core_ctx, self.location_id).await?;
+		let location = get_location(&ctx.library_ctx(), self.location_id).await?;
 		let location_path = location.path.unwrap_or_else(|| "".to_string());
 
-		let total_count = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+		let total_count = count_orphan_file_paths(&ctx.library_ctx(), location.id.into()).await?;
 		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
@@ -59,7 +58,7 @@ impl Job for FileIdentifierJob {
 			let mut cas_lookup: HashMap<String, i32> = HashMap::new();
 
 			// get chunk of orphans to process
-			let file_paths = match get_orphan_file_paths(&ctx.core_ctx, cursor).await {
+			let file_paths = match get_orphan_file_paths(&ctx.library_ctx(), cursor).await {
 				Ok(file_paths) => file_paths,
 				Err(e) => {
 					info!("Error getting orphan file paths: {:#?}", e);
@@ -93,8 +92,8 @@ impl Job for FileIdentifierJob {
 			// find all existing files by cas id
 			let generated_cas_ids = chunk.values().map(|c| c.cas_id.clone()).collect();
 			let existing_files = ctx
-				.core_ctx
-				.database
+				.library_ctx()
+				.db
 				.file()
 				.find_many(vec![file::cas_id::in_vec(generated_cas_ids)])
 				.exec()
@@ -104,7 +103,8 @@ impl Job for FileIdentifierJob {
 
 			// link those existing files to their file paths
 			// Had to put the file_path in a variable outside of the closure, to satisfy the borrow checker
-			let prisma_file_path = ctx.core_ctx.database.file_path();
+			let library_ctx = ctx.library_ctx();
+			let prisma_file_path = library_ctx.db.file_path();
 			for result in join_all(existing_files.iter().map(|file| {
 				prisma_file_path
 					.find_unique(file_path::id::equals(
@@ -133,7 +133,7 @@ impl Job for FileIdentifierJob {
 				.collect::<Vec<_>>();
 
 			// assemble prisma values for new unique files
-			let mut values: Vec<PrismaValue> = Vec::new();
+			let mut values = Vec::with_capacity(new_files.len() * 3);
 			for file in &new_files {
 				values.extend([
 					PrismaValue::String(file.cas_id.clone()),
@@ -144,8 +144,8 @@ impl Job for FileIdentifierJob {
 
 			// create new file records with assembled values
 			let created_files: Vec<FileCreated> = ctx
-				.core_ctx
-				.database
+				.library_ctx()
+				.db
 				._query_raw(Raw::new(
 					&format!(
 						"INSERT INTO files (cas_id, size_in_bytes, date_created) VALUES {}
@@ -210,10 +210,10 @@ struct CountRes {
 }
 
 pub async fn count_orphan_file_paths(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	location_id: i64,
 ) -> Result<usize, FileError> {
-	let files_count = ctx.database
+	let files_count = ctx.db
 		._query_raw::<CountRes>(raw!(
 			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
 			PrismaValue::Int(location_id)
@@ -223,14 +223,14 @@ pub async fn count_orphan_file_paths(
 }
 
 pub async fn get_orphan_file_paths(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	cursor: i32,
 ) -> Result<Vec<file_path::Data>, FileError> {
 	info!(
 		"discovering {} orphan file paths at cursor: {:?}",
 		CHUNK_SIZE, cursor
 	);
-	ctx.database
+	ctx.db
 		.file_path()
 		.find_many(vec![
 			file_path::file_id::equals(None),

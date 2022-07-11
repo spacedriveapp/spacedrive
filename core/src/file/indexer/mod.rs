@@ -1,5 +1,4 @@
-use crate::job::{Job, JobReportUpdate, WorkerContext};
-use std::error::Error;
+use crate::job::{Job, JobReportUpdate, JobResult, WorkerContext};
 use std::path::PathBuf;
 
 use self::scan::ScanProgress;
@@ -20,8 +19,8 @@ impl Job for IndexerJob {
 	fn name(&self) -> &'static str {
 		"indexer"
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn Error>> {
-		scan_path(&ctx.core_ctx.clone(), &self.path, move |p| {
+	async fn run(&self, ctx: WorkerContext) -> JobResult {
+		scan_path(&ctx.library_ctx(), &self.path, move |p| {
 			ctx.progress(
 				p.iter()
 					.map(|p| match p.clone() {

@@ -24,11 +24,10 @@ ring = "0.17.0-alpha.10"
 int-enum = "0.4.0"
 
 # Project dependencies
-ts-rs = { version = "6.1", features = ["chrono-impl"] }
+ts-rs = { version = "6.2", features = ["chrono-impl", "uuid-impl", "serde-compat"] }
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
 walkdir = "^2.3.2"
-lazy_static = "1.4.0"
-uuid = { version = "1.1.2", features = ["v4", "macro-diagnostics", "serde"]}
+uuid = { version = "^0.8.2", features = ["v4", "serde"]}
 sysinfo = "0.23.9"
 thiserror = "1.0.30"
 core-derive = { path = "./derive" }

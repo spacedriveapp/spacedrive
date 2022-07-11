@@ -1,8 +1,8 @@
+use crate::library::LibraryContext;
 use crate::{
-	job::{Job, JobReportUpdate, WorkerContext},
-	node::get_nodestate,
+	job::{Job, JobReportUpdate, JobResult, WorkerContext},
 	prisma::file_path,
-	sys, CoreContext, CoreEvent,
+	sys, CoreEvent,
 };
 use image::{self, imageops, DynamicImage, GenericImageView};
 use log::{error, info};
@@ -28,11 +28,15 @@ impl Job for ThumbnailJob {
 	fn name(&self) -> &'static str {
 		"thumbnailer"
 	}
+	async fn run(&self, ctx: WorkerContext) -> JobResult {
+		let library_ctx = ctx.library_ctx();
+		let thumbnail_dir = library_ctx
+			.config()
+			.data_directory()
+			.join(THUMBNAIL_CACHE_DIR_NAME)
+			.join(self.location_id.to_string());
 
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn Error>> {
-		let config = get_nodestate();
-
-		let location = sys::get_location(&ctx.core_ctx, self.location_id).await?;
+		let location = sys::get_location(&library_ctx, self.location_id).await?;
 
 		info!(
 			"Searching for images in location {} at path {:#?}",
@@ -40,19 +44,11 @@ impl Job for ThumbnailJob {
 		);
 
 		// create all necessary directories if they don't exist
-		fs::create_dir_all(
-			config
-				.data_path
-				.as_ref()
-				.unwrap()
-				.join(THUMBNAIL_CACHE_DIR_NAME)
-				.join(format!("{}", self.location_id)),
-		)
-		.await?;
+		fs::create_dir_all(&thumbnail_dir).await?;
 		let root_path = location.path.unwrap();
 
 		// query database for all files in this location that need thumbnails
-		let image_files = get_images(&ctx.core_ctx, self.location_id, &self.path).await?;
+		let image_files = get_images(&library_ctx, self.location_id, &self.path).await?;
 		info!("Found {:?} files", image_files.len());
 
 		ctx.progress(vec![
@@ -86,14 +82,7 @@ impl Job for ThumbnailJob {
 			};
 
 			// Define and write the WebP-encoded file to a given path
-			let output_path = config
-				.data_path
-				.as_ref()
-				.unwrap()
-				.join(THUMBNAIL_CACHE_DIR_NAME)
-				.join(format!("{}", location.id))
-				.join(&cas_id)
-				.with_extension("webp");
+			let output_path = thumbnail_dir.join(&cas_id).with_extension("webp");
 
 			// check if file exists at output path
 			if !output_path.exists() {
@@ -105,7 +94,9 @@ impl Job for ThumbnailJob {
 				ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
 
 				if !self.background {
-					ctx.core_ctx.emit(CoreEvent::NewThumbnail { cas_id }).await;
+					ctx.library_ctx()
+						.emit(CoreEvent::NewThumbnail { cas_id })
+						.await;
 				};
 			} else {
 				info!("Thumb exists, skipping... {}", output_path.display());
@@ -145,7 +136,7 @@ pub async fn generate_thumbnail<P: AsRef<Path>>(
 }
 
 pub async fn get_images(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	location_id: i32,
 	path: impl AsRef<Path>,
 ) -> Result<Vec<file_path::Data>, std::io::Error> {
@@ -167,7 +158,7 @@ pub async fn get_images(
 	}
 
 	let image_files = ctx
-		.database
+		.db
 		.file_path()
 		.find_many(params)
 		.with(file_path::file::fetch())

@@ -5,7 +5,7 @@ import React, { ReactNode } from 'react';
 
 import Loader from '../primitive/Loader';
 
-export interface DialogProps {
+export interface DialogProps extends DialogPrimitive.DialogProps {
 	trigger: ReactNode;
 	ctaLabel?: string;
 	ctaDanger?: boolean;
@@ -18,13 +18,15 @@ export interface DialogProps {
 
 export default function Dialog(props: DialogProps) {
 	return (
-		<DialogPrimitive.Root>
+		<DialogPrimitive.Root open={props.open} onOpenChange={props.onOpenChange}>
 			<DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>
 			<DialogPrimitive.Portal>
 				<DialogPrimitive.Overlay className="fixed top-0 dialog-overlay bottom-0 left-0 right-0 z-50 grid overflow-y-auto bg-black bg-opacity-50 rounded-xl place-items-center m-[1px]">
 					<DialogPrimitive.Content className="min-w-[300px] max-w-[400px] dialog-content rounded-md bg-gray-650 text-white border border-gray-550 shadow-deep">
 						<div className="p-5">
-							<DialogPrimitive.Title className="font-bold ">{props.title}</DialogPrimitive.Title>
+							<DialogPrimitive.Title className="mb-2 font-bold">
+								{props.title}
+							</DialogPrimitive.Title>
 							<DialogPrimitive.Description className="text-sm text-gray-300">
 								{props.description}
 							</DialogPrimitive.Description>

@@ -1,5 +1,5 @@
 // use crate::native;
-use crate::{node::get_nodestate, prisma::volume::*, CoreContext};
+use crate::{library::LibraryContext, prisma::volume::*};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 // #[cfg(not(target_os = "macos"))]
@@ -24,23 +24,21 @@ pub struct Volume {
 }
 
 impl Volume {
-	pub async fn save(ctx: &CoreContext) -> Result<(), SysError> {
-		let config = get_nodestate();
-
+	pub async fn save(ctx: &LibraryContext) -> Result<(), SysError> {
 		let volumes = Self::get_volumes()?;
 
 		// enter all volumes associate with this client add to db
 		for volume in volumes {
-			ctx.database
+			ctx.db
 				.volume()
 				.upsert(
 					node_id_mount_point_name(
-						config.node_id,
+						ctx.node_local_id,
 						volume.mount_point.to_string(),
 						volume.name.to_string(),
 					),
 					(
-						node_id::set(config.node_id),
+						node_id::set(ctx.node_local_id),
 						name::set(volume.name),
 						mount_point::set(volume.mount_point),
 						vec![
