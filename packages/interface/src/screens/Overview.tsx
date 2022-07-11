@@ -1,4 +1,3 @@
-import { PlusIcon } from '@heroicons/react/solid';
 import { DatabaseIcon, ExclamationCircleIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
@@ -6,7 +5,7 @@ import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useCountUp } from 'react-countup';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
@@ -110,6 +109,7 @@ export const OverviewScreen = () => {
 	const { mutate: pairNode } = useLibraryCommand('PairNode');
 
 	const { overviewStats, setOverviewStats } = useOverviewState();
+	const [pairingPassword, setPairingPassword] = useState<string | null>(null);
 
 	// get app props from context
 	const appProps = useContext(AppPropsContext);
@@ -203,48 +203,55 @@ export const OverviewScreen = () => {
 								</Button>
 							}
 						>
-							<div className="flex flex-col mt-2 space-y-3">
-								<div className="flex flex-col">
-									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-										This Device
-									</span>
-									{/* TODO: Get these values from the backend */}
-									<Input readOnly disabled value={'todo'} />
-									<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
+							{pairingPassword === null ? (
+								<div className="flex flex-col mt-2 space-y-3">
+									<div className="flex flex-col">
+										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
+											This Device
+										</span>
+										{/* TODO: Get these values from the backend */}
+										<Input readOnly disabled value={'todo'} />
+										<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
+									</div>
+									<div className="flex flex-col gap-4">
+										{(discoveredPeers || [])
+											.filter(
+												(v) =>
+													Object.keys(connectedPeers || []).find((p) => p.id === v.id) === undefined
+											)
+											.map((peer) => (
+												<h1
+													className="bg-red-500 w-full text-white p-1"
+													onClick={() =>
+														pairNode(peer.id, {
+															onSuccess: (data) => {
+																setPairingPassword(data.password);
+															}
+														})
+													}
+												>
+													{peer.metadata.name}
+												</h1>
+											))}
+									</div>
 								</div>
-								{/* <div className="flex flex-col">
-									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-										Enter a device code
-									</span>
-									<Input value="" />
-								</div> */}
-								<div className="flex flex-col gap-4">
-									{(discoveredPeers || [])
-										.filter(
-											(v) =>
-												Object.keys(connectedPeers || []).find((p) => p.id === v.id) === undefined
-										)
-										.map((peer) => (
-											<h1
-												className="bg-red-500 w-full text-white p-1"
-												onClick={() =>
-													pairNode(peer.id, {
-														onSuccess: (data) => {
-															alert(data.password);
-														}
-													})
-												}
-											>
-												{peer.metadata.name}
-											</h1>
-										))}
+							) : (
+								<div className="flex flex-col mt-2 space-y-3">
+									<div className="flex flex-col">
+										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
+											Pairing Password
+										</span>
+										{/* TODO: Get these values from the backend */}
+										<Input readOnly disabled value={pairingPassword} />
+									</div>
 								</div>
-							</div>
+							)}
 						</Dialog>
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 mt-4 space-y-4">
-					<Device
+					{/* TODO: Load these from backend query */}
+					{/* <Device
 						name={`James' MacBook Pro`}
 						size="1TB"
 						locations={[
@@ -277,7 +284,7 @@ export const OverviewScreen = () => {
 							{ name: 'Documents', folder: true }
 						]}
 						type="server"
-					/>
+					/> */}
 				</div>
 				<div className="px-5 py-3 text-sm text-gray-400 rounded-md bg-gray-50 dark:text-gray-400 dark:bg-gray-600">
 					<b>Note: </b>This is a pre-alpha build of Spacedrive, many features are yet to be

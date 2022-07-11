@@ -9,6 +9,7 @@ export interface DialogProps extends DialogPrimitive.DialogProps {
 	trigger: ReactNode;
 	ctaLabel?: string;
 	ctaDanger?: boolean;
+	ctaClose?: () => void;
 	ctaAction?: () => void;
 	title?: string;
 	description?: string;
@@ -36,7 +37,13 @@ export default function Dialog(props: DialogProps) {
 							{props.loading && <Loader />}
 							<div className="flex-grow" />
 							<DialogPrimitive.Close asChild>
-								<Button loading={props.loading} disabled={props.loading} size="sm" variant="gray">
+								<Button
+									loading={props.loading}
+									disabled={props.loading}
+									size="sm"
+									variant="gray"
+									onClick={props.ctaClose}
+								>
 									Close
 								</Button>
 							</DialogPrimitive.Close>
