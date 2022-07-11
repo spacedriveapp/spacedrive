@@ -1,5 +1,6 @@
 import { Transition } from '@headlessui/react';
 import { ShareIcon } from '@heroicons/react/solid';
+import { useInspectorStore } from '@sd/client';
 import { FilePath, LocationResource } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
@@ -7,7 +8,6 @@ import { Heart, Link } from 'phosphor-react';
 import React, { useEffect } from 'react';
 
 import { default as types } from '../../constants/file-types.json';
-import { useInspectorState } from '../../hooks/useInspectorState';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
@@ -42,7 +42,7 @@ export const Inspector = (props: {
 	// notes are cached in a store by their file id
 	// this is so we can ensure every note has been sent to Rust even
 	// when quickly navigating files, which cancels update function
-	const { notes, setNote, unCacheNote } = useInspectorState();
+	const { notes, setNote, unCacheNote } = useInspectorStore();
 
 	// show cached note over server note, important to check for undefined not falsey
 	const note =

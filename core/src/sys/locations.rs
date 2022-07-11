@@ -1,8 +1,9 @@
 use crate::{
 	file::{cas::FileIdentifierJob, indexer::IndexerJob},
-	node::{get_nodestate, LibraryNode},
+	library::LibraryContext,
+	node::LibraryNode,
 	prisma::{file_path, location},
-	ClientQuery, CoreContext, CoreEvent,
+	ClientQuery, CoreEvent, LibraryQuery,
 };
 
 use log::info;
@@ -10,10 +11,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use tokio::io::AsyncWriteExt;
 use tokio::{
 	fs::{metadata, File},
-	io,
+	io::{self, AsyncWriteExt},
 };
 use ts_rs::TS;
 use uuid::Uuid;
@@ -73,11 +73,11 @@ static DOTFILE_NAME: &str = ".spacedrive";
 // }
 
 pub async fn get_location(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	location_id: i32,
 ) -> Result<LocationResource, SysError> {
 	// get location by location_id from db and include location_paths
-	ctx.database
+	ctx.db
 		.location()
 		.find_unique(location::id::equals(location_id))
 		.exec()
@@ -86,15 +86,17 @@ pub async fn get_location(
 		.ok_or_else(|| LocationError::IdNotFound(location_id).into())
 }
 
-pub fn scan_location(ctx: &CoreContext, location_id: i32, path: impl AsRef<Path>) {
+pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: impl AsRef<Path>) {
 	let path_buf = path.as_ref().to_path_buf();
 	ctx.spawn_job(Box::new(IndexerJob {
 		path: path_buf.clone(),
-	}));
+	}))
+	.await;
 	ctx.queue_job(Box::new(FileIdentifierJob {
 		location_id,
 		path: path_buf,
-	}));
+	}))
+	.await;
 	// TODO: make a way to stop jobs so this can be canceled without rebooting app
 	// ctx.queue_job(Box::new(ThumbnailJob {
 	// 	location_id,
@@ -104,19 +106,19 @@ pub fn scan_location(ctx: &CoreContext, location_id: i32, path: impl AsRef<Path>
 }
 
 pub async fn new_location_and_scan(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	path: impl AsRef<Path> + Debug,
 ) -> Result<LocationResource, SysError> {
 	let location = create_location(ctx, &path).await?;
 
-	scan_location(ctx, location.id, path);
+	scan_location(ctx, location.id, path).await;
 
 	Ok(location)
 }
 
-pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, SysError> {
+pub async fn get_locations(ctx: &LibraryContext) -> Result<Vec<LocationResource>, SysError> {
 	let locations = ctx
-		.database
+		.db
 		.location()
 		.find_many(vec![])
 		.with(location::node::fetch())
@@ -128,7 +130,7 @@ pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, S
 }
 
 pub async fn create_location(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	path: impl AsRef<Path> + Debug,
 ) -> Result<LocationResource, SysError> {
 	let path = path.as_ref();
@@ -151,7 +153,7 @@ pub async fn create_location(
 
 	// check if location already exists
 	let location_resource = if let Some(location) = ctx
-		.database
+		.db
 		.location()
 		.find_first(vec![location::local_path::equals(Some(
 			path_string.clone(),
@@ -162,15 +164,13 @@ pub async fn create_location(
 		location.into()
 	} else {
 		info!(
-			"Location does not exist, creating new location for '{:#?}'",
-			path
+			"Location does not exist, creating new location for '{}'",
+			path_string
 		);
 		let uuid = Uuid::new_v4();
 
-		let config = get_nodestate();
-
 		let location = ctx
-			.database
+			.db
 			.location()
 			.create(
 				location::pub_id::set(uuid.to_string()),
@@ -180,7 +180,7 @@ pub async fn create_location(
 					)),
 					location::is_online::set(true),
 					location::local_path::set(Some(path_string)),
-					location::node_id::set(Some(config.node_id)),
+					location::node_id::set(Some(ctx.node_local_id)),
 				],
 			)
 			.exec()
@@ -195,7 +195,7 @@ pub async fn create_location(
 
 		let data = DotSpacedrive {
 			location_uuid: uuid,
-			library_uuid: config.current_library_uuid,
+			library_uuid: ctx.id.to_string(),
 		};
 
 		let json_bytes = serde_json::to_vec(&data)
@@ -206,8 +206,8 @@ pub async fn create_location(
 			.await
 			.map_err(|e| LocationError::DotfileWriteFailure(e, path.to_owned()))?;
 
-		ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
-			.await;
+		// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
+		// 	.await;
 
 		location.into()
 	};
@@ -215,23 +215,26 @@ pub async fn create_location(
 	Ok(location_resource)
 }
 
-pub async fn delete_location(ctx: &CoreContext, location_id: i32) -> Result<(), SysError> {
-	ctx.database
+pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), SysError> {
+	ctx.db
 		.file_path()
 		.find_many(vec![file_path::location_id::equals(Some(location_id))])
 		.delete()
 		.exec()
 		.await?;
 
-	ctx.database
+	ctx.db
 		.location()
 		.find_unique(location::id::equals(location_id))
 		.delete()
 		.exec()
 		.await?;
 
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
-		.await;
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+		library_id: ctx.id.to_string(),
+		query: LibraryQuery::SysGetLocations,
+	}))
+	.await;
 
 	info!("Location {} deleted", location_id);
 

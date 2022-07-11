@@ -17,7 +17,7 @@
 		"storybook:build": "build-storybook"
 	},
 	"dependencies": {
-		"@headlessui/react": "^1.6.4",
+		"@headlessui/react": "^1.6.6",
 		"@heroicons/react": "^1.0.6",
 		"@radix-ui/react-context-menu": "^0.1.6",
 		"clsx": "^1.1.1",

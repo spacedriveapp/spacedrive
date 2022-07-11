@@ -1,28 +1,25 @@
 use crate::{
 	encode::THUMBNAIL_CACHE_DIR_NAME,
 	file::{DirectoryWithContents, FileError, FilePath},
-	node::get_nodestate,
+	library::LibraryContext,
 	prisma::file_path,
 	sys::get_location,
-	CoreContext,
 };
 use log::info;
 use std::path::Path;
 
 pub async fn open_dir(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	location_id: i32,
 	path: impl AsRef<Path>,
 ) -> Result<DirectoryWithContents, FileError> {
-	let config = get_nodestate();
-
 	// get location
 	let location = get_location(ctx, location_id).await?;
 
 	let path_str = path.as_ref().to_string_lossy().to_string();
 
 	let directory = ctx
-		.database
+		.db
 		.file_path()
 		.find_first(vec![
 			file_path::location_id::equals(Some(location.id)),
@@ -36,7 +33,7 @@ pub async fn open_dir(
 	info!("DIRECTORY: {:?}", directory);
 
 	let mut file_paths: Vec<FilePath> = ctx
-		.database
+		.db
 		.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(Some(location.id)),
@@ -49,17 +46,17 @@ pub async fn open_dir(
 		.map(Into::into)
 		.collect();
 
-	if let Some(ref data_path) = config.data_path {
-		for file_path in &mut file_paths {
-			if let Some(file) = &mut file_path.file {
-				let thumb_path = data_path
-					.join(THUMBNAIL_CACHE_DIR_NAME)
-					.join(location.id.to_string())
-					.join(file.cas_id.clone())
-					.with_extension("webp");
+	for file_path in &mut file_paths {
+		if let Some(file) = &mut file_path.file {
+			let thumb_path = ctx
+				.config()
+				.data_directory()
+				.join(THUMBNAIL_CACHE_DIR_NAME)
+				.join(location.id.to_string())
+				.join(&file.cas_id)
+				.with_extension("webp");
 
-				file.has_thumbnail = thumb_path.exists();
-			}
+			file.has_thumbnail = thumb_path.exists();
 		}
 	}
 

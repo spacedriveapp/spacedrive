@@ -1,4 +1,4 @@
-use sdcore::{ClientCommand, ClientQuery, CoreController, CoreEvent, CoreResponse, Node};
+use sdcore::{ClientCommand, ClientQuery, CoreEvent, CoreResponse, Node, NodeController};
 use std::{env, path::Path};
 
 use actix::{
@@ -19,7 +19,7 @@ const DATA_DIR_ENV_VAR: &'static str = "DATA_DIR";
 /// Define HTTP actor
 struct Socket {
 	_event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
-	core: web::Data<CoreController>,
+	core: web::Data<NodeController>,
 }
 
 impl Actor for Socket {
@@ -52,7 +52,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 		match msg {
 			Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
 			Ok(ws::Message::Text(text)) => {
-				let msg: SocketMessage = serde_json::from_str(&text).unwrap();
+				let msg = serde_json::from_str::<SocketMessage>(&text);
+
+				let msg = match msg {
+					Ok(msg) => msg,
+					Err(err) => {
+						println!("Error parsing message: {}", err);
+						return;
+					},
+				};
 
 				let core = self.core.clone();
 
@@ -133,7 +141,7 @@ async fn ws_handler(
 	req: HttpRequest,
 	stream: web::Payload,
 	event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
-	controller: web::Data<CoreController>,
+	controller: web::Data<NodeController>,
 ) -> Result<HttpResponse, Error> {
 	let resp = ws::start(
 		Socket {
@@ -178,7 +186,7 @@ async fn main() -> std::io::Result<()> {
 
 async fn setup() -> (
 	web::Data<mpsc::Receiver<CoreEvent>>,
-	web::Data<CoreController>,
+	web::Data<NodeController>,
 ) {
 	let data_dir_path = match env::var(DATA_DIR_ENV_VAR) {
 		Ok(path) => Path::new(&path).to_path_buf(),
@@ -196,15 +204,8 @@ async fn setup() -> (
 		},
 	};
 
-	let (mut node, event_receiver) = Node::new(data_dir_path).await;
-
-	node.initializer().await;
-
-	let controller = node.get_controller();
-
-	tokio::spawn(async move {
-		node.start().await;
-	});
+	let (controller, event_receiver, node) = Node::new(data_dir_path).await;
+	tokio::spawn(node.start());
 
 	(web::Data::new(event_receiver), web::Data::new(controller))
 }

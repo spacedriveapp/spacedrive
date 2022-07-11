@@ -1,13 +1,14 @@
 import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { useCurrentLibrary, useLibraryStore } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import { CirclesFour, Code, Planet } from 'phosphor-react';
-import React, { useContext } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
+import React, { useContext, useEffect, useMemo } from 'react';
+import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
-import { AppPropsContext } from '../../AppPropsContext';
 import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
@@ -76,11 +77,30 @@ const macOnly = (platform: string | undefined, classnames: string) =>
 export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const { isExperimental } = useNodeStore();
 
-	const appProps = useContext(AppPropsContext);
-	const { data: locations } = useBridgeQuery('SysGetLocations');
-	const { data: clientState } = useBridgeQuery('NodeGetState');
+	const navigate = useNavigate();
 
-	const { mutate: createLocation } = useBridgeCommand('LocCreate');
+	const appProps = useContext(AppPropsContext);
+
+	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('SysGetLocations');
+
+	let locations = Array.isArray(locationsResponse) ? locationsResponse : [];
+
+	// initialize libraries
+	const { init: initLibraries, switchLibrary: _switchLibrary } = useLibraryStore();
+
+	const switchLibrary = (uuid: string) => {
+		navigate('overview');
+
+		_switchLibrary(uuid);
+	};
+
+	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
+
+	useEffect(() => {
+		if (libraries && !currentLibraryUuid) initLibraries(libraries);
+	}, [libraries, currentLibraryUuid]);
+
+	const { mutate: createLocation } = useLibraryCommand('LocCreate');
 
 	const tags = [
 		{ id: 1, name: 'Keepsafe', color: '#FF6788' },
@@ -122,7 +142,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						appProps?.platform === 'macOS' &&
 							'dark:!bg-opacity-40 dark:hover:!bg-opacity-70 dark:!border-[#333949] dark:hover:!border-[#394052]'
 					),
-
 					variant: 'gray'
 				}}
 				// to support the transparent sidebar on macOS we use slightly adjusted styles
@@ -133,17 +152,22 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				)}
 				// this shouldn't default to "My Library", it is only this way for landing demo
 				// TODO: implement demo mode for the sidebar and show loading indicator instead of "My Library"
-				buttonText={clientState?.node_name || 'My Library'}
+				buttonText={currentLibrary?.config.name || ' '}
 				items={[
+					libraries?.map((library) => ({
+						name: library.config.name,
+						selected: library.uuid === currentLibraryUuid,
+						onPress: () => switchLibrary(library.uuid)
+					})) || [],
 					[
-						{ name: clientState?.node_name || 'My Library', selected: true },
-						{ name: 'Private Library' }
-					],
-					[
-						{ name: 'Library Settings', icon: CogIcon },
+						{
+							name: 'Library Settings',
+							icon: CogIcon,
+							onPress: () => navigate('library-settings/general')
+						},
 						{ name: 'Add Library', icon: PlusIcon },
-						{ name: 'Lock', icon: LockClosedIcon },
-						{ name: 'Hide', icon: EyeOffIcon }
+						{ name: 'Lock', icon: LockClosedIcon }
+						// { name: 'Hide', icon: EyeOffIcon }
 					]
 				]}
 			/>
@@ -204,21 +228,23 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					);
 				})}
 
-				<button
-					onClick={() => {
-						appProps?.openDialog({ directory: true }).then((result) => {
-							if (result) createLocation({ path: result as string });
-						});
-					}}
-					className={clsx(
-						'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 transition',
-						appProps?.platform === 'macOS'
-							? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
-							: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
-					)}
-				>
-					Add Location
-				</button>
+				{(locations?.length || 0) < 1 && (
+					<button
+						onClick={() => {
+							appProps?.openDialog({ directory: true }).then((result) => {
+								if (result) createLocation({ path: result as string });
+							});
+						}}
+						className={clsx(
+							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 transition',
+							appProps?.platform === 'macOS'
+								? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
+								: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
+						)}
+					>
+						Add Location
+					</button>
+				)}
 			</div>
 			<div>
 				<Heading>Tags</Heading>
