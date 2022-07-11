@@ -34,7 +34,6 @@ class Transport extends BaseTransport {
 				.then(() => {
 					this.websocket = ws;
 					this.attachEventListeners();
-					console.log('Reconnected!');
 				})
 				.catch((err) => this.reconnect(timeoutIndex++));
 		}, timeout);
@@ -44,33 +43,34 @@ class Transport extends BaseTransport {
 		this.websocket.addEventListener('message', (event) => {
 			if (!event.data) return;
 
-			const { id, payload } = JSON.parse(event.data);
+			const { type: msg_type, data: msg_data } = JSON.parse(event.data);
 
-			const { type, data } = payload;
-			if (type === 'event') {
-				this.emit('core_event', data);
-			} else if (type === 'query' || type === 'command') {
+			if (msg_type === 'response') {
+				const id = msg_data.id;
 				if (this.requestMap.has(id)) {
-					this.requestMap.get(id)?.(data);
+					this.requestMap.get(id)?.({ data: msg_data.payload.data });
 					this.requestMap.delete(id);
 				}
+			} else if (msg_type === 'event') {
+				this.emit('core_event', msg_data);
+			} else {
+				console.error(`Received response message of type ${msg_type} which is not valid!`);
 			}
 		});
 
 		this.websocket.addEventListener('close', () => {
-			console.log('GONE');
 			this.reconnect();
 		});
 	}
 
 	async query(query: ClientQuery) {
-		if (websocket.readyState == 0) {
+		if (this.websocket.readyState == 0) {
 			let resolve: () => void;
 			const promise = new Promise((res) => {
 				resolve = () => res(undefined);
 			});
 			// @ts-ignore
-			websocket.addEventListener('open', resolve);
+			this.websocket.addEventListener('open', resolve);
 			await promise;
 		}
 
@@ -89,6 +89,16 @@ class Transport extends BaseTransport {
 		return await promise;
 	}
 	async command(command: ClientCommand) {
+		if (this.websocket.readyState == 0) {
+			let resolve: () => void;
+			const promise = new Promise((res) => {
+				resolve = () => res(undefined);
+			});
+			// @ts-ignore
+			this.websocket.addEventListener('open', resolve);
+			await promise;
+		}
+
 		const id = randomId();
 		let resolve: (data: any) => void;
 
