@@ -117,7 +117,6 @@ impl NodeController {
 		}
 	}
 }
-
 #[derive(Clone)]
 pub struct NodeContext {
 	pub event_sender: mpsc::Sender<CoreEvent>,
@@ -167,6 +166,7 @@ impl Node {
 			config: config.clone(),
 			jobs: jobs.clone(),
 		};
+
 		let library_manager = LibraryManager::new(Path::new(&data_dir).join("libraries"), node_ctx)
 			.await
 			.unwrap();

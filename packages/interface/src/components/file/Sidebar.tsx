@@ -1,14 +1,14 @@
 import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
 import { useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { useCurrentLibrary, useLibraryStore } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import { CirclesFour, Code, Planet } from 'phosphor-react';
 import React, { useContext, useEffect, useMemo } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
-import { AppPropsContext } from '../../AppPropsContext';
-import { useCurrentLibrary, useLibraryState } from '../../hooks/useLibraryState';
 import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
@@ -81,10 +81,18 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const appProps = useContext(AppPropsContext);
 
-	const { data: locations } = useLibraryQuery('SysGetLocations');
+	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('SysGetLocations');
+
+	let locations = Array.isArray(locationsResponse) ? locationsResponse : [];
 
 	// initialize libraries
-	const { init: initLibraries, switchLibrary } = useLibraryState();
+	const { init: initLibraries, switchLibrary: _switchLibrary } = useLibraryStore();
+
+	const switchLibrary = (uuid: string) => {
+		navigate('overview');
+
+		_switchLibrary(uuid);
+	};
 
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
@@ -158,8 +166,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							onPress: () => navigate('library-settings/general')
 						},
 						{ name: 'Add Library', icon: PlusIcon },
-						{ name: 'Lock', icon: LockClosedIcon },
-						{ name: 'Hide', icon: EyeOffIcon }
+						{ name: 'Lock', icon: LockClosedIcon }
+						// { name: 'Hide', icon: EyeOffIcon }
 					]
 				]}
 			/>

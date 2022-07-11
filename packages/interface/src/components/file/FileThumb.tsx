@@ -1,9 +1,9 @@
 import { useBridgeQuery } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext } from 'react';
 
-import { AppPropsContext } from '../../AppPropsContext';
 import icons from '../../assets/icons';
 import { Folder } from '../icons/Folder';
 

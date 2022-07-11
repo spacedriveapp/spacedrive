@@ -13,12 +13,6 @@
 		"lint": "TIMING=1 eslint src --fix",
 		"clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
 	},
-	"devDependencies": {
-		"@types/react": "^18.0.9",
-		"scripts": "*",
-		"tsconfig": "*",
-		"typescript": "^4.7.2"
-	},
 	"jest": {
 		"preset": "scripts/jest/node"
 	},
@@ -28,11 +22,18 @@
 		"@sd/interface": "workspace:*",
 		"eventemitter3": "^4.0.7",
 		"immer": "^9.0.14",
-		"react-query": "^3.39.1",
+		"lodash": "^4.17.21",
+		"react-query": "^3.34.19",
 		"zustand": "4.0.0-rc.1"
 	},
+	"devDependencies": {
+		"@types/react": "^18.0.9",
+		"scripts": "*",
+		"tsconfig": "*",
+		"typescript": "^4.7.2",
+		"@types/lodash": "^4.14.182"
+	},
 	"peerDependencies": {
-		"react": "^18.0.0",
-		"react-query": "^3.34.19"
+		"react": "^18.0.0"
 	}
 }

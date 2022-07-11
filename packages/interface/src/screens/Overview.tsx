@@ -1,11 +1,7 @@
 import { PlusIcon } from '@heroicons/react/solid';
-import {
-	libraryCommand,
-	useBridgeCommand,
-	useBridgeQuery,
-	useLibraryCommand,
-	useLibraryQuery
-} from '@sd/client';
+import { DatabaseIcon, ExclamationCircleIcon, PlusIcon } from '@heroicons/react/solid';
+import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
@@ -16,7 +12,6 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
 
-import { AppPropsContext } from '../AppPropsContext';
 import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
 
@@ -166,7 +161,17 @@ export const OverviewScreen = () => {
 				{/* STAT HEADER */}
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
-					<div className="flex pb-4 overflow-hidden">
+					<div className="flex -mb-1 overflow-hidden">
+						{!libraryStatistics && (
+							<div className="mb-2 ml-2">
+								<div className="font-semibold text-gray-200">
+									<ExclamationCircleIcon className="inline w-4 h-4 mr-1 -mt-1 " /> Missing library
+								</div>
+								<span className="text-xs text-gray-400 ">
+									Ensure the library you have loaded still exists on disk
+								</span>
+							</div>
+						)}
 						{Object.entries(overviewStats).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
 
@@ -180,8 +185,9 @@ export const OverviewScreen = () => {
 							);
 						})}
 					</div>
+
 					<div className="flex-grow" />
-					<div className="space-x-2">
+					<div className="space-x-2 ">
 						<Dialog
 							title="Add Device"
 							description="Connect a new device to your library. Either enter another device's code or copy this one."
@@ -237,7 +243,7 @@ export const OverviewScreen = () => {
 						</Dialog>
 					</div>
 				</div>
-				<div className="flex flex-col pb-4 space-y-4">
+				<div className="flex flex-col pb-4 mt-4 space-y-4">
 					<Device
 						name={`James' MacBook Pro`}
 						size="1TB"

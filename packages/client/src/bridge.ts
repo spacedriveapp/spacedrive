@@ -1,7 +1,8 @@
 import { ClientCommand, ClientQuery, CoreResponse, LibraryCommand, LibraryQuery } from '@sd/core';
-import { useLibraryState } from '@sd/interface';
 import { EventEmitter } from 'eventemitter3';
 import { UseMutationOptions, UseQueryOptions, useMutation, useQuery } from 'react-query';
+
+import { useLibraryStore } from './stores';
 
 // global var to store the transport TODO: not global :D
 export let transport: BaseTransport | null = null;
@@ -68,7 +69,7 @@ export function useLibraryQuery<
 	CQ extends LQType<K>,
 	CR extends CRType<K>
 >(key: K, params?: ExtractParams<CQ>, options: UseQueryOptions<ExtractData<CR>> = {}) {
-	const library_id = useLibraryState((state) => state.currentLibraryUuid);
+	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 	if (!library_id) throw new Error(`Attempted to do library query '${key}' with no library set!`);
 
 	return useQuery<ExtractData<CR>>(
@@ -95,7 +96,7 @@ export function useLibraryCommand<
 	LC extends LCType<K>,
 	CR extends CRType<K>
 >(key: K, options: UseMutationOptions<ExtractData<LC>> = {}) {
-	const library_id = useLibraryState((state) => state.currentLibraryUuid);
+	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 	if (!library_id) throw new Error(`Attempted to do library command '${key}' with no library set!`);
 
 	return useMutation<ExtractData<CR>, unknown, ExtractParams<LC>>(
@@ -118,7 +119,7 @@ export function libraryCommand<
 	LC extends LCType<K>,
 	CR extends CRType<K>
 >(key: K, vars: ExtractParams<LC>): Promise<ExtractData<CR>> {
-	const library_id = useLibraryState((state) => state.currentLibraryUuid);
+	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 	if (!library_id) throw new Error(`Attempted to do library command '${key}' with no library set!`);
 	return commandBridge('LibraryCommand', { library_id, command: { key, params: vars } as any });
 }
