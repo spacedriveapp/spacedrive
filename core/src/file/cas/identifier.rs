@@ -2,10 +2,10 @@ use super::checksum::generate_cas_id;
 use crate::{
 	file::FileError,
 	job::JobReportUpdate,
-	job::{Job, WorkerContext},
+	job::{Job, JobResult, WorkerContext},
+	library::LibraryContext,
 	prisma::{file, file_path},
 	sys::get_location,
-	CoreContext,
 };
 use chrono::{DateTime, FixedOffset};
 use futures::executor::block_on;
@@ -33,13 +33,14 @@ impl Job for FileIdentifierJob {
 	fn name(&self) -> &'static str {
 		"file_identifier"
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
+
+	async fn run(&self, ctx: WorkerContext) -> JobResult {
 		info!("Identifying orphan file paths...");
 
-		let location = get_location(&ctx.core_ctx, self.location_id).await?;
+		let location = get_location(&ctx.library_ctx(), self.location_id).await?;
 		let location_path = location.path.unwrap_or("".to_string());
 
-		let total_count = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+		let total_count = count_orphan_file_paths(&ctx.library_ctx(), location.id.into()).await?;
 		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
@@ -48,9 +49,9 @@ impl Job for FileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let db = ctx.core_ctx.database.clone();
 		// dedicated tokio thread for task
 		let _ctx = tokio::task::spawn_blocking(move || {
+			let db = ctx.library_ctx().db;
 			let mut completed: usize = 0;
 			let mut cursor: i32 = 1;
 			// loop until task count is complete
@@ -60,7 +61,7 @@ impl Job for FileIdentifierJob {
 				let mut cas_lookup: HashMap<String, i32> = HashMap::new();
 
 				// get chunk of orphans to process
-				let file_paths = match block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)) {
+				let file_paths = match block_on(get_orphan_file_paths(&ctx.library_ctx(), cursor)) {
 					Ok(file_paths) => file_paths,
 					Err(e) => {
 						info!("Error getting orphan file paths: {}", e);
@@ -192,11 +193,10 @@ struct CountRes {
 }
 
 pub async fn count_orphan_file_paths(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	location_id: i64,
 ) -> Result<usize, FileError> {
-	let db = &ctx.database;
-	let files_count = db
+	let files_count = ctx.db
 		._query_raw::<CountRes>(raw!(
 			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
 			PrismaValue::Int(location_id)
@@ -206,10 +206,10 @@ pub async fn count_orphan_file_paths(
 }
 
 pub async fn get_orphan_file_paths(
-	ctx: &CoreContext,
+	ctx: &LibraryContext,
 	cursor: i32,
 ) -> Result<Vec<file_path::Data>, FileError> {
-	let db = &ctx.database;
+	let db = &ctx.db;
 	info!(
 		"discovering {} orphan file paths at cursor: {:?}",
 		CHUNK_SIZE, cursor
@@ -225,6 +225,7 @@ pub async fn get_orphan_file_paths(
 		.take(CHUNK_SIZE as i64)
 		.exec()
 		.await?;
+
 	Ok(files)
 }
 

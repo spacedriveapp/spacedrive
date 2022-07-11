@@ -197,7 +197,7 @@ function Page() {
 					style={{ transform: 'scale(2)' }}
 				/>
 				<div className="relative z-10">
-					<h1 className="text-5xl leading-snug fade-in-heading ">
+					<h1 className="text-5xl leading-tight sm:leading-snug fade-in-heading ">
 						We believe file management should be <span className="title-gradient">universal</span>.
 					</h1>
 					<p className="text-gray-400 animation-delay-2 fade-in-heading ">
