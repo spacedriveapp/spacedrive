@@ -1,8 +1,8 @@
 use super::{
 	jobs::{JobReport, JobReportUpdate, JobStatus},
-	Job,
+	Job, JobManager,
 };
-use crate::{ClientQuery, CoreContext, CoreEvent, InternalEvent};
+use crate::{library::LibraryContext, ClientQuery, CoreEvent, LibraryQuery};
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -26,8 +26,8 @@ enum WorkerState {
 #[derive(Clone)]
 pub struct WorkerContext {
 	pub uuid: String,
-	pub core_ctx: CoreContext,
-	pub sender: UnboundedSender<WorkerEvent>,
+	library_ctx: LibraryContext,
+	sender: UnboundedSender<WorkerEvent>,
 }
 
 impl WorkerContext {
@@ -36,9 +36,13 @@ impl WorkerContext {
 			.send(WorkerEvent::Progressed(updates))
 			.unwrap_or(());
 	}
+
+	pub fn library_ctx(&self) -> LibraryContext {
+		self.library_ctx.clone()
+	}
+
 	// save the job data to
 	// pub fn save_data () {
-
 	// }
 }
 
@@ -63,7 +67,11 @@ impl Worker {
 		}
 	}
 	// spawns a thread and extracts channel sender to communicate with it
-	pub async fn spawn(worker: Arc<Mutex<Self>>, ctx: &CoreContext) {
+	pub async fn spawn(
+		job_manager: Arc<JobManager>,
+		worker: Arc<Mutex<Self>>,
+		ctx: &LibraryContext,
+	) {
 		// we capture the worker receiver channel so state can be updated from inside the worker
 		let mut worker_mut = worker.lock().await;
 		// extract owned job and receiver from Self
@@ -76,9 +84,10 @@ impl Worker {
 				WorkerState::Running => unreachable!(),
 			};
 		let worker_sender = worker_mut.worker_sender.clone();
-		let core_ctx = ctx.clone();
 
 		worker_mut.job_report.status = JobStatus::Running;
+
+		let ctx = ctx.clone();
 
 		worker_mut.job_report.create(&ctx).await.unwrap_or(());
 
@@ -94,7 +103,7 @@ impl Worker {
 		tokio::spawn(async move {
 			let worker_ctx = WorkerContext {
 				uuid,
-				core_ctx,
+				library_ctx: ctx.clone(),
 				sender: worker_sender,
 			};
 			let job_start = Instant::now();
@@ -113,20 +122,17 @@ impl Worker {
 				}
 			});
 
-			let result = job.run(worker_ctx.clone()).await;
-
-			if let Err(e) = result {
-				println!("job failed {:?}", e);
-				worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());
-			} else {
-				// handle completion
-				worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
+			match job.run(worker_ctx.clone()).await {
+				Ok(_) => {
+					worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
+				}
+				Err(err) => {
+					println!("job '{}' failed with error: {}", worker_ctx.uuid, err);
+					worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());
+				}
 			}
-			worker_ctx
-				.core_ctx
-				.internal_sender
-				.send(InternalEvent::JobComplete(worker_ctx.uuid.clone()))
-				.unwrap_or(());
+
+			job_manager.complete(&ctx, worker_ctx.uuid).await;
 		});
 	}
 
@@ -137,7 +143,7 @@ impl Worker {
 	async fn track_progress(
 		worker: Arc<Mutex<Self>>,
 		mut channel: UnboundedReceiver<WorkerEvent>,
-		ctx: CoreContext,
+		ctx: LibraryContext,
 	) {
 		while let Some(command) = channel.recv().await {
 			let mut worker = worker.lock().await;
@@ -176,16 +182,23 @@ impl Worker {
 
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning))
 						.await;
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
-						.await;
+
+					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+						library_id: ctx.id.to_string(),
+						query: LibraryQuery::JobGetHistory,
+					}))
+					.await;
 					break;
 				}
 				WorkerEvent::Failed => {
 					worker.job_report.status = JobStatus::Failed;
 					worker.job_report.update(&ctx).await.unwrap_or(());
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetHistory))
-						.await;
+					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+						library_id: ctx.id.to_string(),
+						query: LibraryQuery::JobGetHistory,
+					}))
+					.await;
 					break;
 				}
 			}
