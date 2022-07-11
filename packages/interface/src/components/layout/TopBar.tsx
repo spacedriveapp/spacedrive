@@ -69,7 +69,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	let navigate = useNavigate();
 
 	//create function to focus on search box when cmd+k is pressed
-	const searchRef: any = React.useRef(null);
+	const searchRef = React.useRef<HTMLInputElement>(null);
 	React.useEffect(() => {
 		document.addEventListener('keydown', (e) => {
 			if (e.metaKey && e.key === 'k' && searchRef.current) {
