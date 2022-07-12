@@ -365,7 +365,7 @@ pub enum LibraryCommand {
 }
 
 /// is a query destined for the core
-#[derive(Serialize, Deserialize, Debug, TS)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientQuery {
@@ -381,7 +381,7 @@ pub enum ClientQuery {
 }
 
 /// is a query destined for a specific library which is loaded into the core.
-#[derive(Serialize, Deserialize, Debug, TS)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum LibraryQuery {
@@ -400,7 +400,7 @@ pub enum LibraryQuery {
 }
 
 // represents an event this library can emit
-#[derive(Serialize, Deserialize, Debug, TS)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(tag = "key", content = "data")]
 #[ts(export)]
 pub enum CoreEvent {
@@ -455,7 +455,7 @@ pub enum CoreError {
 	LibraryError(#[from] library::LibraryError),
 }
 
-#[derive(Serialize, Deserialize, Debug, TS)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[ts(export)]
 pub enum CoreResource {
 	Client,

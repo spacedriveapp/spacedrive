@@ -1,9 +1,15 @@
 use sdcore::{ClientCommand, ClientQuery, CoreEvent, CoreResponse, Node, NodeController};
-use std::{env, path::Path};
+use std::{
+	collections::HashSet,
+	env,
+	path::Path,
+	sync::{Arc, RwLock},
+	time::{Duration, Instant},
+};
 
 use actix::{
-	Actor, AsyncContext, ContextFutureSpawner, Handler, Message, StreamHandler,
-	WrapFuture,
+	Actor, ActorContext, Addr, AsyncContext, Context, ContextFutureSpawner, Handler,
+	Message, StreamHandler, WrapFuture,
 };
 use actix_web::{
 	get, http::StatusCode, web, App, Error, HttpRequest, HttpResponse, HttpServer,
@@ -16,10 +22,85 @@ use tokio::sync::mpsc;
 
 const DATA_DIR_ENV_VAR: &'static str = "DATA_DIR";
 
+#[derive(Serialize)]
+pub struct Event(CoreEvent);
+
+impl Message for Event {
+	type Result = ();
+}
+
+struct EventServer {
+	clients: Arc<RwLock<HashSet<Addr<Socket>>>>,
+}
+
+impl Actor for EventServer {
+	type Context = Context<Self>;
+}
+
+impl EventServer {
+	pub fn listen(mut event_receiver: mpsc::Receiver<CoreEvent>) -> Addr<Self> {
+		let server = Self {
+			clients: Arc::new(RwLock::new(HashSet::new())),
+		};
+		let clients = server.clients.clone();
+		tokio::spawn(async move {
+			let mut last = Instant::now();
+			while let Some(event) = event_receiver.recv().await {
+				match event {
+					CoreEvent::InvalidateQueryDebounced(_) => {
+						let current = Instant::now();
+						if current.duration_since(last) > Duration::from_millis(1000 / 60)
+						{
+							last = current;
+							for client in clients.read().unwrap().iter() {
+								client.do_send(Event(event.clone()));
+							}
+						}
+					},
+					event => {
+						for client in clients.read().unwrap().iter() {
+							client.do_send(Event(event.clone()));
+						}
+					},
+				}
+			}
+		});
+		server.start()
+	}
+}
+
+enum EventServerOperation {
+	Connect(Addr<Socket>),
+	Disconnect(Addr<Socket>),
+}
+
+impl Message for EventServerOperation {
+	type Result = ();
+}
+
+impl Handler<EventServerOperation> for EventServer {
+	type Result = ();
+
+	fn handle(
+		&mut self,
+		msg: EventServerOperation,
+		_: &mut Context<Self>,
+	) -> Self::Result {
+		match msg {
+			EventServerOperation::Connect(addr) => {
+				self.clients.write().unwrap().insert(addr)
+			},
+			EventServerOperation::Disconnect(addr) => {
+				self.clients.write().unwrap().remove(&addr)
+			},
+		};
+	}
+}
+
 /// Define HTTP actor
 struct Socket {
-	_event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
-	core: web::Data<NodeController>,
+	node_controller: web::Data<NodeController>,
+	event_server: web::Data<Addr<EventServer>>,
 }
 
 impl Actor for Socket {
@@ -62,18 +143,21 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 					},
 				};
 
-				let core = self.core.clone();
+				let core = self.node_controller.clone();
+				self.event_server
+					.do_send(EventServerOperation::Connect(ctx.address()));
 
 				let recipient = ctx.address().recipient();
-
 				let fut = async move {
 					match msg.payload {
 						SocketMessagePayload::Query(query) => {
 							match core.query(query).await {
-								Ok(response) => recipient.do_send(SocketResponse {
-									id: msg.id.clone(),
-									payload: SocketResponsePayload::Query(response),
-								}),
+								Ok(response) => {
+									recipient.do_send(SocketResponse::Response {
+										id: msg.id.clone(),
+										payload: response,
+									})
+								},
 								Err(err) => {
 									println!("query error: {:?}", err);
 									// Err(err.to_string())
@@ -82,10 +166,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 						},
 						SocketMessagePayload::Command(command) => {
 							match core.command(command).await {
-								Ok(response) => recipient.do_send(SocketResponse {
-									id: msg.id.clone(),
-									payload: SocketResponsePayload::Query(response),
-								}),
+								Ok(response) => {
+									recipient.do_send(SocketResponse::Response {
+										id: msg.id.clone(),
+										payload: response,
+									})
+								},
 								Err(err) => {
 									println!("command error: {:?}", err);
 									// Err(err.to_string())
@@ -102,27 +188,35 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 			_ => (),
 		}
 	}
+
+	fn finished(&mut self, ctx: &mut Self::Context) {
+		self.event_server
+			.do_send(EventServerOperation::Disconnect(ctx.address()));
+		ctx.stop();
+	}
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase", tag = "type", content = "data")]
-pub enum SocketResponsePayload {
-	Query(CoreResponse),
+impl Handler<Event> for Socket {
+	type Result = ();
+
+	fn handle(&mut self, msg: Event, ctx: &mut Self::Context) {
+		ctx.text(serde_json::to_string(&SocketResponse::Event(msg.0)).unwrap());
+	}
 }
 
 #[derive(Message, Serialize)]
+#[serde(rename_all = "camelCase", tag = "type", content = "data")]
 #[rtype(result = "()")]
-struct SocketResponse {
-	id: String,
-	payload: SocketResponsePayload,
+enum SocketResponse {
+	Response { id: String, payload: CoreResponse },
+	Event(CoreEvent),
 }
 
 impl Handler<SocketResponse> for Socket {
 	type Result = ();
 
 	fn handle(&mut self, msg: SocketResponse, ctx: &mut Self::Context) {
-		let string = serde_json::to_string(&msg).unwrap();
-		ctx.text(string);
+		ctx.text(serde_json::to_string(&msg).unwrap());
 	}
 }
 
@@ -140,24 +234,18 @@ async fn healthcheck() -> impl Responder {
 async fn ws_handler(
 	req: HttpRequest,
 	stream: web::Payload,
-	event_receiver: web::Data<mpsc::Receiver<CoreEvent>>,
 	controller: web::Data<NodeController>,
+	server: web::Data<Addr<EventServer>>,
 ) -> Result<HttpResponse, Error> {
 	let resp = ws::start(
 		Socket {
-			_event_receiver: event_receiver,
-			core: controller,
+			node_controller: controller,
+			event_server: server,
 		},
 		&req,
 		stream,
 	);
 	resp
-}
-
-#[get("/file/{file:.*}")]
-async fn file() -> impl Responder {
-	// TODO
-	format!("OK")
 }
 
 async fn not_found() -> impl Responder {
@@ -168,15 +256,16 @@ async fn not_found() -> impl Responder {
 async fn main() -> std::io::Result<()> {
 	let (event_receiver, controller) = setup().await;
 
+	let server = web::Data::new(EventServer::listen(event_receiver));
+
 	println!("Listening http://localhost:8080");
 	HttpServer::new(move || {
 		App::new()
-			.app_data(event_receiver.clone())
 			.app_data(controller.clone())
+			.app_data(server.clone())
 			.service(index)
 			.service(healthcheck)
 			.service(ws_handler)
-			.service(file)
 			.default_service(web::route().to(not_found))
 	})
 	.bind(("0.0.0.0", 8080))?
@@ -184,10 +273,7 @@ async fn main() -> std::io::Result<()> {
 	.await
 }
 
-async fn setup() -> (
-	web::Data<mpsc::Receiver<CoreEvent>>,
-	web::Data<NodeController>,
-) {
+async fn setup() -> (mpsc::Receiver<CoreEvent>, web::Data<NodeController>) {
 	let data_dir_path = match env::var(DATA_DIR_ENV_VAR) {
 		Ok(path) => Path::new(&path).to_path_buf(),
 		Err(_e) => {
@@ -207,5 +293,5 @@ async fn setup() -> (
 	let (controller, event_receiver, node) = Node::new(data_dir_path).await;
 	tokio::spawn(node.start());
 
-	(web::Data::new(event_receiver), web::Data::new(controller))
+	(event_receiver, web::Data::new(controller))
 }
