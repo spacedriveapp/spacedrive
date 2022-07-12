@@ -1,4 +1,4 @@
-import { useBridgeQuery } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import React from 'react';
 
 import LocationListItem from '../../components/location/LocationListItem';
@@ -13,9 +13,7 @@ import { SettingsHeader } from '../../components/settings/SettingsHeader';
 // ];
 
 export default function LocationSettings() {
-	const { data: locations } = useBridgeQuery('SysGetLocations');
-
-	console.log({ locations });
+	const { data: locations } = useLibraryQuery('SysGetLocations');
 
 	return (
 		<SettingsContainer>
