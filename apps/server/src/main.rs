@@ -98,7 +98,10 @@ impl Handler<EventServerOperation> for EventServer {
 }
 
 /// Define HTTP actor
-struct Socket(web::Data<NodeController>, web::Data<Addr<EventServer>>);
+struct Socket {
+	node_controller: web::Data<NodeController>,
+	event_server: web::Data<Addr<EventServer>>,
+}
 
 impl Actor for Socket {
 	type Context = ws::WebsocketContext<Self>;
@@ -140,8 +143,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 					},
 				};
 
-				let core = self.0.clone();
-				self.1.do_send(EventServerOperation::Connect(ctx.address()));
+				let core = self.node_controller.clone();
+				self.event_server
+					.do_send(EventServerOperation::Connect(ctx.address()));
 
 				let recipient = ctx.address().recipient();
 				let fut = async move {
@@ -186,7 +190,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 	}
 
 	fn finished(&mut self, ctx: &mut Self::Context) {
-		self.1
+		self.event_server
 			.do_send(EventServerOperation::Disconnect(ctx.address()));
 		ctx.stop();
 	}
@@ -233,7 +237,14 @@ async fn ws_handler(
 	controller: web::Data<NodeController>,
 	server: web::Data<Addr<EventServer>>,
 ) -> Result<HttpResponse, Error> {
-	let resp = ws::start(Socket(controller, server), &req, stream);
+	let resp = ws::start(
+		Socket {
+			node_controller: controller,
+			event_server: server,
+		},
+		&req,
+		stream,
+	);
 	resp
 }
 
