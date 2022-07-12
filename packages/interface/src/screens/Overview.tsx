@@ -70,7 +70,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 				setCount((count) => count + 1);
 			}, quadratic(appProps?.demoMode ? 1000 : 500, +size.value, count));
 		}
-	}, [count]);
+	}, [count, size]);
 
 	return (
 		<div
