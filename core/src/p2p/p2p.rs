@@ -1,17 +1,27 @@
-use std::{collections::HashMap, env, fs::File, pin::Pin, sync::Arc};
+use std::{
+	collections::HashMap,
+	env,
+	pin::Pin,
+	str::FromStr,
+	sync::{Arc, Mutex},
+};
 
 use futures::{executor::block_on, Future};
 use p2p::{
 	quinn::{RecvStream, SendStream},
-	Identity, NetworkManager, NetworkManagerConfig, NetworkManagerError, P2PManager, Peer, PeerId,
-	PeerMetadata,
+	Identity, NetworkManager, NetworkManagerConfig, NetworkManagerError, OperationSystem,
+	P2PManager, PairingDirection, Peer, PeerId, PeerMetadata,
 };
-use tokio::sync::mpsc::{self};
+use tokio::sync::{
+	mpsc::{self},
+	oneshot,
+};
 use uuid::Uuid;
 
 use crate::{
 	library::{LibraryConfig, LibraryContext, LibraryManager},
 	node::NodeConfigManager,
+	prisma::node,
 	ClientQuery, CoreEvent, CoreResponse,
 };
 
@@ -26,7 +36,23 @@ pub enum P2PEvent {
 	PeerExpired(PeerId),
 	PeerConnected(PeerId),
 	PeerDisconnected(PeerId),
+	PeerPairingRequest {
+		peer_id: PeerId,
+		peer_metadata: PeerMetadata,
+		library_id: Uuid,
+	},
+	PeerPairingComplete {
+		peer_id: PeerId,
+		peer_metadata: PeerMetadata,
+		library_id: Uuid,
+	},
 }
+
+pub(crate) type P2PData = (
+	Arc<NetworkManager<SdP2PManager>>,
+	mpsc::UnboundedReceiver<P2PEvent>,
+	Arc<Mutex<HashMap<PeerId, oneshot::Sender<Result<String, ()>>>>>,
+);
 
 // SdP2PManager is part of your application and allows you to hook into the behavior of the P2PManager.
 #[derive(Clone)]
@@ -35,6 +61,7 @@ pub struct SdP2PManager {
 	config: Arc<NodeConfigManager>,
 	/// event_channel is used to send events back to the Spacedrive main event loop
 	event_channel: mpsc::UnboundedSender<P2PEvent>,
+	pairing_requests: Arc<Mutex<HashMap<PeerId, oneshot::Sender<Result<String, ()>>>>>,
 }
 
 impl P2PManager for SdP2PManager {
@@ -44,6 +71,7 @@ impl P2PManager for SdP2PManager {
 		PeerMetadata {
 			// TODO: `block_on` needs to be removed from here!
 			name: block_on(self.config.get()).name.clone(),
+			operating_system: Some(OperationSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").into()),
 		}
 	}
@@ -51,7 +79,6 @@ impl P2PManager for SdP2PManager {
 	fn peer_discovered(&self, nm: &NetworkManager<Self>, peer_id: &PeerId) {
 		self.event_channel
 			.send(P2PEvent::PeerDiscovered(peer_id.clone()));
-		// nm.add_known_peer(peer_id.clone()); // Be careful doing this in a production application because it will just trust all clients
 	}
 
 	fn peer_expired(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {
@@ -66,29 +93,83 @@ impl P2PManager for SdP2PManager {
 		self.event_channel.send(P2PEvent::PeerDisconnected(peer_id));
 	}
 
+	fn peer_pairing_request(
+		&self,
+		nm: &NetworkManager<Self>,
+		peer_id: &PeerId,
+		peer_metadata: &PeerMetadata,
+		extra_data: &HashMap<String, String>,
+		password_resp: oneshot::Sender<Result<String, ()>>,
+	) {
+		self.pairing_requests
+			.lock()
+			.unwrap()
+			.insert(peer_id.clone(), password_resp);
+		self.event_channel.send(P2PEvent::PeerPairingRequest {
+			peer_id: peer_id.clone(),
+			library_id: Uuid::from_str(&extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap())
+				.unwrap(),
+			peer_metadata: peer_metadata.clone(),
+		});
+	}
+
 	fn peer_paired<'a>(
 		&'a self,
 		nm: &'a NetworkManager<Self>,
+		direction: PairingDirection,
 		peer_id: &'a PeerId,
+		peer_metadata: &'a PeerMetadata,
 		extra_data: &'a HashMap<String, String>,
 	) -> Pin<Box<dyn Future<Output = Result<(), ()>> + Send + 'a>> {
 		// TODO: Checking is peer is the same or newer version of application and hence that it's safe to join
 
 		Box::pin(async move {
 			let library_id = extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap();
-			let library_config: LibraryConfig =
-				serde_json::from_str(extra_data.get(LIBRARY_CONFIG_EXTRA_DATA_KEY).unwrap())
+
+			match direction {
+				PairingDirection::Initiator => {}
+				PairingDirection::Accepter => {
+					let library_config: LibraryConfig = serde_json::from_str(
+						extra_data.get(LIBRARY_CONFIG_EXTRA_DATA_KEY).unwrap(),
+					)
 					.unwrap();
 
+					let ctx = self
+						.library_manager
+						.create_with_id(Uuid::parse_str(library_id).unwrap(), library_config)
+						.await
+						.unwrap();
+
+					// TODO: Add remote client into library database
+				}
+			}
+
+			println!("ADDING PEER INTO DB {} {}", peer_id, peer_metadata.name); // TODO: Remove
 			let ctx = self
 				.library_manager
-				.create_with_id(Uuid::parse_str(library_id).unwrap(), library_config)
+				.get_ctx(library_id.clone())
+				.await
+				.unwrap();
+			ctx.db
+				.node()
+				.upsert(
+					node::pub_id::equals(peer_id.to_string()),
+					(
+						node::pub_id::set(peer_id.to_string()),
+						node::name::set(peer_metadata.name.clone()),
+						vec![node::platform::set(0 as i32)], // TODO: Set platform correctly
+					),
+					vec![node::name::set(peer_metadata.name.clone())],
+				)
+				.exec()
 				.await
 				.unwrap();
 
-			// TODO: Create clients in the DB -> The first client should send over all the data
-
-			// TODO: Emit InvalidQuery events
+			self.event_channel.send(P2PEvent::PeerPairingComplete {
+				peer_id: peer_id.clone(),
+				peer_metadata: peer_metadata.clone(),
+				library_id: Uuid::from_str(library_id).unwrap(), // TODO: Do this at start of function and throw if invalid
+			});
 
 			Ok(())
 		})
@@ -97,7 +178,9 @@ impl P2PManager for SdP2PManager {
 	fn peer_paired_rollback<'a>(
 		&'a self,
 		nm: &'a NetworkManager<Self>,
+		direction: PairingDirection,
 		peer_id: &'a PeerId,
+		peer_metadata: &'a PeerMetadata,
 		extra_data: &'a HashMap<String, String>,
 	) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'a>> {
 		Box::pin(async move {
@@ -150,24 +233,36 @@ impl P2PManager for SdP2PManager {
 	}
 }
 
+// impl SdP2PManager {
+// 	pub(crate) fn accept_pairing_request(
+// 		self: &Arc<Self>,
+// 		peer_id: PeerId,
+// 		preshared_key: Result<String, ()>,
+// 	) {
+// 		self.pairing_requests
+// 			.lock()
+// 			.unwrap()
+// 			.get(&peer_id)
+// 			.unwrap()
+// 			.send(preshared_key)
+// 			.unwrap();
+// 	}
+// }
+
 pub async fn init(
 	library_manager: Arc<LibraryManager>,
 	config: Arc<NodeConfigManager>,
-) -> Result<
-	(
-		Arc<NetworkManager<SdP2PManager>>,
-		mpsc::UnboundedReceiver<P2PEvent>,
-	),
-	NetworkManagerError,
-> {
+) -> Result<P2PData, NetworkManagerError> {
 	let identity = Identity::new().unwrap(); // TODO: Save and load from Spacedrive config
 	let event_channel = mpsc::unbounded_channel();
+	let pairing_requests = Arc::new(Mutex::new(HashMap::new()));
 	let nm = NetworkManager::new(
 		identity,
 		SdP2PManager {
 			library_manager,
 			config,
 			event_channel: event_channel.0,
+			pairing_requests: pairing_requests.clone(),
 		},
 		NetworkManagerConfig {
 			known_peers: Default::default(), // TODO: Load these from the database on startup
@@ -187,7 +282,7 @@ pub async fn init(
 	// 	.await
 	// 	.unwrap();
 
-	Ok((nm, event_channel.1))
+	Ok((nm, event_channel.1, pairing_requests))
 }
 
 pub async fn pair(
@@ -195,8 +290,8 @@ pub async fn pair(
 	ctx: LibraryContext,
 	peer_id: PeerId,
 ) -> CoreResponse {
-	nm.clone()
-		.pair_with_peer(
+	let preshared_key = nm
+		.initiate_pairing_with_peer(
 			peer_id,
 			[
 				(LIBRARY_ID_EXTRA_DATA_KEY.into(), ctx.id.to_string()),
@@ -210,17 +305,10 @@ pub async fn pair(
 		)
 		.await;
 
-	let password = "todo".to_string(); // TODO: make this work with UI
-
-	// TODO: Add node into library database once paired
-
-	// TODO: Integrate proper pairing protocol using PAKE system to ensure we trust the remote client.
-	// nm.add_known_peer(peer_id);
-
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
 		.await;
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers))
 		.await;
 
-	CoreResponse::PairNode { password }
+	CoreResponse::PairNode { preshared_key }
 }

@@ -1,5 +1,10 @@
 import { DatabaseIcon, ExclamationCircleIcon, PlusIcon } from '@heroicons/react/solid';
-import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
+import {
+	useBridgeQuery,
+	useLibraryCommand,
+	useLibraryQuery,
+	useToastNotificationsStore
+} from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
@@ -10,6 +15,8 @@ import { useCountUp } from 'react-countup';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
+
+import { usePairingCompleteStore } from '@sd/client/src/stores/usePairingCompleteStore';
 
 import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
@@ -103,13 +110,16 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 export const OverviewScreen = () => {
 	const { data: libraryStatistics, isLoading: isStatisticsLoading } =
 		useLibraryQuery('GetLibraryStatistics');
-	const { data: nodeState } = useBridgeQuery('NodeGetState');
 	const { data: discoveredPeers } = useBridgeQuery('DiscoveredPeers');
 	const { data: connectedPeers } = useBridgeQuery('ConnectedPeers');
+	const { data: nodes } = useLibraryQuery('GetNodes');
 	const { mutate: pairNode } = useLibraryCommand('PairNode');
 
 	const { overviewStats, setOverviewStats } = useOverviewState();
-	const [pairingPassword, setPairingPassword] = useState<string | null>(null);
+	const [presharedKey, setPairingPresharedKey] = useState<string | null>(null);
+	const { pairingRequestCallbacks } = usePairingCompleteStore();
+	const { addToast } = useToastNotificationsStore();
+	const [isAddDeviceDialogOpen, setIsAddDeviceDialogOpen] = useState(false);
 
 	// get app props from context
 	const appProps = useContext(AppPropsContext);
@@ -189,21 +199,30 @@ export const OverviewScreen = () => {
 					<div className="flex-grow" />
 					<div className="space-x-2 ">
 						<Dialog
+							open={isAddDeviceDialogOpen}
 							title="Add Device"
 							description="Connect a new device to your library. Either enter another device's code or copy this one."
-							ctaAction={() => {}}
+							ctaClose={() => {
+								setPairingPresharedKey(null);
+								setIsAddDeviceDialogOpen(false);
+							}}
+							ctaAction={() => {
+								setPairingPresharedKey(null);
+								setIsAddDeviceDialogOpen(false);
+							}}
 							ctaLabel="TODO: RemoveThisButton"
 							trigger={
 								<Button
 									size="sm"
 									icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 mr-1" />}
 									variant="gray"
+									onClick={() => setIsAddDeviceDialogOpen(true)}
 								>
 									Add Device
 								</Button>
 							}
 						>
-							{pairingPassword === null ? (
+							{presharedKey === null ? (
 								<div className="flex flex-col mt-2 space-y-3">
 									<div className="flex flex-col">
 										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
@@ -225,7 +244,11 @@ export const OverviewScreen = () => {
 													onClick={() =>
 														pairNode(peer.id, {
 															onSuccess: (data) => {
-																setPairingPassword(data.password);
+																setPairingPresharedKey(data.preshared_key);
+																pairingRequestCallbacks.set(peer.id, () => {
+																	setPairingPresharedKey(null);
+																	setIsAddDeviceDialogOpen(false);
+																});
 															}
 														})
 													}
@@ -242,7 +265,7 @@ export const OverviewScreen = () => {
 											Pairing Password
 										</span>
 										{/* TODO: Get these values from the backend */}
-										<Input readOnly disabled value={pairingPassword} />
+										<Input readOnly disabled value={presharedKey} />
 									</div>
 								</div>
 							)}
@@ -250,7 +273,21 @@ export const OverviewScreen = () => {
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 mt-4 space-y-4">
-					{/* TODO: Load these from backend query */}
+					{nodes?.map((node) => (
+						<Device
+							name={node.name}
+							size="1TB"
+							locations={[
+								{ name: 'Documents', folder: true },
+								{ name: 'Movies', folder: true },
+								{ name: 'Downloads', folder: true },
+								{ name: 'Minecraft', folder: true },
+								{ name: 'Projects', folder: true },
+								{ name: 'Notes', folder: true }
+							]}
+							type="desktop"
+						/>
+					))}
 					{/* <Device
 						name={`James' MacBook Pro`}
 						size="1TB"

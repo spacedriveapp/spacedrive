@@ -1,9 +1,18 @@
-use std::{collections::HashMap, future::Future, pin::Pin, process::Output};
+use std::{collections::HashMap, future::Future, pin::Pin};
 
 use quinn::{RecvStream, SendStream};
 use sd_tunnel_utils::PeerId;
+use tokio::sync::oneshot;
 
 use crate::{NetworkManager, Peer, PeerMetadata};
+
+/// TODO: I despise the name of this enum but couldn't thing of anything better
+pub enum PairingDirection {
+	// This device initiated the pairing request
+	Initiator,
+	// This device accepted a pairing request from another device
+	Accepter,
+}
 
 /// TODO
 pub trait P2PManager: Clone + Send + Sync + Sized + 'static {
@@ -24,12 +33,25 @@ pub trait P2PManager: Clone + Send + Sync + Sized + 'static {
 	/// TODO
 	fn peer_disconnected(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {}
 
+	/// TODO: When a peer has requested to pair with you.
+	fn peer_pairing_request(
+		&self,
+		nm: &NetworkManager<Self>,
+		peer_id: &PeerId,
+		metadata: &PeerMetadata,
+		extra_data: &HashMap<String, String>,
+		password_resp: oneshot::Sender<Result<String, ()>>,
+	) {
+	}
+
 	/// TODO
 	/// TODO: Error type
 	fn peer_paired<'a>(
 		&'a self,
 		nm: &'a NetworkManager<Self>,
+		direction: PairingDirection,
 		peer_id: &'a PeerId,
+		peer_metadata: &'a PeerMetadata,
 		extra_data: &'a HashMap<String, String>,
 	) -> Pin<Box<dyn Future<Output = Result<(), ()>> + Send + 'a>>;
 
@@ -37,7 +59,9 @@ pub trait P2PManager: Clone + Send + Sync + Sized + 'static {
 	fn peer_paired_rollback<'a>(
 		&'a self,
 		nm: &'a NetworkManager<Self>,
+		direction: PairingDirection,
 		peer_id: &'a PeerId,
+		peer_metadata: &'a PeerMetadata,
 		extra_data: &'a HashMap<String, String>,
 	) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'a>>;
 

@@ -2,12 +2,15 @@ import { CoreEvent } from '@sd/core';
 import { useContext, useEffect } from 'react';
 import { useQueryClient } from 'react-query';
 
-import { transport, useExplorerStore } from '..';
+import { transport, useExplorerStore, useToastNotificationsStore } from '..';
+import { usePairingCompleteStore } from '../stores/usePairingCompleteStore';
 
 export function useCoreEvents() {
 	const client = useQueryClient();
 
 	const { addNewThumbnail } = useExplorerStore();
+	const { addToast } = useToastNotificationsStore();
+	const { pairingRequestCallbacks } = usePairingCompleteStore();
 	useEffect(() => {
 		function handleCoreEvent(e: CoreEvent) {
 			switch (e?.key) {
@@ -42,6 +45,30 @@ export function useCoreEvents() {
 					client.invalidateQueries(query);
 					break;
 
+				case 'PeerPairingRequest':
+					addToast({
+						title: 'Device requested to pair',
+						subtitle: `'${e.data.peer_metadata.name}' wants to pair with your device.`,
+						payload: {
+							type: 'pairingRequest',
+							data: {
+								id: e.data.peer_id,
+								name: e.data.peer_metadata.name
+							}
+						}
+					});
+					break;
+
+				case 'PeerPairingComplete':
+					pairingRequestCallbacks.get(e.data.peer_id)?.(e.data.peer_metadata);
+					addToast({
+						title: 'Pairing Complete',
+						subtitle: '',
+						payload: {
+							type: 'noaction'
+						}
+					});
+
 				default:
 					break;
 			}
@@ -52,8 +79,5 @@ export function useCoreEvents() {
 		return () => {
 			transport?.off('core_event', handleCoreEvent);
 		};
-
-		// listen('core_event', (e: { payload: CoreEvent }) => {
-		// });
 	}, [transport]);
 }

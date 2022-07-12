@@ -1,6 +1,5 @@
 use std::{
 	fmt::{self, Formatter},
-	io::Read,
 	sync::Arc,
 };
 

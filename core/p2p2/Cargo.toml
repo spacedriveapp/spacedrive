@@ -19,6 +19,7 @@ ts-rs = "6.2.0"
 serde = { version = "1.0.138", features = ["derive"] }
 bip39 = { version = "1.0.1", features = ["rand"] }
 rmp-serde = "1.1.0"
+spake2 = "0.3.1"
 
 [dev-dependencies]
 tokio = { version = "1.19.2", features = ["rt-multi-thread"] }

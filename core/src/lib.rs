@@ -1,9 +1,10 @@
+use crate::p2p::P2PData;
 use crate::p2p::{P2PEvent, SdP2PManager};
 use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
-use ::p2p::{NetworkManager, PeerCandidateTS, PeerId, PeerMetadata};
+use ::p2p::{PeerCandidateTS, PeerId, PeerMetadata};
 use job::{JobManager, JobReport};
 use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
-use node::{NodeConfig, NodeConfigManager};
+use node::{LibraryNode, NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -19,6 +20,7 @@ use tokio::sync::{
 	oneshot,
 };
 use ts_rs::TS;
+use uuid::Uuid;
 
 use crate::encode::ThumbnailJob;
 
@@ -147,10 +149,7 @@ pub struct Node {
 		UnboundedReceiver<ReturnableMessage<ClientCommand>>,
 	),
 	event_sender: mpsc::Sender<CoreEvent>,
-	p2p: (
-		Arc<NetworkManager<SdP2PManager>>,
-		mpsc::UnboundedReceiver<P2PEvent>,
-	),
+	p2p: P2PData,
 }
 
 impl Node {
@@ -232,6 +231,43 @@ impl Node {
 								println!("Failed to emit event. {:?}", e);
 							});
 						}
+						P2PEvent::PeerPairingRequest {
+							peer_id,
+							peer_metadata,
+							library_id,
+						} => {
+							self.event_sender.send(CoreEvent::PeerPairingRequest {
+								peer_id,
+								peer_metadata,
+								library_id,
+							}).await.unwrap_or_else(|e| {
+								println!("Failed to emit event. {:?}", e);
+							});
+						}
+						P2PEvent::PeerPairingComplete {
+							peer_id,
+							peer_metadata,
+							library_id,
+						} => {
+							self.event_sender.send(CoreEvent::PeerPairingComplete {
+								peer_id,
+								peer_metadata,
+							}).await.unwrap_or_else(|e| {
+								println!("Failed to emit event. {:?}", e);
+							});
+							self.event_sender.send(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers)).await
+							.unwrap_or_else(|e| {
+								println!("Failed to emit event. {:?}", e);
+							});
+							self.event_sender.send(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries)).await
+							.unwrap_or_else(|e| {
+								println!("Failed to emit event. {:?}", e);
+							});
+							self.event_sender.send(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery { library_id: library_id.to_string(), query: LibraryQuery::GetNodes })).await
+							.unwrap_or_else(|e| {
+								println!("Failed to emit event. {:?}", e);
+							});
+						}
 					}
 				}
 			}
@@ -263,6 +299,20 @@ impl Node {
 			}
 			ClientCommand::DeleteLibrary { id } => {
 				self.library_manager.delete_library(id).await.unwrap();
+				CoreResponse::Success(())
+			}
+			ClientCommand::AcceptPairingRequest {
+				peer_id,
+				preshared_key,
+			} => {
+				self.p2p
+					.2
+					.lock()
+					.unwrap()
+					.remove(&peer_id)
+					.unwrap()
+					.send(Ok(preshared_key))
+					.unwrap();
 				CoreResponse::Success(())
 			}
 			ClientCommand::LibraryCommand {
@@ -360,7 +410,6 @@ impl Node {
 			ClientQuery::JobGetRunning => {
 				CoreResponse::JobGetRunning(self.jobs.get_running().await)
 			}
-			ClientQuery::GetNodes => todo!(),
 			ClientQuery::DiscoveredPeers => CoreResponse::DiscoveredPeers(
 				self.p2p
 					.0
@@ -408,6 +457,23 @@ impl Node {
 					LibraryQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
 						library::Statistics::calculate(&ctx).await?,
 					),
+					LibraryQuery::GetNodes => CoreResponse::GetNodes(
+						ctx.db
+							.node()
+							.find_many(vec![])
+							.exec()
+							.await
+							.unwrap()
+							.into_iter()
+							.filter_map(|v| {
+								if v.id == ctx.node_local_id {
+									None
+								} else {
+									Some(v.into())
+								}
+							})
+							.collect::<Vec<LibraryNode>>(),
+					),
 				}
 			}
 		})
@@ -430,6 +496,10 @@ pub enum ClientCommand {
 	},
 	DeleteLibrary {
 		id: String,
+	},
+	AcceptPairingRequest {
+		peer_id: PeerId,
+		preshared_key: String,
 	},
 	LibraryCommand {
 		library_id: String,
@@ -476,7 +546,6 @@ pub enum ClientQuery {
 	NodeGetState,
 	SysGetVolumes,
 	JobGetRunning,
-	GetNodes,
 	DiscoveredPeers,
 	ConnectedPeers,
 	LibraryQuery {
@@ -502,6 +571,7 @@ pub enum LibraryQuery {
 		limit: i32,
 	},
 	GetLibraryStatistics,
+	GetNodes,
 }
 
 // represents an event this library can emit
@@ -524,7 +594,12 @@ pub enum CoreEvent {
 	},
 	PeerPairingRequest {
 		peer_id: PeerId,
-		metadata: PeerMetadata,
+		peer_metadata: PeerMetadata,
+		library_id: Uuid,
+	},
+	PeerPairingComplete {
+		peer_id: PeerId,
+		peer_metadata: PeerMetadata,
 	},
 	// PeerOnline { peer_id: PeerId }
 	// PeerOffline { peer_id: PeerId }
@@ -556,7 +631,8 @@ pub enum CoreResponse {
 	GetLibraryStatistics(library::Statistics),
 	DiscoveredPeers(Vec<PeerCandidateTS>),
 	ConnectedPeers(HashMap<PeerId, PeerMetadata>),
-	PairNode { password: String },
+	GetNodes(Vec<LibraryNode>),
+	PairNode { preshared_key: String },
 }
 
 #[derive(Error, Debug)]

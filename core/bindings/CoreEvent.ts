@@ -4,4 +4,4 @@ import type { CoreResource } from "./CoreResource";
 import type { PeerId } from "./PeerId";
 import type { PeerMetadata } from "./PeerMetadata";
 
-export type CoreEvent = { key: "InvalidateQuery", data: ClientQuery } | { key: "InvalidateQueryDebounced", data: ClientQuery } | { key: "InvalidateResource", data: CoreResource } | { key: "NewThumbnail", data: { cas_id: string, } } | { key: "Log", data: { message: string, } } | { key: "DatabaseDisconnected", data: { reason: string | null, } } | { key: "PeerPairingRequest", data: { peer_id: PeerId, metadata: PeerMetadata, } };
+export type CoreEvent = { key: "InvalidateQuery", data: ClientQuery } | { key: "InvalidateQueryDebounced", data: ClientQuery } | { key: "InvalidateResource", data: CoreResource } | { key: "NewThumbnail", data: { cas_id: string, } } | { key: "Log", data: { message: string, } } | { key: "DatabaseDisconnected", data: { reason: string | null, } } | { key: "PeerPairingRequest", data: { peer_id: PeerId, peer_metadata: PeerMetadata, library_id: string, } } | { key: "PeerPairingComplete", data: { peer_id: PeerId, peer_metadata: PeerMetadata, } };

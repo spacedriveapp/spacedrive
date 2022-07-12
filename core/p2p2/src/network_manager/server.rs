@@ -4,11 +4,12 @@ use futures_util::StreamExt;
 use quinn::{crypto::rustls::HandshakeData, Connecting, NewConnection, VarInt};
 use rustls::Certificate;
 use sd_tunnel_utils::PeerId;
-use tokio::time::sleep;
+use spake2::{Ed25519Group, Password, Spake2};
+use tokio::{sync::oneshot, time::sleep};
 
 use crate::{
-	ConnectionEstablishmentPayload, ConnectionType, NetworkManager, P2PManager, PairingPayload,
-	Peer, PeerMetadata,
+	ConnectionEstablishmentPayload, ConnectionType, NetworkManager, P2PManager, PairingDirection,
+	PairingPayload, Peer, PeerMetadata,
 };
 
 // TODO: move this onto the network_manager and rename the file `nm_server.rs`
@@ -89,21 +90,27 @@ pub(crate) fn handle_connection<TP2PManager: P2PManager>(
 						let payload: ConnectionEstablishmentPayload = rmp_serde::decode::from_read(&data.bytes[..]).unwrap();
 
 						match payload {
-							ConnectionEstablishmentPayload::PairingRequest { preshared_key, metadata, extra_data } => {
+							// _ => todo!(), // TODO: Remove this TODO
+							ConnectionEstablishmentPayload::ConnectionRequest => {
+																// TODO: Only allow peers we trust to get pass this point
+							},
+							ConnectionEstablishmentPayload::PairingRequest { pake_msg, metadata, extra_data } => {
 								// TODO: Ensure we are not already paired with the peer
 
-								// TODO: UI popup that pairing is happening & get password from user
-								println!("TEMP: PAIRING REQUEST INCOMING FROM {}", peer_id);
-								let expected_preshared_key = "very_secure".to_string(); // TODO: This is hardcoded until the UI is inplace.
+								let (oneshot_tx, oneshot_rx) = oneshot::channel();
+								nm.manager.peer_pairing_request(&nm, &peer_id, &metadata, &extra_data, oneshot_tx);
+								let preshared_key = oneshot_rx.await.unwrap().unwrap();
 
-								if preshared_key != expected_preshared_key {
-									// TODO
-									todo!();
-								}
+								let (spake, outgoing_pake_msg) = Spake2::<Ed25519Group>::start_b(
+									&Password::new(preshared_key.as_bytes()),
+									&spake2::Identity::new(peer_id.as_bytes()),
+									&spake2::Identity::new(nm.peer_id.as_bytes())
+								);
+								let _spake_key = spake.finish(&pake_msg).unwrap(); // We don't use the key because this is only used to verify we can trust the connection.
 
-								let resp = match nm.manager.peer_paired(&nm, &peer_id, &extra_data).await {
+								let resp = match nm.manager.peer_paired(&nm, PairingDirection::Accepter, &peer_id, &metadata, &extra_data).await {
 									Ok(_) => {
-										PairingPayload::PairingComplete { metadata: nm.manager.get_metadata(), }
+										PairingPayload::PairingAccepted { pake_msg: outgoing_pake_msg, metadata: nm.manager.get_metadata(), }
 									},
 									Err(err) => {
 										println!("p2p manager error: {:?}", err);
@@ -119,41 +126,35 @@ pub(crate) fn handle_connection<TP2PManager: P2PManager>(
 								.await
 								.unwrap();
 
-								match resp {
+								// TODO: Get max chunk size from constant.
+								let data = rx.read_chunk(64 * 1024, true).await.unwrap().unwrap();
+								let payload: PairingPayload = rmp_serde::decode::from_read(&data.bytes[..]).unwrap();
+
+
+								match payload {
+									PairingPayload::PairingAccepted { .. } => todo!("invalid"),
 									PairingPayload::PairingComplete { .. } => {
-										println!("Pairing complete!");
+										println!("PAIRING COMPLETE");
+									}
+									PairingPayload::PairingFailed => {
+										println!("p2p warning: pairing failed!");
 
-										// TODO: Call self.manager.peer_paired??
+										// TODO
+										// self.manager
+										// 			.peer_paired_rollback(&self, &remote_peer_id, &extra_data)
+										// 			.await;
 
-										// TODO: This is duplicated with `ConnectionEstablishmentPayload::ConnectionRequest` fix that!
-										let peer = Peer::new(
-											ConnectionType::Server,
-											peer_id.clone(),
-											connection,
-											metadata,
-											nm,
-										)
-										.await
-										.unwrap();
-										tokio::spawn(peer.handler(bi_streams));
-									},
-									_ => {
-										tx.finish().await.unwrap();
+										// TODO: emit event to frontend
+
+										return;
 									}
 								}
-							}
-							ConnectionEstablishmentPayload::ConnectionRequest => {
-								// TODO: Only allow peers we trust to get pass this point
 
 								let peer = Peer::new(
 									ConnectionType::Server,
 									peer_id.clone(),
 									connection,
-									PeerMetadata {
-										/* TODO: Negotiate this with remote client */
-										name: "todo".into(),
-										version: None,
-									},
+									metadata,
 									nm,
 								)
 								.await

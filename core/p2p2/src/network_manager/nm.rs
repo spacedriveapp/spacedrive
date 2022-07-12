@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	net::{Ipv4Addr, SocketAddr},
 	sync::Arc,
 	time::Duration,
@@ -13,11 +13,12 @@ use quinn::{
 use rustls::{Certificate, PrivateKey};
 use sd_tunnel_utils::{quic, PeerId};
 use serde::{Deserialize, Serialize};
+use spake2::{Ed25519Group, Password, Spake2};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
 	ConnectionType, Identity, NetworkManagerConfig, NetworkManagerError,
-	NetworkManagerInternalEvent, P2PManager, Peer, PeerCandidate, PeerMetadata,
+	NetworkManagerInternalEvent, P2PManager, PairingDirection, Peer, PeerCandidate, PeerMetadata,
 };
 
 /// TODO
@@ -194,23 +195,27 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	}
 
 	// TODO: Should this spawn another thread -> Which event loop is it blocking????
-	pub async fn pair_with_peer(
+	pub async fn initiate_pairing_with_peer(
 		self: &Arc<Self>,
 		remote_peer_id: PeerId,
 		extra_data: HashMap<String, String>,
-	) {
+	) -> String {
 		// TODO: Ensure we are not already paired with the peer
 
 		let candidate = self.discovered_peers.get(&remote_peer_id).unwrap().clone();
 
-		// let m = Mnemonic::generate_in(
-		// 	Language::English,
-		// 	24, /* This library doesn't work with any number here for some reason */
-		// )
-		// .unwrap();
-		// let password: String = m.word_iter().take(4).collect::<Vec<_>>().join("-");
+		let m = Mnemonic::generate_in(
+			Language::English,
+			24, /* This library doesn't work with any number here for some reason */
+		)
+		.unwrap();
+		let preshared_key: String = m.word_iter().take(4).collect::<Vec<_>>().join("-");
 
-		let preshared_key = "very_secure".to_string(); // TODO: This is hardcoded until the UI is inplace.
+		let (spake, pake_msg) = Spake2::<Ed25519Group>::start_a(
+			&Password::new(preshared_key.as_bytes()),
+			&spake2::Identity::new(self.peer_id.as_bytes()),
+			&spake2::Identity::new(remote_peer_id.as_bytes()),
+		);
 
 		// TODO: Do I need this?
 		self.pairing_requests
@@ -226,15 +231,10 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 		let (mut tx, mut rx) = connection.open_bi().await.unwrap();
 
-		self.manager
-			.peer_paired(&self, &remote_peer_id, &extra_data)
-			.await
-			.unwrap();
-
 		// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
 		tx.write_all(
 			&rmp_serde::encode::to_vec_named(&ConnectionEstablishmentPayload::PairingRequest {
-				preshared_key,
+				pake_msg,
 				metadata: self.manager.get_metadata(),
 				extra_data: extra_data.clone(),
 			})
@@ -243,32 +243,65 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		.await
 		.unwrap();
 
-		// TODO: Get max chunk size from constant.
-		let data = rx.read_chunk(64 * 1024, true).await.unwrap().unwrap();
-		let payload: PairingPayload = rmp_serde::decode::from_read(&data.bytes[..]).unwrap();
+		let nm = self.clone();
+		tokio::spawn(async move {
+			// TODO: Get max chunk size from constant.
+			let data = rx.read_chunk(64 * 1024, true).await.unwrap().unwrap();
+			let payload: PairingPayload = rmp_serde::decode::from_read(&data.bytes[..]).unwrap();
 
-		match payload {
-			PairingPayload::PairingComplete { metadata } => {
-				// TODO: Create peer to continue using connection
-				println!("PAIRING COMPLETE!");
+			match payload {
+				PairingPayload::PairingAccepted { pake_msg, metadata } => {
+					let _spake_key = spake.finish(&pake_msg).unwrap();
 
-				let peer = Peer::new(
-					ConnectionType::Client,
-					remote_peer_id,
-					connection,
-					metadata,
-					self.clone(),
-				)
-				.await
-				.unwrap();
-				tokio::spawn(peer.handler(bi_streams));
+					let resp = match nm
+						.manager
+						.peer_paired(
+							&nm,
+							PairingDirection::Initiator,
+							&remote_peer_id,
+							&metadata,
+							&extra_data,
+						)
+						.await
+					{
+						Ok(_) => PairingPayload::PairingComplete,
+						Err(err) => {
+							println!("p2p manager error: {:?}", err);
+							PairingPayload::PairingFailed
+						}
+					};
+
+					// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
+					tx.write_all(&rmp_serde::encode::to_vec_named(&resp).unwrap())
+						.await
+						.unwrap();
+
+					let peer = Peer::new(
+						ConnectionType::Client,
+						remote_peer_id,
+						connection,
+						metadata,
+						nm,
+					)
+					.await
+					.unwrap();
+					tokio::spawn(peer.handler(bi_streams));
+				}
+				PairingPayload::PairingFailed => {
+					panic!("Pairing failed");
+
+					// TODO
+					// self.manager
+					// 			.peer_paired_rollback(&self, &remote_peer_id, &extra_data)
+					// 			.await;
+
+					// TODO: emit event to frontend
+				}
+				_ => panic!("Invalid request!"),
 			}
-			PairingPayload::PairingFailed => {
-				self.manager
-					.peer_paired_rollback(&self, &remote_peer_id, &extra_data)
-					.await;
-			}
-		}
+		});
+
+		preshared_key
 	}
 }
 
@@ -278,7 +311,7 @@ pub struct PairingSession {}
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ConnectionEstablishmentPayload {
 	PairingRequest {
-		preshared_key: String,
+		pake_msg: Vec<u8>,
 		metadata: PeerMetadata,
 		extra_data: HashMap<String, String>,
 	},
@@ -287,6 +320,10 @@ pub enum ConnectionEstablishmentPayload {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum PairingPayload {
-	PairingComplete { metadata: PeerMetadata },
+	PairingAccepted {
+		pake_msg: Vec<u8>,
+		metadata: PeerMetadata,
+	},
+	PairingComplete,
 	PairingFailed,
 }
