@@ -13,8 +13,9 @@ import {
 	Tag,
 	TerminalWindow
 } from 'phosphor-react';
-import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
+import React, { DetailedHTMLProps, HTMLAttributes, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppPropsContext } from '../../AppPropsContext';
 
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
@@ -28,6 +29,7 @@ export interface TopBarButtonProps
 	left?: boolean;
 	right?: boolean;
 }
+interface SearchBarProps extends DefaultProps {}
 
 const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => {
 	return (
@@ -48,6 +50,23 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 		</button>
 	);
 };
+
+const SearchBar: React.FC<SearchBarProps> = (props) => { //TODO: maybe pass the appProps, so we can have the context in the TopBar if needed again
+	const appProps = useContext(AppPropsContext);
+
+	return (					
+		<div className="relative flex h-7">
+			<input
+				placeholder="Search"
+				className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-500 bg-[#F6F2F6] border border-gray-50 dark:bg-gray-650 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
+			/>
+			<div className="space-x-1 absolute top-[2px] right-1">
+				<Shortcut chars={ appProps?.platform === "macOS" || appProps?.platform === "browser" ? "⌘K" : "CTRL+K" } /> 
+				{/* <Shortcut chars="S" /> */}
+			</div>
+		</div>
+	);
+}
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
 	const { locationId } = useExplorerStore();
@@ -88,16 +107,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						<TopBarButton icon={FolderPlus} />
 						<TopBarButton icon={TerminalWindow} />
 					</div>
-					<div className="relative flex h-7">
-						<input
-							placeholder="Search"
-							className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-500 bg-[#F6F2F6] border border-gray-50 dark:bg-gray-650 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
-						/>
-						<div className="space-x-1 absolute top-[2px] right-1">
-							<Shortcut chars="⌘K" />
-							{/* <Shortcut chars="S" /> */}
-						</div>
-					</div>
+					<SearchBar />
 					<div className="flex mx-8 space-x-2">
 						<TopBarButton icon={Key} />
 						<TopBarButton icon={Cloud} />
