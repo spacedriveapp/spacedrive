@@ -14,19 +14,15 @@ export default function FileThumb(props: {
 	className?: string;
 }) {
 	const appProps = useContext(AppPropsContext);
-	const { data: client } = useBridgeQuery('NodeGetState');
 
 	if (props.file.is_dir) {
 		return <Folder size={100} />;
 	}
-
-	if (client?.data_path && (props.file.file?.has_thumbnail || props.hasThumbnailOverride)) {
+	if (props.file.file?.has_thumbnail || props.hasThumbnailOverride) {
 		return (
 			<img
 				className="pointer-events-none z-90"
-				src={appProps?.convertFileSrc(
-					`${client.data_path}/thumbnails/${props.locationId}/${props.file.file?.cas_id}.webp`
-				)}
+				src={appProps?.getThumbnailUrlById(props.file.file!.cas_id)}
 			/>
 		);
 	}

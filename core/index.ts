@@ -20,6 +20,7 @@ export * from './bindings/LibraryNode';
 export * from './bindings/LibraryQuery';
 export * from './bindings/LibraryState';
 export * from './bindings/LocationResource';
+export * from './bindings/NetworkManagerState';
 export * from './bindings/NodeConfig';
 export * from './bindings/NodeState';
 export * from './bindings/Platform';

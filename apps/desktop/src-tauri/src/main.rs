@@ -2,7 +2,11 @@ use std::time::{Duration, Instant};
 
 use dotenvy::dotenv;
 use sdcore::{ClientCommand, ClientQuery, CoreEvent, CoreResponse, Node, NodeController};
-use tauri::{api::path, Manager};
+use tauri::{
+	api::path,
+	http::{ResponseBuilder, Uri},
+	Manager,
+};
 #[cfg(target_os = "macos")]
 mod macos;
 mod menu;
@@ -53,7 +57,19 @@ async fn main() {
 	let (controller, mut event_receiver, node) = Node::new(data_dir).await;
 	tokio::spawn(node.start());
 	// create tauri app
+	let controller2 = controller.clone();
 	tauri::Builder::default()
+		.register_uri_scheme_protocol("spacedrive", move |_, req| {
+			let url = req.uri().parse::<Uri>().unwrap();
+			let mut path = url.path().split("/").collect::<Vec<_>>();
+			path[0] = url.host().unwrap(); // The first forward slash causes an empty item and we replace it with the URL's host which you expect to be at the start
+
+			let (status_code, content_type, body) = controller2.handle_custom_uri(path);
+			Ok(ResponseBuilder::new()
+				.status(status_code)
+				.mimetype(content_type)
+				.body(body)?)
+		})
 		// pass controller to the tauri state manager
 		.manage(controller)
 		.setup(|app| {

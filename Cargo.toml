@@ -1,8 +1,11 @@
 [workspace]
 members = [
 	"apps/desktop/src-tauri",
+	"apps/server",
+	"apps/sdtunnel",
+	"apps/sdtunnel/utils",
 	"core",
 	"core/prisma",
 	"core/derive",
-	"apps/server"
+	"core/p2p2"
 ]

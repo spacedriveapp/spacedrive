@@ -1,4 +1,0 @@
-/target
-/types
-*.db*
-/src/prisma.rs

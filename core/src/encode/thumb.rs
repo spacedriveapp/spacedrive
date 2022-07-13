@@ -30,9 +30,8 @@ impl Job for ThumbnailJob {
 	}
 	async fn run(&self, ctx: WorkerContext) -> JobResult {
 		let library_ctx = ctx.library_ctx();
-		let thumbnail_dir = Path::new(&library_ctx.config().data_directory())
-			.join(THUMBNAIL_CACHE_DIR_NAME)
-			.join(format!("{}", self.location_id));
+		let thumbnail_dir =
+			Path::new(&library_ctx.config().data_directory()).join(THUMBNAIL_CACHE_DIR_NAME);
 
 		let location = sys::get_location(&library_ctx, self.location_id).await?;
 

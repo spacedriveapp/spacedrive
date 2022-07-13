@@ -12,8 +12,12 @@ use actix::{
 	Message, StreamHandler, WrapFuture,
 };
 use actix_web::{
-	get, http::StatusCode, web, App, Error, HttpRequest, HttpResponse, HttpServer,
-	Responder,
+	get,
+	http::{
+		header::{HeaderName, HeaderValue},
+		StatusCode,
+	},
+	web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use actix_web_actors::ws;
 use serde::{Deserialize, Serialize};
@@ -230,6 +234,22 @@ async fn healthcheck() -> impl Responder {
 	format!("OK")
 }
 
+#[get("/spacedrive/{path:.*}")]
+async fn spacedrive(
+	path: web::Path<String>,
+	controller: web::Data<NodeController>,
+) -> impl Responder {
+	let (status_code, content_type, body) =
+		controller.handle_custom_uri(path.split("/").collect());
+
+	let mut resp = HttpResponse::new(StatusCode::from_u16(status_code).unwrap());
+	resp.headers_mut().append(
+		HeaderName::from_static("content-type"),
+		HeaderValue::from_str(content_type).unwrap(),
+	);
+	resp.set_body(body)
+}
+
 #[get("/ws")]
 async fn ws_handler(
 	req: HttpRequest,
@@ -256,9 +276,12 @@ async fn not_found() -> impl Responder {
 async fn main() -> std::io::Result<()> {
 	let (event_receiver, controller) = setup().await;
 
-	let server = web::Data::new(EventServer::listen(event_receiver));
+	let port = env::var("PORT")
+		.map(|port| port.parse::<u16>().unwrap_or(8080))
+		.unwrap_or(8080);
 
-	println!("Listening http://localhost:8080");
+	let server = web::Data::new(EventServer::listen(event_receiver));
+	println!("Listening http://localhost:{}", port);
 	HttpServer::new(move || {
 		App::new()
 			.app_data(controller.clone())
@@ -268,7 +291,7 @@ async fn main() -> std::io::Result<()> {
 			.service(ws_handler)
 			.default_service(web::route().to(not_found))
 	})
-	.bind(("0.0.0.0", 8080))?
+	.bind(("0.0.0.0", port))?
 	.run()
 	.await
 }

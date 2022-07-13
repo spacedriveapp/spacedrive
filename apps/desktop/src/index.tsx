@@ -67,9 +67,9 @@ function App() {
 		<SpacedriveInterface
 			transport={new Transport()}
 			platform={platform}
-			convertFileSrc={function (url: string): string {
-				return convertFileSrc(url);
-			}}
+			getThumbnailUrlById={(cas_id: string) =>
+				`spacedrive://thumbnail/${encodeURIComponent(cas_id)}`
+			}
 			openDialog={function (options: {
 				directory?: boolean | undefined;
 			}): Promise<string | string[] | null> {
