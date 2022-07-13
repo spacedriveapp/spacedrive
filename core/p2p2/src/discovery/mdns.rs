@@ -5,7 +5,8 @@ use sd_tunnel_utils::PeerId;
 
 use crate::{NetworkManager, NetworkManagerError, P2PManager, PeerCandidate, PeerMetadata};
 
-/// TODO
+/// MDNS is the discovery system used for over local networks. It makes use of Multicast DNS (mDNS) to discover peers.
+/// It should also conforms to the mDNS SD specification.
 pub(crate) struct MDNS<TP2PManager: P2PManager> {
 	nm: Arc<NetworkManager<TP2PManager>>,
 	mdns: ServiceDaemon,

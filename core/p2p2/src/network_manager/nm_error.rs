@@ -2,7 +2,7 @@ use std::io;
 
 use thiserror::Error;
 
-/// NetworkManagerError represents an error that occurred while creating a new NetworkManager.
+/// Represents an error that occurs while initalising the [crate::NetworkManager].
 #[derive(Error, Debug)]
 pub enum NetworkManagerError {
 	// TODO: Cleanup the names of the errors

@@ -12,16 +12,16 @@ use quinn::{
 };
 use rustls::{Certificate, PrivateKey};
 use sd_tunnel_utils::{quic, PeerId};
-use serde::{Deserialize, Serialize};
 use spake2::{Ed25519Group, Password, Spake2};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-	ConnectionType, Identity, NetworkManagerConfig, NetworkManagerError,
-	NetworkManagerInternalEvent, P2PManager, PairingDirection, Peer, PeerCandidate, PeerMetadata,
+	ConnectionEstablishmentPayload, ConnectionType, Identity, NetworkManagerConfig,
+	NetworkManagerError, NetworkManagerInternalEvent, P2PManager, PairingParticipantType,
+	PairingPayload, Peer, PeerCandidate, PeerMetadata,
 };
 
-/// TODO
+/// Is the core of the P2P Library. It manages listening for and creating P2P network connections and also provides a nice API for the application embedding this library to interface with.
 pub struct NetworkManager<TP2PManager: P2PManager> {
 	/// PeerId is the unique identifier of the current node.
 	pub(crate) peer_id: PeerId,
@@ -30,25 +30,27 @@ pub struct NetworkManager<TP2PManager: P2PManager> {
 	/// known_peers contains a list of all peers which are known to the network. These will be automatically connected if found.
 	/// We store these so when making a request to the global discovery server we know who to lookup.
 	pub(crate) known_peers: DashSet<PeerId>,
-	/// TODO
+	/// discovered_peers contains a list of all peers which have been discovered by any discovery mechanism.
 	discovered_peers: DashMap<PeerId, PeerCandidate>,
-	/// TODO
+	/// connected_peers
 	connected_peers: DashMap<PeerId, Peer<TP2PManager>>,
-	/// TODO
+	/// lan_addrs contains a list of all local addresses which exists on the current peer.
 	pub(crate) lan_addrs: DashSet<Ipv4Addr>,
-	/// TODO
+	/// listen_addr contains the address which the current peer is listening on. This peer will listening on IPv4 and IPv6 on a random port if none was provided at startup.
 	pub(crate) listen_addr: SocketAddr,
-	/// manager is a type which implements P2PManager and is used so the NetworkManager can interact with the host application.
+	/// manager is a trait which implements P2PManager and is used so the NetworkManager can interact with the host application.
 	pub(crate) manager: TP2PManager,
 	/// endpoint is the QUIC endpoint that is used to send and receive network traffic between peers.
 	pub(crate) endpoint: Endpoint,
-	/// TODO
+	/// spacetunnel_server is the URL used to lookup information about the Spacetunnel server to establish a connection with.
+	pub(crate) spacetunnel_url: Option<String>,
+	/// internal_channel is a channel which is used to communicate with the main internal event loop.
 	internal_channel: mpsc::UnboundedSender<NetworkManagerInternalEvent>,
-	/// TODO
-	pairing_requests: DashMap<PeerId, PairingSession>, // TODO: Event loop clear out expired requests?
 }
 
 impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
+	/// Initalise a new network manager for your application.
+	/// Be aware this will create a separate thread running the P2P manager event loop so this should really only be run once per application.
 	pub async fn new(
 		identity: Identity,
 		manager: TP2PManager,
@@ -84,8 +86,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			listen_addr: endpoint.local_addr().map_err(NetworkManagerError::Server)?,
 			manager,
 			endpoint,
+			spacetunnel_url: config.spacetunnel_url,
 			internal_channel: internal_channel.0,
-			pairing_requests: DashMap::new(),
 		});
 		Self::event_loop(&this, incoming, internal_channel.1).await?;
 		Ok(this)
@@ -136,7 +138,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		self.listen_addr.clone()
 	}
 
-	/// TODO
+	/// adds a new peer to the known peers list. This will cause the NetworkManager to attempt to connect to the peer if it is discovered.
 	pub fn add_known_peer(&self, peer_id: PeerId) {
 		self.known_peers.insert(peer_id.clone());
 		self.internal_channel
@@ -144,7 +146,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			.unwrap();
 	}
 
-	/// TODO: Docs + Error type
+	/// send a single message to a peer and await a single response. This is good for quick one-off communications but any longer term communication should be done with a stream.
+	/// TODO: Error type
 	pub async fn send_to(&self, peer_id: PeerId, data: &[u8]) -> Result<Chunk, ()> {
 		tokio::time::sleep(Duration::from_millis(500)).await; // TODO: Fix this issue. This workaround is because DashMap is eventually consistent
 
@@ -170,8 +173,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		Ok(oneshot_rx.await.map_err(|_| ())?)
 	}
 
-	/// stream will return the tx and rx channel to a new stream.
-	/// TODO: Document drop behavior on streams.
+	/// stream will return the tx and rx channel to a new stream with a remote peer.
+	/// Be aware that when you drop the rx channel, the stream will be closed and any data in transit will be lost.
 	pub async fn stream(
 		&self,
 		peer_id: &PeerId,
@@ -189,12 +192,13 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		self.connected_peers.clone().into_iter().collect()
 	}
 
-	/// discovered_peers returns a list of the discovered peers.
+	/// returns a list of the discovered peers.
 	pub fn discovered_peers(&self) -> HashMap<PeerId, PeerCandidate> {
 		self.discovered_peers.clone().into_iter().collect()
 	}
 
-	// TODO: Should this spawn another thread -> Which event loop is it blocking????
+	// initiate_pairing_with_peer will initiate a pairing with a peer.
+	// This will cause the NetworkManager to attempt to connect to the peer if it is discovered and if it is, verify the preshared_key using PAKE before telling the [crate::P2PManager] that the pairing is complete.
 	pub async fn initiate_pairing_with_peer(
 		self: &Arc<Self>,
 		remote_peer_id: PeerId,
@@ -216,10 +220,6 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			&spake2::Identity::new(self.peer_id.as_bytes()),
 			&spake2::Identity::new(remote_peer_id.as_bytes()),
 		);
-
-		// TODO: Do I need this?
-		self.pairing_requests
-			.insert(remote_peer_id.clone(), PairingSession {});
 
 		let NewConnection {
 			connection,
@@ -257,7 +257,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 						.manager
 						.peer_paired(
 							&nm,
-							PairingDirection::Initiator,
+							PairingParticipantType::Initiator,
 							&remote_peer_id,
 							&metadata,
 							&extra_data,
@@ -303,27 +303,4 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 		preshared_key
 	}
-}
-
-// TODO: Move this into it's own file
-pub struct PairingSession {}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum ConnectionEstablishmentPayload {
-	PairingRequest {
-		pake_msg: Vec<u8>,
-		metadata: PeerMetadata,
-		extra_data: HashMap<String, String>,
-	},
-	ConnectionRequest, // TODO: Add `PeerMetadata` as argument to this.
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum PairingPayload {
-	PairingAccepted {
-		pake_msg: Vec<u8>,
-		metadata: PeerMetadata,
-	},
-	PairingComplete,
-	PairingFailed,
 }

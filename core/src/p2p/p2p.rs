@@ -10,7 +10,7 @@ use futures::{executor::block_on, Future};
 use p2p::{
 	quinn::{RecvStream, SendStream},
 	Identity, NetworkManager, NetworkManagerConfig, NetworkManagerError, OperationSystem,
-	P2PManager, PairingDirection, Peer, PeerId, PeerMetadata,
+	P2PManager, PairingParticipantType, Peer, PeerId, PeerMetadata,
 };
 use tokio::sync::{
 	mpsc::{self},
@@ -26,6 +26,9 @@ use crate::{
 };
 
 use super::{P2PRequest, P2PResponse};
+
+// TODO: Disable IPv6 record being advertised via DNS "tunnel.spacedrive.com:443"; // TODO: This should be on port 443
+pub const SPACETUNNEL_URL: &'static str = "213.188.211.127:9000"; // TODO: Disable IPv6 record being advertised via DNS "tunnel.spacedrive.com:443"; // TODO: This should be on port 443
 
 const LIBRARY_ID_EXTRA_DATA_KEY: &'static str = "libraryId";
 const LIBRARY_CONFIG_EXTRA_DATA_KEY: &'static str = "libraryData";
@@ -116,7 +119,7 @@ impl P2PManager for SdP2PManager {
 	fn peer_paired<'a>(
 		&'a self,
 		nm: &'a NetworkManager<Self>,
-		direction: PairingDirection,
+		direction: PairingParticipantType,
 		peer_id: &'a PeerId,
 		peer_metadata: &'a PeerMetadata,
 		extra_data: &'a HashMap<String, String>,
@@ -127,8 +130,8 @@ impl P2PManager for SdP2PManager {
 			let library_id = extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap();
 
 			match direction {
-				PairingDirection::Initiator => {}
-				PairingDirection::Accepter => {
+				PairingParticipantType::Initiator => {}
+				PairingParticipantType::Accepter => {
 					let library_config: LibraryConfig = serde_json::from_str(
 						extra_data.get(LIBRARY_CONFIG_EXTRA_DATA_KEY).unwrap(),
 					)
@@ -178,7 +181,7 @@ impl P2PManager for SdP2PManager {
 	fn peer_paired_rollback<'a>(
 		&'a self,
 		nm: &'a NetworkManager<Self>,
-		direction: PairingDirection,
+		direction: PairingParticipantType,
 		peer_id: &'a PeerId,
 		peer_metadata: &'a PeerMetadata,
 		extra_data: &'a HashMap<String, String>,
@@ -267,6 +270,7 @@ pub async fn init(
 		NetworkManagerConfig {
 			known_peers: Default::default(), // TODO: Load these from the database on startup
 			listen_port: None,
+			spacetunnel_url: Some(SPACETUNNEL_URL.into()),
 		},
 	)
 	.await?;

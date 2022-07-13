@@ -6,7 +6,10 @@ use ts_rs::TS;
 
 use crate::PeerMetadata;
 
-/// represents a peer that has been discovered but not paired with.
+/// Represents a peer that has been discovered but not paired with.
+/// It is called a candidate as it contains all of the information required to connection and pair with the peer.
+/// A peer candidate discovered through mDNS may have been modified by an attacker on your local network but this is deemed acceptable as the attacker can only modify primitive metadata such a name or Spacedrive version which is used for pairing.
+/// When we initiated communication with the device we will ensure we are talking to the correct device using PAKE (specially SPAKE2) for pairing and verifying the TLS certificate for general communication.
 #[derive(Debug, Clone)]
 pub struct PeerCandidate {
 	pub id: PeerId,
@@ -15,7 +18,7 @@ pub struct PeerCandidate {
 	pub port: u16,
 }
 
-/// ts_rs does not support Ipv4Addr. A PR would be a good idea!
+/// This struct exists due to `ts_rs` not supporting `Ipv4Addr`. Issue: <https://github.com/Aleph-Alpha/ts-rs/issues/110>
 #[derive(Debug, Clone, TS, Serialize, Deserialize)]
 pub struct PeerCandidateTS {
 	pub id: PeerId,

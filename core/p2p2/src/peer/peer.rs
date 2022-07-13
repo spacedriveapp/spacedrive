@@ -9,9 +9,10 @@ use sd_tunnel_utils::PeerId;
 
 use crate::{NetworkManager, P2PManager, PeerMetadata};
 
-/// ConnectionType is used to determine the type of connection that is being established.
-/// QUIC is a client/server protocol so when communication one client will be the server and one will be the client. The protocol is bi-directional so this doesn't matter a huge amount.
-/// The desision for who is the client and server should be treated as arbitrary and shouldn't affect how the protocol operates.
+/// This emum represents the type of the connection to the current peer.
+/// QUIC is a client/server protocol so when doing P2P communication one client will be the server and one will be the client from a QUIC perspective.
+/// The protocol is bi-directional so this doesn't matter a huge amount and the P2P library does it's best to hide this detail from the embedding application as thinking about this can be very confusing.
+/// The decision for who is the client and server should be treated as arbitrary and shouldn't affect how the protocol operates.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConnectionType {
 	/// I am the QUIC server.
@@ -20,7 +21,9 @@ pub enum ConnectionType {
 	Client,
 }
 
-/// Peer represents a currently connected peer. This struct holds all
+/// Represents a currently connected peer. This struct holds the connection as well as any information the network manager may required about the remote peer.
+/// It also stores a reference to the network manager for communication back to the [P2PManager].
+/// The [Peer] acts as an abstraction above the QUIC connection which could be a client or server so that when building code we don't have to think about the technicalities of the connection.
 #[derive(Clone)]
 pub struct Peer<TP2PManager: P2PManager> {
 	/// peer_id holds the id of the remote peer. This is their unique identifier.
@@ -31,18 +34,22 @@ pub struct Peer<TP2PManager: P2PManager> {
 	pub metadata: PeerMetadata,
 	/// conn holds the quinn::Connection that is being used to communicate with the remote peer. This allows creating new streams.
 	pub(crate) conn: Connection,
-	/// TODO
+	/// nm is a reference to the network manager. This is used to send messages back to the P2PManager.
 	nm: Arc<NetworkManager<TP2PManager>>,
 }
 
 impl<TP2PManager: P2PManager> fmt::Debug for Peer<TP2PManager> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		// TODO: Finish this
-		f.debug_struct("Peer").field("id", &self.id).finish()
+		f.debug_struct("Peer")
+			.field("id", &self.id)
+			.field("conn_type", &self.conn_type)
+			.field("metadata", &self.metadata)
+			.finish()
 	}
 }
 
 impl<TP2PManager: P2PManager> Peer<TP2PManager> {
+	/// create a new peer from a [quinn::Connection].
 	pub(crate) async fn new(
 		conn_type: ConnectionType,
 		id: PeerId,
@@ -59,7 +66,7 @@ impl<TP2PManager: P2PManager> Peer<TP2PManager> {
 		})
 	}
 
-	/// handler is run in a separate thread for each peer connection and is responsible for keep the connection alive.
+	/// handler is run in a separate thread for each peer connection and is responsible for keep the connection alive and handling incoming streams.
 	pub(crate) async fn handler(self, mut bi_streams: IncomingBiStreams) {
 		self.nm.add_connected_peer(self.clone());
 		while let Some(stream) = bi_streams.next().await {

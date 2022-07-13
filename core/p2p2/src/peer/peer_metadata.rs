@@ -4,11 +4,15 @@ use sd_tunnel_utils::PeerId;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+/// Represents the operating system which the remote peer is running.
+/// This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
 #[derive(Debug, Clone, TS, Serialize, Deserialize)]
 pub enum OperationSystem {
 	Windows,
 	Linux,
 	MacOS,
+	IOS,
+	Android,
 	Other(String),
 }
 
@@ -18,6 +22,8 @@ impl OperationSystem {
 			"windows" => OperationSystem::Windows,
 			"macos" => OperationSystem::MacOS,
 			"linux" => OperationSystem::Linux,
+			"ios" => OperationSystem::IOS,
+			"android" => OperationSystem::Android,
 			platform => OperationSystem::Other(platform.into()),
 		}
 	}
@@ -29,6 +35,8 @@ impl Into<String> for OperationSystem {
 			OperationSystem::Windows => "w".to_string(),
 			OperationSystem::Linux => "l".to_string(),
 			OperationSystem::MacOS => "m".to_string(),
+			OperationSystem::IOS => "i".to_string(),
+			OperationSystem::Android => "a".to_string(),
 			OperationSystem::Other(s) => {
 				let mut chars = s.chars();
 				chars.next();
@@ -47,12 +55,15 @@ impl FromStr for OperationSystem {
 			Some('w') => Ok(OperationSystem::Windows),
 			Some('l') => Ok(OperationSystem::Linux),
 			Some('m') => Ok(OperationSystem::MacOS),
+			Some('i') => Ok(OperationSystem::IOS),
+			Some('a') => Ok(OperationSystem::Android),
 			_ => Ok(OperationSystem::Other(chars.as_str().to_string())),
 		}
 	}
 }
 
-/// PeerMetadata represents public metadata about a peer. This is found through the discovery process.
+/// Represents public metadata about a peer. This is designed to hold information which is required among all applications using the P2P library.
+/// This metadata is discovered through the discovery process or sent by the connecting device when establishing a new P2P connection.
 #[derive(Debug, Clone, TS, Serialize, Deserialize)]
 pub struct PeerMetadata {
 	pub name: String,

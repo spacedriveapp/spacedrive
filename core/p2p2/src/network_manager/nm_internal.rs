@@ -11,11 +11,11 @@ use sd_tunnel_utils::{quic::client_config, PeerId};
 use tokio::{select, sync::mpsc, time::sleep};
 
 use crate::{
-	handle_connection, ConnectionType, DiscoveryStack, GlobalDiscovery, NetworkManager,
-	NetworkManagerError, P2PManager, Peer, PeerCandidate, MDNS,
+	ConnectionType, DiscoveryStack, NetworkManager, NetworkManagerError, P2PManager, Peer,
+	PeerCandidate,
 };
 
-/// TODO
+/// Represents an event that should be handled by the [NetworkManager] event loop.
 #[derive(Debug, Clone)]
 pub(crate) enum NetworkManagerInternalEvent {
 	Connect(PeerCandidate),
@@ -23,6 +23,7 @@ pub(crate) enum NetworkManagerInternalEvent {
 }
 
 impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
+	// this event_loop is run in a tokio task and is responsible for handling events emitted by components of the P2P library.
 	pub(crate) async fn event_loop(
 		nm: &Arc<Self>,
 		mut quic_incoming: Incoming,
@@ -48,10 +49,10 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		let nm = nm.clone();
 		tokio::spawn(async move {
 			loop {
-				// TODO: Deal with `Self::register`'s network calls blocking the main event loop
+				// TODO: Deal with `discovery.register`'s network calls blocking the main event loop
 				select! {
 					conn = quic_incoming.next() => match conn {
-						Some(conn) => handle_connection(&nm, conn),
+						Some(conn) => nm.clone().handle_connection(conn),
 						None => break,
 					},
 					event = Pin::new(&mut if_watcher) => {
@@ -201,10 +202,5 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		.unwrap();
 
 		Ok(conn)
-	}
-
-	fn shutdown() {
-		// TODO: Trigger this function
-		// TODO: Deannounce MDNS + Global Discovery
 	}
 }

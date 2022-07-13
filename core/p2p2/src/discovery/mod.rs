@@ -2,6 +2,6 @@ mod global_discovery;
 mod mdns;
 mod stack;
 
-pub use global_discovery::*;
-pub use mdns::*;
-pub use stack::*;
+pub(crate) use global_discovery::*;
+pub(crate) use mdns::*;
+pub(crate) use stack::*;

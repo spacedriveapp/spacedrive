@@ -11,6 +11,7 @@ pub use peer::*;
 pub use sd_tunnel_utils::PeerId;
 pub use utils::*;
 
+/// We reexport some types from `quinn` to avoid the user needing to add `quinn` and keep its version in sync with the p2p library.
 pub mod quinn {
 	pub use quinn::{RecvStream, SendStream};
 }
