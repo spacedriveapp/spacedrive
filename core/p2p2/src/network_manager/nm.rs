@@ -13,19 +13,20 @@ use quinn::{
 use rustls::{Certificate, PrivateKey};
 use sd_tunnel_utils::{quic, PeerId};
 use spake2::{Ed25519Group, Password, Spake2};
+use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-	ConnectionEstablishmentPayload, ConnectionType, Identity, NetworkManagerConfig,
+	ConnectError, ConnectionEstablishmentPayload, ConnectionType, Identity, NetworkManagerConfig,
 	NetworkManagerError, NetworkManagerInternalEvent, P2PManager, PairingParticipantType,
 	PairingPayload, Peer, PeerCandidate, PeerMetadata,
 };
 
 /// Is the core of the P2P Library. It manages listening for and creating P2P network connections and also provides a nice API for the application embedding this library to interface with.
 pub struct NetworkManager<TP2PManager: P2PManager> {
-	/// PeerId is the unique identifier of the current node.
+	/// PeerId is the unique identifier of the current peer.
 	pub(crate) peer_id: PeerId,
-	/// identity is the TLS identity of the current node.
+	/// identity is the TLS identity of the current peer.
 	pub(crate) identity: (Certificate, PrivateKey),
 	/// known_peers contains a list of all peers which are known to the network. These will be automatically connected if found.
 	/// We store these so when making a request to the global discovery server we know who to lookup.
@@ -98,9 +99,15 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		self.manager.peer_discovered(self, &peer.id);
 
 		if self.known_peers.contains(&peer.id) {
-			self.internal_channel
+			match self
+				.internal_channel
 				.send(NetworkManagerInternalEvent::Connect(peer))
-				.unwrap();
+			{
+				Ok(_) => {}
+				Err(err) => {
+					println!("Failed to send on internal_channel: {:?}", err);
+				}
+			}
 		}
 	}
 
@@ -128,7 +135,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		self.manager.peer_disconnected(self, peer_id);
 	}
 
-	/// returns the peer ID of the current node. These are unique identifier derived from the nodes public key.
+	/// returns the peer ID of the current peer. These are unique identifier derived from the peers public key.
 	pub fn peer_id(&self) -> PeerId {
 		self.peer_id.clone()
 	}
@@ -141,50 +148,63 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	/// adds a new peer to the known peers list. This will cause the NetworkManager to attempt to connect to the peer if it is discovered.
 	pub fn add_known_peer(&self, peer_id: PeerId) {
 		self.known_peers.insert(peer_id.clone());
-		self.internal_channel
+
+		match self
+			.internal_channel
 			.send(NetworkManagerInternalEvent::NewKnownPeer(peer_id))
-			.unwrap();
+		{
+			Ok(_) => {}
+			Err(err) => {
+				println!("Failed to send on internal_channel: {:?}", err);
+			}
+		}
 	}
 
 	/// send a single message to a peer and await a single response. This is good for quick one-off communications but any longer term communication should be done with a stream.
 	/// TODO: Error type
-	pub async fn send_to(&self, peer_id: PeerId, data: &[u8]) -> Result<Chunk, ()> {
+	pub async fn send_to(&self, peer_id: PeerId, data: &[u8]) -> Result<Chunk, NMError> {
 		tokio::time::sleep(Duration::from_millis(500)).await; // TODO: Fix this issue. This workaround is because DashMap is eventually consistent
 
-		let peer = self.connected_peers.get(&peer_id).unwrap().value().clone();
-		let (mut tx, mut rx) = peer.conn.open_bi().await.map_err(|err| ())?;
-		tx.write(data).await.map_err(|_err| ())?;
+		let peer = self
+			.connected_peers
+			.get(&peer_id)
+			.ok_or(NMError::PeerNotConnected)?
+			.value()
+			.clone();
+		let (mut tx, mut rx) = peer.conn.open_bi().await?;
+		tx.write(data).await?;
 		let (oneshot_tx, oneshot_rx) = oneshot::channel();
 		tokio::spawn(async move {
 			// TODO: Max length of packet should be a constant in sd-tunnel-utils::quic
-			while let Ok(data) = rx.read_chunk(64 * 1024, true).await {
-				match data {
-					Some(data) => {
-						oneshot_tx.send(data).unwrap();
+			match rx.read_chunk(64 * 1024, true).await {
+				Ok(Some(data)) => match oneshot_tx.send(data) {
+					Ok(_) => {
 						tx.finish().await;
-						return;
 					}
-					None => {
-						break;
+					Err(_) => {
+						println!("Failed to transmit result back to `NetworkManager::send_to` using oneshot! `send_to` will timeout and this error can be ignored.");
 					}
+				},
+				Ok(None) => {}
+				Err(err) => {
+					println!("Failed to read from stream: {:?}", err);
 				}
 			}
 		});
-		Ok(oneshot_rx.await.map_err(|_| ())?)
+		// TODO: add timeout for oneshot
+		Ok(oneshot_rx.await?)
 	}
 
 	/// stream will return the tx and rx channel to a new stream with a remote peer.
 	/// Be aware that when you drop the rx channel, the stream will be closed and any data in transit will be lost.
-	pub async fn stream(
-		&self,
-		peer_id: &PeerId,
-	) -> Result<(SendStream, RecvStream), ConnectionError> {
-		self.connected_peers
+	pub async fn stream(&self, peer_id: &PeerId) -> Result<(SendStream, RecvStream), NMError> {
+		Ok(self
+			.connected_peers
 			.get(peer_id)
-			.unwrap()
+			.ok_or(NMError::PeerNotConnected)?
 			.conn
 			.open_bi()
-			.await
+			.await?)
 	}
 
 	/// returns a list of the connected peers.
@@ -203,16 +223,19 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		self: &Arc<Self>,
 		remote_peer_id: PeerId,
 		extra_data: HashMap<String, String>,
-	) -> String {
+	) -> Result<String, NMError> {
 		// TODO: Ensure we are not already paired with the peer
 
-		let candidate = self.discovered_peers.get(&remote_peer_id).unwrap().clone();
+		let candidate = self
+			.discovered_peers
+			.get(&remote_peer_id)
+			.ok_or(NMError::PeerNotFound)?
+			.clone();
 
 		let m = Mnemonic::generate_in(
 			Language::English,
 			24, /* This library doesn't work with any number here for some reason */
-		)
-		.unwrap();
+		)?;
 		let preshared_key: String = m.word_iter().take(4).collect::<Vec<_>>().join("-");
 
 		let (spake, pake_msg) = Spake2::<Ed25519Group>::start_a(
@@ -225,33 +248,57 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			connection,
 			bi_streams,
 			..
-		} = Self::connect_to_peer_internal(&self.clone(), candidate)
-			.await
-			.unwrap();
+		} = Self::connect_to_peer_internal(&self.clone(), candidate).await?;
 
-		let (mut tx, mut rx) = connection.open_bi().await.unwrap();
+		let (mut tx, mut rx) = connection.open_bi().await?;
 
 		// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
-		tx.write_all(
-			&rmp_serde::encode::to_vec_named(&ConnectionEstablishmentPayload::PairingRequest {
+		tx.write_all(&rmp_serde::encode::to_vec_named(
+			&ConnectionEstablishmentPayload::PairingRequest {
 				pake_msg,
 				metadata: self.manager.get_metadata(),
 				extra_data: extra_data.clone(),
-			})
-			.unwrap(),
-		)
-		.await
-		.unwrap();
+			},
+		)?)
+		.await?;
 
 		let nm = self.clone();
 		tokio::spawn(async move {
+			// TODO: Timeout if reading chunk is not quick
+
 			// TODO: Get max chunk size from constant.
-			let data = rx.read_chunk(64 * 1024, true).await.unwrap().unwrap();
-			let payload: PairingPayload = rmp_serde::decode::from_read(&data.bytes[..]).unwrap();
+			let data = match rx.read_chunk(64 * 1024, true).await {
+				Ok(Some(data)) => data,
+				Ok(None) => {
+					println!("p2p warning: connection closed before we could read from it!");
+					return;
+				}
+				Err(err) => {
+					println!("p2p warning: error reading from connection: {}", err);
+					return;
+				}
+			};
+
+			let payload = match rmp_serde::decode::from_read(&data.bytes[..]) {
+				Ok(payload) => payload,
+				Err(err) => {
+					println!("p2p warning: error decoding pairing payload: {}", err);
+					return;
+				}
+			};
 
 			match payload {
 				PairingPayload::PairingAccepted { pake_msg, metadata } => {
-					let _spake_key = spake.finish(&pake_msg).unwrap();
+					match spake.finish(&pake_msg) {
+						Ok(_) => {} // We only use SPAKE2 to ensure the current connection is to the peer we expect, hence we don't use the key which is returned.
+						Err(err) => {
+							println!(
+								"p2p warning: error pairing with peer. Connection has been tampered with! err: {:?}",
+								err
+							);
+							return;
+						}
+					};
 
 					let resp = match nm
 						.manager
@@ -271,12 +318,24 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 						}
 					};
 
-					// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
-					tx.write_all(&rmp_serde::encode::to_vec_named(&resp).unwrap())
-						.await
-						.unwrap();
+					let resp = match rmp_serde::encode::to_vec(&resp) {
+						Ok(resp) => resp,
+						Err(err) => {
+							println!("p2p warning: error encoding pairing msg: {}", err);
+							return;
+						}
+					};
 
-					let peer = Peer::new(
+					// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
+					match tx.write_all(&resp).await {
+						Ok(_) => {}
+						Err(err) => {
+							println!("p2p warning: error writing pairing msg: {}", err);
+							return;
+						}
+					}
+
+					match Peer::new(
 						ConnectionType::Client,
 						remote_peer_id,
 						connection,
@@ -284,8 +343,14 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 						nm,
 					)
 					.await
-					.unwrap();
-					tokio::spawn(peer.handler(bi_streams));
+					{
+						Ok(peer) => {
+							tokio::spawn(peer.handler(bi_streams));
+						}
+						Err(err) => {
+							println!("p2p warning: error creating peer: {:?}", err);
+						}
+					}
 				}
 				PairingPayload::PairingFailed => {
 					panic!("Pairing failed");
@@ -301,6 +366,27 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			}
 		});
 
-		preshared_key
+		Ok(preshared_key)
 	}
+}
+
+// TODO: rename + docs
+#[derive(Error, Debug)]
+pub enum NMError {
+	#[error("The peer is not currently connected")]
+	PeerNotConnected,
+	#[error("The peer could not be found")]
+	PeerNotFound,
+	#[error("Error communicating with peer")]
+	ConnectionError(#[from] quinn::ConnectionError),
+	#[error("Internal error receiving result from oneshot")]
+	RecvError(#[from] oneshot::error::RecvError),
+	#[error("Error writing message to peer")]
+	WriteError(#[from] quinn::WriteError),
+	#[error("Error encoding message")]
+	EncodeError(#[from] rmp_serde::encode::Error),
+	#[error("Error connecting to peer")]
+	ConnectError(#[from] ConnectError),
+	#[error("Error generating preshared key")]
+	GeneratePresharedKeyError(#[from] bip39::Error),
 }

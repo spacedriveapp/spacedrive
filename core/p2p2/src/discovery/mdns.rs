@@ -39,7 +39,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 							.replace(&format!(".{}", self.service_type), "");
 						match PeerId::from_str(raw_peer_id.clone()) {
 							Ok(peer_id) => {
-								// Prevent discovery of the current node.
+								// Prevent discovery of the current peer.
 								if peer_id == self.nm.peer_id {
 									return;
 								}
@@ -61,7 +61,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 								self.nm.add_discovered_peer(peer);
 							}
 							Err(_) => {
-								println!("p2p warning: resolved node advertising itself with an invalid peer_id '{}'", raw_peer_id);
+								println!("p2p warning: resolved peer advertising itself with an invalid peer_id '{}'", raw_peer_id);
 							}
 						}
 					}
@@ -69,7 +69,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 						let raw_peer_id = fullname.replace(&format!(".{}", self.service_type), "");
 						match PeerId::from_str(raw_peer_id.clone()) {
 							Ok(peer_id) => {
-								// Prevent discovery of the current node.
+								// Prevent discovery of the current peer.
 								if peer_id == self.nm.peer_id {
 									return;
 								}
@@ -77,7 +77,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 								self.nm.remove_discovered_peer(peer_id);
 							}
 							Err(_) => {
-								println!("p2p warning: resolved node advertising itself with an invalid peer_id '{}'", raw_peer_id);
+								println!("p2p warning: resolved peer advertising itself with an invalid peer_id '{}'", raw_peer_id);
 							}
 						}
 					}
@@ -110,13 +110,13 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 			Ok(service_info) => match self.mdns.register(service_info) {
 				Ok(_) => {}
 				Err(err) => {
-					// println!("sd-p2p warning: failed to register service: {}", err);
-					todo!(); // TODO
+					println!("sd-p2p warning: failed to register service: {}", err);
+					return;
 				}
 			},
 			Err(err) => {
-				// println!("sd-p2p warning: failed to register service: {}", err);
-				todo!(); // TODO
+				println!("sd-p2p warning: failed to register service: {}", err);
+				return;
 			}
 		}
 	}

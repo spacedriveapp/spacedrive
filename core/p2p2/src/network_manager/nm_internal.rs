@@ -8,6 +8,7 @@ use futures_util::StreamExt;
 use if_watch::{IfEvent, IfWatcher};
 use quinn::{ClientConfig, Incoming, NewConnection, VarInt};
 use sd_tunnel_utils::{quic::client_config, PeerId};
+use thiserror::Error;
 use tokio::{select, sync::mpsc, time::sleep};
 
 use crate::{
@@ -84,11 +85,11 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 						match event {
 							NetworkManagerInternalEvent::Connect(peer) => {
-								Self::connect_to_peer(&nm, peer).await.unwrap();
+								Self::connect_to_peer(&nm, peer).await;
 							}
 							NetworkManagerInternalEvent::NewKnownPeer(peer_id) => {
 								if let Some(peer) = nm.get_discovered_peer(&peer_id) {
-									Self::connect_to_peer(&nm, peer).await.unwrap();
+									Self::connect_to_peer(&nm, peer).await;
 								}
 							}
 						}
@@ -123,19 +124,27 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		}
 	}
 
-	// TODO: Error type
-	async fn connect_to_peer(nm: &Arc<Self>, peer: PeerCandidate) -> Result<(), ()> {
+	async fn connect_to_peer(nm: &Arc<Self>, peer: PeerCandidate) {
 		let metadata = peer.metadata.clone();
 		let peer_id = peer.id.clone();
 		if nm.is_peer_connected(&peer.id) && nm.peer_id <= peer.id {
-			return Ok(());
+			return;
 		}
 
 		let NewConnection {
 			connection,
 			bi_streams,
 			..
-		} = Self::connect_to_peer_internal(nm, peer).await?;
+		} = match Self::connect_to_peer_internal(nm, peer).await {
+			Ok(connection) => connection,
+			Err(e) => {
+				println!(
+					"p2p error: failed to connect to peer {:?}: {:?}",
+					peer_id, e
+				);
+				return;
+			}
+		};
 
 		if nm.is_peer_connected(&peer_id) && nm.peer_id <= peer_id {
 			println!(
@@ -143,10 +152,10 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 				peer_id
 			);
 			connection.close(VarInt::from_u32(0), b"DUP_CONN");
-			return Ok(());
+			return;
 		}
 
-		let peer = Peer::new(
+		match Peer::new(
 			ConnectionType::Client,
 			peer_id,
 			connection,
@@ -154,31 +163,36 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			nm.clone(),
 		)
 		.await
-		.unwrap();
-		tokio::spawn(peer.handler(bi_streams));
-		Ok(())
+		{
+			Ok(peer) => {
+				tokio::spawn(peer.handler(bi_streams));
+			}
+			Err(e) => {
+				println!("p2p error: failed to create peer: {:?}", e);
+			}
+		}
 	}
 
 	// TODO: Error type
 	pub(crate) async fn connect_to_peer_internal(
 		nm: &Arc<Self>,
 		peer: PeerCandidate,
-	) -> Result<NewConnection, ()> {
+	) -> Result<NewConnection, ConnectError> {
 		// TODO: Guess the best default IP.
 
 		let mut i = 0;
-		let conn = loop {
+		let identity = nm.identity.clone();
+		let client_config =
+			ClientConfig::new(Arc::new(client_config(vec![identity.0], identity.1)?));
+		loop {
 			let address = match peer.addresses.get(i) {
 				Some(address) => address,
 				None => break None,
 			};
 
 			// TODO: Shorter timeout for connections!
-			let identity = nm.identity.clone();
 			let conn = match nm.endpoint.connect_with(
-				ClientConfig::new(Arc::new(
-					client_config(vec![identity.0], identity.1).unwrap(),
-				)),
+				client_config.clone(),
 				SocketAddrV4::new(*address, peer.port).into(),
 				&peer.id.to_string(),
 			) {
@@ -199,8 +213,14 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 				}
 			}
 		}
-		.unwrap();
-
-		Ok(conn)
+		.ok_or(ConnectError::UnableToConnect)
 	}
+}
+
+#[derive(Error, Debug)]
+pub enum ConnectError {
+	#[error("Unable to connect to peer")]
+	UnableToConnect,
+	#[error("error setting up client TLS")]
+	TlsError(#[from] rustls::Error),
 }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use ts_rs::TS;
 
-/// PeerId is a unique identifier for a peer. These are derived from the public key of the peer.
+/// is a unique identifier for a peer. These are derived from the public key of the peer.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Serialize, Deserialize, TS)]
 pub struct PeerId(String);
 
@@ -54,7 +54,7 @@ impl Deref for PeerId {
 	}
 }
 
-/// PeerIdError is an error that can occur when creating a [PeerId] from a string.
+/// Represents an error that can occur when creating a [PeerId] from a string.
 #[derive(Error, Debug)]
 pub enum PeerIdError {
 	#[error("the PeerId must be 40 chars in length")]

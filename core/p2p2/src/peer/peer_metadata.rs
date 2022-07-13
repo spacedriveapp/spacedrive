@@ -78,10 +78,7 @@ impl PeerMetadata {
 				.get("name")
 				.map(|v| v.to_string())
 				.unwrap_or(peer_id.to_string()),
-			operating_system: hashmap
-				.get("os")
-				.map(|v| Some(v.parse().unwrap()))
-				.unwrap_or(None),
+			operating_system: hashmap.get("os").map(|v| v.parse().ok()).unwrap_or(None),
 			version: hashmap.get("version").map(|v| v.to_string()),
 		}
 	}

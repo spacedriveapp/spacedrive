@@ -1,3 +1,4 @@
+/// The functions in this file are predominantly useless in the current system. This will be fixed in a future PR's.
 use std::sync::Arc;
 
 use sd_tunnel_utils::{Client, Message};
@@ -35,7 +36,8 @@ impl<TP2PManager: P2PManager> GlobalDiscovery<TP2PManager> {
 				println!(
 					"[TODO: WIP FEATURE REPORTED ERROR] Spacetunnel failed lookup peers with error: {:?}",
 					err
-				)
+				);
+				// TODO: Handle error when this is implemented.
 			});
 
 		// TODO: Handle error from discovery service
@@ -56,7 +58,8 @@ impl<TP2PManager: P2PManager> GlobalDiscovery<TP2PManager> {
 			})
 			.await
 			.map_err(|err| {
-				println!("[TODO: WIP FEATURE REPORTED ERROR] Spacetunnel failed announcement with error: {:?}", err)
+				println!("[TODO: WIP FEATURE REPORTED ERROR] Spacetunnel failed announcement with error: {:?}", err);
+				// TODO: Handle error when this is implemented.
 			});
 
 		// // TODO: Handle error from discovery service

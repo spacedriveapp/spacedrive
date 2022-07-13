@@ -294,7 +294,7 @@ pub async fn pair(
 	ctx: LibraryContext,
 	peer_id: PeerId,
 ) -> CoreResponse {
-	let preshared_key = nm
+	match nm
 		.initiate_pairing_with_peer(
 			peer_id,
 			[
@@ -307,12 +307,19 @@ pub async fn pair(
 			.into_iter()
 			.collect(),
 		)
-		.await;
+		.await
+	{
+		Ok(preshared_key) => {
+			ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
+				.await;
+			ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers))
+				.await;
 
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
-		.await;
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers))
-		.await;
-
-	CoreResponse::PairNode { preshared_key }
+			CoreResponse::PairNode { preshared_key }
+		}
+		Err(err) => {
+			println!("Error pairing: {:?}", err);
+			CoreResponse::Null
+		}
+	}
 }

@@ -16,7 +16,7 @@ It's important we maintain a good separation between the `P2PManager` and the ap
 
 ### Identity keypair
 
-Unpon installing Spacedrive your application with generate a public and private key paired which is called the identity keypair. These certificates facilitate secure communication and identify the client to other nodes.
+Unpon installing Spacedrive your application with generate a public and private key paired which is called the identity keypair. These certificates facilitate secure communication and identify the client to other peers.
 
 ### Peer ID's
 
