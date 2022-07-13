@@ -10,8 +10,8 @@ pub enum NetworkManagerError {
 	InvalidAppName,
 	#[error("error starting the mDNS service")]
 	MDNSDaemon(#[from] mdns_sd::Error),
-	// #[error("error attaching the shutdown handler")]
-	// ShutdownHandler(#[from] ctrlc::Error),
+	#[error("error attaching the shutdown handler")]
+	ShutdownHandler(#[from] ctrlc::Error),
 	#[error("error starting the if_watch service")]
 	IfWatch(io::Error),
 	#[error("error configuring certificates for the P2P server")]

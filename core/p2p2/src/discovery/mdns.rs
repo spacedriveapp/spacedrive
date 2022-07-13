@@ -121,7 +121,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 	}
 
 	/// shutdown shuts down the MDNS service. This will advertise the current peer as unavailable to the rest of the network.
-	pub(crate) fn shutdown(self: Arc<Self>) {
+	pub(crate) fn shutdown(&self) {
 		// The panics caused by `.expect` are acceptable here because they are run during shutdown where nothing can be done if they were to fail.
 		self.mdns
 			.unregister(&format!("{}.{}", self.nm.peer_id, self.service_type))

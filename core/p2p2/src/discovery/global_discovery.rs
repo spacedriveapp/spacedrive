@@ -56,4 +56,8 @@ impl<TP2PManager: P2PManager> GlobalDiscovery<TP2PManager> {
 		// // TODO: Handle error from discovery service
 		// println!("{:?}", msg);
 	}
+
+	pub(crate) fn shutdown(&self) {
+		// TODO: Remove the announcement from the tunnel
+	}
 }

@@ -11,8 +11,8 @@ use sd_tunnel_utils::{quic::client_config, PeerId};
 use tokio::{select, sync::mpsc, time::sleep};
 
 use crate::{
-	handle_connection, ConnectionType, GlobalDiscovery, NetworkManager, NetworkManagerError,
-	P2PManager, Peer, PeerCandidate, MDNS,
+	handle_connection, ConnectionType, DiscoveryStack, GlobalDiscovery, NetworkManager,
+	NetworkManagerError, P2PManager, Peer, PeerCandidate, MDNS,
 };
 
 /// TODO
@@ -31,15 +31,19 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		let mut if_watcher = IfWatcher::new()
 			.await
 			.map_err(NetworkManagerError::IfWatch)?;
-		let mdns = MDNS::init(nm)?;
-		let global = GlobalDiscovery::init(nm)?;
-		global.poll().await;
+		let discovery = DiscoveryStack::new(nm).await?;
+		let (shutdown_signal_tx, mut shutdown_signal_rx) = mpsc::unbounded_channel(); // This should be able to be a oneshot but ctrlc is cringe
+		ctrlc::set_handler(move || {
+			shutdown_signal_tx
+				.send(())
+				.map_err(|_| println!("p2p error: error internal sending shutdown signal"));
+		})?;
 
 		for iface in if_watcher.iter() {
 			Self::handle_ifwatch_event(nm, IfEvent::Up(iface.clone()));
 		}
 
-		Self::register(&mdns, &global).await; // TODO: Create a discovery stack type to hold them instead of passing them all individually
+		discovery.register().await;
 
 		let nm = nm.clone();
 		tokio::spawn(async move {
@@ -54,19 +58,19 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 						match event {
 							Ok(event) => {
 								if Self::handle_ifwatch_event(&nm, event) {
-									Self::register(&mdns, &global).await;
+									discovery.register().await;
 								}
 							},
 							Err(_) => break,
 						}
 					}
-					_ = mdns.handle_mdns_event() => {}
+					_ = discovery.mdns.handle_mdns_event() => {}
 					_ = sleep(Duration::from_secs(15 * 60 /* 15 Minutes */)) => {
-						Self::register(&mdns, &global).await;
+						discovery.register().await;
 					}
 					// TODO: Maybe use subscription system instead of polling or review this timeout!
 					_ = sleep(Duration::from_secs(30 /* 30 Seconds */)) => {
-						global.poll().await; // TODO: this does network calls and blocks. Is this ok?
+						discovery.global.poll().await; // TODO: this does network calls and blocks. Is this ok?
 					}
 					event = internal_channel.recv() => {
 						let event = match event {
@@ -87,6 +91,11 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 								}
 							}
 						}
+					}
+					_ = shutdown_signal_rx.recv() => {
+						nm.endpoint.close(VarInt::from_u32(69 /* TODO */), b"BRUH");
+						discovery.shutdown();
+						return; // Shutdown p2p manager thread as program is exitting
 					}
 				};
 			}
@@ -111,11 +120,6 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 				nm.lan_addrs.remove(&ip).is_some()
 			}
 		}
-	}
-
-	pub(crate) async fn register(mdns: &MDNS<TP2PManager>, global: &GlobalDiscovery<TP2PManager>) {
-		mdns.register().await;
-		global.register().await;
 	}
 
 	// TODO: Error type
