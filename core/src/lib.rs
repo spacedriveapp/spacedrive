@@ -175,7 +175,7 @@ impl Node {
 				description,
 			} => {
 				self.library_manager
-					.edit_library(id, name, description)
+					.edit(id, name, description)
 					.await
 					.unwrap();
 				CoreResponse::Success(())
@@ -210,14 +210,18 @@ impl Node {
 						sys::delete_location(&ctx, id).await?;
 						CoreResponse::Success(())
 					}
-					LibraryCommand::LocRescan { id } => {
+					LibraryCommand::LocFullRescan { id } => {
 						sys::scan_location(&ctx, id, String::new()).await;
 						CoreResponse::Success(())
 					}
+					LibraryCommand::LocQuickRescan { id: _ } => todo!(),
 					// CRUD for files
 					LibraryCommand::FileReadMetaData { id: _ } => todo!(),
 					LibraryCommand::FileSetNote { id, note } => {
 						file::set_note(ctx, id, note).await?
+					}
+					LibraryCommand::FileSetFavorite { id, favorite } => {
+						file::favorite(ctx, id, favorite).await?
 					}
 					// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
 					LibraryCommand::FileDelete { id } => {
@@ -345,6 +349,7 @@ pub enum LibraryCommand {
 	// Files
 	FileReadMetaData { id: i32 },
 	FileSetNote { id: i32, note: Option<String> },
+	FileSetFavorite { id: i32, favorite: bool },
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
 	FileDelete { id: i32 },
 	// Tags
@@ -356,7 +361,8 @@ pub enum LibraryCommand {
 	LocCreate { path: String },
 	LocUpdate { id: i32, name: Option<String> },
 	LocDelete { id: i32 },
-	LocRescan { id: i32 },
+	LocFullRescan { id: i32 },
+	LocQuickRescan { id: i32 },
 	// System
 	SysVolumeUnmount { id: i32 },
 	GenerateThumbsForLocation { id: i32, path: String },

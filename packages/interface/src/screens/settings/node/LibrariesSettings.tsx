@@ -4,6 +4,7 @@ import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { LibraryConfig, LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
+import { DotsSixVertical } from 'phosphor-react';
 import React, { useContext, useState } from 'react';
 
 import Card from '../../../components/layout/Card';
@@ -26,6 +27,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 
 	return (
 		<Card>
+			<DotsSixVertical weight="bold" className="mt-[15px] mr-3 opacity-30" />
 			<div className="flex-grow my-0.5">
 				<h3 className="font-semibold">{props.library.config.name}</h3>
 				<p className="mt-0.5 text-xs text-gray-200">{props.library.uuid}</p>

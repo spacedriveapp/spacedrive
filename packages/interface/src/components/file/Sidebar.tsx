@@ -86,13 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 	let locations = Array.isArray(locationsResponse) ? locationsResponse : [];
 
 	// initialize libraries
-	const { init: initLibraries, switchLibrary: _switchLibrary } = useLibraryStore();
-
-	const switchLibrary = (uuid: string) => {
-		navigate('overview');
-
-		_switchLibrary(uuid);
-	};
+	const { init: initLibraries, switchLibrary } = useLibraryStore();
 
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
@@ -163,7 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						{
 							name: 'Library Settings',
 							icon: CogIcon,
-							onPress: () => navigate('library-settings/general')
+							onPress: () => navigate('settings/library')
 						},
 						{ name: 'Add Library', icon: PlusIcon },
 						{ name: 'Lock', icon: LockClosedIcon }
@@ -179,7 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				</SidebarLink>
 				<SidebarLink to="content">
 					<Icon component={CirclesFour} />
-					Content
+					Spaces
 				</SidebarLink>
 				<SidebarLink to="photos">
 					<Icon component={PhotographIcon} />
