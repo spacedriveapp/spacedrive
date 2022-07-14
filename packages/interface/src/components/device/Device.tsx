@@ -72,12 +72,11 @@ export function Device(props: DeviceProps) {
 						key={key}
 						selected={selectedFile === location.name}
 						onClick={() => handleSelect(location.name)}
-						fileName={location.name}
-						folder={location.folder}
-						format={location.format}
-						iconName={location.icon}
 					/>
 				))}
+				{props.locations.length === 0 && (
+					<div className="w-full my-5 text-center text-gray-450">No locations</div>
+				)}
 			</div>
 		</div>
 	);

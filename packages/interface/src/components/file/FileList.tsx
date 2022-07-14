@@ -1,14 +1,16 @@
 import { DotsVerticalIcon } from '@heroicons/react/solid';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { LocationContext, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useExplorerStore } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso, VirtuosoGrid, VirtuosoHandle } from 'react-virtuoso';
 import { useKey, useWindowSize } from 'rooks';
+import styled from 'styled-components';
 
+import FileItem from './FileItem';
 import FileThumb from './FileThumb';
 
 interface IColumn {
@@ -32,13 +34,18 @@ const columns = ensureIsColumns([
 
 type ColumnKey = typeof columns[number]['key'];
 
-const LocationContext = React.createContext<{
-	location_id: number;
-	data_path: string;
-}>({
-	location_id: 1,
-	data_path: ''
-});
+// these styled components are out of place, but are here to follow the virtuoso docs. could probably be translated to tailwind somehow, since the `components` prop only accepts a styled div, not a react component.
+const GridContainer = styled.div`
+	display: flex;
+	margin-top: 60px;
+	margin-left: 10px;
+	width: 100%;
+	flex-wrap: wrap;
+`;
+const GridItemContainer = styled.div`
+	display: flex;
+	flex-wrap: wrap;
+`;
 
 export const FileList: React.FC<{ location_id: number; path: string; limit: number }> = (props) => {
 	const size = useWindowSize();
@@ -51,7 +58,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 
 	const path = props.path;
 
-	const { selectedRowIndex, setSelectedRowIndex, setLocationId } = useExplorerStore();
+	const { selectedRowIndex, setSelectedRowIndex, setLocationId, layoutMode } = useExplorerStore();
 	const [goingUp, setGoingUp] = useState(false);
 
 	const { data: currentDir } = useLibraryQuery('LibGetExplorerDir', {
@@ -64,7 +71,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 		if (selectedRowIndex === 0 && goingUp) {
 			VList.current?.scrollTo({ top: 0, behavior: 'smooth' });
 		}
-		if (selectedRowIndex != -1) {
+		if (selectedRowIndex != -1 && typeof VList.current?.scrollIntoView === 'function') {
 			VList.current?.scrollIntoView({
 				index: goingUp ? selectedRowIndex - 1 : selectedRowIndex
 			});
@@ -88,12 +95,12 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 			setSelectedRowIndex(selectedRowIndex + 1);
 	});
 
-	const Row = (index: number) => {
-		const row = currentDir?.contents?.[index];
-
-		if (!row) return null;
-
-		return <RenderRow key={index} row={row} rowIndex={index} dirId={currentDir?.directory.id} />;
+	const createRenderItem = (RenderItem: React.FC<RenderItemProps>) => {
+		return (index: number) => {
+			const row = currentDir?.contents?.[index];
+			if (!row) return null;
+			return <RenderItem key={index} index={index} item={row} dirId={currentDir?.directory.id} />;
+		};
 	};
 
 	const Header = () => (
@@ -116,46 +123,90 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 		</div>
 	);
 
-	return useMemo(
-		() => (
-			<div
-				ref={tableContainer}
-				style={{ marginTop: -44 }}
-				className="w-full pl-2 bg-white cursor-default dark:bg-gray-650"
+	return (
+		<div
+			ref={tableContainer}
+			style={{ marginTop: -44 }}
+			className="w-full pl-2 bg-white cursor-default dark:bg-gray-600"
+		>
+			<LocationContext.Provider
+				value={{ location_id: props.location_id, data_path: client?.data_path as string }}
 			>
-				<LocationContext.Provider
-					value={{ location_id: props.location_id, data_path: client?.data_path as string }}
-				>
+				{layoutMode === 'grid' && (
+					<VirtuosoGrid
+						ref={VList}
+						overscan={5000}
+						components={{
+							Item: GridItemContainer,
+							List: GridContainer
+						}}
+						style={{ height: size.innerHeight ?? 600 }}
+						totalCount={currentDir?.contents.length || 0}
+						itemContent={createRenderItem(RenderGridItem)}
+						className="w-full overflow-x-hidden outline-none explorer-scroll"
+					/>
+				)}
+				{layoutMode === 'list' && (
 					<Virtuoso
-						data={currentDir?.contents}
+						data={currentDir?.contents} // this might be redundant, row data is retrieved by index in renderRow
 						ref={VList}
 						style={{ height: size.innerHeight ?? 600 }}
 						totalCount={currentDir?.contents.length || 0}
-						itemContent={Row}
-						components={{ Header, Footer: () => <div className="w-full " /> }}
+						itemContent={createRenderItem(RenderRow)}
+						components={{
+							Header,
+							Footer: () => <div className="w-full " />
+						}}
 						increaseViewportBy={{ top: 400, bottom: 200 }}
 						className="outline-none explorer-scroll"
 					/>
-				</LocationContext.Provider>
-			</div>
-		),
-		[props.location_id, size.innerWidth, currentDir?.directory.id, tableContainer.current]
+				)}
+			</LocationContext.Provider>
+		</div>
 	);
 };
 
-const RenderRow: React.FC<{
-	row: FilePath;
-	rowIndex: number;
+interface RenderItemProps {
+	item: FilePath;
+	index: number;
 	dirId: number;
-}> = ({ row, rowIndex, dirId }) => {
+}
+
+const RenderGridItem: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
+	// return <div className="flex m-2 bg-red-600 w-44 h-44"></div>;
 	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
-	const isActive = selectedRowIndex === rowIndex;
+	const isActive = selectedRowIndex === index;
 
 	let [_, setSearchParams] = useSearchParams();
 
 	function selectFileHandler() {
-		if (selectedRowIndex == rowIndex) setSelectedRowIndex(-1);
-		else setSelectedRowIndex(rowIndex);
+		if (selectedRowIndex == index) setSelectedRowIndex(-1);
+		else setSelectedRowIndex(index);
+	}
+
+	return (
+		<FileItem
+			onDoubleClick={() => {
+				if (item.is_dir) {
+					setSearchParams({ path: item.materialized_path });
+				}
+			}}
+			file={item}
+			selected={isActive}
+			onClick={selectFileHandler}
+		/>
+	);
+};
+
+const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
+	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
+	const isActive = selectedRowIndex === index;
+
+	let [_, setSearchParams] = useSearchParams();
+
+	function selectFileHandler() {
+		if (selectedRowIndex == index) setSelectedRowIndex(-1);
+		else setSelectedRowIndex(index);
 	}
 
 	return useMemo(
@@ -163,14 +214,14 @@ const RenderRow: React.FC<{
 			<div
 				onClick={selectFileHandler}
 				onDoubleClick={() => {
-					if (row.is_dir) {
-						setSearchParams({ path: row.materialized_path });
+					if (item.is_dir) {
+						setSearchParams({ path: item.materialized_path });
 					}
 				}}
 				className={clsx(
 					'table-body-row mr-2 flex flex-row rounded-lg border-2',
 					isActive ? 'border-primary-500' : 'border-transparent',
-					rowIndex % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
+					index % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
 				)}
 			>
 				{columns.map((col) => (
@@ -179,12 +230,12 @@ const RenderRow: React.FC<{
 						className="flex items-center px-4 py-2 pr-2 table-body-cell"
 						style={{ width: col.width }}
 					>
-						<RenderCell file={row} dirId={dirId} colKey={col?.key} />
+						<RenderCell file={item} dirId={dirId} colKey={col?.key} />
 					</div>
 				))}
 			</div>
 		),
-		[row.id, isActive]
+		[item.id, isActive]
 	);
 };
 
@@ -193,29 +244,22 @@ const RenderCell: React.FC<{
 	dirId?: number;
 	file?: FilePath;
 }> = ({ colKey, file, dirId }) => {
+	const location = useContext(LocationContext);
+
 	if (!file || !colKey || !dirId) return <></>;
+
 	const row = file;
 	if (!row) return <></>;
-	const appProps = useContext(AppPropsContext);
 
 	const value = row[colKey];
 	if (!value) return <></>;
-
-	const location = useContext(LocationContext);
-	const { newThumbnails } = useExplorerStore();
-
-	const hasNewThumbnail = !!newThumbnails[row?.file?.cas_id ?? ''];
 
 	switch (colKey) {
 		case 'name':
 			return (
 				<div className="flex flex-row items-center overflow-hidden">
 					<div className="flex items-center justify-center w-6 h-6 mr-3 shrink-0">
-						<FileThumb
-							hasThumbnailOverride={hasNewThumbnail}
-							file={row}
-							locationId={location.location_id}
-						/>
+						<FileThumb file={row} locationId={location.location_id} />
 					</div>
 					{/* {colKey == 'name' &&
             (() => {
