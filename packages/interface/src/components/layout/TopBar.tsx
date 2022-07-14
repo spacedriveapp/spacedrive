@@ -1,6 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
-import { useLibraryCommand } from '@sd/client';
-import { useExplorerStore } from '@sd/client';
+import { AppPropsContext, useExplorerStore, useLibraryCommand } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -15,7 +14,7 @@ import {
 	Tag,
 	TerminalWindow
 } from 'phosphor-react';
-import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
+import React, { DetailedHTMLProps, HTMLAttributes, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Shortcut } from '../primitive/Shortcut';
@@ -30,6 +29,7 @@ export interface TopBarButtonProps
 	left?: boolean;
 	right?: boolean;
 }
+interface SearchBarProps extends DefaultProps {}
 
 const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => {
 	return (
@@ -48,6 +48,28 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => 
 		>
 			<Icon weight={'regular'} className="m-0.5 w-5 h-5 text-gray-450 dark:text-gray-150" />
 		</button>
+	);
+};
+
+const SearchBar: React.FC<SearchBarProps> = (props) => {
+	//TODO: maybe pass the appProps, so we can have the context in the TopBar if needed again
+	const appProps = useContext(AppPropsContext);
+
+	return (
+		<div className="relative flex h-7">
+			<input
+				placeholder="Search"
+				className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+			/>
+			<div className="space-x-1 absolute top-[2px] right-1">
+				<Shortcut
+					chars={
+						appProps?.platform === 'macOS' || appProps?.platform === 'browser' ? '⌘K' : 'CTRL+K'
+					}
+				/>
+				{/* <Shortcut chars="S" /> */}
+			</div>
+		</div>
 	);
 };
 
@@ -102,21 +124,8 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							onClick={() => setLayoutMode('grid')}
 						/>
 					</div>
-					{/* <div className="flex mx-8 space-x-2 pointer-events-auto">
-						<TopBarButton active icon={Tag} />
-						<TopBarButton icon={FolderPlus} />
-						<TopBarButton icon={TerminalWindow} />
-					</div> */}
-					<div className="relative flex h-7">
-						<input
-							placeholder="Search"
-							className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
-						/>
-						<div className="space-x-1 absolute top-[2px] right-1">
-							<Shortcut chars="⌘K" />
-							{/* <Shortcut chars="S" /> */}
-						</div>
-					</div>
+					<SearchBar />
+
 					<div className="flex mx-8 space-x-2">
 						<TopBarButton icon={Key} />
 						{/* <TopBarButton icon={Cloud} /> */}
@@ -128,11 +137,6 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						/>
 					</div>
 				</div>
-				{/* <img
-          alt="spacedrive-logo"
-          src="/images/spacedrive_logo.png"
-          className="w-8 h-8 mt-[1px] mr-2 pointer-events-none"
-        /> */}
 				<div className="flex mr-3 space-x-2">
 					<Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
@@ -154,11 +158,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						buttonComponent={<TopBarButton icon={List} />}
 					/>
 				</div>
-				{/*<TopBarButton onClick={() => {*/}
-				{/*  setSettingsOpen(!settingsOpen);*/}
-				{/*}} className="mr-[8px]" icon={CogIcon} />*/}
 			</div>
-			{/* <div className="h-[1px] flex-shrink-0 max-w bg-gray-200 dark:bg-gray-700" /> */}
 		</>
 	);
 };

@@ -159,8 +159,21 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							icon: CogIcon,
 							onPress: () => navigate('settings/library')
 						},
-						{ name: 'Add Library', icon: PlusIcon },
-						{ name: 'Lock', icon: LockClosedIcon }
+						{
+							name: 'Add Library',
+							icon: PlusIcon,
+							onPress: () => {
+								alert('todo');
+								// TODO: Show Dialog defined in `LibrariesSettings.tsx`
+							}
+						},
+						{
+							name: 'Lock',
+							icon: LockClosedIcon,
+							onPress: () => {
+								alert('todo');
+							}
+						}
 						// { name: 'Hide', icon: EyeOffIcon }
 					]
 				]}
