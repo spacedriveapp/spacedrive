@@ -72,14 +72,14 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	React.useEffect(() => {
 		document.addEventListener('keydown', (e) => {
-			if (e.metaKey && e.key === 'k' && searchRef.current) {
-				searchRef.current.focus()
+			if (e.metaKey && e.key === 'l' && searchRef.current || e.key === '/' && searchRef.current) {
+				searchRef.current.focus();
 			}
 		})
 		return () => {
 			//remove event listener
 			document.removeEventListener('keydown', (e) => {
-				if (e.metaKey && e.key === 'k' && searchRef.current) {
+				if (e.metaKey && e.key === 'l' && searchRef.current || e.key === '/' && searchRef.current) {
 					searchRef.current.focus()
 				}
 			})
@@ -114,7 +114,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-500 bg-[#F6F2F6] border border-gray-50 dark:bg-gray-650 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-600 transition-all"
 						/>
 						<div className="space-x-1 absolute top-[2px] right-1 peer-focus:invisible">
-							<Shortcut chars="⌘K" />
+							<Shortcut chars="/" />
 							{/* <Shortcut chars="S" /> */}
 						</div>
 					</div>
