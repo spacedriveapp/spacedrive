@@ -17,6 +17,8 @@ export default function LibraryGeneralSettings() {
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');
 	const [encryptLibrary, setEncryptLibrary] = useState(false);
+	// prevent auto update when switching library
+	const [blockAutoUpdate, setBlockAutoUpdate] = useState(false);
 
 	const [nameDebounced] = useDebounce(name, 500);
 	const [descriptionDebounced] = useDebounce(description, 500);
@@ -42,6 +44,18 @@ export default function LibraryGeneralSettings() {
 		}
 	}, [libraries]);
 
+	useEffect(() => {
+		if (currentLibrary) {
+			setBlockAutoUpdate(true);
+			setName(currentLibrary.config.name);
+			setDescription(currentLibrary.config.description);
+		}
+	}, [currentLibraryUuid]);
+
+	useEffect(() => {
+		if (blockAutoUpdate) setBlockAutoUpdate(false);
+	}, [blockAutoUpdate]);
+
 	return (
 		<SettingsContainer>
 			<SettingsHeader
@@ -49,8 +63,8 @@ export default function LibraryGeneralSettings() {
 				description="General settings related to the currently active library."
 			/>
 			<div className="flex flex-row pb-3 space-x-5">
-				<div className="flex flex-col flex-grow ">
-					<span className="mt-2 mb-1 text-xs font-semibold text-gray-300">Name</span>
+				<div className="flex flex-col flex-grow">
+					<span className="mb-1 font-medium text-gray-700 dark:text-gray-100">Name</span>
 					<Input
 						value={name}
 						onChange={(e) => setName(e.target.value)}
@@ -58,7 +72,7 @@ export default function LibraryGeneralSettings() {
 					/>
 				</div>
 				<div className="flex flex-col flex-grow">
-					<span className="mt-2 mb-1 text-xs font-semibold text-gray-300">Description</span>
+					<span className="mb-1 font-medium text-gray-700 dark:text-gray-100">Description</span>
 					<Input
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}
@@ -76,13 +90,21 @@ export default function LibraryGeneralSettings() {
 					<Toggle value={encryptLibrary} onChange={setEncryptLibrary} />
 				</div>
 			</InputContainer>
+			<InputContainer mini title="Export Library" description="Export this library to a file.">
+				<div className="mt-2">
+					<Button size="sm" variant="gray">
+						Export
+					</Button>
+				</div>
+			</InputContainer>
 			<InputContainer
+				mini
 				title="Delete Library"
 				description="This is permanent, your files will not be deleted, only the Spacedrive library."
 			>
 				<div className="mt-2">
 					<Button size="sm" variant="colored" className="bg-red-500 border-red-500">
-						Delete Library
+						Delete
 					</Button>
 				</div>
 			</InputContainer>
