@@ -295,14 +295,6 @@ async fn handle_stream(
 pub enum ConnectionError {
 	#[error("connection error: {0}")]
 	ConnectionErr(#[from] quinn::ConnectionError),
-	#[error("connection read error: {0}")]
-	ReadErr(#[from] quinn::ReadError),
-	#[error("error encoding message: {0}")]
-	EncodeMessageErr(#[from] rmp_serde::encode::Error),
-	#[error("error encoding message: {0}")]
-	DecodeMessageErr(#[from] rmp_serde::decode::Error),
-	#[error("error writing to connection: {0}")]
-	WriteErr(#[from] quinn::WriteError),
 	#[error("redis error: {0}")]
 	RedisErr(#[from] RedisError),
 }

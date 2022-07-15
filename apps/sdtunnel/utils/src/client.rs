@@ -4,15 +4,17 @@ use quinn::{ClientConfig, Endpoint, NewConnection};
 use rustls::{Certificate, PrivateKey};
 use thiserror::Error;
 
-use crate::{quic::client_config, Message, MAX_MESSAGE_SIZE};
+use crate::{
+	quic::client_config,
+	rmp_quic::{read_value, UtilError},
+	write_value, Message,
+};
 
 /// represents an error which can be thrown by the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
 	#[error("no valid Spacetunnel addresses were provided")]
 	MissingServerAddr,
-	#[error("error Spacetunnel did not respond to request")]
-	NoResponse,
 	#[error("error resolving DNS for Spacetunnel address")]
 	IoError(#[from] io::Error),
 	#[error("error setting up client TLS")]
@@ -21,14 +23,10 @@ pub enum ClientError {
 	ConnectError(#[from] quinn::ConnectError),
 	#[error("error communicating with Spacetunnel")]
 	ConnectionError(#[from] quinn::ConnectionError),
+	#[error("error writing message to Spacetunnel")]
+	UtilError(#[from] UtilError),
 	#[error("error writing message to Spacetunnel connection")]
 	WriteError(#[from] quinn::WriteError),
-	#[error("error reading data from Spacetunnel connection")]
-	ReadError(#[from] quinn::ReadError),
-	#[error("error decoding message from Spacetunnel connection")]
-	DecodeError(#[from] rmp_serde::decode::Error),
-	#[error("error encoding message to Spacetunnel connection")]
-	EncodeError(#[from] rmp_serde::encode::Error),
 }
 
 /// holds a connection to the Spacetunnel server and can be used to send messages to the server.
@@ -71,19 +69,10 @@ impl Client {
 			.await?;
 
 		let (mut tx, mut rx) = connection.open_bi().await?;
-
-		tx.write_all(&msg.encode()?).await?;
-
-		let resp = rx
-			.read_chunk(MAX_MESSAGE_SIZE, true)
-			.await?
-			.ok_or(ClientError::NoResponse)?;
-
-		let mut bytes: &[u8] = &resp.bytes;
-		let msg = Message::read(&mut bytes)?;
+		write_value(&mut tx, &msg).await?;
+		let msg: Message = read_value(&mut rx).await?;
 
 		// tx.finish().await?;
-
 		// connection.close(VarInt::from_u32(0), b"DUP_CONN");
 
 		Ok(msg)

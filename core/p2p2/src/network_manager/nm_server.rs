@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use futures_util::StreamExt;
 use quinn::{Connecting, NewConnection, VarInt};
 use rustls::Certificate;
-use sd_tunnel_utils::PeerId;
+use sd_tunnel_utils::{read_value, write_value, PeerId};
 use spake2::{Ed25519Group, Password, Spake2};
 use tokio::{sync::oneshot, time::sleep};
 use tracing::{debug, error, info, warn};
@@ -94,21 +94,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 			match stream {
 				Ok((mut tx, mut rx)) => {
-					// TODO: Get max chunk size from constant.
-					let data = match rx.read_chunk(64 * 1024, true).await {
-						Ok(Some(data)) => data,
-						Ok(None) => {
-							warn!("connection closed before we could read from it!");
-							return;
-						}
-						Err(err) => {
-							warn!("error reading from connection: {}", err);
-							return;
-						}
-					};
-
-					let payload = match rmp_serde::decode::from_read(&data.bytes[..]) {
-						Ok(payload) => payload,
+					let payload = match read_value(&mut rx).await {
+						Ok(msg) => msg,
 						Err(err) => {
 							warn!("error decoding connection establishment payload: {}", err);
 							return;
@@ -187,40 +174,18 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 								}
 							};
 
-							let resp = match rmp_serde::encode::to_vec(&resp) {
-								Ok(resp) => resp,
-								Err(err) => {
-									warn!("error encoding pairing response: {}", err);
-									return;
-								}
-							};
-
-							// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
-							match tx.write_all(&resp).await {
+							match write_value(&mut tx, &resp).await {
 								Ok(_) => {}
 								Err(err) => {
-									warn!("error writing pairing response: {}", err);
-									return;
-								}
-							}
-
-							// TODO: Get max chunk size from constant.
-							let data = match rx.read_chunk(64 * 1024, true).await {
-								Ok(Some(chunk)) => chunk,
-								Ok(None) => {
-									warn!("peer disconnected before sending first chunk");
-									return;
-								}
-								Err(err) => {
-									warn!("error reading first chunk: {}", err);
+									warn!("error encoding and sending pairing response: {}", err);
 									return;
 								}
 							};
 
-							let payload = match rmp_serde::decode::from_read(&data.bytes[..]) {
+							let payload = match read_value(&mut rx).await {
 								Ok(payload) => payload,
 								Err(err) => {
-									warn!("error decoding pairing payload: {}", err);
+									warn!("error reading and decoding pairing payload: {}", err);
 									return;
 								}
 							};

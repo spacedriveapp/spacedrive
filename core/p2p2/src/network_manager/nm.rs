@@ -9,7 +9,7 @@ use bip39::{Language, Mnemonic};
 use dashmap::{DashMap, DashSet};
 use quinn::{Chunk, Endpoint, NewConnection, RecvStream, SendStream, ServerConfig};
 use rustls::{Certificate, PrivateKey};
-use sd_tunnel_utils::{quic, PeerId};
+use sd_tunnel_utils::{quic, write_value, PeerId, UtilError};
 use spake2::{Ed25519Group, Password, Spake2};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -270,14 +270,14 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 		let (mut tx, mut rx) = connection.open_bi().await?;
 
-		// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
-		tx.write_all(&rmp_serde::encode::to_vec_named(
+		write_value(
+			&mut tx,
 			&ConnectionEstablishmentPayload::PairingRequest {
 				pake_msg,
 				metadata: self.manager.get_metadata(),
 				extra_data: extra_data.clone(),
 			},
-		)?)
+		)
 		.await?;
 
 		let nm = self.clone();
@@ -336,19 +336,13 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 						}
 					};
 
-					let resp = match rmp_serde::encode::to_vec(&resp) {
-						Ok(resp) => resp,
-						Err(err) => {
-							warn!("error encoding pairing msg: {}", err);
-							return;
-						}
-					};
-
-					// rmp_serde doesn't support `AsyncWrite` so we have to allocate buffer here.
-					match tx.write_all(&resp).await {
+					match write_value(&mut tx, &resp).await {
 						Ok(_) => {}
 						Err(err) => {
-							warn!("error writing pairing msg: {}", err);
+							warn!(
+								"error encoding and sending pairing response to connection: {}",
+								err
+							);
 							return;
 						}
 					}
@@ -397,12 +391,12 @@ pub enum NMError {
 	PeerNotFound,
 	#[error("Error communicating with peer")]
 	ConnectionError(#[from] quinn::ConnectionError),
+	#[error("Error communicating with peer")]
+	UtilError(#[from] UtilError),
 	#[error("Internal error receiving result from oneshot")]
 	RecvError(#[from] oneshot::error::RecvError),
 	#[error("Error writing message to peer")]
 	WriteError(#[from] quinn::WriteError),
-	#[error("Error encoding message")]
-	EncodeError(#[from] rmp_serde::encode::Error),
 	#[error("Error connecting to peer")]
 	ConnectError(#[from] ConnectError),
 	#[error("Error generating preshared key")]

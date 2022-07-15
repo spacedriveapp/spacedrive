@@ -9,8 +9,8 @@ use std::{
 use futures::{executor::block_on, Future};
 use p2p::{
 	quinn::{RecvStream, SendStream},
-	Identity, NetworkManager, NetworkManagerConfig, NetworkManagerError, OperationSystem,
-	P2PManager, PairingParticipantType, Peer, PeerId, PeerMetadata,
+	read_value, write_value, Identity, NetworkManager, NetworkManagerConfig, NetworkManagerError,
+	OperationSystem, P2PManager, PairingParticipantType, Peer, PeerId, PeerMetadata,
 };
 use tokio::sync::{
 	mpsc::{self},
@@ -218,16 +218,12 @@ impl P2PManager for SdP2PManager {
 	fn accept_stream(&self, peer: &Peer<Self>, (mut tx, mut rx): (SendStream, RecvStream)) {
 		let peer = peer.clone();
 		tokio::spawn(async move {
-			// TODO: Get max length from constant.
-			let msg = rx.read_chunk(1024, true).await.unwrap().unwrap();
-			let req: P2PRequest = rmp_serde::from_slice(&msg.bytes).unwrap();
+			let req: P2PRequest = read_value(&mut rx).await.unwrap();
 
 			match req {
 				P2PRequest::Ping => {
 					println!("Received ping from '{}'", peer.id);
-					tx.write(&rmp_serde::encode::to_vec_named(&P2PResponse::Pong).unwrap())
-						.await
-						.unwrap();
+					write_value(&mut tx, &P2PResponse::Pong).await.unwrap();
 				}
 				P2PRequest::GetFile { path } => {
 					println!("Sending file at path '{}'", path);
@@ -255,22 +251,6 @@ impl P2PManager for SdP2PManager {
 		});
 	}
 }
-
-// impl SdP2PManager {
-// 	pub(crate) fn accept_pairing_request(
-// 		self: &Arc<Self>,
-// 		peer_id: PeerId,
-// 		preshared_key: Result<String, ()>,
-// 	) {
-// 		self.pairing_requests
-// 			.lock()
-// 			.unwrap()
-// 			.get(&peer_id)
-// 			.unwrap()
-// 			.send(preshared_key)
-// 			.unwrap();
-// 	}
-// }
 
 pub async fn init(
 	library_manager: Arc<LibraryManager>,
