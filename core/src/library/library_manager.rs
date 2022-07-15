@@ -156,7 +156,7 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn edit_library(
+	pub(crate) async fn edit(
 		&self,
 		id: String,
 		name: Option<String>,
@@ -223,7 +223,7 @@ impl LibraryManager {
 			.find(|lib| lib.id.to_string() == library_id)
 			.map(|v| v.clone())
 	}
-	
+
 	/// load the library from a given path
 	pub(crate) async fn load(
 		id: Uuid,

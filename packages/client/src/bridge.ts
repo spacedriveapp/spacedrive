@@ -18,10 +18,10 @@ export function setTransport(_transport: BaseTransport) {
 }
 
 // extract keys from generated Rust query/command types
-type QueryKeyType = ClientQuery['key'];
-type LibraryQueryKeyType = LibraryQuery['key'];
-type CommandKeyType = ClientCommand['key'];
-type LibraryCommandKeyType = LibraryCommand['key'];
+export type QueryKeyType = ClientQuery['key'];
+export type LibraryQueryKeyType = LibraryQuery['key'];
+export type CommandKeyType = ClientCommand['key'];
+export type LibraryCommandKeyType = LibraryCommand['key'];
 
 // extract the type from the union
 type CQType<K> = Extract<ClientQuery, { key: K }>;

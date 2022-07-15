@@ -14,7 +14,7 @@ export const SettingsHeading: React.FC<{ className?: string; children: string }>
 	children,
 	className
 }) => (
-	<div className={clsx('mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300', className)}>
+	<div className={clsx('mt-5 mb-1 ml-1 text-xs font-semibold text-gray-400', className)}>
 		{children}
 	</div>
 );
