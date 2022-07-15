@@ -1,5 +1,6 @@
-use crate::p2p::P2PData;
 use crate::p2p::P2PEvent;
+use crate::p2p::P2PRequest;
+use crate::p2p::SdP2P;
 use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
 use ::p2p::{PeerCandidateTS, PeerId, PeerMetadata};
 use job::{JobManager, JobReport};
@@ -153,7 +154,7 @@ pub struct Node {
 		UnboundedReceiver<ReturnableMessage<ClientCommand>>,
 	),
 	event_sender: mpsc::Sender<CoreEvent>,
-	p2p: P2PData,
+	p2p: SdP2P,
 }
 
 #[cfg(debug_assertions)]
@@ -218,7 +219,7 @@ impl Node {
 			.unwrap();
 
 		let node = Node {
-			p2p: p2p::init(library_manager.clone(), config.clone())
+			p2p: SdP2P::init(library_manager.clone(), config.clone())
 				.await
 				.unwrap(),
 			config: config.clone(),
@@ -321,7 +322,7 @@ impl Node {
 				// TODO: Remove this
 				// This is designed to simulate messages from Brendan's sync layer
 				_ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {
-					self.p2p.nm.broadcast(b"Hello World".to_vec());
+					self.p2p.broadcast(P2PRequest::Ping).unwrap();
 				}
 			}
 		}
@@ -442,9 +443,7 @@ impl Node {
 						CoreResponse::Success(())
 					}
 					// P2P
-					LibraryCommand::PairNode(peer_id) => {
-						p2p::pair(&self.p2p.nm, ctx, peer_id).await
-					}
+					LibraryCommand::PairNode(peer_id) => self.p2p.pair(ctx, peer_id).await,
 					LibraryCommand::UnpairNode(_peer_id) => todo!(),
 				}
 			}
