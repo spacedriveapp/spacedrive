@@ -6,6 +6,7 @@ use std::{
 	sync::{Arc, RwLock},
 	time::{Duration, Instant},
 };
+use tracing::info;
 
 use actix::{
 	Actor, ActorContext, Addr, AsyncContext, Context, ContextFutureSpawner, Handler,
@@ -287,7 +288,7 @@ async fn main() -> std::io::Result<()> {
 
 	let controller = web::Data::new(controller);
 	let server = web::Data::new(EventServer::listen(event_receiver));
-	println!("Listening http://localhost:{}", port);
+	info!("Listening http://localhost:{}", port);
 	HttpServer::new(move || {
 		App::new()
 			.app_data(controller.clone())

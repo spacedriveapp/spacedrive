@@ -183,6 +183,16 @@ impl Node {
 						"sdcore=debug"
 							.parse()
 							.expect("Error invalid tracing directive!"),
+					)
+					.add_directive(
+						"server=debug"
+							.parse()
+							.expect("Error invalid tracing directive!"),
+					)
+					.add_directive(
+						"desktop=debug"
+							.parse()
+							.expect("Error invalid tracing directive!"),
 					),
 			)
 			.with(fmt::layer().with_filter(CONSOLE_LOG_FILTER))
@@ -251,7 +261,7 @@ impl Node {
 					let res = self.exec_command(msg.data).await;
 					msg.return_sender.send(res).unwrap_or(());
 				}
-				Some(event) = self.p2p.1.recv() => {
+				Some(event) = self.p2p.event_receiver.recv() => {
 					println!("P2P event: {:?}", event); // TODO: remove
 
 					match event {
@@ -308,6 +318,11 @@ impl Node {
 						}
 					}
 				}
+				// TODO: Remove this
+				// This is designed to simulate messages from Brendan's sync layer
+				_ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {
+					self.p2p.nm.broadcast(b"Hello World".to_vec());
+				}
 			}
 		}
 	}
@@ -344,7 +359,7 @@ impl Node {
 				preshared_key,
 			} => {
 				self.p2p
-					.2
+					.pairing_requests
 					.lock()
 					.unwrap()
 					.remove(&peer_id)
@@ -427,7 +442,9 @@ impl Node {
 						CoreResponse::Success(())
 					}
 					// P2P
-					LibraryCommand::PairNode(peer_id) => p2p::pair(&self.p2p.0, ctx, peer_id).await,
+					LibraryCommand::PairNode(peer_id) => {
+						p2p::pair(&self.p2p.nm, ctx, peer_id).await
+					}
 					LibraryCommand::UnpairNode(_peer_id) => todo!(),
 				}
 			}
@@ -450,7 +467,7 @@ impl Node {
 			}
 			ClientQuery::DiscoveredPeers => CoreResponse::DiscoveredPeers(
 				self.p2p
-					.0
+					.nm
 					.discovered_peers()
 					.into_iter()
 					.map(|(_, v)| v.into())
@@ -458,7 +475,7 @@ impl Node {
 			),
 			ClientQuery::ConnectedPeers => CoreResponse::ConnectedPeers(
 				self.p2p
-					.0
+					.nm
 					.connected_peers()
 					.into_iter()
 					.map(|(_, v)| (v.id, v.metadata))

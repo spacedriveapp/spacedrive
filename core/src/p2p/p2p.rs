@@ -16,7 +16,7 @@ use tokio::sync::{
 	mpsc::{self},
 	oneshot,
 };
-use tracing::error;
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::{
@@ -52,11 +52,12 @@ pub enum P2PEvent {
 	},
 }
 
-pub(crate) type P2PData = (
-	Arc<NetworkManager<SdP2PManager>>,
-	mpsc::UnboundedReceiver<P2PEvent>,
-	Arc<Mutex<HashMap<PeerId, oneshot::Sender<Result<String, ()>>>>>,
-);
+// TODO: rename this
+pub struct P2PData {
+	pub nm: Arc<NetworkManager<SdP2PManager>>,
+	pub event_receiver: mpsc::UnboundedReceiver<P2PEvent>,
+	pub pairing_requests: Arc<Mutex<HashMap<PeerId, oneshot::Sender<Result<String, ()>>>>>,
+}
 
 // SdP2PManager is part of your application and allows you to hook into the behavior of the P2PManager.
 #[derive(Clone)]
@@ -274,7 +275,7 @@ pub async fn init(
 		},
 	)
 	.await?;
-	println!(
+	info!(
 		"Peer '{}' listening on: {:?}",
 		nm.peer_id(),
 		nm.listen_addr()
@@ -286,7 +287,11 @@ pub async fn init(
 	// 	.await
 	// 	.unwrap();
 
-	Ok((nm, event_channel.1, pairing_requests))
+	Ok(P2PData {
+		nm,
+		event_receiver: event_channel.1,
+		pairing_requests,
+	})
 }
 
 pub async fn pair(

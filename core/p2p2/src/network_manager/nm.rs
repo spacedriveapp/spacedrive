@@ -7,6 +7,7 @@ use std::{
 
 use bip39::{Language, Mnemonic};
 use dashmap::{DashMap, DashSet};
+use futures_util::future::join_all;
 use quinn::{Chunk, Endpoint, NewConnection, RecvStream, SendStream, ServerConfig};
 use rustls::{Certificate, PrivateKey};
 use sd_tunnel_utils::{quic, write_value, PeerId, UtilError};
@@ -207,6 +208,40 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		});
 		// TODO: add timeout for oneshot
 		Ok(oneshot_rx.await?)
+	}
+
+	pub fn broadcast(self: &Arc<Self>, data: Vec<u8>) {
+		let mut connections = Vec::with_capacity(self.connected_peers.len());
+		for peer in self.connected_peers.iter() {
+			connections.push((
+				peer.key().clone(),
+				peer.value().conn.open_bi(),
+				data.clone(),
+			));
+		}
+		let connections = connections
+			.into_iter()
+			.map(move |(peer_id, conn, data)| async move {
+				match conn.await {
+					Ok((mut tx, _)) => match tx.write(&data).await {
+						Ok(_) => {}
+						Err(err) => {
+							warn!(
+								"Failed to write to stream with peer '{}': {:?}",
+								peer_id, err
+							);
+						}
+					},
+					Err(err) => {
+						warn!(
+							"Failed to write to stream with peer '{}': {:?}",
+							peer_id, err
+						);
+					}
+				}
+			});
+
+		tokio::spawn(join_all(connections));
 	}
 
 	/// stream will return the tx and rx channel to a new stream with a remote peer.
