@@ -10,6 +10,7 @@ use quinn::{ClientConfig, Incoming, NewConnection, VarInt};
 use sd_tunnel_utils::{quic::client_config, PeerId};
 use thiserror::Error;
 use tokio::{select, sync::mpsc, time::sleep};
+use tracing::{debug, error, warn};
 
 use crate::{
 	ConnectionType, DiscoveryStack, NetworkManager, NetworkManagerError, P2PManager, Peer,
@@ -30,15 +31,23 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		mut quic_incoming: Incoming,
 		mut internal_channel: mpsc::UnboundedReceiver<NetworkManagerInternalEvent>,
 	) -> Result<(), NetworkManagerError> {
+		debug!("Starting P2P event loop");
 		let mut if_watcher = IfWatcher::new()
 			.await
 			.map_err(NetworkManagerError::IfWatch)?;
 		let discovery = DiscoveryStack::new(nm).await?;
 		let (shutdown_signal_tx, mut shutdown_signal_rx) = mpsc::unbounded_channel(); // This should be able to be a oneshot but ctrlc is cringe
 		ctrlc::set_handler(move || {
-			shutdown_signal_tx
-				.send(())
-				.map_err(|_| println!("p2p error: error internal sending shutdown signal"));
+			debug!("Shutdown signal captured. Sending shutdown signal...");
+			match shutdown_signal_tx.send(()) {
+				Ok(_) => {}
+				Err(err) => {
+					error!(
+						"Failed to send shutdown signal. Falling back to hard shutdown. {:?}",
+						err
+					);
+				}
+			}
 		})?;
 
 		for iface in if_watcher.iter() {
@@ -47,18 +56,31 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 		discovery.register().await;
 
+		debug!(
+			"Network adapters discovered on startup: {:?}",
+			nm.lan_addrs
+				.iter()
+				.map(|a| a.to_string())
+				.collect::<Vec<_>>()
+				.join(",")
+		);
+
 		let nm = nm.clone();
 		tokio::spawn(async move {
 			loop {
 				// TODO: Deal with `discovery.register`'s network calls blocking the main event loop
 				select! {
 					conn = quic_incoming.next() => match conn {
-						Some(conn) => nm.clone().handle_connection(conn),
+						Some(conn) => {
+							debug!("Handling incoming QUIC connection");
+							nm.clone().handle_connection(conn)
+						},
 						None => break,
 					},
 					event = Pin::new(&mut if_watcher) => {
 						match event {
 							Ok(event) => {
+								debug!("Handling ifwatch event: {:?}", event);
 								if Self::handle_ifwatch_event(&nm, event) {
 									discovery.register().await;
 								}
@@ -68,17 +90,20 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 					}
 					_ = discovery.mdns.handle_mdns_event() => {}
 					_ = sleep(Duration::from_secs(15 * 60 /* 15 Minutes */)) => {
+						debug!("Discovery service registration timer reached");
 						discovery.register().await;
 					}
 					// TODO: Maybe use subscription system instead of polling or review this timeout!
-					_ = sleep(Duration::from_secs(30 /* 30 Seconds */)) => {
+					_ = sleep(Duration::from_secs(60 /* 1 minute */)) => {
+						debug!("Discovery service pool timer reached");
 						discovery.global.poll().await; // TODO: this does network calls and blocks. Is this ok?
 					}
 					event = internal_channel.recv() => {
+						debug!("Received internal event: {:?}", event);
 						let event = match event {
 							Some(event) => event,
 							None => {
-								println!("p2p error: internal_channel has been closed, stopping p2p event loop!");
+								error!("internal_channel has been closed, stopping p2p event loop!");
 								break;
 							},
 						};
@@ -95,8 +120,10 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 						}
 					}
 					_ = shutdown_signal_rx.recv() => {
+						debug!("Event loop received shutdown signal. Shutting down...");
 						nm.endpoint.close(VarInt::from_u32(69 /* TODO */), b"BRUH");
 						discovery.shutdown();
+						debug!("P2P event loop shutdown");
 						return; // Shutdown p2p manager thread as program is exitting
 					}
 				};
@@ -125,6 +152,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	}
 
 	async fn connect_to_peer(nm: &Arc<Self>, peer: PeerCandidate) {
+		tracing::debug!("Connecting to peer: {:?}", peer);
 		let metadata = peer.metadata.clone();
 		let peer_id = peer.id.clone();
 		if nm.is_peer_connected(&peer.id) && nm.peer_id <= peer.id {
@@ -138,16 +166,13 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		} = match Self::connect_to_peer_internal(nm, peer).await {
 			Ok(connection) => connection,
 			Err(e) => {
-				println!(
-					"p2p error: failed to connect to peer {:?}: {:?}",
-					peer_id, e
-				);
+				warn!("failed to connect to peer {:?}: {:?}", peer_id, e);
 				return;
 			}
 		};
 
 		if nm.is_peer_connected(&peer_id) && nm.peer_id <= peer_id {
-			println!(
+			debug!(
 				"Closing new connection to peer '{}' as we are already connect!",
 				peer_id
 			);
@@ -168,7 +193,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 				tokio::spawn(peer.handler(bi_streams));
 			}
 			Err(e) => {
-				println!("p2p error: failed to create peer: {:?}", e);
+				error!("failed to create peer: {:?}", e);
 			}
 		}
 	}
@@ -178,6 +203,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		nm: &Arc<Self>,
 		peer: PeerCandidate,
 	) -> Result<NewConnection, ConnectError> {
+		tracing::debug!("Attempting connection to {:?}", peer);
 		// TODO: Guess the best default IP.
 
 		let mut i = 0;
@@ -189,6 +215,10 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 				Some(address) => address,
 				None => break None,
 			};
+			debug!(
+				"Attempting connection to peer '{}' at address {:?}",
+				peer.id, address
+			);
 
 			// TODO: Shorter timeout for connections!
 			let conn = match nm.endpoint.connect_with(
@@ -198,7 +228,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			) {
 				Ok(conn) => conn,
 				Err(e) => {
-					println!("p2p error: failed to connect to peer: {}", e);
+					debug!("failed to connect to addr '{:?}': {}", address, e);
 					i += 1;
 					continue;
 				}
@@ -207,7 +237,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			match conn.await {
 				Ok(conn) => break Some(conn),
 				Err(e) => {
-					println!("p2p error: failed to connect to peer: {}", e);
+					debug!("failed to connect to addr '{:?}': {}", address, e);
 					i += 1;
 					continue;
 				}

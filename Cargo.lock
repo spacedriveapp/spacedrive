@@ -5711,7 +5711,6 @@ dependencies = [
  "chrono",
  "core-derive",
  "data-encoding",
- "env_logger",
  "ffmpeg-next",
  "fs_extra",
  "futures",
@@ -5719,7 +5718,6 @@ dependencies = [
  "image",
  "include_dir",
  "int-enum",
- "log",
  "p2p",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",
@@ -5730,6 +5728,9 @@ dependencies = [
  "sysinfo",
  "thiserror",
  "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
  "ts-rs",
  "uuid 0.8.2",
  "walkdir",
@@ -6984,6 +6985,17 @@ dependencies = [
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-appender"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09d48f71a791638519505cefafe162606f706c25592e4bde4d97600c0195312e"
+dependencies = [
+ "crossbeam-channel",
+ "time 0.3.11",
+ "tracing-subscriber",
 ]
 
 [[package]]

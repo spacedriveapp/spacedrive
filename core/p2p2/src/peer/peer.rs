@@ -6,6 +6,7 @@ use std::{
 use futures_util::StreamExt;
 use quinn::{ApplicationClose, Connection, IncomingBiStreams};
 use sd_tunnel_utils::PeerId;
+use tracing::{debug, error};
 
 use crate::{NetworkManager, P2PManager, PeerMetadata};
 
@@ -68,12 +69,18 @@ impl<TP2PManager: P2PManager> Peer<TP2PManager> {
 
 	/// handler is run in a separate thread for each peer connection and is responsible for keep the connection alive and handling incoming streams.
 	pub(crate) async fn handler(self, mut bi_streams: IncomingBiStreams) {
+		debug!(
+			"Started handler thread for connection with remote peer '{}'",
+			self.id
+		);
 		self.nm.add_connected_peer(self.clone());
 		while let Some(stream) = bi_streams.next().await {
 			match stream {
 				Err(quinn::ConnectionError::ApplicationClosed(ApplicationClose {
 					reason, ..
 				})) => {
+					debug!("Connection with peer closed due to '{:?}'", reason);
+
 					// TODO: This is hacky, fix!
 					if reason != "DUP_CONN" {
 						self.nm.remove_connected_peer(self.id);
@@ -81,12 +88,16 @@ impl<TP2PManager: P2PManager> Peer<TP2PManager> {
 
 					break;
 				}
-				Err(e) => {
+				Err(err) => {
+					error!(
+						"Connection error when communicating with peer '{:?}': {:?}",
+						self.id, err
+					);
 					self.nm.remove_connected_peer(self.id);
-					println!("Error: {:?}", e); // TODO
 					break;
 				}
 				Ok(stream) => {
+					debug!("Accepting stream from peer '{:?}'", self.id);
 					self.nm.manager.accept_stream(&self, stream);
 				}
 			}

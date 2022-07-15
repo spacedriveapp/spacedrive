@@ -7,9 +7,9 @@ use crate::{
 use crate::{sys, CoreEvent};
 use futures::executor::block_on;
 use image::*;
-use log::{error, info};
 use std::fs;
 use std::path::{Path, PathBuf};
+use tracing::{error, info};
 use webp::*;
 
 #[derive(Debug, Clone)]

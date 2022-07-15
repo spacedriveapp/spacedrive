@@ -6,6 +6,7 @@ use rustls::Certificate;
 use sd_tunnel_utils::PeerId;
 use spake2::{Ed25519Group, Password, Spake2};
 use tokio::{sync::oneshot, time::sleep};
+use tracing::{debug, error, info, warn};
 
 use crate::{
 	ConnectionEstablishmentPayload, ConnectionType, NetworkManager, P2PManager,
@@ -22,8 +23,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 				..
 			} = match conn.await {
 				Ok(conn) => conn,
-				Err(e) => {
-					println!("p2p warning: error accepting connection");
+				Err(err) => {
+					warn!("error accepting connection: {:?}", err);
 					return;
 				}
 			};
@@ -38,11 +39,11 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			{
 				Some(Ok(certs)) if certs.len() == 1 => PeerId::from_cert(&certs[0]),
 				Some(Ok(_)) => {
-					println!("p2p warning: client presenting an invalid number of certificates!");
+					warn!("client presenting an invalid number of certificates!");
 					return;
 				}
 				Some(Err(_)) => {
-					println!("p2p warning: error decoding certificates from connection!");
+					warn!("error decoding certificates from connection!");
 					return;
 				}
 				_ => unimplemented!(),
@@ -66,7 +67,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 			// TODO: Do this check again before adding to array because the `ConnectionEstablishmentPayload` adds delay
 			if self.is_peer_connected(&peer_id) && self.peer_id > peer_id {
-				println!(
+				debug!(
 					"Closing new connection to peer '{}' as we are already connect!",
 					peer_id
 				);
@@ -79,13 +80,13 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 					match stream {
 						Some(stream) => stream,
 						None => {
-							println!("p2p warning: connection closed before we could read from it!");
+							warn!("connection closed before we could read from it!");
 							return;
 						}
 					}
 				}
 				_ = sleep(Duration::from_secs(1)) => {
-					println!("p2p warning: Connection create connection establishment stream in expected time.");
+					warn!("Connection create connection establishment stream in expected time.");
 					return;
 				}
 
@@ -97,28 +98,26 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 					let data = match rx.read_chunk(64 * 1024, true).await {
 						Ok(Some(data)) => data,
 						Ok(None) => {
-							println!(
-								"p2p warning: connection closed before we could read from it!"
-							);
+							warn!("connection closed before we could read from it!");
 							return;
 						}
 						Err(err) => {
-							println!("p2p warning: error reading from connection: {}", err);
+							warn!("error reading from connection: {}", err);
 							return;
 						}
 					};
 
-					let payload =
-						match rmp_serde::decode::from_read(&data.bytes[..]) {
-							Ok(payload) => payload,
-							Err(err) => {
-								println!("p2p warning: error decoding connection establishment payload: {}", err);
-								return;
-							}
-						};
+					let payload = match rmp_serde::decode::from_read(&data.bytes[..]) {
+						Ok(payload) => payload,
+						Err(err) => {
+							warn!("error decoding connection establishment payload: {}", err);
+							return;
+						}
+					};
 
 					match payload {
 						ConnectionEstablishmentPayload::ConnectionRequest => {
+							debug!("ConnectionRequest from peer '{}'", peer_id);
 							// TODO: Only allow peers we trust to get pass this point
 						}
 						ConnectionEstablishmentPayload::PairingRequest {
@@ -126,6 +125,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 							metadata,
 							extra_data,
 						} => {
+							debug!("PairingRequest from peer '{}'", peer_id);
 							// TODO: Ensure we are not already paired with the peer
 
 							let (oneshot_tx, oneshot_rx) = oneshot::channel();
@@ -141,17 +141,11 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 							let preshared_key = match oneshot_rx.await {
 								Ok(Ok(preshared_key)) => preshared_key,
 								Ok(Err(err)) => {
-									println!(
-										"p2p warning: P2PManager reported error pairing: {:?}",
-										err
-									);
+									warn!("P2PManager reported error pairing: {:?}", err);
 									return;
 								}
 								Err(err) => {
-									println!(
-										"p2p warning: error receiving response for P2PManager: {:?}",
-										err
-									);
+									warn!("error receiving response for P2PManager: {:?}", err);
 									return;
 								}
 							};
@@ -164,8 +158,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 							match spake.finish(&pake_msg) {
 								Ok(_) => {} // We only use SPAKE2 to ensure the current connection is to the peer we expect, hence we don't use the key which is returned.
 								Err(err) => {
-									println!(
-										"p2p warning: error pairing with peer. Connection has been tampered with! err: {:?}",
+									warn!(
+										"error pairing with peer. Connection has been tampered with! err: {:?}",
 										err
 									);
 									return;
@@ -188,7 +182,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 									metadata: self.manager.get_metadata(),
 								},
 								Err(err) => {
-									println!("p2p manager error: {:?}", err);
+									warn!("p2p manager error: {:?}", err);
 									PairingPayload::PairingFailed
 								}
 							};
@@ -196,10 +190,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 							let resp = match rmp_serde::encode::to_vec(&resp) {
 								Ok(resp) => resp,
 								Err(err) => {
-									println!(
-										"p2p warning: error encoding pairing response: {}",
-										err
-									);
+									warn!("error encoding pairing response: {}", err);
 									return;
 								}
 							};
@@ -208,10 +199,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 							match tx.write_all(&resp).await {
 								Ok(_) => {}
 								Err(err) => {
-									println!(
-										"p2p warning: error writing pairing response: {}",
-										err
-									);
+									warn!("error writing pairing response: {}", err);
 									return;
 								}
 							}
@@ -220,13 +208,11 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 							let data = match rx.read_chunk(64 * 1024, true).await {
 								Ok(Some(chunk)) => chunk,
 								Ok(None) => {
-									println!(
-										"p2p warning: peer disconnected before sending first chunk"
-									);
+									warn!("peer disconnected before sending first chunk");
 									return;
 								}
 								Err(err) => {
-									println!("p2p warning: error reading first chunk: {}", err);
+									warn!("error reading first chunk: {}", err);
 									return;
 								}
 							};
@@ -234,10 +220,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 							let payload = match rmp_serde::decode::from_read(&data.bytes[..]) {
 								Ok(payload) => payload,
 								Err(err) => {
-									println!(
-										"p2p warning: error decoding pairing payload: {}",
-										err
-									);
+									warn!("error decoding pairing payload: {}", err);
 									return;
 								}
 							};
@@ -247,10 +230,10 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 									todo!("invalid") // TODO: Remove this
 								}
 								PairingPayload::PairingComplete { .. } => {
-									println!("PAIRING COMPLETE");
+									info!("Pairing with peer '{}' complete.", peer_id);
 								}
 								PairingPayload::PairingFailed => {
-									println!("p2p warning: pairing failed!");
+									error!("Pairing with peer '{}' complete.", peer_id);
 
 									// TODO
 									// self.manager
@@ -276,14 +259,14 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 									tokio::spawn(peer.handler(bi_streams));
 								}
 								Err(err) => {
-									println!("p2p warning: error creating peer: {:?}", err);
+									error!("p2p warning: error creating peer: {:?}", err);
 								}
 							}
 						}
 					}
 				}
 				_ => {
-					println!("p2p warning: Connection didn't send establishment payload.");
+					error!("connection from peer '{}' didn't send establishment payload fast enough. Closing connection", peer_id);
 					return;
 				}
 			}

@@ -2,6 +2,7 @@ use std::{net::Ipv4Addr, sync::Arc};
 
 use mdns_sd::{Receiver, ServiceDaemon, ServiceEvent, ServiceInfo};
 use sd_tunnel_utils::PeerId;
+use tracing::warn;
 
 use crate::{NetworkManager, NetworkManagerError, P2PManager, PeerCandidate, PeerMetadata};
 
@@ -16,6 +17,7 @@ pub(crate) struct MDNS<TP2PManager: P2PManager> {
 
 impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 	pub fn init(nm: &Arc<NetworkManager<TP2PManager>>) -> Result<Self, NetworkManagerError> {
+		tracing::debug!("Starting mdns discovery service");
 		let mdns = ServiceDaemon::new()?;
 		let service_type = format!("_{}._udp.local.", TP2PManager::APPLICATION_NAME);
 
@@ -30,6 +32,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 	pub async fn handle_mdns_event(&self) {
 		match self.browser.recv_async().await {
 			Ok(event) => {
+				tracing::debug!("Handling incoming mdns event: {:?}", event);
 				match event {
 					ServiceEvent::SearchStarted(_) => {}
 					ServiceEvent::ServiceFound(_, _) => {}
@@ -61,7 +64,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 								self.nm.add_discovered_peer(peer);
 							}
 							Err(_) => {
-								println!("p2p warning: resolved peer advertising itself with an invalid peer_id '{}'", raw_peer_id);
+								warn!("resolved peer advertising itself with an invalid peer_id '{}'", raw_peer_id);
 							}
 						}
 					}
@@ -77,15 +80,19 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 								self.nm.remove_discovered_peer(peer_id);
 							}
 							Err(_) => {
-								println!("p2p warning: resolved peer advertising itself with an invalid peer_id '{}'", raw_peer_id);
+								warn!("resolved peer advertising itself with an invalid peer_id '{}'", raw_peer_id);
 							}
 						}
 					}
 					ServiceEvent::SearchStopped(_) => {}
 				}
 			}
-			Err(_) => {
-				println!("Error receiving MDNS event as the ServiceDaemon has been shut down. Local discovery has been disabled, please restart your app to re-enable local discovery!");
+			Err(err) => {
+				tracing::warn!(
+					"Error receiving MDNS event as the ServiceDaemon has been shut down: {:?}",
+					err
+				);
+				tracing::info!("Error receiving MDNS event as the ServiceDaemon has been shut down. Local discovery has been disabled, please restart your app to re-enable local discovery!");
 			}
 		}
 	}
@@ -105,17 +112,18 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 			self.nm.listen_addr.port(),
 			Some(self.nm.manager.get_metadata().to_hashmap()),
 		);
+		tracing::debug!("Registering mdns service entry: {:?}", service_info);
 
 		match service_info {
 			Ok(service_info) => match self.mdns.register(service_info) {
 				Ok(_) => {}
 				Err(err) => {
-					println!("sd-p2p warning: failed to register service: {}", err);
+					warn!("failed to register mdns service: {}", err);
 					return;
 				}
 			},
 			Err(err) => {
-				println!("sd-p2p warning: failed to register service: {}", err);
+				warn!("failed to register mdns service: {}", err);
 				return;
 			}
 		}
@@ -123,6 +131,8 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 
 	/// shutdown shuts down the MDNS service. This will advertise the current peer as unavailable to the rest of the network.
 	pub(crate) fn shutdown(&self) {
+		tracing::debug!("Shutting down mdns discovery service");
+
 		// The panics caused by `.expect` are acceptable here because they are run during shutdown where nothing can be done if they were to fail.
 		self.mdns
 			.unregister(&format!("{}.{}", self.nm.peer_id, self.service_type))

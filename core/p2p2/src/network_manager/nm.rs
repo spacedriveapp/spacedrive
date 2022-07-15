@@ -7,19 +7,18 @@ use std::{
 
 use bip39::{Language, Mnemonic};
 use dashmap::{DashMap, DashSet};
-use quinn::{
-	Chunk, ConnectionError, Endpoint, NewConnection, RecvStream, SendStream, ServerConfig,
-};
+use quinn::{Chunk, Endpoint, NewConnection, RecvStream, SendStream, ServerConfig};
 use rustls::{Certificate, PrivateKey};
 use sd_tunnel_utils::{quic, PeerId};
 use spake2::{Ed25519Group, Password, Spake2};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
+use tracing::{debug, error, warn};
 
 use crate::{
 	ConnectError, ConnectionEstablishmentPayload, ConnectionType, Identity, NetworkManagerConfig,
 	NetworkManagerError, NetworkManagerInternalEvent, P2PManager, PairingParticipantType,
-	PairingPayload, Peer, PeerCandidate, PeerMetadata,
+	PairingPayload, Peer, PeerCandidate,
 };
 
 /// Is the core of the P2P Library. It manages listening for and creating P2P network connections and also provides a nice API for the application embedding this library to interface with.
@@ -57,6 +56,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		manager: TP2PManager,
 		config: NetworkManagerConfig,
 	) -> Result<Arc<Self>, NetworkManagerError> {
+		debug!("Creating new NetworkManager...");
+
 		if !TP2PManager::APPLICATION_NAME
 			.chars()
 			.all(char::is_alphanumeric)
@@ -95,6 +96,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	}
 
 	pub(crate) fn add_discovered_peer(&self, peer: PeerCandidate) {
+		debug!("Discovered peer: {:?}", peer);
 		self.discovered_peers.insert(peer.id.clone(), peer.clone());
 		self.manager.peer_discovered(self, &peer.id);
 
@@ -105,13 +107,14 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			{
 				Ok(_) => {}
 				Err(err) => {
-					println!("Failed to send on internal_channel: {:?}", err);
+					error!("Failed to send on internal_channel: {:?}", err);
 				}
 			}
 		}
 	}
 
 	pub(crate) fn remove_discovered_peer(&self, peer_id: PeerId) {
+		debug!("Removing discovered peer: {:?}", peer_id);
 		self.discovered_peers.remove(&peer_id);
 		self.manager.peer_expired(self, peer_id);
 	}
@@ -125,12 +128,14 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	}
 
 	pub(crate) fn add_connected_peer(&self, peer: Peer<TP2PManager>) {
+		debug!("Connected with peer: {:?}", peer);
 		let peer_id = peer.id.clone();
 		self.connected_peers.insert(peer.id.clone(), peer);
 		self.manager.peer_connected(self, peer_id);
 	}
 
 	pub(crate) fn remove_connected_peer(&self, peer_id: PeerId) {
+		debug!("Disconnected with peer: {:?}", peer_id);
 		self.connected_peers.remove(&peer_id);
 		self.manager.peer_disconnected(self, peer_id);
 	}
@@ -147,6 +152,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 	/// adds a new peer to the known peers list. This will cause the NetworkManager to attempt to connect to the peer if it is discovered.
 	pub fn add_known_peer(&self, peer_id: PeerId) {
+		debug!("Adding '{:?}' as a known peer", peer_id);
 		self.known_peers.insert(peer_id.clone());
 
 		match self
@@ -155,7 +161,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		{
 			Ok(_) => {}
 			Err(err) => {
-				println!("Failed to send on internal_channel: {:?}", err);
+				error!("Failed to send on internal_channel: {:?}", err);
 			}
 		}
 	}
@@ -163,6 +169,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	/// send a single message to a peer and await a single response. This is good for quick one-off communications but any longer term communication should be done with a stream.
 	/// TODO: Error type
 	pub async fn send_to(&self, peer_id: PeerId, data: &[u8]) -> Result<Chunk, NMError> {
+		debug!("Sending message to '{:?}'", peer_id);
+
 		tokio::time::sleep(Duration::from_millis(500)).await; // TODO: Fix this issue. This workaround is because DashMap is eventually consistent
 
 		let peer = self
@@ -182,12 +190,15 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 						tx.finish().await;
 					}
 					Err(_) => {
-						println!("Failed to transmit result back to `NetworkManager::send_to` using oneshot! `send_to` will timeout and this error can be ignored.");
+						error!("Failed to transmit result back to `NetworkManager::send_to` using oneshot! `send_to` will timeout and this error can be ignored.");
 					}
 				},
 				Ok(None) => {}
 				Err(err) => {
-					println!("Failed to read from stream: {:?}", err);
+					warn!(
+						"Failed to read from stream with peer '{}': {:?}",
+						peer.id, err
+					);
 				}
 			}
 		});
@@ -198,6 +209,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 	/// stream will return the tx and rx channel to a new stream with a remote peer.
 	/// Be aware that when you drop the rx channel, the stream will be closed and any data in transit will be lost.
 	pub async fn stream(&self, peer_id: &PeerId) -> Result<(SendStream, RecvStream), NMError> {
+		debug!("Opening stream with peer '{:?}'", peer_id);
+
 		Ok(self
 			.connected_peers
 			.get(peer_id)
@@ -224,6 +237,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		remote_peer_id: PeerId,
 		extra_data: HashMap<String, String>,
 	) -> Result<String, NMError> {
+		debug!("Starting pairing with '{:?}'", remote_peer_id);
+
 		// TODO: Ensure we are not already paired with the peer
 
 		let candidate = self
@@ -270,11 +285,11 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			let data = match rx.read_chunk(64 * 1024, true).await {
 				Ok(Some(data)) => data,
 				Ok(None) => {
-					println!("p2p warning: connection closed before we could read from it!");
+					warn!("connection closed before we could read from it!");
 					return;
 				}
 				Err(err) => {
-					println!("p2p warning: error reading from connection: {}", err);
+					warn!("error reading from connection: {}", err);
 					return;
 				}
 			};
@@ -282,7 +297,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			let payload = match rmp_serde::decode::from_read(&data.bytes[..]) {
 				Ok(payload) => payload,
 				Err(err) => {
-					println!("p2p warning: error decoding pairing payload: {}", err);
+					warn!("error decoding pairing payload: {}", err);
 					return;
 				}
 			};
@@ -292,8 +307,8 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 					match spake.finish(&pake_msg) {
 						Ok(_) => {} // We only use SPAKE2 to ensure the current connection is to the peer we expect, hence we don't use the key which is returned.
 						Err(err) => {
-							println!(
-								"p2p warning: error pairing with peer. Connection has been tampered with! err: {:?}",
+							warn!(
+								"error pairing with peer. Connection has been tampered with! err: {:?}",
 								err
 							);
 							return;
@@ -313,7 +328,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 					{
 						Ok(_) => PairingPayload::PairingComplete,
 						Err(err) => {
-							println!("p2p manager error: {:?}", err);
+							warn!("p2p manager error: {:?}", err);
 							PairingPayload::PairingFailed
 						}
 					};
@@ -321,7 +336,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 					let resp = match rmp_serde::encode::to_vec(&resp) {
 						Ok(resp) => resp,
 						Err(err) => {
-							println!("p2p warning: error encoding pairing msg: {}", err);
+							warn!("error encoding pairing msg: {}", err);
 							return;
 						}
 					};
@@ -330,7 +345,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 					match tx.write_all(&resp).await {
 						Ok(_) => {}
 						Err(err) => {
-							println!("p2p warning: error writing pairing msg: {}", err);
+							warn!("error writing pairing msg: {}", err);
 							return;
 						}
 					}
@@ -348,7 +363,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 							tokio::spawn(peer.handler(bi_streams));
 						}
 						Err(err) => {
-							println!("p2p warning: error creating peer: {:?}", err);
+							warn!("error creating peer: {:?}", err);
 						}
 					}
 				}

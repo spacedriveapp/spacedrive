@@ -9,12 +9,12 @@ use crate::{
 };
 use chrono::{DateTime, FixedOffset};
 use futures::executor::block_on;
-use log::info;
 use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::{fs, io};
+use tracing::info;
 
 // FileIdentifierJob takes file_paths without a file_id and uniquely identifies them
 // first: generating the cas_id and extracting metadata

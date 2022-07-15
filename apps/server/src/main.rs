@@ -263,29 +263,6 @@ async fn not_found() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-	let (event_receiver, controller) = setup().await;
-
-	let port = env::var("PORT")
-		.map(|port| port.parse::<u16>().unwrap_or(8080))
-		.unwrap_or(8080);
-
-	let server = web::Data::new(EventServer::listen(event_receiver));
-	println!("Listening http://localhost:{}", port);
-	HttpServer::new(move || {
-		App::new()
-			.app_data(controller.clone())
-			.app_data(server.clone())
-			.service(index)
-			.service(healthcheck)
-			.service(ws_handler)
-			.default_service(web::route().to(not_found))
-	})
-	.bind(("0.0.0.0", port))?
-	.run()
-	.await
-}
-
-async fn setup() -> (mpsc::Receiver<CoreEvent>, web::Data<NodeController>) {
 	let data_dir_path = match env::var(DATA_DIR_ENV_VAR) {
 		Ok(path) => Path::new(&path).to_path_buf(),
 		Err(_e) => {
@@ -301,9 +278,26 @@ async fn setup() -> (mpsc::Receiver<CoreEvent>, web::Data<NodeController>) {
 				.join("sdserver_data")
 		},
 	};
+	let port = env::var("PORT")
+		.map(|port| port.parse::<u16>().unwrap_or(8080))
+		.unwrap_or(8080);
 
-	let (controller, event_receiver, node) = Node::new(data_dir_path).await;
+	let (controller, event_receiver, node, _guard) = Node::new(data_dir_path).await;
 	tokio::spawn(node.start());
 
-	(event_receiver, web::Data::new(controller))
+	let controller = web::Data::new(controller);
+	let server = web::Data::new(EventServer::listen(event_receiver));
+	println!("Listening http://localhost:{}", port);
+	HttpServer::new(move || {
+		App::new()
+			.app_data(controller.clone())
+			.app_data(server.clone())
+			.service(index)
+			.service(healthcheck)
+			.service(ws_handler)
+			.default_service(web::route().to(not_found))
+	})
+	.bind(("0.0.0.0", port))?
+	.run()
+	.await
 }

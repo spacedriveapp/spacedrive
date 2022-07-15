@@ -7,7 +7,7 @@ use crate::{
 	prisma::{job, node},
 };
 use int_enum::IntEnum;
-use log::info;
+use tracing::info;
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, VecDeque},

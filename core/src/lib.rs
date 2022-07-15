@@ -1,5 +1,5 @@
 use crate::p2p::P2PData;
-use crate::p2p::{P2PEvent, SdP2PManager};
+use crate::p2p::P2PEvent;
 use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
 use ::p2p::{PeerCandidateTS, PeerId, PeerMetadata};
 use job::{JobManager, JobReport};
@@ -19,6 +19,10 @@ use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
 	oneshot,
 };
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_appender::rolling;
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{filter::LevelFilter, fmt, fmt::Layer, prelude::*};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -152,10 +156,43 @@ pub struct Node {
 	p2p: P2PData,
 }
 
+#[cfg(debug_assertions)]
+const CONSOLE_LOG_FILTER: LevelFilter = LevelFilter::DEBUG;
+
+#[cfg(not(debug_assertions))]
+const CONSOLE_LOG_FILTER: LevelFilter = LevelFilter::INFO;
+
 impl Node {
 	// create new instance of node, run startup tasks
-	pub async fn new(data_dir: PathBuf) -> (NodeController, mpsc::Receiver<CoreEvent>, Node) {
+	pub async fn new(
+		data_dir: PathBuf,
+	) -> (NodeController, mpsc::Receiver<CoreEvent>, Node, WorkerGuard) {
 		fs::create_dir_all(&data_dir).unwrap();
+
+		let (non_blocking, _guard) = tracing_appender::non_blocking(rolling::daily(
+			Path::new(&data_dir).join("logs"),
+			"log",
+		));
+		// TODO: Make logs automatically delete after x time https://github.com/tokio-rs/tracing/pull/2169
+
+		tracing_subscriber::registry()
+			.with(
+				EnvFilter::from_default_env()
+					.add_directive("warn".parse().expect("Error invalid tracing directive!"))
+					.add_directive(
+						"sdcore=debug"
+							.parse()
+							.expect("Error invalid tracing directive!"),
+					),
+			)
+			.with(fmt::layer().with_filter(CONSOLE_LOG_FILTER))
+			.with(
+				Layer::default()
+					.with_writer(non_blocking)
+					.with_ansi(false)
+					.with_filter(LevelFilter::DEBUG),
+			)
+			.init();
 
 		let (event_sender, event_recv) = mpsc::channel(100);
 		let config = NodeConfigManager::new(data_dir.clone()).await.unwrap();
@@ -190,6 +227,7 @@ impl Node {
 			},
 			event_recv,
 			node,
+			_guard,
 		)
 	}
 
