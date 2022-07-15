@@ -133,6 +133,7 @@ model File {
     tags       TagOnFile[]
     labels     LabelOnFile[]
     albums     FileInAlbum[]
+    spaces     FileInSpace[]
     paths      FilePath[]
     comments   Comment[]
     media_data MediaData?
@@ -246,7 +247,7 @@ model TagOnFile {
     file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     @@id([tag_id, file_id])
-    @@map("tags_on_files")
+    @@map("tags_on_file")
 }
 
 model Label {
@@ -270,7 +271,32 @@ model LabelOnFile {
     file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     @@id([label_id, file_id])
-    @@map("label_on_files")
+    @@map("label_on_file")
+}
+
+model Space {
+    id            Int      @id @default(autoincrement())
+    pub_id        String   @unique
+    name          String?
+    description   String?
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+
+    files FileInSpace[]
+    @@map("spaces")
+}
+
+model FileInSpace {
+    date_created DateTime @default(now())
+
+    space_id Int
+    space    Space @relation(fields: [space_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    file_id Int
+    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@id([space_id, file_id])
+    @@map("file_in_space")
 }
 
 model Job {

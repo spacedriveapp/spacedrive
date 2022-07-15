@@ -21,7 +21,7 @@ interface IColumn {
 
 const PADDING_SIZE = 130;
 
-// Function ensure no types are loss, but guarantees that they are Column[]
+// Function ensure no types are lost, but guarantees that they are Column[]
 function ensureIsColumns<T extends IColumn[]>(data: T) {
 	return data;
 }
@@ -48,6 +48,7 @@ const GridItemContainer = styled.div`
 `;
 
 export const FileList: React.FC<{ location_id: number; path: string; limit: number }> = (props) => {
+	const path = props.path;
 	const size = useWindowSize();
 	const tableContainer = useRef<null | HTMLDivElement>(null);
 	const VList = useRef<null | VirtuosoHandle>(null);
@@ -55,8 +56,6 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	const { data: client } = useBridgeQuery('NodeGetState', undefined, {
 		refetchOnWindowFocus: false
 	});
-
-	const path = props.path;
 
 	const { selectedRowIndex, setSelectedRowIndex, setLocationId, layoutMode } = useExplorerStore();
 	const [goingUp, setGoingUp] = useState(false);

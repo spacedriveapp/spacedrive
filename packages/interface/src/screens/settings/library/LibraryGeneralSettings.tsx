@@ -64,7 +64,7 @@ export default function LibraryGeneralSettings() {
 			/>
 			<div className="flex flex-row pb-3 space-x-5">
 				<div className="flex flex-col flex-grow">
-					<span className="mb-1 font-medium text-gray-700 dark:text-gray-100">Name</span>
+					<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">Name</span>
 					<Input
 						value={name}
 						onChange={(e) => setName(e.target.value)}
@@ -72,7 +72,9 @@ export default function LibraryGeneralSettings() {
 					/>
 				</div>
 				<div className="flex flex-col flex-grow">
-					<span className="mb-1 font-medium text-gray-700 dark:text-gray-100">Description</span>
+					<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">
+						Description
+					</span>
 					<Input
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}

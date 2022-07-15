@@ -31,19 +31,27 @@ export interface TopBarButtonProps
 }
 interface SearchBarProps extends DefaultProps {}
 
-const TopBarButton: React.FC<TopBarButtonProps> = ({ icon: Icon, ...props }) => {
+const TopBarButton: React.FC<TopBarButtonProps> = ({
+	icon: Icon,
+	left,
+	right,
+	group,
+	active,
+	className,
+	...props
+}) => {
 	return (
 		<button
 			{...props}
 			className={clsx(
 				'mr-[1px] py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-550 rounded-md transition-colors duration-100',
 				{
-					'rounded-r-none rounded-l-none': props.group && !props.left && !props.right,
-					'rounded-r-none': props.group && props.left,
-					'rounded-l-none': props.group && props.right,
-					'dark:bg-gray-550': props.active
+					'rounded-r-none rounded-l-none': group && !left && !right,
+					'rounded-r-none': group && left,
+					'rounded-l-none': group && right,
+					'dark:bg-gray-550': active
 				},
-				props.className
+				className
 			)}
 		>
 			<Icon weight={'regular'} className="m-0.5 w-5 h-5 text-gray-450 dark:text-gray-150" />
