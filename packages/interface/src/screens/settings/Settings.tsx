@@ -1,4 +1,5 @@
 import {
+	AnnotationIcon,
 	CogIcon,
 	CollectionIcon,
 	DatabaseIcon,
@@ -8,12 +9,17 @@ import {
 	KeyIcon,
 	LibraryIcon,
 	LightBulbIcon,
+	LockClosedIcon,
+	ShieldCheckIcon,
+	SparklesIcon,
 	TagIcon,
 	TerminalIcon
 } from '@heroicons/react/outline';
 import {
 	BookOpen,
 	Cloud,
+	FlyingSaucer,
+	HandWaving,
 	HardDrive,
 	Hash,
 	Info,
@@ -21,6 +27,7 @@ import {
 	PaintBrush,
 	PuzzlePiece,
 	ShareNetwork,
+	Shield,
 	UsersFour
 } from 'phosphor-react';
 import React from 'react';
@@ -43,6 +50,10 @@ export const SettingsScreen: React.FC = () => {
 			<SidebarLink to="/settings/libraries">
 				<SettingsIcon component={CollectionIcon} />
 				Libraries
+			</SidebarLink>
+			<SidebarLink to="/settings/privacy">
+				<SettingsIcon component={ShieldCheckIcon} />
+				Privacy
 			</SidebarLink>
 			<SidebarLink to="/settings/appearance">
 				<SettingsIcon component={PaintBrush} />
@@ -86,7 +97,7 @@ export const SettingsScreen: React.FC = () => {
 				<SettingsIcon component={ShareNetwork} />
 				Sync
 			</SidebarLink> */}
-			<SettingsHeading>Advanced</SettingsHeading>
+			{/* <SettingsHeading>Advanced</SettingsHeading>
 			<SidebarLink to="/settings/p2p">
 				<SettingsIcon component={ShareNetwork} />
 				Networking
@@ -94,15 +105,15 @@ export const SettingsScreen: React.FC = () => {
 			<SidebarLink to="/settings/experimental">
 				<SettingsIcon component={TerminalIcon} />
 				Developer
-			</SidebarLink>
+			</SidebarLink> */}
 
 			<SettingsHeading>Resources</SettingsHeading>
 			<SidebarLink to="/settings/about">
-				<SettingsIcon component={BookOpen} />
+				<SettingsIcon component={FlyingSaucer} />
 				About
 			</SidebarLink>
 			<SidebarLink to="/settings/changelog">
-				<SettingsIcon component={LightBulbIcon} />
+				<SettingsIcon component={AnnotationIcon} />
 				Changelog
 			</SidebarLink>
 			<SidebarLink to="/settings/support">

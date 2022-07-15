@@ -22,7 +22,7 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
 		{({ isActive }) => (
 			<span
 				className={clsx(
-					'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
+					'max-w mb-[2px] text-gray-550 dark:text-gray-300 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
 						'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 					},

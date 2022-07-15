@@ -17,6 +17,10 @@ import AppearanceSettings from './screens/settings/client/AppearanceSettings';
 import ExtensionSettings from './screens/settings/client/ExtensionsSettings';
 import GeneralSettings from './screens/settings/client/GeneralSettings';
 import KeybindSettings from './screens/settings/client/KeybindSettings';
+import PrivacySettings from './screens/settings/client/PrivacySettings';
+import AboutSpacedrive from './screens/settings/info/AboutSpacedrive';
+import Changelog from './screens/settings/info/Changelog';
+import Support from './screens/settings/info/Support';
 import ContactsSettings from './screens/settings/library/ContactsSettings';
 import KeysSettings from './screens/settings/library/KeysSetting';
 import LibraryGeneralSettings from './screens/settings/library/LibraryGeneralSettings';
@@ -79,6 +83,10 @@ export function AppRouter() {
 							<Route path="tags" element={<TagsSettings />} />
 							<Route path="nodes" element={<NodesSettings />} />
 							<Route path="keys" element={<KeysSettings />} />
+							<Route path="privacy" element={<PrivacySettings />} />
+							<Route path="about" element={<AboutSpacedrive />} />
+							<Route path="changelog" element={<Changelog />} />
+							<Route path="support" element={<Support />} />
 						</Route>
 						<Route path="explorer/:id" element={<ExplorerScreen />} />
 						<Route path="tag/:id" element={<TagScreen />} />
