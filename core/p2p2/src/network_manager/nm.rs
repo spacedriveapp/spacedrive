@@ -186,9 +186,12 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 			// TODO: Max length of packet should be a constant in sd-tunnel-utils::quic
 			match rx.read_chunk(64 * 1024, true).await {
 				Ok(Some(data)) => match oneshot_tx.send(data) {
-					Ok(_) => {
-						tx.finish().await;
-					}
+					Ok(_) => match tx.finish().await {
+						Ok(_) => {}
+						Err(err) => {
+							warn!("Failed to finish connection: {:?}", err);
+						}
+					},
 					Err(_) => {
 						error!("Failed to transmit result back to `NetworkManager::send_to` using oneshot! `send_to` will timeout and this error can be ignored.");
 					}

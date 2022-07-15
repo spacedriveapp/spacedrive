@@ -33,17 +33,22 @@ impl<TP2PManager: P2PManager> GlobalDiscovery<TP2PManager> {
 
 		// TODO: Allow the tunnel server to accept a list of PeerId's instead of doing heaps of requests
 		let peers = self.nm.known_peers.iter().map(|v| v.clone()).collect();
-		let msg = self
+		match self
 			.client
 			.send_message(Message::QueryClientAnnouncement(peers))
 			.await
-			.map_err(|err| {
+		{
+			Ok(_) => {
+				tracing::debug!("Successfully sent query announcement");
+			}
+			Err(err) => {
 				warn!(
 					"[TODO: WIP FEATURE REPORTED ERROR] Spacetunnel failed lookup peers with error: {:?}",
 					err
 				);
 				// TODO: Handle error when this is implemented.
-			});
+			}
+		}
 
 		// TODO: Handle error from discovery service
 		// self.nm.discovered_peers.insert(key, value); // TODO: make this work
@@ -63,12 +68,15 @@ impl<TP2PManager: P2PManager> GlobalDiscovery<TP2PManager> {
 			announcement
 		);
 
-		let msg = self.client.send_message(announcement).await.map_err(|err| {
-			warn!("[TODO: WIP FEATURE REPORTED ERROR] Spacetunnel failed announcement with error: {:?}", err);
-			// TODO: Handle error when this is implemented.
-		});
+		match self.client.send_message(announcement).await {
+			Ok(_) => tracing::debug!("Successfully registered with global discovery service"),
+			Err(err) => {
+				warn!("[TODO: WIP FEATURE REPORTED ERROR] Spacetunnel failed announcement with error: {:?}", err);
+				// TODO: Handle error when this is implemented.
+			}
+		}
 
-		// // TODO: Handle error from discovery service
+		// TODO: Handle error from discovery service
 	}
 
 	pub(crate) fn shutdown(&self) {

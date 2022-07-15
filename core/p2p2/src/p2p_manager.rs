@@ -16,6 +16,7 @@ pub enum PairingParticipantType {
 
 /// Is implement by the application which is embedding this P2P library.
 /// This trait allows your application which holds the users state to hook into the P2P lifecycle and make decisions from the state it holds.
+#[allow(unused_variables)]
 pub trait P2PManager: Clone + Send + Sync + Sized + 'static {
 	const APPLICATION_NAME: &'static str;
 

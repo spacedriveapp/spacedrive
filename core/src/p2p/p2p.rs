@@ -16,6 +16,7 @@ use tokio::sync::{
 	mpsc::{self},
 	oneshot,
 };
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -79,26 +80,40 @@ impl P2PManager for SdP2PManager {
 		}
 	}
 
-	fn peer_discovered(&self, nm: &NetworkManager<Self>, peer_id: &PeerId) {
-		self.event_channel
-			.send(P2PEvent::PeerDiscovered(peer_id.clone()));
+	fn peer_discovered(&self, _nm: &NetworkManager<Self>, peer_id: &PeerId) {
+		match self
+			.event_channel
+			.send(P2PEvent::PeerDiscovered(peer_id.clone()))
+		{
+			Ok(_) => (),
+			Err(err) => error!("Error sending P2PEvent::PeerDiscovered: {}", err),
+		}
 	}
 
-	fn peer_expired(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {
-		self.event_channel.send(P2PEvent::PeerExpired(peer_id));
+	fn peer_expired(&self, _nm: &NetworkManager<Self>, peer_id: PeerId) {
+		match self.event_channel.send(P2PEvent::PeerExpired(peer_id)) {
+			Ok(_) => (),
+			Err(err) => error!("Error sending P2PEvent::PeerExpired: {}", err),
+		}
 	}
 
-	fn peer_connected(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {
-		self.event_channel.send(P2PEvent::PeerConnected(peer_id));
+	fn peer_connected(&self, _nm: &NetworkManager<Self>, peer_id: PeerId) {
+		match self.event_channel.send(P2PEvent::PeerConnected(peer_id)) {
+			Ok(_) => (),
+			Err(err) => error!("Error sending P2PEvent::PeerConnected: {}", err),
+		}
 	}
 
-	fn peer_disconnected(&self, nm: &NetworkManager<Self>, peer_id: PeerId) {
-		self.event_channel.send(P2PEvent::PeerDisconnected(peer_id));
+	fn peer_disconnected(&self, _nm: &NetworkManager<Self>, peer_id: PeerId) {
+		match self.event_channel.send(P2PEvent::PeerDisconnected(peer_id)) {
+			Ok(_) => (),
+			Err(err) => error!("Error sending P2PEvent::PeerDisconnected: {}", err),
+		}
 	}
 
 	fn peer_pairing_request(
 		&self,
-		nm: &NetworkManager<Self>,
+		_nm: &NetworkManager<Self>,
 		peer_id: &PeerId,
 		peer_metadata: &PeerMetadata,
 		extra_data: &HashMap<String, String>,
@@ -108,17 +123,20 @@ impl P2PManager for SdP2PManager {
 			.lock()
 			.unwrap()
 			.insert(peer_id.clone(), password_resp);
-		self.event_channel.send(P2PEvent::PeerPairingRequest {
+		match self.event_channel.send(P2PEvent::PeerPairingRequest {
 			peer_id: peer_id.clone(),
 			library_id: Uuid::from_str(&extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap())
 				.unwrap(),
 			peer_metadata: peer_metadata.clone(),
-		});
+		}) {
+			Ok(_) => (),
+			Err(err) => error!("Error sending P2PEvent::PeerPairingRequest: {}", err),
+		}
 	}
 
 	fn peer_paired<'a>(
 		&'a self,
-		nm: &'a NetworkManager<Self>,
+		_nm: &'a NetworkManager<Self>,
 		direction: PairingParticipantType,
 		peer_id: &'a PeerId,
 		peer_metadata: &'a PeerMetadata,
@@ -137,8 +155,7 @@ impl P2PManager for SdP2PManager {
 					)
 					.unwrap();
 
-					let ctx = self
-						.library_manager
+					self.library_manager
 						.create_with_id(Uuid::parse_str(library_id).unwrap(), library_config)
 						.await
 						.unwrap();
@@ -147,7 +164,6 @@ impl P2PManager for SdP2PManager {
 				}
 			}
 
-			println!("ADDING PEER INTO DB {} {}", peer_id, peer_metadata.name); // TODO: Remove
 			let ctx = self
 				.library_manager
 				.get_ctx(library_id.clone())
@@ -168,23 +184,27 @@ impl P2PManager for SdP2PManager {
 				.await
 				.unwrap();
 
-			self.event_channel.send(P2PEvent::PeerPairingComplete {
+			match self.event_channel.send(P2PEvent::PeerPairingComplete {
 				peer_id: peer_id.clone(),
 				peer_metadata: peer_metadata.clone(),
 				library_id: Uuid::from_str(library_id).unwrap(), // TODO: Do this at start of function and throw if invalid
-			});
-
-			Ok(())
+			}) {
+				Ok(_) => Ok(()),
+				Err(err) => {
+					error!("Error sending P2PEvent::PeerPairingComplete: {}", err);
+					Err(())
+				}
+			}
 		})
 	}
 
 	fn peer_paired_rollback<'a>(
 		&'a self,
-		nm: &'a NetworkManager<Self>,
-		direction: PairingParticipantType,
-		peer_id: &'a PeerId,
-		peer_metadata: &'a PeerMetadata,
-		extra_data: &'a HashMap<String, String>,
+		_nm: &'a NetworkManager<Self>,
+		_direction: PairingParticipantType,
+		_peer_id: &'a PeerId,
+		_peer_metadata: &'a PeerMetadata,
+		_extra_data: &'a HashMap<String, String>,
 	) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'a>> {
 		Box::pin(async move {
 			println!("TODO: Rolling back changes from `peer_paired` as connection failed.");
