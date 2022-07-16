@@ -7,9 +7,9 @@ import CodeBlock from '../components/primitive/Codeblock';
 
 export const DebugScreen: React.FC<{}> = (props) => {
 	const appPropsContext = useContext(AppPropsContext);
-	const { data: nodeState } = useBridgeQuery('NodeGetState');
-	const { data: libraryState } = useBridgeQuery('NodeGetLibraries');
-	const { data: jobs } = useBridgeQuery('JobGetRunning');
+	const { data: nodeState } = useBridgeQuery('GetNode');
+	const { data: libraryState } = useBridgeQuery('GetLibraries');
+	const { data: jobs } = useBridgeQuery('GetRunningJobs');
 	const { data: jobHistory } = useLibraryQuery('JobGetHistory');
 	// const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
 	//   onMutate: () => {

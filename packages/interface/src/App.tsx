@@ -16,7 +16,7 @@ const queryClient = new QueryClient();
 function RouterContainer(props: { props: AppProps }) {
 	useCoreEvents();
 	const [appProps, setAppProps] = useState(props.props);
-	const { data: client } = useBridgeQuery('NodeGetState');
+	const { data: client } = useBridgeQuery('GetNode');
 
 	useEffect(() => {
 		setAppProps({

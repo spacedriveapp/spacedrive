@@ -58,7 +58,7 @@ function ExtensionItem(props: { extension: ExtensionItemData }) {
 }
 
 export default function ExtensionSettings() {
-	// const { data: volumes } = useBridgeQuery('SysGetVolumes');
+	// const { data: volumes } = useBridgeQuery('GetVolumes');
 
 	return (
 		<SettingsContainer>

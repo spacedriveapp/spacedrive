@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const appProps = useContext(AppPropsContext);
 
-	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('SysGetLocations');
+	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('GetLocations');
 
 	let locations = Array.isArray(locationsResponse) ? locationsResponse : [];
 

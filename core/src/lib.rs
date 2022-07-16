@@ -8,6 +8,8 @@ use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
 };
+use tag::{Tag, TagWithFiles};
+
 use thiserror::Error;
 use tokio::sync::{
 	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -24,6 +26,7 @@ mod library;
 mod node;
 mod prisma;
 mod sys;
+mod tag;
 mod util;
 
 // a wrapper around external input with a returning sender channel for core to respond
@@ -235,13 +238,16 @@ impl Node {
 						CoreResponse::Success(())
 					}
 					// CRUD for tags
-					LibraryCommand::TagCreate { name: _, color: _ } => todo!(),
-					LibraryCommand::TagAssign {
-						file_id: _,
-						tag_id: _,
-					} => todo!(),
-					LibraryCommand::TagUpdate { name: _, color: _ } => todo!(),
-					LibraryCommand::TagDelete { id: _ } => todo!(),
+					LibraryCommand::TagCreate { name, color } => {
+						tag::create_tag(ctx, name, color).await?
+					}
+					LibraryCommand::TagAssign { file_id, tag_id } => {
+						tag::tag_assign(ctx, file_id, tag_id).await?
+					}
+					LibraryCommand::TagDelete { id } => tag::tag_delete(ctx, id).await?,
+					LibraryCommand::TagUpdate { id, name, color } => {
+						tag::update_tag(ctx, id, name, color).await?
+					}
 					// CRUD for libraries
 					LibraryCommand::SysVolumeUnmount { id: _ } => todo!(),
 					LibraryCommand::GenerateThumbsForLocation { id, path } => {
@@ -269,18 +275,15 @@ impl Node {
 	// query sources of data
 	async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
 		Ok(match query {
-			ClientQuery::NodeGetLibraries => CoreResponse::NodeGetLibraries(
-				self.library_manager.get_all_libraries_config().await,
-			),
-			ClientQuery::NodeGetState => CoreResponse::NodeGetState(NodeState {
+			ClientQuery::GetLibraries => {
+				CoreResponse::GetLibraries(self.library_manager.get_all_libraries_config().await)
+			}
+			ClientQuery::GetNode => CoreResponse::GetNode(NodeState {
 				config: self.config.get().await,
 				data_path: self.config.data_directory().to_str().unwrap().to_string(),
 			}),
-			ClientQuery::SysGetVolumes => CoreResponse::SysGetVolumes(sys::Volume::get_volumes()?),
-			ClientQuery::JobGetRunning => {
-				CoreResponse::JobGetRunning(self.jobs.get_running().await)
-			}
 			ClientQuery::GetNodes => todo!(),
+			ClientQuery::GetVolumes => CoreResponse::GetVolumes(sys::Volume::get_volumes()?),
 			ClientQuery::LibraryQuery { library_id, query } => {
 				let ctx = match self.library_manager.get_ctx(library_id.clone()).await {
 					Some(ctx) => ctx,
@@ -290,12 +293,15 @@ impl Node {
 					}
 				};
 				match query {
-					LibraryQuery::SysGetLocations => {
-						CoreResponse::SysGetLocations(sys::get_locations(&ctx).await?)
+					LibraryQuery::GetLocations => {
+						CoreResponse::GetLocations(sys::get_locations(&ctx).await?)
+					}
+					LibraryQuery::GetRunningJobs => {
+						CoreResponse::GetRunningJobs(self.jobs.get_running().await)
 					}
 					// get location from library
-					LibraryQuery::SysGetLocation { id } => {
-						CoreResponse::SysGetLocation(sys::get_location(&ctx, id).await?)
+					LibraryQuery::GetLocation { id } => {
+						CoreResponse::GetLocation(sys::get_location(&ctx, id).await?)
 					}
 					// return contents of a directory for the explorer
 					LibraryQuery::LibGetExplorerDir {
@@ -305,13 +311,18 @@ impl Node {
 					} => CoreResponse::LibGetExplorerDir(
 						file::explorer::open_dir(&ctx, &location_id, &path).await?,
 					),
-					LibraryQuery::LibGetTags => todo!(),
 					LibraryQuery::JobGetHistory => {
 						CoreResponse::JobGetHistory(JobManager::get_history(&ctx).await?)
 					}
 					LibraryQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
 						library::Statistics::calculate(&ctx).await?,
 					),
+					LibraryQuery::LibGetTags { name_starts_with } => {
+						tag::get_all_tags(ctx, name_starts_with).await?
+					}
+					LibraryQuery::LibGetFilesTagged { tag_id } => {
+						tag::get_files_for_tag(ctx, tag_id).await?
+					}
 				}
 			}
 		})
@@ -347,27 +358,68 @@ pub enum ClientCommand {
 #[ts(export)]
 pub enum LibraryCommand {
 	// Files
-	FileReadMetaData { id: i32 },
-	FileSetNote { id: i32, note: Option<String> },
-	FileSetFavorite { id: i32, favorite: bool },
+	FileReadMetaData {
+		id: i32,
+	},
+	FileSetNote {
+		id: i32,
+		note: Option<String>,
+	},
+	FileSetFavorite {
+		id: i32,
+		favorite: bool,
+	},
 	// FileEncrypt { id: i32, algorithm: EncryptionAlgorithm },
-	FileDelete { id: i32 },
+	FileDelete {
+		id: i32,
+	},
 	// Tags
-	TagCreate { name: String, color: String },
-	TagUpdate { name: String, color: String },
-	TagAssign { file_id: i32, tag_id: i32 },
-	TagDelete { id: i32 },
+	TagCreate {
+		name: String,
+		color: String,
+	},
+	TagUpdate {
+		id: i32,
+		name: Option<String>,
+		color: Option<String>,
+	},
+	TagAssign {
+		file_id: i32,
+		tag_id: i32,
+	},
+	TagDelete {
+		id: i32,
+	},
 	// Locations
-	LocCreate { path: String },
-	LocUpdate { id: i32, name: Option<String> },
-	LocDelete { id: i32 },
-	LocFullRescan { id: i32 },
-	LocQuickRescan { id: i32 },
+	LocCreate {
+		path: String,
+	},
+	LocUpdate {
+		id: i32,
+		name: Option<String>,
+	},
+	LocDelete {
+		id: i32,
+	},
+	LocFullRescan {
+		id: i32,
+	},
+	LocQuickRescan {
+		id: i32,
+	},
 	// System
-	SysVolumeUnmount { id: i32 },
-	GenerateThumbsForLocation { id: i32, path: String },
+	SysVolumeUnmount {
+		id: i32,
+	},
+	GenerateThumbsForLocation {
+		id: i32,
+		path: String,
+	},
 	// PurgeDatabase,
-	IdentifyUniqueFiles { id: i32, path: String },
+	IdentifyUniqueFiles {
+		id: i32,
+		path: String,
+	},
 }
 
 /// is a query destined for the core
@@ -375,10 +427,10 @@ pub enum LibraryCommand {
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum ClientQuery {
-	NodeGetLibraries,
-	NodeGetState,
-	SysGetVolumes,
-	JobGetRunning,
+	GetLibraries,
+	GetNode,
+	GetVolumes,
+
 	GetNodes,
 	LibraryQuery {
 		library_id: String,
@@ -391,18 +443,24 @@ pub enum ClientQuery {
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum LibraryQuery {
-	LibGetTags,
 	JobGetHistory,
-	SysGetLocations,
-	SysGetLocation {
+	GetLocations,
+	GetLocation {
 		id: i32,
 	},
+	GetRunningJobs,
 	LibGetExplorerDir {
 		location_id: i32,
 		path: String,
 		limit: i32,
 	},
 	GetLibraryStatistics,
+	LibGetTags {
+		name_starts_with: Option<String>,
+	},
+	LibGetFilesTagged {
+		tag_id: i32,
+	},
 }
 
 // represents an event this library can emit
@@ -433,14 +491,18 @@ pub struct NodeState {
 pub enum CoreResponse {
 	Success(()),
 	Error(String),
-	NodeGetLibraries(Vec<LibraryConfigWrapped>),
-	SysGetVolumes(Vec<sys::Volume>),
-	SysGetLocation(sys::LocationResource),
-	SysGetLocations(Vec<sys::LocationResource>),
+	GetLibraries(Vec<LibraryConfigWrapped>),
+	GetVolumes(Vec<sys::Volume>),
+	TagCreateResponse(tag::Tag),
+	GetTag(Option<tag::Tag>),
+	GetTags(Vec<tag::Tag>),
+	GetLocation(sys::LocationResource),
+	GetLocations(Vec<sys::LocationResource>),
 	LibGetExplorerDir(file::DirectoryWithContents),
-	NodeGetState(NodeState),
+	GetNode(NodeState),
 	LocCreate(sys::LocationResource),
-	JobGetRunning(Vec<JobReport>),
+	OpenTag(Vec<tag::TagWithFiles>),
+	GetRunningJobs(Vec<JobReport>),
 	JobGetHistory(Vec<JobReport>),
 	GetLibraryStatistics(library::Statistics),
 }

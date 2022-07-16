@@ -53,7 +53,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	const tableContainer = useRef<null | HTMLDivElement>(null);
 	const VList = useRef<null | VirtuosoHandle>(null);
 
-	const { data: client } = useBridgeQuery('NodeGetState', undefined, {
+	const { data: client } = useBridgeQuery('GetNode', undefined, {
 		refetchOnWindowFocus: false
 	});
 

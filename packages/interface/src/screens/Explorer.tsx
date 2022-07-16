@@ -19,7 +19,7 @@ export const ExplorerScreen: React.FC<{}> = () => {
 	const { selectedRowIndex } = useExplorerStore();
 
 	// Current Location
-	const { data: currentLocation } = useLibraryQuery('SysGetLocation', { id: location_id });
+	const { data: currentLocation } = useLibraryQuery('GetLocation', { id: location_id });
 
 	// Current Directory
 	const { data: currentDir } = useLibraryQuery(
