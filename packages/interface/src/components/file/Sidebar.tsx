@@ -192,15 +192,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					<Icon component={PhotographIcon} />
 					Photos
 				</SidebarLink>
-
-				{isExperimental ? (
-					<SidebarLink to="debug">
-						<Icon component={Code} />
-						Debug
-					</SidebarLink>
-				) : (
-					<></>
-				)}
 			</div>
 			<div>
 				<Heading>Locations</Heading>
