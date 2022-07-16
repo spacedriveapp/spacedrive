@@ -158,7 +158,7 @@ pub async fn set_note(
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
 		library_id: ctx.id.to_string(),
-		query: LibraryQuery::LibGetExplorerDir {
+		query: LibraryQuery::GetExplorerDir {
 			limit: 0,
 			path: "".to_string(),
 			location_id: 0,
@@ -185,7 +185,7 @@ pub async fn favorite(
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
 		library_id: ctx.id.to_string(),
-		query: LibraryQuery::LibGetExplorerDir {
+		query: LibraryQuery::GetExplorerDir {
 			limit: 0,
 			path: "".to_string(),
 			location_id: 0,

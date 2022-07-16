@@ -192,7 +192,7 @@ impl Worker {
 
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
 						library_id: ctx.id.to_string(),
-						query: LibraryQuery::JobGetHistory,
+						query: LibraryQuery::GetJobHistory,
 					}))
 					.await;
 					break;
@@ -203,7 +203,7 @@ impl Worker {
 
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
 						library_id: ctx.id.to_string(),
-						query: LibraryQuery::JobGetHistory,
+						query: LibraryQuery::GetJobHistory,
 					}))
 					.await;
 

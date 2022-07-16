@@ -10,7 +10,7 @@ export const DebugScreen: React.FC<{}> = (props) => {
 	const { data: nodeState } = useBridgeQuery('GetNode');
 	const { data: libraryState } = useBridgeQuery('GetLibraries');
 	const { data: jobs } = useBridgeQuery('GetRunningJobs');
-	const { data: jobHistory } = useLibraryQuery('JobGetHistory');
+	const { data: jobHistory } = useLibraryQuery('GetJobHistory');
 	// const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
 	//   onMutate: () => {
 	//     alert('Database purged');

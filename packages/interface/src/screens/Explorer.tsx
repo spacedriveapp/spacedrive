@@ -23,7 +23,7 @@ export const ExplorerScreen: React.FC<{}> = () => {
 
 	// Current Directory
 	const { data: currentDir } = useLibraryQuery(
-		'LibGetExplorerDir',
+		'GetExplorerDir',
 		{ location_id: location_id!, path, limit },
 		{ enabled: !!location_id }
 	);

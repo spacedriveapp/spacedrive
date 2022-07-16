@@ -249,7 +249,7 @@ impl Node {
 						tag::update_tag(ctx, id, name, color).await?
 					}
 					// CRUD for libraries
-					LibraryCommand::SysVolumeUnmount { id: _ } => todo!(),
+					LibraryCommand::VolUnmount { id: _ } => todo!(),
 					LibraryCommand::GenerateThumbsForLocation { id, path } => {
 						ctx.spawn_job(Box::new(ThumbnailJob {
 							location_id: id,
@@ -304,23 +304,23 @@ impl Node {
 						CoreResponse::GetLocation(sys::get_location(&ctx, id).await?)
 					}
 					// return contents of a directory for the explorer
-					LibraryQuery::LibGetExplorerDir {
+					LibraryQuery::GetExplorerDir {
 						path,
 						location_id,
 						limit: _,
-					} => CoreResponse::LibGetExplorerDir(
+					} => CoreResponse::GetExplorerDir(
 						file::explorer::open_dir(&ctx, &location_id, &path).await?,
 					),
-					LibraryQuery::JobGetHistory => {
-						CoreResponse::JobGetHistory(JobManager::get_history(&ctx).await?)
+					LibraryQuery::GetJobHistory => {
+						CoreResponse::GetJobHistory(JobManager::get_history(&ctx).await?)
 					}
 					LibraryQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
 						library::Statistics::calculate(&ctx).await?,
 					),
-					LibraryQuery::LibGetTags { name_starts_with } => {
+					LibraryQuery::GetTags { name_starts_with } => {
 						tag::get_all_tags(ctx, name_starts_with).await?
 					}
-					LibraryQuery::LibGetFilesTagged { tag_id } => {
+					LibraryQuery::GetFilesTagged { tag_id } => {
 						tag::get_files_for_tag(ctx, tag_id).await?
 					}
 				}
@@ -408,7 +408,7 @@ pub enum LibraryCommand {
 		id: i32,
 	},
 	// System
-	SysVolumeUnmount {
+	VolUnmount {
 		id: i32,
 	},
 	GenerateThumbsForLocation {
@@ -430,7 +430,6 @@ pub enum ClientQuery {
 	GetLibraries,
 	GetNode,
 	GetVolumes,
-
 	GetNodes,
 	LibraryQuery {
 		library_id: String,
@@ -443,22 +442,22 @@ pub enum ClientQuery {
 #[serde(tag = "key", content = "params")]
 #[ts(export)]
 pub enum LibraryQuery {
-	JobGetHistory,
+	GetJobHistory,
 	GetLocations,
 	GetLocation {
 		id: i32,
 	},
 	GetRunningJobs,
-	LibGetExplorerDir {
+	GetExplorerDir {
 		location_id: i32,
 		path: String,
 		limit: i32,
 	},
 	GetLibraryStatistics,
-	LibGetTags {
+	GetTags {
 		name_starts_with: Option<String>,
 	},
-	LibGetFilesTagged {
+	GetFilesTagged {
 		tag_id: i32,
 	},
 }
@@ -498,12 +497,12 @@ pub enum CoreResponse {
 	GetTags(Vec<tag::Tag>),
 	GetLocation(sys::LocationResource),
 	GetLocations(Vec<sys::LocationResource>),
-	LibGetExplorerDir(file::DirectoryWithContents),
+	GetExplorerDir(file::DirectoryWithContents),
 	GetNode(NodeState),
 	LocCreate(sys::LocationResource),
 	OpenTag(Vec<tag::TagWithFiles>),
 	GetRunningJobs(Vec<JobReport>),
-	JobGetHistory(Vec<JobReport>),
+	GetJobHistory(Vec<JobReport>),
 	GetLibraryStatistics(library::Statistics),
 }
 

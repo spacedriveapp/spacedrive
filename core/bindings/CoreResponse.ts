@@ -16,9 +16,9 @@ export type CoreResponse =
 	| { key: 'GetVolumes'; data: Array<Volume> }
 	| { key: 'GetLocation'; data: LocationResource }
 	| { key: 'GetLocations'; data: Array<LocationResource> }
-	| { key: 'LibGetExplorerDir'; data: DirectoryWithContents }
+	| { key: 'GetExplorerDir'; data: DirectoryWithContents }
 	| { key: 'GetNode'; data: NodeState }
 	| { key: 'LocCreate'; data: LocationResource }
 	| { key: 'GetRunningJobs'; data: Array<JobReport> }
-	| { key: 'JobGetHistory'; data: Array<JobReport> }
+	| { key: 'GetJobHistory'; data: Array<JobReport> }
 	| { key: 'GetLibraryStatistics'; data: Statistics };

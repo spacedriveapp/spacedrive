@@ -60,7 +60,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	const { selectedRowIndex, setSelectedRowIndex, setLocationId, layoutMode } = useExplorerStore();
 	const [goingUp, setGoingUp] = useState(false);
 
-	const { data: currentDir } = useLibraryQuery('LibGetExplorerDir', {
+	const { data: currentDir } = useLibraryQuery('GetExplorerDir', {
 		location_id: props.location_id,
 		path,
 		limit: props.limit
