@@ -6,7 +6,7 @@ use crate::{
 		tag::{self},
 		tag_on_file,
 	},
-	CoreError, CoreResponse,
+	ClientQuery, CoreError, CoreEvent, CoreResponse, LibraryQuery,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -97,6 +97,12 @@ pub async fn create_tag(
 		.await
 		.unwrap();
 
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+		library_id: ctx.id.to_string(),
+		query: LibraryQuery::GetTags,
+	}))
+	.await;
+
 	Ok(CoreResponse::TagCreateResponse(created_tag.into()))
 }
 
@@ -155,16 +161,12 @@ pub async fn get_files_for_tag(ctx: LibraryContext, id: i32) -> Result<CoreRespo
 	Ok(CoreResponse::GetTag(tag))
 }
 
-pub async fn get_all_tags(
-	ctx: LibraryContext,
-	name_starts_with: Option<String>,
-) -> Result<CoreResponse, CoreError> {
+pub async fn get_all_tags(ctx: LibraryContext) -> Result<CoreResponse, CoreError> {
+	println!("getting tags");
 	let tags: Vec<Tag> = ctx
 		.db
 		.tag()
-		.find_many(vec![tag::name::starts_with(
-			name_starts_with.unwrap_or(String::new()),
-		)])
+		.find_many(vec![])
 		.exec()
 		.await?
 		.into_iter()

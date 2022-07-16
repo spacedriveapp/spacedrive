@@ -317,9 +317,7 @@ impl Node {
 					LibraryQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
 						library::Statistics::calculate(&ctx).await?,
 					),
-					LibraryQuery::GetTags { name_starts_with } => {
-						tag::get_all_tags(ctx, name_starts_with).await?
-					}
+					LibraryQuery::GetTags => tag::get_all_tags(ctx).await?,
 					LibraryQuery::GetFilesTagged { tag_id } => {
 						tag::get_files_for_tag(ctx, tag_id).await?
 					}
@@ -454,9 +452,7 @@ pub enum LibraryQuery {
 		limit: i32,
 	},
 	GetLibraryStatistics,
-	GetTags {
-		name_starts_with: Option<String>,
-	},
+	GetTags,
 	GetFilesTagged {
 		tag_id: i32,
 	},

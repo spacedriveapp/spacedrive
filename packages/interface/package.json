@@ -38,6 +38,7 @@
 		"phosphor-react": "^1.4.1",
 		"pretty-bytes": "^6.0.0",
 		"react": "^18.1.0",
+		"react-colorful": "^5.5.1",
 		"react-countup": "^6.2.0",
 		"react-dom": "^18.1.0",
 		"react-dropzone": "^14.2.1",

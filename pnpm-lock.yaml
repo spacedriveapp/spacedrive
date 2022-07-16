@@ -298,6 +298,7 @@ importers:
       prettier: ^2.6.2
       pretty-bytes: ^6.0.0
       react: ^18.1.0
+      react-colorful: ^5.5.1
       react-countup: ^6.2.0
       react-dom: ^18.1.0
       react-dropzone: ^14.2.1
@@ -347,6 +348,7 @@ importers:
       phosphor-react: 1.4.1_react@18.1.0
       pretty-bytes: 6.0.0
       react: 18.1.0
+      react-colorful: 5.5.1_ef5jwxihqo6n7gxfmzogljlgcm
       react-countup: 6.2.0_react@18.1.0
       react-dom: 18.1.0_react@18.1.0
       react-dropzone: 14.2.1_react@18.1.0
@@ -13908,6 +13910,16 @@ packages:
       '@types/canvas-confetti': 1.4.2
       canvas-confetti: 1.5.1
       react: 18.1.0
+    dev: false
+
+  /react-colorful/5.5.1_ef5jwxihqo6n7gxfmzogljlgcm:
+    resolution: {integrity: sha512-M1TJH2X3RXEt12sWkpa6hLc/bbYS0H6F4rIqjQZ+RxNBstpY67d9TrFXtqdZwhpmBXcCwEi7stKqFue3ZRkiOg==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      react: 18.1.0
+      react-dom: 18.1.0_react@18.1.0
     dev: false
 
   /react-countup/6.2.0_react@18.1.0:
