@@ -153,7 +153,7 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn edit_library(
+	pub(crate) async fn edit(
 		&self,
 		id: String,
 		name: Option<String>,

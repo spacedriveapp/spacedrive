@@ -5,8 +5,7 @@ import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
-import React, { useContext, useEffect } from 'react';
-import { useCountUp } from 'react-countup';
+import React, { useContext, useEffect, useState } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
@@ -52,26 +51,26 @@ export const useOverviewState = create<OverviewState>((set) => ({
 		}))
 }));
 
+function quadratic(duration: number, range: number, current: number) {
+	return ((duration * 3) / Math.pow(range, 3)) * Math.pow(current, 2);
+}
+
 const StatItem: React.FC<StatItemProps> = (props) => {
 	const { title, bytes = '0', isLoading } = props;
 
 	const appProps = useContext(AppPropsContext);
 
 	const size = byteSize(+bytes);
-	const counterRef = React.useRef<HTMLElement>(null);
 
-	const counter = useCountUp({
-		end: +size.value,
-		ref: counterRef,
-		delay: 0.1,
-		decimals: 1,
-		duration: appProps?.demoMode ? 1 : 0.5,
-		useEasing: true
-	});
+	const [count, setCount] = useState(0);
 
 	useEffect(() => {
-		counter.update(+size.value);
-	}, [bytes]);
+		if (count < +size.value) {
+			setTimeout(() => {
+				setCount((count) => count + 1);
+			}, quadratic(appProps?.demoMode ? 1000 : 500, +size.value, count));
+		}
+	}, [count, size]);
 
 	return (
 		<div
@@ -92,7 +91,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 						hidden: isLoading
 					})}
 				>
-					<span className="tabular-nums" ref={counterRef} />
+					<span className="tabular-nums">{count}</span>
 					<span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>
 				</div>
 			</span>
@@ -217,40 +216,9 @@ export const OverviewScreen = () => {
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 mt-4 space-y-4">
-					<Device
-						name={`James' MacBook Pro`}
-						size="1TB"
-						locations={[
-							{ name: 'Documents', folder: true },
-							{ name: 'Movies', folder: true },
-							{ name: 'Downloads', folder: true },
-							{ name: 'Minecraft', folder: true },
-							{ name: 'Projects', folder: true },
-							{ name: 'Notes', folder: true }
-						]}
-						type="desktop"
-					/>
-					<Device
-						name={`James' iPhone 12`}
-						size="47.7GB"
-						locations={[
-							{ name: 'Camera Roll', folder: true },
-							{ name: 'Notes', folder: true },
-							{ name: 'App.tsx', format: 'tsx', icon: 'reactts' },
-							{ name: 'vite.config.js', format: 'js', icon: 'vite' }
-						]}
-						type="phone"
-					/>
-					<Device
-						name={`Spacedrive Server`}
-						size="5GB"
-						locations={[
-							{ name: 'Cached', folder: true },
-							{ name: 'Photos', folder: true },
-							{ name: 'Documents', folder: true }
-						]}
-						type="server"
-					/>
+					<Device name={`James' MacBook Pro`} size="1TB" locations={[]} type="desktop" />
+					<Device name={`James' iPhone 12`} size="47.7GB" locations={[]} type="phone" />
+					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" />
 				</div>
 				<div className="px-5 py-3 text-sm text-gray-400 rounded-md bg-gray-50 dark:text-gray-400 dark:bg-gray-600">
 					<b>Note: </b>This is a pre-alpha build of Spacedrive, many features are yet to be

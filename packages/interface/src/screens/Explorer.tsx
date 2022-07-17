@@ -29,7 +29,7 @@ export const ExplorerScreen: React.FC<{}> = () => {
 	);
 
 	return (
-		<div className="relative flex flex-col w-full">
+		<div className="relative flex flex-col w-full bg-gray-600">
 			<TopBar />
 			<div className="relative flex flex-row w-full max-h-full">
 				<FileList location_id={location_id} path={path} limit={limit} />
