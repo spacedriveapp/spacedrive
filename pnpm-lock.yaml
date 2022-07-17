@@ -303,6 +303,7 @@ importers:
       react-dom: ^18.1.0
       react-dropzone: ^14.2.1
       react-error-boundary: ^3.1.4
+      react-hook-form: ^7.31.3
       react-hotkeys-hook: ^3.4.6
       react-json-view: ^1.21.3
       react-loading-icons: ^1.1.0
@@ -353,6 +354,7 @@ importers:
       react-dom: 18.1.0_react@18.1.0
       react-dropzone: 14.2.1_react@18.1.0
       react-error-boundary: 3.1.4_react@18.1.0
+      react-hook-form: 7.32.0_react@18.1.0
       react-hotkeys-hook: 3.4.6_ef5jwxihqo6n7gxfmzogljlgcm
       react-json-view: 1.21.3_ohobp6rpsmerwlq5ipwfh5yigy
       react-loading-icons: 1.1.0

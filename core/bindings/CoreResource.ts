@@ -2,5 +2,6 @@
 import type { File } from "./File";
 import type { JobReport } from "./JobReport";
 import type { LocationResource } from "./LocationResource";
+import type { Tag } from "./Tag";
 
-export type CoreResource = "Client" | "Library" | { Location: LocationResource } | { File: File } | { Job: JobReport } | "Tag";
+export type CoreResource = { key: "Client" } | { key: "Library" } | { key: "Location", data: LocationResource } | { key: "File", data: File } | { key: "Job", data: JobReport } | { key: "Tag", data: Tag };

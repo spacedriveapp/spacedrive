@@ -120,6 +120,12 @@ pub async fn update_tag(
 		.await
 		.unwrap();
 
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+		library_id: ctx.id.to_string(),
+		query: LibraryQuery::GetTags,
+	}))
+	.await;
+
 	Ok(CoreResponse::Success(()))
 }
 
@@ -146,6 +152,12 @@ pub async fn tag_delete(ctx: LibraryContext, id: i32) -> Result<CoreResponse, Co
 		.await?
 		.unwrap();
 
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+		library_id: ctx.id.to_string(),
+		query: LibraryQuery::GetTags,
+	}))
+	.await;
+
 	Ok(CoreResponse::Success(()))
 }
 
@@ -162,7 +174,6 @@ pub async fn get_files_for_tag(ctx: LibraryContext, id: i32) -> Result<CoreRespo
 }
 
 pub async fn get_all_tags(ctx: LibraryContext) -> Result<CoreResponse, CoreError> {
-	println!("getting tags");
 	let tags: Vec<Tag> = ctx
 		.db
 		.tag()

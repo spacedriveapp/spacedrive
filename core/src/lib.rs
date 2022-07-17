@@ -519,6 +519,7 @@ pub enum CoreError {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[serde(tag = "key", content = "data")]
 #[ts(export)]
 pub enum CoreResource {
 	Client,
@@ -526,5 +527,5 @@ pub enum CoreResource {
 	Location(sys::LocationResource),
 	File(file::File),
 	Job(JobReport),
-	Tag,
+	Tag(tag::Tag),
 }

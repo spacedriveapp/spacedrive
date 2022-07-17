@@ -43,6 +43,7 @@
 		"react-dom": "^18.1.0",
 		"react-dropzone": "^14.2.1",
 		"react-error-boundary": "^3.1.4",
+		"react-hook-form": "^7.31.3",
 		"react-hotkeys-hook": "^3.4.6",
 		"react-json-view": "^1.21.3",
 		"react-loading-icons": "^1.1.0",
