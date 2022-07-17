@@ -10,6 +10,7 @@ export interface AppProps {
 	transport: BaseTransport;
 	platform: Platform;
 	cdn_url?: CdnUrl;
+	data_path?: string;
 	convertFileSrc: (url: string) => string;
 	openDialog: (options: { directory?: boolean }) => Promise<string | string[] | null>;
 	onClose?: () => void;

@@ -1,8 +1,8 @@
 import '@fontsource/inter/variable.css';
-import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
+import { BaseTransport, ClientProvider, setTransport, useBridgeQuery } from '@sd/client';
 import { useCoreEvents } from '@sd/client';
 import { AppProps, AppPropsContext } from '@sd/client';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -13,12 +13,24 @@ import './style.scss';
 
 const queryClient = new QueryClient();
 
-function RouterContainer() {
+function RouterContainer(props: { props: AppProps }) {
 	useCoreEvents();
+	const [appProps, setAppProps] = useState(props.props);
+	const { data: client } = useBridgeQuery('NodeGetState');
+
+	useEffect(() => {
+		setAppProps({
+			...appProps,
+			data_path: client?.data_path
+		});
+	}, [client?.data_path]);
+
 	return (
-		<MemoryRouter>
-			<AppRouter />
-		</MemoryRouter>
+		<AppPropsContext.Provider value={Object.assign({ isFocused: true }, appProps)}>
+			<MemoryRouter>
+				<AppRouter />
+			</MemoryRouter>
+		</AppPropsContext.Provider>
 	);
 }
 
@@ -34,11 +46,9 @@ export default function App(props: AppProps) {
 		<>
 			<ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
 				<QueryClientProvider client={queryClient} contextSharing={false}>
-					<AppPropsContext.Provider value={Object.assign({ isFocused: true }, props)}>
-						<ClientProvider>
-							<RouterContainer />
-						</ClientProvider>
-					</AppPropsContext.Provider>
+					<ClientProvider>
+						<RouterContainer props={props} />
+					</ClientProvider>
 				</QueryClientProvider>
 			</ErrorBoundary>
 		</>

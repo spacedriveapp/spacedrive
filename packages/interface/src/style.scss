@@ -29,7 +29,7 @@ body {
 		width: 8px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-[#00000006] dark:bg-[#00000030] mt-[55px] rounded-[6px];
+		@apply bg-[#00000006] dark:bg-[#00000030] mt-[53px] rounded-[6px];
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;

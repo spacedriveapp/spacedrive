@@ -175,3 +175,30 @@ pub async fn set_note(
 
 	Ok(CoreResponse::Success(()))
 }
+
+pub async fn favorite(
+	ctx: LibraryContext,
+	id: i32,
+	favorite: bool,
+) -> Result<CoreResponse, CoreError> {
+	let _response = ctx
+		.db
+		.file()
+		.find_unique(file::id::equals(id))
+		.update(vec![file::favorite::set(favorite)])
+		.exec()
+		.await
+		.unwrap();
+
+	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+		library_id: ctx.id.to_string(),
+		query: LibraryQuery::LibGetExplorerDir {
+			limit: 0,
+			path: "".to_string(),
+			location_id: 0,
+		},
+	}))
+	.await;
+
+	Ok(CoreResponse::Success(()))
+}
