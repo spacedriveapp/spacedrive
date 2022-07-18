@@ -8,7 +8,7 @@ repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
 
 [features]
-p2p = [] # This feature controlls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
+p2p = [] # This feature controls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
 
 [dependencies]
 hostname = "0.3.1"

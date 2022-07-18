@@ -15,7 +15,7 @@ pub enum MigrationError {
 	DatabaseIntialisation(#[from] NewClientError),
 	#[error("An error occurred with the database while applying migrations")]
 	DatabaseError(#[from] prisma_client_rust::queries::Error),
-	#[error("An error occured reading the embedded migration files. {0}. Please report to Spacedrive developers!")]
+	#[error("An error occurred reading the embedded migration files. {0}. Please report to Spacedrive developers!")]
 	InvalidEmbeddedMigration(&'static str),
 }
 

@@ -43,7 +43,7 @@ pub struct JobManager {
 
 impl JobManager {
 	pub fn new() -> Arc<Self> {
-		let (internal_sender, mut internal_reciever) = mpsc::unbounded_channel();
+		let (internal_sender, mut internal_receiver) = mpsc::unbounded_channel();
 		let this = Arc::new(Self {
 			job_queue: RwLock::new(VecDeque::new()),
 			running_workers: RwLock::new(HashMap::new()),
@@ -52,7 +52,7 @@ impl JobManager {
 
 		let this2 = this.clone();
 		tokio::spawn(async move {
-			while let Some(event) = internal_reciever.recv().await {
+			while let Some(event) = internal_receiver.recv().await {
 				match event {
 					JobManagerEvent::IngestJob(ctx, job) => this2.clone().ingest(&ctx, job).await,
 				}
