@@ -3,6 +3,7 @@ use super::{
 	Job, JobManager,
 };
 use crate::{library::LibraryContext, ClientQuery, CoreEvent, LibraryQuery};
+
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -172,7 +173,10 @@ impl Worker {
 						}
 					}
 					ctx.emit(CoreEvent::InvalidateQueryDebounced(
-						ClientQuery::JobGetRunning,
+						ClientQuery::LibraryQuery {
+							library_id: ctx.id.to_string(),
+							query: LibraryQuery::GetRunningJobs,
+						},
 					))
 					.await;
 				}
@@ -180,12 +184,15 @@ impl Worker {
 					worker.job_report.status = JobStatus::Completed;
 					worker.job_report.update(&ctx).await.unwrap_or(());
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::JobGetRunning))
-						.await;
+					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+						library_id: ctx.id.to_string(),
+						query: LibraryQuery::GetRunningJobs,
+					}))
+					.await;
 
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
 						library_id: ctx.id.to_string(),
-						query: LibraryQuery::JobGetHistory,
+						query: LibraryQuery::GetJobHistory,
 					}))
 					.await;
 					break;
@@ -196,9 +203,10 @@ impl Worker {
 
 					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
 						library_id: ctx.id.to_string(),
-						query: LibraryQuery::JobGetHistory,
+						query: LibraryQuery::GetJobHistory,
 					}))
 					.await;
+
 					break;
 				}
 			}

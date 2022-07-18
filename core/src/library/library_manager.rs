@@ -138,7 +138,7 @@ impl LibraryManager {
 		self.libraries.write().await.push(library);
 
 		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
 			.await;
 
 		Ok(())
@@ -184,7 +184,7 @@ impl LibraryManager {
 		.await?;
 
 		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
 			.await;
 		Ok(())
 	}
@@ -209,7 +209,7 @@ impl LibraryManager {
 		libraries.retain(|l| l.id != id);
 
 		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::NodeGetLibraries))
+			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
 			.await;
 		Ok(())
 	}
