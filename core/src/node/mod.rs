@@ -15,17 +15,24 @@ pub struct LibraryNode {
 	pub last_seen: DateTime<Utc>,
 }
 
-impl Into<LibraryNode> for node::Data {
-	fn into(self) -> LibraryNode {
-		LibraryNode {
-			uuid: self.pub_id,
-			name: self.name,
-			platform: IntEnum::from_int(self.platform).unwrap(),
-			last_seen: self.last_seen.into(),
+impl From<node::Data> for LibraryNode {
+	fn from(data: node::Data) -> Self {
+		Self {
+			uuid: data.pub_id,
+			name: data.name,
+			platform: IntEnum::from_int(data.platform).unwrap(),
+			last_seen: data.last_seen.into(),
 		}
 	}
 }
 
+impl From<Box<node::Data>> for LibraryNode {
+	fn from(data: Box<node::Data>) -> Self {
+		Self::from(*data)
+	}
+}
+
+#[allow(clippy::upper_case_acronyms)]
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
 #[ts(export)]

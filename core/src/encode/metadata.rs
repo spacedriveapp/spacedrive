@@ -1,5 +1,4 @@
-extern crate ffmpeg_next as ffmpeg;
-use ffmpeg::format;
+use ffmpeg_next::format;
 
 #[derive(Default, Debug)]
 pub struct MediaItem {
@@ -125,10 +124,10 @@ pub struct AudioStream {
 // 				}
 // 				media_item.steams.push(stream_item);
 // 			}
-// 			println!("{:#?}", media_item);
+// 			info!("{:#?}", media_item);
 // 		}
 
-// 		Err(error) => println!("error: {}", error),
+// 		Err(error) => error!("error: {}", error),
 // 	}
 // 	Ok(())
 // }

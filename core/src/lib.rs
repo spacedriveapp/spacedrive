@@ -1,19 +1,22 @@
 use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
 use job::{JobManager, JobReport};
 use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
+use log::error;
 use node::{NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
 use std::{
-	fs,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
 use tag::{Tag, TagWithFiles};
 
 use thiserror::Error;
-use tokio::sync::{
-	mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
-	oneshot,
+use tokio::{
+	fs,
+	sync::{
+		mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
+		oneshot,
+	},
 };
 use ts_rs::TS;
 
@@ -79,7 +82,7 @@ pub struct NodeContext {
 impl NodeContext {
 	pub async fn emit(&self, event: CoreEvent) {
 		self.event_sender.send(event).await.unwrap_or_else(|e| {
-			println!("Failed to emit event. {:?}", e);
+			error!("Failed to emit event. {:#?}", e);
 		});
 	}
 }
@@ -103,11 +106,15 @@ pub struct Node {
 
 impl Node {
 	// create new instance of node, run startup tasks
-	pub async fn new(data_dir: PathBuf) -> (NodeController, mpsc::Receiver<CoreEvent>, Node) {
-		fs::create_dir_all(&data_dir).unwrap();
+	pub async fn new(
+		data_dir: impl AsRef<Path>,
+	) -> (NodeController, mpsc::Receiver<CoreEvent>, Node) {
+		fs::create_dir_all(&data_dir).await.unwrap();
 
 		let (event_sender, event_recv) = mpsc::channel(100);
-		let config = NodeConfigManager::new(data_dir.clone()).await.unwrap();
+		let config = NodeConfigManager::new(data_dir.as_ref().to_owned())
+			.await
+			.unwrap();
 		let jobs = JobManager::new();
 		let node_ctx = NodeContext {
 			event_sender: event_sender.clone(),
@@ -117,7 +124,7 @@ impl Node {
 
 		let node = Node {
 			config,
-			library_manager: LibraryManager::new(Path::new(&data_dir).join("libraries"), node_ctx)
+			library_manager: LibraryManager::new(data_dir.as_ref().join("libraries"), node_ctx)
 				.await
 				.unwrap(),
 			query_channel: unbounded_channel(),
@@ -139,8 +146,8 @@ impl Node {
 	pub fn get_context(&self) -> NodeContext {
 		NodeContext {
 			event_sender: self.event_sender.clone(),
-			config: self.config.clone(),
-			jobs: self.jobs.clone(),
+			config: Arc::clone(&self.config),
+			jobs: Arc::clone(&self.jobs),
 		}
 	}
 
@@ -305,12 +312,12 @@ impl Node {
 					}
 					// return contents of a directory for the explorer
 					LibraryQuery::GetExplorerDir {
-						path,
 						location_id,
+						path,
 						limit: _,
-					} => CoreResponse::GetExplorerDir(
-						file::explorer::open_dir(&ctx, &location_id, &path).await?,
-					),
+					} => CoreResponse::GetExplorerDir(Box::new(
+						file::explorer::open_dir(&ctx, location_id, path).await?,
+					)),
 					LibraryQuery::GetJobHistory => {
 						CoreResponse::GetJobHistory(JobManager::get_history(&ctx).await?)
 					}
@@ -390,7 +397,7 @@ pub enum LibraryCommand {
 	},
 	// Locations
 	LocCreate {
-		path: String,
+		path: PathBuf,
 	},
 	LocUpdate {
 		id: i32,
@@ -411,12 +418,12 @@ pub enum LibraryCommand {
 	},
 	GenerateThumbsForLocation {
 		id: i32,
-		path: String,
+		path: PathBuf,
 	},
 	// PurgeDatabase,
 	IdentifyUniqueFiles {
 		id: i32,
-		path: String,
+		path: PathBuf,
 	},
 }
 
@@ -448,7 +455,7 @@ pub enum LibraryQuery {
 	GetRunningJobs,
 	GetExplorerDir {
 		location_id: i32,
-		path: String,
+		path: PathBuf,
 		limit: i32,
 	},
 	GetLibraryStatistics,
@@ -488,15 +495,15 @@ pub enum CoreResponse {
 	Error(String),
 	GetLibraries(Vec<LibraryConfigWrapped>),
 	GetVolumes(Vec<sys::Volume>),
-	TagCreateResponse(tag::Tag),
-	GetTag(Option<tag::Tag>),
-	GetTags(Vec<tag::Tag>),
+	TagCreateResponse(Tag),
+	GetTag(Option<Tag>),
+	GetTags(Vec<Tag>),
 	GetLocation(sys::LocationResource),
 	GetLocations(Vec<sys::LocationResource>),
-	GetExplorerDir(file::DirectoryWithContents),
+	GetExplorerDir(Box<file::DirectoryWithContents>),
 	GetNode(NodeState),
 	LocCreate(sys::LocationResource),
-	OpenTag(Vec<tag::TagWithFiles>),
+	OpenTag(Vec<TagWithFiles>),
 	GetRunningJobs(Vec<JobReport>),
 	GetJobHistory(Vec<JobReport>),
 	GetLibraryStatistics(library::Statistics),
@@ -527,5 +534,5 @@ pub enum CoreResource {
 	Location(sys::LocationResource),
 	File(file::File),
 	Job(JobReport),
-	Tag(tag::Tag),
+	Tag(Tag),
 }

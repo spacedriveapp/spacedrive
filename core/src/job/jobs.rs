@@ -7,7 +7,7 @@ use crate::{
 	prisma::{job, node},
 };
 use int_enum::IntEnum;
-use log::info;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, VecDeque},
@@ -25,8 +25,8 @@ pub type JobResult = Result<(), Box<dyn Error + Send + Sync>>;
 
 #[async_trait::async_trait]
 pub trait Job: Send + Sync + Debug {
-	async fn run(&self, ctx: WorkerContext) -> JobResult;
 	fn name(&self) -> &'static str;
+	async fn run(&self, ctx: WorkerContext) -> JobResult;
 }
 
 pub enum JobManagerEvent {
@@ -43,7 +43,7 @@ pub struct JobManager {
 
 impl JobManager {
 	pub fn new() -> Arc<Self> {
-		let (internal_sender, mut internal_reciever) = mpsc::unbounded_channel();
+		let (internal_sender, mut internal_receiver) = mpsc::unbounded_channel();
 		let this = Arc::new(Self {
 			job_queue: RwLock::new(VecDeque::new()),
 			running_workers: RwLock::new(HashMap::new()),
@@ -52,7 +52,7 @@ impl JobManager {
 
 		let this2 = this.clone();
 		tokio::spawn(async move {
-			while let Some(event) = internal_reciever.recv().await {
+			while let Some(event) = internal_receiver.recv().await {
 				match event {
 					JobManagerEvent::IngestJob(ctx, job) => this2.clone().ingest(&ctx, job).await,
 				}
@@ -73,7 +73,7 @@ impl JobManager {
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
-			Worker::spawn(self.clone(), wrapped_worker.clone(), ctx).await;
+			Worker::spawn(Arc::clone(&self), Arc::clone(&wrapped_worker), ctx.clone()).await;
 
 			running_workers.insert(id, wrapped_worker);
 		} else {
@@ -95,7 +95,7 @@ impl JobManager {
 			self.internal_sender
 				.send(JobManagerEvent::IngestJob(ctx.clone(), job))
 				.unwrap_or_else(|_| {
-					println!("Failed to ingest job!");
+					error!("Failed to ingest job!");
 				});
 		}
 	}
@@ -111,9 +111,8 @@ impl JobManager {
 	}
 
 	// pub async fn queue_pending_job(ctx: &LibraryContext) -> Result<(), JobError> {
-	// 	let db = &ctx.db;
-
-	// 	let _next_job = db
+	// 	let _next_job = ctx
+	//      .db
 	// 		.job()
 	// 		.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
 	// 		.exec()
@@ -123,14 +122,14 @@ impl JobManager {
 	// }
 
 	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, JobError> {
-		let db = &ctx.db;
-		let jobs = db
+		let jobs = ctx
+			.db
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
 			.exec()
 			.await?;
 
-		Ok(jobs.into_iter().map(|j| j.into()).collect())
+		Ok(jobs.into_iter().map(Into::into).collect())
 	}
 }
 
@@ -165,20 +164,20 @@ pub struct JobReport {
 }
 
 // convert database struct into a resource struct
-impl Into<JobReport> for job::Data {
-	fn into(self) -> JobReport {
+impl From<job::Data> for JobReport {
+	fn from(data: job::Data) -> JobReport {
 		JobReport {
-			id: self.id,
-			name: self.name,
-			// client_id: self.client_id,
-			status: JobStatus::from_int(self.status).unwrap(),
-			task_count: self.task_count,
-			completed_task_count: self.completed_task_count,
-			date_created: self.date_created.into(),
-			date_modified: self.date_modified.into(),
-			data: self.data,
+			id: data.id,
+			name: data.name,
+			// client_id: data.client_id,
+			status: JobStatus::from_int(data.status).unwrap(),
+			task_count: data.task_count,
+			completed_task_count: data.completed_task_count,
+			date_created: data.date_created.into(),
+			date_modified: data.date_modified.into(),
+			data: data.data,
 			message: String::new(),
-			seconds_elapsed: self.seconds_elapsed,
+			seconds_elapsed: data.seconds_elapsed,
 		}
 	}
 }
@@ -203,7 +202,7 @@ impl JobReport {
 	pub async fn create(&self, ctx: &LibraryContext) -> Result<(), JobError> {
 		let mut params = Vec::new();
 
-		if let Some(_) = &self.data {
+		if self.data.is_some() {
 			params.push(job::data::set(self.data.clone()))
 		}
 

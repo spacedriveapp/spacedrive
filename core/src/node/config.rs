@@ -45,11 +45,11 @@ pub struct NodeConfig {
 #[derive(Error, Debug)]
 pub enum NodeConfigError {
 	#[error("error saving or loading the config from the filesystem")]
-	IOError(#[from] io::Error),
+	IO(#[from] io::Error),
 	#[error("error serializing or deserializing the JSON in the config file")]
-	JsonError(#[from] serde_json::Error),
+	Json(#[from] serde_json::Error),
 	#[error("error migrating the config file")]
-	MigrationError(String),
+	Migration(String),
 }
 
 impl NodeConfig {
@@ -141,7 +141,7 @@ impl NodeConfigManager {
 	) -> Result<(), NodeConfigError> {
 		match current_version {
 			None => {
-				Err(NodeConfigError::MigrationError(format!("Your Spacedrive config file stored at '{}' is missing the `version` field. If you just upgraded please delete the file and restart Spacedrive! Please note this upgrade will stop using your old 'library.db' as the folder structure has changed.", config_path.display())))
+				Err(NodeConfigError::Migration(format!("Your Spacedrive config file stored at '{}' is missing the `version` field. If you just upgraded please delete the file and restart Spacedrive! Please note this upgrade will stop using your old 'library.db' as the folder structure has changed.", config_path.display())))
 			}
 			_ => Ok(()),
 		}
