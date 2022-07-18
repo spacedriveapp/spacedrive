@@ -65,7 +65,7 @@ export default function LibrarySettings() {
 		}
 	});
 
-	const { data: libraries } = useBridgeQuery('NodeGetLibraries');
+	const { data: libraries } = useBridgeQuery('GetLibraries');
 
 	function createNewLib() {
 		if (newLibName) {

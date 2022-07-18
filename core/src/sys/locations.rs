@@ -212,7 +212,7 @@ pub async fn create_location(
 				Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
 			}
 
-			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
+			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLocations))
 			// 	.await;
 
 			location
@@ -239,7 +239,7 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
 		library_id: ctx.id.to_string(),
-		query: LibraryQuery::SysGetLocations,
+		query: LibraryQuery::GetLocations,
 	}))
 	.await;
 

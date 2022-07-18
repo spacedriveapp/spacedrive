@@ -21,7 +21,7 @@ interface IColumn {
 
 const PADDING_SIZE = 130;
 
-// Function ensure no types are loss, but guarantees that they are Column[]
+// Function ensure no types are lost, but guarantees that they are Column[]
 function ensureIsColumns<T extends IColumn[]>(data: T) {
 	return data;
 }
@@ -48,20 +48,19 @@ const GridItemContainer = styled.div`
 `;
 
 export const FileList: React.FC<{ location_id: number; path: string; limit: number }> = (props) => {
+	const path = props.path;
 	const size = useWindowSize();
 	const tableContainer = useRef<null | HTMLDivElement>(null);
 	const VList = useRef<null | VirtuosoHandle>(null);
 
-	const { data: client } = useBridgeQuery('NodeGetState', undefined, {
+	const { data: client } = useBridgeQuery('GetNode', undefined, {
 		refetchOnWindowFocus: false
 	});
-
-	const path = props.path;
 
 	const { selectedRowIndex, setSelectedRowIndex, setLocationId, layoutMode } = useExplorerStore();
 	const [goingUp, setGoingUp] = useState(false);
 
-	const { data: currentDir } = useLibraryQuery('LibGetExplorerDir', {
+	const { data: currentDir } = useLibraryQuery('GetExplorerDir', {
 		location_id: props.location_id,
 		path,
 		limit: props.limit
@@ -124,11 +123,7 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	);
 
 	return (
-		<div
-			ref={tableContainer}
-			style={{ marginTop: -44 }}
-			className="w-full pl-2 bg-white cursor-default dark:bg-gray-600"
-		>
+		<div ref={tableContainer} style={{ marginTop: -44 }} className="w-full pl-2 cursor-default ">
 			<LocationContext.Provider
 				value={{ location_id: props.location_id, data_path: client?.data_path as string }}
 			>
