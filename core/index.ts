@@ -24,4 +24,7 @@ export * from './bindings/NodeConfig';
 export * from './bindings/NodeState';
 export * from './bindings/Platform';
 export * from './bindings/Statistics';
+export * from './bindings/Tag';
+export * from './bindings/TagOnFile';
+export * from './bindings/TagWithFiles';
 export * from './bindings/Volume';

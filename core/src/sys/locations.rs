@@ -54,7 +54,7 @@ impl From<location::Data> for LocationResource {
 #[derive(Serialize, Deserialize, Default)]
 pub struct DotSpacedrive {
 	pub location_uuid: Uuid,
-	pub library_uuid: String,
+	pub library_uuid: Uuid,
 }
 
 static DOTFILE_NAME: &str = ".spacedrive";
@@ -195,7 +195,7 @@ pub async fn create_location(
 
 		let data = DotSpacedrive {
 			location_uuid: uuid,
-			library_uuid: ctx.id.to_string(),
+			library_uuid: ctx.id,
 		};
 
 		let json_bytes = serde_json::to_vec(&data)
@@ -206,7 +206,7 @@ pub async fn create_location(
 			.await
 			.map_err(|e| LocationError::DotfileWriteFailure(e, path.to_owned()))?;
 
-		// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
+		// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLocations))
 		// 	.await;
 
 		location.into()
@@ -232,7 +232,7 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
 		library_id: ctx.id.to_string(),
-		query: LibraryQuery::SysGetLocations,
+		query: LibraryQuery::GetLocations,
 	}))
 	.await;
 
