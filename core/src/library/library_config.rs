@@ -41,10 +41,7 @@ impl LibraryConfig {
 		file_dir: PathBuf,
 		config: &LibraryConfig,
 	) -> Result<(), LibraryManagerError> {
-		File::create(file_dir)
-			.map_err(LibraryManagerError::IOError)?
-			.write_all(serde_json::to_string(config)?.as_bytes())
-			.map_err(LibraryManagerError::IOError)?;
+		File::create(file_dir)?.write_all(serde_json::to_string(config)?.as_bytes())?;
 		Ok(())
 	}
 
@@ -54,7 +51,7 @@ impl LibraryConfig {
 		config_path: PathBuf,
 	) -> Result<(), LibraryManagerError> {
 		match current_version {
-			None => Err(LibraryManagerError::MigrationError(format!(
+			None => Err(LibraryManagerError::Migration(format!(
 				"Your Spacedrive library at '{}' is missing the `version` field",
 				config_path.display()
 			))),

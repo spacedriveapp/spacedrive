@@ -33,7 +33,7 @@ impl Volume {
 				.volume()
 				.upsert(
 					node_id_mount_point_name(
-						ctx.node_local_id.clone(),
+						ctx.node_local_id,
 						volume.mount_point.to_string(),
 						volume.name.to_string(),
 					),
@@ -63,7 +63,7 @@ impl Volume {
 		Ok(())
 	}
 	pub fn get_volumes() -> Result<Vec<Volume>, SysError> {
-		let all_volumes: Vec<Volume> = System::new_all()
+		Ok(System::new_all()
 			.disks()
 			.iter()
 			.map(|disk| {
@@ -119,15 +119,8 @@ impl Volume {
 					is_root_filesystem: mount_point == "/",
 				}
 			})
-			.collect();
-
-		let volumes = all_volumes
-			.clone()
-			.into_iter()
 			.filter(|volume| !volume.mount_point.starts_with("/System"))
-			.collect();
-
-		Ok(volumes)
+			.collect())
 	}
 }
 

@@ -8,7 +8,13 @@ use prisma_client_rust::raw;
 use prisma_client_rust::raw::Raw;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
-use std::{collections::HashMap, fs, path::Path, path::PathBuf, time::Instant};
+use std::fmt::Debug;
+use std::{
+	collections::HashMap,
+	path::{Path, PathBuf},
+	time::Instant,
+};
+use tokio::fs;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone)]
@@ -23,12 +29,10 @@ static BATCH_SIZE: usize = 100;
 // creates a vector of valid path buffers from a directory
 pub async fn scan_path(
 	ctx: &LibraryContext,
-	path: &str,
+	path: impl AsRef<Path> + Debug,
 	on_progress: impl Fn(Vec<ScanProgress>) + Send + Sync + 'static,
 ) -> JobResult {
-	let path = path.to_string();
-
-	let location = create_location(&ctx, &path).await?;
+	let location = create_location(ctx, &path).await?;
 
 	// query db to highers id, so we can increment it for the new files indexed
 	#[derive(Deserialize, Serialize, Debug)]
@@ -42,15 +46,16 @@ pub async fn scan_path(
 		.await
 	{
 		Ok(rows) => rows[0].id.unwrap_or(0),
-		Err(e) => panic!("Error querying for next file id: {}", e),
+		Err(e) => panic!("Error querying for next file id: {:#?}", e),
 	};
 
 	//check is path is a directory
-	if !PathBuf::from(&path).is_dir() {
+	if !path.as_ref().is_dir() {
 		// return Err(anyhow::anyhow!("{} is not a directory", &path));
-		panic!("{} is not a directory", &path);
+		panic!("{:#?} is not a directory", path);
 	}
-	let dir_path = path.clone();
+
+	let path_buf = path.as_ref().to_path_buf();
 
 	// spawn a dedicated thread to scan the directory for performance
 	let (paths, scan_start, on_progress) = tokio::task::spawn_blocking(move || {
@@ -67,10 +72,9 @@ pub async fn scan_path(
 			next_file_id
 		};
 		// walk through directory recursively
-		for entry in WalkDir::new(&dir_path).into_iter().filter_entry(|dir| {
-			let approved =
-				!is_hidden(dir) && !is_app_bundle(dir) && !is_node_modules(dir) && !is_library(dir);
-			approved
+		for entry in WalkDir::new(path_buf).into_iter().filter_entry(|dir| {
+			// check if entry is approved
+			!is_hidden(dir) && !is_app_bundle(dir) && !is_node_modules(dir) && !is_library(dir)
 		}) {
 			// extract directory entry or log and continue if failed
 			let entry = match entry {
@@ -86,7 +90,7 @@ pub async fn scan_path(
 
 			let parent_path = path
 				.parent()
-				.unwrap_or(Path::new(""))
+				.unwrap_or_else(|| Path::new(""))
 				.to_str()
 				.unwrap_or("");
 			let parent_dir_id = dirs.get(&*parent_path);
@@ -100,7 +104,7 @@ pub async fn scan_path(
 			};
 
 			on_progress(vec![
-				ScanProgress::Message(format!("{}", path_str)),
+				ScanProgress::Message(format!("Scanning {}", path_str)),
 				ScanProgress::ChunkCount(paths.len() / BATCH_SIZE),
 			]);
 
@@ -122,8 +126,7 @@ pub async fn scan_path(
 		}
 		(paths, scan_start, on_progress)
 	})
-	.await
-	.unwrap();
+	.await?;
 
 	let db_write_start = Instant::now();
 	let scan_read_time = scan_start.elapsed();
@@ -143,7 +146,7 @@ pub async fn scan_path(
 
 		for (file_path, file_id, parent_dir_id, is_dir) in chunk {
 			files.extend(
-				match prepare_values(&file_path, *file_id, &location, parent_dir_id, *is_dir) {
+				match prepare_values(file_path, *file_id, &location, parent_dir_id, *is_dir).await {
 					Ok(values) => values.to_vec(),
 					Err(e) => {
 						error!("Error creating file model from path {:?}: {}", file_path, e);
@@ -178,14 +181,14 @@ pub async fn scan_path(
 }
 
 // reads a file at a path and creates an ActiveModel with metadata
-fn prepare_values(
+async fn prepare_values(
 	file_path: &PathBuf,
 	id: i32,
 	location: &LocationResource,
 	parent_id: &Option<i32>,
 	is_dir: bool,
 ) -> Result<[PrismaValue; 8], std::io::Error> {
-	let metadata = fs::metadata(&file_path)?;
+	let metadata = fs::metadata(&file_path).await?;
 	let location_path = Path::new(location.path.as_ref().unwrap().as_str());
 	// let size = metadata.len();
 	let name;
@@ -215,7 +218,6 @@ fn prepare_values(
 		PrismaValue::String(name),
 		PrismaValue::String(extension.to_lowercase()),
 		parent_id
-			.clone()
 			.map(|id| PrismaValue::Int(id as i64))
 			.unwrap_or(PrismaValue::Null),
 		PrismaValue::DateTime(date_created.into()),
@@ -237,7 +239,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 	entry
 		.file_name()
 		.to_str()
-		.map(|s| s.starts_with("."))
+		.map(|s| s.starts_with('.'))
 		.unwrap_or(false)
 }
 
@@ -266,7 +268,7 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
 		.map(|s| s.contains(".app") | s.contains(".bundle"))
 		.unwrap_or(false);
 
-	let is_app_bundle = is_dir && contains_dot;
+	// let is_app_bundle = is_dir && contains_dot;
 	// if is_app_bundle {
 	//   let path_buff = entry.path();
 	//   let path = path_buff.to_str().unwrap();
@@ -274,5 +276,5 @@ fn is_app_bundle(entry: &DirEntry) -> bool {
 	//   self::path(&path, );
 	// }
 
-	is_app_bundle
+	is_dir && contains_dot
 }
