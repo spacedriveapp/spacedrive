@@ -19,17 +19,17 @@ export const ExplorerScreen: React.FC<{}> = () => {
 	const { selectedRowIndex } = useExplorerStore();
 
 	// Current Location
-	const { data: currentLocation } = useLibraryQuery('SysGetLocation', { id: location_id });
+	const { data: currentLocation } = useLibraryQuery('GetLocation', { id: location_id });
 
 	// Current Directory
 	const { data: currentDir } = useLibraryQuery(
-		'LibGetExplorerDir',
+		'GetExplorerDir',
 		{ location_id: location_id!, path, limit },
 		{ enabled: !!location_id }
 	);
 
 	return (
-		<div className="relative flex flex-col w-full bg-gray-600">
+		<div className="relative flex flex-col w-full bg-gray-650">
 			<TopBar />
 			<div className="relative flex flex-row w-full max-h-full">
 				<FileList location_id={location_id} path={path} limit={limit} />

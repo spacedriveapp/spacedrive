@@ -1,11 +1,11 @@
-use crate::library::LibraryContext;
 use crate::{
 	job::{Job, JobReportUpdate, JobResult, WorkerContext},
+	library::LibraryContext,
 	prisma::file_path,
 	sys, CoreEvent,
 };
 use image::{self, imageops, DynamicImage, GenericImageView};
-use log::{error, info};
+use log::{debug, error, info};
 use std::error::Error;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -59,12 +59,12 @@ impl Job for ThumbnailJob {
 		for (i, image_file) in image_files.iter().enumerate() {
 			ctx.progress(vec![JobReportUpdate::Message(format!(
 				"Processing {}",
-				image_file.materialized_path.clone()
+				image_file.materialized_path
 			))]);
 
 			// assemble the file path
 			let path = Path::new(&root_path).join(&image_file.materialized_path);
-			error!("image_file {:?}", image_file);
+			debug!("image_file {:?}", image_file);
 
 			// get cas_id, if none found skip
 			let cas_id = match image_file.file() {
@@ -72,6 +72,10 @@ impl Job for ThumbnailJob {
 					if let Some(f) = file {
 						f.cas_id.clone()
 					} else {
+						info!(
+							"skipping thumbnail generation for {}",
+							image_file.materialized_path
+						);
 						continue;
 					}
 				}
@@ -87,9 +91,11 @@ impl Job for ThumbnailJob {
 			// check if file exists at output path
 			if !output_path.exists() {
 				info!("Writing {:?} to {:?}", path, output_path);
-				if let Err(e) = generate_thumbnail(&path, &output_path).await {
-					error!("Error generating thumb {:?}", e);
-				}
+				tokio::spawn(async move {
+					if let Err(e) = generate_thumbnail(&path, &output_path).await {
+						error!("Error generating thumb {:?}", e);
+					}
+				});
 
 				ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
 

@@ -51,7 +51,7 @@ const MiddleTruncatedText = ({
 };
 
 export default function RunningJobsWidget() {
-	const { data: jobs } = useBridgeQuery('JobGetRunning');
+	const { data: jobs } = useBridgeQuery('GetRunningJobs');
 
 	return (
 		<div className="flex flex-col space-y-4">

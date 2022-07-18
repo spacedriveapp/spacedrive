@@ -22,7 +22,7 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
 		{({ isActive }) => (
 			<span
 				className={clsx(
-					'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
+					'max-w mb-[2px] text-gray-550 dark:text-gray-300 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
 						'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 					},
@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const appProps = useContext(AppPropsContext);
 
-	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('SysGetLocations');
+	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('GetLocations');
 
 	let locations = Array.isArray(locationsResponse) ? locationsResponse : [];
 
@@ -96,13 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const { mutate: createLocation } = useLibraryCommand('LocCreate');
 
-	const tags = [
-		{ id: 1, name: 'Keepsafe', color: '#FF6788' },
-		{ id: 2, name: 'OBS', color: '#BF88FF' },
-		{ id: 3, name: 'BlackMagic', color: '#F0C94A' },
-		{ id: 4, name: 'Camera Roll', color: '#00F0DB' },
-		{ id: 5, name: 'Spacedrive', color: '#00F079' }
-	];
+	const { data: tags } = useLibraryQuery('GetTags');
 
 	return (
 		<div
@@ -192,15 +186,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					<Icon component={PhotographIcon} />
 					Photos
 				</SidebarLink>
-
-				{isExperimental ? (
-					<SidebarLink to="debug">
-						<Icon component={Code} />
-						Debug
-					</SidebarLink>
-				) : (
-					<></>
-				)}
 			</div>
 			<div>
 				<Heading>Locations</Heading>
@@ -256,11 +241,11 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 			<div>
 				<Heading>Tags</Heading>
 				<div className="mb-2">
-					{tags.map((tag, index) => (
+					{tags?.slice(0, 6).map((tag, index) => (
 						<SidebarLink key={index} to={`tag/${tag.id}`} className="">
 							<div
 								className="w-[12px] h-[12px] rounded-full"
-								style={{ backgroundColor: tag.color }}
+								style={{ backgroundColor: tag.color || '#efefef' }}
 							/>
 							<span className="ml-2 text-sm">{tag.name}</span>
 						</SidebarLink>
