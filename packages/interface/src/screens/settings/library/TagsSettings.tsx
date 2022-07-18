@@ -156,7 +156,7 @@ export default function TagsSettings() {
 						<div className="flex flex-grow"></div>
 						<Dialog
 							title="Delete Tag"
-							description="This will "
+							description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 							ctaAction={() => {
 								deleteTag({ id: currentTag.id });
 							}}
