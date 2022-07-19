@@ -284,7 +284,7 @@ async fn setup() -> (mpsc::Receiver<CoreEvent>, web::Data<NodeController>) {
 
 			std::env::current_dir()
 				.expect(
-					"Unable to get your currrent directory. Maybe try setting $DATA_DIR?",
+					"Unable to get your current directory. Maybe try setting $DATA_DIR?",
 				)
 				.join("sdserver_data")
 		},
