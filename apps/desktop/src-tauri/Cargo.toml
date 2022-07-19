@@ -14,9 +14,8 @@ tauri-build = { version = "1.0.0", features = [] }
 
 [dependencies]
 # Project dependencies
-tauri = { version = "1.0.0", features = ["api-all", "macos-private-api"] }
+tauri = { version = "1.0.4", features = ["api-all", "macos-private-api"] }
 sdcore = { path = "../../../core" }
-# tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
 
 # Universal Dependencies
 tokio = { version = "1.17.0", features = ["sync"] }

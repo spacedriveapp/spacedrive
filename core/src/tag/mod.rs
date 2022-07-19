@@ -1,15 +1,8 @@
 use crate::{
 	file::File,
-	library::LibraryContext,
-	prisma::{
-		self, file,
-		tag::{self},
-		tag_on_file,
-	},
-	ClientQuery, CoreError, CoreEvent, CoreResponse, LibraryQuery,
+	prisma::{tag, tag_on_file},
 };
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -71,118 +64,4 @@ impl From<tag_on_file::Data> for TagOnFile {
 pub struct TagWithFiles {
 	pub tag: Tag,
 	pub files_with_tag: Vec<TagOnFile>,
-}
-
-#[derive(Error, Debug)]
-pub enum TagError {
-	#[error("Tag not found")]
-	TagNotFound(i32),
-	#[error("Database error")]
-	DatabaseError(#[from] prisma::QueryError),
-}
-
-pub async fn create_tag(
-	ctx: LibraryContext,
-	name: String,
-	color: String,
-) -> Result<CoreResponse, CoreError> {
-	let created_tag = ctx
-		.db
-		.tag()
-		.create(
-			tag::pub_id::set(uuid::Uuid::new_v4().to_string()),
-			vec![tag::name::set(Some(name)), tag::color::set(Some(color))],
-		)
-		.exec()
-		.await
-		.unwrap();
-
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
-		query: LibraryQuery::GetTags,
-	}))
-	.await;
-
-	Ok(CoreResponse::TagCreateResponse(created_tag.into()))
-}
-
-pub async fn update_tag(
-	ctx: LibraryContext,
-	id: i32,
-	name: Option<String>,
-	color: Option<String>,
-) -> Result<CoreResponse, CoreError> {
-	ctx.db
-		.tag()
-		.find_unique(tag::id::equals(id))
-		.update(vec![tag::name::set(name), tag::color::set(color)])
-		.exec()
-		.await
-		.unwrap();
-
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
-		query: LibraryQuery::GetTags,
-	}))
-	.await;
-
-	Ok(CoreResponse::Success(()))
-}
-
-pub async fn tag_assign(
-	ctx: LibraryContext,
-	file_id: i32,
-	tag_id: i32,
-) -> Result<CoreResponse, CoreError> {
-	ctx.db.tag_on_file().create(
-		tag_on_file::tag::link(tag::UniqueWhereParam::IdEquals(tag_id)),
-		tag_on_file::file::link(file::UniqueWhereParam::IdEquals(file_id)),
-		vec![],
-	);
-
-	Ok(CoreResponse::Success(()))
-}
-
-pub async fn tag_delete(ctx: LibraryContext, id: i32) -> Result<CoreResponse, CoreError> {
-	ctx.db
-		.tag()
-		.find_unique(tag::id::equals(id))
-		.delete()
-		.exec()
-		.await?
-		.unwrap();
-
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
-		query: LibraryQuery::GetTags,
-	}))
-	.await;
-
-	Ok(CoreResponse::Success(()))
-}
-
-pub async fn get_files_for_tag(ctx: LibraryContext, id: i32) -> Result<CoreResponse, CoreError> {
-	let tag: Option<Tag> = ctx
-		.db
-		.tag()
-		.find_unique(tag::id::equals(id))
-		.exec()
-		.await?
-		.map(Into::into);
-
-	Ok(CoreResponse::GetTag(tag))
-}
-
-pub async fn get_all_tags(ctx: LibraryContext) -> Result<CoreResponse, CoreError> {
-	let tags: Vec<Tag> = ctx
-		.db
-		.tag()
-		.find_many(vec![])
-		.exec()
-		.await?
-		.into_iter()
-		.map(Into::into)
-		.collect();
-
-	Ok(CoreResponse::GetTags(tags))
 }

@@ -150,7 +150,7 @@ pub enum FileError {
 }
 
 pub async fn set_note(
-	ctx: LibraryContext,
+	ctx: &LibraryContext,
 	id: i32,
 	note: Option<String>,
 ) -> Result<CoreResponse, CoreError> {
@@ -177,7 +177,7 @@ pub async fn set_note(
 }
 
 pub async fn favorite(
-	ctx: LibraryContext,
+	ctx: &LibraryContext,
 	id: i32,
 	favorite: bool,
 ) -> Result<CoreResponse, CoreError> {

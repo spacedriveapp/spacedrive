@@ -1,6 +1,6 @@
-use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
+use api::{Ctx, Router};
 use job::{JobManager, JobReport};
-use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
+use library::{LibraryConfigWrapped, LibraryManager};
 use log::error;
 use node::{NodeConfig, NodeConfigManager};
 use serde::{Deserialize, Serialize};
@@ -20,17 +20,18 @@ use tokio::{
 };
 use ts_rs::TS;
 
-use crate::encode::ThumbnailJob;
+pub use rspc; // We expose rspc so we can access it in the Desktop app
 
-mod encode;
-mod file;
-mod job;
-mod library;
-mod node;
-mod prisma;
-mod sys;
-mod tag;
-mod util;
+pub(crate) mod api;
+pub(crate) mod encode;
+pub(crate) mod file;
+pub(crate) mod job;
+pub(crate) mod library;
+pub(crate) mod node;
+pub(crate) mod prisma;
+pub(crate) mod sys;
+pub(crate) mod tag;
+pub(crate) mod util;
 
 // a wrapper around external input with a returning sender channel for core to respond
 #[derive(Debug)]
@@ -40,12 +41,25 @@ pub struct ReturnableMessage<D, R = Result<CoreResponse, CoreError>> {
 }
 
 // core controller is passed to the client to communicate with the core which runs in a dedicated thread
+#[derive(Clone)]
 pub struct NodeController {
 	query_sender: UnboundedSender<ReturnableMessage<ClientQuery>>,
 	command_sender: UnboundedSender<ReturnableMessage<ClientCommand>>,
+	config: Arc<NodeConfigManager>,
+	library_manager: Arc<LibraryManager>,
+	jobs: Arc<JobManager>,
 }
 
 impl NodeController {
+	pub fn get_request_context(&self, library_id: Option<String>) -> Ctx {
+		Ctx {
+			library_id,
+			library_manager: Arc::clone(&self.library_manager),
+			config: Arc::clone(&self.config),
+			jobs: Arc::clone(&self.jobs),
+		}
+	}
+
 	pub async fn query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
 		// a one time use channel to send and await a response
 		let (sender, recv) = oneshot::channel();
@@ -108,7 +122,7 @@ impl Node {
 	// create new instance of node, run startup tasks
 	pub async fn new(
 		data_dir: impl AsRef<Path>,
-	) -> (NodeController, mpsc::Receiver<CoreEvent>, Node) {
+	) -> (NodeController, mpsc::Receiver<CoreEvent>, Node, Arc<Router>) {
 		fs::create_dir_all(&data_dir).await.unwrap();
 
 		let (event_sender, event_recv) = mpsc::channel(100);
@@ -121,6 +135,8 @@ impl Node {
 			config: config.clone(),
 			jobs: jobs.clone(),
 		};
+
+		let router = api::mount();
 
 		let node = Node {
 			config,
@@ -135,11 +151,15 @@ impl Node {
 
 		(
 			NodeController {
+				config: node.config.clone(),
+				library_manager: node.library_manager.clone(),
+				jobs: node.jobs.clone(),
 				query_sender: node.query_channel.0.clone(),
 				command_sender: node.command_channel.0.clone(),
 			},
 			event_recv,
 			node,
+			router,
 		)
 	}
 
@@ -156,181 +176,15 @@ impl Node {
 			// listen on global messaging channels for incoming messages
 			tokio::select! {
 				Some(msg) = self.query_channel.1.recv() => {
-					let res = self.exec_query(msg.data).await;
-					msg.return_sender.send(res).unwrap_or(());
+					// let res = self.exec_query(msg.data).await;
+					// msg.return_sender.send(res).unwrap_or(());
 				}
 				Some(msg) = self.command_channel.1.recv() => {
-					let res = self.exec_command(msg.data).await;
-					msg.return_sender.send(res).unwrap_or(());
+					// let res = self.exec_command(msg.data).await;
+					// msg.return_sender.send(res).unwrap_or(());
 				}
 			}
 		}
-	}
-
-	async fn exec_command(&mut self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
-		Ok(match cmd {
-			ClientCommand::CreateLibrary { name } => {
-				self.library_manager
-					.create(LibraryConfig {
-						name: name.to_string(),
-						..Default::default()
-					})
-					.await
-					.unwrap();
-				CoreResponse::Success(())
-			}
-			ClientCommand::EditLibrary {
-				id,
-				name,
-				description,
-			} => {
-				self.library_manager
-					.edit(id, name, description)
-					.await
-					.unwrap();
-				CoreResponse::Success(())
-			}
-			ClientCommand::DeleteLibrary { id } => {
-				self.library_manager.delete_library(id).await.unwrap();
-				CoreResponse::Success(())
-			}
-			ClientCommand::LibraryCommand {
-				library_id,
-				command,
-			} => {
-				let ctx = self.library_manager.get_ctx(library_id).await.unwrap();
-				match command {
-					// CRUD for locations
-					LibraryCommand::LocCreate { path } => {
-						let loc = sys::new_location_and_scan(&ctx, &path).await?;
-						// ctx.queue_job(Box::new(FileIdentifierJob));
-						CoreResponse::LocCreate(loc)
-					}
-					LibraryCommand::LocUpdate { id, name } => {
-						ctx.db
-							.location()
-							.find_unique(location::id::equals(id))
-							.update(vec![location::name::set(name)])
-							.exec()
-							.await?;
-
-						CoreResponse::Success(())
-					}
-					LibraryCommand::LocDelete { id } => {
-						sys::delete_location(&ctx, id).await?;
-						CoreResponse::Success(())
-					}
-					LibraryCommand::LocFullRescan { id } => {
-						sys::scan_location(&ctx, id, String::new()).await;
-						CoreResponse::Success(())
-					}
-					LibraryCommand::LocQuickRescan { id: _ } => todo!(),
-					// CRUD for files
-					LibraryCommand::FileReadMetaData { id: _ } => todo!(),
-					LibraryCommand::FileSetNote { id, note } => {
-						file::set_note(ctx, id, note).await?
-					}
-					LibraryCommand::FileSetFavorite { id, favorite } => {
-						file::favorite(ctx, id, favorite).await?
-					}
-					// ClientCommand::FileEncrypt { id: _, algorithm: _ } => todo!(),
-					LibraryCommand::FileDelete { id } => {
-						ctx.db
-							.file()
-							.find_unique(prisma_file::id::equals(id))
-							.delete()
-							.exec()
-							.await?;
-
-						CoreResponse::Success(())
-					}
-					// CRUD for tags
-					LibraryCommand::TagCreate { name, color } => {
-						tag::create_tag(ctx, name, color).await?
-					}
-					LibraryCommand::TagAssign { file_id, tag_id } => {
-						tag::tag_assign(ctx, file_id, tag_id).await?
-					}
-					LibraryCommand::TagDelete { id } => tag::tag_delete(ctx, id).await?,
-					LibraryCommand::TagUpdate { id, name, color } => {
-						tag::update_tag(ctx, id, name, color).await?
-					}
-					// CRUD for libraries
-					LibraryCommand::VolUnmount { id: _ } => todo!(),
-					LibraryCommand::GenerateThumbsForLocation { id, path } => {
-						ctx.spawn_job(Box::new(ThumbnailJob {
-							location_id: id,
-							path,
-							background: false, // fix
-						}))
-						.await;
-						CoreResponse::Success(())
-					}
-					LibraryCommand::IdentifyUniqueFiles { id, path } => {
-						ctx.spawn_job(Box::new(FileIdentifierJob {
-							location_id: id,
-							path,
-						}))
-						.await;
-						CoreResponse::Success(())
-					}
-				}
-			}
-		})
-	}
-
-	// query sources of data
-	async fn exec_query(&self, query: ClientQuery) -> Result<CoreResponse, CoreError> {
-		Ok(match query {
-			ClientQuery::GetLibraries => {
-				CoreResponse::GetLibraries(self.library_manager.get_all_libraries_config().await)
-			}
-			ClientQuery::GetNode => CoreResponse::GetNode(NodeState {
-				config: self.config.get().await,
-				data_path: self.config.data_directory().to_str().unwrap().to_string(),
-			}),
-			ClientQuery::GetNodes => todo!(),
-			ClientQuery::GetVolumes => CoreResponse::GetVolumes(sys::Volume::get_volumes()?),
-			ClientQuery::LibraryQuery { library_id, query } => {
-				let ctx = match self.library_manager.get_ctx(library_id.clone()).await {
-					Some(ctx) => ctx,
-					None => {
-						println!("Library '{}' not found!", library_id);
-						return Ok(CoreResponse::Error("Library not found".into()));
-					}
-				};
-				match query {
-					LibraryQuery::GetLocations => {
-						CoreResponse::GetLocations(sys::get_locations(&ctx).await?)
-					}
-					LibraryQuery::GetRunningJobs => {
-						CoreResponse::GetRunningJobs(self.jobs.get_running().await)
-					}
-					// get location from library
-					LibraryQuery::GetLocation { id } => {
-						CoreResponse::GetLocation(sys::get_location(&ctx, id).await?)
-					}
-					// return contents of a directory for the explorer
-					LibraryQuery::GetExplorerDir {
-						location_id,
-						path,
-						limit: _,
-					} => CoreResponse::GetExplorerDir(Box::new(
-						file::explorer::open_dir(&ctx, location_id, path).await?,
-					)),
-					LibraryQuery::GetJobHistory => {
-						CoreResponse::GetJobHistory(JobManager::get_history(&ctx).await?)
-					}
-					LibraryQuery::GetLibraryStatistics => CoreResponse::GetLibraryStatistics(
-						library::Statistics::calculate(&ctx).await?,
-					),
-					LibraryQuery::GetTags => tag::get_all_tags(ctx).await?,
-					LibraryQuery::GetFilesTagged { tag_id } => {
-						tag::get_files_for_tag(ctx, tag_id).await?
-					}
-				}
-			}
-		})
 	}
 }
 

@@ -1,4 +1,5 @@
 // import Spacedrive JS client
+import { TauriTransport, createClient } from '@rspc/client';
 import { BaseTransport } from '@sd/client';
 // import types from Spacedrive core (TODO: re-export from client would be cleaner)
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
@@ -13,6 +14,8 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';
+
+import type { Operations } from '../../../core/bindings2/index';
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
@@ -31,7 +34,15 @@ class Transport extends BaseTransport {
 	}
 }
 
+const client = createClient<Operations>({
+	transport: new TauriTransport()
+});
+
 function App() {
+	useEffect(() => {
+		client.query('version').then(console.log);
+	}, []);
+
 	function getPlatform(platform: string): Platform {
 		switch (platform) {
 			case 'darwin':

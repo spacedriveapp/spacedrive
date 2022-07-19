@@ -24,7 +24,9 @@ ring = "0.17.0-alpha.10"
 int-enum = "0.4.0"
 
 # Project dependencies
-ts-rs = { version = "6.2", features = ["chrono-impl", "uuid-impl", "serde-compat"] }
+ts-rs = { git = "https://github.com/oscartbeaumont/ts-rs.git", branch = "rspc", features = ["chrono-impl", "uuid-impl", "serde-compat"] }
+rspc = {  git = "https://github.com/oscartbeaumont/rspc.git", version = "0.0.3", features = ["axum", "tauri"] }
+
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
 walkdir = "^2.3.2"
 uuid = { version = "^0.8.2", features = ["v4", "serde"]}

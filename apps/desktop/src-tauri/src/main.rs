@@ -50,10 +50,14 @@ async fn main() {
 	let mut data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
 	data_dir = data_dir.join("spacedrive");
 	// create an instance of the core
-	let (controller, mut event_receiver, node) = Node::new(data_dir).await;
+	let (controller, mut event_receiver, node, router) = Node::new(data_dir).await;
 	tokio::spawn(node.start());
 	// create tauri app
+	let controller2 = controller.clone();
 	tauri::Builder::default()
+		.plugin(sdcore::rspc::tauri::plugin(router, move || {
+			controller2.get_request_context(None) // TODO: Get library ID from request
+		}))
 		// pass controller to the tauri state manager
 		.manage(controller)
 		.setup(|app| {
