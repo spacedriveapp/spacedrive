@@ -4,13 +4,14 @@ mod model;
 use super::prelude::*;
 use super::*;
 
-pub struct PrismaCRDTGenerator;
+#[derive(Deserialize)]
+pub struct PrismaCRDTGenerator {}
 
 impl PrismaGenerator for PrismaCRDTGenerator {
 	const NAME: &'static str = "Prisma CRDT Generator";
 	const DEFAULT_OUTPUT: &'static str = "./prisma-crdt.rs";
 
-	fn generate(args: GenerateArgs) -> String {
+	fn generate(self, args: GenerateArgs) -> String {
 		let datamodel =
 			datamodel::Datamodel::try_from(&args.dml).expect("Failed to construct datamodel");
 

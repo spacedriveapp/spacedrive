@@ -6,7 +6,6 @@ mod prisma_crdt;
 use ::prisma_crdt::CRDTOperation;
 use prisma::PrismaClient;
 
-use crate::prisma_crdt::new_client;
 use serde_json::json;
 
 #[tokio::main]

@@ -4,10 +4,6 @@ pub use prisma_client_rust_sdk::*;
 pub use proc_macro2::*;
 pub use quote::*;
 use std::ops::Deref;
-pub use std::{
-	cell::RefCell,
-	rc::{Rc, Weak},
-};
 
 pub fn snake_ident(name: &str) -> Ident {
 	format_ident!("{}", name.to_case(Case::Snake))
