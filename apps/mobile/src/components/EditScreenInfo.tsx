@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import tw from '../lib/tailwind';
+
 export default function EditScreenInfo({ path }: { path: string }) {
 	return (
 		<View>
@@ -11,7 +13,7 @@ export default function EditScreenInfo({ path }: { path: string }) {
 					<Text>{path}</Text>
 				</View>
 
-				<Text style={styles.getStartedText}>
+				<Text style={tw`bg-red-500`}>
 					Change any of the text, save the file, and your app will automatically update.
 				</Text>
 			</View>

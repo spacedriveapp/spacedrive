@@ -1,31 +1,14 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 
-import EditScreenInfo from '../components/EditScreenInfo';
+import tw from '../lib/tailwind';
 import { RootTabScreenProps } from '../types';
 
 export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'>) {
 	return (
-		<View style={styles.container}>
-			<Text style={styles.title}>Tab One</Text>
-			<View style={styles.separator} />
-			<EditScreenInfo path="/screens/TabOneScreen.tsx" />
+		<View style={tw`flex-1 items-center justify-center`}>
+			{/* Doing this import to make sure importing from workspace works... */}
+			<Image source={require('@sd/interface/src/assets/images/spacedrive_logo.png')} />
+			<Text style={tw`text-primary-500 font-bold text-3xl`}>Spacedrive</Text>
 		</View>
 	);
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		alignItems: 'center',
-		justifyContent: 'center'
-	},
-	title: {
-		fontSize: 20,
-		fontWeight: 'bold'
-	},
-	separator: {
-		marginVertical: 30,
-		height: 1,
-		width: '80%'
-	}
-});

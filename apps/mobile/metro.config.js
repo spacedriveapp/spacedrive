@@ -1,10 +1,19 @@
-const { makeMetroConfig } = require('@rnx-kit/metro-config');
+const { makeMetroConfig, resolveUniqueModule } = require('@rnx-kit/metro-config');
 const MetroSymlinksResolver = require('@rnx-kit/metro-resolver-symlinks');
 
-module.exports = makeMetroConfig({
+const [SDInterfacePath, SDInterfacePathExclude] = resolveUniqueModule('@sd/interface', '.');
+
+const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
+
+const metroConfig = makeMetroConfig({
 	projectRoot: __dirname,
 	resolver: {
-		resolveRequest: MetroSymlinksResolver()
+		resolveRequest: MetroSymlinksResolver(),
+		extraNodeModules: {
+			'@babel/runtime': babelRuntimePath,
+			'@sd/interface': SDInterfacePath
+		},
+		blockList: [babelRuntimeExclude, SDInterfacePathExclude]
 	},
 	transformer: {
 		// Metro default is "uglify-es" but terser should be faster and has better defaults.
@@ -29,6 +38,8 @@ module.exports = makeMetroConfig({
 		})
 	}
 });
+
+module.exports = metroConfig;
 
 // If EXPO complains about config file, try merging it with the one above.
 // const { getDefaultConfig } = require('expo/metro-config');
