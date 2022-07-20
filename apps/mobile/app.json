@@ -1,0 +1,32 @@
+{
+	"expo": {
+		"name": "Spacedrive",
+		"slug": "spacedrive",
+		"version": "0.0.1",
+		"orientation": "portrait",
+		"icon": "./src/assets/images/icon.png",
+		"scheme": "myapp",
+		"userInterfaceStyle": "automatic",
+		"splash": {
+			"image": "./src/assets/images/splash.png",
+			"resizeMode": "contain",
+			"backgroundColor": "#ffffff"
+		},
+		"updates": {
+			"fallbackToCacheTimeout": 0
+		},
+		"assetBundlePatterns": ["**/*"],
+		"ios": {
+			"supportsTablet": false
+		},
+		"android": {
+			"adaptiveIcon": {
+				"foregroundImage": "./src/assets/images/adaptive-icon.png",
+				"backgroundColor": "#ffffff"
+			}
+		},
+		"web": {
+			"favicon": "./src/assets/images/favicon.png"
+		}
+	}
+}
