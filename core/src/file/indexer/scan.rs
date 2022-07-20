@@ -2,7 +2,6 @@ use crate::job::JobResult;
 use crate::library::LibraryContext;
 use crate::sys::{create_location, LocationResource};
 use chrono::{DateTime, Utc};
-use log::{error, info};
 use prisma_client_rust::prisma_models::PrismaValue;
 use prisma_client_rust::raw;
 use prisma_client_rust::raw::Raw;
@@ -15,6 +14,7 @@ use std::{
 	time::Instant,
 };
 use tokio::fs;
+use tracing::{error, info};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone)]

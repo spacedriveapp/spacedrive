@@ -1,39 +1,8 @@
-use std::time::{Duration, Instant};
-
-use dotenvy::dotenv;
-use sdcore::{ClientCommand, ClientQuery, CoreEvent, CoreResponse, Node, NodeController};
+use sdcore::Node;
 use tauri::{api::path, Manager};
 #[cfg(target_os = "macos")]
 mod macos;
 mod menu;
-
-#[tauri::command(async)]
-async fn client_query_transport(
-	core: tauri::State<'_, NodeController>,
-	data: ClientQuery,
-) -> Result<CoreResponse, String> {
-	match core.query(data).await {
-		Ok(response) => Ok(response),
-		Err(err) => {
-			println!("query error: {:?}", err);
-			Err(err.to_string())
-		}
-	}
-}
-
-#[tauri::command(async)]
-async fn client_command_transport(
-	core: tauri::State<'_, NodeController>,
-	data: ClientCommand,
-) -> Result<CoreResponse, String> {
-	match core.command(data).await {
-		Ok(response) => Ok(response),
-		Err(err) => {
-			println!("command error: {:?}", err);
-			Err(err.to_string())
-		}
-	}
-}
 
 #[tauri::command(async)]
 async fn app_ready(app_handle: tauri::AppHandle) {
@@ -44,22 +13,14 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 
 #[tokio::main]
 async fn main() {
-	dotenv().ok();
-	env_logger::init();
-
 	let mut data_dir = path::data_dir().unwrap_or(std::path::PathBuf::from("./"));
 	data_dir = data_dir.join("spacedrive");
-	// create an instance of the core
-	let (controller, mut event_receiver, node, router) = Node::new(data_dir).await;
-	tokio::spawn(node.start());
-	// create tauri app
-	let controller2 = controller.clone();
+
+	let (node, router) = Node::new(data_dir).await;
 	tauri::Builder::default()
 		.plugin(sdcore::rspc::tauri::plugin(router, move || {
-			controller2.get_request_context(None) // TODO: Get library ID from request
+			node.get_request_context(None) // TODO: Get library ID from request
 		}))
-		// pass controller to the tauri state manager
-		.manage(controller)
 		.setup(|app| {
 			let app = app.handle();
 
@@ -86,34 +47,30 @@ async fn main() {
 				}
 			});
 
-			// core event transport
-			tokio::spawn(async move {
-				let mut last = Instant::now();
-				// handle stream output
-				while let Some(event) = event_receiver.recv().await {
-					match event {
-						CoreEvent::InvalidateQueryDebounced(_) => {
-							let current = Instant::now();
-							if current.duration_since(last) > Duration::from_millis(1000 / 60) {
-								last = current;
-								app.emit_all("core_event", &event).unwrap();
-							}
-						}
-						event => {
-							app.emit_all("core_event", &event).unwrap();
-						}
-					}
-				}
-			});
+			// // core event transport
+			// tokio::spawn(async move {
+			// 	let mut last = Instant::now();
+			// 	// handle stream output
+			// 	while let Some(event) = event_receiver.recv().await {
+			// 		match event {
+			// 			CoreEvent::InvalidateQueryDebounced(_) => {
+			// 				let current = Instant::now();
+			// 				if current.duration_since(last) > Duration::from_millis(1000 / 60) {
+			// 					last = current;
+			// 					app.emit_all("core_event", &event).unwrap();
+			// 				}
+			// 			}
+			// 			event => {
+			// 				app.emit_all("core_event", &event).unwrap();
+			// 			}
+			// 		}
+			// 	}
+			// });
 
 			Ok(())
 		})
 		.on_menu_event(|event| menu::handle_menu_event(event))
-		.invoke_handler(tauri::generate_handler![
-			client_query_transport,
-			client_command_transport,
-			app_ready,
-		])
+		.invoke_handler(tauri::generate_handler![app_ready,])
 		.menu(menu::get_menu())
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");

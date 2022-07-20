@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{job::Job, node::NodeConfigManager, prisma::PrismaClient, CoreEvent, NodeContext};
+use crate::{job::Job, node::NodeConfigManager, prisma::PrismaClient, NodeContext};
 
 use super::LibraryConfig;
 
@@ -30,15 +30,15 @@ impl LibraryContext {
 		self.node_context.jobs.ingest_queue(self, job).await;
 	}
 
-	pub(crate) async fn emit(&self, event: CoreEvent) {
-		self.node_context
-			.event_sender
-			.send(event)
-			.await
-			.unwrap_or_else(|e| {
-				println!("Failed to emit event. {:?}", e);
-			});
-	}
+	// pub(crate) async fn emit(&self, event: CoreEvent) {
+	// 	self.node_context
+	// 		.event_sender
+	// 		.send(event)
+	// 		.await
+	// 		.unwrap_or_else(|e| {
+	// 			println!("Failed to emit event. {:?}", e);
+	// 		});
+	// }
 
 	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
 		self.node_context.config.clone()

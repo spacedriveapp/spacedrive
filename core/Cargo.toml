@@ -24,8 +24,8 @@ ring = "0.17.0-alpha.10"
 int-enum = "0.4.0"
 
 # Project dependencies
-ts-rs = { git = "https://github.com/oscartbeaumont/ts-rs.git", branch = "rspc", features = ["chrono-impl", "uuid-impl", "serde-compat"] }
-rspc = {  git = "https://github.com/oscartbeaumont/rspc.git", version = "0.0.3", features = ["axum", "tauri"] }
+ts-rs = { path = "../../ts-rs/ts-rs", features = ["chrono-impl", "uuid-impl", "serde-compat"] }
+rspc = { path = "../../rspc", features = ["axum", "tauri"] }
 
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
 walkdir = "^2.3.2"
@@ -34,12 +34,12 @@ sysinfo = "0.23.9"
 thiserror = "1.0.30"
 core-derive = { path = "./derive" }
 
-tokio = { version = "1.17.0", features = ["sync", "rt"] }
+tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread"] }
 include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
 ffmpeg-next = "5.0.3"
 fs_extra = "1.2.0"
-log = { version = "0.4.17", features = ["max_level_trace"] }
-env_logger = "0.9.0"
+tracing = "0.1.35"
+tracing-subscriber = "0.3.14"

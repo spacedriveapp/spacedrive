@@ -3,10 +3,8 @@ use crate::{
 	library::LibraryContext,
 	node::LibraryNode,
 	prisma::{file_path, location},
-	ClientQuery, CoreEvent, LibraryQuery,
 };
 
-use log::info;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
@@ -15,6 +13,7 @@ use tokio::{
 	fs::{metadata, File},
 	io::{self, AsyncWriteExt},
 };
+use tracing::info;
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -230,11 +229,11 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.exec()
 		.await?;
 
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
-		query: LibraryQuery::GetLocations,
-	}))
-	.await;
+	// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+	// 	library_id: ctx.id.to_string(),
+	// 	query: LibraryQuery::GetLocations,
+	// }))
+	// .await;
 
 	info!("Location {} deleted", location_id);
 

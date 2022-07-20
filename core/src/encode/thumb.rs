@@ -2,14 +2,14 @@ use crate::{
 	job::{Job, JobReportUpdate, JobResult, WorkerContext},
 	library::LibraryContext,
 	prisma::file_path,
-	sys, CoreEvent,
+	sys,
 };
 use image::{self, imageops, DynamicImage, GenericImageView};
-use log::{debug, error, info};
 use std::error::Error;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use tokio::fs;
+use tracing::{debug, error, info};
 use webp::Encoder;
 
 #[derive(Debug, Clone)]
@@ -100,9 +100,9 @@ impl Job for ThumbnailJob {
 				ctx.progress(vec![JobReportUpdate::CompletedTaskCount(i + 1)]);
 
 				if !self.background {
-					ctx.library_ctx()
-						.emit(CoreEvent::NewThumbnail { cas_id })
-						.await;
+					// ctx.library_ctx()
+					// 	.emit(CoreEvent::NewThumbnail { cas_id })
+					// 	.await;
 				};
 			} else {
 				info!("Thumb exists, skipping... {}", output_path.display());

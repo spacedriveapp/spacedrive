@@ -7,7 +7,6 @@ use crate::{
 	prisma::{job, node},
 };
 use int_enum::IntEnum;
-use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, VecDeque},
@@ -16,6 +15,7 @@ use std::{
 	sync::Arc,
 };
 use tokio::sync::{mpsc, Mutex, RwLock};
+use tracing::{error, info};
 use ts_rs::TS;
 
 // db is single threaded, nerd

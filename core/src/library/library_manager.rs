@@ -13,7 +13,7 @@ use crate::{
 	node::Platform,
 	prisma::{self, node},
 	util::db::load_and_migrate,
-	ClientQuery, CoreEvent, NodeContext,
+	NodeContext,
 };
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -134,9 +134,9 @@ impl LibraryManager {
 
 		self.libraries.write().await.push(library);
 
-		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-			.await;
+		// self.node_context
+		// 	.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
+		// 	.await;
 
 		Ok(())
 	}
@@ -180,9 +180,9 @@ impl LibraryManager {
 		)
 		.await?;
 
-		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-			.await;
+		// self.node_context
+		// 	.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
+		// 	.await;
 		Ok(())
 	}
 
@@ -201,9 +201,9 @@ impl LibraryManager {
 
 		libraries.retain(|l| l.id != id);
 
-		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-			.await;
+		// self.node_context
+		// 	.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
+		// 	.await;
 		Ok(())
 	}
 

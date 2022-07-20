@@ -2,8 +2,7 @@ use super::{
 	jobs::{JobReport, JobReportUpdate, JobStatus},
 	Job, JobManager,
 };
-use crate::{library::LibraryContext, ClientQuery, CoreEvent, LibraryQuery};
-use log::error;
+use crate::library::LibraryContext;
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -12,6 +11,7 @@ use tokio::{
 	},
 	time::{sleep, Instant},
 };
+use tracing::error;
 use uuid::Uuid;
 
 // used to update the worker state from inside the worker thread
@@ -172,40 +172,40 @@ impl Worker {
 							}
 						}
 					}
-					ctx.emit(CoreEvent::InvalidateQueryDebounced(
-						ClientQuery::LibraryQuery {
-							library_id: ctx.id.to_string(),
-							query: LibraryQuery::GetRunningJobs,
-						},
-					))
-					.await;
+					// ctx.emit(CoreEvent::InvalidateQueryDebounced(
+					// 	ClientQuery::LibraryQuery {
+					// 		library_id: ctx.id.to_string(),
+					// 		query: LibraryQuery::GetRunningJobs,
+					// 	},
+					// ))
+					// .await;
 				}
 				WorkerEvent::Completed => {
 					worker.job_report.status = JobStatus::Completed;
 					worker.job_report.update(&ctx).await.unwrap_or(());
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-						library_id: ctx.id.to_string(),
-						query: LibraryQuery::GetRunningJobs,
-					}))
-					.await;
+					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+					// 	library_id: ctx.id.to_string(),
+					// 	query: LibraryQuery::GetRunningJobs,
+					// }))
+					// .await;
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-						library_id: ctx.id.to_string(),
-						query: LibraryQuery::GetJobHistory,
-					}))
-					.await;
-					break;
+					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+					// 	library_id: ctx.id.to_string(),
+					// 	query: LibraryQuery::GetJobHistory,
+					// }))
+					// .await;
+					// break;
 				}
 				WorkerEvent::Failed => {
 					worker.job_report.status = JobStatus::Failed;
 					worker.job_report.update(&ctx).await.unwrap_or(());
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-						library_id: ctx.id.to_string(),
-						query: LibraryQuery::GetJobHistory,
-					}))
-					.await;
+					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+					// 	library_id: ctx.id.to_string(),
+					// 	query: LibraryQuery::GetJobHistory,
+					// }))
+					// .await;
 
 					break;
 				}

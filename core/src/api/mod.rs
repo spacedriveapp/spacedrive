@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use rspc::{ActualMiddlewareResult, Config, ErrorCode, ExecError, MiddlewareResult};
+use rspc::{ActualMiddlewareResult, ErrorCode, ExecError, MiddlewareResult};
 
 use crate::{
 	job::JobManager,
 	library::{LibraryContext, LibraryManager},
 	node::NodeConfigManager,
-	NodeState,
 };
 
 // TODO(Oscar): Allow rspc `mount()` functions to return `impl RouterBuilder` or something so we can remove these cause they are annoying
@@ -43,12 +42,12 @@ pub(crate) fn mount() -> Arc<Router> {
 		// This messes with Tauri's hot reload so we can't use it until their is a solution upstream. https://github.com/tauri-apps/tauri/issues/4617
 		// .config(Config::new().export_ts_bindings("./core/bindings2")) // Note: This is relative to directory the command was executed in. // TODO: Change it to be relative to Cargo.toml by default
 		.query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
-		.query("getNode", |ctx, _: ()| async move {
-			NodeState {
-				config: ctx.config.get().await,
-				data_path: ctx.config.data_directory().to_str().unwrap().to_string(),
-			}
-		})
+		// .query("getNode", |ctx, _: ()| async move {
+		// 	NodeState {
+		// 		config: ctx.config.get().await,
+		// 		data_path: ctx.config.data_directory().to_str().unwrap().to_string(),
+		// 	}
+		// })
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		// The middleware gets the library context and changes the router context to be LibraryCtx.

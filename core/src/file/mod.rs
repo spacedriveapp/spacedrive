@@ -6,10 +6,8 @@ use thiserror::Error;
 use ts_rs::TS;
 
 use crate::{
-	library::LibraryContext,
 	prisma::{self, file, file_path},
 	sys::SysError,
-	ClientQuery, CoreError, CoreEvent, CoreResponse, LibraryQuery,
 };
 pub mod cas;
 pub mod explorer;
@@ -147,58 +145,4 @@ pub enum FileError {
 	DatabaseError(#[from] prisma::QueryError),
 	#[error("System error")]
 	SysError(#[from] SysError),
-}
-
-pub async fn set_note(
-	ctx: &LibraryContext,
-	id: i32,
-	note: Option<String>,
-) -> Result<CoreResponse, CoreError> {
-	let _response = ctx
-		.db
-		.file()
-		.find_unique(file::id::equals(id))
-		.update(vec![file::note::set(note.clone())])
-		.exec()
-		.await
-		.unwrap();
-
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
-		query: LibraryQuery::GetExplorerDir {
-			limit: 0,
-			path: PathBuf::new(),
-			location_id: 0,
-		},
-	}))
-	.await;
-
-	Ok(CoreResponse::Success(()))
-}
-
-pub async fn favorite(
-	ctx: &LibraryContext,
-	id: i32,
-	favorite: bool,
-) -> Result<CoreResponse, CoreError> {
-	let _response = ctx
-		.db
-		.file()
-		.find_unique(file::id::equals(id))
-		.update(vec![file::favorite::set(favorite)])
-		.exec()
-		.await
-		.unwrap();
-
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
-		query: LibraryQuery::GetExplorerDir {
-			limit: 0,
-			path: PathBuf::new(),
-			location_id: 0,
-		},
-	}))
-	.await;
-
-	Ok(CoreResponse::Success(()))
 }

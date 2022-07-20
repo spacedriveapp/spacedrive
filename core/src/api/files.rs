@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use ts_rs::TS;
 
-use crate::{file, prisma::file as prisma_file};
+use crate::prisma::file;
 
 use super::{LibraryRouter, LibraryRouterBuilder};
 
@@ -21,20 +21,50 @@ pub(crate) fn mount() -> LibraryRouterBuilder {
 	<LibraryRouter>::new()
 		.query("readMetadata", |_ctx, _id: i32| todo!())
 		.mutation("setNote", |ctx, args: SetNoteArgs| async move {
-			file::set_note(&ctx.library, args.id, args.note)
+			ctx.library
+				.db
+				.file()
+				.find_unique(file::id::equals(args.id))
+				.update(vec![file::note::set(args.note)])
+				.exec()
 				.await
 				.unwrap();
+
+			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+			// 	library_id: ctx.id.to_string(),
+			// 	query: LibraryQuery::GetExplorerDir {
+			// 		limit: 0,
+			// 		path: PathBuf::new(),
+			// 		location_id: 0,
+			// 	},
+			// }))
+			// .await;
 		})
 		.mutation("setFavorite", |ctx, args: SetFavoriteArgs| async move {
-			file::favorite(&ctx.library, args.id, args.favorite)
+			ctx.library
+				.db
+				.file()
+				.find_unique(file::id::equals(args.id))
+				.update(vec![file::favorite::set(args.favorite)])
+				.exec()
 				.await
 				.unwrap();
+
+			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
+			// 	library_id: ctx.id.to_string(),
+			// 	query: LibraryQuery::GetExplorerDir {
+			// 		limit: 0,
+			// 		path: PathBuf::new(),
+			// 		location_id: 0,
+			// 	},
+			// }))
+			// .await;
 		})
 		.mutation("delete", |ctx, id: i32| async move {
 			ctx.library
 				.db
 				.file()
-				.find_unique(prisma_file::id::equals(id))
+				.find_unique(file::id::equals(id))
 				.delete()
 				.exec()
 				.await

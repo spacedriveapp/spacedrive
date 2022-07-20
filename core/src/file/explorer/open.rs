@@ -5,8 +5,8 @@ use crate::{
 	prisma::file_path,
 	sys::get_location,
 };
-use log::info;
 use std::path::Path;
+use tracing::info;
 
 pub async fn open_dir(
 	ctx: &LibraryContext,
