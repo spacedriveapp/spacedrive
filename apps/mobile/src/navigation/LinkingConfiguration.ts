@@ -6,10 +6,11 @@
 import { LinkingOptions } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 
-import { RootStackParamList } from '../types';
+import { RootStackParamList } from '../types/navigation';
 
+// TODO: Deep linking for React Navigation. It will allow us to do sd://files/{id}
 const linking: LinkingOptions<RootStackParamList> = {
-	prefixes: [Linking.makeUrl('/')],
+	prefixes: [Linking.createURL('/')],
 	config: {
 		screens: {
 			Root: {

@@ -1,6 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
 
@@ -13,14 +12,13 @@ export default function App() {
 	useDeviceContext(tw, { withDeviceColorScheme: false });
 
 	const isLoadingComplete = useCachedResources();
-	const colorScheme = useColorScheme();
 
 	if (!isLoadingComplete) {
 		return null;
 	} else {
 		return (
 			<SafeAreaProvider>
-				<Navigation colorScheme={colorScheme} />
+				<Navigation />
 				<StatusBar />
 			</SafeAreaProvider>
 		);

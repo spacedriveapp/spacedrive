@@ -12,10 +12,9 @@ export default function useCachedResources() {
 			try {
 				SplashScreen.preventAutoHideAsync();
 
-				// Load fonts
+				// Load fonts, icons etc.
 				await Font.loadAsync({
-					...FontAwesome.font,
-					'space-mono': require('../assets/fonts/SpaceMono-Regular.ttf')
+					...FontAwesome.font
 				});
 			} catch (e) {
 				// We might want to provide this error information to an error reporting service

@@ -1,7 +1,7 @@
 import { Image, Text, View } from 'react-native';
 
 import tw from '../lib/tailwind';
-import { RootTabScreenProps } from '../types';
+import { RootTabScreenProps } from '../types/navigation';
 
 export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'>) {
 	return (
