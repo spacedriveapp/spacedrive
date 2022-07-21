@@ -10,6 +10,10 @@ use crate::generator::prelude::*;
 
 
 pub fn generate<'a>(model: &'a Model<'a>, datamodel: &Datamodel) -> TokenStream {
+    if matches!(&model.typ, ModelType::Local {..}) {
+        return quote!();
+    }
+    
 	let name_snake = snake_ident(&model.name);
 
 	let set_param_enums = set_param::definition(model, datamodel);
