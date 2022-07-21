@@ -25,7 +25,7 @@ int-enum = "0.4.0"
 
 # Project dependencies
 ts-rs = { version = "6.1", features = ["chrono-impl"] }
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "sdk" }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "0.6.0" }
 walkdir = "^2.3.2"
 lazy_static = "1.4.0"
 uuid = "0.8"

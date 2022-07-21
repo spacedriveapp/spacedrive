@@ -108,6 +108,21 @@ pub mod node {
 				)
 				.exec()
 				.await?;
+			let params = CRDTCreateParams {
+				_params: {
+					let mut params = vec![];
+					for _param in self.set_params._params {
+						params.push(_param.into_crdt(&self.client).await);
+					}
+					params
+				},
+				_sync_id: sync_id.clone(),
+				name: res.name.clone(),
+			};
+			let params_map = match serde_json::to_value(params).unwrap() {
+				serde_json::Value::Object(m) => m,
+				_ => unreachable!(),
+			};
 			panic!()
 		}
 	}
@@ -255,6 +270,22 @@ pub mod location {
 				)
 				.exec()
 				.await?;
+			let params = CRDTCreateParams {
+				_params: {
+					let mut params = vec![];
+					for _param in self.set_params._params {
+						params.push(_param.into_crdt(&self.client).await);
+					}
+					params
+				},
+				_sync_id: sync_id.clone(),
+				node_id: res.node().unwrap().id.clone(),
+				name: res.name.clone(),
+			};
+			let params_map = match serde_json::to_value(params).unwrap() {
+				serde_json::Value::Object(m) => m,
+				_ => unreachable!(),
+			};
 			panic!()
 		}
 	}
@@ -454,6 +485,21 @@ pub mod file_path {
 				)
 				.exec()
 				.await?;
+			let params = CRDTCreateParams {
+				_params: {
+					let mut params = vec![];
+					for _param in self.set_params._params {
+						params.push(_param.into_crdt(&self.client).await);
+					}
+					params
+				},
+				_sync_id: sync_id.clone(),
+				name: res.name.clone(),
+			};
+			let params_map = match serde_json::to_value(params).unwrap() {
+				serde_json::Value::Object(m) => m,
+				_ => unreachable!(),
+			};
 			panic!()
 		}
 	}
@@ -570,6 +616,20 @@ pub mod file {
 				)
 				.exec()
 				.await?;
+			let params = CRDTCreateParams {
+				_params: {
+					let mut params = vec![];
+					for _param in self.set_params._params {
+						params.push(_param.into_crdt(&self.client).await);
+					}
+					params
+				},
+				_sync_id: sync_id.clone(),
+			};
+			let params_map = match serde_json::to_value(params).unwrap() {
+				serde_json::Value::Object(m) => m,
+				_ => unreachable!(),
+			};
 			panic!()
 		}
 	}
@@ -689,6 +749,21 @@ pub mod tag {
 				)
 				.exec()
 				.await?;
+			let params = CRDTCreateParams {
+				_params: {
+					let mut params = vec![];
+					for _param in self.set_params._params {
+						params.push(_param.into_crdt(&self.client).await);
+					}
+					params
+				},
+				_sync_id: sync_id.clone(),
+				name: res.name.clone(),
+			};
+			let params_map = match serde_json::to_value(params).unwrap() {
+				serde_json::Value::Object(m) => m,
+				_ => unreachable!(),
+			};
 			panic!()
 		}
 	}
@@ -859,6 +934,20 @@ pub mod tag_on_file {
 				)
 				.exec()
 				.await?;
+			let params = CRDTCreateParams {
+				_params: {
+					let mut params = vec![];
+					for _param in self.set_params._params {
+						params.push(_param.into_crdt(&self.client).await);
+					}
+					params
+				},
+				_sync_id: sync_id.clone(),
+			};
+			let params_map = match serde_json::to_value(params).unwrap() {
+				serde_json::Value::Object(m) => m,
+				_ => unreachable!(),
+			};
 			panic!()
 		}
 	}

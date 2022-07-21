@@ -16,7 +16,7 @@ impl ToTokens for CRDTParamsConstructor<'_> {
 		let crdt_create_params = model
 			.fields
 			.iter()
-			.filter(|f| f.is_scalar_field() && f.required_on_create() && !model.is_sync_id(f.name()))
+			.filter(|f| f.is_scalar_field() && f.required_on_create() && model.scalar_sync_id_fields(self.datamodel).all(|(sf, _)| sf.name() != f.name()))
 			.map(|field| {
 				let field_name_snake = snake_ident(field.name());
 				
@@ -36,9 +36,7 @@ impl ToTokens for CRDTParamsConstructor<'_> {
 								
 								quote!(res.#relation_name_snake().unwrap().#referenced_field_name_snake.clone())
 							},
-							None => 
-								quote!(res.#field_name_snake.clone())
-							,
+							None => quote!(res.#field_name_snake.clone()),	
 						}
 					},
 					_ => unreachable!()
@@ -49,7 +47,15 @@ impl ToTokens for CRDTParamsConstructor<'_> {
 		
 		tokens.extend(quote! {
 			CRDTCreateParams {
-				_params: self.set_params._params.into_iter().map(|p| p.into_crdt(&res)).collect(),
+				_params: {
+                    let mut params = vec![];
+
+                    for _param in self.set_params._params {
+                        params.push(_param.into_crdt(&self.client).await);
+                    }
+
+                    params
+                },
 				_sync_id: sync_id.clone(),
 				#(#crdt_create_params,)*
 			};
@@ -138,14 +144,14 @@ impl ToTokens for OwnedCreateExec<'_> {
 			) -> Result<crate::prisma::#model_name::Data, crate::prisma::QueryError> {
 				let sync_id = #sync_id_constructor;
 
-				// let params = #crdt_params_constructor;
-				
-				// let params_map = match serde_json::to_value(params).unwrap() {
-				// 	serde_json::Value::Object(m) => m,
-				// 	_ => unreachable!(),
-				// };
-				
 				let res = #create_call;
+				
+                let params = #crdt_params_constructor;
+
+                let params_map = match serde_json::to_value(params).unwrap() {
+                	serde_json::Value::Object(m) => m,
+                	_ => unreachable!(),
+                };
 				
 				panic!()
 			}

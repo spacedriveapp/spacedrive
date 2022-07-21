@@ -4105,24 +4105,27 @@ dependencies = [
 
 [[package]]
 name = "prisma-client-rust"
-version = "0.5.1"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?branch=sdk#e07fefcaaee6dbd962d6e77091f77af850473c03"
+version = "0.6.0"
 dependencies = [
  "bigdecimal 0.2.2",
  "chrono",
  "datamodel",
+ "indexmap",
  "prisma-models",
  "query-connector",
  "query-core",
  "serde",
+ "serde-value",
  "serde_json",
  "thiserror",
  "user-facing-errors",
+ "uuid 0.8.2",
 ]
 
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.0"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?branch=0.6.0#c8457b17d216ec50bd23cc90122f973904c68340"
 dependencies = [
  "bigdecimal 0.2.2",
  "chrono",
@@ -4909,7 +4912,7 @@ dependencies = [
  "include_dir",
  "int-enum",
  "lazy_static",
- "prisma-client-rust 0.5.1",
+ "prisma-client-rust 0.6.0 (git+https://github.com/Brendonovich/prisma-client-rust.git?branch=0.6.0)",
  "prisma-crdt",
  "ring 0.17.0-alpha.11",
  "serde",
