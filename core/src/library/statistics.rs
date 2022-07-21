@@ -7,7 +7,6 @@ use ts_rs::TS;
 use super::{LibraryContext, LibraryError};
 
 #[derive(Debug, Serialize, Deserialize, TS, Clone, Default)]
-#[ts(export)]
 pub struct Statistics {
 	pub total_file_count: i32,
 	pub total_bytes_used: String,

@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const appProps = useContext(AppPropsContext);
 
-	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('GetLocations');
+	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('locations.get');
 
 	let locations = Array.isArray(locationsResponse) ? locationsResponse : [];
 
@@ -94,9 +94,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 		if (libraries && !currentLibraryUuid) initLibraries(libraries);
 	}, [libraries, currentLibraryUuid]);
 
-	const { mutate: createLocation } = useLibraryCommand('LocCreate');
+	const { mutate: createLocation } = useLibraryCommand('locations.create');
 
-	const { data: tags } = useLibraryQuery('GetTags');
+	const { data: tags } = useLibraryQuery('tags.get');
 
 	return (
 		<div

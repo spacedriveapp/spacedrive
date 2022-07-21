@@ -6,6 +6,7 @@ use std::{path::Path, sync::Arc};
 
 use tokio::fs;
 
+pub use api::RequestCtx;
 pub use rspc; // We expose rspc so we can access it in the Desktop app
 
 pub(crate) mod api;

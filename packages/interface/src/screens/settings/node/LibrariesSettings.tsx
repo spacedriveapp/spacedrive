@@ -59,13 +59,17 @@ export default function LibrarySettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
 
-	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeCommand('CreateLibrary', {
-		onSuccess: () => {
-			setOpenCreateModal(false);
+	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeCommand(
+		'library.create',
+		undefined,
+		{
+			onSuccess: () => {
+				setOpenCreateModal(false);
+			}
 		}
-	});
+	);
 
-	const { data: libraries } = useBridgeQuery('GetLibraries');
+	const { data: libraries } = useBridgeQuery('library.get');
 
 	function createNewLib() {
 		if (newLibName) {

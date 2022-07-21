@@ -2,7 +2,7 @@ import produce from 'immer';
 import { debounce } from 'lodash';
 import create from 'zustand';
 
-import { libraryCommand } from '../bridge';
+import { libraryCommand } from '../index';
 
 export type UpdateNoteFN = (vars: { id: number; note: string }) => void;
 

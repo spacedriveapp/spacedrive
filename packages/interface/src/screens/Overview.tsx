@@ -101,8 +101,8 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 export const OverviewScreen = () => {
 	const { data: libraryStatistics, isLoading: isStatisticsLoading } =
-		useLibraryQuery('GetLibraryStatistics');
-	const { data: nodeState } = useBridgeQuery('GetNode');
+		useLibraryQuery('getLibraryStatistics');
+	const { data: nodeState } = useBridgeQuery('getNode');
 
 	const { overviewStats, setOverviewStats } = useOverviewState();
 

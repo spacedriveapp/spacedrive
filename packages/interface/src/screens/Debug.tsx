@@ -7,16 +7,16 @@ import CodeBlock from '../components/primitive/Codeblock';
 
 export const DebugScreen: React.FC<{}> = (props) => {
 	const appPropsContext = useContext(AppPropsContext);
-	const { data: nodeState } = useBridgeQuery('GetNode');
-	const { data: libraryState } = useBridgeQuery('GetLibraries');
-	const { data: jobs } = useLibraryQuery('GetRunningJobs');
-	const { data: jobHistory } = useLibraryQuery('GetJobHistory');
+	const { data: nodeState } = useBridgeQuery('getNode');
+	const { data: libraryState } = useBridgeQuery('library.get');
+	const { data: jobs } = useLibraryQuery('jobs.getRunning');
+	const { data: jobHistory } = useLibraryQuery('jobs.getHistory');
 	// const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
 	//   onMutate: () => {
 	//     alert('Database purged');
 	//   }
 	// });
-	const { mutate: identifyFiles } = useLibraryCommand('IdentifyUniqueFiles');
+	const { mutate: identifyFiles } = useLibraryCommand('jobs.identifyUniqueFiles');
 	return (
 		<div className="flex flex-col w-full h-screen custom-scroll page-scroll">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />

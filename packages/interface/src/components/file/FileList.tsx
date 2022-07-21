@@ -53,14 +53,14 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	const tableContainer = useRef<null | HTMLDivElement>(null);
 	const VList = useRef<null | VirtuosoHandle>(null);
 
-	const { data: client } = useBridgeQuery('GetNode', undefined, {
+	const { data: client } = useBridgeQuery('getNode', undefined, {
 		refetchOnWindowFocus: false
 	});
 
 	const { selectedRowIndex, setSelectedRowIndex, setLocationId, layoutMode } = useExplorerStore();
 	const [goingUp, setGoingUp] = useState(false);
 
-	const { data: currentDir } = useLibraryQuery('GetExplorerDir', {
+	const { data: currentDir } = useLibraryQuery('locations.getExplorerDir', {
 		location_id: props.location_id,
 		path,
 		limit: props.limit

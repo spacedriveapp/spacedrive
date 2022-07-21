@@ -1,7 +1,7 @@
 use std::{env, net::SocketAddr, path::Path};
 
 use axum::{handler::Handler, routing::get};
-use sdcore::Node;
+use sdcore::{rspc::axum::RequestContext, Node, RequestCtx};
 use tracing::info;
 
 mod utils;
@@ -35,7 +35,11 @@ async fn main() {
 		.route("/health", get(|| async { "OK" }))
 		.route(
 			"/rspcws",
-			router.axum_ws_handler(move || node.get_request_context(None)), // TODO: Get library ID from request
+			router.axum_ws_handler(
+				move |RequestContext(RequestCtx { library_id }): RequestContext<
+					RequestCtx,
+				>| node.get_request_context(library_id),
+			), // TODO: Get library ID from request
 		)
 		.fallback(
 			(|| async { "404 Not Found: We're past the event horizon..." })

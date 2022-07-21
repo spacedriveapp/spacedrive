@@ -12,7 +12,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 export default function LibraryGeneralSettings() {
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
-	const { mutate: editLibrary } = useBridgeCommand('EditLibrary');
+	const { mutate: editLibrary } = useBridgeCommand('library.edit');
 
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');

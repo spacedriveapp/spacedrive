@@ -1,6 +1,7 @@
 // import Spacedrive JS client
 import { TauriTransport, createClient } from '@rspc/client';
 import { BaseTransport } from '@sd/client';
+import { Operations, rspc } from '@sd/client';
 // import types from Spacedrive core (TODO: re-export from client would be cleaner)
 import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
 // import Spacedrive interface
@@ -14,8 +15,6 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';
-
-import type { Operations } from '../../../core/bindings2/index';
 
 // bind state to core via Tauri
 class Transport extends BaseTransport {
@@ -39,10 +38,6 @@ const client = createClient<Operations>({
 });
 
 function App() {
-	useEffect(() => {
-		client.query('version').then(console.log);
-	}, []);
-
 	function getPlatform(platform: string): Platform {
 		switch (platform) {
 			case 'darwin':
@@ -75,23 +70,26 @@ function App() {
 	}, []);
 
 	return (
-		<SpacedriveInterface
-			transport={new Transport()}
-			platform={platform}
-			convertFileSrc={function (url: string): string {
-				return convertFileSrc(url);
-			}}
-			openDialog={function (options: {
-				directory?: boolean | undefined;
-			}): Promise<string | string[] | null> {
-				return dialog.open(options);
-			}}
-			isFocused={focused}
-			onClose={() => appWindow.close()}
-			onFullscreen={() => appWindow.setFullscreen(true)}
-			onMinimize={() => appWindow.minimize()}
-			onOpen={(path: string) => shell.open(path)}
-		/>
+		<rspc.Provider client={client}>
+			<Demo />
+			{/* <SpacedriveInterface
+				transport={new Transport()}
+				platform={platform}
+				convertFileSrc={function (url: string): string {
+					return convertFileSrc(url);
+				}}
+				openDialog={function (options: {
+					directory?: boolean | undefined;
+				}): Promise<string | string[] | null> {
+					return dialog.open(options);
+				}}
+				isFocused={focused}
+				onClose={() => appWindow.close()}
+				onFullscreen={() => appWindow.setFullscreen(true)}
+				onMinimize={() => appWindow.minimize()}
+				onOpen={(path: string) => shell.open(path)}
+			/> */}
+		</rspc.Provider>
 	);
 }
 
@@ -102,3 +100,11 @@ root.render(
 		<App />
 	</React.StrictMode>
 );
+
+function Demo() {
+	console.log('DEMO');
+	// const { data } = useQuery(['todo'], () => 'todo');
+	const { data } = rspc.useQuery('version');
+	// console.log(data);
+	return <div className="bg-red-500 w-full h-full">Bruh</div>;
+}

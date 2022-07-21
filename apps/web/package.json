@@ -9,10 +9,12 @@
 	},
 	"dependencies": {
 		"@fontsource/inter": "^4.5.10",
+		"@rspc/client": "link:../../../rspc/packages/client",
 		"@sd/client": "workspace:*",
 		"@sd/core": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
+		"@tanstack/react-query": "^4.0.5",
 		"react": "^18.1.0",
 		"react-dom": "^18.1.0"
 	},
