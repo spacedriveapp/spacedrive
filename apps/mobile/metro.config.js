@@ -4,6 +4,7 @@ const MetroSymlinksResolver = require('@rnx-kit/metro-resolver-symlinks');
 const [SDInterfacePath, SDInterfacePathExclude] = resolveUniqueModule('@sd/interface', '.');
 
 const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
+const [reactPath, reactExclude] = resolveUniqueModule('react');
 
 const metroConfig = makeMetroConfig({
 	projectRoot: __dirname,
@@ -11,9 +12,10 @@ const metroConfig = makeMetroConfig({
 		resolveRequest: MetroSymlinksResolver(),
 		extraNodeModules: {
 			'@babel/runtime': babelRuntimePath,
-			'@sd/interface': SDInterfacePath
+			'@sd/interface': SDInterfacePath,
+			'react': reactPath
 		},
-		blockList: [babelRuntimeExclude, SDInterfacePathExclude]
+		blockList: [babelRuntimeExclude, reactExclude, SDInterfacePathExclude]
 	},
 	transformer: {
 		// Metro default is "uglify-es" but terser should be faster and has better defaults.

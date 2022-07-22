@@ -4,29 +4,30 @@
 		"slug": "spacedrive",
 		"version": "0.0.1",
 		"orientation": "portrait",
-		"icon": "./src/assets/images/icon.png",
-		"scheme": "myapp",
+		"icon": "./src/assets/icons/icon.png",
+		"scheme": "spacedrive",
 		"userInterfaceStyle": "automatic",
 		"splash": {
-			"image": "./src/assets/images/splash.png",
+			"image": "./src/assets/icons/splash.png",
 			"resizeMode": "contain",
 			"backgroundColor": "#ffffff"
 		},
 		"updates": {
+			"enabled": false,
 			"fallbackToCacheTimeout": 0
 		},
 		"assetBundlePatterns": ["**/*"],
 		"ios": {
-			"supportsTablet": false
+			"supportsTablet": false,
+			"bundleIdentifier": "com.spacedrive.spacedrive"
 		},
 		"android": {
+			"package": "com.spacedrive.spacedrive",
 			"adaptiveIcon": {
-				"foregroundImage": "./src/assets/images/adaptive-icon.png",
+				"foregroundImage": "./src/assets/icons/adaptive-icon.png",
 				"backgroundColor": "#ffffff"
 			}
 		},
-		"web": {
-			"favicon": "./src/assets/images/favicon.png"
-		}
+		"privacy": "hidden"
 	}
 }
