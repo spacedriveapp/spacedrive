@@ -4,11 +4,11 @@
 		"slug": "spacedrive",
 		"version": "0.0.1",
 		"orientation": "portrait",
-		"icon": "./src/assets/icons/icon.png",
+		"icon": "./src/assets/app/icon.png",
 		"scheme": "spacedrive",
 		"userInterfaceStyle": "automatic",
 		"splash": {
-			"image": "./src/assets/icons/splash.png",
+			"image": "./src/assets/app/splash.png",
 			"resizeMode": "contain",
 			"backgroundColor": "#ffffff"
 		},
@@ -24,7 +24,7 @@
 		"android": {
 			"package": "com.spacedrive.spacedrive",
 			"adaptiveIcon": {
-				"foregroundImage": "./src/assets/icons/adaptive-icon.png",
+				"foregroundImage": "./src/assets/app/adaptive-icon.png",
 				"backgroundColor": "#ffffff"
 			}
 		},

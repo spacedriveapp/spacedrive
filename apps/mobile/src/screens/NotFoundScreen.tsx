@@ -1,35 +1,15 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
+import tw from '../lib/tailwind';
 import { RootStackScreenProps } from '../types/navigation';
 
 export default function NotFoundScreen({ navigation }: RootStackScreenProps<'NotFound'>) {
 	return (
-		<View style={styles.container}>
-			<Text style={styles.title}>This screen doesn&apos;t exist.</Text>
-			<TouchableOpacity onPress={() => navigation.replace('Root')} style={styles.link}>
-				<Text style={styles.linkText}>Go to home screen!</Text>
+		<View style={tw`flex-1 items-center justify-center p-5`}>
+			<Text style={tw`font-bold text-xl`}>This screen doesn&apos;t exist.</Text>
+			<TouchableOpacity onPress={() => navigation.replace('Root')} style={tw`mt-4 py-4`}>
+				<Text style={tw`text-sm text-gray-250`}>Go to home screen!</Text>
 			</TouchableOpacity>
 		</View>
 	);
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		alignItems: 'center',
-		justifyContent: 'center',
-		padding: 20
-	},
-	title: {
-		fontSize: 20,
-		fontWeight: 'bold'
-	},
-	link: {
-		marginTop: 15,
-		paddingVertical: 15
-	},
-	linkText: {
-		fontSize: 14,
-		color: '#2e78b7'
-	}
-});

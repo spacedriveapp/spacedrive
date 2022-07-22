@@ -1,30 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import EditScreenInfo from '../components/EditScreenInfo';
+import tw from '../lib/tailwind';
 
 export default function TabTwoScreen() {
 	return (
-		<View style={styles.container}>
-			<Text style={styles.title}>Tab Two</Text>
-			<View style={styles.separator} />
+		<View style={tw`flex-1 items-center justify-center`}>
+			<Text style={tw`font-bold text-xl`}>Tab Two</Text>
+			<View style={tw`my-8 h-1 w-4/5`} />
 		</View>
 	);
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		alignItems: 'center',
-		justifyContent: 'center'
-	},
-	title: {
-		fontSize: 20,
-		fontWeight: 'bold'
-	},
-	separator: {
-		marginVertical: 30,
-		height: 1,
-		width: '80%'
-	}
-});
