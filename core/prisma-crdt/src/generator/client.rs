@@ -68,8 +68,8 @@ fn create_operation_fn() -> TokenStream {
 						.create(
 							timestamp_bytes,
 							relation.to_string(),
-							relation_item.clone(),
-							relation_group.clone(),
+							::serde_json::to_vec(&relation_item).unwrap(),
+							::serde_json::to_vec(&relation_group).unwrap(),
 							kind,
 							data,
 							crate::prisma::node::local_id::equals(self.node_local_id),
@@ -87,29 +87,33 @@ fn create_operation_fn() -> TokenStream {
 	}
 }
 
-fn actions_accessors<'a>(datamodel: &'a Datamodel<'a>) -> impl Iterator<Item = TokenStream> + 'a {
-	datamodel.models.iter().map(|model| {
-		let name_snake = snake_ident(&model.name);
-		
-		match &model.typ {
-			ModelType::Local { .. } => quote! {
-				pub fn #name_snake(&self) -> crate::prisma::#name_snake::Actions {
-					self.client.#name_snake()
-				}
-			},
-			_ => quote! {
-				pub fn #name_snake(&self) -> super::#name_snake::Actions {
-					super::#name_snake::Actions::new(self)
-				}
-			},
-		}
-	})
+fn actions_accessors(datamodel: DatamodelRef) -> Vec<TokenStream> {
+	datamode
+		.models
+		.iter()
+		.map(|model| {
+			let name_snake = snake_ident(&model.name);
+
+			match &model.typ {
+				ModelType::Local { .. } => quote! {
+					pub fn #name_snake(&self) -> crate::prisma::#name_snake::Actions {
+						self.client.#name_snake()
+					}
+				},
+				_ => quote! {
+					pub fn #name_snake(&self) -> super::#name_snake::Actions {
+						super::#name_snake::Actions::new(self)
+					}
+				},
+			}
+		})
+		.collect()
 }
 
-pub fn generate<'a>(datamodel: &'a Datamodel<'a>) -> TokenStream {
+pub fn generate(datamodel: DatamodelRef) -> TokenStream {
 	let create_operation_fn = create_operation_fn();
 
-	let actions_accessors = actions_accessors(&datamodel);
+	let actions_accessors = actions_accessors(datamodel);
 
 	quote! {
 		mod _prisma {

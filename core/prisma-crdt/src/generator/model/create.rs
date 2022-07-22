@@ -2,7 +2,7 @@ use crate::generator::prelude::*;
 
 use super::{
 	relation::relation_key_constructor,
-	sync_id::{self, scalar_field_to_crdt},
+	sync_id::{self, scalar_field_to_crdt}, create_params,
 };
 
 fn crdt_params_constructor(model: ModelRef) -> TokenStream {
@@ -239,8 +239,8 @@ fn relation_create_exec(model: ModelRef) -> TokenStream {
 				.crdt_client
 				._create_operation(::prisma_crdt::CRDTOperationType::relation(
 					#model_name_str,
-					::serde_json::to_vec(&relation_item).unwrap(),
-					::serde_json::to_vec(&relation_group).unwrap(),
+					::prisma_crdt::objectify(relation_item),
+					::prisma_crdt::objectify(relation_group),
 					::prisma_crdt::RelationOperationData::create()
 				))
 				.await;
@@ -250,7 +250,7 @@ fn relation_create_exec(model: ModelRef) -> TokenStream {
 	}
 }
 
-pub fn generate(model: ModelRef) -> TokenStream {
+pub fn struct_def(model: ModelRef) -> TokenStream {
 	let model_name_snake = snake_ident(&model.name);
 
 	let exec = match model.typ {
@@ -268,6 +268,18 @@ pub fn generate(model: ModelRef) -> TokenStream {
 		}
 
 		impl<'a> Create<'a> {
+            pub(super) fn new(
+                crdt_client: &'a super::_prisma::PrismaCRDTClient,
+                set_params: CreateParams,
+                with_params: Vec<crate::prisma::#model_name_snake::WithParam>,
+            ) -> Self {
+                Self {
+                    crdt_client,
+                    set_params,
+                    with_params,
+                }
+            }
+
 			pub fn with(mut self, param: impl Into<crate::prisma::#model_name_snake::WithParam>) -> Self {
 				self.with_params.push(param.into());
 				self
@@ -276,4 +288,20 @@ pub fn generate(model: ModelRef) -> TokenStream {
 			#exec
 		}
 	}
+}
+
+pub fn action_method(model: ModelRef) -> TokenStream {
+    let create_params_args = create_params::args(model, Some(quote!(super)));
+
+    let create_params_constructor = create_params::shorthand_constructor(model);
+
+    quote! {
+        pub fn create(self, #(#create_params_args),*) -> Create<'a> {
+            Create::new(
+                self.client,
+                #create_params_constructor,
+                vec![]
+            )
+        }
+    }
 }

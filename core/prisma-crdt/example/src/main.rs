@@ -3,7 +3,6 @@
 mod prisma;
 mod prisma_crdt;
 
-use ::prisma_crdt::CRDTOperation;
 use prisma::PrismaClient;
 
 use serde_json::json;
@@ -12,61 +11,61 @@ use serde_json::json;
 async fn main() {	
 	let client = prisma::new_client().await.unwrap();
 
-	// let node_0 = client
-	// 	.node()
-	// 	.upsert(
-	// 		prisma_crdt::node::id::equals(vec![0]),
-	// 		(vec![0], "Node 0".to_string(), vec![]),
-	// 		vec![],
-	// 	)
-	// 	.exec()
-	// 	.await
-	// 	.unwrap();
+	let node_0 = client
+		.node()
+		.upsert(
+			prisma_crdt::node::id::equals(vec![0]),
+			(vec![0], "Node 0".to_string(), vec![]),
+			vec![],
+		)
+		.exec()
+		.await
+		.unwrap();
 
-	// let node_1 = client
-	// 	.node()
-	// 	.upsert(
-	// 		prisma_crdt::node::id::equals(vec![1]),
-	// 		(vec![1], "Node 1".to_string(), vec![]),
-	// 		vec![],
-	// 	)
-	// 	.exec()
-	// 	.await
-	// 	.unwrap();
+	let node_1 = client
+		.node()
+		.upsert(
+			prisma_crdt::node::id::equals(vec![1]),
+			(vec![1], "Node 1".to_string(), vec![]),
+			vec![],
+		)
+		.exec()
+		.await
+		.unwrap();
 
-	// producer_example(client, node_0).await;
+	producer_example(client, node_0).await;
 	// consumer_example(client, node_1).await;
 }
 
-// async fn producer_example(client: PrismaClient, node: prisma::node::Data) {
-// 	let (client, mut op_receiver) = new_client(client, node.id.clone(), node.local_id).await;
+async fn producer_example(client: PrismaClient, node: prisma::node::Data) {
+	let (client, mut op_receiver) = prisma_crdt::new_client(client, node.id.clone(), node.local_id).await;
 
-// 	let task = tokio::spawn(async move {
-// 		while let Some(op) = op_receiver.recv().await {
-// 			println!("{}", serde_json::to_string_pretty(&op).unwrap());
-// 		}
-// 	});
+	let task = tokio::spawn(async move {
+		while let Some(op) = op_receiver.recv().await {
+			println!("{}", serde_json::to_string_pretty(&op).unwrap());
+		}
+	});
 
-// 	let location = client
-// 		.location()
-// 		.create(vec![0], "Location 0".to_string(), vec![])
-// 		.exec()
-// 		.await
-// 		.unwrap();
+	let location = client
+		.location()
+		.create(vec![0], node.local_id, "Location 0".to_string(), vec![])
+		.exec()
+		.await
+		.unwrap();
 
-// 	let file_path = client
-// 		.file_path()
-// 		.create(0, location.local_id, "File 0".to_string(), vec![])
-// 		.exec()
-// 		.await
-// 		.unwrap();
+	let file_path = client
+		.file_path()
+		.create(0, location.local_id, "File 0".to_string(), vec![])
+		.exec()
+		.await
+		.unwrap();
 
-// 	let file = client
-// 		.file()
-// 		.create(vec![0], vec![prisma_crdt::file::size_in_bytes::set(100)])
-// 		.exec()
-// 		.await
-// 		.unwrap();
+	let file = client
+		.file()
+		.create(vec![0], vec![prisma_crdt::file::size_in_bytes::set(100)])
+		.exec()
+		.await
+		.unwrap();
 
 // 	client
 // 		.file_path()
@@ -78,19 +77,19 @@ async fn main() {
 // 		.await
 // 		.unwrap();
 
-// 	let tag = client
-// 		.tag()
-// 		.create(vec![0], "Tag 0".to_string(), vec![])
-// 		.exec()
-// 		.await
-// 		.unwrap();
+	let tag = client
+		.tag()
+		.create(vec![0], "Tag 0".to_string(), vec![])
+		.exec()
+		.await
+		.unwrap();
 
-// 	client
-// 		.tag_on_file()
-// 		.create(tag.local_id, file.local_id, vec![])
-// 		.exec()
-// 		.await
-// 		.unwrap();
+	client
+		.tag_on_file()
+		.create(tag.local_id, file.local_id, vec![])
+		.exec()
+		.await
+		.unwrap();
 
 // 	client
 // 		.tag()
@@ -122,7 +121,7 @@ async fn main() {
 // 		.exec()
 // 		.await
 // 		.unwrap();
-// }
+}
 
 // async fn consumer_example(client: PrismaClient, node: prisma::node::Data) {
 // 	let (client, mut op_receiver) = new_client(client, node.id.clone(), node.local_id).await;

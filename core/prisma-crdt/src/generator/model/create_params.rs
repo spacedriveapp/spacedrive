@@ -1,14 +1,9 @@
 use crate::generator::prelude::*;
 
 pub fn definition(model: ModelRef) -> TokenStream {
-	let required_scalar_fields = model
-		.fields()
-        .into_iter()
-		.filter(|field| field.is_scalar_field() && field.required_on_create());
+	let required_scalar_fields = model.required_scalar_fields();
 
-	let mut scalar_sync_id_fields = model.scalar_sync_id_fields(&model.datamodel);
-
-	let required_create_params = required_scalar_fields.clone().map(|field| {
+	let required_create_params = required_scalar_fields.iter().map(|field| {
 		let field_name_snake = snake_ident(field.name());
 
 		let field_type = match field.field_type() {
@@ -24,8 +19,10 @@ pub fn definition(model: ModelRef) -> TokenStream {
 		quote!(#field_name_snake: #field_type)
 	});
 
+	let mut scalar_sync_id_fields = model.scalar_sync_id_fields(&model.datamodel);
+
 	let required_crdt_create_params = required_scalar_fields
-		.clone()
+		.iter()
 		.filter(|f| {
 			scalar_sync_id_fields
 				.find(|sf| sf.0.name() == f.name())
@@ -53,5 +50,49 @@ pub fn definition(model: ModelRef) -> TokenStream {
 			pub _sync_id: SyncID,
 			#(pub #required_crdt_create_params),*
 		}
+	}
+}
+
+pub fn args(model: ModelRef, namespace: Option<TokenStream>) -> Vec<TokenStream> {
+	let model_name_snake = snake_ident(&model.name);
+
+	let mut required_args = model
+		.required_scalar_fields()
+		.into_iter()
+		.map(|field| {
+			let field_name_snake = snake_ident(field.name());
+
+			let typ = match &field.field_type() {
+				dml::FieldType::Scalar(_, _, _) => field.type_tokens(),
+				dml::FieldType::Enum(e) => {
+					let enum_name_pascal = pascal_ident(&e);
+
+					quote!(#(#namespace::)super::#enum_name_pascal)
+				}
+				_ => unreachable!(),
+			};
+
+			quote!(#field_name_snake: #typ)
+		})
+		.collect::<Vec<_>>();
+
+	required_args.push(quote!(_params: Vec<SetParam>));
+
+	required_args
+}
+
+/// Generates a constructor for the CreateParams struct
+/// that assumes all required fields have been declared beforehand.
+pub fn shorthand_constructor(model: ModelRef) -> TokenStream {
+	let required_args = model
+		.required_scalar_fields()
+		.into_iter()
+		.map(|field| snake_ident(field.name()));
+
+	quote! {
+        CreateParams {
+            #(#required_args,)*
+            _params
+        }
 	}
 }

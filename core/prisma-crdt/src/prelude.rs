@@ -17,17 +17,21 @@ pub fn pascal_ident(name: &str) -> Ident {
 pub struct DatamodelRef<'a>(pub &'a Datamodel<'a>);
 
 impl<'a> DatamodelRef<'a> {
-    pub fn models(&self) -> Vec<ModelRef<'a>> {
-        self.0.models.iter().map(|m| ModelRef::new(m, *self)).collect()
-    }
+	pub fn models(&self) -> Vec<ModelRef<'a>> {
+		self.0
+			.models
+			.iter()
+			.map(|m| ModelRef::new(m, *self))
+			.collect()
+	}
 }
 
 impl<'a> Deref for DatamodelRef<'a> {
-    type Target = Datamodel<'a>;
+	type Target = Datamodel<'a>;
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
 }
 
 #[derive(Clone, Copy)]
@@ -37,19 +41,32 @@ pub struct ModelRef<'a> {
 }
 
 impl<'a> ModelRef<'a> {
-    pub fn new(model: &'a Model<'a>, datamodel: DatamodelRef<'a>) -> Self {
-        ModelRef { model, datamodel }
-    }
+	pub fn new(model: &'a Model<'a>, datamodel: DatamodelRef<'a>) -> Self {
+		ModelRef { model, datamodel }
+	}
 
-    pub fn fields(&self) -> Vec<FieldRef<'a>> {
-        self.model.fields.iter().map(|f| FieldRef::new(f, *self)).collect()
-    }
+	pub fn fields(&self) -> Vec<FieldRef<'a>> {
+		self.model
+			.fields
+			.iter()
+			.map(|f| FieldRef::new(f, *self))
+			.collect()
+	}
 
-    pub fn field(&self, name: &str) -> Option<FieldRef> {
-        self.model.fields.iter().find(|f| f.name() == name).map(|field| {
-            FieldRef::new(field, *self)
-        })
-    }
+	pub fn required_scalar_fields(&self) -> Vec<FieldRef<'a>> {
+		self.fields()
+			.into_iter()
+			.filter(|field| field.is_scalar_field() && field.required_on_create())
+			.collect()
+	}
+
+	pub fn field(&self, name: &str) -> Option<FieldRef> {
+		self.model
+			.fields
+			.iter()
+			.find(|f| f.name() == name)
+			.map(|field| FieldRef::new(field, *self))
+	}
 }
 
 impl<'a> Deref for ModelRef<'a> {
@@ -68,9 +85,13 @@ pub struct FieldRef<'a> {
 }
 
 impl<'a> FieldRef<'a> {
-    pub fn new(field: &'a Field<'a>, model: ModelRef<'a>) -> Self {
-        FieldRef { field, model, datamodel: model.datamodel }
-    }
+	pub fn new(field: &'a Field<'a>, model: ModelRef<'a>) -> Self {
+		FieldRef {
+			field,
+			model,
+			datamodel: model.datamodel,
+		}
+	}
 }
 
 impl<'a> Deref for FieldRef<'a> {

@@ -30,11 +30,11 @@ fn model_type_tokens(model: ModelRef) -> TokenStream {
 }
 
 pub fn generate(model: ModelRef) -> TokenStream {
+    let model_name_snake = snake_ident(&model.name);
+
     if matches!(&model.typ, ModelType::Local {..}) {
-        return quote!();
+        return quote!(pub use crate::prisma::#model_name_snake;);
     }
-    
-	let name_snake = snake_ident(&model.name);
 
     let model_type_tokens = model_type_tokens(model);
 
@@ -42,14 +42,16 @@ pub fn generate(model: ModelRef) -> TokenStream {
 	let sync_id_struct = sync_id::definition(model);
 	let create_params = create_params::definition(model);
 
-	let create_struct = create::generate(model);
+	let create_struct = create::struct_def(model);
 	let update_struct = update::generate(&model);
 	let delete_struct = delete::generate(&model);
 
-	let actions_struct = actions::generate(&model);
+	let actions_struct = actions::generate(model);
 
 	quote!(
-		pub mod #name_snake {
+		pub mod #model_name_snake {
+            pub use crate::prisma::#model_name_snake::*;
+
             #model_type_tokens
 
 			#set_param_enums

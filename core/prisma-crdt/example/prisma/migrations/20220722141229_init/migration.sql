@@ -13,6 +13,7 @@ CREATE TABLE "relation_operation" (
     "timestamp" BLOB NOT NULL,
     "record_id" BLOB NOT NULL,
     "kind" TEXT NOT NULL,
+    "model" TEXT NOT NULL,
     "data" BLOB NOT NULL,
     "node_id" INTEGER NOT NULL,
     CONSTRAINT "relation_operation_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes" ("local_id") ON DELETE RESTRICT ON UPDATE CASCADE
@@ -64,14 +65,15 @@ CREATE TABLE "file_paths" (
 -- CreateTable
 CREATE TABLE "files" (
     "local_id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "cas_id" BLOB NOT NULL
+    "cas_id" BLOB NOT NULL,
+    "size_in_bytes" INTEGER NOT NULL DEFAULT 0
 );
 
 -- CreateTable
 CREATE TABLE "tags" (
     "local_id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "id" BLOB NOT NULL,
-    "name" TEXT NOT NULL DEFAULT ''
+    "name" TEXT NOT NULL
 );
 
 -- CreateTable
@@ -80,8 +82,8 @@ CREATE TABLE "tags_on_files" (
     "file_id" INTEGER NOT NULL,
 
     PRIMARY KEY ("tag_id", "file_id"),
-    CONSTRAINT "tags_on_files_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("local_id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "tags_on_files_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "tags" ("local_id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "tags_on_files_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("local_id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "tags_on_files_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "tags" ("local_id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateIndex

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, Map};
 
 use crate::Id;
 
@@ -30,9 +30,9 @@ pub struct RelationOperation {
 	#[serde(rename = "r")]
 	pub relation: String,
 	#[serde(rename = "ri")]
-	pub relation_item: Id,
+	pub relation_item: Map<String, Value>,
 	#[serde(rename = "rg")]
-	pub relation_group: Id,
+	pub relation_group: Map<String, Value>,
 	#[serde(rename = "d")]
 	pub data: RelationOperationData,
 }
@@ -55,8 +55,8 @@ pub enum RelationOperationData {
 impl RelationOperation {
 	pub fn new(
 		relation: String,
-		relation_item: Id,
-		relation_group: Id,
+		relation_item: Map<String, Value>,
+		relation_group: Map<String, Value>,
 		data: RelationOperationData,
 	) -> Self {
 		Self {

@@ -33,7 +33,7 @@ impl PrismaGenerator for PrismaCRDTGenerator {
 			pub use _prisma::*;
 		};
 
-		let client = client::generate(&datamodel);
+		let client = client::generate(datamodel_ref);
 
 		let models = datamodel
 			.models

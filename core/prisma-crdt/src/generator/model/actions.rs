@@ -1,7 +1,11 @@
 use crate::generator::prelude::*;
 
-pub fn generate(model: &Model) -> TokenStream {
+use super::create;
+
+pub fn generate(model: ModelRef) -> TokenStream {
 	let name = snake_ident(&model.name);
+
+    let create_fn = create::action_method(model);
 
 	quote! {
 		pub struct Actions<'a> {
@@ -9,9 +13,11 @@ pub fn generate(model: &Model) -> TokenStream {
 		}
 
 		impl<'a> Actions<'a> {
-			pub(super) fn new(client: &'a super::PrismaCRDTClient) -> Self {
+			pub(super) fn new(client: &'a super::_prisma::PrismaCRDTClient) -> Self {
 				Self { client }
 			}
+
+            #create_fn
 
 			pub fn find_unique(
 				self,

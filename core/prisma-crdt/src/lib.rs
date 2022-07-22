@@ -63,8 +63,8 @@ impl CRDTOperationType {
 
 	pub fn relation(
 		relation: &str,
-		relation_item: Id,
-		relation_group: Id,
+		relation_item: Map<String, Value>,
+		relation_group: Map<String, Value>,
 		data: RelationOperationData,
 	) -> Self {
 		Self::Relation(RelationOperation::new(

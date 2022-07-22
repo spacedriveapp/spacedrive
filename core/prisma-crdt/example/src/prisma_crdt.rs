@@ -12,8 +12,10 @@ pub async fn new_client(
 	let crdt_client = _prisma::PrismaCRDTClient::_new(prisma_client, (node_id, node_local_id), tx);
 	(crdt_client, rx)
 }
+pub use crate::prisma::node;
 pub use _prisma::*;
 pub mod location {
+	pub use crate::prisma::location::*;
 	#[derive(Clone)]
 	pub enum SetParam {
 		SetId(Vec<u8>),
@@ -108,6 +110,17 @@ pub mod location {
 		with_params: Vec<crate::prisma::location::WithParam>,
 	}
 	impl<'a> Create<'a> {
+		pub(super) fn new(
+			crdt_client: &'a super::_prisma::PrismaCRDTClient,
+			set_params: CreateParams,
+			with_params: Vec<crate::prisma::location::WithParam>,
+		) -> Self {
+			Self {
+				crdt_client,
+				set_params,
+				with_params,
+			}
+		}
 		pub fn with(mut self, param: impl Into<crate::prisma::location::WithParam>) -> Self {
 			self.with_params.push(param.into());
 			self
@@ -172,8 +185,26 @@ pub mod location {
 		client: &'a super::_prisma::PrismaCRDTClient,
 	}
 	impl<'a> Actions<'a> {
-		pub(super) fn new(client: &'a super::PrismaCRDTClient) -> Self {
+		pub(super) fn new(client: &'a super::_prisma::PrismaCRDTClient) -> Self {
 			Self { client }
+		}
+		pub fn create(
+			self,
+			id: Vec<u8>,
+			node_id: i32,
+			name: String,
+			_params: Vec<SetParam>,
+		) -> Create<'a> {
+			Create::new(
+				self.client,
+				CreateParams {
+					id,
+					node_id,
+					name,
+					_params,
+				},
+				vec![],
+			)
 		}
 		pub fn find_unique(
 			self,
@@ -190,6 +221,7 @@ pub mod location {
 	}
 }
 pub mod file_path {
+	pub use crate::prisma::file_path::*;
 	#[derive(Clone)]
 	pub enum SetParam {
 		SetId(i32),
@@ -322,6 +354,17 @@ pub mod file_path {
 		with_params: Vec<crate::prisma::file_path::WithParam>,
 	}
 	impl<'a> Create<'a> {
+		pub(super) fn new(
+			crdt_client: &'a super::_prisma::PrismaCRDTClient,
+			set_params: CreateParams,
+			with_params: Vec<crate::prisma::file_path::WithParam>,
+		) -> Self {
+			Self {
+				crdt_client,
+				set_params,
+				with_params,
+			}
+		}
 		pub fn with(mut self, param: impl Into<crate::prisma::file_path::WithParam>) -> Self {
 			self.with_params.push(param.into());
 			self
@@ -386,8 +429,26 @@ pub mod file_path {
 		client: &'a super::_prisma::PrismaCRDTClient,
 	}
 	impl<'a> Actions<'a> {
-		pub(super) fn new(client: &'a super::PrismaCRDTClient) -> Self {
+		pub(super) fn new(client: &'a super::_prisma::PrismaCRDTClient) -> Self {
 			Self { client }
+		}
+		pub fn create(
+			self,
+			id: i32,
+			location_id: i32,
+			name: String,
+			_params: Vec<SetParam>,
+		) -> Create<'a> {
+			Create::new(
+				self.client,
+				CreateParams {
+					id,
+					location_id,
+					name,
+					_params,
+				},
+				vec![],
+			)
 		}
 		pub fn find_unique(
 			self,
@@ -404,6 +465,7 @@ pub mod file_path {
 	}
 }
 pub mod file {
+	pub use crate::prisma::file::*;
 	#[derive(Clone)]
 	pub enum SetParam {
 		SetCasId(Vec<u8>),
@@ -472,6 +534,17 @@ pub mod file {
 		with_params: Vec<crate::prisma::file::WithParam>,
 	}
 	impl<'a> Create<'a> {
+		pub(super) fn new(
+			crdt_client: &'a super::_prisma::PrismaCRDTClient,
+			set_params: CreateParams,
+			with_params: Vec<crate::prisma::file::WithParam>,
+		) -> Self {
+			Self {
+				crdt_client,
+				set_params,
+				with_params,
+			}
+		}
 		pub fn with(mut self, param: impl Into<crate::prisma::file::WithParam>) -> Self {
 			self.with_params.push(param.into());
 			self
@@ -522,8 +595,11 @@ pub mod file {
 		client: &'a super::_prisma::PrismaCRDTClient,
 	}
 	impl<'a> Actions<'a> {
-		pub(super) fn new(client: &'a super::PrismaCRDTClient) -> Self {
+		pub(super) fn new(client: &'a super::_prisma::PrismaCRDTClient) -> Self {
 			Self { client }
+		}
+		pub fn create(self, cas_id: Vec<u8>, _params: Vec<SetParam>) -> Create<'a> {
+			Create::new(self.client, CreateParams { cas_id, _params }, vec![])
 		}
 		pub fn find_unique(
 			self,
@@ -540,6 +616,7 @@ pub mod file {
 	}
 }
 pub mod tag {
+	pub use crate::prisma::tag::*;
 	#[derive(Clone)]
 	pub enum SetParam {
 		SetId(Vec<u8>),
@@ -610,6 +687,17 @@ pub mod tag {
 		with_params: Vec<crate::prisma::tag::WithParam>,
 	}
 	impl<'a> Create<'a> {
+		pub(super) fn new(
+			crdt_client: &'a super::_prisma::PrismaCRDTClient,
+			set_params: CreateParams,
+			with_params: Vec<crate::prisma::tag::WithParam>,
+		) -> Self {
+			Self {
+				crdt_client,
+				set_params,
+				with_params,
+			}
+		}
 		pub fn with(mut self, param: impl Into<crate::prisma::tag::WithParam>) -> Self {
 			self.with_params.push(param.into());
 			self
@@ -660,8 +748,11 @@ pub mod tag {
 		client: &'a super::_prisma::PrismaCRDTClient,
 	}
 	impl<'a> Actions<'a> {
-		pub(super) fn new(client: &'a super::PrismaCRDTClient) -> Self {
+		pub(super) fn new(client: &'a super::_prisma::PrismaCRDTClient) -> Self {
 			Self { client }
+		}
+		pub fn create(self, id: Vec<u8>, name: String, _params: Vec<SetParam>) -> Create<'a> {
+			Create::new(self.client, CreateParams { id, name, _params }, vec![])
 		}
 		pub fn find_unique(
 			self,
@@ -678,6 +769,7 @@ pub mod tag {
 	}
 }
 pub mod tag_on_file {
+	pub use crate::prisma::tag_on_file::*;
 	#[derive(Clone, :: serde :: Serialize, :: serde :: Deserialize)]
 	pub struct RelationItem {
 		pub file_id: Vec<u8>,
@@ -778,6 +870,17 @@ pub mod tag_on_file {
 		with_params: Vec<crate::prisma::tag_on_file::WithParam>,
 	}
 	impl<'a> Create<'a> {
+		pub(super) fn new(
+			crdt_client: &'a super::_prisma::PrismaCRDTClient,
+			set_params: CreateParams,
+			with_params: Vec<crate::prisma::tag_on_file::WithParam>,
+		) -> Self {
+			Self {
+				crdt_client,
+				set_params,
+				with_params,
+			}
+		}
 		pub fn with(mut self, param: impl Into<crate::prisma::tag_on_file::WithParam>) -> Self {
 			self.with_params.push(param.into());
 			self
@@ -830,8 +933,8 @@ pub mod tag_on_file {
 			self.crdt_client
 				._create_operation(::prisma_crdt::CRDTOperationType::relation(
 					"TagOnFile",
-					::serde_json::to_vec(&relation_item).unwrap(),
-					::serde_json::to_vec(&relation_group).unwrap(),
+					::prisma_crdt::objectify(relation_item),
+					::prisma_crdt::objectify(relation_group),
 					::prisma_crdt::RelationOperationData::create(),
 				))
 				.await;
@@ -842,8 +945,19 @@ pub mod tag_on_file {
 		client: &'a super::_prisma::PrismaCRDTClient,
 	}
 	impl<'a> Actions<'a> {
-		pub(super) fn new(client: &'a super::PrismaCRDTClient) -> Self {
+		pub(super) fn new(client: &'a super::_prisma::PrismaCRDTClient) -> Self {
 			Self { client }
+		}
+		pub fn create(self, tag_id: i32, file_id: i32, _params: Vec<SetParam>) -> Create<'a> {
+			Create::new(
+				self.client,
+				CreateParams {
+					tag_id,
+					file_id,
+					_params,
+				},
+				vec![],
+			)
 		}
 		pub fn find_unique(
 			self,
@@ -943,8 +1057,8 @@ mod _prisma {
 						.create(
 							timestamp_bytes,
 							relation.to_string(),
-							relation_item.clone(),
-							relation_group.clone(),
+							::serde_json::to_vec(&relation_item).unwrap(),
+							::serde_json::to_vec(&relation_group).unwrap(),
 							kind,
 							data,
 							crate::prisma::node::local_id::equals(self.node_local_id),
