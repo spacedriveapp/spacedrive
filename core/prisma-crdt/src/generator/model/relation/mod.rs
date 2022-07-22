@@ -34,7 +34,7 @@ pub fn relation_key_constructor(field: FieldRef, struct_name: TokenStream) -> To
 
 			let value = scalar_field_to_crdt(
 				field,
-				quote!(self.client.client),
+				quote!(self.crdt_client.client),
 				quote!(self.set_params.#field_name_snake),
 			);
 

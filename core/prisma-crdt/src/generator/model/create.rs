@@ -21,7 +21,7 @@ fn crdt_params_constructor(model: ModelRef) -> TokenStream {
 
 			let value = scalar_field_to_crdt(
 				field,
-				quote!(self.client.client),
+				quote!(self.crdt_client.client),
 				quote!(self.set_params.#field_name_snake),
 			);
 
@@ -34,7 +34,7 @@ fn crdt_params_constructor(model: ModelRef) -> TokenStream {
 				let mut params = vec![];
 
 				for _param in self.set_params._params {
-					params.push(_param.into_crdt(&self.client).await);
+					params.push(_param.into_crdt(&self.crdt_client).await);
 				}
 
 				params
@@ -79,7 +79,7 @@ fn prisma_create_call(model: ModelRef) -> TokenStream {
 
 	quote! {
 		self
-			.client
+			.crdt_client
 			.client
 			.#model_name()
 			.create(
@@ -113,7 +113,7 @@ fn owned_create_exec(model: ModelRef) -> TokenStream {
 			let params_map = ::prisma_crdt::objectify(params);
 
 			self
-			   .client
+			   .crdt_client
 				._create_operation(::prisma_crdt::CRDTOperationType::owned(
 					#model_name_str,
 					vec![::prisma_crdt::OwnedOperationData::Create(params_map)]
@@ -142,7 +142,7 @@ fn shared_create_exec(model: ModelRef) -> TokenStream {
 		SharedCreateType::Atomic => {
 			quote! {
 				self
-					.client
+					.crdt_client
 					._create_operation(::prisma_crdt::CRDTOperationType::shared(
 						#model_name_str,
 						::serde_json::to_value(&sync_id).unwrap(),
@@ -151,13 +151,13 @@ fn shared_create_exec(model: ModelRef) -> TokenStream {
 					.await;
 
 				for param in self.set_params._params {
-					let crdt_param = param.into_crdt(self.client).await;
+					let crdt_param = param.into_crdt(self.crdt_client).await;
 
 					let param_map = ::prisma_crdt::objectify(crdt_param);
 
 					for (key, value) in param_map {
 						self
-							.client
+							.crdt_client
 							._create_operation(::prisma_crdt::CRDTOperationType::shared(
 								#model_name_str,
 								::serde_json::to_value(&sync_id).unwrap(),
@@ -177,7 +177,7 @@ fn shared_create_exec(model: ModelRef) -> TokenStream {
 				let params_map = ::prisma_crdt::objectify(params);
 
 				self
-					.client
+					.crdt_client
 					._create_operation(::prisma_crdt::CRDTOperationType::shared(
 						#model_name_str,
 						::serde_json::to_value(&sync_id).unwrap(),
@@ -236,7 +236,7 @@ fn relation_create_exec(model: ModelRef) -> TokenStream {
 			let relation_group = #relation_group_block;
 
 			self
-				.client
+				.crdt_client
 				._create_operation(::prisma_crdt::CRDTOperationType::relation(
 					#model_name_str,
 					::serde_json::to_vec(&relation_item).unwrap(),
@@ -262,7 +262,7 @@ pub fn generate(model: ModelRef) -> TokenStream {
 
 	quote! {
 		pub struct Create<'a> {
-			client: &'a super::_prisma::PrismaCRDTClient,
+	        crdt_client: &'a super::_prisma::PrismaCRDTClient,
 			set_params: CreateParams,
 			with_params: Vec<crate::prisma::#model_name_snake::WithParam>,
 		}

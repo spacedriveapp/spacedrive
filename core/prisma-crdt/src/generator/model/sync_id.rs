@@ -64,47 +64,7 @@ pub fn constructor(model: ModelRef, data_var: TokenStream) -> TokenStream {
 		.map(|f| {
 			let field_name_snake = snake_ident(f.name());
 
-			let val = match &f.typ {
-				FieldType::Scalar {
-					relation_field_info,
-				} => match relation_field_info {
-					Some(relation_field_info) => {
-						let relation_model_name_snake =
-							snake_ident(relation_field_info.referenced_model);
-						let relation_model = model
-							.datamodel
-							.model(relation_field_info.referenced_model)
-							.unwrap();
-						let relation_field_name_snake =
-							snake_ident(relation_field_info.referenced_field);
-
-						let referenced_field_name_snake = format_ident!(
-							"{}",
-							relation_model
-								.sync_id_for_pk(&relation_field_info.referenced_field)
-								.map(|f| f.name())
-								.unwrap_or(&relation_field_info.referenced_field)
-						);
-
-						quote!({
-							#[doc = "TODO: fetch from cache"]
-							self
-								.client
-								.client
-								.#relation_model_name_snake()
-								.find_unique(crate::prisma::#relation_model_name_snake::#relation_field_name_snake::equals(
-									#data_var.#field_name_snake.clone()
-								))
-								.exec()
-								.await?
-								.unwrap()
-								.#referenced_field_name_snake
-						})
-					}
-					None => quote!(#data_var.#field_name_snake),
-				},
-				_ => unreachable!(),
-			};
+            let val = scalar_field_to_crdt(f, quote!(self.crdt_client.client), quote!(#data_var.#field_name_snake));
 
 			quote!(#field_name_snake: #val)
 		});
