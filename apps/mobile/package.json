@@ -4,11 +4,9 @@
 	"license": "GPL-3.0-only",
 	"main": "src/index.js",
 	"scripts": {
-		"start": "expo start",
-		"android": "expo start --android",
-		"ios": "expo start --ios",
-		"web": "expo start --web",
-		"eject": "expo eject"
+		"dev": "expo start",
+		"dev:android": "expo start --android",
+		"dev:ios": "expo start --ios"
 	},
 	"dependencies": {
 		"@expo/vector-icons": "^13.0.0",
@@ -30,14 +28,15 @@
 		"react-native": "0.68.2",
 		"react-native-safe-area-context": "4.2.4",
 		"react-native-screens": "~3.11.1",
+		"react-native-svg": "^12.4.0",
 		"twrnc": "^3.3.3"
 	},
 	"devDependencies": {
-		"@types/react": "17.0.21",
 		"@babel/core": "^7.12.9",
 		"@babel/runtime": "^7.18.9",
 		"@rnx-kit/metro-config": "^1.2.36",
 		"@rnx-kit/metro-resolver-symlinks": "^0.1.21",
+		"@types/react": "17.0.21",
 		"@types/react-native": "~0.66.13",
 		"@typescript-eslint/eslint-plugin": "^5.30.7",
 		"@typescript-eslint/parser": "^5.30.7",
@@ -49,6 +48,7 @@
 		"eslint-plugin-react-native": "^4.0.0",
 		"metro-minify-terser": "^0.71.3",
 		"metro-runtime": "^0.71.3",
+		"react-native-svg-transformer": "^1.0.0",
 		"tslib": "^2.4.0",
 		"typescript": "~4.3.5"
 	},

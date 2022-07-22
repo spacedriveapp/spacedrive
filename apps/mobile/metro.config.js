@@ -6,6 +6,9 @@ const [SDInterfacePath, SDInterfacePathExclude] = resolveUniqueModule('@sd/inter
 const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
 const [reactPath, reactExclude] = resolveUniqueModule('react');
 
+const { getDefaultConfig } = require('expo/metro-config');
+const expoDefaultConfig = getDefaultConfig(__dirname);
+
 const metroConfig = makeMetroConfig({
 	projectRoot: __dirname,
 	resolver: {
@@ -15,7 +18,9 @@ const metroConfig = makeMetroConfig({
 			'@sd/interface': SDInterfacePath,
 			'react': reactPath
 		},
-		blockList: [babelRuntimeExclude, reactExclude, SDInterfacePathExclude]
+		blockList: [babelRuntimeExclude, reactExclude, SDInterfacePathExclude],
+		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
+		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg')
 	},
 	transformer: {
 		// Metro default is "uglify-es" but terser should be faster and has better defaults.
@@ -37,11 +42,9 @@ const metroConfig = makeMetroConfig({
 				experimentalImportSupport: false,
 				inlineRequires: true
 			}
-		})
+		}),
+		babelTransformerPath: require.resolve('react-native-svg-transformer')
 	}
 });
 
 module.exports = metroConfig;
-
-// If EXPO complains about config file, try merging it with the one above.
-// const { getDefaultConfig } = require('expo/metro-config');
