@@ -408,7 +408,7 @@ pub mod owned_operation {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::node::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
@@ -1395,7 +1395,7 @@ pub mod shared_operation {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::node::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
@@ -2667,7 +2667,7 @@ pub mod relation_operation {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::node::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
@@ -3640,8 +3640,11 @@ pub mod node {
 		pub fn link<T: From<Link>>(params: Vec<location::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<location::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<location::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkLocations(params)
+		}
+		pub fn set(params: Vec<location::UniqueWhereParam>) -> SetParam {
+			SetParam::SetLocations(params)
 		}
 		pub struct Link(pub Vec<location::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -3697,8 +3700,11 @@ pub mod node {
 		pub fn link<T: From<Link>>(params: Vec<owned_operation::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<owned_operation::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<owned_operation::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkOwnedOperations(params)
+		}
+		pub fn set(params: Vec<owned_operation::UniqueWhereParam>) -> SetParam {
+			SetParam::SetOwnedOperations(params)
 		}
 		pub struct Link(pub Vec<owned_operation::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -3754,8 +3760,11 @@ pub mod node {
 		pub fn link<T: From<Link>>(params: Vec<shared_operation::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<shared_operation::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<shared_operation::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkSharedOperations(params)
+		}
+		pub fn set(params: Vec<shared_operation::UniqueWhereParam>) -> SetParam {
+			SetParam::SetSharedOperations(params)
 		}
 		pub struct Link(pub Vec<shared_operation::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -3811,8 +3820,11 @@ pub mod node {
 		pub fn link<T: From<Link>>(params: Vec<relation_operation::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<relation_operation::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<relation_operation::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkRelationOperations(params)
+		}
+		pub fn set(params: Vec<relation_operation::UniqueWhereParam>) -> SetParam {
+			SetParam::SetRelationOperations(params)
 		}
 		pub struct Link(pub Vec<relation_operation::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -3929,13 +3941,17 @@ pub mod node {
 		SetId(Vec<u8>),
 		SetName(String),
 		LinkLocations(Vec<super::location::UniqueWhereParam>),
-		UnlinkLocations(Vec<super::location::WhereParam>),
+		UnlinkLocations(Vec<super::location::UniqueWhereParam>),
+		SetLocations(Vec<super::location::UniqueWhereParam>),
 		LinkOwnedOperations(Vec<super::owned_operation::UniqueWhereParam>),
-		UnlinkOwnedOperations(Vec<super::owned_operation::WhereParam>),
+		UnlinkOwnedOperations(Vec<super::owned_operation::UniqueWhereParam>),
+		SetOwnedOperations(Vec<super::owned_operation::UniqueWhereParam>),
 		LinkSharedOperations(Vec<super::shared_operation::UniqueWhereParam>),
-		UnlinkSharedOperations(Vec<super::shared_operation::WhereParam>),
+		UnlinkSharedOperations(Vec<super::shared_operation::UniqueWhereParam>),
+		SetSharedOperations(Vec<super::shared_operation::UniqueWhereParam>),
 		LinkRelationOperations(Vec<super::relation_operation::UniqueWhereParam>),
-		UnlinkRelationOperations(Vec<super::relation_operation::WhereParam>),
+		UnlinkRelationOperations(Vec<super::relation_operation::UniqueWhereParam>),
+		SetRelationOperations(Vec<super::relation_operation::UniqueWhereParam>),
 	}
 	impl Into<(String, PrismaValue)> for SetParam {
 		fn into(self) -> (String, PrismaValue) {
@@ -3977,12 +3993,13 @@ pub mod node {
 					"locations".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::location::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -3991,12 +4008,28 @@ pub mod node {
 					"locations".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::location::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetLocations(where_params) => (
+					"locations".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::location::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -4005,12 +4038,13 @@ pub mod node {
 					"owned_operations".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::owned_operation::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -4019,12 +4053,28 @@ pub mod node {
 					"owned_operations".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::owned_operation::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetOwnedOperations(where_params) => (
+					"owned_operations".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::owned_operation::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -4033,12 +4083,13 @@ pub mod node {
 					"shared_operations".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::shared_operation::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -4047,12 +4098,28 @@ pub mod node {
 					"shared_operations".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::shared_operation::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetSharedOperations(where_params) => (
+					"shared_operations".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::shared_operation::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -4061,12 +4128,13 @@ pub mod node {
 					"relation_operations".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::relation_operation::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -4075,12 +4143,28 @@ pub mod node {
 					"relation_operations".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::relation_operation::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetRelationOperations(where_params) => (
+					"relation_operations".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::relation_operation::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -4953,8 +5037,11 @@ pub mod location {
 		pub fn link<T: From<Link>>(params: Vec<file_path::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<file_path::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<file_path::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkFilePaths(params)
+		}
+		pub fn set(params: Vec<file_path::UniqueWhereParam>) -> SetParam {
+			SetParam::SetFilePaths(params)
 		}
 		pub struct Link(pub Vec<file_path::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -5046,7 +5133,8 @@ pub mod location {
 		LinkNode(super::node::UniqueWhereParam),
 		SetName(String),
 		LinkFilePaths(Vec<super::file_path::UniqueWhereParam>),
-		UnlinkFilePaths(Vec<super::file_path::WhereParam>),
+		UnlinkFilePaths(Vec<super::file_path::UniqueWhereParam>),
+		SetFilePaths(Vec<super::file_path::UniqueWhereParam>),
 	}
 	impl Into<(String, PrismaValue)> for SetParam {
 		fn into(self) -> (String, PrismaValue) {
@@ -5119,7 +5207,7 @@ pub mod location {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::node::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
@@ -5133,12 +5221,13 @@ pub mod location {
 					"file_paths".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::file_path::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -5147,12 +5236,28 @@ pub mod location {
 					"file_paths".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::file_path::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetFilePaths(where_params) => (
+					"file_paths".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::file_path::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -6166,8 +6271,11 @@ pub mod file_path {
 		pub fn link<T: From<Link>>(params: Vec<file_path::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<file_path::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<file_path::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkChildren(params)
+		}
+		pub fn set(params: Vec<file_path::UniqueWhereParam>) -> SetParam {
+			SetParam::SetChildren(params)
 		}
 		pub struct Link(pub Vec<file_path::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -6321,7 +6429,8 @@ pub mod file_path {
 		UnlinkFile,
 		SetName(String),
 		LinkChildren(Vec<super::file_path::UniqueWhereParam>),
-		UnlinkChildren(Vec<super::file_path::WhereParam>),
+		UnlinkChildren(Vec<super::file_path::UniqueWhereParam>),
+		SetChildren(Vec<super::file_path::UniqueWhereParam>),
 	}
 	impl Into<(String, PrismaValue)> for SetParam {
 		fn into(self) -> (String, PrismaValue) {
@@ -6391,7 +6500,7 @@ pub mod file_path {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::location::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
@@ -6439,7 +6548,7 @@ pub mod file_path {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::file_path::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
@@ -6494,7 +6603,7 @@ pub mod file_path {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::file::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
@@ -6515,12 +6624,13 @@ pub mod file_path {
 					"children".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::file_path::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -6529,12 +6639,28 @@ pub mod file_path {
 					"children".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::file_path::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetChildren(where_params) => (
+					"children".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::file_path::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -7498,8 +7624,11 @@ pub mod file {
 		pub fn link<T: From<Link>>(params: Vec<file_path::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<file_path::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<file_path::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkFilePaths(params)
+		}
+		pub fn set(params: Vec<file_path::UniqueWhereParam>) -> SetParam {
+			SetParam::SetFilePaths(params)
 		}
 		pub struct Link(pub Vec<file_path::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -7555,8 +7684,11 @@ pub mod file {
 		pub fn link<T: From<Link>>(params: Vec<tag_on_file::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<tag_on_file::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<tag_on_file::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkTagOnFile(params)
+		}
+		pub fn set(params: Vec<tag_on_file::UniqueWhereParam>) -> SetParam {
+			SetParam::SetTagOnFile(params)
 		}
 		pub struct Link(pub Vec<tag_on_file::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -7645,9 +7777,11 @@ pub mod file {
 		MultiplySizeInBytes(i32),
 		DivideSizeInBytes(i32),
 		LinkFilePaths(Vec<super::file_path::UniqueWhereParam>),
-		UnlinkFilePaths(Vec<super::file_path::WhereParam>),
+		UnlinkFilePaths(Vec<super::file_path::UniqueWhereParam>),
+		SetFilePaths(Vec<super::file_path::UniqueWhereParam>),
 		LinkTagOnFile(Vec<super::tag_on_file::UniqueWhereParam>),
-		UnlinkTagOnFile(Vec<super::tag_on_file::WhereParam>),
+		UnlinkTagOnFile(Vec<super::tag_on_file::UniqueWhereParam>),
+		SetTagOnFile(Vec<super::tag_on_file::UniqueWhereParam>),
 	}
 	impl Into<(String, PrismaValue)> for SetParam {
 		fn into(self) -> (String, PrismaValue) {
@@ -7719,12 +7853,13 @@ pub mod file {
 					"file_paths".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::file_path::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -7733,12 +7868,28 @@ pub mod file {
 					"file_paths".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::file_path::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetFilePaths(where_params) => (
+					"file_paths".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::file_path::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -7747,12 +7898,13 @@ pub mod file {
 					"TagOnFile".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::tag_on_file::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -7761,12 +7913,28 @@ pub mod file {
 					"TagOnFile".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::tag_on_file::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetTagOnFile(where_params) => (
+					"TagOnFile".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::tag_on_file::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -8448,8 +8616,11 @@ pub mod tag {
 		pub fn link<T: From<Link>>(params: Vec<tag_on_file::UniqueWhereParam>) -> T {
 			Link(params).into()
 		}
-		pub fn unlink(params: Vec<tag_on_file::WhereParam>) -> SetParam {
+		pub fn unlink(params: Vec<tag_on_file::UniqueWhereParam>) -> SetParam {
 			SetParam::UnlinkTagOnFile(params)
+		}
+		pub fn set(params: Vec<tag_on_file::UniqueWhereParam>) -> SetParam {
+			SetParam::SetTagOnFile(params)
 		}
 		pub struct Link(pub Vec<tag_on_file::UniqueWhereParam>);
 		impl From<Link> for SetParam {
@@ -8517,7 +8688,8 @@ pub mod tag {
 		SetId(Vec<u8>),
 		SetName(String),
 		LinkTagOnFile(Vec<super::tag_on_file::UniqueWhereParam>),
-		UnlinkTagOnFile(Vec<super::tag_on_file::WhereParam>),
+		UnlinkTagOnFile(Vec<super::tag_on_file::UniqueWhereParam>),
+		SetTagOnFile(Vec<super::tag_on_file::UniqueWhereParam>),
 	}
 	impl Into<(String, PrismaValue)> for SetParam {
 		fn into(self) -> (String, PrismaValue) {
@@ -8559,12 +8731,13 @@ pub mod tag {
 					"TagOnFile".to_string(),
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::tag_on_file::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -8573,12 +8746,28 @@ pub mod tag {
 					"TagOnFile".to_string(),
 					PrismaValue::Object(vec![(
 						"disconnect".to_string(),
-						PrismaValue::Object(
+						PrismaValue::List(
 							where_params
 								.into_iter()
 								.map(Into::<super::tag_on_file::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
 								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
+								.collect(),
+						),
+					)]),
+				),
+				SetParam::SetTagOnFile(where_params) => (
+					"TagOnFile".to_string(),
+					PrismaValue::Object(vec![(
+						"set".to_string(),
+						PrismaValue::List(
+							where_params
+								.into_iter()
+								.map(Into::<super::tag_on_file::WhereParam>::into)
+								.map(Into::<SerializedWhere>::into)
+								.map(SerializedWhere::transform_equals)
+								.map(|v| PrismaValue::Object(vec![v]))
 								.collect(),
 						),
 					)]),
@@ -9345,7 +9534,7 @@ pub mod tag_on_file {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::tag::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)
@@ -9390,7 +9579,7 @@ pub mod tag_on_file {
 					PrismaValue::Object(vec![(
 						"connect".to_string(),
 						PrismaValue::Object(
-							vec![where_param]
+							[where_param]
 								.into_iter()
 								.map(Into::<super::file::WhereParam>::into)
 								.map(Into::<SerializedWhere>::into)

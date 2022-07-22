@@ -9,7 +9,7 @@ mod datamodel;
 mod prelude;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, Map};
 use uhlc::NTP64;
 
 pub use owned::*;
@@ -88,3 +88,10 @@ pub struct CRDTStore<Database> {
 }
 
 pub type SerializedField = (String, Value);
+
+pub fn objectify(val: impl Serialize) -> Map<String, Value> {
+    match ::serde_json::to_value(val).unwrap() {
+        serde_json::Value::Object(m) => m,
+        _ => unreachable!(),
+    }
+}

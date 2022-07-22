@@ -13,140 +13,6 @@ pub async fn new_client(
 	(crdt_client, rx)
 }
 pub use _prisma::*;
-pub mod node {
-	#[derive(Clone)]
-	pub enum SetParam {
-		SetId(Vec<u8>),
-		SetName(String),
-	}
-	impl SetParam {
-		pub async fn into_crdt(self, client: &super::_prisma::PrismaCRDTClient) -> CRDTSetParam {
-			match self {
-				Self::SetId(v) => CRDTSetParam::SetId(v),
-				Self::SetName(v) => CRDTSetParam::SetName(v),
-			}
-		}
-	}
-	impl From<crate::prisma::node::id::Set> for SetParam {
-		fn from(v: crate::prisma::node::id::Set) -> Self {
-			Self::SetId(v.0)
-		}
-	}
-	impl From<crate::prisma::node::name::Set> for SetParam {
-		fn from(v: crate::prisma::node::name::Set) -> Self {
-			Self::SetName(v.0)
-		}
-	}
-	impl Into<crate::prisma::node::SetParam> for SetParam {
-		fn into(self) -> crate::prisma::node::SetParam {
-			match self {
-				Self::SetId(v) => crate::prisma::node::id::set(v),
-				Self::SetName(v) => crate::prisma::node::name::set(v),
-			}
-		}
-	}
-	#[derive(Clone, serde :: Serialize, serde :: Deserialize)]
-	pub enum CRDTSetParam {
-		#[serde(rename = "id")]
-		SetId(Vec<u8>),
-		#[serde(rename = "name")]
-		SetName(String),
-	}
-	impl Into<crate::prisma::node::SetParam> for CRDTSetParam {
-		fn into(self) -> crate::prisma::node::SetParam {
-			match self {
-				Self::SetId(v) => crate::prisma::node::id::set(v),
-				Self::SetName(v) => crate::prisma::node::name::set(v),
-			}
-		}
-	}
-	#[derive(Clone, :: serde :: Serialize, :: serde :: Deserialize)]
-	pub struct SyncID {
-		pub id: Vec<u8>,
-	}
-	#[derive(Clone)]
-	pub struct CreateParams {
-		pub _params: Vec<SetParam>,
-		pub id: Vec<u8>,
-		pub name: String,
-	}
-	#[derive(Clone, :: serde :: Serialize, :: serde :: Deserialize)]
-	pub struct CRDTCreateParams {
-		#[serde(default, skip_serializing_if = "Vec::is_empty", rename = "_")]
-		pub _params: Vec<CRDTSetParam>,
-		#[serde(flatten)]
-		pub _sync_id: SyncID,
-		pub name: String,
-	}
-	pub struct Create<'a> {
-		client: &'a super::_prisma::PrismaCRDTClient,
-		set_params: CreateParams,
-		with_params: Vec<crate::prisma::node::WithParam>,
-	}
-	impl<'a> Create<'a> {
-		pub fn with(mut self, param: impl Into<crate::prisma::node::WithParam>) -> Self {
-			self.with_params.push(param.into());
-			self
-		}
-		pub async fn exec(self) -> Result<crate::prisma::node::Data, crate::prisma::QueryError> {
-			let sync_id = SyncID {
-				id: self.set_params.id.clone(),
-			};
-			let res = self
-				.client
-				.client
-				.node()
-				.create(
-					self.set_params.id.clone(),
-					self.set_params.name.clone(),
-					self.set_params
-						._params
-						.clone()
-						.into_iter()
-						.map(Into::into)
-						.collect(),
-				)
-				.exec()
-				.await?;
-			let params = CRDTCreateParams {
-				_params: {
-					let mut params = vec![];
-					for _param in self.set_params._params {
-						params.push(_param.into_crdt(&self.client).await);
-					}
-					params
-				},
-				_sync_id: sync_id.clone(),
-				name: res.name.clone(),
-			};
-			let params_map = match serde_json::to_value(params).unwrap() {
-				serde_json::Value::Object(m) => m,
-				_ => unreachable!(),
-			};
-			panic!()
-		}
-	}
-	pub struct Actions<'a> {
-		client: &'a super::_prisma::PrismaCRDTClient,
-	}
-	impl<'a> Actions<'a> {
-		pub(super) fn new(client: &'a super::PrismaCRDTClient) -> Self {
-			Self { client }
-		}
-		pub fn find_unique(
-			self,
-			param: crate::prisma::node::UniqueWhereParam,
-		) -> crate::prisma::node::FindUnique<'a> {
-			self.client.client.node().find_unique(param)
-		}
-		pub fn find_many(
-			self,
-			params: Vec<crate::prisma::node::WhereParam>,
-		) -> crate::prisma::node::FindMany<'a> {
-			self.client.client.node().find_many(params)
-		}
-	}
-}
 pub mod location {
 	#[derive(Clone)]
 	pub enum SetParam {
@@ -160,7 +26,6 @@ pub mod location {
 				Self::SetId(v) => CRDTSetParam::SetId(v),
 				Self::SetNodeId(v) => CRDTSetParam::SetNodeId(
 					client
-						.client
 						.node()
 						.find_unique(crate::prisma::node::local_id::equals(v))
 						.exec()
@@ -250,9 +115,6 @@ pub mod location {
 		pub async fn exec(
 			self,
 		) -> Result<crate::prisma::location::Data, crate::prisma::QueryError> {
-			let sync_id = SyncID {
-				id: self.set_params.id.clone(),
-			};
 			let res = self
 				.client
 				.client
@@ -270,6 +132,9 @@ pub mod location {
 				)
 				.exec()
 				.await?;
+			let sync_id = super::location::SyncID {
+				id: self.set_params.id,
+			};
 			let params = CRDTCreateParams {
 				_params: {
 					let mut params = vec![];
@@ -279,14 +144,28 @@ pub mod location {
 					params
 				},
 				_sync_id: sync_id.clone(),
-				node_id: res.node().unwrap().id.clone(),
-				name: res.name.clone(),
+				node_id: self
+					.client
+					.client
+					.node()
+					.find_unique(crate::prisma::node::local_id::equals(
+						self.set_params.node_id,
+					))
+					.exec()
+					.await
+					.unwrap()
+					.unwrap()
+					.id,
+				name: self.set_params.name,
 			};
-			let params_map = match serde_json::to_value(params).unwrap() {
-				serde_json::Value::Object(m) => m,
-				_ => unreachable!(),
-			};
-			panic!()
+			let params_map = ::prisma_crdt::objectify(params);
+			self.client
+				._create_operation(::prisma_crdt::CRDTOperationType::owned(
+					"Location",
+					vec![::prisma_crdt::OwnedOperationData::Create(params_map)],
+				))
+				.await;
+			Ok(res)
 		}
 	}
 	pub struct Actions<'a> {
@@ -325,7 +204,6 @@ pub mod file_path {
 				Self::SetId(v) => CRDTSetParam::SetId(v),
 				Self::SetLocationId(v) => CRDTSetParam::SetLocationId(
 					client
-						.client
 						.location()
 						.find_unique(crate::prisma::location::local_id::equals(v))
 						.exec()
@@ -338,7 +216,6 @@ pub mod file_path {
 				Self::SetFileId(v) => CRDTSetParam::SetFileId(match v {
 					Some(v) => Some(
 						client
-							.client
 							.file()
 							.find_unique(crate::prisma::file::local_id::equals(v))
 							.exec()
@@ -452,22 +329,6 @@ pub mod file_path {
 		pub async fn exec(
 			self,
 		) -> Result<crate::prisma::file_path::Data, crate::prisma::QueryError> {
-			let sync_id = SyncID {
-				id: self.set_params.id.clone(),
-				location_id: {
-					#[doc = "TODO: fetch from cache"]
-					self.client
-						.client
-						.location()
-						.find_unique(crate::prisma::location::local_id::equals(
-							self.set_params.location_id.clone(),
-						))
-						.exec()
-						.await?
-						.unwrap()
-						.id
-				},
-			};
 			let res = self
 				.client
 				.client
@@ -485,6 +346,22 @@ pub mod file_path {
 				)
 				.exec()
 				.await?;
+			let sync_id = super::file_path::SyncID {
+				id: self.set_params.id,
+				location_id: {
+					#[doc = "TODO: fetch from cache"]
+					self.client
+						.client
+						.location()
+						.find_unique(crate::prisma::location::local_id::equals(
+							self.set_params.location_id.clone(),
+						))
+						.exec()
+						.await?
+						.unwrap()
+						.id
+				},
+			};
 			let params = CRDTCreateParams {
 				_params: {
 					let mut params = vec![];
@@ -494,13 +371,16 @@ pub mod file_path {
 					params
 				},
 				_sync_id: sync_id.clone(),
-				name: res.name.clone(),
+				name: self.set_params.name,
 			};
-			let params_map = match serde_json::to_value(params).unwrap() {
-				serde_json::Value::Object(m) => m,
-				_ => unreachable!(),
-			};
-			panic!()
+			let params_map = ::prisma_crdt::objectify(params);
+			self.client
+				._create_operation(::prisma_crdt::CRDTOperationType::owned(
+					"FilePath",
+					vec![::prisma_crdt::OwnedOperationData::Create(params_map)],
+				))
+				.await;
+			Ok(res)
 		}
 	}
 	pub struct Actions<'a> {
@@ -598,9 +478,6 @@ pub mod file {
 			self
 		}
 		pub async fn exec(self) -> Result<crate::prisma::file::Data, crate::prisma::QueryError> {
-			let sync_id = SyncID {
-				cas_id: self.set_params.cas_id.clone(),
-			};
 			let res = self
 				.client
 				.client
@@ -616,21 +493,30 @@ pub mod file {
 				)
 				.exec()
 				.await?;
-			let params = CRDTCreateParams {
-				_params: {
-					let mut params = vec![];
-					for _param in self.set_params._params {
-						params.push(_param.into_crdt(&self.client).await);
-					}
-					params
-				},
-				_sync_id: sync_id.clone(),
+			let sync_id = super::file::SyncID {
+				cas_id: self.set_params.cas_id,
 			};
-			let params_map = match serde_json::to_value(params).unwrap() {
-				serde_json::Value::Object(m) => m,
-				_ => unreachable!(),
-			};
-			panic!()
+			self.client
+				._create_operation(::prisma_crdt::CRDTOperationType::shared(
+					"File",
+					::serde_json::to_value(&sync_id).unwrap(),
+					::prisma_crdt::SharedOperationData::create_atomic(),
+				))
+				.await;
+			for param in self.set_params._params {
+				let crdt_param = param.into_crdt(self.client).await;
+				let param_map = ::prisma_crdt::objectify(crdt_param);
+				for (key, value) in param_map {
+					self.client
+						._create_operation(::prisma_crdt::CRDTOperationType::shared(
+							"File",
+							::serde_json::to_value(&sync_id).unwrap(),
+							::prisma_crdt::SharedOperationData::update(key, value),
+						))
+						.await;
+				}
+			}
+			Ok(res)
 		}
 	}
 	pub struct Actions<'a> {
@@ -730,9 +616,6 @@ pub mod tag {
 			self
 		}
 		pub async fn exec(self) -> Result<crate::prisma::tag::Data, crate::prisma::QueryError> {
-			let sync_id = SyncID {
-				id: self.set_params.id.clone(),
-			};
 			let res = self
 				.client
 				.client
@@ -749,6 +632,9 @@ pub mod tag {
 				)
 				.exec()
 				.await?;
+			let sync_id = super::tag::SyncID {
+				id: self.set_params.id,
+			};
 			let params = CRDTCreateParams {
 				_params: {
 					let mut params = vec![];
@@ -758,13 +644,17 @@ pub mod tag {
 					params
 				},
 				_sync_id: sync_id.clone(),
-				name: res.name.clone(),
+				name: self.set_params.name,
 			};
-			let params_map = match serde_json::to_value(params).unwrap() {
-				serde_json::Value::Object(m) => m,
-				_ => unreachable!(),
-			};
-			panic!()
+			let params_map = ::prisma_crdt::objectify(params);
+			self.client
+				._create_operation(::prisma_crdt::CRDTOperationType::shared(
+					"Tag",
+					::serde_json::to_value(&sync_id).unwrap(),
+					::prisma_crdt::SharedOperationData::create_unique(params_map),
+				))
+				.await;
+			Ok(res)
 		}
 	}
 	pub struct Actions<'a> {
@@ -789,6 +679,14 @@ pub mod tag {
 	}
 }
 pub mod tag_on_file {
+	#[derive(Clone, :: serde :: Serialize, :: serde :: Deserialize)]
+	pub struct RelationItem {
+		pub file_id: Vec<u8>,
+	}
+	#[derive(Clone, :: serde :: Serialize, :: serde :: Deserialize)]
+	pub struct RelationGroup {
+		pub tag_id: Vec<u8>,
+	}
 	#[derive(Clone)]
 	pub enum SetParam {
 		SetTagId(i32),
@@ -799,7 +697,6 @@ pub mod tag_on_file {
 			match self {
 				Self::SetTagId(v) => CRDTSetParam::SetTagId(
 					client
-						.client
 						.tag()
 						.find_unique(crate::prisma::tag::local_id::equals(v))
 						.exec()
@@ -810,7 +707,6 @@ pub mod tag_on_file {
 				),
 				Self::SetFileId(v) => CRDTSetParam::SetFileId(
 					client
-						.client
 						.file()
 						.find_unique(crate::prisma::file::local_id::equals(v))
 						.exec()
@@ -890,34 +786,6 @@ pub mod tag_on_file {
 		pub async fn exec(
 			self,
 		) -> Result<crate::prisma::tag_on_file::Data, crate::prisma::QueryError> {
-			let sync_id = SyncID {
-				tag_id: {
-					#[doc = "TODO: fetch from cache"]
-					self.client
-						.client
-						.tag()
-						.find_unique(crate::prisma::tag::local_id::equals(
-							self.set_params.tag_id.clone(),
-						))
-						.exec()
-						.await?
-						.unwrap()
-						.id
-				},
-				file_id: {
-					#[doc = "TODO: fetch from cache"]
-					self.client
-						.client
-						.file()
-						.find_unique(crate::prisma::file::local_id::equals(
-							self.set_params.file_id.clone(),
-						))
-						.exec()
-						.await?
-						.unwrap()
-						.cas_id
-				},
-			};
 			let res = self
 				.client
 				.client
@@ -934,21 +802,41 @@ pub mod tag_on_file {
 				)
 				.exec()
 				.await?;
-			let params = CRDTCreateParams {
-				_params: {
-					let mut params = vec![];
-					for _param in self.set_params._params {
-						params.push(_param.into_crdt(&self.client).await);
-					}
-					params
-				},
-				_sync_id: sync_id.clone(),
+			let relation_item = RelationItem {
+				file_id: self
+					.client
+					.client
+					.file()
+					.find_unique(crate::prisma::file::local_id::equals(
+						self.set_params.file_id,
+					))
+					.exec()
+					.await
+					.unwrap()
+					.unwrap()
+					.cas_id,
 			};
-			let params_map = match serde_json::to_value(params).unwrap() {
-				serde_json::Value::Object(m) => m,
-				_ => unreachable!(),
+			let relation_group = RelationGroup {
+				tag_id: self
+					.client
+					.client
+					.tag()
+					.find_unique(crate::prisma::tag::local_id::equals(self.set_params.tag_id))
+					.exec()
+					.await
+					.unwrap()
+					.unwrap()
+					.id,
 			};
-			panic!()
+			self.client
+				._create_operation(::prisma_crdt::CRDTOperationType::relation(
+					"TagOnFile",
+					::serde_json::to_vec(&relation_item).unwrap(),
+					::serde_json::to_vec(&relation_group).unwrap(),
+					::prisma_crdt::RelationOperationData::create(),
+				))
+				.await;
+			Ok(res)
 		}
 	}
 	pub struct Actions<'a> {
