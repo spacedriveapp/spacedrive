@@ -14,6 +14,7 @@ impl PrismaGenerator for PrismaCRDTGenerator {
 	fn generate(self, args: GenerateArgs) -> String {
 		let datamodel =
 			datamodel::Datamodel::try_from(&args.dml).expect("Failed to construct datamodel");
+        let datamodel_ref = prelude::DatamodelRef(&datamodel);
 
 		let header = quote! {
 			pub async fn new_client(
@@ -37,7 +38,7 @@ impl PrismaGenerator for PrismaCRDTGenerator {
 		let models = datamodel
 			.models
 			.iter()
-			.map(|model| model::generate(model, &datamodel));
+			.map(|model| model::generate(ModelRef::new(model, datamodel_ref)));
 
 		let output = quote! {
 			#header

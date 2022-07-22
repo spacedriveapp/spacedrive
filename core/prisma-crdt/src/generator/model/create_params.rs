@@ -1,12 +1,12 @@
 use crate::generator::prelude::*;
 
-pub fn definition(model: &Model, datamodel: &Datamodel) -> TokenStream {
+pub fn definition(model: ModelRef) -> TokenStream {
 	let required_scalar_fields = model
-		.fields
-		.iter()
+		.fields()
+        .into_iter()
 		.filter(|field| field.is_scalar_field() && field.required_on_create());
 
-	let mut scalar_sync_id_fields = model.scalar_sync_id_fields(datamodel);
+	let mut scalar_sync_id_fields = model.scalar_sync_id_fields(&model.datamodel);
 
 	let required_create_params = required_scalar_fields.clone().map(|field| {
 		let field_name_snake = snake_ident(field.name());
@@ -32,7 +32,7 @@ pub fn definition(model: &Model, datamodel: &Datamodel) -> TokenStream {
 				.is_none()
 		})
 		.map(|field| {
-			let field_type = field.crdt_type_tokens(datamodel);
+			let field_type = field.crdt_type_tokens(&model.datamodel);
 			let field_name_snake = snake_ident(field.name());
 
 			quote!(#field_name_snake: #field_type)

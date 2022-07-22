@@ -13,9 +13,43 @@ pub fn pascal_ident(name: &str) -> Ident {
 	format_ident!("{}", name.to_case(Case::Pascal))
 }
 
+#[derive(Clone, Copy)]
+pub struct DatamodelRef<'a>(pub &'a Datamodel<'a>);
+
+impl<'a> DatamodelRef<'a> {
+    pub fn models(&self) -> Vec<ModelRef<'a>> {
+        self.0.models.iter().map(|m| ModelRef::new(m, *self)).collect()
+    }
+}
+
+impl<'a> Deref for DatamodelRef<'a> {
+    type Target = Datamodel<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct ModelRef<'a> {
 	model: &'a Model<'a>,
-	datamodel: &'a Datamodel<'a>,
+	pub datamodel: DatamodelRef<'a>,
+}
+
+impl<'a> ModelRef<'a> {
+    pub fn new(model: &'a Model<'a>, datamodel: DatamodelRef<'a>) -> Self {
+        ModelRef { model, datamodel }
+    }
+
+    pub fn fields(&self) -> Vec<FieldRef<'a>> {
+        self.model.fields.iter().map(|f| FieldRef::new(f, *self)).collect()
+    }
+
+    pub fn field(&self, name: &str) -> Option<FieldRef> {
+        self.model.fields.iter().find(|f| f.name() == name).map(|field| {
+            FieldRef::new(field, *self)
+        })
+    }
 }
 
 impl<'a> Deref for ModelRef<'a> {
@@ -26,10 +60,17 @@ impl<'a> Deref for ModelRef<'a> {
 	}
 }
 
+#[derive(Clone, Copy)]
 pub struct FieldRef<'a> {
 	field: &'a Field<'a>,
-	model: &'a Model<'a>,
-	datamodel: &'a Datamodel<'a>,
+	pub model: ModelRef<'a>,
+	pub datamodel: DatamodelRef<'a>,
+}
+
+impl<'a> FieldRef<'a> {
+    pub fn new(field: &'a Field<'a>, model: ModelRef<'a>) -> Self {
+        FieldRef { field, model, datamodel: model.datamodel }
+    }
 }
 
 impl<'a> Deref for FieldRef<'a> {

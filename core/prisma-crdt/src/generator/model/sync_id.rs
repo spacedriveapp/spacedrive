@@ -28,7 +28,7 @@ use crate::generator::prelude::*;
 ///     location    Location
 /// }
 /// ```
-/// 
+///
 /// ```
 /// SyncID {
 ///     location_id: self
@@ -42,16 +42,12 @@ use crate::generator::prelude::*;
 ///     pk: #data_var.pk.clone()
 /// }
 /// ```
-pub fn constructor<'a>(
-	model: &'a Model,
-	data_var: TokenStream,
-	datamodel: &'a Datamodel,
-) -> TokenStream {
-    let model_name_snake = snake_ident(&model.name);
+pub fn constructor(model: ModelRef, data_var: TokenStream) -> TokenStream {
+	let model_name_snake = snake_ident(&model.name);
 
 	let args = model
-		.fields
-		.iter()
+		.fields()
+		.into_iter()
 		.filter(|f| model.is_sync_id(f.name()))
 		.flat_map(|f| match &f.typ {
 			FieldType::Scalar { .. } => vec![f],
@@ -75,7 +71,8 @@ pub fn constructor<'a>(
 					Some(relation_field_info) => {
 						let relation_model_name_snake =
 							snake_ident(relation_field_info.referenced_model);
-						let relation_model = datamodel
+						let relation_model = model
+							.datamodel
 							.model(relation_field_info.referenced_model)
 							.unwrap();
 						let relation_field_name_snake =
@@ -124,7 +121,7 @@ pub fn constructor<'a>(
 /// ## Reguar Field
 /// For a field that has no connection to any model's sync ID,
 /// the value used will be `set_param_value`.
-/// 
+///
 /// ```
 /// field String
 /// ```
@@ -152,91 +149,70 @@ pub fn constructor<'a>(
 ///     .unwrap()
 ///     .foregin_sync_id
 /// ```
-pub struct ScalarFieldToCRDT<'a> {
-    field: &'a Field<'a>,
-    model: &'a Model<'a>,
-    datamodel: &'a Datamodel<'a>,
-    /// Expression that resolves to a PrismaClient
-    client: TokenStream,
-    /// Expression that resolves to the value of the field
-    field_value_expr: TokenStream
+
+pub fn scalar_field_to_crdt(
+	field: FieldRef,
+	client: TokenStream,
+	set_param_value: TokenStream,
+) -> TokenStream {
+	match &field.typ {
+		FieldType::Scalar {
+			relation_field_info,
+		} => relation_field_info
+			.as_ref()
+			.and_then(|relation_field_info| {
+				let referenced_field_snake = snake_ident(relation_field_info.referenced_field);
+
+				let relation_model = field
+					.datamodel
+					.model(relation_field_info.referenced_model)
+					.unwrap();
+				let relation_model_snake = snake_ident(&relation_model.name);
+
+				let referenced_sync_id_field = relation_model
+					.sync_id_for_pk(&relation_field_info.referenced_field)
+					.expect("referenced_sync_id_field should be present");
+
+				// If referenced field is a sync ID, it does not need to be converted
+				(!field.model.is_sync_id(relation_field_info.referenced_field)).then(|| {
+					let referenced_sync_id_field_name_snake =
+						snake_ident(&referenced_sync_id_field.name());
+
+					let query = quote! {
+						#client
+							.#relation_model_snake()
+							.find_unique(
+								crate::prisma::#relation_model_snake::#referenced_field_snake::equals(#set_param_value)
+							)
+							.exec()
+							.await
+							.unwrap()
+							.unwrap()
+							.#referenced_sync_id_field_name_snake
+					};
+
+					match field.arity() {
+						dml::FieldArity::Optional => {
+							quote! {
+								// can't map with async :sob:
+								match #set_param_value {
+									Some(#set_param_value) => Some(#query),
+									None => None,
+								}
+							}
+						}
+						_ => query,
+					}
+				})
+			})
+			.unwrap_or(quote!(#set_param_value)),
+		_ => unreachable!(),
+	}
 }
 
-impl<'a> ScalarFieldToCRDT<'a> {
-    pub fn new(field: &'a Field<'a>, model: &'a Model<'a>, datamodel: &'a Datamodel<'a>, client: TokenStream, set_param_value: TokenStream) -> Self {
-        Self {
-            field,
-            model,
-            datamodel,
-            client,
-            field_value_expr: set_param_value
-        }
-    }
-}
-
-impl<'a> ToTokens for ScalarFieldToCRDT<'a> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let Self { client, field_value_expr: set_param_value, .. } = &self;
-
-        let ret = match &self.field.typ {
-            FieldType::Scalar {
-                relation_field_info,
-            } => relation_field_info
-                .as_ref()
-                .and_then(|relation_field_info| {
-                    let referenced_field_snake = snake_ident(relation_field_info.referenced_field);
-
-                    let relation_model = self.datamodel
-                        .model(relation_field_info.referenced_model)
-                        .unwrap();
-                    let relation_model_snake = snake_ident(&relation_model.name);
-
-                    let referenced_sync_id_field = relation_model
-                        .sync_id_for_pk(&relation_field_info.referenced_field)
-                        .expect("referenced_sync_id_field should be present");
-                    
-                    // If referenced field is a sync ID, it does not need to be converted
-                    (!self.model.is_sync_id(relation_field_info.referenced_field)).then(|| {
-                        let referenced_sync_id_field_name_snake = snake_ident(&referenced_sync_id_field.name());
-                        
-                        let query = quote! {
-                            #client
-                                .#relation_model_snake()
-                                .find_unique(
-                                    crate::prisma::#relation_model_snake::#referenced_field_snake::equals(#set_param_value)
-                                )
-                                .exec()
-                                .await
-                                .unwrap()
-                                .unwrap()
-                                .#referenced_sync_id_field_name_snake
-                        };
-                        
-                        match self.field.arity() {
-                            dml::FieldArity::Optional => {
-                                quote! {
-                                    // can'k map with async :sob:
-                                    match #set_param_value {
-                                        Some(#set_param_value) => Some(#query),
-                                        None => None,
-                                    }
-                                }
-                            },
-                            _ => query,
-                        }
-                    })
-                })
-                .unwrap_or(quote!(#set_param_value)),
-            _ => unreachable!("{:#?}", self.field.prisma),
-        };
-
-        tokens.extend(ret);
-    }
-}
-
-pub fn definition(model: &Model, datamodel: &Datamodel) -> TokenStream {
-	let sync_id_fields = model.scalar_sync_id_fields(datamodel).map(|field| {
-		let field_type = field.1.crdt_type_tokens(datamodel);
+pub fn definition(model: ModelRef) -> TokenStream {
+	let sync_id_fields = model.scalar_sync_id_fields(&model.datamodel).map(|field| {
+		let field_type = field.1.crdt_type_tokens(&model.datamodel);
 		let field_name_snake = snake_ident(field.0.name());
 
 		quote!(#field_name_snake: #field_type)

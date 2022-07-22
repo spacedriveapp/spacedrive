@@ -1,107 +1,51 @@
 use crate::generator::prelude::*;
 
-use super::sync_id::ScalarFieldToCRDT;
+use super::sync_id::scalar_field_to_crdt;
 
-pub struct RelationKeyDefinition<'a> {
-	field: &'a Field<'a>,
-	model: &'a Model<'a>,
-	datamodel: &'a Datamodel<'a>,
-	struct_name: TokenStream,
-}
+pub fn relation_key_definition(field: FieldRef, struct_name: TokenStream) -> TokenStream {
+	let fields = match &field.typ {
+		FieldType::Relation { relation_info } => relation_info.fields.iter().map(|rel_field| {
+			let field_name_snake = snake_ident(rel_field);
+			let field = field.model.field(rel_field).expect(&format!(
+				"Model {} has no field {}",
+				field.model.name, rel_field
+			));
 
-impl<'a> RelationKeyDefinition<'a> {
-	pub fn new(
-		field: &'a Field<'a>,
-		model: &'a Model<'a>,
-		datamodel: &'a Datamodel<'a>,
-		struct_name: TokenStream,
-	) -> Self {
-		Self {
-			field,
-			model,
-			datamodel,
-			struct_name,
+			let field_type = field.crdt_type_tokens(&field.datamodel);
+
+			quote!(#field_name_snake: #field_type)
+		}),
+		_ => unreachable!(),
+	};
+
+	quote! {
+		#[derive(Clone, ::serde::Serialize, ::serde::Deserialize)]
+		pub struct #struct_name {
+			#(pub #fields),*
 		}
 	}
 }
 
-impl ToTokens for RelationKeyDefinition<'_> {
-	fn to_tokens(&self, tokens: &mut TokenStream) {
-		let fields = match &self.field.typ {
-			FieldType::Relation { relation_info } => relation_info.fields.iter().map(|field| {
-				let field_name_snake = snake_ident(field);
-				let field = self
-					.model
-					.field(field)
-					.expect(&format!("Model {} has no field {}", self.model.name, field));
+pub fn relation_key_constructor(field: FieldRef, struct_name: TokenStream) -> TokenStream {
+	let key_args = match &field.typ {
+		FieldType::Relation { relation_info } => relation_info.fields.iter().map(|rel_field| {
+			let field_name_snake = snake_ident(rel_field);
+			let field = field.model.field(rel_field).unwrap();
 
-				let field_type = field.crdt_type_tokens(self.datamodel);
+			let value = scalar_field_to_crdt(
+				field,
+				quote!(self.client.client),
+				quote!(self.set_params.#field_name_snake),
+			);
 
-				quote!(#field_name_snake: #field_type)
-			}),
-			_ => unreachable!(),
-		};
+			quote!(#field_name_snake: #value)
+		}),
+		_ => unreachable!(), // Item & group must be relations
+	};
 
-		let struct_name = &self.struct_name;
-
-		tokens.extend(quote! {
-			#[derive(Clone, ::serde::Serialize, ::serde::Deserialize)]
-			pub struct #struct_name {
-				#(pub #fields),*
-			}
-		})
-	}
-}
-
-pub struct RelationKeyConstructor<'a> {
-	field: &'a Field<'a>,
-	model: &'a Model<'a>,
-	datamodel: &'a Datamodel<'a>,
-	struct_name: TokenStream,
-}
-
-impl<'a> RelationKeyConstructor<'a> {
-	pub fn new(
-		field: &'a Field<'a>,
-		model: &'a Model<'a>,
-		datamodel: &'a Datamodel<'a>,
-		struct_name: TokenStream,
-	) -> Self {
-		Self {
-			field,
-			model,
-			datamodel,
-			struct_name,
+	quote! {
+		#struct_name {
+			#(#key_args),*
 		}
-	}
-}
-
-impl ToTokens for RelationKeyConstructor<'_> {
-	fn to_tokens(&self, tokens: &mut TokenStream) {
-		let key_args = match &self.field.typ {
-			FieldType::Relation { relation_info } => relation_info.fields.iter().map(|field| {
-				let field_name_snake = snake_ident(field);
-				let field = self.model.field(field).unwrap();
-
-				let value = ScalarFieldToCRDT::new(
-					field,
-					self.model,
-					self.datamodel,
-					quote!(self.client.client),
-					quote!(self.set_params.#field_name_snake),
-				);
-
-				quote!(#field_name_snake: #value)
-			}),
-			_ => unreachable!(), // Item & group must be relations
-		};
-
-		let struct_name = &self.struct_name;
-
-		tokens.extend(quote! {
-			#struct_name {
-				#(#key_args),*
-			}
-		});
 	}
 }
