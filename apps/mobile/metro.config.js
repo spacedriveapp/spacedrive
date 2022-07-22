@@ -5,6 +5,7 @@ const [SDInterfacePath, SDInterfacePathExclude] = resolveUniqueModule('@sd/inter
 
 const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
 const [reactPath, reactExclude] = resolveUniqueModule('react');
+const [reactSVGPath, reactSVGExclude] = resolveUniqueModule('react-native-svg');
 
 const { getDefaultConfig } = require('expo/metro-config');
 const expoDefaultConfig = getDefaultConfig(__dirname);
@@ -16,9 +17,11 @@ const metroConfig = makeMetroConfig({
 		extraNodeModules: {
 			'@babel/runtime': babelRuntimePath,
 			'@sd/interface': SDInterfacePath,
-			'react': reactPath
+			'react': reactPath,
+			'react-native-svg': reactSVGPath
 		},
-		blockList: [babelRuntimeExclude, reactExclude, SDInterfacePathExclude],
+
+		blockList: [babelRuntimeExclude, reactExclude, SDInterfacePathExclude, reactSVGExclude],
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
 		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg')
 	},

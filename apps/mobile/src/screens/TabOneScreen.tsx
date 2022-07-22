@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 
+import Icon from '../assets/icons/file';
 import tw from '../lib/tailwind';
 import { RootTabScreenProps } from '../types/navigation';
 
@@ -13,6 +14,7 @@ export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'
 				style={tw`w-32 h-32`}
 			/>
 			<Text style={tw`text-primary-500 font-bold text-3xl`}>Spacedrive</Text>
+			<Icon.angular />
 		</View>
 	);
 }
