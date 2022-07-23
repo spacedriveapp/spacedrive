@@ -13,6 +13,7 @@ const expoDefaultConfig = getDefaultConfig(__dirname);
 const metroConfig = makeMetroConfig({
 	projectRoot: __dirname,
 	resolver: {
+		...expoDefaultConfig.resolver,
 		resolveRequest: MetroSymlinksResolver(),
 		extraNodeModules: {
 			'@babel/runtime': babelRuntimePath,

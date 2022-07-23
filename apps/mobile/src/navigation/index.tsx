@@ -1,6 +1,5 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Pressable } from 'react-native';
 
@@ -10,19 +9,10 @@ import TabOneScreen from '../screens/TabOneScreen';
 import TabTwoScreen from '../screens/TabTwoScreen';
 import { RootStackParamList, RootTabParamList, RootTabScreenProps } from '../types/navigation';
 
-export default function Navigation() {
-	return (
-		<NavigationContainer
-		// linking={LinkingConfiguration}
-		>
-			<RootNavigator />
-		</NavigationContainer>
-	);
-}
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function RootNavigator() {
+// This is the main navigator we nest everything under.
+export default function RootNavigator() {
 	return (
 		<Stack.Navigator>
 			<Stack.Screen name="Root" component={BottomTabNavigator} options={{ headerShown: false }} />
