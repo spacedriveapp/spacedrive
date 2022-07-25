@@ -12,7 +12,7 @@ default = ["ffmpeg"]
 ffmpeg = ["ffmpeg-next"]
 
 [dependencies]
-p2p = { path = "./p2p2" }
+p2p = { path = "./p2p" }
 core-derive = { path = "./derive" }
 
 # P2P

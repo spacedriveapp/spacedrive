@@ -53,7 +53,10 @@ impl SdP2P {
 		library_manager: Arc<LibraryManager>,
 		config: Arc<NodeConfigManager>,
 	) -> Result<SdP2P, NetworkManagerError> {
-		let identity = Identity::new().unwrap(); // TODO: Save and load from Spacedrive config
+		let identity = {
+			let config = config.get().await;
+			Identity::from_raw(config.p2p_cert, config.p2p_key)?
+		};
 		let event_channel = mpsc::unbounded_channel();
 		let pairing_requests = Arc::new(Mutex::new(HashMap::new()));
 		let nm = NetworkManager::new(

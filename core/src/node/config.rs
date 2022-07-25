@@ -1,4 +1,6 @@
+use p2p::Identity;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::fs::File;
 use std::io::{self, BufReader, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -38,8 +40,12 @@ pub struct NodeConfig {
 	pub id: Uuid,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
-	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
+	/// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
 	pub p2p_port: Option<u32>,
+	/// The P2P identity public key
+	pub p2p_cert: Vec<u8>,
+	/// The P2P identity private key
+	pub p2p_key: Vec<u8>,
 }
 
 #[derive(Error, Debug)]
@@ -54,6 +60,8 @@ pub enum NodeConfigError {
 
 impl NodeConfig {
 	fn default() -> Self {
+		let identity = Identity::new().unwrap();
+		let (p2p_cert, p2p_key) = identity.to_raw();
 		NodeConfig {
 			id: Uuid::new_v4(),
 			name: match hostname::get() {
@@ -67,6 +75,8 @@ impl NodeConfig {
 			metadata: ConfigMetadata {
 				version: Some(env!("CARGO_PKG_VERSION").into()),
 			},
+			p2p_cert,
+			p2p_key,
 		}
 	}
 }
@@ -111,10 +121,10 @@ impl NodeConfigManager {
 		match path.exists() {
 			true => {
 				let mut file = File::open(&path)?;
-				let base_config: ConfigMetadata =
-					serde_json::from_reader(BufReader::new(&mut file))?;
+				let raw_config: Value = serde_json::from_reader(BufReader::new(&mut file))?;
+				let base_config: ConfigMetadata = serde_json::from_value(raw_config.clone())?;
 
-				Self::migrate_config(base_config.version, path)?;
+				Self::migrate_config(base_config.version, path, raw_config).await?;
 
 				file.seek(SeekFrom::Start(0))?;
 				Ok(serde_json::from_reader(BufReader::new(&mut file))?)
@@ -135,15 +145,29 @@ impl NodeConfigManager {
 	}
 
 	/// migrate_config is a function used to apply breaking changes to the config file.
-	fn migrate_config(
+	async fn migrate_config(
 		current_version: Option<String>,
 		config_path: PathBuf,
+		mut raw_config: Value,
 	) -> Result<(), NodeConfigError> {
-		match current_version {
+		match current_version.as_deref() {
 			None => {
 				Err(NodeConfigError::MigrationError(format!("Your Spacedrive config file stored at '{}' is missing the `version` field. If you just upgraded please delete the file and restart Spacedrive! Please note this upgrade will stop using your old 'library.db' as the folder structure has changed.", config_path.display())))
 			}
-			_ => Ok(()),
+            Some("0.1.0") => {
+				let identity = Identity::new().expect("Error migrating config: unable to create P2P identity");
+
+				if let Value::Object(obj) = &mut raw_config {
+					let (cert, key) = identity.to_raw();
+					obj.insert("p2p_cert".to_string(), serde_json::to_value(cert).unwrap());
+					obj.insert("p2p_key".to_string(), serde_json::to_value(key).unwrap());
+				}
+				*raw_config.get_mut("version").unwrap() = Value::String("0.2.0".into());
+				File::create(config_path)?.write_all(serde_json::to_string(&raw_config)?.as_bytes())?;
+				println!("Migrated your config to version '0.2.0'");
+				Ok(())
+            },
+            _ => Ok(()),
 		}
 	}
 }

@@ -18,4 +18,6 @@ pub enum NetworkManagerError {
 	Crypto(#[from] rustls::Error),
 	#[error("error starting P2P server")]
 	Server(io::Error),
+	#[error("error generating P2P identity")]
+	RcGen(#[from] rcgen::RcgenError),
 }
