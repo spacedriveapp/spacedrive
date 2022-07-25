@@ -175,16 +175,19 @@ importers:
       '@babel/core': ^7.18.9
       '@babel/runtime': ^7.18.9
       '@expo/vector-icons': ^13.0.0
+      '@react-native-async-storage/async-storage': ~1.17.3
       '@react-navigation/bottom-tabs': ^6.0.5
       '@react-navigation/native': ^6.0.2
       '@react-navigation/native-stack': ^6.1.0
       '@rnx-kit/metro-config': ^1.2.36
       '@rnx-kit/metro-resolver-symlinks': ^0.1.21
       '@sd/interface': workspace:*
+      '@types/node': ^17.0.36
       '@types/react': 17.0.21
       '@types/react-native': 0.66.13
       '@typescript-eslint/eslint-plugin': ^5.30.7
       '@typescript-eslint/parser': ^5.30.7
+      class-variance-authority: ^0.2.3
       eslint: ^8.20.0
       eslint-plugin-import: ^2.26.0
       eslint-plugin-jsx-a11y: ^6.6.0
@@ -206,6 +209,7 @@ importers:
       react: 17.0.2
       react-dom: 17.0.2
       react-native: 0.68.2
+      react-native-gesture-handler: ~2.2.1
       react-native-reanimated: 2.8.0
       react-native-safe-area-context: 4.2.4
       react-native-screens: ~3.11.1
@@ -214,12 +218,15 @@ importers:
       tslib: ^2.4.0
       twrnc: ^3.3.3
       typescript: ~4.7.4
+      zustand: 4.0.0-rc.1
     dependencies:
       '@expo/vector-icons': 13.0.0
+      '@react-native-async-storage/async-storage': 1.17.7_react-native@0.68.2
       '@react-navigation/bottom-tabs': 6.3.2_6rwonjqcg3j224gsrcbz5if4si
       '@react-navigation/native': 6.0.11_zqxy7fpkavjkgz5xll7ed4r6rq
       '@react-navigation/native-stack': 6.7.0_6rwonjqcg3j224gsrcbz5if4si
       '@sd/interface': link:../../packages/interface
+      class-variance-authority: 0.2.3_typescript@4.7.4
       expo: 45.0.6_@babel+core@7.18.9
       expo-asset: 8.5.0
       expo-constants: 13.1.1_expo@45.0.6
@@ -233,16 +240,19 @@ importers:
       react: 17.0.2
       react-dom: 17.0.2_react@17.0.2
       react-native: 0.68.2_react@17.0.2
+      react-native-gesture-handler: 2.2.1
       react-native-reanimated: 2.8.0_zqg5olr4b7h5hlpjuj6yf3rr6u
       react-native-safe-area-context: 4.2.4_zqxy7fpkavjkgz5xll7ed4r6rq
       react-native-screens: 3.11.1_zqxy7fpkavjkgz5xll7ed4r6rq
       react-native-svg: 12.4.0_zqxy7fpkavjkgz5xll7ed4r6rq
       twrnc: 3.3.3_react-native@0.68.2
+      zustand: 4.0.0-rc.1_react@17.0.2
     devDependencies:
       '@babel/core': 7.18.9
       '@babel/runtime': 7.18.9
       '@rnx-kit/metro-config': 1.2.36_zqg5olr4b7h5hlpjuj6yf3rr6u
       '@rnx-kit/metro-resolver-symlinks': 0.1.21
+      '@types/node': 17.0.36
       '@types/react': 17.0.21
       '@types/react-native': 0.66.13
       '@typescript-eslint/eslint-plugin': 5.30.7_6wltbjakwuqm7awqswigmiuhd4
@@ -3508,6 +3518,13 @@ packages:
     engines: {node: '>=10.0.0'}
     dev: true
 
+  /@egjs/hammerjs/2.0.17:
+    resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
+    engines: {node: '>=0.8.0'}
+    dependencies:
+      '@types/hammerjs': 2.0.41
+    dev: false
+
   /@emotion/is-prop-valid/0.8.8:
     resolution: {integrity: sha512-u5WtneEAr5IDG2Wv65yhunPSMLIpuKsbuOktRojfrEiEvRyC85LgPMZI63cr7NUqT8ZIGdSVg8ZKGxIug4lXcA==}
     requiresBuild: true
@@ -5071,6 +5088,15 @@ packages:
     resolution: {integrity: sha512-g3hnE/UcOg7REdewduRPAK88EPuLZtaq7sA9ouu8S+YEtnyFRI16jgv6GZYe3VMoQLL1T171ebmEPtDjyxWLzw==}
     dependencies:
       '@babel/runtime': 7.18.3
+    dev: false
+
+  /@react-native-async-storage/async-storage/1.17.7_react-native@0.68.2:
+    resolution: {integrity: sha512-mDtWhCcpxzrZhA95f6zi0pnBsjBEZW1LKZWfxVXG0UfaWpPxDBCKowNk2xjRTytckZeVhjmPJPtBU+8QNQcR0A==}
+    peerDependencies:
+      react-native: ^0.0.0-0 || 0.60 - 0.69 || 1000.0.0
+    dependencies:
+      merge-options: 3.0.4
+      react-native: 0.68.2_react@17.0.2
     dev: false
 
   /@react-native-community/cli-debugger-ui/7.0.3:
@@ -7372,6 +7398,10 @@ packages:
     resolution: {integrity: sha512-anKkLmZZ+xm4p8JWBf4hElkM4XR+EZeA2M9BAkkTldmcyDY4mbdIJnRghDJH3Ov5ooY7/UAoENtmdMSkaAd7Cw==}
     dependencies:
       '@types/node': 17.0.36
+
+  /@types/hammerjs/2.0.41:
+    resolution: {integrity: sha512-ewXv/ceBaJprikMcxCmWU1FKyMAQ2X7a9Gtmzw8fcg2kIePI1crERDM818W+XYrxqdBBOdlf2rm137bU+BltCA==}
+    dev: false
 
   /@types/hast/2.3.4:
     resolution: {integrity: sha512-wLEm0QvaoawEDoTRwzTXp4b4jpwiJDvR5KMnFnVodm3scufTlBOWRD6N1OBf9TZMhjlNsSfcO5V+7AF4+Vy+9g==}
@@ -9874,6 +9904,17 @@ packages:
       define-property: 0.2.5
       isobject: 3.0.1
       static-extend: 0.1.2
+
+  /class-variance-authority/0.2.3_typescript@4.7.4:
+    resolution: {integrity: sha512-q3VGDidOOFp5yqNpUljA8L6N78gdOPhP5oeFJPaGRnCAPRmyAw65qo+Kw2WVfKq9uiR1de7HzlcvTN871Gks/g==}
+    peerDependencies:
+      typescript: '>= 4.5.5 < 5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+    dependencies:
+      typescript: 4.7.4
+    dev: false
 
   /clean-css/4.2.4:
     resolution: {integrity: sha512-EJUDT7nDVFDvaQgAo2G/PJvxmp1o/c6iXLbswsBbUFXi1Nr+AjA2cKmfbKDMjMvzEe75g3P6JkaDDAKk96A85A==}
@@ -14412,7 +14453,6 @@ packages:
   /is-plain-obj/2.1.0:
     resolution: {integrity: sha512-YWnfyRwxL/+SsrWYfOpUtz5b3YD+nyfkHvjbcanzk8zgyO4ASD67uVMRt8k5bM4lLMDnXfriRhOpemw+NfT1eA==}
     engines: {node: '>=8'}
-    dev: true
 
   /is-plain-object/2.0.4:
     resolution: {integrity: sha512-h5PpgXkWitc38BBMYawTYMWJHFZJVnBquFE57xFpjB8pJFiF6gZ+bU+WyI/yqXiFR5mdLsgYNaPe8uao6Uv9Og==}
@@ -15669,6 +15709,13 @@ packages:
 
   /merge-descriptors/1.0.1:
     resolution: {integrity: sha512-cCi6g3/Zr1iqQi6ySbseM1Xvooa98N0w31jzUYrXPX2xqObmFGHJ0tQ5u74H3mVh7wLouTseZyYIq39g8cNp1w==}
+
+  /merge-options/3.0.4:
+    resolution: {integrity: sha512-2Sug1+knBjkaMsMgf1ctR1Ujx+Ayku4EdJN4Z+C2+JzoeF7A3OZ9KM2GY0CpQS51NR61LTurMJrRKPhSs3ZRTQ==}
+    engines: {node: '>=10'}
+    dependencies:
+      is-plain-obj: 2.1.0
+    dev: false
 
   /merge-stream/2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
@@ -18215,6 +18262,16 @@ packages:
     transitivePeerDependencies:
       - '@babel/preset-env'
       - supports-color
+
+  /react-native-gesture-handler/2.2.1:
+    resolution: {integrity: sha512-P4kAPbSY8VFAjvFNzfePgFsbZEldfEnEfNqOJw6MlpcdXrPGwRbvMqWMVkA9lifdKTZ3XifvAgJ8+R+uEZN0zA==}
+    dependencies:
+      '@egjs/hammerjs': 2.0.17
+      hoist-non-react-statics: 3.3.2
+      invariant: 2.2.4
+      lodash: 4.17.21
+      prop-types: 15.8.1
+    dev: false
 
   /react-native-gradle-plugin/0.0.6:
     resolution: {integrity: sha512-eIlgtsmDp1jLC24dRn43hB3kEcZVqx6DUQbR0N1ABXGnMEafm9I3V3dUUeD1vh+Dy5WqijSoEwLNUPLgu5zDMg==}
@@ -21319,7 +21376,6 @@ packages:
     resolution: {integrity: sha512-C0WQT0gezHuw6AdY1M2jxUO83Rjf0HP7Sk1DtXj6j1EwkQNZrHAg2XPWlq62oqEhYvONq5pkC2Y9oPljWToLmQ==}
     engines: {node: '>=4.2.0'}
     hasBin: true
-    dev: true
 
   /ua-parser-js/0.7.31:
     resolution: {integrity: sha512-qLK/Xe9E2uzmYI3qLeOmI0tEOt+TBBQyUIAh4aAgU05FVYzeZrKUdkAZfBNVGRaHVgV0TDkdEngJSw/SyQchkQ==}
@@ -21727,6 +21783,14 @@ packages:
     resolution: {integrity: sha512-SEnieB2FPKEVne66NpXPd1Np4R1lTNKfjuy3XdIoPQKYBAFdzbzSZlSn1KJZUiihQLQC5Znot4SBz1EOTBwQAQ==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dev: false
+
+  /use-sync-external-store/1.1.0_react@17.0.2:
+    resolution: {integrity: sha512-SEnieB2FPKEVne66NpXPd1Np4R1lTNKfjuy3XdIoPQKYBAFdzbzSZlSn1KJZUiihQLQC5Znot4SBz1EOTBwQAQ==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 17.0.2
     dev: false
 
   /use-sync-external-store/1.1.0_react@18.1.0:
@@ -22601,6 +22665,22 @@ packages:
       immer: 9.0.15
       react: 18.1.0
       use-sync-external-store: 1.1.0_react@18.1.0
+    dev: false
+
+  /zustand/4.0.0-rc.1_react@17.0.2:
+    resolution: {integrity: sha512-qgcs7zLqBdHu0PuT3GW4WCIY5SgXdsv30GQMu9Qpp1BA2aS+sNS8l4x0hWuyEhjXkN+701aGWawhKDv6oWJAcw==}
+    engines: {node: '>=12.7.0'}
+    peerDependencies:
+      immer: '>=9.0'
+      react: '>=16.8'
+    peerDependenciesMeta:
+      immer:
+        optional: true
+      react:
+        optional: true
+    dependencies:
+      react: 17.0.2
+      use-sync-external-store: 1.1.0_react@17.0.2
     dev: false
 
   /zwitch/1.0.5:
