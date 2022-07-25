@@ -19,10 +19,10 @@
 		"assetBundlePatterns": ["**/*"],
 		"ios": {
 			"supportsTablet": false,
-			"bundleIdentifier": "com.spacedrive.spacedrive"
+			"bundleIdentifier": "com.spacedrive.app"
 		},
 		"android": {
-			"package": "com.spacedrive.spacedrive",
+			"package": "com.spacedrive.app",
 			"adaptiveIcon": {
 				"foregroundImage": "./src/assets/app/adaptive-icon.png",
 				"backgroundColor": "#ffffff"
