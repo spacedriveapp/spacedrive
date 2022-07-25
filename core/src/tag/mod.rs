@@ -39,29 +39,29 @@ pub struct TagOnFile {
 	pub date_created: chrono::DateTime<chrono::Utc>,
 }
 
-impl Into<Tag> for tag::Data {
-	fn into(self) -> Tag {
-		Tag {
-			id: self.id,
-			pub_id: self.pub_id,
-			name: self.name,
-			color: self.color,
-			total_files: self.total_files,
-			redundancy_goal: self.redundancy_goal,
-			date_created: self.date_created.into(),
-			date_modified: self.date_modified.into(),
+impl From<tag::Data> for Tag {
+	fn from(data: tag::Data) -> Self {
+		Self {
+			id: data.id,
+			pub_id: data.pub_id,
+			name: data.name,
+			color: data.color,
+			total_files: data.total_files,
+			redundancy_goal: data.redundancy_goal,
+			date_created: data.date_created.into(),
+			date_modified: data.date_modified.into(),
 		}
 	}
 }
 
-impl Into<TagOnFile> for tag_on_file::Data {
-	fn into(self) -> TagOnFile {
-		TagOnFile {
-			tag_id: self.tag_id,
-			tag: self.tag.map(|t| (*t).into()),
-			file_id: self.file_id,
-			file: self.file.map(|f| (*f).into()),
-			date_created: self.date_created.into(),
+impl From<tag_on_file::Data> for TagOnFile {
+	fn from(data: tag_on_file::Data) -> Self {
+		Self {
+			tag_id: data.tag_id,
+			tag: data.tag.map(|t| (*t).into()),
+			file_id: data.file_id,
+			file: data.file.map(|f| (*f).into()),
+			date_created: data.date_created.into(),
 		}
 	}
 }

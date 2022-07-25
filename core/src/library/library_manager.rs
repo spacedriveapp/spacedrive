@@ -31,17 +31,17 @@ pub struct LibraryManager {
 #[derive(Error, Debug)]
 pub enum LibraryManagerError {
 	#[error("error saving or loading the config from the filesystem")]
-	IOError(#[from] io::Error),
+	IO(#[from] io::Error),
 	#[error("error serializing or deserializing the JSON in the config file")]
-	JsonError(#[from] serde_json::Error),
+	Json(#[from] serde_json::Error),
 	#[error("Database error")]
-	DatabaseError(#[from] prisma::QueryError),
+	Database(#[from] prisma::QueryError),
 	#[error("Library not found error")]
-	LibraryNotFoundError,
+	LibraryNotFound,
 	#[error("error migrating the config file")]
-	MigrationError(String),
+	Migration(String),
 	#[error("failed to parse uuid")]
-	UuidError(#[from] uuid::Error),
+	Uuid(#[from] uuid::Error),
 }
 
 impl LibraryManager {
@@ -66,7 +66,7 @@ impl LibraryManager {
 			let config_path = entry.path();
 			let library_id = match Path::new(&config_path)
 				.file_stem()
-				.map(|v| v.to_str().map(|v| Uuid::from_str(v)))
+				.map(|v| v.to_str().map(Uuid::from_str))
 			{
 				Some(Some(Ok(id))) => id,
 				_ => {
@@ -119,17 +119,14 @@ impl LibraryManager {
 	pub(crate) async fn create(&self, config: LibraryConfig) -> Result<(), LibraryManagerError> {
 		let id = Uuid::new_v4();
 		LibraryConfig::save(
-			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", id.to_string())),
+			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&config,
 		)
 		.await?;
 
 		let library = Self::load(
 			id,
-			&Path::new(&self.libraries_dir)
-				.join(format!("{}.db", id.to_string()))
-				.to_str()
-				.unwrap(),
+			self.libraries_dir.join(format!("{id}.db")),
 			config,
 			self.node_context.clone(),
 		)
@@ -167,7 +164,7 @@ impl LibraryManager {
 		let library = libraries
 			.iter_mut()
 			.find(|lib| lib.id == Uuid::from_str(&id).unwrap())
-			.ok_or(LibraryManagerError::LibraryNotFoundError)?;
+			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
 		// update the library
 		if let Some(name) = name {
@@ -178,7 +175,7 @@ impl LibraryManager {
 		}
 
 		LibraryConfig::save(
-			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", id.to_string())),
+			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
 			&library.config,
 		)
 		.await?;
@@ -197,14 +194,10 @@ impl LibraryManager {
 		let library = libraries
 			.iter()
 			.find(|l| l.id == id)
-			.ok_or(LibraryManagerError::LibraryNotFoundError)?;
+			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
-		fs::remove_file(
-			Path::new(&self.libraries_dir).join(format!("{}.db", library.id.to_string())),
-		)?;
-		fs::remove_file(
-			Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id.to_string())),
-		)?;
+		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.db", library.id)))?;
+		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id)))?;
 
 		libraries.retain(|l| l.id != id);
 
@@ -221,18 +214,18 @@ impl LibraryManager {
 			.await
 			.iter()
 			.find(|lib| lib.id.to_string() == library_id)
-			.map(|v| v.clone())
+			.map(Clone::clone)
 	}
 
 	/// load the library from a given path
 	pub(crate) async fn load(
 		id: Uuid,
-		db_path: &str,
+		db_path: impl AsRef<Path>,
 		config: LibraryConfig,
 		node_context: NodeContext,
 	) -> Result<LibraryContext, LibraryManagerError> {
 		let db = Arc::new(
-			load_and_migrate(&format!("file:{}", db_path))
+			load_and_migrate(&format!("file:{}", db_path.as_ref().to_string_lossy()))
 				.await
 				.unwrap(),
 		);

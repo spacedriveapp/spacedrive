@@ -11,11 +11,11 @@ use crate::{job, prisma};
 #[derive(Error, Debug)]
 pub enum SysError {
 	#[error("Location error")]
-	LocationError(#[from] LocationError),
+	Location(#[from] LocationError),
 	#[error("Error with system volumes")]
-	VolumeError(String),
+	Volume(String),
 	#[error("Error from job runner")]
-	JobError(#[from] job::JobError),
+	Job(#[from] job::JobError),
 	#[error("Database error")]
-	DatabaseError(#[from] prisma::QueryError),
+	Database(#[from] prisma::QueryError),
 }

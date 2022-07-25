@@ -3,7 +3,7 @@ use super::{
 	Job, JobManager,
 };
 use crate::{library::LibraryContext, ClientQuery, CoreEvent, LibraryQuery};
-
+use log::error;
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -12,6 +12,8 @@ use tokio::{
 	},
 	time::{sleep, Instant},
 };
+use uuid::Uuid;
+
 // used to update the worker state from inside the worker thread
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
@@ -58,7 +60,7 @@ pub struct Worker {
 impl Worker {
 	pub fn new(job: Box<dyn Job>) -> Self {
 		let (worker_sender, worker_receiver) = unbounded_channel();
-		let uuid = uuid::Uuid::new_v4().to_string();
+		let uuid = Uuid::new_v4().to_string();
 		let name = job.name();
 
 		Self {
@@ -71,7 +73,7 @@ impl Worker {
 	pub async fn spawn(
 		job_manager: Arc<JobManager>,
 		worker: Arc<Mutex<Self>>,
-		ctx: &LibraryContext,
+		ctx: LibraryContext,
 	) {
 		// we capture the worker receiver channel so state can be updated from inside the worker
 		let mut worker_mut = worker.lock().await;
@@ -88,23 +90,23 @@ impl Worker {
 
 		worker_mut.job_report.status = JobStatus::Running;
 
-		let ctx = ctx.clone();
-
 		worker_mut.job_report.create(&ctx).await.unwrap_or(());
 
 		// spawn task to handle receiving events from the worker
+		let library_ctx = ctx.clone();
 		tokio::spawn(Worker::track_progress(
 			worker.clone(),
 			worker_receiver,
-			ctx.clone(),
+			library_ctx.clone(),
 		));
 
 		let uuid = worker_mut.job_report.id.clone();
 		// spawn task to handle running the job
+
 		tokio::spawn(async move {
 			let worker_ctx = WorkerContext {
 				uuid,
-				library_ctx: ctx.clone(),
+				library_ctx,
 				sender: worker_sender,
 			};
 			let job_start = Instant::now();
@@ -123,14 +125,12 @@ impl Worker {
 				}
 			});
 
-			match job.run(worker_ctx.clone()).await {
-				Ok(_) => {
-					worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
-				}
-				Err(err) => {
-					println!("job '{}' failed with error: {}", worker_ctx.uuid, err);
-					worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());
-				}
+			if let Err(e) = job.run(worker_ctx.clone()).await {
+				error!("job '{}' failed with error: {}", worker_ctx.uuid, e);
+				worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());
+			} else {
+				// handle completion
+				worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
 			}
 
 			job_manager.complete(&ctx, worker_ctx.uuid).await;
