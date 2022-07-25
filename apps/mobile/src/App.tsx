@@ -6,7 +6,6 @@ import { useDeviceContext } from 'twrnc';
 
 import useCachedResources from './hooks/useCachedResources';
 import tw from './lib/tailwind';
-import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 
 export default function App() {
@@ -21,7 +20,7 @@ export default function App() {
 		return null;
 	} else {
 		return (
-			<SafeAreaProvider>
+			<SafeAreaProvider style={tw`flex-1 bg-black`}>
 				<NavigationContainer>
 					<OnboardingNavigator />
 					{/* <RootNavigator /> */}
