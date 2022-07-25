@@ -55,6 +55,14 @@ To run the landing page
 - `$ pnpm web dev` - runs the web app for the embed
 - `$ pnpm landing dev`
 
+To run mobile app
+
+- `$ pnpm mobile dev` - runs the mobile app (scan QR with Expo Go app)
+- `$ pnpm mobile dev:android` - runs on Android Emulator
+- `$ pnpm mobile dev:ios` - runs on iOS Emulator
+
+You might need `expo-cli` installed globally.
+
 If you are having issues ensure you are using the following versions of Rust and Node:
 
 - Rust version: **1.60.0**
