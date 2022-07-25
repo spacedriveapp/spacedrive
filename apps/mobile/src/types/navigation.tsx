@@ -1,8 +1,4 @@
-/**
- * Learn more about using TypeScript with React Navigation:
- * https://reactnavigation.org/docs/typescript/
- */
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { DrawerScreenProps } from '@react-navigation/drawer';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -18,7 +14,7 @@ declare global {
 // Root Stack
 
 export type RootStackParamList = {
-	Root: NavigatorScreenParams<RootTabParamList> | undefined;
+	Root: NavigatorScreenParams<HomeDrawerParamList> | undefined;
 	Modal: undefined;
 	NotFound: undefined;
 };
@@ -28,17 +24,24 @@ export type RootStackScreenProps<Screen extends keyof RootStackParamList> = Nati
 	Screen
 >;
 
-export type RootTabParamList = {
-	TabOne: undefined;
-	TabTwo: undefined;
+// Main Navigation (Drawer)
+
+export type HomeDrawerParamList = {
+	Overview: undefined;
+	Content: undefined;
+	Photos: undefined;
+	Location: undefined;
+	Tag: undefined;
+	Settings: undefined;
 };
 
-export type RootTabScreenProps<Screen extends keyof RootTabParamList> = CompositeScreenProps<
-	BottomTabScreenProps<RootTabParamList, Screen>,
+export type HomeDrawerScreenProps<Screen extends keyof HomeDrawerParamList> = CompositeScreenProps<
+	DrawerScreenProps<HomeDrawerParamList, Screen>,
 	NativeStackScreenProps<RootStackParamList>
 >;
 
 // Onboarding Stack
+// Seperated stack for onboarding screens
 
 export type OnboardingStackParamList = {
 	Onboarding: undefined;

@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { Platform, Text, View } from 'react-native';
 
-import tw from '../lib/tailwind';
+import tw from '../../lib/tailwind';
 
 export default function ModalScreen() {
 	return (

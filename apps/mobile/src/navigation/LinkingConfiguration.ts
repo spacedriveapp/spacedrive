@@ -8,23 +8,14 @@ import * as Linking from 'expo-linking';
 
 import { RootStackParamList } from '../types/navigation';
 
-// TODO: Deep linking for React Navigation. It will allow us to do sd://files/{id}
+// TODO: Deep linking for React Navigation. It will allow us to do spacedrive://tags/{id} etc.
 const linking: LinkingOptions<RootStackParamList> = {
 	prefixes: [Linking.createURL('/')],
 	config: {
 		screens: {
 			Root: {
 				screens: {
-					TabOne: {
-						screens: {
-							TabOneScreen: 'one'
-						}
-					},
-					TabTwo: {
-						screens: {
-							TabTwoScreen: 'two'
-						}
-					}
+					Overview: 'overview'
 				}
 			},
 			Modal: 'modal',

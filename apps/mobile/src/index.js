@@ -1,3 +1,6 @@
+// react-native-gesture-handler needs to be at top for react-navigation (drawer).
+import 'react-native-gesture-handler';
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';
