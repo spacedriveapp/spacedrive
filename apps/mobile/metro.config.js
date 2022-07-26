@@ -1,9 +1,11 @@
 const { makeMetroConfig, resolveUniqueModule } = require('@rnx-kit/metro-config');
 const MetroSymlinksResolver = require('@rnx-kit/metro-resolver-symlinks');
 
-const [SDInterfacePath, SDInterfacePathExclude] = resolveUniqueModule('@sd/interface', '.');
+const [SDAssetsPath, SDAssetsPathExclude] = resolveUniqueModule('@sd/assets', '.');
 
+// We might not need this?
 const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
+
 const [reactPath, reactExclude] = resolveUniqueModule('react');
 const [reactSVGPath, reactSVGExclude] = resolveUniqueModule('react-native-svg');
 
@@ -17,12 +19,12 @@ const metroConfig = makeMetroConfig({
 		resolveRequest: MetroSymlinksResolver(),
 		extraNodeModules: {
 			'@babel/runtime': babelRuntimePath,
-			'@sd/interface': SDInterfacePath,
+			'@sd/assets': SDAssetsPath,
 			'react': reactPath,
 			'react-native-svg': reactSVGPath
 		},
 
-		blockList: [babelRuntimeExclude, reactExclude, SDInterfacePathExclude, reactSVGExclude],
+		blockList: [babelRuntimeExclude, reactExclude, SDAssetsPathExclude, reactSVGExclude],
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
 		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg')
 	},

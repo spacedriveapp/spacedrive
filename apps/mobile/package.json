@@ -15,7 +15,7 @@
 		"@react-navigation/drawer": "^6.4.3",
 		"@react-navigation/native": "^6.0.2",
 		"@react-navigation/native-stack": "^6.1.0",
-		"@sd/interface": "workspace:*",
+		"@sd/assets": "workspace:*",
 		"class-variance-authority": "^0.2.3",
 		"expo": "~45.0.6",
 		"expo-asset": "~8.5.0",
