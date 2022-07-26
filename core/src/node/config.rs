@@ -1,3 +1,4 @@
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{self, BufReader, Seek, SeekFrom, Write};
@@ -5,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::{RwLock, RwLockWriteGuard};
-use ts_rs::TS;
+
 use uuid::Uuid;
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
@@ -13,8 +14,7 @@ pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
 /// ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
 /// This allows us to migrate breaking changes to the config format between Spacedrive releases.
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct ConfigMetadata {
 	/// version of Spacedrive. Determined from `CARGO_PKG_VERSION` environment variable.
 	pub version: Option<String>,
@@ -29,8 +29,7 @@ impl Default for ConfigMetadata {
 }
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct NodeConfig {
 	#[serde(flatten)]
 	pub metadata: ConfigMetadata,

@@ -1,64 +1,85 @@
 use std::path::PathBuf;
 
-use serde::Deserialize;
-use ts_rs::TS;
+use rspc::Type;
+use serde::{Deserialize, Serialize};
 
 use crate::{file::explorer, library::Statistics, prisma::location, sys};
 
-use super::{LibraryRouter, LibraryRouterBuilder};
+use super::{LibraryArgs, RouterBuilder};
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
 	pub id: i32,
 	pub name: Option<String>,
 }
 
-#[derive(TS, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Type)]
 pub struct GetExplorerDirArgs {
 	pub location_id: i32,
 	pub path: PathBuf,
 	pub limit: i32,
 }
 
-pub(crate) fn mount() -> LibraryRouterBuilder {
-	<LibraryRouter>::new()
-		.query("get", |ctx, _: ()| async move {
-			sys::get_locations(&ctx.library).await.unwrap()
+pub(crate) fn mount() -> RouterBuilder {
+	<RouterBuilder>::new()
+		.query("get", |ctx, arg: LibraryArgs<()>| async move {
+			let (_, library) = arg.get_library(&ctx).await?;
+
+			Ok(sys::get_locations(&library).await.unwrap())
 		})
-		.query("getById", |ctx, id: i32| async move {
-			sys::get_location(&ctx.library, id).await.unwrap()
+		.query("getById", |ctx, arg: LibraryArgs<i32>| async move {
+			let (id, library) = arg.get_library(&ctx).await?;
+
+			Ok(sys::get_location(&library, id).await.unwrap())
 		})
 		.query(
 			"getExplorerDir",
-			|ctx, args: GetExplorerDirArgs| async move {
-				explorer::open_dir(&ctx.library, args.location_id, args.path)
+			|ctx, arg: LibraryArgs<GetExplorerDirArgs>| async move {
+				let (args, library) = arg.get_library(&ctx).await?;
+
+				Ok(explorer::open_dir(&library, args.location_id, args.path)
 					.await
-					.unwrap()
+					.unwrap())
 			},
 		)
-		.query("getStatistics", |ctx, _: ()| async move {
-			Statistics::calculate(&ctx.library).await.unwrap()
+		.query("getStatistics", |ctx, arg: LibraryArgs<()>| async move {
+			let (args, library) = arg.get_library(&ctx).await?;
+
+			Ok(Statistics::calculate(&library).await.unwrap())
 		})
-		.mutation("create", |ctx, path: PathBuf| async move {
-			sys::new_location_and_scan(&ctx.library, &path)
-				.await
-				.unwrap()
+		.mutation("create", |ctx, arg: LibraryArgs<PathBuf>| async move {
+			let (path, library) = arg.get_library(&ctx).await?;
+
+			Ok(sys::new_location_and_scan(&library, &path).await.unwrap())
 		})
-		.mutation("update", |ctx, args: LocationUpdateArgs| async move {
-			ctx.library
-				.db
-				.location()
-				.find_unique(location::id::equals(args.id))
-				.update(vec![location::name::set(args.name)])
-				.exec()
-				.await
-				.unwrap();
+		.mutation(
+			"update",
+			|ctx, arg: LibraryArgs<LocationUpdateArgs>| async move {
+				let (args, library) = arg.get_library(&ctx).await?;
+
+				library
+					.db
+					.location()
+					.find_unique(location::id::equals(args.id))
+					.update(vec![location::name::set(args.name)])
+					.exec()
+					.await
+					.unwrap();
+
+				Ok(())
+			},
+		)
+		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
+			let (id, library) = arg.get_library(&ctx).await?;
+
+			Ok(sys::delete_location(&library, id).await.unwrap())
 		})
-		.mutation("delete", |ctx, id: i32| async move {
-			sys::delete_location(&ctx.library, id).await.unwrap();
+		.mutation("fullRescan", |ctx, arg: LibraryArgs<i32>| async move {
+			let (id, library) = arg.get_library(&ctx).await?;
+
+			sys::scan_location(&library, id, String::new()).await;
+
+			Ok(())
 		})
-		.mutation("fullRescan", |ctx, id: i32| async move {
-			sys::scan_location(&ctx.library, id, String::new()).await;
-		})
-		.mutation("quickRescan", |_, _: ()| todo!())
+		.mutation("quickRescan", |_, _: LibraryArgs<()>| todo!())
 }

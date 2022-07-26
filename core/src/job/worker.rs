@@ -2,7 +2,7 @@ use super::{
 	jobs::{JobReport, JobReportUpdate, JobStatus},
 	Job, JobManager,
 };
-use crate::library::LibraryContext;
+use crate::{api::LibraryArgs, invalidate_query, library::LibraryContext};
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -144,7 +144,7 @@ impl Worker {
 	async fn track_progress(
 		worker: Arc<Mutex<Self>>,
 		mut channel: UnboundedReceiver<WorkerEvent>,
-		ctx: LibraryContext,
+		library: LibraryContext,
 	) {
 		while let Some(command) = channel.recv().await {
 			let mut worker = worker.lock().await;
@@ -172,40 +172,52 @@ impl Worker {
 							}
 						}
 					}
-					// ctx.emit(CoreEvent::InvalidateQueryDebounced(
-					// 	ClientQuery::LibraryQuery {
-					// 		library_id: ctx.id.to_string(),
-					// 		query: LibraryQuery::GetRunningJobs,
-					// 	},
-					// ))
-					// .await;
+
+					invalidate_query!(
+						library,
+						"jobs.getRunning": LibraryArgs<()>,
+						LibraryArgs {
+							library_id: library.id,
+							arg: ()
+						}
+					);
 				}
 				WorkerEvent::Completed => {
 					worker.job_report.status = JobStatus::Completed;
-					worker.job_report.update(&ctx).await.unwrap_or(());
+					worker.job_report.update(&library).await.unwrap();
 
-					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-					// 	library_id: ctx.id.to_string(),
-					// 	query: LibraryQuery::GetRunningJobs,
-					// }))
-					// .await;
+					invalidate_query!(
+						library,
+						"jobs.getRunning": LibraryArgs<()>,
+						LibraryArgs {
+							library_id: library.id,
+							arg: ()
+						}
+					);
 
-					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-					// 	library_id: ctx.id.to_string(),
-					// 	query: LibraryQuery::GetJobHistory,
-					// }))
-					// .await;
-					// break;
+					invalidate_query!(
+						library,
+						"jobs.getHistory": LibraryArgs<()>,
+						LibraryArgs {
+							library_id: library.id,
+							arg: ()
+						}
+					);
+
+					break;
 				}
 				WorkerEvent::Failed => {
 					worker.job_report.status = JobStatus::Failed;
-					worker.job_report.update(&ctx).await.unwrap_or(());
+					worker.job_report.update(&library).await.unwrap_or(());
 
-					// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-					// 	library_id: ctx.id.to_string(),
-					// 	query: LibraryQuery::GetJobHistory,
-					// }))
-					// .await;
+					invalidate_query!(
+						library,
+						"jobs.getHistory": LibraryArgs<()>,
+						LibraryArgs {
+							library_id: library.id,
+							arg: ()
+						}
+					);
 
 					break;
 				}

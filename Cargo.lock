@@ -104,10 +104,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-recursion"
-version = "1.0.0"
+name = "async-stream"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cda8f4bcc10624c4e85bc66b3f452cca98cfa5ca002dc83a16aad2367641bea"
+checksum = "dad5c83079eae9969be7fadefe640a1c566901f05ff91ab221de4b6f68d9507e"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10f203db73a71dfa2fb6dd22763990fa26f3d2625a6da2da900d23b87d26be27"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -922,18 +932,8 @@ version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
 dependencies = [
- "darling_core 0.13.4",
- "darling_macro 0.13.4",
-]
-
-[[package]]
-name = "darling"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4529658bdda7fd6769b8614be250cdcfc3aeb0ee72fe66f9e41e5e5eb73eac02"
-dependencies = [
- "darling_core 0.14.1",
- "darling_macro 0.14.1",
+ "darling_core",
+ "darling_macro",
 ]
 
 [[package]]
@@ -951,37 +951,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "darling_core"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "649c91bc01e8b1eac09fb91e8dbc7d517684ca6be8ebc75bb9cafc894f9fdb6f"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim",
- "syn",
-]
-
-[[package]]
 name = "darling_macro"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
 dependencies = [
- "darling_core 0.13.4",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "darling_macro"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddfc69c5bfcbd2fc09a0f38451d2daf0e372e367986a83906d1b0dbc88134fb5"
-dependencies = [
- "darling_core 0.14.1",
+ "darling_core",
  "quote",
  "syn",
 ]
@@ -4064,9 +4039,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.40"
+version = "1.0.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd96a1e8ed2596c337f8eae5f24924ec83f5ad5ab21ea8e455d3566c69fbcaf7"
+checksum = "c278e965f1d8cf32d6e0e96de3d3e79712178ae67986d9cf9151f51e95aac89b"
 dependencies = [
  "unicode-ident",
 ]
@@ -4492,28 +4467,16 @@ dependencies = [
 
 [[package]]
 name = "rspc"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
- "async-recursion",
  "axum",
  "futures",
- "rspc-macros",
  "serde",
  "serde_json",
+ "specta",
  "tauri",
  "thiserror",
  "tokio",
- "ts-rs",
-]
-
-[[package]]
-name = "rspc-macros"
-version = "0.0.3"
-dependencies = [
- "convert_case 0.5.0",
- "darling 0.14.1",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -4698,10 +4661,12 @@ dependencies = [
 name = "sdcore"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
  "async-trait",
  "base64 0.13.0",
  "chrono",
  "core-derive",
+ "ctor",
  "data-encoding",
  "ffmpeg-next",
  "fs_extra",
@@ -4710,6 +4675,7 @@ dependencies = [
  "image",
  "include_dir",
  "int-enum",
+ "once_cell",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",
  "rspc",
@@ -4720,8 +4686,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "ts-rs",
- "uuid 0.8.2",
+ "uuid 1.1.2",
  "walkdir",
  "webp",
 ]
@@ -4900,7 +4865,7 @@ version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e182d6ec6f05393cc0e5ed1bf81ad6db3a8feedf8ee515ecdd369809bcce8082"
 dependencies = [
- "darling 0.13.4",
+ "darling",
  "proc-macro2",
  "quote",
  "syn",
@@ -5091,6 +5056,29 @@ dependencies = [
  "tauri-build",
  "tokio",
  "window-shadows",
+]
+
+[[package]]
+name = "specta"
+version = "0.0.1"
+dependencies = [
+ "chrono",
+ "convert_case 0.5.0",
+ "serde_json",
+ "specta-macros",
+ "termcolor",
+ "uuid 1.1.2",
+]
+
+[[package]]
+name = "specta-macros"
+version = "0.0.1"
+dependencies = [
+ "Inflector",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "termcolor",
 ]
 
 [[package]]
@@ -6067,27 +6055,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
 
 [[package]]
-name = "ts-rs"
-version = "6.2.0"
-dependencies = [
- "chrono",
- "thiserror",
- "ts-rs-macros",
- "uuid 0.8.2",
-]
-
-[[package]]
-name = "ts-rs-macros"
-version = "6.2.0"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn",
- "termcolor",
-]
-
-[[package]]
 name = "tungstenite"
 version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6242,6 +6209,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd6469f4314d5f1ffec476e05f17cc9a78bc7a27a6a857842170bdf8d6f98d2f"
 dependencies = [
  "getrandom 0.2.7",
+ "serde",
 ]
 
 [[package]]

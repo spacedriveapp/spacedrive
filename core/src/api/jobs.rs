@@ -1,53 +1,80 @@
 use std::path::PathBuf;
 
+use rspc::Type;
 use serde::Deserialize;
-use ts_rs::TS;
 
-use crate::{encode::ThumbnailJob, file::cas::FileIdentifierJob, job::JobManager};
+use crate::{
+	encode::ThumbnailJob,
+	file::cas::{self, FileIdentifierJob},
+	job::JobManager,
+};
 
-use super::{LibraryRouter, LibraryRouterBuilder};
+use super::{CoreEvent, LibraryArgs, RouterBuilder};
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct GenerateThumbsForLocationArgs {
 	pub id: i32,
 	pub path: PathBuf,
 }
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct IdentifyUniqueFilesArgs {
 	pub id: i32,
 	pub path: PathBuf,
 }
 
-pub(crate) fn mount() -> LibraryRouterBuilder {
-	<LibraryRouter>::new()
-		.query("getRunning", |ctx, _: ()| async move {
-			ctx.jobs.get_running().await
+pub(crate) fn mount() -> RouterBuilder {
+	<RouterBuilder>::new()
+		.query("getRunning", |ctx, arg: LibraryArgs<()>| async move {
+			let (_, _) = arg.get_library(&ctx).await?;
+
+			Ok(ctx.jobs.get_running().await)
 		})
-		.query("getHistory", |ctx, _: ()| async move {
-			JobManager::get_history(&ctx.library).await.unwrap()
+		.query("getHistory", |ctx, arg: LibraryArgs<()>| async move {
+			let (_, library) = arg.get_library(&ctx).await?;
+
+			Ok(JobManager::get_history(&library).await.unwrap())
 		})
 		.mutation(
 			"generateThumbsForLocation",
-			|ctx, args: GenerateThumbsForLocationArgs| async move {
-				ctx.library
+			|ctx, arg: LibraryArgs<GenerateThumbsForLocationArgs>| async move {
+				let (args, library) = arg.get_library(&ctx).await?;
+
+				library
 					.spawn_job(Box::new(ThumbnailJob {
 						location_id: args.id,
 						path: args.path,
 						background: false, // fix
 					}))
 					.await;
+
+				Ok(())
 			},
 		)
 		.mutation(
 			"identifyUniqueFiles",
-			|ctx, args: IdentifyUniqueFilesArgs| async move {
-				ctx.library
+			|ctx, arg: LibraryArgs<IdentifyUniqueFilesArgs>| async move {
+				let (args, library) = arg.get_library(&ctx).await?;
+
+				library
 					.spawn_job(Box::new(FileIdentifierJob {
 						location_id: args.id,
 						path: args.path,
 					}))
 					.await;
+
+				Ok(())
 			},
 		)
+		.subscription("newThumbnail", |ctx, arg: LibraryArgs<()>| {
+			let mut event_bus_rx = ctx.event_bus.subscribe();
+			async_stream::stream! {
+				while let Ok(event) = event_bus_rx.recv().await {
+					match event {
+						CoreEvent::NewThumbnail { cas_id } => yield cas_id,
+						_ => {}
+					}
+				}
+			}
+		})
 }

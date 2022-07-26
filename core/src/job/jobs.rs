@@ -7,6 +7,7 @@ use crate::{
 	prisma::{job, node},
 };
 use int_enum::IntEnum;
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, VecDeque},
@@ -16,7 +17,6 @@ use std::{
 };
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{error, info};
-use ts_rs::TS;
 
 // db is single threaded, nerd
 const MAX_WORKERS: usize = 1;
@@ -141,16 +141,13 @@ pub enum JobReportUpdate {
 	SecondsElapsed(u64),
 }
 
-#[derive(Debug, Serialize, Deserialize, TS, Clone)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub struct JobReport {
 	pub id: String,
 	pub name: String,
 	pub data: Option<String>,
 	// client_id: i32,
-	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_modified: chrono::DateTime<chrono::Utc>,
 
 	pub status: JobStatus,
@@ -159,7 +156,7 @@ pub struct JobReport {
 
 	pub message: String,
 	// pub percentage_complete: f64,
-	#[ts(type = "string")]
+	// #[ts(type = "string")] // TODO: Make this work with specta
 	pub seconds_elapsed: i32,
 }
 
@@ -237,8 +234,7 @@ impl JobReport {
 }
 
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum)]
 pub enum JobStatus {
 	Queued = 0,
 	Running = 1,

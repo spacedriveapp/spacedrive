@@ -18,9 +18,10 @@ async fn main() {
 
 	let (node, router) = Node::new(data_dir).await;
 	tauri::Builder::default()
-		.plugin(sdcore::rspc::tauri::plugin(router, move || {
-			node.get_request_context(None) // TODO: Get library ID from request
-		}))
+		.plugin(sdcore::rspc::integrations::tauri::plugin(
+			router,
+			move || node.get_request_context(),
+		))
 		.setup(|app| {
 			let app = app.handle();
 
@@ -46,26 +47,6 @@ async fn main() {
 					blur_window_background(window);
 				}
 			});
-
-			// // core event transport
-			// tokio::spawn(async move {
-			// 	let mut last = Instant::now();
-			// 	// handle stream output
-			// 	while let Some(event) = event_receiver.recv().await {
-			// 		match event {
-			// 			CoreEvent::InvalidateQueryDebounced(_) => {
-			// 				let current = Instant::now();
-			// 				if current.duration_since(last) > Duration::from_millis(1000 / 60) {
-			// 					last = current;
-			// 					app.emit_all("core_event", &event).unwrap();
-			// 				}
-			// 			}
-			// 			event => {
-			// 				app.emit_all("core_event", &event).unwrap();
-			// 			}
-			// 		}
-			// 	}
-			// });
 
 			Ok(())
 		})

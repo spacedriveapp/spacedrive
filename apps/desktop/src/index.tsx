@@ -1,12 +1,7 @@
 // import Spacedrive JS client
 import { TauriTransport, createClient } from '@rspc/client';
-import { BaseTransport } from '@sd/client';
-import { Operations, rspc } from '@sd/client';
-// import types from Spacedrive core (TODO: re-export from client would be cleaner)
-import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
-// import Spacedrive interface
+import { Operations, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
-// import tauri apis
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { Event, listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
@@ -15,23 +10,6 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';
-
-// bind state to core via Tauri
-class Transport extends BaseTransport {
-	constructor() {
-		super();
-
-		listen('core_event', (e: Event<CoreEvent>) => {
-			this.emit('core_event', e.payload);
-		});
-	}
-	async query(query: ClientQuery) {
-		return await invoke('client_query_transport', { data: query });
-	}
-	async command(query: ClientCommand) {
-		return await invoke('client_command_transport', { data: query });
-	}
-}
 
 const client = createClient<Operations>({
 	transport: new TauriTransport()
@@ -70,10 +48,8 @@ function App() {
 	}, []);
 
 	return (
-		<rspc.Provider client={client}>
-			<Demo />
-			{/* <SpacedriveInterface
-				transport={new Transport()}
+		<rspc.Provider client={client} queryClient={queryClient}>
+			<SpacedriveInterface
 				platform={platform}
 				convertFileSrc={function (url: string): string {
 					return convertFileSrc(url);
@@ -88,7 +64,7 @@ function App() {
 				onFullscreen={() => appWindow.setFullscreen(true)}
 				onMinimize={() => appWindow.minimize()}
 				onOpen={(path: string) => shell.open(path)}
-			/> */}
+			/>
 		</rspc.Provider>
 	);
 }

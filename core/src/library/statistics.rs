@@ -1,12 +1,12 @@
 use crate::{prisma::statistics::*, sys::Volume};
 use fs_extra::dir::get_size;
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use ts_rs::TS;
 
 use super::{LibraryContext, LibraryError};
 
-#[derive(Debug, Serialize, Deserialize, TS, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Type, Clone, Default)]
 pub struct Statistics {
 	pub total_file_count: i32,
 	pub total_bytes_used: String,

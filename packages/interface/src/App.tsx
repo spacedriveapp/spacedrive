@@ -1,5 +1,5 @@
 import '@fontsource/inter/variable.css';
-import { queryClient, useBridgeQuery } from '@sd/client';
+import { queryClient, useBridgeQuery, useInvalidateQuery } from '@sd/client';
 import { AppProps, AppPropsContext } from '@sd/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -13,7 +13,7 @@ import './style.scss';
 
 function RouterContainer(props: { props: AppProps }) {
 	const [appProps, setAppProps] = useState(props.props);
-	const { data: client } = useBridgeQuery('getNode');
+	const { data: client } = useBridgeQuery(['getNode']);
 
 	useEffect(() => {
 		setAppProps({
@@ -32,10 +32,12 @@ function RouterContainer(props: { props: AppProps }) {
 }
 
 export default function App(props: AppProps) {
+	useInvalidateQuery();
+
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
 			<QueryClientProvider client={queryClient}>
-				<ReactQueryDevtools position="bottom-right" />
+				{/* <ReactQueryDevtools position="bottom-right" /> */}
 				<RouterContainer props={props} />
 			</QueryClientProvider>
 		</ErrorBoundary>

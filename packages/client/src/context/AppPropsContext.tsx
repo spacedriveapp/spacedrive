@@ -1,4 +1,3 @@
-import { BaseTransport } from '@sd/client';
 import { createContext } from 'react';
 
 export const AppPropsContext = createContext<AppProps | null>(null);

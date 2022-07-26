@@ -1,36 +1,39 @@
+use rspc::Type;
 use serde::Deserialize;
-use ts_rs::TS;
 
 use crate::{
+	invalidate_query,
 	prisma::{file, tag, tag_on_file},
 	tag::Tag,
 };
 
-use super::{LibraryRouter, LibraryRouterBuilder};
+use super::{LibraryArgs, RouterBuilder};
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct TagCreateArgs {
 	pub name: String,
 	pub color: String,
 }
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct TagAssignArgs {
 	pub file_id: i32,
 	pub tag_id: i32,
 }
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct TagUpdateArgs {
 	pub id: i32,
 	pub name: Option<String>,
 	pub color: Option<String>,
 }
 
-pub(crate) fn mount() -> LibraryRouterBuilder {
-	<LibraryRouter>::new()
-		.query("get", |ctx, _: ()| async move {
-			ctx.library
+pub(crate) fn mount() -> RouterBuilder {
+	RouterBuilder::new()
+		.query("get", |ctx, arg: LibraryArgs<()>| async move {
+			let (args, library) = arg.get_library(&ctx).await?;
+
+			Ok(library
 				.db
 				.tag()
 				.find_many(vec![])
@@ -39,11 +42,12 @@ pub(crate) fn mount() -> LibraryRouterBuilder {
 				.unwrap()
 				.into_iter()
 				.map(Into::into)
-				.collect::<Vec<Tag>>()
+				.collect::<Vec<Tag>>())
 		})
-		.query("getFilesForTag", |ctx, tag_id: i32| async move {
-			let tag: Option<Tag> = ctx
-				.library
+		.query("getFilesForTag", |ctx, arg: LibraryArgs<i32>| async move {
+			let (tag_id, library) = arg.get_library(&ctx).await?;
+
+			let tag: Option<Tag> = library
 				.db
 				.tag()
 				.find_unique(tag::id::equals(tag_id))
@@ -52,58 +56,84 @@ pub(crate) fn mount() -> LibraryRouterBuilder {
 				.unwrap()
 				.map(Into::into);
 
-			tag
+			Ok(tag)
 		})
-		.mutation("create", |ctx, args: TagCreateArgs| async move {
-			let created_tag: Tag = ctx
-				.library
-				.db
-				.tag()
-				.create(
-					tag::pub_id::set(uuid::Uuid::new_v4().to_string()),
-					vec![
-						tag::name::set(Some(args.name)),
-						tag::color::set(Some(args.color)),
-					],
-				)
-				.exec()
-				.await
-				.unwrap()
-				.into();
+		.mutation(
+			"create",
+			|ctx, arg: LibraryArgs<TagCreateArgs>| async move {
+				let (args, library) = arg.get_library(&ctx).await?;
 
-			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-			// 	library_id: ctx.id.to_string(),
-			// 	query: LibraryQuery::GetTags,
-			// }))
-			// .await;
+				let created_tag: Tag = library
+					.db
+					.tag()
+					.create(
+						tag::pub_id::set(uuid::Uuid::new_v4().to_string()),
+						vec![
+							tag::name::set(Some(args.name)),
+							tag::color::set(Some(args.color)),
+						],
+					)
+					.exec()
+					.await
+					.unwrap()
+					.into();
 
-			created_tag
-		})
-		.mutation("assign", |ctx, args: TagAssignArgs| async move {
-			ctx.library.db.tag_on_file().create(
-				tag_on_file::tag::link(tag::id::equals(args.tag_id)),
-				tag_on_file::file::link(file::id::equals(args.file_id)),
-				vec![],
-			);
-		})
-		.mutation("update", |ctx, args: TagUpdateArgs| async move {
-			ctx.library
-				.db
-				.tag()
-				.find_unique(tag::id::equals(args.id))
-				.update(vec![tag::name::set(args.name), tag::color::set(args.color)])
-				.exec()
-				.await
-				.unwrap();
+				invalidate_query!(
+					library,
+					"tags.get": LibraryArgs<()>,
+					LibraryArgs {
+						library_id: library.id,
+						arg: ()
+					}
+				);
 
-			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-			// 	library_id: ctx.id.to_string(),
-			// 	query: LibraryQuery::GetTags,
-			// }))
-			// .await;
-		})
-		.mutation("delete", |ctx, id: i32| async move {
-			ctx.library
+				Ok(created_tag)
+			},
+		)
+		.mutation(
+			"assign",
+			|ctx, arg: LibraryArgs<TagAssignArgs>| async move {
+				let (args, library) = arg.get_library(&ctx).await?;
+
+				library.db.tag_on_file().create(
+					tag_on_file::tag::link(tag::id::equals(args.tag_id)),
+					tag_on_file::file::link(file::id::equals(args.file_id)),
+					vec![],
+				);
+
+				Ok(())
+			},
+		)
+		.mutation(
+			"update",
+			|ctx, arg: LibraryArgs<TagUpdateArgs>| async move {
+				let (args, library) = arg.get_library(&ctx).await?;
+
+				library
+					.db
+					.tag()
+					.find_unique(tag::id::equals(args.id))
+					.update(vec![tag::name::set(args.name), tag::color::set(args.color)])
+					.exec()
+					.await
+					.unwrap();
+
+				invalidate_query!(
+					library,
+					"tags.get": LibraryArgs<()>,
+					LibraryArgs {
+						library_id: library.id,
+						arg: ()
+					}
+				);
+
+				Ok(())
+			},
+		)
+		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
+			let (id, library) = arg.get_library(&ctx).await?;
+
+			library
 				.db
 				.tag()
 				.find_unique(tag::id::equals(id))
@@ -113,10 +143,15 @@ pub(crate) fn mount() -> LibraryRouterBuilder {
 				.unwrap()
 				.unwrap();
 
-			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-			// 	library_id: ctx.id.to_string(),
-			// 	query: LibraryQuery::GetTags,
-			// }))
-			// .await;
+			invalidate_query!(
+				library,
+				"tags.get": LibraryArgs<()>,
+				LibraryArgs {
+					library_id: library.id,
+					arg: ()
+				}
+			);
+
+			Ok(())
 		})
 }

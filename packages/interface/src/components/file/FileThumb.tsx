@@ -1,4 +1,4 @@
-import { useBridgeQuery, useExplorerStore } from '@sd/client';
+import { useExplorerStore } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';

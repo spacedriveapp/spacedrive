@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;
-use ts_rs::TS;
 
 use crate::{
 	prisma::{self, file, file_path},
@@ -14,8 +14,7 @@ pub mod explorer;
 pub mod indexer;
 
 // A unique file
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct File {
 	pub id: i32,
 	pub cas_id: String,
@@ -44,8 +43,7 @@ pub struct File {
 }
 
 // A physical file path
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FilePath {
 	pub id: i32,
 	pub is_dir: bool,
@@ -64,8 +62,7 @@ pub struct FilePath {
 }
 
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum)]
 pub enum FileKind {
 	Unknown = 0,
 	Directory = 1,
@@ -128,8 +125,7 @@ impl From<file_path::Data> for FilePath {
 	}
 }
 
-#[derive(Serialize, Deserialize, TS, Debug)]
-#[ts(export)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct DirectoryWithContents {
 	pub directory: FilePath,
 	pub contents: Vec<FilePath>,

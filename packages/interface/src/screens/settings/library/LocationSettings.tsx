@@ -16,7 +16,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 // ];
 
 export default function LocationSettings() {
-	const { data: locations } = useLibraryQuery('locations.get');
+	const { data: locations } = useLibraryQuery(['locations.get']);
 
 	const appProps = useContext(AppPropsContext);
 

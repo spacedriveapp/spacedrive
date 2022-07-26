@@ -10,6 +10,8 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
+	api::LibraryArgs,
+	invalidate_query,
 	node::Platform,
 	prisma::{self, node},
 	util::db::load_and_migrate,
@@ -132,12 +134,16 @@ impl LibraryManager {
 		)
 		.await?;
 
+		invalidate_query!(
+			library,
+			"library.get": LibraryArgs<()>,
+			LibraryArgs {
+				library_id: library.id,
+				arg: ()
+			}
+		);
+
 		self.libraries.write().await.push(library);
-
-		// self.node_context
-		// 	.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-		// 	.await;
-
 		Ok(())
 	}
 
@@ -180,16 +186,20 @@ impl LibraryManager {
 		)
 		.await?;
 
-		// self.node_context
-		// 	.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-		// 	.await;
+		invalidate_query!(
+			library,
+			"library.get": LibraryArgs<()>,
+			LibraryArgs {
+				library_id: library.id,
+				arg: ()
+			}
+		);
+
 		Ok(())
 	}
 
-	pub async fn delete_library(&self, id: String) -> Result<(), LibraryManagerError> {
+	pub async fn delete_library(&self, id: Uuid) -> Result<(), LibraryManagerError> {
 		let mut libraries = self.libraries.write().await;
-
-		let id = Uuid::parse_str(&id)?;
 
 		let library = libraries
 			.iter()
@@ -199,21 +209,27 @@ impl LibraryManager {
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.db", library.id)))?;
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id)))?;
 
+		invalidate_query!(
+			library,
+			"library.get": LibraryArgs<()>,
+			LibraryArgs {
+				library_id: library.id,
+				arg: ()
+			}
+		);
+
 		libraries.retain(|l| l.id != id);
 
-		// self.node_context
-		// 	.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-		// 	.await;
 		Ok(())
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub(crate) async fn get_ctx(&self, library_id: String) -> Option<LibraryContext> {
+	pub(crate) async fn get_ctx(&self, library_id: Uuid) -> Option<LibraryContext> {
 		self.libraries
 			.read()
 			.await
 			.iter()
-			.find(|lib| lib.id.to_string() == library_id)
+			.find(|lib| lib.id == library_id)
 			.map(Clone::clone)
 	}
 

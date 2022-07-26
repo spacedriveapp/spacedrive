@@ -2,11 +2,10 @@ use crate::{
 	file::File,
 	prisma::{tag, tag_on_file},
 };
+use rspc::Type;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Tag {
 	pub id: i32,
 	pub pub_id: String,
@@ -15,13 +14,11 @@ pub struct Tag {
 
 	pub total_files: Option<i32>,
 	pub redundancy_goal: Option<i32>,
-
 	pub date_created: chrono::DateTime<chrono::Utc>,
 	pub date_modified: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TagOnFile {
 	pub tag_id: i32,
 	pub tag: Option<Tag>,
@@ -59,8 +56,7 @@ impl From<tag_on_file::Data> for TagOnFile {
 	}
 }
 
-#[derive(Serialize, Deserialize, TS, Debug)]
-#[ts(export)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct TagWithFiles {
 	pub tag: Tag,
 	pub files_with_tag: Vec<TagOnFile>,

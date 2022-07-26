@@ -1,27 +1,31 @@
+use std::path::PathBuf;
+
+use rspc::Type;
 use serde::Deserialize;
-use ts_rs::TS;
 
-use crate::prisma::file;
+use crate::{api::locations::GetExplorerDirArgs, invalidate_query, prisma::file};
 
-use super::{LibraryRouter, LibraryRouterBuilder};
+use super::{LibraryArgs, RouterBuilder};
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct SetNoteArgs {
 	pub id: i32,
 	pub note: Option<String>,
 }
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct SetFavoriteArgs {
 	pub id: i32,
 	pub favorite: bool,
 }
 
-pub(crate) fn mount() -> LibraryRouterBuilder {
-	<LibraryRouter>::new()
-		.query("readMetadata", |_ctx, _id: i32| todo!())
-		.mutation("setNote", |ctx, args: SetNoteArgs| async move {
-			ctx.library
+pub(crate) fn mount() -> RouterBuilder {
+	<RouterBuilder>::new()
+		.query("readMetadata", |_ctx, _id: LibraryArgs<i32>| todo!())
+		.mutation("setNote", |ctx, arg: LibraryArgs<SetNoteArgs>| async move {
+			let (args, library) = arg.get_library(&ctx).await?;
+
+			library
 				.db
 				.file()
 				.find_unique(file::id::equals(args.id))
@@ -30,38 +34,56 @@ pub(crate) fn mount() -> LibraryRouterBuilder {
 				.await
 				.unwrap();
 
-			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-			// 	library_id: ctx.id.to_string(),
-			// 	query: LibraryQuery::GetExplorerDir {
-			// 		limit: 0,
-			// 		path: PathBuf::new(),
-			// 		location_id: 0,
-			// 	},
-			// }))
-			// .await;
-		})
-		.mutation("setFavorite", |ctx, args: SetFavoriteArgs| async move {
-			ctx.library
-				.db
-				.file()
-				.find_unique(file::id::equals(args.id))
-				.update(vec![file::favorite::set(args.favorite)])
-				.exec()
-				.await
-				.unwrap();
+			invalidate_query!(
+				library,
+				"version": LibraryArgs<GetExplorerDirArgs>,
+				LibraryArgs {
+					library_id: library.id,
+					arg: GetExplorerDirArgs {
+						location_id: 0, // TODO: This should be the correct location_id
+						path: PathBuf::new(),
+						limit: 0,
+					}
+				}
+			);
 
-			// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-			// 	library_id: ctx.id.to_string(),
-			// 	query: LibraryQuery::GetExplorerDir {
-			// 		limit: 0,
-			// 		path: PathBuf::new(),
-			// 		location_id: 0,
-			// 	},
-			// }))
-			// .await;
+			Ok(())
 		})
-		.mutation("delete", |ctx, id: i32| async move {
-			ctx.library
+		.mutation(
+			"setFavorite",
+			|ctx, arg: LibraryArgs<SetFavoriteArgs>| async move {
+				let (args, library) = arg.get_library(&ctx).await?;
+
+				library
+					.db
+					.file()
+					.find_unique(file::id::equals(args.id))
+					.update(vec![file::favorite::set(args.favorite)])
+					.exec()
+					.await
+					.unwrap();
+
+				invalidate_query!(
+					library,
+					"version": LibraryArgs<GetExplorerDirArgs>,
+					LibraryArgs {
+						library_id: library.id,
+						arg: GetExplorerDirArgs {
+							// TODO: Set these arguments to the correct type
+							location_id: 0,
+							path: PathBuf::new(),
+							limit: 0,
+						}
+					}
+				);
+
+				Ok(())
+			},
+		)
+		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
+			let (id, library) = arg.get_library(&ctx).await?;
+
+			library
 				.db
 				.file()
 				.find_unique(file::id::equals(id))
@@ -69,5 +91,7 @@ pub(crate) fn mount() -> LibraryRouterBuilder {
 				.exec()
 				.await
 				.unwrap();
+
+			Ok(())
 		})
 }

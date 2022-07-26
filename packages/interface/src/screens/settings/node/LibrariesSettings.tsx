@@ -19,7 +19,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
-	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeCommand('DeleteLibrary', {
+	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeCommand('library.delete', {
 		onSuccess: () => {
 			setOpenDeleteModal(false);
 		}
@@ -60,8 +60,7 @@ export default function LibrarySettings() {
 	const [newLibName, setNewLibName] = useState('');
 
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeCommand(
-		'library.create',
-		undefined,
+		['library.create'],
 		{
 			onSuccess: () => {
 				setOpenCreateModal(false);
@@ -69,7 +68,7 @@ export default function LibrarySettings() {
 		}
 	);
 
-	const { data: libraries } = useBridgeQuery('library.get');
+	const { data: libraries } = useBridgeQuery(['library.get']);
 
 	function createNewLib() {
 		if (newLibName) {

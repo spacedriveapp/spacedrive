@@ -1,7 +1,8 @@
 // use crate::native;
 use crate::{library::LibraryContext, prisma::volume::*};
+use rspc::Type;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+
 // #[cfg(not(target_os = "macos"))]
 use std::process::Command;
 // #[cfg(not(target_os = "macos"))]
@@ -9,9 +10,7 @@ use sysinfo::{DiskExt, System, SystemExt};
 
 use super::SysError;
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, TS)]
-#[repr(C)]
-#[ts(export)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
 pub struct Volume {
 	pub name: String,
 	pub mount_point: String,

@@ -1,11 +1,12 @@
+use rspc::Type;
 use serde::Deserialize;
-use ts_rs::TS;
+use uuid::Uuid;
 
-use crate::library::LibraryConfig;
+use crate::library::{LibraryConfig, Statistics};
 
-use super::{Router, RouterBuilder};
+use super::{LibraryArgs, RouterBuilder};
 
-#[derive(TS, Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct EditLibraryArgs {
 	pub id: String,
 	pub name: Option<String>,
@@ -13,9 +14,13 @@ pub struct EditLibraryArgs {
 }
 
 pub(crate) fn mount() -> RouterBuilder {
-	<Router>::new()
+	<RouterBuilder>::new()
 		.query("get", |ctx, _: ()| async move {
 			ctx.library_manager.get_all_libraries_config().await
+		})
+		.query("getStatistics", |ctx, arg: LibraryArgs<()>| async move {
+			let (_, library) = arg.get_library(&ctx).await?;
+			Ok(Statistics::calculate(&library).await.unwrap())
 		})
 		.mutation("create", |ctx, name: String| async move {
 			ctx.library_manager
@@ -32,7 +37,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.await
 				.unwrap();
 		})
-		.mutation("delete", |ctx, id: String| async move {
+		.mutation("delete", |ctx, id: Uuid| async move {
 			ctx.library_manager.delete_library(id).await.unwrap();
 		})
 }
