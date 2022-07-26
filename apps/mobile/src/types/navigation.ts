@@ -30,8 +30,8 @@ export type HomeDrawerParamList = {
 	Overview: undefined;
 	Spaces: undefined;
 	Photos: undefined;
-	Location: undefined;
-	Tag: undefined;
+	Location: { id: number };
+	Tag: { id: number };
 	Settings: undefined;
 };
 

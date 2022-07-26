@@ -28,7 +28,7 @@ export default function DrawerNavigator() {
 				// drawerHideStatusBarOnOpen: true,
 				// drawerStatusBarAnimation: 'slide'
 			}}
-			drawerContent={(props) => <DrawerContent {...props} />}
+			drawerContent={(props) => <DrawerContent {...(props as any)} />}
 		>
 			<Drawer.Screen name="Overview" component={OverviewScreen} />
 			<Drawer.Screen name="Spaces" component={SpacesScreen} />
