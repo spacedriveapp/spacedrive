@@ -14,7 +14,8 @@ const button = cva(['border rounded-md items-center shadow-sm'], {
 		},
 		size: {
 			default: ['py-1', 'px-3'],
-			sm: ['py-1', 'px-2']
+			sm: ['py-1', 'px-2'],
+			lg: ['py-2', 'px-4']
 		}
 	},
 	defaultVariants: {
@@ -49,6 +50,8 @@ export const AnimatedButton: React.FC<AnimatedButtonProps> = ({ variant, size, .
 				[]
 			)}
 			style={tw.style(button({ variant, size }), style as string)}
+			// MotiPressable acts differently than Pressable so containerStyle might need to used to achieve the same effect
+			containerStyle={containerStyle}
 			{...otherProps}
 		/>
 	);

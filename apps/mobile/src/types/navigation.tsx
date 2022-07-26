@@ -28,7 +28,7 @@ export type RootStackScreenProps<Screen extends keyof RootStackParamList> = Nati
 
 export type HomeDrawerParamList = {
 	Overview: undefined;
-	Content: undefined;
+	Spaces: undefined;
 	Photos: undefined;
 	Location: undefined;
 	Tag: undefined;

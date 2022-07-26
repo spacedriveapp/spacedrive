@@ -35,7 +35,7 @@ export default function App() {
 				<NavigationContainer>
 					{showOnboarding ? <OnboardingNavigator /> : <RootNavigator />}
 				</NavigationContainer>
-				<StatusBar />
+				<StatusBar style="light" />
 			</SafeAreaProvider>
 		);
 	}
