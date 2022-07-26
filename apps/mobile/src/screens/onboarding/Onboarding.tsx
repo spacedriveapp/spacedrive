@@ -24,8 +24,8 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 			{/* Logo */}
 			<LogoAnimation>
 				<View style={tw`items-center mt-2`}>
-					{/* TODO: Change this to @sd/assets when available. */}
-					<Image source={require('../../assets/images/logo.png')} style={tw`w-24 h-24`} />
+					{/* TODO: Change this to @sd/assets. */}
+					<Image source={require('../../assets/temp/logo.png')} style={tw`w-24 h-24`} />
 				</View>
 			</LogoAnimation>
 			{/* Text */}

@@ -1,4 +1,3 @@
-// TODO: use @sd/assets when available.
 import ai from '@sd/assets/icons/ai.svg';
 import angular from '@sd/assets/icons/angular.svg';
 import audiomp3 from '@sd/assets/icons/audio-mp3.svg';
