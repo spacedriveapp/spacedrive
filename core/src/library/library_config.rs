@@ -7,6 +7,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use ts_rs::TS;
+use uuid::Uuid;
 
 use crate::node::ConfigMetadata;
 
@@ -64,6 +65,6 @@ impl LibraryConfig {
 #[derive(Serialize, Deserialize, Debug, TS)]
 #[ts(export)]
 pub struct LibraryConfigWrapped {
-	pub uuid: String,
+	pub uuid: Uuid,
 	pub config: LibraryConfig,
 }

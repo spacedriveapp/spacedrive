@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{self, BufReader, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{
+	fs::File,
+	io::{self, BufReader, Seek, SeekFrom, Write},
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 use thiserror::Error;
 use tokio::sync::{RwLock, RwLockWriteGuard};
 use ts_rs::TS;

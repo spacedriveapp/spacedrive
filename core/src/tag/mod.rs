@@ -11,12 +11,13 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use ts_rs::TS;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Tag {
 	pub id: i32,
-	pub pub_id: String,
+	pub pub_id: Uuid,
 	pub name: Option<String>,
 	pub color: Option<String>,
 
@@ -43,7 +44,7 @@ impl From<tag::Data> for Tag {
 	fn from(data: tag::Data) -> Self {
 		Self {
 			id: data.id,
-			pub_id: data.pub_id,
+			pub_id: Uuid::from_slice(&data.pub_id).unwrap(),
 			name: data.name,
 			color: data.color,
 			total_files: data.total_files,
@@ -90,7 +91,7 @@ pub async fn create_tag(
 		.db
 		.tag()
 		.create(
-			tag::pub_id::set(uuid::Uuid::new_v4().to_string()),
+			tag::pub_id::set(Uuid::new_v4().as_bytes().to_vec()),
 			vec![tag::name::set(Some(name)), tag::color::set(Some(color))],
 		)
 		.exec()
@@ -98,7 +99,7 @@ pub async fn create_tag(
 		.unwrap();
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
+		library_id: ctx.id,
 		query: LibraryQuery::GetTags,
 	}))
 	.await;
@@ -121,7 +122,7 @@ pub async fn update_tag(
 		.unwrap();
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
+		library_id: ctx.id,
 		query: LibraryQuery::GetTags,
 	}))
 	.await;
@@ -153,7 +154,7 @@ pub async fn tag_delete(ctx: LibraryContext, id: i32) -> Result<CoreResponse, Co
 		.unwrap();
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
+		library_id: ctx.id,
 		query: LibraryQuery::GetTags,
 	}))
 	.await;

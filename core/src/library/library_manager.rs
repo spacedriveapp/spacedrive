@@ -85,15 +85,7 @@ impl LibraryManager {
 			}
 
 			let config = LibraryConfig::read(config_path).await?;
-			libraries.push(
-				Self::load(
-					library_id,
-					db_path.to_str().unwrap(),
-					config,
-					node_context.clone(),
-				)
-				.await?,
-			);
+			libraries.push(Self::load(library_id, &db_path, config, node_context.clone()).await?);
 		}
 
 		let this = Arc::new(Self {
@@ -108,8 +100,7 @@ impl LibraryManager {
 				name: "My Default Library".into(),
 				..Default::default()
 			})
-			.await
-			.unwrap();
+			.await?;
 		}
 
 		Ok(this)
@@ -148,14 +139,18 @@ impl LibraryManager {
 			.iter()
 			.map(|lib| LibraryConfigWrapped {
 				config: lib.config.clone(),
-				uuid: lib.id.to_string(),
+				uuid: lib.id,
 			})
 			.collect()
 	}
 
+	pub(crate) async fn get_all_libraries_ctx(&self) -> Vec<LibraryContext> {
+		self.libraries.read().await.clone()
+	}
+
 	pub(crate) async fn edit(
 		&self,
-		id: String,
+		id: Uuid,
 		name: Option<String>,
 		description: Option<String>,
 	) -> Result<(), LibraryManagerError> {
@@ -163,7 +158,7 @@ impl LibraryManager {
 		let mut libraries = self.libraries.write().await;
 		let library = libraries
 			.iter_mut()
-			.find(|lib| lib.id == Uuid::from_str(&id).unwrap())
+			.find(|lib| lib.id == id)
 			.ok_or(LibraryManagerError::LibraryNotFound)?;
 
 		// update the library
@@ -186,10 +181,8 @@ impl LibraryManager {
 		Ok(())
 	}
 
-	pub async fn delete_library(&self, id: String) -> Result<(), LibraryManagerError> {
+	pub async fn delete_library(&self, id: Uuid) -> Result<(), LibraryManagerError> {
 		let mut libraries = self.libraries.write().await;
-
-		let id = Uuid::parse_str(&id)?;
 
 		let library = libraries
 			.iter()
@@ -208,12 +201,12 @@ impl LibraryManager {
 	}
 
 	// get_ctx will return the library context for the given library id.
-	pub(crate) async fn get_ctx(&self, library_id: String) -> Option<LibraryContext> {
+	pub(crate) async fn get_ctx(&self, library_id: Uuid) -> Option<LibraryContext> {
 		self.libraries
 			.read()
 			.await
 			.iter()
-			.find(|lib| lib.id.to_string() == library_id)
+			.find(|lib| lib.id == library_id)
 			.map(Clone::clone)
 	}
 
@@ -239,12 +232,14 @@ impl LibraryManager {
 			_ => Platform::Unknown,
 		};
 
+		let uuid_vec = id.as_bytes().to_vec();
+
 		let node_data = db
 			.node()
 			.upsert(
-				node::pub_id::equals(id.to_string()),
+				node::pub_id::equals(uuid_vec.clone()),
 				(
-					node::pub_id::set(id.to_string()),
+					node::pub_id::set(uuid_vec),
 					node::name::set(node_config.name.clone()),
 					vec![node::platform::set(platform as i32)],
 				),
