@@ -323,6 +323,9 @@ importers:
       ts-node: 10.8.0_w6gfxie3xfwntbz3mwbbvycbdq
       typescript: 4.7.2
 
+  packages/assets:
+    specifiers: {}
+
   packages/client:
     specifiers:
       '@sd/config': workspace:*
@@ -368,6 +371,7 @@ importers:
       '@radix-ui/react-icons': ^1.1.1
       '@radix-ui/react-progress': ^0.1.4
       '@radix-ui/react-slider': ^0.1.4
+      '@sd/assets': workspace:*
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/ui': workspace:*
@@ -432,6 +436,7 @@ importers:
       '@radix-ui/react-icons': 1.1.1_react@18.1.0
       '@radix-ui/react-progress': 0.1.4_react@18.1.0
       '@radix-ui/react-slider': 0.1.4_react@18.1.0
+      '@sd/assets': link:../assets
       '@sd/client': link:../client
       '@sd/core': link:../../core
       '@sd/ui': link:../ui
@@ -8743,7 +8748,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
