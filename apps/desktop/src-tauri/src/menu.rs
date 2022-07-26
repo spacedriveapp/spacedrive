@@ -81,7 +81,6 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			#[cfg(debug_assertions)]
 			if window.is_devtools_open() {
 				window.close_devtools();
-				return;
 			} else {
 				window.close().unwrap();
 			}

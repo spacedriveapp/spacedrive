@@ -337,7 +337,7 @@ impl Node {
 			ClientQuery::GetNodes => todo!(),
 			ClientQuery::GetVolumes => CoreResponse::GetVolumes(sys::Volume::get_volumes()?),
 			ClientQuery::LibraryQuery { library_id, query } => {
-				let ctx = match self.library_manager.get_ctx(library_id.clone()).await {
+				let ctx = match self.library_manager.get_ctx(library_id).await {
 					Some(ctx) => ctx,
 					None => {
 						println!("Library '{}' not found!", library_id);
