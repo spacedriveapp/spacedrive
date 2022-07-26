@@ -225,6 +225,9 @@ importers:
       ts-node: 10.8.0_w6gfxie3xfwntbz3mwbbvycbdq
       typescript: 4.7.2
 
+  packages/assets:
+    specifiers: {}
+
   packages/client:
     specifiers:
       '@sd/config': workspace:*
@@ -270,6 +273,7 @@ importers:
       '@radix-ui/react-icons': ^1.1.1
       '@radix-ui/react-progress': ^0.1.4
       '@radix-ui/react-slider': ^0.1.4
+      '@sd/assets': workspace:*
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/ui': workspace:*
@@ -334,6 +338,7 @@ importers:
       '@radix-ui/react-icons': 1.1.1_react@18.1.0
       '@radix-ui/react-progress': 0.1.4_react@18.1.0
       '@radix-ui/react-slider': 0.1.4_react@18.1.0
+      '@sd/assets': link:../assets
       '@sd/client': link:../client
       '@sd/core': link:../../core
       '@sd/ui': link:../ui
@@ -6320,7 +6325,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
@@ -6648,6 +6652,7 @@ packages:
 
   /bindings/1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
+    requiresBuild: true
     dependencies:
       file-uri-to-path: 1.0.0
     dev: true
@@ -6906,7 +6911,7 @@ packages:
     dev: true
 
   /buffer-equal/0.0.1:
-    resolution: {integrity: sha1-kbx0sR6kBbyRa8aqkI+q+ltKrEs=}
+    resolution: {integrity: sha512-RgSV6InVQ9ODPdLWJ5UAqBqJBOg370Nz6ZQtRzpt6nUjc8v0St97uJ4PYC6NztqIScrAXafKM3mZPMygSe1ggA==}
     engines: {node: '>=0.4.0'}
     dev: true
 
@@ -9371,6 +9376,7 @@ packages:
 
   /file-uri-to-path/1.0.0:
     resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}
+    requiresBuild: true
     dev: true
     optional: true
 
@@ -9925,7 +9931,7 @@ packages:
     dev: true
 
   /github-from-package/0.0.0:
-    resolution: {integrity: sha1-l/tdlr/eiXMxPyDoKI75oWf6ZM4=}
+    resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
     dev: true
 
   /github-slugger/1.4.0:
@@ -12340,6 +12346,7 @@ packages:
 
   /nan/2.16.0:
     resolution: {integrity: sha512-UdAqHyFngu7TfQKsCBgAA6pWDkT8MAO7d0jyOecVhN5354xbLqdn8mV9Tat9gepAupm0bt2DbeaSC8vS52MuFA==}
+    requiresBuild: true
     dev: true
     optional: true
 
