@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 
 import { default as types } from '../../constants/file-types.json';
 import FileThumb from './FileThumb';
+import { AppPropsContext } from '../../AppPropsContext';
 
 interface MetaItemProps {
 	title: string;
@@ -35,9 +36,13 @@ export const Inspector = (props: {
 	location?: LocationResource;
 	selectedFile?: FilePath;
 }) => {
+	const appProps = React.useContext(AppPropsContext);
+	
 	const file_path = props.selectedFile,
-		full_path = `${props.location?.path}/${file_path?.materialized_path}`,
 		file_id = props.selectedFile?.file?.id || -1;
+		const pathSeparator = appProps?.platform === 'windows' ? '\\' : '/';
+
+		const full_path = [props.location?.path, file_path?.materialized_path].join(pathSeparator);
 
 	// notes are cached in a store by their file id
 	// this is so we can ensure every note has been sent to Rust even
