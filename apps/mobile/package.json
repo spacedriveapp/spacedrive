@@ -38,6 +38,7 @@
 		"react-native-screens": "~3.11.1",
 		"react-native-svg": "^12.4.3",
 		"twrnc": "^3.3.3",
+		"use-count-up": "^3.0.1",
 		"zustand": "4.0.0"
 	},
 	"devDependencies": {

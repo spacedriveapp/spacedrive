@@ -221,6 +221,7 @@ importers:
       tslib: ^2.4.0
       twrnc: ^3.3.3
       typescript: ~4.7.4
+      use-count-up: ^3.0.1
       zustand: 4.0.0
     dependencies:
       '@expo/vector-icons': 13.0.0
@@ -252,6 +253,7 @@ importers:
       react-native-screens: 3.11.1_zqxy7fpkavjkgz5xll7ed4r6rq
       react-native-svg: 12.4.3_zqxy7fpkavjkgz5xll7ed4r6rq
       twrnc: 3.3.3_react-native@0.68.2
+      use-count-up: 3.0.1_react@17.0.2
       zustand: 4.0.0_react@17.0.2
     devDependencies:
       '@babel/core': 7.18.9
@@ -21776,6 +21778,15 @@ packages:
       react: 18.1.0
     dev: false
 
+  /use-count-up/3.0.1_react@17.0.2:
+    resolution: {integrity: sha512-jlVsXJYje6jh+xwQaCEYrwHoB+nRyillNEmr21bhe9kw7tpRzyrSq9jQs9UOlo+8hCFkuOmjUihL3IjEK/piVg==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 17.0.2
+      use-elapsed-time: 3.0.2_react@17.0.2
+    dev: false
+
   /use-debounce/8.0.1_react@18.1.0:
     resolution: {integrity: sha512-6tGAFJKJ0qCalecaV7/gm/M6n238nmitNppvR89ff1yfwSFjwFKR7IQZzIZf1KZRQhqNireBzytzU6jgb29oVg==}
     engines: {node: '>= 10.0.0'}
@@ -21783,6 +21794,14 @@ packages:
       react: '>=16.8.0'
     dependencies:
       react: 18.1.0
+    dev: false
+
+  /use-elapsed-time/3.0.2_react@17.0.2:
+    resolution: {integrity: sha512-2EY9lJ5DWbAvT8wWiEp6Ztnl46DjXz2j78uhWbXaz/bg3OfpbgVucCAlcN8Bih6hTJfFTdVYX9L6ySMn5py/wQ==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 17.0.2
     dev: false
 
   /use-isomorphic-layout-effect/1.1.2_7cpxmzzodpxnolj5zcc5cr63ji:
