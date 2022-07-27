@@ -1,0 +1,20 @@
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+version: '0.2'
+dictionaryDefinitions:
+  - name: project_words
+    path: './.cspell/project_words.txt'
+    addWords: true
+  - name: frontend_custom_words
+    path: './.cspell/frontend_custom_words.txt'
+    addWords: true
+  - name: backend_custom_words
+    path: './.cspell/backend_custom_words.txt'
+    addWords: true
+dictionaries:
+  - project_words
+  - frontend_custom_words
+  - backend_custom_words
+ignorePaths:
+  - 'node_modules'
+  - '.cspell'
+  - 'target'

@@ -5,7 +5,7 @@ Synchronizing data between clients in a Spacedrive network is accomplished using
 Designed for synchronizing data in realtime between [SQLite](https://www.sqlite.org/) databases potentially in the gigabytes.
 
 ```rust
-// we can now impl specfic CRDT traits to given resources
+// we can now impl specific CRDT traits to given resources
 enum SyncResource {
   FilePath(dyn Replicate),
   File(dyn PropertyOperation),
@@ -185,7 +185,7 @@ impl Replicate for Job {
 We have a simple Rust syntax for creating sync events in the core.
 
 ```rust
-aysnc fn my_core_function(&ctx: CoreContext) -> Result<()> {
+async fn my_core_function(&ctx: CoreContext) -> Result<()> {
   let mut file = File::get_unique(1).await?;
 
   ctx.sync.operation(file.id,

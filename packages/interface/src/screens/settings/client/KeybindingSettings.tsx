@@ -8,11 +8,11 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 export default function AppearanceSettings() {
 	return (
 		<SettingsContainer>
-			<SettingsHeader title="Keybinds" description="Manage client keybinds" />
+			<SettingsHeader title="Keybindings" description="Manage client keybindings" />
 			<InputContainer
 				mini
 				title="Sync with Library"
-				description="If enabled your keybinds will be synced with library, otherwise they will apply only to this client."
+				description="If enabled your keybindings will be synced with library, otherwise they will apply only to this client."
 			>
 				<Toggle value />
 			</InputContainer>
