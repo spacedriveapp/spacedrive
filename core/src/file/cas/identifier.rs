@@ -151,18 +151,17 @@ impl StatefulJob for FileIdentifierJob {
 		// Had to put the file_path in a variable outside of the closure, to satisfy the borrow checker
 		let library_ctx = ctx.library_ctx();
 		let prisma_file_path = library_ctx.db.file_path();
-		for result in join_all(existing_files.iter().map(|file| {
-			prisma_file_path
-				.find_unique(file_path::id::equals(
-					*cas_lookup.get(&file.cas_id).unwrap(),
-				))
-				.update(vec![file_path::file_id::set(Some(file.id))])
-				.exec()
-		}))
-		.await
-		{
-			if let Err(e) = result {
-				error!("Error linking file: {:#?}", e);
+
+		for existing_file in &existing_files {
+			if let Err(e) = update_file_id_by_cas_id(
+				&prisma_file_path,
+				&cas_lookup,
+				&existing_file.cas_id,
+				existing_file.id,
+			)
+			.await
+			{
+				info!("Error updating file_id: {:#?}", e);
 			}
 		}
 
@@ -206,22 +205,19 @@ impl StatefulJob for FileIdentifierJob {
 				Vec::new()
 			});
 
-		// This code is duplicates, is this right?
-		for result in join_all(created_files.iter().map(|file| {
+		for created_file in created_files {
 			// associate newly created files with their respective file_paths
 			// TODO: this is potentially bottle necking the chunk system, individually linking file_path to file, 100 queries per chunk
 			// - insert many could work, but I couldn't find a good way to do this in a single SQL query
-			prisma_file_path
-				.find_unique(file_path::id::equals(
-					*cas_lookup.get(&file.cas_id).unwrap(),
-				))
-				.update(vec![file_path::file_id::set(Some(file.id))])
-				.exec()
-		}))
-		.await
-		{
-			if let Err(e) = result {
-				error!("Error linking file: {:#?}", e);
+			if let Err(e) = update_file_id_by_cas_id(
+				&prisma_file_path,
+				&cas_lookup,
+				&created_file.cas_id,
+				created_file.id,
+			)
+			.await
+			{
+				info!("Error updating file_id: {:#?}", e);
 			}
 		}
 
@@ -346,4 +342,17 @@ pub async fn prepare_file(
 		size_in_bytes: size as i64,
 		date_created: file_path.date_created,
 	})
+}
+
+async fn update_file_id_by_cas_id(
+	prisma_file_path: &file_path::Actions<'_>,
+	cas_lookup: &HashMap<String, i32>,
+	file_cas_id: &str,
+	file_id: i32,
+) -> prisma_client_rust::Result<Option<file_path::Data>> {
+	prisma_file_path
+		.find_unique(file_path::id::equals(*cas_lookup.get(file_cas_id).unwrap()))
+		.update(vec![file_path::file_id::set(Some(file_id))])
+		.exec()
+		.await
 }
