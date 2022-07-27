@@ -1,4 +1,4 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,6 +10,14 @@ import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { useOnboardingStore } from './stores/useOnboardingStore';
+
+const NavigatorTheme: Theme = {
+	...DefaultTheme,
+	colors: {
+		...DefaultTheme.colors,
+		background: '#08090D'
+	}
+};
 
 export default function App() {
 	// Enables dark mode, and screen size breakpoints, etc. for tailwind
@@ -32,7 +40,7 @@ export default function App() {
 	} else {
 		return (
 			<SafeAreaProvider style={tw`flex-1 bg-black`}>
-				<NavigationContainer>
+				<NavigationContainer theme={NavigatorTheme}>
 					{showOnboarding ? <OnboardingNavigator /> : <RootNavigator />}
 				</NavigationContainer>
 				<StatusBar style="light" />
