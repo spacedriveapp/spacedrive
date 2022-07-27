@@ -27,5 +27,5 @@
 		"noEmitHelpers": true
 	},
 	"include": ["src"],
-	"exclude": ["App.js", "build", "node_modules", "babel.config.js", "metro.config.js"]
+	"exclude": ["build", "node_modules", "babel.config.js", "metro.config.js"]
 }

@@ -36,9 +36,9 @@
 		"react-native-reanimated": "2.8.0",
 		"react-native-safe-area-context": "4.2.4",
 		"react-native-screens": "~3.11.1",
-		"react-native-svg": "^12.4.0",
+		"react-native-svg": "^12.4.3",
 		"twrnc": "^3.3.3",
-		"zustand": "4.0.0-rc.1"
+		"zustand": "4.0.0"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.18.9",
@@ -46,10 +46,10 @@
 		"@rnx-kit/metro-config": "^1.2.36",
 		"@rnx-kit/metro-resolver-symlinks": "^0.1.21",
 		"@types/node": "^17.0.36",
-		"@types/react": "17.0.21",
-		"@types/react-native": "0.66.13",
-		"@typescript-eslint/eslint-plugin": "^5.30.7",
-		"@typescript-eslint/parser": "^5.30.7",
+		"@types/react": "~17.0.21",
+		"@types/react-native": "~0.67.6",
+		"@typescript-eslint/eslint-plugin": "^5.31.0",
+		"@typescript-eslint/parser": "^5.31.0",
 		"eslint": "^8.20.0",
 		"eslint-plugin-import": "^2.26.0",
 		"eslint-plugin-jsx-a11y": "^6.6.0",
@@ -64,8 +64,8 @@
 	},
 	"pnpm": {
 		"overrides": {
-			"@types/react": "17.0.21",
-			"@types/react-native": "0.66.13"
+			"@types/react": "~17.0.21",
+			"@types/react-native": "~0.67.6"
 		}
 	}
 }
