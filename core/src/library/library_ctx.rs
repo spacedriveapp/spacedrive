@@ -1,8 +1,6 @@
+use crate::{job::DynJob, node::NodeConfigManager, prisma::PrismaClient, CoreEvent, NodeContext};
 use std::sync::Arc;
-
 use uuid::Uuid;
-
-use crate::{job::Job, node::NodeConfigManager, prisma::PrismaClient, CoreEvent, NodeContext};
 
 use super::LibraryConfig;
 
@@ -22,11 +20,11 @@ pub struct LibraryContext {
 }
 
 impl LibraryContext {
-	pub(crate) async fn spawn_job(&self, job: Box<dyn Job>) {
+	pub(crate) async fn spawn_job(&self, job: Box<dyn DynJob>) {
 		self.node_context.jobs.clone().ingest(self, job).await;
 	}
 
-	pub(crate) async fn queue_job(&self, job: Box<dyn Job>) {
+	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
 		self.node_context.jobs.ingest_queue(self, job).await;
 	}
 

@@ -1,15 +1,21 @@
+use super::SysError;
 use crate::{
-	file::{cas::FileIdentifierJob, indexer::IndexerJob},
+	file::{
+		cas::FileIdentifierJob,
+		indexer::{IndexerJob, IndexerJobInit},
+	},
 	library::LibraryContext,
 	node::LibraryNode,
 	prisma::{file_path, location},
-	ClientQuery, CoreEvent, LibraryQuery,
+	ClientQuery, CoreEvent, FileIdentifierJobInit, Job, LibraryQuery, ThumbnailJob,
+	ThumbnailJobInit,
 };
-
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use std::path::{Path, PathBuf};
+use std::{
+	fmt::Debug,
+	path::{Path, PathBuf},
+};
 use thiserror::Error;
 use tokio::{
 	fs::{metadata, File},
@@ -18,14 +24,12 @@ use tokio::{
 use ts_rs::TS;
 use uuid::Uuid;
 
-use super::SysError;
-
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct LocationResource {
 	pub id: i32,
 	pub name: Option<String>,
-	pub path: Option<String>,
+	pub path: Option<PathBuf>,
 	pub total_capacity: Option<i32>,
 	pub available_capacity: Option<i32>,
 	pub is_removable: Option<bool>,
@@ -40,7 +44,7 @@ impl From<location::Data> for LocationResource {
 		LocationResource {
 			id: data.id,
 			name: data.name,
-			path: data.local_path,
+			path: data.local_path.map(PathBuf::from),
 			total_capacity: data.total_capacity,
 			available_capacity: data.available_capacity,
 			is_removable: data.is_removable,
@@ -88,21 +92,31 @@ pub async fn get_location(
 
 pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: impl AsRef<Path>) {
 	let path_buf = path.as_ref().to_path_buf();
-	ctx.spawn_job(Box::new(IndexerJob {
-		path: path_buf.clone(),
-	}))
+	ctx.spawn_job(Job::new(
+		IndexerJobInit {
+			path: path_buf.clone(),
+		},
+		Box::new(IndexerJob {}),
+	))
 	.await;
-	ctx.queue_job(Box::new(FileIdentifierJob {
-		location_id,
-		path: path_buf,
-	}))
+	ctx.queue_job(Job::new(
+		FileIdentifierJobInit {
+			location_id,
+			path: path_buf.clone(),
+		},
+		Box::new(FileIdentifierJob {}),
+	))
 	.await;
-	// TODO: make a way to stop jobs so this can be canceled without rebooting app
-	// ctx.queue_job(Box::new(ThumbnailJob {
-	// 	location_id,
-	// 	path: "".to_string(),
-	// 	background: false,
-	// }));
+
+	ctx.queue_job(Job::new(
+		ThumbnailJobInit {
+			location_id,
+			path: path_buf,
+			background: true,
+		},
+		Box::new(ThumbnailJob {}),
+	))
+	.await;
 }
 
 pub async fn new_location_and_scan(
@@ -173,7 +187,7 @@ pub async fn create_location(
 			.db
 			.location()
 			.create(
-				location::pub_id::set(uuid.to_string()),
+				location::pub_id::set(uuid.as_bytes().to_vec()),
 				vec![
 					location::name::set(Some(
 						path.file_name().unwrap().to_string_lossy().to_string(),
@@ -231,7 +245,7 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.await?;
 
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
+		library_id: ctx.id,
 		query: LibraryQuery::GetLocations,
 	}))
 	.await;

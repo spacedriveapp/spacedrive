@@ -1,3 +1,10 @@
+use crate::{
+	library::LibraryContext,
+	prisma::{self, file, file_path},
+	sys::SysError,
+	ClientQuery, CoreError, CoreEvent, CoreResponse, LibraryQuery,
+};
+
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
@@ -5,12 +12,6 @@ use std::path::PathBuf;
 use thiserror::Error;
 use ts_rs::TS;
 
-use crate::{
-	library::LibraryContext,
-	prisma::{self, file, file_path},
-	sys::SysError,
-	ClientQuery, CoreError, CoreEvent, CoreResponse, LibraryQuery,
-};
 pub mod cas;
 pub mod explorer;
 pub mod indexer;
@@ -58,9 +59,9 @@ pub struct FilePath {
 	pub file_id: Option<i32>,
 	pub parent_id: Option<i32>,
 
-	pub date_created: DateTime<chrono::Utc>,
-	pub date_modified: DateTime<chrono::Utc>,
-	pub date_indexed: DateTime<chrono::Utc>,
+	pub date_created: DateTime<Utc>,
+	pub date_modified: DateTime<Utc>,
+	pub date_indexed: DateTime<Utc>,
 
 	pub file: Option<File>,
 }
@@ -163,15 +164,7 @@ pub async fn set_note(
 		.await
 		.unwrap();
 
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
-		query: LibraryQuery::GetExplorerDir {
-			limit: 0,
-			path: PathBuf::new(),
-			location_id: 0,
-		},
-	}))
-	.await;
+	send_invalidate_query(&ctx).await;
 
 	Ok(CoreResponse::Success(()))
 }
@@ -190,8 +183,14 @@ pub async fn favorite(
 		.await
 		.unwrap();
 
+	send_invalidate_query(&ctx).await;
+
+	Ok(CoreResponse::Success(()))
+}
+
+async fn send_invalidate_query(ctx: &LibraryContext) {
 	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id.to_string(),
+		library_id: ctx.id,
 		query: LibraryQuery::GetExplorerDir {
 			limit: 0,
 			path: PathBuf::new(),
@@ -199,6 +198,4 @@ pub async fn favorite(
 		},
 	}))
 	.await;
-
-	Ok(CoreResponse::Success(()))
 }

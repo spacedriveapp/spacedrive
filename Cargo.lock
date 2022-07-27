@@ -453,6 +453,7 @@ dependencies = [
  "num-bigint 0.3.3",
  "num-integer",
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -3660,6 +3661,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "2.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7940cf2ca942593318d07fcf2596cdca60a85c9e7fab408a5e21a4f9dcd40d87"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "ordermap"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4140,25 +4150,28 @@ dependencies = [
 
 [[package]]
 name = "prisma-client-rust"
-version = "0.4.1"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.5.0#31a864ae09e835ff046469345bf6e413ae54a30f"
+version = "0.5.2"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.5.2#88ba860aedace6ebf0707fa989138fea87cd0d5e"
 dependencies = [
  "bigdecimal 0.2.2",
  "chrono",
  "datamodel",
+ "indexmap",
  "prisma-models",
  "query-connector",
  "query-core",
  "serde",
+ "serde-value",
  "serde_json",
  "thiserror",
  "user-facing-errors",
+ "uuid 0.8.2",
 ]
 
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.4.1"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.5.0#31a864ae09e835ff046469345bf6e413ae54a30f"
+source = "git+https://github.com/Brendonovich/prisma-client-rust?tag=0.5.0#31a864ae09e835ff046469345bf6e413ae54a30f"
 dependencies = [
  "convert_case 0.5.0",
  "datamodel",
@@ -4703,6 +4716,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmp"
+version = "0.8.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44519172358fd6d58656c86ab8e7fbc9e1490c3e8f14d35ed78ca0dd07403c9f"
+dependencies = [
+ "byteorder",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "rmp-serde"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25786b0d276110195fa3d6f3f31299900cf71dfbd6c28450f3f58a0e7f7a347e"
+dependencies = [
+ "byteorder",
+ "rmp",
+ "serde",
+]
+
+[[package]]
 name = "rusqlite"
 version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4900,6 +4935,8 @@ dependencies = [
  "log",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",
+ "rmp",
+ "rmp-serde",
  "serde",
  "serde_json",
  "sysinfo",
@@ -5003,6 +5040,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0171ebb889e45aa68b44aee0859b3eede84c6f5f5c228e6f140c0b2a0a46cad6"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-value"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
+dependencies = [
+ "ordered-float",
+ "serde",
 ]
 
 [[package]]
@@ -5286,6 +5333,8 @@ version = "0.1.0"
 dependencies = [
  "dotenvy",
  "env_logger",
+ "futures",
+ "log",
  "sdcore",
  "swift-rs",
  "tauri",
