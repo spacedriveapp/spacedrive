@@ -18,6 +18,7 @@ import Layout from '../../constants/Layout';
 import tw from '../../lib/tailwind';
 import { valueof } from '../../types/helper';
 import { HomeDrawerParamList } from '../../types/navigation';
+import CollapsibleView from '../layout/CollapsibleView';
 import DrawerItem from './DrawerItem';
 import DrawerLocationItem from './DrawerLocationItem';
 import DrawerTagItem from './DrawerTagItem';
@@ -51,10 +52,6 @@ const placeholderTagsData = [
 ];
 
 const drawerHeight = Layout.window.height * 0.85;
-
-const Heading: React.FC<{ text: string }> = ({ text }) => (
-	<Text style={tw`mt-5 mb-2 ml-1 text-xs font-semibold text-gray-300`}>{text}</Text>
-);
 
 // This is a hacky way to get the active route name and params but it works and it's typed...
 
@@ -107,38 +104,46 @@ const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponen
 						isSelected={getActiveRouteState(state).name === 'Photos'}
 					/>
 					{/* Locations */}
-					<Heading text="Locations" />
-					{placeholderLocationData.map((location) => (
-						<DrawerLocationItem
-							key={location.id}
-							folderName={location.name}
-							onPress={() => navigation.jumpTo('Location', { id: location.id })}
-							isSelected={
-								getActiveRouteState(state).name === 'Location' &&
-								getActiveRouteState(state).params?.id === location.id
-							}
-						/>
-					))}
-					{/* Add Location */}
-					<View style={tw`border border-dashed rounded border-gray-450 border-opacity-60 mt-1`}>
-						<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>
-							Add Location
-						</Text>
-					</View>
+					<CollapsibleView
+						title="Locations"
+						titleStyle={tw`mt-5 mb-3 ml-1 text-sm font-semibold text-gray-300`}
+					>
+						{placeholderLocationData.map((location) => (
+							<DrawerLocationItem
+								key={location.id}
+								folderName={location.name}
+								onPress={() => navigation.jumpTo('Location', { id: location.id })}
+								isSelected={
+									getActiveRouteState(state).name === 'Location' &&
+									getActiveRouteState(state).params?.id === location.id
+								}
+							/>
+						))}
+						{/* Add Location */}
+						<View style={tw`border border-dashed rounded border-gray-450 border-opacity-60 mt-1`}>
+							<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>
+								Add Location
+							</Text>
+						</View>
+					</CollapsibleView>
 					{/* Tags */}
-					<Heading text="Tags" />
-					{placeholderTagsData.map((tag) => (
-						<DrawerTagItem
-							key={tag.id}
-							tagName={tag.name}
-							onPress={() => navigation.jumpTo('Tag', { id: tag.id })}
-							tagColor={tag.color as ColorValue}
-							isSelected={
-								getActiveRouteState(state).name === 'Tag' &&
-								getActiveRouteState(state).params?.id === tag.id
-							}
-						/>
-					))}
+					<CollapsibleView
+						title="Tags"
+						titleStyle={tw`mt-5 mb-3 ml-1 text-sm font-semibold text-gray-300`}
+					>
+						{placeholderTagsData.map((tag) => (
+							<DrawerTagItem
+								key={tag.id}
+								tagName={tag.name}
+								onPress={() => navigation.jumpTo('Tag', { id: tag.id })}
+								tagColor={tag.color as ColorValue}
+								isSelected={
+									getActiveRouteState(state).name === 'Tag' &&
+									getActiveRouteState(state).params?.id === tag.id
+								}
+							/>
+						))}
+					</CollapsibleView>
 				</View>
 				{/* Settings */}
 				<Pressable onPress={() => navigation.jumpTo('Settings')}>

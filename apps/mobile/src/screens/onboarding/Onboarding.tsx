@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 
-import { FadeInUpAnimation, LogoAnimation } from '../../components/animation';
+import { FadeInUpAnimation, LogoAnimation } from '../../components/animation/layout';
 import { AnimatedButton } from '../../components/base/Button';
 import { setItemToStorage } from '../../lib/storage';
 import tw from '../../lib/tailwind';

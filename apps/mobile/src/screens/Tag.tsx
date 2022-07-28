@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 
+import { Button } from '../components/base/Button';
 import DrawerScreenWrapper from '../components/drawer/DrawerScreenWrapper';
 import tw from '../lib/tailwind';
 import { HomeDrawerScreenProps } from '../types/navigation';
@@ -9,9 +10,11 @@ export default function TagScreen({ navigation, route }: HomeDrawerScreenProps<'
 	const { id } = route.params;
 	return (
 		<DrawerScreenWrapper>
-			<Text style={tw`font-bold text-xl text-white`}>Tags</Text>
+			<Text style={tw`font-bold text-xl text-white`}>Tag {id}</Text>
 			<View style={tw`my-8 h-1 w-4/5`} />
-			<Text>{id} --- will receive tag id to show specific data.</Text>
+			<Button variant="primary" size="lg" onPress={() => navigation.openDrawer()}>
+				<Text style={tw`font-bold text-white`}>Open Drawer</Text>
+			</Button>
 		</DrawerScreenWrapper>
 	);
 }
