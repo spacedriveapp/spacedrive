@@ -26,7 +26,8 @@ rmp = "^0.8.11"
 rmp-serde = "^1.1.0"
 
 # Project dependencies
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
+# prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "0.6.0", features = ["specta"] }
+prisma-client-rust = { path = "../../../Desktop/prisma-client-rust-06", features = ["specta"] }
 rspc = { git = "https://github.com/oscartbeaumont/rspc.git", branch = "omg", features = ["axum", "tauri", "uuid", "chrono"] }
 walkdir = "^2.3.2"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }

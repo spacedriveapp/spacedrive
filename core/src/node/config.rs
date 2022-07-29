@@ -58,6 +58,7 @@ impl NodeConfig {
 		NodeConfig {
 			id: Uuid::new_v4(),
 			name: match hostname::get() {
+				// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
 				Ok(hostname) => hostname.to_string_lossy().into_owned(),
 				Err(err) => {
 					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{}'", err);

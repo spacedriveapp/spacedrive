@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use rspc::Type;
 use serde::Deserialize;
 
@@ -41,7 +39,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					library_id: library.id,
 					arg: GetExplorerDirArgs {
 						location_id: 0, // TODO: This should be the correct location_id
-						path: PathBuf::new(),
+						path: "".into(),
 						limit: 0,
 					}
 				}
@@ -71,7 +69,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						arg: GetExplorerDirArgs {
 							// TODO: Set these arguments to the correct type
 							location_id: 0,
-							path: PathBuf::new(),
+							path: "".into(),
 							limit: 0,
 						}
 					}

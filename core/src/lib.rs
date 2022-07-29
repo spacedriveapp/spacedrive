@@ -19,7 +19,6 @@ pub(crate) mod library;
 pub(crate) mod node;
 pub(crate) mod prisma;
 pub(crate) mod sys;
-pub(crate) mod tag;
 pub(crate) mod util;
 
 #[derive(Clone)]

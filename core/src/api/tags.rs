@@ -4,8 +4,7 @@ use uuid::Uuid;
 
 use crate::{
 	invalidate_query,
-	prisma::{file, tag, tag_on_file},
-	tag::Tag,
+	prisma::{file, tag},
 };
 
 use super::{LibraryArgs, RouterBuilder};
@@ -34,41 +33,29 @@ pub(crate) fn mount() -> RouterBuilder {
 		.query("get", |ctx, arg: LibraryArgs<()>| async move {
 			let (_, library) = arg.get_library(&ctx).await?;
 
-			Ok(library
-				.db
-				.tag()
-				.find_many(vec![])
-				.exec()
-				.await
-				.unwrap()
-				.into_iter()
-				.map(Into::into)
-				.collect::<Vec<Tag>>())
+			Ok(library.db.tag().find_many(vec![]).exec().await.unwrap())
 		})
 		.query("getFilesForTag", |ctx, arg: LibraryArgs<i32>| async move {
 			let (tag_id, library) = arg.get_library(&ctx).await?;
 
-			let tag: Option<Tag> = library
+			Ok(library
 				.db
 				.tag()
 				.find_unique(tag::id::equals(tag_id))
 				.exec()
 				.await
-				.unwrap()
-				.map(Into::into);
-
-			Ok(tag)
+				.unwrap())
 		})
 		.mutation(
 			"create",
 			|ctx, arg: LibraryArgs<TagCreateArgs>| async move {
 				let (args, library) = arg.get_library(&ctx).await?;
 
-				let created_tag: Tag = library
+				let created_tag = library
 					.db
 					.tag()
 					.create(
-						tag::pub_id::set(Uuid::new_v4().as_bytes().to_vec()),
+						Uuid::new_v4().as_bytes().to_vec(),
 						vec![
 							tag::name::set(Some(args.name)),
 							tag::color::set(Some(args.color)),
@@ -76,8 +63,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					)
 					.exec()
 					.await
-					.unwrap()
-					.into();
+					.unwrap();
 
 				invalidate_query!(
 					library,
@@ -97,8 +83,8 @@ pub(crate) fn mount() -> RouterBuilder {
 				let (args, library) = arg.get_library(&ctx).await?;
 
 				library.db.tag_on_file().create(
-					tag_on_file::tag::link(tag::id::equals(args.tag_id)),
-					tag_on_file::file::link(file::id::equals(args.file_id)),
+					tag::id::equals(args.tag_id),
+					file::id::equals(args.file_id),
 					vec![],
 				);
 

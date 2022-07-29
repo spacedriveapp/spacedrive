@@ -93,7 +93,7 @@ impl Worker {
 		let old_status = worker.report.status;
 		worker.report.status = JobStatus::Running;
 		if matches!(old_status, JobStatus::Queued) {
-			worker.report.create(&ctx).await.unwrap_or(());
+			worker.report.create(&ctx).await.unwrap();
 		}
 		drop(worker);
 

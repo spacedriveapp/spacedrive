@@ -1,4 +1,3 @@
-use super::SysError;
 use crate::{
 	api::LibraryArgs,
 	encode::{ThumbnailJob, ThumbnailJobInit},
@@ -10,7 +9,7 @@ use crate::{
 	job::Job,
 	library::LibraryContext,
 	node::LibraryNode,
-	prisma::{file_path, location},
+	prisma::{self, location},
 };
 
 use rspc::Type;
@@ -81,7 +80,7 @@ static DOTFILE_NAME: &str = ".spacedrive";
 pub async fn get_location(
 	ctx: &LibraryContext,
 	location_id: i32,
-) -> Result<LocationResource, SysError> {
+) -> Result<LocationResource, LocationError> {
 	// get location by location_id from db and include location_paths
 	ctx.db
 		.location()
@@ -121,34 +120,10 @@ pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: impl As
 	.await;
 }
 
-pub async fn new_location_and_scan(
-	ctx: &LibraryContext,
-	path: impl AsRef<Path> + Debug,
-) -> Result<LocationResource, SysError> {
-	let location = create_location(ctx, &path).await?;
-
-	scan_location(ctx, location.id, path).await;
-
-	Ok(location)
-}
-
-pub async fn get_locations(ctx: &LibraryContext) -> Result<Vec<LocationResource>, SysError> {
-	let locations = ctx
-		.db
-		.location()
-		.find_many(vec![])
-		.with(location::node::fetch())
-		.exec()
-		.await?;
-
-	// turn locations into LocationResource
-	Ok(locations.into_iter().map(LocationResource::from).collect())
-}
-
 pub async fn create_location(
 	library: &LibraryContext,
 	path: impl AsRef<Path> + Debug,
-) -> Result<LocationResource, SysError> {
+) -> Result<LocationResource, LocationError> {
 	let path = path.as_ref();
 
 	// check if we have access to this location
@@ -165,7 +140,7 @@ pub async fn create_location(
 		return Err(LocationError::ReadonlyDotFileLocationFailure(path.to_owned()).into());
 	}
 
-	let path_string = path.to_string_lossy().to_string();
+	let path_string = path.to_str().unwrap().to_string();
 
 	// check if location already exists
 	let location_resource = if let Some(location) = library
@@ -189,10 +164,10 @@ pub async fn create_location(
 			.db
 			.location()
 			.create(
-				location::pub_id::set(uuid.as_bytes().to_vec()),
+				uuid.as_bytes().to_vec(),
 				vec![
 					location::name::set(Some(
-						path.file_name().unwrap().to_string_lossy().to_string(),
+						path.file_name().unwrap().to_str().unwrap().to_string(),
 					)),
 					location::is_online::set(true),
 					location::local_path::set(Some(path_string)),
@@ -237,37 +212,6 @@ pub async fn create_location(
 	Ok(location_resource)
 }
 
-pub async fn delete_location(library: &LibraryContext, location_id: i32) -> Result<(), SysError> {
-	library
-		.db
-		.file_path()
-		.find_many(vec![file_path::location_id::equals(Some(location_id))])
-		.delete()
-		.exec()
-		.await?;
-
-	library
-		.db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.delete()
-		.exec()
-		.await?;
-
-	invalidate_query!(
-		library,
-		"locations.get": LibraryArgs<()>,
-		LibraryArgs {
-			library_id: library.id,
-			arg: ()
-		}
-	);
-
-	info!("Location {} deleted", location_id);
-
-	Ok(())
-}
-
 #[derive(Error, Debug)]
 pub enum LocationError {
 	#[error("Failed to create location (uuid {uuid:?})")]
@@ -292,4 +236,6 @@ pub enum LocationError {
 	VolumeReadError(String),
 	#[error("Failed to connect to database (error: {0:?})")]
 	IOError(io::Error),
+	#[error("Database error")]
+	DatabaseError(#[from] prisma::QueryError),
 }

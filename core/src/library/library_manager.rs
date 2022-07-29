@@ -44,6 +44,8 @@ pub enum LibraryManagerError {
 	Migration(String),
 	#[error("failed to parse uuid")]
 	Uuid(#[from] uuid::Error),
+	#[error("error opening database as the path contains non-UTF-8 characters")]
+	InvalidDatabasePath(PathBuf),
 }
 
 impl LibraryManager {
@@ -228,11 +230,18 @@ impl LibraryManager {
 		config: LibraryConfig,
 		node_context: NodeContext,
 	) -> Result<LibraryContext, LibraryManagerError> {
-		let db = Arc::new(
-			load_and_migrate(&format!("file:{}", db_path.as_ref().to_string_lossy()))
+		let db_path = db_path.as_ref();
+		let db =
+			Arc::new(
+				load_and_migrate(&format!(
+					"file:{}",
+					db_path.as_os_str().to_str().ok_or(
+						LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
+					)?
+				))
 				.await
 				.unwrap(),
-		);
+			);
 
 		let node_config = node_context.config.get().await;
 
@@ -250,8 +259,8 @@ impl LibraryManager {
 			.upsert(
 				node::pub_id::equals(uuid_vec.clone()),
 				(
-					node::pub_id::set(uuid_vec),
-					node::name::set(node_config.name.clone()),
+					uuid_vec,
+					node_config.name.clone(),
 					vec![node::platform::set(platform as i32)],
 				),
 				vec![node::name::set(node_config.name.clone())],

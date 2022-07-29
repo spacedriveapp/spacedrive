@@ -1,4 +1,4 @@
-use crate::{file::FileError, prisma, sys::SysError};
+use crate::{prisma, sys::LocationError};
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::VecDeque, fmt::Debug};
@@ -15,14 +15,12 @@ pub use worker::*;
 pub enum JobError {
 	#[error("Database error: {0}")]
 	DatabaseError(#[from] prisma::QueryError),
-	#[error("System error: {0}")]
-	SystemError(#[from] SysError),
+	#[error("Location error: {0}")]
+	LocationError(#[from] LocationError),
 	#[error("I/O error: {0}")]
 	IOError(#[from] std::io::Error),
 	#[error("Failed to join Tokio spawn blocking: {0}")]
 	JoinError(#[from] tokio::task::JoinError),
-	#[error("File error: {0}")]
-	FileError(#[from] FileError),
 	#[error("Job state encode error: {0}")]
 	StateEncode(#[from] EncodeError),
 	#[error("Job state decode error: {0}")]

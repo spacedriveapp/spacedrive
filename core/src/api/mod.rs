@@ -9,13 +9,12 @@ use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use crate::{
-	api::invalidate::InvalidRequests,
 	job::JobManager,
 	library::{LibraryContext, LibraryManager},
 	node::{NodeConfig, NodeConfigManager},
 };
 
-pub use self::invalidate::InvalidateOperationEvent;
+use utils::{InvalidRequests, InvalidateOperationEvent};
 
 pub(crate) type Router = rspc::Router<Ctx>;
 pub(crate) type RouterBuilder = rspc::RouterBuilder<Ctx>;
@@ -57,15 +56,14 @@ impl<T> LibraryArgs<T> {
 }
 
 mod files;
-mod invalidate;
 mod jobs;
 mod libraries;
 mod locations;
 mod tags;
+pub mod utils;
 mod volumes;
 
 pub use files::*;
-pub use invalidate::*;
 pub use jobs::*;
 pub use libraries::*;
 pub use tags::*;
@@ -127,8 +125,9 @@ pub(crate) fn mount() -> Arc<Router> {
 mod tests {
 	use std::path::PathBuf;
 
+	/// This test will ensure the rspc router and all calls to `invalidate_query` are valid and also export an updated version of the Typescript bindings.
 	#[test]
-	fn export_rspc_bindings() {
+	fn test_and_export_rspc_bindings() {
 		let r = super::mount();
 		r.export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts"))
 			.unwrap();

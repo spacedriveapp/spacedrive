@@ -2,7 +2,7 @@ use rspc::Type;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::library::{LibraryConfig, Statistics};
+use crate::library::{calculate_statistics, LibraryConfig};
 
 use super::{LibraryArgs, RouterBuilder};
 
@@ -20,7 +20,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.query("getStatistics", |ctx, arg: LibraryArgs<()>| async move {
 			let (_, library) = arg.get_library(&ctx).await?;
-			Ok(Statistics::calculate(&library).await.unwrap())
+			Ok(calculate_statistics(&library).await.unwrap())
 		})
 		.mutation("create", |ctx, name: String| async move {
 			ctx.library_manager

@@ -1,10 +1,9 @@
 use super::checksum::generate_cas_id;
 
 use crate::{
-	file::FileError,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	prisma::{file, file_path},
+	prisma::{self, file, file_path},
 	sys::get_location,
 	sys::LocationResource,
 };
@@ -149,16 +148,17 @@ impl StatefulJob for FileIdentifierJob {
 		// link those existing files to their file paths
 		// Had to put the file_path in a variable outside of the closure, to satisfy the borrow checker
 		let library_ctx = ctx.library_ctx();
-		let prisma_file_path = library_ctx.db.file_path();
 
 		for existing_file in &existing_files {
-			if let Err(e) = update_file_id_by_cas_id(
-				&prisma_file_path,
-				&cas_lookup,
-				&existing_file.cas_id,
-				existing_file.id,
-			)
-			.await
+			if let Err(e) = library_ctx
+				.db
+				.file_path()
+				.find_unique(file_path::id::equals(
+					*cas_lookup.get(&existing_file.cas_id).unwrap(),
+				))
+				.update(vec![file_path::file_id::set(Some(existing_file.id))])
+				.exec()
+				.await
 			{
 				info!("Error updating file_id: {:#?}", e);
 			}
@@ -208,13 +208,16 @@ impl StatefulJob for FileIdentifierJob {
 			// associate newly created files with their respective file_paths
 			// TODO: this is potentially bottle necking the chunk system, individually linking file_path to file, 100 queries per chunk
 			// - insert many could work, but I couldn't find a good way to do this in a single SQL query
-			if let Err(e) = update_file_id_by_cas_id(
-				&prisma_file_path,
-				&cas_lookup,
-				&created_file.cas_id,
-				created_file.id,
-			)
-			.await
+			if let Err(e) = ctx
+				.library_ctx()
+				.db
+				.file_path()
+				.find_unique(file_path::id::equals(
+					*cas_lookup.get(&created_file.cas_id).unwrap(),
+				))
+				.update(vec![file_path::file_id::set(Some(created_file.id))])
+				.exec()
+				.await
 			{
 				info!("Error updating file_id: {:#?}", e);
 			}
@@ -267,7 +270,7 @@ struct CountRes {
 pub async fn count_orphan_file_paths(
 	ctx: &LibraryContext,
 	location_id: i64,
-) -> Result<usize, FileError> {
+) -> Result<usize, prisma::QueryError> {
 	let files_count = ctx.db
 		._query_raw::<CountRes>(raw!(
 			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
@@ -280,7 +283,7 @@ pub async fn count_orphan_file_paths(
 pub async fn get_orphan_file_paths(
 	ctx: &LibraryContext,
 	cursor: i32,
-) -> Result<Vec<file_path::Data>, FileError> {
+) -> Result<Vec<file_path::Data>, prisma::QueryError> {
 	info!(
 		"discovering {} orphan file paths at cursor: {:?}",
 		CHUNK_SIZE, cursor
@@ -296,7 +299,6 @@ pub async fn get_orphan_file_paths(
 		.take(CHUNK_SIZE as i64)
 		.exec()
 		.await
-		.map_err(Into::into)
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -341,17 +343,4 @@ pub async fn prepare_file(
 		size_in_bytes: size as i64,
 		date_created: file_path.date_created,
 	})
-}
-
-async fn update_file_id_by_cas_id(
-	prisma_file_path: &file_path::Actions<'_>,
-	cas_lookup: &HashMap<String, i32>,
-	file_cas_id: &str,
-	file_id: i32,
-) -> prisma_client_rust::Result<Option<file_path::Data>> {
-	prisma_file_path
-		.find_unique(file_path::id::equals(*cas_lookup.get(file_cas_id).unwrap()))
-		.update(vec![file_path::file_id::set(Some(file_id))])
-		.exec()
-		.await
 }

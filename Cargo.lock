@@ -291,6 +291,7 @@ dependencies = [
  "num-bigint 0.3.3",
  "num-integer",
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -3455,6 +3456,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "2.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7940cf2ca942593318d07fcf2596cdca60a85c9e7fab408a5e21a4f9dcd40d87"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "ordermap"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3910,25 +3920,44 @@ dependencies = [
 
 [[package]]
 name = "prisma-client-rust"
-version = "0.4.1"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.5.0#31a864ae09e835ff046469345bf6e413ae54a30f"
+version = "0.6.0"
 dependencies = [
  "bigdecimal 0.2.2",
  "chrono",
  "datamodel",
+ "indexmap",
  "prisma-models",
  "query-connector",
  "query-core",
  "serde",
+ "serde-value",
  "serde_json",
+ "specta",
  "thiserror",
  "user-facing-errors",
+ "uuid 0.8.2",
 ]
 
 [[package]]
 name = "prisma-client-rust-cli"
-version = "0.4.1"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.5.0#31a864ae09e835ff046469345bf6e413ae54a30f"
+version = "0.6.0"
+dependencies = [
+ "datamodel",
+ "prisma-client-rust-sdk",
+ "prisma-models",
+ "proc-macro2",
+ "query-core",
+ "quote",
+ "request-handlers",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "syn",
+]
+
+[[package]]
+name = "prisma-client-rust-sdk"
+version = "0.6.0"
 dependencies = [
  "convert_case 0.5.0",
  "datamodel",
@@ -3936,6 +3965,7 @@ dependencies = [
  "flate2",
  "http",
  "prisma-models",
+ "proc-macro2",
  "query-core",
  "quote",
  "regex",
@@ -4819,6 +4849,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-value"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
+dependencies = [
+ "ordered-float",
+ "serde",
+]
+
+[[package]]
 name = "serde_bytes"
 version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5103,6 +5143,7 @@ source = "git+https://github.com/oscartbeaumont/rspc.git?branch=omg#5bec1d0f636a
 dependencies = [
  "chrono",
  "convert_case 0.5.0",
+ "indexmap",
  "serde_json",
  "specta-macros",
  "termcolor",

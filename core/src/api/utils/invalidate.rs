@@ -8,7 +8,7 @@ use rspc::Type;
 use serde::Serialize;
 use serde_json::Value;
 
-use super::Router;
+use crate::api::Router;
 
 /// holds information about all invalidation queries done with the [invalidate_query!] macro so we can check they are valid when building the router.
 #[cfg(debug_assertions)]
@@ -50,7 +50,7 @@ impl InvalidRequests {
 	pub(crate) fn validate(r: Arc<Router>) {
 		#[cfg(debug_assertions)]
 		{
-			let invalidate_requests = crate::api::invalidate::INVALIDATION_REQUESTS
+			let invalidate_requests = crate::api::utils::INVALIDATION_REQUESTS
 				.get_or_init(Default::default)
 				.lock()
 				.unwrap();
@@ -98,12 +98,12 @@ macro_rules! invalidate_query {
 		{
 			#[ctor::ctor]
 			fn invalidate() {
-				crate::api::INVALIDATION_REQUESTS
+				crate::api::utils::INVALIDATION_REQUESTS
 					.get_or_init(|| Default::default())
 					.lock()
 					.unwrap()
 					.queries
-					.push(crate::api::InvalidationRequest {
+					.push(crate::api::utils::InvalidationRequest {
 						key: $key,
 						ty_id: std::any::TypeId::of::<$arg_ty>(),
 						ty_name: std::any::type_name::<$arg_ty>(),
@@ -116,7 +116,7 @@ macro_rules! invalidate_query {
 		let _ = serde_json::to_value($arg)
 			.map(|v|
 				ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-					crate::api::InvalidateOperationEvent::dangerously_create($key, v),
+					crate::api::utils::InvalidateOperationEvent::dangerously_create($key, v),
 				))
 			)
 			.map_err(|_| {

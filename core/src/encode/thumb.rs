@@ -218,7 +218,7 @@ pub async fn get_images(
 		]),
 	];
 
-	let path_str = path.as_ref().to_string_lossy().to_string();
+	let path_str = path.as_ref().as_os_str().to_str().unwrap().to_string();
 
 	if !path_str.is_empty() {
 		params.push(file_path::materialized_path::starts_with(path_str))

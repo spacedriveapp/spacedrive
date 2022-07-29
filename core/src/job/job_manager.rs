@@ -117,17 +117,6 @@ impl JobManager {
 		ret
 	}
 
-	// pub async fn queue_pending_job(ctx: &LibraryContext) -> Result<(), JobError> {
-	// 	let _next_job = ctx
-	//      .db
-	// 		.job()
-	// 		.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
-	// 		.exec()
-	// 		.await?;
-
-	// 	Ok(())
-	// }
-
 	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, JobError> {
 		let jobs = ctx
 			.db
@@ -289,10 +278,10 @@ impl JobReport {
 		ctx.db
 			.job()
 			.create(
-				job::id::set(self.id.as_bytes().to_vec()),
-				job::name::set(self.name.clone()),
-				job::action::set(1),
-				job::nodes::link(node::id::equals(ctx.node_local_id)),
+				self.id.as_bytes().to_vec(),
+				self.name.clone(),
+				1,
+				node::id::equals(ctx.node_local_id),
 				params,
 			)
 			.exec()
