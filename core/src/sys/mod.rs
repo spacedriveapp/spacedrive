@@ -6,7 +6,7 @@ pub use volumes::*;
 
 use thiserror::Error;
 
-use crate::{job, prisma};
+use crate::prisma;
 
 #[derive(Error, Debug)]
 pub enum SysError {
@@ -14,8 +14,6 @@ pub enum SysError {
 	Location(#[from] LocationError),
 	#[error("Error with system volumes")]
 	Volume(String),
-	#[error("Error from job runner")]
-	Job(#[from] job::JobError),
 	#[error("Database error")]
 	Database(#[from] prisma::QueryError),
 }

@@ -4,11 +4,12 @@ use crate::{
 };
 use rspc::Type;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Tag {
 	pub id: i32,
-	pub pub_id: String,
+	pub pub_id: Uuid,
 	pub name: Option<String>,
 	pub color: Option<String>,
 
@@ -33,7 +34,7 @@ impl From<tag::Data> for Tag {
 	fn from(data: tag::Data) -> Self {
 		Self {
 			id: data.id,
-			pub_id: data.pub_id,
+			pub_id: Uuid::from_slice(&data.pub_id).unwrap(),
 			name: data.name,
 			color: data.color,
 			total_files: data.total_files,

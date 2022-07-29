@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use rspc::Type;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 mod config;
 use crate::prisma::node;
@@ -9,7 +10,7 @@ pub use config::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryNode {
-	pub uuid: String,
+	pub uuid: Uuid,
 	pub name: String,
 	pub platform: Platform,
 	pub last_seen: DateTime<Utc>,
@@ -18,7 +19,7 @@ pub struct LibraryNode {
 impl From<node::Data> for LibraryNode {
 	fn from(data: node::Data) -> Self {
 		Self {
-			uuid: data.pub_id,
+			uuid: Uuid::from_slice(&data.pub_id).unwrap(),
 			name: data.name,
 			platform: IntEnum::from_int(data.platform).unwrap(),
 			last_seen: data.last_seen.into(),

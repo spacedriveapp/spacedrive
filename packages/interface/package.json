@@ -29,6 +29,7 @@
 		"@sd/ui": "workspace:*",
 		"@tanstack/react-query": "^4.0.10",
 		"@tanstack/react-query-devtools": "^4.0.10",
+		"@sd/assets": "workspace:*",
 		"@types/styled-components": "^5.1.25",
 		"@vitejs/plugin-react": "^2.0.0",
 		"autoprefixer": "^10.4.7",

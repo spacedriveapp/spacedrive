@@ -43,7 +43,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			},
 		)
 		.query("getStatistics", |ctx, arg: LibraryArgs<()>| async move {
-			let (args, library) = arg.get_library(&ctx).await?;
+			let (_, library) = arg.get_library(&ctx).await?;
 
 			Ok(Statistics::calculate(&library).await.unwrap())
 		})
@@ -72,7 +72,8 @@ pub(crate) fn mount() -> RouterBuilder {
 		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
 			let (id, library) = arg.get_library(&ctx).await?;
 
-			Ok(sys::delete_location(&library, id).await.unwrap())
+			sys::delete_location(&library, id).await.unwrap();
+			Ok(())
 		})
 		.mutation("fullRescan", |ctx, arg: LibraryArgs<i32>| async move {
 			let (id, library) = arg.get_library(&ctx).await?;

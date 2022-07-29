@@ -8,7 +8,7 @@ use super::{LibraryArgs, RouterBuilder};
 
 #[derive(Type, Deserialize)]
 pub struct EditLibraryArgs {
-	pub id: String,
+	pub id: Uuid,
 	pub name: Option<String>,
 	pub description: Option<String>,
 }

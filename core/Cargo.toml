@@ -22,10 +22,12 @@ futures = "0.3"
 data-encoding = "2.3.2"
 ring = "0.17.0-alpha.10"
 int-enum = "0.4.0"
+rmp = "^0.8.11"
+rmp-serde = "^1.1.0"
 
 # Project dependencies
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.0" }
-rspc = { path = "../../rspc", features = ["axum", "tauri", "uuid", "chrono"] } # TODO: Correct import path
+rspc = { git = "https://github.com/oscartbeaumont/rspc.git", branch = "omg", features = ["axum", "tauri", "uuid", "chrono"] }
 walkdir = "^2.3.2"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
@@ -34,7 +36,7 @@ core-derive = { path = "./derive" }
 
 tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread"] }
 include_dir = { version = "0.7.2", features = ["glob"] }
-async-trait = "0.1.52"
+async-trait = "^0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
 ffmpeg-next = "5.0.3"

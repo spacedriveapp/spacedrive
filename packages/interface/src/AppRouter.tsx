@@ -16,7 +16,7 @@ import { SettingsScreen } from './screens/settings/Settings';
 import AppearanceSettings from './screens/settings/client/AppearanceSettings';
 import ExtensionSettings from './screens/settings/client/ExtensionsSettings';
 import GeneralSettings from './screens/settings/client/GeneralSettings';
-import KeybindSettings from './screens/settings/client/KeybindSettings';
+import KeybindingSettings from './screens/settings/client/KeybindingSettings';
 import PrivacySettings from './screens/settings/client/PrivacySettings';
 import AboutSpacedrive from './screens/settings/info/AboutSpacedrive';
 import Changelog from './screens/settings/info/Changelog';
@@ -66,7 +66,7 @@ export function AppRouter() {
 							<Route index element={<GeneralSettings />} />
 							<Route path="general" element={<GeneralSettings />} />
 							<Route path="appearance" element={<AppearanceSettings />} />
-							<Route path="keybinds" element={<KeybindSettings />} />
+							<Route path="keybindings" element={<KeybindingSettings />} />
 							<Route path="extensions" element={<ExtensionSettings />} />
 							<Route path="p2p" element={<P2PSettings />} />
 							<Route path="contacts" element={<ContactsSettings />} />

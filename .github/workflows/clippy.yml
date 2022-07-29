@@ -47,7 +47,7 @@ jobs:
       - name: Generate Prisma client
         working-directory: core
         if: steps.cache-prisma.outputs.cache-hit != 'true'
-        run: cargo run --frozen -p prisma-cli --release -- generate
+        run: cargo run -p prisma-cli --release -- generate
       
       - name: Run Clippy
         uses: actions-rs/clippy-check@v1

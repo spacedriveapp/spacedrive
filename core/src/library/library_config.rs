@@ -7,6 +7,7 @@ use std::{
 use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
+use uuid::Uuid;
 
 use crate::node::ConfigMetadata;
 
@@ -62,6 +63,6 @@ impl LibraryConfig {
 // used to return to the frontend with uuid context
 #[derive(Serialize, Deserialize, Debug, Type)]
 pub struct LibraryConfigWrapped {
-	pub uuid: String,
+	pub uuid: Uuid,
 	pub config: LibraryConfig,
 }

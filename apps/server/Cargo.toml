@@ -8,3 +8,4 @@ sdcore = { path = "../../core", features = [] }
 axum = "0.5.13"
 tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread", "signal"] }
 tracing = "0.1.35"
+ctrlc = "3.2.2"

@@ -83,7 +83,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		// .config(
 		// 	Config::new()
 		// 		.export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts")),
-		// ) // Note: This is relative to directory the command was executed in. // TODO: Change it to be relative to Cargo.toml by default
+		// )
 		.query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
 		.query("getNode", |ctx, _: ()| async move {
 			NodeState {
@@ -103,7 +103,6 @@ pub(crate) fn mount() -> Arc<Router> {
 			let mut last = Instant::now();
 			async_stream::stream! {
 				while let Ok(event) = event_bus_rx.recv().await {
-					println!("{:?}", event);
 					match event {
 						CoreEvent::InvalidateOperation(op) => yield op,
 						CoreEvent::InvalidateOperationDebounced(op) => {

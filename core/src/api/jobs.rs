@@ -4,9 +4,9 @@ use rspc::Type;
 use serde::Deserialize;
 
 use crate::{
-	encode::ThumbnailJob,
-	file::cas::{self, FileIdentifierJob},
-	job::JobManager,
+	encode::{ThumbnailJob, ThumbnailJobInit},
+	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
+	job::{Job, JobManager},
 };
 
 use super::{CoreEvent, LibraryArgs, RouterBuilder};
@@ -41,11 +41,14 @@ pub(crate) fn mount() -> RouterBuilder {
 				let (args, library) = arg.get_library(&ctx).await?;
 
 				library
-					.spawn_job(Box::new(ThumbnailJob {
-						location_id: args.id,
-						path: args.path,
-						background: false, // fix
-					}))
+					.spawn_job(Job::new(
+						ThumbnailJobInit {
+							location_id: args.id,
+							path: args.path,
+							background: false, // fix
+						},
+						Box::new(ThumbnailJob {}),
+					))
 					.await;
 
 				Ok(())
@@ -57,16 +60,21 @@ pub(crate) fn mount() -> RouterBuilder {
 				let (args, library) = arg.get_library(&ctx).await?;
 
 				library
-					.spawn_job(Box::new(FileIdentifierJob {
-						location_id: args.id,
-						path: args.path,
-					}))
+					.spawn_job(Job::new(
+						FileIdentifierJobInit {
+							location_id: args.id,
+							path: args.path,
+						},
+						Box::new(FileIdentifierJob {}),
+					))
 					.await;
 
 				Ok(())
 			},
 		)
-		.subscription("newThumbnail", |ctx, arg: LibraryArgs<()>| {
+		.subscription("newThumbnail", |ctx, _: LibraryArgs<()>| {
+			// TODO: Only return event for the library that was subscribed to
+
 			let mut event_bus_rx = ctx.event_bus.subscribe();
 			async_stream::stream! {
 				while let Ok(event) = event_bus_rx.recv().await {

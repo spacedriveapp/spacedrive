@@ -32,16 +32,16 @@ impl From<Data> for Statistics {
 }
 
 impl Statistics {
-	pub async fn retrieve(ctx: &LibraryContext) -> Result<Statistics, LibraryError> {
-		let library_statistics_db = ctx
-			.db
-			.statistics()
-			.find_unique(id::equals(ctx.node_local_id))
-			.exec()
-			.await?
-			.map_or_else(Default::default, Into::into);
-		Ok(library_statistics_db)
-	}
+	// pub async fn retrieve(ctx: &LibraryContext) -> Result<Statistics, LibraryError> {
+	// 	let library_statistics_db = ctx
+	// 		.db
+	// 		.statistics()
+	// 		.find_unique(id::equals(ctx.node_local_id))
+	// 		.exec()
+	// 		.await?
+	// 		.map_or_else(Default::default, Into::into);
+	// 	Ok(library_statistics_db)
+	// }
 
 	pub async fn calculate(ctx: &LibraryContext) -> Result<Statistics, LibraryError> {
 		let _statistics = ctx

@@ -1,3 +1,8 @@
+use crate::{
+	prisma::{self, file, file_path},
+	sys::SysError,
+};
+
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use rspc::Type;
@@ -5,10 +10,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;
 
-use crate::{
-	prisma::{self, file, file_path},
-	sys::SysError,
-};
 pub mod cas;
 pub mod explorer;
 pub mod indexer;
@@ -54,9 +55,9 @@ pub struct FilePath {
 	pub file_id: Option<i32>,
 	pub parent_id: Option<i32>,
 
-	pub date_created: DateTime<chrono::Utc>,
-	pub date_modified: DateTime<chrono::Utc>,
-	pub date_indexed: DateTime<chrono::Utc>,
+	pub date_created: DateTime<Utc>,
+	pub date_modified: DateTime<Utc>,
+	pub date_indexed: DateTime<Utc>,
 
 	pub file: Option<File>,
 }

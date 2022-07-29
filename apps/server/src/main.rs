@@ -18,7 +18,7 @@ async fn main() {
 
 			std::env::current_dir()
 				.expect(
-					"Unable to get your currrent directory. Maybe try setting $DATA_DIR?",
+					"Unable to get your current directory. Maybe try setting $DATA_DIR?",
 				)
 				.join("sdserver_data")
 		},
@@ -29,6 +29,14 @@ async fn main() {
 		.unwrap_or(8080);
 
 	let (node, router) = Node::new(data_dir).await;
+
+	ctrlc::set_handler({
+		let node = node.clone();
+		move || {
+			node.shutdown();
+		}
+	})
+	.expect("Error setting Ctrl-C handler");
 
 	let app = axum::Router::new()
 		.route("/", get(|| async { "Spacedrive Server!" }))

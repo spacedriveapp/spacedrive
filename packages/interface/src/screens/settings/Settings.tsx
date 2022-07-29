@@ -59,9 +59,9 @@ export const SettingsScreen: React.FC = () => {
 				<SettingsIcon component={PaintBrush} />
 				Appearance
 			</SidebarLink>
-			<SidebarLink to="/settings/keybinds">
+			<SidebarLink to="/settings/keybindings">
 				<SettingsIcon component={KeyReturn} />
-				Keybinds
+				Keybindings
 			</SidebarLink>
 			<SidebarLink to="/settings/extensions">
 				<SettingsIcon component={PuzzlePiece} />

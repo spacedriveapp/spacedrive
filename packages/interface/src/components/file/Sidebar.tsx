@@ -238,20 +238,24 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					</button>
 				)}
 			</div>
-			<div>
-				<Heading>Tags</Heading>
-				<div className="mb-2">
-					{tags?.slice(0, 6).map((tag, index) => (
-						<SidebarLink key={index} to={`tag/${tag.id}`} className="">
-							<div
-								className="w-[12px] h-[12px] rounded-full"
-								style={{ backgroundColor: tag.color || '#efefef' }}
-							/>
-							<span className="ml-2 text-sm">{tag.name}</span>
-						</SidebarLink>
-					))}
+			{tags?.length ? (
+				<div>
+					<Heading>Tags</Heading>
+					<div className="mb-2">
+						{tags?.slice(0, 6).map((tag, index) => (
+							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
+								<div
+									className="w-[12px] h-[12px] rounded-full"
+									style={{ backgroundColor: tag.color || '#efefef' }}
+								/>
+								<span className="ml-2 text-sm">{tag.name}</span>
+							</SidebarLink>
+						))}
+					</div>
 				</div>
-			</div>
+			) : (
+				<></>
+			)}
 			<div className="flex-grow" />
 			<RunningJobsWidget />
 			{/* <div className="flex w-full">

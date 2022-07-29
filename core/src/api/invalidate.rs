@@ -30,6 +30,7 @@ impl InvalidateOperationEvent {
 
 /// a request to invalidate a specific resource
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct InvalidationRequest {
 	pub key: &'static str,
 	pub ty_id: TypeId,
@@ -50,7 +51,7 @@ impl InvalidRequests {
 		#[cfg(debug_assertions)]
 		{
 			let invalidate_requests = crate::api::invalidate::INVALIDATION_REQUESTS
-				.get_or_init(|| Default::default())
+				.get_or_init(Default::default)
 				.lock()
 				.unwrap();
 
@@ -79,7 +80,7 @@ impl InvalidRequests {
 
 /// invalidate_query is a macro which stores a list of all of it's invocations so it can ensure all of the queries match the queries attached to the router.
 /// This allows invalidate to the type safe even when the router keys are stringly typed.
-/// ```rust
+/// ```ignore
 /// invalidate_query!(
 /// library, // crate::library::LibraryContext
 /// "version": (), // Name of the query and the type of it
@@ -87,6 +88,7 @@ impl InvalidRequests {
 /// );
 /// ```
 #[macro_export]
+#[allow(clippy::crate_in_macro_def)]
 macro_rules! invalidate_query {
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct

@@ -1,5 +1,6 @@
 use rspc::Type;
 use serde::Deserialize;
+use uuid::Uuid;
 
 use crate::{
 	invalidate_query,
@@ -31,7 +32,7 @@ pub struct TagUpdateArgs {
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.query("get", |ctx, arg: LibraryArgs<()>| async move {
-			let (args, library) = arg.get_library(&ctx).await?;
+			let (_, library) = arg.get_library(&ctx).await?;
 
 			Ok(library
 				.db
@@ -67,7 +68,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.db
 					.tag()
 					.create(
-						tag::pub_id::set(uuid::Uuid::new_v4().to_string()),
+						tag::pub_id::set(Uuid::new_v4().as_bytes().to_vec()),
 						vec![
 							tag::name::set(Some(args.name)),
 							tag::color::set(Some(args.color)),

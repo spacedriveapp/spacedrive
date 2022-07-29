@@ -1,174 +1,190 @@
-use super::{
-	jobs::{JobReport, JobReportUpdate, JobStatus},
-	Job, JobManager,
-};
-use crate::{api::LibraryArgs, invalidate_query, library::LibraryContext};
+use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
+use crate::library::LibraryContext;
+use crate::{api::LibraryArgs, invalidate_query};
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
+		broadcast,
 		mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 		Mutex,
 	},
-	time::{sleep, Instant},
+	time::{interval_at, Instant},
 };
-use tracing::error;
-use uuid::Uuid;
+use tracing::{error, info, warn};
+
+use super::JobReport;
 
 // used to update the worker state from inside the worker thread
+#[derive(Debug)]
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
 	Completed,
 	Failed,
-}
-
-enum WorkerState {
-	Pending(Box<dyn Job>, UnboundedReceiver<WorkerEvent>),
-	Running,
+	Paused(Vec<u8>),
 }
 
 #[derive(Clone)]
 pub struct WorkerContext {
-	pub uuid: String,
 	library_ctx: LibraryContext,
-	sender: UnboundedSender<WorkerEvent>,
+	events_tx: UnboundedSender<WorkerEvent>,
+	shutdown_tx: Arc<broadcast::Sender<()>>,
 }
 
 impl WorkerContext {
 	pub fn progress(&self, updates: Vec<JobReportUpdate>) {
-		self.sender
+		self.events_tx
 			.send(WorkerEvent::Progressed(updates))
-			.unwrap_or(());
+			.expect("critical error: failed to send worker worker progress event updates");
 	}
 
 	pub fn library_ctx(&self) -> LibraryContext {
 		self.library_ctx.clone()
 	}
 
-	// save the job data to
-	// pub fn save_data () {
-	// }
+	pub fn shutdown_rx(&self) -> broadcast::Receiver<()> {
+		self.shutdown_tx.subscribe()
+	}
 }
 
 // a worker is a dedicated thread that runs a single job
 // once the job is complete the worker will exit
 pub struct Worker {
-	pub job_report: JobReport,
-	state: WorkerState,
-	worker_sender: UnboundedSender<WorkerEvent>,
+	job: Option<Box<dyn DynJob>>,
+	report: JobReport,
+	worker_events_tx: UnboundedSender<WorkerEvent>,
+	worker_events_rx: Option<UnboundedReceiver<WorkerEvent>>,
 }
 
 impl Worker {
-	pub fn new(job: Box<dyn Job>) -> Self {
-		let (worker_sender, worker_receiver) = unbounded_channel();
-		let uuid = Uuid::new_v4().to_string();
-		let name = job.name();
+	pub fn new(job: Box<dyn DynJob>, report: JobReport) -> Self {
+		let (worker_events_tx, worker_events_rx) = unbounded_channel();
 
 		Self {
-			state: WorkerState::Pending(job, worker_receiver),
-			job_report: JobReport::new(uuid, name.to_string()),
-			worker_sender,
+			job: Some(job),
+			report,
+			worker_events_tx,
+			worker_events_rx: Some(worker_events_rx),
 		}
+	}
+
+	pub fn report(&self) -> JobReport {
+		self.report.clone()
 	}
 	// spawns a thread and extracts channel sender to communicate with it
 	pub async fn spawn(
 		job_manager: Arc<JobManager>,
-		worker: Arc<Mutex<Self>>,
+		worker_mutex: Arc<Mutex<Self>>,
 		ctx: LibraryContext,
 	) {
+		let mut worker = worker_mutex.lock().await;
 		// we capture the worker receiver channel so state can be updated from inside the worker
-		let mut worker_mut = worker.lock().await;
-		// extract owned job and receiver from Self
-		let (job, worker_receiver) =
-			match std::mem::replace(&mut worker_mut.state, WorkerState::Running) {
-				WorkerState::Pending(job, worker_receiver) => {
-					worker_mut.state = WorkerState::Running;
-					(job, worker_receiver)
-				}
-				WorkerState::Running => unreachable!(),
-			};
-		let worker_sender = worker_mut.worker_sender.clone();
+		let worker_events_tx = worker.worker_events_tx.clone();
+		let worker_events_rx = worker
+			.worker_events_rx
+			.take()
+			.expect("critical error: missing worker events rx");
 
-		worker_mut.job_report.status = JobStatus::Running;
+		let mut job = worker
+			.job
+			.take()
+			.expect("critical error: missing job on worker");
 
-		worker_mut.job_report.create(&ctx).await.unwrap_or(());
+		let job_id = worker.report.id;
+		let old_status = worker.report.status;
+		worker.report.status = JobStatus::Running;
+		if matches!(old_status, JobStatus::Queued) {
+			worker.report.create(&ctx).await.unwrap_or(());
+		}
+		drop(worker);
 
 		// spawn task to handle receiving events from the worker
 		let library_ctx = ctx.clone();
 		tokio::spawn(Worker::track_progress(
-			worker.clone(),
-			worker_receiver,
+			Arc::clone(&worker_mutex),
+			worker_events_rx,
 			library_ctx.clone(),
 		));
 
-		let uuid = worker_mut.job_report.id.clone();
 		// spawn task to handle running the job
-
 		tokio::spawn(async move {
 			let worker_ctx = WorkerContext {
-				uuid,
 				library_ctx,
-				sender: worker_sender,
+				events_tx: worker_events_tx,
+				shutdown_tx: job_manager.shutdown_tx(),
 			};
-			let job_start = Instant::now();
 
 			// track time
-			let sender = worker_ctx.sender.clone();
+			let events_tx = worker_ctx.events_tx.clone();
 			tokio::spawn(async move {
+				let mut interval = interval_at(
+					Instant::now() + Duration::from_millis(1000),
+					Duration::from_millis(1000),
+				);
 				loop {
-					let elapsed = job_start.elapsed().as_secs();
-					sender
+					interval.tick().await;
+					if events_tx
 						.send(WorkerEvent::Progressed(vec![
-							JobReportUpdate::SecondsElapsed(elapsed),
+							JobReportUpdate::SecondsElapsed(1),
 						]))
-						.unwrap_or(());
-					sleep(Duration::from_millis(1000)).await;
+						.is_err() && events_tx.is_closed()
+					{
+						break;
+					}
 				}
 			});
 
 			if let Err(e) = job.run(worker_ctx.clone()).await {
-				error!("job '{}' failed with error: {}", worker_ctx.uuid, e);
-				worker_ctx.sender.send(WorkerEvent::Failed).unwrap_or(());
+				if let JobError::Paused(state) = e {
+					worker_ctx
+						.events_tx
+						.send(WorkerEvent::Paused(state))
+						.expect("critical error: failed to send worker pause event");
+				} else {
+					error!("job '{}' failed with error: {:#?}", job_id, e);
+					worker_ctx
+						.events_tx
+						.send(WorkerEvent::Failed)
+						.expect("critical error: failed to send worker fail event");
+				}
 			} else {
 				// handle completion
-				worker_ctx.sender.send(WorkerEvent::Completed).unwrap_or(());
+				worker_ctx
+					.events_tx
+					.send(WorkerEvent::Completed)
+					.expect("critical error: failed to send worker complete event");
 			}
 
-			job_manager.complete(&ctx, worker_ctx.uuid).await;
+			job_manager.complete(&ctx, job_id).await;
 		});
-	}
-
-	pub fn id(&self) -> String {
-		self.job_report.id.to_owned()
 	}
 
 	async fn track_progress(
 		worker: Arc<Mutex<Self>>,
-		mut channel: UnboundedReceiver<WorkerEvent>,
+		mut worker_events_rx: UnboundedReceiver<WorkerEvent>,
 		library: LibraryContext,
 	) {
-		while let Some(command) = channel.recv().await {
+		while let Some(command) = worker_events_rx.recv().await {
 			let mut worker = worker.lock().await;
 
 			match command {
 				WorkerEvent::Progressed(changes) => {
 					// protect against updates if job is not running
-					if worker.job_report.status != JobStatus::Running {
+					if worker.report.status != JobStatus::Running {
 						continue;
 					};
 					for change in changes {
 						match change {
 							JobReportUpdate::TaskCount(task_count) => {
-								worker.job_report.task_count = task_count as i32;
+								worker.report.task_count = task_count as i32;
 							}
 							JobReportUpdate::CompletedTaskCount(completed_task_count) => {
-								worker.job_report.completed_task_count =
-									completed_task_count as i32;
+								worker.report.completed_task_count = completed_task_count as i32;
 							}
 							JobReportUpdate::Message(message) => {
-								worker.job_report.message = message;
+								worker.report.message = message;
 							}
 							JobReportUpdate::SecondsElapsed(seconds) => {
-								worker.job_report.seconds_elapsed = seconds as i32;
+								worker.report.seconds_elapsed += seconds as i32;
 							}
 						}
 					}
@@ -183,8 +199,13 @@ impl Worker {
 					);
 				}
 				WorkerEvent::Completed => {
-					worker.job_report.status = JobStatus::Completed;
-					worker.job_report.update(&library).await.unwrap();
+					worker.report.status = JobStatus::Completed;
+					worker.report.data = None;
+					worker
+						.report
+						.update(&library)
+						.await
+						.expect("critical error: failed to update job report");
 
 					invalidate_query!(
 						library,
@@ -204,11 +225,34 @@ impl Worker {
 						}
 					);
 
+					info!("{}", worker.report);
+
 					break;
 				}
 				WorkerEvent::Failed => {
-					worker.job_report.status = JobStatus::Failed;
-					worker.job_report.update(&library).await.unwrap_or(());
+					worker.report.status = JobStatus::Failed;
+					worker.report.data = None;
+					worker
+						.report
+						.update(&library)
+						.await
+						.expect("critical error: failed to update job report");
+
+					invalidate_query!(library, "library.get": (), ());
+
+					warn!("{}", worker.report);
+
+					break;
+				}
+				WorkerEvent::Paused(state) => {
+					worker.report.status = JobStatus::Paused;
+					worker.report.data = Some(state);
+					worker
+						.report
+						.update(&library)
+						.await
+						.expect("critical error: failed to update job report");
+					info!("{}", worker.report);
 
 					invalidate_query!(
 						library,
