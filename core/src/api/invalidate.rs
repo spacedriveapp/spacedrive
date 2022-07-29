@@ -77,6 +77,15 @@ impl InvalidRequests {
 	}
 }
 
+/// invalidate_query is a macro which stores a list of all of it's invocations so it can ensure all of the queries match the queries attached to the router.
+/// This allows invalidate to the type safe even when the router keys are stringly typed.
+/// ```rust
+/// invalidate_query!(
+/// library, // crate::library::LibraryContext
+/// "version": (), // Name of the query and the type of it
+/// () // The arguments
+/// );
+/// ```
 #[macro_export]
 macro_rules! invalidate_query {
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr) => {{
