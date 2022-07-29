@@ -186,14 +186,7 @@ impl LibraryManager {
 		)
 		.await?;
 
-		invalidate_query!(
-			library,
-			"library.get": LibraryArgs<()>,
-			LibraryArgs {
-				library_id: library.id,
-				arg: ()
-			}
-		);
+		invalidate_query!(library, "library.get": (), ());
 
 		Ok(())
 	}

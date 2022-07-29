@@ -6,7 +6,7 @@
 		"dev": "pnpm run server",
 		"prod": "pnpm run build && pnpm run server:prod",
 		"vercel-build": "./vercel/deploy.sh",
-		"build": "vite build && vite build --ssr && vite-plugin-ssr prerender",
+		"build": "vite build && vite build --ssr",
 		"server": "ts-node ./server",
 		"server:prod": "cross-env NODE_ENV=production ts-node ./server"
 	},

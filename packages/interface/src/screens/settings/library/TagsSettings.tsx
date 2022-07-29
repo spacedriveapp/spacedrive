@@ -20,7 +20,7 @@ export default function TagsSettings() {
 	const [newColor, setNewColor] = useState('#A717D9');
 	const [newName, setNewName] = useState('');
 
-	const { data: tags } = useLibraryQuery('tags.get');
+	const { data: tags } = useLibraryQuery(['tags.get']);
 
 	const [selectedTag, setSelectedTag] = useState<null | number>(null);
 
@@ -28,7 +28,7 @@ export default function TagsSettings() {
 		return tags?.find((t) => t.id === selectedTag);
 	}, [tags, selectedTag]);
 
-	const { mutate: createTag, isLoading } = useLibraryCommand('tags.create', undefined, {
+	const { mutate: createTag, isLoading } = useLibraryCommand('tags.create', {
 		onError: (e) => {
 			console.log('error', e);
 		},
@@ -158,7 +158,7 @@ export default function TagsSettings() {
 							title="Delete Tag"
 							description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 							ctaAction={() => {
-								deleteTag({ id: currentTag.id });
+								deleteTag(currentTag.id);
 							}}
 							loading={tagDeleteLoading}
 							ctaDanger

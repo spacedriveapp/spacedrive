@@ -50,7 +50,10 @@ export const useLibraryStore = create<LibraryStore>()(
 // is memorized and can be used safely in any component
 export const useCurrentLibrary = () => {
 	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
-	const { data: libraries } = useBridgeQuery(['library.get']);
+	const { data: libraries } = useBridgeQuery(['library.get'], {
+		onSuccess: (data) => {},
+		onError: (err) => {}
+	});
 
 	// memorize library to avoid re-running find function
 	const currentLibrary = useMemo(() => {

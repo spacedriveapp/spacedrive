@@ -48,7 +48,6 @@ export const Inspector = (props: {
 
 	const { mutate: fileToggleFavorite, isLoading: isFavoriteLoading } = useLibraryCommand(
 		'files.setFavorite',
-		undefined,
 		{
 			onError: () => setFavorite(!!props.selectedFile?.file?.favorite)
 		}

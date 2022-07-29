@@ -16,9 +16,9 @@ interface LocationListItemProps {
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const [hide, setHide] = useState(false);
 
-	const { mutate: locRescan } = useLibraryCommand('LocFullRescan');
+	const { mutate: locRescan } = useLibraryCommand('locations.fullRescan');
 
-	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryCommand('LocDelete', {
+	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryCommand('locations.delete', {
 		onSuccess: () => {
 			setHide(true);
 		}
@@ -55,7 +55,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					title="Delete Location"
 					description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 					ctaAction={() => {
-						deleteLoc({ id: location.id });
+						deleteLoc(location.id);
 					}}
 					loading={locDeletePending}
 					ctaDanger
@@ -71,7 +71,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					className="!p-1.5"
 					onClick={() => {
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						locRescan({ id: location.id });
+						locRescan(location.id);
 					}}
 				>
 					<RefreshIcon className="w-4 h-4" />

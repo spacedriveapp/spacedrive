@@ -39,7 +39,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 					title="Delete Library"
 					description="Deleting a library will permanently the database, the files themselves will not be deleted."
 					ctaAction={() => {
-						deleteLib({ id: props.library.uuid });
+						deleteLib(props.library.uuid);
 					}}
 					loading={libDeletePending}
 					ctaDanger
@@ -60,7 +60,7 @@ export default function LibrarySettings() {
 	const [newLibName, setNewLibName] = useState('');
 
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeCommand(
-		['library.create'],
+		'library.create',
 		{
 			onSuccess: () => {
 				setOpenCreateModal(false);
@@ -72,7 +72,7 @@ export default function LibrarySettings() {
 
 	function createNewLib() {
 		if (newLibName) {
-			createLibrary({ name: newLibName });
+			createLibrary(newLibName);
 		}
 	}
 

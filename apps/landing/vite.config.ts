@@ -7,7 +7,7 @@ import svg from 'vite-plugin-svgr';
 // https://vitejs.dev/config/
 export default defineConfig({
 	// @ts-ignore
-	plugins: [react(), ssr(), svg(), md({ mode: [Mode.REACT] })],
+	plugins: [react(), ssr({ prerender: true }), svg(), md({ mode: [Mode.REACT] })],
 	resolve: {
 		alias: {
 			'~/docs': __dirname + '../../../docs'

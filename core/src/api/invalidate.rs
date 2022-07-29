@@ -15,23 +15,16 @@ use super::Router;
 pub(crate) static INVALIDATION_REQUESTS: OnceCell<Mutex<InvalidRequests>> = OnceCell::new();
 
 #[derive(Debug, Clone, Serialize, Type)]
-pub enum OperationKind {
-	Query,
-	Mutation,
-}
-
-#[derive(Debug, Clone, Serialize, Type)]
 pub struct InvalidateOperationEvent {
 	/// This fields are intentionally private.
-	kind: OperationKind,
 	key: &'static str,
 	arg: Value,
 }
 
 impl InvalidateOperationEvent {
 	/// If you are using this function, your doing it wrong.
-	pub fn dangerously_create(kind: OperationKind, key: &'static str, arg: Value) -> Self {
-		Self { kind, key, arg }
+	pub fn dangerously_create(key: &'static str, arg: Value) -> Self {
+		Self { key, arg }
 	}
 }
 
@@ -112,48 +105,11 @@ macro_rules! invalidate_query {
 		let _ = serde_json::to_value($arg)
 			.map(|v|
 				ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-					crate::api::InvalidateOperationEvent::dangerously_create(crate::api::OperationKind::Query, $key, v),
+					crate::api::InvalidateOperationEvent::dangerously_create($key, v),
 				))
 			)
 			.map_err(|_| {
 				tracing::warn!("Failed to serialize invalidate query event!");
-			});
-	}};
-}
-
-#[macro_export]
-macro_rules! invalidate_mutation {
-	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr) => {{
-		let _: $arg_ty = $arg; // Assert the type the user provided is correct
-		let ctx: &crate::library::LibraryContext = &$ctx; // Assert the context is the correct type
-
-		#[cfg(debug_assertions)]
-		{
-			#[ctor::ctor]
-			fn invalidate() {
-				crate::api::invalidate::INVALIDATION_REQUESTS
-					.get_or_init(|| Default::default())
-					.lock()
-					.unwrap()
-					.mutations
-					.push(crate::api::invalidate::InvalidationRequest {
-						key: $key,
-						ty_id: std::any::TypeId::of::<$arg_ty>(),
-						ty_name: std::any::type_name::<$arg_ty>(),
-						macro_src: concat!(file!(), ":", line!()),
-					})
-			}
-		}
-
-		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
-		let _ = serde_json::to_value($arg)
-			.map(|v|
-				ctx.emit(crate::api::CoreEvent::InvalidateOperation(
-					crate::api::invalidate::InvalidateOperationEvent::dangerously_create(crate::api::invalidate::OperationKind::Mutation, $key, v),
-				))
-			)
-			.map_err(|_| {
-				tracing::warn!("Failed to serialize invalidate mutation event!");
 			});
 	}};
 }

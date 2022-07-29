@@ -76,11 +76,3 @@ root.render(
 		<App />
 	</React.StrictMode>
 );
-
-function Demo() {
-	console.log('DEMO');
-	// const { data } = useQuery(['todo'], () => 'todo');
-	const { data } = rspc.useQuery('version');
-	// console.log(data);
-	return <div className="bg-red-500 w-full h-full">Bruh</div>;
-}

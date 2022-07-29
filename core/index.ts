@@ -75,7 +75,7 @@ export interface EditLibraryArgs { id: string, name: string | null, description:
 
 export interface IdentifyUniqueFilesArgs { id: number, path: string }
 
-export interface LibraryArgs<T> { library_id: string, arg: null }
+export interface LibraryArgs<T> { library_id: string, arg: T }
 
 export interface LibraryConfig { version: string | null, name: string, description: string }
 

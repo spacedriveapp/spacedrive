@@ -72,4 +72,4 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 	);
 }
 
-export default MarkdownPage;
+export { MarkdownPage };

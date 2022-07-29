@@ -22,35 +22,34 @@ type LibraryQueryArgs<K extends string> = LibraryQuery<K>['key'][1] extends Libr
 	: never;
 type LibraryQueryResult<K extends string> = LibraryQuery<K>['result'];
 
-type NonLibraryQueries = Exclude<Operations['queries'], { key: [any, LibraryArgs<any>] }>;
-type NonLibraryQuery<K extends string> = Extract<
-	NonLibraryQueries,
-	{ key: [K] } | { key: [K, any] }
->;
+type NonLibraryQueries = Exclude<Operations['queries'], { key: [any, LibraryArgs<any>] }> &
+	Extract<Operations['queries'], { key: [any] }>;
+type NonLibraryQuery<K extends string> = Extract<NonLibraryQueries, { key: [K] | [K, any] }>;
 type NonLibraryQueryKey = NonLibraryQueries['key'][0];
-type NonLibraryQueryArgs<K extends string> = NonLibraryQuery<K>['key'][1];
-type NonLibraryQueryResult<K extends string> = NonLibraryQuery<K>['result'];
+type NonLibraryQueryArgs<K extends NonLibraryQueryKey> = NonLibraryQuery<K>['key'][1];
+type NonLibraryQueryResult<K extends NonLibraryQueryKey> = NonLibraryQuery<K>['result'];
 
 type LibraryMutations = Extract<Operations['mutations'], { key: [string, LibraryArgs<any>] }>;
-type LibraryMutation<K extends string> = Extract<LibraryMutations, { key: [K, any] }>;
+type LibraryMutation<K extends LibraryMutationKey> = Extract<LibraryMutations, { key: [K, any] }>;
 type LibraryMutationKey = LibraryMutations['key'][0];
-type LibraryMutationArgs<K extends string> = LibraryMutation<K>['key'][1] extends LibraryArgs<
-	infer A
->
-	? A
-	: never;
-type LibraryMutationResult<K extends string> = LibraryMutation<K>['result'];
+type LibraryMutationArgs<K extends LibraryMutationKey> =
+	LibraryMutation<K>['key'][1] extends LibraryArgs<infer A> ? A : never;
+type LibraryMutationResult<K extends LibraryMutationKey> = LibraryMutation<K>['result'];
 
 type NonLibraryMutations = Exclude<Operations['mutations'], { key: [any, LibraryArgs<any>] }>;
-type NonLibraryMutation<K extends string> = Extract<NonLibraryMutations, { key: [K, any] }>;
+type NonLibraryMutation<K extends NonLibraryMutationKey> = Extract<
+	NonLibraryMutations,
+	{ key: [K] | [K, any] }
+>;
 type NonLibraryMutationKey = NonLibraryMutations['key'][0];
-type NonLibraryMutationArgs<K extends string> = NonLibraryMutation<K>['key'][1];
-type NonLibraryMutationResult<K extends string> = NonLibraryMutation<K>['result'];
+type NonLibraryMutationArgs<K extends NonLibraryMutationKey> = NonLibraryMutation<K>['key'][1];
+type NonLibraryMutationResult<K extends NonLibraryMutationKey> = NonLibraryMutation<K>['result'];
 
 export function useBridgeQuery<K extends NonLibraryQueryKey>(
 	key: NonLibraryQueryArgs<K> extends null | undefined ? [K] : [K, NonLibraryQueryArgs<K>],
 	options?: UseQueryOptions<NonLibraryQueryResult<K>>
 ): UseQueryResult<NonLibraryQueryResult<K>> {
+	// @ts-ignore
 	return rspc.useQuery(key, options);
 }
 
@@ -60,6 +59,7 @@ export function useLibraryQuery<K extends LibraryQueryKey>(
 ): UseQueryResult<LibraryQueryResult<K>> {
 	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 	if (!library_id) throw new Error(`Attempted to do library query with no library set!`);
+	// @ts-ignore
 	return rspc.useQuery([key[0], { library_id: library_id || '', arg: key[1] || null }], options);
 }
 
@@ -71,9 +71,10 @@ export function useLibraryCommand<K extends LibraryMutationKey>(
 	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 	if (!library_id) throw new Error(`Attempted to do library query with no library set!`);
 
-	// @ts-ignore // TODO: Fix this
+	// @ts-ignore
 	return _useMutation(async (data) => ctx.client.mutation([key, data]), {
 		...options,
+		// @ts-ignore
 		context: rspc.ReactQueryContext
 	});
 }
@@ -82,13 +83,19 @@ export function useBridgeCommand<K extends NonLibraryMutationKey>(
 	key: K,
 	options?: UseMutationOptions<NonLibraryMutationResult<K>>
 ): UseMutationResult<NonLibraryMutationResult<K>, never, NonLibraryMutationArgs<K>> {
+	// @ts-ignore
 	return rspc.useMutation(key, options);
 }
 
 export function useInvalidateQuery() {
-	rspc.useSubscription('invalidateQuery', {
-		onValue: (v) => {
-			console.log('BRUH', v);
+	const context = rspc.useContext();
+	rspc.useSubscription(['invalidateQuery'], {
+		onNext: (invalidateOperation) => {
+			let key = [invalidateOperation.key];
+			if (invalidateOperation.arg !== null) {
+				key.concat(invalidateOperation.arg);
+			}
+			context.queryClient.invalidateQueries(key);
 		}
 	});
 }
