@@ -329,7 +329,6 @@ importers:
       pretty-bytes: ^6.0.0
       react: ^18.1.0
       react-colorful: ^5.5.1
-      react-countup: ^6.2.0
       react-dom: ^18.1.0
       react-dropzone: ^14.2.1
       react-error-boundary: ^3.1.4
@@ -350,6 +349,7 @@ importers:
       styled-components: ^5.3.5
       tailwindcss: ^3.0.24
       typescript: ^4.7.2
+      use-count-up: ^3.0.1
       use-debounce: ^8.0.1
       vite: ^2.9.9
       vite-plugin-svgr: ^2.1.0
@@ -381,7 +381,6 @@ importers:
       pretty-bytes: 6.0.0
       react: 18.1.0
       react-colorful: 5.5.1_ef5jwxihqo6n7gxfmzogljlgcm
-      react-countup: 6.2.0_react@18.1.0
       react-dom: 18.1.0_react@18.1.0
       react-dropzone: 14.2.1_react@18.1.0
       react-error-boundary: 3.1.4_react@18.1.0
@@ -401,6 +400,7 @@ importers:
       rooks: 5.11.2_ef5jwxihqo6n7gxfmzogljlgcm
       styled-components: 5.3.5_ef5jwxihqo6n7gxfmzogljlgcm
       tailwindcss: 3.1.3
+      use-count-up: 3.0.1_react@18.1.0
       use-debounce: 8.0.1_react@18.1.0
       zustand: 4.0.0-rc.1_immer@9.0.15+react@18.1.0
     devDependencies:
@@ -6765,6 +6765,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
@@ -8218,10 +8219,6 @@ packages:
       path-type: 4.0.0
       yaml: 1.10.2
     dev: true
-
-  /countup.js/2.2.0:
-    resolution: {integrity: sha512-m0TvFNXm9/eFqJm+QiKVI8e0wRUHzlQSewz9dqVjlhl2DFoZtceLbomwzxHz0hJ1+r4zBC7wSpR/TpthG49h6g==}
-    dev: false
 
   /cp-file/7.0.0:
     resolution: {integrity: sha512-0Cbj7gyvFVApzpK/uhCtQ/9kE9UnYpxMzaq5nQQC/Dh4iaj5fxp7iEFIullrYwzj8nf0qnsI1Qsx34hAeAebvw==}
@@ -15043,15 +15040,6 @@ packages:
       react-dom: 18.1.0_react@18.1.0
     dev: false
 
-  /react-countup/6.2.0_react@18.1.0:
-    resolution: {integrity: sha512-3WOKAQpWgjyFoH231SHEpIpHhDGb5g5EkTppM6T7vLa3X+8WMdw6750vVcY0wxysKiY00gTFhDwSB5qLU+xPZA==}
-    peerDependencies:
-      react: '>= 16.3.0'
-    dependencies:
-      countup.js: 2.2.0
-      react: 18.1.0
-    dev: false
-
   /react-device-detect/2.2.2_ef5jwxihqo6n7gxfmzogljlgcm:
     resolution: {integrity: sha512-zSN1gIAztUekp5qUT/ybHwQ9fmOqVT1psxpSlTn1pe0CO+fnJHKRLOWWac5nKxOxvOpD/w84hk1I+EydrJp7SA==}
     peerDependencies:
@@ -18236,9 +18224,26 @@ packages:
       react: 18.1.0
     dev: false
 
+  /use-count-up/3.0.1_react@18.1.0:
+    resolution: {integrity: sha512-jlVsXJYje6jh+xwQaCEYrwHoB+nRyillNEmr21bhe9kw7tpRzyrSq9jQs9UOlo+8hCFkuOmjUihL3IjEK/piVg==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.1.0
+      use-elapsed-time: 3.0.2_react@18.1.0
+    dev: false
+
   /use-debounce/8.0.1_react@18.1.0:
     resolution: {integrity: sha512-6tGAFJKJ0qCalecaV7/gm/M6n238nmitNppvR89ff1yfwSFjwFKR7IQZzIZf1KZRQhqNireBzytzU6jgb29oVg==}
     engines: {node: '>= 10.0.0'}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.1.0
+    dev: false
+
+  /use-elapsed-time/3.0.2_react@18.1.0:
+    resolution: {integrity: sha512-2EY9lJ5DWbAvT8wWiEp6Ztnl46DjXz2j78uhWbXaz/bg3OfpbgVucCAlcN8Bih6hTJfFTdVYX9L6ySMn5py/wQ==}
     peerDependencies:
       react: '>=16.8.0'
     dependencies:
