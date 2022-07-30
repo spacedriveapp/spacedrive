@@ -3,14 +3,14 @@ import React, { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 
 import { Button } from '../../components/base/Button';
-import useStatCounter from '../../hooks/useStatCounter';
+import useCounter from '../../hooks/useCounter';
 import tw from '../../lib/tailwind';
 
 export default function ModalScreen() {
 	const [start, setStart] = useState(0);
 	const [end, setEnd] = useState(1000);
 
-	const value = useStatCounter({ name: 'test', start, end });
+	const value = useCounter({ name: 'test', start, end });
 
 	useEffect(() => {
 		console.log('mount');

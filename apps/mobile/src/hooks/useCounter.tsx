@@ -1,0 +1,62 @@
+import { useCountUp } from 'use-count-up';
+import create from 'zustand';
+
+const useCounterStore = create<{
+	counterLastValue: Map<string, number>;
+	setCounterLastValue(key: string, value: number): void;
+}>((set) => ({
+	counterLastValue: new Map<string, number>(),
+	setCounterLastValue: (name, lastValue) =>
+		set((state) => ({
+			...state,
+			counterLastValue: state.counterLastValue.set(name, lastValue)
+		}))
+}));
+
+const useCounterState = (key: string) => {
+	const { counterLastValue, setCounterLastValue } = useCounterStore();
+
+	return {
+		lastValue: counterLastValue.get(key),
+		setLastValue: setCounterLastValue
+	};
+};
+
+type UseCounterProps = {
+	name: string;
+	start?: number;
+	end: number;
+	/**
+	 * If `true`, counter will only count up/down once per app session.
+	 * default: `true`
+	 */
+	saveState?: boolean;
+};
+
+const useCounter = ({ name, start = 0, end, saveState = true }: UseCounterProps) => {
+	const { lastValue, setLastValue } = useCounterState(name);
+
+	if (saveState && lastValue) {
+		start = lastValue;
+	}
+
+	const { value } = useCountUp({
+		isCounting: !(start === end),
+		start,
+		end,
+		duration: 2,
+		easing: 'easeOutCubic'
+	});
+
+	if (start === end) return end;
+
+	if (saveState && lastValue && lastValue === end) return end;
+
+	if (saveState && value == end) {
+		setLastValue(name, end);
+	}
+
+	return value;
+};
+
+export default useCounter;
