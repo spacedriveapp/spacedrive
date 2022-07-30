@@ -18,6 +18,13 @@ fn custom_menu_bar() -> Menu {
 			AboutMetadata::new(),
 		)) // TODO: fill out about metadata
 		.add_native_item(MenuItem::Separator)
+		.add_item(
+			// macOS 13 Ventura automatically changes "Preferences" to "Settings" for system-wide consistency.
+			// Use "Preferences" here to keep consistency on older versions
+			CustomMenuItem::new("open_settings".to_string(), "Preferences...")
+				.accelerator("CmdOrCtrl+Comma"),
+		)
+		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Services)
 		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Hide)
@@ -75,6 +82,9 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			let app = event.window().app_handle();
 			app.exit(0);
 		}
+		// "open_settings" => {
+
+		// }
 		"close" => {
 			let window = event.window();
 

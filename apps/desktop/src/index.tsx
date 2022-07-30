@@ -54,12 +54,14 @@ function App() {
 	}, []);
 
 	useEffect(() => {
-		const unlistenFocus = listen('tauri://focus', () => setFocused(true));
-		const unlistenBlur = listen('tauri://blur', () => setFocused(false));
+		const focusListener = listen('tauri://focus', () => setFocused(true));
+		const blurListener = listen('tauri://blur', () => setFocused(false));
+		const settingsNavigateListener = listen('navigate_to_settings', () => undefined);
 
 		return () => {
-			unlistenFocus.then((unlisten) => unlisten());
-			unlistenBlur.then((unlisten) => unlisten());
+			focusListener.then((unlisten) => unlisten());
+			blurListener.then((unlisten) => unlisten());
+			settingsNavigateListener.then((unlisten) => unlisten());
 		};
 	}, []);
 
