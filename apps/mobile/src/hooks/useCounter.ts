@@ -27,13 +27,18 @@ type UseCounterProps = {
 	start?: number;
 	end: number;
 	/**
+	 * Duration of the counter animation in seconds
+	 * default: `2s`
+	 */
+	duration?: number;
+	/**
 	 * If `true`, counter will only count up/down once per app session.
 	 * default: `true`
 	 */
 	saveState?: boolean;
 };
 
-const useCounter = ({ name, start = 0, end, saveState = true }: UseCounterProps) => {
+const useCounter = ({ name, start = 0, end, duration = 2, saveState = true }: UseCounterProps) => {
 	const { lastValue, setLastValue } = useCounterState(name);
 
 	if (saveState && lastValue) {
@@ -44,7 +49,7 @@ const useCounter = ({ name, start = 0, end, saveState = true }: UseCounterProps)
 		isCounting: !(start === end),
 		start,
 		end,
-		duration: 2,
+		duration,
 		easing: 'easeOutCubic'
 	});
 
