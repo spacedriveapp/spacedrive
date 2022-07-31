@@ -83,13 +83,16 @@ const SearchBar: React.FC<SearchBarProps> = (props) => {
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
 	const { locationId, layoutMode, setLayoutMode } = useExplorerStore();
-	const { mutate: generateThumbsForLocation } = useLibraryCommand('GenerateThumbsForLocation', {
-		onMutate: (data) => {
-			console.log('GenerateThumbsForLocation', data);
+	const { mutate: generateThumbsForLocation } = useLibraryCommand(
+		'jobs.generateThumbsForLocation',
+		{
+			onMutate: (data) => {
+				console.log('GenerateThumbsForLocation', data);
+			}
 		}
-	});
+	);
 
-	const { mutate: identifyUniqueFiles } = useLibraryCommand('IdentifyUniqueFiles', {
+	const { mutate: identifyUniqueFiles } = useLibraryCommand('jobs.identifyUniqueFiles', {
 		onMutate: (data) => {
 			console.log('IdentifyUniqueFiles', data);
 		},

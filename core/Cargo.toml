@@ -16,7 +16,7 @@ hostname = "0.3.1"
 # Universal Dependencies
 base64 = "0.13.0"
 serde = { version = "1.0", features = ["derive"] }
-chrono = { version = "0.4.0", features = ["serde"] }
+chrono = { version = "0.4.19", features = ["serde"] }
 serde_json = "1.0"
 futures = "0.3"
 data-encoding = "2.3.2"
@@ -26,20 +26,23 @@ rmp = "^0.8.11"
 rmp-serde = "^1.1.0"
 
 # Project dependencies
-ts-rs = { version = "6.2", features = ["chrono-impl", "uuid-impl", "serde-compat"] }
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.5.2" }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "0.6.0", features = ["rspc"] }
+rspc = { version = "0.0.4", features = ["axum", "tauri", "uuid", "chrono", "tracing"] }
 walkdir = "^2.3.2"
-uuid = { version = "^0.8.2", features = ["v4", "serde"]}
+uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
 thiserror = "1.0.30"
 core-derive = { path = "./derive" }
 
-tokio = { version = "^1.17.0", features = ["sync", "rt"] }
+tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread"] }
 include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "^0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
 ffmpeg-next = "5.0.3"
 fs_extra = "1.2.0"
-log = { version = "0.4.17", features = ["max_level_trace"] }
-env_logger = "0.9.0"
+tracing = "0.1.35"
+tracing-subscriber = "0.3.14"
+async-stream = "0.3.3"
+once_cell = "1.13.0"
+ctor = "0.1.22"

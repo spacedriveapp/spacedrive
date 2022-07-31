@@ -9,26 +9,18 @@ default-run = "spacedrive"
 edition = "2021"
 build = "build.rs"
 
-[build-dependencies]
-tauri-build = { version = "1.0.0", features = [] }
-
 [dependencies]
-# Project dependencies
-tauri = { version = "1.0.0", features = ["api-all", "macos-private-api"] }
+tauri = { version = "1.0.4", features = ["api-all", "macos-private-api"] }
 sdcore = { path = "../../../core" }
-# tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
-
-# Universal Dependencies
 tokio = { version = "1.17.0", features = ["sync"] }
-futures = "^0.3"
 window-shadows = "0.1.2"
-env_logger = "0.9.0"
-dotenvy = "0.15.1"
-log = { version = "0.4.17", features = ["max_level_trace"] }
+tracing = "0.1.35"
 
-# macOS system libs
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease" }
+
+[build-dependencies]
+tauri-build = { version = "1.0.0", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = ["build"] }

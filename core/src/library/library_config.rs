@@ -4,9 +4,9 @@ use std::{
 	path::PathBuf,
 };
 
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::node::ConfigMetadata;
@@ -14,8 +14,7 @@ use crate::node::ConfigMetadata;
 use super::LibraryManagerError;
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
-#[derive(Debug, Serialize, Deserialize, Clone, TS, Default)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
 pub struct LibraryConfig {
 	#[serde(flatten)]
 	pub metadata: ConfigMetadata,
@@ -62,8 +61,7 @@ impl LibraryConfig {
 }
 
 // used to return to the frontend with uuid context
-#[derive(Serialize, Deserialize, Debug, TS)]
-#[ts(export)]
+#[derive(Serialize, Deserialize, Debug, Type)]
 pub struct LibraryConfigWrapped {
 	pub uuid: Uuid,
 	pub config: LibraryConfig,

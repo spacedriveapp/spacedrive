@@ -1,7 +1,7 @@
 import compression from 'compression';
 import express from 'express';
 import { networkInterfaces } from 'os';
-import { createPageRenderer } from 'vite-plugin-ssr';
+import { renderPage } from 'vite-plugin-ssr';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const root = `${__dirname}/..`;
@@ -20,18 +20,16 @@ async function startServer() {
 		const vite = require('vite');
 		viteDevServer = await vite.createServer({
 			root,
-			server: { middlewareMode: 'ssr' }
+			server: { middlewareMode: true }
 		});
 		app.use(viteDevServer.middlewares);
 	}
 
-	const renderPage = createPageRenderer({ viteDevServer, isProduction, root });
 	app.get('*', async (req, res, next) => {
 		const url = req.originalUrl;
-		const pageContextInit = {
+		const pageContext = await renderPage({
 			url
-		};
-		const pageContext = await renderPage(pageContextInit);
+		});
 		const { httpResponse } = pageContext;
 		if (!httpResponse) return next();
 		const { body, statusCode, contentType } = httpResponse;

@@ -1,6 +1,9 @@
-use crate::{job::DynJob, node::NodeConfigManager, prisma::PrismaClient, CoreEvent, NodeContext};
+use crate::job::DynJob;
 use std::sync::Arc;
+use tracing::warn;
 use uuid::Uuid;
+
+use crate::{api::CoreEvent, node::NodeConfigManager, prisma::PrismaClient, NodeContext};
 
 use super::LibraryConfig;
 
@@ -28,14 +31,13 @@ impl LibraryContext {
 		self.node_context.jobs.ingest_queue(self, job).await;
 	}
 
-	pub(crate) async fn emit(&self, event: CoreEvent) {
-		self.node_context
-			.event_sender
-			.send(event)
-			.await
-			.unwrap_or_else(|e| {
-				println!("Failed to emit event. {:?}", e);
-			});
+	pub(crate) fn emit(&self, event: CoreEvent) {
+		match self.node_context.event_bus_tx.send(event) {
+			Ok(_) => (),
+			Err(err) => {
+				warn!("Error sending event to event bus: {:?}", err);
+			}
+		}
 	}
 
 	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {

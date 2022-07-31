@@ -1,9 +1,6 @@
-use crate::{
-	job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus},
-	library::LibraryContext,
-	ClientQuery, CoreEvent, JobReport, LibraryQuery,
-};
-use log::{error, info, warn};
+use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
+use crate::library::LibraryContext;
+use crate::{api::LibraryArgs, invalidate_query};
 use std::{sync::Arc, time::Duration};
 use tokio::{
 	sync::{
@@ -13,6 +10,9 @@ use tokio::{
 	},
 	time::{interval_at, Instant},
 };
+use tracing::{error, info, warn};
+
+use super::JobReport;
 
 // used to update the worker state from inside the worker thread
 #[derive(Debug)]
@@ -93,7 +93,7 @@ impl Worker {
 		let old_status = worker.report.status;
 		worker.report.status = JobStatus::Running;
 		if matches!(old_status, JobStatus::Queued) {
-			worker.report.create(&ctx).await.unwrap_or(());
+			worker.report.create(&ctx).await.unwrap();
 		}
 		drop(worker);
 
@@ -161,7 +161,7 @@ impl Worker {
 	async fn track_progress(
 		worker: Arc<Mutex<Self>>,
 		mut worker_events_rx: UnboundedReceiver<WorkerEvent>,
-		ctx: LibraryContext,
+		library: LibraryContext,
 	) {
 		while let Some(command) = worker_events_rx.recv().await {
 			let mut worker = worker.lock().await;
@@ -188,34 +188,43 @@ impl Worker {
 							}
 						}
 					}
-					ctx.emit(CoreEvent::InvalidateQueryDebounced(
-						ClientQuery::LibraryQuery {
-							library_id: ctx.id,
-							query: LibraryQuery::GetRunningJobs,
-						},
-					))
-					.await;
+
+					invalidate_query!(
+						library,
+						"jobs.getRunning": LibraryArgs<()>,
+						LibraryArgs {
+							library_id: library.id,
+							arg: ()
+						}
+					);
 				}
 				WorkerEvent::Completed => {
 					worker.report.status = JobStatus::Completed;
 					worker.report.data = None;
 					worker
 						.report
-						.update(&ctx)
+						.update(&library)
 						.await
 						.expect("critical error: failed to update job report");
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-						library_id: ctx.id,
-						query: LibraryQuery::GetRunningJobs,
-					}))
-					.await;
+					invalidate_query!(
+						library,
+						"jobs.getRunning": LibraryArgs<()>,
+						LibraryArgs {
+							library_id: library.id,
+							arg: ()
+						}
+					);
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-						library_id: ctx.id,
-						query: LibraryQuery::GetJobHistory,
-					}))
-					.await;
+					invalidate_query!(
+						library,
+						"jobs.getHistory": LibraryArgs<()>,
+						LibraryArgs {
+							library_id: library.id,
+							arg: ()
+						}
+					);
+
 					info!("{}", worker.report);
 
 					break;
@@ -225,15 +234,12 @@ impl Worker {
 					worker.report.data = None;
 					worker
 						.report
-						.update(&ctx)
+						.update(&library)
 						.await
 						.expect("critical error: failed to update job report");
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-						library_id: ctx.id,
-						query: LibraryQuery::GetJobHistory,
-					}))
-					.await;
+					invalidate_query!(library, "library.get": (), ());
+
 					warn!("{}", worker.report);
 
 					break;
@@ -243,16 +249,19 @@ impl Worker {
 					worker.report.data = Some(state);
 					worker
 						.report
-						.update(&ctx)
+						.update(&library)
 						.await
 						.expect("critical error: failed to update job report");
 					info!("{}", worker.report);
 
-					ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-						library_id: ctx.id,
-						query: LibraryQuery::GetJobHistory,
-					}))
-					.await;
+					invalidate_query!(
+						library,
+						"jobs.getHistory": LibraryArgs<()>,
+						LibraryArgs {
+							library_id: library.id,
+							arg: ()
+						}
+					);
 
 					break;
 				}

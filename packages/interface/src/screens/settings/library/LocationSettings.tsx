@@ -16,11 +16,11 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 // ];
 
 export default function LocationSettings() {
-	const { data: locations } = useLibraryQuery('GetLocations');
+	const { data: locations } = useLibraryQuery(['locations.get']);
 
 	const appProps = useContext(AppPropsContext);
 
-	const { mutate: createLocation } = useLibraryCommand('LocCreate');
+	const { mutate: createLocation } = useLibraryCommand('locations.create');
 
 	return (
 		<SettingsContainer>
@@ -35,7 +35,7 @@ export default function LocationSettings() {
 							size="sm"
 							onClick={() => {
 								appProps?.openDialog({ directory: true }).then((result) => {
-									if (result) createLocation({ path: result as string });
+									if (result) createLocation(result as string);
 								});
 							}}
 						>

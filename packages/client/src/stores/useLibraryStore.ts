@@ -1,11 +1,10 @@
 import { LibraryConfigWrapped } from '@sd/core';
 import produce from 'immer';
 import { useMemo } from 'react';
-import { useQueryClient } from 'react-query';
 import create from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
-import { useBridgeQuery } from '../bridge';
+import { useBridgeQuery } from '../index';
 import { useExplorerStore } from './useExplorerStore';
 
 type LibraryStore = {
@@ -51,7 +50,10 @@ export const useLibraryStore = create<LibraryStore>()(
 // is memorized and can be used safely in any component
 export const useCurrentLibrary = () => {
 	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
-	const { data: libraries } = useBridgeQuery('GetLibraries', undefined, {});
+	const { data: libraries } = useBridgeQuery(['library.get'], {
+		onSuccess: (data) => {},
+		onError: (err) => {}
+	});
 
 	// memorize library to avoid re-running find function
 	const currentLibrary = useMemo(() => {

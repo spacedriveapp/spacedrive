@@ -19,7 +19,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
-	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeCommand('DeleteLibrary', {
+	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeCommand('library.delete', {
 		onSuccess: () => {
 			setOpenDeleteModal(false);
 		}
@@ -39,7 +39,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 					title="Delete Library"
 					description="Deleting a library will permanently the database, the files themselves will not be deleted."
 					ctaAction={() => {
-						deleteLib({ id: props.library.uuid });
+						deleteLib(props.library.uuid);
 					}}
 					loading={libDeletePending}
 					ctaDanger
@@ -59,17 +59,20 @@ export default function LibrarySettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
 
-	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeCommand('CreateLibrary', {
-		onSuccess: () => {
-			setOpenCreateModal(false);
+	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeCommand(
+		'library.create',
+		{
+			onSuccess: () => {
+				setOpenCreateModal(false);
+			}
 		}
-	});
+	);
 
-	const { data: libraries } = useBridgeQuery('GetLibraries');
+	const { data: libraries } = useBridgeQuery(['library.get']);
 
 	function createNewLib() {
 		if (newLibName) {
-			createLibrary({ name: newLibName });
+			createLibrary(newLibName);
 		}
 	}
 

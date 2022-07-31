@@ -1,16 +1,17 @@
-use super::SysError;
 use crate::{
+	api::LibraryArgs,
+	encode::{ThumbnailJob, ThumbnailJobInit},
 	file::{
-		cas::FileIdentifierJob,
+		cas::{FileIdentifierJob, FileIdentifierJobInit},
 		indexer::{IndexerJob, IndexerJobInit},
 	},
+	invalidate_query,
+	job::Job,
 	library::LibraryContext,
-	node::LibraryNode,
-	prisma::{file_path, location},
-	ClientQuery, CoreEvent, FileIdentifierJobInit, Job, LibraryQuery, ThumbnailJob,
-	ThumbnailJobInit,
+	prisma::{self, location},
 };
-use log::info;
+
+use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use std::{
 	fmt::Debug,
@@ -21,39 +22,9 @@ use tokio::{
 	fs::{metadata, File},
 	io::{self, AsyncWriteExt},
 };
-use ts_rs::TS;
+use tracing::info;
+
 use uuid::Uuid;
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-pub struct LocationResource {
-	pub id: i32,
-	pub name: Option<String>,
-	pub path: Option<PathBuf>,
-	pub total_capacity: Option<i32>,
-	pub available_capacity: Option<i32>,
-	pub is_removable: Option<bool>,
-	pub node: Option<LibraryNode>,
-	pub is_online: bool,
-	#[ts(type = "string")]
-	pub date_created: chrono::DateTime<chrono::Utc>,
-}
-
-impl From<location::Data> for LocationResource {
-	fn from(data: location::Data) -> Self {
-		LocationResource {
-			id: data.id,
-			name: data.name,
-			path: data.local_path.map(PathBuf::from),
-			total_capacity: data.total_capacity,
-			available_capacity: data.available_capacity,
-			is_removable: data.is_removable,
-			node: data.node.unwrap_or(None).map(Into::into),
-			is_online: data.is_online,
-			date_created: data.date_created.into(),
-		}
-	}
-}
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct DotSpacedrive {
@@ -75,20 +46,6 @@ static DOTFILE_NAME: &str = ".spacedrive";
 
 // 	Ok(dotfile)
 // }
-
-pub async fn get_location(
-	ctx: &LibraryContext,
-	location_id: i32,
-) -> Result<LocationResource, SysError> {
-	// get location by location_id from db and include location_paths
-	ctx.db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.exec()
-		.await?
-		.map(Into::into)
-		.ok_or_else(|| LocationError::IdNotFound(location_id).into())
-}
 
 pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: impl AsRef<Path>) {
 	let path_buf = path.as_ref().to_path_buf();
@@ -119,39 +76,15 @@ pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: impl As
 	.await;
 }
 
-pub async fn new_location_and_scan(
-	ctx: &LibraryContext,
-	path: impl AsRef<Path> + Debug,
-) -> Result<LocationResource, SysError> {
-	let location = create_location(ctx, &path).await?;
-
-	scan_location(ctx, location.id, path).await;
-
-	Ok(location)
-}
-
-pub async fn get_locations(ctx: &LibraryContext) -> Result<Vec<LocationResource>, SysError> {
-	let locations = ctx
-		.db
-		.location()
-		.find_many(vec![])
-		.with(location::node::fetch())
-		.exec()
-		.await?;
-
-	// turn locations into LocationResource
-	Ok(locations.into_iter().map(LocationResource::from).collect())
-}
-
 pub async fn create_location(
-	ctx: &LibraryContext,
+	library: &LibraryContext,
 	path: impl AsRef<Path> + Debug,
-) -> Result<LocationResource, SysError> {
+) -> Result<location::Data, LocationError> {
 	let path = path.as_ref();
 
 	// check if we have access to this location
 	if !path.exists() {
-		return Err(LocationError::PathNotFound(path.to_owned()).into());
+		return Err(LocationError::PathNotFound(path.to_owned()));
 	}
 
 	if metadata(path)
@@ -160,13 +93,15 @@ pub async fn create_location(
 		.permissions()
 		.readonly()
 	{
-		return Err(LocationError::ReadonlyDotFileLocationFailure(path.to_owned()).into());
+		return Err(LocationError::ReadonlyDotFileLocationFailure(
+			path.to_owned(),
+		));
 	}
 
-	let path_string = path.to_string_lossy().to_string();
+	let path_string = path.to_str().unwrap().to_string();
 
 	// check if location already exists
-	let location_resource = if let Some(location) = ctx
+	let location_resource = if let Some(location) = library
 		.db
 		.location()
 		.find_first(vec![location::local_path::equals(Some(
@@ -175,7 +110,7 @@ pub async fn create_location(
 		.exec()
 		.await?
 	{
-		location.into()
+		location
 	} else {
 		info!(
 			"Location does not exist, creating new location for '{}'",
@@ -183,18 +118,18 @@ pub async fn create_location(
 		);
 		let uuid = Uuid::new_v4();
 
-		let location = ctx
+		let location = library
 			.db
 			.location()
 			.create(
-				location::pub_id::set(uuid.as_bytes().to_vec()),
+				uuid.as_bytes().to_vec(),
 				vec![
 					location::name::set(Some(
-						path.file_name().unwrap().to_string_lossy().to_string(),
+						path.file_name().unwrap().to_str().unwrap().to_string(),
 					)),
 					location::is_online::set(true),
 					location::local_path::set(Some(path_string)),
-					location::node_id::set(Some(ctx.node_local_id)),
+					location::node_id::set(Some(library.node_local_id)),
 				],
 			)
 			.exec()
@@ -209,7 +144,7 @@ pub async fn create_location(
 
 		let data = DotSpacedrive {
 			location_uuid: uuid,
-			library_uuid: ctx.id,
+			library_uuid: library.id,
 		};
 
 		let json_bytes = serde_json::to_vec(&data)
@@ -220,39 +155,19 @@ pub async fn create_location(
 			.await
 			.map_err(|e| LocationError::DotfileWriteFailure(e, path.to_owned()))?;
 
-		// ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLocations))
-		// 	.await;
+		invalidate_query!(
+			library,
+			"locations.get": LibraryArgs<()>,
+			LibraryArgs {
+				library_id: library.id,
+				arg: ()
+			}
+		);
 
-		location.into()
+		location
 	};
 
 	Ok(location_resource)
-}
-
-pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), SysError> {
-	ctx.db
-		.file_path()
-		.find_many(vec![file_path::location_id::equals(Some(location_id))])
-		.delete()
-		.exec()
-		.await?;
-
-	ctx.db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.delete()
-		.exec()
-		.await?;
-
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::LibraryQuery {
-		library_id: ctx.id,
-		query: LibraryQuery::GetLocations,
-	}))
-	.await;
-
-	info!("Location {} deleted", location_id);
-
-	Ok(())
 }
 
 #[derive(Error, Debug)]
@@ -279,4 +194,12 @@ pub enum LocationError {
 	VolumeReadError(String),
 	#[error("Failed to connect to database (error: {0:?})")]
 	IOError(io::Error),
+	#[error("Database error")]
+	DatabaseError(#[from] prisma::QueryError),
+}
+
+impl From<LocationError> for rspc::Error {
+	fn from(err: LocationError) -> Self {
+		rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+	}
 }

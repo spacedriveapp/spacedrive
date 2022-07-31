@@ -1,4 +1,3 @@
-import { useBridgeQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import React from 'react';
 

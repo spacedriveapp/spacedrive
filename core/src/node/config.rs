@@ -1,3 +1,4 @@
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::{
 	fs::File,
@@ -7,7 +8,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::{RwLock, RwLockWriteGuard};
-use ts_rs::TS;
+
 use uuid::Uuid;
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
@@ -15,8 +16,7 @@ pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
 /// ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
 /// This allows us to migrate breaking changes to the config format between Spacedrive releases.
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct ConfigMetadata {
 	/// version of Spacedrive. Determined from `CARGO_PKG_VERSION` environment variable.
 	pub version: Option<String>,
@@ -31,8 +31,7 @@ impl Default for ConfigMetadata {
 }
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct NodeConfig {
 	#[serde(flatten)]
 	pub metadata: ConfigMetadata,
@@ -59,6 +58,7 @@ impl NodeConfig {
 		NodeConfig {
 			id: Uuid::new_v4(),
 			name: match hostname::get() {
+				// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
 				Ok(hostname) => hostname.to_string_lossy().into_owned(),
 				Err(err) => {
 					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{}'", err);

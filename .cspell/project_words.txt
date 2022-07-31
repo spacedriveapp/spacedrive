@@ -36,3 +36,7 @@ vijay
 sharma
 naveen
 noco
+rspc
+rspcws
+stringly
+specta

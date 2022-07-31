@@ -1,4 +1,4 @@
-import { AppPropsContext, useBridgeQuery } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
 import clsx from 'clsx';
 import React, { useContext } from 'react';
 import { Outlet } from 'react-router-dom';

@@ -1,11 +1,10 @@
 use crate::{
+	api::CoreEvent,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	prisma::file_path,
-	sys, CoreEvent,
+	prisma::{file_path, location},
 };
 use image::{self, imageops, DynamicImage, GenericImageView};
-use log::{error, info, trace};
 use serde::{Deserialize, Serialize};
 use std::{
 	error::Error,
@@ -13,6 +12,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 use tokio::{fs, task::block_in_place};
+use tracing::{error, info, trace, warn};
 use webp::Encoder;
 
 static THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
@@ -57,7 +57,13 @@ impl StatefulJob for ThumbnailJob {
 			.join(THUMBNAIL_CACHE_DIR_NAME)
 			.join(state.init.location_id.to_string());
 
-		let location = sys::get_location(&library_ctx, state.init.location_id).await?;
+		let location = library_ctx
+			.db
+			.location()
+			.find_unique(location::id::equals(state.init.location_id))
+			.exec()
+			.await?
+			.unwrap();
 
 		info!(
 			"Searching for images in location {} at path {:#?}",
@@ -66,7 +72,7 @@ impl StatefulJob for ThumbnailJob {
 
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(&thumbnail_dir).await?;
-		let root_path = location.path.unwrap();
+		let root_path = location.local_path.map(PathBuf::from).unwrap();
 
 		// query database for all files in this location that need thumbnails
 		let image_files =
@@ -113,7 +119,7 @@ impl StatefulJob for ThumbnailJob {
 				if let Some(f) = file {
 					f.cas_id.clone()
 				} else {
-					info!(
+					warn!(
 						"skipping thumbnail generation for {}",
 						step.materialized_path
 					);
@@ -138,9 +144,7 @@ impl StatefulJob for ThumbnailJob {
 			}
 
 			if !state.init.background {
-				ctx.library_ctx()
-					.emit(CoreEvent::NewThumbnail { cas_id })
-					.await;
+				ctx.library_ctx().emit(CoreEvent::NewThumbnail { cas_id });
 			};
 		} else {
 			info!("Thumb exists, skipping... {}", output_path.display());
@@ -219,7 +223,7 @@ pub async fn get_images(
 		]),
 	];
 
-	let path_str = path.as_ref().to_string_lossy().to_string();
+	let path_str = path.as_ref().as_os_str().to_str().unwrap().to_string();
 
 	if !path_str.is_empty() {
 		params.push(file_path::materialized_path::starts_with(path_str))

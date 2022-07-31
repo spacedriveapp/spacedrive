@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix = "0.13.0"
-actix-web = "4.0.1"
-actix-web-actors = "4.1.0"
 sdcore = { path = "../../core", features = [] }
-serde = "1.0.136"
-serde_json = "1.0.79"
-tokio = { version = "1.17.0", features = ["sync", "rt"] }
+axum = "0.5.13"
+tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread", "signal"] }
+tracing = "0.1.35"
+ctrlc = "3.2.2"

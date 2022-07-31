@@ -4,15 +4,14 @@
 	"main": "index.js",
 	"license": "GPL-3.0-only",
 	"scripts": {
-		"codegen": "cargo test && ts-node ./scripts/bindingsIndex.ts",
+		"codegen": "cargo test",
 		"build": "cargo build",
 		"test": "cargo test",
 		"test:log": "cargo test -- --nocapture",
 		"prisma": "cargo prisma"
 	},
 	"devDependencies": {
-		"@types/node": "^17.0.36",
-		"ts-node": "^10.8.0",
-		"typescript": "^4.7.2"
+		"@types/node": "^18.6.1",
+		"typescript": "^4.7.4"
 	}
 }
