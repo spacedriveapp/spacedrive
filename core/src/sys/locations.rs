@@ -84,7 +84,7 @@ pub async fn create_location(
 
 	// check if we have access to this location
 	if !path.exists() {
-		return Err(LocationError::PathNotFound(path.to_owned()).into());
+		return Err(LocationError::PathNotFound(path.to_owned()));
 	}
 
 	if metadata(path)
@@ -93,7 +93,9 @@ pub async fn create_location(
 		.permissions()
 		.readonly()
 	{
-		return Err(LocationError::ReadonlyDotFileLocationFailure(path.to_owned()).into());
+		return Err(LocationError::ReadonlyDotFileLocationFailure(
+			path.to_owned(),
+		));
 	}
 
 	let path_string = path.to_str().unwrap().to_string();
@@ -108,7 +110,7 @@ pub async fn create_location(
 		.exec()
 		.await?
 	{
-		location.into()
+		location
 	} else {
 		info!(
 			"Location does not exist, creating new location for '{}'",
@@ -162,7 +164,7 @@ pub async fn create_location(
 			}
 		);
 
-		location.into()
+		location
 	};
 
 	Ok(location_resource)

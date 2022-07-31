@@ -27,7 +27,7 @@ rmp-serde = "^1.1.0"
 
 # Project dependencies
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "0.6.0", features = ["rspc"] }
-rspc = { git = "https://github.com/oscartbeaumont/rspc", branch = "main", features = ["axum", "tauri", "uuid", "chrono", "tracing"] }
+rspc = { version = "0.0.4", features = ["axum", "tauri", "uuid", "chrono", "tracing"] }
 walkdir = "^2.3.2"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"

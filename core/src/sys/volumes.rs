@@ -31,10 +31,7 @@ pub enum VolumeError {
 
 impl From<VolumeError> for rspc::Error {
 	fn from(e: VolumeError) -> Self {
-		rspc::Error::new(
-			rspc::ErrorCode::InternalServerError,
-			format!("{}", e.to_string()),
-		)
+		rspc::Error::new(rspc::ErrorCode::InternalServerError, e.to_string())
 	}
 }
 
@@ -83,9 +80,9 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 		.disks()
 		.iter()
 		.filter_map(|disk| {
-			let mut total_space = disk.total_space();
+			let mut total_capacity = disk.total_space();
 			let mut mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
-			let available_space = disk.available_space();
+			let available_capacity = disk.available_space();
 			let mut name = disk.name().to_str().unwrap_or("Volume").to_string();
 			let is_removable = disk.is_removable();
 
@@ -105,7 +102,7 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 				mount_point = "/".to_string();
 			}
 
-			if total_space < available_space && cfg!(target_os = "windows") {
+			if total_capacity < available_capacity && cfg!(target_os = "windows") {
 				let mut caption = mount_point.clone();
 				caption.pop();
 				let wmic_process = Command::new("cmd")
@@ -120,16 +117,16 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 					wmic_process_output.split("\r\r\n").collect::<Vec<&str>>()[1].to_string();
 
 				if let Ok(n) = parsed_size.trim().parse::<u64>() {
-					total_space = n;
+					total_capacity = n;
 				}
 			}
 
 			(!mount_point.starts_with("/System")).then_some(Ok(Volume {
 				name,
 				is_root_filesystem: mount_point == "/",
-				mount_point: mount_point,
-				total_capacity: total_space,
-				available_capacity: available_space,
+				mount_point,
+				total_capacity,
+				available_capacity,
 				is_removable,
 				disk_type: Some(disk_type),
 				file_system: Some(file_system),

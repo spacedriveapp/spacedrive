@@ -9,7 +9,7 @@
 	},
 	"dependencies": {
 		"@fontsource/inter": "^4.5.11",
-		"@rspc/client": "link:../../../rspc/packages/client",
+		"@rspc/client": "^0.0.4",
 		"@sd/client": "workspace:*",
 		"@sd/core": "workspace:*",
 		"@sd/interface": "workspace:*",

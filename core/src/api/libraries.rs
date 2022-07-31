@@ -56,18 +56,17 @@ pub(crate) fn mount() -> RouterBuilder {
 			let thumbnail_folder_size =
 				get_size(library.config().data_directory().join("thumbnails"));
 
+			use statistics::*;
 			let params = vec![
-				statistics::id::set(1), // Each library is a database so only one of these ever exists
-				statistics::date_captured::set(Utc::now().into()),
-				statistics::total_file_count::set(0),
-				statistics::library_db_size::set(library_db_size.to_string()),
-				statistics::total_bytes_used::set(0.to_string()),
-				statistics::total_bytes_capacity::set(total_capacity.to_string()),
-				statistics::total_unique_bytes::set(0.to_string()),
-				statistics::total_bytes_free::set(available_capacity.to_string()),
-				statistics::preview_media_bytes::set(
-					thumbnail_folder_size.unwrap_or(0).to_string(),
-				),
+				id::set(1), // Each library is a database so only one of these ever exists
+				date_captured::set(Utc::now().into()),
+				total_file_count::set(0),
+				library_db_size::set(library_db_size.to_string()),
+				total_bytes_used::set(0.to_string()),
+				total_bytes_capacity::set(total_capacity.to_string()),
+				total_unique_bytes::set(0.to_string()),
+				total_bytes_free::set(available_capacity.to_string()),
+				preview_media_bytes::set(thumbnail_folder_size.unwrap_or(0).to_string()),
 			];
 
 			Ok(library

@@ -94,7 +94,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				Ok(DirectoryWithContents {
-					directory: directory.into(),
+					directory,
 					contents: file_paths
 						.into_iter()
 						.map(|mut file_path| {
@@ -121,7 +121,6 @@ pub(crate) fn mount() -> RouterBuilder {
 		)
 		.mutation("create", |ctx, arg: LibraryArgs<PathBuf>| async move {
 			let (path, library) = arg.get_library(&ctx).await?;
-			println!("BRUH {:?}", path);
 			let location = create_location(&library, &path).await?;
 			scan_location(&library, location.id, path).await;
 			Ok(location)

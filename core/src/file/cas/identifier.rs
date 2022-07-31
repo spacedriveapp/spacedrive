@@ -70,7 +70,7 @@ impl StatefulJob for FileIdentifierJob {
 			.local_path
 			.as_ref()
 			.map(PathBuf::from)
-			.unwrap_or(PathBuf::new());
+			.unwrap_or_default();
 
 		let total_count = count_orphan_file_paths(&library, location.id.into()).await?;
 		info!("Found {} orphan file paths", total_count);

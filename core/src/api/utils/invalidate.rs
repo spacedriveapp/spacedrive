@@ -1,10 +1,7 @@
-use std::{
-	any::TypeId,
-	sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use once_cell::sync::OnceCell;
-use rspc::Type;
+use rspc::{internal::specta::DataType, Type};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -30,11 +27,9 @@ impl InvalidateOperationEvent {
 
 /// a request to invalidate a specific resource
 #[derive(Debug)]
-#[allow(dead_code)]
 pub(crate) struct InvalidationRequest {
 	pub key: &'static str,
-	pub ty_id: TypeId,
-	pub ty_name: &'static str,
+	pub arg_ty: DataType,
 	pub macro_src: &'static str,
 }
 
@@ -42,7 +37,6 @@ pub(crate) struct InvalidationRequest {
 #[derive(Debug, Default)]
 pub(crate) struct InvalidRequests {
 	pub queries: Vec<InvalidationRequest>,
-	pub mutations: Vec<InvalidationRequest>,
 }
 
 impl InvalidRequests {
@@ -57,19 +51,16 @@ impl InvalidRequests {
 
 			let queries = r.queries();
 			for req in &invalidate_requests.queries {
-				if !queries.contains_key(req.key) {
+				if let Some(query_ty) = queries.get(req.key) {
+					if query_ty.ty.arg_ty != req.arg_ty {
+						panic!(
+						    "Error at '{}': Attempted to invalid query '{}' but the argument type does not match the type defined on the router.",
+						    req.macro_src, req.key
+                        );
+					}
+				} else {
 					panic!(
 						"Error at '{}': Attempted to invalid query '{}' which was not found in the router",
-						req.macro_src, req.key
-					);
-				}
-			}
-
-			let mutations = r.mutations();
-			for req in &invalidate_requests.mutations {
-				if !mutations.contains_key(req.key) {
-					panic!(
-						"Error at '{}': Attempted to invalid mutation '{}' which was not found in the router",
 						req.macro_src, req.key
 					);
 				}
@@ -105,9 +96,11 @@ macro_rules! invalidate_query {
 					.queries
 					.push(crate::api::utils::InvalidationRequest {
 						key: $key,
-						ty_id: std::any::TypeId::of::<$arg_ty>(),
-						ty_name: std::any::type_name::<$arg_ty>(),
-						macro_src: concat!(file!(), ":", line!()),
+						arg_ty: <$arg_ty as rspc::internal::specta::Type>::reference(rspc::internal::specta::DefOpts {
+                            parent_inline: false,
+                            type_map: &mut rspc::internal::specta::TypeDefs::new(),
+                        }, &[]),
+                        macro_src: concat!(file!(), ":", line!()),
 					})
 			}
 		}

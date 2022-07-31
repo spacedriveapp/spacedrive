@@ -33,7 +33,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			invalidate_query!(
 				library,
-				"version": LibraryArgs<GetExplorerDirArgs>,
+				"locations.getExplorerDir": LibraryArgs<GetExplorerDirArgs>,
 				LibraryArgs {
 					library_id: library.id,
 					arg: GetExplorerDirArgs {
@@ -61,7 +61,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				invalidate_query!(
 					library,
-					"version": LibraryArgs<GetExplorerDirArgs>,
+					"locations.getExplorerDir": LibraryArgs<GetExplorerDirArgs>,
 					LibraryArgs {
 						library_id: library.id,
 						arg: GetExplorerDirArgs {
@@ -87,6 +87,19 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
+			invalidate_query!(
+				library,
+				"locations.getExplorerDir": LibraryArgs<GetExplorerDirArgs>,
+				LibraryArgs {
+					library_id: library.id,
+					arg: GetExplorerDirArgs {
+						// TODO: Set these arguments to the correct type
+						location_id: 0,
+						path: "".into(),
+						limit: 0,
+					}
+				}
+			);
 			Ok(())
 		})
 }

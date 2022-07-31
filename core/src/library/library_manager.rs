@@ -10,7 +10,6 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
-	api::LibraryArgs,
 	invalidate_query,
 	node::Platform,
 	prisma::{self, node},
@@ -133,14 +132,7 @@ impl LibraryManager {
 		)
 		.await?;
 
-		invalidate_query!(
-			library,
-			"library.get": LibraryArgs<()>,
-			LibraryArgs {
-				library_id: library.id,
-				arg: ()
-			}
-		);
+		invalidate_query!(library, "library.get": (), ());
 
 		self.libraries.write().await.push(library);
 		Ok(())
@@ -205,14 +197,7 @@ impl LibraryManager {
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.db", library.id)))?;
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id)))?;
 
-		invalidate_query!(
-			library,
-			"library.get": LibraryArgs<()>,
-			LibraryArgs {
-				library_id: library.id,
-				arg: ()
-			}
-		);
+		invalidate_query!(library, "library.get": (), ());
 
 		libraries.retain(|l| l.id != id);
 
@@ -237,17 +222,16 @@ impl LibraryManager {
 		node_context: NodeContext,
 	) -> Result<LibraryContext, LibraryManagerError> {
 		let db_path = db_path.as_ref();
-		let db =
-			Arc::new(
-				load_and_migrate(&format!(
-					"file:{}",
-					db_path.as_os_str().to_str().ok_or(
-						LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
-					)?
-				))
-				.await
-				.unwrap(),
-			);
+		let db = Arc::new(
+			load_and_migrate(&format!(
+				"file:{}",
+				db_path.as_os_str().to_str().ok_or_else(|| {
+					LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
+				})?
+			))
+			.await
+			.unwrap(),
+		);
 
 		let node_config = node_context.config.get().await;
 
