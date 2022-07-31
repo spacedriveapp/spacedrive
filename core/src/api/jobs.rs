@@ -33,7 +33,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.query("getHistory", |ctx, arg: LibraryArgs<()>| async move {
 			let (_, library) = arg.get_library(&ctx).await?;
 
-			Ok(JobManager::get_history(&library).await.unwrap())
+			Ok(JobManager::get_history(&library).await?)
 		})
 		.mutation(
 			"generateThumbsForLocation",

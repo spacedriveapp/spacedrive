@@ -36,7 +36,7 @@ pub enum LibraryManagerError {
 	IO(#[from] io::Error),
 	#[error("error serializing or deserializing the JSON in the config file")]
 	Json(#[from] serde_json::Error),
-	#[error("Database error")]
+	#[error("Database error: {0}")]
 	Database(#[from] prisma::QueryError),
 	#[error("Library not found error")]
 	LibraryNotFound,
@@ -46,6 +46,12 @@ pub enum LibraryManagerError {
 	Uuid(#[from] uuid::Error),
 	#[error("error opening database as the path contains non-UTF-8 characters")]
 	InvalidDatabasePath(PathBuf),
+}
+
+impl From<LibraryManagerError> for rspc::Error {
+	fn from(error: LibraryManagerError) -> Self {
+		rspc::Error::new(rspc::ErrorCode::InternalServerError, error.to_string())
+	}
 }
 
 impl LibraryManager {

@@ -3,9 +3,7 @@ use super::checksum::generate_cas_id;
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	prisma::{self, file, file_path},
-	sys::get_location,
-	sys::LocationResource,
+	prisma::{self, file, file_path, location},
 };
 use chrono::{DateTime, FixedOffset};
 use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
@@ -36,7 +34,7 @@ pub struct FileIdentifierJobInit {
 pub struct FileIdentifierJobState {
 	total_count: usize,
 	task_count: usize,
-	location: LocationResource,
+	location: location::Data,
 	location_path: PathBuf,
 	cursor: i32,
 }
@@ -58,14 +56,23 @@ impl StatefulJob for FileIdentifierJob {
 	) -> JobResult {
 		info!("Identifying orphan file paths...");
 
-		let location = get_location(&ctx.library_ctx(), state.init.location_id).await?;
-		let location_path = if let Some(ref path) = location.path {
-			path.clone()
-		} else {
-			PathBuf::new()
-		};
+		let library = ctx.library_ctx();
 
-		let total_count = count_orphan_file_paths(&ctx.library_ctx(), location.id.into()).await?;
+		let location = library
+			.db
+			.location()
+			.find_unique(location::id::equals(state.init.location_id))
+			.exec()
+			.await?
+			.unwrap();
+
+		let location_path = location
+			.local_path
+			.as_ref()
+			.map(PathBuf::from)
+			.unwrap_or(PathBuf::new());
+
+		let total_count = count_orphan_file_paths(&library, location.id.into()).await?;
 		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;

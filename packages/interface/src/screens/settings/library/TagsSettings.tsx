@@ -1,5 +1,6 @@
 import { TrashIcon } from '@heroicons/react/outline';
 import { useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { TagUpdateArgs } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -52,7 +53,9 @@ export default function TagsSettings() {
 		reset(currentTag);
 	}, [currentTag]);
 
-	const { register, handleSubmit, watch, reset, control } = useForm({ defaultValues: currentTag });
+	const { register, handleSubmit, watch, reset, control } = useForm({
+		defaultValues: currentTag as TagUpdateArgs
+	});
 
 	const submitTagUpdate = handleSubmit((data) => updateTag(data));
 

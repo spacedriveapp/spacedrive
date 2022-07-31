@@ -168,7 +168,7 @@ where
 				_ = &mut shutdown_rx_fut => {
 					return Err(
 						JobError::Paused(
-							rmp_serde::to_vec(&self.state)?
+							rmp_serde::to_vec_named(&self.state)?
 						)
 					);
 				}

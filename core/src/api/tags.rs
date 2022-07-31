@@ -33,7 +33,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.query("get", |ctx, arg: LibraryArgs<()>| async move {
 			let (_, library) = arg.get_library(&ctx).await?;
 
-			Ok(library.db.tag().find_many(vec![]).exec().await.unwrap())
+			Ok(library.db.tag().find_many(vec![]).exec().await?)
 		})
 		.query("getFilesForTag", |ctx, arg: LibraryArgs<i32>| async move {
 			let (tag_id, library) = arg.get_library(&ctx).await?;
@@ -43,8 +43,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.tag()
 				.find_unique(tag::id::equals(tag_id))
 				.exec()
-				.await
-				.unwrap())
+				.await?)
 		})
 		.mutation(
 			"create",
@@ -62,8 +61,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						],
 					)
 					.exec()
-					.await
-					.unwrap();
+					.await?;
 
 				invalidate_query!(
 					library,
@@ -102,8 +100,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.find_unique(tag::id::equals(args.id))
 					.update(vec![tag::name::set(args.name), tag::color::set(args.color)])
 					.exec()
-					.await
-					.unwrap();
+					.await?;
 
 				invalidate_query!(
 					library,
@@ -126,9 +123,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.find_unique(tag::id::equals(id))
 				.delete()
 				.exec()
-				.await
-				.unwrap()
-				.unwrap();
+				.await?;
 
 			invalidate_query!(
 				library,

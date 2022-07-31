@@ -25,6 +25,17 @@ pub struct Volume {
 pub enum VolumeError {
 	#[error("Database error: {0}")]
 	DatabaseErr(#[from] prisma::QueryError),
+	#[error("FromUtf8Error: {0}")]
+	FromUtf8Error(#[from] std::string::FromUtf8Error),
+}
+
+impl From<VolumeError> for rspc::Error {
+	fn from(e: VolumeError) -> Self {
+		rspc::Error::new(
+			rspc::ErrorCode::InternalServerError,
+			format!("{}", e.to_string()),
+		)
+	}
 }
 
 pub async fn save_volume(ctx: &LibraryContext) -> Result<(), VolumeError> {
@@ -68,10 +79,10 @@ pub async fn save_volume(ctx: &LibraryContext) -> Result<(), VolumeError> {
 
 // TODO: Error handling in this function
 pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
-	Ok(System::new_all()
+	System::new_all()
 		.disks()
 		.iter()
-		.map(|disk| {
+		.filter_map(|disk| {
 			let mut total_space = disk.total_space();
 			let mut mount_point = disk.mount_point().to_str().unwrap_or("/").to_string();
 			let available_space = disk.available_space();
@@ -104,7 +115,7 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 					])
 					.output()
 					.expect("failed to execute process");
-				let wmic_process_output = String::from_utf8(wmic_process.stdout).unwrap();
+				let wmic_process_output = String::from_utf8(wmic_process.stdout).ok()?;
 				let parsed_size =
 					wmic_process_output.split("\r\r\n").collect::<Vec<&str>>()[1].to_string();
 
@@ -113,24 +124,23 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 				}
 			}
 
-			Volume {
+			(!mount_point.starts_with("/System")).then_some(Ok(Volume {
 				name,
-				mount_point: mount_point.clone(),
+				is_root_filesystem: mount_point == "/",
+				mount_point: mount_point,
 				total_capacity: total_space,
 				available_capacity: available_space,
 				is_removable,
 				disk_type: Some(disk_type),
 				file_system: Some(file_system),
-				is_root_filesystem: mount_point == "/",
-			}
+			}))
 		})
-		.filter(|volume| !volume.mount_point.starts_with("/System"))
-		.collect())
+		.collect::<Result<Vec<_>, _>>()
 }
 
 // #[test]
 // fn test_get_volumes() {
-//   let volumes = get_volumes().unwrap();
+//   let volumes = get_volumes()?;
 //   dbg!(&volumes);
 //   assert!(volumes.len() > 0);
 // }

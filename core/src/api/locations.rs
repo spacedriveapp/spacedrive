@@ -1,15 +1,14 @@
 use std::path::PathBuf;
 
-use rspc::Type;
+use rspc::{Error, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::{
 	encode::THUMBNAIL_CACHE_DIR_NAME,
 	invalidate_query,
-	library::calculate_statistics,
 	prisma::{file_path, location},
-	sys::{self, create_location, get_location, scan_location},
+	sys::{self, create_location, scan_location},
 };
 
 use super::{LibraryArgs, RouterBuilder};
@@ -44,22 +43,32 @@ pub(crate) fn mount() -> RouterBuilder {
 				.find_many(vec![])
 				.with(location::node::fetch())
 				.exec()
-				.await
-				.unwrap();
+				.await?;
 
 			Ok(locations)
 		})
 		.query("getById", |ctx, arg: LibraryArgs<i32>| async move {
-			let (id, library) = arg.get_library(&ctx).await?;
+			let (location_id, library) = arg.get_library(&ctx).await?;
 
-			Ok(sys::get_location(&library, id).await.unwrap())
+			Ok(library
+				.db
+				.location()
+				.find_unique(location::id::equals(location_id))
+				.exec()
+				.await?)
 		})
 		.query(
 			"getExplorerDir",
 			|ctx, arg: LibraryArgs<GetExplorerDirArgs>| async move {
 				let (args, library) = arg.get_library(&ctx).await?;
 
-				let location = get_location(&library, args.location_id).await.unwrap();
+				let location = library
+					.db
+					.location()
+					.find_unique(location::id::equals(args.location_id))
+					.exec()
+					.await?
+					.unwrap();
 
 				let directory = library
 					.db
@@ -70,9 +79,8 @@ pub(crate) fn mount() -> RouterBuilder {
 						file_path::is_dir::equals(true),
 					])
 					.exec()
-					.await
-					.unwrap()
-					.unwrap();
+					.await?
+					.ok_or_else(|| Error::new(ErrorCode::NotFound, "Directory not found".into()))?;
 
 				let file_paths = library
 					.db
@@ -83,15 +91,16 @@ pub(crate) fn mount() -> RouterBuilder {
 					])
 					.with(file_path::file::fetch())
 					.exec()
-					.await
-					.unwrap();
+					.await?;
 
 				Ok(DirectoryWithContents {
 					directory: directory.into(),
 					contents: file_paths
 						.into_iter()
 						.map(|mut file_path| {
-							if let Some(file) = &mut file_path.file.as_mut().unwrap() {
+							if let Some(file) = &mut file_path.file.as_mut().unwrap_or_else(
+								|| /* Prisma relationship was not fetched */ unreachable!(),
+							) {
 								// TODO: Use helper function to build this url as as the Rust file loading layer
 								let thumb_path = library
 									.config()
@@ -110,15 +119,10 @@ pub(crate) fn mount() -> RouterBuilder {
 				})
 			},
 		)
-		.query("getStatistics", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
-			Ok(calculate_statistics(&library).await.unwrap())
-		})
 		.mutation("create", |ctx, arg: LibraryArgs<PathBuf>| async move {
 			let (path, library) = arg.get_library(&ctx).await?;
-
-			let location = create_location(&library, &path).await.unwrap();
+			println!("BRUH {:?}", path);
+			let location = create_location(&library, &path).await?;
 			scan_location(&library, location.id, path).await;
 			Ok(location)
 		})
@@ -133,8 +137,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.find_unique(location::id::equals(args.id))
 					.update(vec![location::name::set(args.name)])
 					.exec()
-					.await
-					.unwrap();
+					.await?;
 
 				Ok(())
 			},
@@ -148,8 +151,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.find_many(vec![file_path::location_id::equals(Some(location_id))])
 				.delete()
 				.exec()
-				.await
-				.unwrap();
+				.await?;
 
 			library
 				.db
@@ -157,8 +159,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.find_unique(location::id::equals(location_id))
 				.delete()
 				.exec()
-				.await
-				.unwrap();
+				.await?;
 
 			invalidate_query!(
 				library,

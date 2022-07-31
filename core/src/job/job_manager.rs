@@ -6,7 +6,7 @@ use crate::{
 	},
 	job::{worker::Worker, DynJob, Job, JobError},
 	library::LibraryContext,
-	prisma::{job, node},
+	prisma::{self, job, node},
 };
 use int_enum::IntEnum;
 use rspc::Type;
@@ -117,7 +117,7 @@ impl JobManager {
 		ret
 	}
 
-	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, JobError> {
+	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, prisma::QueryError> {
 		let jobs = ctx
 			.db
 			.job()

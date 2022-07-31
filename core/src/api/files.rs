@@ -29,8 +29,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.find_unique(file::id::equals(args.id))
 				.update(vec![file::note::set(args.note)])
 				.exec()
-				.await
-				.unwrap();
+				.await?;
 
 			invalidate_query!(
 				library,
@@ -58,8 +57,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.find_unique(file::id::equals(args.id))
 					.update(vec![file::favorite::set(args.favorite)])
 					.exec()
-					.await
-					.unwrap();
+					.await?;
 
 				invalidate_query!(
 					library,
@@ -87,8 +85,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.find_unique(file::id::equals(id))
 				.delete()
 				.exec()
-				.await
-				.unwrap();
+				.await?;
 
 			Ok(())
 		})

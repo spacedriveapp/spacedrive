@@ -8,11 +8,10 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	library::LibraryContext,
-	node::LibraryNode,
 	prisma::{self, location},
 };
 
-use rspc::Type;
+use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use std::{
 	fmt::Debug,
@@ -26,35 +25,6 @@ use tokio::{
 use tracing::info;
 
 use uuid::Uuid;
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct LocationResource {
-	pub id: i32,
-	pub name: Option<String>,
-	pub path: Option<PathBuf>,
-	pub total_capacity: Option<i32>,
-	pub available_capacity: Option<i32>,
-	pub is_removable: Option<bool>,
-	pub node: Option<LibraryNode>,
-	pub is_online: bool,
-	pub date_created: chrono::DateTime<chrono::Utc>,
-}
-
-impl From<location::Data> for LocationResource {
-	fn from(data: location::Data) -> Self {
-		LocationResource {
-			id: data.id,
-			name: data.name,
-			path: data.local_path.map(PathBuf::from),
-			total_capacity: data.total_capacity,
-			available_capacity: data.available_capacity,
-			is_removable: data.is_removable,
-			node: data.node.unwrap_or(None).map(Into::into),
-			is_online: data.is_online,
-			date_created: data.date_created.into(),
-		}
-	}
-}
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct DotSpacedrive {
@@ -76,20 +46,6 @@ static DOTFILE_NAME: &str = ".spacedrive";
 
 // 	Ok(dotfile)
 // }
-
-pub async fn get_location(
-	ctx: &LibraryContext,
-	location_id: i32,
-) -> Result<LocationResource, LocationError> {
-	// get location by location_id from db and include location_paths
-	ctx.db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.exec()
-		.await?
-		.map(Into::into)
-		.ok_or_else(|| LocationError::IdNotFound(location_id).into())
-}
 
 pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: impl AsRef<Path>) {
 	let path_buf = path.as_ref().to_path_buf();
@@ -123,7 +79,7 @@ pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: impl As
 pub async fn create_location(
 	library: &LibraryContext,
 	path: impl AsRef<Path> + Debug,
-) -> Result<LocationResource, LocationError> {
+) -> Result<location::Data, LocationError> {
 	let path = path.as_ref();
 
 	// check if we have access to this location
@@ -238,4 +194,10 @@ pub enum LocationError {
 	IOError(io::Error),
 	#[error("Database error")]
 	DatabaseError(#[from] prisma::QueryError),
+}
+
+impl From<LocationError> for rspc::Error {
+	fn from(err: LocationError) -> Self {
+		rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+	}
 }

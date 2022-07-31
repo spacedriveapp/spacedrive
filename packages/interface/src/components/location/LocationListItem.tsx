@@ -1,7 +1,7 @@
-import { DotsVerticalIcon, RefreshIcon } from '@heroicons/react/outline';
+import { RefreshIcon } from '@heroicons/react/outline';
 import { TrashIcon } from '@heroicons/react/solid';
 import { useLibraryCommand } from '@sd/client';
-import { LocationResource } from '@sd/core';
+import { Location } from '@sd/core';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useState } from 'react';
@@ -10,7 +10,7 @@ import { Folder } from '../icons/Folder';
 import Dialog from '../layout/Dialog';
 
 interface LocationListItemProps {
-	location: LocationResource;
+	location: Location;
 }
 
 export default function LocationListItem({ location }: LocationListItemProps) {

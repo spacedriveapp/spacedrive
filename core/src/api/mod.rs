@@ -3,7 +3,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use rspc::{ErrorCode, Type};
+use rspc::{Config, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use uuid::Uuid;
@@ -77,17 +77,19 @@ struct NodeState {
 
 pub(crate) fn mount() -> Arc<Router> {
 	let r = <Router>::new()
-		// This messes with Tauri's hot reload so we can't use it until their is a solution upstream. https://github.com/tauri-apps/tauri/issues/4617
-		// .config(
-		// 	Config::new()
-		// 		.export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts")),
-		// )
+		.config(
+			Config::new()
+				// TODO: This messes with Tauri's hot reload so we can't use it until their is a solution upstream. https://github.com/tauri-apps/tauri/issues/4617
+				// .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts")),
+				.set_ts_bindings_header("/* eslint-disable */"),
+		)
 		.query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
 		.query("getNode", |ctx, _: ()| async move {
-			NodeState {
+			Ok(NodeState {
 				config: ctx.config.get().await,
-				data_path: ctx.config.data_directory().to_str().unwrap().to_string(),
-			}
+				// We are taking the assumption here that this value is only used on the frontend for display purposes
+				data_path: ctx.config.data_directory().to_string_lossy().into_owned(),
+			})
 		})
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
@@ -130,6 +132,6 @@ mod tests {
 	fn test_and_export_rspc_bindings() {
 		let r = super::mount();
 		r.export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts"))
-			.unwrap();
+			.expect("Error exporting rspc Typescript bindings!");
 	}
 }

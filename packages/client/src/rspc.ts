@@ -72,7 +72,7 @@ export function useLibraryCommand<K extends LibraryMutationKey>(
 	if (!library_id) throw new Error(`Attempted to do library query with no library set!`);
 
 	// @ts-ignore
-	return _useMutation(async (data) => ctx.client.mutation([key, data]), {
+	return _useMutation(async (data) => ctx.client.mutation([key, { library_id: library_id || '', arg: data || null }]), {
 		...options,
 		// @ts-ignore
 		context: rspc.ReactQueryContext
@@ -100,19 +100,3 @@ export function useInvalidateQuery() {
 	});
 }
 
-// TODO: Work out a solution for removing this
-// @ts-ignore
-export function libraryCommand<
-	// @ts-ignore
-	K extends LibraryCommandKeyType,
-	// @ts-ignore
-	LC extends LCType<K>,
-	// @ts-ignore
-	CR extends CRType<K>
-	// @ts-ignore
->(key: K, vars: ExtractParams<LC>): Promise<ExtractData<CR>> {
-	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
-	if (!library_id) throw new Error(`Attempted to do library command '${key}' with no library set!`);
-	// @ts-ignore
-	return commandBridge('LibraryCommand', { library_id, command: { key, params: vars } as any });
-}

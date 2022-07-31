@@ -1,6 +1,7 @@
 use crate::{
 	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	sys::{create_location, LocationResource},
+	prisma::location,
+	sys::create_location,
 };
 use chrono::{DateTime, Utc};
 use prisma_client_rust::{raw, raw::Raw, PrismaValue};
@@ -34,7 +35,7 @@ pub struct IndexerJobInit {
 
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobData {
-	location: LocationResource,
+	location: location::Data,
 	db_write_start: DateTime<Utc>,
 	scan_read_time: Duration,
 	total_paths: usize,
@@ -286,14 +287,14 @@ impl StatefulJob for IndexerJob {
 async fn prepare_values(
 	file_path: impl AsRef<Path>,
 	id: i32,
-	location: &LocationResource,
+	location: &location::Data,
 	parent_id: &Option<i32>,
 	is_dir: bool,
 ) -> Result<[PrismaValue; 8], std::io::Error> {
 	let file_path = file_path.as_ref();
 
 	let metadata = fs::metadata(file_path).await?;
-	let location_path = location.path.as_ref().unwrap();
+	let location_path = location.local_path.as_ref().map(PathBuf::from).unwrap();
 	// let size = metadata.len();
 	let name;
 	let extension;

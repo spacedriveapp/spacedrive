@@ -16,7 +16,7 @@ hostname = "0.3.1"
 # Universal Dependencies
 base64 = "0.13.0"
 serde = { version = "1.0", features = ["derive"] }
-chrono = { version = "0.4.0", features = ["serde"] }
+chrono = { version = "0.4.19", features = ["serde"] }
 serde_json = "1.0"
 futures = "0.3"
 data-encoding = "2.3.2"
@@ -26,9 +26,8 @@ rmp = "^0.8.11"
 rmp-serde = "^1.1.0"
 
 # Project dependencies
-# prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "0.6.0", features = ["specta"] }
-prisma-client-rust = { path = "../../../Desktop/prisma-client-rust-06", features = ["specta"] }
-rspc = { git = "https://github.com/oscartbeaumont/rspc.git", branch = "omg", features = ["axum", "tauri", "uuid", "chrono"] }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "0.6.0", features = ["rspc"] }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", branch = "main", features = ["axum", "tauri", "uuid", "chrono", "tracing"] }
 walkdir = "^2.3.2"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
