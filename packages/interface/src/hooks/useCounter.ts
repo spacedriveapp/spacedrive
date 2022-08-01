@@ -52,14 +52,16 @@ const useCounter = ({ name, start = 0, end, duration = 2, saveState = true }: Us
 		duration,
 		easing: 'easeOutCubic'
 	});
+	
+	useEffect(() => {
+		if (saveState && value == end) {
+			setLastValue(name, end);
+		}
+	}, [value]);
 
 	if (start === end) return end;
 
 	if (saveState && lastValue && lastValue === end) return end;
-
-	if (saveState && value == end) {
-		setLastValue(name, end);
-	}
 
 	return value;
 };
