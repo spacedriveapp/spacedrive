@@ -11,7 +11,7 @@ pre-commit:
       run: pnpm typecheck
     lint:
       glob: '*.{ts,tsx}'
-      run: pnpm eslint {all_files}
+      run: pnpm eslint {staged_files}
     spelling:
       glob: '*.{ts,tsx,md,rs}'
       run: pnpm cspell {staged_files}
@@ -25,8 +25,6 @@ pre-commit:
       run: cargo clippy --package spacedrive -- -D warnings
     rust-lint-core:
       run: cargo clippy --package sdcore --lib -- -D warnings
-    rust-lint-core-prisma:
-      run: cargo clippy --package prisma-cli -- -D warnings
     rust-lint-core-derive:
       run: cargo clippy --package core-derive --lib -- -D warnings
     rust-lint-server:
