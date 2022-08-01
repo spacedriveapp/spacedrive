@@ -15,15 +15,8 @@ export async function onBeforeRender() {
 export async function prerender() {
 	const posts = await getPosts();
 
-	const postPages = posts.map((post) => ({
-		url: `/blog/${post.slug}`,
-		pageContext: { pageProps: { post } }
-	}));
-
-	const postListPage = {
+	return {
 		url: '/blog',
 		pageContext: { pageProps: { posts } }
 	};
-
-	return [postListPage, ...postPages];
 }
