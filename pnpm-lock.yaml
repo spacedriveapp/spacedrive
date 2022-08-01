@@ -108,9 +108,11 @@ importers:
       '@types/compression': ^1.7.2
       '@types/express': ^4.17.13
       '@types/node': ^17.0.31
+      '@types/prismjs': ^1.26.0
       '@types/react': ^18.0.8
       '@types/react-dom': ^18.0.3
       '@types/react-helmet': ^6.1.5
+      '@types/tryghost__content-api': ^1.3.11
       '@vitejs/plugin-react': ^1.3.2
       clsx: ^1.2.1
       compression: ^1.7.4
@@ -165,7 +167,9 @@ importers:
       vite-plugin-ssr: 0.4.15_vite@2.9.14
     devDependencies:
       '@tailwindcss/line-clamp': 0.4.0
+      '@types/prismjs': 1.26.0
       '@types/react-helmet': 6.1.5
+      '@types/tryghost__content-api': 1.3.11
       postcss: 8.4.14
       sass: 1.54.0
       tailwind: 4.0.0
@@ -5679,6 +5683,10 @@ packages:
     resolution: {integrity: sha512-VjID5MJb1eGKthz2qUerWT8+R4b9N+CHvGCzg9fn4kWZgaF9AhdYikQio3R7wV8YY1NsQKPaCwKz1Yff+aHNUQ==}
     dev: true
 
+  /@types/prismjs/1.26.0:
+    resolution: {integrity: sha512-ZTaqn/qSqUuAq1YwvOFQfVW1AR/oQJlLSZVustdjwI+GZ8kr0MSHBj0tsXPW1EqHubx50gtBEjbPGsdZwQwCjQ==}
+    dev: true
+
   /@types/prop-types/15.7.5:
     resolution: {integrity: sha512-JCB8C6SnDoQf0cNycqd/35A7MjcnK+ZTqE7judS6o7utxUCg6imJg3QK2qzHKszlTjcj2cn+NwMB2i96ubpj7w==}
 
@@ -5787,6 +5795,10 @@ packages:
 
   /@types/tapable/1.0.8:
     resolution: {integrity: sha512-ipixuVrh2OdNmauvtT51o3d8z12p6LtFW9in7U79der/kwejjdNchQC5UMn5u/KxNoM7VHHOs/l8KS8uHxhODQ==}
+    dev: true
+
+  /@types/tryghost__content-api/1.3.11:
+    resolution: {integrity: sha512-Gv8zoIVvIALZKjyZWa1dZT1WUtZgqLkpdH+tK/YlfL1JTEn+oeAEvj5AX/jjX2Scv7oaEc/SlZry4Km2xp+ZEw==}
     dev: true
 
   /@types/uglify-js/3.16.0:
@@ -6776,6 +6788,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
