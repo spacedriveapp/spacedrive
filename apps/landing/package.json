@@ -1,4 +1,5 @@
 {
+  "name": "@sd/server",
   "scripts": {
     "dev": "npm run server",
     "prod": "npm run build && npm run server:prod",
