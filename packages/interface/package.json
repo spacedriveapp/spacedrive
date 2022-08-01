@@ -23,7 +23,7 @@
 		"@radix-ui/react-icons": "^1.1.1",
 		"@radix-ui/react-progress": "^1.0.0",
 		"@radix-ui/react-slider": "^1.0.0",
-		"@rspc/client": "^0.0.4",
+		"@rspc/client": "^0.0.5",
 		"@sd/client": "workspace:*",
 		"@sd/core": "workspace:*",
 		"@sd/ui": "workspace:*",

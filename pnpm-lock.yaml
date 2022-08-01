@@ -42,7 +42,7 @@ importers:
 
   apps/desktop:
     specifiers:
-      '@rspc/client': ^0.0.4
+      '@rspc/client': ^0.0.5
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -69,7 +69,7 @@ importers:
       vite-plugin-filter-replace: ^0.1.9
       vite-plugin-svgr: ^2.2.1
     dependencies:
-      '@rspc/client': 0.0.4_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.5_biqbaboplfbrettd7655fr4n2y
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -187,7 +187,7 @@ importers:
   apps/web:
     specifiers:
       '@fontsource/inter': ^4.5.11
-      '@rspc/client': ^0.0.4
+      '@rspc/client': ^0.0.5
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -207,7 +207,7 @@ importers:
       vite-plugin-tsconfig-paths: ^1.1.0
     dependencies:
       '@fontsource/inter': 4.5.11
-      '@rspc/client': 0.0.4_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.5_biqbaboplfbrettd7655fr4n2y
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -240,7 +240,7 @@ importers:
 
   packages/client:
     specifiers:
-      '@rspc/client': ^0.0.4
+      '@rspc/client': ^0.0.5
       '@sd/config': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -255,7 +255,7 @@ importers:
       typescript: ^4.7.4
       zustand: 4.0.0
     dependencies:
-      '@rspc/client': 0.0.4
+      '@rspc/client': 0.0.5
       '@sd/config': link:../config
       '@sd/core': link:../../core
       '@sd/interface': link:../interface
@@ -285,7 +285,7 @@ importers:
       '@radix-ui/react-icons': ^1.1.1
       '@radix-ui/react-progress': ^1.0.0
       '@radix-ui/react-slider': ^1.0.0
-      '@rspc/client': ^0.0.4
+      '@rspc/client': ^0.0.5
       '@sd/assets': workspace:*
       '@sd/client': workspace:*
       '@sd/core': workspace:*
@@ -353,7 +353,7 @@ importers:
       '@radix-ui/react-icons': 1.1.1_react@18.2.0
       '@radix-ui/react-progress': 1.0.0_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-slider': 1.0.0_biqbaboplfbrettd7655fr4n2y
-      '@rspc/client': 0.0.4_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.5_biqbaboplfbrettd7655fr4n2y
       '@sd/assets': link:../assets
       '@sd/client': link:../client
       '@sd/core': link:../../core
@@ -3567,8 +3567,8 @@ packages:
       estree-walker: 2.0.2
       picomatch: 2.3.1
 
-  /@rspc/client/0.0.4:
-    resolution: {integrity: sha512-CjOxwxW643SbsUczEOIn0jd9e1icMGNxxRQmcnl1nr5GPi4xkcmxKBt+sTuFtx0EhkCnbjD9R6u9ay+cY9Ulbg==}
+  /@rspc/client/0.0.5:
+    resolution: {integrity: sha512-k6xLz1YoA9SBLNk/EdDjbo/0zUj5aBP6l104CQlaEVjmdIhacP10IC8CG9j9fyg3w5Svok8aO5dhLTRxZhPeIA==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
@@ -3579,8 +3579,8 @@ packages:
       - react-native
     dev: false
 
-  /@rspc/client/0.0.4_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-CjOxwxW643SbsUczEOIn0jd9e1icMGNxxRQmcnl1nr5GPi4xkcmxKBt+sTuFtx0EhkCnbjD9R6u9ay+cY9Ulbg==}
+  /@rspc/client/0.0.5_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-k6xLz1YoA9SBLNk/EdDjbo/0zUj5aBP6l104CQlaEVjmdIhacP10IC8CG9j9fyg3w5Svok8aO5dhLTRxZhPeIA==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
@@ -6800,7 +6800,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}

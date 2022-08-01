@@ -18,27 +18,31 @@ type NonLibraryQueries = Exclude<Operations['queries'], { key: [any, LibraryArgs
 	Extract<Operations['queries'], { key: [any] }>;
 type NonLibraryQuery<K extends string> = Extract<NonLibraryQueries, { key: [K] | [K, any] }>;
 type NonLibraryQueryKey = NonLibraryQueries['key'][0];
+type NonLibraryQueryArgs<K extends NonLibraryQueryKey> = NonLibraryQuery<K>['key'][1];
 type NonLibraryQueryResult<K extends NonLibraryQueryKey> = NonLibraryQuery<K>['result'];
 
 export function useBridgeQuery<K extends NonLibraryQueries['key']>(
 	key: K,
-	options?: UseQueryOptions<NonLibraryQueryResult<K[0]>, RSPCError>
-): UseQueryResult<NonLibraryQueryResult<K[0]>, RSPCError> {
+	options?: UseQueryOptions<NonLibraryQueryResult<K[0]>>
+): UseQueryResult<NonLibraryQueryResult<K[0]>> {
 	// @ts-ignore
 	return rspc.useQuery(key, options);
 }
 
 type LibraryQueries = Extract<Operations['queries'], { key: [string, LibraryArgs<any>] }>;
 type LibraryQuery<K extends string> = Extract<LibraryQueries, { key: [K, any] }>;
+type LibraryQueryKey = LibraryQueries['key'][0];
+type LibraryQueryArgs<K extends string> = LibraryQuery<K>['key'][1] extends LibraryArgs<infer A>
+	? A
+	: never;
 type LibraryQueryResult<K extends string> = LibraryQuery<K>['result'];
 
-export function useLibraryQuery<K extends LibraryQueries['key']>(
-	key: K,
-	options?: UseQueryOptions<LibraryQueryResult<K[0]>, RSPCError>
-): UseQueryResult<LibraryQueryResult<K[0]>, RSPCError> {
+export function useLibraryQuery<K extends LibraryQueryKey>(
+	key: LibraryQueryArgs<K> extends null | undefined ? [K] : [K, LibraryQueryArgs<K>],
+	options?: UseQueryOptions<LibraryQueryResult<K>>
+): UseQueryResult<LibraryQueryResult<K>> {
 	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 	if (!library_id) throw new Error(`Attempted to do library query with no library set!`);
-
 	// @ts-ignore
 	return rspc.useQuery([key[0], { library_id: library_id || '', arg: key[1] || null }], options);
 }
@@ -46,23 +50,22 @@ export function useLibraryQuery<K extends LibraryQueries['key']>(
 type LibraryMutations = Extract<Operations['mutations'], { key: [string, LibraryArgs<any>] }>;
 type LibraryMutation<K extends LibraryMutationKey> = Extract<LibraryMutations, { key: [K, any] }>;
 type LibraryMutationKey = LibraryMutations['key'][0];
-type LibraryMutationResult<K extends LibraryMutations['key'][0]> = LibraryMutation<K>['result'];
-
-export function useLibraryMutation<K extends LibraryMutations['key']>(
+type LibraryMutationArgs<K extends LibraryMutationKey> =
+	LibraryMutation<K>['key'][1] extends LibraryArgs<infer A> ? A : never;
+type LibraryMutationResult<K extends LibraryMutationKey> = LibraryMutation<K>['result'];
+export function useLibraryMutation<K extends LibraryMutationKey>(
 	key: K,
-	options?: UseMutationOptions<LibraryMutationResult<K[0]>, RSPCError, K[1]['arg']>
-): UseMutationResult<LibraryMutationResult<K[0]>, RSPCError, K[1]> {
+	options?: UseMutationOptions<LibraryMutationResult<K>>
+) {
 	const ctx = rspc.useContext();
 	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 	if (!library_id) throw new Error(`Attempted to do library query with no library set!`);
 
 	// @ts-ignore
-	return _useMutation(
-		async (data) =>
-			ctx.client.mutation([key[0], { library_id: library_id || '', arg: data || null }]),
+	return _useMutation<LibraryMutationResult<K>, RSPCError, LibraryMutationArgs<K>>(
+		async (data) => ctx.client.mutation([key, { library_id: library_id || '', arg: data || null }]),
 		{
 			...options,
-			// @ts-ignore
 			context: rspc.ReactQueryContext
 		}
 	);
@@ -74,12 +77,12 @@ type NonLibraryMutation<K extends NonLibraryMutationKey> = Extract<
 	{ key: [K] | [K, any] }
 >;
 type NonLibraryMutationKey = NonLibraryMutations['key'][0];
+type NonLibraryMutationArgs<K extends NonLibraryMutationKey> = NonLibraryMutation<K>['key'][1];
 type NonLibraryMutationResult<K extends NonLibraryMutationKey> = NonLibraryMutation<K>['result'];
-
-export function useBridgeMutation<K extends NonLibraryMutations['key']>(
+export function useBridgeMutation<K extends NonLibraryMutationKey>(
 	key: K,
-	options?: UseMutationOptions<NonLibraryMutationResult<K[0]>, RSPCError, K[1]>
-): UseMutationResult<NonLibraryMutationResult<K[0]>, RSPCError, K[1]> {
+	options?: UseMutationOptions<NonLibraryMutationResult<K>>
+): UseMutationResult<NonLibraryMutationResult<K>, RSPCError, NonLibraryMutationArgs<K>> {
 	// @ts-ignore
 	return rspc.useMutation(key, options);
 }
