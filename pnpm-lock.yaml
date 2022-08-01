@@ -183,11 +183,13 @@ importers:
       '@rnx-kit/metro-config': ^1.2.36
       '@rnx-kit/metro-resolver-symlinks': ^0.1.21
       '@sd/assets': workspace:*
+      '@types/byte-size': ^8.1.0
       '@types/node': ^17.0.36
       '@types/react': ~17.0.21
       '@types/react-native': ~0.67.6
       '@typescript-eslint/eslint-plugin': ^5.31.0
       '@typescript-eslint/parser': ^5.31.0
+      byte-size: ^8.1.0
       class-variance-authority: ^0.2.3
       eslint: ^8.20.0
       eslint-plugin-import: ^2.26.0
@@ -232,6 +234,7 @@ importers:
       '@react-navigation/native': 6.0.11_zqxy7fpkavjkgz5xll7ed4r6rq
       '@react-navigation/native-stack': 6.7.0_6rwonjqcg3j224gsrcbz5if4si
       '@sd/assets': link:../../packages/assets
+      byte-size: 8.1.0
       class-variance-authority: 0.2.3_typescript@4.7.4
       expo: 45.0.6_@babel+core@7.18.9
       expo-asset: 8.5.0
@@ -262,6 +265,7 @@ importers:
       '@babel/runtime': 7.18.9
       '@rnx-kit/metro-config': 1.2.36_zqg5olr4b7h5hlpjuj6yf3rr6u
       '@rnx-kit/metro-resolver-symlinks': 0.1.21
+      '@types/byte-size': 8.1.0
       '@types/node': 17.0.36
       '@types/react': 17.0.21
       '@types/react-native': 0.67.12

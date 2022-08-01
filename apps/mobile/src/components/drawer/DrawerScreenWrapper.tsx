@@ -1,6 +1,7 @@
 import { useDrawerProgress } from '@react-navigation/drawer';
 import React from 'react';
 import Animated, { Extrapolate, interpolate, useAnimatedStyle } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import tw from '../../lib/tailwind';
 
@@ -19,8 +20,8 @@ const DrawerScreenWrapper: React.FC = ({ children }) => {
 	}, []);
 
 	return (
-		<Animated.View style={[tw.style('flex-1 items-center justify-center bg-[#121219]'), style]}>
-			{children}
+		<Animated.View style={[tw.style('flex-1 bg-[#121219]'), style]}>
+			<SafeAreaView>{children}</SafeAreaView>
 		</Animated.View>
 	);
 };
