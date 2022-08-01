@@ -10,7 +10,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // This is the main navigator we nest everything under.
 export default function RootNavigator() {
 	return (
-		<Stack.Navigator>
+		<Stack.Navigator initialRouteName="Root">
 			<Stack.Screen name="Root" component={DrawerNavigator} options={{ headerShown: false }} />
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
 			<Stack.Group screenOptions={{ presentation: 'modal' }}>

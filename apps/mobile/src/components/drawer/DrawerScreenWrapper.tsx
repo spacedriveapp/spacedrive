@@ -8,14 +8,16 @@ const DrawerScreenWrapper: React.FC = ({ children }) => {
 	const progress: any = useDrawerProgress();
 
 	const style = useAnimatedStyle(() => {
-		const scale = interpolate(progress.value, [0, 1], [1, 0.85], Extrapolate.CLAMP);
-		const translateX = interpolate(progress.value, [0, 1], [0, -20], Extrapolate.CLAMP);
+		const scale = interpolate(progress.value, [0, 1], [1, 0.88], Extrapolate.CLAMP);
+		const translateX = interpolate(progress.value, [0, 1], [0, -12], Extrapolate.CLAMP);
+		const translateY = interpolate(progress.value, [0, 1], [0, 12], Extrapolate.CLAMP);
 		const borderRadius = interpolate(progress.value, [0, 1], [0, 16], Extrapolate.CLAMP);
 		return {
-			transform: [{ scale: scale }, { translateX }],
+			transform: [{ scale }, { translateX }, { translateY }],
 			borderRadius
 		};
 	}, []);
+
 	return (
 		<Animated.View style={[tw.style('flex-1 items-center justify-center bg-[#121219]'), style]}>
 			{children}

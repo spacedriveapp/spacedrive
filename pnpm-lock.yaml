@@ -197,6 +197,7 @@ importers:
       eslint-plugin-react-native: ^4.0.0
       expo: ~45.0.6
       expo-asset: ~8.5.0
+      expo-blur: ~11.1.0
       expo-constants: ~13.1.1
       expo-font: ~10.1.0
       expo-linking: ~3.1.0
@@ -234,6 +235,7 @@ importers:
       class-variance-authority: 0.2.3_typescript@4.7.4
       expo: 45.0.6_@babel+core@7.18.9
       expo-asset: 8.5.0
+      expo-blur: 11.1.0_expo@45.0.6
       expo-constants: 13.1.1_expo@45.0.6
       expo-font: 10.1.0_expo@45.0.6
       expo-linking: 3.1.0_expo@45.0.6
@@ -12115,6 +12117,14 @@ packages:
       md5-file: 3.2.3
       path-browserify: 1.0.1
       url-parse: 1.5.10
+    dev: false
+
+  /expo-blur/11.1.0_expo@45.0.6:
+    resolution: {integrity: sha512-7ClB+fIYoFXaTyY4jAMBmJmgs3Dz0EWNbpgFCC4v/sSxldg5jSbMUXLXUttnRhKRmIzPB2gufcgoOWfNwA3q7g==}
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      expo: 45.0.6_@babel+core@7.18.9
     dev: false
 
   /expo-constants/13.1.1_expo@45.0.6:

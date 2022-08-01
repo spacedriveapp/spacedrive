@@ -13,9 +13,11 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 
 	function onButtonPress() {
 		// Persist onboarding state only when app in production for now.
-		if (process.env.NODE_ENV === 'production') {
-			setItemToStorage('@onboarding', '1');
-		}
+		// if (process.env.NODE_ENV === 'production') {
+		// setItemToStorage('@onboarding', '1');
+		// }
+		setItemToStorage('@onboarding', '1');
+		// TODO: Add a loading indicator to button as this takes a second or so.
 		hideOnboarding();
 	}
 

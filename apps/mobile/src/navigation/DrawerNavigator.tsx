@@ -2,19 +2,17 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 
 import DrawerContent from '../components/drawer/DrawerContent';
 import LocationScreen from '../screens/Location';
-import OverviewScreen from '../screens/Overview';
-import PhotosScreen from '../screens/Photos';
-import SpacesScreen from '../screens/Spaces';
 import TagScreen from '../screens/Tag';
 import SettingsScreen from '../screens/settings/Settings';
-import { HomeDrawerParamList } from '../types/navigation';
+import { DrawerNavParamList } from '../types/navigation';
+import BottomTabNavigator from './BottomTabNavigator';
 
-const Drawer = createDrawerNavigator<HomeDrawerParamList>();
+const Drawer = createDrawerNavigator<DrawerNavParamList>();
 
 export default function DrawerNavigator() {
 	return (
 		<Drawer.Navigator
-			initialRouteName="Overview"
+			initialRouteName="Home"
 			screenOptions={{
 				headerShown: false,
 				drawerStyle: {
@@ -27,9 +25,7 @@ export default function DrawerNavigator() {
 			}}
 			drawerContent={(props) => <DrawerContent {...(props as any)} />}
 		>
-			<Drawer.Screen name="Overview" component={OverviewScreen} />
-			<Drawer.Screen name="Spaces" component={SpacesScreen} />
-			<Drawer.Screen name="Photos" component={PhotosScreen} />
+			<Drawer.Screen name="Home" component={BottomTabNavigator} />
 			<Drawer.Screen name="Location" component={LocationScreen} />
 			<Drawer.Screen name="Tag" component={TagScreen} />
 			<Drawer.Screen name="Settings" component={SettingsScreen} />

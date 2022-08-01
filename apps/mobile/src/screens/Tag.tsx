@@ -15,6 +15,10 @@ export default function TagScreen({ navigation, route }: HomeDrawerScreenProps<'
 			<Button variant="primary" size="lg" onPress={() => navigation.openDrawer()}>
 				<Text style={tw`font-bold text-white`}>Open Drawer</Text>
 			</Button>
+			<View style={tw`my-8 h-1 w-4/5`} />
+			<Button variant="primary" size="lg" onPress={() => navigation.navigate('Home')}>
+				<Text style={tw`font-bold text-white`}>Go Home</Text>
+			</Button>
 		</DrawerScreenWrapper>
 	);
 }

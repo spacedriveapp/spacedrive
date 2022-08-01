@@ -19,6 +19,7 @@
 		"class-variance-authority": "^0.2.3",
 		"expo": "~45.0.6",
 		"expo-asset": "~8.5.0",
+		"expo-blur": "~11.1.0",
 		"expo-constants": "~13.1.1",
 		"expo-font": "~10.1.0",
 		"expo-linking": "~3.1.0",

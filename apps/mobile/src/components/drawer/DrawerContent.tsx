@@ -8,16 +8,15 @@ import {
 	DrawerNavigationState,
 	NavigationHelpers
 } from '@react-navigation/native';
-import { CirclesFour, Planet } from 'phosphor-react-native';
+import { House } from 'phosphor-react-native';
 import React from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
-import { PhotographIcon } from 'react-native-heroicons/outline';
 import { CogIcon } from 'react-native-heroicons/solid';
 
 import Layout from '../../constants/Layout';
 import tw from '../../lib/tailwind';
 import { valueof } from '../../types/helper';
-import { HomeDrawerParamList } from '../../types/navigation';
+import { DrawerNavParamList } from '../../types/navigation';
 import CollapsibleView from '../layout/CollapsibleView';
 import DrawerItem from './DrawerItem';
 import DrawerLocationItem from './DrawerLocationItem';
@@ -57,8 +56,8 @@ const drawerHeight = Layout.window.height * 0.85;
 
 type ActiveRoute = {
 	key: string;
-	name: keyof HomeDrawerParamList;
-	params: valueof<HomeDrawerParamList>;
+	name: keyof DrawerNavParamList;
+	params: valueof<Omit<DrawerNavParamList, 'Home'>>;
 };
 
 const getActiveRouteState = function (state: any): ActiveRoute {
@@ -72,9 +71,9 @@ const getActiveRouteState = function (state: any): ActiveRoute {
 
 // Overriding the default to add typing for our params.
 type DrawerContentComponentProps = {
-	state: DrawerNavigationState<HomeDrawerParamList>;
-	navigation: NavigationHelpers<HomeDrawerParamList, DrawerNavigationEventMap> &
-		DrawerActionHelpers<HomeDrawerParamList>;
+	state: DrawerNavigationState<DrawerNavParamList>;
+	navigation: NavigationHelpers<DrawerNavParamList, DrawerNavigationEventMap> &
+		DrawerActionHelpers<DrawerNavParamList>;
 	// descriptors type is generic
 	descriptors: DrawerDescriptorMap;
 };
@@ -86,22 +85,10 @@ const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponen
 				<View>
 					<Text style={tw`my-4 text-white`}>TODO: Library Selection</Text>
 					<DrawerItem
-						label={'Overview'}
-						icon={<Planet size={20} color={'white'} weight="bold" />}
-						onPress={() => navigation.jumpTo('Overview')}
-						isSelected={getActiveRouteState(state).name === 'Overview'}
-					/>
-					<DrawerItem
-						label={'Spaces'}
-						onPress={() => navigation.jumpTo('Spaces')}
-						icon={<CirclesFour size={20} color={'white'} weight="bold" />}
-						isSelected={getActiveRouteState(state).name === 'Spaces'}
-					/>
-					<DrawerItem
-						label={'Photos'}
-						onPress={() => navigation.jumpTo('Photos')}
-						icon={<PhotographIcon size={20} color={'white'} />}
-						isSelected={getActiveRouteState(state).name === 'Photos'}
+						label={'Home'}
+						icon={<House size={20} color={'white'} weight="bold" />}
+						onPress={() => navigation.jumpTo('Home')}
+						isSelected={getActiveRouteState(state).name === 'Home'}
 					/>
 					{/* Locations */}
 					<CollapsibleView
