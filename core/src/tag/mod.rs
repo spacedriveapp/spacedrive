@@ -1,11 +1,7 @@
 use crate::{
 	file::File,
 	library::LibraryContext,
-	prisma::{
-		self, file,
-		tag::{self},
-		tag_on_file,
-	},
+	prisma::{self, file, tag, tag_on_file},
 	ClientQuery, CoreError, CoreEvent, CoreResponse, LibraryQuery,
 };
 use serde::{Deserialize, Serialize};
@@ -76,8 +72,8 @@ pub struct TagWithFiles {
 
 #[derive(Error, Debug)]
 pub enum TagError {
-	#[error("Tag not found")]
-	TagNotFound(i32),
+	// #[error("Tag not found")]
+	// TagNotFound(i32),
 	#[error("Database error")]
 	DatabaseError(#[from] prisma::QueryError),
 }
