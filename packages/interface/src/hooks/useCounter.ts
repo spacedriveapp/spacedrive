@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useCountUp } from 'use-count-up';
 import create from 'zustand';
 
