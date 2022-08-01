@@ -1,4 +1,4 @@
-import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
@@ -16,7 +16,7 @@ export const DebugScreen: React.FC<{}> = (props) => {
 	//     alert('Database purged');
 	//   }
 	// });
-	const { mutate: identifyFiles } = useLibraryCommand('jobs.identifyUniqueFiles');
+	const { mutate: identifyFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
 	return (
 		<div className="flex flex-col w-full h-screen custom-scroll page-scroll">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />

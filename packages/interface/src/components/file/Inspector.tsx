@@ -1,5 +1,5 @@
 import { ShareIcon } from '@heroicons/react/solid';
-import { useLibraryCommand } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import { FilePath, Location } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
@@ -29,7 +29,6 @@ const MetaItem = (props: MetaItemProps) => {
 
 const Divider = () => <div className="w-full my-1 h-[1px] bg-gray-100 dark:bg-gray-550" />;
 
-
 export const Inspector = (props: {
 	locationId: number;
 	location?: Location | null;
@@ -39,41 +38,35 @@ export const Inspector = (props: {
 		full_path = `${props.location?.local_path}/${file_path?.materialized_path}`,
 		file_id = props.selectedFile?.file?.id || -1;
 
-    const [favorite, setFavorite] = useState(false);
-	const { mutate: fileToggleFavorite, isLoading: isFavoriteLoading } = useLibraryCommand(
+	const [favorite, setFavorite] = useState(false);
+	const { mutate: fileToggleFavorite, isLoading: isFavoriteLoading } = useLibraryMutation(
 		'files.setFavorite',
 		{
 			onError: () => setFavorite(!!props.selectedFile?.file?.favorite)
 		}
 	);
-	const { mutate: fileSetNote } = useLibraryCommand('files.setNote');
+	const { mutate: fileSetNote } = useLibraryMutation('files.setNote');
 
 	// notes are cached in a store by their file id
 	// this is so we can ensure every note has been sent to Rust even
 	// when quickly navigating files, which cancels update function
-    const [note, setNote] = useState(props.location?.local_path || '');
-    useEffect(
-        () => {
-          // Update debounced value after delay
-          const handler = setTimeout(() => {
-            fileSetNote({
-                id: file_id,
-                note
-            });
-          }, 500);
+	const [note, setNote] = useState(props.location?.local_path || '');
+	useEffect(() => {
+		// Update debounced value after delay
+		const handler = setTimeout(() => {
+			fileSetNote({
+				id: file_id,
+				note
+			});
+		}, 500);
 
-          // Cancel the timeout if value changes (also on delay change or unmount)
-          // This is how we prevent debounced value from updating if value is changed ...
-          // .. within the delay period. Timeout gets cleared and restarted.
-          return () => {
-            clearTimeout(handler);
-          };
-        },
-        [note]
-      );
-    
-
-
+		// Cancel the timeout if value changes (also on delay change or unmount)
+		// This is how we prevent debounced value from updating if value is changed ...
+		// .. within the delay period. Timeout gets cleared and restarted.
+		return () => {
+			clearTimeout(handler);
+		};
+	}, [note]);
 
 	const toggleFavorite = () => {
 		if (!isFavoriteLoading) {

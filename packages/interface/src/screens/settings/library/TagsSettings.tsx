@@ -1,5 +1,5 @@
 import { TrashIcon } from '@heroicons/react/outline';
-import { useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { TagUpdateArgs } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
@@ -29,7 +29,7 @@ export default function TagsSettings() {
 		return tags?.find((t) => t.id === selectedTag);
 	}, [tags, selectedTag]);
 
-	const { mutate: createTag, isLoading } = useLibraryCommand('tags.create', {
+	const { mutate: createTag, isLoading } = useLibraryMutation('tags.create', {
 		onError: (e) => {
 			console.log('error', e);
 		},
@@ -38,9 +38,9 @@ export default function TagsSettings() {
 		}
 	});
 
-	const { mutate: updateTag, isLoading: tagUpdateLoading } = useLibraryCommand('tags.update');
+	const { mutate: updateTag, isLoading: tagUpdateLoading } = useLibraryMutation('tags.update');
 
-	const { mutate: deleteTag, isLoading: tagDeleteLoading } = useLibraryCommand('tags.delete');
+	const { mutate: deleteTag, isLoading: tagDeleteLoading } = useLibraryMutation('tags.delete');
 
 	// set default selected tag
 	useEffect(() => {

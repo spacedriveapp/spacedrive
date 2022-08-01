@@ -1,5 +1,5 @@
 import { PlusIcon } from '@heroicons/react/solid';
-import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
@@ -20,7 +20,7 @@ export default function LocationSettings() {
 
 	const appProps = useContext(AppPropsContext);
 
-	const { mutate: createLocation } = useLibraryCommand('locations.create');
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	return (
 		<SettingsContainer>

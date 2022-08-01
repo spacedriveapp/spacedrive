@@ -1,6 +1,6 @@
 import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
 import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
-import { useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { useCurrentLibrary, useLibraryStore } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
@@ -94,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 		if (libraries && !currentLibraryUuid) initLibraries(libraries);
 	}, [libraries, currentLibraryUuid]);
 
-	const { mutate: createLocation } = useLibraryCommand('locations.create');
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	const { data: tags } = useLibraryQuery(['tags.get']);
 

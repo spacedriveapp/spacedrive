@@ -1,6 +1,6 @@
 import { CollectionIcon, TrashIcon } from '@heroicons/react/outline';
 import { PlusIcon } from '@heroicons/react/solid';
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { LibraryConfig, LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
@@ -19,7 +19,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
-	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeCommand('library.delete', {
+	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeMutation('library.delete', {
 		onSuccess: () => {
 			setOpenDeleteModal(false);
 		}
@@ -59,7 +59,7 @@ export default function LibrarySettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
 
-	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeCommand(
+	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
 			onSuccess: () => {

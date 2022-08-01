@@ -1,6 +1,6 @@
 import { RefreshIcon } from '@heroicons/react/outline';
 import { TrashIcon } from '@heroicons/react/solid';
-import { useLibraryCommand } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import { Location } from '@sd/core';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
@@ -16,13 +16,16 @@ interface LocationListItemProps {
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const [hide, setHide] = useState(false);
 
-	const { mutate: locRescan } = useLibraryCommand('locations.fullRescan');
+	const { mutate: locRescan } = useLibraryMutation('locations.fullRescan');
 
-	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryCommand('locations.delete', {
-		onSuccess: () => {
-			setHide(true);
+	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryMutation(
+		'locations.delete',
+		{
+			onSuccess: () => {
+				setHide(true);
+			}
 		}
-	});
+	);
 
 	if (hide) return <></>;
 

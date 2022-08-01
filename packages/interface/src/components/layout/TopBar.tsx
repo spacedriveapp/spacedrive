@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
-import { AppPropsContext, useExplorerStore, useLibraryCommand } from '@sd/client';
+import { AppPropsContext, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -83,7 +83,7 @@ const SearchBar: React.FC<SearchBarProps> = (props) => {
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
 	const { locationId, layoutMode, setLayoutMode } = useExplorerStore();
-	const { mutate: generateThumbsForLocation } = useLibraryCommand(
+	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
 		{
 			onMutate: (data) => {
@@ -92,7 +92,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		}
 	);
 
-	const { mutate: identifyUniqueFiles } = useLibraryCommand('jobs.identifyUniqueFiles', {
+	const { mutate: identifyUniqueFiles } = useLibraryMutation('jobs.identifyUniqueFiles', {
 		onMutate: (data) => {
 			console.log('IdentifyUniqueFiles', data);
 		},
