@@ -1,5 +1,5 @@
 import { BookOpenIcon, MapIcon, QuestionMarkCircleIcon, UsersIcon } from '@heroicons/react/solid';
-import { Discord, Github, Icon } from '@icons-pack/react-simple-icons';
+import { Discord, Github } from '@icons-pack/react-simple-icons';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
 import { List } from 'phosphor-react';

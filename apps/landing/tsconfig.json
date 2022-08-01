@@ -1,9 +1,23 @@
 {
-	"extends": "../../packages/config/interface.tsconfig.json",
-	"compilerOptions": {
-		"paths": {
-			"~/docs/*": ["../../docs/*"]
-		}
-	},
-	"include": ["src"]
+  "extends": "../../packages/config/interface.tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "module": "ES2020",
+    "moduleResolution": "Node",
+    "target": "ES2017",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "types": ["vite/client"],
+    "jsx": "react",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+	"paths": {
+		"~/docs/*": ["../../docs/*"]
+	}
+  },
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
+  }
 }
