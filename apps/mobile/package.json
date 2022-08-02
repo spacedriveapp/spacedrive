@@ -16,6 +16,7 @@
 		"@react-navigation/native": "^6.0.2",
 		"@react-navigation/native-stack": "^6.1.0",
 		"@sd/assets": "workspace:*",
+		"@sd/core": "workspace:*",
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.2.3",
 		"expo": "^46.0.0",
