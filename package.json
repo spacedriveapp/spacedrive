@@ -23,7 +23,20 @@
 		"typecheck": "pnpm -r exec tsc"
 	},
 	"devDependencies": {
+		"@cspell/dict-rust": "^2.0.1",
+		"@cspell/dict-typescript": "^2.0.1",
+		"@evilmartians/lefthook": "^1.0.5",
 		"@trivago/prettier-plugin-sort-imports": "^3.2.0",
+		"@typescript-eslint/eslint-plugin": "^5.30.7",
+		"@typescript-eslint/parser": "^5.30.7",
+		"cspell": "^6.4.0",
+		"eslint": "^8.20.0",
+		"eslint-config-prettier": "^8.5.0",
+		"eslint-config-standard-with-typescript": "^22.0.0",
+		"eslint-plugin-import": ">=2.25.2 <3.0.0",
+		"eslint-plugin-n": ">=15.0.0 <16.0.0",
+		"eslint-plugin-promise": ">=6.0.0 <7.0.0",
+		"markdown-link-check": "^3.10.2",
 		"prettier": "^2.6.2",
 		"turbo": "^1.2.14",
 		"typescript": "^4.7.4"

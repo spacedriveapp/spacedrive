@@ -20,9 +20,11 @@ sdcore = { path = "../../../core" }
 
 # Universal Dependencies
 tokio = { version = "1.17.0", features = ["sync"] }
+futures = "^0.3"
 window-shadows = "0.1.2"
 env_logger = "0.9.0"
 dotenvy = "0.15.1"
+log = { version = "0.4.17", features = ["max_level_trace"] }
 
 # macOS system libs
 [target.'cfg(target_os = "macos")'.dependencies]

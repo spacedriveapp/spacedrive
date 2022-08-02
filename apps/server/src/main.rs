@@ -18,9 +18,9 @@ use actix_web::{
 use actix_web_actors::ws;
 use serde::{Deserialize, Serialize};
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
-const DATA_DIR_ENV_VAR: &'static str = "DATA_DIR";
+const DATA_DIR_ENV_VAR: &str = "DATA_DIR";
 
 #[derive(Serialize)]
 pub struct Event(CoreEvent);
@@ -182,10 +182,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Socket {
 				};
 
 				fut.into_actor(self).spawn(ctx);
-
-				()
 			},
-			_ => (),
+			_ => {},
 		}
 	}
 
@@ -222,12 +220,12 @@ impl Handler<SocketResponse> for Socket {
 
 #[get("/")]
 async fn index() -> impl Responder {
-	format!("Spacedrive Server!")
+	"Spacedrive Server!"
 }
 
 #[get("/health")]
 async fn healthcheck() -> impl Responder {
-	format!("OK")
+	"OK"
 }
 
 #[get("/ws")]
@@ -237,15 +235,14 @@ async fn ws_handler(
 	controller: web::Data<NodeController>,
 	server: web::Data<Addr<EventServer>>,
 ) -> Result<HttpResponse, Error> {
-	let resp = ws::start(
+	ws::start(
 		Socket {
 			node_controller: controller,
 			event_server: server,
 		},
 		&req,
 		stream,
-	);
-	resp
+	)
 }
 
 async fn not_found() -> impl Responder {
@@ -284,14 +281,16 @@ async fn setup() -> (mpsc::Receiver<CoreEvent>, web::Data<NodeController>) {
 
 			std::env::current_dir()
 				.expect(
-					"Unable to get your currrent directory. Maybe try setting $DATA_DIR?",
+					"Unable to get your current directory. Maybe try setting $DATA_DIR?",
 				)
 				.join("sdserver_data")
 		},
 	};
 
-	let (controller, event_receiver, node) = Node::new(data_dir_path).await;
-	tokio::spawn(node.start());
+	let (controller, event_receiver, node, _shutdown_completion_rx) =
+		Node::new(data_dir_path).await;
+	let (_shutdown_tx, shutdown_rx) = oneshot::channel();
+	tokio::spawn(node.start(shutdown_rx));
 
 	(event_receiver, web::Data::new(controller))
 }

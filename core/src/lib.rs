@@ -1,15 +1,19 @@
-use crate::{file::cas::FileIdentifierJob, prisma::file as prisma_file, prisma::location};
-use job::{JobManager, JobReport};
-use library::{LibraryConfig, LibraryConfigWrapped, LibraryManager};
-use log::error;
-use node::{NodeConfig, NodeConfigManager};
+use crate::{
+	encode::{ThumbnailJob, ThumbnailJobInit},
+	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
+	job::{Job, JobManager, JobReport},
+	library::{LibraryConfig, LibraryConfigWrapped, LibraryManager},
+	node::{NodeConfig, NodeConfigManager},
+	prisma::file as prisma_file,
+	prisma::location,
+	tag::{Tag, TagWithFiles},
+};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
 };
-use tag::{Tag, TagWithFiles};
-
 use thiserror::Error;
 use tokio::{
 	fs,
@@ -19,8 +23,7 @@ use tokio::{
 	},
 };
 use ts_rs::TS;
-
-use crate::encode::ThumbnailJob;
+use uuid::Uuid;
 
 mod encode;
 mod file;
@@ -56,7 +59,7 @@ impl NodeController {
 			})
 			.unwrap_or(());
 		// wait for response and return
-		recv.await.unwrap_or(Err(CoreError::QueryError))
+		recv.await.unwrap_or(Err(CoreError::Query))
 	}
 
 	pub async fn command(&self, command: ClientCommand) -> Result<CoreResponse, CoreError> {
@@ -102,35 +105,56 @@ pub struct Node {
 		UnboundedReceiver<ReturnableMessage<ClientCommand>>,
 	),
 	event_sender: mpsc::Sender<CoreEvent>,
+	shutdown_completion_tx: oneshot::Sender<()>,
 }
 
 impl Node {
 	// create new instance of node, run startup tasks
 	pub async fn new(
 		data_dir: impl AsRef<Path>,
-	) -> (NodeController, mpsc::Receiver<CoreEvent>, Node) {
-		fs::create_dir_all(&data_dir).await.unwrap();
+	) -> (
+		NodeController,
+		mpsc::Receiver<CoreEvent>,
+		Node,
+		oneshot::Receiver<()>,
+	) {
+		let data_dir = data_dir.as_ref();
+		fs::create_dir_all(data_dir).await.unwrap();
 
 		let (event_sender, event_recv) = mpsc::channel(100);
-		let config = NodeConfigManager::new(data_dir.as_ref().to_owned())
-			.await
-			.unwrap();
+		let config = NodeConfigManager::new(data_dir.to_owned()).await.unwrap();
+
+		let (shutdown_completion_tx, shutdown_completion_rx) = oneshot::channel();
+
 		let jobs = JobManager::new();
 		let node_ctx = NodeContext {
 			event_sender: event_sender.clone(),
 			config: config.clone(),
 			jobs: jobs.clone(),
 		};
+		let library_manager = LibraryManager::new(data_dir.join("libraries"), node_ctx)
+			.await
+			.unwrap();
+
+		// Trying to resume possible paused jobs
+		let inner_library_manager = Arc::clone(&library_manager);
+		let inner_jobs = Arc::clone(&jobs);
+		tokio::spawn(async move {
+			for library_ctx in inner_library_manager.get_all_libraries_ctx().await {
+				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library_ctx).await {
+					error!("Failed to resume jobs for library. {:#?}", e);
+				}
+			}
+		});
 
 		let node = Node {
 			config,
-			library_manager: LibraryManager::new(data_dir.as_ref().join("libraries"), node_ctx)
-				.await
-				.unwrap(),
+			library_manager,
 			query_channel: unbounded_channel(),
 			command_channel: unbounded_channel(),
 			jobs,
 			event_sender,
+			shutdown_completion_tx,
 		};
 
 		(
@@ -140,6 +164,7 @@ impl Node {
 			},
 			event_recv,
 			node,
+			shutdown_completion_rx,
 		)
 	}
 
@@ -151,7 +176,7 @@ impl Node {
 		}
 	}
 
-	pub async fn start(mut self) {
+	pub async fn start(mut self, mut shutdown_rx: oneshot::Receiver<()>) {
 		loop {
 			// listen on global messaging channels for incoming messages
 			tokio::select! {
@@ -163,8 +188,22 @@ impl Node {
 					let res = self.exec_command(msg.data).await;
 					msg.return_sender.send(res).unwrap_or(());
 				}
+
+				_ = &mut shutdown_rx => {
+					info!("Initiating shutdown node...");
+					self.shutdown().await;
+					info!("Node shutdown complete.");
+					self.shutdown_completion_tx.send(())
+						.expect("critical error: failed to send node shutdown completion signal");
+
+					break;
+				}
 			}
 		}
+	}
+
+	pub async fn shutdown(&self) {
+		self.jobs.pause().await
 	}
 
 	async fn exec_command(&mut self, cmd: ClientCommand) -> Result<CoreResponse, CoreError> {
@@ -258,19 +297,25 @@ impl Node {
 					// CRUD for libraries
 					LibraryCommand::VolUnmount { id: _ } => todo!(),
 					LibraryCommand::GenerateThumbsForLocation { id, path } => {
-						ctx.spawn_job(Box::new(ThumbnailJob {
-							location_id: id,
-							path,
-							background: false, // fix
-						}))
+						ctx.spawn_job(Job::new(
+							ThumbnailJobInit {
+								location_id: id,
+								path,
+								background: false, // fix
+							},
+							Box::new(ThumbnailJob {}),
+						))
 						.await;
 						CoreResponse::Success(())
 					}
 					LibraryCommand::IdentifyUniqueFiles { id, path } => {
-						ctx.spawn_job(Box::new(FileIdentifierJob {
-							location_id: id,
-							path,
-						}))
+						ctx.spawn_job(Job::new(
+							FileIdentifierJobInit {
+								location_id: id,
+								path,
+							},
+							Box::new(FileIdentifierJob {}),
+						))
 						.await;
 						CoreResponse::Success(())
 					}
@@ -292,7 +337,7 @@ impl Node {
 			ClientQuery::GetNodes => todo!(),
 			ClientQuery::GetVolumes => CoreResponse::GetVolumes(sys::Volume::get_volumes()?),
 			ClientQuery::LibraryQuery { library_id, query } => {
-				let ctx = match self.library_manager.get_ctx(library_id.clone()).await {
+				let ctx = match self.library_manager.get_ctx(library_id).await {
 					Some(ctx) => ctx,
 					None => {
 						println!("Library '{}' not found!", library_id);
@@ -344,15 +389,15 @@ pub enum ClientCommand {
 		name: String,
 	},
 	EditLibrary {
-		id: String,
+		id: Uuid,
 		name: Option<String>,
 		description: Option<String>,
 	},
 	DeleteLibrary {
-		id: String,
+		id: Uuid,
 	},
 	LibraryCommand {
-		library_id: String,
+		library_id: Uuid,
 		command: LibraryCommand,
 	},
 }
@@ -437,7 +482,7 @@ pub enum ClientQuery {
 	GetVolumes,
 	GetNodes,
 	LibraryQuery {
-		library_id: String,
+		library_id: Uuid,
 		query: LibraryQuery,
 	},
 }
@@ -512,17 +557,17 @@ pub enum CoreResponse {
 #[derive(Error, Debug)]
 pub enum CoreError {
 	#[error("Query error")]
-	QueryError,
-	#[error("System error")]
-	SysError(#[from] sys::SysError),
-	#[error("File error")]
-	FileError(#[from] file::FileError),
-	#[error("Job error")]
-	JobError(#[from] job::JobError),
-	#[error("Database error")]
-	DatabaseError(#[from] prisma::QueryError),
-	#[error("Database error")]
-	LibraryError(#[from] library::LibraryError),
+	Query,
+	#[error("System error: {0}")]
+	Sys(#[from] sys::SysError),
+	#[error("File error: {0}")]
+	File(#[from] file::FileError),
+	#[error("Job error: {0}")]
+	Job(#[from] job::JobError),
+	#[error("Database error: {0}")]
+	Database(#[from] prisma::QueryError),
+	#[error("Library error: {0}")]
+	Library(#[from] library::LibraryError),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
