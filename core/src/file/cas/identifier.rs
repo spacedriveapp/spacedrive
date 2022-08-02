@@ -9,7 +9,6 @@ use crate::{
 	sys::LocationResource,
 };
 use chrono::{DateTime, FixedOffset};
-use futures::future::join_all;
 use log::{error, info};
 use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
 use serde::{Deserialize, Serialize};

@@ -86,6 +86,17 @@ Congratulations :tada::tada: The Spacedrive team thanks you :sparkles:.
 
 Once your PR is merged, your contributions will be included in the next release of the application.
 
+
+### Common Errors
+
+#### `xcrun: error: unable to find utility "xctest", not a developer tool or in PATH`
+
+You either don't have Xcode installed, or don't have the Xcode command line tools in your `PATH`.
+
+- Install XCode from the Mac App Store
+- Run `xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+  This will use Xcode's developer tools instead of macOS's default tools.
+
 ### Credits
 
 This CONTRIBUTING.md file was modelled after the [github/docs CONTRIBUTING.md](https://github.com/github/docs/blob/main/CONTRIBUTING.md) file, and we thank the original author.
