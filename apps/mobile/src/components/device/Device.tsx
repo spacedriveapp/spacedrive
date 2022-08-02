@@ -12,6 +12,41 @@ export interface DeviceProps {
 	locations: Array<{ name: string; folder?: boolean; format?: string; icon?: string }>;
 }
 
+// const placeholderFileItems: FilePath[] = [
+// 	{
+// 		is_dir: true,
+// 		date_created: '2020-01-01T00:00:00.000Z',
+// 		date_indexed: '2020-01-01T00:00:00.000Z',
+// 		date_modified: '2020-01-01T00:00:00.000Z',
+// 		extension: '',
+// 		file_id: 5,
+// 		id: 5,
+// 		location_id: 1,
+// 		materialized_path: '',
+// 		name: 'Hello World',
+// 		parent_id: 0,
+// 		file: {
+// 			id: 1,
+// 			cas_id: '',
+// 			ipfs_id: '',
+// 			has_thumbnail: false,
+// 			favorite: false,
+// 			has_thumbstrip: false,
+// 			has_video_preview: false,
+// 			hidden: false,
+// 			important: false,
+// 			integrity_checksum: '',
+// 			kind: 'Image',
+// 			note: '',
+// 			paths: [],
+// 			size_in_bytes: '555',
+// 			date_created: '',
+// 			date_indexed: '',
+// 			date_modified: ''
+// 		}
+// 	}
+// ];
+
 const Device = ({ name, locations, size, type }: DeviceProps) => {
 	return (
 		<View style={tw`bg-gray-600 border rounded-md border-gray-550 mt-4`}>
@@ -33,6 +68,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 				{/* Size */}
 				<Text style={tw`font-semibold text-sm ml-2 text-gray-400`}>{size}</Text>
 			</View>
+			{/* Locations/Files */}
 			<View style={tw`mt-4 p-4`} />
 		</View>
 	);

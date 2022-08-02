@@ -7,6 +7,10 @@ type FileItemProps = {
 };
 
 const FileItem = ({ file }: FileItemProps) => {
+	// If DIR show folder icon
+	// else if file has thumbnail show thumbnail
+	// else show file with ext. icon
+	// else show default icon
 	return (
 		<View>
 			<Text>FileItem</Text>
