@@ -1,5 +1,5 @@
 import { Transition } from '@headlessui/react';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import clsx from 'clsx';
 import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 

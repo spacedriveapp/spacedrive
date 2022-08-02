@@ -1,20 +1,14 @@
-import { CollectionIcon, TrashIcon } from '@heroicons/react/outline';
-import { PlusIcon } from '@heroicons/react/solid';
+import { TrashIcon } from '@heroicons/react/outline';
 import { useBridgeMutation, useBridgeQuery } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
-import { LibraryConfig, LibraryConfigWrapped } from '@sd/core';
+import { LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import { DotsSixVertical } from 'phosphor-react';
-import React, { useContext, useState } from 'react';
+import React, { useState } from 'react';
 
 import Card from '../../../components/layout/Card';
 import Dialog from '../../../components/layout/Dialog';
-import { Toggle } from '../../../components/primitive';
-import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
-
-// type LibrarySecurity = 'public' | 'password' | 'vault';
 
 function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -58,7 +52,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 export default function LibrarySettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
-
+	const { data: libraries } = useBridgeQuery(['library.get']);
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
@@ -67,14 +61,6 @@ export default function LibrarySettings() {
 			}
 		}
 	);
-
-	const { data: libraries } = useBridgeQuery(['library.get']);
-
-	function createNewLib() {
-		if (newLibName) {
-			createLibrary(newLibName);
-		}
-	}
 
 	return (
 		<SettingsContainer>
@@ -88,8 +74,9 @@ export default function LibrarySettings() {
 							onOpenChange={setOpenCreateModal}
 							title="Create New Library"
 							description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
-							ctaAction={createNewLib}
+							ctaAction={() => createLibrary(newLibName)}
 							loading={createLibLoading}
+							submitDisabled={!newLibName}
 							ctaLabel="Create"
 							trigger={
 								<Button variant="primary" size="sm">

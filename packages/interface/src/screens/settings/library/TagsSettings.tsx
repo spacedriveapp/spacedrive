@@ -38,7 +38,7 @@ export default function TagsSettings() {
 		}
 	});
 
-	const { mutate: updateTag, isLoading: tagUpdateLoading } = useLibraryMutation('tags.update');
+	const { mutate: updateTag } = useLibraryMutation('tags.update');
 
 	const { mutate: deleteTag, isLoading: tagDeleteLoading } = useLibraryMutation('tags.delete');
 
@@ -118,7 +118,7 @@ export default function TagsSettings() {
 							key={tag.id}
 							className={clsx(
 								'flex items-center rounded px-1.5 py-0.5',
-								selectedTag == tag.id && 'ring'
+								selectedTag === tag.id && 'ring'
 							)}
 							style={{ backgroundColor: tag.color + 'CC' }}
 						>

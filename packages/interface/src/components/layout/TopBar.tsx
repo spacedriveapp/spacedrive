@@ -2,18 +2,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
 import { AppPropsContext, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import {
-	ArrowsClockwise,
-	Cloud,
-	FolderPlus,
-	IconProps,
-	Key,
-	List,
-	Rows,
-	SquaresFour,
-	Tag,
-	TerminalWindow
-} from 'phosphor-react';
+import { ArrowsClockwise, IconProps, Key, List, Rows, SquaresFour } from 'phosphor-react';
 import React, { DetailedHTMLProps, HTMLAttributes, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 

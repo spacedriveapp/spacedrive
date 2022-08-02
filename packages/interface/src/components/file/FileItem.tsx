@@ -1,13 +1,10 @@
-import { LocationContext, useExplorerStore } from '@sd/client';
-import { File, FilePath } from '@sd/core';
+import { LocationContext } from '@sd/client';
+import { FilePath } from '@sd/core';
 import clsx from 'clsx';
-import { FilePlus, FileText, Plus, Share, Trash } from 'phosphor-react';
-import React, { MouseEventHandler, useContext } from 'react';
+import React, { useContext } from 'react';
 
 import icons from '../../assets/icons';
 import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
-import { WithContextMenu } from '../layout/MenuOverlay';
-import { DefaultProps } from '../primitive/types';
 import FileThumb from './FileThumb';
 
 interface Props extends React.HTMLAttributes<HTMLDivElement> {
@@ -50,14 +47,7 @@ export default function FileItem(props: Props) {
 						</div>
 					</div>
 				) : (
-					<div
-						className={clsx(
-							'w-[64px] mt-1.5 m-auto transition duration-200 rounded-lg h-[90px] relative active:translate-y-[1px]',
-							{
-								'': props.selected
-							}
-						)}
-					>
+					<div className="w-[64px] mt-1.5 m-auto transition duration-200 rounded-lg h-[90px] relative active:translate-y-[1px]">
 						<svg
 							className="absolute top-0 left-0 pointer-events-none fill-gray-150 dark:fill-gray-550"
 							width="65"

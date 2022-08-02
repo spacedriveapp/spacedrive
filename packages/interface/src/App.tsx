@@ -1,6 +1,11 @@
 import '@fontsource/inter/variable.css';
-import { queryClient, useBridgeQuery, useInvalidateQuery } from '@sd/client';
-import { AppProps, AppPropsContext } from '@sd/client';
+import {
+	AppProps,
+	AppPropsContext,
+	queryClient,
+	useBridgeQuery,
+	useInvalidateQuery
+} from '@sd/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import React, { useEffect, useState } from 'react';
@@ -37,7 +42,7 @@ export default function App(props: AppProps) {
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
 			<QueryClientProvider client={queryClient}>
-				{/* <ReactQueryDevtools position="bottom-right" /> */}
+				{import.meta.env.MODE === 'development' && <ReactQueryDevtools position="bottom-right" />}
 				<RouterContainer props={props} />
 			</QueryClientProvider>
 		</ErrorBoundary>

@@ -1,10 +1,7 @@
-import React, { useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import React from 'react';
+import { useParams } from 'react-router-dom';
 
 export const TagScreen: React.FC<{}> = () => {
-	let [searchParams] = useSearchParams();
-	let path = searchParams.get('path') || '';
-
 	let { id } = useParams();
 
 	return (

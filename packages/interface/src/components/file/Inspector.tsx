@@ -6,7 +6,7 @@ import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
-import { default as types } from '../../constants/file-types.json';
+import types from '../../constants/file-types.json';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
@@ -35,7 +35,6 @@ export const Inspector = (props: {
 	selectedFile?: FilePath;
 }) => {
 	const file_path = props.selectedFile,
-		full_path = `${props.location?.local_path}/${file_path?.materialized_path}`,
 		file_id = props.selectedFile?.file?.id || -1;
 
 	const [favorite, setFavorite] = useState(false);
@@ -60,9 +59,6 @@ export const Inspector = (props: {
 			});
 		}, 500);
 
-		// Cancel the timeout if value changes (also on delay change or unmount)
-		// This is how we prevent debounced value from updating if value is changed ...
-		// .. within the delay period. Timeout gets cleared and restarted.
 		return () => {
 			clearTimeout(handler);
 		};
@@ -114,7 +110,10 @@ export const Inspector = (props: {
 							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
 						)}
 						<Divider />
-						<MetaItem title="URI" value={full_path} />
+						<MetaItem
+							title="URI"
+							value={`${props.location?.local_path}/${file_path?.materialized_path}`}
+						/>
 						<Divider />
 						<MetaItem
 							title="Date Created"
