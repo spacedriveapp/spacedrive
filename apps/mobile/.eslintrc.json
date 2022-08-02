@@ -32,7 +32,12 @@
 		"react/prop-types": 0,
 		"no-control-regex": 0,
 		"no-mixed-spaces-and-tabs": ["warn", "smart-tabs"],
-		"react/react-in-jsx-scope": "off"
+		"react/react-in-jsx-scope": "off",
+		// Aggressively disable some rules for React Native.
+		"@typescript-eslint/strict-boolean-expressions": 0,
+		"@typescript-eslint/explicit-function-return-type": 0,
+		"@typescript-eslint/consistent-type-definitions": 0,
+		"@typescript-eslint/no-floating-promises": 0
 	},
 	"settings": {
 		"react": {

@@ -18,7 +18,7 @@ const placeholderOverviewStats = {
 	total_unique_bytes: '9347397'
 };
 
-const placeholderLocations = [{}];
+// const placeholderLocations = [{}];
 
 export default function OverviewScreen({ navigation }: BottomNavScreenProps<'Overview'>) {
 	return (

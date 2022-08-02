@@ -250,7 +250,7 @@ importers:
       react-native-svg-transformer: ^1.0.0
       tslib: ^2.4.0
       twrnc: ^3.3.3
-      typescript: ^4.6.3
+      typescript: ^4.7.2
       use-count-up: ^3.0.1
       zustand: 4.0.0
     dependencies:
@@ -1813,7 +1813,7 @@ packages:
       '@babel/core': ^7.0.0-0
     dependencies:
       '@babel/core': 7.18.10
-      '@babel/helper-plugin-utils': 7.18.9
+      '@babel/helper-plugin-utils': 7.17.12
 
   /@babel/plugin-syntax-flow/7.17.12_@babel+core@7.18.2:
     resolution: {integrity: sha512-B8QIgBvkIG6G2jgsOHQUist7Sm0EBLDCx8sen072IwqNuzMegZNXrYnSv77cYzA8mLDZAfQYqsLIhimiP1s2HQ==}

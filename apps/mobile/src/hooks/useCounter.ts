@@ -4,7 +4,7 @@ import create from 'zustand';
 
 const useCounterStore = create<{
 	counterLastValue: Map<string, number>;
-	setCounterLastValue(key: string, value: number): void;
+	setCounterLastValue: (key: string, value: number) => void;
 }>((set) => ({
 	counterLastValue: new Map<string, number>(),
 	setCounterLastValue: (name, lastValue) =>
@@ -55,7 +55,7 @@ const useCounter = ({ name, start = 0, end, duration = 2, saveState = true }: Us
 	});
 
 	useEffect(() => {
-		if (saveState && value == end) {
+		if (saveState && Number(value) === end) {
 			setLastValue(name, end);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps

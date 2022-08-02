@@ -4,9 +4,9 @@ import { Text, View } from 'react-native';
 import { Button } from '../components/base/Button';
 import DrawerScreenWrapper from '../components/drawer/DrawerScreenWrapper';
 import tw from '../lib/tailwind';
-import { HomeDrawerScreenProps } from '../types/navigation';
+import { BottomNavScreenProps } from '../types/navigation';
 
-export default function SpacesScreen({ navigation }: HomeDrawerScreenProps<'Spaces'>) {
+export default function SpacesScreen({ navigation }: BottomNavScreenProps<'Spaces'>) {
 	return (
 		<DrawerScreenWrapper>
 			<Text style={tw`font-bold text-xl text-white`}>Spaces</Text>

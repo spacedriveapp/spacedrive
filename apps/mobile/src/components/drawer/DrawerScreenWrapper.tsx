@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import tw from '../../lib/tailwind';
 
-const DrawerScreenWrapper: React.FC = ({ children }) => {
+const DrawerScreenWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const progress: any = useDrawerProgress();
 
 	const style = useAnimatedStyle(() => {

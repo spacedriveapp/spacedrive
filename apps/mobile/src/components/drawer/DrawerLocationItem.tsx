@@ -4,11 +4,11 @@ import { Pressable, Text, View } from 'react-native';
 import tw from '../../lib/tailwind';
 import FolderIcon from '../icons/Folder';
 
-type DrawerLocationItemProps = {
+interface DrawerLocationItemProps {
 	folderName: string;
 	onPress: () => void;
 	isSelected: boolean;
-};
+}
 
 const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 	const { folderName, onPress, isSelected } = props;

@@ -84,7 +84,7 @@ export function AnimatedHeight({
 			onDidAnimate={
 				onHeightDidAnimate &&
 				((key, finished, _, { attemptedValue }) =>
-					key == 'height' && onHeightDidAnimate(attemptedValue as number))
+					key === 'height' && onHeightDidAnimate(attemptedValue as number))
 			}
 			style={[tw`overflow-hidden`, style]}
 		>

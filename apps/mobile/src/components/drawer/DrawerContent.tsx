@@ -54,11 +54,11 @@ const drawerHeight = Layout.window.height * 0.85;
 
 // This is a hacky way to get the active route name and params but it works and it's typed...
 
-type ActiveRoute = {
+interface ActiveRoute {
 	key: string;
 	name: keyof DrawerNavParamList;
 	params: valueof<Omit<DrawerNavParamList, 'Home'>>;
-};
+}
 
 const getActiveRouteState = function (state: any): ActiveRoute {
 	if (!state.routes || state.routes.length === 0 || state.index >= state.routes.length) {
@@ -70,13 +70,13 @@ const getActiveRouteState = function (state: any): ActiveRoute {
 };
 
 // Overriding the default to add typing for our params.
-type DrawerContentComponentProps = {
+interface DrawerContentComponentProps {
 	state: DrawerNavigationState<DrawerNavParamList>;
 	navigation: NavigationHelpers<DrawerNavParamList, DrawerNavigationEventMap> &
 		DrawerActionHelpers<DrawerNavParamList>;
 	// descriptors type is generic
 	descriptors: DrawerDescriptorMap;
-};
+}
 
 const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponentProps) => {
 	return (

@@ -9,7 +9,7 @@ export interface DeviceProps {
 	name: string;
 	size: string;
 	type: 'laptop' | 'desktop' | 'phone' | 'server';
-	locations: { name: string; folder?: boolean; format?: string; icon?: string }[];
+	locations: Array<{ name: string; folder?: boolean; format?: string; icon?: string }>;
 }
 
 const Device = ({ name, locations, size, type }: DeviceProps) => {

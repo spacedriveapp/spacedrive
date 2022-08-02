@@ -3,12 +3,12 @@ import { Pressable, Text, View } from 'react-native';
 
 import tw from '../../lib/tailwind';
 
-type DrawerProps = {
+interface DrawerProps {
 	label: string;
 	onPress: () => void;
 	icon: JSX.Element;
 	isSelected: boolean;
-};
+}
 
 const DrawerItem: React.FC<DrawerProps> = (props) => {
 	const { label, icon, onPress, isSelected } = props;
