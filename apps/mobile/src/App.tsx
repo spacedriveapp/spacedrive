@@ -1,6 +1,7 @@
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
 
@@ -40,10 +41,12 @@ export default function App() {
 	} else {
 		return (
 			<SafeAreaProvider style={tw`flex-1 bg-black`}>
-				<NavigationContainer theme={NavigatorTheme}>
-					{showOnboarding ? <OnboardingNavigator /> : <RootNavigator />}
-				</NavigationContainer>
-				<StatusBar style="light" />
+				<GestureHandlerRootView style={tw`flex-1`}>
+					<NavigationContainer theme={NavigatorTheme}>
+						{showOnboarding ? <OnboardingNavigator /> : <RootNavigator />}
+					</NavigationContainer>
+					<StatusBar style="light" />
+				</GestureHandlerRootView>
 			</SafeAreaProvider>
 		);
 	}
