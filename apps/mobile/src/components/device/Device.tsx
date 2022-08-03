@@ -115,7 +115,7 @@ const placeholderFileItems: FilePath[] = [
 
 const Device = ({ name, locations, size, type }: DeviceProps) => {
 	return (
-		<View style={tw`bg-gray-600 border rounded-md border-gray-550 mt-4`}>
+		<View style={tw`bg-gray-600 border rounded-md border-gray-550 my-2`}>
 			<View style={tw`flex flex-row items-center px-4 pt-3 pb-2`}>
 				<View style={tw`flex flex-row items-center`}>
 					{type === 'phone' && (

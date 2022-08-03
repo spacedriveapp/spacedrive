@@ -1,9 +1,10 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 
 import { Button } from '../components/base/Button';
 import Device from '../components/device/Device';
 import DrawerScreenWrapper from '../components/drawer/DrawerScreenWrapper';
+import VirtualizedListWrapper from '../components/layout/VirtualizedListWrapper';
 import OverviewStats from '../containers/OverviewStats';
 import tw from '../lib/tailwind';
 import { BottomNavScreenProps } from '../types/navigation';
@@ -18,29 +19,61 @@ const placeholderOverviewStats = {
 	total_unique_bytes: '9347397'
 };
 
+const placeholderDevices: any = [
+	{
+		name: "James' iPhone 12",
+		size: '47.9GB',
+		locations: [],
+		type: 'phone'
+	},
+	{
+		name: "James' MacBook Pro",
+		size: '1TB',
+		locations: [],
+		type: 'laptop'
+	},
+	{
+		name: "James' Toaster",
+		size: '1PB',
+		locations: [],
+		type: 'desktop'
+	},
+	{
+		name: 'Spacedrive Server',
+		size: '5GB',
+		locations: [],
+		type: 'server'
+	}
+];
+
 export default function OverviewScreen({ navigation }: BottomNavScreenProps<'Overview'>) {
 	return (
 		<DrawerScreenWrapper>
-			<View style={tw`p-4`}>
-				{/* Header */}
-				<View style={tw`flex-row my-6 justify-center items-center`}>
-					{/* TODO: Header with Search and a button to open drawer! */}
-					<Button variant="primary" size="lg" onPress={() => navigation.openDrawer()}>
-						<Text style={tw`font-bold text-white`}>Open Drawer</Text>
-					</Button>
-					<Button variant="primary" size="lg" onPress={() => navigation.navigate('Modal')}>
-						<Text style={tw`font-bold text-white`}>Open Modal</Text>
-					</Button>
+			<VirtualizedListWrapper>
+				<View style={tw`px-4`}>
+					{/* Header */}
+					<View style={tw`flex-row my-6 justify-center items-center`}>
+						{/* TODO: Header with Search and a button to open drawer! */}
+						<Button variant="primary" size="lg" onPress={() => navigation.openDrawer()}>
+							<Text style={tw`font-bold text-white`}>Open Drawer</Text>
+						</Button>
+						<Button variant="primary" size="lg" onPress={() => navigation.navigate('Modal')}>
+							<Text style={tw`font-bold text-white`}>Open Modal</Text>
+						</Button>
+					</View>
+					{/* Stats */}
+					<OverviewStats stats={placeholderOverviewStats} />
+					<View style={tw`mt-4`} />
+					{/* Devices */}
+					<FlatList
+						data={placeholderDevices}
+						keyExtractor={(item, index) => index.toString()}
+						renderItem={({ item }) => (
+							<Device locations={[]} name={item.name} size={item.size} type={item.type} />
+						)}
+					/>
 				</View>
-				{/* Stats */}
-				<OverviewStats stats={placeholderOverviewStats} />
-				{/* Devices */}
-				<View style={tw`mt-4`}>
-					<Device name={`James' MacBook Pro`} size="1TB" locations={[]} type="desktop" />
-					<Device name={`James' iPhone 12`} size="47.7GB" locations={[]} type="phone" />
-					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" />
-				</View>
-			</View>
+			</VirtualizedListWrapper>
 		</DrawerScreenWrapper>
 	);
 }

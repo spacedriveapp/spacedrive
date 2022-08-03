@@ -4,6 +4,7 @@
 		"slug": "spacedrive",
 		"version": "0.0.1",
 		"orientation": "portrait",
+		"jsEngine": "hermes",
 		"icon": "./src/assets/app/icon.png",
 		"scheme": "spacedrive",
 		"userInterfaceStyle": "automatic",
