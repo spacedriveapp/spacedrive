@@ -1,7 +1,7 @@
-import { DotsVerticalIcon, RefreshIcon } from '@heroicons/react/outline';
+import { RefreshIcon } from '@heroicons/react/outline';
 import { TrashIcon } from '@heroicons/react/solid';
-import { useLibraryCommand } from '@sd/client';
-import { LocationResource } from '@sd/core';
+import { useLibraryMutation } from '@sd/client';
+import { Location } from '@sd/core';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useState } from 'react';
@@ -10,19 +10,22 @@ import { Folder } from '../icons/Folder';
 import Dialog from '../layout/Dialog';
 
 interface LocationListItemProps {
-	location: LocationResource;
+	location: Location;
 }
 
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const [hide, setHide] = useState(false);
 
-	const { mutate: locRescan } = useLibraryCommand('LocFullRescan');
+	const { mutate: locRescan } = useLibraryMutation('locations.fullRescan');
 
-	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryCommand('LocDelete', {
-		onSuccess: () => {
-			setHide(true);
+	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryMutation(
+		'locations.delete',
+		{
+			onSuccess: () => {
+				setHide(true);
+			}
 		}
-	});
+	);
 
 	if (hide) return <></>;
 
@@ -33,7 +36,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 text-sm select-text text-gray-250">
 					<span className="py-[1px] px-1 bg-gray-500 rounded mr-1">{location.node?.name}</span>
-					{location.path}
+					{location.local_path}
 				</p>
 			</div>
 			<div className="flex flex-grow" />
@@ -55,7 +58,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					title="Delete Location"
 					description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 					ctaAction={() => {
-						deleteLoc({ id: location.id });
+						deleteLoc(location.id);
 					}}
 					loading={locDeletePending}
 					ctaDanger
@@ -71,7 +74,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					className="!p-1.5"
 					onClick={() => {
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						locRescan({ id: location.id });
+						locRescan(location.id);
 					}}
 				>
 					<RefreshIcon className="w-4 h-4" />

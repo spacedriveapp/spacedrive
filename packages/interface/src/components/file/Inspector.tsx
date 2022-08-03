@@ -1,13 +1,12 @@
-import { Transition } from '@headlessui/react';
 import { ShareIcon } from '@heroicons/react/solid';
-import { useInspectorStore, useLibraryCommand } from '@sd/client';
-import { FilePath, LocationResource } from '@sd/core';
+import { useLibraryMutation } from '@sd/client';
+import { FilePath, Location } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
-import { default as types } from '../../constants/file-types.json';
+import types from '../../constants/file-types.json';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
@@ -32,26 +31,38 @@ const Divider = () => <div className="w-full my-1 h-[1px] bg-gray-100 dark:bg-gr
 
 export const Inspector = (props: {
 	locationId: number;
-	location?: LocationResource;
+	location?: Location | null;
 	selectedFile?: FilePath;
 }) => {
 	const file_path = props.selectedFile,
-		full_path = `${props.location?.path}/${file_path?.materialized_path}`,
 		file_id = props.selectedFile?.file?.id || -1;
 
-	// notes are cached in a store by their file id
-	// this is so we can ensure every note has been sent to Rust even
-	// when quickly navigating files, which cancels update function
-	const { notes, setNote, unCacheNote } = useInspectorStore();
-
 	const [favorite, setFavorite] = useState(false);
-
-	const { mutate: fileToggleFavorite, isLoading: isFavoriteLoading } = useLibraryCommand(
-		'FileSetFavorite',
+	const { mutate: fileToggleFavorite, isLoading: isFavoriteLoading } = useLibraryMutation(
+		'files.setFavorite',
 		{
 			onError: () => setFavorite(!!props.selectedFile?.file?.favorite)
 		}
 	);
+	const { mutate: fileSetNote } = useLibraryMutation('files.setNote');
+
+	// notes are cached in a store by their file id
+	// this is so we can ensure every note has been sent to Rust even
+	// when quickly navigating files, which cancels update function
+	const [note, setNote] = useState(props.location?.local_path || '');
+	useEffect(() => {
+		// Update debounced value after delay
+		const handler = setTimeout(() => {
+			fileSetNote({
+				id: file_id,
+				note
+			});
+		}, 500);
+
+		return () => {
+			clearTimeout(handler);
+		};
+	}, [note]);
 
 	const toggleFavorite = () => {
 		if (!isFavoriteLoading) {
@@ -64,23 +75,12 @@ export const Inspector = (props: {
 		setFavorite(!!props.selectedFile?.file?.favorite);
 	}, [props.selectedFile]);
 
-	// show cached note over server note, important to check for undefined not falsey
-	const note =
-		notes[file_id] === undefined ? props.selectedFile?.file?.note || null : notes[file_id];
-
 	// when input is updated, cache note
 	function handleNoteUpdate(e: React.ChangeEvent<HTMLTextAreaElement>) {
 		if (e.target.value !== note) {
-			setNote(file_id, e.target.value);
+			setNote(e.target.value);
 		}
 	}
-
-	useEffect(() => {
-		// if the notes are synced, remove cache
-		if (notes[file_id] === props.selectedFile?.file?.note) {
-			unCacheNote(file_id);
-		}
-	}, [note]);
 
 	return (
 		<div className="p-2 pr-1 w-[330px] overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
@@ -110,7 +110,10 @@ export const Inspector = (props: {
 							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
 						)}
 						<Divider />
-						<MetaItem title="URI" value={full_path} />
+						<MetaItem
+							title="URI"
+							value={`${props.location?.local_path}/${file_path?.materialized_path}`}
+						/>
 						<Divider />
 						<MetaItem
 							title="Date Created"

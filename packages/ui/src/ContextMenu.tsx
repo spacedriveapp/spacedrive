@@ -3,7 +3,7 @@ import { Root, Trigger } from '@radix-ui/react-context-menu';
 import clsx from 'clsx';
 import { CaretRight, Icon } from 'phosphor-react';
 import { Question } from 'phosphor-react';
-import React, { ComponentPropsWithRef } from 'react';
+import React from 'react';
 
 export interface ContextMenuItem {
 	label: string;
@@ -54,18 +54,18 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 
 							let ItemComponent:
 								| typeof ContextMenuPrimitive.Item
-								| typeof ContextMenuPrimitive.TriggerItem = ContextMenuPrimitive.Item;
+								| typeof ContextMenuPrimitive.Trigger = ContextMenuPrimitive.Item;
 
 							if ((item.children?.length ?? 0) > 0)
 								ItemComponent = ((props) => (
 									<ContextMenuPrimitive.Root>
-										<ContextMenuPrimitive.TriggerItem {...props}>
+										<ContextMenuPrimitive.Trigger {...props}>
 											{props.children}
-										</ContextMenuPrimitive.TriggerItem>
+										</ContextMenuPrimitive.Trigger>
 
 										<ContextMenu items={item.children} className="relative -left-1 -top-2" />
 									</ContextMenuPrimitive.Root>
-								)) as typeof ContextMenuPrimitive.TriggerItem;
+								)) as typeof ContextMenuPrimitive.Trigger;
 
 							return (
 								<ItemComponent
