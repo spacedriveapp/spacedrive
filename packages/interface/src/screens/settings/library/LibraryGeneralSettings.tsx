@@ -1,4 +1,4 @@
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -12,7 +12,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 export default function LibraryGeneralSettings() {
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
-	const { mutate: editLibrary } = useBridgeCommand('EditLibrary');
+	const { mutate: editLibrary } = useBridgeMutation('library.edit');
 
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');

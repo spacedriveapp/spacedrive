@@ -1,5 +1,4 @@
-export * from './bridge';
-export * from './ClientProvider';
 export * from './stores';
-export * from './hooks';
 export * from './context';
+export * from './rspc';
+export type { Operations } from '@sd/core';

@@ -62,4 +62,4 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 	);
 }
 
-export default Page;
+export { Page };

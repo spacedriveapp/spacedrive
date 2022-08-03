@@ -1,15 +1,14 @@
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
+use rspc::Type;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 use uuid::Uuid;
 
 mod config;
 use crate::prisma::node;
 pub use config::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryNode {
 	pub uuid: Uuid,
 	pub name: String,
@@ -36,8 +35,7 @@ impl From<Box<node::Data>> for LibraryNode {
 
 #[allow(clippy::upper_case_acronyms)]
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum)]
 pub enum Platform {
 	Unknown = 0,
 	Windows = 1,

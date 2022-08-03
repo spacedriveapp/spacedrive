@@ -1,5 +1,4 @@
-import { useBridgeQuery, useExplorerStore } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { AppPropsContext, useExplorerStore } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext } from 'react';
@@ -15,7 +14,7 @@ export default function FileThumb(props: {
 	const appProps = useContext(AppPropsContext);
 	const { newThumbnails } = useExplorerStore();
 
-	const hasNewThumbnail = !!newThumbnails[props?.file?.file?.cas_id ?? ''];
+	const hasNewThumbnail = !!newThumbnails[props.file.file?.cas_id ?? ''];
 
 	if (props.file.is_dir) {
 		return <Folder size={100} />;
