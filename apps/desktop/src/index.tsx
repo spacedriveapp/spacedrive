@@ -1,10 +1,7 @@
 // import Spacedrive JS client
-import { BaseTransport } from '@sd/client';
-// import types from Spacedrive core (TODO: re-export from client would be cleaner)
-import { ClientCommand, ClientQuery, CoreEvent } from '@sd/core';
-// import Spacedrive interface
+import { TauriTransport, createClient } from '@rspc/client';
+import { Operations, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
-// import tauri apis
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { Event, listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
@@ -14,22 +11,9 @@ import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';
 
-// bind state to core via Tauri
-class Transport extends BaseTransport {
-	constructor() {
-		super();
-
-		listen('core_event', (e: Event<CoreEvent>) => {
-			this.emit('core_event', e.payload);
-		});
-	}
-	async query(query: ClientQuery) {
-		return await invoke('client_query_transport', { data: query });
-	}
-	async command(query: ClientCommand) {
-		return await invoke('client_command_transport', { data: query });
-	}
-}
+const client = createClient<Operations>({
+	transport: new TauriTransport()
+});
 
 function App() {
 	function getPlatform(platform: string): Platform {
@@ -64,23 +48,24 @@ function App() {
 	}, []);
 
 	return (
-		<SpacedriveInterface
-			transport={new Transport()}
-			platform={platform}
-			convertFileSrc={function (url: string): string {
-				return convertFileSrc(url);
-			}}
-			openDialog={function (options: {
-				directory?: boolean | undefined;
-			}): Promise<string | string[] | null> {
-				return dialog.open(options);
-			}}
-			isFocused={focused}
-			onClose={() => appWindow.close()}
-			onFullscreen={() => appWindow.setFullscreen(true)}
-			onMinimize={() => appWindow.minimize()}
-			onOpen={(path: string) => shell.open(path)}
-		/>
+		<rspc.Provider client={client} queryClient={queryClient}>
+			<SpacedriveInterface
+				platform={platform}
+				convertFileSrc={function (url: string): string {
+					return convertFileSrc(url);
+				}}
+				openDialog={function (options: {
+					directory?: boolean | undefined;
+				}): Promise<string | string[] | null> {
+					return dialog.open(options);
+				}}
+				isFocused={focused}
+				onClose={() => appWindow.close()}
+				onFullscreen={() => appWindow.setFullscreen(true)}
+				onMinimize={() => appWindow.minimize()}
+				onOpen={(path: string) => shell.open(path)}
+			/>
+		</rspc.Provider>
 	);
 }
 

@@ -17,21 +17,22 @@
 		"preset": "scripts/jest/node"
 	},
 	"dependencies": {
+		"@rspc/client": "^0.0.5",
 		"@sd/config": "workspace:*",
 		"@sd/core": "workspace:*",
 		"@sd/interface": "workspace:*",
+		"@tanstack/react-query": "^4.0.10",
 		"eventemitter3": "^4.0.7",
-		"immer": "^9.0.14",
+		"immer": "^9.0.15",
 		"lodash": "^4.17.21",
-		"react-query": "^3.34.19",
-		"zustand": "4.0.0-rc.1"
+		"zustand": "4.0.0"
 	},
 	"devDependencies": {
-		"@types/react": "^18.0.9",
+		"@types/lodash": "^4.14.182",
+		"@types/react": "^18.0.15",
 		"scripts": "*",
 		"tsconfig": "*",
-		"typescript": "^4.7.2",
-		"@types/lodash": "^4.14.182"
+		"typescript": "^4.7.4"
 	},
 	"peerDependencies": {
 		"react": "^18.0.0"

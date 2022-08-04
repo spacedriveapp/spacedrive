@@ -1,4 +1,4 @@
-import { DatabaseIcon, ExclamationCircleIcon, PlusIcon } from '@heroicons/react/solid';
+import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/solid';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { Statistics } from '@sd/core';
@@ -100,9 +100,10 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 };
 
 export const OverviewScreen = () => {
-	const { data: libraryStatistics, isLoading: isStatisticsLoading } =
-		useLibraryQuery('GetLibraryStatistics');
-	const { data: nodeState } = useBridgeQuery('GetNode');
+	const { data: libraryStatistics, isLoading: isStatisticsLoading } = useLibraryQuery([
+		'library.getStatistics'
+	]);
+	const { data: nodeState } = useBridgeQuery(['getNode']);
 
 	const { overviewStats, setOverviewStats } = useOverviewState();
 

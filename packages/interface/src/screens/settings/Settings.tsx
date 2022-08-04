@@ -2,33 +2,18 @@ import {
 	AnnotationIcon,
 	CogIcon,
 	CollectionIcon,
-	DatabaseIcon,
-	GlobeAltIcon,
 	HeartIcon,
-	InformationCircleIcon,
 	KeyIcon,
-	LibraryIcon,
-	LightBulbIcon,
-	LockClosedIcon,
 	ShieldCheckIcon,
-	SparklesIcon,
 	TagIcon,
-	TerminalIcon
 } from '@heroicons/react/outline';
 import {
-	BookOpen,
-	Cloud,
 	FlyingSaucer,
-	HandWaving,
 	HardDrive,
-	Hash,
-	Info,
 	KeyReturn,
 	PaintBrush,
 	PuzzlePiece,
 	ShareNetwork,
-	Shield,
-	UsersFour
 } from 'phosphor-react';
 import React from 'react';
 

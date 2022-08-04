@@ -1,5 +1,4 @@
-import { useLibraryQuery } from '@sd/client';
-import { useExplorerStore } from '@sd/client';
+import { rspc, useExplorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
@@ -16,15 +15,21 @@ export const ExplorerScreen: React.FC<{}> = () => {
 
 	const [limit, setLimit] = React.useState(100);
 
-	const { selectedRowIndex } = useExplorerStore();
+	const { selectedRowIndex, addNewThumbnail } = useExplorerStore();
+
+	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
+	rspc.useSubscription(['jobs.newThumbnail', { library_id: library_id!, arg: null }], {
+		onNext: (cas_id) => {
+			addNewThumbnail(cas_id);
+		}
+	});
 
 	// Current Location
-	const { data: currentLocation } = useLibraryQuery('GetLocation', { id: location_id });
+	const { data: currentLocation } = useLibraryQuery(['locations.getById', location_id]);
 
 	// Current Directory
 	const { data: currentDir } = useLibraryQuery(
-		'GetExplorerDir',
-		{ location_id: location_id!, path, limit },
+		['locations.getExplorerDir', { location_id: location_id!, path, limit }],
 		{ enabled: !!location_id }
 	);
 

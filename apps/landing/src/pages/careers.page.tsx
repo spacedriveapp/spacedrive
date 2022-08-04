@@ -10,10 +10,8 @@ import {
 	TrendingUpIcon
 } from '@heroicons/react/outline';
 import { Button } from '@sd/ui';
-import { Heartbeat } from 'phosphor-react';
 import React from 'react';
 import { Helmet } from 'react-helmet';
-import { ReactComponent as Content } from '~/docs/changelog/index.md';
 
 interface PositionPosting {
 	name: string;
@@ -188,4 +186,4 @@ function Page() {
 	);
 }
 
-export default Page;
+export { Page };

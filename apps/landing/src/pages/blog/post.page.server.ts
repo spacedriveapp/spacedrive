@@ -1,6 +1,6 @@
 import { PageContextBuiltIn } from 'vite-plugin-ssr';
 
-import { getPost } from './api';
+import { getPost, getPosts } from './api';
 
 export async function onBeforeRender(pageContext: PageContextBuiltIn) {
 	const post = await getPost(pageContext.routeParams['slug']);
@@ -12,4 +12,13 @@ export async function onBeforeRender(pageContext: PageContextBuiltIn) {
 			}
 		}
 	};
+}
+
+export async function prerender() {
+	const posts = await getPosts();
+
+	return posts.map((post) => ({
+		url: `/blog/${post.slug}`,
+		pageContext: { pageProps: { post } }
+	}));
 }

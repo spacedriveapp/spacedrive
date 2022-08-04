@@ -10,10 +10,11 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
+	invalidate_query,
 	node::Platform,
 	prisma::{self, node},
 	util::db::load_and_migrate,
-	ClientQuery, CoreEvent, NodeContext,
+	NodeContext,
 };
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -34,7 +35,7 @@ pub enum LibraryManagerError {
 	IO(#[from] io::Error),
 	#[error("error serializing or deserializing the JSON in the config file")]
 	Json(#[from] serde_json::Error),
-	#[error("Database error")]
+	#[error("Database error: {0}")]
 	Database(#[from] prisma::QueryError),
 	#[error("Library not found error")]
 	LibraryNotFound,
@@ -42,6 +43,14 @@ pub enum LibraryManagerError {
 	Migration(String),
 	#[error("failed to parse uuid")]
 	Uuid(#[from] uuid::Error),
+	#[error("error opening database as the path contains non-UTF-8 characters")]
+	InvalidDatabasePath(PathBuf),
+}
+
+impl From<LibraryManagerError> for rspc::Error {
+	fn from(error: LibraryManagerError) -> Self {
+		rspc::Error::new(rspc::ErrorCode::InternalServerError, error.to_string())
+	}
 }
 
 impl LibraryManager {
@@ -123,12 +132,9 @@ impl LibraryManager {
 		)
 		.await?;
 
+		invalidate_query!(library, "library.get": (), ());
+
 		self.libraries.write().await.push(library);
-
-		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-			.await;
-
 		Ok(())
 	}
 
@@ -175,9 +181,8 @@ impl LibraryManager {
 		)
 		.await?;
 
-		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-			.await;
+		invalidate_query!(library, "library.get": (), ());
+
 		Ok(())
 	}
 
@@ -192,11 +197,10 @@ impl LibraryManager {
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.db", library.id)))?;
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id)))?;
 
+		invalidate_query!(library, "library.get": (), ());
+
 		libraries.retain(|l| l.id != id);
 
-		self.node_context
-			.emit(CoreEvent::InvalidateQuery(ClientQuery::GetLibraries))
-			.await;
 		Ok(())
 	}
 
@@ -217,10 +221,16 @@ impl LibraryManager {
 		config: LibraryConfig,
 		node_context: NodeContext,
 	) -> Result<LibraryContext, LibraryManagerError> {
+		let db_path = db_path.as_ref();
 		let db = Arc::new(
-			load_and_migrate(&format!("file:{}", db_path.as_ref().to_string_lossy()))
-				.await
-				.unwrap(),
+			load_and_migrate(&format!(
+				"file:{}",
+				db_path.as_os_str().to_str().ok_or_else(|| {
+					LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
+				})?
+			))
+			.await
+			.unwrap(),
 		);
 
 		let node_config = node_context.config.get().await;
@@ -239,8 +249,8 @@ impl LibraryManager {
 			.upsert(
 				node::pub_id::equals(uuid_vec.clone()),
 				(
-					node::pub_id::set(uuid_vec),
-					node::name::set(node_config.name.clone()),
+					uuid_vec,
+					node_config.name.clone(),
 					vec![node::platform::set(platform as i32)],
 				),
 				vec![node::name::set(node_config.name.clone())],

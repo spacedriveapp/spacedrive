@@ -1,7 +1,5 @@
 import { DotsVerticalIcon } from '@heroicons/react/solid';
-import { LocationContext, useBridgeQuery, useLibraryQuery } from '@sd/client';
-import { useExplorerStore } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { LocationContext, useBridgeQuery, useExplorerStore, useLibraryQuery } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -18,8 +16,6 @@ interface IColumn {
 	key: string;
 	width: number;
 }
-
-const PADDING_SIZE = 130;
 
 // Function ensure no types are lost, but guarantees that they are Column[]
 function ensureIsColumns<T extends IColumn[]>(data: T) {
@@ -48,29 +44,31 @@ const GridItemContainer = styled.div`
 `;
 
 export const FileList: React.FC<{ location_id: number; path: string; limit: number }> = (props) => {
-	const path = props.path;
 	const size = useWindowSize();
 	const tableContainer = useRef<null | HTMLDivElement>(null);
 	const VList = useRef<null | VirtuosoHandle>(null);
 
-	const { data: client } = useBridgeQuery('GetNode', undefined, {
+	const { data: client } = useBridgeQuery(['getNode'], {
 		refetchOnWindowFocus: false
 	});
 
 	const { selectedRowIndex, setSelectedRowIndex, setLocationId, layoutMode } = useExplorerStore();
 	const [goingUp, setGoingUp] = useState(false);
 
-	const { data: currentDir } = useLibraryQuery('GetExplorerDir', {
-		location_id: props.location_id,
-		path,
-		limit: props.limit
-	});
+	const { data: currentDir } = useLibraryQuery([
+		'locations.getExplorerDir',
+		{
+			location_id: props.location_id,
+			path: props.path,
+			limit: props.limit
+		}
+	]);
 
 	useEffect(() => {
 		if (selectedRowIndex === 0 && goingUp) {
 			VList.current?.scrollTo({ top: 0, behavior: 'smooth' });
 		}
-		if (selectedRowIndex != -1 && typeof VList.current?.scrollIntoView === 'function') {
+		if (selectedRowIndex !== -1 && typeof VList.current?.scrollIntoView === 'function') {
 			VList.current?.scrollIntoView({
 				index: goingUp ? selectedRowIndex - 1 : selectedRowIndex
 			});
@@ -84,13 +82,14 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	useKey('ArrowUp', (e) => {
 		e.preventDefault();
 		setGoingUp(true);
-		if (selectedRowIndex != -1 && selectedRowIndex !== 0) setSelectedRowIndex(selectedRowIndex - 1);
+		if (selectedRowIndex !== -1 && selectedRowIndex !== 0)
+			setSelectedRowIndex(selectedRowIndex - 1);
 	});
 
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
 		setGoingUp(false);
-		if (selectedRowIndex != -1 && selectedRowIndex !== (currentDir?.contents.length ?? 1) - 1)
+		if (selectedRowIndex !== -1 && selectedRowIndex !== (currentDir?.contents.length ?? 1) - 1)
 			setSelectedRowIndex(selectedRowIndex + 1);
 	});
 
@@ -168,16 +167,8 @@ interface RenderItemProps {
 }
 
 const RenderGridItem: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
-	// return <div className="flex m-2 bg-red-600 w-44 h-44"></div>;
 	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
-	const isActive = selectedRowIndex === index;
-
 	let [_, setSearchParams] = useSearchParams();
-
-	function selectFileHandler() {
-		if (selectedRowIndex == index) setSelectedRowIndex(-1);
-		else setSelectedRowIndex(index);
-	}
 
 	return (
 		<FileItem
@@ -187,8 +178,10 @@ const RenderGridItem: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 				}
 			}}
 			file={item}
-			selected={isActive}
-			onClick={selectFileHandler}
+			selected={selectedRowIndex === index}
+			onClick={() => {
+				setSelectedRowIndex(selectedRowIndex == index ? -1 : index);
+			}}
 		/>
 	);
 };
@@ -196,18 +189,12 @@ const RenderGridItem: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
 	const isActive = selectedRowIndex === index;
-
 	let [_, setSearchParams] = useSearchParams();
-
-	function selectFileHandler() {
-		if (selectedRowIndex == index) setSelectedRowIndex(-1);
-		else setSelectedRowIndex(index);
-	}
 
 	return useMemo(
 		() => (
 			<div
-				onClick={selectFileHandler}
+				onClick={() => setSelectedRowIndex(selectedRowIndex == index ? -1 : index)}
 				onDoubleClick={() => {
 					if (item.is_dir) {
 						setSearchParams({ path: item.materialized_path });
@@ -225,7 +212,7 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 						className="flex items-center px-4 py-2 pr-2 table-body-cell"
 						style={{ width: col.width }}
 					>
-						<RenderCell file={item} dirId={dirId} colKey={col?.key} />
+						<RenderCell file={item} dirId={dirId} colKey={col.key} />
 					</div>
 				))}
 			</div>
@@ -235,26 +222,18 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 };
 
 const RenderCell: React.FC<{
-	colKey?: ColumnKey;
-	dirId?: number;
-	file?: FilePath;
+	colKey: ColumnKey;
+	dirId: number;
+	file: FilePath;
 }> = ({ colKey, file, dirId }) => {
 	const location = useContext(LocationContext);
-
-	if (!file || !colKey || !dirId) return <></>;
-
-	const row = file;
-	if (!row) return <></>;
-
-	const value = row[colKey];
-	if (!value) return <></>;
 
 	switch (colKey) {
 		case 'name':
 			return (
 				<div className="flex flex-row items-center overflow-hidden">
 					<div className="flex items-center justify-center w-6 h-6 mr-3 shrink-0">
-						<FileThumb file={row} locationId={location.location_id} />
+						<FileThumb file={file} locationId={location.location_id} />
 					</div>
 					{/* {colKey == 'name' &&
             (() => {
@@ -268,13 +247,13 @@ const RenderCell: React.FC<{
                   return <DocumentIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
               }
             })()} */}
-					<span className="text-xs truncate">{row[colKey]}</span>
+					<span className="text-xs truncate">{file[colKey]}</span>
 				</div>
 			);
 		// case 'size_in_bytes':
 		//   return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
 		case 'extension':
-			return <span className="text-xs text-left">{value}</span>;
+			return <span className="text-xs text-left">{file[colKey]}</span>;
 		// case 'meta_integrity_hash':
 		//   return <span className="truncate">{value}</span>;
 		// case 'tags':

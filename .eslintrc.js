@@ -13,5 +13,8 @@ module.exports = {
 		]
 	},
 	plugins: ['@typescript-eslint'],
-	extends: ['standard-with-typescript', 'prettier']
+	extends: ['standard-with-typescript', 'prettier'],
+	rules: {
+		'@typescript-eslint/explicit-function-return-type': 'off'
+	}
 };

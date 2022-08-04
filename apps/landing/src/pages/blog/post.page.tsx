@@ -1,7 +1,7 @@
 import { PostOrPage, Tag } from '@tryghost/content-api';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-rust';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 
 import '../../atom-one.css';
@@ -72,4 +72,4 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 	);
 }
 
-export default MarkdownPage;
+export { MarkdownPage };

@@ -1,16 +1,15 @@
 use crate::{
-	encode::THUMBNAIL_JOB_NAME,
+	encode::{ThumbnailJob, THUMBNAIL_JOB_NAME},
 	file::{
-		cas::IDENTIFIER_JOB_NAME,
+		cas::{FileIdentifierJob, IDENTIFIER_JOB_NAME},
 		indexer::{IndexerJob, INDEXER_JOB_NAME},
 	},
-	job::{worker::Worker, DynJob, JobError},
+	job::{worker::Worker, DynJob, Job, JobError},
 	library::LibraryContext,
-	prisma::{job, node},
-	FileIdentifierJob, Job, ThumbnailJob,
+	prisma::{self, job, node},
 };
 use int_enum::IntEnum;
-use log::{error, info};
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, VecDeque},
@@ -19,11 +18,9 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
-use tokio::{
-	sync::{broadcast, mpsc, Mutex, RwLock},
-	time::sleep,
-};
-use ts_rs::TS;
+use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::{sync::broadcast, time::sleep};
+use tracing::{error, info};
 use uuid::Uuid;
 
 // db is single threaded, nerd
@@ -120,18 +117,7 @@ impl JobManager {
 		ret
 	}
 
-	// pub async fn queue_pending_job(ctx: &LibraryContext) -> Result<(), JobError> {
-	// 	let _next_job = ctx
-	//      .db
-	// 		.job()
-	// 		.find_first(vec![job::status::equals(JobStatus::Queued.int_value())])
-	// 		.exec()
-	// 		.await?;
-
-	// 	Ok(())
-	// }
-
-	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, JobError> {
+	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, prisma::QueryError> {
 		let jobs = ctx
 			.db
 			.job()
@@ -217,16 +203,13 @@ pub enum JobReportUpdate {
 	SecondsElapsed(u64),
 }
 
-#[derive(Debug, Serialize, Deserialize, TS, Clone)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub struct JobReport {
 	pub id: Uuid,
 	pub name: String,
 	pub data: Option<Vec<u8>>,
 	// client_id: i32,
-	#[ts(type = "string")]
 	pub date_created: chrono::DateTime<chrono::Utc>,
-	#[ts(type = "string")]
 	pub date_modified: chrono::DateTime<chrono::Utc>,
 
 	pub status: JobStatus,
@@ -235,7 +218,7 @@ pub struct JobReport {
 
 	pub message: String,
 	// pub percentage_complete: f64,
-	#[ts(type = "string")]
+	// #[ts(type = "string")] // TODO: Make this work with specta
 	pub seconds_elapsed: i32,
 }
 
@@ -295,10 +278,10 @@ impl JobReport {
 		ctx.db
 			.job()
 			.create(
-				job::id::set(self.id.as_bytes().to_vec()),
-				job::name::set(self.name.clone()),
-				job::action::set(1),
-				job::nodes::link(node::id::equals(ctx.node_local_id)),
+				self.id.as_bytes().to_vec(),
+				self.name.clone(),
+				1,
+				node::id::equals(ctx.node_local_id),
 				params,
 			)
 			.exec()
@@ -324,8 +307,7 @@ impl JobReport {
 }
 
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum)]
 pub enum JobStatus {
 	Queued = 0,
 	Running = 1,
