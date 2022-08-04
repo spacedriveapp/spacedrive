@@ -189,6 +189,7 @@ importers:
       '@react-navigation/drawer': ^6.4.3
       '@react-navigation/native': ^6.0.2
       '@react-navigation/native-stack': ^6.1.0
+      '@rnx-kit/dep-check': ^1.12.20
       '@rnx-kit/metro-config': ^1.2.36
       '@rnx-kit/metro-resolver-symlinks': ^0.1.21
       '@sd/assets': workspace:*
@@ -275,6 +276,7 @@ importers:
     devDependencies:
       '@babel/core': 7.18.10
       '@babel/runtime': 7.18.9
+      '@rnx-kit/dep-check': 1.12.20
       '@rnx-kit/metro-config': 1.2.36_w7boxegas5ww3wpq32np3pefjm
       '@rnx-kit/metro-resolver-symlinks': 0.1.21
       '@types/byte-size': 8.1.0
@@ -4679,6 +4681,12 @@ packages:
       - supports-color
     dev: true
 
+  /@rnx-kit/dep-check/1.12.20:
+    resolution: {integrity: sha512-izmMf1j/4mbCuBsIT6K8I11fW+6e0DkkZXCsCb9FOZoX+rcbOoG5z8yNu2WzYpjNuyEduMJ85PrgvpPzOVavEg==}
+    engines: {node: '>=12.13'}
+    hasBin: true
+    dev: true
+
   /@rnx-kit/metro-config/1.2.36_w7boxegas5ww3wpq32np3pefjm:
     resolution: {integrity: sha512-/JH8S62oN1EAS6v0sznQtkY+iMl0iACZExT61z8L2jMkEULRiMqqTzx9YS0ci/mcjRMDkwOqq4VkLRr5XzvAxg==}
     peerDependencies:
@@ -8223,6 +8231,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
