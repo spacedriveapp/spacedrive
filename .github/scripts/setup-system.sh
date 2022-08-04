@@ -62,7 +62,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 			brew tap-new spacedrive/deps 2&> /dev/null
 		fi
 		brew extract --force --version 5.0.1 ffmpeg spacedrive/deps
-		brew unlink ffmpeg &> /dev/null
+		brew unlink ffmpeg &> /dev/null || true
 		brew install spacedrive/deps/ffmpeg@5.0.1 &> /dev/null
 
 		echo "ffmpeg v5.0.1 has been installed and is now being used on your system."
