@@ -6,15 +6,17 @@
 	"scripts": {
 		"dev": "expo start",
 		"dev:android": "expo start --android",
-		"dev:ios": "expo start --ios"
+		"dev:ios": "expo start --ios",
+		"check-dep": "rnx-dep-check",
+		"fix-dep": "rnx-dep-check --write"
 	},
 	"dependencies": {
 		"@expo/vector-icons": "^13.0.0",
 		"@gorhom/bottom-sheet": "^4.4.3",
-		"@react-native-async-storage/async-storage": "~1.17.3",
+		"@react-native-async-storage/async-storage": "^1.17.7",
 		"@react-navigation/bottom-tabs": "^6.0.5",
 		"@react-navigation/drawer": "^6.4.3",
-		"@react-navigation/native": "^6.0.2",
+		"@react-navigation/native": "^6.0.8",
 		"@react-navigation/native-stack": "^6.1.0",
 		"@sd/assets": "workspace:*",
 		"@sd/core": "workspace:*",
@@ -33,14 +35,14 @@
 		"moti": "^0.18.0",
 		"phosphor-react-native": "^1.1.2",
 		"react": "18.0.0",
-		"react-dom": "18.0.0",
-		"react-native": "0.69.3",
-		"react-native-gesture-handler": "~2.5.0",
+		"react-dom": "^18.0.0",
+		"react-native": "^0.69.0",
+		"react-native-gesture-handler": "^2.4.2",
 		"react-native-heroicons": "^2.2.0",
-		"react-native-reanimated": "~2.9.1",
-		"react-native-safe-area-context": "4.3.1",
-		"react-native-screens": "~3.15.0",
-		"react-native-svg": "12.4.3",
+		"react-native-reanimated": "^2.9.0",
+		"react-native-safe-area-context": "^4.3.1",
+		"react-native-screens": "^3.14.1",
+		"react-native-svg": "^12.3.0",
 		"twrnc": "^3.3.3",
 		"use-count-up": "^3.0.1",
 		"zustand": "4.0.0"
@@ -48,6 +50,7 @@
 	"devDependencies": {
 		"@babel/core": "^7.18.10",
 		"@babel/runtime": "^7.18.9",
+		"@rnx-kit/dep-check": "^1.12.20",
 		"@rnx-kit/metro-config": "^1.2.36",
 		"@rnx-kit/metro-resolver-symlinks": "^0.1.21",
 		"@types/byte-size": "^8.1.0",
@@ -63,7 +66,7 @@
 		"eslint-plugin-react-hooks": "^4.6.0",
 		"eslint-plugin-react-native": "^4.0.0",
 		"metro-minify-terser": "^0.72.0",
-		"metro-runtime": "^0.72.0",
+		"metro-runtime": "^0.70.1",
 		"react-native-svg-transformer": "^1.0.0",
 		"tslib": "^2.4.0",
 		"typescript": "^4.7.2"
@@ -73,5 +76,24 @@
 			"@types/react": "~18.0.0",
 			"@types/react-native": "~0.69.1"
 		}
+	},
+	"rnx-kit": {
+		"reactNativeVersion": "^0.69",
+		"kitType": "app",
+		"capabilities": [
+			"animation",
+			"core",
+			"core-android",
+			"core-ios",
+			"gestures",
+			"metro-runtime",
+			"navigation/native",
+			"react",
+			"react-dom",
+			"safe-area",
+			"screens",
+			"storage",
+			"svg"
+		]
 	}
 }

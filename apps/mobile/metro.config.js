@@ -1,4 +1,4 @@
-const { makeMetroConfig, resolveUniqueModule } = require('@rnx-kit/metro-config');
+const { makeMetroConfig, resolveUniqueModule, exclusionList } = require('@rnx-kit/metro-config');
 const MetroSymlinksResolver = require('@rnx-kit/metro-resolver-symlinks');
 
 const [SDAssetsPath, SDAssetsPathExclude] = resolveUniqueModule('@sd/assets', '.');
@@ -29,13 +29,13 @@ const metroConfig = makeMetroConfig({
 			'react-native-svg': reactSVGPath
 		},
 
-		blockList: [
+		blockList: exclusionList([
 			babelRuntimeExclude,
 			SDAssetsPathExclude,
 			SDCorePathExclude,
 			reactExclude,
 			reactSVGExclude
-		],
+		]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
 		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg')
 	},
