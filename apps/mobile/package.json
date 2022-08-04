@@ -8,7 +8,10 @@
 		"dev:android": "expo start --android",
 		"dev:ios": "expo start --ios",
 		"check-dep": "rnx-dep-check",
-		"fix-dep": "rnx-dep-check --write"
+		"fix-dep": "rnx-dep-check --write",
+		"start": "expo start --dev-client",
+		"android": "expo run:android",
+		"ios": "expo run:ios"
 	},
 	"dependencies": {
 		"@expo/vector-icons": "^13.0.0",
@@ -36,7 +39,7 @@
 		"phosphor-react-native": "^1.1.2",
 		"react": "18.2.0",
 		"react-dom": "^18.0.0",
-		"react-native": "^0.69.0",
+		"react-native": "0.69.3",
 		"react-native-gesture-handler": "^2.4.2",
 		"react-native-heroicons": "^2.2.0",
 		"react-native-reanimated": "^2.9.0",
@@ -45,7 +48,8 @@
 		"react-native-svg": "^12.3.0",
 		"twrnc": "^3.3.3",
 		"use-count-up": "^3.0.1",
-		"zustand": "4.0.0"
+		"zustand": "4.0.0",
+		"react-native-web": "~0.18.7"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.18.10",
