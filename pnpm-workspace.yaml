@@ -1,5 +1,5 @@
 packages:
   - 'packages/*'
   - 'apps/*'
-  - '!apps/mobile-new'
+  - '!apps/mobile'
   - 'core'
