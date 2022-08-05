@@ -3,7 +3,7 @@
 #   https://github.com/evilmartians/lefthook/blob/master/docs/full_guide.md                                            #
 ########################################################################################################################
 
-pre-commit:
+pre-push:
   parallel: true
   commands:
     type-check:
@@ -12,9 +12,6 @@ pre-commit:
     lint:
       glob: '*.{ts,tsx}'
       run: pnpm eslint {staged_files}
-    spelling:
-      glob: '*.{ts,tsx,md,rs}'
-      run: pnpm cspell {staged_files}
     markdown-link-check:
       glob: '*.md'
       run: pnpm markdown-link-check {staged_files}
