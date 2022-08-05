@@ -11,7 +11,6 @@
 		"lint": "turbo run lint",
 		"format": "prettier --config .prettierrc.cli.js --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
 		"desktop": "pnpm --filter @sd/desktop --",
-		"mobile": "pnpm --filter @sd/mobile -- ",
 		"web": "pnpm --filter @sd/web -- ",
 		"landing": "pnpm --filter @sd/landing -- ",
 		"ui": "pnpm --filter @sd/ui -- ",

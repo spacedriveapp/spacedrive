@@ -57,11 +57,12 @@ To run the landing page
 
 To run mobile app
 
-- `$ pnpm mobile dev` - runs the mobile app (scan QR with Expo Go app)
-- `$ pnpm mobile dev:android` - runs on Android Emulator
-- `$ pnpm mobile dev:ios` - runs on iOS Emulator
+- `cd apps/mobile && pnpm i` - As this is a seperated workspace, you need to do this!
+- `$ pnpm android` - runs on Android Emulator
+- `$ pnpm ios` - runs on iOS Emulator
+- `$ pnpm dev` - For already bundled app
 
-You might need `expo-cli` installed globally.
+You also need `expo-cli` installed globally.
 
 If you are having issues ensure you are using the following versions of Rust and Node:
 
@@ -85,7 +86,6 @@ When you're finished with the changes, create a pull request, also known as a PR
 Congratulations :tada::tada: The Spacedrive team thanks you :sparkles:.
 
 Once your PR is merged, your contributions will be included in the next release of the application.
-
 
 ### Common Errors
 

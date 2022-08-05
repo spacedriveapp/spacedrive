@@ -33,6 +33,5 @@
 		"editor.defaultFormatter": "rust-lang.rust-analyzer"
 	},
 	"rust-analyzer.procMacro.enable": true,
-	"rust-analyzer.diagnostics.experimental.enable": false,
-	"typescript.tsdk": "node_modules/typescript/lib"
+	"rust-analyzer.diagnostics.experimental.enable": false
 }
