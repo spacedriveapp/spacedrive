@@ -167,6 +167,108 @@ const placeholderFileItems: FilePath[] = [
 			date_indexed: '',
 			date_modified: ''
 		}
+	},
+	{
+		is_dir: false,
+		date_created: '2020-01-01T00:00:00.000Z',
+		date_indexed: '2020-01-01T00:00:00.000Z',
+		date_modified: '2020-01-01T00:00:00.000Z',
+		extension: 'vite',
+		file_id: 4,
+		id: 4,
+		key: null,
+		location_id: 4,
+		materialized_path: '',
+		name: 'vite.config.js',
+		parent_id: 0,
+		key_id: null,
+		location: null,
+		file: {
+			id: 4,
+			key_id: 4,
+			albums: [],
+			comments: [],
+			key: {
+				algorithm: null,
+				checksum: '',
+				date_created: null,
+				file_paths: [],
+				files: [],
+				id: 1,
+				name: 'Hello world'
+			},
+			labels: [],
+			media_data: null,
+			spaces: [],
+			tags: [],
+			cas_id: '',
+			ipfs_id: '',
+			has_thumbnail: false,
+			favorite: false,
+			has_thumbstrip: false,
+			has_video_preview: false,
+			hidden: false,
+			important: false,
+			integrity_checksum: '',
+			kind: 1,
+			note: '',
+			paths: [],
+			size_in_bytes: '555',
+			date_created: '',
+			date_indexed: '',
+			date_modified: ''
+		}
+	},
+	{
+		is_dir: false,
+		date_created: '2020-01-01T00:00:00.000Z',
+		date_indexed: '2020-01-01T00:00:00.000Z',
+		date_modified: '2020-01-01T00:00:00.000Z',
+		extension: 'docker',
+		file_id: 5,
+		id: 5,
+		key: null,
+		location_id: 5,
+		materialized_path: '',
+		name: 'Dockerfile',
+		parent_id: 0,
+		key_id: null,
+		location: null,
+		file: {
+			id: 5,
+			key_id: 5,
+			albums: [],
+			comments: [],
+			key: {
+				algorithm: null,
+				checksum: '',
+				date_created: null,
+				file_paths: [],
+				files: [],
+				id: 1,
+				name: 'Hello world'
+			},
+			labels: [],
+			media_data: null,
+			spaces: [],
+			tags: [],
+			cas_id: '',
+			ipfs_id: '',
+			has_thumbnail: false,
+			favorite: false,
+			has_thumbstrip: false,
+			has_video_preview: false,
+			hidden: false,
+			important: false,
+			integrity_checksum: '',
+			kind: 1,
+			note: '',
+			paths: [],
+			size_in_bytes: '555',
+			date_created: '',
+			date_indexed: '',
+			date_modified: ''
+		}
 	}
 ];
 
@@ -198,6 +300,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 				keyExtractor={(item) => item.id.toString()}
 				horizontal
 				contentContainerStyle={tw`mt-4 ml-2`}
+				showsHorizontalScrollIndicator={false}
 			/>
 		</View>
 	);

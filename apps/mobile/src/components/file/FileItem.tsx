@@ -16,27 +16,29 @@ type FileItemProps = {
 
 const FileItem = ({ file }: FileItemProps) => {
 	return (
-		<View style={tw`w-[100px] h-[100px]`}>
+		<View style={tw`w-[90px] h-[100px]`}>
 			<View style={tw`items-center`}>
 				{/* Folder Icons/Thumbnail etc. */}
-				<View style={tw`h-[60px]`}>
+				<View style={tw`w-[60px] h-[60px] justify-center`}>
 					{file?.is_dir ? (
-						<FolderIcon size={48} />
+						<View style={tw`items-center`}>
+							<FolderIcon size={54} />
+						</View>
 					) : file?.file?.has_thumbnail ? (
 						<>{/* TODO */}</>
 					) : (
-						<View style={tw`w-[48px] h-[60px] mt-1.5 m-auto relative`}>
+						<View style={tw`w-[45px] h-[60px] m-auto relative`}>
 							<Svg
 								style={tw`absolute top-0 left-0`}
 								fill={tw.color('gray-550')}
-								width={43}
-								height={56}
+								width={45}
+								height={60}
 								viewBox="0 0 65 81"
 							>
 								<Path d="M0 8a8 8 0 0 1 8-8h31.686a8 8 0 0 1 5.657 2.343L53.5 10.5l9.157 9.157A8 8 0 0 1 65 25.314V73a8 8 0 0 1-8 8H8a8 8 0 0 1-8-8V8Z" />
 							</Svg>
 							<Svg
-								style={tw`absolute top-[1px] right-1`}
+								style={tw`absolute top-[2px] -right-[0.6px]`}
 								fill={tw.color('gray-500')}
 								width={15}
 								height={15}
@@ -46,10 +48,10 @@ const FileItem = ({ file }: FileItemProps) => {
 							</Svg>
 							{/* File Icon & Extension */}
 							<View style={tw`absolute w-full h-full items-center justify-center`}>
-								{file?.extension && icons[file.extension as keyof typeof icons] ? (
+								{file?.extension && icons[file.extension] ? (
 									(() => {
-										const Icon = icons[file.extension as keyof typeof icons];
-										return <Icon width={20} height={20} style={tw`mt-2`} />;
+										const Icon = icons[file.extension];
+										return <Icon width={18} height={18} style={tw`mt-2`} />;
 									})()
 								) : (
 									<></>
