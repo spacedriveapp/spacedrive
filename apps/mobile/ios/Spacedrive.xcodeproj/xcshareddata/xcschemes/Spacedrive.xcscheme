@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "Spacedrive.app"
-               BlueprintName = "Spacedrive"
-               ReferencedContainer = "container:Spacedrive.xcodeproj">
+               BuildableName = "mobilenew.app"
+               BlueprintName = "mobilenew"
+               ReferencedContainer = "container:mobilenew.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "SpacedriveTests.xctest"
-               BlueprintName = "SpacedriveTests"
-               ReferencedContainer = "container:Spacedrive.xcodeproj">
+               BuildableName = "mobilenewTests.xctest"
+               BlueprintName = "mobilenewTests"
+               ReferencedContainer = "container:mobilenew.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -57,9 +57,18 @@
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "Spacedrive.app"
             BlueprintName = "Spacedrive"
-            ReferencedContainer = "container:Spacedrive.xcodeproj">
+            ReferencedContainer = "container:spacedrive.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
+            BuildableName = "mobilenew.app"
+            BlueprintName = "mobilenew"
+            ReferencedContainer = "container:mobilenew.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -72,9 +81,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "Spacedrive.app"
-            BlueprintName = "Spacedrive"
-            ReferencedContainer = "container:Spacedrive.xcodeproj">
+            BuildableName = "mobilenew.app"
+            BlueprintName = "mobilenew"
+            ReferencedContainer = "container:mobilenew.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
