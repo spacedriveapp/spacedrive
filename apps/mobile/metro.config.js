@@ -1,16 +1,13 @@
 const { makeMetroConfig, resolveUniqueModule, exclusionList } = require('@rnx-kit/metro-config');
 const MetroSymlinksResolver = require('@rnx-kit/metro-resolver-symlinks');
 
+// Might not need these anymore.
 const [SDAssetsPath, SDAssetsPathExclude] = resolveUniqueModule('@sd/assets', '.');
 const [SDCorePath, SDCorePathExclude] = resolveUniqueModule('@sd/core', '.');
-
-// We might not need this?
 const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
-
-// We might not need this too after the react 18 update.
 const [reactPath, reactExclude] = resolveUniqueModule('react');
 
-// Needed for importing svgs from @sd/assets
+// Needed for transforming svgs from @sd/assets
 const [reactSVGPath, reactSVGExclude] = resolveUniqueModule('react-native-svg');
 
 const { getDefaultConfig } = require('expo/metro-config');

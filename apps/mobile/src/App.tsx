@@ -1,4 +1,3 @@
-import 'react-native-gesture-handler';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
@@ -12,6 +11,7 @@ import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { useOnboardingStore } from './stores/useOnboardingStore';
+
 //
 const NavigatorTheme: Theme = {
 	...DefaultTheme,

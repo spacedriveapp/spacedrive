@@ -2,14 +2,15 @@
 	"name": "mobile",
 	"version": "1.0.0",
 	"main": "index.js",
+	"license": "GPL-3.0-only",
 	"scripts": {
-		"start": "expo start --dev-client",
+		"dev": "expo start --dev-client",
 		"android": "expo run:android",
-		"ios": "expo run:ios",
-		"web": "expo start --web"
+		"ios": "expo run:ios"
 	},
 	"dependencies": {
 		"@expo/vector-icons": "^13.0.0",
+		"@gorhom/bottom-sheet": "^4.4.3",
 		"@react-native-async-storage/async-storage": "^1.17.7",
 		"@react-navigation/bottom-tabs": "^6.3.2",
 		"@react-navigation/drawer": "^6.4.3",
@@ -20,8 +21,11 @@
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.2.3",
 		"expo": "~46.0.2",
+		"expo-font": "^10.2.0",
+		"expo-linking": "^3.2.2",
 		"expo-splash-screen": "~0.16.1",
 		"expo-status-bar": "~1.4.0",
+		"intl": "^1.2.5",
 		"moti": "^0.18.0",
 		"phosphor-react-native": "^1.1.2",
 		"react": "18.2.0",
