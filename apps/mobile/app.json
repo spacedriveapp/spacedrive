@@ -5,14 +5,8 @@
 		"version": "0.0.1",
 		"orientation": "portrait",
 		"jsEngine": "hermes",
-		"icon": "./src/assets/app/icon.png",
 		"scheme": "spacedrive",
 		"userInterfaceStyle": "automatic",
-		"splash": {
-			"image": "./src/assets/app/splash.png",
-			"resizeMode": "contain",
-			"backgroundColor": "#000000"
-		},
 		"updates": {
 			"enabled": false,
 			"fallbackToCacheTimeout": 0
@@ -23,11 +17,7 @@
 			"bundleIdentifier": "com.spacedrive.app"
 		},
 		"android": {
-			"package": "com.spacedrive.app",
-			"adaptiveIcon": {
-				"foregroundImage": "./src/assets/app/adaptive-icon.png",
-				"backgroundColor": "#ffffff"
-			}
+			"package": "com.spacedrive.app"
 		},
 		"privacy": "hidden"
 	}

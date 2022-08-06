@@ -14,6 +14,7 @@
 		519D1250147D911454D7DB76 /* libPods-Spacedrive.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F3F276D840CDBF9D0D9D548D /* libPods-Spacedrive.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C95AE27BB525EFF3F02CEC11 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56E71A6EFA9EA8F4C11F42FA /* ExpoModulesProvider.swift */; };
+		244EA2A20BFC439A96F413C7 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = F502303C1EE24943998FB1B4 /* noop-file.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 		D8F0094C07EEE7528760BD08 /* Pods-Spacedrive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.release.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F3F276D840CDBF9D0D9D548D /* libPods-Spacedrive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Spacedrive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F502303C1EE24943998FB1B4 /* noop-file.swift */ = {isa = PBXFileReference; name = "noop-file.swift"; path = "Spacedrive/noop-file.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +60,7 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
+				F502303C1EE24943998FB1B4 /* noop-file.swift */,
 			);
 			path = Spacedrive;
 			sourceTree = "<group>";
@@ -291,6 +294,7 @@
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				C95AE27BB525EFF3F02CEC11 /* ExpoModulesProvider.swift in Sources */,
+				244EA2A20BFC439A96F413C7 /* noop-file.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -321,10 +325,12 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
-				PRODUCT_NAME = Spacedrive;
+				PRODUCT_NAME = "Spacedrive";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = "1";
+				CODE_SIGN_ENTITLEMENTS = Spacedrive/Spacedrive.entitlements;
 			};
 			name = Debug;
 		};
@@ -347,9 +353,11 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
-				PRODUCT_NAME = Spacedrive;
+				PRODUCT_NAME = "Spacedrive";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = "1";
+				CODE_SIGN_ENTITLEMENTS = Spacedrive/Spacedrive.entitlements;
 			};
 			name = Release;
 		};
