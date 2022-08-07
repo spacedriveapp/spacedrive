@@ -5,9 +5,6 @@
       location = "group:Pods/Pods.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:/Users/brendonovich/github.com/utkubakir/spacedrive/apps/mobile/ios/Spacedrive.xcodeproj">
-   </FileRef>
-   <FileRef
       location = "group:Spacedrive.xcodeproj">
    </FileRef>
 </Workspace>
