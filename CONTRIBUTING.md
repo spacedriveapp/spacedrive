@@ -57,7 +57,7 @@ To run the landing page
 
 To run mobile app
 
-- `cd apps/mobile && pnpm i` - As this is a seperated workspace, you need to do this!
+- `$ cd apps/mobile && pnpm i` - As this is a seperated workspace, you need to do this!
 - `$ pnpm android` - runs on Android Emulator
 - `$ pnpm ios` - runs on iOS Emulator
 - `$ pnpm dev` - For already bundled app
