@@ -18,9 +18,6 @@ use crate::{
 
 use super::{P2PRequest, SdP2PManager};
 
-// TODO: Disable IPv6 record being advertised via DNS "tunnel.spacedrive.com:443"; // TODO: This should be on port 443
-pub const SPACETUNNEL_URL: &'static str = "213.188.211.127:9000"; // TODO: Disable IPv6 record being advertised via DNS "tunnel.spacedrive.com:443"; // TODO: This should be on port 443
-
 const LIBRARY_ID_EXTRA_DATA_KEY: &'static str = "libraryId";
 const LIBRARY_CONFIG_EXTRA_DATA_KEY: &'static str = "libraryData";
 
@@ -57,6 +54,13 @@ impl SdP2P {
 			let config = config.get().await;
 			Identity::from_raw(config.p2p_cert, config.p2p_key)?
 		};
+		let spacetunnel_url = Some(
+			config
+				.get()
+				.await
+				.spacetunnel_addr
+				.unwrap_or("tunnel.spacedrive.com:9000".into()),
+		);
 		let event_channel = mpsc::unbounded_channel();
 		let pairing_requests = Arc::new(Mutex::new(HashMap::new()));
 		let nm = NetworkManager::new(
@@ -70,7 +74,7 @@ impl SdP2P {
 			NetworkManagerConfig {
 				known_peers: Default::default(), // TODO: Load these from the database on startup
 				listen_port: None,
-				spacetunnel_url: Some(SPACETUNNEL_URL.into()),
+				spacetunnel_url,
 			},
 		)
 		.await?;

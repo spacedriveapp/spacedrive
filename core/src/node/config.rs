@@ -2,7 +2,7 @@ use p2p::Identity;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs::File;
-use std::io::{self, BufReader, Seek, SeekFrom, Write};
+use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
@@ -46,6 +46,8 @@ pub struct NodeConfig {
 	pub p2p_cert: Vec<u8>,
 	/// The P2P identity private key
 	pub p2p_key: Vec<u8>,
+	/// The address of the Spacetunnel discovery service being used.
+	pub spacetunnel_addr: Option<String>,
 }
 
 #[derive(Error, Debug)]
@@ -77,6 +79,7 @@ impl NodeConfig {
 			},
 			p2p_cert,
 			p2p_key,
+			spacetunnel_addr: None,
 		}
 	}
 }
@@ -120,14 +123,17 @@ impl NodeConfigManager {
 
 		match path.exists() {
 			true => {
+				let (base_config, raw_config): (ConfigMetadata, Value) = {
+					let mut file = File::open(&path)?;
+					let raw_config: Value = serde_json::from_reader(BufReader::new(&mut file))?;
+					(serde_json::from_value(raw_config.clone())?, raw_config)
+				};
+				Self::migrate_config(base_config.version, &path, raw_config).await?;
+
 				let mut file = File::open(&path)?;
-				let raw_config: Value = serde_json::from_reader(BufReader::new(&mut file))?;
-				let base_config: ConfigMetadata = serde_json::from_value(raw_config.clone())?;
-
-				Self::migrate_config(base_config.version, path, raw_config).await?;
-
-				file.seek(SeekFrom::Start(0))?;
-				Ok(serde_json::from_reader(BufReader::new(&mut file))?)
+				let x = serde_json::from_reader(BufReader::new(&mut file))?;
+				println!("{:?}", x);
+				Ok(x)
 			}
 			false => {
 				let config = NodeConfig::default();
@@ -147,7 +153,7 @@ impl NodeConfigManager {
 	/// migrate_config is a function used to apply breaking changes to the config file.
 	async fn migrate_config(
 		current_version: Option<String>,
-		config_path: PathBuf,
+		config_path: &PathBuf,
 		mut raw_config: Value,
 	) -> Result<(), NodeConfigError> {
 		match current_version.as_deref() {
@@ -161,7 +167,7 @@ impl NodeConfigManager {
 					let (cert, key) = identity.to_raw();
 					obj.insert("p2p_cert".to_string(), serde_json::to_value(cert).unwrap());
 					obj.insert("p2p_key".to_string(), serde_json::to_value(key).unwrap());
-				}
+                }
 				*raw_config.get_mut("version").unwrap() = Value::String("0.2.0".into());
 				File::create(config_path)?.write_all(serde_json::to_string(&raw_config)?.as_bytes())?;
 				println!("Migrated your config to version '0.2.0'");
