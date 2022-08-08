@@ -1,3 +1,4 @@
+import { Statistics } from '@sd/core';
 import byteSize from 'byte-size';
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
@@ -12,17 +13,6 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_free: 'Free space'
 };
 
-// Temporary
-interface Statistics {
-	total_file_count: string;
-	total_bytes_used: string;
-	total_bytes_capacity: string;
-	total_bytes_free: string;
-	total_unique_bytes: string;
-	preview_media_bytes: string;
-	library_db_size: string;
-}
-
 type OverviewStatsProps = {
 	stats: Statistics | undefined;
 };
@@ -30,7 +20,7 @@ type OverviewStatsProps = {
 const StatItem: React.FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
 	const { value, unit } = byteSize(+bytes);
 
-	const count = useCounter({ name: title, end: Number(value), saveState: true });
+	const count = useCounter({ name: title, end: Number(value) });
 
 	return (
 		<View style={tw`flex flex-col p-4`}>

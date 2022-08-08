@@ -1,9 +1,10 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NavigatorScreenParams } from '@react-navigation/native';
+import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import NotFoundScreen from '../screens/NotFound';
-import ModalScreen from '../screens/modals/ModalScreen';
-import { RootStackParamList } from '../types/navigation';
+import SettingsScreen from '../screens/modals/settings/Settings';
 import DrawerNavigator from './DrawerNavigator';
+import type { DrawerNavParamList } from './DrawerNavigator';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -14,8 +15,20 @@ export default function RootNavigator() {
 			<Stack.Screen name="Root" component={DrawerNavigator} options={{ headerShown: false }} />
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
 			<Stack.Group screenOptions={{ presentation: 'modal' }}>
-				<Stack.Screen name="Modal" component={ModalScreen} />
+				<Stack.Screen name="Settings" component={SettingsScreen} />
 			</Stack.Group>
 		</Stack.Navigator>
 	);
 }
+
+export type RootStackParamList = {
+	Root: NavigatorScreenParams<DrawerNavParamList> | undefined;
+	NotFound: undefined;
+	// Modals
+	Settings: undefined;
+};
+
+export type RootStackScreenProps<Screen extends keyof RootStackParamList> = NativeStackScreenProps<
+	RootStackParamList,
+	Screen
+>;

@@ -1,7 +1,6 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import OnboardingScreen from '../screens/onboarding/Onboarding';
-import { OnboardingStackParamList } from '../types/navigation';
 
 const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
 
@@ -12,3 +11,10 @@ export default function OnboardingNavigator() {
 		</OnboardingStack.Navigator>
 	);
 }
+
+export type OnboardingStackParamList = {
+	Onboarding: undefined;
+};
+
+export type OnboardingStackScreenProps<Screen extends keyof OnboardingStackParamList> =
+	NativeStackScreenProps<OnboardingStackParamList, Screen>;

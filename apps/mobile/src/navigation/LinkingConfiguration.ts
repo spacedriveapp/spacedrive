@@ -6,7 +6,7 @@
 import { LinkingOptions } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 
-import { RootStackParamList } from '../types/navigation';
+import { RootStackParamList } from '.';
 
 // TODO: Deep linking for React Navigation. It will allow us to do spacedrive://tags/{id} etc.
 const linking: LinkingOptions<RootStackParamList> = {
@@ -18,7 +18,7 @@ const linking: LinkingOptions<RootStackParamList> = {
 					Home: 'home'
 				}
 			},
-			Modal: 'modal',
+			Settings: 'settings',
 			NotFound: '*'
 		}
 	}

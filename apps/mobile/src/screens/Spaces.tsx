@@ -1,19 +1,14 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '../components/base/Button';
-import DrawerScreenWrapper from '../components/drawer/DrawerScreenWrapper';
 import tw from '../lib/tailwind';
-import { BottomNavScreenProps } from '../types/navigation';
+import type { TabScreenProps } from '../navigation/TabNavigator';
 
-export default function SpacesScreen({ navigation }: BottomNavScreenProps<'Spaces'>) {
+export default function SpacesScreen({ navigation }: TabScreenProps<'Spaces'>) {
 	return (
-		<DrawerScreenWrapper>
+		<SafeAreaView style={tw`flex-1 items-center justify-center`}>
 			<Text style={tw`font-bold text-xl text-white`}>Spaces</Text>
-			<View style={tw`my-8 h-1 w-4/5`} />
-			<Button variant="primary" size="lg" onPress={() => navigation.openDrawer()}>
-				<Text style={tw`font-bold text-white`}>Open Drawer</Text>
-			</Button>
-		</DrawerScreenWrapper>
+		</SafeAreaView>
 	);
 }

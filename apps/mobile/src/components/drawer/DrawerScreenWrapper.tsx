@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import tw from '../../lib/tailwind';
 
+// NOTE: Only wrap screens that need the drawer to be open. (Only Overview Screen for now.)
 const DrawerScreenWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const progress: any = useDrawerProgress();
 

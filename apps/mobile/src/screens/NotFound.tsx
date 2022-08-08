@@ -1,7 +1,7 @@
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import tw from '../lib/tailwind';
-import { RootStackScreenProps } from '../types/navigation';
+import type { RootStackScreenProps } from '../navigation';
 
 export default function NotFoundScreen({ navigation }: RootStackScreenProps<'NotFound'>) {
 	return (

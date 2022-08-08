@@ -5,8 +5,8 @@ import { FadeInUpAnimation, LogoAnimation } from '../../components/animation/lay
 import { AnimatedButton } from '../../components/base/Button';
 import { setItemToStorage } from '../../lib/storage';
 import tw from '../../lib/tailwind';
+import type { OnboardingStackScreenProps } from '../../navigation/OnboardingNavigator';
 import { useOnboardingStore } from '../../stores/useOnboardingStore';
-import { OnboardingStackScreenProps } from '../../types/navigation';
 
 const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding'>) => {
 	const { hideOnboarding } = useOnboardingStore();
