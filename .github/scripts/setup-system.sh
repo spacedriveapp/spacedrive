@@ -58,7 +58,14 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
         echo "Your machine has been setup for Spacedrive development!"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-        brew install ffmpeg
+		if !brew tap spacedrive/deps &> /dev/null; then
+			brew tap-new spacedrive/deps 2&> /dev/null
+		fi
+		brew extract --force --version 5.0.1 ffmpeg spacedrive/deps
+		brew unlink ffmpeg &> /dev/null || true
+		brew install spacedrive/deps/ffmpeg@5.0.1 &> /dev/null
+
+		echo "ffmpeg v5.0.1 has been installed and is now being used on your system."
 else
         echo "Your OS '$OSTYPE' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
         exit 1

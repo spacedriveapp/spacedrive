@@ -1,15 +1,18 @@
 import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
-import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
-import { useLibraryCommand, useLibraryQuery } from '@sd/client';
-import { useCurrentLibrary, useLibraryStore } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { CogIcon, PlusIcon } from '@heroicons/react/solid';
+import {
+	AppPropsContext,
+	useCurrentLibrary,
+	useLibraryMutation,
+	useLibraryQuery,
+	useLibraryStore
+} from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { CirclesFour, Code, Planet } from 'phosphor-react';
-import React, { useContext, useEffect, useMemo } from 'react';
+import { CirclesFour, Planet } from 'phosphor-react';
+import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
-import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
@@ -22,7 +25,7 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
 		{({ isActive }) => (
 			<span
 				className={clsx(
-					'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
+					'max-w mb-[2px] text-gray-550 dark:text-gray-300 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
 						'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 					},
@@ -75,40 +78,21 @@ const macOnly = (platform: string | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
-	const { isExperimental } = useNodeStore();
-
 	const navigate = useNavigate();
-
 	const appProps = useContext(AppPropsContext);
-
-	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('SysGetLocations');
-
-	let locations = Array.isArray(locationsResponse) ? locationsResponse : [];
+	const { data: locations } = useLibraryQuery(['locations.get']);
 
 	// initialize libraries
-	const { init: initLibraries, switchLibrary: _switchLibrary } = useLibraryStore();
-
-	const switchLibrary = (uuid: string) => {
-		navigate('overview');
-
-		_switchLibrary(uuid);
-	};
-
+	const { init: initLibraries, switchLibrary } = useLibraryStore();
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
 	useEffect(() => {
 		if (libraries && !currentLibraryUuid) initLibraries(libraries);
 	}, [libraries, currentLibraryUuid]);
 
-	const { mutate: createLocation } = useLibraryCommand('LocCreate');
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
-	const tags = [
-		{ id: 1, name: 'Keepsafe', color: '#FF6788' },
-		{ id: 2, name: 'OBS', color: '#BF88FF' },
-		{ id: 3, name: 'BlackMagic', color: '#F0C94A' },
-		{ id: 4, name: 'Camera Roll', color: '#00F0DB' },
-		{ id: 5, name: 'Spacedrive', color: '#00F079' }
-	];
+	const { data: tags } = useLibraryQuery(['tags.get']);
 
 	return (
 		<div
@@ -152,18 +136,18 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				)}
 				// this shouldn't default to "My Library", it is only this way for landing demo
 				// TODO: implement demo mode for the sidebar and show loading indicator instead of "My Library"
-				buttonText={currentLibrary?.config.name || ' '}
+				buttonText={currentLibrary?.config.name ?? ' '}
 				items={[
 					libraries?.map((library) => ({
 						name: library.config.name,
 						selected: library.uuid === currentLibraryUuid,
 						onPress: () => switchLibrary(library.uuid)
-					})) || [],
+					})) ?? [],
 					[
 						{
 							name: 'Library Settings',
 							icon: CogIcon,
-							onPress: () => navigate('library-settings/general')
+							onPress: () => navigate('settings/library')
 						},
 						{
 							name: 'Add Library',
@@ -192,25 +176,16 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				</SidebarLink>
 				<SidebarLink to="content">
 					<Icon component={CirclesFour} />
-					Content
+					Spaces
 				</SidebarLink>
 				<SidebarLink to="photos">
 					<Icon component={PhotographIcon} />
 					Photos
 				</SidebarLink>
-
-				{isExperimental ? (
-					<SidebarLink to="debug">
-						<Icon component={Code} />
-						Debug
-					</SidebarLink>
-				) : (
-					<></>
-				)}
 			</div>
 			<div>
 				<Heading>Locations</Heading>
-				{(locations || []).map((location, index) => {
+				{(locations ?? []).map((location, index) => {
 					return (
 						<div key={index} className="flex flex-row items-center">
 							<NavLink
@@ -241,11 +216,11 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					);
 				})}
 
-				{(locations?.length || 0) < 1 && (
+				{(locations?.length ?? 0) < 1 && (
 					<button
 						onClick={() => {
 							appProps?.openDialog({ directory: true }).then((result) => {
-								if (result) createLocation({ path: result as string });
+								if (result) createLocation(result as string);
 							});
 						}}
 						className={clsx(
@@ -259,24 +234,26 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					</button>
 				)}
 			</div>
-			<div>
-				<Heading>Tags</Heading>
-				<div className="mb-2">
-					{tags.map((tag, index) => (
-						<SidebarLink key={index} to={`tag/${tag.id}`} className="">
-							<div
-								className="w-[12px] h-[12px] rounded-full"
-								style={{ backgroundColor: tag.color }}
-							/>
-							<span className="ml-2 text-sm">{tag.name}</span>
-						</SidebarLink>
-					))}
+			{tags?.length ? (
+				<div>
+					<Heading>Tags</Heading>
+					<div className="mb-2">
+						{tags?.slice(0, 6).map((tag, index) => (
+							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
+								<div
+									className="w-[12px] h-[12px] rounded-full"
+									style={{ backgroundColor: tag.color ?? '#efefef' }}
+								/>
+								<span className="ml-2 text-sm">{tag.name}</span>
+							</SidebarLink>
+						))}
+					</div>
 				</div>
-			</div>
+			) : (
+				<></>
+			)}
 			<div className="flex-grow" />
 			<RunningJobsWidget />
-			{/* <div className="flex w-full">
-      </div> */}
 			<div className="mb-2">
 				<NavLink to="/settings/general">
 					{({ isActive }) => (

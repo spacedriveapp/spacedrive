@@ -1,30 +1,21 @@
-import { PlusIcon } from '@heroicons/react/solid';
-import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { AppPropsContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
 
 import LocationListItem from '../../../components/location/LocationListItem';
-import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
-// const exampleLocations = [
-// 	{ option: 'Macintosh HD', key: 'macintosh_hd' },
-// 	{ option: 'LaCie External', key: 'lacie_external' },
-// 	{ option: 'Seagate 8TB', key: 'seagate_8tb' }
-// ];
-
 export default function LocationSettings() {
-	const { data: locations } = useLibraryQuery('SysGetLocations');
+	const { data: locations } = useLibraryQuery(['locations.get']);
 
 	const appProps = useContext(AppPropsContext);
 
-	const { mutate: createLocation } = useLibraryCommand('LocCreate');
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	return (
 		<SettingsContainer>
-			{/*<Button size="sm">Add Location</Button>*/}
+			{/* <Button size="sm">Add Location</Button> */}
 			<SettingsHeader
 				title="Locations"
 				description="Manage your storage locations."
@@ -34,9 +25,14 @@ export default function LocationSettings() {
 							variant="primary"
 							size="sm"
 							onClick={() => {
-								appProps?.openDialog({ directory: true }).then((result) => {
-									if (result) createLocation({ path: result as string });
-								});
+								appProps
+									?.openDialog({ directory: true })
+									.then((result) => {
+										if (result) createLocation(result as string);
+									})
+									.catch((err) => {
+										console.error('Error creating location!', err);
+									});
 							}}
 						>
 							Add Location

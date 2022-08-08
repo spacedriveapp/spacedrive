@@ -1,13 +1,16 @@
 use p2p::Identity;
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::fs::File;
-use std::io::{self, BufReader, Write};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{
+	fs::File,
+	io::{self, BufReader, Write},
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 use thiserror::Error;
 use tokio::sync::{RwLock, RwLockWriteGuard};
-use ts_rs::TS;
+
 use uuid::Uuid;
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
@@ -15,8 +18,7 @@ pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
 
 /// ConfigMetadata is a part of node configuration that is loaded before the main configuration and contains information about the schema of the config.
 /// This allows us to migrate breaking changes to the config format between Spacedrive releases.
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct ConfigMetadata {
 	/// version of Spacedrive. Determined from `CARGO_PKG_VERSION` environment variable.
 	pub version: Option<String>,
@@ -31,8 +33,7 @@ impl Default for ConfigMetadata {
 }
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct NodeConfig {
 	#[serde(flatten)]
 	pub metadata: ConfigMetadata,
@@ -53,11 +54,11 @@ pub struct NodeConfig {
 #[derive(Error, Debug)]
 pub enum NodeConfigError {
 	#[error("error saving or loading the config from the filesystem")]
-	IOError(#[from] io::Error),
+	IO(#[from] io::Error),
 	#[error("error serializing or deserializing the JSON in the config file")]
-	JsonError(#[from] serde_json::Error),
+	Json(#[from] serde_json::Error),
 	#[error("error migrating the config file")]
-	MigrationError(String),
+	Migration(String),
 }
 
 impl NodeConfig {
@@ -67,6 +68,7 @@ impl NodeConfig {
 		NodeConfig {
 			id: Uuid::new_v4(),
 			name: match hostname::get() {
+				// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
 				Ok(hostname) => hostname.to_string_lossy().into_owned(),
 				Err(err) => {
 					eprintln!("Falling back to default node name as an error occurred getting your systems hostname: '{}'", err);
@@ -158,7 +160,7 @@ impl NodeConfigManager {
 	) -> Result<(), NodeConfigError> {
 		match current_version.as_deref() {
 			None => {
-				Err(NodeConfigError::MigrationError(format!("Your Spacedrive config file stored at '{}' is missing the `version` field. If you just upgraded please delete the file and restart Spacedrive! Please note this upgrade will stop using your old 'library.db' as the folder structure has changed.", config_path.display())))
+				Err(NodeConfigError::Migration(format!("Your Spacedrive config file stored at '{}' is missing the `version` field. If you just upgraded please delete the file and restart Spacedrive! Please note this upgrade will stop using your old 'library.db' as the folder structure has changed.", config_path.display())))
 			}
             Some("0.1.0") => {
 				let identity = Identity::new().expect("Error migrating config: unable to create P2P identity");

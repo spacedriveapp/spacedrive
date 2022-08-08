@@ -1,4 +1,5 @@
 mod manager;
+#[allow(clippy::module_inception)]
 mod p2p;
 mod proto;
 

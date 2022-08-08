@@ -23,7 +23,7 @@ model SyncEvent {
     node_id   Int
     timestamp String
     // individual record pub id OR compound many-to-many pub ids
-    record_id String
+    record_id Bytes
     // the type of operation, I.E: CREATE, UPDATE, DELETE as an enum
     kind      Int
     // the column name for atomic update operations
@@ -51,7 +51,7 @@ model Statistics {
 
 model Node {
     id           Int      @id @default(autoincrement())
-    pub_id       String   @unique
+    pub_id       Bytes   @unique
     name         String
     platform     Int      @default(0)
     version      String?
@@ -67,7 +67,7 @@ model Node {
 }
 
 model Volume {
-    id                    Int      @id() @default(autoincrement())
+    id                    Int      @id @default(autoincrement())
     node_id               Int
     name                  String
     mount_point           String
@@ -84,7 +84,7 @@ model Volume {
 
 model Location {
     id                 Int      @id @default(autoincrement())
-    pub_id             String   @unique
+    pub_id             Bytes   @unique
     node_id            Int?
     name               String?
     local_path         String?
@@ -133,6 +133,7 @@ model File {
     tags       TagOnFile[]
     labels     LabelOnFile[]
     albums     FileInAlbum[]
+    spaces     FileInSpace[]
     paths      FilePath[]
     comments   Comment[]
     media_data MediaData?
@@ -225,8 +226,9 @@ model MediaData {
 
 model Tag {
     id              Int      @id @default(autoincrement())
-    pub_id          String   @unique
+    pub_id          Bytes   @unique
     name            String?
+    color           String?
     total_files     Int?     @default(0)
     redundancy_goal Int?     @default(1)
     date_created    DateTime @default(now())
@@ -246,12 +248,12 @@ model TagOnFile {
     file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     @@id([tag_id, file_id])
-    @@map("tags_on_files")
+    @@map("tags_on_file")
 }
 
 model Label {
     id            Int      @id @default(autoincrement())
-    pub_id        String   @unique
+    pub_id        Bytes   @unique
     name          String?
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
@@ -270,16 +272,41 @@ model LabelOnFile {
     file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     @@id([label_id, file_id])
-    @@map("label_on_files")
+    @@map("label_on_file")
+}
+
+model Space {
+    id            Int      @id @default(autoincrement())
+    pub_id        Bytes   @unique
+    name          String?
+    description   String?
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+
+    files FileInSpace[]
+    @@map("spaces")
+}
+
+model FileInSpace {
+    date_created DateTime @default(now())
+
+    space_id Int
+    space    Space @relation(fields: [space_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    file_id Int
+    file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@id([space_id, file_id])
+    @@map("file_in_space")
 }
 
 model Job {
-    id      String  @id
+    id      Bytes  @id
     name    String
     node_id Int
     action  Int
     status  Int     @default(0)
-    data    String?
+    data    Bytes?
 
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
@@ -293,7 +320,7 @@ model Job {
 
 model Album {
     id        Int     @id @default(autoincrement())
-    pub_id    String  @unique
+    pub_id    Bytes  @unique
     name      String
     is_hidden Boolean @default(false)
 
@@ -320,7 +347,7 @@ model FileInAlbum {
 
 model Comment {
     id            Int      @id @default(autoincrement())
-    pub_id        String   @unique
+    pub_id        Bytes   @unique
     content       String
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())

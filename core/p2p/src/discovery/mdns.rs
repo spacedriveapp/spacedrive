@@ -1,21 +1,21 @@
 use std::{net::Ipv4Addr, sync::Arc};
 
 use mdns_sd::{Receiver, ServiceDaemon, ServiceEvent, ServiceInfo};
-use sd_tunnel_utils::PeerId;
 use tracing::warn;
+use tunnel_utils::PeerId;
 
 use crate::{NetworkManager, NetworkManagerError, P2PManager, PeerCandidate, PeerMetadata};
 
 /// MDNS is the discovery system used for over local networks. It makes use of Multicast DNS (mDNS) to discover peers.
 /// It should also conforms to the mDNS SD specification.
-pub(crate) struct MDNS<TP2PManager: P2PManager> {
+pub(crate) struct Mdns<TP2PManager: P2PManager> {
 	nm: Arc<NetworkManager<TP2PManager>>,
 	mdns: ServiceDaemon,
 	browser: Receiver<ServiceEvent>,
 	service_type: String,
 }
 
-impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
+impl<TP2PManager: P2PManager> Mdns<TP2PManager> {
 	pub fn init(nm: &Arc<NetworkManager<TP2PManager>>) -> Result<Self, NetworkManagerError> {
 		tracing::debug!("Starting mdns discovery service");
 		let mdns = ServiceDaemon::new()?;
@@ -40,7 +40,7 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 						let raw_peer_id = info
 							.get_fullname()
 							.replace(&format!(".{}", self.service_type), "");
-						match PeerId::from_str(raw_peer_id.clone()) {
+						match PeerId::from_string(raw_peer_id.clone()) {
 							Ok(peer_id) => {
 								// Prevent discovery of the current peer.
 								if peer_id == self.nm.peer_id {
@@ -53,24 +53,23 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 										&peer_id,
 										info.get_properties(),
 									),
-									addresses: info
-										.get_addresses()
-										.iter()
-										.map(|v| v.clone())
-										.collect(),
+									addresses: info.get_addresses().iter().copied().collect(),
 									port: info.get_port(),
 								};
 
 								self.nm.add_discovered_peer(peer);
 							}
 							Err(_) => {
-								warn!("resolved peer advertising itself with an invalid peer_id '{}'", raw_peer_id);
+								warn!(
+									"resolved peer advertising itself with an invalid peer_id '{}'",
+									raw_peer_id
+								);
 							}
 						}
 					}
 					ServiceEvent::ServiceRemoved(_, fullname) => {
 						let raw_peer_id = fullname.replace(&format!(".{}", self.service_type), "");
-						match PeerId::from_str(raw_peer_id.clone()) {
+						match PeerId::from_string(raw_peer_id.clone()) {
 							Ok(peer_id) => {
 								// Prevent discovery of the current peer.
 								if peer_id == self.nm.peer_id {
@@ -80,7 +79,10 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 								self.nm.remove_discovered_peer(peer_id);
 							}
 							Err(_) => {
-								warn!("resolved peer advertising itself with an invalid peer_id '{}'", raw_peer_id);
+								warn!(
+									"resolved peer advertising itself with an invalid peer_id '{}'",
+									raw_peer_id
+								);
 							}
 						}
 					}
@@ -101,13 +103,13 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 		let peer_id_str = &self.nm.peer_id.to_string();
 		let service_info = ServiceInfo::new(
 			&self.service_type,
-			&peer_id_str,
+			peer_id_str,
 			&format!("{}.", peer_id_str),
 			&(self
 				.nm
 				.lan_addrs
 				.iter()
-				.map(|v| v.clone())
+				.map(|v| *v)
 				.collect::<Vec<Ipv4Addr>>())[..],
 			self.nm.listen_addr.port(),
 			Some(self.nm.manager.get_metadata().to_hashmap()),
@@ -119,12 +121,10 @@ impl<TP2PManager: P2PManager> MDNS<TP2PManager> {
 				Ok(_) => {}
 				Err(err) => {
 					warn!("failed to register mdns service: {}", err);
-					return;
 				}
 			},
 			Err(err) => {
 				warn!("failed to register mdns service: {}", err);
-				return;
 			}
 		}
 	}

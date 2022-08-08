@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 
-use sd_tunnel_utils::PeerId;
+use tunnel_utils::PeerId;
 
 /// Stores configuration which is given to the [crate::NetworkManager] at startup so it can resume from it's previous state.
+#[derive(Clone)]
 pub struct NetworkManagerConfig {
 	/// known_peers contains a list of all the peers that were connected last time the application was running.
 	/// These are used to know who to lookup when using the global discovery service.
@@ -12,14 +13,4 @@ pub struct NetworkManagerConfig {
 	pub listen_port: Option<u16>,
 	/// TODO
 	pub spacetunnel_url: Option<String>,
-}
-
-impl Default for NetworkManagerConfig {
-	fn default() -> Self {
-		Self {
-			known_peers: HashSet::new(),
-			listen_port: None,
-			spacetunnel_url: None,
-		}
-	}
 }

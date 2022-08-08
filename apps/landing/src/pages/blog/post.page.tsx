@@ -1,7 +1,7 @@
 import { PostOrPage, Tag } from '@tryghost/content-api';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-rust';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 
 import '../../atom-one.css';
@@ -12,11 +12,13 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 		Prism.highlightAll();
 	}, []);
 
-	let description =
-		post?.excerpt?.length || 0 > 160 ? post?.excerpt?.substring(0, 160) + '...' : post?.excerpt;
+	const description =
+		post?.excerpt?.length ?? 0 > 160
+			? (post?.excerpt?.substring(0, 160) ?? '') + '...'
+			: post?.excerpt;
 
-	let featured_image =
-		post?.feature_image ||
+	const featuredImage =
+		post?.feature_image ??
 		'https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_icon.png';
 
 	return (
@@ -26,9 +28,9 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 				<meta name="description" content={description} />
 				<meta property="og:title" content={post?.title} />
 				<meta property="og:description" content={description} />
-				<meta property="og:image" content={featured_image} />
+				<meta property="og:image" content={featuredImage} />
 				<meta content="summary_large_image" name="twitter:card" />
-				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} />
+				<meta name="author" content={post?.primary_author?.name ?? 'Spacedrive Technology Inc.'} />
 			</Helmet>
 			<div className="container max-w-4xl p-4 m-auto mt-8 mb-20 prose lg:prose-xs dark:prose-invert">
 				{post && (
@@ -37,7 +39,7 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 							<figcaption
 								dangerouslySetInnerHTML={{ __html: post.feature_image_caption as any }}
 							></figcaption>
-							<img src={featured_image} alt="" className="rounded-xl" />
+							<img src={featuredImage} alt="" className="rounded-xl" />
 						</figure>
 						<section className="flex flex-wrap gap-4 px-8 -mx-8 rounded-xl">
 							<div className="flex-grow">
@@ -72,4 +74,4 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 	);
 }
 
-export default MarkdownPage;
+export { MarkdownPage };

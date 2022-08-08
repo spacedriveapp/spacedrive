@@ -1,8 +1,8 @@
 /// The functions in this file are predominantly useless in the current system. This will be fixed in a future PR's.
 use std::sync::Arc;
 
-use sd_tunnel_utils::{Client, Message};
 use tracing::warn;
+use tunnel_utils::{Client, Message};
 
 use crate::{NetworkManager, NetworkManagerError, P2PManager};
 

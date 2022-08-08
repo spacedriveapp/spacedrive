@@ -1,20 +1,20 @@
 import '@fontsource/inter/variable.css';
 import * as ToastPrimitives from '@radix-ui/react-toast';
 import {
-	BaseTransport,
-	ClientProvider,
+	AppProps,
+	AppPropsContext,
 	PairingRequest,
-	setTransport,
-	useBridgeCommand,
+	queryClient,
+	useBridgeMutation,
+	useBridgeQuery,
+	useInvalidateQuery,
 	useToastNotificationsStore
 } from '@sd/client';
-import { useCoreEvents } from '@sd/client';
-import { AppProps, AppPropsContext } from '@sd/client';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import React, { useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { QueryClient, QueryClientProvider } from 'react-query';
 import { MemoryRouter } from 'react-router-dom';
-import create from 'zustand';
 
 import { usePairingCompleteStore } from '@sd/client/src/stores/usePairingCompleteStore';
 
@@ -24,73 +24,75 @@ import { ErrorFallback } from './ErrorFallback';
 import Dialog from './components/layout/Dialog';
 import './style.scss';
 
-const queryClient = new QueryClient();
+function RouterContainer(props: { props: AppProps }) {
+	const [appProps, setAppProps] = useState(props.props);
+	const { data: client } = useBridgeQuery(['getNode']);
 
-function RouterContainer() {
-	useCoreEvents();
+	useEffect(() => {
+		setAppProps({
+			...appProps,
+			data_path: client?.data_path
+		});
+	}, [client?.data_path]);
+
 	return (
-		<MemoryRouter>
-			<AppRouter />
-		</MemoryRouter>
+		<AppPropsContext.Provider value={Object.assign({ isFocused: true }, appProps)}>
+			<MemoryRouter>
+				<AppRouter />
+			</MemoryRouter>
+		</AppPropsContext.Provider>
 	);
 }
 
 export default function App(props: AppProps) {
-	// TODO: This is a hack and a better solution should probably be found.
-	// This exists so that the queryClient can be accessed within the subpackage '@sd/client'.
-	// Refer to <ClientProvider /> for where this is used.
-	window.ReactQueryClient ??= queryClient;
-
-	setTransport(props.transport);
-
 	const [pairingRequest, setPairingRequest] = useState<PairingRequest | null>(null);
-	const { toasts, addToast } = useToastNotificationsStore();
+	const { toasts } = useToastNotificationsStore();
+
+	useInvalidateQuery();
 
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
-			<QueryClientProvider client={queryClient} contextSharing={false}>
-				<AppPropsContext.Provider value={Object.assign({ isFocused: true }, props)}>
-					<ClientProvider>
-						<RouterContainer />
-						<ToastPrimitives.Provider>
-							{/* TODO: Style this component */}
-							{/* Ability to close toast manually with button */}
-							{/* TODO: Remove the toast from the store when it is closed */}
-							{/* Animate toast on and off screen */}
+			<QueryClientProvider client={queryClient}>
+				{import.meta.env.MODE === 'development' && <ReactQueryDevtools position="bottom-right" />}
+				<RouterContainer props={props} />
+				<ToastPrimitives.Provider>
+					{/* TODO: Style this component */}
+					{/* Ability to close toast manually with button */}
+					{/* TODO: Remove the toast from the store when it is closed */}
+					{/* Animate toast on and off screen */}
 
-							{toasts.map((toast) => (
-								<ToastPrimitives.Root
-									duration={3000}
-									key={toast.title}
-									className="bg-red-500 rounded-md p-2"
-									onClick={() => {
-										if (toast.payload.type === 'pairingRequest') {
-											setPairingRequest(toast.payload.data);
-										} else if (toast.payload.type === 'noaction') {
-										} else {
-											console.error(
-												`Found toast with unknown type '${(toast.payload as any).type || ''}'`
-											);
-										}
-									}}
-								>
-									<ToastPrimitives.Title className="text-white text-lg">
-										{toast.title}
-									</ToastPrimitives.Title>
-									<ToastPrimitives.Description className="text-white text-sm">
-										{toast.subtitle}
-									</ToastPrimitives.Description>
-								</ToastPrimitives.Root>
-							))}
+					{toasts.map((toast) => (
+						<ToastPrimitives.Root
+							duration={3000}
+							key={toast.title}
+							className="bg-red-500 rounded-md p-2"
+							onClick={() => {
+								if (toast.payload.type === 'pairingRequest') {
+									setPairingRequest(toast.payload.data);
+								} else if (toast.payload.type !== 'noaction') {
+									console.error(
+										`Found toast with unknown type '${
+											(toast.payload as { type?: string }).type ?? ''
+										}'`
+									);
+								}
+							}}
+						>
+							<ToastPrimitives.Title className="text-white text-lg">
+								{toast.title}
+							</ToastPrimitives.Title>
+							<ToastPrimitives.Description className="text-white text-sm">
+								{toast.subtitle}
+							</ToastPrimitives.Description>
+						</ToastPrimitives.Root>
+					))}
 
-							<ToastPrimitives.Viewport className="absolute p-5 top-5 right-5 flex-col space-y-4" />
-						</ToastPrimitives.Provider>
-						<PairingCompleteDialog
-							pairingRequest={pairingRequest}
-							setPairingRequest={setPairingRequest}
-						/>
-					</ClientProvider>
-				</AppPropsContext.Provider>
+					<ToastPrimitives.Viewport className="absolute p-5 top-5 right-5 flex-col space-y-4" />
+				</ToastPrimitives.Provider>
+				<PairingCompleteDialog
+					pairingRequest={pairingRequest}
+					setPairingRequest={setPairingRequest}
+				/>
 			</QueryClientProvider>
 		</ErrorBoundary>
 	);
@@ -106,19 +108,21 @@ function PairingCompleteDialog({
 	const [pairingRequestPresharedKey, setPairingRequestPresharedKey] = useState('');
 	const { pairingRequestCallbacks } = usePairingCompleteStore();
 
-	const { mutate: completeNodePairing } = useBridgeCommand('AcceptPairingRequest');
+	const { mutate: completeNodePairing } = useBridgeMutation('p2p.acceptPairingRequest');
 
 	return (
 		<Dialog
 			open={pairingRequest !== null}
 			title="Pairing Device"
-			description={`Pairing with '${pairingRequest?.name || ''}'.`}
+			description={`Pairing with '${pairingRequest?.name ?? ''}'.`}
 			ctaAction={() => {
 				completeNodePairing({
-					peer_id: pairingRequest?.id,
+					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+					peer_id: pairingRequest!.id,
 					preshared_key: pairingRequestPresharedKey
 				});
 
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				pairingRequestCallbacks.set(pairingRequest!.id, () => {
 					setPairingRequest(null);
 				});

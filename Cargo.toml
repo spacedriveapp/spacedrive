@@ -9,3 +9,7 @@ members = [
 	"core/derive",
 	"core/p2p"
 ]
+
+[patch.crates-io]
+rspc = { git = "https://github.com/oscartbeaumont/rspc.git" } # TODO: Move back to crates.io release when custom bindings export headers is released
+specta = { git = "https://github.com/oscartbeaumont/rspc.git" } # TODO: Move back to crates.io release when Specta Ipv4Addr support is released

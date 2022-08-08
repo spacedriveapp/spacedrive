@@ -3,16 +3,16 @@ use std::{fmt, ops::Deref};
 use ring::digest::digest;
 use rustls::Certificate;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use thiserror::Error;
-use ts_rs::TS;
 
 /// is a unique identifier for a peer. These are derived from the public key of the peer.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Serialize, Deserialize, Type)]
 pub struct PeerId(String);
 
 impl PeerId {
 	/// from_str attempts to load a PeerId from a string. It will return an error if the PeerId is invalid.
-	pub fn from_str(id: String) -> Result<Self, PeerIdError> {
+	pub fn from_string(id: String) -> Result<Self, PeerIdError> {
 		if id.len() != 40 {
 			return Err(PeerIdError::InvalidLength);
 		} else if !id.chars().all(char::is_alphanumeric) {

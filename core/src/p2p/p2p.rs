@@ -13,15 +13,15 @@ use uuid::Uuid;
 use crate::{
 	library::{LibraryContext, LibraryManager},
 	node::NodeConfigManager,
-	ClientQuery, CoreEvent, CoreResponse,
 };
 
 use super::{P2PRequest, SdP2PManager};
 
-const LIBRARY_ID_EXTRA_DATA_KEY: &'static str = "libraryId";
-const LIBRARY_CONFIG_EXTRA_DATA_KEY: &'static str = "libraryData";
+pub const LIBRARY_ID_EXTRA_DATA_KEY: &str = "libraryId";
+pub const LIBRARY_CONFIG_EXTRA_DATA_KEY: &str = "libraryData";
 
 #[derive(Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum P2PEvent {
 	PeerDiscovered(PeerId),
 	PeerExpired(PeerId),
@@ -42,6 +42,7 @@ pub enum P2PEvent {
 pub struct SdP2P {
 	pub nm: Arc<NetworkManager<SdP2PManager>>,
 	pub event_receiver: mpsc::UnboundedReceiver<P2PEvent>,
+	#[allow(clippy::type_complexity)]
 	pub pairing_requests: Arc<Mutex<HashMap<PeerId, oneshot::Sender<Result<String, ()>>>>>,
 }
 
@@ -59,7 +60,7 @@ impl SdP2P {
 				.get()
 				.await
 				.spacetunnel_addr
-				.unwrap_or("tunnel.spacedrive.com:9000".into()),
+				.unwrap_or_else(|| "tunnel.spacedrive.com:9000".into()),
 		);
 		let event_channel = mpsc::unbounded_channel();
 		let pairing_requests = Arc::new(Mutex::new(HashMap::new()));
@@ -97,9 +98,9 @@ impl SdP2P {
 		})
 	}
 
-	pub async fn pair(&self, ctx: LibraryContext, peer_id: PeerId) -> CoreResponse {
-		match self
-			.nm
+	// TODO: Error type
+	pub async fn pair(&self, ctx: &LibraryContext, peer_id: PeerId) -> Result<String, ()> {
+		self.nm
 			.initiate_pairing_with_peer(
 				peer_id,
 				[
@@ -113,20 +114,9 @@ impl SdP2P {
 				.collect(),
 			)
 			.await
-		{
-			Ok(preshared_key) => {
-				ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::DiscoveredPeers))
-					.await;
-				ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::ConnectedPeers))
-					.await;
-
-				CoreResponse::PairNode { preshared_key }
-			}
-			Err(err) => {
+			.map_err(|err| {
 				println!("Error pairing: {:?}", err);
-				CoreResponse::Null
-			}
-		}
+			})
 	}
 
 	pub fn broadcast(&self, msg: P2PRequest) -> Result<(), rmp_serde::encode::Error> {

@@ -1,10 +1,10 @@
 import clsx from 'clsx';
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 
 import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
 
-import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
+import AppEmbed from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';
 import NewBanner from '../components/NewBanner';
@@ -20,7 +20,7 @@ interface SectionProps {
 }
 
 function Section(props: SectionProps = { orientation: 'left' }) {
-	let info = (
+	const info = (
 		<div className="px-4 py-10 sm:px-10">
 			{props.heading && <h1 className="text-2xl font-black sm:text-4xl">{props.heading}</h1>}
 			{props.description && (
@@ -52,7 +52,7 @@ function Page() {
 	useEffect(() => {
 		if (!getWindow()) return;
 
-		const cuid = urlParsed.search?.['wunsub'];
+		const cuid = urlParsed.search?.wunsub;
 		if (!cuid) return;
 
 		(async () => {
@@ -77,7 +77,9 @@ function Page() {
 			} else if (req.status >= 400 && req.status < 500) {
 				alert('An error occurred while unsubscribing from waitlist');
 			}
-		})();
+		})().catch((err) => {
+			console.error('Error unsubscribing from waitlist', err);
+		});
 	}, []);
 
 	return (
@@ -155,4 +157,4 @@ function Page() {
 	);
 }
 
-export default Page;
+export { Page };

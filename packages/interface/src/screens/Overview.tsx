@@ -1,17 +1,10 @@
-import { DatabaseIcon, ExclamationCircleIcon, PlusIcon } from '@heroicons/react/solid';
-import {
-	useBridgeQuery,
-	useLibraryCommand,
-	useLibraryQuery,
-	useToastNotificationsStore
-} from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/solid';
+import { AppPropsContext, useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useState } from 'react';
-import { useCountUp } from 'react-countup';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
@@ -36,11 +29,11 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 };
 
 type OverviewStats = Partial<Record<keyof Statistics, string>>;
-type OverviewState = {
+interface OverviewState {
 	overviewStats: OverviewStats;
 	setOverviewStat: (name: keyof OverviewStats, newValue: string) => void;
 	setOverviewStats: (stats: OverviewStats) => void;
-};
+}
 
 export const useOverviewState = create<OverviewState>((set) => ({
 	overviewStats: {},
@@ -59,26 +52,26 @@ export const useOverviewState = create<OverviewState>((set) => ({
 		}))
 }));
 
+function quadratic(duration: number, range: number, current: number) {
+	return ((duration * 3) / Math.pow(range, 3)) * Math.pow(current, 2);
+}
+
 const StatItem: React.FC<StatItemProps> = (props) => {
 	const { title, bytes = '0', isLoading } = props;
 
 	const appProps = useContext(AppPropsContext);
 
 	const size = byteSize(+bytes);
-	const counterRef = React.useRef<HTMLElement>(null);
 
-	const counter = useCountUp({
-		end: +size.value,
-		ref: counterRef,
-		delay: 0.1,
-		decimals: 1,
-		duration: appProps?.demoMode ? 1 : 0.5,
-		useEasing: true
-	});
+	const [count, setCount] = useState(0);
 
 	useEffect(() => {
-		counter.update(+size.value);
-	}, [bytes]);
+		if (count < +size.value) {
+			setTimeout(() => {
+				setCount((count) => count + 1);
+			}, quadratic(appProps?.demoMode ? 1000 : 500, +size.value, count));
+		}
+	}, [count, size]);
 
 	return (
 		<div
@@ -99,7 +92,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 						hidden: isLoading
 					})}
 				>
-					<span className="tabular-nums" ref={counterRef} />
+					<span className="tabular-nums">{count}</span>
 					<span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>
 				</div>
 			</span>
@@ -108,17 +101,17 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 };
 
 export const OverviewScreen = () => {
-	const { data: libraryStatistics, isLoading: isStatisticsLoading } =
-		useLibraryQuery('GetLibraryStatistics');
-	const { data: discoveredPeers } = useBridgeQuery('DiscoveredPeers');
-	const { data: connectedPeers } = useBridgeQuery('ConnectedPeers');
-	const { data: nodes } = useLibraryQuery('GetNodes');
-	const { mutate: pairNode } = useLibraryCommand('PairNode');
+	const { data: libraryStatistics, isLoading: isStatisticsLoading } = useLibraryQuery([
+		'library.getStatistics'
+	]);
+	const { data: discoveredPeers } = useBridgeQuery(['p2p.discoveredPeers']);
+	const { data: connectedPeers } = useBridgeQuery(['p2p.connectedPeers']);
+	const { data: nodes } = useLibraryQuery(['p2p.getNodes']);
+	const { mutate: pairNode } = useLibraryMutation('p2p.pairNode');
 
 	const { overviewStats, setOverviewStats } = useOverviewState();
 	const [presharedKey, setPairingPresharedKey] = useState<string | null>(null);
 	const { pairingRequestCallbacks } = usePairingCompleteStore();
-	const { addToast } = useToastNotificationsStore();
 	const [isAddDeviceDialogOpen, setIsAddDeviceDialogOpen] = useState(false);
 
 	// get app props from context
@@ -148,7 +141,7 @@ export const OverviewScreen = () => {
 			};
 
 			Object.entries((libraryStatistics as Statistics) || {}).forEach(([key, value]) => {
-				newStatistics[key as keyof Statistics] = `${value}`;
+				newStatistics[key as keyof Statistics] = value;
 			});
 
 			setOverviewStats(newStatistics);
@@ -185,10 +178,13 @@ export const OverviewScreen = () => {
 						{Object.entries(overviewStats).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
 
+							// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+							const title = StatItemNames[key as keyof Statistics]!;
+
 							return (
 								<StatItem
 									key={key}
-									title={StatItemNames[key as keyof Statistics]!}
+									title={title}
 									bytes={value}
 									isLoading={appProps?.demoMode === true ? false : isStatisticsLoading}
 								/>
@@ -233,18 +229,19 @@ export const OverviewScreen = () => {
 										<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
 									</div>
 									<div className="flex flex-col gap-4">
-										{(discoveredPeers || [])
+										{(discoveredPeers ?? [])
 											.filter(
 												(v) =>
-													Object.keys(connectedPeers || []).find((p) => p.id === v.id) === undefined
+													Object.keys(connectedPeers ?? {}).find((peerId) => peerId === v.id) ===
+													undefined
 											)
 											.map((peer) => (
 												<h1
 													className="bg-red-500 w-full text-white p-1"
 													onClick={() =>
 														pairNode(peer.id, {
-															onSuccess: (data) => {
-																setPairingPresharedKey(data.preshared_key);
+															onSuccess: (presharedKey) => {
+																setPairingPresharedKey(presharedKey);
 																pairingRequestCallbacks.set(peer.id, () => {
 																	setPairingPresharedKey(null);
 																	setIsAddDeviceDialogOpen(false);

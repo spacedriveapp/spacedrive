@@ -10,11 +10,11 @@ use dashmap::{DashMap, DashSet};
 use futures_util::future::join_all;
 use quinn::{Chunk, Endpoint, NewConnection, RecvStream, SendStream, ServerConfig};
 use rustls::{Certificate, PrivateKey};
-use sd_tunnel_utils::{quic, write_value, PeerId, UtilError};
 use spake2::{Ed25519Group, Password, Spake2};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, warn};
+use tunnel_utils::{quic, write_value, PeerId, UtilError};
 
 use crate::{
 	ConnectError, ConnectionEstablishmentPayload, ConnectionType, Identity, NetworkManagerConfig,
@@ -81,7 +81,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		let internal_channel = mpsc::unbounded_channel();
 		let this = Arc::new(Self {
 			peer_id: PeerId::from_cert(&identity.0),
-			identity: identity,
+			identity,
 			known_peers: config.known_peers.into_iter().collect(),
 			discovered_peers: DashMap::new(),
 			connected_peers: DashMap::new(),
@@ -148,7 +148,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 
 	/// returns the address that the NetworkManager will listen on for incoming connections from other peers.
 	pub fn listen_addr(&self) -> SocketAddr {
-		self.listen_addr.clone()
+		self.listen_addr
 	}
 
 	/// adds a new peer to the known peers list. This will cause the NetworkManager to attempt to connect to the peer if it is discovered.
@@ -184,7 +184,7 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 		tx.write(data).await?;
 		let (oneshot_tx, oneshot_rx) = oneshot::channel();
 		tokio::spawn(async move {
-			// TODO: Max length of packet should be a constant in sd-tunnel-utils::quic
+			// TODO: Max length of packet should be a constant in tunnel-utils::quic
 			match rx.read_chunk(64 * 1024, true).await {
 				Ok(Some(data)) => match oneshot_tx.send(data) {
 					Ok(_) => match tx.finish().await {

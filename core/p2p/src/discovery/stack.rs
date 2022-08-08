@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use crate::{GlobalDiscovery, NetworkManager, NetworkManagerError, P2PManager, MDNS};
+use crate::{GlobalDiscovery, Mdns, NetworkManager, NetworkManagerError, P2PManager};
 
 /// Represents a stack of all of the different discovery mechanisms that are used by the P2P library.
 /// Traits are not used due to Rust's current lack of proper support for async traits.
 pub(crate) struct DiscoveryStack<TP2PManager: P2PManager> {
-	pub mdns: Arc<MDNS<TP2PManager>>,
+	pub mdns: Arc<Mdns<TP2PManager>>,
 	pub global: Arc<GlobalDiscovery<TP2PManager>>,
 }
 
@@ -15,7 +15,7 @@ impl<TP2PManager: P2PManager> DiscoveryStack<TP2PManager> {
 		global.poll().await;
 
 		Ok(Self {
-			mdns: Arc::new(MDNS::init(nm)?),
+			mdns: Arc::new(Mdns::init(nm)?),
 			global,
 		})
 	}

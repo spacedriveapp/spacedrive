@@ -1,5 +1,5 @@
-import { PostOrPage, PostsOrPages, Tag } from '@tryghost/content-api';
-import React, { useEffect, useState } from 'react';
+import { PostOrPage, Tag } from '@tryghost/content-api';
+import React from 'react';
 import { Helmet } from 'react-helmet';
 
 import { BlogTag } from '../../components/BlogTag';
@@ -8,7 +8,7 @@ import { blogEnabled } from './api';
 
 function Page({ posts }: { posts: PostOrPage[] }) {
 	if (!blogEnabled) {
-		let window = getWindow();
+		const window = getWindow();
 		if (!window) return;
 		window.location.href = '/blog-not-enabled';
 		return <></>;
@@ -62,4 +62,4 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 	);
 }
 
-export default Page;
+export { Page };

@@ -5,11 +5,11 @@ import { useMemo } from 'react';
 import create from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
-type LibraryState = {
+interface LibraryState {
 	currentLibraryUuid: string | null;
 	switchLibrary: (uuid: string) => void;
 	init: (libraries: LibraryConfigWrapped[]) => Promise<void>;
-};
+}
 
 export const useLibraryState = create<LibraryState>()(
 	devtools(
@@ -41,7 +41,7 @@ export const useLibraryState = create<LibraryState>()(
 
 export const useCurrentLibrary = () => {
 	const { currentLibraryUuid } = useLibraryState();
-	const { data: libraries } = useBridgeQuery('NodeGetLibraries');
+	const { data: libraries } = useBridgeQuery(['library.get']);
 
 	// memorize library to avoid re-running find function
 	const currentLibrary = useMemo(

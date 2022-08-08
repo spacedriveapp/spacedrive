@@ -1,5 +1,4 @@
-import { useBridgeQuery, useLibraryCommand, useLibraryQuery } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { AppPropsContext, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
 
@@ -7,16 +6,15 @@ import CodeBlock from '../components/primitive/Codeblock';
 
 export const DebugScreen: React.FC<{}> = (props) => {
 	const appPropsContext = useContext(AppPropsContext);
-	const { data: nodeState } = useBridgeQuery('NodeGetState');
-	const { data: libraryState } = useBridgeQuery('NodeGetLibraries');
-	const { data: jobs } = useBridgeQuery('JobGetRunning');
-	const { data: jobHistory } = useLibraryQuery('JobGetHistory');
+	const { data: nodeState } = useBridgeQuery(['getNode']);
+	const { data: libraryState } = useBridgeQuery(['library.get']);
+	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
+	const { data: jobHistory } = useLibraryQuery(['jobs.getHistory']);
 	// const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
 	//   onMutate: () => {
 	//     alert('Database purged');
 	//   }
 	// });
-	const { mutate: identifyFiles } = useLibraryCommand('IdentifyUniqueFiles');
 	return (
 		<div className="flex flex-col w-full h-screen custom-scroll page-scroll">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />

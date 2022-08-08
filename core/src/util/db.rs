@@ -12,10 +12,10 @@ static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations
 #[derive(Error, Debug)]
 pub enum MigrationError {
 	#[error("An error occurred while initialising a new database connection")]
-	DatabaseIntialisation(#[from] NewClientError),
+	DatabaseInitialization(#[from] NewClientError),
 	#[error("An error occurred with the database while applying migrations")]
 	DatabaseError(#[from] prisma_client_rust::queries::Error),
-	#[error("An error occured reading the embedded migration files. {0}. Please report to Spacedrive developers!")]
+	#[error("An error occurred reading the embedded migration files. {0}. Please report to Spacedrive developers!")]
 	InvalidEmbeddedMigration(&'static str),
 }
 
@@ -28,7 +28,7 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 			"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
 		))
 		.await?
-		.len() == 0;
+		.is_empty();
 
 	if migrations_table_missing {
 		client._execute_raw(raw!(INIT_MIGRATION)).await?;
@@ -44,11 +44,9 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 				))
 				.and_then(|name| {
 					name.to_str()
-						.ok_or_else(|| {
-							MigrationError::InvalidEmbeddedMigration(
-								"File name contains malformed characters",
-							)
-						})
+						.ok_or(MigrationError::InvalidEmbeddedMigration(
+							"File name contains malformed characters",
+						))
 						.map(|name| (name, dir))
 				})
 		})
@@ -65,7 +63,7 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 		.collect::<Result<Vec<_>, _>>()?;
 
 	// We sort the migrations so they are always applied in the correct order
-	migration_directories.sort_by(|(_, a_time, _), (_, b_time, _)| a_time.cmp(&b_time));
+	migration_directories.sort_by(|(_, a_time, _), (_, b_time, _)| a_time.cmp(b_time));
 
 	for (name, _, dir) in migration_directories {
 		let migration_file_raw = dir
@@ -96,16 +94,12 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 			// Create migration record
 			client
 				.migration()
-				.create(
-					migration::name::set(name.to_string()),
-					migration::checksum::set(checksum.clone()),
-					vec![],
-				)
+				.create(name.to_string(), checksum.clone(), vec![])
 				.exec()
 				.await?;
 
 			// Split the migrations file up into each individual step and apply them all
-			let steps = migration_file_raw.split(";").collect::<Vec<&str>>();
+			let steps = migration_file_raw.split(';').collect::<Vec<&str>>();
 			let steps = &steps[0..steps.len() - 1];
 			for (i, step) in steps.iter().enumerate() {
 				client._execute_raw(raw!(*step)).await?;

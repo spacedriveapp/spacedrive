@@ -15,6 +15,7 @@ export interface DialogProps extends DialogPrimitive.DialogProps {
 	description?: string;
 	children?: ReactNode;
 	loading?: boolean;
+	submitDisabled?: boolean;
 }
 
 export default function Dialog(props: DialogProps) {
@@ -51,7 +52,7 @@ export default function Dialog(props: DialogProps) {
 								onClick={props.ctaAction}
 								size="sm"
 								loading={props.loading}
-								disabled={props.loading}
+								disabled={props.loading ?? props.submitDisabled}
 								variant={props.ctaDanger ? 'colored' : 'primary'}
 								className={clsx(props.ctaDanger && 'bg-red-500 border-red-500')}
 							>

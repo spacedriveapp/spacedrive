@@ -243,7 +243,7 @@ function Page() {
 						</p>
 						<div className="grid grid-cols-3 my-10 sm:grid-cols-5 gap-x-5 gap-y-10">
 							{investors.map((investor) => (
-								<TeamMember key={investor.name + investor.investmentRound} {...investor} />
+								<TeamMember key={investor.name + (investor.investmentRound ?? '')} {...investor} />
 							))}
 						</div>
 					</div>
@@ -253,4 +253,4 @@ function Page() {
 	);
 }
 
-export default Page;
+export { Page };

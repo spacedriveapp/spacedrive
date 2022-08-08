@@ -1,5 +1,5 @@
-// extern crate ffmpeg_next as ffmpeg;
-// use ffmpeg::format;
+#[cfg(feature = "ffmpeg")]
+use ffmpeg_next::format;
 
 #[derive(Default, Debug)]
 pub struct MediaItem {
@@ -22,27 +22,30 @@ pub struct Stream {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)] // TODO: Remove this when we start using ffmpeg
 pub enum StreamKind {
-	// Video(VideoStream),
-	// Audio(AudioStream),
+	Video(VideoStream),
+	Audio(AudioStream),
 }
 
-// #[derive(Debug)]
-// pub struct VideoStream {
-// 	pub width: u32,
-// 	pub height: u32,
-// 	pub aspect_ratio: String,
-// 	pub format: format::Pixel,
-// 	pub bitrate: usize,
-// }
+#[derive(Debug)]
+pub struct VideoStream {
+	pub width: u32,
+	pub height: u32,
+	pub aspect_ratio: String,
+	#[cfg(feature = "ffmpeg")]
+	pub format: format::Pixel,
+	pub bitrate: usize,
+}
 
-// #[derive(Debug)]
-// pub struct AudioStream {
-// 	pub channels: u16,
-// 	pub format: format::Sample,
-// 	pub bitrate: usize,
-// 	pub rate: u32,
-// }
+#[derive(Debug)]
+pub struct AudioStream {
+	pub channels: u16,
+	#[cfg(feature = "ffmpeg")]
+	pub format: format::Sample,
+	pub bitrate: usize,
+	pub rate: u32,
+}
 
 // fn extract(iter: &mut Iter, key: &str) -> Option<String> {
 // 	iter.find(|k| k.0.contains(key)).map(|k| k.1.to_string())
@@ -125,10 +128,10 @@ pub enum StreamKind {
 // 				}
 // 				media_item.steams.push(stream_item);
 // 			}
-// 			println!("{:#?}", media_item);
+// 			info!("{:#?}", media_item);
 // 		}
 
-// 		Err(error) => println!("error: {}", error),
+// 		Err(error) => error!("error: {}", error),
 // 	}
 // 	Ok(())
 // }

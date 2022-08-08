@@ -3,10 +3,10 @@ use std::{sync::Arc, time::Duration};
 use futures_util::StreamExt;
 use quinn::{Connecting, NewConnection, VarInt};
 use rustls::Certificate;
-use sd_tunnel_utils::{read_value, write_value, PeerId};
 use spake2::{Ed25519Group, Password, Spake2};
 use tokio::{sync::oneshot, time::sleep};
 use tracing::{debug, error, info, warn};
+use tunnel_utils::{read_value, write_value, PeerId};
 
 use crate::{
 	ConnectionEstablishmentPayload, ConnectionType, NetworkManager, P2PManager,
@@ -232,7 +232,6 @@ impl<TP2PManager: P2PManager> NetworkManager<TP2PManager> {
 				}
 				_ => {
 					error!("connection from peer '{}' didn't send establishment payload fast enough. Closing connection", peer_id);
-					return;
 				}
 			}
 		});

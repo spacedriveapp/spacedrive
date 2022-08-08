@@ -1,12 +1,12 @@
 use std::{collections::HashMap, env, str::FromStr};
 
-use sd_tunnel_utils::PeerId;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use specta::Type;
+use tunnel_utils::PeerId;
 
 /// Represents the operating system which the remote peer is running.
 /// This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
-#[derive(Debug, Clone, TS, Serialize, Deserialize)]
+#[derive(Debug, Clone, Type, Serialize, Deserialize)]
 pub enum OperationSystem {
 	Windows,
 	Linux,
@@ -29,14 +29,14 @@ impl OperationSystem {
 	}
 }
 
-impl Into<String> for OperationSystem {
-	fn into(self) -> String {
-		match self {
-			OperationSystem::Windows => "w".to_string(),
-			OperationSystem::Linux => "l".to_string(),
-			OperationSystem::MacOS => "m".to_string(),
-			OperationSystem::IOS => "i".to_string(),
-			OperationSystem::Android => "a".to_string(),
+impl From<OperationSystem> for String {
+	fn from(os: OperationSystem) -> Self {
+		match os {
+			OperationSystem::Windows => "Windows".into(),
+			OperationSystem::Linux => "Linux".into(),
+			OperationSystem::MacOS => "MacOS".into(),
+			OperationSystem::IOS => "IOS".into(),
+			OperationSystem::Android => "Android".into(),
 			OperationSystem::Other(s) => {
 				let mut chars = s.chars();
 				chars.next();
@@ -64,7 +64,7 @@ impl FromStr for OperationSystem {
 
 /// Represents public metadata about a peer. This is designed to hold information which is required among all applications using the P2P library.
 /// This metadata is discovered through the discovery process or sent by the connecting device when establishing a new P2P connection.
-#[derive(Debug, Clone, TS, Serialize, Deserialize)]
+#[derive(Debug, Clone, Type, Serialize, Deserialize)]
 pub struct PeerMetadata {
 	pub name: String,
 	pub operating_system: Option<OperationSystem>,
@@ -77,7 +77,7 @@ impl PeerMetadata {
 			name: hashmap
 				.get("name")
 				.map(|v| v.to_string())
-				.unwrap_or(peer_id.to_string()),
+				.unwrap_or_else(|| peer_id.to_string()),
 			operating_system: hashmap.get("os").map(|v| v.parse().ok()).unwrap_or(None),
 			version: hashmap.get("version").map(|v| v.to_string()),
 		}

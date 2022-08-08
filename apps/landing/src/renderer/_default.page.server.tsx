@@ -4,10 +4,9 @@ import { Helmet } from 'react-helmet';
 import { dangerouslySkipEscape, escapeInject } from 'vite-plugin-ssr';
 import type { PageContextBuiltIn } from 'vite-plugin-ssr';
 
-import { App } from '../App';
+import App from '../App';
 import type { PageContext } from './types';
 
-export { render };
 // See https://vite-plugin-ssr.com/data-fetching
 export const passToClient = ['pageProps', 'urlPathname'];
 
@@ -20,9 +19,6 @@ async function render(pageContext: PageContextBuiltIn & PageContext) {
 	);
 
 	const helmet = Helmet.renderStatic();
-
-	// See https://vite-plugin-ssr.com/head
-	const { documentProps } = pageContext;
 
 	const documentHtml = escapeInject`
 		<!DOCTYPE html>
@@ -50,3 +46,5 @@ async function render(pageContext: PageContextBuiltIn & PageContext) {
 		}
 	};
 }
+
+export { render };

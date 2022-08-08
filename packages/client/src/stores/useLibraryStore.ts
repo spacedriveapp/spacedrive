@@ -1,21 +1,20 @@
 import { LibraryConfigWrapped } from '@sd/core';
 import produce from 'immer';
 import { useMemo } from 'react';
-import { useQueryClient } from 'react-query';
 import create from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
-import { useBridgeQuery } from '../bridge';
+import { useBridgeQuery } from '../index';
 import { useExplorerStore } from './useExplorerStore';
 
-type LibraryStore = {
+interface LibraryStore {
 	// the uuid of the currently active library
 	currentLibraryUuid: string | null;
 	// for full functionality this should be triggered along-side query invalidation
 	switchLibrary: (uuid: string) => void;
 	// a function
 	init: (libraries: LibraryConfigWrapped[]) => Promise<void>;
-};
+}
 
 export const useLibraryStore = create<LibraryStore>()(
 	devtools(
@@ -51,7 +50,12 @@ export const useLibraryStore = create<LibraryStore>()(
 // is memorized and can be used safely in any component
 export const useCurrentLibrary = () => {
 	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
-	const { data: libraries } = useBridgeQuery('NodeGetLibraries', undefined, {});
+	const { data: libraries } = useBridgeQuery(['library.get'], {
+		onSuccess: (data) => {},
+		onError: (err) => {
+			console.error('Error getting current library via bridge', err);
+		}
+	});
 
 	// memorize library to avoid re-running find function
 	const currentLibrary = useMemo(() => {

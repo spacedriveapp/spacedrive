@@ -24,9 +24,9 @@ use crate::{
 
 use super::{P2PEvent, P2PRequest, P2PResponse};
 
-const LIBRARY_ID_EXTRA_DATA_KEY: &'static str = "libraryId";
+const LIBRARY_ID_EXTRA_DATA_KEY: &str = "libraryId";
 
-const LIBRARY_CONFIG_EXTRA_DATA_KEY: &'static str = "libraryData";
+const LIBRARY_CONFIG_EXTRA_DATA_KEY: &str = "libraryData";
 
 // SdP2PManager is part of your application and allows you to hook into the behavior of the P2PManager.
 #[derive(Clone)]
@@ -35,6 +35,7 @@ pub struct SdP2PManager {
 	pub(super) config: Arc<NodeConfigManager>,
 	/// event_channel is used to send events back to the Spacedrive main event loop
 	pub(super) event_channel: mpsc::UnboundedSender<P2PEvent>,
+	#[allow(clippy::type_complexity)]
 	pub(super) pairing_requests: Arc<Mutex<HashMap<PeerId, oneshot::Sender<Result<String, ()>>>>>,
 }
 
@@ -44,7 +45,7 @@ impl P2PManager for SdP2PManager {
 	fn get_metadata(&self) -> PeerMetadata {
 		PeerMetadata {
 			// TODO: `block_on` needs to be removed from here!
-			name: block_on(self.config.get()).name.clone(),
+			name: block_on(self.config.get()).name,
 			operating_system: Some(OperationSystem::get_os()),
 			version: Some(env!("CARGO_PKG_VERSION").into()),
 		}
@@ -95,8 +96,7 @@ impl P2PManager for SdP2PManager {
 			.insert(peer_id.clone(), password_resp);
 		match self.event_channel.send(P2PEvent::PeerPairingRequest {
 			peer_id: peer_id.clone(),
-			library_id: Uuid::from_str(&extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap())
-				.unwrap(),
+			library_id: Uuid::from_str(extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap()).unwrap(),
 			peer_metadata: peer_metadata.clone(),
 		}) {
 			Ok(_) => (),
@@ -115,7 +115,8 @@ impl P2PManager for SdP2PManager {
 		// TODO: Checking is peer is the same or newer version of application and hence that it's safe to join
 
 		Box::pin(async move {
-			let library_id = extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap();
+			let library_id =
+				Uuid::parse_str(extra_data.get(LIBRARY_ID_EXTRA_DATA_KEY).unwrap()).unwrap();
 
 			match direction {
 				PairingParticipantType::Initiator => {}
@@ -126,7 +127,7 @@ impl P2PManager for SdP2PManager {
 					.unwrap();
 
 					self.library_manager
-						.create_with_id(Uuid::parse_str(library_id).unwrap(), library_config)
+						.create_with_id(library_id, library_config)
 						.await
 						.unwrap();
 
@@ -134,19 +135,15 @@ impl P2PManager for SdP2PManager {
 				}
 			}
 
-			let ctx = self
-				.library_manager
-				.get_ctx(library_id.clone())
-				.await
-				.unwrap();
+			let ctx = self.library_manager.get_ctx(library_id).await.unwrap();
 			ctx.db
 				.node()
 				.upsert(
-					node::pub_id::equals(peer_id.to_string()),
+					node::pub_id::equals(peer_id.as_bytes().to_vec()),
 					(
-						node::pub_id::set(peer_id.to_string()),
-						node::name::set(peer_metadata.name.clone()),
-						vec![node::platform::set(0 as i32)], // TODO: Set platform correctly
+						peer_id.as_bytes().to_vec(),
+						peer_metadata.name.clone(),
+						vec![node::platform::set(0_i32)], // TODO: Set platform correctly
 					),
 					vec![node::name::set(peer_metadata.name.clone())],
 				)
@@ -157,7 +154,7 @@ impl P2PManager for SdP2PManager {
 			match self.event_channel.send(P2PEvent::PeerPairingComplete {
 				peer_id: peer_id.clone(),
 				peer_metadata: peer_metadata.clone(),
-				library_id: Uuid::from_str(library_id).unwrap(), // TODO: Do this at start of function and throw if invalid
+				library_id,
 			}) {
 				Ok(_) => Ok(()),
 				Err(err) => {

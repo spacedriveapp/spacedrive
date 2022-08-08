@@ -1,9 +1,10 @@
 {
 	"extends": "../../packages/config/interface.tsconfig.json",
-	"compilerOptions": {
-		"paths": {
-			"~/docs/*": ["../../docs/*"]
+	"include": ["src", "server", "vite.config.ts"],
+	"ts-node": {
+		"transpileOnly": true,
+		"compilerOptions": {
+			"module": "CommonJS"
 		}
-	},
-	"include": ["src"]
+	}
 }

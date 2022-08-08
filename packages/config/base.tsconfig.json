@@ -15,7 +15,7 @@
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
 		"preserveWatchOutput": true,
-		"skipLibCheck": false,
+		"skipLibCheck": true,
 		"strict": true,
 		"allowSyntheticDefaultImports": true,
 		"resolveJsonModule": true,

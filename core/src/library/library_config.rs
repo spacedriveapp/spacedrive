@@ -4,17 +4,17 @@ use std::{
 	path::PathBuf,
 };
 
+use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use ts_rs::TS;
+use uuid::Uuid;
 
 use crate::node::ConfigMetadata;
 
 use super::LibraryManagerError;
 
 /// LibraryConfig holds the configuration for a specific library. This is stored as a '{uuid}.sdlibrary' file.
-#[derive(Debug, Serialize, Deserialize, Clone, TS, Default)]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
 pub struct LibraryConfig {
 	#[serde(flatten)]
 	pub metadata: ConfigMetadata,
@@ -41,10 +41,7 @@ impl LibraryConfig {
 		file_dir: PathBuf,
 		config: &LibraryConfig,
 	) -> Result<(), LibraryManagerError> {
-		File::create(file_dir)
-			.map_err(LibraryManagerError::IOError)?
-			.write_all(serde_json::to_string(config)?.as_bytes())
-			.map_err(LibraryManagerError::IOError)?;
+		File::create(file_dir)?.write_all(serde_json::to_string(config)?.as_bytes())?;
 		Ok(())
 	}
 
@@ -54,7 +51,7 @@ impl LibraryConfig {
 		config_path: PathBuf,
 	) -> Result<(), LibraryManagerError> {
 		match current_version {
-			None => Err(LibraryManagerError::MigrationError(format!(
+			None => Err(LibraryManagerError::Migration(format!(
 				"Your Spacedrive library at '{}' is missing the `version` field",
 				config_path.display()
 			))),
@@ -64,9 +61,8 @@ impl LibraryConfig {
 }
 
 // used to return to the frontend with uuid context
-#[derive(Serialize, Deserialize, Debug, TS)]
-#[ts(export)]
+#[derive(Serialize, Deserialize, Debug, Type)]
 pub struct LibraryConfigWrapped {
-	pub uuid: String,
+	pub uuid: Uuid,
 	pub config: LibraryConfig,
 }

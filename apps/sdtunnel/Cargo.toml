@@ -5,7 +5,7 @@ edition = "2021"
 default-run = "tunnel"
 
 [dependencies]
-sd-tunnel-utils = { path = "./utils" }
+tunnel-utils = { path = "./utils" }
 
 base64 = "0.13.0"
 dotenv = "0.15.0"
