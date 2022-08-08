@@ -47,6 +47,9 @@
 		"@rnx-kit/metro-resolver-symlinks": "^0.1.21",
 		"@types/react": "~18.0.15",
 		"@types/react-native": "~0.69.5",
+		"eslint-plugin-react": "^7.30.1",
+		"eslint-plugin-react-hooks": "^4.6.0",
+		"eslint-plugin-react-native": "^4.0.0",
 		"metro-minify-terser": "^0.72.0",
 		"react-native-svg": "^12.4.3",
 		"react-native-svg-transformer": "^1.0.0"
