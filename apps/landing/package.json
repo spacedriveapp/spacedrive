@@ -1,5 +1,5 @@
 {
-  "name": "@sd/server",
+  "name": "@sd/landing",
   "scripts": {
     "dev": "npm run server",
     "prod": "npm run build && npm run server:prod",
@@ -43,6 +43,7 @@
     "@types/prismjs": "^1.26.0",
     "@types/react-helmet": "^6.1.5",
     "@types/tryghost__content-api": "^1.3.11",
+    "autoprefixer": "^10.4.7",
     "postcss": "^8.4.14",
     "sass": "^1.54.0",
     "tailwind": "^4.0.0",
