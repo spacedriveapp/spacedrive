@@ -1,9 +1,7 @@
-import { LockClosedIcon } from '@heroicons/react/solid';
-import { Input } from '@sd/ui';
 import React from 'react';
 
 export const ContentScreen: React.FC<{}> = (props) => {
-	const [address, setAddress] = React.useState('');
+	// const [address, setAddress] = React.useState('');
 	return (
 		<div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll">
 			{/* <div className="relative flex flex-col space-y-5 pb-7">

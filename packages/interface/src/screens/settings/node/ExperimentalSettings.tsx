@@ -11,7 +11,7 @@ export default function ExperimentalSettings() {
 
 	return (
 		<SettingsContainer>
-			{/*<Button size="sm">Add Location</Button>*/}
+			{/* <Button size="sm">Add Location</Button> */}
 			<SettingsHeader title="Experimental" description="Experimental features within Spacedrive." />
 			<InputContainer
 				mini

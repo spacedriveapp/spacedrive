@@ -9,7 +9,7 @@ import { SettingsContainer } from '../../../components/settings/SettingsContaine
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function GeneralSettings() {
-	const { data: node } = useBridgeQuery('GetNode');
+	const { data: node } = useBridgeQuery(['getNode']);
 
 	return (
 		<SettingsContainer>

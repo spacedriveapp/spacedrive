@@ -42,6 +42,23 @@ const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
+		name: 'Ericson Soares',
+		role: 'Rust Backend Engineer',
+		image: teamImages['ericson.jpg'],
+		socials: {
+			twitter: 'https://twitter.com/fogodev',
+			github: 'https://github.com/fogodev'
+		}
+	},
+	{
+		name: 'Utku Bakir',
+		role: 'React Native Engineer',
+		image: teamImages['utku.jpg'],
+		socials: {
+			github: 'https://github.com/utkubakir'
+		}
+	},
+	{
 		name: 'Haden Fletcher',
 		role: 'Engineer & Designer',
 		image: teamImages['haden.jpg'],
@@ -253,4 +270,4 @@ function Page() {
 	);
 }
 
-export default Page;
+export { Page };

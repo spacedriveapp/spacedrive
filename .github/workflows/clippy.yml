@@ -49,6 +49,10 @@ jobs:
         if: steps.cache-prisma.outputs.cache-hit != 'true'
         run: cargo run -p prisma-cli --release -- generate
       
+      # This is do the proc-macro `tauri::generate_context!()` doesn't panic
+      - name: Create fake `dist` folder
+        run: mkdir ./apps/desktop/dist
+
       - name: Run Clippy
         uses: actions-rs/clippy-check@v1
         with:

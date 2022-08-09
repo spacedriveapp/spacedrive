@@ -1,15 +1,18 @@
 import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
-import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
-import { useLibraryCommand, useLibraryQuery } from '@sd/client';
-import { useCurrentLibrary, useLibraryStore } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { CogIcon, PlusIcon } from '@heroicons/react/solid';
+import {
+	AppPropsContext,
+	useCurrentLibrary,
+	useLibraryMutation,
+	useLibraryQuery,
+	useLibraryStore
+} from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { CirclesFour, Code, Planet } from 'phosphor-react';
-import React, { useContext, useEffect, useMemo } from 'react';
+import { CirclesFour, Planet } from 'phosphor-react';
+import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
-import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
@@ -75,28 +78,21 @@ const macOnly = (platform: string | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
-	const { isExperimental } = useNodeStore();
-
 	const navigate = useNavigate();
-
 	const appProps = useContext(AppPropsContext);
-
-	const { data: locationsResponse, isError: isLocationsError } = useLibraryQuery('GetLocations');
-
-	let locations = Array.isArray(locationsResponse) ? locationsResponse : [];
+	const { data: locations } = useLibraryQuery(['locations.get']);
 
 	// initialize libraries
 	const { init: initLibraries, switchLibrary } = useLibraryStore();
-
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
 	useEffect(() => {
 		if (libraries && !currentLibraryUuid) initLibraries(libraries);
 	}, [libraries, currentLibraryUuid]);
 
-	const { mutate: createLocation } = useLibraryCommand('LocCreate');
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
-	const { data: tags } = useLibraryQuery('GetTags');
+	const { data: tags } = useLibraryQuery(['tags.get']);
 
 	return (
 		<div
@@ -224,7 +220,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					<button
 						onClick={() => {
 							appProps?.openDialog({ directory: true }).then((result) => {
-								if (result) createLocation({ path: result as string });
+								console.log(result);
+								if (result) createLocation(result as string);
 							});
 						}}
 						className={clsx(
@@ -258,8 +255,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 			)}
 			<div className="flex-grow" />
 			<RunningJobsWidget />
-			{/* <div className="flex w-full">
-      </div> */}
 			<div className="mb-2">
 				<NavLink to="/settings/general">
 					{({ isActive }) => (

@@ -139,10 +139,10 @@ Write-Host
 Write-Host "Downloading the latest ffmpeg build..." -ForegroundColor Yellow
 
 # Downloads the latest shared build of ffmpeg from GitHub
-$filenamePattern = "*-full_build-shared.zip"
-$releasesUri = "https://api.github.com/repos/GyanD/codexffmpeg/releases/latest"
-$downloadUri = ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).browser_download_url
-$filename = ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).name
+# $filenamePattern = "*-full_build-shared.zip"
+# $releasesUri = "https://api.github.com/repos/GyanD/codexffmpeg/releases/latest"
+$downloadUri = "https://github.com/GyanD/codexffmpeg/releases/download/5.0.1/ffmpeg-5.0.1-full_build-shared.zip" # ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).browser_download_url
+$filename = "ffmpeg-5.0.1-full_build-shared.zip" # ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).name
 $remove = ".zip"
 $foldername = $filename.Substring(0, ($filename.Length - $remove.Length))
 

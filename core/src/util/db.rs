@@ -94,11 +94,7 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 			// Create migration record
 			client
 				.migration()
-				.create(
-					migration::name::set(name.to_string()),
-					migration::checksum::set(checksum.clone()),
-					vec![],
-				)
+				.create(name.to_string(), checksum.clone(), vec![])
 				.exec()
 				.await?;
 
