@@ -3,7 +3,6 @@ import { FlatList, Text, View } from 'react-native';
 
 import { Button } from '../components/base/Button';
 import Device from '../components/device/Device';
-import DrawerScreenWrapper from '../components/drawer/DrawerScreenWrapper';
 import VirtualizedListWrapper from '../components/layout/VirtualizedListWrapper';
 import OverviewStats from '../containers/OverviewStats';
 import tw from '../lib/tailwind';
@@ -50,7 +49,7 @@ const placeholderDevices: any = [
 
 export default function OverviewScreen({ navigation }: OverviewStackScreenProps<'Overview'>) {
 	return (
-		<DrawerScreenWrapper>
+		<View>
 			<VirtualizedListWrapper>
 				<View style={tw`px-4`}>
 					{/* Header */}
@@ -73,6 +72,6 @@ export default function OverviewScreen({ navigation }: OverviewStackScreenProps<
 					/>
 				</View>
 			</VirtualizedListWrapper>
-		</DrawerScreenWrapper>
+		</View>
 	);
 }
