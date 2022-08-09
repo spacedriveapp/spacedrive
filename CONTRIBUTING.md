@@ -56,9 +56,18 @@ To run the landing page
 - `$ pnpm web dev` - runs the web app for the embed
 - `$ pnpm landing dev`
 
+To run mobile app
+
+- `$ cd apps/mobile && pnpm i` - As this is a seperated workspace, you need to do this!
+- `$ pnpm android` - runs on Android Emulator
+- `$ pnpm ios` - runs on iOS Emulator
+- `$ pnpm dev` - For already bundled app
+
+You also need `expo-cli` installed globally.
+
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.60.0**
+- Rust version: **1.62.0**
 - Node version: **17**
 
 ### Pull Request
@@ -78,7 +87,6 @@ When you're finished with the changes, create a pull request, also known as a PR
 Congratulations :tada::tada: The Spacedrive team thanks you :sparkles:.
 
 Once your PR is merged, your contributions will be included in the next release of the application.
-
 
 ### Common Errors
 

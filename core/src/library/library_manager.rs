@@ -69,7 +69,7 @@ impl LibraryManager {
 					&& entry
 						.path()
 						.extension()
-						.map(|v| &*v == "sdlibrary")
+						.map(|v| v == "sdlibrary")
 						.unwrap_or(false)
 			}) {
 			let config_path = entry.path();
