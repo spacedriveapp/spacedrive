@@ -40,6 +40,7 @@
 		"@storybook/preset-scss": "^1.0.3",
 		"@storybook/react": "^6.5.9",
 		"@storybook/testing-library": "^0.0.13",
+		"@tailwindcss/line-clamp": "^0.4.0",
 		"@tailwindcss/typography": "^0.5.4",
 		"@types/react": "^18.0.15",
 		"@types/react-dom": "^18.0.6",

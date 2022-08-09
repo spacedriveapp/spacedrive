@@ -1,0 +1,24 @@
+{
+	"expo": {
+		"name": "Spacedrive",
+		"slug": "spacedrive",
+		"version": "0.0.1",
+		"orientation": "portrait",
+		"jsEngine": "hermes",
+		"scheme": "spacedrive",
+		"userInterfaceStyle": "automatic",
+		"updates": {
+			"enabled": false,
+			"fallbackToCacheTimeout": 0
+		},
+		"assetBundlePatterns": ["**/*"],
+		"ios": {
+			"supportsTablet": false,
+			"bundleIdentifier": "com.spacedrive.app"
+		},
+		"android": {
+			"package": "com.spacedrive.app"
+		},
+		"privacy": "hidden"
+	}
+}
