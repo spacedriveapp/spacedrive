@@ -36,7 +36,7 @@ function RouterContainer(props: { props: AppProps }) {
 	);
 }
 
-export default function App(props: AppProps) {
+export default function SpacedriveInterface(props: AppProps) {
 	useInvalidateQuery();
 
 	return (
