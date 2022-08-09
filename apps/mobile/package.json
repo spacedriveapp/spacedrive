@@ -28,8 +28,8 @@
 		"intl": "^1.2.5",
 		"moti": "^0.18.0",
 		"phosphor-react-native": "^1.1.2",
-		"react": "18.2.0",
-		"react-native": "0.69.3",
+		"react": "18.0.0",
+		"react-native": "0.69.4",
 		"react-native-gesture-handler": "^2.5.0",
 		"react-native-heroicons": "^2.2.0",
 		"react-native-reanimated": "^2.9.1",
@@ -51,7 +51,6 @@
 		"eslint-plugin-react-hooks": "^4.6.0",
 		"eslint-plugin-react-native": "^4.0.0",
 		"metro-minify-terser": "^0.72.0",
-		"react-native-svg": "^12.4.3",
 		"react-native-svg-transformer": "^1.0.0"
 	},
 	"private": true

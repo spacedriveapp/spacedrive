@@ -3,8 +3,8 @@ import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navig
 
 import NotFoundScreen from '../screens/NotFound';
 import SettingsScreen from '../screens/modals/settings/Settings';
-import DrawerNavigator from './DrawerNavigator';
 import type { DrawerNavParamList } from './DrawerNavigator';
+import DrawerNavigator from './DrawerNavigator';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -22,7 +22,7 @@ export default function RootNavigator() {
 }
 
 export type RootStackParamList = {
-	Root: NavigatorScreenParams<DrawerNavParamList> | undefined;
+	Root: NavigatorScreenParams<DrawerNavParamList>;
 	NotFound: undefined;
 	// Modals
 	Settings: undefined;

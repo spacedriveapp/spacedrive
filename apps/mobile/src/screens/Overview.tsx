@@ -7,7 +7,7 @@ import DrawerScreenWrapper from '../components/drawer/DrawerScreenWrapper';
 import VirtualizedListWrapper from '../components/layout/VirtualizedListWrapper';
 import OverviewStats from '../containers/OverviewStats';
 import tw from '../lib/tailwind';
-import type { TabScreenProps } from '../navigation/TabNavigator';
+import { OverviewStackScreenProps } from '../navigation/tabs/OverviewStack';
 
 const placeholderOverviewStats = {
 	id: 1,
@@ -48,7 +48,7 @@ const placeholderDevices: any = [
 	}
 ];
 
-export default function OverviewScreen({ navigation }: TabScreenProps<'Overview'>) {
+export default function OverviewScreen({ navigation }: OverviewStackScreenProps<'Overview'>) {
 	return (
 		<DrawerScreenWrapper>
 			<VirtualizedListWrapper>
@@ -57,7 +57,7 @@ export default function OverviewScreen({ navigation }: TabScreenProps<'Overview'
 					<View style={tw`flex-row my-6 justify-center items-center`}>
 						{/* TODO: Header with a button to open drawer! */}
 						<Button variant="primary" size="lg" onPress={() => navigation.openDrawer()}>
-							<Text style={tw`font-bold text-white`}>Open Drawer</Text>
+							<Text style={tw`font-bold text-white`}>Drawer</Text>
 						</Button>
 					</View>
 					{/* Stats */}

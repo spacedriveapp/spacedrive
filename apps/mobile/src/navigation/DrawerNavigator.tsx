@@ -1,9 +1,5 @@
 import { DrawerScreenProps, createDrawerNavigator } from '@react-navigation/drawer';
-import {
-	CompositeScreenProps,
-	NavigatorScreenParams,
-	getFocusedRouteNameFromRoute
-} from '@react-navigation/native';
+import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from '.';
@@ -25,8 +21,9 @@ export default function DrawerNavigator() {
 						width: '75%'
 					},
 					overlayColor: 'transparent',
+					drawerType: 'slide'
 					// Can only swipe on Overview screen! (for opening drawer)
-					swipeEnabled: getFocusedRouteNameFromRoute(route) === 'Overview'
+					// swipeEnabled: getFocusedRouteNameFromRoute(route) === 'Overview'
 					// drawerHideStatusBarOnOpen: true,
 					// drawerStatusBarAnimation: 'slide'
 				};
@@ -39,7 +36,7 @@ export default function DrawerNavigator() {
 }
 
 export type DrawerNavParamList = {
-	Home: NavigatorScreenParams<TabParamList> | undefined;
+	Home: NavigatorScreenParams<TabParamList>;
 };
 
 export type HomeDrawerScreenProps<Screen extends keyof DrawerNavParamList> = CompositeScreenProps<

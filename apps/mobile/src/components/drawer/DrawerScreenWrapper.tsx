@@ -21,11 +21,7 @@ const DrawerScreenWrapper: React.FC<{ children: React.ReactNode }> = ({ children
 		};
 	}, []);
 
-	return (
-		<Animated.View style={[tw.style('flex-1 bg-[#121219]'), style]}>
-			<SafeAreaView edges={['top']}>{children}</SafeAreaView>
-		</Animated.View>
-	);
+	return <Animated.View style={[tw.style('flex-1 bg-[#121219]'), style]}>{children}</Animated.View>;
 };
 
 export default DrawerScreenWrapper;

@@ -1,33 +1,33 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import BrowseScreen from '../../screens/Browse';
+import PhotosScreen from '../../screens/Photos';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createNativeStackNavigator<BrowseStackParamList>();
+const Stack = createNativeStackNavigator<PhotosStackParamList>();
 
-export default function BrowseStack() {
+export default function PhotosStack() {
 	return (
 		<Stack.Navigator
-			initialRouteName="Browse"
+			initialRouteName="Photos"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
 				headerTintColor: '#fff'
 			}}
 		>
-			<Stack.Screen name="Browse" component={BrowseScreen} />
+			<Stack.Screen name="Photos" component={PhotosScreen} />
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
 }
 
-export type BrowseStackParamList = {
-	Browse: undefined;
+export type PhotosStackParamList = {
+	Photos: undefined;
 } & SharedScreensParamList;
 
-export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =
+export type PhotosStackScreenProps<Screen extends keyof PhotosStackParamList> =
 	CompositeScreenProps<
-		NativeStackScreenProps<BrowseStackParamList, Screen>,
-		TabScreenProps<'BrowseStack'>
+		NativeStackScreenProps<PhotosStackParamList, Screen>,
+		TabScreenProps<'PhotosStack'>
 	>;

@@ -3,9 +3,10 @@ import { ColorValue, Text, View } from 'react-native';
 
 import BrowseLocationItem from '../components/browse/BrowseLocationItem';
 import BrowseTagItem from '../components/browse/BrowseTagItem';
+import DrawerScreenWrapper from '../components/drawer/DrawerScreenWrapper';
 import CollapsibleView from '../components/layout/CollapsibleView';
 import tw from '../lib/tailwind';
-import { BrowseScreenProps } from '../navigation/tabs/BrowseStack';
+import { BrowseStackScreenProps } from '../navigation/tabs/BrowseStack';
 
 const placeholderLocationData = [
 	{
@@ -35,9 +36,9 @@ const placeholderTagsData = [
 	}
 ];
 
-const BrowseScreen = ({ navigation }: BrowseScreenProps<'Browse'>) => {
+const BrowseScreen = ({ navigation }: BrowseStackScreenProps<'Browse'>) => {
 	return (
-		<View style={tw`flex-1 p-4`}>
+		<DrawerScreenWrapper>
 			<CollapsibleView
 				title="Locations"
 				titleStyle={tw`mt-5 mb-3 ml-1 text-base font-semibold text-gray-300`}
@@ -71,7 +72,7 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps<'Browse'>) => {
 					/>
 				))}
 			</CollapsibleView>
-		</View>
+		</DrawerScreenWrapper>
 	);
 };
 
