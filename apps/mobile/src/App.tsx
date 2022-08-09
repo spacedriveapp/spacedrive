@@ -12,7 +12,6 @@ import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { useOnboardingStore } from './stores/useOnboardingStore';
 
-//
 const NavigatorTheme: Theme = {
 	...DefaultTheme,
 	colors: {

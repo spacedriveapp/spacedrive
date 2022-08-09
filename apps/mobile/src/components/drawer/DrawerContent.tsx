@@ -1,7 +1,6 @@
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { House } from 'phosphor-react-native';
 import React from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
 import { CogIcon } from 'react-native-heroicons/solid';
@@ -10,7 +9,6 @@ import Layout from '../../constants/Layout';
 import tw from '../../lib/tailwind';
 import type { DrawerNavParamList } from '../../navigation/DrawerNavigator';
 import CollapsibleView from '../layout/CollapsibleView';
-import DrawerItem from './DrawerItem';
 import DrawerLocationItem from './DrawerLocationItem';
 import DrawerTagItem from './DrawerTagItem';
 
@@ -61,17 +59,7 @@ const getActiveRouteState = function (state: any): ActiveRoute {
 	return getActiveRouteState(childActiveRoute);
 };
 
-// Overriding the default to add typing for our params.
-// interface DrawerContentComponentProps {
-// 	state: DrawerNavigationState<DrawerNavParamList>;
-// 	navigation: NavigationHelpers<any, DrawerNavigationEventMap> & DrawerActionHelpers<any>;
-// 	// descriptors type is generic
-// 	descriptors: DrawerDescriptorMap;
-// }
-
 const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponentProps) => {
-	// console.log('state', state);
-
 	const stackName = getFocusedRouteNameFromRoute(getActiveRouteState(state)) ?? 'OverviewStack';
 
 	return (
@@ -79,12 +67,6 @@ const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponen
 			<View style={tw.style('justify-between', { height: drawerHeight })}>
 				<View>
 					<Text style={tw`my-4 text-white`}>TODO: Library Selection</Text>
-					<DrawerItem
-						label={'Home'}
-						icon={<House size={20} color={'white'} weight="bold" />}
-						onPress={() => navigation.jumpTo('Home')}
-						isSelected={getActiveRouteState(state).name === 'Home'}
-					/>
 					{/* Locations */}
 					<CollapsibleView
 						title="Locations"
