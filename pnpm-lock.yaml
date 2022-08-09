@@ -115,6 +115,7 @@ importers:
       '@types/react-helmet': ^6.1.5
       '@types/tryghost__content-api': ^1.3.11
       '@vitejs/plugin-react': ^1.3.2
+      autoprefixer: ^10.4.7
       clsx: ^1.2.1
       compression: ^1.7.4
       cross-env: ^7.0.3
@@ -172,6 +173,7 @@ importers:
       '@types/prismjs': 1.26.0
       '@types/react-helmet': 6.1.5
       '@types/tryghost__content-api': 1.3.11
+      autoprefixer: 10.4.7_postcss@8.4.14
       postcss: 8.4.14
       sass: 1.54.0
       tailwind: 4.0.0
@@ -430,8 +432,10 @@ importers:
       '@storybook/preset-scss': ^1.0.3
       '@storybook/react': ^6.5.9
       '@storybook/testing-library': ^0.0.13
+      '@tailwindcss/typography': ^0.5.4
       '@types/react': ^18.0.15
       '@types/react-dom': ^18.0.6
+      autoprefixer: ^10.4.7
       babel-loader: ^8.2.5
       clsx: ^1.2.1
       css-loader: ^6.7.1
@@ -469,8 +473,10 @@ importers:
       '@storybook/preset-scss': 1.0.3_bwzccejaufux335em5rfxw325i
       '@storybook/react': 6.5.9_3eylak3gdxsgyfvgxcahcewwqy
       '@storybook/testing-library': 0.0.13_biqbaboplfbrettd7655fr4n2y
+      '@tailwindcss/typography': 0.5.4_tailwindcss@3.1.6
       '@types/react': 18.0.15
       '@types/react-dom': 18.0.6
+      autoprefixer: 10.4.7_postcss@8.4.14
       babel-loader: 8.2.5_@babel+core@7.18.9
       css-loader: 6.7.1
       postcss-loader: 7.0.1_postcss@8.4.14
@@ -5211,6 +5217,17 @@ packages:
       lodash.merge: 4.6.2
     dev: true
 
+  /@tailwindcss/typography/0.5.4_tailwindcss@3.1.6:
+    resolution: {integrity: sha512-QEdg40EmGvE7kKoDei8zr5sf4D1pIayHj4R31bH3lX8x2BtTiR+jNejYPOkhbmy3DXgkMF9jC8xqNiGFAuL9Sg==}
+    peerDependencies:
+      tailwindcss: '>=3.0.0 || insiders'
+    dependencies:
+      lodash.castarray: 4.4.0
+      lodash.isplainobject: 4.0.6
+      lodash.merge: 4.6.2
+      tailwindcss: 3.1.6
+    dev: true
+
   /@tanstack/match-sorter-utils/8.1.1:
     resolution: {integrity: sha512-IdmEekEYxQsoLOR0XQyw3jD1GujBpRRYaGJYQUw1eOT1eUugWxdc7jomh1VQ1EKHcdwDLpLaCz/8y4KraU4T9A==}
     engines: {node: '>=12'}
@@ -6800,6 +6817,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
