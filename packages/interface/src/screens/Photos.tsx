@@ -1,4 +1,3 @@
-// import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import React from 'react';
 
 export const PhotosScreen: React.FC<{}> = (props) => {

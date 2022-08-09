@@ -1,5 +1,6 @@
 import { TrashIcon } from '@heroicons/react/outline';
-import { useLibraryCommand, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { TagUpdateArgs } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -20,7 +21,7 @@ export default function TagsSettings() {
 	const [newColor, setNewColor] = useState('#A717D9');
 	const [newName, setNewName] = useState('');
 
-	const { data: tags } = useLibraryQuery('GetTags');
+	const { data: tags } = useLibraryQuery(['tags.get']);
 
 	const [selectedTag, setSelectedTag] = useState<null | number>(null);
 
@@ -28,7 +29,7 @@ export default function TagsSettings() {
 		return tags?.find((t) => t.id === selectedTag);
 	}, [tags, selectedTag]);
 
-	const { mutate: createTag, isLoading } = useLibraryCommand('TagCreate', {
+	const { mutate: createTag, isLoading } = useLibraryMutation('tags.create', {
 		onError: (e) => {
 			console.log('error', e);
 		},
@@ -37,9 +38,9 @@ export default function TagsSettings() {
 		}
 	});
 
-	const { mutate: updateTag, isLoading: tagUpdateLoading } = useLibraryCommand('TagUpdate');
+	const { mutate: updateTag } = useLibraryMutation('tags.update');
 
-	const { mutate: deleteTag, isLoading: tagDeleteLoading } = useLibraryCommand('TagDelete');
+	const { mutate: deleteTag, isLoading: tagDeleteLoading } = useLibraryMutation('tags.delete');
 
 	// set default selected tag
 	useEffect(() => {
@@ -52,7 +53,9 @@ export default function TagsSettings() {
 		reset(currentTag);
 	}, [currentTag]);
 
-	const { register, handleSubmit, watch, reset, control } = useForm({ defaultValues: currentTag });
+	const { register, handleSubmit, watch, reset, control } = useForm({
+		defaultValues: currentTag as TagUpdateArgs
+	});
 
 	const submitTagUpdate = handleSubmit((data) => updateTag(data));
 
@@ -115,7 +118,7 @@ export default function TagsSettings() {
 							key={tag.id}
 							className={clsx(
 								'flex items-center rounded px-1.5 py-0.5',
-								selectedTag == tag.id && 'ring'
+								selectedTag === tag.id && 'ring'
 							)}
 							style={{ backgroundColor: tag.color + 'CC' }}
 						>
@@ -158,7 +161,7 @@ export default function TagsSettings() {
 							title="Delete Tag"
 							description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 							ctaAction={() => {
-								deleteTag({ id: currentTag.id });
+								deleteTag(currentTag.id);
 							}}
 							loading={tagDeleteLoading}
 							ctaDanger

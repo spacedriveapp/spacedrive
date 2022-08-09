@@ -1,25 +1,19 @@
-import { CollectionIcon, TrashIcon } from '@heroicons/react/outline';
-import { PlusIcon } from '@heroicons/react/solid';
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
-import { LibraryConfig, LibraryConfigWrapped } from '@sd/core';
+import { TrashIcon } from '@heroicons/react/outline';
+import { useBridgeMutation, useBridgeQuery } from '@sd/client';
+import { LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import { DotsSixVertical } from 'phosphor-react';
-import React, { useContext, useState } from 'react';
+import React, { useState } from 'react';
 
 import Card from '../../../components/layout/Card';
 import Dialog from '../../../components/layout/Dialog';
-import { Toggle } from '../../../components/primitive';
-import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
-
-// type LibrarySecurity = 'public' | 'password' | 'vault';
 
 function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
-	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeCommand('DeleteLibrary', {
+	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeMutation('library.delete', {
 		onSuccess: () => {
 			setOpenDeleteModal(false);
 		}
@@ -39,7 +33,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 					title="Delete Library"
 					description="Deleting a library will permanently the database, the files themselves will not be deleted."
 					ctaAction={() => {
-						deleteLib({ id: props.library.uuid });
+						deleteLib(props.library.uuid);
 					}}
 					loading={libDeletePending}
 					ctaDanger
@@ -58,20 +52,15 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 export default function LibrarySettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
-
-	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeCommand('CreateLibrary', {
-		onSuccess: () => {
-			setOpenCreateModal(false);
+	const { data: libraries } = useBridgeQuery(['library.get']);
+	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
+		'library.create',
+		{
+			onSuccess: () => {
+				setOpenCreateModal(false);
+			}
 		}
-	});
-
-	const { data: libraries } = useBridgeQuery('GetLibraries');
-
-	function createNewLib() {
-		if (newLibName) {
-			createLibrary({ name: newLibName });
-		}
-	}
+	);
 
 	return (
 		<SettingsContainer>
@@ -85,8 +74,9 @@ export default function LibrarySettings() {
 							onOpenChange={setOpenCreateModal}
 							title="Create New Library"
 							description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
-							ctaAction={createNewLib}
+							ctaAction={() => createLibrary(newLibName)}
 							loading={createLibLoading}
+							submitDisabled={!newLibName}
 							ctaLabel="Create"
 							trigger={
 								<Button variant="primary" size="sm">

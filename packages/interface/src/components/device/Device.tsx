@@ -3,7 +3,6 @@ import { CogIcon, LockClosedIcon } from '@heroicons/react/solid';
 import { Button } from '@sd/ui';
 import { Cloud, Desktop, DeviceMobileCamera, DotsSixVertical, Laptop } from 'phosphor-react';
 import React, { useState } from 'react';
-import { Rings } from 'react-loading-icons';
 
 import FileItem from '../file/FileItem';
 import Loader from '../primitive/Loader';
@@ -64,8 +63,6 @@ export function Device(props: DeviceProps) {
 					</Button>
 				</div>
 			</div>
-			{/* <hr className="border-gray-700" />
-      <hr className="border-gray-550" /> */}
 			<div className="px-4 pb-3 mt-3">
 				{props.locations.map((location, key) => (
 					<FileItem

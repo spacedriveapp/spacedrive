@@ -124,16 +124,16 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 
 ### Core:
 
-- `core`: The [Rust](#) core, referred to internally as `sdcore`. Contains filesystem, database and networking logic. Can be deployed in a variety of host applications.
+- `core`: The [Rust](https://www.rust-lang.org) core, referred to internally as `sdcore`. Contains filesystem, database and networking logic. Can be deployed in a variety of host applications.
 
 ### Packages:
 
-- `client`: A [TypeScript](#) client library to handle dataflow via RPC between UI and the Rust core.
-- `ui`: A [React](<[#](https://reactjs.org)>) Shared component library.
+- `client`: A [TypeScript](https://www.typescriptlang.org/) client library to handle dataflow via RPC between UI and the Rust core.
+- `ui`: A [React](https://reactjs.org) Shared component library.
 - `interface`: The complete user interface in React (used by apps `desktop`, `web` and `landing`)
 - `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo.
-- `macos`: A [Swift](#) Native binary for MacOS system extensions.
-- `ios`: A [Swift](#) Native binary (planned).
-- `windows`: A [C#](#) Native binary (planned).
-- `android`: A [Kotlin](#) Native binary (planned).
+- `macos`: A [Swift](https://developer.apple.com/swift/) Native binary for MacOS system extensions.
+- `ios`: A [Swift](https://developer.apple.com/swift/) Native binary (planned).
+- `windows`: A [C#](https://docs.microsoft.com/en-us/dotnet/csharp/) Native binary (planned).
+- `android`: A [Kotlin](https://kotlinlang.org/) Native binary (planned).
 

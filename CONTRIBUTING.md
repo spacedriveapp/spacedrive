@@ -43,6 +43,7 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
   - This will install FFMPEG and any other required dependencies for Spacedrive to build.
 - For Windows users run using PowerShell: `.\.github\scripts\setup-system.ps1`
   - This will install pnpm, LLVM, FFMPEG and any other required dependencies for Spacedrive to build.
+  - Ensure you run it like documented above as it expects it is executed from the root of the repository.
 - `$ pnpm i`
 - `$ pnpm prep` - Runs all necessary codegen & builds required dependencies.
 
@@ -55,9 +56,18 @@ To run the landing page
 - `$ pnpm web dev` - runs the web app for the embed
 - `$ pnpm landing dev`
 
+To run mobile app
+
+- `$ cd apps/mobile && pnpm i` - As this is a seperated workspace, you need to do this!
+- `$ pnpm android` - runs on Android Emulator
+- `$ pnpm ios` - runs on iOS Emulator
+- `$ pnpm dev` - For already bundled app
+
+You also need `expo-cli` installed globally.
+
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.60.0**
+- Rust version: **1.62.0**
 - Node version: **17**
 
 ### Pull Request
@@ -77,6 +87,16 @@ When you're finished with the changes, create a pull request, also known as a PR
 Congratulations :tada::tada: The Spacedrive team thanks you :sparkles:.
 
 Once your PR is merged, your contributions will be included in the next release of the application.
+
+### Common Errors
+
+#### `xcrun: error: unable to find utility "xctest", not a developer tool or in PATH`
+
+You either don't have Xcode installed, or don't have the Xcode command line tools in your `PATH`.
+
+- Install XCode from the Mac App Store
+- Run `xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+  This will use Xcode's developer tools instead of macOS's default tools.
 
 ### Credits
 

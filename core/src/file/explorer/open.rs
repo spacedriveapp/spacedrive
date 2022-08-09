@@ -2,9 +2,8 @@ use crate::{
 	encode::THUMBNAIL_CACHE_DIR_NAME,
 	file::{DirectoryWithContents, FileError, FilePath},
 	library::LibraryContext,
-	prisma::{file_path, tag, tag_on_file},
+	prisma::file_path,
 	sys::get_location,
-	tag::{Tag, TagError, TagOnFile, TagWithFiles},
 };
 use log::info;
 use std::path::Path;
@@ -67,28 +66,28 @@ pub async fn open_dir(
 	})
 }
 
-pub async fn open_tag(ctx: &LibraryContext, tag_id: i32) -> Result<TagWithFiles, TagError> {
-	let tag: Tag = ctx
-		.db
-		.tag()
-		.find_unique(tag::id::equals(tag_id))
-		.exec()
-		.await?
-		.ok_or(TagError::TagNotFound(tag_id))?
-		.into();
-
-	let files_with_tag: Vec<TagOnFile> = ctx
-		.db
-		.tag_on_file()
-		.find_many(vec![tag_on_file::tag_id::equals(tag_id)])
-		.exec()
-		.await?
-		.into_iter()
-		.map(Into::into)
-		.collect();
-
-	Ok(TagWithFiles {
-		tag,
-		files_with_tag,
-	})
-}
+// pub async fn open_tag(ctx: &LibraryContext, tag_id: i32) -> Result<TagWithFiles, TagError> {
+// 	let tag: Tag = ctx
+// 		.db
+// 		.tag()
+// 		.find_unique(tag::id::equals(tag_id))
+// 		.exec()
+// 		.await?
+// 		.ok_or(TagError::TagNotFound(tag_id))?
+// 		.into();
+//
+// 	let files_with_tag: Vec<TagOnFile> = ctx
+// 		.db
+// 		.tag_on_file()
+// 		.find_many(vec![tag_on_file::tag_id::equals(tag_id)])
+// 		.exec()
+// 		.await?
+// 		.into_iter()
+// 		.map(Into::into)
+// 		.collect();
+//
+// 	Ok(TagWithFiles {
+// 		tag,
+// 		files_with_tag,
+// 	})
+// }
