@@ -6,6 +6,7 @@ module.exports = {
 			'apps/desktop/tsconfig.json',
 			'apps/web/tsconfig.json',
 			'apps/landing/tsconfig.json',
+			'apps/mobile/tsconfig.json',
 			'packages/client/tsconfig.json',
 			'packages/interface/tsconfig.json',
 			'packages/ui/tsconfig.json'

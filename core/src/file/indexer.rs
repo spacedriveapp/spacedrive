@@ -136,7 +136,7 @@ impl StatefulJob for IndexerJob {
 					.unwrap_or_else(|| Path::new(""))
 					.to_str()
 					.unwrap_or("");
-				let parent_dir_id = dirs.get(&*parent_path);
+				let parent_dir_id = dirs.get(parent_path);
 
 				let path_str = match path.as_os_str().to_str() {
 					Some(path_str) => path_str,
