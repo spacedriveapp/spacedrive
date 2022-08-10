@@ -1,11 +1,16 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+	HeaderStyleInterpolators,
+	StackScreenProps,
+	TransitionPresets,
+	createStackNavigator
+} from '@react-navigation/stack';
 
 import BrowseScreen from '../../screens/Browse';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createNativeStackNavigator<BrowseStackParamList>();
+const Stack = createStackNavigator<BrowseStackParamList>();
 
 export default function BrowseStack() {
 	return (
@@ -13,7 +18,9 @@ export default function BrowseStack() {
 			initialRouteName="Browse"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff'
+				headerTintColor: '#fff',
+				headerStyleInterpolator: HeaderStyleInterpolators.forUIKit,
+				...TransitionPresets.DefaultTransition
 			}}
 		>
 			<Stack.Screen name="Browse" component={BrowseScreen} />
@@ -28,6 +35,6 @@ export type BrowseStackParamList = {
 
 export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =
 	CompositeScreenProps<
-		NativeStackScreenProps<BrowseStackParamList, Screen>,
+		StackScreenProps<BrowseStackParamList, Screen>,
 		TabScreenProps<'BrowseStack'>
 	>;

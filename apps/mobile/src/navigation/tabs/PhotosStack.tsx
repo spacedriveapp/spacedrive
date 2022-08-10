@@ -1,11 +1,16 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+	HeaderStyleInterpolators,
+	StackScreenProps,
+	TransitionPresets,
+	createStackNavigator
+} from '@react-navigation/stack';
 
 import PhotosScreen from '../../screens/Photos';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createNativeStackNavigator<PhotosStackParamList>();
+const Stack = createStackNavigator<PhotosStackParamList>();
 
 export default function PhotosStack() {
 	return (
@@ -13,7 +18,9 @@ export default function PhotosStack() {
 			initialRouteName="Photos"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff'
+				headerTintColor: '#fff',
+				headerStyleInterpolator: HeaderStyleInterpolators.forUIKit,
+				...TransitionPresets.DefaultTransition
 			}}
 		>
 			<Stack.Screen name="Photos" component={PhotosScreen} />
@@ -28,6 +35,6 @@ export type PhotosStackParamList = {
 
 export type PhotosStackScreenProps<Screen extends keyof PhotosStackParamList> =
 	CompositeScreenProps<
-		NativeStackScreenProps<PhotosStackParamList, Screen>,
+		StackScreenProps<PhotosStackParamList, Screen>,
 		TabScreenProps<'PhotosStack'>
 	>;

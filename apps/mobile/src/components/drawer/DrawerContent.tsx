@@ -2,12 +2,11 @@ import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import React from 'react';
-import { ColorValue, Pressable, Text, View } from 'react-native';
+import { ColorValue, Platform, Pressable, Text, View } from 'react-native';
 import { CogIcon } from 'react-native-heroicons/solid';
 
 import Layout from '../../constants/Layout';
 import tw from '../../lib/tailwind';
-import type { DrawerNavParamList } from '../../navigation/DrawerNavigator';
 import CollapsibleView from '../layout/CollapsibleView';
 import DrawerLocationItem from './DrawerLocationItem';
 import DrawerTagItem from './DrawerTagItem';
@@ -40,26 +39,20 @@ const placeholderTagsData = [
 	}
 ];
 
-const drawerHeight = Layout.window.height * 0.9;
+const drawerHeight = Platform.select({
+	ios: Layout.window.height * 0.85,
+	android: Layout.window.height * 0.9
+});
 
-// This is a hacky way to get the active route name and params but it works and it's typed...
-
-interface ActiveRoute {
-	key: string;
-	name: keyof DrawerNavParamList;
-	params: undefined;
-}
-
-const getActiveRouteState = function (state: any): ActiveRoute {
+const getActiveRouteState = function (state: any) {
 	if (!state.routes || state.routes.length === 0 || state.index >= state.routes.length) {
 		return state;
 	}
-
 	const childActiveRoute = state.routes[state.index];
 	return getActiveRouteState(childActiveRoute);
 };
 
-const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponentProps) => {
+const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 	const stackName = getFocusedRouteNameFromRoute(getActiveRouteState(state)) ?? 'OverviewStack';
 
 	return (
@@ -82,7 +75,6 @@ const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponen
 										params: { id: location.id }
 									})
 								}
-								isSelected={false}
 							/>
 						))}
 						{/* Add Location */}
@@ -108,7 +100,6 @@ const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponen
 									})
 								}
 								tagColor={tag.color as ColorValue}
-								isSelected={false}
 							/>
 						))}
 					</CollapsibleView>

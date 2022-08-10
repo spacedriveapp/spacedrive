@@ -1,9 +1,9 @@
 import { ParamListBase, StackNavigationState, TypedNavigator } from '@react-navigation/native';
 import {
-	NativeStackNavigationEventMap,
-	NativeStackNavigationOptions,
-	NativeStackScreenProps
-} from '@react-navigation/native-stack';
+	StackNavigationEventMap,
+	StackNavigationOptions,
+	StackScreenProps
+} from '@react-navigation/stack';
 
 import LocationScreen from '../screens/Location';
 import TagScreen from '../screens/Tag';
@@ -12,8 +12,8 @@ export function SharedScreens(
 	Stack: TypedNavigator<
 		SharedScreensParamList,
 		StackNavigationState<ParamListBase>,
-		NativeStackNavigationOptions,
-		NativeStackNavigationEventMap,
+		StackNavigationOptions,
+		StackNavigationEventMap,
 		any
 	>
 ) {
@@ -30,7 +30,7 @@ export type SharedScreensParamList = {
 	Tag: { id: number };
 };
 
-export type SharedScreenProps<Screen extends keyof SharedScreensParamList> = NativeStackScreenProps<
+export type SharedScreenProps<Screen extends keyof SharedScreensParamList> = StackScreenProps<
 	SharedScreensParamList,
 	Screen
 >;

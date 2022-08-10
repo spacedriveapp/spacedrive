@@ -1,11 +1,16 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+	HeaderStyleInterpolators,
+	StackScreenProps,
+	TransitionPresets,
+	createStackNavigator
+} from '@react-navigation/stack';
 
 import SpacesScreen from '../../screens/Spaces';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createNativeStackNavigator<SpacesStackParamList>();
+const Stack = createStackNavigator<SpacesStackParamList>();
 
 export default function SpacesStack() {
 	return (
@@ -13,7 +18,9 @@ export default function SpacesStack() {
 			initialRouteName="Spaces"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff'
+				headerTintColor: '#fff',
+				headerStyleInterpolator: HeaderStyleInterpolators.forUIKit,
+				...TransitionPresets.DefaultTransition
 			}}
 		>
 			<Stack.Screen name="Spaces" component={SpacesScreen} />
@@ -28,6 +35,6 @@ export type SpacesStackParamList = {
 
 export type SpacesStackScreenProps<Screen extends keyof SpacesStackParamList> =
 	CompositeScreenProps<
-		NativeStackScreenProps<SpacesStackParamList, Screen>,
+		StackScreenProps<SpacesStackParamList, Screen>,
 		TabScreenProps<'SpacesStack'>
 	>;

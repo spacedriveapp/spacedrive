@@ -1,11 +1,16 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+	HeaderStyleInterpolators,
+	StackScreenProps,
+	TransitionPresets,
+	createStackNavigator
+} from '@react-navigation/stack';
 
 import OverviewScreen from '../../screens/Overview';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createNativeStackNavigator<OverviewStackParamList>();
+const Stack = createStackNavigator<OverviewStackParamList>();
 
 export default function OverviewStack() {
 	return (
@@ -13,7 +18,9 @@ export default function OverviewStack() {
 			initialRouteName="Overview"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff'
+				headerTintColor: '#fff',
+				headerStyleInterpolator: HeaderStyleInterpolators.forUIKit,
+				...TransitionPresets.DefaultTransition
 			}}
 		>
 			<Stack.Screen name="Overview" component={OverviewScreen} />
@@ -28,6 +35,6 @@ export type OverviewStackParamList = {
 
 export type OverviewStackScreenProps<Screen extends keyof OverviewStackParamList> =
 	CompositeScreenProps<
-		NativeStackScreenProps<OverviewStackParamList, Screen>,
+		StackScreenProps<OverviewStackParamList, Screen>,
 		TabScreenProps<'OverviewStack'>
 	>;

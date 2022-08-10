@@ -9,10 +9,11 @@ importers:
       '@expo/vector-icons': ^13.0.0
       '@gorhom/bottom-sheet': ^4.4.3
       '@react-native-async-storage/async-storage': ^1.17.7
+      '@react-native-masked-view/masked-view': 0.2.7
       '@react-navigation/bottom-tabs': ^6.3.2
       '@react-navigation/drawer': ^6.4.3
       '@react-navigation/native': ^6.0.11
-      '@react-navigation/native-stack': ^6.7.0
+      '@react-navigation/stack': ^6.2.2
       '@rnx-kit/metro-config': ^1.2.36
       '@rnx-kit/metro-resolver-symlinks': ^0.1.21
       '@sd/assets': file:../../packages/assets
@@ -49,10 +50,11 @@ importers:
       '@expo/vector-icons': 13.0.0
       '@gorhom/bottom-sheet': 4.4.3_hswsf2nf37dbg7gtrzi6cykjxu
       '@react-native-async-storage/async-storage': 1.17.7_react-native@0.69.4
+      '@react-native-masked-view/masked-view': 0.2.7_jk6ntyzimkrv4hwdmdgaaf5yaa
       '@react-navigation/bottom-tabs': 6.3.2_lt3zwp3lfpppdtfukwkqomi434
       '@react-navigation/drawer': 6.4.3_nmpdbiatnz4zvzzqwxwtnc6bgq
       '@react-navigation/native': 6.0.11_jk6ntyzimkrv4hwdmdgaaf5yaa
-      '@react-navigation/native-stack': 6.7.0_lt3zwp3lfpppdtfukwkqomi434
+      '@react-navigation/stack': 6.2.2_qhufet4hbtcxmlbxxh3awaapq4
       '@sd/assets': file:../../packages/assets
       '@sd/core': file:../../core
       byte-size: 8.1.0
@@ -2179,6 +2181,16 @@ packages:
       - supports-color
       - utf-8-validate
 
+  /@react-native-masked-view/masked-view/0.2.7_jk6ntyzimkrv4hwdmdgaaf5yaa:
+    resolution: {integrity: sha512-ME+egr2l25rkcIJjFoXQUWWlfkJMY2KHdhf/df2ZXbVdVx5HIeTPpJpjKTZOPttLFtmrtHpzsqK1/dmu8F755g==}
+    peerDependencies:
+      react: '>=16'
+      react-native: '>=0.57'
+    dependencies:
+      react: 18.0.0
+      react-native: 0.69.4_react@18.0.0
+    dev: false
+
   /@react-native/assets/1.0.0:
     resolution: {integrity: sha512-KrwSpS1tKI70wuKl68DwJZYEvXktDHdZMG0k2AXD/rJVSlB23/X2CB2cutVR0HwNMJIal9HOUOBB2rVfa6UGtQ==}
 
@@ -2257,24 +2269,6 @@ packages:
       react-native-safe-area-context: 4.3.1_jk6ntyzimkrv4hwdmdgaaf5yaa
     dev: false
 
-  /@react-navigation/native-stack/6.7.0_lt3zwp3lfpppdtfukwkqomi434:
-    resolution: {integrity: sha512-03CuSwbBvP9+iXgjrTRRw+aog+KZXbhPzqCWVExzIWNOzf5/PJEcdtlm9KDrx2aHHDtDA6LRLKQA4UIlJOmNzA==}
-    peerDependencies:
-      '@react-navigation/native': ^6.0.0
-      react: '*'
-      react-native: '*'
-      react-native-safe-area-context: '>= 3.0.0'
-      react-native-screens: '>= 3.0.0'
-    dependencies:
-      '@react-navigation/elements': 1.3.4_grz5mlf36rpt5ynmbmkzfesafm
-      '@react-navigation/native': 6.0.11_jk6ntyzimkrv4hwdmdgaaf5yaa
-      react: 18.0.0
-      react-native: 0.69.4_react@18.0.0
-      react-native-safe-area-context: 4.3.1_jk6ntyzimkrv4hwdmdgaaf5yaa
-      react-native-screens: 3.15.0_jk6ntyzimkrv4hwdmdgaaf5yaa
-      warn-once: 0.1.0
-    dev: false
-
   /@react-navigation/native/6.0.11_jk6ntyzimkrv4hwdmdgaaf5yaa:
     resolution: {integrity: sha512-z0YTB7Czdb9SNjxfzcFNB3Vym0qmUcxpiYGOOXX8PH0s+xlIs/w+2RVp6YAvAC48A30o7MMCYqy5OeR6lrtWHg==}
     peerDependencies:
@@ -2293,6 +2287,27 @@ packages:
     resolution: {integrity: sha512-mWWj2yh4na/OBaE7bWrft4kdAtxnG8MlV6ph3Bi6tHqgcnxENX+dnQY6y0qg/6E7cmMlaJg5nAC5y4Enr5ir8A==}
     dependencies:
       nanoid: 3.3.4
+    dev: false
+
+  /@react-navigation/stack/6.2.2_qhufet4hbtcxmlbxxh3awaapq4:
+    resolution: {integrity: sha512-P9ZfmluOXNmbs7YdG1UWS1fAh87Yse9aX8TgqOz4FlHEm5q7g5eaM35QgWByt+wif3UiqE40D8wXpqRQvMgPWg==}
+    peerDependencies:
+      '@react-navigation/native': ^6.0.0
+      react: '*'
+      react-native: '*'
+      react-native-gesture-handler: '>= 1.0.0'
+      react-native-safe-area-context: '>= 3.0.0'
+      react-native-screens: '>= 3.0.0'
+    dependencies:
+      '@react-navigation/elements': 1.3.4_grz5mlf36rpt5ynmbmkzfesafm
+      '@react-navigation/native': 6.0.11_jk6ntyzimkrv4hwdmdgaaf5yaa
+      color: 4.2.3
+      react: 18.0.0
+      react-native: 0.69.4_react@18.0.0
+      react-native-gesture-handler: 2.5.0_jk6ntyzimkrv4hwdmdgaaf5yaa
+      react-native-safe-area-context: 4.3.1_jk6ntyzimkrv4hwdmdgaaf5yaa
+      react-native-screens: 3.15.0_jk6ntyzimkrv4hwdmdgaaf5yaa
+      warn-once: 0.1.0
     dev: false
 
   /@rnx-kit/babel-preset-metro-react-native/1.1.0_@babel+core@7.18.10:
