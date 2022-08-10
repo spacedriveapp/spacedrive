@@ -39,6 +39,7 @@
 		"vite-plugin-ssr": "^0.4.15"
 	},
 	"devDependencies": {
+		"@sd/config": "link:../../packages/config",
 		"@tailwindcss/line-clamp": "^0.4.0",
 		"@tailwindcss/typography": "^0.5.4",
 		"@types/prismjs": "^1.26.0",

@@ -67,6 +67,7 @@
 		"zustand": "4.0.0"
 	},
 	"devDependencies": {
+		"@sd/config": "workspace:*",
 		"@types/babel-core": "^6.25.7",
 		"@types/byte-size": "^8.1.0",
 		"@types/lodash": "^4.14.182",
