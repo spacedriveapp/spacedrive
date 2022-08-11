@@ -8,7 +8,10 @@ repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
 
 [features]
+default = ["p2p"]
 p2p = [] # This feature controlls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
+mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
+ffmpeg = ["dep:ffmpeg-next"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 
 [dependencies]
 hostname = "0.3.1"
@@ -27,7 +30,7 @@ rmp-serde = "^1.1.0"
 
 # Project dependencies
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", branch = "0.6.0", features = ["rspc"] }
-rspc = { version = "0.0.4", features = ["axum", "tauri", "uuid", "chrono", "tracing"] }
+rspc = { version = "0.0.4", features = ["axum", "uuid", "chrono", "tracing"] }
 walkdir = "^2.3.2"
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
@@ -39,10 +42,10 @@ include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "^0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
-ffmpeg-next = "5.0.3"
+ffmpeg-next = { version = "5.0.3", optional = true, features = [] }
 fs_extra = "1.2.0"
 tracing = "0.1.35"
-tracing-subscriber = "0.3.14"
+tracing-subscriber = { version = "0.3.14", features = ["env-filter"] }
 async-stream = "0.3.3"
 once_cell = "1.13.0"
 ctor = "0.1.22"

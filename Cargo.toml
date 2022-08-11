@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	"apps/desktop/src-tauri",
+	"apps/mobile/rust",
 	"core",
 	"core/prisma",
 	"core/derive",

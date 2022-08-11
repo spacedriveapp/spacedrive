@@ -16,7 +16,7 @@ use crate::{
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
-pub(crate) type Router = rspc::Router<Ctx>;
+pub type Router = rspc::Router<Ctx>;
 pub(crate) type RouterBuilder = rspc::RouterBuilder<Ctx>;
 
 /// Represents an internal core event, these are exposed to client via a rspc subscription.

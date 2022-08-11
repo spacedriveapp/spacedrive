@@ -7,6 +7,7 @@ import tw from '../lib/tailwind';
 import OverviewScreen from '../screens/Overview';
 import PhotosScreen from '../screens/Photos';
 import SpacesScreen from '../screens/Spaces';
+import TempCoreDebugScreen from '../screens/TempCoreDebug';
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
 import BrowseStack from './tabs/BrowseStack';
 
@@ -61,6 +62,15 @@ export default function TabNavigator() {
 			<Tab.Screen
 				name="Photos"
 				component={PhotosScreen}
+				options={{
+					tabBarIcon: ({ focused }) => (
+						<PhotographIcon size={22} color={focused ? tw.color('bg-primary') : 'white'} />
+					)
+				}}
+			/>
+			<Tab.Screen
+				name="CoreDebug"
+				component={TempCoreDebugScreen}
 				options={{
 					tabBarIcon: ({ focused }) => (
 						<PhotographIcon size={22} color={focused ? tw.color('bg-primary') : 'white'} />
