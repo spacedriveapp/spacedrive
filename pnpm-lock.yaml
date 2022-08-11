@@ -260,7 +260,6 @@ importers:
       eslint-config-prettier: ^8.5.0
       eslint-plugin-react: ^7.30.1
       eslint-plugin-react-hooks: ^4.6.0
-      eslint-plugin-react-native: ^4.0.0
     devDependencies:
       '@typescript-eslint/eslint-plugin': 5.31.0_eygs4xj346vriqwkjbwjuyviaa
       '@typescript-eslint/parser': 5.31.0_eslint@8.21.0
@@ -268,7 +267,6 @@ importers:
       eslint-config-prettier: 8.5.0_eslint@8.21.0
       eslint-plugin-react: 7.30.1_eslint@8.21.0
       eslint-plugin-react-hooks: 4.6.0_eslint@8.21.0
-      eslint-plugin-react-native: 4.0.0_eslint@8.21.0
 
   packages/interface:
     specifiers:
@@ -6054,7 +6052,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.18.6_@babel+core@7.18.9
       magic-string: 0.26.2
       react-refresh: 0.14.0
-      vite: 3.0.3
+      vite: 3.0.3_sass@1.54.0
     transitivePeerDependencies:
       - supports-color
 
@@ -9534,22 +9532,6 @@ packages:
       eslint: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0
     dependencies:
       eslint: 8.21.0
-    dev: true
-
-  /eslint-plugin-react-native-globals/0.1.2:
-    resolution: {integrity: sha512-9aEPf1JEpiTjcFAmmyw8eiIXmcNZOqaZyHO77wgm0/dWfT/oxC1SrIq8ET38pMxHYrcB6Uew+TzUVsBeczF88g==}
-    dev: true
-
-  /eslint-plugin-react-native/4.0.0_eslint@8.21.0:
-    resolution: {integrity: sha512-kMmdxrSY7A1WgdqaGC+rY/28rh7kBGNBRsk48ovqkQmdg5j4K+DaFmegENDzMrdLkoufKGRNkKX6bgSwQTCAxQ==}
-    peerDependencies:
-      eslint: ^3.17.0 || ^4 || ^5 || ^6 || ^7 || ^8
-    dependencies:
-      '@babel/traverse': 7.18.9
-      eslint: 8.21.0
-      eslint-plugin-react-native-globals: 0.1.2
-    transitivePeerDependencies:
-      - supports-color
     dev: true
 
   /eslint-plugin-react/7.30.1_eslint@8.21.0:
@@ -18113,7 +18095,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 4.2.1
       '@svgr/core': 6.3.1
-      vite: 3.0.3
+      vite: 3.0.3_sass@1.54.0
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -18178,6 +18160,7 @@ packages:
       rollup: 2.77.1
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vite/3.0.3_sass@1.54.0:
     resolution: {integrity: sha512-sDIpIcl3mv1NUaSzZwiXGEy1ZoWwwC2vkxUHY6yiDacR6zf//ZFuBJrozO62gedpE43pmxnLATNR5IYUdAEkMQ==}
@@ -18205,7 +18188,6 @@ packages:
       sass: 1.54.0
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vm-browserify/1.1.2:
     resolution: {integrity: sha512-2ham8XPWTONajOR0ohOKOHXkm3+gaBmGut3SRuu75xLd/RRaY6vqgh8NBYYk7+RW3u5AtzPQZG8F10LHkl0lAQ==}
