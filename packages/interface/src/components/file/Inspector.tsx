@@ -62,6 +62,7 @@ export const Inspector = (props: {
 		return () => {
 			clearTimeout(handler);
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [note]);
 
 	const toggleFavorite = () => {

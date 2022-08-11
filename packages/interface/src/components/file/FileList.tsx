@@ -73,10 +73,11 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 				index: goingUp ? selectedRowIndex - 1 : selectedRowIndex
 			});
 		}
-	}, [selectedRowIndex]);
+	}, [goingUp, selectedRowIndex]);
 
 	useEffect(() => {
 		setLocationId(props.location_id);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [props.location_id]);
 
 	useKey('ArrowUp', (e) => {
@@ -168,7 +169,7 @@ interface RenderItemProps {
 
 const RenderGridItem: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
-	let [_, setSearchParams] = useSearchParams();
+	const [_, setSearchParams] = useSearchParams();
 
 	return (
 		<FileItem
@@ -189,7 +190,7 @@ const RenderGridItem: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
 	const isActive = selectedRowIndex === index;
-	let [_, setSearchParams] = useSearchParams();
+	const [_, setSearchParams] = useSearchParams();
 
 	return useMemo(
 		() => (
@@ -217,6 +218,7 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 				))}
 			</div>
 		),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[item.id, isActive]
 	);
 };

@@ -21,10 +21,10 @@ function RouterContainer(props: { props: AppProps }) {
 	const { data: client } = useBridgeQuery(['getNode']);
 
 	useEffect(() => {
-		setAppProps({
+		setAppProps((appProps) => ({
 			...appProps,
 			data_path: client?.data_path
-		});
+		}));
 	}, [client?.data_path]);
 
 	return (
@@ -40,7 +40,7 @@ export default function SpacedriveInterface(props: AppProps) {
 	useInvalidateQuery();
 
 	return (
-		<ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
+		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<QueryClientProvider client={queryClient}>
 				{import.meta.env.MODE === 'development' && <ReactQueryDevtools position="bottom-right" />}
 				<RouterContainer props={props} />

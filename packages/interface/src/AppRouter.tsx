@@ -44,7 +44,7 @@ export function AppRouter() {
 		if (libraryState.currentLibraryUuid === null && libraries && libraries.length > 0) {
 			libraryState.switchLibrary(libraries[0].uuid);
 		}
-	}, [libraryState.currentLibraryUuid, libraries]);
+	}, [libraryState, libraryState.currentLibraryUuid, libraries]);
 
 	return (
 		<>
