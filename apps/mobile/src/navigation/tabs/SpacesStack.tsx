@@ -6,16 +6,16 @@ import {
 	createStackNavigator
 } from '@react-navigation/stack';
 
-import BrowseScreen from '../../screens/Browse';
+import SpacesScreen from '../../screens/Spaces';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<BrowseStackParamList>();
+const Stack = createStackNavigator<SpacesStackParamList>();
 
-export default function BrowseStack() {
+export default function SpacesStack() {
 	return (
 		<Stack.Navigator
-			initialRouteName="Browse"
+			initialRouteName="Spaces"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
 				headerTintColor: '#fff',
@@ -23,18 +23,18 @@ export default function BrowseStack() {
 				...TransitionPresets.DefaultTransition
 			}}
 		>
-			<Stack.Screen name="Browse" component={BrowseScreen} />
+			<Stack.Screen name="Spaces" component={SpacesScreen} />
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
 }
 
-export type BrowseStackParamList = {
-	Browse: undefined;
+export type SpacesStackParamList = {
+	Spaces: undefined;
 } & SharedScreensParamList;
 
-export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =
+export type SpacesStackScreenProps<Screen extends keyof SpacesStackParamList> =
 	CompositeScreenProps<
-		StackScreenProps<BrowseStackParamList, Screen>,
-		TabScreenProps<'BrowseStack'>
+		StackScreenProps<SpacesStackParamList, Screen>,
+		TabScreenProps<'SpacesStack'>
 	>;
