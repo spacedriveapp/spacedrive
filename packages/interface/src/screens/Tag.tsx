@@ -1,8 +1,8 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 
-export const TagScreen: React.FC<{}> = () => {
-	let { id } = useParams();
+export const TagScreen: React.FC<unknown> = () => {
+	const { id } = useParams();
 
 	return (
 		<div className="w-full p-5">

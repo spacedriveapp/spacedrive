@@ -47,10 +47,11 @@ export default function TagsSettings() {
 		if (!currentTag && tags?.length) {
 			setSelectedTag(tags[0].id);
 		}
-	}, [tags]);
+	}, [currentTag, tags]);
 
 	useEffect(() => {
 		reset(currentTag);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentTag]);
 
 	const { register, handleSubmit, watch, reset, control } = useForm({
@@ -59,6 +60,7 @@ export default function TagsSettings() {
 
 	const submitTagUpdate = handleSubmit((data) => updateTag(data));
 
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const autoUpdateTag = useCallback(useDebounce(submitTagUpdate, 500), []);
 
 	useEffect(() => {

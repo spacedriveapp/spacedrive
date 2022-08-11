@@ -18,7 +18,7 @@ import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { DefaultProps } from '../primitive/types';
 
-interface SidebarProps extends DefaultProps {}
+type SidebarProps = DefaultProps;
 
 export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode }) => (
 	<NavLink {...props}>
@@ -88,6 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	useEffect(() => {
 		if (libraries && !currentLibraryUuid) initLibraries(libraries);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [libraries, currentLibraryUuid]);
 
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
