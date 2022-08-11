@@ -15,6 +15,7 @@ function NavLink(props: { link?: string; children: string }) {
 			href={props.link ?? '#'}
 			target={props.link?.startsWith('http') ? '_blank' : undefined}
 			className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50"
+			rel="noreferrer"
 		>
 			{props.children}
 		</a>
@@ -54,6 +55,7 @@ export default function NavBar() {
 		setTimeout(onScroll, 0);
 		getWindow()?.addEventListener('scroll', onScroll);
 		return () => getWindow()?.removeEventListener('scroll', onScroll);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return (
@@ -136,10 +138,10 @@ export default function NavBar() {
 					buttonProps={{ className: '!p-1 ml-[140px]' }}
 				/>
 				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
-					<a href="https://discord.gg/gTaF2Z44f5" target="_blank">
+					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
 						<Discord className="text-white" />
 					</a>
-					<a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
+					<a href="https://github.com/spacedriveapp/spacedrive" target="_blank" rel="noreferrer">
 						<Github className="text-white" />
 					</a>
 				</div>

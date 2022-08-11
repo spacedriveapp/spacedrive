@@ -118,8 +118,11 @@ function Page() {
 					<h2 className="px-2 mb-0 text-4xl font-black leading-tight text-center">Our Values</h2>
 					<p className="mt-2 mb-4">What drives us daily.</p>
 					<div className="grid w-full grid-cols-1 gap-4 mt-5 sm:grid-cols-2">
-						{values.map((value) => (
-							<div className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550">
+						{values.map((value, index) => (
+							<div
+								key={value.title + index}
+								className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550"
+							>
 								<value.icon className="w-8 m-0" />
 								<h3 className="mt-4 mb-1 leading-snug text-2xl font-bold">{value.title}</h3>
 								<p className="mt-1 mb-0 text-gray-350">{value.desc}</p>
@@ -132,8 +135,9 @@ function Page() {
 					</h2>
 					<p className="mt-2 mb-4">We're behind you 100%.</p>
 					<div className="grid w-full grid-cols-1 gap-4 mt-5 sm:grid-cols-3">
-						{perks.map((value) => (
+						{perks.map((value, index) => (
 							<div
+								key={value.title + index}
 								style={{ backgroundColor: value.color + '10', borderColor: value.color + '30' }}
 								className="flex flex-col p-8 border rounded-md bg-gray-550 bg-opacity-30"
 							>
@@ -154,8 +158,11 @@ function Page() {
 								There are no positions open at this time. Please check back later!
 							</p>
 						) : (
-							positions.map((value) => (
-								<div className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550">
+							positions.map((value, index) => (
+								<div
+									key={value.name + index}
+									className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550"
+								>
 									<div className="flex flex-col sm:flex-row">
 										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>
 										<div className="mt-3 sm:mt-0.5">

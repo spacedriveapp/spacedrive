@@ -12,10 +12,10 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 		Prism.highlightAll();
 	}, []);
 
-	let description =
+	const description =
 		post?.excerpt?.length || 0 > 160 ? post?.excerpt?.substring(0, 160) + '...' : post?.excerpt;
 
-	let featured_image =
+	const featured_image =
 		post?.feature_image ||
 		'https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_icon.png';
 
@@ -50,9 +50,9 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 								</p>
 							</div>
 							<div className="flex flex-wrap gap-2">
-								{post?.tags?.map((tag: Tag) => {
-									return <BlogTag tag={tag} />;
-								})}
+								{post?.tags?.map((tag: Tag) => (
+									<BlogTag key={tag.id} tag={tag} />
+								))}
 							</div>
 						</section>
 						<article

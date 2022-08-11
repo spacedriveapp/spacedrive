@@ -6,7 +6,8 @@
 		"vercel-build": "./vercel/deploy.sh",
 		"build": "vite build && vite build --ssr && vite-plugin-ssr prerender",
 		"server": "ts-node ./server",
-		"server:prod": "cross-env NODE_ENV=production ts-node ./server"
+		"server:prod": "cross-env NODE_ENV=production ts-node ./server",
+		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
 	},
 	"dependencies": {
 		"@heroicons/react": "^1.0.6",
