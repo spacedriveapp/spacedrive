@@ -6,7 +6,7 @@ import {
 	useBridgeQuery,
 	useInvalidateQuery
 } from '@sd/client';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import React, { useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -41,8 +41,11 @@ export default function SpacedriveInterface(props: AppProps) {
 
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
-			<QueryClientProvider client={queryClient}>
-				{import.meta.env.MODE === 'development' && <ReactQueryDevtools position="bottom-right" />}
+			<QueryClientProvider client={queryClient} contextSharing={true}>
+				{/* The `context={defaultContext}` part is required for this to work on Windows. Why, idk, don't question it */}
+				{import.meta.env.MODE === 'development' && (
+					<ReactQueryDevtools position="bottom-right" context={defaultContext} />
+				)}
 				<RouterContainer props={props} />
 			</QueryClientProvider>
 		</ErrorBoundary>
