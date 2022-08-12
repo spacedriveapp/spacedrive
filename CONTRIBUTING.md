@@ -37,33 +37,31 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
 
 > Note: MacOS M1 users should choose the customize option in the rustup init script and enter `x86_64-apple-darwin` as the default host triple instead of the default `aarch64-apple-darwin`
 
-- `$ git clone https://github.com/spacedriveapp/spacedrive`
-- `$ cd spacedrive`
+- `git clone https://github.com/spacedriveapp/spacedrive`
+- `cd spacedrive`
 - For Linux or MacOS users run: `./.github/scripts/setup-system.sh`
   - This will install FFMPEG and any other required dependencies for Spacedrive to build.
 - For Windows users run using PowerShell: `.\.github\scripts\setup-system.ps1`
   - This will install pnpm, LLVM, FFMPEG and any other required dependencies for Spacedrive to build.
   - Ensure you run it like documented above as it expects it is executed from the root of the repository.
-- `$ pnpm i`
-- `$ pnpm prep` - Runs all necessary codegen & builds required dependencies.
+- `pnpm i`
+- `pnpm prep` - Runs all necessary codegen & builds required dependencies.
 
 To quickly run only the desktop app after `prep` you can use:
 
-- `$ pnpm desktop dev`
+- `pnpm desktop dev`
 
 To run the landing page
 
-- `$ pnpm web dev` - runs the web app for the embed
-- `$ pnpm landing dev`
+- `pnpm web dev` - runs the web app for the embed
+- `pnpm landing dev`
 
 To run mobile app
 
-- `$ cd apps/mobile && pnpm i` - As this is a seperated workspace, you need to do this!
-- `$ pnpm android` - runs on Android Emulator
-- `$ pnpm ios` - runs on iOS Emulator
-- `$ pnpm dev` - For already bundled app
-
-You also need `expo-cli` installed globally.
+- `cd apps/mobile && pnpm i` - As this is a seperated workspace, you need to do this!
+- `pnpm android` - runs on Android Emulator
+- `pnpm ios` - runs on iOS Emulator
+- `pnpm dev` - For already bundled app
 
 If you are having issues ensure you are using the following versions of Rust and Node:
 
