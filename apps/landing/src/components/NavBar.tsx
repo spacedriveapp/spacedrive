@@ -59,7 +59,7 @@ export default function NavBar() {
 	return (
 		<div
 			className={clsx(
-				'fixed transition-opacity z-[55] w-full h-16 border-b ',
+				'fixed transition z-[55] w-full h-16 border-b ',
 				isAtTop
 					? 'bg-transparent border-transparent'
 					: 'border-gray-550 bg-gray-750 bg-opacity-80 backdrop-blur'
