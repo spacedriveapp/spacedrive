@@ -1,4 +1,3 @@
-import { FilePath } from '@sd/core';
 import { Cloud, Desktop, DeviceMobileCamera, Laptop } from 'phosphor-react-native';
 import React from 'react';
 import { FlatList, Text, View } from 'react-native';
@@ -12,6 +11,24 @@ export interface DeviceProps {
 	size: string;
 	type: 'laptop' | 'desktop' | 'phone' | 'server';
 	locations: Array<{ name: string; folder?: boolean; format?: string; icon?: string }>;
+}
+
+export interface FilePath {
+	id: number;
+	is_dir: boolean;
+	location_id: number | null;
+	materialized_path: string;
+	name: string;
+	extension: string | null;
+	file_id: number | null;
+	parent_id: number | null;
+	key_id: number | null;
+	date_created: string;
+	date_modified: string;
+	date_indexed: string;
+	file: any;
+	location: Location | null | null;
+	key: any;
 }
 
 const placeholderFileItems: FilePath[] = [

@@ -1,10 +1,10 @@
-import { FilePath } from '@sd/core';
 import React from 'react';
 import { Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import icons from '../../assets/icons/file';
 import tw from '../../lib/tailwind';
+import { FilePath } from '../device/Device';
 import FolderIcon from '../icons/Folder';
 
 type FileItemProps = {

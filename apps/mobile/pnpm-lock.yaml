@@ -17,7 +17,6 @@ importers:
       '@rnx-kit/metro-config': ^1.2.36
       '@rnx-kit/metro-resolver-symlinks': ^0.1.21
       '@sd/assets': file:../../packages/assets
-      '@sd/core': file:../../core
       '@types/react': ~18.0.15
       '@types/react-native': ~0.69.5
       byte-size: ^8.1.0
@@ -56,7 +55,6 @@ importers:
       '@react-navigation/native': 6.0.11_jk6ntyzimkrv4hwdmdgaaf5yaa
       '@react-navigation/stack': 6.2.2_qhufet4hbtcxmlbxxh3awaapq4
       '@sd/assets': file:../../packages/assets
-      '@sd/core': file:../../core
       byte-size: 8.1.0
       class-variance-authority: 0.2.3
       expo: 46.0.2_@babel+core@7.18.10
@@ -8164,12 +8162,6 @@ packages:
     dependencies:
       react: 18.0.0
       use-sync-external-store: 1.2.0_react@18.0.0
-    dev: false
-
-  file:../../core:
-    resolution: {directory: ../../core, type: directory}
-    name: '@sd/core'
-    version: 0.0.0
     dev: false
 
   file:../../packages/assets:

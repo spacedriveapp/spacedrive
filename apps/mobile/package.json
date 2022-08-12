@@ -18,7 +18,6 @@
 		"@react-navigation/native": "^6.0.11",
 		"@react-navigation/stack": "^6.2.2",
 		"@sd/assets": "file:../../packages/assets",
-		"@sd/core": "file:../../core",
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.2.3",
 		"expo": "~46.0.2",
