@@ -316,7 +316,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 				renderItem={({ item }) => <FileItem file={item} />}
 				keyExtractor={(item) => item.id.toString()}
 				horizontal
-				contentContainerStyle={tw`mt-4 ml-2`}
+				contentContainerStyle={tw`mt-4 pb-6`}
 				showsHorizontalScrollIndicator={false}
 			/>
 		</View>
