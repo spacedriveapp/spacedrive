@@ -21,6 +21,7 @@ importers:
       '@types/react-native': ~0.69.5
       byte-size: ^8.1.0
       class-variance-authority: ^0.2.3
+      date-fns: ^2.29.1
       eslint-plugin-react: ^7.30.1
       eslint-plugin-react-hooks: ^4.6.0
       eslint-plugin-react-native: ^4.0.0
@@ -57,6 +58,7 @@ importers:
       '@sd/assets': file:../../packages/assets
       byte-size: 8.1.0
       class-variance-authority: 0.2.3
+      date-fns: 2.29.1
       expo: 46.0.2_@babel+core@7.18.10
       expo-font: 10.2.0_expo@46.0.2
       expo-linking: 3.2.2_expo@46.0.2
@@ -3576,6 +3578,11 @@ packages:
 
   /dag-map/1.0.2:
     resolution: {integrity: sha512-+LSAiGFwQ9dRnRdOeaj7g47ZFJcOUPukAP8J3A3fuZ1g9Y44BG+P1sgApjLXTQPOzC4+7S9Wr8kXsfpINM4jpw==}
+    dev: false
+
+  /date-fns/2.29.1:
+    resolution: {integrity: sha512-dlLD5rKaKxpFdnjrs+5azHDFOPEu4ANy/LTh04A1DTzMM7qoajmKCBc8pkKRFT41CNzw+4gQh79X5C+Jq27HAw==}
+    engines: {node: '>=0.11'}
     dev: false
 
   /dayjs/1.11.4:

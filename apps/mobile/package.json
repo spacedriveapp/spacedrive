@@ -20,6 +20,7 @@
 		"@sd/assets": "file:../../packages/assets",
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.2.3",
+		"date-fns": "^2.29.1",
 		"expo": "~46.0.2",
 		"expo-font": "^10.2.0",
 		"expo-linking": "^3.2.2",
