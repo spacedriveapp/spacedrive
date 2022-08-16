@@ -1,8 +1,15 @@
 use std::sync::Arc;
 
-use once_cell::sync::Lazy;
-use sdcore::{api::Router, Node};
-use tokio::{runtime::Runtime, sync::Mutex};
+use once_cell::sync::{Lazy, OnceCell};
+use sdcore::{
+	api::Router,
+	rspc::{ClientContext, Response},
+	Node,
+};
+use tokio::{
+	runtime::Runtime,
+	sync::{mpsc::UnboundedSender, Mutex},
+};
 
 #[allow(dead_code)]
 pub(crate) static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
@@ -11,11 +18,13 @@ pub(crate) static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap())
 pub(crate) static NODE: Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>> =
 	Lazy::new(|| Mutex::new(None));
 
-#[cfg(all(not(feature = "ios"), not(feature = "android")))]
-compile_error!("You can't compile with the 'ios' and 'android' features both disabled.");
+#[allow(dead_code)]
+pub(crate) static CLIENT_CONTEXT: Lazy<ClientContext> = Lazy::new(|| ClientContext {
+	subscriptions: Default::default(),
+});
 
-#[cfg(all(feature = "ios", feature = "android"))]
-compile_error!("You can't compile with the 'ios' and 'android' features both enabled.");
+#[allow(dead_code)]
+pub(crate) static EVENT_SENDER: OnceCell<UnboundedSender<Response>> = OnceCell::new();
 
 #[cfg(target_os = "ios")]
 mod ios;

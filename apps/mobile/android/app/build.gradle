@@ -9,10 +9,6 @@ cargo {
     module  = "../../rust"
     libname = "sdcore"
     // profile = 'release',
-    features {
-        noDefaultBut()
-        noDefaultBut("android")
-    }
     targets = ["arm", "arm64", "x86", "x86_64"]
     targetDirectory = "../.././../../target" // Monorepo moment
 

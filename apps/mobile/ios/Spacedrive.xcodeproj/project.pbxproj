@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -154,6 +154,7 @@
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
 				FD10A7F022414F080027D42C /* Start Packager */,
+				55B1130D28AB3061006C377F /* Build Spacedrive Core */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
@@ -270,6 +271,29 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		55B1130D28AB3061006C377F /* Build Spacedrive Core */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"../../../core/src/*.rs",
+				"../rust/src/*.rs",
+				"../../../core/src/*/*.rs",
+			);
+			name = "Build Spacedrive Core";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"../../../target/sdcore-universal-ios.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/zsh;
+			shellScript = "set -e\n\nif [[ -n \"${DEVELOPER_SDK_DIR:-}\" ]]; then\n  # Assume we're in Xcode, which means we're probably cross-compiling.\n  # In this case, we need to add an extra library search path for build scripts and proc-macros,\n  # which run on the host instead of the target.\n  # (macOS Big Sur does not have linkable libraries in /usr/lib/.)\n  export LIBRARY_PATH=\"${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}\"\nfi\n\nCARGO_FLAGS=\nif [[ \"$BUILDVARIANT\" != \"debug\" ]]; then\n  CARGO_FLAGS=--release\nfi\n\nTARGET_DIRECTORY=../../../target\ncargo build -p sdcore-lib $CARGO_FLAGS --lib --target aarch64-apple-ios\nlipo -create -output $TARGET_DIRECTORY/sdcore-universal-ios.a $TARGET_DIRECTORY/aarch64-apple-ios/release/libsdcore.a\n";
+		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -343,7 +367,10 @@
 				);
 				INFOPLIST_FILE = Spacedrive/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -371,7 +398,10 @@
 				DEVELOPMENT_TEAM = 72SE38W7T9;
 				INFOPLIST_FILE = Spacedrive/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -435,7 +465,10 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
-				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
 				LIBRARY_SEARCH_PATHS = "\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -486,7 +519,10 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
-				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
 				LIBRARY_SEARCH_PATHS = "\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";

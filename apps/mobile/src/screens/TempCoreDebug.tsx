@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, NativeModules, Text, View } from 'react-native';
+import { Button, NativeEventEmitter, NativeModules, Text, View } from 'react-native';
 
 import tw from '../lib/tailwind';
 
@@ -35,6 +35,29 @@ export default function TempCoreDebug({ navigation, route }: any) {
 	useEffect(() => {
 		fetchVersion();
 		fetchLibraries();
+
+		const eventEmitter = new NativeEventEmitter(NativeModules.SDCore);
+
+		const subscriptionEventListener = eventEmitter.addListener('SDCoreEvent', (event) => {
+			const data = JSON.parse(event);
+			console.log('EVENT', data);
+			fetchLibraries();
+		});
+
+		// TODO: undo this when closing
+		SDCore.sd_core_msg(
+			JSON.stringify({
+				id: '123',
+				operation: 'subscriptionAdd',
+				key: ['invalidateQuery']
+			})
+		).then(() => {
+			console.log('Registered Event Listener');
+		});
+
+		return () => {
+			subscriptionEventListener.remove();
+		};
 	}, [setVersion, setLibraries]);
 
 	return (
@@ -42,8 +65,8 @@ export default function TempCoreDebug({ navigation, route }: any) {
 			<Text style={tw`font-bold text-3xl text-white`}>Core Version: {version}</Text>
 			<View style={tw`p-10`}>
 				<Text style={tw`font-bold text-3xl text-white`}>Libraries:</Text>
-				{libraries.map((lib) => (
-					<Text key={lib} style={tw`font-bold text-xl text-white`}>
+				{libraries.map((lib: string) => (
+					<Text key={`${lib}${Math.random().toString()}`} style={tw`font-bold text-xl text-white`}>
 						{lib}
 					</Text>
 				))}

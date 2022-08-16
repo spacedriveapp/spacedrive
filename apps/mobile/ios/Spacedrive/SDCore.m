@@ -4,6 +4,8 @@
 //
 //  This file will not work unless ARC is disabled. Do this by setting the compiler flag '-fno-objc-arc' on this file in Settings > Build Phases > Compile Sources.
 //  This file also expects the Spacedrive Rust library to be linked in Settings > Build Phases > Link Binary with Libraries.
+//  This file also expects a Build Phase to be setup which compiles the Rust prior to linking the sdcore library to the IOS build.
+//  This file also expects you to add "remote-notification" to the list of your supported UIBackgroundModes in your Info.plist
 //
 //  Created by Oscar Beaumont on 9/8/2022.
 //
@@ -11,8 +13,8 @@
 #import "SDCore.h"
 #import <React/RCTLog.h>
 
-// TODO
-void register_node(id objc_class);
+// is a function defined in Rust which starts a listener for Rust events.
+void register_core_event_listener(id objc_class);
 
 // is a function defined in Rust which is responsible for handling messages from the frontend.
 void sd_core_msg(const char* query, void* resolve);
@@ -37,13 +39,33 @@ void call_resolve(void *resolvePtr, const char* resultRaw)
 }
 
 @implementation SDCore
+{
+  bool registeredWithRust;
+  bool hasListeners;
+}
 
-- (instancetype)init {
-    if (self = [super init]) {
-      id this = self;
-      register_node(this);
-    }
-    return self;
+-(void)startObserving {
+  if (!registeredWithRust)
+  {
+    register_core_event_listener(self);
+    registeredWithRust = true;
+  }
+  
+  hasListeners = YES;
+}
+
+-(void)stopObserving {
+  hasListeners = NO;
+}
+
+- (void)sendCoreEvent: (NSString*)query  {
+  if (hasListeners) {
+    [self sendEventWithName:@"SDCoreEvent" body:query];
+  }
+}
+
+- (NSArray<NSString *> *)supportedEvents {
+  return @[@"SDCoreEvent"];
 }
 
 RCT_EXPORT_MODULE();
@@ -55,15 +77,5 @@ RCT_EXPORT_METHOD(sd_core_msg: (NSString *)queryRaw
   const char *query = [queryRaw UTF8String];
   sd_core_msg(query, (__bridge void*) [resolve retain]);
 }
-
-- (NSArray<NSString *> *)supportedEvents {
-  return @[@"sayHello"];
-}
-
-- (void)tellJS {
-  RCTLogInfo(@"Here");
-  [self sendEventWithName:@"sayHello" body:@"Hello"];
-}
-
 
 @end

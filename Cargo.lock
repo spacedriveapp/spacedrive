@@ -4713,6 +4713,7 @@ version = "0.1.0"
 dependencies = [
  "jni 0.19.0",
  "objc",
+ "objc-foundation",
  "objc_id",
  "once_cell",
  "openssl",

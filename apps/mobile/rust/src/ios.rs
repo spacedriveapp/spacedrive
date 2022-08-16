@@ -1,15 +1,14 @@
-use crate::{NODE, RUNTIME};
+use crate::{CLIENT_CONTEXT, EVENT_SENDER, NODE, RUNTIME};
 use std::{
 	ffi::{CStr, CString},
 	os::raw::{c_char, c_void},
 };
+use tokio::sync::mpsc::unbounded_channel;
 
 use objc::{class, msg_send, runtime::Object, sel, sel_impl};
+use objc_foundation::{INSString, NSString};
 use objc_id::Id;
-use sdcore::{
-	rspc::{ClientContext, Request},
-	Node,
-};
+use sdcore::{rspc::Request, Node};
 
 extern "C" {
 	fn get_data_directory() -> *const c_char;
@@ -32,14 +31,25 @@ impl RNPromise {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn register_node(id: *mut Id<Object>) {
-	// unimplemented!(); // TODO: Finish this
+pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
+	let id = Id::<Object>::from_ptr(id);
 
-	// let cls = class!(SDCore);
-	// let id = Id::<Object>::from_retained_ptr(id);
+	let (tx, mut rx) = unbounded_channel();
+	let _ = EVENT_SENDER.set(tx);
 
-	// // Bruh
-	// let _: () = msg_send![cls, tellJs];
+	RUNTIME.spawn(async move {
+		while let Some(event) = rx.recv().await {
+			let data = match serde_json::to_string(&event) {
+				Ok(json) => json,
+				Err(err) => {
+					println!("Failed to serialize event: {}", err);
+					continue;
+				},
+			};
+			let data = NSString::from_str(&data);
+			let _: () = msg_send![id, sendCoreEvent: data];
+		}
+	});
 }
 
 #[no_mangle]
@@ -72,10 +82,8 @@ pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_voi
 						.handle(
 							node.get_request_context(),
 							&router,
-							&ClientContext {
-								subscriptions: Default::default(),
-							},
-							None,
+							&CLIENT_CONTEXT,
+							EVENT_SENDER.get(),
 						)
 						.await,
 				)
