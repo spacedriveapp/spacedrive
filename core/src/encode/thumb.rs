@@ -1,9 +1,11 @@
 use crate::{
-	api::CoreEvent,
+	api::{locations::GetExplorerDirArgs, CoreEvent, LibraryArgs},
+	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
 	prisma::{file_path, location},
 };
+
 use image::{self, imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -24,7 +26,7 @@ pub struct ThumbnailJob {}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ThumbnailJobInit {
-	pub location_id: i32,
+	pub location: location::Data,
 	pub path: PathBuf,
 	pub background: bool,
 }
@@ -55,19 +57,20 @@ impl StatefulJob for ThumbnailJob {
 			.config()
 			.data_directory()
 			.join(THUMBNAIL_CACHE_DIR_NAME)
-			.join(state.init.location_id.to_string());
+			.join(state.init.location.id.to_string());
 
 		let location = library_ctx
 			.db
 			.location()
-			.find_unique(location::id::equals(state.init.location_id))
+			.find_unique(location::id::equals(state.init.location.id))
 			.exec()
 			.await?
 			.unwrap();
 
 		info!(
-			"Searching for images in location {} at path {:#?}",
-			location.id, state.init.path
+			"Searching for images in location {} at path {}",
+			location.id,
+			state.init.path.display()
 		);
 
 		// create all necessary directories if they don't exist
@@ -76,7 +79,7 @@ impl StatefulJob for ThumbnailJob {
 
 		// query database for all files in this location that need thumbnails
 		let image_files =
-			get_images(&library_ctx, state.init.location_id, &state.init.path).await?;
+			get_images(&library_ctx, state.init.location.id, &state.init.path).await?;
 		info!("Found {:?} files", image_files.len());
 
 		ctx.progress(vec![
@@ -150,6 +153,21 @@ impl StatefulJob for ThumbnailJob {
 			info!("Thumb exists, skipping... {}", output_path.display());
 		}
 
+		// With this invalidate query, we update the user interface to show each new thumbnail
+		let library_ctx = ctx.library_ctx();
+		invalidate_query!(
+			library_ctx,
+			"locations.getExplorerDir": LibraryArgs<GetExplorerDirArgs>,
+			LibraryArgs::new(
+				library_ctx.id,
+				GetExplorerDirArgs {
+					location_id: state.init.location.id,
+					path: "".to_string(),
+					limit: 100
+				}
+			)
+		);
+
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
 		)]);
@@ -168,7 +186,7 @@ impl StatefulJob for ThumbnailJob {
 			.expect("critical error: missing data on job state");
 		info!(
 			"Finished thumbnail generation for location {} at {}",
-			state.init.location_id,
+			state.init.location.id,
 			data.root_path.display()
 		);
 		Ok(())
@@ -211,9 +229,9 @@ pub async fn get_images(
 	ctx: &LibraryContext,
 	location_id: i32,
 	path: impl AsRef<Path>,
-) -> Result<Vec<file_path::Data>, std::io::Error> {
+) -> Result<Vec<file_path::Data>, JobError> {
 	let mut params = vec![
-		file_path::location_id::equals(Some(location_id)),
+		file_path::location_id::equals(location_id),
 		file_path::extension::in_vec(vec![
 			"png".to_string(),
 			"jpeg".to_string(),
@@ -223,20 +241,17 @@ pub async fn get_images(
 		]),
 	];
 
-	let path_str = path.as_ref().as_os_str().to_str().unwrap().to_string();
+	let path_str = path.as_ref().to_string_lossy().to_string();
 
 	if !path_str.is_empty() {
-		params.push(file_path::materialized_path::starts_with(path_str))
+		params.push(file_path::materialized_path::starts_with(path_str));
 	}
 
-	let image_files = ctx
-		.db
+	ctx.db
 		.file_path()
 		.find_many(params)
 		.with(file_path::file::fetch())
 		.exec()
 		.await
-		.unwrap();
-
-	Ok(image_files)
+		.map_err(Into::into)
 }

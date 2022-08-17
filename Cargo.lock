@@ -1864,6 +1864,7 @@ dependencies = [
  "fnv",
  "log",
  "regex",
+ "serde",
 ]
 
 [[package]]
@@ -4890,10 +4891,12 @@ dependencies = [
  "ffmpeg-next",
  "fs_extra",
  "futures",
+ "globset",
  "hostname 0.3.1",
  "image",
  "include_dir",
  "int-enum",
+ "itertools",
  "once_cell",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",
@@ -4903,12 +4906,13 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo",
+ "tempfile",
  "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "tracing-test",
  "uuid 1.1.2",
- "walkdir",
  "webp",
 ]
 
@@ -6245,6 +6249,29 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tracing-test"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e3d272c44878d2bbc9f4a20ad463724f03e19dbc667c6e84ac433ab7ffcc70b"
+dependencies = [
+ "lazy_static",
+ "tracing-core",
+ "tracing-subscriber",
+ "tracing-test-macro",
+]
+
+[[package]]
+name = "tracing-test-macro"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "744324b12d69a9fc1edea4b38b7b1311295b662d161ad5deac17bb1358224a08"
+dependencies = [
+ "lazy_static",
+ "quote",
+ "syn",
 ]
 
 [[package]]

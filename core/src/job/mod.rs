@@ -1,4 +1,5 @@
-use crate::sys::LocationError;
+use crate::location::{indexer::IndexerError, LocationError};
+
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::VecDeque, fmt::Debug};
@@ -31,6 +32,8 @@ pub enum JobError {
 		"Tried to resume a job that doesn't have saved state data: job <name='{1}', uuid='{0}'>"
 	)]
 	MissingJobDataState(Uuid, String),
+	#[error("Indexer error: {0}")]
+	IndexerError(#[from] IndexerError),
 	#[error("Job paused")]
 	Paused(Vec<u8>),
 }

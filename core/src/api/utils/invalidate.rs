@@ -1,15 +1,14 @@
-use std::sync::{Arc, Mutex};
+use crate::api::Router;
 
-use once_cell::sync::OnceCell;
 use rspc::{internal::specta::DataType, Type};
 use serde::Serialize;
 use serde_json::Value;
-
-use crate::api::Router;
+use std::sync::{Arc, Mutex};
 
 /// holds information about all invalidation queries done with the [invalidate_query!] macro so we can check they are valid when building the router.
 #[cfg(debug_assertions)]
-pub(crate) static INVALIDATION_REQUESTS: OnceCell<Mutex<InvalidRequests>> = OnceCell::new();
+pub(crate) static INVALIDATION_REQUESTS: Mutex<InvalidRequests> =
+	Mutex::new(InvalidRequests::new());
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct InvalidateOperationEvent {
@@ -40,14 +39,17 @@ pub(crate) struct InvalidRequests {
 }
 
 impl InvalidRequests {
+	const fn new() -> Self {
+		Self {
+			queries: Vec::new(),
+		}
+	}
+
 	#[allow(unused_variables)]
 	pub(crate) fn validate(r: Arc<Router>) {
 		#[cfg(debug_assertions)]
 		{
-			let invalidate_requests = crate::api::utils::INVALIDATION_REQUESTS
-				.get_or_init(Default::default)
-				.lock()
-				.unwrap();
+			let invalidate_requests = INVALIDATION_REQUESTS.lock().unwrap();
 
 			let queries = r.queries();
 			for req in &invalidate_requests.queries {
@@ -81,7 +83,7 @@ impl InvalidRequests {
 #[macro_export]
 #[allow(clippy::crate_in_macro_def)]
 macro_rules! invalidate_query {
-	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr) => {{
+	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
 		let ctx: &crate::library::LibraryContext = &$ctx; // Assert the context is the correct type
 
@@ -90,7 +92,6 @@ macro_rules! invalidate_query {
 			#[ctor::ctor]
 			fn invalidate() {
 				crate::api::utils::INVALIDATION_REQUESTS
-					.get_or_init(|| Default::default())
 					.lock()
 					.unwrap()
 					.queries

@@ -1,13 +1,14 @@
-use std::path::PathBuf;
-
-use rspc::Type;
-use serde::Deserialize;
-
 use crate::{
 	encode::{ThumbnailJob, ThumbnailJobInit},
 	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
 	job::{Job, JobManager},
+	location::{fetch_location, LocationError},
+	prisma::location,
 };
+
+use rspc::Type;
+use serde::Deserialize;
+use std::path::PathBuf;
 
 use super::{CoreEvent, LibraryArgs, RouterBuilder};
 
@@ -40,10 +41,18 @@ pub(crate) fn mount() -> RouterBuilder {
 			|ctx, arg: LibraryArgs<GenerateThumbsForLocationArgs>| async move {
 				let (args, library) = arg.get_library(&ctx).await?;
 
+				let location = library
+					.db
+					.location()
+					.find_unique(location::id::equals(args.id))
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(args.id))?;
+
 				library
 					.spawn_job(Job::new(
 						ThumbnailJobInit {
-							location_id: args.id,
+							location,
 							path: args.path,
 							background: false, // fix
 						},
@@ -62,8 +71,10 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.spawn_job(Job::new(
 						FileIdentifierJobInit {
-							location_id: args.id,
-							path: args.path,
+							location: fetch_location(&library, args.id)
+								.exec()
+								.await?
+								.ok_or(LocationError::IdNotFound(args.id))?,
 						},
 						Box::new(FileIdentifierJob {}),
 					))

@@ -1,17 +1,23 @@
+use crate::{
+	invalidate_query,
+	node::Platform,
+	prisma::node,
+	util::{
+		db::load_and_migrate,
+		seeder::{indexer_rules_seeder, SeederError},
+	},
+	NodeContext,
+};
+
 use std::{
 	env, fs, io,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
-
 use thiserror::Error;
 use tokio::sync::RwLock;
 use uuid::Uuid;
-
-use crate::{
-	invalidate_query, node::Platform, prisma::node, util::db::load_and_migrate, NodeContext,
-};
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
 
@@ -41,6 +47,8 @@ pub enum LibraryManagerError {
 	Uuid(#[from] uuid::Error),
 	#[error("error opening database as the path contains non-UTF-8 characters")]
 	InvalidDatabasePath(PathBuf),
+	#[error("Failed to run seeder: {0}")]
+	Seeder(#[from] SeederError),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -253,6 +261,9 @@ impl LibraryManager {
 			)
 			.exec()
 			.await?;
+
+		// Run seeders
+		indexer_rules_seeder(&db).await?;
 
 		Ok(LibraryContext {
 			id,
