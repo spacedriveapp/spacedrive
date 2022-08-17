@@ -14,7 +14,15 @@ export default function RootNavigator() {
 		<Stack.Navigator initialRouteName="Root">
 			<Stack.Screen name="Root" component={DrawerNavigator} options={{ headerShown: false }} />
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
-			<Stack.Group screenOptions={{ presentation: 'modal' }}>
+			<Stack.Group
+				screenOptions={{
+					presentation: 'modal',
+					headerBackTitleVisible: false,
+					headerStyle: { backgroundColor: '#08090D' },
+					// headerShadowVisible: false,
+					headerTintColor: '#fff'
+				}}
+			>
 				<Stack.Screen name="Settings" component={SettingsScreen} />
 			</Stack.Group>
 		</Stack.Navigator>
