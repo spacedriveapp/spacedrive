@@ -31,7 +31,7 @@ pub struct FileIdentifierJobInit {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct FilePathIdAndLocationIdCursor {
+pub struct FilePathIdAndLocationIdCursor {
 	file_path_id: i32,
 	location_id: i32,
 }

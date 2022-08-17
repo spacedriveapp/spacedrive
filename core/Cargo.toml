@@ -43,7 +43,6 @@ uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
 thiserror = "1.0.30"
 core-derive = { path = "./derive" }
-
 tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread"] }
 include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "^0.1.52"
