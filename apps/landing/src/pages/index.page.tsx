@@ -78,7 +78,7 @@ function Page() {
 				alert('An error occurred while unsubscribing from waitlist');
 			}
 		})();
-	}, [urlParsed.search]);
+	}, []);
 
 	return (
 		<>
