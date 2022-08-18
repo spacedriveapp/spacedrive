@@ -26,7 +26,7 @@ const FileItem = ({ file }: FileItemProps) => {
 		if (file.is_dir) {
 			navigation.navigate('Location', { id: file.location_id });
 		} else {
-			setData({ file });
+			setData(file);
 			fileRef.current.present();
 		}
 	}

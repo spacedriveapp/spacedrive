@@ -1,11 +1,7 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import {
-	HeaderStyleInterpolators,
-	StackScreenProps,
-	TransitionPresets,
-	createStackNavigator
-} from '@react-navigation/stack';
+import { StackScreenProps, TransitionPresets, createStackNavigator } from '@react-navigation/stack';
 
+import Header from '../../components/header/Header';
 import SpacesScreen from '../../screens/Spaces';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
@@ -19,11 +15,10 @@ export default function SpacesStack() {
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
 				headerTintColor: '#fff',
-				headerStyleInterpolator: HeaderStyleInterpolators.forUIKit,
-				...TransitionPresets.DefaultTransition
+				...TransitionPresets.ModalFadeTransition
 			}}
 		>
-			<Stack.Screen name="Spaces" component={SpacesScreen} />
+			<Stack.Screen name="Spaces" component={SpacesScreen} options={{ header: Header }} />
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);

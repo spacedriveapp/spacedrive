@@ -8,7 +8,7 @@ const ModalHandle = (props: BottomSheetHandleProps) => {
 		<BottomSheetHandle
 			{...props}
 			style={tw`bg-gray-600 rounded-t-xl`}
-			indicatorStyle={tw`bg-gray-500`}
+			indicatorStyle={tw`bg-gray-550`}
 		/>
 	);
 };

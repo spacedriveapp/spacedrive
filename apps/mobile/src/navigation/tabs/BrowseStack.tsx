@@ -1,11 +1,7 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import {
-	HeaderStyleInterpolators,
-	StackScreenProps,
-	TransitionPresets,
-	createStackNavigator
-} from '@react-navigation/stack';
+import { StackScreenProps, TransitionPresets, createStackNavigator } from '@react-navigation/stack';
 
+import Header from '../../components/header/Header';
 import BrowseScreen from '../../screens/Browse';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
@@ -19,11 +15,10 @@ export default function BrowseStack() {
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
 				headerTintColor: '#fff',
-				headerStyleInterpolator: HeaderStyleInterpolators.forUIKit,
-				...TransitionPresets.DefaultTransition
+				...TransitionPresets.ModalFadeTransition
 			}}
 		>
-			<Stack.Screen name="Browse" component={BrowseScreen} />
+			<Stack.Screen name="Browse" component={BrowseScreen} options={{ header: Header }} />
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
