@@ -1,13 +1,46 @@
-use crate::{NODE, RUNTIME};
+use crate::{CLIENT_CONTEXT, EVENT_SENDER, NODE, RUNTIME};
 use jni::objects::{JClass, JObject, JString};
 use jni::JNIEnv;
-use sdcore::{
-	rspc::{ClientContext, Request},
-	Node,
-};
+use sdcore::{rspc::Request, Node};
+use tokio::sync::mpsc::unbounded_channel;
 
 #[no_mangle]
-pub extern "system" fn Java_com_spacedrive_app_SDCore_bruh(
+pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
+	env: JNIEnv,
+	class: JClass,
+) {
+	let jvm = env.get_java_vm().unwrap();
+	let class = env.new_global_ref(class).unwrap();
+	let (tx, mut rx) = unbounded_channel();
+	let _ = EVENT_SENDER.set(tx);
+
+	RUNTIME.spawn(async move {
+		while let Some(event) = rx.recv().await {
+			let data = match serde_json::to_string(&event) {
+				Ok(json) => json,
+				Err(err) => {
+					println!("Failed to serialize event: {}", err);
+					continue;
+				},
+			};
+
+			let env = jvm.attach_current_thread().unwrap();
+			env.call_method(
+				&class,
+				"sendCoreEvent",
+				"(Ljava/lang/String;)V",
+				&[env
+					.new_string(data)
+					.expect("Couldn't create java string!")
+					.into()],
+			)
+			.unwrap();
+		}
+	});
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 	env: JNIEnv,
 	class: JClass,
 	query: JString,
@@ -55,11 +88,8 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_bruh(
 				.handle(
 					node.get_request_context(),
 					&router,
-					&ClientContext {
-						// TODO: Setup for subscriptions
-						subscriptions: Default::default(),
-					},
-					None, // TODO
+					&CLIENT_CONTEXT,
+					EVENT_SENDER.get(),
 				)
 				.await,
 		)

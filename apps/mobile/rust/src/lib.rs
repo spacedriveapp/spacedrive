@@ -29,5 +29,6 @@ pub(crate) static EVENT_SENDER: OnceCell<UnboundedSender<Response>> = OnceCell::
 #[cfg(target_os = "ios")]
 mod ios;
 
-#[cfg(target_os = "android")]
+/// This is `not(ios)` instead of `android` because of https://github.com/mozilla/rust-android-gradle/issues/93
+#[cfg(not(target_os = "ios"))]
 mod android;

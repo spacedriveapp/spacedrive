@@ -4,7 +4,7 @@
 	"main": "index.js",
 	"license": "GPL-3.0-only",
 	"scripts": {
-		"dev": "expo start --dev-client",
+		"start": "expo start --dev-client",
 		"android": "expo run:android",
 		"ios": "expo run:ios"
 	},

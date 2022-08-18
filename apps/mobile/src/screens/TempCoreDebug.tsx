@@ -5,6 +5,8 @@ import tw from '../lib/tailwind';
 
 const { SDCore } = NativeModules;
 
+const eventEmitter = new NativeEventEmitter(NativeModules.SDCore);
+
 // This is a temporary page for Oscar to develop and test the Spacedrive Core to RN bridge. This will be replaced by a set of type safe hooks in the future.
 export default function TempCoreDebug({ navigation, route }: any) {
 	const [version, setVersion] = useState('');
@@ -35,8 +37,6 @@ export default function TempCoreDebug({ navigation, route }: any) {
 	useEffect(() => {
 		fetchVersion();
 		fetchLibraries();
-
-		const eventEmitter = new NativeEventEmitter(NativeModules.SDCore);
 
 		const subscriptionEventListener = eventEmitter.addListener('SDCoreEvent', (event) => {
 			const data = JSON.parse(event);
@@ -81,7 +81,7 @@ export default function TempCoreDebug({ navigation, route }: any) {
 							key: ['library.create', 'Demo']
 						})
 					).then((data) => {
-						console.log(data);
+						console.log('MSG RESULT', data);
 						fetchLibraries();
 					})
 				}
