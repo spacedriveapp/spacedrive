@@ -2,6 +2,7 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
 
 import NotFoundScreen from '../screens/NotFound';
+import SearchScreen from '../screens/modals/Search';
 import SettingsScreen from '../screens/modals/settings/Settings';
 import type { DrawerNavParamList } from './DrawerNavigator';
 import DrawerNavigator from './DrawerNavigator';
@@ -14,6 +15,8 @@ export default function RootNavigator() {
 		<Stack.Navigator initialRouteName="Root">
 			<Stack.Screen name="Root" component={DrawerNavigator} options={{ headerShown: false }} />
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
+			<Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
+			{/* Modals */}
 			<Stack.Group
 				screenOptions={{
 					presentation: 'modal',
@@ -33,6 +36,7 @@ export type RootStackParamList = {
 	Root: NavigatorScreenParams<DrawerNavParamList>;
 	NotFound: undefined;
 	// Modals
+	Search: undefined;
 	Settings: undefined;
 };
 

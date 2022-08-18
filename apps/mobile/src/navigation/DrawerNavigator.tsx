@@ -22,7 +22,6 @@ export default function DrawerNavigator() {
 					},
 					overlayColor: 'transparent',
 					drawerType: 'slide'
-					// Can only swipe on Overview screen! (for opening drawer)
 					// swipeEnabled: false
 					// drawerHideStatusBarOnOpen: true,
 					// drawerStatusBarAnimation: 'slide'
