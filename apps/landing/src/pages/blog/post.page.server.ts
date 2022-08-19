@@ -13,12 +13,3 @@ export async function onBeforeRender(pageContext: PageContextBuiltIn) {
     }
   };
 }
-
-export async function prerender() {
-  const posts = await getPosts();
-
-  return posts.map((post) => ({
-    url: `/blog/${post.slug}`,
-    pageContext: { pageProps: { post } }
-  }));
-}
