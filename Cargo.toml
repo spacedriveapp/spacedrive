@@ -1,8 +1,9 @@
 [workspace]
 members = [
-	"apps/desktop/src-tauri",
-	"core",
-	"core/prisma",
-	"core/derive",
-	"apps/server"
+  "apps/desktop/src-tauri",
+  "core",
+  "core/prisma",
+  "core/derive",
+  "apps/server",
 ]
+resolver = "2"

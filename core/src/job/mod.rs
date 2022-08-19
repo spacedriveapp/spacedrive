@@ -1,4 +1,4 @@
-use crate::{prisma, sys::LocationError};
+use crate::sys::LocationError;
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::VecDeque, fmt::Debug};
@@ -14,7 +14,7 @@ pub use worker::*;
 #[derive(Error, Debug)]
 pub enum JobError {
 	#[error("Database error: {0}")]
-	DatabaseError(#[from] prisma::QueryError),
+	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("Location error: {0}")]
 	LocationError(#[from] LocationError),
 	#[error("I/O error: {0}")]
