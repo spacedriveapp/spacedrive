@@ -100,8 +100,8 @@ function Page() {
       </Helmet>
       <div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
       <div className="mt-24 lg:mt-5" />
-      // Disabled while blog post is not available
-      // TODO: re-enable
+      {/* Disabled while blog post is not available */}
+      {/* TODO: re-enable */}
       {/* <NewBanner */}
       {/* 	headline="Spacedrive raises $2M led by OSS Capital" */}
       {/* 	href="/blog/spacedrive-funding-announcement" */}
