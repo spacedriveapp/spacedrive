@@ -55,8 +55,9 @@ export default function RunningJobsWidget() {
 
 	return (
 		<div className="flex flex-col space-y-4">
-			{jobs?.map((job) => (
+			{jobs?.map((job, index) => (
 				<Transition
+					key={job.id + index}
 					show={true}
 					enter="transition-translate ease-in-out duration-200"
 					enterFrom="translate-y-24"

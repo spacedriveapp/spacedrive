@@ -12,6 +12,7 @@ export const RedirectPage: React.FC<RedirectPageProps> = (props) => {
 
 	useEffect(() => {
 		navigate(destination);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return null;

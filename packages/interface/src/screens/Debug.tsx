@@ -4,7 +4,7 @@ import React, { useContext } from 'react';
 
 import CodeBlock from '../components/primitive/Codeblock';
 
-export const DebugScreen: React.FC<{}> = (props) => {
+export const DebugScreen: React.FC<unknown> = (props) => {
 	const appPropsContext = useContext(AppPropsContext);
 	const { data: nodeState } = useBridgeQuery(['getNode']);
 	const { data: libraryState } = useBridgeQuery(['library.get']);
