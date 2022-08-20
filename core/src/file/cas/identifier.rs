@@ -3,7 +3,7 @@ use super::checksum::generate_cas_id;
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	prisma::{self, file, file_path, location},
+	prisma::{file, file_path, location},
 };
 use chrono::{DateTime, FixedOffset};
 use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
@@ -160,10 +160,10 @@ impl StatefulJob for FileIdentifierJob {
 			if let Err(e) = library_ctx
 				.db
 				.file_path()
-				.find_unique(file_path::id::equals(
-					*cas_lookup.get(&existing_file.cas_id).unwrap(),
-				))
-				.update(vec![file_path::file_id::set(Some(existing_file.id))])
+				.update(
+					file_path::id::equals(*cas_lookup.get(&existing_file.cas_id).unwrap()),
+					vec![file_path::file_id::set(Some(existing_file.id))],
+				)
 				.exec()
 				.await
 			{
@@ -205,6 +205,7 @@ impl StatefulJob for FileIdentifierJob {
 				),
 				values,
 			))
+			.exec()
 			.await
 			.unwrap_or_else(|e| {
 				error!("Error inserting files: {:#?}", e);
@@ -219,10 +220,10 @@ impl StatefulJob for FileIdentifierJob {
 				.library_ctx()
 				.db
 				.file_path()
-				.find_unique(file_path::id::equals(
-					*cas_lookup.get(&created_file.cas_id).unwrap(),
-				))
-				.update(vec![file_path::file_id::set(Some(created_file.id))])
+				.update(
+					file_path::id::equals(*cas_lookup.get(&created_file.cas_id).unwrap()),
+					vec![file_path::file_id::set(Some(created_file.id))],
+				)
 				.exec()
 				.await
 			{
@@ -277,12 +278,13 @@ struct CountRes {
 pub async fn count_orphan_file_paths(
 	ctx: &LibraryContext,
 	location_id: i64,
-) -> Result<usize, prisma::QueryError> {
+) -> Result<usize, prisma_client_rust::QueryError> {
 	let files_count = ctx.db
 		._query_raw::<CountRes>(raw!(
 			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
 			PrismaValue::Int(location_id)
 		))
+        .exec()
 		.await?;
 	Ok(files_count[0].count.unwrap_or(0))
 }
@@ -290,7 +292,7 @@ pub async fn count_orphan_file_paths(
 pub async fn get_orphan_file_paths(
 	ctx: &LibraryContext,
 	cursor: i32,
-) -> Result<Vec<file_path::Data>, prisma::QueryError> {
+) -> Result<Vec<file_path::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"discovering {} orphan file paths at cursor: {:?}",
 		CHUNK_SIZE, cursor
@@ -302,7 +304,7 @@ pub async fn get_orphan_file_paths(
 			file_path::is_dir::equals(false),
 		])
 		.order_by(file_path::id::order(Direction::Asc))
-		.cursor(file_path::id::cursor(cursor))
+		.cursor(file_path::id::equals(cursor))
 		.take(CHUNK_SIZE as i64)
 		.exec()
 		.await

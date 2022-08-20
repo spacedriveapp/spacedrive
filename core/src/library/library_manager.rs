@@ -10,11 +10,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
-	invalidate_query,
-	node::Platform,
-	prisma::{self, node},
-	util::db::load_and_migrate,
-	NodeContext,
+	invalidate_query, node::Platform, prisma::node, util::db::load_and_migrate, NodeContext,
 };
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -36,7 +32,7 @@ pub enum LibraryManagerError {
 	#[error("error serializing or deserializing the JSON in the config file")]
 	Json(#[from] serde_json::Error),
 	#[error("Database error: {0}")]
-	Database(#[from] prisma::QueryError),
+	Database(#[from] prisma_client_rust::QueryError),
 	#[error("Library not found error")]
 	LibraryNotFound,
 	#[error("error migrating the config file")]
