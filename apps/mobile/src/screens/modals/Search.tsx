@@ -23,7 +23,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 							{loading ? (
 								<ActivityIndicator size={'small'} color={'white'} />
 							) : (
-								<MagnifyingGlass size={20} weight="regular" color={'white'} />
+								<MagnifyingGlass size={20} weight="light" color={'white'} />
 							)}
 						</View>
 						<TextInput
