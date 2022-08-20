@@ -133,8 +133,10 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.db
 					.location()
-					.find_unique(location::id::equals(args.id))
-					.update(vec![location::name::set(args.name)])
+					.update(
+						location::id::equals(args.id),
+						vec![location::name::set(args.name)],
+					)
 					.exec()
 					.await?;
 
@@ -147,16 +149,14 @@ pub(crate) fn mount() -> RouterBuilder {
 			library
 				.db
 				.file_path()
-				.find_many(vec![file_path::location_id::equals(Some(location_id))])
-				.delete()
+				.delete_many(vec![file_path::location_id::equals(Some(location_id))])
 				.exec()
 				.await?;
 
 			library
 				.db
 				.location()
-				.find_unique(location::id::equals(location_id))
-				.delete()
+				.delete(location::id::equals(location_id))
 				.exec()
 				.await?;
 

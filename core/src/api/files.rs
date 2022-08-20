@@ -26,8 +26,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			library
 				.db
 				.file()
-				.find_unique(file::id::equals(args.id))
-				.update(vec![file::note::set(args.note)])
+				.update(file::id::equals(args.id), vec![file::note::set(args.note)])
 				.exec()
 				.await?;
 
@@ -54,8 +53,10 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.db
 					.file()
-					.find_unique(file::id::equals(args.id))
-					.update(vec![file::favorite::set(args.favorite)])
+					.update(
+						file::id::equals(args.id),
+						vec![file::favorite::set(args.favorite)],
+					)
 					.exec()
 					.await?;
 
@@ -82,8 +83,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			library
 				.db
 				.file()
-				.find_unique(file::id::equals(id))
-				.delete()
+				.delete(file::id::equals(id))
 				.exec()
 				.await?;
 
