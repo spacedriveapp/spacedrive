@@ -11,6 +11,7 @@ interface BrowseLocationItemProps {
 
 const BrowseLocationItem: React.FC<BrowseLocationItemProps> = (props) => {
 	const { folderName, onPress } = props;
+
 	return (
 		<Pressable onPress={onPress}>
 			<View style={tw.style('flex mb-[4px] flex-row items-center py-2 px-2 rounded')}>

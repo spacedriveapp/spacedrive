@@ -57,7 +57,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 	// const appProps = useContext(AppPropsContext);
 
 	const size = byteSize(+bytes);
-
+  
 	const count = useCounter({
 		name: title,
 		end: +size.value
@@ -130,6 +130,7 @@ export const OverviewScreen = () => {
 
 			setOverviewStats(newStatistics);
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [appProps, libraryStatistics]);
 
 	// useEffect(() => {
@@ -178,7 +179,7 @@ export const OverviewScreen = () => {
 						<Dialog
 							title="Add Device"
 							description="Connect a new device to your library. Either enter another device's code or copy this one."
-							ctaAction={() => {}}
+							// ctaAction={() => {}}
 							ctaLabel="Connect"
 							trigger={
 								<Button

@@ -29,7 +29,7 @@ function App() {
 		}
 	}
 
-	const [platform, setPlatform] = useState<Platform>('macOS');
+	const [platform, setPlatform] = useState<Platform>('unknown');
 	const [focused, setFocused] = useState(true);
 
 	useEffect(() => {
