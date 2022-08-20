@@ -11,7 +11,8 @@
 		"./components/*": "./src/components/*"
 	},
 	"scripts": {
-		"icons": "./scripts/generateSvgImports.mjs"
+		"icons": "./scripts/generateSvgImports.mjs",
+		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
 	},
 	"dependencies": {
 		"@apollo/client": "^3.6.9",
@@ -67,6 +68,7 @@
 		"zustand": "4.0.0"
 	},
 	"devDependencies": {
+		"@sd/config": "workspace:*",
 		"@types/babel-core": "^6.25.7",
 		"@types/byte-size": "^8.1.0",
 		"@types/lodash": "^4.14.182",

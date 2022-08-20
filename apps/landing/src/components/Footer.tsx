@@ -16,6 +16,7 @@ function FooterLink(props: { children: string | JSX.Element; link: string; blank
 			href={props.link}
 			target={props.blank ? '_blank' : ''}
 			className="text-gray-300 hover:text-white"
+			rel="noreferrer"
 		>
 			{props.children}
 		</a>

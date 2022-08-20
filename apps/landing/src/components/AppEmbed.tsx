@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -87,9 +88,7 @@ const AppEmbed = () => {
 						/>
 					)}
 
-					{renderImage && (
-						<div className="z-40 h-full sm:w-auto fade-in-app-embed landing-img" />
-					)}
+					{renderImage && <div className="z-40 h-full sm:w-auto fade-in-app-embed landing-img" />}
 				</div>
 			</div>
 		</div>

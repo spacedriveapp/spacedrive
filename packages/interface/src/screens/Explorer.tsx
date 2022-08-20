@@ -6,12 +6,12 @@ import { FileList } from '../components/file/FileList';
 import { Inspector } from '../components/file/Inspector';
 import { TopBar } from '../components/layout/TopBar';
 
-export const ExplorerScreen: React.FC<{}> = () => {
-	let [searchParams] = useSearchParams();
-	let path = searchParams.get('path') || '';
+export const ExplorerScreen: React.FC<unknown> = () => {
+	const [searchParams] = useSearchParams();
+	const path = searchParams.get('path') || '';
 
-	let { id } = useParams();
-	let location_id = Number(id);
+	const { id } = useParams();
+	const location_id = Number(id);
 
 	const [limit, setLimit] = React.useState(100);
 
