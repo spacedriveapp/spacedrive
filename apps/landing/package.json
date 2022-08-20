@@ -6,7 +6,8 @@
 		"vercel-build": "./vercel/deploy.sh",
 		"build": "vite build && vite build --ssr && vite-plugin-ssr prerender",
 		"server": "ts-node ./server",
-		"server:prod": "cross-env NODE_ENV=production ts-node ./server"
+		"server:prod": "cross-env NODE_ENV=production ts-node ./server",
+		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
 	},
 	"dependencies": {
 		"@heroicons/react": "^1.0.6",
@@ -39,6 +40,7 @@
 		"vite-plugin-ssr": "^0.4.15"
 	},
 	"devDependencies": {
+		"@sd/config": "link:../../packages/config",
 		"@tailwindcss/line-clamp": "^0.4.0",
 		"@tailwindcss/typography": "^0.5.4",
 		"@types/prismjs": "^1.26.0",

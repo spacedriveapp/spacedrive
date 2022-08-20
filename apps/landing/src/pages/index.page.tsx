@@ -20,7 +20,7 @@ interface SectionProps {
 }
 
 function Section(props: SectionProps = { orientation: 'left' }) {
-	let info = (
+	const info = (
 		<div className="px-4 py-10 sm:px-10">
 			{props.heading && <h1 className="text-2xl font-black sm:text-4xl">{props.heading}</h1>}
 			{props.description && (
@@ -100,11 +100,13 @@ function Page() {
 			</Helmet>
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 			<div className="mt-24 lg:mt-5" />
-			<NewBanner
-				headline="Spacedrive raises $2M led by OSS Capital"
-				href="/blog/spacedrive-funding-announcement"
-				link="Read post"
-			/>
+			{/* Disabled while blog post is not available */}
+			{/* TODO: re-enable */}
+			{/* <NewBanner */}
+			{/* 	headline="Spacedrive raises $2M led by OSS Capital" */}
+			{/* 	href="/blog/spacedrive-funding-announcement" */}
+			{/* 	link="Read post" */}
+			{/* /> */}
 			{unsubscribedFromWaitlist && (
 				<div
 					className={
@@ -144,6 +146,7 @@ function Page() {
 							className="transition text-primary-600 hover:text-primary-500"
 							href="https://github.com/spacedriveapp"
 							target="_blank"
+							rel="noreferrer"
 						>
 							Find out more →
 						</a>
