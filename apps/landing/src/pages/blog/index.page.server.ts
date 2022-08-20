@@ -1,22 +1,27 @@
-import { getPosts } from './api';
+import { blogEnabled, getPosts } from './api';
 
 export async function onBeforeRender() {
-	const posts = await getPosts();
+  const posts = await getPosts();
 
-	return {
-		pageContext: {
-			pageProps: {
-				posts
-			}
-		}
-	};
+  return {
+    pageContext: {
+      pageProps: {
+        posts
+      }
+    }
+  };
 }
 
 export async function prerender() {
-	const posts = await getPosts();
+  const posts = await getPosts();
 
-	return {
-		url: '/blog',
-		pageContext: { pageProps: { posts } }
-	};
+  const individualPosts = posts.map((post) => ({
+    url: `/blog/${post.slug}`,
+    pageContext: { pageProps: { post } }
+  }));
+
+  return [...individualPosts, {
+    url: '/blog',
+    pageContext: { pageProps: { posts } }
+  }];
 }

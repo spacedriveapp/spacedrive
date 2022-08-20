@@ -2113,8 +2113,8 @@ packages:
       '@cspell/dict-docker': 1.1.1
       '@cspell/dict-dotnet': 2.0.1
       '@cspell/dict-elixir': 2.0.1
-      '@cspell/dict-en_us': 2.3.0
       '@cspell/dict-en-gb': 1.1.33
+      '@cspell/dict-en_us': 2.3.0
       '@cspell/dict-filetypes': 2.1.1
       '@cspell/dict-fonts': 2.0.1
       '@cspell/dict-fullstack': 2.0.6
