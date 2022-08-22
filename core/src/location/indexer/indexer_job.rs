@@ -29,7 +29,7 @@ pub enum ScanProgress {
 
 /// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
 /// First it walks the directory and generates a list of files to index, chunked into
-/// batches of `BATCH_SIZE`. Then for each chunk it write the file metadata to the database.
+/// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
 pub struct IndexerJob {}
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
@@ -49,8 +49,8 @@ pub struct IndexerJobData {
 	total_paths: usize,
 }
 
-/// `IndexerJobStep` is a type alias, specifying that each step of the `IndexerJob` is a vector of
-/// `IndexerJobStepEntry`. The size of this vector is given by the `BATCH_SIZE` constant.
+/// `IndexerJobStep` is a type alias, specifying that each step of the [`IndexerJob`] is a vector of
+/// `IndexerJobStepEntry`. The size of this vector is given by the [`BATCH_SIZE`] constant.
 pub type IndexerJobStep = Vec<IndexerJobStepEntry>;
 
 /// `IndexerJobStepEntry` represents a single file to be indexed, given its metadata to be written

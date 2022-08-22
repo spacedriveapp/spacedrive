@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
-/// holds information about all invalidation queries done with the [invalidate_query!] macro so we can check they are valid when building the router.
+/// holds information about all invalidation queries done with the [`invalidate_query!`] macro so we can check they are valid when building the router.
 #[cfg(debug_assertions)]
 pub(crate) static INVALIDATION_REQUESTS: Mutex<InvalidRequests> =
 	Mutex::new(InvalidRequests::new());
@@ -71,7 +71,7 @@ impl InvalidRequests {
 	}
 }
 
-/// invalidate_query is a macro which stores a list of all of it's invocations so it can ensure all of the queries match the queries attached to the router.
+/// `invalidate_query` is a macro which stores a list of all of it's invocations so it can ensure all of the queries match the queries attached to the router.
 /// This allows invalidate to be type-safe even when the router keys are stringly typed.
 /// ```ignore
 /// invalidate_query!(

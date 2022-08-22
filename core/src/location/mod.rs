@@ -26,6 +26,9 @@ use indexer::indexer_job::{IndexerJob, IndexerJobInit};
 
 static DOTFILE_NAME: &str = ".spacedrive";
 
+/// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
+/// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
+/// between the location and indexer rules.
 #[derive(Type, Deserialize)]
 pub struct LocationCreateArgs {
 	pub path: PathBuf,
@@ -113,6 +116,12 @@ impl LocationCreateArgs {
 	}
 }
 
+/// `LocationUpdateArgs` is the argument received from the client using `rspc` to update a location.
+/// It contains the id of the location to be updated, possible a name to change the current location's name
+/// and a vector of indexer rules ids to add or remove from the location.
+///
+/// It is important to note that only the indexer rule ids in this vector will be used from now on.
+/// Old rules that aren't in this vector will be purged.
 #[derive(Type, Deserialize)]
 pub struct LocationUpdateArgs {
 	pub id: i32,

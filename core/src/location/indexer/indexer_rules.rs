@@ -61,7 +61,7 @@ pub enum RuleKind {
 }
 
 /// `ParametersPerKind` is a mapping from `RuleKind` to the parameters required for each kind of rule.
-/// In case of doubt about globs, consult https://docs.rs/globset/latest/globset/#syntax
+/// In case of doubt about globs, consult <https://docs.rs/globset/latest/globset/#syntax>
 ///
 /// We store directly globs in the database, serialized using rmp_serde.
 ///
