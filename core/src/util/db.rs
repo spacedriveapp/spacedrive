@@ -14,7 +14,7 @@ pub enum MigrationError {
 	#[error("An error occurred while initialising a new database connection")]
 	DatabaseInitialization(#[from] NewClientError),
 	#[error("An error occurred with the database while applying migrations")]
-	DatabaseError(#[from] prisma_client_rust::queries::Error),
+	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("An error occurred reading the embedded migration files. {0}. Please report to Spacedrive developers!")]
 	InvalidEmbeddedMigration(&'static str),
 }
@@ -27,11 +27,12 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 		._query_raw::<serde_json::Value>(raw!(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
 		))
+		.exec()
 		.await?
 		.is_empty();
 
 	if migrations_table_missing {
-		client._execute_raw(raw!(INIT_MIGRATION)).await?;
+		client._execute_raw(raw!(INIT_MIGRATION)).exec().await?;
 	}
 
 	let mut migration_directories = MIGRATIONS_DIR
@@ -102,11 +103,13 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 			let steps = migration_file_raw.split(';').collect::<Vec<&str>>();
 			let steps = &steps[0..steps.len() - 1];
 			for (i, step) in steps.iter().enumerate() {
-				client._execute_raw(raw!(*step)).await?;
+				client._execute_raw(raw!(*step)).exec().await?;
 				client
 					.migration()
-					.find_unique(migration::checksum::equals(checksum.clone()))
-					.update(vec![migration::steps_applied::set(i as i32 + 1)])
+					.update(
+						migration::checksum::equals(checksum.clone()),
+						vec![migration::steps_applied::set(i as i32 + 1)],
+					)
 					.exec()
 					.await?;
 			}

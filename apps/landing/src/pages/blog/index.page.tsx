@@ -8,7 +8,7 @@ import { blogEnabled } from './api';
 
 function Page({ posts }: { posts: PostOrPage[] }) {
 	if (!blogEnabled) {
-		let window = getWindow();
+		const window = getWindow();
 		if (!window) return;
 		window.location.href = '/blog-not-enabled';
 		return <></>;
@@ -28,6 +28,7 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 				{posts.map((post) => {
 					return (
 						<div
+							key={post.id}
 							onClick={() => {
 								window.location.href = `/blog/${post.slug}`;
 							}}
@@ -49,9 +50,9 @@ function Page({ posts }: { posts: PostOrPage[] }) {
 									{new Date(post.published_at ?? '').toLocaleDateString()}
 								</p>
 								<div className="flex flex-wrap gap-2 mt-4">
-									{post.tags?.map((tag: Tag) => {
-										return <BlogTag tag={tag} />;
-									})}
+									{post.tags?.map((tag: Tag) => (
+										<BlogTag key={tag.id} tag={tag} />
+									))}
 								</div>
 							</div>
 						</div>

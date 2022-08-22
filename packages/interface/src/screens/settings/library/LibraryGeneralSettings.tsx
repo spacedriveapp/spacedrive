@@ -35,6 +35,7 @@ export default function LibraryGeneralSettings() {
 				});
 			}
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [nameDebounced, descriptionDebounced]);
 
 	useEffect(() => {
@@ -42,6 +43,7 @@ export default function LibraryGeneralSettings() {
 			setName(currentLibrary.config.name);
 			setDescription(currentLibrary.config.description);
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [libraries]);
 
 	useEffect(() => {
@@ -50,6 +52,7 @@ export default function LibraryGeneralSettings() {
 			setName(currentLibrary.config.name);
 			setDescription(currentLibrary.config.description);
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentLibraryUuid]);
 
 	useEffect(() => {

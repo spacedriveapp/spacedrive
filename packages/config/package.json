@@ -4,6 +4,14 @@
 	"main": "index.js",
 	"license": "GPL-3.0-only",
 	"files": [
-		"eslint-preset.js"
-	]
+		"eslint-react.js"
+	],
+	"devDependencies": {
+		"eslint": "^8.21.0",
+		"@typescript-eslint/eslint-plugin": "^5.30.7",
+		"@typescript-eslint/parser": "^5.30.7",
+		"eslint-config-prettier": "^8.5.0",
+		"eslint-plugin-react": "^7.30.1",
+		"eslint-plugin-react-hooks": "^4.6.0"
+	}
 }

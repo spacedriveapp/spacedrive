@@ -86,6 +86,7 @@ impl StatefulJob for IndexerJob {
 			.library_ctx()
 			.db
 			._query_raw::<QueryRes>(raw!("SELECT MAX(id) id FROM file_paths"))
+			.exec()
 			.await
 		{
 			Ok(rows) => rows[0].id.unwrap_or(0),
@@ -241,7 +242,7 @@ impl StatefulJob for IndexerJob {
 				files
 			);
 
-		let count = ctx.library_ctx().db._execute_raw(raw).await;
+		let count = ctx.library_ctx().db._execute_raw(raw).exec().await;
 
 		info!("Inserted {:?} records", count);
 

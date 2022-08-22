@@ -16,7 +16,7 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 		if (!selected) {
 			setSelected(props.options[0]);
 		}
-	}, [props.options]);
+	}, [props.options, selected]);
 
 	return (
 		<>

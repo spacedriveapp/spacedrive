@@ -6,7 +6,7 @@ use crate::{
 	},
 	job::{worker::Worker, DynJob, Job, JobError},
 	library::LibraryContext,
-	prisma::{self, job, node},
+	prisma::{job, node},
 };
 use int_enum::IntEnum;
 use rspc::Type;
@@ -117,7 +117,9 @@ impl JobManager {
 		ret
 	}
 
-	pub async fn get_history(ctx: &LibraryContext) -> Result<Vec<JobReport>, prisma::QueryError> {
+	pub async fn get_history(
+		ctx: &LibraryContext,
+	) -> Result<Vec<JobReport>, prisma_client_rust::QueryError> {
 		let jobs = ctx
 			.db
 			.job()
@@ -291,15 +293,17 @@ impl JobReport {
 	pub async fn update(&self, ctx: &LibraryContext) -> Result<(), JobError> {
 		ctx.db
 			.job()
-			.find_unique(job::id::equals(self.id.as_bytes().to_vec()))
-			.update(vec![
-				job::status::set(self.status.int_value()),
-				job::data::set(self.data.clone()),
-				job::task_count::set(self.task_count),
-				job::completed_task_count::set(self.completed_task_count),
-				job::date_modified::set(chrono::Utc::now().into()),
-				job::seconds_elapsed::set(self.seconds_elapsed),
-			])
+			.update(
+				job::id::equals(self.id.as_bytes().to_vec()),
+				vec![
+					job::status::set(self.status.int_value()),
+					job::data::set(self.data.clone()),
+					job::task_count::set(self.task_count),
+					job::completed_task_count::set(self.completed_task_count),
+					job::date_modified::set(chrono::Utc::now().into()),
+					job::seconds_elapsed::set(self.seconds_elapsed),
+				],
+			)
 			.exec()
 			.await?;
 		Ok(())
