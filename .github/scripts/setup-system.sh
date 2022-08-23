@@ -1,22 +1,66 @@
 #!/bin/bash
 
+set -e
+
+script_failure() {
+        echo "An error occurred while performing the task on line $1" >&2
+        echo "Setup for Spacedrive development failed" >&2
+}
+
+trap 'script_failure $LINENO' ERR
+
 echo "Setting up your system for Spacedrive development!"
 
-which cargo &> /dev/null
-if [ $? -eq 1 ]; then
+if ! which cargo &> /dev/null; then
         echo "Rust was not detected on your system. Ensure the 'rustc' and 'cargo' binaries are in your \$PATH."
         exit 1
 fi
 
 if [ "${SPACEDRIVE_SKIP_PNPM_CHECK:-}" != "true" ]; then
-        which pnpm &> /dev/null
-        if [ $? -eq 1 ]; then
+        
+        if ! which pnpm &> /dev/null; then
                 echo "PNPM was not detected on your system. Ensure the 'pnpm' command is in your \$PATH. You are not able to use Yarn or NPM."
                 exit 1
         fi
 else
         echo "Skipped PNPM check!"
 fi
+
+if [ "$1" == "mobile" ]; then
+        echo "Setting up for mobile development!"
+
+         # IOS targets
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+                echo "Installing IOS Rust targets..."
+
+                if ! /usr/bin/xcodebuild -version; then
+                        echo "Xcode is not installed! Ensure you have it installed!"
+                        exit 1
+                fi
+
+                rustup target add aarch64-apple-ios 
+        fi
+
+        # Android requires python
+        if ! command -v python3 &> /dev/null
+        then
+                echo "Python3 could not be found. This is required for Android mobile development!"
+                exit 1
+        fi
+
+        # Android targets
+        echo "Installing Android Rust targets..."
+        rustup target add armv7-linux-androideabi   # for arm
+        rustup target add i686-linux-android        # for x86
+        rustup target add aarch64-linux-android     # for arm64
+        rustup target add x86_64-linux-android      # for x86_64
+        rustup target add x86_64-unknown-linux-gnu  # for linux-x86-64
+        rustup target add x86_64-apple-darwin       # for darwin x86_64 (if you have an Intel MacOS)
+        rustup target add aarch64-apple-darwin      # for darwin arm64 (if you have a M1 MacOS)
+        rustup target add x86_64-pc-windows-gnu     # for win32-x86-64-gnu
+        rustup target add x86_64-pc-windows-msvc    # for win32-x86-64-msvc
+fi
+
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if which apt-get &> /dev/null; then
