@@ -14,6 +14,7 @@
 		"@icons-pack/react-simple-icons": "^5.2.0",
 		"@sd/interface": "link:../../packages/interface",
 		"@sd/ui": "link:../../packages/ui",
+		"@sd/assets": "link:../../packages/assets",
 		"@tryghost/content-api": "^1.11.0",
 		"@types/compression": "^1.7.2",
 		"@types/express": "^4.17.13",
