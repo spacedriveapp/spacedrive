@@ -20,6 +20,43 @@ else
         echo "Skipped PNPM check!"
 fi
 
+if [ "$1" == "mobile" ]; then
+        echo "Setting up for mobile development!"
+
+         # IOS targets
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+                echo "Installing IOS Rust targets..."
+
+                /usr/bin/xcodebuild -version
+                if [ $? -ne 0 ]; then
+                        echo "Xcode is not installed! Ensure you have it installed!"
+                        exit 1
+                fi
+
+                rustup target add aarch64-apple-ios
+        fi
+
+        # Android requires python
+        if ! command -v python3 &> /dev/null
+        then
+                echo "Python3 could not be found. This is required for Android mobile development!"
+                exit 1
+        fi
+
+        # Android targets
+        echo "Installing Android Rust targets..."
+        rustup target add armv7-linux-androideabi   # for arm
+        rustup target add i686-linux-android        # for x86
+        rustup target add aarch64-linux-android     # for arm64
+        rustup target add x86_64-linux-android      # for x86_64
+        rustup target add x86_64-unknown-linux-gnu  # for linux-x86-64
+        rustup target add x86_64-apple-darwin       # for darwin x86_64 (if you have an Intel MacOS)
+        rustup target add aarch64-apple-darwin      # for darwin arm64 (if you have a M1 MacOS)
+        rustup target add x86_64-pc-windows-gnu     # for win32-x86-64-gnu
+        rustup target add x86_64-pc-windows-msvc    # for win32-x86-64-msvc
+fi
+
+
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if which apt-get &> /dev/null; then
                 echo "Detected 'apt' based distro!"

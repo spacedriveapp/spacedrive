@@ -56,17 +56,23 @@ To run the landing page
 - `pnpm web dev` - runs the web app for the embed
 - `pnpm landing dev`
 
-To run mobile app
-
-- `cd apps/mobile && pnpm i` - As this is a seperated workspace, you need to do this!
-- `pnpm android` - runs on Android Emulator
-- `pnpm ios` - runs on iOS Emulator
-- `pnpm dev` - For already bundled app
-
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.62.0**
+- Rust version: **1.63.0**
 - Node version: **17**
+
+##### Mobile app
+
+To run mobile app
+
+- Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for IOS development
+- `./.github/scripts/setup-system.sh mobile`
+  - The should setup most of the dependencies for the mobile app to build.
+- You must also ensure [you must have NDK 24.0.8215888 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
+- `cd apps/mobile && pnpm i` - This is a separate workspace, you need to do this!
+- `pnpm android` - runs on Android Emulator
+- `pnpm ios` - runs on iOS Emulator
+- `pnpm dev` - For already bundled app - This is only temporarily supported. The final app will require the Spacedrive Rust code which isn't included in Expo Go.
 
 ### Pull Request
 

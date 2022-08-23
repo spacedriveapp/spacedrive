@@ -35,8 +35,6 @@ prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust
   "sqlite-create-many",
 ] }
 rspc = { version = "0.0.4", features = [
-  "axum",
-  "tauri",
   "uuid",
   "chrono",
   "tracing",

@@ -4922,6 +4922,7 @@ dependencies = [
  "objc_id",
  "once_cell",
  "openssl",
+ "rspc",
  "sdcore",
  "serde_json",
  "tokio",
@@ -5145,6 +5146,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "ctrlc",
+ "rspc",
  "sdcore",
  "tokio",
  "tracing",
