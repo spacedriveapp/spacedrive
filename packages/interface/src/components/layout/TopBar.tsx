@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 
-export interface TopBarProps extends DefaultProps {}
+export type TopBarProps = DefaultProps;
 export interface TopBarButtonProps
 	extends DetailedHTMLProps<HTMLAttributes<HTMLButtonElement>, HTMLButtonElement> {
 	icon: React.ComponentType<IconProps>;
@@ -18,7 +18,7 @@ export interface TopBarButtonProps
 	left?: boolean;
 	right?: boolean;
 }
-interface SearchBarProps extends DefaultProps {}
+type SearchBarProps = DefaultProps;
 
 const TopBarButton: React.FC<TopBarButtonProps> = ({
 	icon: Icon,
@@ -90,7 +90,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		}
 	});
 
-	let navigate = useNavigate();
+	const navigate = useNavigate();
 	return (
 		<>
 			<div

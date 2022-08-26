@@ -245,7 +245,7 @@ function Page() {
 							<a
 								href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
 								target="_blank"
-								rel="noreferer"
+								rel="noreferrer"
 								className="duration-200 oss-credit-gradient hover:opacity-75"
 							>
 								open source contributors

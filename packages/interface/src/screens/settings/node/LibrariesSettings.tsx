@@ -39,7 +39,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 					ctaDanger
 					ctaLabel="Delete"
 					trigger={
-						<Button variant="gray" className="!p-1.5" onClick={() => {}}>
+						<Button variant="gray" className="!p-1.5">
 							<TrashIcon className="w-4 h-4" />
 						</Button>
 					}
