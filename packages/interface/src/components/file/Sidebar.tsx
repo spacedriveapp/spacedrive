@@ -9,10 +9,11 @@ import {
 } from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { CirclesFour, Planet } from 'phosphor-react';
+import { CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
 import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
+import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
@@ -153,10 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						{
 							name: 'Add Library',
 							icon: PlusIcon,
-							onPress: () => {
-								alert('todo');
-								// TODO: Show Dialog defined in `LibrariesSettings.tsx`
-							}
+							wrapItemComponent: CreateLibraryDialog
 						},
 						{
 							name: 'Lock',
@@ -165,7 +163,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 								alert('todo');
 							}
 						}
-						// { name: 'Hide', icon: EyeOffIcon }
 					]
 				]}
 			/>

@@ -10,6 +10,7 @@ export type DropdownItem = {
 	icon?: any;
 	selected?: boolean;
 	onPress?: () => any;
+	wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
 }[];
 
 export interface DropdownProps {
@@ -60,29 +61,38 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 						<div key={index} className="px-1 py-1 space-y-[2px]">
 							{item.map((button, index) => (
 								<Menu.Item key={index}>
-									{({ active }) => (
-										<button
-											onClick={button.onPress}
-											className={clsx(
-												'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-500',
-												{
-													'bg-gray-300 dark:!bg-gray-500 dark:hover:bg-gray-500': button.selected
-													// 'text-gray-900 dark:text-gray-200': !active
-												},
-												props.itemButtonClassName
-											)}
-										>
-											{button.icon && (
-												<button.icon
-													className={clsx('mr-2 w-4 h-4', {
-														'dark:text-gray-100': active,
-														'text-gray-600 dark:text-gray-200': !active
-													})}
-												/>
-											)}
-											<span className="text-left">{button.name}</span>
-										</button>
-									)}
+									{({ active }) => {
+										const WrappedItem = button.wrapItemComponent
+											? button.wrapItemComponent
+											: (props: React.PropsWithChildren) => <>{props.children}</>;
+
+										return (
+											<WrappedItem>
+												<button
+													onClick={button.onPress}
+													className={clsx(
+														'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-500',
+														{
+															'bg-gray-300 dark:!bg-gray-500 dark:hover:bg-gray-500':
+																button.selected
+															// 'text-gray-900 dark:text-gray-200': !active
+														},
+														props.itemButtonClassName
+													)}
+												>
+													{button.icon && (
+														<button.icon
+															className={clsx('mr-2 w-4 h-4', {
+																'dark:text-gray-100': active,
+																'text-gray-600 dark:text-gray-200': !active
+															})}
+														/>
+													)}
+													<span className="text-left">{button.name}</span>
+												</button>
+											</WrappedItem>
+										);
+									}}
 								</Menu.Item>
 							))}
 						</div>

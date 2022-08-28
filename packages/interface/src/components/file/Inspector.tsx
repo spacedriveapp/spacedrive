@@ -1,7 +1,8 @@
 import { ShareIcon } from '@heroicons/react/solid';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { FilePath, Location } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
+import clsx from 'clsx';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
@@ -29,11 +30,9 @@ const MetaItem = (props: MetaItemProps) => {
 
 const Divider = () => <div className="w-full my-1 h-[1px] bg-gray-100 dark:bg-gray-550" />;
 
-export const Inspector = (props: {
-	locationId: number;
-	location?: Location | null;
-	selectedFile?: FilePath;
-}) => {
+export const Inspector = (props: { locationId: number; selectedFile?: FilePath }) => {
+	const { data: currentLocation } = useLibraryQuery(['locations.getById', props.locationId], {});
+
 	const file_path = props.selectedFile,
 		file_id = props.selectedFile?.file?.id || -1;
 
@@ -46,10 +45,12 @@ export const Inspector = (props: {
 	);
 	const { mutate: fileSetNote } = useLibraryMutation('files.setNote');
 
+	const { data: tags } = useLibraryQuery(['tags.getForFile', file_id]);
+
 	// notes are cached in a store by their file id
 	// this is so we can ensure every note has been sent to Rust even
 	// when quickly navigating files, which cancels update function
-	const [note, setNote] = useState(props.location?.local_path || '');
+	const [note, setNote] = useState(currentLocation?.local_path || '');
 	useEffect(() => {
 		// Update debounced value after delay
 		const handler = setTimeout(() => {
@@ -107,13 +108,35 @@ export const Inspector = (props: {
 								<Link className="w-[18px] h-[18px]" />
 							</Button>
 						</div>
-						{file_path?.file?.cas_id && (
-							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
+						{!!tags?.length && (
+							<>
+								<Divider />
+								<MetaItem
+									title="Tags"
+									value={
+										<div className="flex flex-wrap mt-1.5 space-x-2">
+											{tags?.map((tag) => (
+												<div
+													// onClick={() => setSelectedTag(tag.id === selectedTag ? null : tag.id)}
+													key={tag.id}
+													className={clsx(
+														'flex items-center rounded px-1.5 py-0.5'
+														// selectedTag === tag.id && 'ring'
+													)}
+													style={{ backgroundColor: tag.color + 'CC' }}
+												>
+													<span className="text-xs text-white drop-shadow-md">{tag.name}</span>
+												</div>
+											))}
+										</div>
+									}
+								/>
+							</>
 						)}
 						<Divider />
 						<MetaItem
 							title="URI"
-							value={`${props.location?.local_path}/${file_path?.materialized_path}`}
+							value={`${currentLocation?.local_path}/${file_path?.materialized_path}`}
 						/>
 						<Divider />
 						<MetaItem
@@ -155,6 +178,10 @@ export const Inspector = (props: {
 											}
 										/>
 									</>
+								)}
+								<Divider />
+								{file_path?.file?.cas_id && (
+									<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
 								)}
 							</>
 						)}

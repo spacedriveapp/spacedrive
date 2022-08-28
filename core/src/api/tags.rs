@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
 	invalidate_query,
-	prisma::{file, tag},
+	prisma::{file, tag, tag_on_file},
 };
 
 use super::{LibraryArgs, RouterBuilder};
@@ -35,13 +35,27 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			Ok(library.db.tag().find_many(vec![]).exec().await?)
 		})
-		.query("getFilesForTag", |ctx, arg: LibraryArgs<i32>| async move {
+		.query("getFiles", |ctx, arg: LibraryArgs<i32>| async move {
 			let (tag_id, library) = arg.get_library(&ctx).await?;
 
 			Ok(library
 				.db
+				.file()
+				.find_many(vec![file::tags::some(vec![tag_on_file::tag_id::equals(
+					tag_id,
+				)])])
+				.exec()
+				.await?)
+		})
+		.query("getForFile", |ctx, arg: LibraryArgs<i32>| async move {
+			let (file_id, library) = arg.get_library(&ctx).await?;
+
+			Ok(library
+				.db
 				.tag()
-				.find_unique(tag::id::equals(tag_id))
+				.find_many(vec![tag::tag_files::some(vec![
+					tag_on_file::file_id::equals(file_id),
+				])])
 				.exec()
 				.await?)
 		})

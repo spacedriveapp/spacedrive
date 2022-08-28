@@ -1,51 +1,43 @@
-import { rspc, useExplorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
-import React from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
+import { ExplorerKind, rspc, useExplorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
+import React, { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { FileList } from '../components/file/FileList';
-import { Inspector } from '../components/file/Inspector';
-import { TopBar } from '../components/layout/TopBar';
+import Explorer from '../components/file/Explorer';
 
 export const ExplorerScreen: React.FC<unknown> = () => {
 	const [searchParams] = useSearchParams();
-	const path = searchParams.get('path') || '';
+
+	const urlPath = searchParams.get('path') || '';
+	const { path, setPath } = useExplorerStore();
+	useEffect(() => {
+		setPath(urlPath);
+	}, [urlPath]);
 
 	const { id } = useParams();
 	const location_id = Number(id);
 
-	const [limit, setLimit] = React.useState(100);
-
-	const { selectedRowIndex, addNewThumbnail } = useExplorerStore();
-
 	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: library_id!, arg: null }], {
-		onNext: (cas_id) => {
-			addNewThumbnail(cas_id);
+
+	const { data: files } = useLibraryQuery([
+		'locations.getExplorerDir',
+		{
+			location_id: location_id,
+			path: path,
+			limit: 100
 		}
-	});
-
-	// Current Location
-	const { data: currentLocation } = useLibraryQuery(['locations.getById', location_id]);
-
-	// Current Directory
-	const { data: currentDir } = useLibraryQuery(
-		['locations.getExplorerDir', { location_id: location_id!, path, limit }],
-		{ enabled: !!location_id }
-	);
+	]);
 
 	return (
-		<div className="relative flex flex-col w-full bg-gray-650">
-			<TopBar />
-			<div className="relative flex flex-row w-full max-h-full">
-				<FileList location_id={location_id} path={path} limit={limit} />
-				{currentDir?.contents && (
-					<Inspector
-						location={currentLocation}
-						selectedFile={currentDir.contents[selectedRowIndex]}
-						locationId={location_id}
-					/>
-				)}
-			</div>
+		<div className="relative flex flex-col w-full">
+			{library_id && (
+				<Explorer
+					library_id={library_id}
+					kind={ExplorerKind.Location}
+					identifier={location_id}
+					files={files}
+				/>
+			)}
 		</div>
 	);
 };

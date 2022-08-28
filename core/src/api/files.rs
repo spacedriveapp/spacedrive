@@ -1,7 +1,9 @@
 use rspc::Type;
 use serde::Deserialize;
 
-use crate::{api::locations::GetExplorerDirArgs, invalidate_query, prisma::file};
+use crate::{
+	api::locations::GetExplorerDirArgs, invalidate_query, object::ObjectKind, prisma::file,
+};
 
 use super::{LibraryArgs, RouterBuilder};
 
@@ -19,6 +21,11 @@ pub struct SetFavoriteArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
+		// debug only
+		.query("object", |_ctx, _args: LibraryArgs<i32>| {
+			let result: Result<_, rspc::Error> = Ok(ObjectKind::Unknown);
+			result
+		})
 		.query("readMetadata", |_ctx, _id: LibraryArgs<i32>| todo!())
 		.mutation("setNote", |ctx, arg: LibraryArgs<SetNoteArgs>| async move {
 			let (args, library) = arg.get_library(&ctx).await?;

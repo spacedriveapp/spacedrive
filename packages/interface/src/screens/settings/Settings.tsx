@@ -5,7 +5,7 @@ import {
 	HeartIcon,
 	KeyIcon,
 	ShieldCheckIcon,
-	TagIcon,
+	TagIcon
 } from '@heroicons/react/outline';
 import {
 	FlyingSaucer,
@@ -13,7 +13,7 @@ import {
 	KeyReturn,
 	PaintBrush,
 	PuzzlePiece,
-	ShareNetwork,
+	ShareNetwork
 } from 'phosphor-react';
 import React from 'react';
 
