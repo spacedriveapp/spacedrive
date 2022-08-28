@@ -50,7 +50,7 @@ export const Inspector = (props: { locationId: number; selectedFile?: FilePath }
 	// notes are cached in a store by their file id
 	// this is so we can ensure every note has been sent to Rust even
 	// when quickly navigating files, which cancels update function
-	const [note, setNote] = useState(currentLocation?.local_path || '');
+	const [note, setNote] = useState(props.selectedFile?.file?.note || '');
 	useEffect(() => {
 		// Update debounced value after delay
 		const handler = setTimeout(() => {

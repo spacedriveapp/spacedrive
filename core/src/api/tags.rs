@@ -1,5 +1,6 @@
 use rspc::Type;
 use serde::Deserialize;
+use tracing::log::info;
 use uuid::Uuid;
 
 use crate::{
@@ -30,7 +31,7 @@ pub struct TagUpdateArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
-		.query("get", |ctx, arg: LibraryArgs<()>| async move {
+		.query("getAll", |ctx, arg: LibraryArgs<()>| async move {
 			let (_, library) = arg.get_library(&ctx).await?;
 
 			Ok(library.db.tag().find_many(vec![]).exec().await?)
@@ -38,14 +39,19 @@ pub(crate) fn mount() -> RouterBuilder {
 		.query("getFiles", |ctx, arg: LibraryArgs<i32>| async move {
 			let (tag_id, library) = arg.get_library(&ctx).await?;
 
-			Ok(library
+			info!("Getting files for tag {}", tag_id);
+
+			let files = library
 				.db
 				.file()
 				.find_many(vec![file::tags::some(vec![tag_on_file::tag_id::equals(
 					tag_id,
 				)])])
 				.exec()
-				.await?)
+				.await?;
+			info!("Got files {}", files.len());
+
+			Ok(files)
 		})
 		.query("getForFile", |ctx, arg: LibraryArgs<i32>| async move {
 			let (file_id, library) = arg.get_library(&ctx).await?;
@@ -56,6 +62,16 @@ pub(crate) fn mount() -> RouterBuilder {
 				.find_many(vec![tag::tag_files::some(vec![
 					tag_on_file::file_id::equals(file_id),
 				])])
+				.exec()
+				.await?)
+		})
+		.query("get", |ctx, arg: LibraryArgs<i32>| async move {
+			let (tag_id, library) = arg.get_library(&ctx).await?;
+
+			Ok(library
+				.db
+				.tag()
+				.find_unique(tag::id::equals(tag_id))
 				.exec()
 				.await?)
 		})
@@ -79,7 +95,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				invalidate_query!(
 					library,
-					"tags.get": LibraryArgs<()>,
+					"tags.getAll": LibraryArgs<()>,
 					LibraryArgs {
 						library_id: library.id,
 						arg: ()
@@ -120,7 +136,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				invalidate_query!(
 					library,
-					"tags.get": LibraryArgs<()>,
+					"tags.getAll": LibraryArgs<()>,
 					LibraryArgs {
 						library_id: library.id,
 						arg: ()
@@ -137,7 +153,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			invalidate_query!(
 				library,
-				"tags.get": LibraryArgs<()>,
+				"tags.getAll": LibraryArgs<()>,
 				LibraryArgs {
 					library_id: library.id,
 					arg: ()

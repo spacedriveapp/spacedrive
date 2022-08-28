@@ -21,7 +21,7 @@ export default function TagsSettings() {
 	const [newColor, setNewColor] = useState('#A717D9');
 	const [newName, setNewName] = useState('');
 
-	const { data: tags } = useLibraryQuery(['tags.get']);
+	const { data: tags } = useLibraryQuery(['tags.getAll']);
 
 	const [selectedTag, setSelectedTag] = useState<null | number>(null);
 

@@ -94,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
-	const { data: tags } = useLibraryQuery(['tags.get']);
+	const { data: tags } = useLibraryQuery(['tags.getAll']);
 
 	return (
 		<div

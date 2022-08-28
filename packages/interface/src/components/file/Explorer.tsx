@@ -12,10 +12,11 @@ interface Props {
 	kind: ExplorerKind;
 	identifier: number;
 	files?: DirectoryWithContents;
+	heading?: string;
 }
 
 export default function Explorer(props: Props) {
-	const { selectedRowIndex, addNewThumbnail, path, limit } = useExplorerStore();
+	const { selectedRowIndex, addNewThumbnail } = useExplorerStore();
 
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: props.library_id!, arg: null }], {
 		onNext: (cas_id) => {
@@ -27,7 +28,11 @@ export default function Explorer(props: Props) {
 		<div className="relative flex flex-col w-full bg-gray-650">
 			<TopBar />
 			<div className="relative flex flex-row w-full max-h-full">
-				<FileList location_id={props.identifier} path={path} limit={limit} />
+				<FileList
+					location_id={props.identifier}
+					files={props.files?.contents || []}
+					heading={props.files?.directory.name || props.heading}
+				/>
 				{props.files?.contents && (
 					<Inspector
 						locationId={props.identifier}

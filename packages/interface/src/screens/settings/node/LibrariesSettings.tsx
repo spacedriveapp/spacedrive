@@ -1,9 +1,10 @@
-import { TrashIcon } from '@heroicons/react/outline';
-import { useBridgeMutation, useBridgeQuery } from '@sd/client';
+import { PencilAltIcon, TrashIcon } from '@heroicons/react/outline';
+import { useBridgeMutation, useBridgeQuery, useLibraryStore } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import { DotsSixVertical } from 'phosphor-react';
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import CreateLibraryDialog from '../../../components/dialog/CreateLibraryDialog';
 import DeleteLibraryDialog from '../../../components/dialog/DeleteLibraryDialog';
@@ -13,13 +14,24 @@ import { SettingsContainer } from '../../../components/settings/SettingsContaine
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 function LibraryListItem(props: { library: LibraryConfigWrapped }) {
+	const navigate = useNavigate();
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
+
+	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
 
 	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeMutation('library.delete', {
 		onSuccess: () => {
 			setOpenDeleteModal(false);
 		}
 	});
+
+	function handleEditLibrary() {
+		// switch library if requesting to edit non-current library
+		navigate('/settings/library');
+		if (props.library.uuid !== currentLibraryUuid) {
+			switchLibrary(props.library.uuid);
+		}
+	}
 
 	return (
 		<Card>
@@ -28,7 +40,10 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 				<h3 className="font-semibold">{props.library.config.name}</h3>
 				<p className="mt-0.5 text-xs text-gray-200">{props.library.uuid}</p>
 			</div>
-			<div>
+			<div className="mt-2 space-x-2">
+				<Button variant="gray" className="!p-1.5" onClick={handleEditLibrary}>
+					<PencilAltIcon className="w-4 h-4" />
+				</Button>
 				<DeleteLibraryDialog libraryUuid={props.library.uuid}>
 					<Button variant="gray" className="!p-1.5">
 						<TrashIcon className="w-4 h-4" />

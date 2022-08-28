@@ -1,11 +1,19 @@
 // TODO: Convert files to Objects, and file_paths to Paths
-
 // Objects are primarily created by the identifier from Paths
 // Some Objects are purely virtual, unless they have one or more associated Paths, which refer to a file found in a Location
 // Objects are what can be added to Spaces
 
 use rspc::Type;
 use serde::{Deserialize, Serialize};
+
+// #[derive(Debug, Serialize, Deserialize, Type)]
+// pub struct ObjectDirectory {
+// 	pub objects: Vec<object::Data>,
+// 	pub name: String,
+// 	pub location_id: Option<i32>,
+// 	pub space_id: Option<i32>,
+// 	pub tag_id: Option<i32>,
+// }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub enum ObjectKind {

@@ -1,26 +1,24 @@
 import { AppPropsContext, useExplorerStore } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 
 import icons from '../../assets/icons';
 import { Folder } from '../icons/Folder';
 
-export default function FileThumb(props: {
+interface Props {
 	file: FilePath;
 	locationId: number;
 	size?: number;
 	className?: string;
-}) {
+	style?: React.CSSProperties;
+}
+
+export default function FileThumb(props: Props) {
 	const appProps = useContext(AppPropsContext);
 	const { newThumbnails } = useExplorerStore();
 
 	const hasNewThumbnail = !!newThumbnails[props.file.file?.cas_id ?? ''];
-
-	const onImgLoad = ({ target: img }: any) => {
-		const { offsetHeight, offsetWidth } = img;
-		console.log(offsetHeight, offsetWidth);
-	};
 
 	if (props.file.is_dir) {
 		return <Folder size={100} />;
@@ -29,7 +27,6 @@ export default function FileThumb(props: {
 	if (appProps?.data_path && (props.file.file?.has_thumbnail || hasNewThumbnail)) {
 		return (
 			<img
-				onLoad={onImgLoad}
 				className={clsx('pointer-events-none z-90', props.className)}
 				src={appProps?.convertFileSrc(
 					`${appProps.data_path}/thumbnails/${props.locationId}/${props.file.file?.cas_id}.webp`

@@ -10,20 +10,21 @@ import FileThumb from './FileThumb';
 interface Props extends React.HTMLAttributes<HTMLDivElement> {
 	file?: FilePath | null;
 	selected?: boolean;
+	size?: number;
 }
 
 export default function FileItem(props: Props) {
 	const location = useContext(LocationContext);
 
+	const size = props.size || 100;
+
 	return (
 		<div {...props} className={clsx('inline-block w-[100px] mb-3', props.className)} draggable>
 			<div
-				className={clsx(
-					'border-2 border-transparent rounded-lg text-center w-[100px] h-[100px] mb-1',
-					{
-						'bg-gray-50 dark:bg-gray-650': props.selected
-					}
-				)}
+				style={{ width: size, height: size }}
+				className={clsx('border-2 border-transparent rounded-lg text-center mb-1', {
+					'bg-gray-50 dark:bg-gray-650': props.selected
+				})}
 			>
 				{props.file?.is_dir ? (
 					<div className="flex items-center justify-center w-full h-full active:translate-y-[1px]">
@@ -34,17 +35,19 @@ export default function FileItem(props: Props) {
 				) : props.file?.file?.has_thumbnail ? (
 					<div
 						className={clsx(
-							'flex items-center justify-center h-full p-1 overflow-hidden rounded border-gray-550  shrink-0',
-							props.selected && 'border-primary'
+							'relative grid place-content-center min-w-0  h-full p-1 rounded border-transparent border-2  shrink-0',
+							props.selected && ' bg-black'
 						)}
 					>
-						<div className="border-4 rounded border-gray-550">
-							<FileThumb
-								className="rounded-sm"
-								file={props.file}
-								locationId={location.location_id}
-							/>
-						</div>
+						<FileThumb
+							// style={{ maxHeight: size, maxWidth: size }}
+							className={clsx(
+								'border-4  border-gray-500 rounded-sm max-h-full max-w-full overflow-hidden'
+								// props.selected && '!border-gray-450'
+							)}
+							file={props.file}
+							locationId={location.location_id}
+						/>
 					</div>
 				) : (
 					<div className="w-[64px] mt-1.5 m-auto transition duration-200 rounded-lg h-[90px] relative active:translate-y-[1px]">

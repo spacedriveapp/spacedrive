@@ -43,7 +43,13 @@ const GridItemContainer = styled.div`
 	flex-wrap: wrap;
 `;
 
-export const FileList: React.FC<{ location_id: number; path: string; limit: number }> = (props) => {
+interface Props {
+	location_id: number;
+	files: FilePath[];
+	heading?: string;
+}
+
+export const FileList: React.FC<Props> = (props) => {
 	const size = useWindowSize();
 	const tableContainer = useRef<null | HTMLDivElement>(null);
 	const VList = useRef<null | VirtuosoHandle>(null);
@@ -54,15 +60,6 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 
 	const { selectedRowIndex, setSelectedRowIndex, setLocationId, layoutMode } = useExplorerStore();
 	const [goingUp, setGoingUp] = useState(false);
-
-	const { data: currentDir } = useLibraryQuery([
-		'locations.getExplorerDir',
-		{
-			location_id: props.location_id,
-			path: props.path,
-			limit: props.limit
-		}
-	]);
 
 	useEffect(() => {
 		if (selectedRowIndex === 0 && goingUp) {
@@ -90,21 +87,21 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
 		setGoingUp(false);
-		if (selectedRowIndex !== -1 && selectedRowIndex !== (currentDir?.contents.length ?? 1) - 1)
+		if (selectedRowIndex !== -1 && selectedRowIndex !== (props.files.length ?? 1) - 1)
 			setSelectedRowIndex(selectedRowIndex + 1);
 	});
 
 	const createRenderItem = (RenderItem: React.FC<RenderItemProps>) => {
 		return (index: number) => {
-			const row = currentDir?.contents?.[index];
+			const row = props.files[index];
 			if (!row) return null;
-			return <RenderItem key={index} index={index} item={row} dirId={currentDir?.directory.id} />;
+			return <RenderItem key={index} index={index} item={row} />;
 		};
 	};
 
 	const Header = () => (
 		<div>
-			<h1 className="pt-20 pl-4 text-xl font-bold ">{currentDir?.directory.name}</h1>
+			{props.heading && <h1 className="pt-20 pl-4 text-xl font-bold ">{props.heading}</h1>}
 			<div className="table-head">
 				<div className="flex flex-row p-2 table-head-row">
 					{columns.map((col) => (
@@ -136,17 +133,17 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 							List: GridContainer
 						}}
 						style={{ height: size.innerHeight ?? 600 }}
-						totalCount={currentDir?.contents.length || 0}
+						totalCount={props.files.length || 0}
 						itemContent={createRenderItem(RenderGridItem)}
 						className="w-full overflow-x-hidden outline-none explorer-scroll"
 					/>
 				)}
 				{layoutMode === 'list' && (
 					<Virtuoso
-						data={currentDir?.contents} // this might be redundant, row data is retrieved by index in renderRow
+						data={props.files} // this might be redundant, row data is retrieved by index in renderRow
 						ref={VList}
 						style={{ height: size.innerHeight ?? 600 }}
-						totalCount={currentDir?.contents.length || 0}
+						totalCount={props.files.length || 0}
 						itemContent={createRenderItem(RenderRow)}
 						components={{
 							Header,
@@ -164,10 +161,9 @@ export const FileList: React.FC<{ location_id: number; path: string; limit: numb
 interface RenderItemProps {
 	item: FilePath;
 	index: number;
-	dirId: number;
 }
 
-const RenderGridItem: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
+const RenderGridItem: React.FC<RenderItemProps> = ({ item, index }) => {
 	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
 	const [_, setSearchParams] = useSearchParams();
 
@@ -187,7 +183,7 @@ const RenderGridItem: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 	);
 };
 
-const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
+const RenderRow: React.FC<RenderItemProps> = ({ item, index }) => {
 	const { selectedRowIndex, setSelectedRowIndex } = useExplorerStore();
 	const isActive = selectedRowIndex === index;
 	const [_, setSearchParams] = useSearchParams();
@@ -213,7 +209,7 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 						className="flex items-center px-4 py-2 pr-2 table-body-cell"
 						style={{ width: col.width }}
 					>
-						<RenderCell file={item} dirId={dirId} colKey={col.key} />
+						<RenderCell file={item} colKey={col.key} />
 					</div>
 				))}
 			</div>
@@ -225,9 +221,8 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index, dirId }) => {
 
 const RenderCell: React.FC<{
 	colKey: ColumnKey;
-	dirId: number;
 	file: FilePath;
-}> = ({ colKey, file, dirId }) => {
+}> = ({ colKey, file }) => {
 	const location = useContext(LocationContext);
 
 	switch (colKey) {
