@@ -7,7 +7,7 @@ import { Helmet } from 'react-helmet';
 import '../../atom-one.css';
 import { BlogTag } from '../../components/BlogTag';
 
-function MarkdownPage({ post }: { post: PostOrPage }) {
+function Page({ post }: { post: PostOrPage }) {
 	useEffect(() => {
 		Prism.highlightAll();
 	}, []);
@@ -72,4 +72,4 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 	);
 }
 
-export { MarkdownPage };
+export { Page };
