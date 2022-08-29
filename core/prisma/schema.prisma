@@ -96,6 +96,7 @@ model Location {
     disk_type          Int?
     is_removable       Boolean?
     is_online          Boolean  @default(true)
+    is_archived        Boolean  @default(false)
     date_created       DateTime @default(now())
 
     node       Node?      @relation(fields: [node_id], references: [id])

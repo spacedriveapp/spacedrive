@@ -230,7 +230,7 @@ const RenderCell: React.FC<{
 			return (
 				<div className="flex flex-row items-center overflow-hidden">
 					<div className="flex items-center justify-center w-6 h-6 mr-3 shrink-0">
-						<FileThumb file={file} locationId={location.location_id} />
+						<FileThumb file={file} />
 					</div>
 					{/* {colKey == 'name' &&
             (() => {

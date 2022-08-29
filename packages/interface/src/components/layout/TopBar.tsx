@@ -56,7 +56,7 @@ const SearchBar: React.FC<SearchBarProps> = (props) => {
 		<div className="relative flex h-7">
 			<input
 				placeholder="Search"
-				className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+				className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-550 dark:border-gray-500 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
 			/>
 			<div className="space-x-1 absolute top-[2px] right-1">
 				<Shortcut
@@ -95,7 +95,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-b dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-90 backdrop-blur"
+				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center  dark:bg-gray-700 border-gray-100 dark:border-gray-800 !bg-opacity-80 backdrop-blur"
 			>
 				<div className="flex ">
 					<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />

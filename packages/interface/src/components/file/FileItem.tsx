@@ -48,7 +48,7 @@ export default function FileItem(props: Props) {
 						<FileThumb
 							// style={{ maxHeight: size, maxWidth: size }}
 							className={clsx(
-								'border-4  border-gray-500 rounded-sm max-h-full max-w-full overflow-hidden'
+								'border-4 border-gray-500 rounded-sm shadow shadow-black max-h-full max-w-full overflow-hidden'
 								// props.selected && '!border-gray-450'
 							)}
 							file={props.file}
