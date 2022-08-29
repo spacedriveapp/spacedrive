@@ -1,56 +1,110 @@
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
-import { House } from 'phosphor-react-native';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ColorValue, Platform, Pressable, Text, View } from 'react-native';
 import { CogIcon } from 'react-native-heroicons/solid';
 
 import Layout from '../../constants/Layout';
 import tw from '../../lib/tailwind';
-import type { DrawerNavParamList } from '../../navigation/DrawerNavigator';
-import { valueof } from '../../types/helper';
-import DrawerItem from './DrawerItem';
+import CollapsibleView from '../layout/CollapsibleView';
+import DrawerLocationItem from './DrawerLocationItem';
+import DrawerLogo from './DrawerLogo';
+import DrawerTagItem from './DrawerTagItem';
 
-const drawerHeight = Layout.window.height * 0.85;
+const placeholderLocationData = [
+	{
+		id: 1,
+		name: 'Spacedrive'
+	},
+	{
+		id: 2,
+		name: 'Content'
+	}
+];
+const placeholderTagsData = [
+	{
+		id: 1,
+		name: 'Funny',
+		color: tw.color('blue-500')
+	},
+	{
+		id: 2,
+		name: 'Twitch',
+		color: tw.color('purple-500')
+	},
+	{
+		id: 3,
+		name: 'BlackMagic',
+		color: tw.color('red-500')
+	}
+];
 
-// This is a hacky way to get the active route name and params but it works and it's typed...
+const drawerHeight = Platform.select({
+	ios: Layout.window.height * 0.85,
+	android: Layout.window.height * 0.9
+});
 
-interface ActiveRoute {
-	key: string;
-	name: keyof DrawerNavParamList;
-	params: valueof<Omit<DrawerNavParamList, 'Home'>>;
-}
-
-const getActiveRouteState = function (state: any): ActiveRoute {
+const getActiveRouteState = function (state: any) {
 	if (!state.routes || state.routes.length === 0 || state.index >= state.routes.length) {
 		return state;
 	}
-
 	const childActiveRoute = state.routes[state.index];
 	return getActiveRouteState(childActiveRoute);
 };
 
-// Overriding the default to add typing for our params.
-// interface DrawerContentComponentProps {
-// 	state: DrawerNavigationState<DrawerNavParamList>;
-// 	navigation: NavigationHelpers<DrawerNavParamList, DrawerNavigationEventMap> &
-// 		DrawerActionHelpers<DrawerNavParamList>;
-// 	// descriptors type is generic
-// 	descriptors: DrawerDescriptorMap;
-// }
+const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
+	const stackName = getFocusedRouteNameFromRoute(getActiveRouteState(state)) ?? 'OverviewStack';
 
-const DrawerContent = ({ descriptors, navigation, state }: DrawerContentComponentProps) => {
 	return (
-		<DrawerContentScrollView style={tw`flex-1 p-4`} scrollEnabled={false}>
+		<DrawerContentScrollView style={tw`flex-1 px-4 py-2`} scrollEnabled={false}>
 			<View style={tw.style('justify-between', { height: drawerHeight })}>
 				<View>
-					<Text style={tw`my-4 text-white`}>TODO: Library Selection</Text>
-					<DrawerItem
-						label={'Home'}
-						icon={<House size={20} color={'white'} weight="bold" />}
-						onPress={() => navigation.jumpTo('Home')}
-						isSelected={getActiveRouteState(state).name === 'Home'}
-					/>
+					<DrawerLogo />
+					<Text style={tw`my-4 text-white text-xs`}>TODO: Library Selection</Text>
+					{/* Locations */}
+					<CollapsibleView
+						title="Locations"
+						titleStyle={tw`mt-4 mb-3 ml-1 text-sm font-semibold text-gray-300`}
+					>
+						{placeholderLocationData.map((location) => (
+							<DrawerLocationItem
+								key={location.id}
+								folderName={location.name}
+								onPress={() =>
+									navigation.navigate(stackName, {
+										screen: 'Location',
+										params: { id: location.id }
+									})
+								}
+							/>
+						))}
+						{/* Add Location */}
+						<View style={tw`border border-dashed rounded border-gray-450 border-opacity-60 mt-1`}>
+							<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>
+								Add Location
+							</Text>
+						</View>
+					</CollapsibleView>
+					{/* Tags */}
+					<CollapsibleView
+						title="Tags"
+						titleStyle={tw`mt-6 mb-3 ml-1 text-sm font-semibold text-gray-300`}
+					>
+						{placeholderTagsData.map((tag) => (
+							<DrawerTagItem
+								key={tag.id}
+								tagName={tag.name}
+								onPress={() =>
+									navigation.navigate(stackName, {
+										screen: 'Tag',
+										params: { id: tag.id }
+									})
+								}
+								tagColor={tag.color as ColorValue}
+							/>
+						))}
+					</CollapsibleView>
 				</View>
 				{/* Settings */}
 				<Pressable onPress={() => navigation.navigate('Settings')}>

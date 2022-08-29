@@ -9,9 +9,7 @@ use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
 use tokio::{fs, sync::broadcast};
 
-pub use rspc; // We expose rspc so we can access it in the Desktop app
-
-pub(crate) mod api;
+pub mod api;
 pub(crate) mod encode;
 pub(crate) mod file;
 pub(crate) mod job;

@@ -5,7 +5,7 @@ import BrowseLocationItem from '../components/browse/BrowseLocationItem';
 import BrowseTagItem from '../components/browse/BrowseTagItem';
 import CollapsibleView from '../components/layout/CollapsibleView';
 import tw from '../lib/tailwind';
-import { BrowseScreenProps } from '../navigation/tabs/BrowseStack';
+import { BrowseStackScreenProps } from '../navigation/tabs/BrowseStack';
 
 const placeholderLocationData = [
 	{
@@ -35,7 +35,7 @@ const placeholderTagsData = [
 	}
 ];
 
-const BrowseScreen = ({ navigation }: BrowseScreenProps<'Browse'>) => {
+const BrowseScreen = ({ navigation }: BrowseStackScreenProps<'Browse'>) => {
 	return (
 		<View style={tw`flex-1 p-4`}>
 			<CollapsibleView
