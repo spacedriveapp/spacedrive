@@ -14,7 +14,6 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export default function FileItem(props: Props) {
-	const location = useContext(LocationContext);
 	const { setContextMenuObjectId } = useExplorerStore();
 	const size = props.size || 100;
 
@@ -53,7 +52,6 @@ export default function FileItem(props: Props) {
 								// props.selected && '!border-gray-450'
 							)}
 							file={props.file}
-							locationId={location.location_id}
 						/>
 					</div>
 				) : (

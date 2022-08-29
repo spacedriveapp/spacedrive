@@ -106,7 +106,6 @@ pub(crate) fn mount() -> RouterBuilder {
 									.config()
 									.data_directory()
 									.join(THUMBNAIL_CACHE_DIR_NAME)
-									.join(location.id.to_string())
 									.join(&file.cas_id)
 									.with_extension("webp");
 

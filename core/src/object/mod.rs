@@ -1,4 +1,3 @@
-// TODO: Convert files to Objects, and file_paths to Paths
 // Objects are primarily created by the identifier from Paths
 // Some Objects are purely virtual, unless they have one or more associated Paths, which refer to a file found in a Location
 // Objects are what can be added to Spaces
@@ -6,14 +5,23 @@
 use rspc::Type;
 use serde::{Deserialize, Serialize};
 
-// #[derive(Debug, Serialize, Deserialize, Type)]
-// pub struct ObjectDirectory {
-// 	pub objects: Vec<object::Data>,
-// 	pub name: String,
-// 	pub location_id: Option<i32>,
-// 	pub space_id: Option<i32>,
-// 	pub tag_id: Option<i32>,
-// }
+use crate::prisma;
+
+// The response to provide the Explorer when looking at Objects
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct ObjectsForExplorer {
+	pub objects: Vec<ObjectData>,
+	// optional sources for context of Explorer
+	pub location: Option<prisma::location::Data>,
+	pub space: Option<prisma::space::Data>,
+	pub tag: Option<prisma::tag::Data>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub enum ObjectData {
+	Object(prisma::file::Data),
+	Path(prisma::file_path::Data),
+}
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub enum ObjectKind {

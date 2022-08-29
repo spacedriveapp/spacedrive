@@ -8,7 +8,6 @@ import { Folder } from '../icons/Folder';
 
 interface Props {
 	file: FilePath;
-	locationId: number;
 	size?: number;
 	className?: string;
 	style?: React.CSSProperties;
@@ -20,18 +19,17 @@ export default function FileThumb(props: Props) {
 
 	const hasNewThumbnail = !!newThumbnails[props.file.file?.cas_id ?? ''];
 
+	const file_thumb_url = appProps?.convertFileSrc(
+		`${appProps.data_path}/thumbnails/${props.file.file?.cas_id}.webp`
+	);
+
 	if (props.file.is_dir) {
 		return <Folder size={100} />;
 	}
 
 	if (appProps?.data_path && (props.file.file?.has_thumbnail || hasNewThumbnail)) {
 		return (
-			<img
-				className={clsx('pointer-events-none z-90', props.className)}
-				src={appProps?.convertFileSrc(
-					`${appProps.data_path}/thumbnails/${props.locationId}/${props.file.file?.cas_id}.webp`
-				)}
-			/>
+			<img className={clsx('pointer-events-none z-90', props.className)} src={file_thumb_url} />
 		);
 	}
 

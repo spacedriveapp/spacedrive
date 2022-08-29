@@ -54,8 +54,8 @@ impl StatefulJob for ThumbnailJob {
 		let thumbnail_dir = library_ctx
 			.config()
 			.data_directory()
-			.join(THUMBNAIL_CACHE_DIR_NAME)
-			.join(state.init.location_id.to_string());
+			.join(THUMBNAIL_CACHE_DIR_NAME);
+		// .join(state.init.location_id.to_string());
 
 		let location = library_ctx
 			.db

@@ -28,8 +28,8 @@
 		"express": "^4.18.1",
 		"phosphor-react": "^1.4.1",
 		"prismjs": "^1.28.0",
-		"react": "^18.1.0",
-		"react-dom": "^18.1.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
 		"react-helmet": "^6.1.0",
 		"react-hook-form": "^7.33.1",
 		"react-tsparticles": "^2.1.3",
@@ -38,7 +38,7 @@
 		"tsparticles": "^2.1.3",
 		"typescript": "^4.6.4",
 		"vite": "^2.9.14",
-		"vite-plugin-ssr": "^0.4.15"
+		"vite-plugin-ssr": "^0.4.28"
 	},
 	"devDependencies": {
 		"@sd/config": "link:../../packages/config",
