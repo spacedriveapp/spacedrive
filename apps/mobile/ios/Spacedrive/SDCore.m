@@ -3,7 +3,7 @@
 //  Spacedrive
 //
 //  This file will not work unless ARC is disabled. Do this by setting the compiler flag '-fno-objc-arc' on this file in Settings > Build Phases > Compile Sources.
-//  This file also expects the Spacedrive Rust library to be linked in Settings > Build Phases > Link Binary with Libraries.
+//  This file also expects the Spacedrive Rust library to be linked in Settings > Build Phases > Link Binary with Libraries. This is the crude way, you should link the core with custom linker flags so that you can do it conditonally based on target OS.
 //  This file also expects a Build Phase to be setup which compiles the Rust prior to linking the sdcore library to the IOS build.
 //  This file also expects you to add "remote-notification" to the list of your supported UIBackgroundModes in your Info.plist
 //
