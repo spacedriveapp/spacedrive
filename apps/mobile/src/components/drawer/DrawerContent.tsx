@@ -9,6 +9,7 @@ import Layout from '../../constants/Layout';
 import tw from '../../lib/tailwind';
 import CollapsibleView from '../layout/CollapsibleView';
 import DrawerLocationItem from './DrawerLocationItem';
+import DrawerLogo from './DrawerLogo';
 import DrawerTagItem from './DrawerTagItem';
 
 const placeholderLocationData = [
@@ -56,14 +57,15 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 	const stackName = getFocusedRouteNameFromRoute(getActiveRouteState(state)) ?? 'OverviewStack';
 
 	return (
-		<DrawerContentScrollView style={tw`flex-1 p-4`} scrollEnabled={false}>
+		<DrawerContentScrollView style={tw`flex-1 px-4 py-2`} scrollEnabled={false}>
 			<View style={tw.style('justify-between', { height: drawerHeight })}>
 				<View>
-					<Text style={tw`my-4 text-white`}>TODO: Library Selection</Text>
+					<DrawerLogo />
+					<Text style={tw`my-4 text-white text-xs`}>TODO: Library Selection</Text>
 					{/* Locations */}
 					<CollapsibleView
 						title="Locations"
-						titleStyle={tw`mt-5 mb-3 ml-1 text-sm font-semibold text-gray-300`}
+						titleStyle={tw`mt-4 mb-3 ml-1 text-sm font-semibold text-gray-300`}
 					>
 						{placeholderLocationData.map((location) => (
 							<DrawerLocationItem
@@ -87,7 +89,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					{/* Tags */}
 					<CollapsibleView
 						title="Tags"
-						titleStyle={tw`mt-5 mb-3 ml-1 text-sm font-semibold text-gray-300`}
+						titleStyle={tw`mt-6 mb-3 ml-1 text-sm font-semibold text-gray-300`}
 					>
 						{placeholderTagsData.map((tag) => (
 							<DrawerTagItem

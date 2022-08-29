@@ -17,7 +17,7 @@ const Header = () => {
 	const isDrawerOpen = useDrawerStatus() === 'open';
 
 	return (
-		<View style={tw.style('mx-4 bg-gray-550 rounded-md', { marginTop: top + 20 })}>
+		<View style={tw.style('mx-4 bg-gray-550 rounded-md', { marginTop: top + 10 })}>
 			<View style={tw`flex flex-row items-center h-10`}>
 				<Pressable style={tw`px-3 h-full justify-center`} onPress={() => navigation.openDrawer()}>
 					<MotiView

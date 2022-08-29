@@ -13,17 +13,17 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	const [loading, setLoading] = useState(false);
 
 	return (
-		<View style={tw.style('flex-1', { marginTop: top + 20 })}>
+		<View style={tw.style('flex-1', { marginTop: top + 10 })}>
 			{/* Header */}
 			<View style={tw`flex flex-row items-center mx-4`}>
 				{/* Search Input */}
-				<View style={tw`flex-1 bg-gray-550 rounded-md h-10 mr-3`}>
+				<View style={tw`flex-1 bg-gray-550 rounded-md h-9 mr-3`}>
 					<View style={tw`flex flex-row h-full items-center px-3`}>
 						<View style={tw`mr-3`}>
 							{loading ? (
 								<ActivityIndicator size={'small'} color={'white'} />
 							) : (
-								<MagnifyingGlass size={20} weight="light" color={'white'} />
+								<MagnifyingGlass size={20} weight="light" color={tw.color('gray-300')} />
 							)}
 						</View>
 						<TextInput
@@ -45,11 +45,10 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 				</Pressable>
 			</View>
 			{/* Content */}
-			<View style={tw`flex-1 items-center justify-center`}>
+			<View style={tw`flex-1 items-center mt-8`}>
 				<Button variant="primary" onPress={() => setLoading((v) => !v)}>
 					<Text>Toggle loading</Text>
 				</Button>
-				<Text style={tw`font-bold text-white`}>Stuff</Text>
 			</View>
 		</View>
 	);

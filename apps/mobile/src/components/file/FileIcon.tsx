@@ -5,7 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import icons from '../../assets/icons/file';
 import tw from '../../lib/tailwind';
 import { FilePath } from '../device/Device';
-import FolderIcon from '../icons/Folder';
+import FolderIcon from '../icons/FolderIcon';
 
 type FileIconProps = {
 	file?: FilePath | null;
