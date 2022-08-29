@@ -8,8 +8,8 @@ use tokio::sync::mpsc::unbounded_channel;
 use objc::{class, msg_send, runtime::Object, sel, sel_impl};
 use objc_foundation::{INSString, NSString};
 use objc_id::Id;
-use sdcore::Node;
 use rspc::Request;
+use sdcore::Node;
 
 extern "C" {
 	fn get_data_directory() -> *const c_char;
