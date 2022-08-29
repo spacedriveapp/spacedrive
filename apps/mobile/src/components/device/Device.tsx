@@ -1,18 +1,11 @@
-import { FilePath } from '@sd/core';
 import { Cloud, Desktop, DeviceMobileCamera, Laptop } from 'phosphor-react-native';
 import React from 'react';
 import { FlatList, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/solid';
 
 import tw from '../../lib/tailwind';
+import { FilePath } from '../../types/bindings';
 import FileItem from '../file/FileItem';
-
-export interface DeviceProps {
-	name: string;
-	size: string;
-	type: 'laptop' | 'desktop' | 'phone' | 'server';
-	locations: Array<{ name: string; folder?: boolean; format?: string; icon?: string }>;
-}
 
 const placeholderFileItems: FilePath[] = [
 	{
@@ -272,10 +265,18 @@ const placeholderFileItems: FilePath[] = [
 	}
 ];
 
+export interface DeviceProps {
+	name: string;
+	size: string;
+	type: 'laptop' | 'desktop' | 'phone' | 'server';
+	locations: { name: string; folder?: boolean; format?: string; icon?: string }[];
+	runningJob?: { amount: number; task: string };
+}
+
 const Device = ({ name, locations, size, type }: DeviceProps) => {
 	return (
 		<View style={tw`bg-gray-600 border rounded-md border-gray-550 my-2`}>
-			<View style={tw`flex flex-row items-center px-4 pt-3 pb-2`}>
+			<View style={tw`flex flex-row items-center px-3.5 pt-3 pb-2`}>
 				<View style={tw`flex flex-row items-center`}>
 					{type === 'phone' && (
 						<DeviceMobileCamera color="white" weight="fill" size={18} style={tw`mr-2`} />
@@ -299,7 +300,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 				renderItem={({ item }) => <FileItem file={item} />}
 				keyExtractor={(item) => item.id.toString()}
 				horizontal
-				contentContainerStyle={tw`mt-4 ml-2`}
+				contentContainerStyle={tw`mt-3 mb-5`}
 				showsHorizontalScrollIndicator={false}
 			/>
 		</View>

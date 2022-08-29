@@ -23,7 +23,7 @@ async fn main() {
 	let (node, router) = Node::new(data_dir).await;
 
 	let app = tauri::Builder::default()
-		.plugin(sdcore::rspc::integrations::tauri::plugin(router, {
+		.plugin(rspc::integrations::tauri::plugin(router, {
 			let node = node.clone();
 			move || node.get_request_context()
 		}))

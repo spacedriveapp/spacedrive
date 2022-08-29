@@ -1,10 +1,10 @@
+import { ReactComponent as Folder } from '@sd/assets/svgs/folder.svg';
 import { LocationContext } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext } from 'react';
 
 import icons from '../../assets/icons';
-import { ReactComponent as Folder } from '../../assets/svg/folder.svg';
 import FileThumb from './FileThumb';
 
 interface Props extends React.HTMLAttributes<HTMLDivElement> {

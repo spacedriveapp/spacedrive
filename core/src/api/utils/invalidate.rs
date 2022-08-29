@@ -3,7 +3,10 @@ use crate::api::Router;
 use rspc::{internal::specta::DataType, Type};
 use serde::Serialize;
 use serde_json::Value;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+#[cfg(debug_assertions)]
+use std::sync::Mutex;
 
 /// holds information about all invalidation queries done with the [`invalidate_query!`] macro so we can check they are valid when building the router.
 #[cfg(debug_assertions)]
@@ -26,6 +29,7 @@ impl InvalidateOperationEvent {
 
 /// a request to invalidate a specific resource
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct InvalidationRequest {
 	pub key: &'static str,
 	pub arg_ty: DataType,
@@ -34,6 +38,7 @@ pub(crate) struct InvalidationRequest {
 
 /// invalidation request for a specific resource
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub(crate) struct InvalidRequests {
 	pub queries: Vec<InvalidationRequest>,
 }

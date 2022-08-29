@@ -1,7 +1,7 @@
-import react from '@vitejs/plugin-react'
-import ssr from 'vite-plugin-ssr/plugin'
-import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 import md, { Mode } from 'vite-plugin-markdown';
+import ssr from 'vite-plugin-ssr/plugin';
 import svg from 'vite-plugin-svgr';
 
 export default defineConfig({
@@ -15,4 +15,4 @@ export default defineConfig({
 		port: 8003
 	},
 	publicDir: 'public'
-})
+});
