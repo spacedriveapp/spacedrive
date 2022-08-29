@@ -18,6 +18,7 @@
 	},
 	"dependencies": {
 		"@rspc/client": "^0.0.5",
+		"@sd/core": "workspace:*",
 		"@sd/config": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@tanstack/react-query": "^4.0.10",
