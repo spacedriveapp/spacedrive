@@ -7,7 +7,7 @@ pre-push:
   parallel: true
   commands:
     type-check:
-      glob: "*.{ts,tsx}"
+      glob: '*.{ts,tsx}'
       run: pnpm typecheck
     lint:
       glob: '*.{ts,tsx}'
@@ -22,7 +22,5 @@ pre-push:
       run: cargo clippy --package spacedrive -- -D warnings
     rust-lint-core:
       run: cargo clippy --package sdcore --lib -- -D warnings
-    rust-lint-core-derive:
-      run: cargo clippy --package core-derive --lib -- -D warnings
     rust-lint-server:
       run: cargo clippy --package server -- -D warnings
