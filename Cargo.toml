@@ -5,7 +5,6 @@ members = [
 	"apps/mobile/rust",
 	"core",
 	"core/prisma",
-	"core/derive",
 	"apps/server"
 ]
 

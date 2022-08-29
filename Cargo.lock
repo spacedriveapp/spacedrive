@@ -708,14 +708,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb4a24b1aaf0fd0ce8b45161144d6f42cd91677fd5940fd431183eb023b3a2b8"
 
 [[package]]
-name = "core-derive"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4899,7 +4891,6 @@ dependencies = [
  "async-trait",
  "base64 0.13.0",
  "chrono",
- "core-derive",
  "ctor",
  "data-encoding",
  "ffmpeg-next",
