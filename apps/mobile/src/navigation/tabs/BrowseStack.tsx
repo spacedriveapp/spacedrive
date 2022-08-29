@@ -1,30 +1,35 @@
 import { CompositeScreenProps } from '@react-navigation/native';
-import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StackScreenProps, TransitionPresets, createStackNavigator } from '@react-navigation/stack';
 
+import Header from '../../components/header/Header';
 import BrowseScreen from '../../screens/Browse';
-import LocationScreen from '../../screens/Location';
-import TagScreen from '../../screens/Tag';
+import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createNativeStackNavigator<BrowseStackParamList>();
+const Stack = createStackNavigator<BrowseStackParamList>();
 
 export default function BrowseStack() {
 	return (
-		<Stack.Navigator initialRouteName="Browse">
-			<Stack.Screen name="Browse" component={BrowseScreen} />
-			<Stack.Screen name="Location" component={LocationScreen} />
-			<Stack.Screen name="Tag" component={TagScreen} />
+		<Stack.Navigator
+			initialRouteName="Browse"
+			screenOptions={{
+				headerStyle: { backgroundColor: '#08090D' },
+				headerTintColor: '#fff',
+				...TransitionPresets.ModalFadeTransition
+			}}
+		>
+			<Stack.Screen name="Browse" component={BrowseScreen} options={{ header: Header }} />
+			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
 }
 
 export type BrowseStackParamList = {
 	Browse: undefined;
-	Location: { id: number };
-	Tag: { id: number };
-};
+} & SharedScreensParamList;
 
-export type BrowseScreenProps<Screen extends keyof BrowseStackParamList> = CompositeScreenProps<
-	NativeStackScreenProps<BrowseStackParamList, Screen>,
-	TabScreenProps<'BrowseStack'>
->;
+export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =
+	CompositeScreenProps<
+		StackScreenProps<BrowseStackParamList, Screen>,
+		TabScreenProps<'BrowseStack'>
+	>;

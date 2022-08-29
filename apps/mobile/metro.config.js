@@ -3,7 +3,6 @@ const MetroSymlinksResolver = require('@rnx-kit/metro-resolver-symlinks');
 
 // Might not need these anymore.
 const [SDAssetsPath, SDAssetsPathExclude] = resolveUniqueModule('@sd/assets', '.');
-const [SDCorePath, SDCorePathExclude] = resolveUniqueModule('@sd/core', '.');
 const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
 const [reactPath, reactExclude] = resolveUniqueModule('react');
 
@@ -21,7 +20,6 @@ const metroConfig = makeMetroConfig({
 		extraNodeModules: {
 			'@babel/runtime': babelRuntimePath,
 			'@sd/assets': SDAssetsPath,
-			'@sd/core': SDCorePath,
 			'react': reactPath,
 			'react-native-svg': reactSVGPath
 		},
@@ -29,7 +27,6 @@ const metroConfig = makeMetroConfig({
 		blockList: exclusionList([
 			babelRuntimeExclude,
 			SDAssetsPathExclude,
-			SDCorePathExclude,
 			reactExclude,
 			reactSVGExclude
 		]),

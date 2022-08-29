@@ -6,9 +6,8 @@ import {
 	Twitch,
 	Twitter
 } from '@icons-pack/react-simple-icons';
+import AppLogo from '@sd/assets/images/logo.png';
 import React from 'react';
-
-import AppLogo from '../assets/images/logo.png';
 
 function FooterLink(props: { children: string | JSX.Element; link: string; blank?: boolean }) {
 	return (

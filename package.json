@@ -3,7 +3,9 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"prep": "pnpm db:gen",
+		"prep": "pnpm db:gen && pnpm core codegen",
+		"build": "turbo run build",
+		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
 		"db:migrate": "pnpm core prisma migrate dev",
 		"db:gen": "pnpm core prisma generate",
 		"format": "prettier --config .prettierrc.cli.js --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
