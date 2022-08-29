@@ -5,7 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import tw from '../../lib/tailwind';
 import { SharedScreenProps } from '../../navigation/SharedScreens';
 import { useFileModalStore } from '../../stores/useModalStore';
-import { FilePath } from '../device/Device';
+import { FilePath } from '../../types/bindings';
 import FileIcon from './FileIcon';
 
 type FileItemProps = {

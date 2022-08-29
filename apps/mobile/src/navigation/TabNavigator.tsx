@@ -4,10 +4,6 @@ import { CirclesFour, Folder, Planet } from 'phosphor-react-native';
 import { PhotographIcon } from 'react-native-heroicons/outline';
 
 import tw from '../lib/tailwind';
-import OverviewScreen from '../screens/Overview';
-import PhotosScreen from '../screens/Photos';
-import SpacesScreen from '../screens/Spaces';
-import TempCoreDebugScreen from '../screens/TempCoreDebug';
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
 import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
@@ -74,15 +70,6 @@ export default function TabNavigator() {
 					tabBarLabel: 'Photos'
 				}}
 			/>
-			<Tab.Screen
-				name="CoreDebug"
-				component={TempCoreDebugScreen}
-				options={{
-					tabBarIcon: ({ focused }) => (
-						<PhotographIcon size={22} color={focused ? tw.color('bg-primary') : 'white'} />
-					)
-				}}
-			/>
 		</Tab.Navigator>
 	);
 }
@@ -92,7 +79,6 @@ export type TabParamList = {
 	BrowseStack: NavigatorScreenParams<BrowseStackParamList>;
 	SpacesStack: NavigatorScreenParams<SpacesStackParamList>;
 	PhotosStack: NavigatorScreenParams<PhotosStackParamList>;
-	CoreDebug: any;
 };
 
 export type TabScreenProps<Screen extends keyof TabParamList> = CompositeScreenProps<

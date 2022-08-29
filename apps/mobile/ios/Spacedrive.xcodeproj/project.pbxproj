@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		08C620EC6F30A0663310BBC1 /* libPods-Spacedrive.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 080FB394AD883D9705C115A6 /* libPods-Spacedrive.a */; };
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		519D1250147D911454D7DB76 /* libPods-Spacedrive.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F3F276D840CDBF9D0D9D548D /* libPods-Spacedrive.a */; settings = {ATTRIBUTES = (Required, ); }; };
 		5574975428A2496C00851D5A /* SDCore.m in Sources */ = {isa = PBXBuildFile; fileRef = 5574975328A2496C00851D5A /* SDCore.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C95AE27BB525EFF3F02CEC11 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56E71A6EFA9EA8F4C11F42FA /* ExpoModulesProvider.swift */; };
@@ -19,6 +19,7 @@
 
 /* Begin PBXFileReference section */
 		008F07F21AC5B25A0029DE68 /* main.jsbundle */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = main.jsbundle; sourceTree = "<group>"; };
+		080FB394AD883D9705C115A6 /* libPods-Spacedrive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Spacedrive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* Spacedrive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spacedrive.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FAF1A68108700A75B9A /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		13B07FB01A68108700A75B9A /* AppDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AppDelegate.mm; sourceTree = "<group>"; };
@@ -29,14 +30,11 @@
 		5574975528A2498000851D5A /* SDCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SDCore.h; sourceTree = "<group>"; };
 		5574975628A24E0D00851D5A /* sdcore-universal-ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "sdcore-universal-ios.a"; path = "../../../target/sdcore-universal-ios.a"; sourceTree = "<group>"; };
 		56E71A6EFA9EA8F4C11F42FA /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Spacedrive/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		6C2E3173556A471DD304B334 /* Pods-mobilenew.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-mobilenew.debug.xcconfig"; path = "Target Support Files/Pods-mobilenew/Pods-mobilenew.debug.xcconfig"; sourceTree = "<group>"; };
-		78E58D73F5113B1BD543EE4D /* Pods-Spacedrive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.debug.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.debug.xcconfig"; sourceTree = "<group>"; };
-		7A4D352CD337FB3A3BF06240 /* Pods-mobilenew.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-mobilenew.release.xcconfig"; path = "Target Support Files/Pods-mobilenew/Pods-mobilenew.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Expo.plist; path = Supporting/Expo.plist; sourceTree = "<group>"; };
-		D8F0094C07EEE7528760BD08 /* Pods-Spacedrive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.release.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.release.xcconfig"; sourceTree = "<group>"; };
+		CD5534017C1F13AB6E57EC53 /* Pods-Spacedrive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.debug.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.debug.xcconfig"; sourceTree = "<group>"; };
+		E661E5E8069E06E621509713 /* Pods-Spacedrive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.release.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F3F276D840CDBF9D0D9D548D /* libPods-Spacedrive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Spacedrive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -44,7 +42,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				519D1250147D911454D7DB76 /* libPods-Spacedrive.a in Frameworks */,
+				08C620EC6F30A0663310BBC1 /* libPods-Spacedrive.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -81,7 +79,7 @@
 			children = (
 				5574975628A24E0D00851D5A /* sdcore-universal-ios.a */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				F3F276D840CDBF9D0D9D548D /* libPods-Spacedrive.a */,
+				080FB394AD883D9705C115A6 /* libPods-Spacedrive.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -127,10 +125,8 @@
 		D65327D7A22EEC0BE12398D9 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				6C2E3173556A471DD304B334 /* Pods-mobilenew.debug.xcconfig */,
-				7A4D352CD337FB3A3BF06240 /* Pods-mobilenew.release.xcconfig */,
-				78E58D73F5113B1BD543EE4D /* Pods-Spacedrive.debug.xcconfig */,
-				D8F0094C07EEE7528760BD08 /* Pods-Spacedrive.release.xcconfig */,
+				CD5534017C1F13AB6E57EC53 /* Pods-Spacedrive.debug.xcconfig */,
+				E661E5E8069E06E621509713 /* Pods-Spacedrive.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -150,15 +146,15 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Spacedrive" */;
 			buildPhases = (
-				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
+				9F553C6F8AA059AB72DAA720 /* [CP] Check Pods Manifest.lock */,
 				FD10A7F022414F080027D42C /* Start Packager */,
 				55B1130D28AB3061006C377F /* Build Spacedrive Core */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				0D580678BEFB3E7EF09A2CFE /* [CP] Embed Pods Frameworks */,
+				C93832A891603A9ED877B5D2 /* [CP] Embed Pods Frameworks */,
+				20C3591E751EF7109AA55859 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -229,44 +225,24 @@
 			shellPath = /bin/sh;
 			shellScript = "export NODE_BINARY=node\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\n`node --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n";
 		};
-		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-Spacedrive-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		0D580678BEFB3E7EF09A2CFE /* [CP] Embed Pods Frameworks */ = {
+		20C3591E751EF7109AA55859 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/hermes.framework/hermes",
+				"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/AccessibilityResources.bundle",
 			);
-			name = "[CP] Embed Pods Frameworks";
+			name = "[CP] Copy Pods Resources";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AccessibilityResources.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		55B1130D28AB3061006C377F /* Build Spacedrive Core */ = {
@@ -292,24 +268,44 @@
 			shellPath = /bin/zsh;
 			shellScript = "set -e\n\nif [[ -n \"${DEVELOPER_SDK_DIR:-}\" ]]; then\n  # Assume we're in Xcode, which means we're probably cross-compiling.\n  # In this case, we need to add an extra library search path for build scripts and proc-macros,\n  # which run on the host instead of the target.\n  # (macOS Big Sur does not have linkable libraries in /usr/lib/.)\n  export LIBRARY_PATH=\"${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}\"\nfi\n\nCARGO_FLAGS=\nif [[ \"$BUILDVARIANT\" != \"debug\" ]]; then\n  CARGO_FLAGS=--release\nfi\n\nTARGET_DIRECTORY=../../../target\nif [[ $PLATFORM_NAME = \"iphonesimulator\" ]]\nthen\n    cargo build -p sdcore-lib $CARGO_FLAGS --lib --target aarch64-apple-ios-sim\n    lipo -create -output $TARGET_DIRECTORY/libsdcore-iossim.a $TARGET_DIRECTORY/aarch64-apple-ios-sim/release/libsdcore.a\nelse\n    cargo build -p sdcore-lib $CARGO_FLAGS --lib --target aarch64-apple-ios\n    lipo -create -output $TARGET_DIRECTORY/libsdcore-ios.a $TARGET_DIRECTORY/aarch64-apple-ios/release/libsdcore.a\nfi\n";
 		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+		9F553C6F8AA059AB72DAA720 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Spacedrive-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C93832A891603A9ED877B5D2 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/AccessibilityResources.bundle",
+				"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/hermes.framework/hermes",
 			);
-			name = "[CP] Copy Pods Resources";
+			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AccessibilityResources.bundle",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-resources.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FD10A7F022414F080027D42C /* Start Packager */ = {
@@ -350,7 +346,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 78E58D73F5113B1BD543EE4D /* Pods-Spacedrive.debug.xcconfig */;
+			baseConfigurationReference = CD5534017C1F13AB6E57EC53 /* Pods-Spacedrive.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
@@ -444,7 +440,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D8F0094C07EEE7528760BD08 /* Pods-Spacedrive.release.xcconfig */;
+			baseConfigurationReference = E661E5E8069E06E621509713 /* Pods-Spacedrive.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;

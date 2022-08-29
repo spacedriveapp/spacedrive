@@ -2,7 +2,7 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import React from 'react';
 import create from 'zustand';
 
-import { FilePath } from '../components/device/Device';
+import { FilePath } from '../types/bindings';
 
 interface FileModalState {
 	fileRef: React.RefObject<BottomSheetModal>;
