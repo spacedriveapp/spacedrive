@@ -27,7 +27,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 	return (
 		<ContextMenuPrimitive.Content
 			className={clsx(
-				'shadow-2xl min-w-[15rem] shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-650 dark:text-gray-100 dark:border-gray-550 text-left text-sm rounded gap-1.5 border py-1.5',
+				'shadow-2xl min-w-[12rem] shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100 dark:border-gray-650 text-left text-sm rounded-lg gap-1.5 border py-1.5',
 				className
 			)}
 			{...rest}
@@ -35,7 +35,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 			{sections.map((sec, i) => (
 				<React.Fragment key={i}>
 					{i !== 0 && (
-						<ContextMenuPrimitive.Separator className="border-0 border-b border-b-gray-300 dark:border-b-gray-550 mx-2" />
+						<ContextMenuPrimitive.Separator className="mx-2 border-0 border-b border-b-gray-300 dark:border-b-gray-550" />
 					)}
 
 					<ContextMenuPrimitive.Group className="flex items-stretch flex-col gap-0.5">
@@ -44,7 +44,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 								return (
 									<ContextMenuPrimitive.Label
 										key={item}
-										className="text-xs ml-2 mt-1 uppercase text-gray-400"
+										className="mt-1 ml-2 text-xs text-gray-400 uppercase"
 									>
 										{item}
 									</ContextMenuPrimitive.Label>
@@ -82,7 +82,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 									onClick={item.onClick}
 									key={item.label}
 								>
-									<div className="px-1.5 py-[0.4em] group-focus:bg-gray-150 group-hover:bg-gray-150 dark:group-focus:bg-gray-550 dark:group-hover:bg-gray-550 flex flex-row gap-2.5 items-center rounded-sm">
+									<div className="px-1 py-[0.3em] group-focus:bg-gray-150 group-hover:bg-gray-150 dark:group-focus:bg-gray-550 dark:group-hover:bg-gray-550 flex flex-row gap-2.5 items-center rounded-sm">
 										{<ItemIcon size={18} />}
 
 										<ContextMenuPrimitive.Label className="leading-snug flex-grow text-[14px] font-normal">

@@ -12,6 +12,8 @@ type ExplorerStore = {
 	selectedRowIndex: number;
 	layoutMode: LayoutMode;
 	setSelectedRowIndex: (index: number) => void;
+	contextMenuObjectId: number;
+	setContextMenuObjectId: (index: number) => void;
 	locationId: number;
 	setLocationId: (index: number) => void;
 	path: string;
@@ -28,6 +30,8 @@ export const useExplorerStore = create<ExplorerStore>((set) => ({
 	layoutMode: 'grid',
 	selectedRowIndex: 1,
 	setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index })),
+	contextMenuObjectId: -1,
+	setContextMenuObjectId: (index) => set((state) => ({ ...state, contextMenuObjectId: index })),
 	locationId: -1,
 	setLocationId: (id: number) => set((state) => ({ ...state, locationId: id })),
 	newThumbnails: {},

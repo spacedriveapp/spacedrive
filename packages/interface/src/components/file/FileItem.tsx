@@ -1,5 +1,5 @@
 import { ReactComponent as Folder } from '@sd/assets/svgs/folder.svg';
-import { LocationContext } from '@sd/client';
+import { LocationContext, useExplorerStore } from '@sd/client';
 import { FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext } from 'react';
@@ -15,11 +15,18 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 
 export default function FileItem(props: Props) {
 	const location = useContext(LocationContext);
-
+	const { setContextMenuObjectId } = useExplorerStore();
 	const size = props.size || 100;
 
 	return (
-		<div {...props} className={clsx('inline-block w-[100px] mb-3', props.className)} draggable>
+		<div
+			onContextMenu={(e) => {
+				if (props.file?.id != undefined) setContextMenuObjectId(props.file.id);
+			}}
+			{...props}
+			className={clsx('inline-block w-[100px] mb-3', props.className)}
+			draggable
+		>
 			<div
 				style={{ width: size, height: size }}
 				className={clsx('border-2 border-transparent rounded-lg text-center mb-1', {
