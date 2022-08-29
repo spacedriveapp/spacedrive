@@ -20,7 +20,9 @@ export default function FileItem(props: Props) {
 	return (
 		<div
 			onContextMenu={(e) => {
-				if (props.file?.id != undefined) setContextMenuObjectId(props.file.id);
+				if (props.file?.id != undefined) {
+					setContextMenuObjectId(props.file.id);
+				}
 			}}
 			{...props}
 			className={clsx('inline-block w-[100px] mb-3', props.className)}

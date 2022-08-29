@@ -13,7 +13,7 @@
 	},
 	"scripts": {
 		"build": "tsc",
-		"storybook": "NODE_OPTIONS=--openssl-legacy-provider start-storybook -p 6006",
+		"storybook": "start-storybook -p 6006",
 		"storybook:build": "build-storybook"
 	},
 	"dependencies": {

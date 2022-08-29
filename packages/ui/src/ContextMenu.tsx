@@ -9,7 +9,7 @@ export interface ContextMenuItem {
 	label: string;
 	icon?: Icon;
 	danger?: boolean;
-	onClick: () => void;
+	onClick?: () => void;
 
 	children?: ContextMenuSection[];
 }
@@ -19,15 +19,19 @@ export type ContextMenuSection = (ContextMenuItem | string)[];
 export interface ContextMenuProps {
 	items?: ContextMenuSection[];
 	className?: string;
+	isChild?: boolean;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
-	const { items: sections = [], className, ...rest } = props;
+	const { items: sections = [], className, isChild, ...rest } = props;
+
+	const ContentPrimitive = isChild ? ContextMenuPrimitive.SubContent : ContextMenuPrimitive.Content;
 
 	return (
-		<ContextMenuPrimitive.Content
+		<ContentPrimitive
+			sideOffset={7}
 			className={clsx(
-				'shadow-2xl min-w-[12rem] shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100 dark:border-gray-650 text-left text-sm rounded-lg gap-1.5 border py-1.5',
+				'shadow-xl min-w-[12rem] shadow-gray-300 dark:shadow-gray-950 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100 dark:border-gray-550 text-left text-sm rounded-lg gap-1.5 py-1.5',
 				className
 			)}
 			{...rest}
@@ -50,7 +54,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 									</ContextMenuPrimitive.Label>
 								);
 
-							const { icon: ItemIcon = Question } = item;
+							const { icon: ItemIcon } = item;
 
 							let ItemComponent:
 								| typeof ContextMenuPrimitive.Item
@@ -58,13 +62,17 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 
 							if ((item.children?.length ?? 0) > 0)
 								ItemComponent = ((props) => (
-									<ContextMenuPrimitive.Root>
-										<ContextMenuPrimitive.Trigger {...props}>
+									<ContextMenuPrimitive.ContextMenuSub>
+										<ContextMenuPrimitive.SubTrigger className="ml-1.5 rounded outline-none leading-snug flex-grow text-[14px] font-normal">
 											{props.children}
-										</ContextMenuPrimitive.Trigger>
+										</ContextMenuPrimitive.SubTrigger>
 
-										<ContextMenu items={item.children} className="relative -left-1 -top-2" />
-									</ContextMenuPrimitive.Root>
+										<ContextMenu
+											isChild
+											items={item.children}
+											className="relative -left-1 -top-2"
+										/>
+									</ContextMenuPrimitive.ContextMenuSub>
 								)) as typeof ContextMenuPrimitive.Trigger;
 
 							return (
@@ -82,10 +90,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 									onClick={item.onClick}
 									key={item.label}
 								>
-									<div className="px-1 py-[0.3em] group-focus:bg-gray-150 group-hover:bg-gray-150 dark:group-focus:bg-gray-550 dark:group-hover:bg-gray-550 flex flex-row gap-2.5 items-center rounded-sm">
-										{<ItemIcon size={18} />}
+									<div className="px-1 py-[0.3em]  group-focus:bg-primary group-hover:bg-primary flex flex-row  items-center rounded">
+										{ItemIcon && <ItemIcon size={18} />}
 
-										<ContextMenuPrimitive.Label className="leading-snug flex-grow text-[14px] font-normal">
+										<ContextMenuPrimitive.Label className="ml-1.5 leading-snug flex-grow text-[14px] font-normal">
 											{item.label}
 										</ContextMenuPrimitive.Label>
 
@@ -99,7 +107,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 					</ContextMenuPrimitive.Group>
 				</React.Fragment>
 			))}
-		</ContextMenuPrimitive.Content>
+		</ContentPrimitive>
 	);
 };
 
