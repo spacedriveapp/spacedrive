@@ -46,7 +46,6 @@ impl From<&FilePathIdAndLocationIdCursor> for file_path::UniqueWhereParam {
 pub struct FileIdentifierJobState {
 	total_count: usize,
 	task_count: usize,
-	location: location::Data,
 	location_path: PathBuf,
 	cursor: FilePathIdAndLocationIdCursor,
 }
@@ -70,21 +69,15 @@ impl StatefulJob for FileIdentifierJob {
 
 		let library = ctx.library_ctx();
 
-		let location = library
-			.db
-			.location()
-			.find_unique(location::id::equals(state.init.location.id))
-			.exec()
-			.await?
-			.unwrap();
-
-		let location_path = location
+		let location_path = state
+			.init
+			.location
 			.local_path
 			.as_ref()
 			.map(PathBuf::from)
 			.unwrap_or_default();
 
-		let total_count = count_orphan_file_paths(&library, location.id.into()).await?;
+		let total_count = count_orphan_file_paths(&library, state.init.location.id.into()).await?;
 		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
@@ -93,15 +86,13 @@ impl StatefulJob for FileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let location_id = location.id;
 		state.data = Some(FileIdentifierJobState {
 			total_count,
 			task_count,
-			location,
 			location_path,
 			cursor: FilePathIdAndLocationIdCursor {
 				file_path_id: 1,
-				location_id,
+				location_id: state.init.location.id,
 			},
 		});
 
@@ -178,7 +169,7 @@ impl StatefulJob for FileIdentifierJob {
 				.file_path()
 				.update(
 					file_path::location_id_id(
-						data.location.id,
+						state.init.location.id,
 						*cas_lookup.get(&existing_file.cas_id).unwrap(),
 					),
 					vec![file_path::file_id::set(Some(existing_file.id))],
@@ -241,7 +232,7 @@ impl StatefulJob for FileIdentifierJob {
 				.file_path()
 				.update(
 					file_path::location_id_id(
-						data.location.id,
+						state.init.location.id,
 						*cas_lookup.get(&created_file.cas_id).unwrap(),
 					),
 					vec![file_path::file_id::set(Some(created_file.id))],

@@ -41,14 +41,14 @@ impl From<IndexerError> for rspc::Error {
 	fn from(err: IndexerError) -> Self {
 		match err {
 			IndexerError::IndexerRuleNotFound(_) => {
-				rspc::Error::new(ErrorCode::NotFound, err.to_string())
+				rspc::Error::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
 
 			IndexerError::InvalidRuleKindInt(_) | IndexerError::GlobBuilderError(_) => {
-				rspc::Error::new(ErrorCode::BadRequest, err.to_string())
+				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
 			}
 
-			_ => rspc::Error::new(ErrorCode::InternalServerError, err.to_string()),
+			_ => rspc::Error::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
 		}
 	}
 }

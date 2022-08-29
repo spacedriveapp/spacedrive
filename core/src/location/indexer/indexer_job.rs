@@ -30,7 +30,7 @@ pub enum ScanProgress {
 /// A `IndexerJob` is a stateful job that walks a directory and indexes all files.
 /// First it walks the directory and generates a list of files to index, chunked into
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
-pub struct IndexerJob {}
+pub struct IndexerJob;
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 #[derive(Serialize, Deserialize, Clone)]
@@ -122,16 +122,6 @@ impl StatefulJob for IndexerJob {
 			.map(|r| r.id)
 			.unwrap_or(0);
 
-		// let first_file_id = match ctx
-		// 	.library_ctx()
-		// 	.db
-		// 	._query_raw::<QueryRes>(raw!("SELECT MAX(id) id FROM file_paths"))
-		// 	.await
-		// {
-		// 	Ok(rows) => rows[0].id.unwrap_or(0),
-		// 	Err(e) => panic!("Error querying for next file id: {:#?}", e),
-		// };
-
 		let mut indexer_rules_by_kind = HashMap::new();
 		for indexer_rule_in_location in state
 			.init
@@ -143,10 +133,7 @@ impl StatefulJob for IndexerJob {
 			let indexer_rule_data = indexer_rule_in_location.indexer_rule.as_ref()
 				.expect("critical error: indexer job init received a indexes_rules_in_location object without indexes_rules being fetched");
 
-			// Yeah, I know that `&**` is weird, but we have TryFrom<&indexer_rule::Data>
-			// and this variable is a &Box<indexer_rule::Data>, so we need to dereference twice
-			// and then take a fresh reference, such is the life of borrowck
-			let indexer_rule = IndexerRule::try_from(&**indexer_rule_data)?;
+			let indexer_rule = IndexerRule::try_from(indexer_rule_data.as_ref())?;
 
 			indexer_rules_by_kind.entry(indexer_rule.kind).or_insert(vec![]).push(indexer_rule);
 		}

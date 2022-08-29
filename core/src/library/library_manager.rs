@@ -53,7 +53,11 @@ pub enum LibraryManagerError {
 
 impl From<LibraryManagerError> for rspc::Error {
 	fn from(error: LibraryManagerError) -> Self {
-		rspc::Error::new(rspc::ErrorCode::InternalServerError, error.to_string())
+		rspc::Error::with_cause(
+			rspc::ErrorCode::InternalServerError,
+			error.to_string(),
+			error,
+		)
 	}
 }
 

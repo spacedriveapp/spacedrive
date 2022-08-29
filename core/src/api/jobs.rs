@@ -41,18 +41,20 @@ pub(crate) fn mount() -> RouterBuilder {
 			|ctx, arg: LibraryArgs<GenerateThumbsForLocationArgs>| async move {
 				let (args, library) = arg.get_library(&ctx).await?;
 
-				let location = library
+				if library
 					.db
 					.location()
-					.find_unique(location::id::equals(args.id))
+					.count(vec![location::id::equals(args.id)])
 					.exec()
-					.await?
-					.ok_or(LocationError::IdNotFound(args.id))?;
+					.await? == 0
+				{
+					return Err(LocationError::IdNotFound(args.id).into());
+				}
 
 				library
 					.spawn_job(Job::new(
 						ThumbnailJobInit {
-							location,
+							location_id: args.id,
 							path: args.path,
 							background: false, // fix
 						},

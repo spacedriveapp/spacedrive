@@ -26,7 +26,7 @@ pub struct ThumbnailJob {}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ThumbnailJobInit {
-	pub location: location::Data,
+	pub location_id: i32,
 	pub path: PathBuf,
 	pub background: bool,
 }
@@ -57,12 +57,12 @@ impl StatefulJob for ThumbnailJob {
 			.config()
 			.data_directory()
 			.join(THUMBNAIL_CACHE_DIR_NAME)
-			.join(state.init.location.id.to_string());
+			.join(state.init.location_id.to_string());
 
 		let location = library_ctx
 			.db
 			.location()
-			.find_unique(location::id::equals(state.init.location.id))
+			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
 			.unwrap();
@@ -79,7 +79,7 @@ impl StatefulJob for ThumbnailJob {
 
 		// query database for all files in this location that need thumbnails
 		let image_files =
-			get_images(&library_ctx, state.init.location.id, &state.init.path).await?;
+			get_images(&library_ctx, state.init.location_id, &state.init.path).await?;
 		info!("Found {:?} files", image_files.len());
 
 		ctx.progress(vec![
@@ -161,7 +161,7 @@ impl StatefulJob for ThumbnailJob {
 			LibraryArgs::new(
 				library_ctx.id,
 				GetExplorerDirArgs {
-					location_id: state.init.location.id,
+					location_id: state.init.location_id,
 					path: "".to_string(),
 					limit: 100
 				}
@@ -186,7 +186,7 @@ impl StatefulJob for ThumbnailJob {
 			.expect("critical error: missing data on job state");
 		info!(
 			"Finished thumbnail generation for location {} at {}",
-			state.init.location.id,
+			state.init.location_id,
 			data.root_path.display()
 		);
 		Ok(())

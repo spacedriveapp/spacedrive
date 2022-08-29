@@ -47,13 +47,15 @@ impl From<LocationError> for rspc::Error {
 		match err {
 			LocationError::PathNotFound(_)
 			| LocationError::UuidNotFound(_)
-			| LocationError::IdNotFound(_) => rspc::Error::new(ErrorCode::NotFound, err.to_string()),
-
-			LocationError::NotDirectory(_) | LocationError::MissingLocalPath(_) => {
-				rspc::Error::new(ErrorCode::BadRequest, err.to_string())
+			| LocationError::IdNotFound(_) => {
+				rspc::Error::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
 
-			_ => rspc::Error::new(ErrorCode::InternalServerError, err.to_string()),
+			LocationError::NotDirectory(_) | LocationError::MissingLocalPath(_) => {
+				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
+			}
+
+			_ => rspc::Error::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
 		}
 	}
 }

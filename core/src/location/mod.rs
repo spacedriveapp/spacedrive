@@ -252,6 +252,7 @@ pub async fn scan_location(
 		return Err(LocationError::MissingLocalPath(location.id));
 	};
 
+	let location_id = location.id;
 	ctx.spawn_job(Job::new(
 		IndexerJobInit {
 			location: location.clone(),
@@ -269,7 +270,7 @@ pub async fn scan_location(
 
 	ctx.queue_job(Job::new(
 		ThumbnailJobInit {
-			location: location.clone(),
+			location_id,
 			path: PathBuf::new(),
 			background: true,
 		},

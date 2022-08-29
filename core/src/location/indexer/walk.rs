@@ -234,8 +234,10 @@ pub(super) async fn walk(
 				// If the ancestors directories wasn't indexed before, now we do
 				for ancestor in current_path
 					.ancestors()
+					.skip(1) // Skip the current directory as it was already indexed
 					.take_while(|&ancestor| ancestor != root)
 				{
+					debug!("Indexing ancestor {}", ancestor.display());
 					if !indexed_paths.contains_key(ancestor) {
 						indexed_paths.insert(
 							ancestor.to_path_buf(),
@@ -275,7 +277,6 @@ mod tests {
 	use super::*;
 	use chrono::Utc;
 	use globset::Glob;
-	use prisma_client_rust::schema::ScalarType::DateTime;
 	use std::collections::BTreeSet;
 	use tempfile::{tempdir, TempDir};
 	use tokio::fs;
