@@ -1,13 +1,11 @@
 import React from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 
-import { Button } from '../components/base/Button';
 import Device from '../components/device/Device';
-import DrawerScreenWrapper from '../components/drawer/DrawerScreenWrapper';
 import VirtualizedListWrapper from '../components/layout/VirtualizedListWrapper';
 import OverviewStats from '../containers/OverviewStats';
 import tw from '../lib/tailwind';
-import type { TabScreenProps } from '../navigation/TabNavigator';
+import { OverviewStackScreenProps } from '../navigation/tabs/OverviewStack';
 
 const placeholderOverviewStats = {
 	id: 1,
@@ -48,31 +46,23 @@ const placeholderDevices: any = [
 	}
 ];
 
-export default function OverviewScreen({ navigation }: TabScreenProps<'Overview'>) {
+export default function OverviewScreen({ navigation }: OverviewStackScreenProps<'Overview'>) {
 	return (
-		<DrawerScreenWrapper>
-			<VirtualizedListWrapper>
-				<View style={tw`px-4`}>
-					{/* Header */}
-					<View style={tw`flex-row my-6 justify-center items-center`}>
-						{/* TODO: Header with a button to open drawer! */}
-						<Button variant="primary" size="lg" onPress={() => navigation.openDrawer()}>
-							<Text style={tw`font-bold text-white`}>Open Drawer</Text>
-						</Button>
-					</View>
-					{/* Stats */}
-					<OverviewStats stats={placeholderOverviewStats} />
-					<View style={tw`mt-4`} />
-					{/* Devices */}
-					<FlatList
-						data={placeholderDevices}
-						keyExtractor={(item, index) => index.toString()}
-						renderItem={({ item }) => (
-							<Device locations={[]} name={item.name} size={item.size} type={item.type} />
-						)}
-					/>
-				</View>
-			</VirtualizedListWrapper>
-		</DrawerScreenWrapper>
+		<VirtualizedListWrapper>
+			<View style={tw`px-4 mt-4`}>
+				{/* Stats */}
+				<OverviewStats stats={placeholderOverviewStats} />
+				{/* Spacing */}
+				<View style={tw`mt-4`} />
+				{/* Devices */}
+				<FlatList
+					data={placeholderDevices}
+					keyExtractor={(item, index) => index.toString()}
+					renderItem={({ item }) => (
+						<Device locations={[]} name={item.name} size={item.size} type={item.type} />
+					)}
+				/>
+			</View>
+		</VirtualizedListWrapper>
 	);
 }

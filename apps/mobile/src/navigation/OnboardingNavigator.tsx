@@ -1,8 +1,8 @@
-import { NativeStackScreenProps, createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
 
 import OnboardingScreen from '../screens/onboarding/Onboarding';
 
-const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
+const OnboardingStack = createStackNavigator<OnboardingStackParamList>();
 
 export default function OnboardingNavigator() {
 	return (
@@ -17,4 +17,4 @@ export type OnboardingStackParamList = {
 };
 
 export type OnboardingStackScreenProps<Screen extends keyof OnboardingStackParamList> =
-	NativeStackScreenProps<OnboardingStackParamList, Screen>;
+	StackScreenProps<OnboardingStackParamList, Screen>;

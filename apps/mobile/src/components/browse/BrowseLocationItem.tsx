@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import tw from '../../lib/tailwind';
-import FolderIcon from '../icons/Folder';
+import FolderIcon from '../icons/FolderIcon';
 
 interface BrowseLocationItemProps {
 	folderName: string;
