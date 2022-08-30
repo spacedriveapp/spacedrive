@@ -8,24 +8,26 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@fontsource/inter": "^4.5.10",
+		"@fontsource/inter": "^4.5.11",
+		"@rspc/client": "^0.0.5",
 		"@sd/client": "workspace:*",
 		"@sd/core": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"react": "^18.1.0",
-		"react-dom": "^18.1.0"
+		"@tanstack/react-query": "^4.0.10",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
-		"@types/react": "^18.0.9",
-		"@types/react-dom": "^18.0.5",
-		"@vitejs/plugin-react": "^1.3.2",
+		"@types/react": "^18.0.15",
+		"@types/react-dom": "^18.0.6",
+		"@vitejs/plugin-react": "^2.0.0",
 		"autoprefixer": "^10.4.7",
 		"postcss": "^8.4.14",
 		"tailwind": "^4.0.0",
-		"typescript": "^4.7.2",
-		"vite": "^2.9.9",
-		"vite-plugin-svgr": "^2.1.0",
-		"vite-plugin-tsconfig-paths": "^1.0.5"
+		"typescript": "^4.7.4",
+		"vite": "^3.0.3",
+		"vite-plugin-svgr": "^2.2.1",
+		"vite-plugin-tsconfig-paths": "^1.1.0"
 	}
 }

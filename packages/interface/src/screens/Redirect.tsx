@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 
 export interface RedirectPageProps {
 	to: string;
@@ -12,6 +12,7 @@ export const RedirectPage: React.FC<RedirectPageProps> = (props) => {
 
 	useEffect(() => {
 		navigate(destination);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return null;

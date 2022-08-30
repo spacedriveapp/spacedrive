@@ -1,7 +1,6 @@
+import folderWhiteSvg from '@sd/assets/svgs/folder-white.svg';
+import folderSvg from '@sd/assets/svgs/folder.svg';
 import React from 'react';
-
-import folderWhiteSvg from '../../assets/svg/folder-white.svg';
-import folderSvg from '../../assets/svg/folder.svg';
 
 interface FolderProps {
 	/**

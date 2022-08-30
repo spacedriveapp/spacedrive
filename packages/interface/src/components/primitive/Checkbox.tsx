@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import React from 'react';
 
 export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
-	containerClasname?: string;
+	containerClassname?: string;
 }
 
 export const Checkbox: React.FC<CheckboxProps> = (props) => {
@@ -10,7 +10,7 @@ export const Checkbox: React.FC<CheckboxProps> = (props) => {
 		<label
 			className={clsx(
 				'flex items-center text-sm font-medium text-gray-700 dark:text-gray-100',
-				props.containerClasname
+				props.containerClassname
 			)}
 		>
 			<input

@@ -16,7 +16,7 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 				<Button variant="primary" className="mt-2" onClick={resetErrorBoundary}>
 					Reload
 				</Button>
-				<Button className="mt-2" onClick={resetErrorBoundary}>
+				<Button variant="gray" className="mt-2" onClick={resetErrorBoundary}>
 					Send report
 				</Button>
 			</div>

@@ -1,7 +1,6 @@
-// import { useBridgeCommand, useBridgeQuery } from '@sd/client';
 import React from 'react';
 
-export const PhotosScreen: React.FC<{}> = (props) => {
+export const PhotosScreen: React.FC<unknown> = (props) => {
 	return (
 		<div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll">
 			<div className="flex flex-col space-y-5 pb-7">

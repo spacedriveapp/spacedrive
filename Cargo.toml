@@ -1,8 +1,13 @@
 [workspace]
+resolver = "2"
 members = [
 	"apps/desktop/src-tauri",
+	"apps/mobile/rust",
 	"core",
 	"core/prisma",
-	"core/derive",
 	"apps/server"
 ]
+
+[patch.crates-io]
+# We use this patch so we can compile for the IOS simulator on M1
+openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl" }
