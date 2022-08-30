@@ -35,15 +35,25 @@ function App() {
 	useEffect(() => {
 		os.platform().then((platform) => setPlatform(getPlatform(platform)));
 		invoke('app_ready');
+
+		const unlisten = listen('do_keyboard_input', (input) => {
+			document.dispatchEvent(new KeyboardEvent('keydown', input.payload as any));
+		});
+
+		return () => {
+			unlisten.then((unlisten) => unlisten());
+		};
 	}, []);
 
 	useEffect(() => {
-		const unlistenFocus = listen('tauri://focus', () => setFocused(true));
-		const unlistenBlur = listen('tauri://blur', () => setFocused(false));
+		const focusListener = listen('tauri://focus', () => setFocused(true));
+		const blurListener = listen('tauri://blur', () => setFocused(false));
+		const settingsNavigateListener = listen('navigate_to_settings', () => undefined);
 
 		return () => {
-			unlistenFocus.then((unlisten) => unlisten());
-			unlistenBlur.then((unlisten) => unlisten());
+			focusListener.then((unlisten) => unlisten());
+			blurListener.then((unlisten) => unlisten());
+			settingsNavigateListener.then((unlisten) => unlisten());
 		};
 	}, []);
 

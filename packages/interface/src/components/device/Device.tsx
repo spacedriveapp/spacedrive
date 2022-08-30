@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import FileItem from '../file/FileItem';
 import Loader from '../primitive/Loader';
 import ProgressBar from '../primitive/ProgressBar';
+import { Tooltip } from '../tooltip/Tooltip';
 
 export interface DeviceProps {
 	name: string;
@@ -55,12 +56,19 @@ export function Device(props: DeviceProps) {
 					</div>
 				)}
 				<div className="flex flex-row ml-3 space-x-1">
+
+					<Tooltip label="Encrypt">
+
 					<Button className="!p-1 ">
 						<KeyIcon className="w-5 h-5" />
 					</Button>
+					</Tooltip>
+					<Tooltip label="Settings">
+
 					<Button className="!p-1 ">
 						<CogIcon className="w-5 h-5" />
 					</Button>
+					</Tooltip>
 				</div>
 			</div>
 			<div className="px-4 pb-3 mt-3">

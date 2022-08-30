@@ -1,6 +1,6 @@
 import { useBridgeQuery, useLibraryStore } from '@sd/client';
 import React, { useEffect } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
@@ -37,6 +37,7 @@ export function AppRouter() {
 	const location = useLocation();
 	const state = location.state as { backgroundLocation?: Location };
 	const libraryState = useLibraryStore();
+	const navigate = useNavigate();
 	const { data: libraries } = useBridgeQuery(['library.get']);
 
 	// TODO: This can be removed once we add a setup flow to the app
@@ -45,6 +46,19 @@ export function AppRouter() {
 			libraryState.switchLibrary(libraries[0].uuid);
 		}
 	}, [libraryState, libraryState.currentLibraryUuid, libraries]);
+
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			if (e.metaKey && e.key === ',') {
+				navigate('/settings');
+				e.preventDefault();
+				return;
+			}
+		};
+
+		document.addEventListener('keydown', handler);
+		return () => document.removeEventListener('keydown', handler);
+	}, [navigate]);
 
 	return (
 		<>
