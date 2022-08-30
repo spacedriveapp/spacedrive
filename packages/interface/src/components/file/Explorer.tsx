@@ -51,7 +51,7 @@ export default function Explorer(props: Props) {
 
 	// const { libraries } = useCurrentLibrary();
 
-	const { data: tagsForFile } = useLibraryQuery(['tags.getForFile', contextMenuObjectId]);
+	const { data: tagsForFile } = useLibraryQuery(['tags.getForFile', contextMenuObjectId || -1]);
 
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: props.library_id!, arg: null }], {
 		onNext: (cas_id) => {
@@ -128,11 +128,12 @@ export default function Explorer(props: Props) {
 										),
 										onClick(e) {
 											e.preventDefault();
-											assignTag({
-												tag_id: tag.id,
-												file_id: contextMenuObjectId,
-												unassign: active
-											});
+											if (contextMenuObjectId != null)
+												assignTag({
+													tag_id: tag.id,
+													file_id: contextMenuObjectId,
+													unassign: active
+												});
 										}
 									};
 								}) || []

@@ -2,121 +2,121 @@
 
 export type Operations = {
     queries: 
-        { key: ["locations.getExplorerDir", LibraryArgs<GetExplorerDirArgs>], result: DirectoryWithContents } | 
-        { key: ["volumes.get"], result: Array<Volume> } | 
-        { key: ["tags.get", LibraryArgs<number>], result: Tag | null } | 
-        { key: ["jobs.getRunning", LibraryArgs<null>], result: Array<JobReport> } | 
-        { key: ["version"], result: string } | 
-        { key: ["jobs.getHistory", LibraryArgs<null>], result: Array<JobReport> } | 
-        { key: ["getNode"], result: NodeState } | 
-        { key: ["tags.getAll", LibraryArgs<null>], result: Array<Tag> } | 
-        { key: ["library.getStatistics", LibraryArgs<null>], result: Statistics } | 
-        { key: ["tags.getFiles", LibraryArgs<number>], result: Array<File> } | 
-        { key: ["files.object", LibraryArgs<number>], result: ObjectKind } | 
         { key: ["tags.getForFile", LibraryArgs<number>], result: Array<Tag> } | 
-        { key: ["locations.getById", LibraryArgs<number>], result: Location | null } | 
+        { key: ["locations.getExplorerDir", LibraryArgs<GetExplorerDirArgs>], result: DirectoryWithContents } | 
+        { key: ["getNode"], result: NodeState } | 
+        { key: ["locations.get", LibraryArgs<null>], result: Array<Location> } | 
         { key: ["files.readMetadata", LibraryArgs<number>], result: null } | 
+        { key: ["tags.get", LibraryArgs<number>], result: Tag | null } | 
+        { key: ["locations.getById", LibraryArgs<number>], result: Location | null } | 
+        { key: ["tags.getAll", LibraryArgs<null>], result: Array<Tag> } | 
+        { key: ["jobs.getRunning", LibraryArgs<null>], result: Array<JobReport> } | 
+        { key: ["jobs.getHistory", LibraryArgs<null>], result: Array<JobReport> } | 
+        { key: ["library.getStatistics", LibraryArgs<null>], result: Statistics } | 
+        { key: ["version"], result: string } | 
+        { key: ["tags.getFiles", LibraryArgs<number>], result: Array<File> } | 
         { key: ["library.get"], result: Array<LibraryConfigWrapped> } | 
-        { key: ["locations.get", LibraryArgs<null>], result: Array<Location> },
+        { key: ["files.object", LibraryArgs<number>], result: ObjectKind } | 
+        { key: ["volumes.get"], result: Array<Volume> },
     mutations: 
-        { key: ["tags.delete", LibraryArgs<number>], result: null } | 
+        { key: ["jobs.generateThumbsForLocation", LibraryArgs<GenerateThumbsForLocationArgs>], result: null } | 
+        { key: ["locations.fullRescan", LibraryArgs<number>], result: null } | 
         { key: ["locations.update", LibraryArgs<LocationUpdateArgs>], result: null } | 
         { key: ["library.create", string], result: null } | 
-        { key: ["locations.delete", LibraryArgs<number>], result: null } | 
-        { key: ["files.setFavorite", LibraryArgs<SetFavoriteArgs>], result: null } | 
-        { key: ["jobs.generateThumbsForLocation", LibraryArgs<GenerateThumbsForLocationArgs>], result: null } | 
-        { key: ["locations.create", LibraryArgs<string>], result: Location } | 
-        { key: ["library.delete", string], result: null } | 
         { key: ["files.delete", LibraryArgs<number>], result: null } | 
-        { key: ["locations.fullRescan", LibraryArgs<number>], result: null } | 
-        { key: ["jobs.identifyUniqueFiles", LibraryArgs<IdentifyUniqueFilesArgs>], result: null } | 
-        { key: ["tags.create", LibraryArgs<TagCreateArgs>], result: Tag } | 
-        { key: ["tags.update", LibraryArgs<TagUpdateArgs>], result: null } | 
         { key: ["tags.assign", LibraryArgs<TagAssignArgs>], result: null } | 
+        { key: ["locations.create", LibraryArgs<string>], result: Location } | 
         { key: ["files.setNote", LibraryArgs<SetNoteArgs>], result: null } | 
+        { key: ["tags.update", LibraryArgs<TagUpdateArgs>], result: null } | 
+        { key: ["jobs.identifyUniqueFiles", LibraryArgs<IdentifyUniqueFilesArgs>], result: null } | 
         { key: ["locations.quickRescan", LibraryArgs<null>], result: null } | 
+        { key: ["tags.delete", LibraryArgs<number>], result: null } | 
+        { key: ["files.setFavorite", LibraryArgs<SetFavoriteArgs>], result: null } | 
+        { key: ["locations.delete", LibraryArgs<number>], result: null } | 
+        { key: ["library.delete", string], result: null } | 
+        { key: ["tags.create", LibraryArgs<TagCreateArgs>], result: Tag } | 
         { key: ["library.edit", EditLibraryArgs], result: null },
     subscriptions: 
-        { key: ["jobs.newThumbnail", LibraryArgs<null>], result: string } | 
-        { key: ["invalidateQuery"], result: InvalidateOperationEvent }
+        { key: ["invalidateQuery"], result: InvalidateOperationEvent } | 
+        { key: ["jobs.newThumbnail", LibraryArgs<null>], result: string }
 };
-
-export interface FileInAlbum { date_created: string, album_id: number, album: Album | null, file_id: number, file: File | null }
-
-export interface SetFavoriteArgs { id: number, favorite: boolean }
-
-export interface TagOnFile { date_created: string, tag_id: number, tag: Tag | null, file_id: number, file: File | null }
-
-export interface TagCreateArgs { name: string, color: string }
-
-export interface TagUpdateArgs { id: number, name: string | null, color: string | null }
-
-export interface LibraryConfigWrapped { uuid: string, config: LibraryConfig }
-
-export interface MediaData { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null, files: File | null | null }
-
-export interface GenerateThumbsForLocationArgs { id: number, path: string }
-
-export interface Job { id: Array<number>, name: string, node_id: number, action: number, status: number, data: Array<number> | null, task_count: number, completed_task_count: number, date_created: string, date_modified: string, seconds_elapsed: number, nodes: Node | null }
-
-export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
-
-export interface LocationUpdateArgs { id: number, name: string | null }
-
-export interface InvalidateOperationEvent { key: string, arg: any }
-
-export interface NodeConfig { version: string | null, id: string, name: string, p2p_port: number | null }
-
-export interface LibraryArgs<T> { library_id: string, arg: T }
-
-export interface Key { id: number, checksum: string, name: string | null, date_created: string | null, algorithm: number | null, files: Array<File> | null, file_paths: Array<FilePath> | null }
-
-export interface Location { id: number, pub_id: Array<number>, node_id: number | null, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, date_created: string, node: Node | null | null, file_paths: Array<FilePath> | null }
-
-export interface Statistics { id: number, date_captured: string, total_file_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
-
-export interface File { id: number, cas_id: string, integrity_checksum: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, tags: Array<TagOnFile> | null, labels: Array<LabelOnFile> | null, albums: Array<FileInAlbum> | null, spaces: Array<FileInSpace> | null, paths: Array<FilePath> | null, comments: Array<Comment> | null, media_data: MediaData | null | null, key: Key | null | null }
-
-export interface DirectoryWithContents { directory: FilePath, contents: Array<FilePath> }
-
-export interface SyncEvent { id: number, node_id: number, timestamp: string, record_id: Array<number>, kind: number, column: string | null, value: string, node: Node | null }
-
-export interface FileInSpace { date_created: string, space_id: number, space: Space | null, file_id: number, file: File | null }
-
-export interface Label { id: number, pub_id: Array<number>, name: string | null, date_created: string, date_modified: string, label_files: Array<LabelOnFile> | null }
-
-export interface ConfigMetadata { version: string | null }
-
-export interface LibraryConfig { version: string | null, name: string, description: string }
 
 export interface LabelOnFile { date_created: string, label_id: number, label: Label | null, file_id: number, file: File | null }
 
-export interface Volume { name: string, mount_point: string, total_capacity: bigint, available_capacity: bigint, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
+export interface LibraryArgs<T> { library_id: string, arg: T }
 
-export interface SetNoteArgs { id: number, note: string | null }
+export interface NodeConfig { version: string | null, id: string, name: string, p2p_port: number | null }
 
-export interface IdentifyUniqueFilesArgs { id: number, path: string }
+export interface FileInSpace { date_created: string, space_id: number, space: Space | null, file_id: number, file: File | null }
 
-export interface NodeState { version: string | null, id: string, name: string, p2p_port: number | null, data_path: string }
-
-export interface Node { id: number, pub_id: Array<number>, name: string, platform: number, version: string | null, last_seen: string, timezone: string | null, date_created: string, sync_events: Array<SyncEvent> | null, jobs: Array<Job> | null, Location: Array<Location> | null }
-
-export type ObjectKind = "Unknown" | "Document" | "Folder" | "TextFile" | "Package" | "Image" | "Audio" | "Video" | "Archive" | "Executable" | "Alias" | "EncryptedBytes" | "Link" | "WebPageArchive" | "Widget" | "Album" | "Collection"
-
-export interface Space { id: number, pub_id: Array<number>, name: string | null, description: string | null, date_created: string, date_modified: string, files: Array<FileInSpace> | null }
+export interface TagCreateArgs { name: string, color: string }
 
 export interface FilePath { id: number, is_dir: boolean, location_id: number | null, materialized_path: string, name: string, extension: string | null, file_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, file: File | null | null, location: Location | null | null, key: Key | null | null }
 
-export interface GetExplorerDirArgs { location_id: number, path: string, limit: number }
+export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 
 export interface Comment { id: number, pub_id: Array<number>, content: string, date_created: string, date_modified: string, file_id: number | null, file: File | null | null }
 
+export interface Location { id: number, pub_id: Array<number>, node_id: number | null, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node | null | null, file_paths: Array<FilePath> | null }
+
+export interface TagAssignArgs { file_id: number, tag_id: number, unassign: boolean }
+
+export interface SetNoteArgs { id: number, note: string | null }
+
+export interface MediaData { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null, files: File | null | null }
+
+export interface TagOnFile { date_created: string, tag_id: number, tag: Tag | null, file_id: number, file: File | null }
+
+export interface LocationUpdateArgs { id: number, name: string | null }
+
+export interface NodeState { version: string | null, id: string, name: string, p2p_port: number | null, data_path: string }
+
+export interface File { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, tags: Array<TagOnFile> | null, labels: Array<LabelOnFile> | null, albums: Array<FileInAlbum> | null, spaces: Array<FileInSpace> | null, paths: Array<FilePath> | null, comments: Array<Comment> | null, media_data: MediaData | null | null, key: Key | null | null }
+
 export interface Tag { id: number, pub_id: Array<number>, name: string | null, color: string | null, total_files: number | null, redundancy_goal: number | null, date_created: string, date_modified: string, tag_files: Array<TagOnFile> | null }
 
-export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
+export interface Job { id: Array<number>, name: string, node_id: number, action: number, status: number, data: Array<number> | null, task_count: number, completed_task_count: number, date_created: string, date_modified: string, seconds_elapsed: number, nodes: Node | null }
 
 export interface Album { id: number, pub_id: Array<number>, name: string, is_hidden: boolean, date_created: string, date_modified: string, files: Array<FileInAlbum> | null }
 
+export interface GetExplorerDirArgs { location_id: number, path: string, limit: number }
+
 export interface JobReport { id: string, name: string, data: Array<number> | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
 
-export interface TagAssignArgs { file_id: number, tag_id: number, unassign: boolean }
+export interface SyncEvent { id: number, node_id: number, timestamp: string, record_id: Array<number>, kind: number, column: string | null, value: string, node: Node | null }
+
+export interface ConfigMetadata { version: string | null }
+
+export interface IdentifyUniqueFilesArgs { id: number, path: string }
+
+export interface LibraryConfigWrapped { uuid: string, config: LibraryConfig }
+
+export interface Label { id: number, pub_id: Array<number>, name: string | null, date_created: string, date_modified: string, label_files: Array<LabelOnFile> | null }
+
+export interface LibraryConfig { version: string | null, name: string, description: string }
+
+export interface Statistics { id: number, date_captured: string, total_file_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
+
+export interface Volume { name: string, mount_point: string, total_capacity: bigint, available_capacity: bigint, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
+
+export interface SetFavoriteArgs { id: number, favorite: boolean }
+
+export interface TagUpdateArgs { id: number, name: string | null, color: string | null }
+
+export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
+
+export interface Node { id: number, pub_id: Array<number>, name: string, platform: number, version: string | null, last_seen: string, timezone: string | null, date_created: string, sync_events: Array<SyncEvent> | null, jobs: Array<Job> | null, Location: Array<Location> | null }
+
+export interface Key { id: number, checksum: string, name: string | null, date_created: string | null, algorithm: number | null, files: Array<File> | null, file_paths: Array<FilePath> | null }
+
+export type ObjectKind = "Unknown" | "Document" | "Folder" | "TextFile" | "Package" | "Image" | "Audio" | "Video" | "Archive" | "Executable" | "Alias" | "EncryptedBytes" | "Link" | "WebPageArchive" | "Widget" | "Album" | "Collection"
+
+export interface GenerateThumbsForLocationArgs { id: number, path: string }
+
+export interface DirectoryWithContents { directory: FilePath, contents: Array<FilePath> }
+
+export interface InvalidateOperationEvent { key: string, arg: any }
+
+export interface FileInAlbum { date_created: string, album_id: number, album: Album | null, file_id: number, file: File | null }
+
+export interface Space { id: number, pub_id: Array<number>, name: string | null, description: string | null, date_created: string, date_modified: string, files: Array<FileInSpace> | null }

@@ -73,7 +73,7 @@ export const FileList: React.FC<Props> = (props) => {
 	}, [goingUp, selectedRowIndex]);
 
 	useEffect(() => {
-		set('locationId', props.location_id);
+		set({ locationId: props.location_id });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [props.location_id]);
 
@@ -81,14 +81,14 @@ export const FileList: React.FC<Props> = (props) => {
 		e.preventDefault();
 		setGoingUp(true);
 		if (selectedRowIndex !== -1 && selectedRowIndex !== 0)
-			set('selectedRowIndex', selectedRowIndex - 1);
+			set({ selectedRowIndex: selectedRowIndex - 1 });
 	});
 
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
 		setGoingUp(false);
 		if (selectedRowIndex !== -1 && selectedRowIndex !== (props.files.length ?? 1) - 1)
-			set('selectedRowIndex', selectedRowIndex + 1);
+			set({ selectedRowIndex: selectedRowIndex + 1 });
 	});
 
 	const createRenderItem = (RenderItem: React.FC<RenderItemProps>) => {
@@ -178,7 +178,7 @@ const RenderGridItem: React.FC<RenderItemProps> = ({ item, index }) => {
 			file={item}
 			selected={selectedRowIndex === index}
 			onClick={() => {
-				set('selectedRowIndex', selectedRowIndex == index ? -1 : index);
+				set({ selectedRowIndex: selectedRowIndex == index ? -1 : index });
 			}}
 		/>
 	);
@@ -192,7 +192,7 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index }) => {
 	return useMemo(
 		() => (
 			<div
-				onClick={() => set('selectedRowIndex', selectedRowIndex == index ? -1 : index)}
+				onClick={() => set({ selectedRowIndex: selectedRowIndex == index ? -1 : index })}
 				onDoubleClick={() => {
 					if (item.is_dir) {
 						setSearchParams({ path: item.materialized_path });

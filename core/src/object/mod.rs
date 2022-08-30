@@ -19,8 +19,8 @@ pub struct ObjectsForExplorer {
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub enum ObjectData {
-	Object(prisma::file::Data),
-	Path(prisma::file_path::Data),
+	Object(Box<prisma::file::Data>),
+	Path(Box<prisma::file_path::Data>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]

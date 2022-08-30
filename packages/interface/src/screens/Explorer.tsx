@@ -17,12 +17,12 @@ export const ExplorerScreen: React.FC<unknown> = () => {
 
 	// update explorer store when screen's path param changes
 	useEffect(() => {
-		set('path', pathParam);
+		set({ path: pathParam });
 	}, [pathParam]);
 
 	// same for limit
 	useEffect(() => {
-		set('limit', limitParam);
+		set({ limit: limitParam });
 	}, [limitParam]);
 
 	const { data: files } = useLibraryQuery([

@@ -13,7 +13,7 @@ type ExplorerStore = {
 	layoutMode: LayoutMode;
 	selectedRowIndex: number;
 	multiSelectIndexes: number[];
-	contextMenuObjectId: number;
+	contextMenuObjectId: number | null;
 	locationId: number; // todo: check if even needed
 	path: string;
 	limit: number;
@@ -21,7 +21,7 @@ type ExplorerStore = {
 	addNewThumbnail: (cas_id: string) => void;
 	selectMore: (indexes: number[]) => void;
 	reset: () => void;
-	set: (key: keyof ExplorerStore, value: any) => void;
+	set: (changes: Partial<ExplorerStore>) => void;
 };
 
 export const useExplorerStore = create<ExplorerStore>((set) => ({
@@ -51,5 +51,5 @@ export const useExplorerStore = create<ExplorerStore>((set) => ({
 		);
 	},
 	reset: () => set(() => ({})),
-	set: (key, value) => set((state) => ({ ...state, [key]: value }))
+	set: (changes) => set((state) => ({ ...state, ...changes }))
 }));

@@ -22,13 +22,13 @@ export default function FileItem(props: Props) {
 		<div
 			onContextMenu={(e) => {
 				if (props.file?.id != undefined) {
-					set('contextMenuObjectId', props.file.file_id);
-					if (props.index != undefined) set('selectedRowIndex', props.index);
+					set({ contextMenuObjectId: props.file.file_id });
+					if (props.index != undefined) set({ selectedRowIndex: props.index });
 				}
 			}}
+			draggable
 			{...props}
 			className={clsx('inline-block w-[100px] mb-3', props.className)}
-			draggable
 		>
 			<div
 				style={{ width: size, height: size }}

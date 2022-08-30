@@ -1,8 +1,16 @@
 use std::env::consts;
 
+use serde::Serialize;
 use tauri::{
 	AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowMenuEvent, Wry,
 };
+
+#[derive(Serialize, Clone)]
+pub struct DOMKeyboardEvent {
+	#[serde(rename = "metaKey")]
+	meta_key: bool,
+	key: String,
+}
 
 pub(crate) fn get_menu() -> Menu {
 	match consts::OS {
@@ -17,6 +25,13 @@ fn custom_menu_bar() -> Menu {
 			"Spacedrive".to_string(),
 			AboutMetadata::new(),
 		)) // TODO: fill out about metadata
+		.add_native_item(MenuItem::Separator)
+		.add_item(
+			// macOS 13 Ventura automatically changes "Preferences" to "Settings" for system-wide consistency.
+			// Use "Preferences" here to keep consistency on older versions
+			CustomMenuItem::new("open_settings".to_string(), "Preferences...")
+				.accelerator("CmdOrCtrl+Comma"),
+		)
 		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Services)
 		.add_native_item(MenuItem::Separator)
@@ -37,12 +52,16 @@ fn custom_menu_bar() -> Menu {
 		);
 	let edit_menu = Menu::new()
 		.add_native_item(MenuItem::Copy)
-		.add_native_item(MenuItem::Paste);
+		.add_native_item(MenuItem::Paste)
+		.add_native_item(MenuItem::SelectAll);
 	let view_menu = Menu::new()
 		.add_item(
-			CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
-				.accelerator("CmdOrCtrl+P"),
+			CustomMenuItem::new("open_search".to_string(), "Search").accelerator("CmdOrCtrl+L"),
 		)
+		// .add_item(
+		// 	CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
+		// 		.accelerator("CmdOrCtrl+P"),
+		// )
 		.add_item(CustomMenuItem::new("layout".to_string(), "Layout").disabled());
 	let window_menu = Menu::new().add_native_item(MenuItem::EnterFullScreen);
 
@@ -75,6 +94,16 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			let app = event.window().app_handle();
 			app.exit(0);
 		}
+		"open_settings" => event
+			.window()
+			.emit(
+				"do_keyboard_input",
+				DOMKeyboardEvent {
+					meta_key: true,
+					key: ",".into(),
+				},
+			)
+			.unwrap(),
 		"close" => {
 			let window = event.window();
 
@@ -88,6 +117,16 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			#[cfg(not(debug_assertions))]
 			window.close().unwrap();
 		}
+		"open_search" => event
+			.window()
+			.emit(
+				"do_keyboard_input",
+				DOMKeyboardEvent {
+					meta_key: true,
+					key: "l".into(),
+				},
+			)
+			.unwrap(),
 		"reload_app" => {
 			#[cfg(target_os = "macos")]
 			{
@@ -99,6 +138,11 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 						reload_webview(webview.inner() as _);
 					})
 					.unwrap();
+			}
+
+			#[cfg(not(target_os = "macos"))]
+			{
+				unimplemented!();
 			}
 		}
 		#[cfg(debug_assertions)]

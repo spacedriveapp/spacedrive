@@ -12,11 +12,11 @@ import create from 'zustand';
 
 import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
+import useCounter from '../hooks/useCounter';
 
 interface StatItemProps {
 	title: string;
 	bytes: string;
-
 	isLoading: boolean;
 }
 
@@ -51,26 +51,17 @@ export const useOverviewState = create<OverviewState>((set) => ({
 		}))
 }));
 
-function quadratic(duration: number, range: number, current: number) {
-	return ((duration * 3) / Math.pow(range, 3)) * Math.pow(current, 2);
-}
-
 const StatItem: React.FC<StatItemProps> = (props) => {
 	const { title, bytes = '0', isLoading } = props;
 
-	const appProps = useContext(AppPropsContext);
+	// const appProps = useContext(AppPropsContext);
 
 	const size = byteSize(+bytes);
 
-	const [count, setCount] = useState(0);
-
-	useEffect(() => {
-		if (count < +size.value) {
-			setTimeout(() => {
-				setCount((count) => count + 1);
-			}, quadratic(appProps?.demoMode ? 1000 : 500, +size.value, count));
-		}
-	}, [appProps?.demoMode, count, size]);
+	const count = useCounter({
+		name: title,
+		end: +size.value
+	});
 
 	return (
 		<div
@@ -184,37 +175,39 @@ export const OverviewScreen = () => {
 					</div>
 
 					<div className="flex-grow" />
-					<div className="space-x-2 ">
-						<Dialog
-							title="Add Device"
-							description="Connect a new device to your library. Either enter another device's code or copy this one."
-							// ctaAction={() => {}}
-							ctaLabel="Connect"
-							trigger={
-								<Button
-									size="sm"
-									icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 mr-1" />}
-									variant="gray"
-								>
-									Add Device
-								</Button>
-							}
-						>
-							<div className="flex flex-col mt-2 space-y-3">
-								<div className="flex flex-col">
-									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-										This Device
-									</span>
-									<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
+					<div className="space-x-2 h-full flex items-center">
+						<div>
+							<Dialog
+								title="Add Device"
+								description="Connect a new device to your library. Either enter another device's code or copy this one."
+								// ctaAction={() => {}}
+								ctaLabel="Connect"
+								trigger={
+									<Button
+										size="sm"
+										icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 xl:mr-1" />}
+										variant="gray"
+									>
+										<span className="hidden xl:inline-block">Add Device</span>
+									</Button>
+								}
+							>
+								<div className="flex flex-col mt-2 space-y-3">
+									<div className="flex flex-col">
+										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
+											This Device
+										</span>
+										<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
+									</div>
+									<div className="flex flex-col">
+										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
+											Enter a device code
+										</span>
+										<Input value="" />
+									</div>
 								</div>
-								<div className="flex flex-col">
-									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-										Enter a device code
-									</span>
-									<Input value="" />
-								</div>
-							</div>
-						</Dialog>
+							</Dialog>
+						</div>
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 mt-4 space-y-4">

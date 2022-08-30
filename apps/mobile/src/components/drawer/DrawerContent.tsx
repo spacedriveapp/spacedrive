@@ -8,6 +8,7 @@ import { CogIcon } from 'react-native-heroicons/solid';
 import Layout from '../../constants/Layout';
 import tw from '../../lib/tailwind';
 import CollapsibleView from '../layout/CollapsibleView';
+import { Tooltip } from '../tooltip/Tooltip';
 import DrawerLocationItem from './DrawerLocationItem';
 import DrawerLogo from './DrawerLogo';
 import DrawerTagItem from './DrawerTagItem';
@@ -107,9 +108,11 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					</CollapsibleView>
 				</View>
 				{/* Settings */}
-				<Pressable onPress={() => navigation.navigate('Settings')}>
-					<CogIcon color="white" size={24} />
-				</Pressable>
+				<Tooltip label="Settings">
+					<Pressable onPress={() => navigation.navigate('Settings')}>
+						<CogIcon color="white" size={24} />
+					</Pressable>
+				</Tooltip>
 			</View>
 		</DrawerContentScrollView>
 	);
