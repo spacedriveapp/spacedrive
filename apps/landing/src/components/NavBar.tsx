@@ -1,11 +1,11 @@
 import { BookOpenIcon, MapIcon, QuestionMarkCircleIcon, UsersIcon } from '@heroicons/react/solid';
 import { Discord, Github } from '@icons-pack/react-simple-icons';
+import AppLogo from '@sd/assets/images/logo.png';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
 import { List } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
-import AppLogo from '../assets/images/logo.png';
 import { positions } from '../pages/careers.page';
 import { getWindow } from '../utils';
 
