@@ -37,12 +37,14 @@ fn custom_menu_bar() -> Menu {
 		);
 	let edit_menu = Menu::new()
 		.add_native_item(MenuItem::Copy)
-		.add_native_item(MenuItem::Paste);
+		.add_native_item(MenuItem::Paste)
+		.add_native_item(MenuItem::SelectAll);
 	let view_menu = Menu::new()
-		.add_item(
-			CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
-				.accelerator("CmdOrCtrl+P"),
-		)
+		.add_item(CustomMenuItem::new("search".to_string(), "Search").accelerator("CmdOrCtrl+L"))
+		// .add_item(
+		// 	CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
+		// 		.accelerator("CmdOrCtrl+P"),
+		// )
 		.add_item(CustomMenuItem::new("layout".to_string(), "Layout").disabled());
 	let window_menu = Menu::new().add_native_item(MenuItem::EnterFullScreen);
 
