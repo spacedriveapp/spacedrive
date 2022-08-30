@@ -5306,6 +5306,7 @@ version = "0.1.0"
 dependencies = [
  "rspc",
  "sdcore",
+ "serde",
  "swift-rs",
  "tauri",
  "tauri-build",
