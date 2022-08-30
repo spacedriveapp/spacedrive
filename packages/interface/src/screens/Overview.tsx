@@ -57,7 +57,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 	// const appProps = useContext(AppPropsContext);
 
 	const size = byteSize(+bytes);
-  
+
 	const count = useCounter({
 		name: title,
 		end: +size.value
@@ -175,37 +175,39 @@ export const OverviewScreen = () => {
 					</div>
 
 					<div className="flex-grow" />
-					<div className="space-x-2 ">
-						<Dialog
-							title="Add Device"
-							description="Connect a new device to your library. Either enter another device's code or copy this one."
-							// ctaAction={() => {}}
-							ctaLabel="Connect"
-							trigger={
-								<Button
-									size="sm"
-									icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 md:mr-1" />}
-									variant="gray"
-								>
-									<span className="hidden md:inline-block">Add Device</span>
-								</Button>
-							}
-						>
-							<div className="flex flex-col mt-2 space-y-3">
-								<div className="flex flex-col">
-									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-										This Device
-									</span>
-									<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
+					<div className="space-x-2 h-full flex items-center">
+						<div>
+							<Dialog
+								title="Add Device"
+								description="Connect a new device to your library. Either enter another device's code or copy this one."
+								// ctaAction={() => {}}
+								ctaLabel="Connect"
+								trigger={
+									<Button
+										size="sm"
+										icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 xl:mr-1" />}
+										variant="gray"
+									>
+										<span className="hidden xl:inline-block">Add Device</span>
+									</Button>
+								}
+							>
+								<div className="flex flex-col mt-2 space-y-3">
+									<div className="flex flex-col">
+										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
+											This Device
+										</span>
+										<Input readOnly disabled value="06ffd64309b24fb09e7c2188963d0207" />
+									</div>
+									<div className="flex flex-col">
+										<span className="mb-1 text-xs font-bold uppercase text-gray-450">
+											Enter a device code
+										</span>
+										<Input value="" />
+									</div>
 								</div>
-								<div className="flex flex-col">
-									<span className="mb-1 text-xs font-bold uppercase text-gray-450">
-										Enter a device code
-									</span>
-									<Input value="" />
-								</div>
-							</div>
-						</Dialog>
+							</Dialog>
+						</div>
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 mt-4 space-y-4">
