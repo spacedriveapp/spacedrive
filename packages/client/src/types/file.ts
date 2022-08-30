@@ -1,10 +1,10 @@
-import { FilePath, ObjectKind } from '@sd/core';
+import { FilePath } from '@sd/core';
 
 export interface ExplorerItem {
 	id: number;
 	name: string;
 	is_dir: boolean;
-	kind: ObjectKind;
+	// kind: ObjectKind;
 	extension: string;
 	size_in_bytes: number;
 	created_at: string;
