@@ -12,11 +12,11 @@ import create from 'zustand';
 
 import { Device } from '../components/device/Device';
 import Dialog from '../components/layout/Dialog';
+import useCounter from '../hooks/useCounter';
 
 interface StatItemProps {
 	title: string;
 	bytes: string;
-
 	isLoading: boolean;
 }
 
@@ -51,26 +51,17 @@ export const useOverviewState = create<OverviewState>((set) => ({
 		}))
 }));
 
-function quadratic(duration: number, range: number, current: number) {
-	return ((duration * 3) / Math.pow(range, 3)) * Math.pow(current, 2);
-}
-
 const StatItem: React.FC<StatItemProps> = (props) => {
 	const { title, bytes = '0', isLoading } = props;
 
-	const appProps = useContext(AppPropsContext);
+	// const appProps = useContext(AppPropsContext);
 
 	const size = byteSize(+bytes);
-
-	const [count, setCount] = useState(0);
-
-	useEffect(() => {
-		if (count < +size.value) {
-			setTimeout(() => {
-				setCount((count) => count + 1);
-			}, quadratic(appProps?.demoMode ? 1000 : 500, +size.value, count));
-		}
-	}, [appProps?.demoMode, count, size]);
+  
+	const count = useCounter({
+		name: title,
+		end: +size.value
+	});
 
 	return (
 		<div
