@@ -3,7 +3,6 @@ import { CogIcon, LockClosedIcon } from '@heroicons/react/solid';
 import { Button } from '@sd/ui';
 import { Cloud, Desktop, DeviceMobileCamera, DotsSixVertical, Laptop } from 'phosphor-react';
 import React, { useState } from 'react';
-import { Rings } from 'react-loading-icons';
 
 import FileItem from '../file/FileItem';
 import Loader from '../primitive/Loader';
@@ -72,20 +71,17 @@ export function Device(props: DeviceProps) {
 					</Tooltip>
 				</div>
 			</div>
-			{/* <hr className="border-gray-700" />
-      <hr className="border-gray-550" /> */}
 			<div className="px-4 pb-3 mt-3">
 				{props.locations.map((location, key) => (
 					<FileItem
 						key={key}
 						selected={selectedFile === location.name}
 						onClick={() => handleSelect(location.name)}
-						fileName={location.name}
-						folder={location.folder}
-						format={location.format}
-						iconName={location.icon}
 					/>
 				))}
+				{props.locations.length === 0 && (
+					<div className="w-full my-5 text-center text-gray-450">No locations</div>
+				)}
 			</div>
 		</div>
 	);
