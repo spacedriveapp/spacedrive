@@ -127,8 +127,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-b dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-90 backdrop-blur"
 			>
 				<div className="flex ">
-					<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
-					<TopBarButton icon={ChevronRightIcon} onClick={() => navigate(1)} />
+					<Tooltip label="Navigate back">
+						<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
+					</Tooltip>
+					<Tooltip label="Navigate forward">
+						<TopBarButton icon={ChevronRightIcon} onClick={() => navigate(1)} />
+					</Tooltip>
 				</div>
 
 				{/* <div className="flex mx-8 space-x-[1px]">
