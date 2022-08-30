@@ -3,7 +3,7 @@ import { AppPropsContext, useExplorerStore, useLibraryMutation } from '@sd/clien
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import { ArrowsClockwise, IconProps, Key, List, Rows, SquaresFour } from 'phosphor-react';
-import React, { DetailedHTMLProps, HTMLAttributes, useContext } from 'react';
+import React, { DetailedHTMLProps, HTMLAttributes, RefAttributes, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Shortcut } from '../primitive/Shortcut';
@@ -18,7 +18,6 @@ export interface TopBarButtonProps
 	left?: boolean;
 	right?: boolean;
 }
-type SearchBarProps = DefaultProps;
 
 const TopBarButton: React.FC<TopBarButtonProps> = ({
 	icon: Icon,
@@ -48,27 +47,28 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 	);
 };
 
-const SearchBar: React.FC<SearchBarProps> = (props) => {
+const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
 	//TODO: maybe pass the appProps, so we can have the context in the TopBar if needed again
 	const appProps = useContext(AppPropsContext);
 
 	return (
 		<div className="relative flex h-7">
 			<input
+				ref={ref}
 				placeholder="Search"
-				className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
 			/>
-			<div className="space-x-1 absolute top-[2px] right-1">
+			<div className="space-x-1 absolute top-[2px] right-1 peer-focus:invisible">
 				<Shortcut
 					chars={
-						appProps?.platform === 'macOS' || appProps?.platform === 'browser' ? '⌘K' : 'CTRL+K'
+						appProps?.platform === 'macOS' || appProps?.platform === 'browser' ? '⌘L' : 'CTRL+L'
 					}
 				/>
 				{/* <Shortcut chars="S" /> */}
 			</div>
 		</div>
 	);
-};
+});
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
 	const { locationId, layoutMode, setLayoutMode } = useExplorerStore();
@@ -91,6 +91,34 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	});
 
 	const navigate = useNavigate();
+
+	//create function to focus on search box when cmd+k is pressed
+	const searchRef = React.useRef<HTMLInputElement>(null);
+	React.useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+				if (
+					(e.metaKey && e.key === 'l' && searchRef.current) ||
+					(e.key === '/' && searchRef.current)
+				) {
+					searchRef.current.focus();
+					e.preventDefault();
+				}
+			} else {
+				if (e.key === 'Escape') {
+					e.target.blur();
+					e.preventDefault();
+				}
+			}
+		};
+
+		document.addEventListener('keydown', handler);
+		return () => {
+			//remove event listener
+			document.removeEventListener('keydown', handler);
+		};
+	}, []);
+
 	return (
 		<>
 			<div
@@ -107,6 +135,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
           <TopBarButton group icon={Columns} />
           <TopBarButton group right icon={SquaresFour} />
         </div> */}
+
 				<div data-tauri-drag-region className="flex flex-row justify-center flex-grow">
 					<div className="flex mx-8">
 						<TopBarButton
@@ -124,7 +153,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							onClick={() => setLayoutMode('grid')}
 						/>
 					</div>
-					<SearchBar />
+					<SearchBar ref={searchRef} />
 
 					<div className="flex mx-8 space-x-2">
 						<TopBarButton icon={Key} />
