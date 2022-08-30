@@ -96,27 +96,29 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	React.useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
-			if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
-				if (
-					(e.metaKey && e.key === 'l' && searchRef.current) ||
-					(e.key === '/' && searchRef.current)
-				) {
-					searchRef.current.focus();
-					e.preventDefault();
-				}
-			} else {
+			if (e.metaKey && e.key === 'l') {
+				if (searchRef.current) searchRef.current.focus();
+				e.preventDefault();
+				return;
+			}
+
+			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
 				if (e.key === 'Escape') {
 					e.target.blur();
 					e.preventDefault();
+					return;
+				}
+			} else {
+				if (e.key === '/') {
+					if (searchRef.current) searchRef.current.focus();
+					e.preventDefault();
+					return;
 				}
 			}
 		};
 
 		document.addEventListener('keydown', handler);
-		return () => {
-			//remove event listener
-			document.removeEventListener('keydown', handler);
-		};
+		return () => document.removeEventListener('keydown', handler);
 	}, []);
 
 	return (
