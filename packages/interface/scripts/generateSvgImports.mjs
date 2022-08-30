@@ -32,14 +32,15 @@ async function exists(path) {
 	}
 }
 
+// TODO: Do the same for mobile app too, potentially with the 1 script.
 (async function main() {
-	const files = await fs.readdir('./packages/interface/src/assets/icons');
+	const files = await fs.readdir('./packages/assets/icons');
 	const icons = files.filter((path) => path.endsWith('.svg'));
 
 	const generatedCode = `\
 ${icons
 	.map((path) => iconBaseName(path))
-	.map((baseName) => `import { ReactComponent as ${iconFriendlyName(baseName)} } from './${baseName}.svg';`)
+	.map((baseName) => `import { ReactComponent as ${iconFriendlyName(baseName)} } from '@sd/assets/icons/${baseName}.svg';`)
 	.join('\n')}
 
 export default {

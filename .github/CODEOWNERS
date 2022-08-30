@@ -8,8 +8,10 @@
 
 # frontend apps (Rust bridges and tech functionality -- no real visual implications)
 /apps/desktop/ @jamiepine @Brendonovich @oscartbeaumont
-/apps/mobile/ @jamiepine @Brendonovich @oscartbeaumont
 /apps/web/ @jamiepine @maxichrome
+
+# mobile
+/apps/mobile/ @jamiepine @Brendonovich @oscartbeaumont @utkubakir
 
 # core logic
 /core/ @jamiepine @Brendonovich @oscartbeaumont
@@ -22,8 +24,9 @@
 /apps/landing/ @jamiepine @maxichrome
 
 # UI
-/packages/interface/ @jamiepine @maxichrome
+/packages/interface/ @jamiepine @maxichrome @utkubakir
 /packages/ui/ @jamiepine @maxichrome
+/packages/assets/ @jamiepine @utkubakir
 
 # base config files
 /* @jamiepine
