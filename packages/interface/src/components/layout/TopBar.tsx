@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
+import { Tooltip } from '../tooltip/Tooltip';
 
 export type TopBarProps = DefaultProps;
 export interface TopBarButtonProps
@@ -96,27 +97,29 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	React.useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
-			if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
-				if (
-					(e.metaKey && e.key === 'l' && searchRef.current) ||
-					(e.key === '/' && searchRef.current)
-				) {
-					searchRef.current.focus();
-					e.preventDefault();
-				}
-			} else {
+			if (e.metaKey && e.key === 'l') {
+				if (searchRef.current) searchRef.current.focus();
+				e.preventDefault();
+				return;
+			}
+
+			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
 				if (e.key === 'Escape') {
 					e.target.blur();
 					e.preventDefault();
+					return;
+				}
+			} else {
+				if (e.key === '/') {
+					if (searchRef.current) searchRef.current.focus();
+					e.preventDefault();
+					return;
 				}
 			}
 		};
 
 		document.addEventListener('keydown', handler);
-		return () => {
-			//remove event listener
-			document.removeEventListener('keydown', handler);
-		};
+		return () => document.removeEventListener('keydown', handler);
 	}, []);
 
 	return (
@@ -126,8 +129,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-b dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-90 backdrop-blur"
 			>
 				<div className="flex ">
-					<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
-					<TopBarButton icon={ChevronRightIcon} onClick={() => navigate(1)} />
+					<Tooltip label="Navigate back">
+						<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
+					</Tooltip>
+					<Tooltip label="Navigate forward">
+						<TopBarButton icon={ChevronRightIcon} onClick={() => navigate(1)} />
+					</Tooltip>
 				</div>
 
 				{/* <div className="flex mx-8 space-x-[1px]">
@@ -138,32 +145,42 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 				<div data-tauri-drag-region className="flex flex-row justify-center flex-grow">
 					<div className="flex mx-8">
-						<TopBarButton
-							group
-							left
-							active={layoutMode === 'list'}
-							icon={Rows}
-							onClick={() => setLayoutMode('list')}
-						/>
-						<TopBarButton
-							group
-							right
-							active={layoutMode === 'grid'}
-							icon={SquaresFour}
-							onClick={() => setLayoutMode('grid')}
-						/>
+						<Tooltip label="List view">
+							<TopBarButton
+								group
+								left
+								active={layoutMode === 'list'}
+								icon={Rows}
+								onClick={() => setLayoutMode('list')}
+							/>
+						</Tooltip>
+						<Tooltip label="Grid view">
+							<TopBarButton
+								group
+								right
+								active={layoutMode === 'grid'}
+								icon={SquaresFour}
+								onClick={() => setLayoutMode('grid')}
+							/>
+						</Tooltip>
 					</div>
 					<SearchBar ref={searchRef} />
 
 					<div className="flex mx-8 space-x-2">
-						<TopBarButton icon={Key} />
-						{/* <TopBarButton icon={Cloud} /> */}
-						<TopBarButton
-							icon={ArrowsClockwise}
-							onClick={() => {
-								// generateThumbsForLocation({ id: locationId, path: '' });
-							}}
-						/>
+						<Tooltip label="Major Key Alert">
+							<TopBarButton icon={Key} />
+						</Tooltip>
+						{/* <Tooltip label="Cloud">
+							<TopBarButton icon={Cloud} />
+						</Tooltip> */}
+						<Tooltip label="Generate Thumbnails">
+							<TopBarButton
+								icon={ArrowsClockwise}
+								onClick={() => {
+									// generateThumbsForLocation({ id: locationId, path: '' });
+								}}
+							/>
+						</Tooltip>
 					</div>
 				</div>
 				<div className="flex mr-3 space-x-2">

@@ -16,6 +16,7 @@ sdcore = { path = "../../../core" }
 tokio = { version = "1.17.0", features = ["sync"] }
 window-shadows = "0.1.2"
 tracing = "0.1.35"
+serde = "1.0.144"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease" }
