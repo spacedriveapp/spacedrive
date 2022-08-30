@@ -1,1 +1,1 @@
-export default '/blog/:slug';
+export default '/blog/@slug';

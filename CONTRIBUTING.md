@@ -37,26 +37,42 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
 
 > Note: MacOS M1 users should choose the customize option in the rustup init script and enter `x86_64-apple-darwin` as the default host triple instead of the default `aarch64-apple-darwin`
 
-- `$ git clone https://github.com/spacedriveapp/spacedrive`
-- `$ cd spacedrive`
+- `git clone https://github.com/spacedriveapp/spacedrive`
+- `cd spacedrive`
 - For Linux or MacOS users run: `./.github/scripts/setup-system.sh`
   - This will install FFMPEG and any other required dependencies for Spacedrive to build.
-- `$ pnpm i`
-- `$ pnpm prep` - Runs all necessary codegen & builds required dependencies.
+- For Windows users run using PowerShell: `.\.github\scripts\setup-system.ps1`
+  - This will install pnpm, LLVM, FFMPEG and any other required dependencies for Spacedrive to build.
+  - Ensure you run it like documented above as it expects it is executed from the root of the repository.
+- `pnpm i`
+- `pnpm prep` - Runs all necessary codegen & builds required dependencies.
 
 To quickly run only the desktop app after `prep` you can use:
 
-- `$ pnpm desktop dev`
+- `pnpm desktop dev`
 
 To run the landing page
 
-- `$ pnpm web dev` - runs the web app for the embed
-- `$ pnpm landing dev`
+- `pnpm web dev` - runs the web app for the embed
+- `pnpm landing dev`
 
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.60.0**
+- Rust version: **1.63.0**
 - Node version: **17**
+
+##### Mobile app
+
+To run mobile app
+
+- Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for IOS development
+- `./.github/scripts/setup-system.sh mobile`
+  - The should setup most of the dependencies for the mobile app to build.
+- You must also ensure [you must have NDK 24.0.8215888 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
+- `cd apps/mobile && pnpm i` - This is a separate workspace, you need to do this!
+- `pnpm android` - runs on Android Emulator
+- `pnpm ios` - runs on iOS Emulator
+- `pnpm dev` - For already bundled app - This is only temporarily supported. The final app will require the Spacedrive Rust code which isn't included in Expo Go.
 
 ### Pull Request
 
@@ -75,6 +91,16 @@ When you're finished with the changes, create a pull request, also known as a PR
 Congratulations :tada::tada: The Spacedrive team thanks you :sparkles:.
 
 Once your PR is merged, your contributions will be included in the next release of the application.
+
+### Common Errors
+
+#### `xcrun: error: unable to find utility "xctest", not a developer tool or in PATH`
+
+You either don't have Xcode installed, or don't have the Xcode command line tools in your `PATH`.
+
+- Install XCode from the Mac App Store
+- Run `xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+  This will use Xcode's developer tools instead of macOS's default tools.
 
 ### Credits
 

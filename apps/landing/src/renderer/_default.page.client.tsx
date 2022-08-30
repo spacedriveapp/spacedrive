@@ -1,43 +1,20 @@
-import React from 'react';
-import { Root, createRoot, hydrateRoot } from 'react-dom/client';
-import { useClientRouter } from 'vite-plugin-ssr/client/router';
-import type { PageContextBuiltInClient } from 'vite-plugin-ssr/client/router';
+import React from 'react'
+import { hydrateRoot } from 'react-dom/client'
+import App from '../App'
+import type { PageContext } from './types'
+import type { PageContextBuiltInClient } from 'vite-plugin-ssr/client'
 
-import { App } from '../App';
-import type { PageContext } from './types';
+export { render }
 
-let root: Root;
-const { hydrationPromise } = useClientRouter({
-	render(pageContext: PageContextBuiltInClient & PageContext) {
-		const { Page, pageProps } = pageContext;
-		const page = (
-			<App pageContext={pageContext as any}>
-				<Page {...pageProps} />
-			</App>
-		);
-		const container = document.getElementById('page-view')!;
-		if (pageContext.isHydration) {
-			root = hydrateRoot(container, page);
-		} else {
-			if (!root) {
-				root = createRoot(container);
-			}
-			root.render(page);
-		}
-	}
-	// onTransitionStart,
-	// onTransitionEnd
-});
+async function render(pageContext: PageContextBuiltInClient & PageContext) {
+  const { Page, pageProps } = pageContext
+  hydrateRoot(
+    document.getElementById('page-view')!,
+    <App pageContext={pageContext as any}>
+      <Page {...pageProps} />
+    </App>,
+  )
+}
 
-hydrationPromise.then(() => {
-	console.log('Hydration finished; page is now interactive.');
-});
+export const clientRouting = true
 
-// function onTransitionStart() {
-// 	console.log('Page transition start');
-// 	document.getElementById('page-view')!.classList.add('page-transition');
-// }
-// function onTransitionEnd() {
-// 	console.log('Page transition end');
-// 	document.getElementById('#page-content')!.classList.remove('page-transition');
-// }
