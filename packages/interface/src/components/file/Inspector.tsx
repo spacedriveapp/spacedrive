@@ -17,7 +17,7 @@ interface MetaItemProps {
 
 const MetaItem = (props: MetaItemProps) => {
 	return (
-		<div data-tip={props.value} className="flex flex-col px-3 py-1 meta-item">
+		<div data-tip={props.value} className="flex flex-col px-4 py-1.5 meta-item">
 			<h5 className="text-xs font-bold">{props.title}</h5>
 			{typeof props.value === 'string' ? (
 				<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">{props.value}</p>
@@ -88,10 +88,10 @@ export const Inspector = (props: { locationId: number; selectedFile?: FilePath }
 		<div className="p-2 pr-1 w-[330px] overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
 			{!!file_path && (
 				<div>
-					<div className="flex items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-900">
+					<div className="flex bg-black items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
 						<FileThumb className="!m-0 flex flex-shrink flex-grow-0" file={file_path} />
 					</div>
-					<div className="flex flex-col w-full pb-2 overflow-hidden bg-white rounded-lg select-text dark:bg-gray-550 dark:bg-opacity-40">
+					<div className="flex flex-col w-full pt-0.5 pb-4 overflow-hidden bg-white rounded-lg shadow select-text dark:shadow-gray-700 dark:bg-gray-550 dark:bg-opacity-40">
 						<h3 className="pt-3 pl-3 text-base font-bold">{file_path?.name}</h3>
 						<div className="flex flex-row m-3 space-x-2">
 							<Button onClick={toggleFavorite} size="sm" noPadding>

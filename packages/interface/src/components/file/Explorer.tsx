@@ -1,4 +1,13 @@
-import { ExplorerKind, rspc, useExplorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
+import {
+	ExplorerKind,
+	rspc,
+	useBridgeQuery,
+	useCurrentLibrary,
+	useExplorerStore,
+	useLibraryMutation,
+	useLibraryQuery,
+	useLibraryStore
+} from '@sd/client';
 import { DirectoryWithContents } from '@sd/core';
 import { ContextMenu } from '@sd/ui';
 import {
@@ -36,6 +45,17 @@ export default function Explorer(props: Props) {
 
 	const { data: tags } = useLibraryQuery(['tags.getAll'], {});
 
+	const { mutate: assignTag } = useLibraryMutation('tags.assign', {
+		onSettled: () => {
+			console.log('assigned tag', tags, contextMenuObjectId);
+		},
+		onError: (error) => {
+			console.error(error);
+		}
+	});
+
+	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
+
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: props.library_id!, arg: null }], {
 		onNext: (cas_id) => {
 			addNewThumbnail(cas_id);
@@ -47,23 +67,28 @@ export default function Explorer(props: Props) {
 			<WithContextMenu
 				menu={[
 					[
+						// `file-${props.identifier}`,
 						{
-							label: 'Open',
-							onClick() {}
+							label: 'Open'
 						},
 						{
-							label: 'Open with...',
-							onClick() {}
+							label: 'Open with...'
 						}
 					],
 					[
 						{
-							label: 'Quick view',
-							onClick() {}
+							label: 'Quick view'
 						},
 						{
-							label: 'Open in Finder',
-							onClick() {}
+							label: 'Open in Finder'
+						}
+					],
+					[
+						{
+							label: 'Rename'
+						},
+						{
+							label: 'Duplicate'
 						}
 					],
 					[
@@ -83,10 +108,16 @@ export default function Explorer(props: Props) {
 						{
 							label: 'Assign tag',
 							icon: TagSimple,
-							onClick() {},
+
 							children: [
 								tags?.map((tag) => ({
-									label: tag.name || ''
+									label: tag.name || '',
+									onClick() {
+										assignTag({
+											tag_id: tag.id,
+											file_id: contextMenuObjectId
+										});
+									}
 								})) || []
 							]
 						}
@@ -95,39 +126,39 @@ export default function Explorer(props: Props) {
 						{
 							label: 'More actions...',
 							icon: Plus,
-							onClick() {},
+
 							children: [
 								[
 									{
 										label: 'Move to library',
 										icon: FilePlus,
-										onClick() {}
+										children: [libraries?.map((library) => ({ label: library.config.name })) || []]
+									},
+									{
+										label: 'Remove from library',
+										icon: FileX
 									}
 								],
 								[
 									{
 										label: 'Encrypt',
-										icon: LockSimple,
-										onClick() {}
+										icon: LockSimple
 									},
 									{
 										label: 'Compress',
-										icon: Package,
-										onClick() {}
+										icon: Package
 									},
 									{
 										label: 'Convert to',
 										icon: ArrowBendUpRight,
-										onClick() {},
+
 										children: [
 											[
 												{
-													label: 'PNG',
-													onClick() {}
+													label: 'PNG'
 												},
 												{
-													label: 'WebP',
-													onClick() {}
+													label: 'WebP'
 												}
 											]
 										]
@@ -135,16 +166,8 @@ export default function Explorer(props: Props) {
 								],
 								[
 									{
-										label: 'Remove from library',
-										icon: FileX,
-										onClick() {}
-									}
-								],
-								[
-									{
 										label: 'Secure delete',
-										icon: TrashSimple,
-										onClick() {}
+										icon: TrashSimple
 									}
 								]
 							]
@@ -154,13 +177,12 @@ export default function Explorer(props: Props) {
 						{
 							label: 'Delete',
 							icon: Trash,
-							danger: true,
-							onClick() {}
+							danger: true
 						}
 					]
 				]}
 			>
-				<div className="relative flex flex-col w-full bg-gray-650">
+				<div className="relative flex flex-col w-full bg-gray-600">
 					<TopBar />
 					<div className="relative flex flex-row w-full max-h-full">
 						<FileList

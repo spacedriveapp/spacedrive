@@ -30,8 +30,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 	return (
 		<ContentPrimitive
 			sideOffset={7}
+			alignOffset={7}
 			className={clsx(
-				'shadow-xl min-w-[12rem] shadow-gray-300 dark:shadow-gray-950 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100 dark:border-gray-550 text-left text-sm rounded-lg gap-1.5 py-1.5',
+				'shadow-md min-w-[12rem] py-0.5 shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100  text-left text-sm rounded-lg ',
 				className
 			)}
 			{...rest}
@@ -39,10 +40,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 			{sections.map((sec, i) => (
 				<React.Fragment key={i}>
 					{i !== 0 && (
-						<ContextMenuPrimitive.Separator className="mx-2 border-0 border-b border-b-gray-300 dark:border-b-gray-550" />
+						<ContextMenuPrimitive.Separator className="border-0 border-b pointer-events-none border-b-gray-300 dark:border-b-gray-550" />
 					)}
 
-					<ContextMenuPrimitive.Group className="flex items-stretch flex-col gap-0.5">
+					<ContextMenuPrimitive.Group className="flex flex-col items-stretch">
 						{sec.map((item) => {
 							if (typeof item === 'string')
 								return (
@@ -61,10 +62,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 								| typeof ContextMenuPrimitive.Trigger = ContextMenuPrimitive.Item;
 
 							if ((item.children?.length ?? 0) > 0)
-								ItemComponent = ((props) => (
+								ItemComponent = (({ children, ref, ...props }) => (
 									<ContextMenuPrimitive.ContextMenuSub>
-										<ContextMenuPrimitive.SubTrigger className="ml-1.5 rounded outline-none leading-snug flex-grow text-[14px] font-normal">
-											{props.children}
+										<ContextMenuPrimitive.SubTrigger {...props}>
+											{children}
 										</ContextMenuPrimitive.SubTrigger>
 
 										<ContextMenu
@@ -82,15 +83,19 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 										textAlign: 'inherit'
 									}}
 									className={clsx(
-										'focus:outline-none group cursor-default flex-1 px-1.5 py-0 group-first:pt-1.5',
-										{
-											'text-red-600 dark:text-red-400': item.danger
-										}
+										'focus:outline-none group cursor-default flex-1 px-1.5 py-1 group-first:pt-1.5 [&[data-state="open"]_div]:bg-primary',
+										item.danger && 'text-red-600 dark:text-red-400'
 									)}
 									onClick={item.onClick}
 									key={item.label}
 								>
-									<div className="px-1 py-[0.3em]  group-focus:bg-primary group-hover:bg-primary flex flex-row  items-center rounded">
+									<div
+										className={clsx(
+											'flex py-[0.3em] flex-row items-center px-1 rounded group-focus:bg-primary group-hover:bg-primary',
+											item.danger &&
+												'group-focus:bg-red-500 group-hover:bg-red-500 group-focus:text-white group-hover:text-white'
+										)}
+									>
 										{ItemIcon && <ItemIcon size={18} />}
 
 										<ContextMenuPrimitive.Label className="ml-1.5 leading-snug flex-grow text-[14px] font-normal">

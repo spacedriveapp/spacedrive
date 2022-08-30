@@ -1,3 +1,4 @@
+import produce from 'immer';
 import create from 'zustand';
 
 type LayoutMode = 'list' | 'grid';
@@ -9,41 +10,47 @@ export enum ExplorerKind {
 }
 
 type ExplorerStore = {
-	selectedRowIndex: number;
 	layoutMode: LayoutMode;
-	setSelectedRowIndex: (index: number) => void;
+	// the selected object in the explorer
+	selectedRowIndex: number;
+	multiSelectIndexes: number[];
 	contextMenuObjectId: number;
-	setContextMenuObjectId: (index: number) => void;
-	locationId: number;
-	setLocationId: (index: number) => void;
+	locationId: number; // todo: check if even needed
 	path: string;
-	setPath: (path: string) => void;
 	limit: number;
-	setLimit: (limit: number) => void;
 	newThumbnails: Record<string, boolean>;
 	addNewThumbnail: (cas_id: string) => void;
-	setLayoutMode: (mode: LayoutMode) => void;
+	selectMore: (indexes: number[]) => void;
 	reset: () => void;
+	set: (key: keyof ExplorerStore, value: any) => void;
 };
 
 export const useExplorerStore = create<ExplorerStore>((set) => ({
 	layoutMode: 'grid',
 	selectedRowIndex: 1,
-	setSelectedRowIndex: (index) => set((state) => ({ ...state, selectedRowIndex: index })),
+	multiSelectIndexes: [],
 	contextMenuObjectId: -1,
-	setContextMenuObjectId: (index) => set((state) => ({ ...state, contextMenuObjectId: index })),
 	locationId: -1,
-	setLocationId: (id: number) => set((state) => ({ ...state, locationId: id })),
 	newThumbnails: {},
-	addNewThumbnail: (cas_id: string) =>
-		set((state) => ({
-			...state,
-			newThumbnails: { ...state.newThumbnails, [cas_id]: true }
-		})),
-	setLayoutMode: (mode: LayoutMode) => set((state) => ({ ...state, layoutMode: mode })),
-	reset: () => set(() => ({})),
 	path: '',
-	setPath: (path: string) => set((state) => ({ ...state, path: path })),
 	limit: 100,
-	setLimit: (limit: number) => set((state) => ({ ...state, limit: limit }))
+	addNewThumbnail: (cas_id) =>
+		set((state) =>
+			produce(state, (draft) => {
+				draft.newThumbnails[cas_id] = true;
+			})
+		),
+	selectMore: (indexes) => {
+		set((state) =>
+			produce(state, (draft) => {
+				if (!draft.multiSelectIndexes.length && indexes.length) {
+					draft.multiSelectIndexes = [draft.selectedRowIndex, ...indexes];
+				} else {
+					draft.multiSelectIndexes = [...new Set([...draft.multiSelectIndexes, ...indexes])];
+				}
+			})
+		);
+	},
+	reset: () => set(() => ({})),
+	set: (key, value) => set((state) => ({ ...state, [key]: value }))
 }));

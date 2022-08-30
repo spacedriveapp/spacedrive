@@ -4,6 +4,7 @@ use tracing::log::info;
 use uuid::Uuid;
 
 use crate::{
+	api::locations::GetExplorerDirArgs,
 	invalidate_query,
 	prisma::{file, tag, tag_on_file},
 };
@@ -16,7 +17,7 @@ pub struct TagCreateArgs {
 	pub color: String,
 }
 
-#[derive(Type, Deserialize)]
+#[derive(Debug, Type, Deserialize)]
 pub struct TagAssignArgs {
 	pub file_id: i32,
 	pub tag_id: i32,
@@ -109,11 +110,26 @@ pub(crate) fn mount() -> RouterBuilder {
 			"assign",
 			|ctx, arg: LibraryArgs<TagAssignArgs>| async move {
 				let (args, library) = arg.get_library(&ctx).await?;
+				println!("HELLO!!! {:?}", args);
 
-				library.db.tag_on_file().create(
-					tag::id::equals(args.tag_id),
-					file::id::equals(args.file_id),
-					vec![],
+				library
+					.db
+					.tag_on_file()
+					.create(
+						tag::id::equals(args.tag_id),
+						file::id::equals(args.file_id),
+						vec![],
+					)
+					.exec()
+					.await?;
+
+				invalidate_query!(
+					library,
+					"tags.getForFile": LibraryArgs<i32>,
+					LibraryArgs {
+						library_id: library.id,
+						arg: args.file_id
+					}
 				);
 
 				Ok(())

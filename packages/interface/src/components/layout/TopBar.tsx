@@ -71,7 +71,7 @@ const SearchBar: React.FC<SearchBarProps> = (props) => {
 };
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-	const { locationId, layoutMode, setLayoutMode } = useExplorerStore();
+	const { locationId, layoutMode, set } = useExplorerStore();
 	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
 		{
@@ -95,7 +95,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center  dark:bg-gray-700 border-gray-100 dark:border-gray-800 !bg-opacity-80 backdrop-blur"
+				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center  dark:bg-gray-600 border-gray-100 dark:border-gray-800 !bg-opacity-80 backdrop-blur"
 			>
 				<div className="flex ">
 					<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
@@ -114,14 +114,14 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							left
 							active={layoutMode === 'list'}
 							icon={Rows}
-							onClick={() => setLayoutMode('list')}
+							onClick={() => set('layoutMode', 'list')}
 						/>
 						<TopBarButton
 							group
 							right
 							active={layoutMode === 'grid'}
 							icon={SquaresFour}
-							onClick={() => setLayoutMode('grid')}
+							onClick={() => set('layoutMode', 'grid')}
 						/>
 					</div>
 					<SearchBar />

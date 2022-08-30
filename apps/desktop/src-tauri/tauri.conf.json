@@ -63,8 +63,8 @@
 		"windows": [
 			{
 				"title": "Spacedrive",
-				"width": 1508,
-				"height": 1050,
+				"width": 1300,
+				"height": 800,
 				"minWidth": 700,
 				"minHeight": 500,
 				"resizable": true,

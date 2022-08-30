@@ -11,17 +11,19 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 	file?: FilePath | null;
 	selected?: boolean;
 	size?: number;
+	index?: number;
 }
 
 export default function FileItem(props: Props) {
-	const { setContextMenuObjectId } = useExplorerStore();
+	const { set } = useExplorerStore();
 	const size = props.size || 100;
 
 	return (
 		<div
 			onContextMenu={(e) => {
 				if (props.file?.id != undefined) {
-					setContextMenuObjectId(props.file.id);
+					set('contextMenuObjectId', props.file.file_id);
+					if (props.index != undefined) set('selectedRowIndex', props.index);
 				}
 			}}
 			{...props}
@@ -43,15 +45,13 @@ export default function FileItem(props: Props) {
 				) : props.file?.file?.has_thumbnail ? (
 					<div
 						className={clsx(
-							'relative grid place-content-center min-w-0  h-full p-1 rounded border-transparent border-2  shrink-0',
+							'relative grid place-content-center min-w-0 h-full p-1 rounded border-transparent border-2 shrink-0',
 							props.selected && ' bg-black'
 						)}
 					>
 						<FileThumb
-							// style={{ maxHeight: size, maxWidth: size }}
 							className={clsx(
-								'border-4 border-gray-500 rounded-sm shadow shadow-black max-h-full max-w-full overflow-hidden'
-								// props.selected && '!border-gray-450'
+								'border-4 border-gray-500 rounded-sm shadow-md shadow-gray-650 max-h-full max-w-full overflow-hidden'
 							)}
 							file={props.file}
 						/>
