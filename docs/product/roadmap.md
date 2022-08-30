@@ -15,7 +15,7 @@
 **To be developed (MVP):**
 
 - **Photos** - Photo and video albums similar to Apple/Google photos.
-- **Search** - Deep search into your filesystem with a keybind, including offline locations.
+- **Search** - Deep search into your filesystem with a keybinding, including offline locations.
 - **Tags** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
 - **Extensions** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.com/extensions](/extensions).
 
@@ -25,7 +25,7 @@
 - **Cloud integration** - Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
 - **Encrypted vault(s)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
 - **Key manager** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
-- **Redundancy Goal** - Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.
+- **Redundancy Goal** - Ensure a specific amount of copies exists for your important data, discover at-risk files and monitor device/drive health.
 - **Timeline** - View a linear timeline of content, travel to any time and see media represented visually.
 - **Media encoder** - Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.
-- **Workers** - Utilize the compute power of your devices in unison to encode and perform tasks at increased speeds.
+- **Workers** - Utilize the computing power of your devices in unison to encode and perform tasks at increased speeds.

@@ -1,53 +1,35 @@
 use crate::{
-	encode::ThumbnailJob,
-	file::{cas::FileIdentifierJob, indexer::IndexerJob},
-	node::{get_nodestate, LibraryNode},
-	prisma::{file_path, location},
-	ClientQuery, CoreContext, CoreEvent,
+	api::LibraryArgs,
+	encode::{ThumbnailJob, ThumbnailJobInit},
+	file::{
+		cas::{FileIdentifierJob, FileIdentifierJobInit},
+		indexer::{IndexerJob, IndexerJobInit},
+	},
+	invalidate_query,
+	job::Job,
+	library::LibraryContext,
+	prisma::location,
 };
-use prisma_client_rust::{raw, PrismaValue};
+
+use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
-use std::{fs, io, io::Write, path::Path};
+use std::{
+	fmt::Debug,
+	path::{Path, PathBuf},
+};
 use thiserror::Error;
-use ts_rs::TS;
+use tokio::{
+	fs::{metadata, File},
+	io::{self, AsyncWriteExt},
+};
+use tracing::info;
 
-use super::SysError;
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-pub struct LocationResource {
-	pub id: i32,
-	pub name: Option<String>,
-	pub path: Option<String>,
-	pub total_capacity: Option<i32>,
-	pub available_capacity: Option<i32>,
-	pub is_removable: Option<bool>,
-	pub node: Option<LibraryNode>,
-	pub is_online: bool,
-	#[ts(type = "string")]
-	pub date_created: chrono::DateTime<chrono::Utc>,
-}
-
-impl Into<LocationResource> for location::Data {
-	fn into(mut self) -> LocationResource {
-		LocationResource {
-			id: self.id,
-			name: self.name,
-			path: self.local_path,
-			total_capacity: self.total_capacity,
-			available_capacity: self.available_capacity,
-			is_removable: self.is_removable,
-			node: self.node.take().unwrap_or(None).map(|node| (*node).into()),
-			is_online: self.is_online,
-			date_created: self.date_created.into(),
-		}
-	}
-}
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct DotSpacedrive {
-	pub location_uuid: String,
-	pub library_uuid: String,
+	pub location_uuid: Uuid,
+	pub library_uuid: Uuid,
 }
 
 static DOTFILE_NAME: &str = ".spacedrive";
@@ -65,200 +47,159 @@ static DOTFILE_NAME: &str = ".spacedrive";
 // 	Ok(dotfile)
 // }
 
-pub async fn get_location(
-	ctx: &CoreContext,
-	location_id: i32,
-) -> Result<LocationResource, SysError> {
-	let db = &ctx.database;
+pub async fn scan_location(ctx: &LibraryContext, location_id: i32, path: impl AsRef<Path>) {
+	let path_buf = path.as_ref().to_path_buf();
+	ctx.spawn_job(Job::new(
+		IndexerJobInit {
+			path: path_buf.clone(),
+		},
+		Box::new(IndexerJob {}),
+	))
+	.await;
+	ctx.queue_job(Job::new(
+		FileIdentifierJobInit {
+			location_id,
+			path: path_buf.clone(),
+		},
+		Box::new(FileIdentifierJob {}),
+	))
+	.await;
 
-	// get location by location_id from db and include location_paths
-	let location = match db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.exec()
-		.await?
-	{
-		Some(location) => location,
-		None => Err(LocationError::NotFound(location_id.to_string()))?,
-	};
-	Ok(location.into())
+	ctx.queue_job(Job::new(
+		ThumbnailJobInit {
+			location_id,
+			path: path_buf,
+			background: true,
+		},
+		Box::new(ThumbnailJob {}),
+	))
+	.await;
 }
 
-pub fn scan_location(ctx: &CoreContext, location_id: i32, path: String) {
-	ctx.spawn_job(Box::new(IndexerJob { path: path.clone() }));
-	ctx.queue_job(Box::new(FileIdentifierJob { location_id, path }));
-	// TODO: make a way to stop jobs so this can be canceled without rebooting app
-	// ctx.queue_job(Box::new(ThumbnailJob {
-	// 	location_id,
-	// 	path: "".to_string(),
-	// 	background: false,
-	// }));
-}
-
-pub async fn new_location_and_scan(
-	ctx: &CoreContext,
-	path: &str,
-) -> Result<LocationResource, SysError> {
-	let location = create_location(&ctx, path).await?;
-
-	scan_location(&ctx, location.id, path.to_string());
-
-	Ok(location)
-}
-
-pub async fn get_locations(ctx: &CoreContext) -> Result<Vec<LocationResource>, SysError> {
-	let db = &ctx.database;
-
-	let locations = db
-		.location()
-		.find_many(vec![])
-		.with(location::node::fetch())
-		.exec()
-		.await?;
-
-	// turn locations into LocationResource
-	let locations: Vec<LocationResource> = locations
-		.into_iter()
-		.map(|location| location.into())
-		.collect();
-
-	Ok(locations)
-}
-
-pub async fn create_location(ctx: &CoreContext, path: &str) -> Result<LocationResource, SysError> {
-	let db = &ctx.database;
-	let config = get_nodestate();
+pub async fn create_location(
+	library: &LibraryContext,
+	path: impl AsRef<Path> + Debug,
+) -> Result<location::Data, LocationError> {
+	let path = path.as_ref();
 
 	// check if we have access to this location
-	if !Path::new(path).exists() {
-		Err(LocationError::NotFound(path.to_string()))?;
+	if !path.exists() {
+		return Err(LocationError::PathNotFound(path.to_owned()));
 	}
 
-	// if on windows
-	if cfg!(target_family = "windows") {
-		// try and create a dummy file to see if we can write to this location
-		match fs::File::create(format!("{}/{}", path.clone(), ".spacewrite")) {
-			Ok(file) => file,
-			Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
-		};
-
-		match fs::remove_file(format!("{}/{}", path.clone(), ".spacewrite")) {
-			Ok(_) => (),
-			Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
-		}
-	} else {
-		// unix allows us to test this more directly
-		match fs::File::open(&path) {
-			Ok(_) => println!("Path is valid, creating location for '{}'", &path),
-			Err(e) => Err(LocationError::FileReadError(e))?,
-		}
+	if metadata(path)
+		.await
+		.map_err(|e| LocationError::DotfileReadFailure(e, path.to_owned()))?
+		.permissions()
+		.readonly()
+	{
+		return Err(LocationError::ReadonlyDotFileLocationFailure(
+			path.to_owned(),
+		));
 	}
+
+	let path_string = path.to_str().unwrap().to_string();
 
 	// check if location already exists
-	let location = match db
+	let location_resource = if let Some(location) = library
+		.db
 		.location()
-		.find_first(vec![location::local_path::equals(Some(path.to_string()))])
+		.find_first(vec![location::local_path::equals(Some(
+			path_string.clone(),
+		))])
 		.exec()
 		.await?
 	{
-		Some(location) => location,
-		None => {
-			println!(
-				"Location does not exist, creating new location for '{}'",
-				&path
-			);
-			let uuid = uuid::Uuid::new_v4();
+		location
+	} else {
+		info!(
+			"Location does not exist, creating new location for '{}'",
+			path_string
+		);
+		let uuid = Uuid::new_v4();
 
-			let p = Path::new(&path);
+		let location = library
+			.db
+			.location()
+			.create(
+				uuid.as_bytes().to_vec(),
+				vec![
+					location::name::set(Some(
+						path.file_name().unwrap().to_str().unwrap().to_string(),
+					)),
+					location::is_online::set(true),
+					location::local_path::set(Some(path_string)),
+					location::node_id::set(Some(library.node_local_id)),
+				],
+			)
+			.exec()
+			.await?;
 
-			let location = db
-				.location()
-				.create(
-					location::pub_id::set(uuid.to_string()),
-					vec![
-						location::name::set(Some(
-							p.file_name().unwrap().to_string_lossy().to_string(),
-						)),
-						location::is_online::set(true),
-						location::local_path::set(Some(path.to_string())),
-						location::node_id::set(Some(config.node_id)),
-					],
-				)
-				.exec()
-				.await?;
+		info!("Created location: {:?}", location);
 
-			println!("Created location: {:?}", location);
+		// write a file called .spacedrive to path containing the location id in JSON format
+		let mut dotfile = File::create(path.with_file_name(DOTFILE_NAME))
+			.await
+			.map_err(|e| LocationError::DotfileWriteFailure(e, path.to_owned()))?;
 
-			// write a file called .spacedrive to path containing the location id in JSON format
-			let mut dotfile = match fs::File::create(format!("{}/{}", path.clone(), DOTFILE_NAME)) {
-				Ok(file) => file,
-				Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
-			};
+		let data = DotSpacedrive {
+			location_uuid: uuid,
+			library_uuid: library.id,
+		};
 
-			let data = DotSpacedrive {
-				location_uuid: uuid.to_string(),
-				library_uuid: config.current_library_uuid,
-			};
+		let json_bytes = serde_json::to_vec(&data)
+			.map_err(|e| LocationError::DotfileSerializeFailure(e, path.to_owned()))?;
 
-			let json = match serde_json::to_string(&data) {
-				Ok(json) => json,
-				Err(e) => Err(LocationError::DotfileSerializeFailure(e, path.to_string()))?,
-			};
+		dotfile
+			.write_all(&json_bytes)
+			.await
+			.map_err(|e| LocationError::DotfileWriteFailure(e, path.to_owned()))?;
 
-			match dotfile.write_all(json.as_bytes()) {
-				Ok(_) => (),
-				Err(e) => Err(LocationError::DotfileWriteFailure(e, path.to_string()))?,
+		invalidate_query!(
+			library,
+			"locations.get": LibraryArgs<()>,
+			LibraryArgs {
+				library_id: library.id,
+				arg: ()
 			}
+		);
 
-			ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
-				.await;
-
-			location
-		}
+		location
 	};
 
-	Ok(location.into())
-}
-
-pub async fn delete_location(ctx: &CoreContext, location_id: i32) -> Result<(), SysError> {
-	let db = &ctx.database;
-
-	db.file_path()
-		.find_many(vec![file_path::location_id::equals(Some(location_id))])
-		.delete()
-		.exec()
-		.await?;
-
-	db.location()
-		.find_unique(location::id::equals(location_id))
-		.delete()
-		.exec()
-		.await?;
-
-	ctx.emit(CoreEvent::InvalidateQuery(ClientQuery::SysGetLocations))
-		.await;
-
-	println!("Location {} deleted", location_id);
-
-	Ok(())
+	Ok(location_resource)
 }
 
 #[derive(Error, Debug)]
 pub enum LocationError {
 	#[error("Failed to create location (uuid {uuid:?})")]
-	CreateFailure { uuid: String },
-	#[error("Failed to read location dotfile")]
-	DotfileReadFailure(io::Error),
+	CreateFailure { uuid: Uuid },
+	#[error("Failed to read location dotfile (path: {1:?})")]
+	DotfileReadFailure(io::Error, PathBuf),
 	#[error("Failed to serialize dotfile for location (at path: {1:?})")]
-	DotfileSerializeFailure(serde_json::Error, String),
-	#[error("Location not found (uuid: {1:?})")]
-	DotfileWriteFailure(io::Error, String),
-	#[error("Location not found (uuid: {0:?})")]
-	NotFound(String),
+	DotfileSerializeFailure(serde_json::Error, PathBuf),
+	#[error("Dotfile location is read only (at path: {0:?})")]
+	ReadonlyDotFileLocationFailure(PathBuf),
+	#[error("Failed to write dotfile (path: {1:?})")]
+	DotfileWriteFailure(io::Error, PathBuf),
+	#[error("Location not found (path: {0:?})")]
+	PathNotFound(PathBuf),
+	#[error("Location not found (uuid: {0})")]
+	UuidNotFound(Uuid),
+	#[error("Location not found (id: {0})")]
+	IdNotFound(i32),
 	#[error("Failed to open file from local os")]
 	FileReadError(io::Error),
 	#[error("Failed to read mounted volumes from local os")]
 	VolumeReadError(String),
 	#[error("Failed to connect to database (error: {0:?})")]
 	IOError(io::Error),
+	#[error("Database error")]
+	DatabaseError(#[from] prisma_client_rust::QueryError),
+}
+
+impl From<LocationError> for rspc::Error {
+	fn from(err: LocationError) -> Self {
+		rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+	}
 }

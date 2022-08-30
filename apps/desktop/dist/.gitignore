@@ -1,0 +1,5 @@
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore
+# This is done so that Tauri never complains that '../dist does not exist'

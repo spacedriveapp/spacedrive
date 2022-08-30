@@ -1,6 +1,7 @@
 node_modules
 .next
 dist
+!apps/desktop/dist
 *.tsbuildinfo
 package-lock.json
 .eslintcache
@@ -15,7 +16,6 @@ storybook-static/
 cache
 .env
 vendor/
-dist
 data
 node_modules
 packages/turbo-server/data/
