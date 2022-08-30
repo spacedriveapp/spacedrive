@@ -4,7 +4,6 @@ use tracing::log::info;
 use uuid::Uuid;
 
 use crate::{
-	api::locations::GetExplorerDirArgs,
 	invalidate_query,
 	prisma::{file, tag, tag_on_file},
 };

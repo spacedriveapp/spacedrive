@@ -12,7 +12,7 @@ export interface ContextMenuItem {
 	active?: boolean;
 	leftItem?: React.ReactNode;
 	rightItem?: React.ReactNode;
-	onClick?: (e: Event) => void;
+	onClick?: React.MouseEventHandler<HTMLDivElement>;
 
 	children?: ContextMenuSection[];
 }
