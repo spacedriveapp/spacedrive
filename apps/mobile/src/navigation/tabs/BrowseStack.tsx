@@ -1,8 +1,12 @@
+import BrowseScreen from '@app/screens/Browse';
 import { CompositeScreenProps } from '@react-navigation/native';
-import { StackScreenProps, TransitionPresets, createStackNavigator } from '@react-navigation/stack';
+import {
+	Header,
+	StackScreenProps,
+	TransitionPresets,
+	createStackNavigator
+} from '@react-navigation/stack';
 
-import Header from '../../components/header/Header';
-import BrowseScreen from '../../screens/Browse';
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 

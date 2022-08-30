@@ -23,6 +23,7 @@ importers:
       '@types/react-native': ~0.69.1
       '@typescript-eslint/eslint-plugin': ^5.30.7
       '@typescript-eslint/parser': ^5.30.7
+      babel-plugin-module-resolver: ^4.1.0
       byte-size: ^8.1.0
       class-variance-authority: ^0.2.3
       date-fns: ^2.29.2
@@ -96,6 +97,7 @@ importers:
       '@types/react-native': 0.69.5
       '@typescript-eslint/eslint-plugin': 5.33.1_vsoshirnpb7xw6mr7xomgfas2i
       '@typescript-eslint/parser': 5.33.1_4rv7y5c6xz3vfxwhbrcxxi73bq
+      babel-plugin-module-resolver: 4.1.0
       eslint: 8.22.0
       eslint-config-prettier: 8.5.0_eslint@8.22.0
       eslint-plugin-react: 7.30.1_eslint@8.22.0
@@ -3125,7 +3127,6 @@ packages:
       pkg-up: 3.1.0
       reselect: 4.1.6
       resolve: 1.22.1
-    dev: false
 
   /babel-plugin-polyfill-corejs2/0.3.2_@babel+core@7.18.10:
     resolution: {integrity: sha512-LPnodUl3lS0/4wN3Rb+m+UK8s7lj2jcLRrjho4gLw+OJs+I4bvGXshINesY5xx/apM+biTnQ9reDI8yj+0M5+Q==}
@@ -4716,7 +4717,6 @@ packages:
     dependencies:
       json5: 0.5.1
       path-exists: 3.0.0
-    dev: false
 
   /find-cache-dir/2.1.0:
     resolution: {integrity: sha512-Tq6PixE0w/VMFfCgbONnkiQIVol/JJL7nRMi20fqzA4NRs9AfeqMGeRdPi3wIhYkxjeBaWh2rxwapn5Tu3IqOQ==}
@@ -5701,7 +5701,6 @@ packages:
   /json5/0.5.1:
     resolution: {integrity: sha512-4xrs1aW+6N5DalkqSVA8fxh458CXvR99WU8WLKmq4v8eWAL86Xo3BVqyd3SkA9wEVjCMqyvvRRkshAdOnBp5rw==}
     hasBin: true
-    dev: false
 
   /json5/1.0.1:
     resolution: {integrity: sha512-aKS4WQjPenRxiQsC93MNfjx+nbF4PAdYzmd/1JIj8HYzqfbu86beTuNgXDzPknWk0n0uARlyewZo4s++ES36Ow==}
@@ -7445,7 +7444,6 @@ packages:
 
   /reselect/4.1.6:
     resolution: {integrity: sha512-ZovIuXqto7elwnxyXbBtCPo9YFEr3uJqj2rRbcOOog1bmu2Ag85M4hixSwFWyaBMKXNgvPaJ9OSu9SkBPIeJHQ==}
-    dev: false
 
   /resolve-from/3.0.0:
     resolution: {integrity: sha512-GnlH6vxLymXJNMBo7XP1fJIzBFbdYt49CuTwmB/6N53t+kMPRMFKz783LlQ4tv28XoQfMWinAJX6WCGf2IlaIw==}

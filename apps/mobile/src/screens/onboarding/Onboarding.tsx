@@ -1,12 +1,11 @@
+import { FadeInUpAnimation, LogoAnimation } from '@app/components/animation/layout';
+import { AnimatedButton } from '@app/components/primitive/Button';
+import { setItemToStorage } from '@app/lib/storage';
+import tw from '@app/lib/tailwind';
+import { OnboardingStackScreenProps } from '@app/navigation/OnboardingNavigator';
+import { useOnboardingStore } from '@app/stores/useOnboardingStore';
 import React from 'react';
 import { Image, Text, View } from 'react-native';
-
-import { FadeInUpAnimation, LogoAnimation } from '../../components/animation/layout';
-import { AnimatedButton } from '../../components/base/Button';
-import { setItemToStorage } from '../../lib/storage';
-import tw from '../../lib/tailwind';
-import type { OnboardingStackScreenProps } from '../../navigation/OnboardingNavigator';
-import { useOnboardingStore } from '../../stores/useOnboardingStore';
 
 const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding'>) => {
 	const { hideOnboarding } = useOnboardingStore();

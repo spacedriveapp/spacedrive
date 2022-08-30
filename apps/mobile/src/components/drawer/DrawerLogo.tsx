@@ -1,8 +1,8 @@
+import tw from '@app/lib/tailwind';
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 
-import tw from '../../lib/tailwind';
-import Divider from '../base/Divider';
+import Divider from '../primitive/Divider';
 
 const DrawerLogo = () => {
 	return (

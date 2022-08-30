@@ -1,9 +1,9 @@
+import tw from '@app/lib/tailwind';
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { CirclesFour, Folder, Planet } from 'phosphor-react-native';
 import { PhotographIcon } from 'react-native-heroicons/outline';
 
-import tw from '../lib/tailwind';
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
 import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';

@@ -1,3 +1,4 @@
+import tw from '@app/lib/tailwind';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
@@ -6,8 +7,6 @@ import { List } from 'phosphor-react-native';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import tw from '../../lib/tailwind';
 
 const Header = () => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();

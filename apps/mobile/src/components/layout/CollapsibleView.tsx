@@ -1,9 +1,9 @@
+import tw from '@app/lib/tailwind';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import React, { useReducer } from 'react';
 import { Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 
-import tw from '../../lib/tailwind';
 import { AnimatedHeight } from '../animation/layout';
 
 type CollapsibleViewProps = {

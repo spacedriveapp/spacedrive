@@ -1,7 +1,7 @@
+import tw from '@app/lib/tailwind';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import tw from '../../lib/tailwind';
 import FolderIcon from '../icons/FolderIcon';
 
 interface DrawerLocationItemProps {

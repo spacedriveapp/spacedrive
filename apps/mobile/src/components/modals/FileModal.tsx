@@ -6,8 +6,8 @@ import { ChevronLeftIcon } from 'react-native-heroicons/outline';
 
 import tw from '../../lib/tailwind';
 import { useFileModalStore } from '../../stores/useModalStore';
-import Divider from '../base/Divider';
 import FileIcon from '../file/FileIcon';
+import Divider from '../primitive/Divider';
 import ModalBackdrop from './layout/ModalBackdrop';
 import ModalHandle from './layout/ModalHandle';
 
