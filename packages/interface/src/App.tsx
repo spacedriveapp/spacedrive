@@ -1,46 +1,59 @@
 import '@fontsource/inter/variable.css';
-import { BaseTransport, ClientProvider, setTransport } from '@sd/client';
-import React from 'react';
+import {
+	AppProps,
+	AppPropsContext,
+	queryClient,
+	useBridgeQuery,
+	useInvalidateQuery
+} from '@sd/client';
+import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import React, { useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { QueryClient, QueryClientProvider } from 'react-query';
 import { MemoryRouter } from 'react-router-dom';
 
-import { AppProps, AppPropsContext } from './AppPropsContext';
 import { AppRouter } from './AppRouter';
 import { ErrorFallback } from './ErrorFallback';
-import { useCoreEvents } from './hooks/useCoreEvents';
 import './style.scss';
 
-const queryClient = new QueryClient();
+function RouterContainer(props: { props: AppProps }) {
+	const [appProps, setAppProps] = useState(props.props);
+	const { data: client } = useBridgeQuery(['getNode']);
 
-function RouterContainer() {
-	useCoreEvents();
+	useEffect(() => {
+		setAppProps((appProps) => ({
+			...appProps,
+			data_path: client?.data_path
+		}));
+	}, [client?.data_path]);
+
 	return (
-		<MemoryRouter>
-			<AppRouter />
-		</MemoryRouter>
+		<AppPropsContext.Provider value={Object.assign({ isFocused: true }, appProps)}>
+			<MemoryRouter>
+				<AppRouter />
+			</MemoryRouter>
+		</AppPropsContext.Provider>
 	);
 }
 
-export default function App(props: AppProps) {
-	// TODO: This is a hack and a better solution should probably be found.
-	// This exists so that the queryClient can be accessed within the subpackage '@sd/client'.
-	// Refer to <ClientProvider /> for where this is used.
-	window.ReactQueryClient ??= queryClient;
+export default function SpacedriveInterface(props: AppProps) {
+	useInvalidateQuery();
 
-	setTransport(props.transport);
+	// hotfix for bug where props are not updated, not sure of the cause
+	if (props.platform === 'unknown') {
+		// this should be a loading screen if we can't fix the issue above
+		return <></>;
+	}
 
 	return (
-		<>
-			<ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => {}}>
-				<QueryClientProvider client={queryClient} contextSharing={false}>
-					<AppPropsContext.Provider value={Object.assign({ isFocused: true }, props)}>
-						<ClientProvider>
-							<RouterContainer />
-						</ClientProvider>
-					</AppPropsContext.Provider>
-				</QueryClientProvider>
-			</ErrorBoundary>
-		</>
+		<ErrorBoundary FallbackComponent={ErrorFallback}>
+			<QueryClientProvider client={queryClient} contextSharing={true}>
+				{/* The `context={defaultContext}` part is required for this to work on Windows. Why, idk, don't question it */}
+				{import.meta.env.MODE === 'development' && (
+					<ReactQueryDevtools position="bottom-right" context={defaultContext} />
+				)}
+				<RouterContainer props={props} />
+			</QueryClientProvider>
+		</ErrorBoundary>
 	);
 }

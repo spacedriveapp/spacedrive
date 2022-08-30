@@ -42,6 +42,23 @@ const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
+		name: 'Ericson Soares',
+		role: 'Rust Backend Engineer',
+		image: teamImages['ericson.jpg'],
+		socials: {
+			twitter: 'https://twitter.com/fogodev',
+			github: 'https://github.com/fogodev'
+		}
+	},
+	{
+		name: 'Utku Bakir',
+		role: 'React Native Engineer',
+		image: teamImages['utku.jpg'],
+		socials: {
+			github: 'https://github.com/utkubakir'
+		}
+	},
+	{
 		name: 'Haden Fletcher',
 		role: 'Engineer & Designer',
 		image: teamImages['haden.jpg'],
@@ -197,7 +214,7 @@ function Page() {
 					style={{ transform: 'scale(2)' }}
 				/>
 				<div className="relative z-10">
-					<h1 className="text-5xl leading-snug fade-in-heading ">
+					<h1 className="text-5xl leading-tight sm:leading-snug fade-in-heading ">
 						We believe file management should be <span className="title-gradient">universal</span>.
 					</h1>
 					<p className="text-gray-400 animation-delay-2 fade-in-heading ">
@@ -228,7 +245,7 @@ function Page() {
 							<a
 								href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
 								target="_blank"
-								rel="noreferer"
+								rel="noreferrer"
 								className="duration-200 oss-credit-gradient hover:opacity-75"
 							>
 								open source contributors
@@ -253,4 +270,4 @@ function Page() {
 	);
 }
 
-export default Page;
+export { Page };

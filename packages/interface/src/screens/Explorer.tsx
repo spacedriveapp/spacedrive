@@ -1,35 +1,40 @@
-import { useBridgeQuery } from '@sd/client';
+import { rspc, useExplorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 import { FileList } from '../components/file/FileList';
 import { Inspector } from '../components/file/Inspector';
 import { TopBar } from '../components/layout/TopBar';
-import { useExplorerState } from '../hooks/useExplorerState';
 
-export const ExplorerScreen: React.FC<{}> = () => {
-	let [searchParams] = useSearchParams();
-	let path = searchParams.get('path') || '';
+export const ExplorerScreen: React.FC<unknown> = () => {
+	const [searchParams] = useSearchParams();
+	const path = searchParams.get('path') || '';
 
-	let { id } = useParams();
-	let location_id = Number(id);
+	const { id } = useParams();
+	const location_id = Number(id);
 
 	const [limit, setLimit] = React.useState(100);
 
-	const { selectedRowIndex } = useExplorerState();
+	const { selectedRowIndex, addNewThumbnail } = useExplorerStore();
+
+	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
+	rspc.useSubscription(['jobs.newThumbnail', { library_id: library_id!, arg: null }], {
+		onNext: (cas_id) => {
+			addNewThumbnail(cas_id);
+		}
+	});
 
 	// Current Location
-	const { data: currentLocation } = useBridgeQuery('SysGetLocation', { id: location_id });
+	const { data: currentLocation } = useLibraryQuery(['locations.getById', location_id]);
 
 	// Current Directory
-	const { data: currentDir } = useBridgeQuery(
-		'LibGetExplorerDir',
-		{ location_id: location_id!, path, limit },
+	const { data: currentDir } = useLibraryQuery(
+		['locations.getExplorerDir', { location_id: location_id!, path, limit }],
 		{ enabled: !!location_id }
 	);
 
 	return (
-		<div className="relative flex flex-col w-full">
+		<div className="relative flex flex-col w-full bg-gray-650">
 			<TopBar />
 			<div className="relative flex flex-row w-full max-h-full">
 				<FileList location_id={location_id} path={path} limit={limit} />

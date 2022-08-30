@@ -36,7 +36,7 @@ function Link(props: LinkProps) {
 		<a
 			className="duration-300 hover:scale-105 hover:opacity-80"
 			href={props.href}
-			rel="noreferer"
+			rel="noreferrer"
 			target="_blank"
 		>
 			{props.children}

@@ -1,21 +1,21 @@
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { AppPropsContext, useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
 
-import { AppPropsContext } from '../AppPropsContext';
 import CodeBlock from '../components/primitive/Codeblock';
 
-export const DebugScreen: React.FC<{}> = (props) => {
+export const DebugScreen: React.FC<unknown> = (props) => {
 	const appPropsContext = useContext(AppPropsContext);
-	const { data: client } = useBridgeQuery('NodeGetState');
-	const { data: jobs } = useBridgeQuery('JobGetRunning');
-	const { data: jobHistory } = useBridgeQuery('JobGetHistory');
+	const { data: nodeState } = useBridgeQuery(['getNode']);
+	const { data: libraryState } = useBridgeQuery(['library.get']);
+	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
+	const { data: jobHistory } = useLibraryQuery(['jobs.getHistory']);
 	// const { mutate: purgeDB } = useBridgeCommand('PurgeDatabase', {
 	//   onMutate: () => {
 	//     alert('Database purged');
 	//   }
 	// });
-	const { mutate: identifyFiles } = useBridgeCommand('IdentifyUniqueFiles');
+	const { mutate: identifyFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
 	return (
 		<div className="flex flex-col w-full h-screen custom-scroll page-scroll">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
@@ -27,8 +27,8 @@ export const DebugScreen: React.FC<{}> = (props) => {
 						variant="gray"
 						size="sm"
 						onClick={() => {
-							if (client && appPropsContext?.onOpen) {
-								appPropsContext.onOpen(client.data_path);
+							if (nodeState && appPropsContext?.onOpen) {
+								appPropsContext.onOpen(nodeState.data_path);
 							}
 						}}
 					>
@@ -39,8 +39,10 @@ export const DebugScreen: React.FC<{}> = (props) => {
 				<CodeBlock src={{ ...jobs }} />
 				<h1 className="text-sm font-bold ">Job History</h1>
 				<CodeBlock src={{ ...jobHistory }} />
-				<h1 className="text-sm font-bold ">Client State</h1>
-				<CodeBlock src={{ ...client }} />
+				<h1 className="text-sm font-bold ">Node State</h1>
+				<CodeBlock src={{ ...nodeState }} />
+				<h1 className="text-sm font-bold ">Libraries</h1>
+				<CodeBlock src={{ ...libraryState }} />
 			</div>
 		</div>
 	);
