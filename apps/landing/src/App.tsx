@@ -9,7 +9,7 @@ import NavBar from './components/NavBar';
 import { PageContextProvider } from './renderer/usePageContext';
 import './style.scss';
 
-export function App({
+export default function App({
 	children,
 	pageContext
 }: {

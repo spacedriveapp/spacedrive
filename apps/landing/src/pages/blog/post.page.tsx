@@ -1,21 +1,21 @@
 import { PostOrPage, Tag } from '@tryghost/content-api';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-rust';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 
 import '../../atom-one.css';
 import { BlogTag } from '../../components/BlogTag';
 
-function MarkdownPage({ post }: { post: PostOrPage }) {
+function Page({ post }: { post: PostOrPage }) {
 	useEffect(() => {
 		Prism.highlightAll();
 	}, []);
 
-	let description =
+	const description =
 		post?.excerpt?.length || 0 > 160 ? post?.excerpt?.substring(0, 160) + '...' : post?.excerpt;
 
-	let featured_image =
+	const featured_image =
 		post?.feature_image ||
 		'https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_icon.png';
 
@@ -50,9 +50,9 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 								</p>
 							</div>
 							<div className="flex flex-wrap gap-2">
-								{post?.tags?.map((tag: Tag) => {
-									return <BlogTag tag={tag} />;
-								})}
+								{post?.tags?.map((tag: Tag) => (
+									<BlogTag key={tag.id} tag={tag} />
+								))}
 							</div>
 						</section>
 						<article
@@ -72,4 +72,4 @@ function MarkdownPage({ post }: { post: PostOrPage }) {
 	);
 }
 
-export default MarkdownPage;
+export { Page };

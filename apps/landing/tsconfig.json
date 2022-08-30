@@ -1,9 +1,10 @@
 {
-	"extends": "../../packages/config/interface.tsconfig.json",
-	"compilerOptions": {
-		"paths": {
-			"~/docs/*": ["../../docs/*"]
-		}
-	},
-	"include": ["src"]
+  "extends": "../../packages/config/interface.tsconfig.json",
+  "include": ["src"],
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
+  }
 }

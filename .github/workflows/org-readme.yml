@@ -18,7 +18,7 @@ jobs:
       - name: Update README
         uses: dmnemec/copy_file_to_another_repo_action@main
         env:
-          API_TOKEN_GITHUB: ${{ secrets.REPOS_PAT }}
+          API_TOKEN_GITHUB: ${{ secrets.SD_BOT_PAT }}
         with:
           source_file: 'README.md'
           destination_repo: 'spacedriveapp/.github'
