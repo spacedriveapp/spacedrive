@@ -7,6 +7,7 @@ import { Heart, Link } from 'phosphor-react';
 import React, { useCallback, useEffect, useState } from 'react';
 
 import types from '../../constants/file-types.json';
+import { Tooltip } from '../tooltip/Tooltip';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
@@ -101,15 +102,21 @@ export const Inspector = (props: {
 					<div className="flex flex-col w-full pb-2 overflow-hidden bg-white rounded-lg select-text dark:bg-gray-550 dark:bg-opacity-40">
 						<h3 className="pt-3 pl-3 text-base font-bold">{file_path?.name}</h3>
 						<div className="flex flex-row m-3 space-x-2">
-							<Button onClick={toggleFavorite} size="sm" noPadding>
-								<Heart weight={favorite ? 'fill' : 'regular'} className="w-[18px] h-[18px]" />
-							</Button>
-							<Button size="sm" noPadding>
-								<ShareIcon className="w-[18px] h-[18px]" />
-							</Button>
-							<Button size="sm" noPadding>
-								<Link className="w-[18px] h-[18px]" />
-							</Button>
+							<Tooltip label="Favorite">
+								<Button onClick={toggleFavorite} size="sm" noPadding>
+									<Heart weight={favorite ? 'fill' : 'regular'} className="w-[18px] h-[18px]" />
+								</Button>
+							</Tooltip>
+							<Tooltip label="Share">
+								<Button size="sm" noPadding>
+									<ShareIcon className="w-[18px] h-[18px]" />
+								</Button>
+							</Tooltip>
+							<Tooltip label="Link">
+								<Button size="sm" noPadding>
+									<Link className="w-[18px] h-[18px]" />
+								</Button>
+							</Tooltip>
 						</div>
 						{file_path?.file?.cas_id && (
 							<MetaItem title="Unique Content ID" value={file_path.file.cas_id as string} />
