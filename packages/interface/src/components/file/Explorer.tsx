@@ -92,7 +92,8 @@ export default function Explorer(props: Props) {
 						{
 							label: 'Share',
 							icon: Share,
-							onClick() {
+							onClick(e) {
+								e.preventDefault();
 								navigator.share?.({
 									title: 'Spacedrive',
 									text: 'Check out this cool app',
@@ -105,7 +106,6 @@ export default function Explorer(props: Props) {
 						{
 							label: 'Assign tag',
 							icon: TagSimple,
-
 							children: [
 								tags?.map((tag) => {
 									const active = !!tagsForFile?.find((t) => t.id === tag.id);

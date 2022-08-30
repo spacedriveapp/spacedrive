@@ -32,12 +32,15 @@ export default function FileItem(props: Props) {
 		>
 			<div
 				style={{ width: size, height: size }}
-				className={clsx('border-2 border-transparent rounded-lg text-center mb-1', {
-					'bg-gray-50 dark:bg-gray-650': props.selected
-				})}
+				className={clsx(
+					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
+					{
+						'bg-gray-50 dark:bg-gray-650': props.selected
+					}
+				)}
 			>
 				{props.file?.is_dir ? (
-					<div className="flex items-center justify-center w-full h-full active:translate-y-[1px]">
+					<div className="flex items-center justify-center w-full h-full">
 						<div className="w-[70px]">
 							<Folder className="" />
 						</div>
