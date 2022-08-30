@@ -8,7 +8,7 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	library::LibraryContext,
-	prisma::{self, location},
+	prisma::location,
 };
 
 use rspc::ErrorCode;
@@ -195,7 +195,7 @@ pub enum LocationError {
 	#[error("Failed to connect to database (error: {0:?})")]
 	IOError(io::Error),
 	#[error("Database error")]
-	DatabaseError(#[from] prisma::QueryError),
+	DatabaseError(#[from] prisma_client_rust::QueryError),
 }
 
 impl From<LocationError> for rspc::Error {

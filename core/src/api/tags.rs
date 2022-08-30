@@ -97,8 +97,10 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.db
 					.tag()
-					.find_unique(tag::id::equals(args.id))
-					.update(vec![tag::name::set(args.name), tag::color::set(args.color)])
+					.update(
+						tag::id::equals(args.id),
+						vec![tag::name::set(args.name), tag::color::set(args.color)],
+					)
 					.exec()
 					.await?;
 
@@ -117,13 +119,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
 			let (id, library) = arg.get_library(&ctx).await?;
 
-			library
-				.db
-				.tag()
-				.find_unique(tag::id::equals(id))
-				.delete()
-				.exec()
-				.await?;
+			library.db.tag().delete(tag::id::equals(id)).exec().await?;
 
 			invalidate_query!(
 				library,

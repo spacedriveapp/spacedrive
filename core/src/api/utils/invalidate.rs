@@ -1,5 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+#[cfg(debug_assertions)]
+use std::sync::Mutex;
+
+#[cfg(debug_assertions)]
 use once_cell::sync::OnceCell;
 use rspc::{internal::specta::DataType, Type};
 use serde::Serialize;
@@ -27,6 +31,7 @@ impl InvalidateOperationEvent {
 
 /// a request to invalidate a specific resource
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct InvalidationRequest {
 	pub key: &'static str,
 	pub arg_ty: DataType,
@@ -35,6 +40,7 @@ pub(crate) struct InvalidationRequest {
 
 /// invalidation request for a specific resource
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub(crate) struct InvalidRequests {
 	pub queries: Vec<InvalidationRequest>,
 }

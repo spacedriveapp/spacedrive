@@ -39,6 +39,12 @@ function RouterContainer(props: { props: AppProps }) {
 export default function SpacedriveInterface(props: AppProps) {
 	useInvalidateQuery();
 
+	// hotfix for bug where props are not updated, not sure of the cause
+	if (props.platform === 'unknown') {
+		// this should be a loading screen if we can't fix the issue above
+		return <></>;
+	}
+
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<QueryClientProvider client={queryClient} contextSharing={true}>

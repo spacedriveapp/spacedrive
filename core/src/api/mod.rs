@@ -16,7 +16,7 @@ use crate::{
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
-pub(crate) type Router = rspc::Router<Ctx>;
+pub type Router = rspc::Router<Ctx>;
 pub(crate) type RouterBuilder = rspc::RouterBuilder<Ctx>;
 
 /// Represents an internal core event, these are exposed to client via a rspc subscription.
@@ -133,5 +133,9 @@ mod tests {
 		let r = super::mount();
 		r.export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts"))
 			.expect("Error exporting rspc Typescript bindings!");
+		r.export_ts(
+			PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../apps/mobile/src/types/bindings.ts"),
+		)
+		.expect("Error exporting rspc Typescript bindings!");
 	}
 }
