@@ -1,3 +1,4 @@
+import { CheckIcon } from '@heroicons/react/solid';
 import {
 	ExplorerKind,
 	rspc,
@@ -31,6 +32,7 @@ import { FileList } from '../file/FileList';
 import { Inspector } from '../file/Inspector';
 import { WithContextMenu } from '../layout/MenuOverlay';
 import { TopBar } from '../layout/TopBar';
+import { Checkbox } from '../primitive/Checkbox';
 
 interface Props {
 	library_id: string;
@@ -45,16 +47,11 @@ export default function Explorer(props: Props) {
 
 	const { data: tags } = useLibraryQuery(['tags.getAll'], {});
 
-	const { mutate: assignTag } = useLibraryMutation('tags.assign', {
-		onSettled: () => {
-			console.log('assigned tag', tags, contextMenuObjectId);
-		},
-		onError: (error) => {
-			console.error(error);
-		}
-	});
+	const { mutate: assignTag } = useLibraryMutation('tags.assign');
 
-	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
+	// const { libraries } = useCurrentLibrary();
+
+	const { data: tagsForFile } = useLibraryQuery(['tags.getForFile', contextMenuObjectId]);
 
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: props.library_id!, arg: null }], {
 		onNext: (cas_id) => {
@@ -110,15 +107,35 @@ export default function Explorer(props: Props) {
 							icon: TagSimple,
 
 							children: [
-								tags?.map((tag) => ({
-									label: tag.name || '',
-									onClick() {
-										assignTag({
-											tag_id: tag.id,
-											file_id: contextMenuObjectId
-										});
-									}
-								})) || []
+								tags?.map((tag) => {
+									const active = !!tagsForFile?.find((t) => t.id === tag.id);
+									return {
+										label: tag.name || '',
+
+										// leftItem: <Checkbox checked={!!tagsForFile?.find((t) => t.id === tag.id)} />,
+										leftItem: (
+											<div className="relative">
+												<div
+													className="block w-[15px] h-[15px] mr-0.5 border rounded-full"
+													style={{
+														backgroundColor: active
+															? tag.color || '#efefef'
+															: 'transparent' || '#efefef',
+														borderColor: tag.color || '#efefef'
+													}}
+												/>
+											</div>
+										),
+										onClick(e) {
+											e.preventDefault();
+											assignTag({
+												tag_id: tag.id,
+												file_id: contextMenuObjectId,
+												unassign: active
+											});
+										}
+									};
+								}) || []
 							]
 						}
 					],
@@ -128,17 +145,17 @@ export default function Explorer(props: Props) {
 							icon: Plus,
 
 							children: [
-								[
-									{
-										label: 'Move to library',
-										icon: FilePlus,
-										children: [libraries?.map((library) => ({ label: library.config.name })) || []]
-									},
-									{
-										label: 'Remove from library',
-										icon: FileX
-									}
-								],
+								// [
+								// 	{
+								// 		label: 'Move to library',
+								// 		icon: FilePlus,
+								// 		children: [libraries?.map((library) => ({ label: library.config.name })) || []]
+								// 	},
+								// 	{
+								// 		label: 'Remove from library',
+								// 		icon: FileX
+								// 	}
+								// ],
 								[
 									{
 										label: 'Encrypt',

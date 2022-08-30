@@ -11,14 +11,14 @@ import types from '../../constants/file-types.json';
 import FileThumb from './FileThumb';
 
 interface MetaItemProps {
-	title: string;
+	title?: string;
 	value: string | React.ReactNode;
 }
 
 const MetaItem = (props: MetaItemProps) => {
 	return (
 		<div data-tip={props.value} className="flex flex-col px-4 py-1.5 meta-item">
-			<h5 className="text-xs font-bold">{props.title}</h5>
+			{!!props.title && <h5 className="text-xs font-bold">{props.title}</h5>}
 			{typeof props.value === 'string' ? (
 				<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">{props.value}</p>
 			) : (
@@ -108,9 +108,9 @@ export const Inspector = (props: { locationId: number; selectedFile?: FilePath }
 							<>
 								<Divider />
 								<MetaItem
-									title="Tags"
+									// title="Tags"
 									value={
-										<div className="flex flex-wrap mt-1.5 space-x-2">
+										<div className="flex flex-wrap mt-1.5 gap-1.5">
 											{tags?.map((tag) => (
 												<div
 													// onClick={() => setSelectedTag(tag.id === selectedTag ? null : tag.id)}

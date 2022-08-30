@@ -287,6 +287,7 @@ importers:
       '@sd/config': workspace:*
       '@sd/core': workspace:*
       '@sd/ui': workspace:*
+      '@tailwindcss/forms': ^0.5.2
       '@tanstack/react-query': ^4.0.10
       '@tanstack/react-query-devtools': ^4.0.10
       '@types/babel-core': ^6.25.7
@@ -355,6 +356,7 @@ importers:
       '@sd/client': link:../client
       '@sd/core': link:../../core
       '@sd/ui': link:../ui
+      '@tailwindcss/forms': 0.5.2_tailwindcss@3.1.6
       '@tanstack/react-query': 4.0.10_biqbaboplfbrettd7655fr4n2y
       '@tanstack/react-query-devtools': 4.0.10_react@18.2.0
       '@types/styled-components': 5.1.25
@@ -428,6 +430,7 @@ importers:
       '@storybook/preset-scss': ^1.0.3
       '@storybook/react': ^6.5.9
       '@storybook/testing-library': ^0.0.13
+      '@tailwindcss/forms': ^0.5.2
       '@tailwindcss/line-clamp': ^0.4.0
       '@tailwindcss/typography': ^0.5.4
       '@types/react': ^18.0.15
@@ -451,6 +454,7 @@ importers:
       '@headlessui/react': 1.6.6_biqbaboplfbrettd7655fr4n2y
       '@heroicons/react': 1.0.6_react@18.2.0
       '@radix-ui/react-context-menu': 1.0.0_bb2bxwco6ptpubzwpazr52qf6i
+      '@tailwindcss/forms': 0.5.2_tailwindcss@3.1.6
       clsx: 1.2.1
       phosphor-react: 1.4.1_react@18.2.0
       postcss: 8.4.14
@@ -5199,6 +5203,15 @@ packages:
       defer-to-connect: 2.0.1
     dev: true
 
+  /@tailwindcss/forms/0.5.2_tailwindcss@3.1.6:
+    resolution: {integrity: sha512-pSrFeJB6Bg1Mrg9CdQW3+hqZXAKsBrSG9MAfFLKy1pVA4Mb4W7C0k7mEhlmS2Dfo/otxrQOET7NJiJ9RrS563w==}
+    peerDependencies:
+      tailwindcss: '>=3.0.0 || >= 3.0.0-alpha.1'
+    dependencies:
+      mini-svg-data-uri: 1.4.4
+      tailwindcss: 3.1.6
+    dev: false
+
   /@tailwindcss/line-clamp/0.4.0:
     resolution: {integrity: sha512-HQZo6gfx1D0+DU3nWlNLD5iA6Ef4JAXh0LeD8lOGrJwEDBwwJNKQza6WoXhhY1uQrxOuU8ROxV7CqiQV4CoiLw==}
     peerDependencies:
@@ -6815,6 +6828,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
@@ -13059,6 +13073,11 @@ packages:
     resolution: {integrity: sha512-I9jwMn07Sy/IwOj3zVkVik2JTvgpaykDZEigL6Rx6N9LbMywwUSMtxET+7lVoDLLd3O3IXwJwvuuns8UB/HeAg==}
     engines: {node: '>=4'}
     dev: true
+
+  /mini-svg-data-uri/1.4.4:
+    resolution: {integrity: sha512-r9deDe9p5FJUPZAk3A59wGH7Ii9YrjjWw0jmw/liSbHl2CHiyXj6FcDXDu2K3TjVAXqiJdaw3xxwlZZr9E6nHg==}
+    hasBin: true
+    dev: false
 
   /minimalistic-assert/1.0.1:
     resolution: {integrity: sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==}

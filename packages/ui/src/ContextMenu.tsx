@@ -9,7 +9,10 @@ export interface ContextMenuItem {
 	label: string;
 	icon?: Icon;
 	danger?: boolean;
-	onClick?: () => void;
+	active?: boolean;
+	leftItem?: React.ReactNode;
+	rightItem?: React.ReactNode;
+	onClick?: (e: Event) => void;
 
 	children?: ContextMenuSection[];
 }
@@ -30,6 +33,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 	return (
 		<ContentPrimitive
 			sideOffset={7}
+			// onInteractOutside={(e) => {
+			// 	e.preventDefault();
+			// }}
 			alignOffset={7}
 			className={clsx(
 				'shadow-md min-w-[12rem] py-0.5 shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100  text-left text-sm rounded-lg ',
@@ -84,7 +90,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 									}}
 									className={clsx(
 										'focus:outline-none group cursor-default flex-1 px-1.5 py-1 group-first:pt-1.5 [&[data-state="open"]_div]:bg-primary',
-										item.danger && 'text-red-600 dark:text-red-400'
+										item.danger && 'text-red-600 dark:text-red-400',
+										item.active && 'bg-gray-100 dark:bg-gray-950'
 									)}
 									onClick={item.onClick}
 									key={item.label}
@@ -97,11 +104,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 										)}
 									>
 										{ItemIcon && <ItemIcon size={18} />}
+										{item.leftItem}
 
 										<ContextMenuPrimitive.Label className="ml-1.5 leading-snug flex-grow text-[14px] font-normal">
 											{item.label}
 										</ContextMenuPrimitive.Label>
 
+										{item.rightItem}
 										{(item.children?.length ?? 0) > 0 && (
 											<CaretRight weight="fill" size={12} alt="" />
 										)}

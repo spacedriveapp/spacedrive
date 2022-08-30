@@ -120,7 +120,7 @@ module.exports = function (app, options) {
 		variants: {
 			extend: {}
 		},
-		plugins: []
+		plugins: [require('@tailwindcss/forms')]
 	};
 	if (app === 'landing') {
 		config.plugins.push(require('@tailwindcss/typography'));

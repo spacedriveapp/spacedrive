@@ -11,7 +11,6 @@ export enum ExplorerKind {
 
 type ExplorerStore = {
 	layoutMode: LayoutMode;
-	// the selected object in the explorer
 	selectedRowIndex: number;
 	multiSelectIndexes: number[];
 	contextMenuObjectId: number;

@@ -21,6 +21,7 @@ pub struct TagCreateArgs {
 pub struct TagAssignArgs {
 	pub file_id: i32,
 	pub tag_id: i32,
+	pub unassign: bool,
 }
 
 #[derive(Type, Deserialize)]
@@ -110,18 +111,26 @@ pub(crate) fn mount() -> RouterBuilder {
 			"assign",
 			|ctx, arg: LibraryArgs<TagAssignArgs>| async move {
 				let (args, library) = arg.get_library(&ctx).await?;
-				println!("HELLO!!! {:?}", args);
 
-				library
-					.db
-					.tag_on_file()
-					.create(
-						tag::id::equals(args.tag_id),
-						file::id::equals(args.file_id),
-						vec![],
-					)
-					.exec()
-					.await?;
+				if args.unassign {
+					library
+						.db
+						.tag_on_file()
+						.delete(tag_on_file::tag_id_file_id(args.tag_id, args.file_id))
+						.exec()
+						.await?;
+				} else {
+					library
+						.db
+						.tag_on_file()
+						.create(
+							tag::id::equals(args.tag_id),
+							file::id::equals(args.file_id),
+							vec![],
+						)
+						.exec()
+						.await?;
+				}
 
 				invalidate_query!(
 					library,
