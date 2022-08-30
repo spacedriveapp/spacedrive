@@ -35,6 +35,14 @@ function App() {
 	useEffect(() => {
 		os.platform().then((platform) => setPlatform(getPlatform(platform)));
 		invoke('app_ready');
+
+		const unlisten = listen('do_keyboard_input', (input) => {
+			document.dispatchEvent(new KeyboardEvent('keydown', input.payload as any));
+		});
+
+		return () => {
+			unlisten.then((unlisten) => unlisten());
+		};
 	}, []);
 
 	useEffect(() => {
