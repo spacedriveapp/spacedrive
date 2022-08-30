@@ -57,7 +57,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 			<input
 				ref={ref}
 				placeholder="Search"
-				className="w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
 			/>
 			<div className="space-x-1 absolute top-[2px] right-1 peer-focus:invisible">
 				<Shortcut
@@ -145,20 +145,24 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 				<div data-tauri-drag-region className="flex flex-row justify-center flex-grow">
 					<div className="flex mx-8">
-						<TopBarButton
-							group
-							left
-							active={layoutMode === 'list'}
-							icon={Rows}
-							onClick={() => set({ layoutMode: 'list' })}
-						/>
-						<TopBarButton
-							group
-							right
-							active={layoutMode === 'grid'}
-							icon={SquaresFour}
-							onClick={() => set({ layoutMode: 'grid' })}
-						/>
+						<Tooltip label="List view">
+							<TopBarButton
+								group
+								left
+								active={layoutMode === 'list'}
+								icon={Rows}
+								onClick={() => set({ layoutMode: 'list' })}
+							/>
+						</Tooltip>
+						<Tooltip label="Grid view">
+							<TopBarButton
+								group
+								right
+								active={layoutMode === 'grid'}
+								icon={SquaresFour}
+								onClick={() => set({ layoutMode: 'grid' })}
+							/>
+						</Tooltip>
 					</div>
 					<SearchBar ref={searchRef} />
 
