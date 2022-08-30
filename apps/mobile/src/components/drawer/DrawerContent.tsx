@@ -1,3 +1,5 @@
+import Layout from '@app/constants/Layout';
+import tw from '@app/lib/tailwind';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
@@ -5,8 +7,6 @@ import React from 'react';
 import { ColorValue, Platform, Pressable, Text, View } from 'react-native';
 import { CogIcon } from 'react-native-heroicons/solid';
 
-import Layout from '../../constants/Layout';
-import tw from '../../lib/tailwind';
 import CollapsibleView from '../layout/CollapsibleView';
 import DrawerLocationItem from './DrawerLocationItem';
 import DrawerLogo from './DrawerLogo';

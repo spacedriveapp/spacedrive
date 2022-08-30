@@ -1,11 +1,11 @@
+import Device from '@app/components/device/Device';
+import Dialog from '@app/components/layout/Dialog';
+import VirtualizedListWrapper from '@app/components/layout/VirtualizedListWrapper';
+import OverviewStats from '@app/containers/OverviewStats';
+import tw from '@app/lib/tailwind';
+import { OverviewStackScreenProps } from '@app/navigation/tabs/OverviewStack';
 import React from 'react';
-import { FlatList, View } from 'react-native';
-
-import Device from '../components/device/Device';
-import VirtualizedListWrapper from '../components/layout/VirtualizedListWrapper';
-import OverviewStats from '../containers/OverviewStats';
-import tw from '../lib/tailwind';
-import { OverviewStackScreenProps } from '../navigation/tabs/OverviewStack';
+import { FlatList, Text, View } from 'react-native';
 
 const placeholderOverviewStats = {
 	id: 1,
@@ -50,6 +50,18 @@ export default function OverviewScreen({ navigation }: OverviewStackScreenProps<
 	return (
 		<VirtualizedListWrapper>
 			<View style={tw`px-4 mt-4`}>
+				<Dialog
+					title="Create New Library"
+					description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
+					ctaDanger
+					ctaLabel="Delete"
+					ctaAction={() => console.log('wat')}
+					trigger={
+						<View style={tw`bg-red-200`}>
+							<Text>Dialog</Text>
+						</View>
+					}
+				/>
 				{/* Stats */}
 				<OverviewStats stats={placeholderOverviewStats} />
 				{/* Spacing */}

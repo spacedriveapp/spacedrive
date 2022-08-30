@@ -1,8 +1,7 @@
+import tw from '@app/lib/tailwind';
+import { PhotosStackScreenProps } from '@app/navigation/tabs/PhotosStack';
 import React from 'react';
 import { Text, View } from 'react-native';
-
-import tw from '../lib/tailwind';
-import { PhotosStackScreenProps } from '../navigation/tabs/PhotosStack';
 
 export default function PhotosScreen({ navigation }: PhotosStackScreenProps<'Photos'>) {
 	return (
