@@ -8,16 +8,19 @@ function Page() {
 	const items = [
 		{
 			when: 'Complete',
+			completed: true,
 			title: 'File Discovery',
 			description:
 				'Scan devices, drives and cloud accounts to build a directory of all files with metadata.'
 		},
 		{
 			title: 'Preview generation',
+			completed: true,
 			description: 'Auto generate lower resolution stand-ins for image and video.'
 		},
 		{
 			title: 'Statistics',
+			completed: true,
 			description: 'Total capacity, index size, preview media size, free space etc.'
 		},
 		{
@@ -115,24 +118,38 @@ function Page() {
 					</p>
 				</section>
 				<section className="grid grid-cols-[auto_1fr] grid-flow-row auto-cols-auto gap-x-4">
-					{items.map((item, index) => (
+					{items.map((item, i) => (
 						<>
 							{/* Using span so i can use the group-last-of-type selector */}
-							<span className="max-w-[10rem] flex items-center first:items-start justify-end gap-4 group">
-								<h3 className="m-0 hidden lg:block text-right">{item.when}</h3>
-								<div className="bg-gray-550 w-2 h-full group-first:rounded-t-full group-last-of-type:rounded-b-full flex lg:items-center group-first:mt-2">
-									{item?.when ? (
-										<div className="h-4 w-4 border-2 border-gray-200 bg-primary-500 rounded-full mt-5 group-first:mt-0 lg:mt-0 group-first:self-start absolute -translate-x-1/4">
-											&zwj;
-										</div>
-									) : (
-										<>&zwj;</>
-									)}
+							<span className="max-w-[10rem] flex items-start first:items-start justify-end gap-4 group">
+								<h3
+									className={
+										`m-0 hidden lg:block text-right ` +
+										(i === 0 ? '-translate-y-1/4' : '-translate-y-1/2')
+									}
+								>
+									{item.when}
+								</h3>
+								<div className="w-2 h-full group-first:rounded-t-full group-last-of-type:rounded-b-full flex lg:items-center group-first:mt-2">
+									<div
+										className={
+											'w-full h-full flex ' +
+											(item.completed ? 'bg-primary-500 z-10' : 'bg-gray-550')
+										}
+									>
+										{item?.when ? (
+											<div className="h-4 w-4 border-2 border-gray-200 bg-primary-500 rounded-full mt-5 group-first:mt-0 lg:mt-0 group-first:self-start absolute -translate-x-1/4 -translate-y-1/2 z-20">
+												&zwj;
+											</div>
+										) : (
+											<div className="z-20">&zwj;</div>
+										)}
+									</div>
 								</div>
 							</span>
 							<div className="flex flex-col items-start justify-center gap-4 group">
 								{item?.when && (
-									<h3 className="mt-3 mb-0 group-first-of-type:m-0 lg:hidden">{item.when}</h3>
+									<h3 className="mb-0 group-first-of-type:m-0 lg:hidden">{item.when}</h3>
 								)}
 								<div className="border border-gray-500 rounded-xl p-4 flex flex-col space-y-2 my-2 group-first-of-type:mt-0 group-last:mb-0 w-full">
 									<h3 className="my-1">{item.title}</h3>
