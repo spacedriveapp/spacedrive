@@ -1,27 +1,31 @@
 import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
-import { CogIcon, EyeOffIcon, PlusIcon } from '@heroicons/react/solid';
-import { useBridgeCommand, useBridgeQuery } from '@sd/client';
+import { CogIcon, PlusIcon } from '@heroicons/react/solid';
+import {
+	AppPropsContext,
+	useCurrentLibrary,
+	useLibraryMutation,
+	useLibraryQuery,
+	useLibraryStore
+} from '@sd/client';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { CirclesFour, Code, Planet } from 'phosphor-react';
-import React, { useContext } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
+import { CirclesFour, Planet } from 'phosphor-react';
+import React, { useContext, useEffect } from 'react';
+import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
-import { AppPropsContext } from '../../AppPropsContext';
-import { useNodeStore } from '../device/Stores';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { DefaultProps } from '../primitive/types';
 
-interface SidebarProps extends DefaultProps {}
+type SidebarProps = DefaultProps;
 
 export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode }) => (
 	<NavLink {...props}>
 		{({ isActive }) => (
 			<span
 				className={clsx(
-					'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
+					'max-w mb-[2px] text-gray-550 dark:text-gray-300 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
 						'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
 					},
@@ -74,21 +78,22 @@ const macOnly = (platform: string | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
-	const { isExperimental } = useNodeStore();
-
+	const navigate = useNavigate();
 	const appProps = useContext(AppPropsContext);
-	const { data: locations } = useBridgeQuery('SysGetLocations');
-	const { data: clientState } = useBridgeQuery('NodeGetState');
+	const { data: locations } = useLibraryQuery(['locations.get']);
 
-	const { mutate: createLocation } = useBridgeCommand('LocCreate');
+	// initialize libraries
+	const { init: initLibraries, switchLibrary } = useLibraryStore();
+	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
-	const tags = [
-		{ id: 1, name: 'Keepsafe', color: '#FF6788' },
-		{ id: 2, name: 'OBS', color: '#BF88FF' },
-		{ id: 3, name: 'BlackMagic', color: '#F0C94A' },
-		{ id: 4, name: 'Camera Roll', color: '#00F0DB' },
-		{ id: 5, name: 'Spacedrive', color: '#00F079' }
-	];
+	useEffect(() => {
+		if (libraries && !currentLibraryUuid) initLibraries(libraries);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [libraries, currentLibraryUuid]);
+
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
+
+	const { data: tags } = useLibraryQuery(['tags.get']);
 
 	return (
 		<div
@@ -122,7 +127,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						appProps?.platform === 'macOS' &&
 							'dark:!bg-opacity-40 dark:hover:!bg-opacity-70 dark:!border-[#333949] dark:hover:!border-[#394052]'
 					),
-
 					variant: 'gray'
 				}}
 				// to support the transparent sidebar on macOS we use slightly adjusted styles
@@ -133,17 +137,35 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				)}
 				// this shouldn't default to "My Library", it is only this way for landing demo
 				// TODO: implement demo mode for the sidebar and show loading indicator instead of "My Library"
-				buttonText={clientState?.node_name || 'My Library'}
+				buttonText={currentLibrary?.config.name || ' '}
 				items={[
+					libraries?.map((library) => ({
+						name: library.config.name,
+						selected: library.uuid === currentLibraryUuid,
+						onPress: () => switchLibrary(library.uuid)
+					})) || [],
 					[
-						{ name: clientState?.node_name || 'My Library', selected: true },
-						{ name: 'Private Library' }
-					],
-					[
-						{ name: 'Library Settings', icon: CogIcon },
-						{ name: 'Add Library', icon: PlusIcon },
-						{ name: 'Lock', icon: LockClosedIcon },
-						{ name: 'Hide', icon: EyeOffIcon }
+						{
+							name: 'Library Settings',
+							icon: CogIcon,
+							onPress: () => navigate('settings/library')
+						},
+						{
+							name: 'Add Library',
+							icon: PlusIcon,
+							onPress: () => {
+								alert('todo');
+								// TODO: Show Dialog defined in `LibrariesSettings.tsx`
+							}
+						},
+						{
+							name: 'Lock',
+							icon: LockClosedIcon,
+							onPress: () => {
+								alert('todo');
+							}
+						}
+						// { name: 'Hide', icon: EyeOffIcon }
 					]
 				]}
 			/>
@@ -155,21 +177,12 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				</SidebarLink>
 				<SidebarLink to="content">
 					<Icon component={CirclesFour} />
-					Content
+					Spaces
 				</SidebarLink>
 				<SidebarLink to="photos">
 					<Icon component={PhotographIcon} />
 					Photos
 				</SidebarLink>
-
-				{isExperimental ? (
-					<SidebarLink to="debug">
-						<Icon component={Code} />
-						Debug
-					</SidebarLink>
-				) : (
-					<></>
-				)}
 			</div>
 			<div>
 				<Heading>Locations</Heading>
@@ -204,40 +217,45 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					);
 				})}
 
-				<button
-					onClick={() => {
-						appProps?.openDialog({ directory: true }).then((result) => {
-							if (result) createLocation({ path: result as string });
-						});
-					}}
-					className={clsx(
-						'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 transition',
-						appProps?.platform === 'macOS'
-							? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
-							: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
-					)}
-				>
-					Add Location
-				</button>
+				{(locations?.length || 0) < 1 && (
+					<button
+						onClick={() => {
+							appProps?.openDialog({ directory: true }).then((result) => {
+								console.log(result);
+								if (result) createLocation(result as string);
+							});
+						}}
+						className={clsx(
+							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 transition',
+							appProps?.platform === 'macOS'
+								? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
+								: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
+						)}
+					>
+						Add Location
+					</button>
+				)}
 			</div>
-			<div>
-				<Heading>Tags</Heading>
-				<div className="mb-2">
-					{tags.map((tag, index) => (
-						<SidebarLink key={index} to={`tag/${tag.id}`} className="">
-							<div
-								className="w-[12px] h-[12px] rounded-full"
-								style={{ backgroundColor: tag.color }}
-							/>
-							<span className="ml-2 text-sm">{tag.name}</span>
-						</SidebarLink>
-					))}
+			{tags?.length ? (
+				<div>
+					<Heading>Tags</Heading>
+					<div className="mb-2">
+						{tags?.slice(0, 6).map((tag, index) => (
+							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
+								<div
+									className="w-[12px] h-[12px] rounded-full"
+									style={{ backgroundColor: tag.color || '#efefef' }}
+								/>
+								<span className="ml-2 text-sm">{tag.name}</span>
+							</SidebarLink>
+						))}
+					</div>
 				</div>
-			</div>
+			) : (
+				<></>
+			)}
 			<div className="flex-grow" />
 			<RunningJobsWidget />
-			{/* <div className="flex w-full">
-      </div> */}
 			<div className="mb-2">
 				<NavLink to="/settings/general">
 					{({ isActive }) => (
