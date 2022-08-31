@@ -87,7 +87,7 @@ model Location {
     pub_id             Bytes    @unique
     node_id            Int?
     name               String?
-    local_path         String?  @unique
+    local_path         String?
     total_capacity     Int?
     available_capacity Int?
     filesystem         String?
@@ -100,6 +100,7 @@ model Location {
     file_paths FilePath[]
     indexer_rules IndexerRulesInLocation[]
 
+    @@unique([node_id, local_path])
     @@map("locations")
 }
 
