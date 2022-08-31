@@ -1,6 +1,6 @@
 --------------------------------COMING SOON--------------------------------
 
-# 0.1.0_pre-beta
+# 0.1.0_beta
 
 After __ months of development we are extremely excited to be releasing the first version of Spacedrive as an early public beta.
 
