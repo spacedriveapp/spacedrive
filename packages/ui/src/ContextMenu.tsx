@@ -38,7 +38,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 			// }}
 			alignOffset={7}
 			className={clsx(
-				'shadow-md min-w-[12rem] py-0.5 shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100  text-left text-sm rounded-lg ',
+				'shadow-md min-w-[11rem] py-0.5 shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100  text-left text-sm rounded-lg ',
 				className
 			)}
 			{...rest}
@@ -46,7 +46,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 			{sections.map((sec, i) => (
 				<React.Fragment key={i}>
 					{i !== 0 && (
-						<ContextMenuPrimitive.Separator className="border-0 border-b pointer-events-none border-b-gray-300 dark:border-b-gray-550" />
+						<ContextMenuPrimitive.Separator className="mx-2 border-0 border-b pointer-events-none border-b-gray-300 dark:border-b-gray-600" />
 					)}
 
 					<ContextMenuPrimitive.Group className="flex flex-col items-stretch">
@@ -106,7 +106,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 										{ItemIcon && <ItemIcon size={18} />}
 										{item.leftItem}
 
-										<ContextMenuPrimitive.Label className="ml-1.5 leading-snug flex-grow text-[14px] font-normal">
+										<ContextMenuPrimitive.Label className="ml-1.5 leading-snug flex-grow text-sm font-normal">
 											{item.label}
 										</ContextMenuPrimitive.Label>
 
