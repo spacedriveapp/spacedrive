@@ -1,13 +1,11 @@
 <!-- 
 COMING SOON..............
 
-# 0.1.0_beta
+# 0.1.0_pre-beta
 
-After __ months of development we are extremely excited to be releasing the first version of Spacedrive as a public beta.
+After __ months of development we are extremely excited to be releasing the first version of Spacedrive as a early public beta.
 
-This is an MVP, and by no means feature complete. 
-
-It is desktop only, but mobile has already begun development.
+This is an MVP, and by no means feature complete. Please test out the features listed below and give us feedback via Discord, email or GitHub Issues :D
 
 *Features:*
 - Support for Windows, Linux and macOS, iOS and Android.
