@@ -11,16 +11,16 @@ use crate::prisma;
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct ObjectsForExplorer {
 	pub objects: Vec<ObjectData>,
-	pub context: ExplorerContext,
+	// pub context: ExplorerContext,
 }
 
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub enum ExplorerContext {
-	Location(Box<prisma::file_path::Data>),
-	Space(Box<prisma::file::Data>),
-	Tag(Box<prisma::file::Data>),
-	// Search(Box<prisma::file_path::Data>),
-}
+// #[derive(Debug, Serialize, Deserialize, Type)]
+// pub enum ExplorerContext {
+// 	Location(Box<prisma::file_path::Data>),
+// 	Space(Box<prisma::file::Data>),
+// 	Tag(Box<prisma::file::Data>),
+// 	// Search(Box<prisma::file_path::Data>),
+// }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub enum ObjectData {
