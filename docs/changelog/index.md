@@ -1,11 +1,11 @@
-<!-- 
-COMING SOON..............
-
+..............COMING SOON..............
 # 0.1.0_pre-beta
 
-After __ months of development we are extremely excited to be releasing the first version of Spacedrive as a early public beta.
+After __ months of development we are extremely excited to be releasing the first version of Spacedrive as an early public beta.
 
 This is an MVP, and by no means feature complete. Please test out the features listed below and give us feedback via Discord, email or GitHub Issues :D
+
+This release is missing database synchronization between nodes (your devices), for now this renders connecting nodes useless, other than to transfer individual files. But don't worry, its coming very soon!
 
 *Features:*
 - Support for Windows, Linux and macOS, iOS and Android.
@@ -22,5 +22,6 @@ This is an MVP, and by no means feature complete. Please test out the features l
 - Create [Tags](../architecture/tags.md) and assign them to files, browse Tags in the Explorer.
 - Create [Spaces](../architecture/spaces.md) to virtually organize and present files.
 - Create [Albums](../architecture/albums.md) and add images.
-- [Search](../architecture/search.md) files in Library via ⌘K or CTRL+K.
-- Pause and resume [Jobs](../architecture/jobs.md) with recovery on crash via Job Manager widget. -->
+- [Search](../architecture/search.md) files in Library via ⌘L or CTRL+L.
+- Drag and drop files to other nodes on a keybind, defaults to CTRL+Space, also possible from Explorer context menu.
+- Pause and resume [Jobs](../architecture/jobs.md) with recovery on crash via Job Manager widget.
