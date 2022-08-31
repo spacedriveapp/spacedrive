@@ -181,6 +181,10 @@ export default function Explorer(props: Props) {
 											]
 										]
 									}
+									// {
+									// 	label: 'Mint NFT',
+									// 	icon: TrashIcon
+									// }
 								],
 								[
 									{

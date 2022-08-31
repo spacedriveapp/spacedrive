@@ -1,5 +1,3 @@
-## Database backup
+# Database
 
-## Database migrations
-
-Currently, migrations are applied on app launch with no visual feedback, backup or error handling.
+prisma client rust, sqlite, migrations, backup

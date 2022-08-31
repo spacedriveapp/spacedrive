@@ -1,11 +1,5 @@
 # Objects
 
-
-
-
-
-
-
 ```rust
 
 // Objects are primarily created by the identifier from Paths
