@@ -1,5 +1,4 @@
 use data_encoding::HEXLOWER;
-
 use ring::digest::{Context, SHA256};
 use std::path::PathBuf;
 use tokio::{

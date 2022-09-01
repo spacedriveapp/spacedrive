@@ -1,13 +1,12 @@
 use crate::{
 	encode::{ThumbnailJob, THUMBNAIL_JOB_NAME},
-	file::{
-		cas::{FileIdentifierJob, IDENTIFIER_JOB_NAME},
-		indexer::{IndexerJob, INDEXER_JOB_NAME},
-	},
+	file::cas::{FileIdentifierJob, IDENTIFIER_JOB_NAME},
 	job::{worker::Worker, DynJob, Job, JobError},
 	library::LibraryContext,
+	location::indexer::indexer_job::{IndexerJob, INDEXER_JOB_NAME},
 	prisma::{job, node},
 };
+
 use int_enum::IntEnum;
 use rspc::Type;
 use serde::{Deserialize, Serialize};
@@ -80,9 +79,13 @@ impl JobManager {
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 
-			Worker::spawn(Arc::clone(&self), Arc::clone(&wrapped_worker), ctx.clone()).await;
-
-			running_workers.insert(job_id, wrapped_worker);
+			if let Err(e) =
+				Worker::spawn(Arc::clone(&self), Arc::clone(&wrapped_worker), ctx.clone()).await
+			{
+				error!("Error spawning worker: {:?}", e);
+			} else {
+				running_workers.insert(job_id, wrapped_worker);
+			}
 		} else {
 			self.job_queue.write().await.push_back(job);
 		}
@@ -271,20 +274,14 @@ impl JobReport {
 	}
 
 	pub async fn create(&self, ctx: &LibraryContext) -> Result<(), JobError> {
-		let mut params = Vec::new();
-
-		if self.data.is_some() {
-			params.push(job::data::set(self.data.clone()))
-		}
-
 		ctx.db
 			.job()
 			.create(
 				self.id.as_bytes().to_vec(),
 				self.name.clone(),
-				1,
+				JobStatus::Running as i32,
 				node::id::equals(ctx.node_local_id),
-				params,
+				vec![job::data::set(self.data.clone())],
 			)
 			.exec()
 			.await?;

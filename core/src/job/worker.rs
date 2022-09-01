@@ -2,6 +2,7 @@ use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
 use crate::library::LibraryContext;
 use crate::{api::LibraryArgs, invalidate_query};
 use std::{sync::Arc, time::Duration};
+use tokio::sync::oneshot;
 use tokio::{
 	sync::{
 		broadcast,
@@ -18,9 +19,9 @@ use super::JobReport;
 #[derive(Debug)]
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
-	Completed,
-	Failed,
-	Paused(Vec<u8>),
+	Completed(oneshot::Sender<()>),
+	Failed(oneshot::Sender<()>),
+	Paused(Vec<u8>, oneshot::Sender<()>),
 }
 
 #[derive(Clone)]
@@ -75,7 +76,7 @@ impl Worker {
 		job_manager: Arc<JobManager>,
 		worker_mutex: Arc<Mutex<Self>>,
 		ctx: LibraryContext,
-	) {
+	) -> Result<(), JobError> {
 		let mut worker = worker_mutex.lock().await;
 		// we capture the worker receiver channel so state can be updated from inside the worker
 		let worker_events_tx = worker.worker_events_tx.clone();
@@ -93,7 +94,7 @@ impl Worker {
 		let old_status = worker.report.status;
 		worker.report.status = JobStatus::Running;
 		if matches!(old_status, JobStatus::Queued) {
-			worker.report.create(&ctx).await.unwrap();
+			worker.report.create(&ctx).await?;
 		}
 		drop(worker);
 
@@ -133,29 +134,36 @@ impl Worker {
 				}
 			});
 
+			let (done_tx, done_rx) = oneshot::channel();
+
 			if let Err(e) = job.run(worker_ctx.clone()).await {
 				if let JobError::Paused(state) = e {
 					worker_ctx
 						.events_tx
-						.send(WorkerEvent::Paused(state))
+						.send(WorkerEvent::Paused(state, done_tx))
 						.expect("critical error: failed to send worker pause event");
 				} else {
 					error!("job '{}' failed with error: {:#?}", job_id, e);
 					worker_ctx
 						.events_tx
-						.send(WorkerEvent::Failed)
+						.send(WorkerEvent::Failed(done_tx))
 						.expect("critical error: failed to send worker fail event");
 				}
 			} else {
 				// handle completion
 				worker_ctx
 					.events_tx
-					.send(WorkerEvent::Completed)
+					.send(WorkerEvent::Completed(done_tx))
 					.expect("critical error: failed to send worker complete event");
 			}
 
+			if let Err(e) = done_rx.await {
+				error!("failed to wait for worker completion: {:#?}", e);
+			}
 			job_manager.complete(&ctx, job_id).await;
 		});
+
+		Ok(())
 	}
 
 	async fn track_progress(
@@ -192,76 +200,71 @@ impl Worker {
 					invalidate_query!(
 						library,
 						"jobs.getRunning": LibraryArgs<()>,
-						LibraryArgs {
-							library_id: library.id,
-							arg: ()
-						}
+						LibraryArgs::new(library.id, ())
 					);
 				}
-				WorkerEvent::Completed => {
+				WorkerEvent::Completed(done_tx) => {
 					worker.report.status = JobStatus::Completed;
 					worker.report.data = None;
-					worker
-						.report
-						.update(&library)
-						.await
-						.expect("critical error: failed to update job report");
+					if let Err(e) = worker.report.update(&library).await {
+						error!("failed to update job report: {:#?}", e);
+					}
 
 					invalidate_query!(
 						library,
 						"jobs.getRunning": LibraryArgs<()>,
-						LibraryArgs {
-							library_id: library.id,
-							arg: ()
-						}
+						LibraryArgs::new(library.id, ())
 					);
 
 					invalidate_query!(
 						library,
 						"jobs.getHistory": LibraryArgs<()>,
-						LibraryArgs {
-							library_id: library.id,
-							arg: ()
-						}
+						LibraryArgs::new(library.id, ())
 					);
 
 					info!("{}", worker.report);
 
+					done_tx
+						.send(())
+						.expect("critical error: failed to send worker completion");
+
 					break;
 				}
-				WorkerEvent::Failed => {
+				WorkerEvent::Failed(done_tx) => {
 					worker.report.status = JobStatus::Failed;
 					worker.report.data = None;
-					worker
-						.report
-						.update(&library)
-						.await
-						.expect("critical error: failed to update job report");
+					if let Err(e) = worker.report.update(&library).await {
+						error!("failed to update job report: {:#?}", e);
+					}
 
 					invalidate_query!(library, "library.get": (), ());
 
 					warn!("{}", worker.report);
 
+					done_tx
+						.send(())
+						.expect("critical error: failed to send worker completion");
+
 					break;
 				}
-				WorkerEvent::Paused(state) => {
+				WorkerEvent::Paused(state, done_tx) => {
 					worker.report.status = JobStatus::Paused;
 					worker.report.data = Some(state);
-					worker
-						.report
-						.update(&library)
-						.await
-						.expect("critical error: failed to update job report");
+					if let Err(e) = worker.report.update(&library).await {
+						error!("failed to update job report: {:#?}", e);
+					}
+
 					info!("{}", worker.report);
 
 					invalidate_query!(
 						library,
 						"jobs.getHistory": LibraryArgs<()>,
-						LibraryArgs {
-							library_id: library.id,
-							arg: ()
-						}
+						LibraryArgs::new(library.id, ()),
 					);
+
+					done_tx
+						.send(())
+						.expect("critical error: failed to send worker completion");
 
 					break;
 				}
