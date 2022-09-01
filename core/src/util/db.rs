@@ -11,9 +11,9 @@ static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations
 /// MigrationError represents an error that occurring while opening a initialising and running migrations on the database.
 #[derive(Error, Debug)]
 pub enum MigrationError {
-	#[error("An error occurred while initialising a new database connection")]
+	#[error("An error occurred while initialising a new database connection: {0}")]
 	DatabaseInitialization(#[from] NewClientError),
-	#[error("An error occurred with the database while applying migrations")]
+	#[error("An error occurred with the database while applying migrations: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("An error occurred reading the embedded migration files. {0}. Please report to Spacedrive developers!")]
 	InvalidEmbeddedMigration(&'static str),
