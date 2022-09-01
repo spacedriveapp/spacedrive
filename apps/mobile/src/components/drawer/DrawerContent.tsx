@@ -1,14 +1,14 @@
 import Layout from '@app/constants/Layout';
 import tw from '@app/lib/tailwind';
+import { useCurrentLibrary, useLibraryStore } from '@app/stores/useLibraryStore';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ColorValue, Platform, Pressable, Text, View } from 'react-native';
 import { CogIcon } from 'react-native-heroicons/solid';
 
 import CollapsibleView from '../layout/CollapsibleView';
-import { Tooltip } from '../tooltip/Tooltip';
 import DrawerLocationItem from './DrawerLocationItem';
 import DrawerLogo from './DrawerLogo';
 import DrawerTagItem from './DrawerTagItem';
@@ -57,12 +57,22 @@ const getActiveRouteState = function (state: any) {
 const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 	const stackName = getFocusedRouteNameFromRoute(getActiveRouteState(state)) ?? 'OverviewStack';
 
+	// initialize libraries
+	const { init: initLibraries, switchLibrary } = useLibraryStore();
+	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
+
+	useEffect(() => {
+		if (libraries && !currentLibraryUuid) initLibraries(libraries);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [libraries, currentLibraryUuid]);
+
 	return (
 		<DrawerContentScrollView style={tw`flex-1 px-4 py-2`} scrollEnabled={false}>
 			<View style={tw.style('justify-between', { height: drawerHeight })}>
 				<View>
 					<DrawerLogo />
 					<Text style={tw`my-4 text-white text-xs`}>TODO: Library Selection</Text>
+					<Text style={tw`text-white`}>{libraries[0].config.name}</Text>
 					{/* Locations */}
 					<CollapsibleView
 						title="Locations"
@@ -108,11 +118,9 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					</CollapsibleView>
 				</View>
 				{/* Settings */}
-				<Tooltip label="Settings">
-					<Pressable onPress={() => navigation.navigate('Settings')}>
-						<CogIcon color="white" size={24} />
-					</Pressable>
-				</Tooltip>
+				<Pressable onPress={() => navigation.navigate('Settings')}>
+					<CogIcon color="white" size={24} />
+				</Pressable>
 			</View>
 		</DrawerContentScrollView>
 	);

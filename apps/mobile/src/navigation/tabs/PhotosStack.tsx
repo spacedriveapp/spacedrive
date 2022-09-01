@@ -14,8 +14,7 @@ export default function PhotosStack() {
 			initialRouteName="Photos"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff',
-				...TransitionPresets.ModalFadeTransition
+				headerTintColor: '#fff'
 			}}
 		>
 			<Stack.Screen name="Photos" component={PhotosScreen} options={{ header: Header }} />

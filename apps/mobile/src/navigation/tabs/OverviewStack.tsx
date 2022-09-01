@@ -14,8 +14,7 @@ export default function OverviewStack() {
 			initialRouteName="Overview"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff',
-				...TransitionPresets.ModalFadeTransition
+				headerTintColor: '#fff'
 			}}
 		>
 			<Stack.Screen name="Overview" component={OverviewScreen} options={{ header: Header }} />

@@ -15,7 +15,11 @@ export default function RootNavigator() {
 		<Stack.Navigator initialRouteName="Root">
 			<Stack.Screen name="Root" component={DrawerNavigator} options={{ headerShown: false }} />
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
-			<Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
+			<Stack.Screen
+				name="Search"
+				component={SearchScreen}
+				options={{ headerShown: false, animationEnabled: false }}
+			/>
 			{/* Modals */}
 			<Stack.Group
 				screenOptions={{

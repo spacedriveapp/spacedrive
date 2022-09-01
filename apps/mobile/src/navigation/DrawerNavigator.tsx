@@ -13,19 +13,15 @@ export default function DrawerNavigator() {
 	return (
 		<Drawer.Navigator
 			initialRouteName="Home"
-			screenOptions={({ route }) => {
-				return {
-					headerShown: false,
-					drawerStyle: {
-						backgroundColor: '#08090D',
-						width: '75%'
-					},
-					overlayColor: 'transparent',
-					drawerType: 'slide'
-					// swipeEnabled: false
-					// drawerHideStatusBarOnOpen: true,
-					// drawerStatusBarAnimation: 'slide'
-				};
+			screenOptions={{
+				headerShown: false,
+				drawerStyle: {
+					backgroundColor: '#08090D',
+					width: '75%'
+				},
+				overlayColor: 'transparent',
+				drawerType: 'slide',
+				swipeEdgeWidth: 50
 			}}
 			drawerContent={(props) => <DrawerContent {...(props as any)} />}
 		>

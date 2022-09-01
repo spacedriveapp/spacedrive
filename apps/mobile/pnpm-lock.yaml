@@ -37,6 +37,7 @@ importers:
       expo-linking: ~3.2.2
       expo-splash-screen: ~0.16.2
       expo-status-bar: ~1.4.0
+      immer: ^9.0.15
       intl: ^1.2.5
       metro-minify-terser: ^0.72.1
       moti: ^0.18.0
@@ -74,6 +75,7 @@ importers:
       expo-linking: 3.2.2_expo@46.0.9
       expo-splash-screen: 0.16.2_expo@46.0.9
       expo-status-bar: 1.4.0
+      immer: 9.0.15
       intl: 1.2.5
       moti: 0.18.0_react@18.0.0
       phosphor-react-native: 1.1.2_ipumakbosk2s7ylysjmrulvctq
@@ -87,7 +89,7 @@ importers:
       react-native-svg: 13.0.0_jk6ntyzimkrv4hwdmdgaaf5yaa
       twrnc: 3.4.0_react-native@0.69.4
       use-count-up: 3.0.1_react@18.0.0
-      zustand: 4.1.1_react@18.0.0
+      zustand: 4.1.1_immer@9.0.15+react@18.0.0
     devDependencies:
       '@babel/core': 7.18.10
       '@babel/runtime': 7.18.9
@@ -5162,6 +5164,10 @@ packages:
     engines: {node: '>=4.0'}
     hasBin: true
 
+  /immer/9.0.15:
+    resolution: {integrity: sha512-2eB/sswms9AEUSkOm4SbV5Y7Vmt/bKRwByd52jfLkW4OLYeaTP3EEiJ9agqU0O/tq6Dk62Zfj+TJSqfm1rLVGQ==}
+    dev: false
+
   /import-fresh/2.0.0:
     resolution: {integrity: sha512-eZ5H8rcgYazHbKC3PG4ClHNykCSxtAhxSSEM+2mb+7evD2CKF5V7c0dNum7AdpDh0ZdICwZY9sRSn8f+KH96sg==}
     engines: {node: '>=4'}
@@ -8721,7 +8727,7 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
-  /zustand/4.1.1_react@18.0.0:
+  /zustand/4.1.1_immer@9.0.15+react@18.0.0:
     resolution: {integrity: sha512-h4F3WMqsZgvvaE0n3lThx4MM81Ls9xebjvrABNzf5+jb3/03YjNTSgZXeyrvXDArMeV9untvWXRw1tY+ntPYbA==}
     engines: {node: '>=12.7.0'}
     peerDependencies:
@@ -8733,6 +8739,7 @@ packages:
       react:
         optional: true
     dependencies:
+      immer: 9.0.15
       react: 18.0.0
       use-sync-external-store: 1.2.0_react@18.0.0
     dev: false
