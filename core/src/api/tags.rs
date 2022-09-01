@@ -10,7 +10,7 @@ use crate::{
 	prisma::{file, tag, tag_on_file},
 };
 
-use super::{LibraryArgs, RouterBuilder};
+use super::{utils::LibraryRequest, RouterBuilder};
 
 #[derive(Type, Deserialize)]
 pub struct TagCreateArgs {
@@ -114,23 +114,21 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?)
 		})
-		.mutation(
-			"create",
-			|ctx, arg: LibraryArgs<TagCreateArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
+		.library_mutation("create", |_, args: TagCreateArgs, library| async move {
+			let created_tag = library
+				.db
+				.tag()
+				.create(
+					Uuid::new_v4().as_bytes().to_vec(),
+					vec![
+						tag::name::set(Some(args.name)),
+						tag::color::set(Some(args.color)),
+					],
+				)
+				.exec()
+				.await?;
 
-				let created_tag = library
-					.db
-					.tag()
-					.create(
-						Uuid::new_v4().as_bytes().to_vec(),
-						vec![
-							tag::name::set(Some(args.name)),
-							tag::color::set(Some(args.color)),
-						],
-					)
-					.exec()
-					.await?;
+			invalidate_query!(library, "tags.get");
 
 				invalidate_query!(
 					library,
@@ -221,6 +219,28 @@ pub(crate) fn mount() -> RouterBuilder {
 					arg: ()
 				}
 			);
+
+			Ok(())
+		})
+		.library_mutation("update", |_, args: TagUpdateArgs, library| async move {
+			library
+				.db
+				.tag()
+				.update(
+					tag::id::equals(args.id),
+					vec![tag::name::set(args.name), tag::color::set(args.color)],
+				)
+				.exec()
+				.await?;
+
+			invalidate_query!(library, "tags.get");
+
+			Ok(())
+		})
+		.library_mutation("delete", |_, id: i32, library| async move {
+			library.db.tag().delete(tag::id::equals(id)).exec().await?;
+
+			invalidate_query!(library, "tags.get");
 
 			Ok(())
 		})

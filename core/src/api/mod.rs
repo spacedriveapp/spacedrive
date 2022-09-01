@@ -1,6 +1,15 @@
+use std::{
+	sync::Arc,
+	time::{Duration, Instant},
+};
+
+use rspc::{Config, Type};
+use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast;
+
 use crate::{
 	job::JobManager,
-	library::{LibraryContext, LibraryManager},
+	library::LibraryManager,
 	node::{NodeConfig, NodeConfigManager},
 };
 
@@ -34,34 +43,11 @@ pub struct Ctx {
 	pub event_bus: broadcast::Sender<CoreEvent>,
 }
 
-/// Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
-#[derive(Clone, Serialize, Deserialize, Type)]
-pub struct LibraryArgs<T> {
-	library_id: Uuid,
-	arg: T,
-}
-
-impl<T> LibraryArgs<T> {
-	pub fn new(library_id: Uuid, arg: T) -> Self {
-		Self { library_id, arg }
-	}
-
-	pub async fn get_library(self, ctx: &Ctx) -> Result<(T, LibraryContext), rspc::Error> {
-		match ctx.library_manager.get_ctx(self.library_id).await {
-			Some(library) => Ok((self.arg, library)),
-			None => Err(rspc::Error::new(
-				ErrorCode::BadRequest,
-				"You must specify a valid library to use this operation.".to_string(),
-			)),
-		}
-	}
-}
-
-pub mod files;
-pub mod jobs;
-pub mod libraries;
-pub mod locations;
-pub mod tags;
+mod files;
+mod jobs;
+mod libraries;
+mod locations;
+mod tags;
 pub mod utils;
 pub mod volumes;
 
