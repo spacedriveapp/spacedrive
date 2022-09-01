@@ -16,7 +16,11 @@ const Header = () => {
 	const isDrawerOpen = useDrawerStatus() === 'open';
 
 	return (
-		<View style={tw.style('mx-4 bg-gray-550 rounded-md', { marginTop: top + 10 })}>
+		<View
+			style={tw.style('mx-4 bg-gray-500 border-[#333949] bg-opacity-40 rounded-md', {
+				marginTop: top + 10
+			})}
+		>
 			<View style={tw`flex flex-row items-center h-10`}>
 				<Pressable style={tw`px-3 h-full justify-center`} onPress={() => navigation.openDrawer()}>
 					<MotiView
@@ -30,7 +34,7 @@ const Header = () => {
 					style={tw`flex-1 h-full justify-center`}
 					onPress={() => navigation.navigate('Search')}
 				>
-					<Text style={tw`text-gray-300 font-semibold text-sm`}>Search</Text>
+					<Text style={tw`text-gray-300 font-medium text-sm`}>Search</Text>
 				</Pressable>
 			</View>
 		</View>

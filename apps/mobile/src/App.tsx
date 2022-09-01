@@ -32,7 +32,7 @@ const NavigatorTheme: Theme = {
 	...DefaultTheme,
 	colors: {
 		...DefaultTheme.colors,
-		background: '#08090D'
+		background: tw.color('gray-650')
 	}
 };
 
@@ -74,7 +74,7 @@ function AppContainer() {
 		return null;
 	} else {
 		return (
-			<SafeAreaProvider style={tw`flex-1 bg-black`}>
+			<SafeAreaProvider style={tw`flex-1 bg-gray-650`}>
 				<GestureHandlerRootView style={tw`flex-1`}>
 					<BottomSheetModalProvider>
 						<StatusBar style="light" />

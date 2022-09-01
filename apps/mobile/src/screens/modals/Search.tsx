@@ -18,7 +18,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 			{/* Header */}
 			<View style={tw`flex flex-row items-center mx-4`}>
 				{/* Search Input */}
-				<View style={tw`flex-1 bg-gray-550 rounded-md h-10 mr-3`}>
+				<View style={tw`flex-1 bg-gray-500 border-[#333949] bg-opacity-40 rounded-md h-10 mr-3`}>
 					<View style={tw`flex flex-row h-full items-center px-3`}>
 						<View style={tw`mr-3`}>
 							{loading ? (
@@ -32,7 +32,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 							clearButtonMode="never" // can't change the color??
 							underlineColorAndroid="transparent"
 							placeholderTextColor={tw.color('gray-300')}
-							style={tw`text-white flex-1 text-sm`}
+							style={tw`flex-1 text-gray-300 font-medium text-sm`}
 							textContentType={'none'}
 							autoFocus
 							autoCapitalize="none"

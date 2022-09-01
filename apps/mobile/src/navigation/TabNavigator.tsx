@@ -18,11 +18,11 @@ export default function TabNavigator() {
 			initialRouteName="OverviewStack"
 			screenOptions={{
 				headerShown: false,
-				tabBarActiveTintColor: tw.color('bg-primary'),
+				tabBarActiveTintColor: tw.color('primary'),
 				tabBarInactiveTintColor: 'white',
 				tabBarStyle: {
-					backgroundColor: '#08090D',
-					borderTopColor: 'transparent'
+					backgroundColor: tw.color('gray-650'),
+					borderTopColor: tw.color('gray-600')
 				}
 			}}
 		>

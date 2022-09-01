@@ -1,3 +1,4 @@
+import tw from '@app/lib/tailwind';
 import NotFoundScreen from '@app/screens/NotFound';
 import SearchScreen from '@app/screens/modals/Search';
 import SettingsScreen from '@app/screens/modals/settings/Settings';
@@ -25,9 +26,11 @@ export default function RootNavigator() {
 				screenOptions={{
 					presentation: 'modal',
 					headerBackTitleVisible: false,
-					headerStyle: { backgroundColor: '#08090D' },
-					// headerShadowVisible: false,
-					headerTintColor: '#fff'
+					headerStyle: tw`bg-gray-650`,
+					headerTintColor: tw.color('gray-200'),
+					headerTitleStyle: tw`text-base`,
+					headerBackTitleStyle: tw`text-base`
+					// headerShadowVisible: false // will disable the white line under
 				}}
 			>
 				<Stack.Screen name="Settings" component={SettingsScreen} />

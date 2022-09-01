@@ -7,7 +7,7 @@ import { Image, Text, View } from 'react-native';
 
 const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding'>) => {
 	return (
-		<View style={tw`flex-1 items-center justify-around bg-black p-4 z-10`}>
+		<View style={tw`flex-1 items-center justify-around bg-gray-650 p-4 z-10`}>
 			{/* Logo */}
 			<LogoAnimation>
 				<View style={tw`items-center mt-2`}>

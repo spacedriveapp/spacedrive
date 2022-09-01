@@ -1,3 +1,4 @@
+import tw from '@app/lib/tailwind';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { StackScreenProps, TransitionPresets, createStackNavigator } from '@react-navigation/stack';
 
@@ -13,8 +14,10 @@ export default function OverviewStack() {
 		<Stack.Navigator
 			initialRouteName="Overview"
 			screenOptions={{
-				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff'
+				headerStyle: { backgroundColor: tw.color('gray-650') },
+				headerTintColor: tw.color('gray-200'),
+				headerTitleStyle: tw`text-base`,
+				headerBackTitleStyle: tw`text-base`
 			}}
 		>
 			<Stack.Screen name="Overview" component={OverviewScreen} options={{ header: Header }} />
