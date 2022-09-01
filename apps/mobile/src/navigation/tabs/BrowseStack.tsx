@@ -1,4 +1,5 @@
 import Header from '@app/components/header/Header';
+import tw from '@app/lib/tailwind';
 import BrowseScreen from '@app/screens/Browse';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
@@ -13,8 +14,10 @@ export default function BrowseStack() {
 		<Stack.Navigator
 			initialRouteName="Browse"
 			screenOptions={{
-				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff'
+				headerStyle: { backgroundColor: tw.color('gray-650') },
+				headerTintColor: tw.color('gray-200'),
+				headerTitleStyle: tw`text-base`,
+				headerBackTitleStyle: tw`text-base`
 			}}
 		>
 			<Stack.Screen name="Browse" component={BrowseScreen} options={{ header: Header }} />

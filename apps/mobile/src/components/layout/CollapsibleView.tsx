@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import React, { useReducer } from 'react';
 import { Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { ChevronRightIcon } from 'react-native-heroicons/solid';
 
 import { AnimatedHeight } from '../animation/layout';
 
@@ -18,7 +19,7 @@ const CollapsibleView = ({ title, titleStyle, containerStyle, children }: Collap
 
 	return (
 		<View style={containerStyle}>
-			<Pressable onPress={toggle} style={tw`flex flex-row justify-between items-baseline`}>
+			<Pressable onPress={toggle} style={tw`flex flex-row justify-between items-center`}>
 				<Text style={titleStyle} selectable={false}>
 					{title}
 				</Text>
@@ -30,12 +31,7 @@ const CollapsibleView = ({ title, titleStyle, containerStyle, children }: Collap
 					}}
 					transition={{ type: 'spring' }}
 				>
-					<Ionicons
-						style={tw`mr-2`}
-						name="chevron-forward"
-						color={tw.color('gray-300')}
-						size={14}
-					/>
+					<ChevronRightIcon size={18} style={tw`text-gray-200 mr-3`} />
 				</MotiView>
 			</Pressable>
 			<AnimatedHeight hide={hide}>{children}</AnimatedHeight>

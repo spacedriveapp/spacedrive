@@ -1,16 +1,16 @@
 import Layout from '@app/constants/Layout';
 import tw from '@app/lib/tailwind';
-import { useCurrentLibrary, useLibraryStore } from '@app/stores/useLibraryStore';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import React, { useEffect } from 'react';
-import { ColorValue, Platform, Pressable, Text, View } from 'react-native';
+import React from 'react';
+import { ColorValue, Image, Platform, Pressable, Text, View } from 'react-native';
 import { CogIcon } from 'react-native-heroicons/solid';
 
 import CollapsibleView from '../layout/CollapsibleView';
+import Divider from '../primitive/Divider';
+import DrawerLibraryManager from './DrawerLibraryManager';
 import DrawerLocationItem from './DrawerLocationItem';
-import DrawerLogo from './DrawerLogo';
 import DrawerTagItem from './DrawerTagItem';
 
 const placeholderLocationData = [
@@ -57,39 +57,37 @@ const getActiveRouteState = function (state: any) {
 const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 	const stackName = getFocusedRouteNameFromRoute(getActiveRouteState(state)) ?? 'OverviewStack';
 
-	// initialize libraries
-	const { init: initLibraries, switchLibrary } = useLibraryStore();
-	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
-
-	useEffect(() => {
-		if (libraries && !currentLibraryUuid) initLibraries(libraries);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [libraries, currentLibraryUuid]);
-
 	return (
 		<DrawerContentScrollView style={tw`flex-1 px-4 py-2`} scrollEnabled={false}>
 			<View style={tw.style('justify-between', { height: drawerHeight })}>
 				<View>
-					<DrawerLogo />
-					<Text style={tw`my-4 text-white text-xs`}>TODO: Library Selection</Text>
-					<Text style={tw`text-white`}>{libraries[0].config.name}</Text>
+					<View style={tw`flex flex-row items-center`}>
+						<Image source={require('@sd/assets/images/logo.png')} style={tw`w-9 h-9`} />
+						<Text style={tw`text-base font-bold text-white ml-2`}>Spacedrive</Text>
+					</View>
+					<Divider style={tw`my-4`} />
+					{/* Library Manager */}
+					<DrawerLibraryManager />
 					{/* Locations */}
 					<CollapsibleView
 						title="Locations"
-						titleStyle={tw`mt-4 mb-3 ml-1 text-sm font-semibold text-gray-300`}
+						titleStyle={tw`text-sm font-semibold text-gray-300`}
+						containerStyle={tw`mt-6 mb-3`}
 					>
-						{placeholderLocationData.map((location) => (
-							<DrawerLocationItem
-								key={location.id}
-								folderName={location.name}
-								onPress={() =>
-									navigation.navigate(stackName, {
-										screen: 'Location',
-										params: { id: location.id }
-									})
-								}
-							/>
-						))}
+						<View style={tw`mt-2`}>
+							{placeholderLocationData.map((location) => (
+								<DrawerLocationItem
+									key={location.id}
+									folderName={location.name}
+									onPress={() =>
+										navigation.navigate(stackName, {
+											screen: 'Location',
+											params: { id: location.id }
+										})
+									}
+								/>
+							))}
+						</View>
 						{/* Add Location */}
 						<View style={tw`border border-dashed rounded border-gray-450 border-opacity-60 mt-1`}>
 							<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>
@@ -100,21 +98,24 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					{/* Tags */}
 					<CollapsibleView
 						title="Tags"
-						titleStyle={tw`mt-6 mb-3 ml-1 text-sm font-semibold text-gray-300`}
+						titleStyle={tw`text-sm font-semibold text-gray-300`}
+						containerStyle={tw`mt-6 mb-3`}
 					>
-						{placeholderTagsData.map((tag) => (
-							<DrawerTagItem
-								key={tag.id}
-								tagName={tag.name}
-								onPress={() =>
-									navigation.navigate(stackName, {
-										screen: 'Tag',
-										params: { id: tag.id }
-									})
-								}
-								tagColor={tag.color as ColorValue}
-							/>
-						))}
+						<View style={tw`mt-2`}>
+							{placeholderTagsData.map((tag) => (
+								<DrawerTagItem
+									key={tag.id}
+									tagName={tag.name}
+									onPress={() =>
+										navigation.navigate(stackName, {
+											screen: 'Tag',
+											params: { id: tag.id }
+										})
+									}
+									tagColor={tag.color as ColorValue}
+								/>
+							))}
+						</View>
 					</CollapsibleView>
 				</View>
 				{/* Settings */}
