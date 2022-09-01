@@ -1,7 +1,9 @@
 import Device from '@app/components/device/Device';
 import Dialog from '@app/components/layout/Dialog';
 import VirtualizedListWrapper from '@app/components/layout/VirtualizedListWrapper';
+import { TextInput } from '@app/components/primitive/Input';
 import OverviewStats from '@app/containers/OverviewStats';
+import { useLibraryQuery } from '@app/hooks/rspc';
 import tw from '@app/lib/tailwind';
 import { OverviewStackScreenProps } from '@app/navigation/tabs/OverviewStack';
 import React from 'react';
@@ -61,11 +63,11 @@ export default function OverviewScreen({ navigation }: OverviewStackScreenProps<
 							<Text>Dialog</Text>
 						</View>
 					}
-				/>
+				>
+					<TextInput placeholder="My Cool Library" />
+				</Dialog>
 				{/* Stats */}
 				<OverviewStats stats={placeholderOverviewStats} />
-				{/* Spacing */}
-				<View style={tw`mt-4`} />
 				{/* Devices */}
 				<FlatList
 					data={placeholderDevices}

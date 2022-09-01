@@ -14,8 +14,7 @@ export default function SpacesStack() {
 			initialRouteName="Spaces"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff',
-				...TransitionPresets.ModalFadeTransition
+				headerTintColor: '#fff'
 			}}
 		>
 			<Stack.Screen name="Spaces" component={SpacesScreen} options={{ header: Header }} />

@@ -11,12 +11,14 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 
 	const [loading, setLoading] = useState(false);
 
+	// TODO: Animations!
+
 	return (
 		<View style={tw.style('flex-1', { marginTop: top + 10 })}>
 			{/* Header */}
 			<View style={tw`flex flex-row items-center mx-4`}>
 				{/* Search Input */}
-				<View style={tw`flex-1 bg-gray-550 rounded-md h-9 mr-3`}>
+				<View style={tw`flex-1 bg-gray-550 rounded-md h-10 mr-3`}>
 					<View style={tw`flex flex-row h-full items-center px-3`}>
 						<View style={tw`mr-3`}>
 							{loading ? (

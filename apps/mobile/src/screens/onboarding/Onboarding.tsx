@@ -1,21 +1,11 @@
 import { FadeInUpAnimation, LogoAnimation } from '@app/components/animation/layout';
 import { AnimatedButton } from '@app/components/primitive/Button';
-import { setItemToStorage } from '@app/lib/storage';
 import tw from '@app/lib/tailwind';
 import { OnboardingStackScreenProps } from '@app/navigation/OnboardingNavigator';
-import { useOnboardingStore } from '@app/stores/useOnboardingStore';
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 
 const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding'>) => {
-	const { hideOnboarding } = useOnboardingStore();
-
-	function onButtonPress() {
-		setItemToStorage('@onboarding', '1');
-		// TODO: Add a loading indicator to button as this takes a second or so.
-		hideOnboarding();
-	}
-
 	return (
 		<View style={tw`flex-1 items-center justify-around bg-black p-4 z-10`}>
 			{/* Logo */}
@@ -25,7 +15,7 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 				</View>
 			</LogoAnimation>
 			{/* Text */}
-			<View style={tw``}>
+			<View>
 				<FadeInUpAnimation delay={500}>
 					<Text style={tw`text-white text-center text-5xl font-black leading-tight`}>
 						A file explorer from the future.
@@ -40,7 +30,7 @@ const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding
 			</View>
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200}>
-				<AnimatedButton variant="primary" onPress={onButtonPress}>
+				<AnimatedButton variant="primary" onPress={() => navigation.navigate('CreateLibrary')}>
 					<Text style={tw`text-white text-center px-6 py-2 text-base font-medium`}>
 						Get Started
 					</Text>

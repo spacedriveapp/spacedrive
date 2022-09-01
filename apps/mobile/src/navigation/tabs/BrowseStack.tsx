@@ -1,11 +1,7 @@
+import Header from '@app/components/header/Header';
 import BrowseScreen from '@app/screens/Browse';
 import { CompositeScreenProps } from '@react-navigation/native';
-import {
-	Header,
-	StackScreenProps,
-	TransitionPresets,
-	createStackNavigator
-} from '@react-navigation/stack';
+import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
 
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
@@ -18,8 +14,7 @@ export default function BrowseStack() {
 			initialRouteName="Browse"
 			screenOptions={{
 				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff',
-				...TransitionPresets.ModalFadeTransition
+				headerTintColor: '#fff'
 			}}
 		>
 			<Stack.Screen name="Browse" component={BrowseScreen} options={{ header: Header }} />
