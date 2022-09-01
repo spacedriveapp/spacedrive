@@ -115,6 +115,8 @@ impl StatefulJob for FileIdentifierJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
 	) -> JobResult {
+		let db = ctx.library_ctx().db;
+
 		// link file_path ids to a CreateFile struct containing unique file data
 		let mut chunk: HashMap<i32, CreateFile> = HashMap::new();
 		let mut cas_lookup: HashMap<String, i32> = HashMap::new();
@@ -159,9 +161,7 @@ impl StatefulJob for FileIdentifierJob {
 
 		// find all existing files by cas id
 		let generated_cas_ids = chunk.values().map(|c| c.cas_id.clone()).collect();
-		let existing_files = ctx
-			.library_ctx()
-			.db
+		let existing_files = db
 			.file()
 			.find_many(vec![file::cas_id::in_vec(generated_cas_ids)])
 			.exec()
@@ -169,13 +169,8 @@ impl StatefulJob for FileIdentifierJob {
 
 		info!("Found {} existing files", existing_files.len());
 
-		// link those existing files to their file paths
-		// Had to put the file_path in a variable outside of the closure, to satisfy the borrow checker
-		let library_ctx = ctx.library_ctx();
-
 		for existing_file in &existing_files {
-			if let Err(e) = library_ctx
-				.db
+			if let Err(e) = db
 				.file_path()
 				.update(
 					file_path::location_id_id(
@@ -214,9 +209,8 @@ impl StatefulJob for FileIdentifierJob {
 		}
 
 		// create new file records with assembled values
-		let created_files: Vec<FileCreated> = ctx
-			.library_ctx()
-			.db
+		// TODO: Use create_many with skip_duplicates. Waiting on https://github.com/Brendonovich/prisma-client-rust/issues/143
+		let created_files: Vec<FileCreated> = db
 			._query_raw(Raw::new(
 				&format!(
 					"INSERT INTO files (cas_id, size_in_bytes, date_created) VALUES {}
@@ -236,9 +230,7 @@ impl StatefulJob for FileIdentifierJob {
 			// associate newly created files with their respective file_paths
 			// TODO: this is potentially bottle necking the chunk system, individually linking file_path to file, 100 queries per chunk
 			// - insert many could work, but I couldn't find a good way to do this in a single SQL query
-			if let Err(e) = ctx
-				.library_ctx()
-				.db
+			if let Err(e) = db
 				.file_path()
 				.update(
 					file_path::location_id_id(
@@ -300,16 +292,20 @@ struct CountRes {
 
 async fn count_orphan_file_paths(
 	ctx: &LibraryContext,
-	location_id: i64,
+	location_id: i32,
 ) -> Result<usize, prisma_client_rust::QueryError> {
-	let files_count = ctx.db
-		._query_raw::<CountRes>(raw!(
-			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
-			PrismaValue::Int(location_id)
-		))
+	let files_count = ctx
+		.db
+		.file_path()
+		.count(vec![
+			file_path::file_id::equals(None),
+			file_path::is_dir::equals(false),
+			file_path::location_id::equals(Some(location_id)),
+		])
 		.exec()
 		.await?;
-	Ok(files_count[0].count.unwrap_or(0))
+	// Is this
+	Ok(files_count as usize)
 }
 
 async fn get_orphan_file_paths(

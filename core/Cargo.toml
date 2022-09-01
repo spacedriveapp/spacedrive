@@ -30,7 +30,7 @@ rmp = "^0.8.11"
 rmp-serde = "^1.1.0"
 
 # Project dependencies
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "6a0119bce951c8d956542a59b2f783fc5a591fc7", features = [
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "57d154b5d897510905ab8a605d4fae79f5372b56", features = [
   "rspc",
   "sqlite-create-many",
 ] }

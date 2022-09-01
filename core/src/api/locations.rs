@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::{LibraryArgs, RouterBuilder};
+use super::{utils::LibraryRequest, RouterBuilder};
 
 #[derive(Serialize, Deserialize, Type, Debug)]
 pub struct ExplorerData {
@@ -45,9 +46,7 @@ pub struct LocationExplorerArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.query("get", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
+		.library_query("get", |_, _: (), library| async move {
 			let locations = library
 				.db
 				.location()
@@ -58,9 +57,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			Ok(locations)
 		})
-		.query("getById", |ctx, arg: LibraryArgs<i32>| async move {
-			let (location_id, library) = arg.get_library(&ctx).await?;
-
+		.library_query("getById", |_, location_id: i32, library| async move {
 			Ok(library
 				.db
 				.location()
@@ -68,11 +65,9 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?)
 		})
-		.query(
-			"getExplorerData",
-			|ctx, arg: LibraryArgs<LocationExplorerArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
-
+		.library_query(
+			"getExplorerDir",
+			|_, args: GetExplorerDirArgs, library| async move {
 				let location = library
 					.db
 					.location()
@@ -150,9 +145,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				update_args.update(&library).await.map_err(Into::into)
 			},
 		)
-		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
-			let (location_id, library) = arg.get_library(&ctx).await?;
-
+		.library_mutation("delete", |_, location_id: i32, library| async move {
 			library
 				.db
 				.file_path()
@@ -176,11 +169,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(
-				library,
-				"locations.get": LibraryArgs<()>,
-				LibraryArgs::new(library.id, ())
-			);
+			invalidate_query!(library, "locations.get");
 
 			info!("Location {} deleted", location_id);
 
