@@ -11,7 +11,13 @@ use serde::Deserialize;
 use tokio::fs;
 use uuid::Uuid;
 
-use super::{LibraryArgs, RouterBuilder};
+use crate::{
+	library::LibraryConfig,
+	prisma::statistics,
+	sys::{get_volumes, save_volume},
+};
+
+use super::{utils::LibraryRequest, RouterBuilder};
 
 #[derive(Type, Deserialize)]
 pub struct EditLibraryArgs {
@@ -25,9 +31,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.query("get", |ctx, _: ()| async move {
 			ctx.library_manager.get_all_libraries_config().await
 		})
-		.query("getStatistics", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
+		.library_query("getStatistics", |_, _: (), library| async move {
 			let _statistics = library
 				.db
 				.statistics()

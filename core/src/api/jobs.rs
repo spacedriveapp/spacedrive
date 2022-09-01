@@ -11,6 +11,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 use super::{CoreEvent, LibraryArgs, RouterBuilder};
+use super::{utils::LibraryRequest, CoreEvent, RouterBuilder};
 
 #[derive(Type, Deserialize)]
 pub struct GenerateThumbsForLocationArgs {
@@ -26,31 +27,15 @@ pub struct IdentifyUniqueFilesArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.query("getRunning", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, _) = arg.get_library(&ctx).await?;
-
+		.library_query("getRunning", |ctx, _: (), _| async move {
 			Ok(ctx.jobs.get_running().await)
 		})
-		.query("getHistory", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
+		.library_query("getHistory", |_, _: (), library| async move {
 			Ok(JobManager::get_history(&library).await?)
 		})
-		.mutation(
+		.library_mutation(
 			"generateThumbsForLocation",
-			|ctx, arg: LibraryArgs<GenerateThumbsForLocationArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
-
-				if library
-					.db
-					.location()
-					.count(vec![location::id::equals(args.id)])
-					.exec()
-					.await? == 0
-				{
-					return Err(LocationError::IdNotFound(args.id).into());
-				}
-
+			|_, args: GenerateThumbsForLocationArgs, library| async move {
 				library
 					.spawn_job(Job::new(
 						ThumbnailJobInit {
@@ -65,11 +50,9 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			},
 		)
-		.mutation(
+		.library_mutation(
 			"identifyUniqueFiles",
-			|ctx, arg: LibraryArgs<IdentifyUniqueFilesArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
-
+			|_, args: IdentifyUniqueFilesArgs, library| async move {
 				library
 					.spawn_job(Job::new(
 						FileIdentifierJobInit {
@@ -86,7 +69,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			},
 		)
-		.subscription("newThumbnail", |ctx, _: LibraryArgs<()>| {
+		.library_subscription("newThumbnail", |ctx, _: (), _| {
 			// TODO: Only return event for the library that was subscribed to
 
 			let mut event_bus_rx = ctx.event_bus.subscribe();
