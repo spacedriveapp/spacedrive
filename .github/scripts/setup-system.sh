@@ -38,7 +38,8 @@ if [ "$1" == "mobile" ]; then
                         exit 1
                 fi
 
-                rustup target add aarch64-apple-ios 
+                rustup target add aarch64-apple-ios
+                rustup target add aarch64-apple-ios-sim
         fi
 
         # Android requires python

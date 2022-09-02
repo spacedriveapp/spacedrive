@@ -1,4 +1,4 @@
-use crate::sys::get_volumes;
+use crate::volume::get_volumes;
 
 use super::{Router, RouterBuilder};
 

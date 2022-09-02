@@ -5,7 +5,7 @@ import { Button, TextArea } from '@sd/ui';
 import clsx from 'clsx';
 import moment from 'moment';
 import { Heart, Link } from 'phosphor-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import types from '../../constants/file-types.json';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -31,6 +31,14 @@ const MetaItem = (props: MetaItemProps) => {
 
 const Divider = () => <div className="w-full my-1 h-[1px] bg-gray-100 dark:bg-gray-550" />;
 
+function debounce<T>(fn: (args: T) => void, delay: number): (args: T) => void {
+	let timerId: number | undefined;
+	return (...args) => {
+		clearTimeout(timerId);
+		timerId = setTimeout(() => fn(...args), delay);
+	};
+}
+
 export const Inspector = (props: { locationId: number; selectedFile?: FilePath }) => {
 	const { data: currentLocation } = useLibraryQuery(['locations.getById', props.locationId], {});
 
@@ -53,19 +61,17 @@ export const Inspector = (props: { locationId: number; selectedFile?: FilePath }
 	// when quickly navigating files, which cancels update function
 	const [note, setNote] = useState(props.selectedFile?.file?.note || '');
 	useEffect(() => {
-		// Update debounced value after delay
-		const handler = setTimeout(() => {
+		setNote(props.selectedFile?.file?.note || '');
+	}, [props.selectedFile?.file?.note]);
+	const debouncedNote = useCallback(
+		debounce((note: string) => {
 			fileSetNote({
 				id: file_id,
 				note
 			});
-		}, 500);
-
-		return () => {
-			clearTimeout(handler);
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [note]);
+		}, 2000),
+		[file_id]
+	);
 
 	const toggleFavorite = () => {
 		if (!isFavoriteLoading) {
@@ -82,6 +88,7 @@ export const Inspector = (props: { locationId: number; selectedFile?: FilePath }
 	function handleNoteUpdate(e: React.ChangeEvent<HTMLTextAreaElement>) {
 		if (e.target.value !== note) {
 			setNote(e.target.value);
+			debouncedNote(e.target.value);
 		}
 	}
 

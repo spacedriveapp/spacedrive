@@ -1,7 +1,7 @@
+use crate::{api::locations::GetExplorerDirArgs, invalidate_query, prisma::file};
+
 use rspc::Type;
 use serde::Deserialize;
-
-use crate::{api::locations::GetExplorerDirArgs, invalidate_query, prisma::file};
 
 use super::{LibraryArgs, RouterBuilder};
 
@@ -30,18 +30,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(
-				library,
-				"locations.getExplorerDir": LibraryArgs<GetExplorerDirArgs>,
-				LibraryArgs {
-					library_id: library.id,
-					arg: GetExplorerDirArgs {
-						location_id: 0, // TODO: This should be the correct location_id
-						path: "".into(),
-						limit: 0,
-					}
-				}
-			);
+			invalidate_query!(library, "locations.getExplorerDir");
 
 			Ok(())
 		})

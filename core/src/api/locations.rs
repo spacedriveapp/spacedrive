@@ -1,15 +1,16 @@
-use std::path::PathBuf;
-
-use rspc::{Error, ErrorCode, Type};
-use serde::{Deserialize, Serialize};
-use tracing::info;
-
 use crate::{
 	encode::THUMBNAIL_CACHE_DIR_NAME,
 	invalidate_query,
-	prisma::{file_path, location},
-	sys::{self, create_location, scan_location},
+	location::{
+		fetch_location, indexer::indexer_rules::IndexerRuleCreateArgs, scan_location,
+		with_indexer_rules, LocationCreateArgs, LocationError, LocationUpdateArgs,
+	},
+	prisma::{file_path, indexer_rule, indexer_rules_in_location, location},
 };
+
+use rspc::{self, ErrorCode, Type};
+use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use super::{LibraryArgs, RouterBuilder};
 
@@ -19,13 +20,7 @@ pub struct DirectoryWithContents {
 	pub contents: Vec<file_path::Data>,
 }
 
-#[derive(Type, Deserialize)]
-pub struct LocationUpdateArgs {
-	pub id: i32,
-	pub name: Option<String>,
-}
-
-#[derive(Clone, Serialize, Deserialize, Type)]
+#[derive(Clone, Serialize, Deserialize, Type, Debug)]
 pub struct GetExplorerDirArgs {
 	pub location_id: i32,
 	pub path: String,
@@ -74,19 +69,21 @@ pub(crate) fn mount() -> RouterBuilder {
 					.db
 					.file_path()
 					.find_first(vec![
-						file_path::location_id::equals(Some(location.id)),
+						file_path::location_id::equals(location.id),
 						file_path::materialized_path::equals(args.path),
 						file_path::is_dir::equals(true),
 					])
 					.exec()
 					.await?
-					.ok_or_else(|| Error::new(ErrorCode::NotFound, "Directory not found".into()))?;
+					.ok_or_else(|| {
+						rspc::Error::new(ErrorCode::NotFound, "Directory not found".into())
+					})?;
 
 				let file_paths = library
 					.db
 					.file_path()
 					.find_many(vec![
-						file_path::location_id::equals(Some(location.id)),
+						file_path::location_id::equals(location.id),
 						file_path::parent_id::equals(Some(directory.id)),
 					])
 					.with(file_path::file::fetch())
@@ -118,28 +115,22 @@ pub(crate) fn mount() -> RouterBuilder {
 				})
 			},
 		)
-		.mutation("create", |ctx, arg: LibraryArgs<PathBuf>| async move {
-			let (path, library) = arg.get_library(&ctx).await?;
-			let location = create_location(&library, &path).await?;
-			scan_location(&library, location.id, path).await;
-			Ok(location)
-		})
+		.mutation(
+			"create",
+			|ctx, arg: LibraryArgs<LocationCreateArgs>| async move {
+				let (create_args, library) = arg.get_library(&ctx).await?;
+
+				let location = create_args.create(&library).await?;
+				scan_location(&library, &location).await?;
+
+				Ok(location)
+			},
+		)
 		.mutation(
 			"update",
 			|ctx, arg: LibraryArgs<LocationUpdateArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
-
-				library
-					.db
-					.location()
-					.update(
-						location::id::equals(args.id),
-						vec![location::name::set(args.name)],
-					)
-					.exec()
-					.await?;
-
-				Ok(())
+				let (update_args, library) = arg.get_library(&ctx).await?;
+				update_args.update(&library).await.map_err(Into::into)
 			},
 		)
 		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
@@ -148,7 +139,16 @@ pub(crate) fn mount() -> RouterBuilder {
 			library
 				.db
 				.file_path()
-				.delete_many(vec![file_path::location_id::equals(Some(location_id))])
+				.delete_many(vec![file_path::location_id::equals(location_id)])
+				.exec()
+				.await?;
+
+			library
+				.db
+				.indexer_rules_in_location()
+				.delete_many(vec![indexer_rules_in_location::location_id::equals(
+					location_id,
+				)])
 				.exec()
 				.await?;
 
@@ -162,10 +162,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			invalidate_query!(
 				library,
 				"locations.get": LibraryArgs<()>,
-				LibraryArgs {
-					library_id: library.id,
-					arg: ()
-				}
+				LibraryArgs::new(library.id, ())
 			);
 
 			info!("Location {} deleted", location_id);
@@ -173,11 +170,77 @@ pub(crate) fn mount() -> RouterBuilder {
 			Ok(())
 		})
 		.mutation("fullRescan", |ctx, arg: LibraryArgs<i32>| async move {
-			let (id, library) = arg.get_library(&ctx).await?;
+			let (location_id, library) = arg.get_library(&ctx).await?;
 
-			sys::scan_location(&library, id, String::new()).await;
+			scan_location(
+				&library,
+				&fetch_location(&library, location_id)
+					.with(with_indexer_rules(location_id))
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(location_id))?,
+			)
+			.await
+			.map_err(Into::into)
+		})
+		.mutation("quickRescan", |_, _: LibraryArgs<()>| todo!())
+		.merge("indexer_rules", mount_indexer_rule_routes())
+}
+
+fn mount_indexer_rule_routes() -> RouterBuilder {
+	<RouterBuilder>::new()
+		.mutation(
+			"create",
+			|ctx, arg: LibraryArgs<IndexerRuleCreateArgs>| async move {
+				let (create_args, library) = arg.get_library(&ctx).await?;
+				create_args.create(&library).await.map_err(Into::into)
+			},
+		)
+		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
+			let (indexer_rule_id, library) = arg.get_library(&ctx).await?;
+
+			library
+				.db
+				.indexer_rules_in_location()
+				.delete_many(vec![indexer_rules_in_location::indexer_rule_id::equals(
+					indexer_rule_id,
+				)])
+				.exec()
+				.await?;
+
+			library
+				.db
+				.indexer_rule()
+				.delete(indexer_rule::id::equals(indexer_rule_id))
+				.exec()
+				.await?;
 
 			Ok(())
 		})
-		.mutation("quickRescan", |_, _: LibraryArgs<()>| todo!())
+		.query("get", |ctx, arg: LibraryArgs<i32>| async move {
+			let (indexer_rule_id, library) = arg.get_library(&ctx).await?;
+			library
+				.db
+				.indexer_rule()
+				.find_unique(indexer_rule::id::equals(indexer_rule_id))
+				.exec()
+				.await?
+				.ok_or_else(|| {
+					rspc::Error::new(
+						ErrorCode::NotFound,
+						format!("Indexer rule <id={indexer_rule_id}> not found"),
+					)
+				})
+		})
+		.query("list", |ctx, arg: LibraryArgs<()>| async move {
+			let (_, library) = arg.get_library(&ctx).await?;
+
+			library
+				.db
+				.indexer_rule()
+				.find_many(vec![])
+				.exec()
+				.await
+				.map_err(Into::into)
+		})
 }

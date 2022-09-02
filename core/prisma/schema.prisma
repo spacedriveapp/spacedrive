@@ -99,8 +99,9 @@ model Location {
     is_archived        Boolean  @default(false)
     date_created       DateTime @default(now())
 
-    node       Node?      @relation(fields: [node_id], references: [id])
-    file_paths FilePath[]
+    node          Node?                    @relation(fields: [node_id], references: [id])
+    file_paths    FilePath[]
+    indexer_rules IndexerRulesInLocation[]
 
     @@map("locations")
 }
@@ -150,10 +151,10 @@ model File {
 }
 
 model FilePath {
-    id                Int     @id @default(autoincrement())
+    id                Int
     is_dir            Boolean @default(false)
     // location that owns this path
-    location_id       Int?
+    location_id       Int
     // a path generated from local file_path ids eg: "34/45/67/890"
     materialized_path String
     // the name and extension
@@ -180,6 +181,7 @@ model FilePath {
 
     key Key? @relation(fields: [key_id], references: [id])
 
+    @@id([location_id, id])
     @@unique([location_id, materialized_path, name, extension])
     @@index([location_id])
     @@map("file_paths")
@@ -366,4 +368,30 @@ model Comment {
     file          File?    @relation(fields: [file_id], references: [id])
 
     @@map("comments")
+}
+
+model IndexerRule {
+    id            Int      @id @default(autoincrement())
+    kind          Int
+    name          String
+    parameters    Bytes
+    date_created  DateTime @default(now())
+    date_modified DateTime @default(now())
+
+    locations IndexerRulesInLocation[]
+
+    @@map("indexer_rules")
+}
+
+model IndexerRulesInLocation {
+    date_created DateTime @default(now())
+
+    location_id Int
+    location    Location @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    indexer_rule_id Int
+    indexer_rule    IndexerRule @relation(fields: [indexer_rule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@id([location_id, indexer_rule_id])
+    @@map("indexer_rules_in_location")
 }
