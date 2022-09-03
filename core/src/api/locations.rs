@@ -79,7 +79,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					.find_unique(location::id::equals(args.location_id))
 					.exec()
 					.await?
-					.unwrap();
+					.ok_or_else(|| {
+						rspc::Error::new(ErrorCode::NotFound, "Location not found".into())
+					})?;
 
 				let directory = library
 					.db
