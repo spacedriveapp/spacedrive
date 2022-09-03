@@ -7,12 +7,12 @@ import {
 	useLibraryQuery,
 	useLibraryStore
 } from '@sd/client';
+import { LocationCreateArgs } from '@sd/core';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import { CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
 import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
-import { LocationCreateArgs } from '@sd/core';
 
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
@@ -221,7 +221,11 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							appProps?.openDialog({ directory: true }).then((result) => {
 								console.log(result);
 								// TODO: Pass indexer rules ids to create location
-								if (result) createLocation( { path: result as string, indexer_rules_ids: [] } as LocationCreateArgs);
+								if (result)
+									createLocation({
+										path: result as string,
+										indexer_rules_ids: []
+									} as LocationCreateArgs);
 							});
 						}}
 						className={clsx(

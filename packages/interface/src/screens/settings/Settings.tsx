@@ -17,7 +17,7 @@ import {
 } from 'phosphor-react';
 import React from 'react';
 
-import { SidebarLink } from '../../components/file/Sidebar';
+import { SidebarLink } from '../../components/layout/Sidebar';
 import {
 	SettingsHeading,
 	SettingsIcon,

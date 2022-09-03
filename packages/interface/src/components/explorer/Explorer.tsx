@@ -1,22 +1,13 @@
-import { CheckIcon } from '@heroicons/react/solid';
 import {
-	ExplorerKind,
 	rspc,
-	useBridgeQuery,
-	useCurrentLibrary,
 	useExplorerStore,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibraryStore
 } from '@sd/client';
-import { DirectoryWithContents } from '@sd/core';
-import { ContextMenu } from '@sd/ui';
+import { ExplorerData } from '@sd/core';
 import {
 	ArrowBendUpRight,
-	FilePlus,
-	FileText,
-	FileX,
-	FileZip,
 	LockSimple,
 	Package,
 	Plus,
@@ -26,34 +17,28 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import React from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
 
-import { FileList } from '../file/FileList';
-import { Inspector } from '../file/Inspector';
+import { FileList } from '../explorer/FileList';
+import { Inspector } from '../explorer/Inspector';
 import { WithContextMenu } from '../layout/MenuOverlay';
 import { TopBar } from '../layout/TopBar';
-import { Checkbox } from '../primitive/Checkbox';
 
 interface Props {
-	library_id: string;
-	kind: ExplorerKind;
-	identifier: number;
-	files?: DirectoryWithContents;
-	heading?: string;
+	data: ExplorerData;
 }
 
 export default function Explorer(props: Props) {
 	const { selectedRowIndex, addNewThumbnail, contextMenuObjectId } = useExplorerStore();
 
+	const { currentLibraryUuid } = useLibraryStore();
+
 	const { data: tags } = useLibraryQuery(['tags.getAll'], {});
 
 	const { mutate: assignTag } = useLibraryMutation('tags.assign');
 
-	// const { libraries } = useCurrentLibrary();
-
 	const { data: tagsForFile } = useLibraryQuery(['tags.getForFile', contextMenuObjectId || -1]);
 
-	rspc.useSubscription(['jobs.newThumbnail', { library_id: props.library_id!, arg: null }], {
+	rspc.useSubscription(['jobs.newThumbnail', { library_id: currentLibraryUuid!, arg: null }], {
 		onNext: (cas_id) => {
 			addNewThumbnail(cas_id);
 		}
@@ -207,15 +192,11 @@ export default function Explorer(props: Props) {
 				<div className="relative flex flex-col w-full bg-gray-600">
 					<TopBar />
 					<div className="relative flex flex-row w-full max-h-full">
-						<FileList
-							location_id={props.identifier}
-							files={props.files?.contents || []}
-							heading={props.files?.directory.name || props.heading}
-						/>
-						{props.files?.contents && (
+						<FileList data={props.data?.items || []} context={props.data.context} />
+						{props.data.items[selectedRowIndex]?.id && (
 							<Inspector
-								locationId={props.identifier}
-								selectedFile={props.files.contents[selectedRowIndex]}
+								key={props.data.items[selectedRowIndex].id}
+								data={props.data.items[selectedRowIndex]}
 							/>
 						)}
 					</div>

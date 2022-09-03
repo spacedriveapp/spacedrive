@@ -1,6 +1,6 @@
 import { DotsVerticalIcon } from '@heroicons/react/solid';
 import { LocationContext, useBridgeQuery, useExplorerStore, useLibraryQuery } from '@sd/client';
-import { FilePath } from '@sd/core';
+import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -10,6 +10,7 @@ import styled from 'styled-components';
 
 import FileItem from './FileItem';
 import FileThumb from './FileThumb';
+import { isPath } from './utils';
 
 interface IColumn {
 	column: string;
@@ -44,9 +45,8 @@ const GridItemContainer = styled.div`
 `;
 
 interface Props {
-	location_id: number;
-	files: FilePath[];
-	heading?: string;
+	context: ExplorerContext;
+	data: ExplorerItem[];
 }
 
 export const FileList: React.FC<Props> = (props) => {
@@ -72,11 +72,6 @@ export const FileList: React.FC<Props> = (props) => {
 		}
 	}, [goingUp, selectedRowIndex]);
 
-	useEffect(() => {
-		set({ locationId: props.location_id });
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [props.location_id]);
-
 	useKey('ArrowUp', (e) => {
 		e.preventDefault();
 		setGoingUp(true);
@@ -87,13 +82,13 @@ export const FileList: React.FC<Props> = (props) => {
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
 		setGoingUp(false);
-		if (selectedRowIndex !== -1 && selectedRowIndex !== (props.files.length ?? 1) - 1)
+		if (selectedRowIndex !== -1 && selectedRowIndex !== (props.data.length ?? 1) - 1)
 			set({ selectedRowIndex: selectedRowIndex + 1 });
 	});
 
 	const createRenderItem = (RenderItem: React.FC<RenderItemProps>) => {
 		return (index: number) => {
-			const row = props.files[index];
+			const row = props.data[index];
 			if (!row) return null;
 			return <RenderItem key={index} index={index} item={row} />;
 		};
@@ -101,7 +96,9 @@ export const FileList: React.FC<Props> = (props) => {
 
 	const Header = () => (
 		<div>
-			{props.heading && <h1 className="pt-20 pl-4 text-xl font-bold ">{props.heading}</h1>}
+			{props.context.name && (
+				<h1 className="pt-20 pl-4 text-xl font-bold ">{props.context.name}</h1>
+			)}
 			<div className="table-head">
 				<div className="flex flex-row p-2 table-head-row">
 					{columns.map((col) => (
@@ -121,45 +118,41 @@ export const FileList: React.FC<Props> = (props) => {
 
 	return (
 		<div ref={tableContainer} style={{ marginTop: -44 }} className="w-full pl-2 cursor-default ">
-			<LocationContext.Provider
-				value={{ location_id: props.location_id, data_path: client?.data_path as string }}
-			>
-				{layoutMode === 'grid' && (
-					<VirtuosoGrid
-						ref={VList}
-						overscan={5000}
-						components={{
-							Item: GridItemContainer,
-							List: GridContainer
-						}}
-						style={{ height: size.innerHeight ?? 600 }}
-						totalCount={props.files.length || 0}
-						itemContent={createRenderItem(RenderGridItem)}
-						className="w-full overflow-x-hidden outline-none explorer-scroll"
-					/>
-				)}
-				{layoutMode === 'list' && (
-					<Virtuoso
-						data={props.files} // this might be redundant, row data is retrieved by index in renderRow
-						ref={VList}
-						style={{ height: size.innerHeight ?? 600 }}
-						totalCount={props.files.length || 0}
-						itemContent={createRenderItem(RenderRow)}
-						components={{
-							Header,
-							Footer: () => <div className="w-full " />
-						}}
-						increaseViewportBy={{ top: 400, bottom: 200 }}
-						className="outline-none explorer-scroll"
-					/>
-				)}
-			</LocationContext.Provider>
+			{layoutMode === 'grid' && (
+				<VirtuosoGrid
+					ref={VList}
+					overscan={5000}
+					components={{
+						Item: GridItemContainer,
+						List: GridContainer
+					}}
+					style={{ height: size.innerHeight ?? 600 }}
+					totalCount={props.data.length || 0}
+					itemContent={createRenderItem(RenderGridItem)}
+					className="w-full overflow-x-hidden outline-none explorer-scroll"
+				/>
+			)}
+			{layoutMode === 'list' && (
+				<Virtuoso
+					data={props.data} // this might be redundant, row data is retrieved by index in renderRow
+					ref={VList}
+					style={{ height: size.innerHeight ?? 600 }}
+					totalCount={props.data.length || 0}
+					itemContent={createRenderItem(RenderRow)}
+					components={{
+						Header,
+						Footer: () => <div className="w-full " />
+					}}
+					increaseViewportBy={{ top: 400, bottom: 200 }}
+					className="outline-none explorer-scroll"
+				/>
+			)}
 		</div>
 	);
 };
 
 interface RenderItemProps {
-	item: FilePath;
+	item: ExplorerItem;
 	index: number;
 }
 
@@ -170,16 +163,17 @@ const RenderGridItem: React.FC<RenderItemProps> = ({ item, index }) => {
 	return (
 		<FileItem
 			onDoubleClick={() => {
-				if (item.is_dir) {
+				if (item.type === 'Path' && item.is_dir) {
 					setSearchParams({ path: item.materialized_path });
 				}
 			}}
 			index={index}
-			file={item}
+			data={item}
 			selected={selectedRowIndex === index}
 			onClick={() => {
 				set({ selectedRowIndex: selectedRowIndex == index ? -1 : index });
 			}}
+			size={100}
 		/>
 	);
 };
@@ -194,7 +188,7 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index }) => {
 			<div
 				onClick={() => set({ selectedRowIndex: selectedRowIndex == index ? -1 : index })}
 				onDoubleClick={() => {
-					if (item.is_dir) {
+					if (isPath(item) && item.is_dir) {
 						setSearchParams({ path: item.materialized_path });
 					}
 				}}
@@ -210,7 +204,7 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index }) => {
 						className="flex items-center px-4 py-2 pr-2 table-body-cell"
 						style={{ width: col.width }}
 					>
-						<RenderCell file={item} colKey={col.key} />
+						<RenderCell data={item} colKey={col.key} />
 					</div>
 				))}
 			</div>
@@ -222,16 +216,14 @@ const RenderRow: React.FC<RenderItemProps> = ({ item, index }) => {
 
 const RenderCell: React.FC<{
 	colKey: ColumnKey;
-	file: FilePath;
-}> = ({ colKey, file }) => {
-	const location = useContext(LocationContext);
-
+	data: ExplorerItem;
+}> = ({ colKey, data }) => {
 	switch (colKey) {
 		case 'name':
 			return (
 				<div className="flex flex-row items-center overflow-hidden">
 					<div className="flex items-center justify-center w-6 h-6 mr-3 shrink-0">
-						<FileThumb file={file} />
+						<FileThumb data={data} size={0} />
 					</div>
 					{/* {colKey == 'name' &&
             (() => {
@@ -245,13 +237,13 @@ const RenderCell: React.FC<{
                   return <DocumentIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
               }
             })()} */}
-					<span className="text-xs truncate">{file[colKey]}</span>
+					<span className="text-xs truncate">{data[colKey]}</span>
 				</div>
 			);
 		// case 'size_in_bytes':
 		//   return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
 		case 'extension':
-			return <span className="text-xs text-left">{file[colKey]}</span>;
+			return <span className="text-xs text-left">{data[colKey]}</span>;
 		// case 'meta_integrity_hash':
 		//   return <span className="truncate">{value}</span>;
 		// case 'tags':

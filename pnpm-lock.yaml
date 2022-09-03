@@ -341,6 +341,7 @@ importers:
       use-debounce: ^8.0.3
       vite: ^3.0.3
       vite-plugin-svgr: ^2.2.1
+      zod: ^3.18.0
       zustand: 4.0.0
     dependencies:
       '@apollo/client': 3.6.9_react@18.2.0
@@ -395,6 +396,7 @@ importers:
       tailwindcss: 3.1.8
       use-count-up: 3.0.1_react@18.2.0
       use-debounce: 8.0.4_react@18.2.0
+      zod: 3.18.0
       zustand: 4.0.0_immer@9.0.15+react@18.2.0
     devDependencies:
       '@sd/config': link:../config
@@ -7060,6 +7062,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
@@ -18943,6 +18946,10 @@ packages:
 
   /zen-observable/0.8.15:
     resolution: {integrity: sha512-PQ2PC7R9rslx84ndNBZB/Dkv8V8fZEpk83RLgXtYd0fwUgEjseMn1Dgajh2x6S8QbZAFa9p2qVCEuYZNgve0dQ==}
+    dev: false
+
+  /zod/3.18.0:
+    resolution: {integrity: sha512-gwTm8RfUCe8l9rDwN5r2A17DkAa8Ez4Yl4yXqc5VqeGaXaJahzYYXbTwvhroZi0SNBqTwh/bKm2N0mpCzuw4bA==}
     dev: false
 
   /zoom-level/2.5.0:

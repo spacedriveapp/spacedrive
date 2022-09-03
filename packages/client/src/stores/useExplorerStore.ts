@@ -14,9 +14,6 @@ type ExplorerStore = {
 	selectedRowIndex: number;
 	multiSelectIndexes: number[];
 	contextMenuObjectId: number | null;
-	locationId: number; // todo: check if even needed
-	path: string;
-	limit: number;
 	newThumbnails: Record<string, boolean>;
 	addNewThumbnail: (cas_id: string) => void;
 	selectMore: (indexes: number[]) => void;
@@ -29,10 +26,7 @@ export const useExplorerStore = create<ExplorerStore>((set) => ({
 	selectedRowIndex: 1,
 	multiSelectIndexes: [],
 	contextMenuObjectId: -1,
-	locationId: -1,
 	newThumbnails: {},
-	path: '',
-	limit: 100,
 	addNewThumbnail: (cas_id) =>
 		set((state) =>
 			produce(state, (draft) => {
