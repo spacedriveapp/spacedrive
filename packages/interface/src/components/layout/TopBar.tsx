@@ -72,7 +72,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 });
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-	const { layoutMode, set } = useExplorerStore();
+	const { layoutMode, set, locationId } = useExplorerStore();
 	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
 		{
@@ -192,12 +192,13 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								{
 									name: 'Generate Thumbs',
 									icon: ArrowsClockwise,
-									onPress: () => generateThumbsForLocation({ id: locationId, path: '' })
+									onPress: () =>
+										locationId && generateThumbsForLocation({ id: locationId, path: '' })
 								},
 								{
 									name: 'Identify Unique',
 									icon: ArrowsClockwise,
-									onPress: () => identifyUniqueFiles({ id: locationId, path: '' })
+									onPress: () => locationId && identifyUniqueFiles({ id: locationId, path: '' })
 								}
 							]
 						]}

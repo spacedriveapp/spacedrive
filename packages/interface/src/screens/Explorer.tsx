@@ -20,6 +20,12 @@ export function useExplorerParams() {
 export const ExplorerScreen: React.FC<unknown> = () => {
 	const { location_id, path } = useExplorerParams();
 
+	// for top bar location context, could be replaced with react context as it is child component
+	const { set } = useExplorerStore();
+	useEffect(() => {
+		set({ locationId: location_id });
+	}, [location_id]);
+
 	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 
 	const explorerData = useLibraryQuery([

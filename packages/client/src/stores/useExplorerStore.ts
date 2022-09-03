@@ -11,6 +11,7 @@ export enum ExplorerKind {
 
 type ExplorerStore = {
 	layoutMode: LayoutMode;
+	locationId: number | null; // used by top bar
 	selectedRowIndex: number;
 	multiSelectIndexes: number[];
 	contextMenuObjectId: number | null;
@@ -23,6 +24,7 @@ type ExplorerStore = {
 
 export const useExplorerStore = create<ExplorerStore>((set) => ({
 	layoutMode: 'grid',
+	locationId: null,
 	selectedRowIndex: 1,
 	multiSelectIndexes: [],
 	contextMenuObjectId: -1,
