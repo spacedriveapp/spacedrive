@@ -1,4 +1,4 @@
-import { DotsVerticalIcon } from '@heroicons/react/solid';
+import { EllipsisHorizontalIcon } from '@heroicons/react/24/solid';
 import { LocationContext, useBridgeQuery, useExplorerStore, useLibraryQuery } from '@sd/client';
 import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
 import clsx from 'clsx';
@@ -107,7 +107,7 @@ export const FileList: React.FC<Props> = (props) => {
 							className="relative flex flex-row items-center pl-2 table-head-cell group"
 							style={{ width: col.width }}
 						>
-							<DotsVerticalIcon className="absolute hidden w-5 h-5 -ml-5 cursor-move group-hover:block drag-handle opacity-10" />
+							<EllipsisHorizontalIcon className="absolute hidden w-5 h-5 -ml-5 cursor-move group-hover:block drag-handle opacity-10" />
 							<span className="text-sm font-medium text-gray-500">{col.column}</span>
 						</div>
 					))}

@@ -1,14 +1,14 @@
 import {
+	ArrowTrendingUpIcon,
+	BoltIcon,
 	ClockIcon,
+	ComputerDesktopIcon,
 	CurrencyDollarIcon,
-	DesktopComputerIcon,
-	EmojiHappyIcon,
+	FaceSmileIcon,
 	HeartIcon,
 	HomeIcon,
-	LightningBoltIcon,
-	StarIcon,
-	TrendingUpIcon
-} from '@heroicons/react/outline';
+	StarIcon
+} from '@heroicons/react/24/outline';
 import { Button } from '@sd/ui';
 import React from 'react';
 import { Helmet } from 'react-helmet';
@@ -35,7 +35,7 @@ const values = [
 	{
 		title: 'Speed',
 		desc: 'We get things done quickly, through small iteration cycles and frequent updates.',
-		icon: LightningBoltIcon
+		icon: BoltIcon
 	},
 	{
 		title: 'Transparency',
@@ -54,13 +54,13 @@ const perks = [
 	{
 		title: 'Stock Options',
 		desc: `As an early employee, you deserve to own a piece of our company. Stock options will be offered as part of your onboarding process.`,
-		icon: TrendingUpIcon,
+		icon: ArrowTrendingUpIcon,
 		color: '#BD0DD1'
 	},
 	{
 		title: 'Paid Time Off',
 		desc: `Rest is important, you deliver your best work when you've had your downtime. We offer 2 weeks paid time off per year, and if you need more, we'll give you more.`,
-		icon: EmojiHappyIcon,
+		icon: FaceSmileIcon,
 		color: '#9210FF'
 	},
 	{
@@ -72,7 +72,7 @@ const perks = [
 	{
 		title: 'Desk Budget',
 		desc: `Need an M1 MacBook Pro? We've got you covered. (You'll probably need one with Rust compile times)`,
-		icon: DesktopComputerIcon,
+		icon: ComputerDesktopIcon,
 		color: '#0DC5D1'
 	},
 	{
@@ -124,7 +124,7 @@ function Page() {
 								className="flex flex-col p-10 bg-opacity-50 border border-gray-500 rounded-md bg-gray-550"
 							>
 								<value.icon className="w-8 m-0" />
-								<h3 className="mt-4 mb-1 leading-snug text-2xl font-bold">{value.title}</h3>
+								<h3 className="mt-4 mb-1 text-2xl font-bold leading-snug">{value.title}</h3>
 								<p className="mt-1 mb-0 text-gray-350">{value.desc}</p>
 							</div>
 						))}
@@ -154,7 +154,7 @@ function Page() {
 					<p className="mt-2 mb-4">If any open positions suit you, apply now!</p>
 					<div className="grid w-full grid-cols-1 gap-4 mt-5">
 						{positions.length === 0 ? (
-							<p className="m-0 text-gray-350 text-center">
+							<p className="m-0 text-center text-gray-350">
 								There are no positions open at this time. Please check back later!
 							</p>
 						) : (

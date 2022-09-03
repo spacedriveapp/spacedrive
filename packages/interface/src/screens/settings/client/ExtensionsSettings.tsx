@@ -1,5 +1,5 @@
-import { SearchIcon } from '@heroicons/react/solid';
 import { Button, Input } from '@sd/ui';
+import { MagnifyingGlass } from 'phosphor-react';
 import React from 'react';
 
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
@@ -66,7 +66,7 @@ export default function ExtensionSettings() {
 				description="Install extensions to extend the functionality of this client."
 				rightArea={
 					<div className="relative mt-6">
-						<SearchIcon className="absolute w-[18px] h-auto top-[8px] left-[11px] text-gray-350" />
+						<MagnifyingGlass className="absolute w-[18px] h-auto top-[8px] left-[11px] text-gray-350" />
 						<Input className="w-56 !p-0.5 !pl-9" placeholder="Search extensions" />
 					</div>
 				}

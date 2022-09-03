@@ -1,4 +1,4 @@
-import { PencilAltIcon, TrashIcon } from '@heroicons/react/outline';
+import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useBridgeMutation, useBridgeQuery, useLibraryStore } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
@@ -42,7 +42,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 			</div>
 			<div className="mt-2 space-x-2">
 				<Button variant="gray" className="!p-1.5" onClick={handleEditLibrary}>
-					<PencilAltIcon className="w-4 h-4" />
+					<PencilIcon className="w-4 h-4" />
 				</Button>
 				<DeleteLibraryDialog libraryUuid={props.library.uuid}>
 					<Button variant="gray" className="!p-1.5">

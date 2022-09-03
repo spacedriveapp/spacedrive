@@ -1,5 +1,5 @@
-import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
-import { CogIcon, PlusIcon } from '@heroicons/react/solid';
+import { LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { CogIcon, PlusIcon } from '@heroicons/react/24/solid';
 import {
 	AppPropsContext,
 	useCurrentLibrary,
@@ -178,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					Spaces
 				</SidebarLink>
 				<SidebarLink to="photos">
-					<Icon component={PhotographIcon} />
+					<Icon component={PhotoIcon} />
 					Photos
 				</SidebarLink>
 			</div>
@@ -190,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							<NavLink
 								className="relative w-full group"
 								to={{
-									pathname: `explorer/${location.id}`
+									pathname: `location/${location.id}`
 								}}
 							>
 								{({ isActive }) => (

@@ -28,7 +28,8 @@ interface Props {
 }
 
 export default function Explorer(props: Props) {
-	const { selectedRowIndex, addNewThumbnail, contextMenuObjectId } = useExplorerStore();
+	const { selectedRowIndex, addNewThumbnail, contextMenuObjectId, showInspector } =
+		useExplorerStore();
 
 	const { currentLibraryUuid } = useLibraryStore();
 
@@ -193,11 +194,15 @@ export default function Explorer(props: Props) {
 					<TopBar />
 					<div className="relative flex flex-row w-full max-h-full">
 						<FileList data={props.data?.items || []} context={props.data.context} />
-						{props.data.items[selectedRowIndex]?.id && (
-							<Inspector
-								key={props.data.items[selectedRowIndex].id}
-								data={props.data.items[selectedRowIndex]}
-							/>
+						{showInspector && (
+							<div className="min-w-[260px] max-w-[260px]">
+								{props.data.items[selectedRowIndex]?.id && (
+									<Inspector
+										key={props.data.items[selectedRowIndex].id}
+										data={props.data.items[selectedRowIndex]}
+									/>
+								)}
+							</div>
 						)}
 					</div>
 				</div>

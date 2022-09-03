@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { ExplorerKind, rspc, useExplorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
+import { useExplorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
 import React, { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import z from 'zod';
@@ -17,7 +17,7 @@ export function useExplorerParams() {
 	return { location_id, path, limit };
 }
 
-export const ExplorerScreen: React.FC<unknown> = () => {
+export const LocationExplorer: React.FC<unknown> = () => {
 	const { location_id, path } = useExplorerParams();
 
 	// for top bar location context, could be replaced with react context as it is child component

@@ -37,7 +37,7 @@ export default function FileItem(props: Props) {
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
-						'bg-gray-50 dark:bg-gray-650': props.selected
+						'bg-gray-50 dark:bg-gray-750': props.selected
 					}
 				)}
 			>
@@ -48,7 +48,7 @@ export default function FileItem(props: Props) {
 				>
 					<FileThumb
 						className={clsx(
-							'border-4 border-gray-500 rounded-sm shadow-md shadow-gray-650 max-h-full max-w-full overflow-hidden'
+							'border-4 border-gray-250 rounded-sm shadow-md shadow-gray-750 max-h-full max-w-full overflow-hidden'
 						)}
 						data={props.data}
 						size={100}
@@ -64,7 +64,7 @@ export default function FileItem(props: Props) {
 						}
 					)}
 				>
-					{props.data?.name}
+					{props.data?.name}.{props.data?.extension}
 				</span>
 			</div>
 		</div>

@@ -1,9 +1,9 @@
-import { RefreshIcon } from '@heroicons/react/outline';
-import { TrashIcon } from '@heroicons/react/solid';
+import { TrashIcon } from '@heroicons/react/24/solid';
 import { useLibraryMutation } from '@sd/client';
 import { Location } from '@sd/core';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
+import { Repeat } from 'phosphor-react';
 import React, { useState } from 'react';
 
 import { Folder } from '../icons/Folder';
@@ -77,7 +77,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 						locRescan(location.id);
 					}}
 				>
-					<RefreshIcon className="w-4 h-4" />
+					<Repeat className="w-4 h-4" />
 				</Button>
 				{/* <Button variant="gray" className="!p-1.5">
 					<CogIcon className="w-4 h-4" />

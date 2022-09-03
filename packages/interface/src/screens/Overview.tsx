@@ -1,4 +1,4 @@
-import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/solid';
+import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { Statistics } from '@sd/core';

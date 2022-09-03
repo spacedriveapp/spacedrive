@@ -1,10 +1,10 @@
-import { ExplorerKind, useLibraryQuery, useLibraryStore } from '@sd/client';
+import { useLibraryQuery, useLibraryStore } from '@sd/client';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 
 import Explorer from '../components/explorer/Explorer';
 
-export const TagScreen: React.FC<unknown> = () => {
+export const TagExplorer: React.FC<unknown> = () => {
 	const { id } = useParams();
 	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 

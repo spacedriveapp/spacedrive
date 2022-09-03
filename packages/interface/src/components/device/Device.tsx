@@ -1,5 +1,5 @@
-import { KeyIcon } from '@heroicons/react/outline';
-import { CogIcon, LockClosedIcon } from '@heroicons/react/solid';
+import { KeyIcon } from '@heroicons/react/24/outline';
+import { CogIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
 import { Cloud, Desktop, DeviceMobileCamera, DotsSixVertical, Laptop } from 'phosphor-react';
 import React, { useState } from 'react';

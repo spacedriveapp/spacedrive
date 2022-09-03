@@ -1,8 +1,16 @@
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/outline';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { AppPropsContext, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { ArrowsClockwise, IconProps, Key, List, Rows, SquaresFour } from 'phosphor-react';
+import {
+	ArrowsClockwise,
+	IconProps,
+	Key,
+	List,
+	Rows,
+	SidebarSimple,
+	SquaresFour
+} from 'phosphor-react';
 import React, { DetailedHTMLProps, HTMLAttributes, RefAttributes, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,7 +46,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 					'rounded-r-none rounded-l-none': group && !left && !right,
 					'rounded-r-none': group && left,
 					'rounded-l-none': group && right,
-					'dark:bg-gray-550': active
+					'dark:bg-gray-500': active
 				},
 				className
 			)}
@@ -72,7 +80,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 });
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-	const { layoutMode, set, locationId } = useExplorerStore();
+	const { layoutMode, set, locationId, showInspector } = useExplorerStore();
 	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
 		{
@@ -173,17 +181,23 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						{/* <Tooltip label="Cloud">
 							<TopBarButton icon={Cloud} />
 						</Tooltip> */}
-						<Tooltip label="Generate Thumbnails">
+						{/* <Tooltip label="Refresh">
 							<TopBarButton
 								icon={ArrowsClockwise}
 								onClick={() => {
 									// generateThumbsForLocation({ id: locationId, path: '' });
 								}}
 							/>
-						</Tooltip>
+						</Tooltip> */}
 					</div>
 				</div>
 				<div className="flex mr-3 space-x-2">
+					<TopBarButton
+						active={showInspector}
+						onClick={() => set({ showInspector: !showInspector })}
+						className="my-2"
+						icon={SidebarSimple}
+					/>
 					<Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
 						align="right"
