@@ -31,8 +31,8 @@ pub enum ExplorerContext {
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
-	Path(file_path::Data),
-	Object(file::Data),
+	Path(Box<file_path::Data>),
+	Object(Box<file::Data>),
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
@@ -126,7 +126,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 								file.has_thumbnail = thumb_path.exists();
 							}
-							ExplorerItem::Path(file_path)
+							ExplorerItem::Path(Box::new(file_path))
 						})
 						.collect(),
 				})

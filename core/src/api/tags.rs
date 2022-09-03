@@ -81,7 +81,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 					file.has_thumbnail = thumb_path.exists();
 
-					ExplorerItem::Object(file)
+					ExplorerItem::Object(Box::new(file))
 				})
 				.collect();
 
