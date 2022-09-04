@@ -236,6 +236,8 @@ importers:
       scripts: '*'
       tsconfig: '*'
       typescript: ^4.7.4
+      valtio: ^1.6.4
+      valtio-persist: ^1.0.2
       zustand: 4.0.0
     dependencies:
       '@rspc/client': 0.0.5
@@ -246,6 +248,8 @@ importers:
       eventemitter3: 4.0.7
       immer: 9.0.15
       lodash: 4.17.21
+      valtio: 1.6.4
+      valtio-persist: 1.0.2_valtio@1.6.4
       zustand: 4.0.0_immer@9.0.15
     devDependencies:
       '@types/lodash': 4.14.182
@@ -340,6 +344,8 @@ importers:
       typescript: ^4.7.4
       use-count-up: ^3.0.1
       use-debounce: ^8.0.3
+      valtio: ^1.6.4
+      valtio-persist: ^1.0.2
       vite: ^3.0.3
       vite-plugin-svgr: ^2.2.1
       zod: ^3.18.0
@@ -369,7 +375,7 @@ importers:
       byte-size: 8.1.0
       clsx: 1.2.1
       immer: 9.0.15
-      jotai: 1.8.2_immer@9.0.15+react@18.2.0
+      jotai: 1.8.2_umupx7nluxw42lgh4svggrlwmq
       lodash: 4.17.21
       moment: 2.29.4
       phosphor-react: 1.4.1_react@18.2.0
@@ -398,6 +404,8 @@ importers:
       tailwindcss: 3.1.8
       use-count-up: 3.0.1_react@18.2.0
       use-debounce: 8.0.4_react@18.2.0
+      valtio: 1.6.4_react@18.2.0+vite@3.0.9
+      valtio-persist: 1.0.2_valtio@1.6.4
       zod: 3.18.0
       zustand: 4.0.0_immer@9.0.15+react@18.2.0
     devDependencies:
@@ -12458,7 +12466,7 @@ packages:
       regenerator-runtime: 0.13.9
     dev: true
 
-  /jotai/1.8.2_immer@9.0.15+react@18.2.0:
+  /jotai/1.8.2_umupx7nluxw42lgh4svggrlwmq:
     resolution: {integrity: sha512-jRKTQKChLAJGB3zG5zklJoMtpWYixUi2jK3pZd5ZRpH4pQnjYYEOAVYCzZGr4Ce5Uj7j0ffYoLM4ULAAQXUoGw==}
     engines: {node: '>=12.7.0'}
     peerDependencies:
@@ -12494,6 +12502,7 @@ packages:
     dependencies:
       immer: 9.0.15
       react: 18.2.0
+      valtio: 1.6.4_react@18.2.0+vite@3.0.9
     dev: false
 
   /jpeg-js/0.4.2:
@@ -14941,6 +14950,10 @@ packages:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
+
+  /proxy-compare/2.3.0:
+    resolution: {integrity: sha512-c3L2CcAi7f7pvlD0D7xsF+2CQIW8C3HaYx2Pfgq8eA4HAl3GAH6/dVYsyBbYF/0XJs2ziGLrzmz5fmzPm6A0pQ==}
+    dev: false
 
   /prr/1.0.1:
     resolution: {integrity: sha512-yPw4Sng1gWghHQWj0B3ZggWUm4qVbPwPFcRG8KyxiU7J2OHFSoEHKS+EZ3fv5l1t9CyCiop6l/ZYeWbrgoQejw==}
@@ -18310,6 +18323,73 @@ packages:
       spdx-correct: 3.1.1
       spdx-expression-parse: 3.0.1
     dev: true
+
+  /valtio-persist/1.0.2_valtio@1.6.4:
+    resolution: {integrity: sha512-OBVEUZTS1heiA5R3j8CPDuXIMmmjIvq/4CiO+pElXd7f7b7nR3vIH5qql35hXw/AkLdftqTUcVCNVf6yAJ1ypA==}
+    peerDependencies:
+      valtio: ^1.2.5
+    dependencies:
+      lodash: 4.17.21
+      valtio: 1.6.4
+    dev: false
+
+  /valtio/1.6.4:
+    resolution: {integrity: sha512-wEslN1bO1ihuv2Xj4jIxkGaDgsnwSvZdcaYcJ6aSwaNYU0ZMe+eZipfEzbTqd4CwnMu7ihDBNes0ZP5CIl1NqA==}
+    engines: {node: '>=12.7.0'}
+    peerDependencies:
+      '@babel/helper-module-imports': '>=7.12'
+      '@babel/types': '>=7.13'
+      aslemammad-vite-plugin-macro: '>=1.0.0-alpha.1'
+      babel-plugin-macros: '>=3.0'
+      react: '>=16.8'
+      vite: '>=2.8.6'
+    peerDependenciesMeta:
+      '@babel/helper-module-imports':
+        optional: true
+      '@babel/types':
+        optional: true
+      aslemammad-vite-plugin-macro:
+        optional: true
+      babel-plugin-macros:
+        optional: true
+      react:
+        optional: true
+      vite:
+        optional: true
+    dependencies:
+      proxy-compare: 2.3.0
+      use-sync-external-store: 1.2.0
+    dev: false
+
+  /valtio/1.6.4_react@18.2.0+vite@3.0.9:
+    resolution: {integrity: sha512-wEslN1bO1ihuv2Xj4jIxkGaDgsnwSvZdcaYcJ6aSwaNYU0ZMe+eZipfEzbTqd4CwnMu7ihDBNes0ZP5CIl1NqA==}
+    engines: {node: '>=12.7.0'}
+    peerDependencies:
+      '@babel/helper-module-imports': '>=7.12'
+      '@babel/types': '>=7.13'
+      aslemammad-vite-plugin-macro: '>=1.0.0-alpha.1'
+      babel-plugin-macros: '>=3.0'
+      react: '>=16.8'
+      vite: '>=2.8.6'
+    peerDependenciesMeta:
+      '@babel/helper-module-imports':
+        optional: true
+      '@babel/types':
+        optional: true
+      aslemammad-vite-plugin-macro:
+        optional: true
+      babel-plugin-macros:
+        optional: true
+      react:
+        optional: true
+      vite:
+        optional: true
+    dependencies:
+      proxy-compare: 2.3.0
+      react: 18.2.0
+      use-sync-external-store: 1.2.0_react@18.2.0
+      vite: 3.0.9
+    dev: false
 
   /varname/2.0.3:
     resolution: {integrity: sha512-+DofT9mJAUALhnr9ipZ5Z2icwaEZ7DAajOZT4ffXy3MQqnXtG3b7atItLQEJCkfcJTOf9WcsywneOEibD4eqJg==}

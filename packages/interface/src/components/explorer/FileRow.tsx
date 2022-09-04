@@ -1,5 +1,5 @@
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/solid';
-import { LocationContext, useBridgeQuery, useExplorerStore, useLibraryQuery } from '@sd/client';
+import { LocationContext, explorerStore, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';

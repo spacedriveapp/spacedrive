@@ -1,7 +1,8 @@
-import { useExplorerStore } from '@sd/client';
+import { explorerStore } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
 import React from 'react';
+import { useSnapshot } from 'valtio';
 
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
@@ -13,17 +14,17 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem(props: Props) {
-	const set = useExplorerStore.getState().set;
-
-	const size = useExplorerStore((state) => state.gridItemSize) || 100;
+	const { gridItemSize } = useSnapshot(explorerStore);
 
 	return (
 		<div
 			onContextMenu={(e) => {
 				const objectId = isObject(props.data) ? props.data.id : props.data.file?.id;
 				if (objectId != undefined) {
-					set({ contextMenuObjectId: objectId });
-					if (props.index != undefined) set({ selectedRowIndex: props.index });
+					explorerStore.contextMenuObjectId = objectId;
+					if (props.index != undefined) {
+						explorerStore.selectedRowIndex = props.index;
+					}
 				}
 			}}
 			draggable
@@ -31,7 +32,7 @@ function FileItem(props: Props) {
 			className={clsx('inline-block w-[100px] mb-3', props.className)}
 		>
 			<div
-				style={{ width: size, height: size }}
+				style={{ width: gridItemSize, height: gridItemSize }}
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
@@ -49,7 +50,7 @@ function FileItem(props: Props) {
 							'border-4 border-gray-250 rounded-sm shadow-md shadow-gray-750 max-h-full max-w-full overflow-hidden'
 						)}
 						data={props.data}
-						size={size}
+						size={gridItemSize}
 					/>
 				</div>
 			</div>

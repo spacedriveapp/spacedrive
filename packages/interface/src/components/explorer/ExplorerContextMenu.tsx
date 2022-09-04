@@ -1,4 +1,4 @@
-import { useExplorerStore, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { explorerStore, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ExplorerData } from '@sd/core';
 import {
 	ArrowBendUpRight,
@@ -11,6 +11,7 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import React from 'react';
+import { useSnapshot } from 'valtio';
 
 import { WithContextMenu } from '../layout/MenuOverlay';
 
@@ -19,7 +20,7 @@ interface Props {
 }
 
 export default function ExplorerContextMenu(props: Props) {
-	const contextMenuObjectId = useExplorerStore((store) => store.contextMenuObjectId);
+	const contextMenuObjectId = useSnapshot(explorerStore).contextMenuObjectId;
 
 	const { data: tags } = useLibraryQuery(['tags.getAll'], {});
 

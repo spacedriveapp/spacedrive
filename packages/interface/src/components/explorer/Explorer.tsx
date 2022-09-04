@@ -1,6 +1,6 @@
 import {
+	explorerStore,
 	rspc,
-	useExplorerStore,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibraryStore
@@ -17,6 +17,7 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import React, { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useSnapshot } from 'valtio';
 
 import { Inspector } from '../explorer/Inspector';
 import { WithContextMenu } from '../layout/MenuOverlay';
@@ -29,7 +30,7 @@ interface Props {
 }
 
 export default function Explorer(props: Props) {
-	const addNewThumbnail = useExplorerStore((store) => store.addNewThumbnail);
+	const { addNewThumbnail, selectedRowIndex, showInspector } = useSnapshot(explorerStore);
 
 	const currentLibraryUuid = useLibraryStore((store) => store.currentLibraryUuid);
 
@@ -38,11 +39,6 @@ export default function Explorer(props: Props) {
 			addNewThumbnail(cas_id);
 		}
 	});
-
-	const { selectedRowIndex, showInspector } = useExplorerStore((store) => ({
-		selectedRowIndex: store.selectedRowIndex,
-		showInspector: store.showInspector
-	}));
 
 	return (
 		<div className="relative">
