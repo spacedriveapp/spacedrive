@@ -1,18 +1,17 @@
-use std::{
-	sync::Arc,
-	time::{Duration, Instant},
-};
-
-use rspc::{Config, ErrorCode, Type};
-use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
-use uuid::Uuid;
-
 use crate::{
 	job::JobManager,
 	library::{LibraryContext, LibraryManager},
 	node::{NodeConfig, NodeConfigManager},
 };
+
+use rspc::{Config, ErrorCode, Type};
+use serde::{Deserialize, Serialize};
+use std::{
+	sync::Arc,
+	time::{Duration, Instant},
+};
+use tokio::sync::broadcast;
+use uuid::Uuid;
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
@@ -38,12 +37,15 @@ pub struct Ctx {
 /// Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
 #[derive(Clone, Serialize, Deserialize, Type)]
 pub struct LibraryArgs<T> {
-	// If you want to make these public, your doing it wrong.
-	pub library_id: Uuid,
-	pub arg: T,
+	library_id: Uuid,
+	arg: T,
 }
 
 impl<T> LibraryArgs<T> {
+	pub fn new(library_id: Uuid, arg: T) -> Self {
+		Self { library_id, arg }
+	}
+
 	pub async fn get_library(self, ctx: &Ctx) -> Result<(T, LibraryContext), rspc::Error> {
 		match ctx.library_manager.get_ctx(self.library_id).await {
 			Some(library) => Ok((self.arg, library)),
@@ -55,13 +57,13 @@ impl<T> LibraryArgs<T> {
 	}
 }
 
-mod files;
-mod jobs;
-mod libraries;
-mod locations;
-mod tags;
+pub mod files;
+pub mod jobs;
+pub mod libraries;
+pub mod locations;
+pub mod tags;
 pub mod utils;
-mod volumes;
+pub mod volumes;
 
 pub use files::*;
 pub use jobs::*;

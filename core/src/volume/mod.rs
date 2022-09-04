@@ -1,10 +1,10 @@
 use crate::{library::LibraryContext, prisma::volume::*};
+
 use rspc::Type;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
 use std::process::Command;
 use sysinfo::{DiskExt, System, SystemExt};
+use thiserror::Error;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
 pub struct Volume {
@@ -28,7 +28,7 @@ pub enum VolumeError {
 
 impl From<VolumeError> for rspc::Error {
 	fn from(e: VolumeError) -> Self {
-		rspc::Error::new(rspc::ErrorCode::InternalServerError, e.to_string())
+		rspc::Error::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 	}
 }
 

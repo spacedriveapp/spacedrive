@@ -1,3 +1,5 @@
+use crate::prisma::node;
+
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use rspc::Type;
@@ -5,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 mod config;
-use crate::prisma::node;
+
 pub use config::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

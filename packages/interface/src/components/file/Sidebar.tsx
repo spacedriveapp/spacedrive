@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import { CirclesFour, Planet } from 'phosphor-react';
 import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
+import { LocationCreateArgs } from '@sd/core';
 
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
@@ -222,7 +223,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						onClick={() => {
 							appProps?.openDialog({ directory: true }).then((result) => {
 								console.log(result);
-								if (result) createLocation(result as string);
+								// TODO: Pass indexer rules ids to create location
+								if (result) createLocation( { path: result as string, indexer_rules_ids: [] } as LocationCreateArgs);
 							});
 						}}
 						className={clsx(

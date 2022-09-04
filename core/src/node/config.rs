@@ -8,7 +8,6 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::{RwLock, RwLockWriteGuard};
-
 use uuid::Uuid;
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
