@@ -85,7 +85,10 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const { data: locations } = useLibraryQuery(['locations.get']);
 
 	// initialize libraries
-	const { init: initLibraries, switchLibrary } = useLibraryStore();
+	const { init: initLibraries, switchLibrary } = useLibraryStore((store) => ({
+		init: store.init,
+		switchLibrary: store.switchLibrary
+	}));
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
 	useEffect(() => {
