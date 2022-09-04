@@ -1,7 +1,8 @@
-import { AppPropsContext, useExplorerStore } from '@sd/client';
+import { AppPropsContext, explorerStore } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext } from 'react';
+import { useSnapshot } from 'valtio';
 
 import icons from '../../assets/icons';
 import { Folder } from '../icons/Folder';
@@ -16,7 +17,7 @@ interface Props {
 
 export default function FileThumb({ data, ...props }: Props) {
 	const appProps = useContext(AppPropsContext);
-	const newThumbnails = useExplorerStore((store) => store.newThumbnails);
+	const { newThumbnails } = useSnapshot(explorerStore);
 
 	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
 

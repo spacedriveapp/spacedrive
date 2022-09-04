@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { AppPropsContext, useExplorerStore, useLibraryMutation } from '@sd/client';
+import { AppPropsContext, explorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -13,6 +13,7 @@ import {
 } from 'phosphor-react';
 import React, { DetailedHTMLProps, HTMLAttributes, RefAttributes, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSnapshot } from 'valtio';
 
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
@@ -80,7 +81,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 });
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-	const { layoutMode, set, locationId, showInspector } = useExplorerStore();
+	const { layoutMode, locationId, showInspector } = useSnapshot(explorerStore);
 	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
 		{
@@ -159,7 +160,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								left
 								active={layoutMode === 'list'}
 								icon={Rows}
-								onClick={() => set({ layoutMode: 'list' })}
+								onClick={() => (explorerStore.layoutMode = 'list')}
 							/>
 						</Tooltip>
 						<Tooltip label="Grid view">
@@ -168,7 +169,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								right
 								active={layoutMode === 'grid'}
 								icon={SquaresFour}
-								onClick={() => set({ layoutMode: 'grid' })}
+								onClick={() => (explorerStore.layoutMode = 'grid')}
 							/>
 						</Tooltip>
 					</div>
@@ -194,7 +195,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				<div className="flex mr-3 space-x-2">
 					<TopBarButton
 						active={showInspector}
-						onClick={() => set({ showInspector: !showInspector })}
+						onClick={() => (explorerStore.showInspector = !showInspector)}
 						className="my-2"
 						icon={SidebarSimple}
 					/>

@@ -5,7 +5,7 @@ import create from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
 import { useBridgeQuery } from '../index';
-import { useExplorerStore } from './useExplorerStore';
+import { explorerStore } from './explorerStore';
 
 type LibraryStore = {
 	// the uuid of the currently active library
@@ -28,7 +28,7 @@ export const useLibraryStore = create<LibraryStore>()(
 						})
 					);
 					// reset other stores
-					useExplorerStore().reset();
+					explorerStore.reset();
 				},
 				init: async (libraries) => {
 					set((state) =>

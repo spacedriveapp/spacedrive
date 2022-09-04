@@ -1,9 +1,10 @@
-import { ExplorerLayoutMode, useExplorerStore } from '@sd/client';
+import { ExplorerLayoutMode, explorerStore } from '@sd/client';
 import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useWindowSize } from 'rooks';
+import { useSnapshot } from 'valtio';
 
 import FileItem from './FileItem';
 import FileRow from './FileRow';
@@ -23,16 +24,16 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	const [goingUp, setGoingUp] = useState(false);
 	const [width, setWidth] = useState(0);
 
-	const { gridItemSize, layoutMode, listItemSize, selectedRowIndex } = useExplorerStore(
-		(state) => ({
-			selectedRowIndex: state.selectedRowIndex,
-			gridItemSize: state.gridItemSize,
-			layoutMode: state.layoutMode,
-			listItemSize: state.listItemSize
-		})
-	);
+	// const { gridItemSize, layoutMode, listItemSize, selectedRowIndex } = useExplorerStore(
+	// 	(state) => ({
+	// 		selectedRowIndex: state.selectedRowIndex,
+	// 		gridItemSize: state.gridItemSize,
+	// 		layoutMode: state.layoutMode,
+	// 		listItemSize: state.listItemSize
+	// 	})
+	// );
 
-	const set = useExplorerStore.getState().set;
+	const { gridItemSize, layoutMode, listItemSize, selectedRowIndex } = useSnapshot(explorerStore);
 
 	useLayoutEffect(() => {
 		setWidth(innerRef.current?.offsetWidth || 0);
@@ -61,14 +62,14 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 		e.preventDefault();
 		setGoingUp(true);
 		if (selectedRowIndex !== -1 && selectedRowIndex !== 0)
-			set({ selectedRowIndex: selectedRowIndex - 1 });
+			explorerStore.selectedRowIndex = selectedRowIndex - 1;
 	});
 
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
 		setGoingUp(false);
 		if (selectedRowIndex !== -1 && selectedRowIndex !== (data.length ?? 1) - 1)
-			set({ selectedRowIndex: selectedRowIndex + 1 });
+			explorerStore.selectedRowIndex = selectedRowIndex + 1;
 	});
 
 	// const Header = () => (
@@ -164,7 +165,7 @@ const WrappedItem: React.FC<WrappedItemProps> = memo(({ item, index, isSelected,
 	}, [item, setSearchParams]);
 
 	const onClick = useCallback(() => {
-		useExplorerStore.getState().set({ selectedRowIndex: isSelected ? -1 : index });
+		explorerStore.selectedRowIndex = isSelected ? -1 : index;
 	}, [isSelected, index]);
 
 	if (kind === 'list') {
