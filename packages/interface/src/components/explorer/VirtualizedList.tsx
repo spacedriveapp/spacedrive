@@ -3,13 +3,14 @@ import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useKey, useWindowSize } from 'rooks';
+import { useKey, useOnWindowResize, useWindowSize } from 'rooks';
 
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import { isPath } from './utils';
 
 const TOP_BAR_HEIGHT = 50;
+const GRID_TEXT_AREA_HEIGHT = 25;
 
 interface Props {
 	context: ExplorerContext;
@@ -34,13 +35,17 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 
 	const set = useExplorerStore.getState().set;
 
-	useLayoutEffect(() => {
+	function handleWindowResize() {
+		// so the virtualizer can render the correct number of columns
 		setWidth(innerRef.current?.offsetWidth || 0);
-	}, []);
+	}
+	useOnWindowResize(handleWindowResize);
+	useLayoutEffect(() => handleWindowResize(), []);
 
+	// sizing calculations
 	const amountOfColumns = Math.floor(width / gridItemSize) || 8,
 		amountOfRows = layoutMode === 'grid' ? Math.ceil(data.length / amountOfColumns) : data.length,
-		itemSize = layoutMode === 'grid' ? gridItemSize + 25 : listItemSize;
+		itemSize = layoutMode === 'grid' ? gridItemSize + GRID_TEXT_AREA_HEIGHT : listItemSize;
 
 	const rowVirtualizer = useVirtualizer({
 		count: amountOfRows,
@@ -50,11 +55,14 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 		measureElement: (index) => itemSize
 	});
 
+	// TODO: Make scroll adjustment work with both list and grid layout, currently top bar offset disrupts positioning of list, and grid just doesn't work
 	// useEffect(() => {
-	// 	if (selectedRowIndex === 0 && goingUp) rowVirtualizer.scrollToIndex(0);
+	// 	if (selectedRowIndex === 0 && goingUp) rowVirtualizer.scrollToIndex(0, { smoothScroll: false });
 
 	// 	if (selectedRowIndex !== -1)
-	// 		rowVirtualizer.scrollToIndex(goingUp ? selectedRowIndex - 1 : selectedRowIndex);
+	// 		rowVirtualizer.scrollToIndex(goingUp ? selectedRowIndex - 1 : selectedRowIndex, {
+	// 			smoothScroll: false
+	// 		});
 	// }, [goingUp, selectedRowIndex, rowVirtualizer]);
 
 	useKey('ArrowUp', (e) => {
