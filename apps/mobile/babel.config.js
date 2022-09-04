@@ -19,7 +19,7 @@ module.exports = function (api) {
 					],
 					root: ['src'],
 					alias: {
-						'@app': './src'
+						'~': './src'
 					}
 				}
 			]

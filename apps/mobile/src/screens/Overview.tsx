@@ -1,10 +1,10 @@
-import Device from '@app/components/device/Device';
-import VirtualizedListWrapper from '@app/components/layout/VirtualizedListWrapper';
-import OverviewStats from '@app/containers/OverviewStats';
-import tw from '@app/lib/tailwind';
-import { OverviewStackScreenProps } from '@app/navigation/tabs/OverviewStack';
 import React from 'react';
 import { FlatList, View } from 'react-native';
+import Device from '~/components/device/Device';
+import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
+import OverviewStats from '~/containers/OverviewStats';
+import tw from '~/lib/tailwind';
+import { OverviewStackScreenProps } from '~/navigation/tabs/OverviewStack';
 
 const placeholderOverviewStats = {
 	id: 1,

@@ -1,9 +1,9 @@
-import tw from '@app/lib/tailwind';
-import { FilePath } from '@app/types/bindings';
 import { Cloud, Desktop, DeviceMobileCamera, Laptop } from 'phosphor-react-native';
 import React from 'react';
 import { FlatList, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/solid';
+import tw from '~/lib/tailwind';
+import { FilePath } from '~/types/bindings';
 
 import FileItem from '../file/FileItem';
 

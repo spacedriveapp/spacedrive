@@ -1,6 +1,6 @@
-import tw from '@app/lib/tailwind';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { StackScreenProps, TransitionPresets, createStackNavigator } from '@react-navigation/stack';
+import tw from '~/lib/tailwind';
 
 import Header from '../../components/header/Header';
 import SpacesScreen from '../../screens/Spaces';

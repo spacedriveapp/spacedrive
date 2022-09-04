@@ -1,10 +1,10 @@
-import { useBridgeQuery } from '@app/hooks/rspc';
-import { LibraryConfigWrapped } from '@app/types/bindings';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import produce from 'immer';
 import { useMemo } from 'react';
 import create from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useBridgeQuery } from '~/hooks/rspc';
+import { LibraryConfigWrapped } from '~/types/bindings';
 
 interface LibraryStore {
 	_hasHydrated: boolean;

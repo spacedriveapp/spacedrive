@@ -1,8 +1,8 @@
-import tw from '@app/lib/tailwind';
 import { MotiView } from 'moti';
 import React, { useReducer } from 'react';
 import { Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { ChevronRightIcon } from 'react-native-heroicons/solid';
+import tw from '~/lib/tailwind';
 
 import { AnimatedHeight } from '../animation/layout';
 

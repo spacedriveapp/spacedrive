@@ -1,6 +1,6 @@
-import CreateLibraryScreen from '@app/screens/onboarding/CreateLibrary';
-import OnboardingScreen from '@app/screens/onboarding/Onboarding';
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
+import CreateLibraryScreen from '~/screens/onboarding/CreateLibrary';
+import OnboardingScreen from '~/screens/onboarding/Onboarding';
 
 const OnboardingStack = createStackNavigator<OnboardingStackParamList>();
 

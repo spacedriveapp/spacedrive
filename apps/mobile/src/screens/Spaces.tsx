@@ -1,7 +1,7 @@
-import tw from '@app/lib/tailwind';
-import { SpacesStackScreenProps } from '@app/navigation/tabs/SpacesStack';
 import React from 'react';
 import { Text, View } from 'react-native';
+import tw from '~/lib/tailwind';
+import { SpacesStackScreenProps } from '~/navigation/tabs/SpacesStack';
 
 export default function SpacesScreen({ navigation }: SpacesStackScreenProps<'Spaces'>) {
 	return (

@@ -1,10 +1,10 @@
-import { AnimatedButton } from '@app/components/primitive/Button';
-import { setItemToStorage } from '@app/lib/storage';
-import tw from '@app/lib/tailwind';
-import { OnboardingStackScreenProps } from '@app/navigation/OnboardingNavigator';
-import { useOnboardingStore } from '@app/stores/useOnboardingStore';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { AnimatedButton } from '~/components/primitive/Button';
+import { setItemToStorage } from '~/lib/storage';
+import tw from '~/lib/tailwind';
+import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
+import { useOnboardingStore } from '~/stores/useOnboardingStore';
 
 const CreateLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'CreateLibrary'>) => {
 	const { hideOnboarding } = useOnboardingStore();
