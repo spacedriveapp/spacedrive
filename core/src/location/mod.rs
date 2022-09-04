@@ -263,6 +263,7 @@ pub async fn scan_location(
 	ctx.queue_job(Job::new(
 		FileIdentifierJobInit {
 			location: location.clone(),
+			sub_path: None,
 		},
 		Box::new(FileIdentifierJob {}),
 	))

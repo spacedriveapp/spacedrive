@@ -28,6 +28,7 @@ pub struct FileIdentifierJob {}
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileIdentifierJobInit {
 	pub location: location::Data,
+	pub sub_path: Option<PathBuf>, // subpath to start from
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -46,6 +47,7 @@ impl From<&FilePathIdAndLocationIdCursor> for file_path::UniqueWhereParam {
 pub struct FileIdentifierJobState {
 	total_count: usize,
 	task_count: usize,
+	location: location::Data,
 	location_path: PathBuf,
 	cursor: FilePathIdAndLocationIdCursor,
 }
@@ -69,9 +71,15 @@ impl StatefulJob for FileIdentifierJob {
 
 		let library = ctx.library_ctx();
 
-		let location_path = state
-			.init
-			.location
+		let location = library
+			.db
+			.location()
+			.find_unique(location::id::equals(state.init.location.id))
+			.exec()
+			.await?
+			.unwrap();
+
+		let location_path = location
 			.local_path
 			.as_ref()
 			.map(PathBuf::from)
@@ -89,6 +97,7 @@ impl StatefulJob for FileIdentifierJob {
 		state.data = Some(FileIdentifierJobState {
 			total_count,
 			task_count,
+			location,
 			location_path,
 			cursor: FilePathIdAndLocationIdCursor {
 				file_path_id: 1,
@@ -116,13 +125,14 @@ impl StatefulJob for FileIdentifierJob {
 			.expect("critical error: missing data on job state");
 
 		// get chunk of orphans to process
-		let file_paths = match get_orphan_file_paths(&ctx.library_ctx(), &data.cursor).await {
-			Ok(file_paths) => file_paths,
-			Err(e) => {
-				info!("Error getting orphan file paths: {:#?}", e);
-				return Ok(());
-			}
-		};
+		let file_paths =
+			match get_orphan_file_paths(&ctx.library_ctx(), &data.cursor, data.location.id).await {
+				Ok(file_paths) => file_paths,
+				Err(e) => {
+					info!("Error getting orphan file paths: {:#?}", e);
+					return Ok(());
+				}
+			};
 		info!(
 			"Processing {:?} orphan files. ({} completed of {})",
 			file_paths.len(),
@@ -305,6 +315,7 @@ async fn count_orphan_file_paths(
 async fn get_orphan_file_paths(
 	ctx: &LibraryContext,
 	cursor: &FilePathIdAndLocationIdCursor,
+	location_id: i32,
 ) -> Result<Vec<file_path::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"discovering {} orphan file paths at cursor: {:?}",
@@ -315,6 +326,7 @@ async fn get_orphan_file_paths(
 		.find_many(vec![
 			file_path::file_id::equals(None),
 			file_path::is_dir::equals(false),
+			file_path::location_id::equals(location_id),
 		])
 		.order_by(file_path::id::order(Direction::Asc))
 		.cursor(cursor.into())
@@ -343,6 +355,8 @@ async fn prepare_file(
 	let path = location_path
 		.as_ref()
 		.join(file_path.materialized_path.as_str());
+
+	info!("Reading path: {:?}", path);
 
 	let metadata = fs::metadata(&path).await?;
 

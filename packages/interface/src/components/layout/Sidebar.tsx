@@ -1,5 +1,5 @@
-import { LockClosedIcon, PhotographIcon } from '@heroicons/react/outline';
-import { CogIcon, PlusIcon } from '@heroicons/react/solid';
+import { LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { CogIcon, PlusIcon } from '@heroicons/react/24/solid';
 import {
 	AppPropsContext,
 	useCurrentLibrary,
@@ -7,13 +7,14 @@ import {
 	useLibraryQuery,
 	useLibraryStore
 } from '@sd/client';
+import { LocationCreateArgs } from '@sd/core';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { CirclesFour, Planet } from 'phosphor-react';
+import { CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
 import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
-import { LocationCreateArgs } from '@sd/core';
 
+import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
@@ -94,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
-	const { data: tags } = useLibraryQuery(['tags.get']);
+	const { data: tags } = useLibraryQuery(['tags.getAll']);
 
 	return (
 		<div
@@ -154,10 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						{
 							name: 'Add Library',
 							icon: PlusIcon,
-							onPress: () => {
-								alert('todo');
-								// TODO: Show Dialog defined in `LibrariesSettings.tsx`
-							}
+							wrapItemComponent: CreateLibraryDialog
 						},
 						{
 							name: 'Lock',
@@ -166,7 +164,6 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 								alert('todo');
 							}
 						}
-						// { name: 'Hide', icon: EyeOffIcon }
 					]
 				]}
 			/>
@@ -181,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					Spaces
 				</SidebarLink>
 				<SidebarLink to="photos">
-					<Icon component={PhotographIcon} />
+					<Icon component={PhotoIcon} />
 					Photos
 				</SidebarLink>
 			</div>
@@ -193,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							<NavLink
 								className="relative w-full group"
 								to={{
-									pathname: `explorer/${location.id}`
+									pathname: `location/${location.id}`
 								}}
 							>
 								{({ isActive }) => (
@@ -224,7 +221,11 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 							appProps?.openDialog({ directory: true }).then((result) => {
 								console.log(result);
 								// TODO: Pass indexer rules ids to create location
-								if (result) createLocation( { path: result as string, indexer_rules_ids: [] } as LocationCreateArgs);
+								if (result)
+									createLocation({
+										path: result as string,
+										indexer_rules_ids: []
+									} as LocationCreateArgs);
 							});
 						}}
 						className={clsx(

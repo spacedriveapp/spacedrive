@@ -101,9 +101,27 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 
 			// Split the migrations file up into each individual step and apply them all
 			let steps = migration_file_raw.split(';').collect::<Vec<&str>>();
-			let steps = &steps[0..steps.len() - 1];
+			let step_count = steps.len();
+			let steps = &steps[0..step_count - 1];
+
 			for (i, step) in steps.iter().enumerate() {
-				client._execute_raw(raw!(*step)).exec().await?;
+				match client._execute_raw(raw!(*step)).exec().await {
+					Ok(_) => {}
+					Err(e) => {
+						// remove the failed migration record so next time it will be retried
+						// potentially an issue if steps were already applied, look into generating down migrations
+						client
+							.migration()
+							.delete(migration::checksum::equals(checksum.clone()))
+							.exec()
+							.await?;
+
+						// TODO: Show UI alert with error message
+						panic!("Error applying migration step: {}", e);
+					}
+				}
+				// Note: there isn't much point storing the steps in the db if we don't generate down migrations and write logic to run the already applied steps in reverse for a failed migration.
+				// for now if a migration fails we abort entirely (see above panic)
 				client
 					.migration()
 					.update(

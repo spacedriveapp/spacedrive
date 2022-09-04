@@ -71,6 +71,7 @@
 				"fullscreen": false,
 				"alwaysOnTop": false,
 				"focus": false,
+				"visible": false,
 				"fileDropEnabled": false,
 				"decorations": true,
 				"transparent": true,

@@ -1,5 +1,5 @@
 use crate::{
-	api::{locations::GetExplorerDirArgs, CoreEvent, LibraryArgs},
+	api::{locations::LocationExplorerArgs, CoreEvent, LibraryArgs},
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
@@ -56,8 +56,8 @@ impl StatefulJob for ThumbnailJob {
 		let thumbnail_dir = library_ctx
 			.config()
 			.data_directory()
-			.join(THUMBNAIL_CACHE_DIR_NAME)
-			.join(state.init.location_id.to_string());
+			.join(THUMBNAIL_CACHE_DIR_NAME);
+		// .join(state.init.location_id.to_string());
 
 		let location = library_ctx
 			.db
@@ -157,13 +157,14 @@ impl StatefulJob for ThumbnailJob {
 		let library_ctx = ctx.library_ctx();
 		invalidate_query!(
 			library_ctx,
-			"locations.getExplorerDir": LibraryArgs<GetExplorerDirArgs>,
+			"locations.getExplorerData": LibraryArgs<LocationExplorerArgs>,
 			LibraryArgs::new(
 				library_ctx.id,
-				GetExplorerDirArgs {
+				LocationExplorerArgs {
 					location_id: state.init.location_id,
 					path: "".to_string(),
-					limit: 100
+					limit: 100,
+					cursor: None,
 				}
 			)
 		);

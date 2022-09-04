@@ -1,4 +1,9 @@
-import { BookOpenIcon, MapIcon, QuestionMarkCircleIcon, UsersIcon } from '@heroicons/react/solid';
+import {
+	BookOpenIcon,
+	MapIcon,
+	QuestionMarkCircleIcon,
+	UsersIcon
+} from '@heroicons/react/24/solid';
 import { Discord, Github } from '@icons-pack/react-simple-icons';
 import AppLogo from '@sd/assets/images/logo.png';
 import { Dropdown, DropdownItem } from '@sd/ui';

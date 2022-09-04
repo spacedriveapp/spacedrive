@@ -16,6 +16,7 @@ pub(crate) mod job;
 pub(crate) mod library;
 pub(crate) mod location;
 pub(crate) mod node;
+pub(crate) mod object;
 pub(crate) mod prisma;
 pub(crate) mod util;
 pub(crate) mod volume;
