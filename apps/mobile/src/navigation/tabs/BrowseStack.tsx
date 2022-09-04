@@ -1,8 +1,8 @@
-import Header from '@app/components/header/Header';
-import tw from '@app/lib/tailwind';
-import BrowseScreen from '@app/screens/Browse';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
+import Header from '~/components/header/Header';
+import tw from '~/lib/tailwind';
+import BrowseScreen from '~/screens/Browse';
 
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';

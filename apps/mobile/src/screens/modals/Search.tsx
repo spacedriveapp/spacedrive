@@ -1,10 +1,10 @@
-import { Button } from '@app/components/primitive/Button';
-import tw from '@app/lib/tailwind';
-import { RootStackScreenProps } from '@app/navigation';
 import { MagnifyingGlass } from 'phosphor-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '~/components/primitive/Button';
+import tw from '~/lib/tailwind';
+import { RootStackScreenProps } from '~/navigation';
 
 const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	const { top } = useSafeAreaInsets();

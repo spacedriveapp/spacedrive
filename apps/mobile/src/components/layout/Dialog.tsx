@@ -1,7 +1,7 @@
-import tw from '@app/lib/tailwind';
 import { MotiView } from 'moti';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
+import tw from '~/lib/tailwind';
 
 import { Button } from '../primitive/Button';
 

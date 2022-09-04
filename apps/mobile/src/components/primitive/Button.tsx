@@ -1,8 +1,8 @@
-import tw from '@app/lib/tailwind';
 import { VariantProps, cva } from 'class-variance-authority';
 import { MotiPressable, MotiPressableProps } from 'moti/interactions';
 import React, { useMemo } from 'react';
 import { Pressable, PressableProps } from 'react-native';
+import tw from '~/lib/tailwind';
 
 const button = cva(['border rounded-md items-center shadow-sm'], {
 	variants: {

@@ -1,11 +1,11 @@
-import LocationScreen from '@app/screens/Location';
-import TagScreen from '@app/screens/Tag';
 import { ParamListBase, StackNavigationState, TypedNavigator } from '@react-navigation/native';
 import {
 	StackNavigationEventMap,
 	StackNavigationOptions,
 	StackScreenProps
 } from '@react-navigation/stack';
+import LocationScreen from '~/screens/Location';
+import TagScreen from '~/screens/Tag';
 
 export function SharedScreens(
 	Stack: TypedNavigator<

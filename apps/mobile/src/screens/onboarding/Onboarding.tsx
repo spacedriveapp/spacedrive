@@ -1,9 +1,9 @@
-import { FadeInUpAnimation, LogoAnimation } from '@app/components/animation/layout';
-import { AnimatedButton } from '@app/components/primitive/Button';
-import tw from '@app/lib/tailwind';
-import { OnboardingStackScreenProps } from '@app/navigation/OnboardingNavigator';
 import React from 'react';
 import { Image, Text, View } from 'react-native';
+import { FadeInUpAnimation, LogoAnimation } from '~/components/animation/layout';
+import { AnimatedButton } from '~/components/primitive/Button';
+import tw from '~/lib/tailwind';
+import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
 const OnboardingScreen = ({ navigation }: OnboardingStackScreenProps<'Onboarding'>) => {
 	return (

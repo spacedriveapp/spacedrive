@@ -1,6 +1,6 @@
-import tw from '@app/lib/tailwind';
 import React from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
+import tw from '~/lib/tailwind';
 
 type BrowseTagItemProps = {
 	tagName: string;

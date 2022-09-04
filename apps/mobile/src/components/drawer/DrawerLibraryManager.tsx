@@ -1,11 +1,11 @@
-import { useBridgeMutation } from '@app/hooks/rspc';
-import tw from '@app/lib/tailwind';
-import { useCurrentLibrary, useLibraryStore } from '@app/stores/useLibraryStore';
 import { MotiView } from 'moti';
 import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/outline';
 import { ChevronRightIcon, CogIcon, PlusIcon } from 'react-native-heroicons/solid';
+import { useBridgeMutation } from '~/hooks/rspc';
+import tw from '~/lib/tailwind';
+import { useCurrentLibrary, useLibraryStore } from '~/stores/useLibraryStore';
 
 import { AnimatedHeight } from '../animation/layout';
 import Dialog from '../layout/Dialog';
