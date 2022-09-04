@@ -1,9 +1,7 @@
-use crate::{api::locations::LocationExplorerArgs, invalidate_query, prisma::file};
+use crate::{invalidate_query, prisma::file};
 
 use rspc::Type;
 use serde::Deserialize;
-
-use crate::{invalidate_query, prisma::file};
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
@@ -50,7 +48,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.exec()
 					.await?;
 
-				invalidate_query!(library, "locations.getExplorerDir");
+				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
 			},
@@ -63,7 +61,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(library, "locations.getExplorerDir");
+			invalidate_query!(library, "locations.getExplorerData");
 			Ok(())
 		})
 }

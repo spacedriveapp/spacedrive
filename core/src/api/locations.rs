@@ -12,7 +12,6 @@ use rspc::{self, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use super::{LibraryArgs, RouterBuilder};
 use super::{utils::LibraryRequest, RouterBuilder};
 
 #[derive(Serialize, Deserialize, Type, Debug)]
@@ -66,8 +65,8 @@ pub(crate) fn mount() -> RouterBuilder {
 				.await?)
 		})
 		.library_query(
-			"getExplorerDir",
-			|_, args: GetExplorerDirArgs, library| async move {
+			"getExplorerData",
+			|_, args: LocationExplorerArgs, library| async move {
 				let location = library
 					.db
 					.location()
@@ -127,22 +126,19 @@ pub(crate) fn mount() -> RouterBuilder {
 				})
 			},
 		)
-		.mutation(
+		.library_mutation(
 			"create",
-			|ctx, arg: LibraryArgs<LocationCreateArgs>| async move {
-				let (create_args, library) = arg.get_library(&ctx).await?;
-
-				let location = create_args.create(&library).await?;
+			|_, args: LocationCreateArgs, library| async move {
+				let location = args.create(&library).await?;
 				scan_location(&library, &location).await?;
 
 				Ok(location)
 			},
 		)
-		.mutation(
+		.library_mutation(
 			"update",
-			|ctx, arg: LibraryArgs<LocationUpdateArgs>| async move {
-				let (update_args, library) = arg.get_library(&ctx).await?;
-				update_args.update(&library).await.map_err(Into::into)
+			|_, args: LocationUpdateArgs, library| async move {
+				args.update(&library).await.map_err(Into::into)
 			},
 		)
 		.library_mutation("delete", |_, location_id: i32, library| async move {
@@ -175,9 +171,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			Ok(())
 		})
-		.mutation("fullRescan", |ctx, arg: LibraryArgs<i32>| async move {
-			let (location_id, library) = arg.get_library(&ctx).await?;
-
+		.library_mutation("fullRescan", |_, location_id: i32, library| async move {
 			scan_location(
 				&library,
 				&fetch_location(&library, location_id)
@@ -189,22 +183,23 @@ pub(crate) fn mount() -> RouterBuilder {
 			.await
 			.map_err(Into::into)
 		})
-		.mutation("quickRescan", |_, _: LibraryArgs<()>| todo!())
+		.library_mutation("quickRescan", |_, _: (), _library| async move {
+			todo!();
+			#[allow(unreachable_code)]
+			Ok(())
+		})
 		.merge("indexer_rules", mount_indexer_rule_routes())
 }
 
 fn mount_indexer_rule_routes() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.mutation(
+		.library_mutation(
 			"create",
-			|ctx, arg: LibraryArgs<IndexerRuleCreateArgs>| async move {
-				let (create_args, library) = arg.get_library(&ctx).await?;
-				create_args.create(&library).await.map_err(Into::into)
+			|_, args: IndexerRuleCreateArgs, library| async move {
+				args.create(&library).await.map_err(Into::into)
 			},
 		)
-		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
-			let (indexer_rule_id, library) = arg.get_library(&ctx).await?;
-
+		.library_mutation("delete", |_, indexer_rule_id: i32, library| async move {
 			library
 				.db
 				.indexer_rules_in_location()
@@ -223,8 +218,7 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 
 			Ok(())
 		})
-		.query("get", |ctx, arg: LibraryArgs<i32>| async move {
-			let (indexer_rule_id, library) = arg.get_library(&ctx).await?;
+		.library_query("get", |_, indexer_rule_id: i32, library| async move {
 			library
 				.db
 				.indexer_rule()
@@ -238,9 +232,7 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 					)
 				})
 		})
-		.query("list", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
+		.library_query("list", |_, _: (), library| async move {
 			library
 				.db
 				.indexer_rule()

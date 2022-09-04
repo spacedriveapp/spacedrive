@@ -1,5 +1,5 @@
 use crate::{
-	api::{locations::LocationExplorerArgs, CoreEvent, LibraryArgs},
+	api::CoreEvent,
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
@@ -155,19 +155,7 @@ impl StatefulJob for ThumbnailJob {
 
 		// With this invalidate query, we update the user interface to show each new thumbnail
 		let library_ctx = ctx.library_ctx();
-		invalidate_query!(
-			library_ctx,
-			"locations.getExplorerData": LibraryArgs<LocationExplorerArgs>,
-			LibraryArgs::new(
-				library_ctx.id,
-				LocationExplorerArgs {
-					location_id: state.init.location_id,
-					path: "".to_string(),
-					limit: 100,
-					cursor: None,
-				}
-			)
-		);
+		invalidate_query!(library_ctx, "locations.getExplorerData");
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,

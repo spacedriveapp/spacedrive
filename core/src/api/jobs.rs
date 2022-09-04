@@ -10,7 +10,6 @@ use rspc::Type;
 use serde::Deserialize;
 use std::path::PathBuf;
 
-use super::{CoreEvent, LibraryArgs, RouterBuilder};
 use super::{utils::LibraryRequest, CoreEvent, RouterBuilder};
 
 #[derive(Type, Deserialize)]
@@ -35,9 +34,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation(
 			"generateThumbsForLocation",
-			|ctx, arg: LibraryArgs<GenerateThumbsForLocationArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
-
+			|_, args: GenerateThumbsForLocationArgs, library| async move {
 				if library
 					.db
 					.location()
