@@ -16,7 +16,7 @@ interface Props {
 
 export default function FileThumb({ data, ...props }: Props) {
 	const appProps = useContext(AppPropsContext);
-	const { newThumbnails } = useExplorerStore();
+	const newThumbnails = useExplorerStore((store) => store.newThumbnails);
 
 	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
 

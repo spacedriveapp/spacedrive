@@ -1,7 +1,7 @@
 import produce from 'immer';
 import create from 'zustand';
 
-type LayoutMode = 'list' | 'grid';
+export type ExplorerLayoutMode = 'list' | 'grid';
 
 export enum ExplorerKind {
 	Location,
@@ -10,8 +10,10 @@ export enum ExplorerKind {
 }
 
 type ExplorerStore = {
-	layoutMode: LayoutMode;
+	layoutMode: ExplorerLayoutMode;
 	locationId: number | null; // used by top bar
+	gridItemSize: number;
+	listItemSize: number;
 	showInspector: boolean;
 	selectedRowIndex: number;
 	multiSelectIndexes: number[];
@@ -26,6 +28,8 @@ type ExplorerStore = {
 export const useExplorerStore = create<ExplorerStore>((set) => ({
 	layoutMode: 'grid',
 	locationId: null,
+	gridItemSize: 100,
+	listItemSize: 40,
 	showInspector: true,
 	selectedRowIndex: 1,
 	multiSelectIndexes: [],

@@ -1,48 +1,15 @@
-import { EllipsisHorizontalIcon } from '@heroicons/react/24/solid';
-import { LocationContext, useBridgeQuery, useExplorerStore, useLibraryQuery } from '@sd/client';
+import { ExplorerLayoutMode, useExplorerStore } from '@sd/client';
 import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
-import clsx from 'clsx';
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Virtuoso, VirtuosoGrid, VirtuosoHandle } from 'react-virtuoso';
 import { useKey, useWindowSize } from 'rooks';
-import styled from 'styled-components';
 
 import FileItem from './FileItem';
-import FileThumb from './FileThumb';
+import FileRow from './FileRow';
 import { isPath } from './utils';
 
-interface IColumn {
-	column: string;
-	key: string;
-	width: number;
-}
-
-// Function ensure no types are lost, but guarantees that they are Column[]
-function ensureIsColumns<T extends IColumn[]>(data: T) {
-	return data;
-}
-
-const columns = ensureIsColumns([
-	{ column: 'Name', key: 'name', width: 280 } as const,
-	// { column: 'Size', key: 'size_in_bytes', width: 120 } as const,
-	{ column: 'Type', key: 'extension', width: 100 } as const
-]);
-
-type ColumnKey = typeof columns[number]['key'];
-
-// these styled components are out of place, but are here to follow the virtuoso docs. could probably be translated to tailwind somehow, since the `components` prop only accepts a styled div, not a react component.
-const GridContainer = styled.div`
-	display: flex;
-	margin-top: 60px;
-	margin-left: 10px;
-	width: 100%;
-	flex-wrap: wrap;
-`;
-const GridItemContainer = styled.div`
-	display: flex;
-	flex-wrap: wrap;
-`;
+const TOP_BAR_HEIGHT = 50;
 
 interface Props {
 	context: ExplorerContext;
@@ -50,27 +17,15 @@ interface Props {
 }
 
 export const FileList: React.FC<Props> = (props) => {
-	const size = useWindowSize();
-	const tableContainer = useRef<null | HTMLDivElement>(null);
-	const VList = useRef<null | VirtuosoHandle>(null);
-
-	const { data: client } = useBridgeQuery(['getNode'], {
-		refetchOnWindowFocus: false
-	});
-
-	const { selectedRowIndex, set, layoutMode } = useExplorerStore();
+	// const size = useWindowSize();
 	const [goingUp, setGoingUp] = useState(false);
 
-	useEffect(() => {
-		if (selectedRowIndex === 0 && goingUp) {
-			VList.current?.scrollTo({ top: 0, behavior: 'smooth' });
-		}
-		if (selectedRowIndex !== -1 && typeof VList.current?.scrollIntoView === 'function') {
-			VList.current?.scrollIntoView({
-				index: goingUp ? selectedRowIndex - 1 : selectedRowIndex
-			});
-		}
-	}, [goingUp, selectedRowIndex]);
+	const { selectedRowIndex, layoutMode } = useExplorerStore((state) => ({
+		selectedRowIndex: state.selectedRowIndex,
+		layoutMode: state.layoutMode
+	}));
+
+	const set = useExplorerStore.getState().set;
 
 	useKey('ArrowUp', (e) => {
 		e.preventDefault();
@@ -86,170 +41,158 @@ export const FileList: React.FC<Props> = (props) => {
 			set({ selectedRowIndex: selectedRowIndex + 1 });
 	});
 
-	const createRenderItem = (RenderItem: React.FC<RenderItemProps>) => {
-		return (index: number) => {
-			const row = props.data[index];
-			if (!row) return null;
-			return <RenderItem key={index} index={index} item={row} />;
-		};
-	};
-
-	const Header = () => (
-		<div>
-			{props.context.name && (
-				<h1 className="pt-20 pl-4 text-xl font-bold ">{props.context.name}</h1>
-			)}
-			<div className="table-head">
-				<div className="flex flex-row p-2 table-head-row">
-					{columns.map((col) => (
-						<div
-							key={col.key}
-							className="relative flex flex-row items-center pl-2 table-head-cell group"
-							style={{ width: col.width }}
-						>
-							<EllipsisHorizontalIcon className="absolute hidden w-5 h-5 -ml-5 cursor-move group-hover:block drag-handle opacity-10" />
-							<span className="text-sm font-medium text-gray-500">{col.column}</span>
-						</div>
-					))}
-				</div>
-			</div>
-		</div>
-	);
+	// const Header = () => (
+	// 	<div>
+	// 		{props.context.name && (
+	// 			<h1 className="pt-20 pl-4 text-xl font-bold ">{props.context.name}</h1>
+	// 		)}
+	// 		<div className="table-head">
+	// 			<div className="flex flex-row p-2 table-head-row">
+	// 				{columns.map((col) => (
+	// 					<div
+	// 						key={col.key}
+	// 						className="relative flex flex-row items-center pl-2 table-head-cell group"
+	// 						style={{ width: col.width }}
+	// 					>
+	// 						<EllipsisHorizontalIcon className="absolute hidden w-5 h-5 -ml-5 cursor-move group-hover:block drag-handle opacity-10" />
+	// 						<span className="text-sm font-medium text-gray-500">{col.column}</span>
+	// 					</div>
+	// 				))}
+	// 			</div>
+	// 		</div>
+	// 	</div>
+	// );
 
 	return (
-		<div ref={tableContainer} style={{ marginTop: -44 }} className="w-full pl-2 cursor-default ">
-			{layoutMode === 'grid' && (
-				<VirtuosoGrid
-					ref={VList}
-					overscan={5000}
-					components={{
-						Item: GridItemContainer,
-						List: GridContainer
-					}}
-					style={{ height: size.innerHeight ?? 600 }}
-					totalCount={props.data.length || 0}
-					itemContent={createRenderItem(RenderGridItem)}
-					className="w-full overflow-x-hidden outline-none explorer-scroll"
-				/>
-			)}
-			{layoutMode === 'list' && (
-				<Virtuoso
-					data={props.data} // this might be redundant, row data is retrieved by index in renderRow
-					ref={VList}
-					style={{ height: size.innerHeight ?? 600 }}
-					totalCount={props.data.length || 0}
-					itemContent={createRenderItem(RenderRow)}
-					components={{
-						Header,
-						Footer: () => <div className="w-full " />
-					}}
-					increaseViewportBy={{ top: 400, bottom: 200 }}
-					className="outline-none explorer-scroll"
-				/>
-			)}
+		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full pl-2 cursor-default">
+			<Virtualizer items={props.data} />
 		</div>
 	);
 };
 
-interface RenderItemProps {
-	item: ExplorerItem;
-	index: number;
-}
+function Virtualizer({ items }: { items: ExplorerItem[] }) {
+	const parentRef = useRef<HTMLDivElement>(null);
+	const innerRef = useRef<HTMLDivElement>(null);
 
-const RenderGridItem: React.FC<RenderItemProps> = ({ item, index }) => {
-	const { selectedRowIndex, set } = useExplorerStore();
-	const [_, setSearchParams] = useSearchParams();
+	const { gridItemSize, layoutMode, listItemSize, selectedRowIndex } = useExplorerStore(
+		(state) => ({
+			selectedRowIndex: state.selectedRowIndex,
+			gridItemSize: state.gridItemSize,
+			layoutMode: state.layoutMode,
+			listItemSize: state.listItemSize
+		})
+	);
+
+	const [width, setWidth] = useState(0);
+
+	useLayoutEffect(() => {
+		setWidth(innerRef.current?.offsetWidth || 0);
+	}, []);
+
+	const amountOfColumns = Math.floor(width / gridItemSize) || 8,
+		amountOfRows = layoutMode === 'grid' ? Math.ceil(items.length / amountOfColumns) : items.length,
+		itemSize = layoutMode === 'grid' ? gridItemSize + 25 : listItemSize;
+
+	const rowVirtualizer = useVirtualizer({
+		count: amountOfRows,
+		getScrollElement: () => parentRef.current,
+		overscan: 500,
+		estimateSize: () => itemSize,
+		measureElement: (index) => itemSize
+	});
 
 	return (
-		<FileItem
-			onDoubleClick={() => {
-				if (item.type === 'Path' && item.is_dir) {
-					setSearchParams({ path: item.materialized_path });
-				}
-			}}
-			index={index}
-			data={item}
-			selected={selectedRowIndex === index}
-			onClick={() => {
-				set({ selectedRowIndex: selectedRowIndex == index ? -1 : index });
-			}}
-			size={100}
-		/>
-	);
-};
-
-const RenderRow: React.FC<RenderItemProps> = ({ item, index }) => {
-	const { selectedRowIndex, set } = useExplorerStore();
-	const isActive = selectedRowIndex === index;
-	const [_, setSearchParams] = useSearchParams();
-
-	return useMemo(
-		() => (
+		<div ref={parentRef} className="h-screen custom-scroll explorer-scroll">
 			<div
-				onClick={() => set({ selectedRowIndex: selectedRowIndex == index ? -1 : index })}
-				onDoubleClick={() => {
-					if (isPath(item) && item.is_dir) {
-						setSearchParams({ path: item.materialized_path });
-					}
+				ref={innerRef}
+				style={{
+					height: `${rowVirtualizer.getTotalSize()}px`,
+					marginTop: `${TOP_BAR_HEIGHT}px`
 				}}
-				className={clsx(
-					'table-body-row mr-2 flex flex-row rounded-lg border-2',
-					isActive ? 'border-primary-500' : 'border-transparent',
-					index % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
-				)}
+				className="relative w-full"
 			>
-				{columns.map((col) => (
+				{rowVirtualizer.getVirtualItems().map((virtualRow) => (
 					<div
-						key={col.key}
-						className="flex items-center px-4 py-2 pr-2 table-body-cell"
-						style={{ width: col.width }}
+						style={{
+							height: `${virtualRow.size}px`,
+							transform: `translateY(${virtualRow.start}px)`
+						}}
+						className="absolute top-0 left-0 flex w-full"
+						key={virtualRow.key}
 					>
-						<RenderCell data={item} colKey={col.key} />
+						{layoutMode === 'list' ? (
+							<WrappedItem
+								kind="list"
+								isSelected={selectedRowIndex === virtualRow.index}
+								index={virtualRow.index}
+								item={items[virtualRow.index]}
+							/>
+						) : (
+							[...Array(amountOfColumns)].map((_, i) => {
+								const index = virtualRow.index * amountOfColumns + i;
+								const item = items[index];
+								return (
+									<div key={index} className="w-32 h-32">
+										<div className="flex">
+											{item && (
+												<WrappedItem
+													kind="grid"
+													isSelected={selectedRowIndex === index}
+													index={index}
+													item={item}
+												/>
+											)}
+										</div>
+									</div>
+								);
+							})
+						)}
 					</div>
 				))}
 			</div>
-		),
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[item.id, isActive]
+		</div>
 	);
-};
+}
 
-const RenderCell: React.FC<{
-	colKey: ColumnKey;
-	data: ExplorerItem;
-}> = ({ colKey, data }) => {
-	switch (colKey) {
-		case 'name':
-			return (
-				<div className="flex flex-row items-center overflow-hidden">
-					<div className="flex items-center justify-center w-6 h-6 mr-3 shrink-0">
-						<FileThumb data={data} size={0} />
-					</div>
-					{/* {colKey == 'name' &&
-            (() => {
-              switch (row.extension.toLowerCase()) {
-                case 'mov' || 'mp4':
-                  return <FilmIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
+interface WrappedItemProps {
+	item: ExplorerItem;
+	index: number;
+	isSelected: boolean;
+	kind: ExplorerLayoutMode;
+}
 
-                default:
-                  if (row.is_dir)
-                    return <FolderIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
-                  return <DocumentIcon className="flex-shrink-0 w-5 h-5 mr-3 text-gray-300" />;
-              }
-            })()} */}
-					<span className="text-xs truncate">{data[colKey]}</span>
-				</div>
-			);
-		// case 'size_in_bytes':
-		//   return <span className="text-xs text-left">{byteSize(Number(value || 0))}</span>;
-		case 'extension':
-			return <span className="text-xs text-left">{data[colKey]}</span>;
-		// case 'meta_integrity_hash':
-		//   return <span className="truncate">{value}</span>;
-		// case 'tags':
-		//   return renderCellWithIcon(MusicNoteIcon);
+// Wrap either list item or grid item with click logic as it is the same for both
+const WrappedItem: React.FC<WrappedItemProps> = memo(({ item, index, isSelected, kind }) => {
+	const [_, setSearchParams] = useSearchParams();
 
-		default:
-			return <></>;
+	const onDoubleClick = useCallback(() => {
+		if (isPath(item) && item.is_dir) setSearchParams({ path: item.materialized_path });
+	}, [item, setSearchParams]);
+
+	const onClick = useCallback(() => {
+		useExplorerStore.getState().set({ selectedRowIndex: isSelected ? -1 : index });
+	}, [isSelected, index]);
+
+	if (kind === 'list') {
+		return (
+			<FileRow
+				selected={isSelected}
+				data={item}
+				onClick={onClick}
+				onDoubleClick={onDoubleClick}
+				index={index}
+			/>
+		);
 	}
-};
+
+	return (
+		<FileItem
+			onDoubleClick={onDoubleClick}
+			index={index}
+			data={item}
+			selected={isSelected}
+			onClick={onClick}
+			// size={100}
+		/>
+	);
+});
