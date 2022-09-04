@@ -1,5 +1,5 @@
-import { LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
-import { CogIcon, PlusIcon } from '@heroicons/react/24/solid';
+import { CogIcon, LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { PlusIcon } from '@heroicons/react/24/solid';
 import {
 	AppPropsContext,
 	useCurrentLibrary,
