@@ -63,7 +63,7 @@ const Dialog = (props: DialogProps) => {
 									</Text>
 								)}
 								{/* Children */}
-								{props.children}
+								<View style={tw`mt-3`}>{props.children}</View>
 							</View>
 							{/* Actions */}
 							<View
@@ -73,7 +73,12 @@ const Dialog = (props: DialogProps) => {
 									<Text style={tw`text-white text-sm`}>Close</Text>
 								</Button>
 								{props.ctaAction && (
-									<Button style={tw`ml-2`} variant="danger" size="md" onPress={props.ctaAction}>
+									<Button
+										style={tw`ml-2`}
+										variant={props.ctaDanger ? 'danger' : 'primary'}
+										size="md"
+										onPress={props.ctaAction}
+									>
 										<Text style={tw`text-white text-sm`}>{props.ctaLabel}</Text>
 									</Button>
 								)}

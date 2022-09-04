@@ -1,5 +1,3 @@
-import { FontAwesome } from '@expo/vector-icons';
-import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -28,9 +26,6 @@ export default function useCachedResources() {
 				SplashScreen.preventAutoHideAsync();
 
 				// Load fonts, icons etc.
-				await Font.loadAsync({
-					...FontAwesome.font
-				});
 			} catch (e) {
 				// We might want to provide this error information to an error reporting service
 				console.warn(e);

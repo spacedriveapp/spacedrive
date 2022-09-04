@@ -17,7 +17,7 @@ const Header = () => {
 
 	return (
 		<View
-			style={tw.style('mx-4 bg-gray-500 border-[#333949] bg-opacity-40 rounded-md', {
+			style={tw.style('mx-4 bg-gray-500 border border-[#333949] bg-opacity-40 rounded', {
 				marginTop: top + 10
 			})}
 		>
