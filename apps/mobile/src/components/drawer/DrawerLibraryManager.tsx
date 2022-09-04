@@ -12,8 +12,9 @@ import Dialog from '../layout/Dialog';
 import Divider from '../primitive/Divider';
 import { TextInput } from '../primitive/Input';
 
+// TODO: Maybe minimize this when drawer is closed?
 const DrawerLibraryManager = () => {
-	const [hide, setHide] = useState(true);
+	const [dropdownClosed, setDropdownClosed] = useState(true);
 
 	// Init Libraries
 	const { init: initLibraries, switchLibrary } = useLibraryStore();
@@ -27,32 +28,35 @@ const DrawerLibraryManager = () => {
 	// Create Library
 	const [libName, setLibName] = useState('');
 
+	const [createLibOpen, setCreateLibOpen] = useState(false);
+
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
 			onSuccess: () => {
-				setHide(true);
+				// Reset form
+				setLibName('');
 			},
-			onError: (err) => {
-				// TODO: Show toast?
-				console.log(err);
+			onSettled: () => {
+				// Close create lib dialog
+				setCreateLibOpen(false);
 			}
 		}
 	);
 
 	return (
 		<View>
-			<Pressable onPress={() => setHide((v) => !v)}>
+			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={tw.style(
 						'flex flex-row justify-between items-center px-3 h-10 w-full bg-gray-500 border border-[#333949] bg-opacity-40 shadow-sm',
-						hide ? 'rounded' : 'rounded-t border-b-gray-550'
+						dropdownClosed ? 'rounded' : 'rounded-t border-b-gray-550'
 					)}
 				>
 					<Text style={tw`text-gray-200 text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
 					<MotiView
 						animate={{
-							rotateZ: hide ? '0deg' : '90deg'
+							rotateZ: dropdownClosed ? '0deg' : '90deg'
 						}}
 						transition={{ type: 'timing' }}
 					>
@@ -60,13 +64,13 @@ const DrawerLibraryManager = () => {
 					</MotiView>
 				</View>
 			</Pressable>
-			<AnimatedHeight hide={hide}>
+			<AnimatedHeight hide={dropdownClosed}>
 				<View
 					style={tw`py-2 px-2 bg-gray-500 border-l border-b border-r border-[#333949] bg-opacity-40 rounded-b`}
 				>
 					{/* Libraries */}
 					{libraries?.map((library) => (
-						<Pressable key={library.uuid}>
+						<Pressable key={library.uuid} onPress={() => switchLibrary(library.uuid)}>
 							<View
 								style={tw.style(
 									'p-2',
@@ -85,7 +89,10 @@ const DrawerLibraryManager = () => {
 							<Text style={tw`text-sm text-gray-200 font-semibold`}>Library Settings</Text>
 						</View>
 					</Pressable>
+					{/* Create Library */}
 					<Dialog
+						isVisible={createLibOpen}
+						setIsVisible={setCreateLibOpen}
 						title="Create New Library"
 						description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
 						ctaLabel="Create"

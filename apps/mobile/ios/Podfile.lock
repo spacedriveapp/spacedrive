@@ -9,11 +9,11 @@ PODS:
     - ExpoModulesCore
   - EXFont (10.2.0):
     - ExpoModulesCore
-  - Expo (46.0.9):
+  - Expo (46.0.10):
     - ExpoModulesCore
   - ExpoKeepAwake (10.2.0):
     - ExpoModulesCore
-  - ExpoModulesCore (0.11.4):
+  - ExpoModulesCore (0.11.5):
     - React-Core
     - ReactCommon/turbomodule/core
   - EXSplashScreen (0.16.2):
@@ -31,6 +31,10 @@ PODS:
   - glog (0.3.5)
   - hermes-engine (0.69.4)
   - libevent (2.1.12)
+  - lottie-ios (3.4.2)
+  - lottie-react-native (5.1.4):
+    - lottie-ios (~> 3.4.0)
+    - React-Core
   - RCT-Folly (2021.06.28.00-v2):
     - boost
     - DoubleConversion
@@ -335,7 +339,7 @@ PODS:
     - React-Core
   - RNGestureHandler (2.5.0):
     - React-Core
-  - RNReanimated (2.9.1):
+  - RNReanimated (2.10.0):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -372,19 +376,20 @@ PODS:
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
-  - "EXApplication (from `../node_modules/.pnpm/expo-application@4.2.2_expo@46.0.9/node_modules/expo-application/ios`)"
-  - "EXConstants (from `../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.9/node_modules/expo-constants/ios`)"
-  - "EXFileSystem (from `../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.9/node_modules/expo-file-system/ios`)"
-  - "EXFont (from `../node_modules/.pnpm/expo-font@10.2.0_expo@46.0.9/node_modules/expo-font/ios`)"
-  - "Expo (from `../node_modules/.pnpm/expo@46.0.9_@babel+core@7.18.10/node_modules/expo`)"
-  - "ExpoKeepAwake (from `../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.9/node_modules/expo-keep-awake/ios`)"
-  - "ExpoModulesCore (from `../node_modules/.pnpm/expo-modules-core@0.11.4/node_modules/expo-modules-core/ios`)"
-  - "EXSplashScreen (from `../node_modules/.pnpm/expo-splash-screen@0.16.2_expo@46.0.9/node_modules/expo-splash-screen/ios`)"
+  - "EXApplication (from `../node_modules/.pnpm/expo-application@4.2.2_expo@46.0.10/node_modules/expo-application/ios`)"
+  - "EXConstants (from `../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.10/node_modules/expo-constants/ios`)"
+  - "EXFileSystem (from `../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.10/node_modules/expo-file-system/ios`)"
+  - "EXFont (from `../node_modules/.pnpm/expo-font@10.2.0_expo@46.0.10/node_modules/expo-font/ios`)"
+  - "Expo (from `../node_modules/.pnpm/expo@46.0.10_@babel+core@7.18.10/node_modules/expo`)"
+  - "ExpoKeepAwake (from `../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.10/node_modules/expo-keep-awake/ios`)"
+  - "ExpoModulesCore (from `../node_modules/.pnpm/expo-modules-core@0.11.5/node_modules/expo-modules-core/ios`)"
+  - "EXSplashScreen (from `../node_modules/.pnpm/expo-splash-screen@0.16.2_expo@46.0.10/node_modules/expo-splash-screen/ios`)"
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../node_modules/react-native/React/FBReactNativeSpec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes/hermes-engine.podspec`)
   - libevent (~> 2.1.12)
+  - lottie-react-native (from `../node_modules/lottie-react-native`)
   - RCT-Folly (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTRequired (from `../node_modules/react-native/Libraries/RCTRequired`)
   - RCTTypeSafety (from `../node_modules/react-native/Libraries/TypeSafety`)
@@ -426,6 +431,7 @@ SPEC REPOS:
   trunk:
     - fmt
     - libevent
+    - lottie-ios
 
 EXTERNAL SOURCES:
   boost:
@@ -433,21 +439,21 @@ EXTERNAL SOURCES:
   DoubleConversion:
     :podspec: "../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
-    :path: "../node_modules/.pnpm/expo-application@4.2.2_expo@46.0.9/node_modules/expo-application/ios"
+    :path: "../node_modules/.pnpm/expo-application@4.2.2_expo@46.0.10/node_modules/expo-application/ios"
   EXConstants:
-    :path: "../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.9/node_modules/expo-constants/ios"
+    :path: "../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.10/node_modules/expo-constants/ios"
   EXFileSystem:
-    :path: "../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.9/node_modules/expo-file-system/ios"
+    :path: "../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.10/node_modules/expo-file-system/ios"
   EXFont:
-    :path: "../node_modules/.pnpm/expo-font@10.2.0_expo@46.0.9/node_modules/expo-font/ios"
+    :path: "../node_modules/.pnpm/expo-font@10.2.0_expo@46.0.10/node_modules/expo-font/ios"
   Expo:
-    :path: "../node_modules/.pnpm/expo@46.0.9_@babel+core@7.18.10/node_modules/expo"
+    :path: "../node_modules/.pnpm/expo@46.0.10_@babel+core@7.18.10/node_modules/expo"
   ExpoKeepAwake:
-    :path: "../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.9/node_modules/expo-keep-awake/ios"
+    :path: "../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.10/node_modules/expo-keep-awake/ios"
   ExpoModulesCore:
-    :path: "../node_modules/.pnpm/expo-modules-core@0.11.4/node_modules/expo-modules-core/ios"
+    :path: "../node_modules/.pnpm/expo-modules-core@0.11.5/node_modules/expo-modules-core/ios"
   EXSplashScreen:
-    :path: "../node_modules/.pnpm/expo-splash-screen@0.16.2_expo@46.0.9/node_modules/expo-splash-screen/ios"
+    :path: "../node_modules/.pnpm/expo-splash-screen@0.16.2_expo@46.0.10/node_modules/expo-splash-screen/ios"
   FBLazyVector:
     :path: "../node_modules/react-native/Libraries/FBLazyVector"
   FBReactNativeSpec:
@@ -456,6 +462,8 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/glog.podspec"
   hermes-engine:
     :podspec: "../node_modules/react-native/sdks/hermes/hermes-engine.podspec"
+  lottie-react-native:
+    :path: "../node_modules/lottie-react-native"
   RCT-Folly:
     :podspec: "../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec"
   RCTRequired:
@@ -534,9 +542,9 @@ SPEC CHECKSUMS:
   EXConstants: 7c44785d41d8e959d527d23d29444277a4d1ee73
   EXFileSystem: 927e0a8885aa9c49e50fc38eaba2c2389f2f1019
   EXFont: a5d80bd9b3452b2d5abbce2487da89b0150e6487
-  Expo: 73412414e62f5cbc6e713def821de70b92cd3ad6
+  Expo: fcdb32274e2ca9c7638d3b21b30fb665c6869219
   ExpoKeepAwake: 0e8f18142e71bbf2c7f6aa66ebed249ba1420320
-  ExpoModulesCore: e281bb7b78ea47e227dd5af94d04b24d8b2e1255
+  ExpoModulesCore: 5a973701f4400d70254bc836305228731c829010
   EXSplashScreen: 799bece80089219b2c989c1082d70f3b00995cda
   FBLazyVector: c71b8c429a8af2aff1013934a7152e9d9d0c937d
   FBReactNativeSpec: 3cc5cff7d792e74a875be91e56d6242335016f50
@@ -544,6 +552,8 @@ SPEC CHECKSUMS:
   glog: 3d02b25ca00c2d456734d0bcff864cbc62f6ae1a
   hermes-engine: 761a544537e62df2a37189389b9d2654dc1f75af
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
+  lottie-ios: 6bbc53eef6957e4744a50321507015fba72d8ca6
+  lottie-react-native: b702fab740cdb952a8e2354713d3beda63ff97b0
   RCT-Folly: b9d9fe1fc70114b751c076104e52f3b1b5e5a95a
   RCTRequired: bd9d2ab0fda10171fcbcf9ba61a7df4dc15a28f4
   RCTTypeSafety: e44e139bf6ec8042db396201834fc2372f6a21cd
@@ -575,7 +585,7 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: d81ee5c3db1060afd49ea7045ad460eff82d2b7d
   RNCMaskedView: cb9670ea9239998340eaab21df13fa12a1f9de15
   RNGestureHandler: bad495418bcbd3ab47017a38d93d290ebd406f50
-  RNReanimated: 2cf7451318bb9cc430abeec8d67693f9cf4e039c
+  RNReanimated: 7faa787e8d4493fbc95fab2ad331fa7625828cfa
   RNScreens: 4a1af06327774490d97342c00aee0c2bafb497b7
   RNSVG: 42a0c731b11179ebbd27a3eeeafa7201ebb476ff
   Yoga: ff994563b2fd98c982ca58e8cd9db2cdaf4dda74
