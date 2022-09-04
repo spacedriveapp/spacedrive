@@ -1,19 +1,17 @@
+use crate::api::Router;
+
+use rspc::{internal::specta::DataType, Type};
+use serde::Serialize;
+use serde_json::Value;
 use std::sync::Arc;
 
 #[cfg(debug_assertions)]
 use std::sync::Mutex;
 
+/// holds information about all invalidation queries done with the [`invalidate_query!`] macro so we can check they are valid when building the router.
 #[cfg(debug_assertions)]
-use once_cell::sync::OnceCell;
-use rspc::{internal::specta::DataType, Type};
-use serde::Serialize;
-use serde_json::Value;
-
-use crate::api::Router;
-
-/// holds information about all invalidation queries done with the [invalidate_query!] macro so we can check they are valid when building the router.
-#[cfg(debug_assertions)]
-pub(crate) static INVALIDATION_REQUESTS: OnceCell<Mutex<InvalidRequests>> = OnceCell::new();
+pub(crate) static INVALIDATION_REQUESTS: Mutex<InvalidRequests> =
+	Mutex::new(InvalidRequests::new());
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct InvalidateOperationEvent {
@@ -46,14 +44,17 @@ pub(crate) struct InvalidRequests {
 }
 
 impl InvalidRequests {
+	const fn new() -> Self {
+		Self {
+			queries: Vec::new(),
+		}
+	}
+
 	#[allow(unused_variables)]
 	pub(crate) fn validate(r: Arc<Router>) {
 		#[cfg(debug_assertions)]
 		{
-			let invalidate_requests = crate::api::utils::INVALIDATION_REQUESTS
-				.get_or_init(Default::default)
-				.lock()
-				.unwrap();
+			let invalidate_requests = INVALIDATION_REQUESTS.lock().unwrap();
 
 			let queries = r.queries();
 			for req in &invalidate_requests.queries {
@@ -61,9 +62,9 @@ impl InvalidRequests {
 					if let Some(arg) = &req.arg_ty {
 						if &query_ty.ty.arg_ty != arg {
 							panic!(
-						    "Error at '{}': Attempted to invalid query '{}' but the argument type does not match the type defined on the router.",
-						    req.macro_src, req.key
-                        );
+								"Error at '{}': Attempted to invalid query '{}' but the argument type does not match the type defined on the router.",
+								req.macro_src, req.key
+                        	);
 						}
 					}
 				} else {
@@ -77,7 +78,7 @@ impl InvalidRequests {
 	}
 }
 
-/// invalidate_query is a macro which stores a list of all of it's invocations so it can ensure all of the queries match the queries attached to the router.
+/// `invalidate_query` is a macro which stores a list of all of it's invocations so it can ensure all of the queries match the queries attached to the router.
 /// This allows invalidate to be type-safe even when the router keys are stringly typed.
 /// ```ignore
 /// invalidate_query!(
@@ -97,7 +98,6 @@ macro_rules! invalidate_query {
 			#[ctor::ctor]
 			fn invalidate() {
 				crate::api::utils::INVALIDATION_REQUESTS
-					.get_or_init(|| Default::default())
 					.lock()
 					.unwrap()
 					.queries
@@ -112,7 +112,7 @@ macro_rules! invalidate_query {
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
 		crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null)
 	}};
-	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr) => {{
+	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct
 		let ctx: &crate::library::LibraryContext = &$ctx; // Assert the context is the correct type
 
@@ -121,7 +121,6 @@ macro_rules! invalidate_query {
 			#[ctor::ctor]
 			fn invalidate() {
 				crate::api::utils::INVALIDATION_REQUESTS
-					.get_or_init(|| Default::default())
 					.lock()
 					.unwrap()
 					.queries

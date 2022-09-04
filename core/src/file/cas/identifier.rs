@@ -1,10 +1,9 @@
-use super::checksum::generate_cas_id;
-
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
 	prisma::{file, file_path, location},
 };
+
 use chrono::{DateTime, FixedOffset};
 use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
 use serde::{Deserialize, Serialize};
@@ -14,6 +13,8 @@ use std::{
 };
 use tokio::{fs, io};
 use tracing::{error, info};
+
+use super::checksum::generate_cas_id;
 
 // we break this job into chunks of 100 to improve performance
 static CHUNK_SIZE: usize = 100;
@@ -26,17 +27,27 @@ pub struct FileIdentifierJob {}
 // finally: creating unique file records, and linking them to their file_paths
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileIdentifierJobInit {
-	pub location_id: i32,
-	pub path: PathBuf,
+	pub location: location::Data,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FilePathIdAndLocationIdCursor {
+	file_path_id: i32,
+	location_id: i32,
+}
+
+impl From<&FilePathIdAndLocationIdCursor> for file_path::UniqueWhereParam {
+	fn from(cursor: &FilePathIdAndLocationIdCursor) -> Self {
+		file_path::location_id_id(cursor.location_id, cursor.file_path_id)
+	}
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct FileIdentifierJobState {
 	total_count: usize,
 	task_count: usize,
-	location: location::Data,
 	location_path: PathBuf,
-	cursor: i32,
+	cursor: FilePathIdAndLocationIdCursor,
 }
 
 #[async_trait::async_trait]
@@ -58,21 +69,15 @@ impl StatefulJob for FileIdentifierJob {
 
 		let library = ctx.library_ctx();
 
-		let location = library
-			.db
-			.location()
-			.find_unique(location::id::equals(state.init.location_id))
-			.exec()
-			.await?
-			.unwrap();
-
-		let location_path = location
+		let location_path = state
+			.init
+			.location
 			.local_path
 			.as_ref()
 			.map(PathBuf::from)
 			.unwrap_or_default();
 
-		let total_count = count_orphan_file_paths(&library, location.id.into()).await?;
+		let total_count = count_orphan_file_paths(&library, state.init.location.id.into()).await?;
 		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
@@ -84,9 +89,11 @@ impl StatefulJob for FileIdentifierJob {
 		state.data = Some(FileIdentifierJobState {
 			total_count,
 			task_count,
-			location,
 			location_path,
-			cursor: 1,
+			cursor: FilePathIdAndLocationIdCursor {
+				file_path_id: 1,
+				location_id: state.init.location.id,
+			},
 		});
 
 		state.steps = (0..task_count).map(|_| ()).collect();
@@ -109,7 +116,7 @@ impl StatefulJob for FileIdentifierJob {
 			.expect("critical error: missing data on job state");
 
 		// get chunk of orphans to process
-		let file_paths = match get_orphan_file_paths(&ctx.library_ctx(), data.cursor).await {
+		let file_paths = match get_orphan_file_paths(&ctx.library_ctx(), &data.cursor).await {
 			Ok(file_paths) => file_paths,
 			Err(e) => {
 				info!("Error getting orphan file paths: {:#?}", e);
@@ -161,7 +168,10 @@ impl StatefulJob for FileIdentifierJob {
 				.db
 				.file_path()
 				.update(
-					file_path::id::equals(*cas_lookup.get(&existing_file.cas_id).unwrap()),
+					file_path::location_id_id(
+						state.init.location.id,
+						*cas_lookup.get(&existing_file.cas_id).unwrap(),
+					),
 					vec![file_path::file_id::set(Some(existing_file.id))],
 				)
 				.exec()
@@ -221,7 +231,10 @@ impl StatefulJob for FileIdentifierJob {
 				.db
 				.file_path()
 				.update(
-					file_path::id::equals(*cas_lookup.get(&created_file.cas_id).unwrap()),
+					file_path::location_id_id(
+						state.init.location.id,
+						*cas_lookup.get(&created_file.cas_id).unwrap(),
+					),
 					vec![file_path::file_id::set(Some(created_file.id))],
 				)
 				.exec()
@@ -233,7 +246,7 @@ impl StatefulJob for FileIdentifierJob {
 
 		// handle last step
 		if let Some(last_row) = file_paths.last() {
-			data.cursor = last_row.id;
+			data.cursor.file_path_id = last_row.id;
 		} else {
 			return Ok(());
 		}
@@ -275,7 +288,7 @@ struct CountRes {
 	count: Option<usize>,
 }
 
-pub async fn count_orphan_file_paths(
+async fn count_orphan_file_paths(
 	ctx: &LibraryContext,
 	location_id: i64,
 ) -> Result<usize, prisma_client_rust::QueryError> {
@@ -284,14 +297,14 @@ pub async fn count_orphan_file_paths(
 			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
 			PrismaValue::Int(location_id)
 		))
-        .exec()
+		.exec()
 		.await?;
 	Ok(files_count[0].count.unwrap_or(0))
 }
 
-pub async fn get_orphan_file_paths(
+async fn get_orphan_file_paths(
 	ctx: &LibraryContext,
-	cursor: i32,
+	cursor: &FilePathIdAndLocationIdCursor,
 ) -> Result<Vec<file_path::Data>, prisma_client_rust::QueryError> {
 	info!(
 		"discovering {} orphan file paths at cursor: {:?}",
@@ -304,26 +317,26 @@ pub async fn get_orphan_file_paths(
 			file_path::is_dir::equals(false),
 		])
 		.order_by(file_path::id::order(Direction::Asc))
-		.cursor(file_path::id::equals(cursor))
+		.cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)
 		.exec()
 		.await
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct CreateFile {
+struct CreateFile {
 	pub cas_id: String,
 	pub size_in_bytes: i64,
 	pub date_created: DateTime<FixedOffset>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct FileCreated {
+struct FileCreated {
 	pub id: i32,
 	pub cas_id: String,
 }
 
-pub async fn prepare_file(
+async fn prepare_file(
 	location_path: impl AsRef<Path>,
 	file_path: &file_path::Data,
 ) -> Result<CreateFile, io::Error> {

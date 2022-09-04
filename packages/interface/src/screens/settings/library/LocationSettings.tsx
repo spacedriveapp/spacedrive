@@ -2,6 +2,7 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { AppPropsContext } from '@sd/client';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
+import { LocationCreateArgs } from '@sd/core';
 
 import LocationListItem from '../../../components/location/LocationListItem';
 import { InputContainer } from '../../../components/primitive/InputContainer';
@@ -28,7 +29,8 @@ export default function LocationSettings() {
 							size="sm"
 							onClick={() => {
 								appProps?.openDialog({ directory: true }).then((result) => {
-									if (result) createLocation(result as string);
+									// TODO: Pass indexer rules ids to create location
+									if (result) createLocation({ path: result as string, indexer_rules_ids: [] } as LocationCreateArgs);
 								});
 							}}
 						>
