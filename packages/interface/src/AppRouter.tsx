@@ -6,11 +6,11 @@ import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
 import { ContentScreen } from './screens/Content';
 import { DebugScreen } from './screens/Debug';
-import { ExplorerScreen } from './screens/Explorer';
+import { LocationExplorer } from './screens/LocationExplorer';
 import { OverviewScreen } from './screens/Overview';
 import { PhotosScreen } from './screens/Photos';
 import { RedirectPage } from './screens/Redirect';
-import { TagScreen } from './screens/Tag';
+import { TagExplorer } from './screens/TagExplorer';
 import { SettingsScreen } from './screens/settings/Settings';
 import AppearanceSettings from './screens/settings/client/AppearanceSettings';
 import ExtensionSettings from './screens/settings/client/ExtensionsSettings';
@@ -101,8 +101,8 @@ export function AppRouter() {
 							<Route path="changelog" element={<Changelog />} />
 							<Route path="support" element={<Support />} />
 						</Route>
-						<Route path="explorer/:id" element={<ExplorerScreen />} />
-						<Route path="tag/:id" element={<TagScreen />} />
+						<Route path="location/:id" element={<LocationExplorer />} />
+						<Route path="tag/:id" element={<TagExplorer />} />
 						<Route path="*" element={<NotFound />} />
 					</Route>
 				</Routes>

@@ -8,7 +8,6 @@ import { CogIcon } from 'react-native-heroicons/solid';
 import Layout from '../../constants/Layout';
 import tw from '../../lib/tailwind';
 import CollapsibleView from '../layout/CollapsibleView';
-import { Tooltip } from '../tooltip/Tooltip';
 import DrawerLocationItem from './DrawerLocationItem';
 import DrawerLogo from './DrawerLogo';
 import DrawerTagItem from './DrawerTagItem';
@@ -62,7 +61,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 			<View style={tw.style('justify-between', { height: drawerHeight })}>
 				<View>
 					<DrawerLogo />
-					<Text style={tw`my-4 text-white text-xs`}>TODO: Library Selection</Text>
+					<Text style={tw`my-4 text-xs text-white`}>TODO: Library Selection</Text>
 					{/* Locations */}
 					<CollapsibleView
 						title="Locations"
@@ -81,8 +80,8 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 							/>
 						))}
 						{/* Add Location */}
-						<View style={tw`border border-dashed rounded border-gray-450 border-opacity-60 mt-1`}>
-							<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>
+						<View style={tw`mt-1 border border-dashed rounded border-gray-450 border-opacity-60`}>
+							<Text style={tw`px-2 py-2 text-xs font-bold text-center text-gray-400`}>
 								Add Location
 							</Text>
 						</View>
@@ -108,11 +107,9 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 					</CollapsibleView>
 				</View>
 				{/* Settings */}
-				<Tooltip label="Settings">
-					<Pressable onPress={() => navigation.navigate('Settings')}>
-						<CogIcon color="white" size={24} />
-					</Pressable>
-				</Tooltip>
+				<Pressable onPress={() => navigation.navigate('Settings')}>
+					<CogIcon color="white" size={24} />
+				</Pressable>
 			</View>
 		</DrawerContentScrollView>
 	);

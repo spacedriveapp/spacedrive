@@ -1,23 +1,17 @@
-import {
-	AnnotationIcon,
-	CogIcon,
-	CollectionIcon,
-	HeartIcon,
-	KeyIcon,
-	ShieldCheckIcon,
-	TagIcon,
-} from '@heroicons/react/outline';
+import { CogIcon, HeartIcon, KeyIcon, ShieldCheckIcon, TagIcon } from '@heroicons/react/24/outline';
+import { BuildingLibraryIcon } from '@heroicons/react/24/solid';
 import {
 	FlyingSaucer,
 	HardDrive,
 	KeyReturn,
 	PaintBrush,
 	PuzzlePiece,
-	ShareNetwork,
+	Receipt,
+	ShareNetwork
 } from 'phosphor-react';
 import React from 'react';
 
-import { SidebarLink } from '../../components/file/Sidebar';
+import { SidebarLink } from '../../components/layout/Sidebar';
 import {
 	SettingsHeading,
 	SettingsIcon,
@@ -33,7 +27,7 @@ export const SettingsScreen: React.FC = () => {
 				General
 			</SidebarLink>
 			<SidebarLink to="/settings/libraries">
-				<SettingsIcon component={CollectionIcon} />
+				<SettingsIcon component={BuildingLibraryIcon} />
 				Libraries
 			</SidebarLink>
 			<SidebarLink to="/settings/privacy">
@@ -98,7 +92,7 @@ export const SettingsScreen: React.FC = () => {
 				About
 			</SidebarLink>
 			<SidebarLink to="/settings/changelog">
-				<SettingsIcon component={AnnotationIcon} />
+				<SettingsIcon component={Receipt} />
 				Changelog
 			</SidebarLink>
 			<SidebarLink to="/settings/support">

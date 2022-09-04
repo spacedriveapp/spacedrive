@@ -1,5 +1,5 @@
 import { Transition } from '@headlessui/react';
-import { XIcon } from '@heroicons/react/solid';
+import { XMarkIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import React from 'react';
@@ -39,7 +39,7 @@ export const Modal: React.FC<ModalProps> = (props) => {
 					variant="gray"
 					className="!px-1.5 absolute top-2 right-2"
 				>
-					<XIcon className="w-4 h-4" />
+					<XMarkIcon className="w-4 h-4" />
 				</Button>
 				<Transition
 					show
