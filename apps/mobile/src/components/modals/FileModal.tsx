@@ -11,15 +11,6 @@ import Divider from '../primitive/Divider';
 import ModalBackdrop from './layout/ModalBackdrop';
 import ModalHandle from './layout/ModalHandle';
 
-/*
-https://github.com/software-mansion/react-native-reanimated/issues/3296
-https://github.com/gorhom/react-native-bottom-sheet/issues/925
-https://github.com/gorhom/react-native-bottom-sheet/issues/1036
-
-Reanimated has a bug where it sometimes doesn't animate on mount (IOS only?), doing a console.log() seems to do a re-render and fix the issue.
-We can't do this for production obvs but until then they might fix it so, let's not try weird hacks for now and live with the logs.
-*/
-
 interface MetaItemProps {
 	title: string;
 	value: string;
@@ -46,8 +37,6 @@ export const FileModal = () => {
 				snapPoints={['60%', '90%']}
 				backdropComponent={ModalBackdrop}
 				handleComponent={ModalHandle}
-				// Do not remove!
-				onAnimate={(from, to) => console.log(from, to)}
 			>
 				{data && (
 					<View style={tw`flex-1 p-4 bg-gray-600`}>
@@ -72,7 +61,6 @@ export const FileModal = () => {
 						{/* Divider */}
 						<Divider style={tw`my-6`} />
 						{/* Buttons */}
-
 						<Button onPress={() => fileRef.current.close()} title="Copy" color="white" />
 						<Button onPress={() => fileRef.current.close()} title="Move" color="white" />
 						<Button onPress={() => fileRef.current.close()} title="Share" color="white" />
@@ -88,8 +76,6 @@ export const FileModal = () => {
 				snapPoints={['70%']}
 				backdropComponent={ModalBackdrop}
 				handleComponent={ModalHandle}
-				// Do not remove!
-				onAnimate={(from, to) => console.log(from, to)}
 			>
 				{data && (
 					<BottomSheetScrollView style={tw`flex-1 p-4 bg-gray-600`}>

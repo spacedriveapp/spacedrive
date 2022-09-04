@@ -10,10 +10,15 @@ type DialogProps = {
 	description?: string;
 	trigger?: React.ReactNode;
 	/**
-	 * if `true`, dialog will be visible when mounted
-	 * Can be used when trigger is not provided and/or you need to open the dialog programmatically
+	 * if `true`, dialog will be visible when mounted.
+	 * It can be used when trigger is not provided and/or you need to open the dialog programmatically
 	 */
 	isVisible?: boolean;
+	/**
+	 * Like above, it will override the default dialog state for opening/closing the dialog.
+	 * It can be used to control dialog state from outside
+	 */
+	setIsVisible?: (v: boolean) => void;
 	children?: React.ReactNode;
 	ctaAction?: () => void;
 	ctaLabel?: string;
@@ -29,12 +34,18 @@ const Dialog = (props: DialogProps) => {
 
 	return (
 		<View>
-			{props.trigger && <Pressable onPress={() => setVisible(true)}>{props.trigger}</Pressable>}
-			<Modal renderToHardwareTextureAndroid transparent visible={visible}>
+			{props.trigger && (
+				<Pressable
+					onPress={() => (props.setIsVisible ? props.setIsVisible(true) : setVisible(true))}
+				>
+					{props.trigger}
+				</Pressable>
+			)}
+			<Modal renderToHardwareTextureAndroid transparent visible={props.isVisible ?? visible}>
 				{/* Backdrop */}
 				<Pressable
 					style={tw`bg-black bg-opacity-50 absolute inset-0`}
-					onPress={() => setVisible(false)}
+					onPress={() => (props.setIsVisible ? props.setIsVisible(false) : setVisible(false))}
 					disabled={props.disableBackdropClose}
 				/>
 				{/* Content */}
@@ -44,7 +55,6 @@ const Dialog = (props: DialogProps) => {
 					keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : undefined}
 					style={tw`flex-1 items-center justify-center`}
 				>
-					{/* TODO: Animations are not invoking everytime probably reanimated bug we have on File Modal */}
 					<MotiView
 						from={{ translateY: 40 }}
 						animate={{ translateY: 0 }}
@@ -69,7 +79,13 @@ const Dialog = (props: DialogProps) => {
 							<View
 								style={tw`flex flex-row justify-end px-3 py-3 bg-gray-600 border-t border-gray-550`}
 							>
-								<Button variant="dark_gray" size="md" onPress={() => setVisible(false)}>
+								<Button
+									variant="dark_gray"
+									size="md"
+									onPress={() =>
+										props.setIsVisible ? props.setIsVisible(false) : setVisible(false)
+									}
+								>
 									<Text style={tw`text-white text-sm`}>Close</Text>
 								</Button>
 								{props.ctaAction && (
