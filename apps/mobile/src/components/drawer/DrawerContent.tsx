@@ -62,7 +62,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 			<View style={tw.style('justify-between', { height: drawerHeight })}>
 				<View>
 					<View style={tw`flex flex-row items-center`}>
-						<Image source={require('@sd/assets/images/logo.png')} style={tw`w-9 h-9`} />
+						<Image source={require('@sd/assets/images/logo.png')} style={tw`w-[35px] h-[35px]`} />
 						<Text style={tw`text-base font-bold text-white ml-2`}>Spacedrive</Text>
 					</View>
 					<Divider style={tw`my-4`} />

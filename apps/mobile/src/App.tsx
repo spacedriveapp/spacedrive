@@ -44,7 +44,13 @@ function AppContainer() {
 
 	const { showOnboarding, hideOnboarding } = useOnboardingStore();
 
-	const { data: libraries } = useBridgeQuery(['library.get']);
+	const { data: libraries } = useBridgeQuery(['library.get'], {
+		onError(err) {
+			console.error(err);
+		}
+	});
+
+	console.log(libraries);
 
 	const { switchLibrary, _hasHydrated } = useLibraryStore();
 
@@ -56,6 +62,7 @@ function AppContainer() {
 			// If user did do onboarding, that means they've already have a library
 
 			// Temporarly set the first library to be the current library
+
 			if (libraries && libraries.length > 0) {
 				switchLibrary(libraries[0].uuid);
 			}

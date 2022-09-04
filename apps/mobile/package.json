@@ -10,7 +10,6 @@
 		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
 	},
 	"dependencies": {
-		"@expo/vector-icons": "^13.0.0",
 		"@gorhom/bottom-sheet": "^4.4.3",
 		"@react-native-async-storage/async-storage": "~1.17.3",
 		"@react-native-masked-view/masked-view": "0.2.7",
@@ -25,12 +24,12 @@
 		"class-variance-authority": "^0.2.3",
 		"date-fns": "^2.29.2",
 		"expo": "~46.0.9",
-		"expo-font": "~10.2.0",
 		"expo-linking": "~3.2.2",
 		"expo-splash-screen": "~0.16.2",
 		"expo-status-bar": "~1.4.0",
 		"immer": "^9.0.15",
 		"intl": "^1.2.5",
+		"lottie-react-native": "^5.1.4",
 		"moti": "^0.18.0",
 		"phosphor-react-native": "^1.1.2",
 		"react": "18.0.0",

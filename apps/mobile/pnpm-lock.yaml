@@ -6,7 +6,6 @@ importers:
     specifiers:
       '@babel/core': ^7.18.6
       '@babel/runtime': ^7.18.9
-      '@expo/vector-icons': ^13.0.0
       '@gorhom/bottom-sheet': ^4.4.3
       '@react-native-async-storage/async-storage': ~1.17.3
       '@react-native-masked-view/masked-view': 0.2.7
@@ -33,12 +32,12 @@ importers:
       eslint-plugin-react-hooks: ^4.6.0
       eslint-plugin-react-native: ^4.0.0
       expo: ~46.0.9
-      expo-font: ~10.2.0
       expo-linking: ~3.2.2
       expo-splash-screen: ~0.16.2
       expo-status-bar: ~1.4.0
       immer: ^9.0.15
       intl: ^1.2.5
+      lottie-react-native: ^5.1.4
       metro-minify-terser: ^0.72.1
       moti: ^0.18.0
       phosphor-react-native: ^1.1.2
@@ -56,7 +55,6 @@ importers:
       use-count-up: ^3.0.1
       zustand: ^4.1.1
     dependencies:
-      '@expo/vector-icons': 13.0.0
       '@gorhom/bottom-sheet': 4.4.3_hswsf2nf37dbg7gtrzi6cykjxu
       '@react-native-async-storage/async-storage': 1.17.7_react-native@0.69.4
       '@react-native-masked-view/masked-view': 0.2.7_jk6ntyzimkrv4hwdmdgaaf5yaa
@@ -71,12 +69,12 @@ importers:
       class-variance-authority: 0.2.3_typescript@4.7.4
       date-fns: 2.29.2
       expo: 46.0.9_@babel+core@7.18.10
-      expo-font: 10.2.0_expo@46.0.9
       expo-linking: 3.2.2_expo@46.0.9
       expo-splash-screen: 0.16.2_expo@46.0.9
       expo-status-bar: 1.4.0
       immer: 9.0.15
       intl: 1.2.5
+      lottie-react-native: 5.1.4_jk6ntyzimkrv4hwdmdgaaf5yaa
       moti: 0.18.0_react@18.0.0
       phosphor-react-native: 1.1.2_ipumakbosk2s7ylysjmrulvctq
       react: 18.0.0
@@ -3897,6 +3895,10 @@ packages:
     resolution: {integrity: sha512-hjf+xovcEn31w/EUYdTXQh/8smFL/dzYjohQGEIgjyNavaJfBY2p5F527Bo1VPATxv0VYTUC2bOcXvqFwk78Og==}
     engines: {node: '>=0.10'}
 
+  /dedent/0.6.0:
+    resolution: {integrity: sha512-cSfRWjXJtZQeRuZGVvDrJroCR5V2UvBNUMHsPCdNYzuAG8b9V8aAy3KUcdQrGQPXs17Y+ojbPh1aOCplg9YR9g==}
+    dev: false
+
   /deep-extend/0.6.0:
     resolution: {integrity: sha512-LOHxIOaPYdHlJRtCQfDIVZtfw/ufM8+rVj649RIHzcm/vGwQRXFt6OPqIFWsm2XEMrNIEtWR64sY1LEKD2vAOA==}
     engines: {node: '>=4.0.0'}
@@ -5859,6 +5861,23 @@ packages:
     dependencies:
       js-tokens: 4.0.0
 
+  /lottie-react-native/5.1.4_jk6ntyzimkrv4hwdmdgaaf5yaa:
+    resolution: {integrity: sha512-Lu6mSG92Wck+vXEX6gfj/9ciqqoz0tJQZqgX0SumGvX/oZu4MbKO/oLApyHdy2V9Rb7qvwF9whOtitADxTswPA==}
+    peerDependencies:
+      lottie-ios: ^3.4.0
+      react: '*'
+      react-native: '>=0.46'
+      react-native-windows: '>=0.63.x'
+    peerDependenciesMeta:
+      react-native-windows:
+        optional: true
+    dependencies:
+      invariant: 2.2.4
+      react: 18.0.0
+      react-native: 0.69.4_k6xwmnqmgysg6weibx66ue6pyi
+      react-native-safe-modules: 1.0.3_react-native@0.69.4
+    dev: false
+
   /lru-cache/6.0.0:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
@@ -7191,6 +7210,15 @@ packages:
       react-native: '*'
     dependencies:
       react: 18.0.0
+      react-native: 0.69.4_k6xwmnqmgysg6weibx66ue6pyi
+    dev: false
+
+  /react-native-safe-modules/1.0.3_react-native@0.69.4:
+    resolution: {integrity: sha512-DUxti4Z+AgJ/ZsO5U7p3uSCUBko8JT8GvFlCeOXk9bMd+4qjpoDvMYpfbixXKgL88M+HwmU/KI1YFN6gsQZyBA==}
+    peerDependencies:
+      react-native: '*'
+    dependencies:
+      dedent: 0.6.0
       react-native: 0.69.4_k6xwmnqmgysg6weibx66ue6pyi
     dev: false
 

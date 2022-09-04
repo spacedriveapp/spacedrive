@@ -1,5 +1,4 @@
 import tw from '@app/lib/tailwind';
-import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import React, { useReducer } from 'react';
 import { Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
@@ -29,7 +28,7 @@ const CollapsibleView = ({ title, titleStyle, containerStyle, children }: Collap
 						translateX: hide ? 0 : 5,
 						translateY: hide ? 0 : 5
 					}}
-					transition={{ type: 'spring' }}
+					transition={{ type: 'timing' }}
 				>
 					<ChevronRightIcon size={18} style={tw`text-gray-200 mr-3`} />
 				</MotiView>

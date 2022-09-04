@@ -18,7 +18,9 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 			{/* Header */}
 			<View style={tw`flex flex-row items-center mx-4`}>
 				{/* Search Input */}
-				<View style={tw`flex-1 bg-gray-500 border-[#333949] bg-opacity-40 rounded-md h-10 mr-3`}>
+				<View
+					style={tw`flex-1 bg-gray-500 border border-[#333949] bg-opacity-40 rounded h-10 mr-3`}
+				>
 					<View style={tw`flex flex-row h-full items-center px-3`}>
 						<View style={tw`mr-3`}>
 							{loading ? (

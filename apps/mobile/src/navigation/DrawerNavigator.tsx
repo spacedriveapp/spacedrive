@@ -16,7 +16,7 @@ export default function DrawerNavigator() {
 			screenOptions={{
 				headerShown: false,
 				drawerStyle: {
-					backgroundColor: '#08090D',
+					backgroundColor: 'rgb(10,10,12)',
 					width: '75%'
 				},
 				overlayColor: 'transparent',
