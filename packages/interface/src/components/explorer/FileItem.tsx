@@ -14,7 +14,7 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem(props: Props) {
-	const { gridItemSize } = useSnapshot(explorerStore);
+	const store = useSnapshot(explorerStore);
 
 	return (
 		<div
@@ -32,7 +32,7 @@ function FileItem(props: Props) {
 			className={clsx('inline-block w-[100px] mb-3', props.className)}
 		>
 			<div
-				style={{ width: gridItemSize, height: gridItemSize }}
+				style={{ width: store.gridItemSize, height: store.gridItemSize }}
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
@@ -50,7 +50,7 @@ function FileItem(props: Props) {
 							'border-4 border-gray-250 rounded-sm shadow-md shadow-gray-750 max-h-full max-w-full overflow-hidden'
 						)}
 						data={props.data}
-						size={gridItemSize}
+						size={store.gridItemSize}
 					/>
 				</div>
 			</div>

@@ -2,10 +2,11 @@ import { CogIcon, LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { PlusIcon } from '@heroicons/react/24/solid';
 import {
 	AppPropsContext,
+	initLibraries,
+	switchLibrary,
 	useCurrentLibrary,
 	useLibraryMutation,
-	useLibraryQuery,
-	useLibraryStore
+	useLibraryQuery
 } from '@sd/client';
 import { LocationCreateArgs } from '@sd/core';
 import { Button, Dropdown } from '@sd/ui';
@@ -13,6 +14,7 @@ import clsx from 'clsx';
 import { CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
 import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
+import { useSnapshot } from 'valtio';
 
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
@@ -85,10 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const { data: locations } = useLibraryQuery(['locations.get']);
 
 	// initialize libraries
-	const { init: initLibraries, switchLibrary } = useLibraryStore((store) => ({
-		init: store.init,
-		switchLibrary: store.switchLibrary
-	}));
+
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
 	useEffect(() => {

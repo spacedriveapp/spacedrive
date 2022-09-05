@@ -25,16 +25,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	const [goingUp, setGoingUp] = useState(false);
 	const [width, setWidth] = useState(0);
 
-	// const { gridItemSize, layoutMode, listItemSize, selectedRowIndex } = useExplorerStore(
-	// 	(state) => ({
-	// 		selectedRowIndex: state.selectedRowIndex,
-	// 		gridItemSize: state.gridItemSize,
-	// 		layoutMode: state.layoutMode,
-	// 		listItemSize: state.listItemSize
-	// 	})
-	// );
-
-	const { gridItemSize, layoutMode, listItemSize, selectedRowIndex } = useSnapshot(explorerStore);
+	const store = useSnapshot(explorerStore);
 
 	function handleWindowResize() {
 		// so the virtualizer can render the correct number of columns
@@ -44,9 +35,11 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	useLayoutEffect(() => handleWindowResize(), []);
 
 	// sizing calculations
-	const amountOfColumns = Math.floor(width / gridItemSize) || 8,
-		amountOfRows = layoutMode === 'grid' ? Math.ceil(data.length / amountOfColumns) : data.length,
-		itemSize = layoutMode === 'grid' ? gridItemSize + GRID_TEXT_AREA_HEIGHT : listItemSize;
+	const amountOfColumns = Math.floor(width / store.gridItemSize) || 8,
+		amountOfRows =
+			store.layoutMode === 'grid' ? Math.ceil(data.length / amountOfColumns) : data.length,
+		itemSize =
+			store.layoutMode === 'grid' ? store.gridItemSize + GRID_TEXT_AREA_HEIGHT : store.listItemSize;
 
 	const rowVirtualizer = useVirtualizer({
 		count: amountOfRows,
@@ -69,15 +62,15 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	useKey('ArrowUp', (e) => {
 		e.preventDefault();
 		setGoingUp(true);
-		if (selectedRowIndex !== -1 && selectedRowIndex !== 0)
-			explorerStore.selectedRowIndex = selectedRowIndex - 1;
+		if (store.selectedRowIndex !== -1 && store.selectedRowIndex !== 0)
+			explorerStore.selectedRowIndex = store.selectedRowIndex - 1;
 	});
 
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
 		setGoingUp(false);
-		if (selectedRowIndex !== -1 && selectedRowIndex !== (data.length ?? 1) - 1)
-			explorerStore.selectedRowIndex = selectedRowIndex + 1;
+		if (store.selectedRowIndex !== -1 && store.selectedRowIndex !== (data.length ?? 1) - 1)
+			explorerStore.selectedRowIndex = store.selectedRowIndex + 1;
 	});
 
 	// const Header = () => (
@@ -122,10 +115,10 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 							className="absolute top-0 left-0 flex w-full"
 							key={virtualRow.key}
 						>
-							{layoutMode === 'list' ? (
+							{store.layoutMode === 'list' ? (
 								<WrappedItem
 									kind="list"
-									isSelected={selectedRowIndex === virtualRow.index}
+									isSelected={store.selectedRowIndex === virtualRow.index}
 									index={virtualRow.index}
 									item={data[virtualRow.index]}
 								/>
@@ -139,7 +132,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 												{item && (
 													<WrappedItem
 														kind="grid"
-														isSelected={selectedRowIndex === index}
+														isSelected={store.selectedRowIndex === index}
 														index={index}
 														item={item}
 													/>

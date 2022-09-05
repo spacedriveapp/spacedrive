@@ -17,7 +17,7 @@ interface Props {
 
 export default function FileThumb({ data, ...props }: Props) {
 	const appProps = useContext(AppPropsContext);
-	const { newThumbnails } = useSnapshot(explorerStore);
+	const store = useSnapshot(explorerStore);
 
 	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
 
@@ -29,7 +29,7 @@ export default function FileThumb({ data, ...props }: Props) {
 		? data.has_thumbnail
 		: isPath(data)
 		? data.file?.has_thumbnail
-		: !!newThumbnails[cas_id];
+		: !!store.newThumbnails[cas_id];
 
 	const file_thumb_url =
 		has_thumbnail && appProps?.data_path
