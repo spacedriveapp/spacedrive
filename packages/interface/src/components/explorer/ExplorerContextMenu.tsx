@@ -1,182 +1,122 @@
 import { explorerStore, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { ExplorerData } from '@sd/core';
 import {
-	ArrowBendUpRight,
-	LockSimple,
-	Package,
-	Plus,
-	Share,
-	TagSimple,
-	Trash,
-	TrashSimple
+  ArrowBendUpRight,
+  FilePlus,
+  FileX,
+  LockSimple,
+  Package,
+  Plus,
+  Share,
+  TagSimple,
+  Trash,
+  TrashSimple,
 } from 'phosphor-react';
 import React from 'react';
 import { useSnapshot } from 'valtio';
 
-import { WithContextMenu } from '../layout/MenuOverlay';
+import { NewContextMenu as CM } from "@sd/ui"
+
+const AssignTagMenuItems = (props: { objectId: number }) => {
+  const tags = useLibraryQuery(['tags.getAll'], { suspense: true });
+  const tagsForFile = useLibraryQuery(['tags.getForFile', props.objectId], { suspense: true });
+
+  const { mutate: assignTag } = useLibraryMutation('tags.assign');
+
+  return (
+    <>
+      {tags.data?.map(tag => {
+        const active = !!tagsForFile.data?.find(t => t.id === tag.id)
+
+        return <CM.Item
+          key={tag.id}
+          onClick={(e) => {
+            e.preventDefault();
+            if (props.objectId === null) return;
+
+            assignTag({
+              tag_id: tag.id,
+              file_id: props.objectId,
+              unassign: active
+            });
+          }}
+        >
+          <div
+            className="block w-[15px] h-[15px] mr-0.5 border rounded-full"
+            style={{
+              backgroundColor: active
+                ? tag.color || '#efefef'
+                : 'transparent' || '#efefef',
+              borderColor: tag.color || '#efefef'
+            }}
+          />
+          <p>{tag.name}</p>
+        </CM.Item>
+      })}
+    </>
+  );
+}
 
 interface Props {
-	children: React.ReactNode;
+  children: React.ReactNode;
 }
 
 export default function ExplorerContextMenu(props: Props) {
-	const store = useSnapshot(explorerStore);
+  const store = useSnapshot(explorerStore);
 
-	const { data: tags } = useLibraryQuery(['tags.getAll'], {});
+  return (
+    <div className="relative" >
+      <CM.ContextMenu
+        trigger={props.children}
+      >
+        <CM.Item label="Open" />
+        <CM.Item label="Open with..." />
 
-	const { mutate: assignTag } = useLibraryMutation('tags.assign');
+        <CM.Separator />
 
-	const { data: tagsForFile } = useLibraryQuery([
-		'tags.getForFile',
-		store.contextMenuObjectId || -1
-	]);
-	return (
-		<div className="relative">
-			<WithContextMenu
-				menu={[
-					[
-						// `file-${props.identifier}`,
-						{
-							label: 'Open'
-						},
-						{
-							label: 'Open with...'
-						}
-					],
-					[
-						{
-							label: 'Quick view'
-						},
-						{
-							label: 'Open in Finder'
-						}
-					],
-					[
-						{
-							label: 'Rename'
-						},
-						{
-							label: 'Duplicate'
-						}
-					],
-					[
-						{
-							label: 'Share',
-							icon: Share,
-							onClick(e) {
-								e.preventDefault();
-								navigator.share?.({
-									title: 'Spacedrive',
-									text: 'Check out this cool app',
-									url: 'https://spacedrive.com'
-								});
-							}
-						}
-					],
-					[
-						{
-							label: 'Assign tag',
-							icon: TagSimple,
-							children: [
-								tags?.map((tag) => {
-									const active = !!tagsForFile?.find((t) => t.id === tag.id);
-									return {
-										label: tag.name || '',
+        <CM.Item label="Quick view" />
+        <CM.Item label="Open in Finder" />
 
-										// leftItem: <Checkbox checked={!!tagsForFile?.find((t) => t.id === tag.id)} />,
-										leftItem: (
-											<div className="relative">
-												<div
-													className="block w-[15px] h-[15px] mr-0.5 border rounded-full"
-													style={{
-														backgroundColor: active
-															? tag.color || '#efefef'
-															: 'transparent' || '#efefef',
-														borderColor: tag.color || '#efefef'
-													}}
-												/>
-											</div>
-										),
-										onClick(e) {
-											e.preventDefault();
-											if (store.contextMenuObjectId != null)
-												assignTag({
-													tag_id: tag.id,
-													file_id: store.contextMenuObjectId,
-													unassign: active
-												});
-										}
-									};
-								}) || []
-							]
-						}
-					],
-					[
-						{
-							label: 'More actions...',
-							icon: Plus,
+        <CM.Separator />
 
-							children: [
-								// [
-								// 	{
-								// 		label: 'Move to library',
-								// 		icon: FilePlus,
-								// 		children: [libraries?.map((library) => ({ label: library.config.name })) || []]
-								// 	},
-								// 	{
-								// 		label: 'Remove from library',
-								// 		icon: FileX
-								// 	}
-								// ],
-								[
-									{
-										label: 'Encrypt',
-										icon: LockSimple
-									},
-									{
-										label: 'Compress',
-										icon: Package
-									},
-									{
-										label: 'Convert to',
-										icon: ArrowBendUpRight,
+        <CM.Item label="Rename" />
+        <CM.Item label="Duplicate" />
 
-										children: [
-											[
-												{
-													label: 'PNG'
-												},
-												{
-													label: 'WebP'
-												}
-											]
-										]
-									}
-									// {
-									// 	label: 'Mint NFT',
-									// 	icon: TrashIcon
-									// }
-								],
-								[
-									{
-										label: 'Secure delete',
-										icon: TrashSimple
-									}
-								]
-							]
-						}
-					],
-					[
-						{
-							label: 'Delete',
-							icon: Trash,
-							danger: true
-						}
-					]
-				]}
-			>
-				{props.children}
-			</WithContextMenu>
-		</div>
-	);
+        <CM.Separator />
+
+        <CM.Item label="Share" icon={Share} onClick={e => {
+          e.preventDefault();
+
+          navigator.share?.({
+            title: 'Spacedrive',
+            text: 'Check out this cool app',
+            url: 'https://spacedrive.com'
+          });
+        }} />
+
+        <CM.Separator />
+
+        {store.contextMenuObjectId && <CM.SubMenu label="Assign tag" icon={TagSimple}>
+          <AssignTagMenuItems objectId={store.contextMenuObjectId} />
+        </CM.SubMenu>}
+        <CM.SubMenu label="More actions..." icon={Plus}>
+          <CM.SubMenu label="Move to library" icon={FilePlus}>
+            {/* {libraries.map(library => <CM.Item key={library.id} label={library.config.name} />)} */}
+            <CM.Item label="Remove from library" icon={FileX} />
+          </CM.SubMenu>
+          <CM.Separator />
+          <CM.Item label="Encrypt" icon={LockSimple} />
+          <CM.Item label="Compress" icon={Package} />
+          <CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
+            <CM.Item label="PNG" />
+            <CM.Item label="WebP" />
+          </CM.SubMenu>
+          <CM.Item label="Secure delete" icon={TrashSimple} />
+        </CM.SubMenu>
+
+        <CM.Separator />
+
+        <CM.Item icon={Trash} label="Delete" variant="danger" />
+      </CM.ContextMenu>
+    </div >
+  );
 }
