@@ -28,7 +28,7 @@ async fn main() {
 		.map(|port| port.parse::<u16>().unwrap_or(8080))
 		.unwrap_or(8080);
 
-	let (node, router) = Node::new(data_dir).await;
+	let (node, router) = Node::new(data_dir).await.expect("Unable to create node");
 
 	ctrlc::set_handler({
 		let node = node.clone();

@@ -4,10 +4,13 @@ use job::JobManager;
 use library::LibraryManager;
 use node::NodeConfigManager;
 use std::{path::Path, sync::Arc};
+use thiserror::Error;
+use tokio::{fs, sync::broadcast};
 use tracing::{error, info};
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
-use tokio::{fs, sync::broadcast};
+#[cfg(feature = "ffmpeg")]
+use ffmpeg_next as ffmpeg;
 
 pub mod api;
 pub(crate) mod encode;
@@ -42,9 +45,12 @@ const CONSOLE_LOG_FILTER: LevelFilter = LevelFilter::DEBUG;
 const CONSOLE_LOG_FILTER: LevelFilter = LevelFilter::INFO;
 
 impl Node {
-	pub async fn new(data_dir: impl AsRef<Path>) -> (Arc<Node>, Arc<Router>) {
+	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
+		#[cfg(feature = "ffmpeg")]
+		ffmpeg::init()?;
+
 		let data_dir = data_dir.as_ref();
-		fs::create_dir_all(&data_dir).await.unwrap();
+		fs::create_dir_all(&data_dir).await?;
 
 		tracing_subscriber::registry()
 			.with(
@@ -70,18 +76,18 @@ impl Node {
 			.init();
 
 		let event_bus = broadcast::channel(1024);
-		let config = NodeConfigManager::new(data_dir.to_owned()).await.unwrap();
+		let config = NodeConfigManager::new(data_dir.to_path_buf()).await?;
 
 		let jobs = JobManager::new();
-		let node_ctx = NodeContext {
-			config: config.clone(),
-			jobs: jobs.clone(),
-			event_bus_tx: event_bus.0.clone(),
-		};
-		let library_manager =
-			LibraryManager::new(data_dir.to_owned().join("libraries"), node_ctx.clone())
-				.await
-				.unwrap();
+		let library_manager = LibraryManager::new(
+			data_dir.join("libraries"),
+			NodeContext {
+				config: Arc::clone(&config),
+				jobs: Arc::clone(&jobs),
+				event_bus_tx: event_bus.0.clone(),
+			},
+		)
+		.await?;
 
 		// Trying to resume possible paused jobs
 		let inner_library_manager = Arc::clone(&library_manager);
@@ -97,14 +103,12 @@ impl Node {
 		let router = api::mount();
 		let node = Node {
 			config,
-			library_manager: LibraryManager::new(data_dir.join("libraries"), node_ctx)
-				.await
-				.unwrap(),
+			library_manager,
 			jobs,
 			event_bus,
 		};
 
-		(Arc::new(node), router)
+		Ok((Arc::new(node), router))
 	}
 
 	pub fn get_request_context(&self) -> Ctx {
@@ -121,4 +125,19 @@ impl Node {
 		block_on(self.jobs.pause());
 		info!("Shutdown complete.");
 	}
+}
+
+/// Error type for Node related errors.
+#[derive(Error, Debug)]
+pub enum NodeError {
+	#[error("Failed to create data directory: {0}")]
+	FailedToCreateDataDirectory(#[from] std::io::Error),
+	#[error("Failed to initialize config: {0}")]
+	FailedToInitializeConfig(#[from] node::NodeConfigError),
+	#[error("Failed to initialize library manager: {0}")]
+	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
+
+	#[cfg(feature = "ffmpeg")]
+	#[error("Failed to initialize ffmpeg: {0}")]
+	FailedToInitializeFfmpeg(#[from] ffmpeg::Error),
 }

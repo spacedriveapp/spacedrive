@@ -49,6 +49,7 @@ async-trait = "^0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
 ffmpeg-next = { version = "5.0.3", optional = true, features = [] }
+libc = "0.2"
 fs_extra = "1.2.0"
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.14", features = ["env-filter"] }

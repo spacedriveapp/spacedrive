@@ -4903,6 +4903,7 @@ dependencies = [
  "include_dir",
  "int-enum",
  "itertools",
+ "libc",
  "once_cell",
  "prisma-client-rust",
  "ring 0.17.0-alpha.11",

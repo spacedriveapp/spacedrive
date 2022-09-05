@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::path::PathBuf;
 
 use sdcore::Node;
@@ -15,12 +16,12 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
 
-	let (node, router) = Node::new(data_dir).await;
+	let (node, router) = Node::new(data_dir).await?;
 
 	let app = tauri::Builder::default()
 		.plugin(rspc::integrations::tauri::plugin(router, {
@@ -58,8 +59,7 @@ async fn main() {
 		.on_menu_event(menu::handle_menu_event)
 		.invoke_handler(tauri::generate_handler![app_ready,])
 		.menu(menu::get_menu())
-		.build(tauri::generate_context!())
-		.expect("error while building tauri application");
+		.build(tauri::generate_context!())?;
 
 	app.run(move |app_handler, event| {
 		if let RunEvent::ExitRequested { .. } = event {
@@ -77,5 +77,7 @@ async fn main() {
 			node.shutdown();
 			app_handler.exit(0);
 		}
-	})
+	});
+
+	Ok(())
 }
