@@ -25,7 +25,7 @@
 		"eventemitter3": "^4.0.7",
 		"immer": "^9.0.15",
 		"lodash": "^4.17.21",
-		"valtio": "1.2.5",
+		"valtio": "1.6.4",
 		"valtio-persist": "^1.0.2",
 		"zustand": "4.0.0"
 	},
