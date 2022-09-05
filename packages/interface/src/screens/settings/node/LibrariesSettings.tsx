@@ -1,10 +1,11 @@
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { useBridgeMutation, useBridgeQuery, useLibraryStore } from '@sd/client';
+import { libraryStore, switchLibrary, useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import { DotsSixVertical } from 'phosphor-react';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useSnapshot } from 'valtio';
 
 import CreateLibraryDialog from '../../../components/dialog/CreateLibraryDialog';
 import DeleteLibraryDialog from '../../../components/dialog/DeleteLibraryDialog';
@@ -17,7 +18,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	const navigate = useNavigate();
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
-	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
+	const store = useSnapshot(libraryStore);
 
 	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeMutation('library.delete', {
 		onSuccess: () => {
@@ -28,7 +29,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	function handleEditLibrary() {
 		// switch library if requesting to edit non-current library
 		navigate('/settings/library');
-		if (props.library.uuid !== currentLibraryUuid) {
+		if (props.library.uuid !== store.currentLibraryUuid) {
 			switchLibrary(props.library.uuid);
 		}
 	}

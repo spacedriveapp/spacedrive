@@ -1,2 +1,2 @@
-export * from './useLibraryStore';
+export * from './libraryStore';
 export * from './explorerStore';

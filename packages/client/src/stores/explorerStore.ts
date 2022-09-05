@@ -1,5 +1,7 @@
 import { proxy, ref } from 'valtio';
 
+import { resetStore } from './util';
+
 export type ExplorerLayoutMode = 'list' | 'grid';
 
 export enum ExplorerKind {
@@ -37,12 +39,4 @@ export const explorerStore = proxy({
 	}
 });
 
-export function resetStore<T extends Record<string, any>, E extends Record<string, any>>(
-	store: T,
-	defaults: E
-) {
-	for (const key in defaults) {
-		// @ts-ignore
-		store[key] = defaults[key];
-	}
-}
+console.log({ explorerStore });

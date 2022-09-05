@@ -20,13 +20,16 @@ interface Props {
 }
 
 export default function ExplorerContextMenu(props: Props) {
-	const contextMenuObjectId = useSnapshot(explorerStore).contextMenuObjectId;
+	const store = useSnapshot(explorerStore);
 
 	const { data: tags } = useLibraryQuery(['tags.getAll'], {});
 
 	const { mutate: assignTag } = useLibraryMutation('tags.assign');
 
-	const { data: tagsForFile } = useLibraryQuery(['tags.getForFile', contextMenuObjectId || -1]);
+	const { data: tagsForFile } = useLibraryQuery([
+		'tags.getForFile',
+		store.contextMenuObjectId || -1
+	]);
 	return (
 		<div className="relative">
 			<WithContextMenu
@@ -96,10 +99,10 @@ export default function ExplorerContextMenu(props: Props) {
 										),
 										onClick(e) {
 											e.preventDefault();
-											if (contextMenuObjectId != null)
+											if (store.contextMenuObjectId != null)
 												assignTag({
 													tag_id: tag.id,
-													file_id: contextMenuObjectId,
+													file_id: store.contextMenuObjectId,
 													unassign: active
 												});
 										}

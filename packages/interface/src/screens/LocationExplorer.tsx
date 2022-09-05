@@ -1,8 +1,8 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { explorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
+import { explorerStore, libraryStore, useLibraryQuery } from '@sd/client';
 import React, { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import z from 'zod';
+import { useSnapshot } from 'valtio';
 
 import Explorer from '../components/explorer/Explorer';
 
@@ -24,7 +24,7 @@ export const LocationExplorer: React.FC<unknown> = () => {
 		explorerStore.locationId = location_id;
 	}, [location_id]);
 
-	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
+	const store = useSnapshot(libraryStore);
 
 	const explorerData = useLibraryQuery([
 		'locations.getExplorerData',
@@ -38,7 +38,7 @@ export const LocationExplorer: React.FC<unknown> = () => {
 
 	return (
 		<div className="relative flex flex-col w-full">
-			{library_id && explorerData.data && <Explorer data={explorerData.data} />}
+			{store.currentLibraryUuid && explorerData.data && <Explorer data={explorerData.data} />}
 		</div>
 	);
 };

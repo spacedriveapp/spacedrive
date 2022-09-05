@@ -1,6 +1,7 @@
-import { useBridgeQuery, useLibraryStore } from '@sd/client';
+import { libraryStore, switchLibrary, useBridgeQuery } from '@sd/client';
 import React, { useEffect } from 'react';
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { useSnapshot } from 'valtio';
 
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
@@ -36,16 +37,18 @@ import P2PSettings from './screens/settings/node/P2PSettings';
 export function AppRouter() {
 	const location = useLocation();
 	const state = location.state as { backgroundLocation?: Location };
-	const libraryState = useLibraryStore();
+	const store = useSnapshot(libraryStore);
 	const navigate = useNavigate();
 	const { data: libraries } = useBridgeQuery(['library.get']);
 
+	console.log({ store, libraryStore });
+
 	// TODO: This can be removed once we add a setup flow to the app
 	useEffect(() => {
-		if (libraryState.currentLibraryUuid === null && libraries && libraries.length > 0) {
-			libraryState.switchLibrary(libraries[0].uuid);
+		if (store.currentLibraryUuid === null && libraries && libraries.length > 0) {
+			switchLibrary(libraries[0].uuid);
 		}
-	}, [libraryState, libraryState.currentLibraryUuid, libraries]);
+	}, [store.currentLibraryUuid, libraries]);
 
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
@@ -62,7 +65,7 @@ export function AppRouter() {
 
 	return (
 		<>
-			{libraryState.currentLibraryUuid === null ? (
+			{store.currentLibraryUuid === null ? (
 				<>
 					{/* TODO: Remove this when adding app setup flow */}
 					<h1>No Library Loaded...</h1>

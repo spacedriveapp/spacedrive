@@ -81,7 +81,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 });
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-	const { layoutMode, locationId, showInspector } = useSnapshot(explorerStore);
+	const store = useSnapshot(explorerStore);
 	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
 		{
@@ -158,7 +158,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							<TopBarButton
 								group
 								left
-								active={layoutMode === 'list'}
+								active={store.layoutMode === 'list'}
 								icon={Rows}
 								onClick={() => (explorerStore.layoutMode = 'list')}
 							/>
@@ -167,7 +167,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							<TopBarButton
 								group
 								right
-								active={layoutMode === 'grid'}
+								active={store.layoutMode === 'grid'}
 								icon={SquaresFour}
 								onClick={() => (explorerStore.layoutMode = 'grid')}
 							/>
@@ -194,8 +194,8 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				</div>
 				<div className="flex mr-3 space-x-2">
 					<TopBarButton
-						active={showInspector}
-						onClick={() => (explorerStore.showInspector = !showInspector)}
+						active={store.showInspector}
+						onClick={() => (explorerStore.showInspector = !store.showInspector)}
 						className="my-2"
 						icon={SidebarSimple}
 					/>
@@ -208,12 +208,14 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 									name: 'Generate Thumbs',
 									icon: ArrowsClockwise,
 									onPress: () =>
-										locationId && generateThumbsForLocation({ id: locationId, path: '' })
+										store.locationId &&
+										generateThumbsForLocation({ id: store.locationId, path: '' })
 								},
 								{
 									name: 'Identify Unique',
 									icon: ArrowsClockwise,
-									onPress: () => locationId && identifyUniqueFiles({ id: locationId, path: '' })
+									onPress: () =>
+										store.locationId && identifyUniqueFiles({ id: store.locationId, path: '' })
 								}
 							]
 						]}
