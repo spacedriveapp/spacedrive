@@ -34,7 +34,7 @@ pub struct TagUpdateArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
-		.library_query("getAll", |_, _: (), library| async move {
+		.library_query("list", |_, _: (), library| async move {
 			Ok(library.db.tag().find_many(vec![]).exec().await?)
 		})
 		.library_query("getExplorerData", |_, tag_id: i32, library| async move {
@@ -120,8 +120,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(library, "tags.get");
-			invalidate_query!(library, "tags.getAll");
+			invalidate_query!(library, "tags.list");
 
 			Ok(created_tag)
 		})
@@ -161,7 +160,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(library, "tags.getAll");
+			invalidate_query!(library, "tags.list");
 
 			Ok(())
 		})
@@ -173,7 +172,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(library, "tags.getAll");
+			invalidate_query!(library, "tags.list");
 
 			Ok(())
 		})

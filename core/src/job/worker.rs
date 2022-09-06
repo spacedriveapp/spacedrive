@@ -224,7 +224,7 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(library, "library.get": (), ());
+					invalidate_query!(library, "library.list");
 
 					warn!("{}", worker.report);
 

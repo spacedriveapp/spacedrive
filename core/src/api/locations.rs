@@ -45,16 +45,14 @@ pub struct LocationExplorerArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.library_query("get", |_, _: (), library| async move {
-			let locations = library
+		.library_query("list", |_, _: (), library| async move {
+			Ok(library
 				.db
 				.location()
 				.find_many(vec![])
 				.with(location::node::fetch())
 				.exec()
-				.await?;
-
-			Ok(locations)
+				.await?)
 		})
 		.library_query("getById", |_, location_id: i32, library| async move {
 			Ok(library
@@ -165,7 +163,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(library, "locations.get");
+			invalidate_query!(library, "locations.list");
 
 			info!("Location {} deleted", location_id);
 

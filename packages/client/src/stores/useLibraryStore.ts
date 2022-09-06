@@ -50,7 +50,7 @@ export const useLibraryStore = create<LibraryStore>()(
 // is memorized and can be used safely in any component
 export const useCurrentLibrary = () => {
 	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
-	const { data: libraries } = useBridgeQuery(['library.get'], {
+	const { data: libraries } = useBridgeQuery(['library.list'], {
 		onSuccess: (data) => {},
 		onError: (err) => {}
 	});

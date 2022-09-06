@@ -105,7 +105,7 @@ impl LocationCreateArgs {
 			.await
 			.map_err(|e| LocationError::DotfileWriteFailure(e, self.path))?;
 
-		invalidate_query!(ctx, "locations.get");
+		invalidate_query!(ctx, "locations.list");
 
 		Ok(location)
 	}

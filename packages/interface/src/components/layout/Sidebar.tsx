@@ -82,7 +82,7 @@ const macOnly = (platform: string | undefined, classnames: string) =>
 export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const navigate = useNavigate();
 	const appProps = useContext(AppPropsContext);
-	const { data: locations } = useLibraryQuery(['locations.get']);
+	const { data: locations } = useLibraryQuery(['locations.list']);
 
 	// initialize libraries
 	const { init: initLibraries, switchLibrary } = useLibraryStore();
@@ -95,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
-	const { data: tags } = useLibraryQuery(['tags.getAll']);
+	const { data: tags } = useLibraryQuery(['tags.list']);
 
 	return (
 		<div

@@ -21,7 +21,7 @@ pub struct EditLibraryArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.query("get", |ctx, _: ()| async move {
+		.query("list", |ctx, _: ()| async move {
 			ctx.library_manager.get_all_libraries_config().await
 		})
 		.library_query("getStatistics", |_, _: (), library| async move {
