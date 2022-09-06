@@ -3,9 +3,10 @@ import { format } from 'date-fns';
 import React, { useRef } from 'react';
 import { Button, Pressable, Text, View } from 'react-native';
 import { ChevronLeftIcon } from 'react-native-heroicons/outline';
+import { useSnapshot } from 'valtio';
 
 import tw from '../../lib/tailwind';
-import { useFileModalStore } from '../../stores/useModalStore';
+import { fileModalStore } from '../../stores/modalStore';
 import FileIcon from '../file/FileIcon';
 import Divider from '../primitive/Divider';
 import ModalBackdrop from './layout/ModalBackdrop';
@@ -26,7 +27,7 @@ function MetaItem({ title, value }: MetaItemProps) {
 }
 
 export const FileModal = () => {
-	const { fileRef, data } = useFileModalStore();
+	const { fileRef, data } = useSnapshot(fileModalStore);
 
 	const fileDetailsRef = useRef<BottomSheetModal>(null);
 

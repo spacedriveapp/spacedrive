@@ -3,9 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/outline';
 import { ChevronRightIcon, CogIcon, PlusIcon } from 'react-native-heroicons/solid';
+import { useSnapshot } from 'valtio';
 import { useBridgeMutation } from '~/hooks/rspc';
 import tw from '~/lib/tailwind';
-import { useCurrentLibrary, useLibraryStore } from '~/stores/useLibraryStore';
+import { libraryStore, useCurrentLibrary } from '~/stores/libraryStore';
 
 import { AnimatedHeight } from '../animation/layout';
 import Dialog from '../layout/Dialog';
@@ -17,7 +18,7 @@ const DrawerLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);
 
 	// Init Libraries
-	const { init: initLibraries, switchLibrary } = useLibraryStore();
+	const { initLibraries, switchLibrary } = useSnapshot(libraryStore);
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
 	useEffect(() => {
