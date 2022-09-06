@@ -5,7 +5,7 @@ use crate::{
 };
 
 use chrono::{DateTime, FixedOffset};
-use prisma_client_rust::{prisma_models::PrismaValue, raw, raw::Raw, Direction};
+use prisma_client_rust::{prisma_models::PrismaValue, raw::Raw, Direction};
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, HashSet},
@@ -300,7 +300,7 @@ async fn count_orphan_file_paths(
 		.count(vec![
 			file_path::file_id::equals(None),
 			file_path::is_dir::equals(false),
-			file_path::location_id::equals(Some(location_id)),
+			file_path::location_id::equals(location_id),
 		])
 		.exec()
 		.await?;

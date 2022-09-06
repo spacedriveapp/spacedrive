@@ -4,20 +4,13 @@ use crate::{
 	volume::{get_volumes, save_volume},
 };
 
+use super::{utils::LibraryRequest, RouterBuilder};
 use chrono::Utc;
 use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
 use rspc::Type;
 use serde::Deserialize;
 use tokio::fs;
 use uuid::Uuid;
-
-use crate::{
-	library::LibraryConfig,
-	prisma::statistics,
-	sys::{get_volumes, save_volume},
-};
-
-use super::{utils::LibraryRequest, RouterBuilder};
 
 #[derive(Type, Deserialize)]
 pub struct EditLibraryArgs {

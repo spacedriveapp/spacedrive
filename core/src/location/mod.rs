@@ -1,5 +1,4 @@
 use crate::{
-	api::LibraryArgs,
 	encode::{ThumbnailJob, ThumbnailJobInit},
 	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
 	invalidate_query,
@@ -106,11 +105,7 @@ impl LocationCreateArgs {
 			.await
 			.map_err(|e| LocationError::DotfileWriteFailure(e, self.path))?;
 
-		invalidate_query!(
-			ctx,
-			"locations.get": LibraryArgs<()>,
-			LibraryArgs::new(ctx.id, ())
-		);
+		invalidate_query!(ctx, "locations.get");
 
 		Ok(location)
 	}

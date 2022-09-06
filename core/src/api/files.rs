@@ -1,9 +1,7 @@
-use crate::{api::locations::LocationExplorerArgs, invalidate_query, prisma::file};
+use crate::{invalidate_query, prisma::file};
 
 use rspc::Type;
 use serde::Deserialize;
-
-use crate::{invalidate_query, prisma::file};
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
@@ -21,11 +19,11 @@ pub struct SetFavoriteArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.library_query("readMetadata", |_ctx, _id: i32, _| async move {
+		.library_query("readMetadata", |_, _id: i32, _| async move {
 			#[allow(unreachable_code)]
 			Ok(todo!())
 		})
-		.library_mutation("setNote", |_ctx, args: SetNoteArgs, library| async move {
+		.library_mutation("setNote", |_, args: SetNoteArgs, library| async move {
 			library
 				.db
 				.file()
@@ -50,7 +48,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.exec()
 					.await?;
 
-				invalidate_query!(library, "locations.getExplorerDir");
+				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
 			},
@@ -63,7 +61,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(library, "locations.getExplorerDir");
+			invalidate_query!(library, "locations.getExplorerData");
 			Ok(())
 		})
 }
