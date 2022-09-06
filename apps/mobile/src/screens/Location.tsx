@@ -6,8 +6,8 @@ import { SharedScreenProps } from '~/navigation/SharedScreens';
 export default function LocationScreen({ navigation, route }: SharedScreenProps<'Location'>) {
 	const { id } = route.params;
 	return (
-		<View style={tw`flex-1 items-center justify-center`}>
-			<Text style={tw`font-bold text-xl text-white`}>Location {id}</Text>
+		<View style={tw`items-center justify-center flex-1`}>
+			<Text style={tw`text-xl font-bold text-white`}>Location {id}</Text>
 		</View>
 	);
 }

@@ -5,7 +5,7 @@ use crate::{
 		fetch_location, indexer::indexer_rules::IndexerRuleCreateArgs, scan_location,
 		with_indexer_rules, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	prisma::{file_path, indexer_rule, indexer_rules_in_location, location},
+	prisma::{file, file_path, indexer_rule, indexer_rules_in_location, location, tag},
 };
 
 use rspc::{self, ErrorCode, Type};
@@ -15,16 +15,32 @@ use tracing::info;
 use super::{LibraryArgs, RouterBuilder};
 
 #[derive(Serialize, Deserialize, Type, Debug)]
-pub struct DirectoryWithContents {
-	pub directory: file_path::Data,
-	pub contents: Vec<file_path::Data>,
+pub struct ExplorerData {
+	pub context: ExplorerContext,
+	pub items: Vec<ExplorerItem>,
+}
+
+#[derive(Serialize, Deserialize, Type, Debug)]
+#[serde(tag = "type")]
+pub enum ExplorerContext {
+	Location(location::Data),
+	Tag(tag::Data),
+	// Space(object_in_space::Data),
+}
+
+#[derive(Serialize, Deserialize, Type, Debug)]
+#[serde(tag = "type")]
+pub enum ExplorerItem {
+	Path(Box<file_path::Data>),
+	Object(Box<file::Data>),
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
-pub struct GetExplorerDirArgs {
+pub struct LocationExplorerArgs {
 	pub location_id: i32,
 	pub path: String,
 	pub limit: i32,
+	pub cursor: Option<String>,
 }
 
 pub(crate) fn mount() -> RouterBuilder {
@@ -53,8 +69,8 @@ pub(crate) fn mount() -> RouterBuilder {
 				.await?)
 		})
 		.query(
-			"getExplorerDir",
-			|ctx, arg: LibraryArgs<GetExplorerDirArgs>| async move {
+			"getExplorerData",
+			|ctx, arg: LibraryArgs<LocationExplorerArgs>| async move {
 				let (args, library) = arg.get_library(&ctx).await?;
 
 				let location = library
@@ -63,7 +79,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					.find_unique(location::id::equals(args.location_id))
 					.exec()
 					.await?
-					.unwrap();
+					.ok_or_else(|| {
+						rspc::Error::new(ErrorCode::NotFound, "Location not found".into())
+					})?;
 
 				let directory = library
 					.db
@@ -90,9 +108,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					.exec()
 					.await?;
 
-				Ok(DirectoryWithContents {
-					directory,
-					contents: file_paths
+				Ok(ExplorerData {
+					context: ExplorerContext::Location(location),
+					items: file_paths
 						.into_iter()
 						.map(|mut file_path| {
 							if let Some(file) = &mut file_path.file.as_mut().unwrap_or_else(
@@ -103,14 +121,12 @@ pub(crate) fn mount() -> RouterBuilder {
 									.config()
 									.data_directory()
 									.join(THUMBNAIL_CACHE_DIR_NAME)
-									.join(location.id.to_string())
 									.join(&file.cas_id)
 									.with_extension("webp");
 
 								file.has_thumbnail = thumb_path.exists();
 							}
-
-							file_path
+							ExplorerItem::Path(Box::new(file_path))
 						})
 						.collect(),
 				})

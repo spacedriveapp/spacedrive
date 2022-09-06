@@ -32,6 +32,7 @@ model SyncEvent {
     value     String
 
     node Node @relation(fields: [node_id], references: [id])
+
     @@map("sync_events")
 }
 
@@ -51,7 +52,7 @@ model Statistics {
 
 model Node {
     id           Int      @id @default(autoincrement())
-    pub_id       Bytes   @unique
+    pub_id       Bytes    @unique
     name         String
     platform     Int      @default(0)
     version      String?
@@ -63,6 +64,7 @@ model Node {
     jobs        Job[]
 
     Location Location[]
+
     @@map("nodes")
 }
 
@@ -94,13 +96,13 @@ model Location {
     disk_type          Int?
     is_removable       Boolean?
     is_online          Boolean  @default(true)
+    is_archived        Boolean  @default(false)
     date_created       DateTime @default(now())
 
-    node       Node?      @relation(fields: [node_id], references: [id])
-    file_paths FilePath[]
+    node          Node?                    @relation(fields: [node_id], references: [id])
+    file_paths    FilePath[]
     indexer_rules IndexerRulesInLocation[]
 
-    @@unique([node_id, local_path])
     @@map("locations")
 }
 
@@ -111,6 +113,8 @@ model File {
     // full byte contents digested into sha256 checksum
     integrity_checksum String?  @unique
     // basic metadata
+    name               String?
+    extension          String?
     kind               Int      @default(0)
     size_in_bytes      String
     key_id             Int?
@@ -205,6 +209,7 @@ model Key {
 
     files      File[]
     file_paths FilePath[]
+
     @@map("keys")
 }
 
@@ -230,7 +235,7 @@ model MediaData {
 
 model Tag {
     id              Int      @id @default(autoincrement())
-    pub_id          Bytes   @unique
+    pub_id          Bytes    @unique
     name            String?
     color           String?
     total_files     Int?     @default(0)
@@ -239,6 +244,7 @@ model Tag {
     date_modified   DateTime @default(now())
 
     tag_files TagOnFile[]
+
     @@map("tags")
 }
 
@@ -257,12 +263,13 @@ model TagOnFile {
 
 model Label {
     id            Int      @id @default(autoincrement())
-    pub_id        Bytes   @unique
+    pub_id        Bytes    @unique
     name          String?
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
 
     label_files LabelOnFile[]
+
     @@map("labels")
 }
 
@@ -281,13 +288,14 @@ model LabelOnFile {
 
 model Space {
     id            Int      @id @default(autoincrement())
-    pub_id        Bytes   @unique
+    pub_id        Bytes    @unique
     name          String?
     description   String?
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
 
     files FileInSpace[]
+
     @@map("spaces")
 }
 
@@ -309,7 +317,7 @@ model Job {
     name    String
     node_id Int
     action  Int
-    status  Int     @default(0)
+    status  Int    @default(0)
     data    Bytes?
 
     task_count           Int      @default(1)
@@ -319,12 +327,13 @@ model Job {
     seconds_elapsed      Int      @default(0)
 
     nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
     @@map("jobs")
 }
 
 model Album {
     id        Int     @id @default(autoincrement())
-    pub_id    Bytes  @unique
+    pub_id    Bytes   @unique
     name      String
     is_hidden Boolean @default(false)
 
@@ -351,7 +360,7 @@ model FileInAlbum {
 
 model Comment {
     id            Int      @id @default(autoincrement())
-    pub_id        Bytes   @unique
+    pub_id        Bytes    @unique
     content       String
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())
@@ -375,10 +384,10 @@ model IndexerRule {
 }
 
 model IndexerRulesInLocation {
-    date_created    DateTime @default(now())
+    date_created DateTime @default(now())
 
-    location_id     Int
-    location        Location @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    location_id Int
+    location    Location @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     indexer_rule_id Int
     indexer_rule    IndexerRule @relation(fields: [indexer_rule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

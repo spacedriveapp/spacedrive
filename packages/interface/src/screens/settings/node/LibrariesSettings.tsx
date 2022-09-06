@@ -1,23 +1,37 @@
-import { TrashIcon } from '@heroicons/react/outline';
-import { useBridgeMutation, useBridgeQuery } from '@sd/client';
+import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useBridgeMutation, useBridgeQuery, useLibraryStore } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import { DotsSixVertical } from 'phosphor-react';
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router';
 
+import CreateLibraryDialog from '../../../components/dialog/CreateLibraryDialog';
+import DeleteLibraryDialog from '../../../components/dialog/DeleteLibraryDialog';
 import Card from '../../../components/layout/Card';
 import Dialog from '../../../components/layout/Dialog';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 function LibraryListItem(props: { library: LibraryConfigWrapped }) {
+	const navigate = useNavigate();
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
+
+	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
 
 	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeMutation('library.delete', {
 		onSuccess: () => {
 			setOpenDeleteModal(false);
 		}
 	});
+
+	function handleEditLibrary() {
+		// switch library if requesting to edit non-current library
+		navigate('/settings/library');
+		if (props.library.uuid !== currentLibraryUuid) {
+			switchLibrary(props.library.uuid);
+		}
+	}
 
 	return (
 		<Card>
@@ -26,41 +40,22 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 				<h3 className="font-semibold">{props.library.config.name}</h3>
 				<p className="mt-0.5 text-xs text-gray-200">{props.library.uuid}</p>
 			</div>
-			<div>
-				<Dialog
-					open={openDeleteModal}
-					onOpenChange={setOpenDeleteModal}
-					title="Delete Library"
-					description="Deleting a library will permanently the database, the files themselves will not be deleted."
-					ctaAction={() => {
-						deleteLib(props.library.uuid);
-					}}
-					loading={libDeletePending}
-					ctaDanger
-					ctaLabel="Delete"
-					trigger={
-						<Button variant="gray" className="!p-1.5">
-							<TrashIcon className="w-4 h-4" />
-						</Button>
-					}
-				/>
+			<div className="mt-2 space-x-2">
+				<Button variant="gray" className="!p-1.5" onClick={handleEditLibrary}>
+					<PencilIcon className="w-4 h-4" />
+				</Button>
+				<DeleteLibraryDialog libraryUuid={props.library.uuid}>
+					<Button variant="gray" className="!p-1.5">
+						<TrashIcon className="w-4 h-4" />
+					</Button>
+				</DeleteLibraryDialog>
 			</div>
 		</Card>
 	);
 }
 
 export default function LibrarySettings() {
-	const [openCreateModal, setOpenCreateModal] = useState(false);
-	const [newLibName, setNewLibName] = useState('');
 	const { data: libraries } = useBridgeQuery(['library.get']);
-	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
-		'library.create',
-		{
-			onSuccess: () => {
-				setOpenCreateModal(false);
-			}
-		}
-	);
 
 	return (
 		<SettingsContainer>
@@ -69,28 +64,11 @@ export default function LibrarySettings() {
 				description="The database contains all library data and file metadata."
 				rightArea={
 					<div className="flex-row space-x-2">
-						<Dialog
-							open={openCreateModal}
-							onOpenChange={setOpenCreateModal}
-							title="Create New Library"
-							description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
-							ctaAction={() => createLibrary(newLibName)}
-							loading={createLibLoading}
-							submitDisabled={!newLibName}
-							ctaLabel="Create"
-							trigger={
-								<Button variant="primary" size="sm">
-									Add Library
-								</Button>
-							}
-						>
-							<Input
-								className="flex-grow w-full mt-3"
-								value={newLibName}
-								placeholder="My Cool Library"
-								onChange={(e) => setNewLibName(e.target.value)}
-							/>
-						</Dialog>
+						<CreateLibraryDialog>
+							<Button variant="primary" size="sm">
+								Add Library
+							</Button>
+						</CreateLibraryDialog>
 					</div>
 				}
 			/>

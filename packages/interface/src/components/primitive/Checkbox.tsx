@@ -2,40 +2,21 @@ import clsx from 'clsx';
 import React from 'react';
 
 export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
-	containerClassname?: string;
+	primaryColor?: string;
 }
 
 export const Checkbox: React.FC<CheckboxProps> = (props) => {
 	return (
-		<label
+		<input
+			{...props}
+			type="checkbox"
+			style={{}}
 			className={clsx(
-				'flex items-center text-sm font-medium text-gray-700 dark:text-gray-100',
-				props.containerClassname
-			)}
-		>
-			<input
-				{...props}
-				type="checkbox"
-				className={clsx(
-					`
-        bg-gray-50
-        hover:bg-gray-100
-        dark:bg-gray-800
-        border-gray-100
-        hover:border-gray-200
-        dark:border-gray-700
-        dark:hover:bg-gray-700
-        dark:hover:border-gray-600
-        transition 
-        rounded 
-        mr-2
-        text-primary 
-        checked:ring-2 checked:ring-primary-500
+				`
+				form-check-input appearance-none h-4 w-4 border border-gray-300 rounded-sm bg-white checked:bg-blue-600 checked:border-blue-600 focus:outline-none transition duration-200 mt-1 align-top bg-no-repeat bg-center bg-contain float-left mr-2
         `,
-					props.className
-				)}
-			/>
-			<span className="select-none">Checkbox</span>
-		</label>
+				props.className
+			)}
+		/>
 	);
 };

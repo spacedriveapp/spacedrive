@@ -77,6 +77,7 @@ pub(crate) fn mount() -> RouterBuilder {
 								.exec()
 								.await?
 								.ok_or(LocationError::IdNotFound(args.id))?,
+							sub_path: Some(args.path),
 						},
 						Box::new(FileIdentifierJob {}),
 					))

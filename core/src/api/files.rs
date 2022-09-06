@@ -1,4 +1,4 @@
-use crate::{api::locations::GetExplorerDirArgs, invalidate_query, prisma::file};
+use crate::{api::locations::LocationExplorerArgs, invalidate_query, prisma::file};
 
 use rspc::Type;
 use serde::Deserialize;
@@ -30,7 +30,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(library, "locations.getExplorerDir");
+			invalidate_query!(library, "locations.getExplorerData");
 
 			Ok(())
 		})
@@ -51,14 +51,15 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				invalidate_query!(
 					library,
-					"locations.getExplorerDir": LibraryArgs<GetExplorerDirArgs>,
+					"locations.getExplorerData": LibraryArgs<LocationExplorerArgs>,
 					LibraryArgs {
 						library_id: library.id,
-						arg: GetExplorerDirArgs {
+						arg: LocationExplorerArgs {
 							// TODO: Set these arguments to the correct type
 							location_id: 0,
 							path: "".into(),
 							limit: 0,
+							cursor: None,
 						}
 					}
 				);
@@ -78,14 +79,15 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			invalidate_query!(
 				library,
-				"locations.getExplorerDir": LibraryArgs<GetExplorerDirArgs>,
+				"locations.getExplorerData": LibraryArgs<LocationExplorerArgs>,
 				LibraryArgs {
 					library_id: library.id,
-					arg: GetExplorerDirArgs {
+					arg: LocationExplorerArgs {
 						// TODO: Set these arguments to the correct type
 						location_id: 0,
 						path: "".into(),
 						limit: 0,
+						cursor: None,
 					}
 				}
 			);
