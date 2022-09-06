@@ -33,7 +33,7 @@ export default function Explorer(props: Props) {
 
 	const { currentLibraryUuid } = useLibraryStore();
 
-	const { data: tags } = useLibraryQuery(['tags.getAll'], {});
+	const { data: tags } = useLibraryQuery(['tags.list'], {});
 
 	const { mutate: assignTag } = useLibraryMutation('tags.assign');
 

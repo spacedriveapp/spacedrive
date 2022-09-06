@@ -5,16 +5,14 @@ import React, { useContext } from 'react';
 import { LocationCreateArgs } from '@sd/core';
 
 import LocationListItem from '../../../components/location/LocationListItem';
-import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function LocationSettings() {
-	const { data: locations } = useLibraryQuery(['locations.get']);
+	const { data: locations } = useLibraryQuery(['locations.list']);
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	const appProps = useContext(AppPropsContext);
-
-	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	return (
 		<SettingsContainer>
