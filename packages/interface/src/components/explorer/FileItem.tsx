@@ -64,7 +64,8 @@ export default function FileItem(props: Props) {
 						}
 					)}
 				>
-					{props.data?.name}.{props.data?.extension}
+					{props.data?.name}
+					{props.data?.extension && <>.{props.data.extension}</>}
 				</span>
 			</div>
 		</div>
