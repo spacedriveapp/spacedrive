@@ -1,10 +1,10 @@
-import { KeyIcon } from '@heroicons/react/outline';
-import { CogIcon, LockClosedIcon } from '@heroicons/react/solid';
+import { KeyIcon } from '@heroicons/react/24/outline';
+import { CogIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
 import { Cloud, Desktop, DeviceMobileCamera, DotsSixVertical, Laptop } from 'phosphor-react';
 import React, { useState } from 'react';
 
-import FileItem from '../file/FileItem';
+import FileItem from '../explorer/FileItem';
 import Loader from '../primitive/Loader';
 import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -56,29 +56,19 @@ export function Device(props: DeviceProps) {
 					</div>
 				)}
 				<div className="flex flex-row ml-3 space-x-1">
-
 					<Tooltip label="Encrypt">
-
-					<Button className="!p-1 ">
-						<KeyIcon className="w-5 h-5" />
-					</Button>
+						<Button className="!p-1 ">
+							<KeyIcon className="w-5 h-5" />
+						</Button>
 					</Tooltip>
 					<Tooltip label="Settings">
-
-					<Button className="!p-1 ">
-						<CogIcon className="w-5 h-5" />
-					</Button>
+						<Button className="!p-1 ">
+							<CogIcon className="w-5 h-5" />
+						</Button>
 					</Tooltip>
 				</div>
 			</div>
 			<div className="px-4 pb-3 mt-3">
-				{props.locations.map((location, key) => (
-					<FileItem
-						key={key}
-						selected={selectedFile === location.name}
-						onClick={() => handleSelect(location.name)}
-					/>
-				))}
 				{props.locations.length === 0 && (
 					<div className="w-full my-5 text-center text-gray-450">No locations</div>
 				)}

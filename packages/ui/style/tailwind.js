@@ -8,7 +8,7 @@ module.exports = function (app, options) {
 			!options?.ignorePackages && '../../packages/*/src/**/*.{js,ts,jsx,tsx,html}',
 			app ? `../../apps/${app}/src/**/*.{js,ts,jsx,tsx,html}` : `./src/**/*.{js,ts,jsx,tsx,html}`
 		],
-		darkMode: app == 'landing' ? 'class' : 'class',
+		darkMode: app == 'landing' ? 'class' : 'media',
 		mode: 'jit',
 		theme: {
 			screens: {
@@ -120,7 +120,7 @@ module.exports = function (app, options) {
 		variants: {
 			extend: {}
 		},
-		plugins: []
+		plugins: [require('@tailwindcss/forms')]
 	};
 	if (app === 'landing') {
 		config.plugins.push(require('@tailwindcss/typography'));

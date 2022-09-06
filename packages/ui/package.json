@@ -13,13 +13,14 @@
 	},
 	"scripts": {
 		"build": "tsc",
-		"storybook": "NODE_OPTIONS=--openssl-legacy-provider start-storybook -p 6006",
+		"storybook": "start-storybook -p 6006",
 		"storybook:build": "build-storybook"
 	},
 	"dependencies": {
 		"@headlessui/react": "^1.6.6",
-		"@heroicons/react": "^1.0.6",
+		"@heroicons/react": "^2.0.10",
 		"@radix-ui/react-context-menu": "^1.0.0",
+		"@tailwindcss/forms": "^0.5.2",
 		"clsx": "^1.2.1",
 		"phosphor-react": "^1.4.1",
 		"postcss": "^8.4.14",
