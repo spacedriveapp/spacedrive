@@ -1,3 +1,8 @@
+import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
+import { Folder } from '../icons/Folder';
+import RunningJobsWidget from '../jobs/RunningJobsWidget';
+import { MacTrafficLights } from '../os/TrafficLights';
+import { DefaultProps } from '../primitive/types';
 import { LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { CogIcon, PlusIcon } from '@heroicons/react/24/solid';
 import {
@@ -13,12 +18,6 @@ import clsx from 'clsx';
 import { CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
 import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
-
-import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
-import { Folder } from '../icons/Folder';
-import RunningJobsWidget from '../jobs/RunningJobsWidget';
-import { MacTrafficLights } from '../os/TrafficLights';
-import { DefaultProps } from '../primitive/types';
 
 type SidebarProps = DefaultProps;
 

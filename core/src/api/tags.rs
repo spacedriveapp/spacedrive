@@ -4,7 +4,7 @@ use tracing::log::info;
 use uuid::Uuid;
 
 use crate::{
-	api::locations::{ExplorerContext, ExplorerData, ExplorerItem},
+	api::locations::{file_with_paths, ExplorerContext, ExplorerData, ExplorerItem},
 	encode::THUMBNAIL_CACHE_DIR_NAME,
 	invalidate_query,
 	prisma::{file, tag, tag_on_file},
@@ -56,14 +56,14 @@ pub(crate) fn mount() -> RouterBuilder {
 				.find_many(vec![file::tags::some(vec![tag_on_file::tag_id::equals(
 					tag_id,
 				)])])
-				.with(file::paths::fetch(vec![]))
+				.include(file_with_paths::include())
 				.exec()
 				.await?
 				.into_iter()
 				.map(|mut file| {
 					// sorry brendan
 					// grab the first path and tac on the name
-					let oldest_path = &file.paths.as_ref().unwrap()[0];
+					let oldest_path = &file.paths[0];
 					file.name = Some(oldest_path.name.clone());
 					file.extension = oldest_path.extension.clone();
 					// a long term fix for this would be to have the indexer give the Object a name and extension, sacrificing its own and only store newly found Path names that differ from the Object name

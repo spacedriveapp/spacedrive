@@ -1,11 +1,10 @@
+import { useBridgeQuery } from '../index';
+import { useExplorerStore } from './useExplorerStore';
 import { LibraryConfigWrapped } from '@sd/core';
 import produce from 'immer';
 import { useMemo } from 'react';
 import create from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-
-import { useBridgeQuery } from '../index';
-import { useExplorerStore } from './useExplorerStore';
 
 type LibraryStore = {
 	// the uuid of the currently active library
