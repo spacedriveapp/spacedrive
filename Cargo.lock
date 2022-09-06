@@ -4016,7 +4016,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.0"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=57d154b5d897510905ab8a605d4fae79f5372b56#57d154b5d897510905ab8a605d4fae79f5372b56"
+source = "git+https://github.com//Brendonovich/prisma-client-rust.git?rev=8447fe493414471a23a38d780b3db246266f558f#8447fe493414471a23a38d780b3db246266f558f"
 dependencies = [
  "base64 0.13.0",
  "bigdecimal 0.2.2",
@@ -4040,7 +4040,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.0"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=57d154b5d897510905ab8a605d4fae79f5372b56#57d154b5d897510905ab8a605d4fae79f5372b56"
+source = "git+https://github.com//Brendonovich/prisma-client-rust.git?rev=8447fe493414471a23a38d780b3db246266f558f#8447fe493414471a23a38d780b3db246266f558f"
 dependencies = [
  "datamodel",
  "prisma-client-rust-sdk",
@@ -4058,7 +4058,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.0"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=57d154b5d897510905ab8a605d4fae79f5372b56#57d154b5d897510905ab8a605d4fae79f5372b56"
+source = "git+https://github.com//Brendonovich/prisma-client-rust.git?rev=8447fe493414471a23a38d780b3db246266f558f#8447fe493414471a23a38d780b3db246266f558f"
 dependencies = [
  "convert_case 0.5.0",
  "datamodel",
@@ -4668,8 +4668,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "175b44c229ea6314902120dd1fa43181b3207a5eec18a7a3c9cbcc6ec6a780db"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e#1b2a299e9061c81ff90706923a6d2389ea7c107e"
 dependencies = [
  "axum",
  "futures",
@@ -5322,8 +5321,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8dfbc46bfad9289e01928a228b82fdf615131212aded5497cce2d460b452e94"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e#1b2a299e9061c81ff90706923a6d2389ea7c107e"
 dependencies = [
  "chrono",
  "convert_case 0.5.0",
@@ -5337,8 +5335,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5ad5db5dea9fa5816615d722b682781214fed875fe56c1bcd0a67ee9c477d84"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e#1b2a299e9061c81ff90706923a6d2389ea7c107e"
 dependencies = [
  "Inflector",
  "proc-macro2",

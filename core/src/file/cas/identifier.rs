@@ -27,7 +27,7 @@ pub struct FileIdentifierJob {}
 // finally: creating unique file records, and linking them to their file_paths
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileIdentifierJobInit {
-	pub location: location::Data,
+	pub location_id: i32,
 	pub sub_path: Option<PathBuf>, // subpath to start from
 }
 
@@ -74,7 +74,7 @@ impl StatefulJob for FileIdentifierJob {
 		let location = library
 			.db
 			.location()
-			.find_unique(location::id::equals(state.init.location.id))
+			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
 			.unwrap();
@@ -85,7 +85,7 @@ impl StatefulJob for FileIdentifierJob {
 			.map(PathBuf::from)
 			.unwrap_or_default();
 
-		let total_count = count_orphan_file_paths(&library, state.init.location.id.into()).await?;
+		let total_count = count_orphan_file_paths(&library, state.init.location_id.into()).await?;
 		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
@@ -101,7 +101,7 @@ impl StatefulJob for FileIdentifierJob {
 			location_path,
 			cursor: FilePathIdAndLocationIdCursor {
 				file_path_id: 1,
-				location_id: state.init.location.id,
+				location_id: state.init.location_id,
 			},
 		});
 
@@ -174,7 +174,7 @@ impl StatefulJob for FileIdentifierJob {
 				.file_path()
 				.update(
 					file_path::location_id_id(
-						state.init.location.id,
+						state.init.location_id,
 						*cas_lookup.get(&existing_file.cas_id).unwrap(),
 					),
 					vec![file_path::file_id::set(Some(existing_file.id))],
@@ -234,7 +234,7 @@ impl StatefulJob for FileIdentifierJob {
 				.file_path()
 				.update(
 					file_path::location_id_id(
-						state.init.location.id,
+						state.init.location_id,
 						*cas_lookup.get(&created_file.cas_id).unwrap(),
 					),
 					vec![file_path::file_id::set(Some(created_file.id))],
@@ -262,7 +262,7 @@ impl StatefulJob for FileIdentifierJob {
 			)),
 		]);
 
-		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location_id.into()).await?;
 		Ok(())
 	}
 

@@ -37,11 +37,13 @@ pub struct ThumbnailJobState {
 	root_path: PathBuf,
 }
 
+file_path::include!(pub image_path_with_file { file });
+
 #[async_trait::async_trait]
 impl StatefulJob for ThumbnailJob {
 	type Init = ThumbnailJobInit;
 	type Data = ThumbnailJobState;
-	type Step = file_path::Data;
+	type Step = image_path_with_file::Data;
 
 	fn name(&self) -> &'static str {
 		THUMBNAIL_JOB_NAME
@@ -117,20 +119,13 @@ impl StatefulJob for ThumbnailJob {
 		trace!("image_file {:?}", step);
 
 		// get cas_id, if none found skip
-		let cas_id = match step.file() {
-			Ok(file) => {
-				if let Some(f) = file {
-					f.cas_id.clone()
-				} else {
-					warn!(
-						"skipping thumbnail generation for {}",
-						step.materialized_path
-					);
-					return Ok(());
-				}
-			}
-			Err(_) => {
-				error!("Error getting cas_id {:?}", step.materialized_path);
+		let cas_id = match &step.file {
+			Some(f) => f.cas_id.clone(),
+			_ => {
+				warn!(
+					"skipping thumbnail generation for {}",
+					step.materialized_path
+				);
 				return Ok(());
 			}
 		};
@@ -218,7 +213,7 @@ pub async fn get_images(
 	ctx: &LibraryContext,
 	location_id: i32,
 	path: impl AsRef<Path>,
-) -> Result<Vec<file_path::Data>, JobError> {
+) -> Result<Vec<image_path_with_file::Data>, JobError> {
 	let mut params = vec![
 		file_path::location_id::equals(location_id),
 		file_path::extension::in_vec(vec![
@@ -239,7 +234,7 @@ pub async fn get_images(
 	ctx.db
 		.file_path()
 		.find_many(params)
-		.with(file_path::file::fetch())
+		.include(image_path_with_file::include())
 		.exec()
 		.await
 		.map_err(Into::into)

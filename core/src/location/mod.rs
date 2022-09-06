@@ -4,7 +4,7 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	library::LibraryContext,
-	prisma::{indexer_rule, indexer_rules_in_location, location},
+	prisma::{indexer_rule, indexer_rules_in_location, location, node},
 };
 
 use rspc::Type;
@@ -22,6 +22,8 @@ pub mod indexer;
 
 pub use error::LocationError;
 use indexer::indexer_job::{IndexerJob, IndexerJobInit};
+
+use self::indexer::indexer_job::indexer_job_location;
 
 static DOTFILE_NAME: &str = ".spacedrive";
 
@@ -64,13 +66,13 @@ impl LocationCreateArgs {
 			.location()
 			.create(
 				uuid.as_bytes().to_vec(),
+				node::id::equals(ctx.node_local_id),
 				vec![
 					location::name::set(Some(
 						self.path.file_name().unwrap().to_str().unwrap().to_string(),
 					)),
 					location::is_online::set(true),
 					location::local_path::set(Some(self.path.to_string_lossy().to_string())),
-					location::node_id::set(Some(ctx.node_local_id)),
 				],
 			)
 			.exec()
@@ -84,7 +86,6 @@ impl LocationCreateArgs {
 
 		// Updating our location variable to include information about the indexer rules
 		location = fetch_location(ctx, location.id)
-			.with(with_indexer_rules(location.id))
 			.exec()
 			.await?
 			.ok_or(LocationError::IdNotFound(location.id))?;
@@ -127,7 +128,7 @@ pub struct LocationUpdateArgs {
 impl LocationUpdateArgs {
 	pub async fn update(self, ctx: &LibraryContext) -> Result<(), LocationError> {
 		let location = fetch_location(ctx, self.id)
-			.with(with_indexer_rules(self.id))
+			.include(location::include!({ indexer_rules }))
 			.exec()
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
@@ -145,7 +146,6 @@ impl LocationUpdateArgs {
 
 		let current_rules_ids = location
 			.indexer_rules
-			.unwrap()
 			.iter()
 			.map(|r| r.indexer_rule_id)
 			.collect::<HashSet<_>>();
@@ -207,13 +207,6 @@ pub fn fetch_location(ctx: &LibraryContext, location_id: i32) -> location::FindU
 		.find_unique(location::id::equals(location_id))
 }
 
-pub fn with_indexer_rules(location_id: i32) -> location::indexer_rules::Fetch {
-	location::indexer_rules::fetch(vec![indexer_rules_in_location::location_id::equals(
-		location_id,
-	)])
-	.with(indexer_rules_in_location::indexer_rule::fetch())
-}
-
 async fn link_location_and_indexer_rules(
 	ctx: &LibraryContext,
 	location_id: i32,
@@ -239,25 +232,29 @@ async fn link_location_and_indexer_rules(
 	Ok(())
 }
 
-pub async fn scan_location(
-	ctx: &LibraryContext,
-	location: &location::Data,
-) -> Result<(), LocationError> {
+pub async fn scan_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
+	let location = ctx
+		.db
+		.location()
+		.find_unique(location::id::equals(location_id))
+		.include(indexer_job_location::include())
+		.exec()
+		.await?
+		.ok_or(LocationError::IdNotFound(location_id))?;
+
 	if location.local_path.is_none() {
 		return Err(LocationError::MissingLocalPath(location.id));
 	};
 
-	let location_id = location.id;
 	ctx.spawn_job(Job::new(
-		IndexerJobInit {
-			location: location.clone(),
-		},
+		IndexerJobInit { location },
 		Box::new(IndexerJob {}),
 	))
 	.await;
+
 	ctx.queue_job(Job::new(
 		FileIdentifierJobInit {
-			location: location.clone(),
+			location_id,
 			sub_path: None,
 		},
 		Box::new(FileIdentifierJob {}),

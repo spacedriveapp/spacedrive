@@ -2,7 +2,6 @@ use crate::{
 	encode::{ThumbnailJob, ThumbnailJobInit},
 	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
 	job::{Job, JobManager},
-	location::{fetch_location, LocationError},
 };
 
 use rspc::Type;
@@ -54,10 +53,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.spawn_job(Job::new(
 						FileIdentifierJobInit {
-							location: fetch_location(&library, args.id)
-								.exec()
-								.await?
-								.ok_or(LocationError::IdNotFound(args.id))?,
+							location_id: args.id,
 							sub_path: Some(args.path),
 						},
 						Box::new(FileIdentifierJob {}),
