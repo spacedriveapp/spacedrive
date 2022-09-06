@@ -53,7 +53,8 @@ importers:
       twrnc: ^3.4.0
       typescript: ^4.7.4
       use-count-up: ^3.0.1
-      zustand: ^4.1.1
+      valtio: ^1.7.0
+      valtio-persist: ^1.0.2
     dependencies:
       '@gorhom/bottom-sheet': 4.4.3_vlgoh3gg3ptp2ic2mlqzb2jwsy
       '@react-native-async-storage/async-storage': 1.17.7_react-native@0.69.4
@@ -87,7 +88,8 @@ importers:
       react-native-svg: 13.0.0_jk6ntyzimkrv4hwdmdgaaf5yaa
       twrnc: 3.4.0_react-native@0.69.4
       use-count-up: 3.0.1_react@18.0.0
-      zustand: 4.1.1_immer@9.0.15+react@18.0.0
+      valtio: 1.7.0_react@18.0.0
+      valtio-persist: 1.0.2_valtio@1.7.0
     devDependencies:
       '@babel/core': 7.18.10
       '@babel/runtime': 7.18.9
@@ -7062,6 +7064,10 @@ packages:
       object-assign: 4.1.1
       react-is: 16.13.1
 
+  /proxy-compare/2.3.0:
+    resolution: {integrity: sha512-c3L2CcAi7f7pvlD0D7xsF+2CQIW8C3HaYx2Pfgq8eA4HAl3GAH6/dVYsyBbYF/0XJs2ziGLrzmz5fmzPm6A0pQ==}
+    dev: false
+
   /pump/3.0.0:
     resolution: {integrity: sha512-LwZy+p3SFs1Pytd/jYct4wpv49HiYCqd9Rlc5ZVdk0V+8Yzv6jR5Blk3TRmPL1ft69TxP0IMZGJ+WPFU2BFhww==}
     dependencies:
@@ -8586,6 +8592,44 @@ packages:
       builtins: 1.0.3
     dev: false
 
+  /valtio-persist/1.0.2_valtio@1.7.0:
+    resolution: {integrity: sha512-OBVEUZTS1heiA5R3j8CPDuXIMmmjIvq/4CiO+pElXd7f7b7nR3vIH5qql35hXw/AkLdftqTUcVCNVf6yAJ1ypA==}
+    peerDependencies:
+      valtio: ^1.2.5
+    dependencies:
+      lodash: 4.17.21
+      valtio: 1.7.0_react@18.0.0
+    dev: false
+
+  /valtio/1.7.0_react@18.0.0:
+    resolution: {integrity: sha512-3Tnix66EERwMcrl1rfB3ylcewOcL5L/GiPmC3FlVNreQzqf2jufEeqlNmgnLgSGchkEmH3WYVtS+x6Qw4r+yzQ==}
+    engines: {node: '>=12.7.0'}
+    peerDependencies:
+      '@babel/helper-module-imports': '>=7.12'
+      '@babel/types': '>=7.13'
+      aslemammad-vite-plugin-macro: '>=1.0.0-alpha.1'
+      babel-plugin-macros: '>=3.0'
+      react: '>=16.8'
+      vite: '>=2.8.6'
+    peerDependenciesMeta:
+      '@babel/helper-module-imports':
+        optional: true
+      '@babel/types':
+        optional: true
+      aslemammad-vite-plugin-macro:
+        optional: true
+      babel-plugin-macros:
+        optional: true
+      react:
+        optional: true
+      vite:
+        optional: true
+    dependencies:
+      proxy-compare: 2.3.0
+      react: 18.0.0
+      use-sync-external-store: 1.2.0_react@18.0.0
+    dev: false
+
   /vary/1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
@@ -8788,23 +8832,6 @@ packages:
   /yocto-queue/0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
-
-  /zustand/4.1.1_immer@9.0.15+react@18.0.0:
-    resolution: {integrity: sha512-h4F3WMqsZgvvaE0n3lThx4MM81Ls9xebjvrABNzf5+jb3/03YjNTSgZXeyrvXDArMeV9untvWXRw1tY+ntPYbA==}
-    engines: {node: '>=12.7.0'}
-    peerDependencies:
-      immer: '>=9.0'
-      react: '>=16.8'
-    peerDependenciesMeta:
-      immer:
-        optional: true
-      react:
-        optional: true
-    dependencies:
-      immer: 9.0.15
-      react: 18.0.0
-      use-sync-external-store: 1.2.0_react@18.0.0
-    dev: false
 
   file:../../packages/assets:
     resolution: {directory: ../../packages/assets, type: directory}

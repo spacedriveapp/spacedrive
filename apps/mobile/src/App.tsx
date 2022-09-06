@@ -6,6 +6,7 @@ import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
+import { useSnapshot } from 'valtio';
 
 import { GlobalModals } from './components/modals/GlobalModals';
 import {
@@ -16,12 +17,11 @@ import {
 	useInvalidateQuery
 } from './hooks/rspc';
 import useCachedResources from './hooks/useCachedResources';
-import { getItemFromStorage } from './lib/storage';
 import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
-import { useLibraryStore } from './stores/useLibraryStore';
-import { useOnboardingStore } from './stores/useOnboardingStore';
+import { libraryStore } from './stores/libraryStore';
+import { onboardingStore } from './stores/onboardingStore';
 import type { Operations } from './types/bindings';
 
 const client = createClient<Operations>({
@@ -42,7 +42,7 @@ function AppContainer() {
 
 	const isLoadingComplete = useCachedResources();
 
-	const { showOnboarding, hideOnboarding } = useOnboardingStore();
+	const { showOnboarding } = useSnapshot(onboardingStore);
 
 	const { data: libraries } = useBridgeQuery(['library.get'], {
 		onError(err) {
@@ -50,34 +50,22 @@ function AppContainer() {
 		}
 	});
 
-	console.log(libraries);
+	const { _persist, switchLibrary } = useSnapshot(libraryStore);
 
-	const { switchLibrary, _hasHydrated } = useLibraryStore();
+	console.log('persisted?', _persist.loaded);
 
 	// Runs when the app is launched
 	useEffect(() => {
-		async function appLaunch() {
-			// Check if the user went through onboarding
-			const didOnboarding = await getItemFromStorage('@onboarding');
-			// If user did do onboarding, that means they've already have a library
-
-			// Temporarly set the first library to be the current library
-
+		// Temporarly set the first library to be the current library
+		if (!showOnboarding) {
 			if (libraries && libraries.length > 0) {
 				switchLibrary(libraries[0].uuid);
 			}
-
-			if (didOnboarding) {
-				hideOnboarding();
-			}
 		}
+	}, [libraries, showOnboarding, switchLibrary]);
 
-		appLaunch();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [libraries]);
-
-	// Might need to move _hasHydrated to useCacheResources hook.
-	if (!isLoadingComplete && !_hasHydrated) {
+	// Might need to move _persist.loaded to useCacheResources hook.
+	if (!isLoadingComplete || !_persist.loaded) {
 		return null;
 	} else {
 		return (

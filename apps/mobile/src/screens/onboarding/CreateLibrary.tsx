@@ -1,16 +1,15 @@
 import React from 'react';
 import { Text, View } from 'react-native';
+import { useSnapshot } from 'valtio';
 import { AnimatedButton } from '~/components/primitive/Button';
-import { setItemToStorage } from '~/lib/storage';
 import tw from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
-import { useOnboardingStore } from '~/stores/useOnboardingStore';
+import { onboardingStore } from '~/stores/onboardingStore';
 
 const CreateLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'CreateLibrary'>) => {
-	const { hideOnboarding } = useOnboardingStore();
+	const { hideOnboarding } = useSnapshot(onboardingStore);
 
 	function onButtonPress() {
-		setItemToStorage('@onboarding', '1');
 		// TODO: Add a loading indicator to button as this takes a second or so.
 		hideOnboarding();
 	}
