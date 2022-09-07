@@ -1,7 +1,7 @@
 import { AppPropsContext, explorerStore } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { useSnapshot } from 'valtio';
 
 import icons from '../../assets/icons';
@@ -39,6 +39,7 @@ export default function FileThumb({ data, ...props }: Props) {
 	if (file_thumb_url)
 		return (
 			<img
+				// onLoad={}
 				style={props.style}
 				className={clsx('pointer-events-none z-90', props.className)}
 				src={file_thumb_url}

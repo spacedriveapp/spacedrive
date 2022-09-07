@@ -143,7 +143,7 @@ impl StatefulJob for FileIdentifierJob {
 		// analyze each file_path
 		for file_path in &file_paths {
 			// get the cas_id and extract metadata
-			match prepare_file(&data.location_path, file_path).await {
+			match assemble_object_metadata(&data.location_path, file_path).await {
 				Ok(file) => {
 					let cas_id = file.cas_id.clone();
 					// create entry into chunks for created file data
@@ -151,7 +151,7 @@ impl StatefulJob for FileIdentifierJob {
 					cas_lookup.insert(cas_id, file_path.id);
 				}
 				Err(e) => {
-					info!("Error processing file: {:#?}", e);
+					info!("Error assembling Object metadata: {:#?}", e);
 					continue;
 				}
 			};
@@ -167,12 +167,14 @@ impl StatefulJob for FileIdentifierJob {
 			.exec()
 			.await?;
 
-		info!("Found {} existing files", existing_files.len());
+		info!("Found {} existing Objects", existing_files.len());
 
 		// link those existing files to their file paths
 		// Had to put the file_path in a variable outside of the closure, to satisfy the borrow checker
 		let library_ctx = ctx.library_ctx();
 
+		// if existing_files.len() > 0 {
+		// connect Paths that match existing Objects in the database
 		for existing_file in &existing_files {
 			if let Err(e) = library_ctx
 				.db
@@ -203,6 +205,11 @@ impl StatefulJob for FileIdentifierJob {
 			.filter(|create_file| !existing_files_cas_ids.contains(&create_file.cas_id))
 			.collect::<Vec<_>>();
 
+		if new_files.is_empty() {
+			error!("This shouldn't happen?");
+			return Ok(());
+		}
+
 		// assemble prisma values for new unique files
 		let mut values = Vec::with_capacity(new_files.len() * 3);
 		for file in &new_files {
@@ -213,6 +220,8 @@ impl StatefulJob for FileIdentifierJob {
 			]);
 		}
 
+		info!("{:?}", values);
+
 		// create new file records with assembled values
 		let created_files: Vec<FileCreated> = ctx
 			.library_ctx()
@@ -220,7 +229,7 @@ impl StatefulJob for FileIdentifierJob {
 			._query_raw(Raw::new(
 				&format!(
 					"INSERT INTO files (cas_id, size_in_bytes, date_created) VALUES {}
-						ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
+									ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
 					vec!["({}, {}, {})"; new_files.len()].join(",")
 				),
 				values,
@@ -231,7 +240,6 @@ impl StatefulJob for FileIdentifierJob {
 				error!("Error inserting files: {:#?}", e);
 				Vec::new()
 			});
-
 		for created_file in created_files {
 			// associate newly created files with their respective file_paths
 			// TODO: this is potentially bottle necking the chunk system, individually linking file_path to file, 100 queries per chunk
@@ -254,12 +262,13 @@ impl StatefulJob for FileIdentifierJob {
 			}
 		}
 
-		// handle last step
+		// set the step data cursor to the last row of this chunk
 		if let Some(last_row) = file_paths.last() {
 			data.cursor.file_path_id = last_row.id;
 		} else {
 			return Ok(());
 		}
+		// }
 
 		ctx.progress(vec![
 			JobReportUpdate::CompletedTaskCount(state.step_number),
@@ -348,7 +357,7 @@ struct FileCreated {
 	pub cas_id: String,
 }
 
-async fn prepare_file(
+async fn assemble_object_metadata(
 	location_path: impl AsRef<Path>,
 	file_path: &file_path::Data,
 ) -> Result<CreateFile, io::Error> {
