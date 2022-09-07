@@ -1,3 +1,8 @@
+import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
+import { Folder } from '../icons/Folder';
+import RunningJobsWidget from '../jobs/RunningJobsWidget';
+import { MacTrafficLights } from '../os/TrafficLights';
+import { DefaultProps } from '../primitive/types';
 import { LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { CogIcon, PlusIcon } from '@heroicons/react/24/solid';
 import {
@@ -13,12 +18,6 @@ import clsx from 'clsx';
 import { CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
 import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
-
-import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
-import { Folder } from '../icons/Folder';
-import RunningJobsWidget from '../jobs/RunningJobsWidget';
-import { MacTrafficLights } from '../os/TrafficLights';
-import { DefaultProps } from '../primitive/types';
 
 type SidebarProps = DefaultProps;
 
@@ -82,7 +81,7 @@ const macOnly = (platform: string | undefined, classnames: string) =>
 export const Sidebar: React.FC<SidebarProps> = (props) => {
 	const navigate = useNavigate();
 	const appProps = useContext(AppPropsContext);
-	const { data: locations } = useLibraryQuery(['locations.get']);
+	const { data: locations } = useLibraryQuery(['locations.list']);
 
 	// initialize libraries
 	const { init: initLibraries, switchLibrary } = useLibraryStore();
@@ -95,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
-	const { data: tags } = useLibraryQuery(['tags.getAll']);
+	const { data: tags } = useLibraryQuery(['tags.list']);
 
 	return (
 		<div

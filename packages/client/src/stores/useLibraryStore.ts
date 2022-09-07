@@ -1,11 +1,10 @@
+import { useBridgeQuery } from '../index';
+import { useExplorerStore } from './useExplorerStore';
 import { LibraryConfigWrapped } from '@sd/core';
 import produce from 'immer';
 import { useMemo } from 'react';
 import create from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-
-import { useBridgeQuery } from '../index';
-import { useExplorerStore } from './useExplorerStore';
 
 type LibraryStore = {
 	// the uuid of the currently active library
@@ -50,7 +49,7 @@ export const useLibraryStore = create<LibraryStore>()(
 // is memorized and can be used safely in any component
 export const useCurrentLibrary = () => {
 	const { currentLibraryUuid, switchLibrary } = useLibraryStore();
-	const { data: libraries } = useBridgeQuery(['library.get'], {
+	const { data: libraries } = useBridgeQuery(['library.list'], {
 		onSuccess: (data) => {},
 		onError: (err) => {}
 	});

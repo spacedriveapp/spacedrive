@@ -2,8 +2,8 @@ use crate::{
 	encode::THUMBNAIL_CACHE_DIR_NAME,
 	invalidate_query,
 	location::{
-		fetch_location, indexer::indexer_rules::IndexerRuleCreateArgs, scan_location,
-		with_indexer_rules, LocationCreateArgs, LocationError, LocationUpdateArgs,
+		indexer::indexer_rules::IndexerRuleCreateArgs, scan_location, LocationCreateArgs,
+		LocationUpdateArgs,
 	},
 	prisma::{file, file_path, indexer_rule, indexer_rules_in_location, location, tag},
 };
@@ -12,7 +12,7 @@ use rspc::{self, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use super::{LibraryArgs, RouterBuilder};
+use super::{utils::LibraryRequest, RouterBuilder};
 
 #[derive(Serialize, Deserialize, Type, Debug)]
 pub struct ExplorerData {
@@ -28,11 +28,14 @@ pub enum ExplorerContext {
 	// Space(object_in_space::Data),
 }
 
+file_path::include!(pub file_path_with_file { file });
+file::include!(pub file_with_paths { paths });
+
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
-	Path(Box<file_path::Data>),
-	Object(Box<file::Data>),
+	Path(Box<file_path_with_file::Data>),
+	Object(Box<file_with_paths::Data>),
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
@@ -45,22 +48,16 @@ pub struct LocationExplorerArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.query("get", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
-			let locations = library
+		.library_query("list", |_, _: (), library| async move {
+			Ok(library
 				.db
 				.location()
 				.find_many(vec![])
-				.with(location::node::fetch())
+				.include(location::include!({ node }))
 				.exec()
-				.await?;
-
-			Ok(locations)
+				.await?)
 		})
-		.query("getById", |ctx, arg: LibraryArgs<i32>| async move {
-			let (location_id, library) = arg.get_library(&ctx).await?;
-
+		.library_query("getById", |_, location_id: i32, library| async move {
 			Ok(library
 				.db
 				.location()
@@ -68,11 +65,9 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?)
 		})
-		.query(
+		.library_query(
 			"getExplorerData",
-			|ctx, arg: LibraryArgs<LocationExplorerArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
-
+			|_, args: LocationExplorerArgs, library| async move {
 				let location = library
 					.db
 					.location()
@@ -104,7 +99,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						file_path::location_id::equals(location.id),
 						file_path::parent_id::equals(Some(directory.id)),
 					])
-					.with(file_path::file::fetch())
+					.include(file_path_with_file::include())
 					.exec()
 					.await?;
 
@@ -113,9 +108,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					items: file_paths
 						.into_iter()
 						.map(|mut file_path| {
-							if let Some(file) = &mut file_path.file.as_mut().unwrap_or_else(
-								|| /* Prisma relationship was not fetched */ unreachable!(),
-							) {
+							if let Some(file) = &mut file_path.file.as_mut() {
 								// TODO: Use helper function to build this url as as the Rust file loading layer
 								let thumb_path = library
 									.config()
@@ -132,27 +125,22 @@ pub(crate) fn mount() -> RouterBuilder {
 				})
 			},
 		)
-		.mutation(
+		.library_mutation(
 			"create",
-			|ctx, arg: LibraryArgs<LocationCreateArgs>| async move {
-				let (create_args, library) = arg.get_library(&ctx).await?;
-
-				let location = create_args.create(&library).await?;
-				scan_location(&library, &location).await?;
+			|_, args: LocationCreateArgs, library| async move {
+				let location = args.create(&library).await?;
+				scan_location(&library, location.id).await?;
 
 				Ok(location)
 			},
 		)
-		.mutation(
+		.library_mutation(
 			"update",
-			|ctx, arg: LibraryArgs<LocationUpdateArgs>| async move {
-				let (update_args, library) = arg.get_library(&ctx).await?;
-				update_args.update(&library).await.map_err(Into::into)
+			|_, args: LocationUpdateArgs, library| async move {
+				args.update(&library).await.map_err(Into::into)
 			},
 		)
-		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
-			let (location_id, library) = arg.get_library(&ctx).await?;
-
+		.library_mutation("delete", |_, location_id: i32, library| async move {
 			library
 				.db
 				.file_path()
@@ -176,46 +164,33 @@ pub(crate) fn mount() -> RouterBuilder {
 				.exec()
 				.await?;
 
-			invalidate_query!(
-				library,
-				"locations.get": LibraryArgs<()>,
-				LibraryArgs::new(library.id, ())
-			);
+			invalidate_query!(library, "locations.list");
 
 			info!("Location {} deleted", location_id);
 
 			Ok(())
 		})
-		.mutation("fullRescan", |ctx, arg: LibraryArgs<i32>| async move {
-			let (location_id, library) = arg.get_library(&ctx).await?;
-
-			scan_location(
-				&library,
-				&fetch_location(&library, location_id)
-					.with(with_indexer_rules(location_id))
-					.exec()
-					.await?
-					.ok_or(LocationError::IdNotFound(location_id))?,
-			)
-			.await
-			.map_err(Into::into)
+		.library_mutation("fullRescan", |_, location_id: i32, library| async move {
+			scan_location(&library, location_id)
+				.await
+				.map_err(Into::into)
 		})
-		.mutation("quickRescan", |_, _: LibraryArgs<()>| todo!())
-		.merge("indexer_rules", mount_indexer_rule_routes())
+		.library_mutation("quickRescan", |_, _: (), _| async move {
+			#[allow(unreachable_code)]
+			Ok(todo!())
+		})
+		.merge("indexer_rules.", mount_indexer_rule_routes())
 }
 
 fn mount_indexer_rule_routes() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.mutation(
+		.library_mutation(
 			"create",
-			|ctx, arg: LibraryArgs<IndexerRuleCreateArgs>| async move {
-				let (create_args, library) = arg.get_library(&ctx).await?;
-				create_args.create(&library).await.map_err(Into::into)
+			|_, args: IndexerRuleCreateArgs, library| async move {
+				args.create(&library).await.map_err(Into::into)
 			},
 		)
-		.mutation("delete", |ctx, arg: LibraryArgs<i32>| async move {
-			let (indexer_rule_id, library) = arg.get_library(&ctx).await?;
-
+		.library_mutation("delete", |_, indexer_rule_id: i32, library| async move {
 			library
 				.db
 				.indexer_rules_in_location()
@@ -234,8 +209,7 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 
 			Ok(())
 		})
-		.query("get", |ctx, arg: LibraryArgs<i32>| async move {
-			let (indexer_rule_id, library) = arg.get_library(&ctx).await?;
+		.library_query("get", |_, indexer_rule_id: i32, library| async move {
 			library
 				.db
 				.indexer_rule()
@@ -249,9 +223,7 @@ fn mount_indexer_rule_routes() -> RouterBuilder {
 					)
 				})
 		})
-		.query("list", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
+		.library_query("list", |_, _: (), library| async move {
 			library
 				.db
 				.indexer_rule()
