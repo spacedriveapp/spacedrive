@@ -2,19 +2,21 @@ import { VariantProps, cva } from 'class-variance-authority';
 import { MotiPressable, MotiPressableProps } from 'moti/interactions';
 import React, { useMemo } from 'react';
 import { Pressable, PressableProps } from 'react-native';
-
-import tw from '../../lib/tailwind';
+import tw from '~/lib/tailwind';
 
 const button = cva(['border rounded-md items-center shadow-sm'], {
 	variants: {
 		variant: {
 			default: 'bg-gray-50 border-gray-100',
 			primary: ['bg-primary-600'],
-			gray: ['bg-gray-100 border-gray-200']
+			danger: ['bg-red-600'],
+			gray: ['bg-gray-100 border-gray-200'],
+			dark_gray: ['bg-gray-500 border-gray-600']
 		},
 		size: {
 			default: ['py-1', 'px-3'],
 			sm: ['py-1', 'px-2'],
+			md: ['py-1.5', 'px-3'],
 			lg: ['py-2', 'px-4']
 		}
 	},

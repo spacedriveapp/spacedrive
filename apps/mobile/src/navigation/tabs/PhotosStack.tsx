@@ -1,5 +1,6 @@
 import { CompositeScreenProps } from '@react-navigation/native';
 import { StackScreenProps, TransitionPresets, createStackNavigator } from '@react-navigation/stack';
+import tw from '~/lib/tailwind';
 
 import Header from '../../components/header/Header';
 import PhotosScreen from '../../screens/Photos';
@@ -13,9 +14,10 @@ export default function PhotosStack() {
 		<Stack.Navigator
 			initialRouteName="Photos"
 			screenOptions={{
-				headerStyle: { backgroundColor: '#08090D' },
-				headerTintColor: '#fff',
-				...TransitionPresets.ModalFadeTransition
+				headerStyle: { backgroundColor: tw.color('gray-650') },
+				headerTintColor: tw.color('gray-200'),
+				headerTitleStyle: tw`text-base`,
+				headerBackTitleStyle: tw`text-base`
 			}}
 		>
 			<Stack.Screen name="Photos" component={PhotosScreen} options={{ header: Header }} />

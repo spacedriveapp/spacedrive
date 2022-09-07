@@ -11,7 +11,8 @@
 		"build": "tauri build"
 	},
 	"dependencies": {
-		"@rspc/client": "^0.0.5",
+		"@rspc/client": "^0.0.6",
+		"@rspc/tauri": "^0.0.6",
 		"@sd/client": "workspace:*",
 		"@sd/core": "workspace:*",
 		"@sd/interface": "workspace:*",

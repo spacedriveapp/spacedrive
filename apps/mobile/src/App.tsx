@@ -6,15 +6,22 @@ import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
+import { useSnapshot } from 'valtio';
 
 import { GlobalModals } from './components/modals/GlobalModals';
-import { ReactNativeTransport, queryClient, rspc, useInvalidateQuery } from './hooks/rspc';
+import {
+	ReactNativeTransport,
+	queryClient,
+	rspc,
+	useBridgeQuery,
+	useInvalidateQuery
+} from './hooks/rspc';
 import useCachedResources from './hooks/useCachedResources';
-import { getItemFromStorage } from './lib/storage';
 import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
-import { useOnboardingStore } from './stores/useOnboardingStore';
+import { libraryStore } from './stores/libraryStore';
+import { onboardingStore } from './stores/onboardingStore';
 import type { Operations } from './types/bindings';
 
 const client = createClient<Operations>({
@@ -25,48 +32,67 @@ const NavigatorTheme: Theme = {
 	...DefaultTheme,
 	colors: {
 		...DefaultTheme.colors,
-		background: '#08090D'
+		background: tw.color('gray-650')
 	}
 };
 
-export default function App() {
+function AppContainer() {
 	// Enables dark mode, and screen size breakpoints, etc. for tailwind
 	useDeviceContext(tw, { withDeviceColorScheme: false });
 
 	const isLoadingComplete = useCachedResources();
 
-	const { showOnboarding, hideOnboarding } = useOnboardingStore();
+	const { showOnboarding } = useSnapshot(onboardingStore);
+
+	const { data: libraries } = useBridgeQuery(['library.list'], {
+		onError(err) {
+			console.error(err);
+		}
+	});
+
+	const { _persist, switchLibrary } = useSnapshot(libraryStore);
+
+	console.log('persisted?', _persist.loaded);
 
 	// Runs when the app is launched
 	useEffect(() => {
-		getItemFromStorage('@onboarding').then((value) => {
-			value && hideOnboarding();
-		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+		// Temporarly set the first library to be the current library
+		if (!showOnboarding) {
+			if (libraries && libraries.length > 0) {
+				switchLibrary(libraries[0].uuid);
+			}
+		}
+	}, [libraries, showOnboarding, switchLibrary]);
 
-	if (!isLoadingComplete) {
+	// Might need to move _persist.loaded to useCacheResources hook.
+	if (!isLoadingComplete || !_persist.loaded) {
 		return null;
 	} else {
 		return (
-			<rspc.Provider client={client} queryClient={queryClient}>
-				<>
-					<InvalidateQuery />
-					<SafeAreaProvider style={tw`flex-1 bg-black`}>
-						<GestureHandlerRootView style={tw`flex-1`}>
-							<BottomSheetModalProvider>
-								<StatusBar style="light" />
-								<NavigationContainer theme={NavigatorTheme}>
-									{showOnboarding ? <OnboardingNavigator /> : <RootNavigator />}
-								</NavigationContainer>
-								<GlobalModals />
-							</BottomSheetModalProvider>
-						</GestureHandlerRootView>
-					</SafeAreaProvider>
-				</>
-			</rspc.Provider>
+			<SafeAreaProvider style={tw`flex-1 bg-gray-650`}>
+				<GestureHandlerRootView style={tw`flex-1`}>
+					<BottomSheetModalProvider>
+						<StatusBar style="light" />
+						<NavigationContainer theme={NavigatorTheme}>
+							{showOnboarding ? <OnboardingNavigator /> : <RootNavigator />}
+						</NavigationContainer>
+						<GlobalModals />
+					</BottomSheetModalProvider>
+				</GestureHandlerRootView>
+			</SafeAreaProvider>
 		);
 	}
+}
+
+export default function App() {
+	return (
+		<rspc.Provider client={client} queryClient={queryClient}>
+			<>
+				<InvalidateQuery />
+				<AppContainer />
+			</>
+		</rspc.Provider>
+	);
 }
 
 function InvalidateQuery() {

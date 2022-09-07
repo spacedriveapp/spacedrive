@@ -4,9 +4,8 @@ import {
 	StackNavigationOptions,
 	StackScreenProps
 } from '@react-navigation/stack';
-
-import LocationScreen from '../screens/Location';
-import TagScreen from '../screens/Tag';
+import LocationScreen from '~/screens/Location';
+import TagScreen from '~/screens/Tag';
 
 export function SharedScreens(
 	Stack: TypedNavigator<
