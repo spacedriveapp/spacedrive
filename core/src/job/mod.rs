@@ -34,6 +34,8 @@ pub enum JobError {
 	MissingJobDataState(Uuid, String),
 	#[error("Indexer error: {0}")]
 	IndexerError(#[from] IndexerError),
+	#[error("Data needed for job execution not found: job <name='{0}'>")]
+	JobDataNotFound(String),
 	#[error("Job paused")]
 	Paused(Vec<u8>),
 }
