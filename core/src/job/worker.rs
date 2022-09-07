@@ -18,7 +18,10 @@ use super::JobReport;
 // used to update the worker state from inside the worker thread
 #[derive(Debug)]
 pub enum WorkerEvent {
-	Progressed(Vec<JobReportUpdate>),
+	Progressed {
+		updates: Vec<JobReportUpdate>,
+		debounce: bool,
+	},
 	Completed(oneshot::Sender<()>),
 	Failed(oneshot::Sender<()>),
 	Paused(Vec<u8>, oneshot::Sender<()>),
@@ -34,7 +37,18 @@ pub struct WorkerContext {
 impl WorkerContext {
 	pub fn progress(&self, updates: Vec<JobReportUpdate>) {
 		self.events_tx
-			.send(WorkerEvent::Progressed(updates))
+			.send(WorkerEvent::Progressed {
+				updates,
+				debounce: false,
+			})
+			.expect("critical error: failed to send worker worker progress event updates");
+	}
+	pub fn progress_debounced(&self, updates: Vec<JobReportUpdate>) {
+		self.events_tx
+			.send(WorkerEvent::Progressed {
+				updates,
+				debounce: true,
+			})
 			.expect("critical error: failed to send worker worker progress event updates");
 	}
 
@@ -124,9 +138,10 @@ impl Worker {
 				loop {
 					interval.tick().await;
 					if events_tx
-						.send(WorkerEvent::Progressed(vec![
-							JobReportUpdate::SecondsElapsed(1),
-						]))
+						.send(WorkerEvent::Progressed {
+							updates: vec![JobReportUpdate::SecondsElapsed(1)],
+							debounce: false,
+						})
 						.is_err() && events_tx.is_closed()
 					{
 						break;
@@ -171,17 +186,27 @@ impl Worker {
 		mut worker_events_rx: UnboundedReceiver<WorkerEvent>,
 		library: LibraryContext,
 	) {
+		let mut last = Instant::now();
+
 		while let Some(command) = worker_events_rx.recv().await {
 			let mut worker = worker.lock().await;
 
 			match command {
-				WorkerEvent::Progressed(changes) => {
+				WorkerEvent::Progressed { updates, debounce } => {
+					if debounce {
+						let current = Instant::now();
+						if current.duration_since(last) > Duration::from_millis(1000 / 60) {
+							last = current
+						} else {
+							continue;
+						}
+					}
 					// protect against updates if job is not running
 					if worker.report.status != JobStatus::Running {
 						continue;
 					};
-					for change in changes {
-						match change {
+					for update in updates {
+						match update {
 							JobReportUpdate::TaskCount(task_count) => {
 								worker.report.task_count = task_count as i32;
 							}
