@@ -38,7 +38,7 @@ export function AppRouter() {
 	const state = location.state as { backgroundLocation?: Location };
 	const libraryState = useLibraryStore();
 	const navigate = useNavigate();
-	const { data: libraries } = useBridgeQuery(['library.get']);
+	const { data: libraries } = useBridgeQuery(['library.list']);
 
 	// TODO: This can be removed once we add a setup flow to the app
 	useEffect(() => {

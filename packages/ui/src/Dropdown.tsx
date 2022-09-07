@@ -1,9 +1,8 @@
+import { Button } from './Button';
 import { Menu } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
 import React from 'react';
-
-import { Button } from './Button';
 
 export type DropdownItem = {
 	name: string;

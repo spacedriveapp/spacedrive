@@ -1,20 +1,17 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
-import { Button } from '@sd/ui';
-import React, { useContext } from 'react';
-import { LocationCreateArgs } from '@sd/core';
-
 import LocationListItem from '../../../components/location/LocationListItem';
-import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { AppPropsContext } from '@sd/client';
+import { LocationCreateArgs } from '@sd/core';
+import { Button } from '@sd/ui';
+import React, { useContext } from 'react';
 
 export default function LocationSettings() {
-	const { data: locations } = useLibraryQuery(['locations.get']);
+	const { data: locations } = useLibraryQuery(['locations.list']);
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	const appProps = useContext(AppPropsContext);
-
-	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	return (
 		<SettingsContainer>
@@ -30,7 +27,11 @@ export default function LocationSettings() {
 							onClick={() => {
 								appProps?.openDialog({ directory: true }).then((result) => {
 									// TODO: Pass indexer rules ids to create location
-									if (result) createLocation({ path: result as string, indexer_rules_ids: [] } as LocationCreateArgs);
+									if (result)
+										createLocation({
+											path: result as string,
+											indexer_rules_ids: []
+										} as LocationCreateArgs);
 								});
 							}}
 						>
