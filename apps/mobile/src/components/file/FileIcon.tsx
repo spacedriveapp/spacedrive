@@ -17,13 +17,16 @@ type FileIconProps = {
 };
 
 const FileIcon = ({ file, size = 1 }: FileIconProps) => {
+	// Temp
+	const has_thumbnail = false;
+
 	return (
 		<View style={[tw`justify-center`, { width: 60 * size, height: 60 * size }]}>
 			{file?.is_dir ? (
 				<View style={tw`items-center`}>
 					<FolderIcon size={50 * size} />
 				</View>
-			) : file?.file?.has_thumbnail ? (
+			) : has_thumbnail ? (
 				<>{/* TODO */}</>
 			) : (
 				<View style={[tw`m-auto relative`, { width: 45 * size, height: 60 * size }]}>

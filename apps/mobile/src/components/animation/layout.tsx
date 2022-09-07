@@ -2,9 +2,8 @@ import { MotiView, useDynamicAnimation } from 'moti';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
-
-import Layout from '../../constants/Layout';
-import tw from '../../lib/tailwind';
+import Layout from '~/constants/Layout';
+import tw from '~/lib/tailwind';
 
 // Anything wrapped with FadeIn will fade in on mount.
 export const FadeInAnimation = ({ children, delay }: { children: any; delay?: number }) => (

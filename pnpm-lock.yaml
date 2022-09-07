@@ -24,7 +24,8 @@ importers:
 
   apps/desktop:
     specifiers:
-      '@rspc/client': ^0.0.5
+      '@rspc/client': ^0.0.6
+      '@rspc/tauri': ^0.0.6
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -51,7 +52,8 @@ importers:
       vite-plugin-filter-replace: ^0.1.9
       vite-plugin-svgr: ^2.2.1
     dependencies:
-      '@rspc/client': 0.0.5_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.6
+      '@rspc/tauri': 0.0.6_@tauri-apps+api@1.0.2
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -170,7 +172,7 @@ importers:
   apps/web:
     specifiers:
       '@fontsource/inter': ^4.5.11
-      '@rspc/client': ^0.0.5
+      '@rspc/client': ^0.0.6
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -190,7 +192,7 @@ importers:
       vite-plugin-tsconfig-paths: ^1.1.0
     dependencies:
       '@fontsource/inter': 4.5.11
-      '@rspc/client': 0.0.5_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.6
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -223,7 +225,8 @@ importers:
 
   packages/client:
     specifiers:
-      '@rspc/client': ^0.0.5
+      '@rspc/client': ^0.0.6
+      '@rspc/react': ^0.0.6
       '@sd/config': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -238,7 +241,8 @@ importers:
       typescript: ^4.7.4
       zustand: 4.0.0
     dependencies:
-      '@rspc/client': 0.0.5
+      '@rspc/client': 0.0.6
+      '@rspc/react': 0.0.6
       '@sd/config': link:../config
       '@sd/core': link:../../core
       '@sd/interface': link:../interface
@@ -464,7 +468,7 @@ importers:
       postcss: 8.4.14
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
-      tailwindcss: 3.1.8
+      tailwindcss: 3.1.8_postcss@8.4.14
     devDependencies:
       '@babel/core': 7.18.13
       '@sd/config': link:../config
@@ -2034,6 +2038,13 @@ packages:
     dependencies:
       regenerator-runtime: 0.13.9
 
+  /@babel/runtime/7.18.9:
+    resolution: {integrity: sha512-lkqXDcvlFT5rvEjiu6+QYO+1GXrEHRo2LOtS7E4GtX5ESIZOgepqsZBVIj6Pv+a6zqsya9VCgiK1KAK4BvJDAw==}
+    engines: {node: '>=6.9.0'}
+    dependencies:
+      regenerator-runtime: 0.13.9
+    dev: true
+
   /@babel/runtime/7.2.0:
     resolution: {integrity: sha512-oouEibCbHMVdZSDlJBO6bZmID/zA/G/Qx3H1d3rSNPTD+L8UNKvCat7aKWSJ74zYbm5zWGh0GQN0hKj8zYFTCg==}
     dependencies:
@@ -2184,8 +2195,8 @@ packages:
       '@cspell/dict-docker': 1.1.1
       '@cspell/dict-dotnet': 2.0.1
       '@cspell/dict-elixir': 2.0.1
-      '@cspell/dict-en_us': 2.3.3
       '@cspell/dict-en-gb': 1.1.33
+      '@cspell/dict-en_us': 2.3.3
       '@cspell/dict-filetypes': 2.1.1
       '@cspell/dict-fonts': 2.1.0
       '@cspell/dict-fullstack': 2.0.6
@@ -2687,7 +2698,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
       bmp-js: 0.1.0
@@ -2696,7 +2707,7 @@ packages:
   /@jimp/core/0.16.1:
     resolution: {integrity: sha512-la7kQia31V6kQ4q1kI/uLimu8FXx7imWVajDGtwUG8fzePLWDFJyZl0fdIXVCL1JW2nBcRHidUot6jvlRDi2+g==}
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/utils': 0.16.1
       any-base: 1.1.0
       buffer: 5.7.1
@@ -2712,7 +2723,7 @@ packages:
   /@jimp/custom/0.16.1:
     resolution: {integrity: sha512-DNUAHNSiUI/j9hmbatD6WN/EBIyeq4AO0frl5ETtt51VN1SvE4t4v83ZA/V6ikxEf3hxLju4tQ5Pc3zmZkN/3A==}
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/core': 0.16.1
     dev: true
 
@@ -2721,7 +2732,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
       gifwrap: 0.9.4
@@ -2733,7 +2744,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
       jpeg-js: 0.4.2
@@ -2744,7 +2755,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2754,7 +2765,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2764,7 +2775,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2774,7 +2785,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
       tinycolor2: 1.4.2
@@ -2788,7 +2799,7 @@ packages:
       '@jimp/plugin-resize': '>=0.3.5'
       '@jimp/plugin-scale': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-blit': 0.16.1_@jimp+custom@0.16.1
       '@jimp/plugin-resize': 0.16.1_@jimp+custom@0.16.1
@@ -2804,7 +2815,7 @@ packages:
       '@jimp/plugin-resize': '>=0.3.5'
       '@jimp/plugin-scale': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-crop': 0.16.1_@jimp+custom@0.16.1
       '@jimp/plugin-resize': 0.16.1_@jimp+custom@0.16.1
@@ -2817,7 +2828,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2827,7 +2838,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2837,7 +2848,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2847,7 +2858,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2858,7 +2869,7 @@ packages:
       '@jimp/custom': '>=0.3.5'
       '@jimp/plugin-rotate': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-rotate': 0.16.1_g72lzg55x5a4ao4td3uebcztme
       '@jimp/utils': 0.16.1
@@ -2869,7 +2880,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2879,7 +2890,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2889,7 +2900,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2899,7 +2910,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2910,7 +2921,7 @@ packages:
       '@jimp/custom': '>=0.3.5'
       '@jimp/plugin-blit': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-blit': 0.16.1_@jimp+custom@0.16.1
       '@jimp/utils': 0.16.1
@@ -2922,7 +2933,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
     dev: true
@@ -2935,7 +2946,7 @@ packages:
       '@jimp/plugin-crop': '>=0.3.5'
       '@jimp/plugin-resize': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-blit': 0.16.1_@jimp+custom@0.16.1
       '@jimp/plugin-crop': 0.16.1_@jimp+custom@0.16.1
@@ -2949,7 +2960,7 @@ packages:
       '@jimp/custom': '>=0.3.5'
       '@jimp/plugin-resize': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-resize': 0.16.1_@jimp+custom@0.16.1
       '@jimp/utils': 0.16.1
@@ -2962,7 +2973,7 @@ packages:
       '@jimp/plugin-blur': '>=0.3.5'
       '@jimp/plugin-resize': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-blur': 0.16.1_@jimp+custom@0.16.1
       '@jimp/plugin-resize': 0.16.1_@jimp+custom@0.16.1
@@ -2976,7 +2987,7 @@ packages:
       '@jimp/plugin-color': '>=0.8.0'
       '@jimp/plugin-resize': '>=0.8.0'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-color': 0.16.1_@jimp+custom@0.16.1
       '@jimp/plugin-resize': 0.16.1_@jimp+custom@0.16.1
@@ -2988,7 +2999,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugin-blit': 0.16.1_@jimp+custom@0.16.1
       '@jimp/plugin-blur': 0.16.1_@jimp+custom@0.16.1
@@ -3019,7 +3030,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/utils': 0.16.1
       pngjs: 3.4.0
@@ -3030,7 +3041,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       utif: 2.0.1
     dev: true
@@ -3040,7 +3051,7 @@ packages:
     peerDependencies:
       '@jimp/custom': '>=0.3.5'
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/bmp': 0.16.1_@jimp+custom@0.16.1
       '@jimp/custom': 0.16.1
       '@jimp/gif': 0.16.1_@jimp+custom@0.16.1
@@ -3053,7 +3064,7 @@ packages:
   /@jimp/utils/0.16.1:
     resolution: {integrity: sha512-8fULQjB0x4LzUSiSYG6ZtQl355sZjxbv8r9PPAuYHzS9sGiSHJQavNqK/nKnpDsVkU88/vRGcE7t3nMU0dEnVw==}
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       regenerator-runtime: 0.13.9
     dev: true
 
@@ -3790,29 +3801,29 @@ packages:
       estree-walker: 2.0.2
       picomatch: 2.3.1
 
-  /@rspc/client/0.0.5:
-    resolution: {integrity: sha512-k6xLz1YoA9SBLNk/EdDjbo/0zUj5aBP6l104CQlaEVjmdIhacP10IC8CG9j9fyg3w5Svok8aO5dhLTRxZhPeIA==}
+  /@rspc/client/0.0.6:
+    resolution: {integrity: sha512-NcJbmObbf+BzFcYWGvZaP7+a+KWTbAk9CkBRqW1nIu7TamV7tZtkHVmibwPHTeFnpAKPlKV7SH5vodV4yYETcw==}
+    dev: false
+
+  /@rspc/react/0.0.6:
+    resolution: {integrity: sha512-iU7DUbc0WkMW7q53sx0+t/gUhcShQ/a0KLpBmHGT6QTwhjnFsdqzW7GohCD4CTcT+RYUxirqHq6TvKPlmtKHcQ==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
+      '@rspc/client': 0.0.6
       '@tanstack/react-query': 4.2.3
-      '@tauri-apps/api': 1.0.2
     transitivePeerDependencies:
       - react-dom
       - react-native
     dev: false
 
-  /@rspc/client/0.0.5_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-k6xLz1YoA9SBLNk/EdDjbo/0zUj5aBP6l104CQlaEVjmdIhacP10IC8CG9j9fyg3w5Svok8aO5dhLTRxZhPeIA==}
+  /@rspc/tauri/0.0.6_@tauri-apps+api@1.0.2:
+    resolution: {integrity: sha512-zFitmJC/r0WNv2s9yw9R1mHkUgYQ6Qfm79zp0X0GjV3qq8ZhViWcQNxvouYAJrqR3eBiuNHbqie0Fa6YnAuNCA==}
     peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      '@tauri-apps/api': ^1.0.2
     dependencies:
-      '@tanstack/react-query': 4.2.3_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.6
       '@tauri-apps/api': 1.0.2
-      react: 18.2.0
-    transitivePeerDependencies:
-      - react-dom
-      - react-native
     dev: false
 
   /@sindresorhus/is/0.14.0:
@@ -5424,7 +5435,7 @@ packages:
       tailwindcss: '>=3.0.0 || >= 3.0.0-alpha.1'
     dependencies:
       mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.1.8
+      tailwindcss: 3.1.8_postcss@8.4.14
     dev: false
 
   /@tailwindcss/line-clamp/0.4.0:
@@ -5438,7 +5449,7 @@ packages:
     peerDependencies:
       tailwindcss: '>=2.0.0 || >=3.0.0 || >=3.0.0-alpha.1'
     dependencies:
-      tailwindcss: 3.1.8
+      tailwindcss: 3.1.8_postcss@8.4.14
     dev: true
 
   /@tailwindcss/typography/0.5.4:
@@ -5459,7 +5470,7 @@ packages:
       lodash.castarray: 4.4.0
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
-      tailwindcss: 3.1.8
+      tailwindcss: 3.1.8_postcss@8.4.14
     dev: true
 
   /@tanstack/match-sorter-utils/8.1.1:
@@ -6061,6 +6072,7 @@ packages:
     dependencies:
       tailwindcss: 3.1.8
     transitivePeerDependencies:
+      - postcss
       - ts-node
     dev: true
 
@@ -7062,6 +7074,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
@@ -7643,7 +7656,7 @@ packages:
     dev: true
 
   /buffer-equal/0.0.1:
-    resolution: {integrity: sha1-kbx0sR6kBbyRa8aqkI+q+ltKrEs=}
+    resolution: {integrity: sha512-RgSV6InVQ9ODPdLWJ5UAqBqJBOg370Nz6ZQtRzpt6nUjc8v0St97uJ4PYC6NztqIScrAXafKM3mZPMygSe1ggA==}
     engines: {node: '>=0.4.0'}
     dev: true
 
@@ -8328,7 +8341,7 @@ packages:
       - supports-color
 
   /concat-map/0.0.1:
-    resolution: {integrity: sha1-2Klr13/Wjfd5OnMDajug1UBdR3s=}
+    resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
   /concat-stream/1.6.2:
     resolution: {integrity: sha512-27HBghJxjiZtIk3Ycvn/4kbJk/1uZuJFfuPEns6LaEvpvG1f0hTea8lilrouyo9mVc2GWdcEZ8OLoGmSADlrCw==}
@@ -9482,7 +9495,7 @@ packages:
       is-weakref: 1.0.2
       object-inspect: 1.12.2
       object-keys: 1.1.1
-      object.assign: 4.1.2
+      object.assign: 4.1.4
       regexp.prototype.flags: 1.4.3
       string.prototype.trimend: 1.0.5
       string.prototype.trimstart: 1.0.5
@@ -10960,7 +10973,7 @@ packages:
     dev: true
 
   /github-from-package/0.0.0:
-    resolution: {integrity: sha1-l/tdlr/eiXMxPyDoKI75oWf6ZM4=}
+    resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
     dev: true
 
   /github-slugger/1.4.0:
@@ -12433,7 +12446,7 @@ packages:
   /jimp/0.16.1:
     resolution: {integrity: sha512-+EKVxbR36Td7Hfd23wKGIeEyHbxShZDX6L8uJkgVW3ESA9GiTEPK08tG1XI2r/0w5Ch0HyJF5kPqF9K7EmGjaw==}
     dependencies:
-      '@babel/runtime': 7.18.3
+      '@babel/runtime': 7.18.9
       '@jimp/custom': 0.16.1
       '@jimp/plugins': 0.16.1_@jimp+custom@0.16.1
       '@jimp/types': 0.16.1_@jimp+custom@0.16.1
@@ -13459,7 +13472,7 @@ packages:
     dev: false
 
   /ms/2.0.0:
-    resolution: {integrity: sha1-VgiurfwAvmwpAd9fmGF4jeDVl8g=}
+    resolution: {integrity: sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==}
 
   /ms/2.1.1:
     resolution: {integrity: sha512-tgp+dl5cGk28utYktBsrFqA7HKgrhgPsg6Z/EfhWI4gl1Hwq8B/GmY/0oXZ6nF8hDVesS/FpnYaD/kOWhYQvyg==}
@@ -13740,16 +13753,6 @@ packages:
     engines: {node: '>=0.10.0'}
     dependencies:
       isobject: 3.0.1
-    dev: true
-
-  /object.assign/4.1.2:
-    resolution: {integrity: sha512-ixT2L5THXsApyiUPYKmW+2EHpXXe5Ii3M+f4e+aJFAHao5amFRW6J0OO6c/LU8Be47utCx2GL89hxGB6XSmKuQ==}
-    engines: {node: '>= 0.4'}
-    dependencies:
-      call-bind: 1.0.2
-      define-properties: 1.1.4
-      has-symbols: 1.0.3
-      object-keys: 1.1.1
     dev: true
 
   /object.assign/4.1.4:
@@ -14496,6 +14499,16 @@ packages:
       postcss: 7.0.39
     dev: true
 
+  /postcss-import/14.1.0:
+    resolution: {integrity: sha512-flwI+Vgm4SElObFVPpTIT7SU7R3qk2L7PyduMcokiaVKuWv9d/U+Gm/QAd8NDLuykTWTkcrjOeD2Pp1rMeBTGw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      postcss: ^8.0.0
+    dependencies:
+      postcss-value-parser: 4.2.0
+      read-cache: 1.0.0
+      resolve: 1.22.1
+
   /postcss-import/14.1.0_postcss@8.4.14:
     resolution: {integrity: sha512-flwI+Vgm4SElObFVPpTIT7SU7R3qk2L7PyduMcokiaVKuWv9d/U+Gm/QAd8NDLuykTWTkcrjOeD2Pp1rMeBTGw==}
     engines: {node: '>=10.0.0'}
@@ -14507,6 +14520,14 @@ packages:
       read-cache: 1.0.0
       resolve: 1.22.1
 
+  /postcss-js/4.0.0:
+    resolution: {integrity: sha512-77QESFBwgX4irogGVPgQ5s07vLvFqWr228qZY+w6lW599cRlK/HmnlivnnVUxkjHnCu4J16PDMHcH+e+2HbvTQ==}
+    engines: {node: ^12 || ^14 || >= 16}
+    peerDependencies:
+      postcss: ^8.3.3
+    dependencies:
+      camelcase-css: 2.0.1
+
   /postcss-js/4.0.0_postcss@8.4.14:
     resolution: {integrity: sha512-77QESFBwgX4irogGVPgQ5s07vLvFqWr228qZY+w6lW599cRlK/HmnlivnnVUxkjHnCu4J16PDMHcH+e+2HbvTQ==}
     engines: {node: ^12 || ^14 || >= 16}
@@ -14515,6 +14536,21 @@ packages:
     dependencies:
       camelcase-css: 2.0.1
       postcss: 8.4.14
+
+  /postcss-load-config/3.1.4:
+    resolution: {integrity: sha512-6DiM4E7v4coTE4uzA8U//WhtPwyhiim3eyjEMFCnUpzbrkK9wJHgKDT2mR+HbtSrd/NubVaYTOpSpjUl8NQeRg==}
+    engines: {node: '>= 10'}
+    peerDependencies:
+      postcss: '>=8.0.9'
+      ts-node: '>=9.0.0'
+    peerDependenciesMeta:
+      postcss:
+        optional: true
+      ts-node:
+        optional: true
+    dependencies:
+      lilconfig: 2.0.6
+      yaml: 1.10.2
 
   /postcss-load-config/3.1.4_postcss@8.4.14:
     resolution: {integrity: sha512-6DiM4E7v4coTE4uzA8U//WhtPwyhiim3eyjEMFCnUpzbrkK9wJHgKDT2mR+HbtSrd/NubVaYTOpSpjUl8NQeRg==}
@@ -14689,6 +14725,14 @@ packages:
       icss-utils: 5.1.0_postcss@8.4.16
       postcss: 8.4.16
     dev: true
+
+  /postcss-nested/5.0.6:
+    resolution: {integrity: sha512-rKqm2Fk0KbA8Vt3AdGN0FB9OBOMDVajMG6ZCf/GoHgdxUJ4sBFp0A/uMIRm+MJUdo33YXEtjqIz8u7DAp8B7DA==}
+    engines: {node: '>=12.0'}
+    peerDependencies:
+      postcss: ^8.2.14
+    dependencies:
+      postcss-selector-parser: 6.0.10
 
   /postcss-nested/5.0.6_postcss@8.4.14:
     resolution: {integrity: sha512-rKqm2Fk0KbA8Vt3AdGN0FB9OBOMDVajMG6ZCf/GoHgdxUJ4sBFp0A/uMIRm+MJUdo33YXEtjqIz8u7DAp8B7DA==}
@@ -17043,6 +17087,40 @@ packages:
     resolution: {integrity: sha512-YSneUCZSFDYMwk+TGq8qYFdCA3yfBRdBlS7txSq0LUmzyeqRe3a8fBQzbz9M3WS/iFT4BNf/nmw9mEzrnSaC0g==}
     engines: {node: '>=12.13.0'}
     hasBin: true
+    peerDependencies:
+      postcss: ^8.0.9
+    dependencies:
+      arg: 5.0.2
+      chokidar: 3.5.3
+      color-name: 1.1.4
+      detective: 5.2.1
+      didyoumean: 1.2.2
+      dlv: 1.1.3
+      fast-glob: 3.2.11
+      glob-parent: 6.0.2
+      is-glob: 4.0.3
+      lilconfig: 2.0.6
+      normalize-path: 3.0.0
+      object-hash: 3.0.0
+      picocolors: 1.0.0
+      postcss: 8.4.16
+      postcss-import: 14.1.0
+      postcss-js: 4.0.0
+      postcss-load-config: 3.1.4
+      postcss-nested: 5.0.6
+      postcss-selector-parser: 6.0.10
+      postcss-value-parser: 4.2.0
+      quick-lru: 5.1.1
+      resolve: 1.22.1
+    transitivePeerDependencies:
+      - ts-node
+
+  /tailwindcss/3.1.8_postcss@8.4.14:
+    resolution: {integrity: sha512-YSneUCZSFDYMwk+TGq8qYFdCA3yfBRdBlS7txSq0LUmzyeqRe3a8fBQzbz9M3WS/iFT4BNf/nmw9mEzrnSaC0g==}
+    engines: {node: '>=12.13.0'}
+    hasBin: true
+    peerDependencies:
+      postcss: ^8.0.9
     dependencies:
       arg: 5.0.2
       chokidar: 3.5.3
@@ -17907,6 +17985,7 @@ packages:
   /unified/9.2.0:
     resolution: {integrity: sha512-vx2Z0vY+a3YoTj8+pttM3tiJHCwY5UFbYdiWrwBEbHmK8pvsPj2rtAX2BFfgXen8T39CJWblWRDT4L5WGXtDdg==}
     dependencies:
+      '@types/unist': 2.0.6
       bail: 1.0.5
       extend: 3.0.2
       is-buffer: 2.0.5

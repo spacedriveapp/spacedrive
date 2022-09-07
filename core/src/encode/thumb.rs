@@ -1,5 +1,5 @@
 use crate::{
-	api::{locations::LocationExplorerArgs, CoreEvent, LibraryArgs},
+	api::CoreEvent,
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
@@ -41,6 +41,8 @@ pub struct ThumbnailJobState {
 	root_path: PathBuf,
 }
 
+file_path::include!(pub file_path_with_file { file });
+
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailJobStepKind {
 	Image,
@@ -50,7 +52,7 @@ enum ThumbnailJobStepKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailJobStep {
-	file: file_path::Data,
+	file: file_path_with_file::Data,
 	kind: ThumbnailJobStepKind,
 }
 
@@ -183,20 +185,13 @@ impl StatefulJob for ThumbnailJob {
 		trace!("image_file {:?}", step);
 
 		// get cas_id, if none found skip
-		let cas_id = match step.file.file() {
-			Ok(file) => {
-				if let Some(f) = file {
-					f.cas_id.clone()
-				} else {
-					warn!(
-						"skipping thumbnail generation for {}",
-						step.file.materialized_path
-					);
-					return Ok(());
-				}
-			}
-			Err(_) => {
-				error!("Error getting cas_id {:?}", step.file.materialized_path);
+		let cas_id = match &step.file.file {
+			Some(f) => f.cas_id.clone(),
+			_ => {
+				warn!(
+					"skipping thumbnail generation for {}",
+					step.file.materialized_path
+				);
 				return Ok(());
 			}
 		};
@@ -231,19 +226,7 @@ impl StatefulJob for ThumbnailJob {
 
 		// With this invalidate query, we update the user interface to show each new thumbnail
 		let library_ctx = ctx.library_ctx();
-		invalidate_query!(
-			library_ctx,
-			"locations.getExplorerData": LibraryArgs<LocationExplorerArgs>,
-			LibraryArgs::new(
-				library_ctx.id,
-				LocationExplorerArgs {
-					location_id: state.init.location_id,
-					path: "".to_string(),
-					limit: 100,
-					cursor: None,
-				}
-			)
-		);
+		invalidate_query!(library_ctx, "locations.getExplorerData");
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
@@ -409,7 +392,7 @@ async fn get_files_by_extension(
 		.db
 		.file_path()
 		.find_many(params)
-		.with(file_path::file::fetch())
+		.include(file_path_with_file::include())
 		.exec()
 		.await?
 		.into_iter()

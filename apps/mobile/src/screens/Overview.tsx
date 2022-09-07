@@ -1,11 +1,10 @@
 import React from 'react';
 import { FlatList, View } from 'react-native';
-
-import Device from '../components/device/Device';
-import VirtualizedListWrapper from '../components/layout/VirtualizedListWrapper';
-import OverviewStats from '../containers/OverviewStats';
-import tw from '../lib/tailwind';
-import { OverviewStackScreenProps } from '../navigation/tabs/OverviewStack';
+import Device from '~/components/device/Device';
+import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
+import OverviewStats from '~/containers/OverviewStats';
+import tw from '~/lib/tailwind';
+import { OverviewStackScreenProps } from '~/navigation/tabs/OverviewStack';
 
 const placeholderOverviewStats = {
 	id: 1,
@@ -52,8 +51,6 @@ export default function OverviewScreen({ navigation }: OverviewStackScreenProps<
 			<View style={tw`px-4 mt-4`}>
 				{/* Stats */}
 				<OverviewStats stats={placeholderOverviewStats} />
-				{/* Spacing */}
-				<View style={tw`mt-4`} />
 				{/* Devices */}
 				<FlatList
 					data={placeholderDevices}

@@ -1,13 +1,18 @@
 [workspace]
 resolver = "2"
 members = [
-	"apps/desktop/src-tauri",
-	"apps/mobile/rust",
-	"core",
-	"core/prisma",
-	"apps/server"
+  "apps/desktop/src-tauri",
+  "apps/mobile/rust",
+  "core",
+  "core/prisma",
+  "apps/server",
 ]
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "1b2a299e9061c81ff90706923a6d2389ea7c107e" }
+
+[patch."https://github.com/Brendonovich/prisma-client-rust.git"]
+prisma-client-rust = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "8447fe493414471a23a38d780b3db246266f558f" }
+prisma-client-rust-cli = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "8447fe493414471a23a38d780b3db246266f558f" }

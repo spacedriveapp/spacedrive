@@ -1,7 +1,7 @@
 import { WebsocketTransport, createClient } from '@rspc/client';
 import { Operations, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface from '@sd/interface';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 
 const client = createClient<Operations>({
 	transport: new WebsocketTransport(
