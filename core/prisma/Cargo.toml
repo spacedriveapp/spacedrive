@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "6a0119bce951c8d956542a59b2f783fc5a591fc7", features = [
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.0", features = [
   "rspc",
   "sqlite-create-many",
 ] }

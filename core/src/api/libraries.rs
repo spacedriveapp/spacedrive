@@ -4,14 +4,13 @@ use crate::{
 	volume::{get_volumes, save_volume},
 };
 
+use super::{utils::LibraryRequest, RouterBuilder};
 use chrono::Utc;
 use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
 use rspc::Type;
 use serde::Deserialize;
 use tokio::fs;
 use uuid::Uuid;
-
-use super::{LibraryArgs, RouterBuilder};
 
 #[derive(Type, Deserialize)]
 pub struct EditLibraryArgs {
@@ -22,12 +21,10 @@ pub struct EditLibraryArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.query("get", |ctx, _: ()| async move {
+		.query("list", |ctx, _: ()| async move {
 			ctx.library_manager.get_all_libraries_config().await
 		})
-		.query("getStatistics", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
+		.library_query("getStatistics", |_, _: (), library| async move {
 			let _statistics = library
 				.db
 				.statistics()

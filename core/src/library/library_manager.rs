@@ -140,7 +140,7 @@ impl LibraryManager {
 		)
 		.await?;
 
-		invalidate_query!(library, "library.get": (), ());
+		invalidate_query!(library, "library.list");
 
 		self.libraries.write().await.push(library);
 		Ok(())
@@ -189,7 +189,7 @@ impl LibraryManager {
 		)
 		.await?;
 
-		invalidate_query!(library, "library.get": (), ());
+		invalidate_query!(library, "library.list");
 
 		Ok(())
 	}
@@ -205,7 +205,7 @@ impl LibraryManager {
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.db", library.id)))?;
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id)))?;
 
-		invalidate_query!(library, "library.get": (), ());
+		invalidate_query!(library, "library.list");
 
 		libraries.retain(|l| l.id != id);
 

@@ -1,16 +1,15 @@
+import { Folder } from '../icons/Folder';
+import Dialog from '../layout/Dialog';
 import { TrashIcon } from '@heroicons/react/24/solid';
 import { useLibraryMutation } from '@sd/client';
-import { Location } from '@sd/core';
+import { Location, Node } from '@sd/core';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import { Repeat } from 'phosphor-react';
 import React, { useState } from 'react';
 
-import { Folder } from '../icons/Folder';
-import Dialog from '../layout/Dialog';
-
 interface LocationListItemProps {
-	location: Location;
+	location: Location & { node: Node };
 }
 
 export default function LocationListItem({ location }: LocationListItemProps) {
@@ -35,7 +34,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 			<div className="flex flex-col">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 text-sm select-text text-gray-250">
-					<span className="py-[1px] px-1 bg-gray-500 rounded mr-1">{location.node?.name}</span>
+					<span className="py-[1px] px-1 bg-gray-500 rounded mr-1">{location.node.name}</span>
 					{location.local_path}
 				</p>
 			</div>
