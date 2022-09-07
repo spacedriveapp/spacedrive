@@ -1,9 +1,10 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
+import tw from '~/lib/tailwind';
+import NotFoundScreen from '~/screens/NotFound';
+import SearchScreen from '~/screens/modals/Search';
+import SettingsScreen from '~/screens/modals/settings/Settings';
 
-import NotFoundScreen from '../screens/NotFound';
-import SearchScreen from '../screens/modals/Search';
-import SettingsScreen from '../screens/modals/settings/Settings';
 import type { DrawerNavParamList } from './DrawerNavigator';
 import DrawerNavigator from './DrawerNavigator';
 
@@ -15,15 +16,21 @@ export default function RootNavigator() {
 		<Stack.Navigator initialRouteName="Root">
 			<Stack.Screen name="Root" component={DrawerNavigator} options={{ headerShown: false }} />
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
-			<Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
+			<Stack.Screen
+				name="Search"
+				component={SearchScreen}
+				options={{ headerShown: false, animationEnabled: false }}
+			/>
 			{/* Modals */}
 			<Stack.Group
 				screenOptions={{
 					presentation: 'modal',
 					headerBackTitleVisible: false,
-					headerStyle: { backgroundColor: '#08090D' },
-					// headerShadowVisible: false,
-					headerTintColor: '#fff'
+					headerStyle: tw`bg-gray-650`,
+					headerTintColor: tw.color('gray-200'),
+					headerTitleStyle: tw`text-base`,
+					headerBackTitleStyle: tw`text-base`
+					// headerShadowVisible: false // will disable the white line under
 				}}
 			>
 				<Stack.Screen name="Settings" component={SettingsScreen} />

@@ -1,11 +1,10 @@
 import React from 'react';
 import { ColorValue, Text, View } from 'react-native';
-
-import BrowseLocationItem from '../components/browse/BrowseLocationItem';
-import BrowseTagItem from '../components/browse/BrowseTagItem';
-import CollapsibleView from '../components/layout/CollapsibleView';
-import tw from '../lib/tailwind';
-import { BrowseStackScreenProps } from '../navigation/tabs/BrowseStack';
+import BrowseLocationItem from '~/components/browse/BrowseLocationItem';
+import BrowseTagItem from '~/components/browse/BrowseTagItem';
+import CollapsibleView from '~/components/layout/CollapsibleView';
+import tw from '~/lib/tailwind';
+import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 
 const placeholderLocationData = [
 	{
