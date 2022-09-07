@@ -85,7 +85,7 @@ impl StatefulJob for FileIdentifierJob {
 			.map(PathBuf::from)
 			.unwrap_or_default();
 
-		let total_count = count_orphan_file_paths(&library, state.init.location_id.into()).await?;
+		let total_count = count_orphan_file_paths(&library, state.init.location_id).await?;
 		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
