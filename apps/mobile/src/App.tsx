@@ -44,7 +44,7 @@ function AppContainer() {
 
 	const { showOnboarding } = useSnapshot(onboardingStore);
 
-	const { data: libraries } = useBridgeQuery(['library.get'], {
+	const { data: libraries } = useBridgeQuery(['library.list'], {
 		onError(err) {
 			console.error(err);
 		}
