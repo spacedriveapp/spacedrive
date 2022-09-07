@@ -71,10 +71,12 @@ impl StatefulJob for FileIdentifierJob {
 
 		let library = ctx.library_ctx();
 
+		let location_id = state.init.location.id;
+
 		let location = library
 			.db
 			.location()
-			.find_unique(location::id::equals(state.init.location.id))
+			.find_unique(location::id::equals(location_id))
 			.exec()
 			.await?
 			.unwrap();
@@ -85,7 +87,13 @@ impl StatefulJob for FileIdentifierJob {
 			.map(PathBuf::from)
 			.unwrap_or_default();
 
-		let total_count = count_orphan_file_paths(&library, state.init.location.id.into()).await?;
+		let total_count = library
+			.db
+			.file_path()
+			.count(orphan_path_filters(location_id))
+			.exec()
+			.await? as usize;
+
 		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
@@ -94,13 +102,22 @@ impl StatefulJob for FileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
+		let first_path_id = library
+			.db
+			.file_path()
+			.find_first(orphan_path_filters(location_id))
+			.exec()
+			.await?
+			.map(|d| d.id)
+			.unwrap_or(1);
+
 		state.data = Some(FileIdentifierJobState {
 			total_count,
 			task_count,
 			location,
 			location_path,
 			cursor: FilePathIdAndLocationIdCursor {
-				file_path_id: 1,
+				file_path_id: first_path_id,
 				location_id: state.init.location.id,
 			},
 		});
@@ -169,14 +186,10 @@ impl StatefulJob for FileIdentifierJob {
 
 		info!("Found {} existing Objects", existing_files.len());
 
-		// link those existing files to their file paths
-		// Had to put the file_path in a variable outside of the closure, to satisfy the borrow checker
-		let library_ctx = ctx.library_ctx();
-
-		// if existing_files.len() > 0 {
 		// connect Paths that match existing Objects in the database
 		for existing_file in &existing_files {
-			if let Err(e) = library_ctx
+			if let Err(e) = ctx
+				.library_ctx()
 				.db
 				.file_path()
 				.update(
@@ -220,8 +233,6 @@ impl StatefulJob for FileIdentifierJob {
 			]);
 		}
 
-		info!("{:?}", values);
-
 		// create new file records with assembled values
 		let created_files: Vec<FileCreated> = ctx
 			.library_ctx()
@@ -240,6 +251,7 @@ impl StatefulJob for FileIdentifierJob {
 				error!("Error inserting files: {:#?}", e);
 				Vec::new()
 			});
+
 		for created_file in created_files {
 			// associate newly created files with their respective file_paths
 			// TODO: this is potentially bottle necking the chunk system, individually linking file_path to file, 100 queries per chunk
@@ -302,23 +314,17 @@ impl StatefulJob for FileIdentifierJob {
 	}
 }
 
+fn orphan_path_filters(location_id: i32) -> Vec<file_path::WhereParam> {
+	vec![
+		file_path::file_id::equals(None),
+		file_path::is_dir::equals(false),
+		file_path::location_id::equals(location_id),
+	]
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 struct CountRes {
 	count: Option<usize>,
-}
-
-async fn count_orphan_file_paths(
-	ctx: &LibraryContext,
-	location_id: i64,
-) -> Result<usize, prisma_client_rust::QueryError> {
-	let files_count = ctx.db
-		._query_raw::<CountRes>(raw!(
-			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
-			PrismaValue::Int(location_id)
-		))
-		.exec()
-		.await?;
-	Ok(files_count[0].count.unwrap_or(0))
 }
 
 async fn get_orphan_file_paths(
@@ -332,14 +338,11 @@ async fn get_orphan_file_paths(
 	);
 	ctx.db
 		.file_path()
-		.find_many(vec![
-			file_path::file_id::equals(None),
-			file_path::is_dir::equals(false),
-			file_path::location_id::equals(location_id),
-		])
+		.find_many(orphan_path_filters(location_id))
 		.order_by(file_path::id::order(Direction::Asc))
 		.cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)
+		.skip(1)
 		.exec()
 		.await
 }
