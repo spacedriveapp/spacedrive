@@ -1,9 +1,10 @@
 // import Spacedrive JS client
-import { TauriTransport, createClient } from '@rspc/client';
+import { createClient } from '@rspc/client';
+import { TauriTransport } from '@rspc/tauri';
 import { Operations, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
-import { Event, listen } from '@tauri-apps/api/event';
+import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import React, { useEffect, useState } from 'react';

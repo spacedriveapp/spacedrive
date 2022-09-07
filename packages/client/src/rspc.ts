@@ -1,4 +1,5 @@
-import { RSPCError, createReactQueryHooks } from '@rspc/client';
+import { RSPCError } from '@rspc/client';
+import { createReactQueryHooks } from '@rspc/react';
 import { LibraryArgs, Operations } from '@sd/core';
 import {
 	QueryClient,

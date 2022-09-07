@@ -15,7 +15,8 @@ importers:
       '@react-navigation/stack': ^6.2.3
       '@rnx-kit/metro-config': ^1.2.37
       '@rnx-kit/metro-resolver-symlinks': ^0.1.21
-      '@rspc/client': ^0.0.5
+      '@rspc/client': ^0.0.6
+      '@rspc/react': ^0.0.6
       '@sd/assets': file:../../packages/assets
       '@tanstack/react-query': ^4.2.3
       '@types/react': ~18.0.0
@@ -63,7 +64,8 @@ importers:
       '@react-navigation/drawer': 6.4.4_ywqefi2mkvedjihbydxse4r6wi
       '@react-navigation/native': 6.0.12_jk6ntyzimkrv4hwdmdgaaf5yaa
       '@react-navigation/stack': 6.2.3_g6rcykmgspzf2j66bcli5dyok4
-      '@rspc/client': 0.0.5_jk6ntyzimkrv4hwdmdgaaf5yaa
+      '@rspc/client': 0.0.6
+      '@rspc/react': 0.0.6_jk6ntyzimkrv4hwdmdgaaf5yaa
       '@sd/assets': file:../../packages/assets
       '@tanstack/react-query': 4.2.3_jk6ntyzimkrv4hwdmdgaaf5yaa
       byte-size: 8.1.0
@@ -2476,13 +2478,17 @@ packages:
       read-yaml-file: 2.1.0
     dev: true
 
-  /@rspc/client/0.0.5_jk6ntyzimkrv4hwdmdgaaf5yaa:
-    resolution: {integrity: sha512-k6xLz1YoA9SBLNk/EdDjbo/0zUj5aBP6l104CQlaEVjmdIhacP10IC8CG9j9fyg3w5Svok8aO5dhLTRxZhPeIA==}
+  /@rspc/client/0.0.6:
+    resolution: {integrity: sha512-NcJbmObbf+BzFcYWGvZaP7+a+KWTbAk9CkBRqW1nIu7TamV7tZtkHVmibwPHTeFnpAKPlKV7SH5vodV4yYETcw==}
+    dev: false
+
+  /@rspc/react/0.0.6_jk6ntyzimkrv4hwdmdgaaf5yaa:
+    resolution: {integrity: sha512-iU7DUbc0WkMW7q53sx0+t/gUhcShQ/a0KLpBmHGT6QTwhjnFsdqzW7GohCD4CTcT+RYUxirqHq6TvKPlmtKHcQ==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
+      '@rspc/client': 0.0.6
       '@tanstack/react-query': 4.2.3_jk6ntyzimkrv4hwdmdgaaf5yaa
-      '@tauri-apps/api': 1.0.2
       react: 18.0.0
     transitivePeerDependencies:
       - react-dom
@@ -2663,11 +2669,6 @@ packages:
       react: 18.0.0
       react-native: 0.69.4_k6xwmnqmgysg6weibx66ue6pyi
       use-sync-external-store: 1.2.0_react@18.0.0
-    dev: false
-
-  /@tauri-apps/api/1.0.2:
-    resolution: {integrity: sha512-yuNW0oeJ1/ZA7wNF1KgxhHrSu5viPVzY/UgUczzN5ptLM8dH15Juy5rEGkoHfeXGju90Y/l22hi3BtIrp/za+w==}
-    engines: {node: '>= 12.22.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
     dev: false
 
   /@trysound/sax/0.2.0:
