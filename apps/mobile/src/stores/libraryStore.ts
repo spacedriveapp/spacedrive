@@ -31,7 +31,7 @@ export const libraryStore = proxyWithPersist({
 // is memorized and can be used safely in any component
 export const useCurrentLibrary = () => {
 	const store = useSnapshot(libraryStore);
-	const { data: libraries } = useBridgeQuery(['library.get']);
+	const { data: libraries } = useBridgeQuery(['library.list']);
 
 	// memorize library to avoid re-running find function
 	const currentLibrary = useMemo(() => {
