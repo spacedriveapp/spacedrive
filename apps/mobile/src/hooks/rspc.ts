@@ -1,11 +1,5 @@
-import {
-	ClientTransformer,
-	OperationKey,
-	OperationType,
-	RSPCError,
-	Transport,
-	createReactQueryHooks
-} from '@rspc/client';
+import { ClientTransformer, OperationKey, OperationType, RSPCError, Transport } from '@rspc/client';
+import { createReactQueryHooks } from '@rspc/react';
 import {
 	QueryClient,
 	UseMutationOptions,
