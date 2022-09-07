@@ -1,5 +1,4 @@
 export * from './Button';
 export * from './Dropdown';
-export * from './ContextMenu';
-export * as NewContextMenu from "./ContextMenu/index"
+export * as ContextMenu from './ContextMenu';
 export * from './Input';
