@@ -25,8 +25,10 @@ swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "aut
 tauri-build = { version = "1.0.0", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = ["build"] }
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = [
+  "build",
+] }
 
 [features]
-default = [ "custom-protocol" ]
-custom-protocol = [ "tauri/custom-protocol" ]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
