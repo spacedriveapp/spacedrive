@@ -90,7 +90,7 @@ impl StatefulJob for FileIdentifierJob {
 		let total_count = library
 			.db
 			.file_path()
-			.count(orphan_path_filters(location_id))
+			.count(orphan_path_filters(location_id, None))
 			.exec()
 			.await? as usize;
 
@@ -106,7 +106,7 @@ impl StatefulJob for FileIdentifierJob {
 		let first_path_id = library
 			.db
 			.file_path()
-			.find_first(orphan_path_filters(location_id))
+			.find_first(orphan_path_filters(location_id, None))
 			.exec()
 			.await?
 			.map(|d| d.id)
@@ -310,12 +310,17 @@ impl StatefulJob for FileIdentifierJob {
 	}
 }
 
-fn orphan_path_filters(location_id: i32) -> Vec<file_path::WhereParam> {
-	vec![
+fn orphan_path_filters(location_id: i32, file_path_id: Option<i32>) -> Vec<file_path::WhereParam> {
+	let mut params = vec![
 		file_path::file_id::equals(None),
 		file_path::is_dir::equals(false),
 		file_path::location_id::equals(location_id),
-	]
+	];
+	// this is a workaround for the cursor not working properly
+	if let Some(file_path_id) = file_path_id {
+		params.push(file_path::id::gte(file_path_id))
+	}
+	params
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -334,9 +339,9 @@ async fn get_orphan_file_paths(
 	);
 	ctx.db
 		.file_path()
-		.find_many(orphan_path_filters(location_id))
+		.find_many(orphan_path_filters(location_id, Some(cursor.file_path_id)))
 		.order_by(file_path::id::order(Direction::Asc))
-		.cursor(cursor.into())
+		// .cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)
 		.skip(1)
 		.exec()
