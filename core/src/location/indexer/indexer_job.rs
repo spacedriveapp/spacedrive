@@ -1,7 +1,5 @@
 use crate::{
-	job::{
-		JobError, JobMetadata, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
-	},
+	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	prisma::{file_path, location},
 };
 
@@ -221,7 +219,7 @@ impl StatefulJob for IndexerJob {
 			})
 			.collect();
 
-		Ok(())
+		Ok(None)
 	}
 
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
@@ -284,7 +282,7 @@ impl StatefulJob for IndexerJob {
 
 		info!("Inserted {count} records");
 
-		Ok(())
+		Ok(None)
 	}
 
 	/// Logs some metadata about the indexer job
@@ -292,7 +290,7 @@ impl StatefulJob for IndexerJob {
 		&self,
 		_ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<JobMetadata, JobError> {
+	) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

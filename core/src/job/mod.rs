@@ -42,7 +42,7 @@ pub enum JobError {
 	Paused(Vec<u8>),
 }
 
-pub type JobResult = Result<(), JobError>;
+pub type JobResult = Result<JobMetadata, JobError>;
 pub type JobMetadata = Option<Vec<u8>>;
 
 #[async_trait::async_trait]
@@ -68,7 +68,7 @@ pub trait StatefulJob: Send + Sync {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<JobMetadata, JobError>;
+	) -> JobResult;
 }
 
 #[async_trait::async_trait]
@@ -184,12 +184,8 @@ where
 			self.state.step_number += 1;
 		}
 
-		// It is ok to unwrap here, a running job will always have a report.
-		self.report.as_mut().unwrap().metadata = self
-			.stateful_job
+		self.stateful_job
 			.finalize(ctx.clone(), &mut self.state)
-			.await?;
-
-		Ok(())
+			.await
 	}
 }

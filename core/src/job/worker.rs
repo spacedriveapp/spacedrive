@@ -1,4 +1,4 @@
-use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
+use crate::job::{DynJob, JobError, JobManager, JobMetadata, JobReportUpdate, JobStatus};
 use crate::library::LibraryContext;
 use crate::{api::LibraryArgs, invalidate_query};
 use std::{sync::Arc, time::Duration};
@@ -22,7 +22,7 @@ pub enum WorkerEvent {
 		updates: Vec<JobReportUpdate>,
 		debounce: bool,
 	},
-	Completed(oneshot::Sender<()>),
+	Completed(oneshot::Sender<()>, JobMetadata),
 	Failed(oneshot::Sender<()>),
 	Paused(Vec<u8>, oneshot::Sender<()>),
 }
@@ -151,25 +151,27 @@ impl Worker {
 
 			let (done_tx, done_rx) = oneshot::channel();
 
-			if let Err(e) = job.run(worker_ctx.clone()).await {
-				if let JobError::Paused(state) = e {
+			match job.run(worker_ctx.clone()).await {
+				Ok(metadata) => {
+					// handle completion
+					worker_ctx
+						.events_tx
+						.send(WorkerEvent::Completed(done_tx, metadata))
+						.expect("critical error: failed to send worker complete event");
+				}
+				Err(JobError::Paused(state)) => {
 					worker_ctx
 						.events_tx
 						.send(WorkerEvent::Paused(state, done_tx))
 						.expect("critical error: failed to send worker pause event");
-				} else {
+				}
+				Err(e) => {
 					error!("job '{}' failed with error: {:#?}", job_id, e);
 					worker_ctx
 						.events_tx
 						.send(WorkerEvent::Failed(done_tx))
 						.expect("critical error: failed to send worker fail event");
 				}
-			} else {
-				// handle completion
-				worker_ctx
-					.events_tx
-					.send(WorkerEvent::Completed(done_tx))
-					.expect("critical error: failed to send worker complete event");
 			}
 
 			if let Err(e) = done_rx.await {
@@ -228,9 +230,10 @@ impl Worker {
 						LibraryArgs::new(library.id, ())
 					);
 				}
-				WorkerEvent::Completed(done_tx) => {
+				WorkerEvent::Completed(done_tx, metadata) => {
 					worker.report.status = JobStatus::Completed;
 					worker.report.data = None;
+					worker.report.metadata = metadata;
 					if let Err(e) = worker.report.update(&library).await {
 						error!("failed to update job report: {:#?}", e);
 					}
