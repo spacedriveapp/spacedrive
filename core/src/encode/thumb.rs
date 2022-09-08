@@ -1,9 +1,7 @@
 use crate::{
 	api::{locations::LocationExplorerArgs, CoreEvent, LibraryArgs},
 	invalidate_query,
-	job::{
-		JobError, JobMetadata, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
-	},
+	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
 	prisma::{file_path, location},
 };
@@ -95,7 +93,7 @@ impl StatefulJob for ThumbnailJob {
 		});
 		state.steps = image_files.into_iter().collect();
 
-		Ok(())
+		Ok(None)
 	}
 
 	async fn execute_step(
@@ -128,12 +126,12 @@ impl StatefulJob for ThumbnailJob {
 						"skipping thumbnail generation for {}",
 						step.materialized_path
 					);
-					return Ok(());
+					return Ok(None);
 				}
 			}
 			Err(_) => {
 				error!("Error getting cas_id {:?}", step.materialized_path);
-				return Ok(());
+				return Ok(None);
 			}
 		};
 
@@ -175,14 +173,14 @@ impl StatefulJob for ThumbnailJob {
 			state.step_number + 1,
 		)]);
 
-		Ok(())
+		Ok(None)
 	}
 
 	async fn finalize(
 		&self,
 		_ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<JobMetadata, JobError> {
+	) -> JobResult {
 		let data = state
 			.data
 			.as_ref()
