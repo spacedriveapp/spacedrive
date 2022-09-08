@@ -257,8 +257,8 @@ export function Sidebar() {
 					{({ isActive }) => (
 						<Button
 							noPadding
-							variant={isActive ? 'default' : 'default'}
-							className={clsx('px-[4px] mb-1')}
+							variant={'default'}
+							className={clsx('px-[4px] hover:!bg-opacity-20 mb-1')}
 						>
 							<CogIcon className="w-5 h-5" />
 						</Button>
@@ -271,7 +271,7 @@ export function Sidebar() {
 						<Button
 							noPadding
 							className={clsx(
-								'px-[4px] !outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+								'px-[4px] !outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
 							)}
 						>
 							<CheckCircle className="w-5 h-5" />
