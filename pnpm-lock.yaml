@@ -285,6 +285,7 @@ importers:
       '@radix-ui/react-icons': ^1.1.1
       '@radix-ui/react-progress': ^0.1.4
       '@radix-ui/react-slider': ^0.1.4
+      '@radix-ui/react-tabs': ^1.0.0
       '@radix-ui/react-tooltip': ^1.0.0
       '@sd/assets': workspace:*
       '@sd/client': workspace:*
@@ -312,6 +313,7 @@ importers:
       byte-size: ^8.1.0
       clsx: ^1.2.1
       concurrently: ^7.3.0
+      date-fns: ^2.29.2
       immer: ^9.0.15
       jotai: ^1.7.6
       lodash: ^4.17.21
@@ -360,6 +362,7 @@ importers:
       '@radix-ui/react-icons': 1.1.1_react@18.2.0
       '@radix-ui/react-progress': 0.1.4_react@18.2.0
       '@radix-ui/react-slider': 0.1.4_react@18.2.0
+      '@radix-ui/react-tabs': 1.0.0_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-tooltip': 1.0.0_zxljzmqdrxwnuenbkrz77w74uy
       '@sd/assets': link:../assets
       '@sd/client': link:../client
@@ -374,6 +377,7 @@ importers:
       autoprefixer: 10.4.7
       byte-size: 8.1.0
       clsx: 1.2.1
+      date-fns: 2.29.2
       immer: 9.0.15
       jotai: 1.8.2_umupx7nluxw42lgh4svggrlwmq
       lodash: 4.17.21
@@ -433,6 +437,7 @@ importers:
       '@headlessui/react': ^1.6.6
       '@heroicons/react': ^2.0.10
       '@radix-ui/react-context-menu': ^1.0.0
+      '@radix-ui/react-dropdown-menu': ^1.0.0
       '@sd/config': workspace:*
       '@storybook/addon-actions': ^6.5.9
       '@storybook/addon-essentials': ^6.5.9
@@ -470,6 +475,7 @@ importers:
       '@headlessui/react': 1.6.6_biqbaboplfbrettd7655fr4n2y
       '@heroicons/react': 2.0.10_react@18.2.0
       '@radix-ui/react-context-menu': 1.0.0_zxljzmqdrxwnuenbkrz77w74uy
+      '@radix-ui/react-dropdown-menu': 1.0.0_zxljzmqdrxwnuenbkrz77w74uy
       '@tailwindcss/forms': 0.5.2_tailwindcss@3.1.8
       class-variance-authority: 0.2.3_typescript@4.7.4
       clsx: 1.2.1
@@ -2100,8 +2106,8 @@ packages:
       '@cspell/dict-docker': 1.1.1
       '@cspell/dict-dotnet': 2.0.1
       '@cspell/dict-elixir': 2.0.1
-      '@cspell/dict-en-gb': 1.1.33
       '@cspell/dict-en_us': 2.3.3
+      '@cspell/dict-en-gb': 1.1.33
       '@cspell/dict-filetypes': 2.1.1
       '@cspell/dict-fonts': 2.1.0
       '@cspell/dict-fullstack': 2.0.6
@@ -3539,6 +3545,25 @@ packages:
       '@babel/runtime': 7.18.3
       '@radix-ui/react-compose-refs': 1.0.0_react@18.2.0
       react: 18.2.0
+    dev: false
+
+  /@radix-ui/react-tabs/1.0.0_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-oKUwEDsySVC0uuSEH7SHCVt1+ijmiDFAI9p+fHCtuZdqrRDKIFs09zp5nrmu4ggP6xqSx9lj1VSblnDH+n3IBA==}
+    peerDependencies:
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+    dependencies:
+      '@babel/runtime': 7.18.3
+      '@radix-ui/primitive': 1.0.0
+      '@radix-ui/react-context': 1.0.0_react@18.2.0
+      '@radix-ui/react-direction': 1.0.0_react@18.2.0
+      '@radix-ui/react-id': 1.0.0_react@18.2.0
+      '@radix-ui/react-presence': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-primitive': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-roving-focus': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-use-controllable-state': 1.0.0_react@18.2.0
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
     dev: false
 
   /@radix-ui/react-tooltip/1.0.0_zxljzmqdrxwnuenbkrz77w74uy:
@@ -8394,7 +8419,7 @@ packages:
     hasBin: true
     dependencies:
       chalk: 4.1.2
-      date-fns: 2.28.0
+      date-fns: 2.29.2
       lodash: 4.17.21
       rxjs: 7.5.5
       shell-quote: 1.7.3
@@ -8903,10 +8928,9 @@ packages:
       lodash: 4.17.5
     dev: true
 
-  /date-fns/2.28.0:
-    resolution: {integrity: sha512-8d35hViGYx/QH0icHYCeLmsLmMUheMmTyV9Fcm6gvNwdw31yXXH+O85sOBJ+OLnLQMKZowvpKb6FgMIQjcpvQw==}
+  /date-fns/2.29.2:
+    resolution: {integrity: sha512-0VNbwmWJDS/G3ySwFSJA3ayhbURMTJLtwM2DTxf9CWondCnh6DTNlO9JgRSq6ibf4eD0lfMJNBxUdEAHHix+bA==}
     engines: {node: '>=0.11'}
-    dev: true
 
   /debug/2.6.9:
     resolution: {integrity: sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==}
@@ -18103,7 +18127,7 @@ packages:
       valtio: ^1.2.5
     dependencies:
       lodash: 4.17.21
-      valtio: 1.6.4
+      valtio: 1.6.4_react@18.2.0+vite@3.0.9
     dev: false
 
   /valtio/1.6.4:

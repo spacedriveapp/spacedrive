@@ -19,7 +19,7 @@ const MiddleTruncatedText = ({
 	const endWidth = fontFaceScaleFactor * 4;
 
 	return (
-		<div className="whitespace-nowrap overflow-hidden w-full">
+		<div className="w-full overflow-hidden whitespace-nowrap">
 			<span
 				{...props}
 				style={{
@@ -66,7 +66,10 @@ export default function RunningJobsWidget() {
 					leaveFrom="translate-y-0"
 					leaveTo="translate-y-24"
 				>
-					<div key={job.id} className="flex flex-col px-2 pt-1.5 pb-2 bg-gray-700 rounded">
+					<div
+						key={job.id}
+						className="flex flex-col px-2 pt-1.5 pb-2 border bg-gray-600 bg-opacity-50 border-gray-500 rounded"
+					>
 						{/* <span className="mb-0.5 text-tiny font-bold text-gray-400">{job.status} Job</span> */}
 						<MiddleTruncatedText className="mb-1.5 text-gray-450 text-tiny">
 							{job.message}
