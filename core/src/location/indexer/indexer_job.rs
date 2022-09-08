@@ -1,5 +1,5 @@
 use crate::{
-	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	prisma::{file_path, location},
 };
 
@@ -94,7 +94,7 @@ impl StatefulJob for IndexerJob {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		let location_path = state
 			.init
 			.location
@@ -219,7 +219,7 @@ impl StatefulJob for IndexerJob {
 			})
 			.collect();
 
-		Ok(None)
+		Ok(())
 	}
 
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
@@ -227,7 +227,7 @@ impl StatefulJob for IndexerJob {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		let location_path = &state
 			.data
 			.as_ref()
@@ -282,7 +282,7 @@ impl StatefulJob for IndexerJob {
 
 		info!("Inserted {count} records");
 
-		Ok(None)
+		Ok(())
 	}
 
 	/// Logs some metadata about the indexer job
@@ -305,7 +305,7 @@ impl StatefulJob for IndexerJob {
 				.expect("critical error: non-negative duration"),
 		);
 
-		Ok(Some(serde_json::to_vec(state)?))
+		Ok(Some(serde_json::to_value(state)?))
 	}
 }
 

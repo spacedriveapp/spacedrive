@@ -215,7 +215,7 @@ pub struct JobReport {
 	pub id: Uuid,
 	pub name: String,
 	pub data: Option<Vec<u8>>,
-	pub metadata: Option<Vec<u8>>,
+	pub metadata: Option<serde_json::Value>,
 	// client_id: i32,
 	pub date_created: chrono::DateTime<chrono::Utc>,
 	pub date_modified: chrono::DateTime<chrono::Utc>,
@@ -253,7 +253,12 @@ impl From<job::Data> for JobReport {
 			date_created: data.date_created.into(),
 			date_modified: data.date_modified.into(),
 			data: data.data,
-			metadata: data.metadata,
+			metadata: data.metadata.and_then(|m| {
+				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
+					error!("Failed to deserialize job metadata: {}", e);
+					None
+				})
+			}),
 			message: String::new(),
 			seconds_elapsed: data.seconds_elapsed,
 		}
@@ -300,7 +305,7 @@ impl JobReport {
 				vec![
 					job::status::set(self.status.int_value()),
 					job::data::set(self.data.clone()),
-					job::metadata::set(self.metadata.clone()),
+					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(self.task_count),
 					job::completed_task_count::set(self.completed_task_count),
 					job::date_modified::set(chrono::Utc::now().into()),

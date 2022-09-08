@@ -43,7 +43,7 @@ pub enum JobError {
 }
 
 pub type JobResult = Result<JobMetadata, JobError>;
-pub type JobMetadata = Option<Vec<u8>>;
+pub type JobMetadata = Option<serde_json::Value>;
 
 #[async_trait::async_trait]
 pub trait StatefulJob: Send + Sync {
@@ -56,13 +56,13 @@ pub trait StatefulJob: Send + Sync {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult;
+	) -> Result<(), JobError>;
 
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult;
+	) -> Result<(), JobError>;
 
 	async fn finalize(
 		&self,
@@ -154,6 +154,7 @@ where
 	fn name(&self) -> &'static str {
 		self.stateful_job.name()
 	}
+
 	async fn run(&mut self, ctx: WorkerContext) -> JobResult {
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
