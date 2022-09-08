@@ -1,4 +1,5 @@
 import { Button } from '@sd/ui';
+import clsx from 'clsx';
 import React from 'react';
 import { Helmet } from 'react-helmet';
 
@@ -7,7 +8,8 @@ import { Folder } from '../../../../packages/interface/src/components/icons/Fold
 function Page() {
 	const items = [
 		{
-			when: 'Complete',
+			when: 'Big bang',
+			subtext: 'Q1 2022',
 			completed: true,
 			title: 'File Discovery',
 			description:
@@ -24,15 +26,45 @@ function Page() {
 			description: 'Total capacity, index size, preview media size, free space etc.'
 		},
 		{
-			when: 'In Progress',
+			title: 'Jobs',
+			completed: true,
+			description:
+				'Tasks to be performed via a queue system with multi-threaded workers, such as indexing, identifying, generating preview media and moving files. With a Job Manager interface for tracking progress, pausing and restarting jobs.'
+		},
+		{
+			when: 'Alpha',
+			subtext: 'Q2 2022',
+			completed: true,
 			title: 'File Explorer',
 			description:
 				' Browse online/offline storage locations, view files with metadata, perform basic CRUD.'
 		},
 		{
-			title: 'Realtime synchronization',
+			completed: true,
+			title: 'Media encoder',
 			description:
-				'Data index synchronized in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).'
+				'Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.'
+		},
+		{
+			completed: true,
+			title: 'Tags',
+			description:
+				'Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.'
+		},
+		{
+			when: 'Present Day',
+			title: 'Search',
+			description: 'Deep search into your filesystem with a keybind, including offline locations.'
+		},
+		{
+			title: 'Photos',
+			description: 'Photos and video albums similar to Apple/Google photos.'
+		},
+		{
+			when: '0.1.0 Beta',
+			subtext: 'Q3 2022',
+			title: 'Realtime library synchronization',
+			description: 'Automatically synchronized libraries across devices via P2P connections.'
 		},
 		{
 			title: 'Self hosted',
@@ -40,34 +72,20 @@ function Page() {
 				'Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.'
 		},
 		{
-			when: 'MVP',
-			title: 'Photos',
-			description: 'Photos and video albums similar to Apple/Google photos.'
-		},
-		{
-			title: 'Search',
-			description: 'Deep search into your filesystem with a keybind, including offline locations.'
-		},
-		{
-			title: 'Tags',
+			title: 'Cloud integration',
 			description:
-				'Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.'
+				'Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
+		},
+		{
+			when: 'Jeff',
+			subtext: 'Q4 2022',
+			title: 'Hosted Spaces',
+			description: 'Host select Spaces on our cloud to share with friends or publish on the web.'
 		},
 		{
 			title: 'Extensions',
 			description:
 				'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
-		},
-		{
-			when: 'Post-MVP',
-			title: 'Spacedrive Cloud',
-			description:
-				"We'll host an always-on cloud device for you, with pay-as-you-go plans for storage."
-		},
-		{
-			title: 'Cloud integration',
-			description:
-				'Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
 		},
 		{
 			title: 'Encrypted vault(s)',
@@ -85,14 +103,11 @@ function Page() {
 				'Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.'
 		},
 		{
+			when: 'Release',
+			subtext: 'Q1 2023',
 			title: 'Timeline',
 			description:
 				'View a linear timeline of content, travel to any time and see media represented visually.'
-		},
-		{
-			title: 'Media encoder',
-			description:
-				'Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.'
 		},
 		{
 			title: 'Workers',
@@ -107,13 +122,13 @@ function Page() {
 				<title>Roadmap - Spacedrive</title>
 				<meta name="description" content="What can Spacedrive do?" />
 			</Helmet>
-			<div className="container flex flex-col gap-20 max-w-4xl p-4 m-auto mt-32 mb-20 prose lg:prose-xs dark:prose-invert">
+			<div className="container flex flex-col max-w-4xl gap-20 p-4 m-auto mt-32 mb-20 prose lg:prose-xs dark:prose-invert">
 				<section className="flex flex-col items-center">
 					<Folder className="w-24 pointer-events-none" />
-					<h1 className="text-5xl leading-snug fade-in-heading mb-0 text-center">
+					<h1 className="mb-0 text-5xl leading-snug text-center fade-in-heading">
 						What's next for Spacedrive?
 					</h1>
-					<p className="text-gray-400 animation-delay-2 fade-in-heading text-center">
+					<p className="text-center text-gray-400 animation-delay-2 fade-in-heading">
 						Here is a list of the features we are working on, and the progress we have made so far.
 					</p>
 				</section>
@@ -122,23 +137,31 @@ function Page() {
 						<>
 							{/* Using span so i can use the group-last-of-type selector */}
 							<span className="max-w-[10rem] flex items-start first:items-start justify-end gap-4 group">
-								<h3
-									className={
-										`m-0 hidden lg:block text-right ` +
-										(i === 0 ? '-translate-y-1/4' : '-translate-y-1/2')
-									}
-								>
-									{item.when}
-								</h3>
-								<div className="w-2 h-full group-first:rounded-t-full group-last-of-type:rounded-b-full flex lg:items-center group-first:mt-2">
+								<div className="flex flex-col items-end">
+									<h3
+										className={
+											`m-0 hidden lg:block text-right ` +
+											(i === 0 ? '-translate-y-1/4' : '-translate-y-1/2')
+										}
+									>
+										{item.when}
+									</h3>
+									{item?.subtext && <span className="text-sm text-gray-300">{item?.subtext}</span>}
+								</div>
+								<div className="flex w-2 h-full group-first:rounded-t-full group-last-of-type:rounded-b-full lg:items-center group-first:mt-2">
 									<div
 										className={
 											'w-full h-full flex ' +
 											(item.completed ? 'bg-primary-500 z-10' : 'bg-gray-550')
 										}
 									>
-										{item?.when ? (
-											<div className="h-4 w-4 border-2 border-gray-200 bg-primary-500 rounded-full mt-5 group-first:mt-0 lg:mt-0 group-first:self-start absolute -translate-x-1/4 -translate-y-1/2 z-20">
+										{item?.when !== undefined ? (
+											<div
+												className={clsx(
+													'absolute z-20 w-4 h-4 mt-5 -translate-y-1/2 border-2 border-gray-200 rounded-full group-first:mt-0 lg:mt-0 group-first:self-start -translate-x-1/4',
+													items[i - 1]?.completed || i === 0 ? 'bg-primary-500 z-10' : 'bg-gray-550'
+												)}
+											>
 												&zwj;
 											</div>
 										) : (
@@ -151,7 +174,7 @@ function Page() {
 								{item?.when && (
 									<h3 className="mb-0 group-first-of-type:m-0 lg:hidden">{item.when}</h3>
 								)}
-								<div className="border border-gray-500 rounded-xl p-4 flex flex-col space-y-2 my-2 group-first-of-type:mt-0 group-last:mb-0 w-full">
+								<div className="flex flex-col w-full p-4 my-2 space-y-2 border border-gray-500 rounded-xl group-first-of-type:mt-0 group-last:mb-0">
 									<h3 className="my-1">{item.title}</h3>
 									<p>{item.description}</p>
 								</div>
@@ -159,7 +182,7 @@ function Page() {
 						</>
 					))}
 				</section>
-				<section className="bg-gray-850 rounded-xl p-8 space-y-2">
+				<section className="p-8 space-y-2 bg-gray-850 rounded-xl">
 					<h2 className="my-1">That's not all.</h2>
 					<p>
 						We're always open to ideas and feedback over{' '}
