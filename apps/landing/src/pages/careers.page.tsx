@@ -59,7 +59,7 @@ const perks = [
 	},
 	{
 		title: 'Paid Time Off',
-		desc: `Rest is important, you deliver your best work when you've had your downtime. We offer 2 weeks paid time off per year, and if you need more, we'll give you more.`,
+		desc: `Rest is important, you deliver your best work when you've had your downtime. We offer 4 weeks paid time off per year, and if you need more, we'll give you more.`,
 		icon: FaceSmileIcon,
 		color: '#9210FF'
 	},

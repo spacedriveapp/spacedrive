@@ -26,7 +26,7 @@ export const ContextMenu = ({
 }: PropsWithChildren<Props>) => {
 	return (
 		<RadixCM.Root>
-			<RadixCM.Trigger>{trigger}</RadixCM.Trigger>
+			<RadixCM.Trigger asChild>{trigger}</RadixCM.Trigger>
 			<RadixCM.Portal>
 				<RadixCM.Content {...props} className={clsx(MENU_CLASSES, className)}>
 					{children}

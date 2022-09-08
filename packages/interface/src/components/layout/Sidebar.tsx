@@ -9,15 +9,16 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { LocationCreateArgs } from '@sd/core';
-import { Button, Dropdown } from '@sd/ui';
+import { Button, Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
-import { CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
+import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
 import React, { useContext, useEffect } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 import { useSnapshot } from 'valtio';
 
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
+import { JobsManager } from '../jobs/JobManager';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { DefaultProps } from '../primitive/types';
@@ -261,7 +262,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 			)}
 			<div className="flex-grow" />
 			<RunningJobsWidget />
-			<div className="mb-2">
+			<div className="mt-2 mb-2">
 				<NavLink to="/settings/general">
 					{({ isActive }) => (
 						<Button
@@ -273,6 +274,18 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 						</Button>
 					)}
 				</NavLink>
+				<OverlayPanel
+					className="focus:outline-none"
+					trigger={
+						<Button noPadding className={clsx('px-[4px] !outline-none')}>
+							<CheckCircle className="w-5 h-5" />
+						</Button>
+					}
+				>
+					<div className="block w-[500px] h-96">
+						<JobsManager />
+					</div>
+				</OverlayPanel>
 			</div>
 		</div>
 	);

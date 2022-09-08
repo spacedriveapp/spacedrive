@@ -8,6 +8,7 @@ use crate::{
 };
 
 use int_enum::IntEnum;
+use prisma_client_rust::Direction;
 use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -127,6 +128,7 @@ impl JobManager {
 			.db
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
+			.order_by(job::date_created::order(Direction::Desc))
 			.exec()
 			.await?;
 
