@@ -1,31 +1,17 @@
 import byteSize from 'byte-size';
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { useLibraryQuery } from '~/hooks/rspc';
+import { Statistics } from '~/types/bindings';
 
 import useCounter from '../hooks/useCounter';
 import tw from '../lib/tailwind';
-
-interface Statistics {
-	id: number;
-	date_captured: string;
-	total_file_count: number;
-	library_db_size: string;
-	total_bytes_used: string;
-	total_bytes_capacity: string;
-	total_unique_bytes: string;
-	total_bytes_free: string;
-	preview_media_bytes: string;
-}
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_capacity: 'Total capacity',
 	preview_media_bytes: 'Preview media',
 	library_db_size: 'Index size',
 	total_bytes_free: 'Free space'
-};
-
-type OverviewStatsProps = {
-	stats: Statistics | undefined;
 };
 
 const StatItem: React.FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
@@ -44,18 +30,25 @@ const StatItem: React.FC<{ title: string; bytes: number }> = ({ title, bytes }) 
 	);
 };
 
-const OverviewStats = ({ stats }: OverviewStatsProps) => {
-	// TODO: Show missing library warning if stats is undefined
+const OverviewStats = () => {
+	// TODO: Add loading state
+
+	const { data: libraryStatistics } = useLibraryQuery(['library.getStatistics']);
+
 	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
-	return stats ? (
+	return libraryStatistics ? (
 		<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-			{Object.entries(stats).map(([key, bytes]) => {
+			{Object.entries(libraryStatistics).map(([key, bytes]) => {
 				if (!displayableStatItems.includes(key)) return null;
 				return <StatItem key={key} title={StatItemNames[key as keyof Statistics]!} bytes={bytes} />;
 			})}
 		</ScrollView>
-	) : null;
+	) : (
+		<View>
+			<Text style={tw`text-red-600 text-center font-bold`}>No library found...</Text>
+		</View>
+	);
 };
 
 export default OverviewStats;

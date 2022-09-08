@@ -57,10 +57,8 @@ function AppContainer() {
 	// Runs when the app is launched
 	useEffect(() => {
 		// Temporarly set the first library to be the current library
-		if (!showOnboarding) {
-			if (libraries && libraries.length > 0) {
-				switchLibrary(libraries[0].uuid);
-			}
+		if (libraries && libraries.length > 0) {
+			switchLibrary(libraries[0].uuid);
 		}
 	}, [libraries, showOnboarding, switchLibrary]);
 

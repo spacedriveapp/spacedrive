@@ -1,11 +1,11 @@
-import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import React from 'react';
-import { proxy } from 'valtio';
+import { proxy, ref } from 'valtio';
 
 import { FilePath } from '../types/bindings';
 
 export const fileModalStore = proxy({
-	fileRef: null as React.RefObject<BottomSheetModalMethods>,
+	fileRef: ref(React.createRef<BottomSheetModal>()),
 	data: null as FilePath | null,
 	setData: (data: FilePath) => {
 		fileModalStore.data = data;

@@ -1,7 +1,7 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { CirclesFour, Folder, Planet } from 'phosphor-react-native';
-import { PhotographIcon } from 'react-native-heroicons/outline';
+import { PhotoIcon } from 'react-native-heroicons/outline';
 import tw from '~/lib/tailwind';
 
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
@@ -65,7 +65,7 @@ export default function TabNavigator() {
 				component={PhotosStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
-						<PhotographIcon size={22} color={focused ? tw.color('bg-primary') : 'white'} />
+						<PhotoIcon size={22} color={focused ? tw.color('bg-primary') : 'white'} />
 					),
 					tabBarLabel: 'Photos'
 				}}

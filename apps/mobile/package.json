@@ -11,7 +11,7 @@
 	},
 	"dependencies": {
 		"@gorhom/bottom-sheet": "^4.4.3",
-		"@react-native-async-storage/async-storage": "~1.17.3",
+		"@react-native-async-storage/async-storage": "~1.17.10",
 		"@react-native-masked-view/masked-view": "0.2.7",
 		"@react-navigation/bottom-tabs": "^6.3.3",
 		"@react-navigation/drawer": "^6.4.4",
@@ -36,7 +36,7 @@
 		"react": "18.0.0",
 		"react-native": "0.69.4",
 		"react-native-gesture-handler": "~2.5.0",
-		"react-native-heroicons": "^2.2.0",
+		"react-native-heroicons": "^3.0.0",
 		"react-native-reanimated": "~2.10.0",
 		"react-native-safe-area-context": "4.3.1",
 		"react-native-screens": "~3.15.0",
@@ -49,7 +49,7 @@
 	"devDependencies": {
 		"@babel/core": "^7.18.6",
 		"@babel/runtime": "^7.18.9",
-		"@rnx-kit/metro-config": "^1.2.37",
+		"@rnx-kit/metro-config": "^1.2.38",
 		"@rnx-kit/metro-resolver-symlinks": "^0.1.21",
 		"@types/react": "~18.0.0",
 		"@types/react-native": "~0.69.1",
@@ -61,7 +61,7 @@
 		"eslint-plugin-react": "^7.30.1",
 		"eslint-plugin-react-hooks": "^4.6.0",
 		"eslint-plugin-react-native": "^4.0.0",
-		"metro-minify-terser": "^0.72.1",
+		"metro-minify-terser": "^0.72.2",
 		"react-native-svg-transformer": "^1.0.0",
 		"typescript": "^4.7.4"
 	},
