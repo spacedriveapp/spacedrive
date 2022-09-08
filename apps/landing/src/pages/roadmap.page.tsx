@@ -11,7 +11,7 @@ function Page() {
 			when: 'Big bang',
 			subtext: 'Q1 2022',
 			completed: true,
-			title: 'File Discovery',
+			title: 'File discovery',
 			description:
 				'Scan devices, drives and cloud accounts to build a directory of all files with metadata.'
 		},
@@ -35,9 +35,9 @@ function Page() {
 			when: 'Alpha',
 			subtext: 'Q2 2022',
 			completed: true,
-			title: 'File Explorer',
+			title: 'Explorer',
 			description:
-				' Browse online/offline storage locations, view files with metadata, perform basic CRUD.'
+				'Browse online/offline storage locations, view files with metadata, perform basic CRUD.'
 		},
 		{
 			completed: true,
@@ -62,12 +62,16 @@ function Page() {
 		},
 		{
 			when: '0.1.0 Beta',
-			subtext: 'Q3 2022',
+			subtext: 'Q4 2022',
 			title: 'Realtime library synchronization',
 			description: 'Automatically synchronized libraries across devices via P2P connections.'
 		},
 		{
-			title: 'Self hosted',
+			title: 'Spacedrop',
+			description: 'Drop files between devices and contacts on a keybind like AirDrop.'
+		},
+		{
+			title: 'Self hosting',
 			description:
 				'Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.'
 		},
@@ -77,12 +81,12 @@ function Page() {
 				'Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
 		},
 		{
-			when: 'Jeff',
-			subtext: 'Q4 2022',
 			title: 'Hosted Spaces',
 			description: 'Host select Spaces on our cloud to share with friends or publish on the web.'
 		},
 		{
+			when: '0.2.0 Beta',
+			subtext: 'Q1 2023',
 			title: 'Extensions',
 			description:
 				'Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on spacedrive.com/extensions.'
@@ -90,7 +94,7 @@ function Page() {
 		{
 			title: 'Encrypted vault(s)',
 			description:
-				'Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.'
+				'Effortlessly manage & encrypt sensitive files. Encrypt individual files or create flexible-size vaults.'
 		},
 		{
 			title: 'Key manager',
@@ -98,16 +102,16 @@ function Page() {
 				'View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.'
 		},
 		{
-			title: 'Redundancy Goal',
-			description:
-				'Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.'
-		},
-		{
 			when: 'Release',
-			subtext: 'Q1 2023',
+			subtext: 'Q2 2023',
 			title: 'Timeline',
 			description:
 				'View a linear timeline of content, travel to any time and see media represented visually.'
+		},
+		{
+			title: 'Redundancy',
+			description:
+				'Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.'
 		},
 		{
 			title: 'Workers',
@@ -175,7 +179,7 @@ function Page() {
 									<h3 className="mb-0 group-first-of-type:m-0 lg:hidden">{item.when}</h3>
 								)}
 								<div className="flex flex-col w-full p-4 my-2 space-y-2 border border-gray-500 rounded-xl group-first-of-type:mt-0 group-last:mb-0">
-									<h3 className="my-1">{item.title}</h3>
+									<h3 className="m-0">{item.title}</h3>
 									<p>{item.description}</p>
 								</div>
 							</div>
