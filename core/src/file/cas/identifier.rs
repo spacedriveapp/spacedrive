@@ -1,7 +1,5 @@
 use crate::{
-	job::{
-		JobError, JobMetadata, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
-	},
+	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
 	prisma::{file, file_path, location},
 };
@@ -126,7 +124,7 @@ impl StatefulJob for FileIdentifierJob {
 		});
 
 		state.steps = (0..task_count).map(|_| ()).collect();
-		Ok(())
+		Ok(None)
 	}
 
 	async fn execute_step(
@@ -290,14 +288,14 @@ impl StatefulJob for FileIdentifierJob {
 		]);
 
 		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
-		Ok(())
+		Ok(None)
 	}
 
 	async fn finalize(
 		&self,
 		_ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<JobMetadata, JobError> {
+	) -> JobResult {
 		let data = state
 			.data
 			.as_ref()
