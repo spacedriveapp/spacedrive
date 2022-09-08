@@ -3,7 +3,7 @@ import { OperatingSystem, Operations, PlatformProvider, queryClient, rspc } from
 import SpacedriveInterface, { Platform } from '@sd/interface';
 import { dialog, invoke, os } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';

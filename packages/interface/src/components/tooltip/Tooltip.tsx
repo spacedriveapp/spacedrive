@@ -1,5 +1,4 @@
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
-import React from 'react';
 
 export const Tooltip = ({
 	children,

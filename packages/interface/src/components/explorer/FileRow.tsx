@@ -1,19 +1,10 @@
-import { EllipsisHorizontalIcon } from '@heroicons/react/24/solid';
-import { LocationContext, explorerStore, useBridgeQuery, useLibraryQuery } from '@sd/client';
-import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
-import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Virtuoso, VirtuosoGrid, VirtuosoHandle } from 'react-virtuoso';
-import { useKey, useWindowSize } from 'rooks';
-import styled from 'styled-components';
+import { HTMLAttributes } from 'react';
 
-import FileItem from './FileItem';
 import FileThumb from './FileThumb';
-import { isPath } from './utils';
 
-interface Props extends React.HTMLAttributes<HTMLDivElement> {
+interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
 	index: number;
 	selected: boolean;

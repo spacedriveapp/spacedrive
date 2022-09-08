@@ -1,6 +1,5 @@
 import { Button, Input } from '@sd/ui';
 import { MagnifyingGlass } from 'phosphor-react';
-import React from 'react';
 
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';

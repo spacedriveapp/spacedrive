@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { useEffect } from 'react';
+import { HTMLAttributes, useEffect, useRef } from 'react';
 
 import closeIconPath from '../../assets/svg/macos_close.svg';
 import fullscreenIconPath from '../../assets/svg/macos_fullscreen.svg';
@@ -13,7 +13,7 @@ export interface TrafficLightsProps extends DefaultProps {
 	onFullscreen?: () => void;
 }
 
-export const MacTrafficLights: React.FC<TrafficLightsProps> = (props) => {
+export function MacTrafficLights(props: TrafficLightsProps) {
 	const [focused] = useFocusState();
 	return (
 		<div
@@ -25,17 +25,17 @@ export const MacTrafficLights: React.FC<TrafficLightsProps> = (props) => {
 			<TrafficLight type="fullscreen" onClick={props.onFullscreen} colorful={focused} />
 		</div>
 	);
-};
+}
 
 interface TrafficLightProps {
 	type: 'close' | 'minimize' | 'fullscreen';
 	colorful: boolean;
-	onClick?: React.HTMLAttributes<HTMLDivElement>['onClick'];
+	onClick?: HTMLAttributes<HTMLDivElement>['onClick'];
 }
 
-const TrafficLight: React.FC<TrafficLightProps> = (props) => {
+function TrafficLight(props: TrafficLightProps) {
 	const { onClick = () => undefined, colorful = false, type } = props;
-	const iconPath = React.useRef<string>(closeIconPath);
+	const iconPath = useRef<string>(closeIconPath);
 
 	useEffect(() => {
 		switch (type) {
@@ -75,4 +75,4 @@ const TrafficLight: React.FC<TrafficLightProps> = (props) => {
 			/>
 		</div>
 	);
-};
+}

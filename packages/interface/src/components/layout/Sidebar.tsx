@@ -5,7 +5,6 @@ import { LocationCreateArgs } from '@sd/core';
 import { Button, Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
-import React from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
@@ -167,23 +166,6 @@ export function Sidebar() {
 			)}
 		>
 			<WindowControls />
-
-			<Dropdown
-				items={[
-					[
-						{
-							name: 'Library Settings',
-							icon: CogIcon,
-							onPress: () => navigate('settings/library')
-						},
-						{
-							name: 'Add Library',
-							icon: PlusIcon,
-							wrapItemComponent: CreateLibraryDialog
-						}
-					]
-				]}
-			/>
 
 			<Dropdown
 				buttonProps={{

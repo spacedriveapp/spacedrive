@@ -1,11 +1,11 @@
 import { ShareIcon } from '@heroicons/react/24/solid';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import { ExplorerContext, ExplorerItem, File, FilePath, Location } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import clsx from 'clsx';
 import moment from 'moment';
-import { Heart, Link } from 'phosphor-react';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'phosphor-react';
+import { useEffect, useState } from 'react';
 
 import types from '../../constants/file-types.json';
 import { Tooltip } from '../tooltip/Tooltip';

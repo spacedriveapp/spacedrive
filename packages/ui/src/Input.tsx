@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React from 'react';
+import { forwardRef } from 'react';
 
 const variants = {
 	default: `
@@ -33,7 +33,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 	variant?: keyof typeof variants;
 }
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ ...props }, ref) => {
+export const Input = forwardRef<HTMLInputElement, InputProps>(({ ...props }, ref) => {
 	return (
 		<input
 			ref={ref}

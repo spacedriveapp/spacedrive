@@ -1,13 +1,13 @@
 import { explorerStore } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
-import React from 'react';
+import { HTMLAttributes } from 'react';
 import { useSnapshot } from 'valtio';
 
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
 
-interface Props extends React.HTMLAttributes<HTMLDivElement> {
+interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
 	selected: boolean;
 	index: number;

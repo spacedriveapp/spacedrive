@@ -1,9 +1,9 @@
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/core';
-import { Button, Input } from '@sd/ui';
+import { Button } from '@sd/ui';
 import { DotsSixVertical } from 'phosphor-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import CreateLibraryDialog from '../../../components/dialog/CreateLibraryDialog';

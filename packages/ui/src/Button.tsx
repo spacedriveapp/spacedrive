@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 
 const sizes = {
 	default: 'py-1 px-3 text-md font-medium',

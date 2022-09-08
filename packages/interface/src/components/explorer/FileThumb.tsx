@@ -1,7 +1,6 @@
 import { explorerStore, usePlatform } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
-import React, { useContext, useState } from 'react';
 import { useSnapshot } from 'valtio';
 
 import icons from '../../assets/icons';

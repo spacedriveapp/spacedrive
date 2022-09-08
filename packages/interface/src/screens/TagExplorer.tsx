@@ -1,5 +1,4 @@
 import { useCurrentLibrary, useLibraryQuery } from '@sd/client';
-import React from 'react';
 import { useParams } from 'react-router-dom';
 
 import Explorer from '../components/explorer/Explorer';

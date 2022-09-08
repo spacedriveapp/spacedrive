@@ -1,7 +1,7 @@
 import { useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
 import { Button, Input } from '@sd/ui';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDebounce } from 'use-debounce';
 
 import { Toggle } from '../../../components/primitive';

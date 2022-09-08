@@ -1,8 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { explorerStore, useCurrentLibrary, useLibraryQuery } from '@sd/client';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useSnapshot } from 'valtio';
 
 import Explorer from '../components/explorer/Explorer';
 

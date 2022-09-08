@@ -1,5 +1,4 @@
 import clsx from 'clsx';
-import React from 'react';
 import { Puff } from 'react-loading-icons';
 
 export default function Loader(props: { className?: string }) {

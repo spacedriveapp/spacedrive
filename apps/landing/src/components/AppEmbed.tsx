@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import clsx from 'clsx';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { getWindow } from '../utils';
 

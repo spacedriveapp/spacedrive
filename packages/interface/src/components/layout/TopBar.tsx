@@ -11,7 +11,7 @@ import {
 	SidebarSimple,
 	SquaresFour
 } from 'phosphor-react';
-import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
+import { DetailedHTMLProps, HTMLAttributes, forwardRef, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSnapshot } from 'valtio';
 
@@ -58,7 +58,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 	);
 };
 
-const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
+const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
 	const os = useOperatingSystem(true);
 
 	return (
@@ -99,8 +99,8 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	const navigate = useNavigate();
 
 	//create function to focus on search box when cmd+k is pressed
-	const searchRef = React.useRef<HTMLInputElement>(null);
-	React.useEffect(() => {
+	const searchRef = useRef<HTMLInputElement>(null);
+	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if (e.metaKey && e.key === 'l') {
 				if (searchRef.current) searchRef.current.focus();

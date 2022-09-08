@@ -9,7 +9,7 @@ import AppLogo from '@sd/assets/images/logo.png';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
 import { List } from 'phosphor-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { positions } from '../pages/careers.page';
 import { getWindow } from '../utils';

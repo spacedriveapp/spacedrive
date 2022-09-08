@@ -1,7 +1,7 @@
 import { Transition } from '@headlessui/react';
 import { useLibraryQuery } from '@sd/client';
 import clsx from 'clsx';
-import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
+import { DetailedHTMLProps, HTMLAttributes } from 'react';
 
 import ProgressBar from '../primitive/ProgressBar';
 

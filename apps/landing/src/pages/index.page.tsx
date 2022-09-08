@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 
 import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
@@ -100,11 +100,11 @@ function Page() {
 			</Helmet>
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 			<div className="mt-24 lg:mt-5" />
-			 <NewBanner 
-			 	headline="Spacedrive raises $2M led by OSS Capital" 
-				href="/blog/spacedrive-funding-announcement" 
-			 	link="Read post" 
-			 /> 
+			<NewBanner
+				headline="Spacedrive raises $2M led by OSS Capital"
+				href="/blog/spacedrive-funding-announcement"
+				link="Read post"
+			/>
 			{unsubscribedFromWaitlist && (
 				<div
 					className={

@@ -9,8 +9,6 @@ const client = createClient<Operations>({
 	)
 });
 
-// TODO: Conditional 'demoMode'
-
 const platform: Platform = {
 	platform: 'web',
 	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,

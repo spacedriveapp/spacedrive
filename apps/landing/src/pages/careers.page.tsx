@@ -10,7 +10,7 @@ import {
 	StarIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '@sd/ui';
-import React from 'react';
+import { useRef } from 'react';
 import { Helmet } from 'react-helmet';
 
 interface PositionPosting {
@@ -84,7 +84,7 @@ const perks = [
 ];
 
 function Page() {
-	const openPositionsRef = React.useRef<HTMLHRElement>(null);
+	const openPositionsRef = useRef<HTMLHRElement>(null);
 	const scrollToPositions = () => openPositionsRef.current?.scrollIntoView({ behavior: 'smooth' });
 
 	return (

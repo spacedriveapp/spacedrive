@@ -12,7 +12,6 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import React from 'react';
 import { useSnapshot } from 'valtio';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {

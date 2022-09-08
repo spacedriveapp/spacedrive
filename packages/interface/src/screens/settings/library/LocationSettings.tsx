@@ -1,10 +1,8 @@
 import { useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
 import { LocationCreateArgs } from '@sd/core';
 import { Button } from '@sd/ui';
-import React, { useContext } from 'react';
 
 import LocationListItem from '../../../components/location/LocationListItem';
-import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
