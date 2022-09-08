@@ -267,8 +267,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 					{({ isActive }) => (
 						<Button
 							noPadding
-							variant={isActive ? 'default' : 'default'}
-							className={clsx('px-[4px] mb-1')}
+							variant={'default'}
+							className={clsx('px-[4px] hover:!bg-opacity-20 mb-1')}
 						>
 							<CogIcon className="w-5 h-5" />
 						</Button>
@@ -277,7 +277,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
 				<OverlayPanel
 					className="focus:outline-none"
 					trigger={
-						<Button noPadding className={clsx('px-[4px] !outline-none')}>
+						<Button noPadding className={clsx('px-[4px] hover:!bg-opacity-20 !outline-none')}>
 							<CheckCircle className="w-5 h-5" />
 						</Button>
 					}
