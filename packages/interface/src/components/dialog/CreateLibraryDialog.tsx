@@ -1,4 +1,4 @@
-import { useBridgeMutation } from '@sd/client';
+import { queryClient, useBridgeMutation } from '@sd/client';
 import { Input } from '@sd/ui';
 import React, { useState } from 'react';
 
@@ -17,6 +17,7 @@ export default function CreateLibraryDialog(props: Props) {
 		{
 			onSuccess: () => {
 				setOpenCreateModal(false);
+				queryClient.invalidateQueries(['library.list']);
 			}
 		}
 	);

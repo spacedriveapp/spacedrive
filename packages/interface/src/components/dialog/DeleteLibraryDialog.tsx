@@ -1,4 +1,4 @@
-import { useBridgeMutation } from '@sd/client';
+import { queryClient, useBridgeMutation } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/core';
 import { Input } from '@sd/ui';
 import React, { useState } from 'react';
@@ -16,6 +16,7 @@ export default function DeleteLibraryDialog(props: Props) {
 	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeMutation('library.delete', {
 		onSuccess: () => {
 			setOpenDeleteModal(false);
+			queryClient.invalidateQueries(['library.list']);
 		}
 	});
 
