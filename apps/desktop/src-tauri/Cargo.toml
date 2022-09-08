@@ -9,26 +9,26 @@ default-run = "spacedrive"
 edition = "2021"
 build = "build.rs"
 
-[build-dependencies]
-tauri-build = { version = "1.0.0-rc.5", features = [] }
-
 [dependencies]
-# Project dependencies
-tauri = { version = "1.0.0-rc.6", features = ["api-all", "macos-private-api"] }
+tauri = { version = "1.0.4", features = ["api-all", "macos-private-api"] }
+rspc = { version = "0.0.4", features = ["tauri"] }
 sdcore = { path = "../../../core" }
-# tauri-plugin-shadows = { git = "https://github.com/tauri-apps/tauri-plugin-shadows", features = ["tauri-impl"] }
-
-# Universal Dependencies
 tokio = { version = "1.17.0", features = ["sync"] }
 window-shadows = "0.1.2"
+tracing = "0.1.35"
+serde = "1.0.144"
 
-# macOS system libs
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease" }
 
+[build-dependencies]
+tauri-build = { version = "1.0.0", features = [] }
+
 [target.'cfg(target_os = "macos")'.build-dependencies]
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = ["build"] }
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = [
+  "build",
+] }
 
 [features]
-default = [ "custom-protocol" ]
-custom-protocol = [ "tauri/custom-protocol" ]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

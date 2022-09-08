@@ -11,7 +11,7 @@ on:
 
 env:
   CARGO_INCREMENTAL: 1
-  CUSTOM_APT_FLAGS: --no-install-recommends
+  SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
 jobs:
   typescript:
@@ -36,7 +36,7 @@ jobs:
         id: pnpm-cache
         run: |
           echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
-      
+
       - uses: actions/cache@v3
         name: Setup pnpm cache
         with:
@@ -44,7 +44,7 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-      
+
       - name: Install pnpm dependencies
         run: pnpm --frozen-lockfile i
 
@@ -81,7 +81,7 @@ jobs:
         with:
           version: 7
           run_install: false
-      
+
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
@@ -89,7 +89,7 @@ jobs:
           profile: minimal
           override: true
           components: rustfmt, rust-src
-      
+
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v1
         with:
@@ -98,10 +98,10 @@ jobs:
       - name: Run 'setup-system.sh' script
         if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
         run: ./.github/scripts/setup-system.sh
-      
+
       - name: Run 'setup-system.ps1' script
         if: matrix.platform == 'windows-latest'
-        run: ./.github/scripts/setup-system.ps1
+        run: ./.github/scripts/setup-system.ps1 -ci
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -116,7 +116,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Install pnpm dependencies
         run: pnpm --frozen-lockfile i
-      
+
       - name: Cache Prisma codegen
         id: cache-prisma
         uses: actions/cache@v3
@@ -127,13 +127,13 @@ jobs:
       - name: Generate Prisma client
         working-directory: core
         if: steps.cache-prisma.outputs.cache-hit != 'true'
-        run: cargo run --frozen --locked -p prisma-cli --release -- generate
+        run: cargo run -p prisma-cli --release -- generate
 
       - name: Cargo fetch
-        run: cargo fetch --frozen
+        run: cargo fetch
 
       - name: Check Core
-        run: cargo check --frozen --offline -p sdcore --release
+        run: cargo check -p sdcore --release
 
       - name: Bundle Desktop
         run: pnpm desktop tauri build
@@ -141,7 +141,7 @@ jobs:
       - name: Build Server
         if: matrix.platform == 'ubuntu-latest'
         run: |
-          cargo build --frozen --offline -p server --release
+          cargo build -p server --release
           cp ./target/release/server ./apps/server/server
 
       - name: Determine image name & tag

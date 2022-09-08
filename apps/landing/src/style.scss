@@ -97,34 +97,49 @@ html {
 }
 
 .bloom {
-	@apply absolute w-96 h-96;
+	@apply absolute w-[1200px] h-[1200px] -mt-[320px];
 	will-change: opacity;
 	opacity: 0;
 	will-change: filter opacity;
-	border-radius: 50%;
-	transform: scale(1.5);
-	-webkit-filter: blur(120px);
-	filter: blur(120px);
-	animation-name: bloomBurst;
-	animation-duration: 1s;
 	animation-timing-function: ease-in-out;
 	animation-fill-mode: forwards;
 	animation-iteration-count: 1;
 	animation-direction: forwards;
+	&.burst {
+		animation-name: bloomBurst;
+		animation-duration: 1s;
+	}
+	&.subtle {
+		animation-name: bloomSubtle;
+		animation-duration: 3s;
+	}
 	&.bloom-one {
-		background: conic-gradient(from 90deg at 50% 50%, #255bef, #aa1cca);
+		@apply left-0 -ml-[300px];
+		background: url('/bloom-one.png') no-repeat center center;
+		background-size: contain;    
 		animation-delay: 300ms;
 	}
 	&.bloom-two {
-		background: conic-gradient(from 90deg at 50% 50%, #c62dbb, #1d054b);
+		@apply right-0 -mr-[300px];
+		background: url('/bloom-two.png') no-repeat center center;
+		background-size: contain;
 		animation-delay: 0ms;
-		margin-top: -20px;
 	}
 	&.bloom-three {
-		background: conic-gradient(from 90deg at 50% 50%, #6c2ca0, #0b0b98);
-		animation-delay: 600ms;
-		margin-top: 0px;
+		@apply left-auto right-auto invisible md:visible -mt-[250px] ml-24;
+		background: url('/bloom-three.png') no-repeat center center;
+		background-size: contain;
+		animation-delay: 800ms;
 	}
+	&.egg-bloom-one {
+		background: url('/egg-bloom-one.png') no-repeat center center;
+		background-size: contain;
+	}
+	&.egg-bloom-two {
+		background: url('/egg-bloom-two.png') no-repeat center center;
+		background-size: contain;
+	}
+
 }
 
 @keyframes bloomBurst {
@@ -138,21 +153,15 @@ html {
 		opacity: 0.8;
 	}
 }
-
-@-moz-document url-prefix() {
-	@keyframes bloomBurst {
-		from {
-			opacity: 0;
-		}
-		40% {
-			opacity: 0.5;
-		}
-		to {
-			opacity: 0.3;
-		}
+@keyframes bloomSubtle {
+	from {
+		opacity: 0;
 	}
-	.page-bloom {
-		display: none;
+	40% {
+		opacity: 0.8;
+	}
+	to {
+		opacity: 0.6;
 	}
 }
 

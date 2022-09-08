@@ -1,162 +1,285 @@
-use std::collections::HashMap;
-use std::{fs, io};
-use std::path::Path;
-
-use crate::job::JobReportUpdate;
-use crate::prisma::file;
-use crate::sys::get_location;
 use crate::{
-	file::FileError,
-	job::{Job, WorkerContext},
-	prisma::file_path,
-	CoreContext,
+	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	library::LibraryContext,
+	prisma::{file, file_path, location},
 };
-use futures::executor::block_on;
-use prisma_client_rust::prisma_models::PrismaValue;
-use prisma_client_rust::raw::Raw;
-use prisma_client_rust::{raw, Direction};
+
+use chrono::{DateTime, FixedOffset};
+use prisma_client_rust::{prisma_models::PrismaValue, raw::Raw, Direction};
 use serde::{Deserialize, Serialize};
+use std::{
+	collections::{HashMap, HashSet},
+	path::{Path, PathBuf},
+};
+use tokio::{fs, io};
+use tracing::{error, info};
 
 use super::checksum::generate_cas_id;
-#[derive(Deserialize, Serialize, Debug)]
-pub struct FileCreated {
-	pub id: i32,
-	pub cas_id: String,
+
+// we break this job into chunks of 100 to improve performance
+static CHUNK_SIZE: usize = 100;
+pub const IDENTIFIER_JOB_NAME: &str = "file_identifier";
+
+pub struct FileIdentifierJob {}
+
+// FileIdentifierJobInit takes file_paths without a file_id and uniquely identifies them
+// first: generating the cas_id and extracting metadata
+// finally: creating unique file records, and linking them to their file_paths
+#[derive(Serialize, Deserialize, Clone)]
+pub struct FileIdentifierJobInit {
+	pub location_id: i32,
+	pub sub_path: Option<PathBuf>, // subpath to start from
 }
 
-#[derive(Debug)]
-pub struct FileIdentifierJob {
-	pub location_id: i32,
-	pub path: String,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FilePathIdAndLocationIdCursor {
+	file_path_id: i32,
+	location_id: i32,
+}
+
+impl From<&FilePathIdAndLocationIdCursor> for file_path::UniqueWhereParam {
+	fn from(cursor: &FilePathIdAndLocationIdCursor) -> Self {
+		file_path::location_id_id(cursor.location_id, cursor.file_path_id)
+	}
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FileIdentifierJobState {
+	total_count: usize,
+	task_count: usize,
+	location: location::Data,
+	location_path: PathBuf,
+	cursor: FilePathIdAndLocationIdCursor,
 }
 
 #[async_trait::async_trait]
-impl Job for FileIdentifierJob {
+impl StatefulJob for FileIdentifierJob {
+	type Init = FileIdentifierJobInit;
+	type Data = FileIdentifierJobState;
+	type Step = ();
+
 	fn name(&self) -> &'static str {
-		"file_identifier"
+		IDENTIFIER_JOB_NAME
 	}
-	async fn run(&self, ctx: WorkerContext) -> Result<(), Box<dyn std::error::Error>> {
-		println!("Identifying files");
-		let location = get_location(&ctx.core_ctx, self.location_id).await?;
-		let location_path = location.path.unwrap_or("".to_string());
 
-		let total_count = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+	async fn init(
+		&self,
+		ctx: WorkerContext,
+		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+	) -> JobResult {
+		info!("Identifying orphan file paths...");
 
-		println!("Found {} orphan file paths", total_count);
+		let library = ctx.library_ctx();
 
-		let task_count = (total_count as f64 / 100f64).ceil() as usize;
+		let location = library
+			.db
+			.location()
+			.find_unique(location::id::equals(state.init.location_id))
+			.exec()
+			.await?
+			.unwrap();
 
-		println!("Will process {} tasks", task_count);
+		let location_path = location
+			.local_path
+			.as_ref()
+			.map(PathBuf::from)
+			.unwrap_or_default();
+
+		let total_count = count_orphan_file_paths(&library, state.init.location_id).await?;
+		info!("Found {} orphan file paths", total_count);
+
+		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
+		info!("Will process {} tasks", task_count);
 
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let db = ctx.core_ctx.database.clone();
+		state.data = Some(FileIdentifierJobState {
+			total_count,
+			task_count,
+			location,
+			location_path,
+			cursor: FilePathIdAndLocationIdCursor {
+				file_path_id: 1,
+				location_id: state.init.location_id,
+			},
+		});
 
-		let ctx = tokio::task::spawn_blocking(move || {
-			let mut completed: usize = 0;
-			let mut cursor: i32 = 1;
-			// map cas_id to file_path ids
-			let mut cas_id_lookup: HashMap<i32, String> = HashMap::new();
+		state.steps = (0..task_count).map(|_| ()).collect();
 
-			while completed < task_count {
-				let file_paths = block_on(get_orphan_file_paths(&ctx.core_ctx, cursor)).unwrap();
-				println!(
-					"Processing {:?} orphan files. ({} completed of {})",
-					file_paths.len(),
-					completed,
-					task_count
-				);
+		Ok(())
+	}
 
-				// raw values to be inserted into the database
-				let mut values: Vec<PrismaValue> = Vec::new();
+	async fn execute_step(
+		&self,
+		ctx: WorkerContext,
+		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+	) -> JobResult {
+		let db = ctx.library_ctx().db;
 
-				// only rows that have a valid cas_id to be inserted
-				for file_path in file_paths.iter() {
-					match prepare_file_values(&location_path, file_path) {
-						Ok((cas_id, data)) => {
-							cas_id_lookup.insert(file_path.id, cas_id);
-							values.extend(data);
-						}
-						Err(e) => {
-							println!("Error processing file: {}", e);
-							continue;
-						}
-					};
+		// link file_path ids to a CreateFile struct containing unique file data
+		let mut chunk: HashMap<i32, CreateFile> = HashMap::new();
+		let mut cas_lookup: HashMap<String, i32> = HashMap::new();
+
+		let data = state
+			.data
+			.as_mut()
+			.expect("critical error: missing data on job state");
+
+		// get chunk of orphans to process
+		let file_paths =
+			match get_orphan_file_paths(&ctx.library_ctx(), &data.cursor, data.location.id).await {
+				Ok(file_paths) => file_paths,
+				Err(e) => {
+					info!("Error getting orphan file paths: {:#?}", e);
+					return Ok(());
 				}
-				if values.len() == 0 {
-					println!("No orphan files to process, finishing...");
-					break;
+			};
+		info!(
+			"Processing {:?} orphan files. ({} completed of {})",
+			file_paths.len(),
+			state.step_number,
+			data.task_count
+		);
+
+		// analyze each file_path
+		for file_path in &file_paths {
+			// get the cas_id and extract metadata
+			match prepare_file(&data.location_path, file_path).await {
+				Ok(file) => {
+					let cas_id = file.cas_id.clone();
+					// create entry into chunks for created file data
+					chunk.insert(file_path.id, file);
+					cas_lookup.insert(cas_id, file_path.id);
 				}
-
-				println!("Inserting {} unique file records ({:?} values)", file_paths.len(), values.len());
-				
-				let files: Vec<FileCreated> = block_on(db._query_raw(Raw::new(
-				  &format!(
-				    "INSERT INTO files (cas_id, size_in_bytes) VALUES {} ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
-				    vec!["({}, {})"; file_paths.len()].join(",")
-				  ),
-				  values
-				))).unwrap_or_else(|e| {
-					println!("Error inserting files: {}", e);
-					Vec::new()
-				});
-
-				println!("Unique files: {:?}" , files);
-
-				// assign unique file to file path
-				println!("Assigning {} unique file ids to origin file_paths", files.len());
-				for (file_path_id, cas_id) in cas_id_lookup.iter() {
-					// get the cas id from the lookup table
-					let file = files.iter().find(|f| &f.cas_id == cas_id);
-					let file_id: i32;
-					if let Some(file) = file {
-						file_id = file.id;
-					} else {
-						let unique_file = match block_on(db.file().find_unique(file::cas_id::equals(cas_id.clone())).exec()) {
-							Ok(f) => match f {
-								Some(f) => f,
-								None => {
-									println!("Unique file does not exist, this shouldn't happen: {}", cas_id);
-									continue;
-								}
-							},
-							Err(e) => {
-								println!("Error finding unique file: {}", e);
-								continue;
-							}
-						};
-						file_id = unique_file.id;
-					}
-					
-				  block_on(
-				    db.file_path()
-				      .find_unique(file_path::id::equals(file_path_id.clone()))
-				      .update(vec![
-				        file_path::file_id::set(Some(file_id))
-				      ])
-				      .exec()
-				  ).unwrap();
+				Err(e) => {
+					info!("Error processing file: {:#?}", e);
+					continue;
 				}
+			};
+		}
 
-				let last_row = file_paths.last().unwrap();
+		// find all existing files by cas id
+		let generated_cas_ids = chunk.values().map(|c| c.cas_id.clone()).collect();
+		let existing_files = db
+			.file()
+			.find_many(vec![file::cas_id::in_vec(generated_cas_ids)])
+			.exec()
+			.await?;
 
-				cursor = last_row.id;
-				completed += 1;
-				ctx.progress(vec![
-				  JobReportUpdate::CompletedTaskCount(completed),
-				  JobReportUpdate::Message(format!(
-				    "Processed {} of {} orphan files",
-				    completed,
-				    task_count
-				  )),
-				]);
+		info!("Found {} existing files", existing_files.len());
+
+		for existing_file in &existing_files {
+			if let Err(e) = db
+				.file_path()
+				.update(
+					file_path::location_id_id(
+						state.init.location_id,
+						*cas_lookup.get(&existing_file.cas_id).unwrap(),
+					),
+					vec![file_path::file_id::set(Some(existing_file.id))],
+				)
+				.exec()
+				.await
+			{
+				info!("Error updating file_id: {:#?}", e);
 			}
-			ctx
-		})
-		.await?;
+		}
 
-		let _remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+		let existing_files_cas_ids = existing_files
+			.iter()
+			.map(|file| file.cas_id.clone())
+			.collect::<HashSet<_>>();
+
+		// extract files that don't already exist in the database
+		let new_files = chunk
+			.iter()
+			.map(|(_id, create_file)| create_file)
+			.filter(|create_file| !existing_files_cas_ids.contains(&create_file.cas_id))
+			.collect::<Vec<_>>();
+
+		// assemble prisma values for new unique files
+		let mut values = Vec::with_capacity(new_files.len() * 3);
+		for file in &new_files {
+			values.extend([
+				PrismaValue::String(file.cas_id.clone()),
+				PrismaValue::Int(file.size_in_bytes),
+				PrismaValue::DateTime(file.date_created),
+			]);
+		}
+
+		// create new file records with assembled values
+		// TODO: Use create_many with skip_duplicates. Waiting on https://github.com/Brendonovich/prisma-client-rust/issues/143
+		let created_files: Vec<FileCreated> = db
+			._query_raw(Raw::new(
+				&format!(
+					"INSERT INTO files (cas_id, size_in_bytes, date_created) VALUES {}
+						ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
+					vec!["({}, {}, {})"; new_files.len()].join(",")
+				),
+				values,
+			))
+			.exec()
+			.await
+			.unwrap_or_else(|e| {
+				error!("Error inserting files: {:#?}", e);
+				Vec::new()
+			});
+
+		for created_file in created_files {
+			// associate newly created files with their respective file_paths
+			// TODO: this is potentially bottle necking the chunk system, individually linking file_path to file, 100 queries per chunk
+			// - insert many could work, but I couldn't find a good way to do this in a single SQL query
+			if let Err(e) = db
+				.file_path()
+				.update(
+					file_path::location_id_id(
+						state.init.location_id,
+						*cas_lookup.get(&created_file.cas_id).unwrap(),
+					),
+					vec![file_path::file_id::set(Some(created_file.id))],
+				)
+				.exec()
+				.await
+			{
+				info!("Error updating file_id: {:#?}", e);
+			}
+		}
+
+		// handle last step
+		if let Some(last_row) = file_paths.last() {
+			data.cursor.file_path_id = last_row.id;
+		} else {
+			return Ok(());
+		}
+
+		ctx.progress(vec![
+			JobReportUpdate::CompletedTaskCount(state.step_number),
+			JobReportUpdate::Message(format!(
+				"Processed {} of {} orphan files",
+				state.step_number * CHUNK_SIZE,
+				data.total_count
+			)),
+		]);
+
+		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location_id.into()).await?;
+		Ok(())
+	}
+
+	async fn finalize(
+		&self,
+		_ctx: WorkerContext,
+		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+	) -> Result<(), JobError> {
+		let data = state
+			.data
+			.as_ref()
+			.expect("critical error: missing data on job state");
+		info!(
+			"Finalizing identifier job at {}, total of {} tasks",
+			data.location_path.display(),
+			data.task_count
+		);
 
 		Ok(())
 	}
@@ -167,50 +290,79 @@ struct CountRes {
 	count: Option<usize>,
 }
 
-pub async fn count_orphan_file_paths(
-	ctx: &CoreContext,
-	location_id: i64,
-) -> Result<usize, FileError> {
-	let db = &ctx.database;
-	let files_count = db
-		._query_raw::<CountRes>(raw!(
-			"SELECT COUNT(*) AS count FROM file_paths WHERE file_id IS NULL AND is_dir IS FALSE AND location_id = {}",
-			PrismaValue::Int(location_id)
-		))
+async fn count_orphan_file_paths(
+	ctx: &LibraryContext,
+	location_id: i32,
+) -> Result<usize, prisma_client_rust::QueryError> {
+	let files_count = ctx
+		.db
+		.file_path()
+		.count(vec![
+			file_path::file_id::equals(None),
+			file_path::is_dir::equals(false),
+			file_path::location_id::equals(location_id),
+		])
+		.exec()
 		.await?;
-	Ok(files_count[0].count.unwrap_or(0))
+	// Is this
+	Ok(files_count as usize)
 }
 
-pub async fn get_orphan_file_paths(
-	ctx: &CoreContext,
-	cursor: i32,
-) -> Result<Vec<file_path::Data>, FileError> {
-	let db = &ctx.database;
-	println!("cursor: {:?}", cursor);
-	let files = db
+async fn get_orphan_file_paths(
+	ctx: &LibraryContext,
+	cursor: &FilePathIdAndLocationIdCursor,
+	location_id: i32,
+) -> Result<Vec<file_path::Data>, prisma_client_rust::QueryError> {
+	info!(
+		"discovering {} orphan file paths at cursor: {:?}",
+		CHUNK_SIZE, cursor
+	);
+	ctx.db
 		.file_path()
 		.find_many(vec![
 			file_path::file_id::equals(None),
 			file_path::is_dir::equals(false),
+			file_path::location_id::equals(location_id),
 		])
 		.order_by(file_path::id::order(Direction::Asc))
-		.cursor(file_path::id::cursor(cursor))
-		.take(100)
+		.cursor(cursor.into())
+		.take(CHUNK_SIZE as i64)
 		.exec()
-		.await?;
-	Ok(files)
+		.await
 }
 
-pub fn prepare_file_values(
-	location_path: &str,
+#[derive(Deserialize, Serialize, Debug)]
+struct CreateFile {
+	pub cas_id: String,
+	pub size_in_bytes: i64,
+	pub date_created: DateTime<FixedOffset>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct FileCreated {
+	pub id: i32,
+	pub cas_id: String,
+}
+
+async fn prepare_file(
+	location_path: impl AsRef<Path>,
 	file_path: &file_path::Data,
-) -> Result<(String, [PrismaValue; 2]), io::Error> {
-	let path = Path::new(&location_path).join(Path::new(file_path.materialized_path.as_str()));
-	// println!("Processing file: {:?}", path);
-	let metadata = fs::metadata(&path)?;
+) -> Result<CreateFile, io::Error> {
+	let path = location_path
+		.as_ref()
+		.join(file_path.materialized_path.as_str());
+
+	info!("Reading path: {:?}", path);
+
+	let metadata = fs::metadata(&path).await?;
+
+	// let date_created: DateTime<Utc> = metadata.created().unwrap().into();
+
+	let size = metadata.len();
+
 	let cas_id = {
 		if !file_path.is_dir {
-			let mut ret = generate_cas_id(path.clone(), metadata.len()).unwrap();
+			let mut ret = generate_cas_id(path, size).await?;
 			ret.truncate(16);
 			ret
 		} else {
@@ -218,7 +370,9 @@ pub fn prepare_file_values(
 		}
 	};
 
-	println!("cas id for path {:?} is {:?}", path, cas_id);
-
-	Ok((cas_id.clone(), [PrismaValue::String(cas_id), PrismaValue::Int(0)]))
+	Ok(CreateFile {
+		cas_id,
+		size_in_bytes: size as i64,
+		date_created: file_path.date_created,
+	})
 }

@@ -1,15 +1,15 @@
+import { Button } from './Button';
 import { Menu } from '@headlessui/react';
-import { ChevronDownIcon } from '@heroicons/react/solid';
+import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
 import React from 'react';
-
-import { Button } from './Button';
 
 export type DropdownItem = {
 	name: string;
 	icon?: any;
 	selected?: boolean;
 	onPress?: () => any;
+	wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
 }[];
 
 export interface DropdownProps {
@@ -21,6 +21,7 @@ export interface DropdownProps {
 	className?: string;
 	itemsClassName?: string;
 	itemButtonClassName?: string;
+	align?: 'left' | 'right';
 }
 
 export const Dropdown: React.FC<DropdownProps> = (props) => {
@@ -49,37 +50,48 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 
 				<Menu.Items
 					className={clsx(
-						'absolute z-50 min-w-[100px] w-full bg-white border divide-y divide-gray-100 rounded shadow-xl top-full dark:bg-gray-550 dark:divide-gray-500 dark:border-gray-600 ring-1 ring-black ring-opacity-5 focus:outline-none',
-						props.itemsClassName
+						'absolute z-50 min-w-fit w-full bg-white border divide-y divide-gray-100 rounded shadow-xl top-full dark:bg-gray-550 dark:divide-gray-500 dark:border-gray-600 ring-1 ring-black ring-opacity-5 focus:outline-none',
+						props.itemsClassName,
+						{ 'left-0': props.align === 'left' },
+						{ 'right-0': props.align === 'right' }
 					)}
 				>
 					{props.items.map((item, index) => (
-						<div key={index} className="px-1 py-1">
+						<div key={index} className="px-1 py-1 space-y-[2px]">
 							{item.map((button, index) => (
 								<Menu.Item key={index}>
-									{({ active }) => (
-										<button
-											onClick={button.onPress}
-											className={clsx(
-												'text-sm group flex rounded items-center w-full px-2 py-1 mb-[2px] dark:hover:bg-gray-500',
-												{
-													'bg-gray-300 dark:!bg-gray-500 dark:hover:bg-gray-500': button.selected
-													// 'text-gray-900 dark:text-gray-200': !active
-												},
-												props.itemButtonClassName
-											)}
-										>
-											{button.icon && (
-												<button.icon
-													className={clsx('mr-2 w-4 h-4', {
-														'dark:text-gray-100': active,
-														'text-gray-600 dark:text-gray-200': !active
-													})}
-												/>
-											)}
-											<span className="text-left">{button.name}</span>
-										</button>
-									)}
+									{({ active }) => {
+										const WrappedItem = button.wrapItemComponent
+											? button.wrapItemComponent
+											: (props: React.PropsWithChildren) => <>{props.children}</>;
+
+										return (
+											<WrappedItem>
+												<button
+													onClick={button.onPress}
+													className={clsx(
+														'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-500',
+														{
+															'bg-gray-300 dark:!bg-gray-500 dark:hover:bg-gray-500':
+																button.selected
+															// 'text-gray-900 dark:text-gray-200': !active
+														},
+														props.itemButtonClassName
+													)}
+												>
+													{button.icon && (
+														<button.icon
+															className={clsx('mr-2 w-4 h-4', {
+																'dark:text-gray-100': active,
+																'text-gray-600 dark:text-gray-200': !active
+															})}
+														/>
+													)}
+													<span className="text-left">{button.name}</span>
+												</button>
+											</WrappedItem>
+										);
+									}}
 								</Menu.Item>
 							))}
 						</div>

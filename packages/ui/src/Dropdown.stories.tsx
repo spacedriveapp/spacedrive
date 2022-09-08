@@ -1,4 +1,3 @@
-import { ViewListIcon } from '@heroicons/react/solid';
 import { ComponentMeta, ComponentStory } from '@storybook/react';
 import React from 'react';
 

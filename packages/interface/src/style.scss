@@ -29,7 +29,7 @@ body {
 		width: 8px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-[#00000006] dark:bg-[#00000030] mt-[55px] rounded-[6px];
+		@apply bg-[#00000006] dark:bg-[#00000030] mt-[53px] rounded-[6px];
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
@@ -57,6 +57,24 @@ body {
 	}
 	&::-webkit-scrollbar-thumb {
 		@apply rounded-[6px] bg-gray-300  dark:bg-gray-550;
+	}
+}
+.inspector-scroll {
+	// overflow: overlay;
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 5px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-transparent my-[8px];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] opacity-0 bg-gray-300 dark:bg-gray-950;
+	}
+	&:hover {
+		&::-webkit-scrollbar-thumb {
+			@apply opacity-100;
+		}
 	}
 }
 
@@ -111,4 +129,25 @@ body {
 }
 .dialog-content[data-state='closed'] {
 	animation: bounceDown 100ms ease-in forwards;
+}
+
+.picker {
+  position: relative;
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  border-radius: 9px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }

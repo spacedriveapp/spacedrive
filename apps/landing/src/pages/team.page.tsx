@@ -42,6 +42,23 @@ const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
+		name: 'Ericson Soares',
+		role: 'Rust Backend Engineer',
+		image: teamImages['ericson.jpg'],
+		socials: {
+			twitter: 'https://twitter.com/fogodev',
+			github: 'https://github.com/fogodev'
+		}
+	},
+	{
+		name: 'Utku Bakir',
+		role: 'React Native Engineer',
+		image: teamImages['utku.jpg'],
+		socials: {
+			github: 'https://github.com/utkubakir'
+		}
+	},
+	{
 		name: 'Haden Fletcher',
 		role: 'Engineer & Designer',
 		image: teamImages['haden.jpg'],
@@ -174,7 +191,7 @@ const investors: Array<TeamMemberProps> = [
 		name: 'Vijay Sharma',
 		role: 'CEO, Belong',
 		investmentRound: 'Seed',
-		image: investorImages['sharma.jpg']
+		image: investorImages['vijay.jpg']
 	},
 	{
 		name: 'Naveen R',
@@ -193,15 +210,11 @@ function Page() {
 			</Helmet>
 			<div className="relative team-page">
 				<div
-					className="page-bloom absolute -top-60 -right-[400px] opacity-60 w-[1000px] h-[800px] fade-in will-change-transform"
-					style={{
-						background: 'linear-gradient(180deg, #040CA8 0%, #0474A8 95.73%)',
-						filter: 'blur(300px)',
-						transform: 'rotate(56.81deg)'
-					}}
-				></div>
+					className="bloom subtle egg-bloom-one -top-60 -right-[400px]"
+					style={{ transform: 'scale(2)' }}
+				/>
 				<div className="relative z-10">
-					<h1 className="text-5xl leading-snug fade-in-heading ">
+					<h1 className="text-5xl leading-tight sm:leading-snug fade-in-heading ">
 						We believe file management should be <span className="title-gradient">universal</span>.
 					</h1>
 					<p className="text-gray-400 animation-delay-2 fade-in-heading ">
@@ -232,7 +245,7 @@ function Page() {
 							<a
 								href="https://github.com/spacedriveapp/spacedrive/graphs/contributors"
 								target="_blank"
-								rel="noreferer"
+								rel="noreferrer"
 								className="duration-200 oss-credit-gradient hover:opacity-75"
 							>
 								open source contributors
@@ -257,4 +270,4 @@ function Page() {
 	);
 }
 
-export default Page;
+export { Page };

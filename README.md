@@ -36,7 +36,7 @@ Spacedrive is an open source cross-platform file manager, powered by a virtual d
 
 Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.
 
-For independent creatives, hoarders and those that want to own their digital footprint. Spacedrive provides a file management experience like no other, and it's completely free.
+For independent creatives, hoarders and those that want to own their digital footprint, Spacedrive provides a free file management experience like no other.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/app.png" alt="Logo">
@@ -59,7 +59,7 @@ For independent creatives, hoarders and those that want to own their digital foo
 
 # What is a VDFS?
 
-A VDFS (virtual distributed filesystem) is a filesystem designed to work across a variety of storage layers. It is not restricted to a single machine, with a uniform API to manipulate and access content across many devices. It achieves this by maintaining a virtual index of all storage locations, synchronizing the database between clients in realtime. This implementation also uses [CAS](https://en.wikipedia.org/wiki/Content-addressable_storage) (Content-addressable storage) to uniquely identify files, while keeping record of logical file paths relative to the storage locations.
+A VDFS (virtual distributed filesystem) is a filesystem designed to work across a variety of storage layers. With a uniform API to manipulate and access content across many devices, VDFS is not restricted to a single machine. It achieves this by maintaining a virtual index of all storage locations, synchronizing the database between clients in realtime. This implementation also uses [CAS](https://en.wikipedia.org/wiki/Content-addressable_storage) (Content-addressable storage) to uniquely identify files, while keeping record of logical file paths relative to the storage locations.
 
 The first implementation of a VDFS can be found in this UC Berkeley [paper](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.pdf) by Haoyuan Li. This paper describes its use for cloud computing, however the underlying concepts can be translated to open consumer software.
 
@@ -85,7 +85,7 @@ _Note: Links are for highlight purposes only until feature specific documentatio
 **To be developed (MVP):**
 
 - **[Photos](#features)** - Photo and video albums similar to Apple/Google photos.
-- **[Search](#features)** - Deep search into your filesystem with a keybind, including offline locations.
+- **[Search](#features)** - Deep search into your filesystem with a keybinding, including offline locations.
 - **[Tags](#features)** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
 - **[Extensions](#features)** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.com/extensions](#features).
 
@@ -111,6 +111,7 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 
 - Prisma on the front-end? 🤯 Made possible thanks to [prisma-client-rust](https://github.com/brendonovich/prisma-client-rust), developed by [Brendonovich](https://github.com/brendonovich). Gives us access to the powerful migration CLI in development, along with the Prisma syntax for our schema. The application bundles with the Prisma query engine and codegen for a beautiful Rust API. Our lightweight migration runner is custom built for a desktop app context.
 - Tauri allows us to create a pure Rust native OS webview, without the overhead of your average Electron app. This brings the bundle size and average memory usage down dramatically. It also contributes to a more native feel, especially on macOS due to Safari's close integration with the OS.
+- We also use [rspc](https://rspc.otbeaumont.me) which allows us to define functions in Rust and call them on the Typescript frontend in a completly typesafe manner, so no unnecessary bugs make it into production!
 - The core (`sdcore`) is written in pure Rust.
 
 ## Monorepo structure:
@@ -124,19 +125,16 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 
 ### Core:
 
-- `core`: The [Rust](#) core, referred to internally as `sdcore`. Contains filesystem, database and networking logic. Can be deployed in a variety of host applications.
+- `core`: The [Rust](https://www.rust-lang.org) core, referred to internally as `sdcore`. Contains filesystem, database and networking logic. Can be deployed in a variety of host applications.
 
 ### Packages:
 
-- `client`: A [TypeScript](#) client library to handle dataflow via RPC between UI and the Rust core.
-- `ui`: A [React](<[#](https://reactjs.org)>) Shared component library.
+- `client`: A [TypeScript](https://www.typescriptlang.org/) client library to handle dataflow via RPC between UI and the Rust core.
+- `ui`: A [React](https://reactjs.org) Shared component library.
 - `interface`: The complete user interface in React (used by apps `desktop`, `web` and `landing`)
 - `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo.
-- `macos`: A [Swift](#) Native binary for MacOS system extensions.
-- `ios`: A [Swift](#) Native binary (planned).
-- `windows`: A [C#](#) Native binary (planned).
-- `android`: A [Kotlin](#) Native binary (planned).
-
-### Repo structure:
-![Visualization of the codebase](./diagram.svg)
+- `macos`: A [Swift](https://developer.apple.com/swift/) Native binary for MacOS system extensions.
+- `ios`: A [Swift](https://developer.apple.com/swift/) Native binary (planned).
+- `windows`: A [C#](https://docs.microsoft.com/en-us/dotnet/csharp/) Native binary (planned).
+- `android`: A [Kotlin](https://kotlinlang.org/) Native binary (planned).
 

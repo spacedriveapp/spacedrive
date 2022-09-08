@@ -1,6 +1,16 @@
 use std::env::consts;
 
-use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuItem, Submenu, WindowMenuEvent, Wry};
+use serde::Serialize;
+use tauri::{
+	AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowMenuEvent, Wry,
+};
+
+#[derive(Serialize, Clone)]
+pub struct DOMKeyboardEvent {
+	#[serde(rename = "metaKey")]
+	meta_key: bool,
+	key: String,
+}
 
 pub(crate) fn get_menu() -> Menu {
 	match consts::OS {
@@ -15,6 +25,13 @@ fn custom_menu_bar() -> Menu {
 			"Spacedrive".to_string(),
 			AboutMetadata::new(),
 		)) // TODO: fill out about metadata
+		.add_native_item(MenuItem::Separator)
+		.add_item(
+			// macOS 13 Ventura automatically changes "Preferences" to "Settings" for system-wide consistency.
+			// Use "Preferences" here to keep consistency on older versions
+			CustomMenuItem::new("open_settings".to_string(), "Preferences...")
+				.accelerator("CmdOrCtrl+Comma"),
+		)
 		.add_native_item(MenuItem::Separator)
 		.add_native_item(MenuItem::Services)
 		.add_native_item(MenuItem::Separator)
@@ -35,12 +52,16 @@ fn custom_menu_bar() -> Menu {
 		);
 	let edit_menu = Menu::new()
 		.add_native_item(MenuItem::Copy)
-		.add_native_item(MenuItem::Paste);
+		.add_native_item(MenuItem::Paste)
+		.add_native_item(MenuItem::SelectAll);
 	let view_menu = Menu::new()
 		.add_item(
-			CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
-				.accelerator("CmdOrCtrl+P"),
+			CustomMenuItem::new("open_search".to_string(), "Search").accelerator("CmdOrCtrl+L"),
 		)
+		// .add_item(
+		// 	CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
+		// 		.accelerator("CmdOrCtrl+P"),
+		// )
 		.add_item(CustomMenuItem::new("layout".to_string(), "Layout").disabled());
 	let window_menu = Menu::new().add_native_item(MenuItem::EnterFullScreen);
 
@@ -53,36 +74,42 @@ fn custom_menu_bar() -> Menu {
 			CustomMenuItem::new("reload_app".to_string(), "Reload").accelerator("CmdOrCtrl+R"),
 		);
 
-		let view_menu = view_menu.add_item(
+		view_menu.add_item(
 			CustomMenuItem::new("toggle_devtools".to_string(), "Toggle Developer Tools")
 				.accelerator("CmdOrCtrl+Alt+I"),
-		);
-
-		view_menu
+		)
 	};
 
-	let menu = Menu::new()
+	Menu::new()
 		.add_submenu(Submenu::new("Spacedrive", app_menu))
 		.add_submenu(Submenu::new("File", file_menu))
 		.add_submenu(Submenu::new("Edit", edit_menu))
 		.add_submenu(Submenu::new("View", view_menu))
-		.add_submenu(Submenu::new("Window", window_menu));
-
-	menu
+		.add_submenu(Submenu::new("Window", window_menu))
 }
 
 pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 	match event.menu_item_id() {
 		"quit" => {
-			std::process::exit(0);
+			let app = event.window().app_handle();
+			app.exit(0);
 		}
+		"open_settings" => event
+			.window()
+			.emit(
+				"do_keyboard_input",
+				DOMKeyboardEvent {
+					meta_key: true,
+					key: ",".into(),
+				},
+			)
+			.unwrap(),
 		"close" => {
 			let window = event.window();
 
 			#[cfg(debug_assertions)]
 			if window.is_devtools_open() {
 				window.close_devtools();
-				return;
 			} else {
 				window.close().unwrap();
 			}
@@ -90,18 +117,33 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			#[cfg(not(debug_assertions))]
 			window.close().unwrap();
 		}
+		"open_search" => event
+			.window()
+			.emit(
+				"do_keyboard_input",
+				DOMKeyboardEvent {
+					meta_key: true,
+					key: "l".into(),
+				},
+			)
+			.unwrap(),
 		"reload_app" => {
-			event
-				.window()
-				.with_webview(|webview| {
-					#[cfg(target_os = "macos")]
-					{
+			#[cfg(target_os = "macos")]
+			{
+				event
+					.window()
+					.with_webview(|webview| {
 						use crate::macos::reload_webview;
 
 						reload_webview(webview.inner() as _);
-					}
-				})
-				.unwrap();
+					})
+					.unwrap();
+			}
+
+			#[cfg(not(target_os = "macos"))]
+			{
+				unimplemented!();
+			}
 		}
 		#[cfg(debug_assertions)]
 		"toggle_devtools" => {

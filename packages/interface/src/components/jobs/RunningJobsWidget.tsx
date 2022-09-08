@@ -1,5 +1,5 @@
 import { Transition } from '@headlessui/react';
-import { useBridgeQuery } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import clsx from 'clsx';
 import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 
@@ -51,12 +51,13 @@ const MiddleTruncatedText = ({
 };
 
 export default function RunningJobsWidget() {
-	const { data: jobs } = useBridgeQuery('JobGetRunning');
+	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
 
 	return (
 		<div className="flex flex-col space-y-4">
-			{jobs?.map((job) => (
+			{jobs?.map((job, index) => (
 				<Transition
+					key={job.id + index}
 					show={true}
 					enter="transition-translate ease-in-out duration-200"
 					enterFrom="translate-y-24"

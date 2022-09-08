@@ -19,7 +19,7 @@
 		"strict": true,
 		"allowSyntheticDefaultImports": true,
 		"resolveJsonModule": true,
-		"jsx": "react",
+		"jsx": "react-jsx",
 		"paths": {
 			"@sd/interface": ["../../packages/interface"],
 			"@sd/ui": ["../../packages/ui"],

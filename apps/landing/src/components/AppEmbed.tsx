@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -59,15 +60,13 @@ const AppEmbed = () => {
 	return (
 		<div className="w-screen">
 			{renderBloom && (
-				<div className="relative max-w-full sm:w-full sm:max-w-[1200px] mx-auto">
-					<div className="absolute w-full overflow-visible top-[100px] h-32">
-						<div className="left-0 mt-22 bloom bloom-one" />
-						<div className="left-[34%] -mt-32 bloom bloom-three " />
-						<div className="right-0 invisible sm:visible bloom bloom-two" />
-					</div>
+				<div className="relative max-w-full sm:w-full sm:max-w-[1400px] mx-auto">
+					<div className="bloom burst bloom-one" />
+					<div className="bloom burst bloom-three" />
+					<div className="bloom burst bloom-two" />
 				</div>
 			)}
-			<div className="relative z-30 h-[328px] px-5 sm:h-[428px] md:h-[428px] lg:h-[628px] mt-8 sm:mt-16">
+			<div className="relative z-30 h-[255px] px-1 sm:h-[428px] md:h-[428px] lg:h-[628px] mt-8 sm:mt-16">
 				<div
 					className={clsx(
 						'relative h-full m-auto border rounded-lg max-w-7xl transition-opacity bg-gray-850 border-gray-550 opacity-0',
@@ -89,9 +88,7 @@ const AppEmbed = () => {
 						/>
 					)}
 
-					{renderImage && (
-						<div className="z-40 h-full w-[600px] sm:w-auto fade-in-app-embed landing-img" />
-					)}
+					{renderImage && <div className="z-40 h-full sm:w-auto fade-in-app-embed landing-img" />}
 				</div>
 			</div>
 		</div>

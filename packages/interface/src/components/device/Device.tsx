@@ -1,12 +1,13 @@
-import { KeyIcon } from '@heroicons/react/outline';
-import { CogIcon, LockClosedIcon } from '@heroicons/react/solid';
+import { KeyIcon } from '@heroicons/react/24/outline';
+import { CogIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
 import { Cloud, Desktop, DeviceMobileCamera, DotsSixVertical, Laptop } from 'phosphor-react';
 import React, { useState } from 'react';
-import { Rings } from 'react-loading-icons';
 
-import FileItem from '../file/FileItem';
+import FileItem from '../explorer/FileItem';
+import Loader from '../primitive/Loader';
 import ProgressBar from '../primitive/ProgressBar';
+import { Tooltip } from '../tooltip/Tooltip';
 
 export interface DeviceProps {
 	name: string;
@@ -25,7 +26,7 @@ export function Device(props: DeviceProps) {
 	}
 
 	return (
-		<div className="w-full bg-gray-50 dark:bg-gray-600 border rounded-md border-gray-100 dark:border-gray-550">
+		<div className="w-full border border-gray-100 rounded-md bg-gray-50 dark:bg-gray-600 dark:border-gray-550">
 			<div className="flex flex-row items-center px-4 pt-2 pb-2">
 				<DotsSixVertical weight="bold" className="mr-3 opacity-30" />
 				{props.type === 'phone' && <DeviceMobileCamera weight="fill" size={20} className="mr-2" />}
@@ -44,14 +45,8 @@ export function Device(props: DeviceProps) {
 				</span>
 				<div className="flex flex-grow" />
 				{props.runningJob && (
-					<div className="flex flex-row ml-5 bg-opacity-50 rounded-md bg-gray-300 dark:bg-gray-550">
-						<Rings
-							stroke="#2599FF"
-							strokeOpacity={4}
-							strokeWidth={10}
-							speed={0.5}
-							className="ml-0.5 mt-[2px] -mr-1 w-7 h-7"
-						/>
+					<div className="flex flex-row ml-5 bg-gray-300 bg-opacity-50 rounded-md dark:bg-gray-550">
+						<Loader />
 						<div className="flex flex-col p-2">
 							<span className="mb-[2px] -mt-1 truncate text-gray-450 text-tiny">
 								{props.runningJob.task}...
@@ -61,28 +56,22 @@ export function Device(props: DeviceProps) {
 					</div>
 				)}
 				<div className="flex flex-row ml-3 space-x-1">
-					<Button className="!p-1 ">
-						<KeyIcon className="w-5 h-5" />
-					</Button>
-					<Button className="!p-1 ">
-						<CogIcon className="w-5 h-5" />
-					</Button>
+					<Tooltip label="Encrypt">
+						<Button className="!p-1 ">
+							<KeyIcon className="w-5 h-5" />
+						</Button>
+					</Tooltip>
+					<Tooltip label="Settings">
+						<Button className="!p-1 ">
+							<CogIcon className="w-5 h-5" />
+						</Button>
+					</Tooltip>
 				</div>
 			</div>
-			{/* <hr className="border-gray-700" />
-      <hr className="border-gray-550" /> */}
 			<div className="px-4 pb-3 mt-3">
-				{props.locations.map((location, key) => (
-					<FileItem
-						key={key}
-						selected={selectedFile === location.name}
-						onClick={() => handleSelect(location.name)}
-						fileName={location.name}
-						folder={location.folder}
-						format={location.format}
-						iconName={location.icon}
-					/>
-				))}
+				{props.locations.length === 0 && (
+					<div className="w-full my-5 text-center text-gray-450">No locations</div>
+				)}
 			</div>
 		</div>
 	);

@@ -1,34 +1,43 @@
-use crate::{
-	prisma::{self, node},
-	Node,
-};
+use crate::prisma::node;
+
 use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
+use rspc::Type;
 use serde::{Deserialize, Serialize};
-use std::env;
-use thiserror::Error;
-use ts_rs::TS;
+use uuid::Uuid;
 
-mod state;
+mod config;
 
-pub use state::*;
+pub use config::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryNode {
-	pub uuid: String,
+	pub uuid: Uuid,
 	pub name: String,
 	pub platform: Platform,
-	pub tcp_address: String,
-	#[ts(type = "string")]
 	pub last_seen: DateTime<Utc>,
-	#[ts(type = "string")]
-	pub last_synchronized: DateTime<Utc>,
 }
 
+impl From<node::Data> for LibraryNode {
+	fn from(data: node::Data) -> Self {
+		Self {
+			uuid: Uuid::from_slice(&data.pub_id).unwrap(),
+			name: data.name,
+			platform: IntEnum::from_int(data.platform).unwrap(),
+			last_seen: data.last_seen.into(),
+		}
+	}
+}
+
+impl From<Box<node::Data>> for LibraryNode {
+	fn from(data: Box<node::Data>) -> Self {
+		Self::from(*data)
+	}
+}
+
+#[allow(clippy::upper_case_acronyms)]
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, Eq, PartialEq, IntEnum)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq, IntEnum)]
 pub enum Platform {
 	Unknown = 0,
 	Windows = 1,
@@ -36,66 +45,4 @@ pub enum Platform {
 	Linux = 3,
 	IOS = 4,
 	Android = 5,
-}
-
-impl LibraryNode {
-	pub async fn create(node: &Node) -> Result<(), NodeError> {
-		println!("Creating node...");
-		let mut config = state::get_nodestate();
-
-		let db = &node.database;
-
-		let hostname = match hostname::get() {
-			Ok(hostname) => hostname.to_str().unwrap_or_default().to_owned(),
-			Err(_) => "unknown".to_owned(),
-		};
-
-		let platform = match env::consts::OS {
-			"windows" => Platform::Windows,
-			"macos" => Platform::MacOS,
-			"linux" => Platform::Linux,
-			_ => Platform::Unknown,
-		};
-
-		let _node = match db
-			.node()
-			.find_unique(node::pub_id::equals(config.node_pub_id.clone()))
-			.exec()
-			.await?
-		{
-			Some(node) => node,
-			None => {
-				db.node()
-					.create(
-						node::pub_id::set(config.node_pub_id.clone()),
-						node::name::set(hostname.clone()),
-						vec![node::platform::set(platform as i32)],
-					)
-					.exec()
-					.await?
-			}
-		};
-
-		config.node_name = hostname;
-		config.node_id = _node.id;
-		config.save();
-
-		println!("node: {:?}", &_node);
-
-		Ok(())
-	}
-
-	// pub async fn get_nodes(ctx: &CoreContext) -> Result<Vec<node::Data>, NodeError> {
-	// 	let db = &ctx.database;
-
-	// 	let _node = db.node().find_many(vec![]).exec().await?;
-
-	// 	Ok(_node)
-	// }
-}
-
-#[derive(Error, Debug)]
-pub enum NodeError {
-	#[error("Database error")]
-	DatabaseError(#[from] prisma::QueryError),
 }

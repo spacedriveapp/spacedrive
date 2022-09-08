@@ -1,11 +1,17 @@
-import { BookOpenIcon, MapIcon, QuestionMarkCircleIcon, UsersIcon } from '@heroicons/react/solid';
-import { Discord, Github, Icon } from '@icons-pack/react-simple-icons';
+import {
+	BookOpenIcon,
+	MapIcon,
+	QuestionMarkCircleIcon,
+	UsersIcon
+} from '@heroicons/react/24/solid';
+import { Discord, Github } from '@icons-pack/react-simple-icons';
+import AppLogo from '@sd/assets/images/logo.png';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
 import { List } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
-import AppLogo from '../assets/images/logo.png';
+import { positions } from '../pages/careers.page';
 import { getWindow } from '../utils';
 
 function NavLink(props: { link?: string; children: string }) {
@@ -14,6 +20,7 @@ function NavLink(props: { link?: string; children: string }) {
 			href={props.link ?? '#'}
 			target={props.link?.startsWith('http') ? '_blank' : undefined}
 			className="p-4 text-gray-300 no-underline transition cursor-pointer hover:text-gray-50"
+			rel="noreferrer"
 		>
 			{props.children}
 		</a>
@@ -21,7 +28,7 @@ function NavLink(props: { link?: string; children: string }) {
 }
 
 function dropdownItem(
-	props: { name: string; icon: Icon } & ({ href: string } | { path: string })
+	props: { name: string; icon: any } & ({ href: string } | { path: string })
 ): DropdownItem[number] {
 	if ('href' in props) {
 		return {
@@ -53,12 +60,13 @@ export default function NavBar() {
 		setTimeout(onScroll, 0);
 		getWindow()?.addEventListener('scroll', onScroll);
 		return () => getWindow()?.removeEventListener('scroll', onScroll);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return (
 		<div
 			className={clsx(
-				'fixed transition-opacity z-40 w-full h-16 border-b ',
+				'fixed transition z-[55] w-full h-16 border-b ',
 				isAtTop
 					? 'bg-transparent border-transparent'
 					: 'border-gray-550 bg-gray-750 bg-opacity-80 backdrop-blur'
@@ -80,9 +88,12 @@ export default function NavBar() {
 					<NavLink link="/blog">Blog</NavLink>
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
-						<span className="absolute bg-opacity-80 px-[5px] text-xs rounded-md bg-primary -top-1 -right-2">
-							3
-						</span>
+						{positions.length > 0 ? (
+							<span className="absolute bg-opacity-80 px-[5px] text-xs rounded-md bg-primary -top-1 -right-2">
+								{' '}
+								{positions.length}{' '}
+							</span>
+						) : null}
 					</div>
 				</div>
 				<Dropdown
@@ -132,10 +143,10 @@ export default function NavBar() {
 					buttonProps={{ className: '!p-1 ml-[140px]' }}
 				/>
 				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
-					<a href="https://discord.gg/gTaF2Z44f5" target="_blank">
+					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
 						<Discord className="text-white" />
 					</a>
-					<a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
+					<a href="https://github.com/spacedriveapp/spacedrive" target="_blank" rel="noreferrer">
 						<Github className="text-white" />
 					</a>
 				</div>

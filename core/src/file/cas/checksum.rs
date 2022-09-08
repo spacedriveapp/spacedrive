@@ -1,36 +1,26 @@
 use data_encoding::HEXLOWER;
-
 use ring::digest::{Context, SHA256};
-use std::convert::TryInto;
-use std::fs::File;
-
-use std::io;
 use std::path::PathBuf;
+use tokio::{
+	fs::File,
+	io::{self, AsyncReadExt, AsyncSeekExt, SeekFrom},
+};
 
 static SAMPLE_COUNT: u64 = 4;
 static SAMPLE_SIZE: u64 = 10000;
 
-fn read_at(file: &File, offset: u64, size: u64) -> Result<Vec<u8>, io::Error> {
+async fn read_at(file: &mut File, offset: u64, size: u64) -> Result<Vec<u8>, io::Error> {
 	let mut buf = vec![0u8; size as usize];
 
-	#[cfg(target_family = "unix")]
-	{
-		use std::os::unix::prelude::*;
-		file.read_exact_at(&mut buf, offset)?;
-	}
-
-	#[cfg(target_family = "windows")]
-	{
-		use std::os::windows::prelude::*;
-		file.seek_read(&mut buf, offset)?;
-	}
+	file.seek(SeekFrom::Start(offset)).await?;
+	file.read_exact(&mut buf).await?;
 
 	Ok(buf)
 }
 
-pub fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Error> {
+pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Error> {
 	// open file reference
-	let file = File::open(path)?;
+	let mut file = File::open(path).await?;
 
 	let mut context = Context::new(&SHA256);
 
@@ -39,20 +29,16 @@ pub fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Error> {
 
 	// if size is small enough, just read the whole thing
 	if SAMPLE_COUNT * SAMPLE_SIZE > size {
-		let buf = read_at(&file, 0, size.try_into().unwrap())?;
+		let buf = read_at(&mut file, 0, size).await?;
 		context.update(&buf);
 	} else {
 		// loop over samples
 		for i in 0..SAMPLE_COUNT {
-			let buf = read_at(
-				&file,
-				(size / SAMPLE_COUNT) * i,
-				SAMPLE_SIZE.try_into().unwrap(),
-			)?;
+			let buf = read_at(&mut file, (size / SAMPLE_COUNT) * i, SAMPLE_SIZE).await?;
 			context.update(&buf);
 		}
 		// sample end of file
-		let buf = read_at(&file, size - SAMPLE_SIZE, SAMPLE_SIZE.try_into().unwrap())?;
+		let buf = read_at(&mut file, size - SAMPLE_SIZE, SAMPLE_SIZE).await?;
 		context.update(&buf);
 	}
 

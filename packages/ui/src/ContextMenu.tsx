@@ -3,13 +3,16 @@ import { Root, Trigger } from '@radix-ui/react-context-menu';
 import clsx from 'clsx';
 import { CaretRight, Icon } from 'phosphor-react';
 import { Question } from 'phosphor-react';
-import React, { ComponentPropsWithRef } from 'react';
+import React from 'react';
 
 export interface ContextMenuItem {
 	label: string;
 	icon?: Icon;
 	danger?: boolean;
-	onClick: () => void;
+	active?: boolean;
+	leftItem?: React.ReactNode;
+	rightItem?: React.ReactNode;
+	onClick?: React.MouseEventHandler<HTMLDivElement>;
 
 	children?: ContextMenuSection[];
 }
@@ -19,15 +22,23 @@ export type ContextMenuSection = (ContextMenuItem | string)[];
 export interface ContextMenuProps {
 	items?: ContextMenuSection[];
 	className?: string;
+	isChild?: boolean;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
-	const { items: sections = [], className, ...rest } = props;
+	const { items: sections = [], className, isChild, ...rest } = props;
+
+	const ContentPrimitive = isChild ? ContextMenuPrimitive.SubContent : ContextMenuPrimitive.Content;
 
 	return (
-		<ContextMenuPrimitive.Content
+		<ContentPrimitive
+			sideOffset={7}
+			// onInteractOutside={(e) => {
+			// 	e.preventDefault();
+			// }}
+			alignOffset={7}
 			className={clsx(
-				'shadow-2xl min-w-[15rem] shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-650 dark:text-gray-100 dark:border-gray-550 text-left text-sm rounded gap-1.5 border py-1.5',
+				'shadow-md min-w-[11rem] py-0.5 shadow-gray-300 dark:shadow-gray-750 flex flex-col select-none cursor-default bg-gray-50 text-gray-800 border-gray-200 dark:bg-gray-950 dark:text-gray-100  text-left text-sm rounded-lg ',
 				className
 			)}
 			{...rest}
@@ -35,37 +46,41 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 			{sections.map((sec, i) => (
 				<React.Fragment key={i}>
 					{i !== 0 && (
-						<ContextMenuPrimitive.Separator className="border-0 border-b border-b-gray-300 dark:border-b-gray-550 mx-2" />
+						<ContextMenuPrimitive.Separator className="mx-2 border-0 border-b pointer-events-none border-b-gray-300 dark:border-b-gray-600" />
 					)}
 
-					<ContextMenuPrimitive.Group className="flex items-stretch flex-col gap-0.5">
+					<ContextMenuPrimitive.Group className="flex flex-col items-stretch">
 						{sec.map((item) => {
 							if (typeof item === 'string')
 								return (
 									<ContextMenuPrimitive.Label
 										key={item}
-										className="text-xs ml-2 mt-1 uppercase text-gray-400"
+										className="mt-1 ml-2 text-xs text-gray-400 uppercase"
 									>
 										{item}
 									</ContextMenuPrimitive.Label>
 								);
 
-							const { icon: ItemIcon = Question } = item;
+							const { icon: ItemIcon } = item;
 
 							let ItemComponent:
 								| typeof ContextMenuPrimitive.Item
-								| typeof ContextMenuPrimitive.TriggerItem = ContextMenuPrimitive.Item;
+								| typeof ContextMenuPrimitive.Trigger = ContextMenuPrimitive.Item;
 
 							if ((item.children?.length ?? 0) > 0)
-								ItemComponent = ((props) => (
-									<ContextMenuPrimitive.Root>
-										<ContextMenuPrimitive.TriggerItem {...props}>
-											{props.children}
-										</ContextMenuPrimitive.TriggerItem>
+								ItemComponent = (({ children, ref, ...props }) => (
+									<ContextMenuPrimitive.ContextMenuSub>
+										<ContextMenuPrimitive.SubTrigger {...props}>
+											{children}
+										</ContextMenuPrimitive.SubTrigger>
 
-										<ContextMenu items={item.children} className="relative -left-1 -top-2" />
-									</ContextMenuPrimitive.Root>
-								)) as typeof ContextMenuPrimitive.TriggerItem;
+										<ContextMenu
+											isChild
+											items={item.children}
+											className="relative -left-1 -top-2"
+										/>
+									</ContextMenuPrimitive.ContextMenuSub>
+								)) as typeof ContextMenuPrimitive.Trigger;
 
 							return (
 								<ItemComponent
@@ -74,21 +89,28 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 										textAlign: 'inherit'
 									}}
 									className={clsx(
-										'focus:outline-none group cursor-default flex-1 px-1.5 py-0 group-first:pt-1.5',
-										{
-											'text-red-600 dark:text-red-400': item.danger
-										}
+										'focus:outline-none group cursor-default flex-1 px-1.5 py-1 group-first:pt-1.5 [&[data-state="open"]_div]:bg-primary',
+										item.danger && 'text-red-600 dark:text-red-400',
+										item.active && 'bg-gray-100 dark:bg-gray-950'
 									)}
 									onClick={item.onClick}
 									key={item.label}
 								>
-									<div className="px-1.5 py-[0.4em] group-focus:bg-gray-150 group-hover:bg-gray-150 dark:group-focus:bg-gray-550 dark:group-hover:bg-gray-550 flex flex-row gap-2.5 items-center rounded-sm">
-										{<ItemIcon size={18} />}
+									<div
+										className={clsx(
+											'flex py-[0.3em] flex-row items-center px-1 rounded group-focus:bg-primary group-hover:bg-primary',
+											item.danger &&
+												'group-focus:bg-red-500 group-hover:bg-red-500 group-focus:text-white group-hover:text-white'
+										)}
+									>
+										{ItemIcon && <ItemIcon size={18} />}
+										{item.leftItem}
 
-										<ContextMenuPrimitive.Label className="leading-snug flex-grow text-[14px] font-normal">
+										<ContextMenuPrimitive.Label className="ml-1.5 leading-snug flex-grow text-sm font-normal">
 											{item.label}
 										</ContextMenuPrimitive.Label>
 
+										{item.rightItem}
 										{(item.children?.length ?? 0) > 0 && (
 											<CaretRight weight="fill" size={12} alt="" />
 										)}
@@ -99,7 +121,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
 					</ContextMenuPrimitive.Group>
 				</React.Fragment>
 			))}
-		</ContextMenuPrimitive.Content>
+		</ContentPrimitive>
 	);
 };
 

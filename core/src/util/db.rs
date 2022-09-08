@@ -1,159 +1,138 @@
 use crate::prisma::{self, migration, PrismaClient};
-use crate::CoreContext;
 use data_encoding::HEXLOWER;
 use include_dir::{include_dir, Dir};
-use prisma_client_rust::raw;
-use ring::digest::{Context, Digest, SHA256};
-use std::ffi::OsStr;
-use std::io::{self, BufReader, Read};
+use prisma_client_rust::{raw, NewClientError};
+use ring::digest::{Context, SHA256};
 use thiserror::Error;
 
 const INIT_MIGRATION: &str = include_str!("../../prisma/migrations/migration_table/migration.sql");
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
+/// MigrationError represents an error that occurring while opening a initialising and running migrations on the database.
 #[derive(Error, Debug)]
-pub enum DatabaseError {
-	#[error("Unable to initialize the Prisma client")]
-	ClientError(#[from] prisma::NewClientError),
+pub enum MigrationError {
+	#[error("An error occurred while initialising a new database connection: {0}")]
+	DatabaseInitialization(#[from] NewClientError),
+	#[error("An error occurred with the database while applying migrations: {0}")]
+	DatabaseError(#[from] prisma_client_rust::QueryError),
+	#[error("An error occurred reading the embedded migration files. {0}. Please report to Spacedrive developers!")]
+	InvalidEmbeddedMigration(&'static str),
 }
 
-pub async fn create_connection(path: &str) -> Result<PrismaClient, DatabaseError> {
-	println!("Creating database connection: {:?}", path);
-	let client = prisma::new_client_with_url(&format!("file:{}", &path)).await?;
+/// load_and_migrate will load the database from the given path and migrate it to the latest version of the schema.
+pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationError> {
+	let client = prisma::new_client_with_url(db_url).await?;
 
-	Ok(client)
-}
-
-pub fn sha256_digest<R: Read>(mut reader: R) -> Result<Digest, io::Error> {
-	let mut context = Context::new(&SHA256);
-	let mut buffer = [0; 1024];
-	loop {
-		let count = reader.read(&mut buffer)?;
-		if count == 0 {
-			break;
-		}
-		context.update(&buffer[..count]);
-	}
-	Ok(context.finish())
-}
-
-pub async fn run_migrations(ctx: &CoreContext) -> Result<(), DatabaseError> {
-	let client = &ctx.database;
-
-	match client
+	let migrations_table_missing = client
 		._query_raw::<serde_json::Value>(raw!(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
 		))
-		.await
-	{
-		Ok(data) => {
-			if data.len() == 0 {
-				// execute migration
-				match client._execute_raw(raw!(INIT_MIGRATION)).await {
+		.exec()
+		.await?
+		.is_empty();
+
+	if migrations_table_missing {
+		client._execute_raw(raw!(INIT_MIGRATION)).exec().await?;
+	}
+
+	let mut migration_directories = MIGRATIONS_DIR
+		.dirs()
+		.map(|dir| {
+			dir.path()
+				.file_name()
+				.ok_or(MigrationError::InvalidEmbeddedMigration(
+					"File has malformed name",
+				))
+				.and_then(|name| {
+					name.to_str()
+						.ok_or(MigrationError::InvalidEmbeddedMigration(
+							"File name contains malformed characters",
+						))
+						.map(|name| (name, dir))
+				})
+		})
+		.filter_map(|v| match v {
+			Ok((name, _)) if name == "migration_table" => None,
+			Ok((name, dir)) => match name[..14].parse::<i64>() {
+				Ok(timestamp) => Some(Ok((name, timestamp, dir))),
+				Err(_) => Some(Err(MigrationError::InvalidEmbeddedMigration(
+					"File name is incorrectly formatted",
+				))),
+			},
+			Err(v) => Some(Err(v)),
+		})
+		.collect::<Result<Vec<_>, _>>()?;
+
+	// We sort the migrations so they are always applied in the correct order
+	migration_directories.sort_by(|(_, a_time, _), (_, b_time, _)| a_time.cmp(b_time));
+
+	for (name, _, dir) in migration_directories {
+		let migration_file_raw = dir
+			.get_file(dir.path().join("./migration.sql"))
+			.ok_or(MigrationError::InvalidEmbeddedMigration(
+				"Failed to find 'migration.sql' file in '{}' migration subdirectory",
+			))?
+			.contents_utf8()
+			.ok_or(
+				MigrationError::InvalidEmbeddedMigration(
+					"Failed to open the contents of 'migration.sql' file in '{}' migration subdirectory",
+				)
+			)?;
+
+		// Generate SHA256 checksum of migration
+		let mut checksum = Context::new(&SHA256);
+		checksum.update(migration_file_raw.as_bytes());
+		let checksum = HEXLOWER.encode(checksum.finish().as_ref());
+
+		// get existing migration by checksum, if it doesn't exist run the migration
+		if client
+			.migration()
+			.find_unique(migration::checksum::equals(checksum.clone()))
+			.exec()
+			.await?
+			.is_none()
+		{
+			// Create migration record
+			client
+				.migration()
+				.create(name.to_string(), checksum.clone(), vec![])
+				.exec()
+				.await?;
+
+			// Split the migrations file up into each individual step and apply them all
+			let steps = migration_file_raw.split(';').collect::<Vec<&str>>();
+			let step_count = steps.len();
+			let steps = &steps[0..step_count - 1];
+
+			for (i, step) in steps.iter().enumerate() {
+				match client._execute_raw(raw!(*step)).exec().await {
 					Ok(_) => {}
 					Err(e) => {
-						println!("Failed to create migration table: {}", e);
+						// remove the failed migration record so next time it will be retried
+						// potentially an issue if steps were already applied, look into generating down migrations
+						client
+							.migration()
+							.delete(migration::checksum::equals(checksum.clone()))
+							.exec()
+							.await?;
+
+						// TODO: Show UI alert with error message
+						panic!("Error applying migration step: {}", e);
 					}
-				};
-
-				let value: Vec<serde_json::Value> = client
-					._query_raw(raw!(
-						"SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
-					))
-					.await
-					.unwrap();
-
-				#[cfg(debug_assertions)]
-				println!("Migration table created: {:?}", value);
-			}
-
-			let mut migration_subdirs = MIGRATIONS_DIR
-				.dirs()
-				.filter(|subdir| {
-					subdir
-						.path()
-						.file_name()
-						.map(|name| name != OsStr::new("migration_table"))
-						.unwrap_or(false)
-				})
-				.collect::<Vec<_>>();
-
-			migration_subdirs.sort_by(|a, b| {
-				let a_name = a.path().file_name().unwrap().to_str().unwrap();
-				let b_name = b.path().file_name().unwrap().to_str().unwrap();
-
-				let a_time = a_name[..14].parse::<i64>().unwrap();
-				let b_time = b_name[..14].parse::<i64>().unwrap();
-
-				a_time.cmp(&b_time)
-			});
-
-			for subdir in migration_subdirs {
-				println!("{:?}", subdir.path());
-				let migration_file = subdir
-					.get_file(subdir.path().join("./migration.sql"))
-					.unwrap();
-				let migration_sql = migration_file.contents_utf8().unwrap();
-
-				let digest = sha256_digest(BufReader::new(migration_file.contents())).unwrap();
-				// create a lowercase hash from
-				let checksum = HEXLOWER.encode(digest.as_ref());
-				let name = subdir.path().file_name().unwrap().to_str().unwrap();
-
-				// get existing migration by checksum, if it doesn't exist run the migration
-				let existing_migration = client
-					.migration()
-					.find_unique(migration::checksum::equals(checksum.clone()))
-					.exec()
-					.await
-					.unwrap();
-
-				if existing_migration.is_none() {
-					#[cfg(debug_assertions)]
-					println!("Running migration: {}", name);
-
-					let steps = migration_sql.split(";").collect::<Vec<&str>>();
-					let steps = &steps[0..steps.len() - 1];
-
-					client
-						.migration()
-						.create(
-							migration::name::set(name.to_string()),
-							migration::checksum::set(checksum.clone()),
-							vec![],
-						)
-						.exec()
-						.await
-						.unwrap();
-
-					for (i, step) in steps.iter().enumerate() {
-						match client._execute_raw(raw!(*step)).await {
-							Ok(_) => {
-								client
-									.migration()
-									.find_unique(migration::checksum::equals(checksum.clone()))
-									.update(vec![migration::steps_applied::set(i as i32 + 1)])
-									.exec()
-									.await
-									.unwrap();
-							}
-							Err(e) => {
-								println!("Error running migration: {}", name);
-								println!("{}", e);
-								break;
-							}
-						}
-					}
-
-					#[cfg(debug_assertions)]
-					println!("Migration {} recorded successfully", name);
 				}
+				// Note: there isn't much point storing the steps in the db if we don't generate down migrations and write logic to run the already applied steps in reverse for a failed migration.
+				// for now if a migration fails we abort entirely (see above panic)
+				client
+					.migration()
+					.update(
+						migration::checksum::equals(checksum.clone()),
+						vec![migration::steps_applied::set(i as i32 + 1)],
+					)
+					.exec()
+					.await?;
 			}
-		}
-		Err(err) => {
-			panic!("Failed to check migration table existence: {:?}", err);
 		}
 	}
 
-	Ok(())
+	Ok(client)
 }
