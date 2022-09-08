@@ -1,7 +1,9 @@
 use crate::{
 	api::{locations::LocationExplorerArgs, CoreEvent, LibraryArgs},
 	invalidate_query,
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobMetadata, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::LibraryContext,
 	prisma::{file_path, location},
 };
@@ -180,7 +182,7 @@ impl StatefulJob for ThumbnailJob {
 		&self,
 		_ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	) -> Result<JobMetadata, JobError> {
 		let data = state
 			.data
 			.as_ref()
@@ -190,7 +192,9 @@ impl StatefulJob for ThumbnailJob {
 			state.init.location_id,
 			data.root_path.display()
 		);
-		Ok(())
+
+		// TODO: Serialize and return metadata here
+		Ok(None)
 	}
 }
 

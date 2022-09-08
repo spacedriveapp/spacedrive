@@ -1,5 +1,7 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobMetadata, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::LibraryContext,
 	prisma::{file, file_path, location},
 };
@@ -295,7 +297,7 @@ impl StatefulJob for FileIdentifierJob {
 		&self,
 		_ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	) -> Result<JobMetadata, JobError> {
 		let data = state
 			.data
 			.as_ref()
@@ -306,7 +308,8 @@ impl StatefulJob for FileIdentifierJob {
 			data.task_count
 		);
 
-		Ok(())
+		// TODO: Serialize and return metadata here
+		Ok(None)
 	}
 }
 
