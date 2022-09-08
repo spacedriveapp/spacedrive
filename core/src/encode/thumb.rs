@@ -51,7 +51,7 @@ impl StatefulJob for ThumbnailJob {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		let library_ctx = ctx.library_ctx();
 		let thumbnail_dir = library_ctx
 			.config()
@@ -93,14 +93,14 @@ impl StatefulJob for ThumbnailJob {
 		});
 		state.steps = image_files.into_iter().collect();
 
-		Ok(None)
+		Ok(())
 	}
 
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		ctx.progress(vec![JobReportUpdate::Message(format!(
 			"Processing {}",
@@ -126,12 +126,12 @@ impl StatefulJob for ThumbnailJob {
 						"skipping thumbnail generation for {}",
 						step.materialized_path
 					);
-					return Ok(None);
+					return Ok(());
 				}
 			}
 			Err(_) => {
 				error!("Error getting cas_id {:?}", step.materialized_path);
-				return Ok(None);
+				return Ok(());
 			}
 		};
 
@@ -173,7 +173,7 @@ impl StatefulJob for ThumbnailJob {
 			state.step_number + 1,
 		)]);
 
-		Ok(None)
+		Ok(())
 	}
 
 	async fn finalize(
