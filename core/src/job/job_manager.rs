@@ -213,6 +213,7 @@ pub struct JobReport {
 	pub id: Uuid,
 	pub name: String,
 	pub data: Option<Vec<u8>>,
+	pub metadata: Option<Vec<u8>>,
 	// client_id: i32,
 	pub date_created: chrono::DateTime<chrono::Utc>,
 	pub date_modified: chrono::DateTime<chrono::Utc>,
@@ -250,6 +251,7 @@ impl From<job::Data> for JobReport {
 			date_created: data.date_created.into(),
 			date_modified: data.date_modified.into(),
 			data: data.data,
+			metadata: data.metadata,
 			message: String::new(),
 			seconds_elapsed: data.seconds_elapsed,
 		}
@@ -267,6 +269,7 @@ impl JobReport {
 			status: JobStatus::Queued,
 			task_count: 0,
 			data: None,
+			metadata: None,
 			completed_task_count: 0,
 			message: String::new(),
 			seconds_elapsed: 0,
@@ -295,6 +298,7 @@ impl JobReport {
 				vec![
 					job::status::set(self.status.int_value()),
 					job::data::set(self.data.clone()),
+					job::metadata::set(self.metadata.clone()),
 					job::task_count::set(self.task_count),
 					job::completed_task_count::set(self.completed_task_count),
 					job::date_modified::set(chrono::Utc::now().into()),

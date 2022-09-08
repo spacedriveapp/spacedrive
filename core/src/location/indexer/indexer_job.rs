@@ -1,5 +1,7 @@
 use crate::{
-	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobMetadata, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	prisma::{file_path, location},
 };
 
@@ -290,7 +292,7 @@ impl StatefulJob for IndexerJob {
 		&self,
 		_ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<JobMetadata, JobError> {
 		let data = state
 			.data
 			.as_ref()
@@ -305,7 +307,8 @@ impl StatefulJob for IndexerJob {
 				.expect("critical error: non-negative duration"),
 		);
 
-		Ok(())
+		// TODO: Serialize and return metadata here
+		Ok(None)
 	}
 }
 
