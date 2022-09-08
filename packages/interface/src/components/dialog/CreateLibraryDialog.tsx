@@ -1,22 +1,24 @@
 import { useBridgeMutation } from '@sd/client';
 import { Input } from '@sd/ui';
-import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { PropsWithChildren, useState } from 'react';
 
 import Dialog from '../layout/Dialog';
 
-interface Props {
-	children: React.ReactNode;
-}
-
-export default function CreateLibraryDialog(props: Props) {
+export default function CreateLibraryDialog({ children }: PropsWithChildren) {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
 
+	const queryClient = useQueryClient();
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
 			onSuccess: () => {
+				queryClient.invalidateQueries(['library.get']); // TODO: Change to `library.list`
 				setOpenCreateModal(false);
+			},
+			onError: (err) => {
+				console.error(err);
 			}
 		}
 	);
@@ -31,7 +33,7 @@ export default function CreateLibraryDialog(props: Props) {
 			loading={createLibLoading}
 			submitDisabled={!newLibName}
 			ctaLabel="Create"
-			trigger={props.children}
+			trigger={children}
 		>
 			<Input
 				className="flex-grow w-full mt-3"

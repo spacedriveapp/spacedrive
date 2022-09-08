@@ -1,4 +1,4 @@
-import { explorerStore, libraryStore, rspc } from '@sd/client';
+import { explorerStore, rspc, useCurrentLibrary } from '@sd/client';
 import { ExplorerData } from '@sd/core';
 import React from 'react';
 import { useSnapshot } from 'valtio';
@@ -14,17 +14,13 @@ interface Props {
 
 export default function Explorer(props: Props) {
 	const expStore = useSnapshot(explorerStore);
+	const { library } = useCurrentLibrary();
 
-	const libStore = useSnapshot(libraryStore);
-
-	rspc.useSubscription(
-		['jobs.newThumbnail', { library_id: libStore.currentLibraryUuid!, arg: null }],
-		{
-			onNext: (cas_id) => {
-				expStore.addNewThumbnail(cas_id);
-			}
+	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
+		onNext: (cas_id) => {
+			expStore.addNewThumbnail(cas_id);
 		}
-	);
+	});
 
 	return (
 		<div className="relative">

@@ -1,15 +1,11 @@
-import { AppPropsContext } from '@sd/client';
 import clsx from 'clsx';
-import React, { useContext } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { Sidebar } from './components/layout/Sidebar';
+import { useOperatingSystem } from './hooks/useOperatingSystem';
 
 export function AppLayout() {
-	const appProps = useContext(AppPropsContext);
-
-	const isWindowRounded = appProps?.platform === 'macOS';
-	const hasWindowBorder = appProps?.platform !== 'browser' && appProps?.platform !== 'windows';
+	const os = useOperatingSystem();
 
 	return (
 		<div
@@ -20,8 +16,8 @@ export function AppLayout() {
 			}}
 			className={clsx(
 				'flex flex-row h-screen overflow-hidden text-gray-900 select-none dark:text-white cursor-default',
-				isWindowRounded && 'rounded-xl',
-				hasWindowBorder && 'border border-gray-200 dark:border-gray-500'
+				os === 'macOS' && 'rounded-xl',
+				os !== 'browser' && os !== 'windows' && 'border border-gray-200 dark:border-gray-500'
 			)}
 		>
 			<Sidebar />

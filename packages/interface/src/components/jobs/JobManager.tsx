@@ -54,7 +54,7 @@ export function JobsManager() {
 					{jobs.data?.map((job) => {
 						const color = StatusColors[job.status];
 						const niceData = NiceData[job.name];
-						if (job.metadata) console.log({ job });
+						// if (job.metadata) console.log({ job });
 
 						return (
 							<div

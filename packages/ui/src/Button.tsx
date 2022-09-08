@@ -124,6 +124,7 @@ export const Button = forwardRef<
 			variants[variant || 'default'],
 			{ 'active:translate-y-[1px]': pressEffect },
 			{ 'border-0': noBorder },
+			'disabled:opacity-50 disabled:cursor-not-allowed',
 			className
 		);
 

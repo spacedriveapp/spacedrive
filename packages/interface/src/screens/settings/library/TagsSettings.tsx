@@ -31,7 +31,7 @@ export default function TagsSettings() {
 
 	const { mutate: createTag, isLoading } = useLibraryMutation('tags.create', {
 		onError: (e) => {
-			console.log('error', e);
+			console.error('error', e);
 		},
 		onSuccess: (data) => {
 			setOpenCreateModal(false);

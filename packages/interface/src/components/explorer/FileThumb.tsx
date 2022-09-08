@@ -1,4 +1,4 @@
-import { AppPropsContext, explorerStore } from '@sd/client';
+import { explorerStore, usePlatform } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
 import React, { useContext, useState } from 'react';
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function FileThumb({ data, ...props }: Props) {
-	const appProps = useContext(AppPropsContext);
+	const platform = usePlatform();
 	const store = useSnapshot(explorerStore);
 
 	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
@@ -31,18 +31,13 @@ export default function FileThumb({ data, ...props }: Props) {
 		? data.file?.has_thumbnail
 		: !!store.newThumbnails[cas_id];
 
-	const file_thumb_url =
-		has_thumbnail && appProps?.data_path
-			? appProps?.convertFileSrc(`${appProps.data_path}/thumbnails/${cas_id}.webp`)
-			: undefined;
-
-	if (file_thumb_url)
+	if (has_thumbnail)
 		return (
 			<img
 				// onLoad={}
 				style={props.style}
 				className={clsx('pointer-events-none z-90', props.className)}
-				src={file_thumb_url}
+				src={platform.getThumbnailUrlById(cas_id)}
 			/>
 		);
 

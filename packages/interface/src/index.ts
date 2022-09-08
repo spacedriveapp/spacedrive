@@ -1,7 +1,7 @@
-import { AppProps, Platform } from '@sd/client';
+import { Platform } from '@sd/client';
 
 import SpacedriveInterface from './App';
 
-export type { AppProps, Platform };
+export type { Platform };
 
 export default SpacedriveInterface;

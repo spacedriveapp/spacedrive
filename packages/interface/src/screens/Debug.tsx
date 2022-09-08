@@ -1,11 +1,10 @@
-import { AppPropsContext, useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button } from '@sd/ui';
-import React, { useContext } from 'react';
+import { useBridgeQuery, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
 
 import CodeBlock from '../components/primitive/Codeblock';
 
+// TODO: Bring this back with a button in the sidebar near settings at the bottom
 export const DebugScreen: React.FC<unknown> = (props) => {
-	const appPropsContext = useContext(AppPropsContext);
+	const platform = usePlatform();
 	const { data: nodeState } = useBridgeQuery(['getNode']);
 	const { data: libraryState } = useBridgeQuery(['library.get']);
 	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
@@ -21,7 +20,7 @@ export const DebugScreen: React.FC<unknown> = (props) => {
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
 			<div className="flex flex-col p-5 pt-2 space-y-5 pb-7">
 				<h1 className="text-lg font-bold ">Developer Debugger</h1>
-				<div className="flex flex-row pb-4 space-x-2">
+				{/* <div className="flex flex-row pb-4 space-x-2">
 					<Button
 						className="w-40"
 						variant="gray"
@@ -34,7 +33,7 @@ export const DebugScreen: React.FC<unknown> = (props) => {
 					>
 						Open data folder
 					</Button>
-				</div>
+				</div> */}
 				<h1 className="text-sm font-bold ">Running Jobs</h1>
 				<CodeBlock src={{ ...jobs }} />
 				<h1 className="text-sm font-bold ">Job History</h1>
