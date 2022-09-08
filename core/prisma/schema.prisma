@@ -319,6 +319,7 @@ model Job {
     action  Int
     status  Int    @default(0)
     data    Bytes?
+    metadata Bytes?
 
     task_count           Int      @default(1)
     completed_task_count Int      @default(0)
