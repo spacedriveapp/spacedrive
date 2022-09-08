@@ -12,7 +12,7 @@ use sql_migration_connector::SqlMigrationConnector;
 use std::path::Path;
 use thiserror::Error;
 use tokio::fs::{create_dir, remove_dir_all};
-use tracing::{debug, info};
+use tracing::debug;
 
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations");
 
@@ -40,7 +40,6 @@ pub async fn load_and_migrate(
 	base_path: &Path,
 	db_url: &str,
 ) -> Result<PrismaClient, MigrationError> {
-	debug!("Loading database from path: {}", base_path.display());
 	let client = prisma::new_client_with_url(db_url).await?;
 	let temp_migrations_dir = base_path.join("./migrations_temp");
 	let migrations_directory_path = temp_migrations_dir
@@ -84,7 +83,7 @@ pub async fn load_and_migrate(
 		.map_err(MigrationError::RemoveDir)?;
 
 	for migration in output.applied_migration_names {
-		info!("Applied migration '{}'", migration);
+		debug!("Applied migration '{}'", migration);
 	}
 
 	Ok(client)
