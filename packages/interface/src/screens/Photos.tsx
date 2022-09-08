@@ -1,5 +1,3 @@
-import React from 'react';
-
 export const PhotosScreen: React.FC<unknown> = (props) => {
 	return (
 		<div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll">

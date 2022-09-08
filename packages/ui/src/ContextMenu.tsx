@@ -2,8 +2,7 @@ import * as RadixCM from '@radix-ui/react-context-menu';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { CaretRight, Icon } from 'phosphor-react';
-import { HTMLAttributes, PropsWithChildren, Suspense } from 'react';
-import React from 'react';
+import { PropsWithChildren, Suspense } from 'react';
 
 interface Props extends RadixCM.MenuContentProps {
 	trigger: React.ReactNode;

@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface MetaItemProps {
 	title?: string;
 	value: string | React.ReactNode;

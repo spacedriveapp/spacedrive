@@ -9,7 +9,6 @@ import {
 	Receipt,
 	ShareNetwork
 } from 'phosphor-react';
-import React from 'react';
 
 import { SidebarLink } from '../../components/layout/Sidebar';
 import {

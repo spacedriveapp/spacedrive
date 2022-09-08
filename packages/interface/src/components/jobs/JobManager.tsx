@@ -1,13 +1,10 @@
-import { CheckBadgeIcon, KeyIcon, RssIcon } from '@heroicons/react/24/outline';
 import { EyeIcon, FolderIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useLibraryQuery } from '@sd/client';
 import { JobReport } from '@sd/core';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import { format, formatDistance, formatDistanceToNow, formatDuration } from 'date-fns';
-import moment from 'moment';
+import { formatDistanceToNow, formatDuration } from 'date-fns';
 import { ArrowsClockwise } from 'phosphor-react';
-import React from 'react';
 
 import { Tooltip } from '../tooltip/Tooltip';
 

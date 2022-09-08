@@ -1,6 +1,5 @@
 import { explorerStore, rspc, useCurrentLibrary } from '@sd/client';
 import { ExplorerData } from '@sd/core';
-import React from 'react';
 import { useSnapshot } from 'valtio';
 
 import { Inspector } from '../explorer/Inspector';

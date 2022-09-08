@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 
 import { useBridgeQuery } from '../index';

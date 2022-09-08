@@ -1,8 +1,6 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { Icon } from 'phosphor-react';
-import React, { PropsWithChildren } from 'react';
+import { PropsWithChildren } from 'react';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
