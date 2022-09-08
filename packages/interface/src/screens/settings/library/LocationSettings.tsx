@@ -1,8 +1,7 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
+import { LocationCreateArgs } from '@sd/core';
 import { Button } from '@sd/ui';
 import React, { useContext } from 'react';
-import { LocationCreateArgs } from '@sd/core';
 
 import LocationListItem from '../../../components/location/LocationListItem';
 import { InputContainer } from '../../../components/primitive/InputContainer';
@@ -10,10 +9,8 @@ import { SettingsContainer } from '../../../components/settings/SettingsContaine
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function LocationSettings() {
+	const platform = usePlatform();
 	const { data: locations } = useLibraryQuery(['locations.get']);
-
-	const appProps = useContext(AppPropsContext);
-
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	return (
@@ -28,9 +25,19 @@ export default function LocationSettings() {
 							variant="primary"
 							size="sm"
 							onClick={() => {
-								appProps?.openDialog({ directory: true }).then((result) => {
+								if (!platform.openFilePickerDialog) {
+									// TODO: Support opening locations on web
+									alert('Opening a dialogue is not supported on this platform!');
+									return;
+								}
+
+								platform.openFilePickerDialog().then((result) => {
 									// TODO: Pass indexer rules ids to create location
-									if (result) createLocation({ path: result as string, indexer_rules_ids: [] } as LocationCreateArgs);
+									if (result)
+										createLocation({
+											path: result as string,
+											indexer_rules_ids: []
+										} as LocationCreateArgs);
 								});
 							}}
 						>

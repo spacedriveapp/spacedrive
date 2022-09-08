@@ -38,5 +38,3 @@ export const explorerStore = proxy({
 		}
 	}
 });
-
-console.log({ explorerStore });

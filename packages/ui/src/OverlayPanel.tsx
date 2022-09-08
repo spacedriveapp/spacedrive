@@ -6,6 +6,7 @@ import React, { PropsWithChildren } from 'react';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
+	disabled?: boolean;
 }
 
 const MENU_CLASSES = `
@@ -21,12 +22,15 @@ const MENU_CLASSES = `
 export const OverlayPanel = ({
 	trigger,
 	children,
+	disabled,
 	className,
 	...props
 }: PropsWithChildren<Props>) => {
 	return (
 		<DropdownMenu.Root>
-			<DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
+			<DropdownMenu.Trigger disabled={disabled} asChild>
+				{trigger}
+			</DropdownMenu.Trigger>
 			<DropdownMenu.Portal>
 				<DropdownMenu.Content {...props} className={clsx(MENU_CLASSES, className)}>
 					{children}

@@ -8,6 +8,7 @@ import { Button } from './Button';
 export type DropdownItem = {
 	name: string;
 	icon?: any;
+	disabled?: boolean;
 	selected?: boolean;
 	onPress?: () => any;
 	wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
@@ -16,6 +17,7 @@ export type DropdownItem = {
 export interface DropdownProps {
 	items: DropdownItem[];
 	buttonText?: string;
+	buttonTextClassName?: string;
 	buttonProps?: React.ComponentProps<typeof Button>;
 	buttonComponent?: React.ReactNode;
 	buttonIcon?: any;
@@ -37,7 +39,9 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 							{props.buttonIcon}
 							{props.buttonText && (
 								<>
-									<span className="w-32 truncate"> {props.buttonText}</span>
+									<span className={clsx('w-32 truncate', props.buttonTextClassName)}>
+										{props.buttonText}
+									</span>
 									<div className="flex-grow" />
 									<ChevronDownIcon
 										className="w-5 h-5 ml-2 -mr-1 text-violet-200 hover:text-violet-100 "
@@ -70,8 +74,9 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 											<WrappedItem>
 												<button
 													onClick={button.onPress}
+													disabled={button?.disabled === true}
 													className={clsx(
-														'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-500',
+														'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed',
 														{
 															'bg-gray-300 dark:!bg-gray-500 dark:hover:bg-gray-500':
 																button.selected

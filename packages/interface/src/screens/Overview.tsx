@@ -1,6 +1,5 @@
 import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
-import { AppPropsContext } from '@sd/client';
+import { useBridgeQuery, useLibraryQuery, usePlatform } from '@sd/client';
 import { Statistics } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
@@ -91,6 +90,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 };
 
 export const OverviewScreen = () => {
+	const platform = usePlatform();
 	const { data: libraryStatistics, isLoading: isStatisticsLoading } = useLibraryQuery([
 		'library.getStatistics'
 	]);
@@ -99,10 +99,8 @@ export const OverviewScreen = () => {
 	const { overviewStats, setOverviewStats } = useOverviewState();
 
 	// get app props from context
-	const appProps = useContext(AppPropsContext);
-
 	useEffect(() => {
-		if (appProps?.demoMode === true) {
+		if (platform.demoMode === true) {
 			if (!Object.entries(overviewStats).length)
 				setOverviewStats({
 					total_bytes_capacity: '8093333345230',
@@ -131,7 +129,7 @@ export const OverviewScreen = () => {
 			setOverviewStats(newStatistics);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [appProps, libraryStatistics]);
+	}, [platform, libraryStatistics]);
 
 	// useEffect(() => {
 	// 	setTimeout(() => {
@@ -168,7 +166,7 @@ export const OverviewScreen = () => {
 									key={key}
 									title={StatItemNames[key as keyof Statistics]!}
 									bytes={value}
-									isLoading={appProps?.demoMode === true ? false : isStatisticsLoading}
+									isLoading={platform.demoMode === true ? false : isStatisticsLoading}
 								/>
 							);
 						})}

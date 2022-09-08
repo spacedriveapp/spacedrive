@@ -8,9 +8,8 @@ import {
 	UseQueryResult,
 	useMutation as _useMutation
 } from '@tanstack/react-query';
-import { useSnapshot } from 'valtio';
 
-import { libraryStore } from './stores';
+import { useCurrentLibrary } from './index';
 
 export const queryClient = new QueryClient();
 export const rspc = createReactQueryHooks<Operations>();
@@ -41,14 +40,13 @@ export function useLibraryQuery<K extends LibraryQueryKey>(
 	key: LibraryQueryArgs<K> extends null | undefined ? [K] : [K, LibraryQueryArgs<K>],
 	options?: UseQueryOptions<LibraryQueryResult<K>, RSPCError>
 ): UseQueryResult<LibraryQueryResult<K>, RSPCError> {
-	const store = useSnapshot(libraryStore);
+	const { library } = useCurrentLibrary();
 
-	if (!store.currentLibraryUuid)
-		throw new Error(`Attempted to do library query with no library set!`);
+	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
 	// @ts-ignore
 	return rspc.useQuery(
 		// @ts-ignore
-		[key[0], { library_id: store.currentLibraryUuid || '', arg: key[1] || null }],
+		[key[0], { library_id: library?.uuid || '', arg: key[1] || null }],
 		options
 	);
 }
@@ -64,15 +62,13 @@ export function useLibraryMutation<K extends LibraryMutationKey>(
 	options?: UseMutationOptions<LibraryMutationResult<K>, RSPCError>
 ) {
 	const ctx = rspc.useContext();
-	const store = useSnapshot(libraryStore);
-
-	if (!store.currentLibraryUuid)
-		throw new Error(`Attempted to do library query with no library set!`);
+	const { library } = useCurrentLibrary();
+	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
 
 	// @ts-ignore
 	return _useMutation<LibraryMutationResult<K>, RSPCError, LibraryMutationArgs<K>>(
 		async (data) =>
-			ctx.client.mutation([key, { library_id: store.currentLibraryUuid || '', arg: data || null }]),
+			ctx.client.mutation([key, { library_id: library?.uuid || '', arg: data || null }]),
 		{
 			...options,
 			context: rspc.ReactQueryContext

@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { AppPropsContext, explorerStore, useLibraryMutation } from '@sd/client';
+import { explorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -11,10 +11,11 @@ import {
 	SidebarSimple,
 	SquaresFour
 } from 'phosphor-react';
-import React, { DetailedHTMLProps, HTMLAttributes, RefAttributes, useContext } from 'react';
+import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSnapshot } from 'valtio';
 
+import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -58,8 +59,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 };
 
 const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
-	//TODO: maybe pass the appProps, so we can have the context in the TopBar if needed again
-	const appProps = useContext(AppPropsContext);
+	const os = useOperatingSystem(true);
 
 	return (
 		<div className="relative flex h-7">
@@ -69,11 +69,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
 			/>
 			<div className="space-x-1 absolute top-[2px] right-1 peer-focus:invisible">
-				<Shortcut
-					chars={
-						appProps?.platform === 'macOS' || appProps?.platform === 'browser' ? '⌘L' : 'CTRL+L'
-					}
-				/>
+				<Shortcut chars={os === 'macOS' ? '⌘L' : 'CTRL+L'} />
 				{/* <Shortcut chars="S" /> */}
 			</div>
 		</div>
@@ -86,14 +82,14 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		'jobs.generateThumbsForLocation',
 		{
 			onMutate: (data) => {
-				console.log('GenerateThumbsForLocation', data);
+				// console.log('GenerateThumbsForLocation', data);
 			}
 		}
 	);
 
 	const { mutate: identifyUniqueFiles } = useLibraryMutation('jobs.identifyUniqueFiles', {
 		onMutate: (data) => {
-			console.log('IdentifyUniqueFiles', data);
+			// console.log('IdentifyUniqueFiles', data);
 		},
 		onError: (error) => {
 			console.error('IdentifyUniqueFiles', error);
