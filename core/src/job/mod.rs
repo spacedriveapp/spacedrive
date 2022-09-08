@@ -26,6 +26,8 @@ pub enum JobError {
 	StateEncode(#[from] EncodeError),
 	#[error("Job state decode error: {0}")]
 	StateDecode(#[from] DecodeError),
+	#[error("Job metadata serialization error: {0}")]
+	MetadataSerialization(#[from] serde_json::Error),
 	#[error("Tried to resume a job with unknown name: job <name='{1}', uuid='{0}'>")]
 	UnknownJobName(Uuid, String),
 	#[error(
