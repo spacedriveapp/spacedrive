@@ -129,6 +129,7 @@ impl JobManager {
 			.job()
 			.find_many(vec![job::status::not(JobStatus::Running.int_value())])
 			.order_by(job::date_created::order(Direction::Desc))
+			.take(100)
 			.exec()
 			.await?;
 
