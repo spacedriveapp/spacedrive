@@ -66,7 +66,7 @@ impl StatefulJob for FileIdentifierJob {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		info!("Identifying orphan Paths...");
 
 		let library = ctx.library_ctx();
@@ -124,14 +124,15 @@ impl StatefulJob for FileIdentifierJob {
 		});
 
 		state.steps = (0..task_count).map(|_| ()).collect();
-		Ok(None)
+
+		Ok(())
 	}
 
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		// link file_path ids to a CreateFile struct containing unique file data
 		let mut chunk: HashMap<i32, CreateFile> = HashMap::new();
 		let mut cas_lookup: HashMap<String, i32> = HashMap::new();
@@ -170,7 +171,7 @@ impl StatefulJob for FileIdentifierJob {
 					cas_lookup.insert(cas_id, file_path.id);
 				}
 				Err(e) => {
-					info!("Error assembling Object metadata: {:#?}", e);
+					error!("Error assembling Object metadata: {:#?}", e);
 					continue;
 				}
 			};
@@ -204,7 +205,7 @@ impl StatefulJob for FileIdentifierJob {
 				.exec()
 				.await
 			{
-				info!("Error updating file_id: {:#?}", e);
+				error!("Error updating file_id: {:#?}", e);
 			}
 		}
 
@@ -288,7 +289,7 @@ impl StatefulJob for FileIdentifierJob {
 		]);
 
 		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
-		Ok(None)
+		Ok(())
 	}
 
 	async fn finalize(
@@ -306,8 +307,7 @@ impl StatefulJob for FileIdentifierJob {
 			data.task_count
 		);
 
-		// TODO: Serialize and return metadata here
-		Ok(None)
+		Ok(Some(serde_json::to_value(&state.init)?))
 	}
 }
 
