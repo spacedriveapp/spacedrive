@@ -148,16 +148,6 @@ export const OverviewScreen = () => {
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
 					<div className="flex -mb-1 overflow-hidden">
-						{!libraryStatistics && (
-							<div className="mb-2 ml-2">
-								<div className="font-semibold text-gray-200">
-									<ExclamationCircleIcon className="inline w-4 h-4 mr-1 -mt-1 " /> Missing library
-								</div>
-								<span className="text-xs text-gray-400 ">
-									Ensure the library you have loaded still exists on disk
-								</span>
-							</div>
-						)}
 						{Object.entries(overviewStats).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
 

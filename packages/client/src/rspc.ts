@@ -2,6 +2,8 @@ import { RSPCError, createReactQueryHooks } from '@rspc/client';
 import { LibraryArgs, Operations } from '@sd/core';
 import {
 	QueryClient,
+	UseInfiniteQueryOptions,
+	UseInfiniteQueryResult,
 	UseMutationOptions,
 	UseMutationResult,
 	UseQueryOptions,
@@ -45,6 +47,21 @@ export function useLibraryQuery<K extends LibraryQueryKey>(
 	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
 	// @ts-ignore
 	return rspc.useQuery(
+		// @ts-ignore
+		[key[0], { library_id: library?.uuid || '', arg: key[1] || null }],
+		options
+	);
+}
+
+export function useInfiniteLibraryQuery<K extends LibraryQueryKey>(
+	key: LibraryQueryArgs<K> extends null | undefined ? [K] : [K, LibraryQueryArgs<K>],
+	options?: UseInfiniteQueryOptions<LibraryQueryResult<K>, RSPCError>
+): UseInfiniteQueryResult<LibraryQueryResult<K>, RSPCError> {
+	const { library } = useCurrentLibrary();
+
+	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
+	// @ts-ignore
+	return rspc.useInfiniteQuery(
 		// @ts-ignore
 		[key[0], { library_id: library?.uuid || '', arg: key[1] || null }],
 		options

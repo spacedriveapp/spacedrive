@@ -126,7 +126,7 @@ impl Node {
 		&str,    /* Content-Type */
 		Vec<u8>, /* Body */
 	) {
-		match path.get(0).copied() {
+		match path.first().copied() {
 			Some("thumbnail") => {
 				if path.len() != 2 {
 					return (
