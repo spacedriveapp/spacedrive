@@ -307,8 +307,7 @@ impl StatefulJob for IndexerJob {
 				.expect("critical error: non-negative duration"),
 		);
 
-		// TODO: Serialize and return metadata here
-		Ok(None)
+		Ok(Some(serde_json::to_vec(state)?))
 	}
 }
 
