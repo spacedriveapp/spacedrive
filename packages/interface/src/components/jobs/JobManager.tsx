@@ -18,15 +18,15 @@ interface JobNiceData {
 
 const NiceData: Record<string, JobNiceData> = {
 	indexer: {
-		name: 'Location Indexer',
+		name: 'Indexed location',
 		icon: FolderIcon
 	},
 	thumbnailer: {
-		name: 'Thumbnail Generator',
+		name: 'Generated thumbnails',
 		icon: PhotoIcon
 	},
 	file_identifier: {
-		name: 'File Identifier',
+		name: 'Identified unique files',
 		icon: EyeIcon
 	}
 };
@@ -48,17 +48,20 @@ export function JobsManager() {
 	const jobs = useLibraryQuery(['jobs.getHistory']);
 	return (
 		<div className="h-full">
-			<div className="flex flex-row w-full h-10 bg-gray-500 border-b border-gray-700 bg-opacity-30"></div>
-			<div className="h-full mr-1 -mt-10 overflow-x-hidden custom-scroll inspector-scroll">
-				<div className="px-2 py-4">
+			{/* <div className="z-10 flex flex-row w-full h-10 bg-gray-500 border-b border-gray-700 bg-opacity-30"></div> */}
+			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
+				<div className="py-1 pl-2">
+					<div className="fixed flex items-center h-10 ">
+						<h3 className="mt-1.5 ml-2 text-md font-medium opacity-40">Recent Jobs</h3>
+					</div>
+					<div className="h-10"></div>
 					{jobs.data?.map((job) => {
 						const color = StatusColors[job.status];
 						const niceData = NiceData[job.name];
-						// if (job.metadata) console.log({ job });
 
 						return (
 							<div
-								className="flex items-center px-2 py-2 border-b border-gray-700 rounded bg-opacity-60"
+								className="flex items-center px-2 py-2 border-b border-gray-500 bg-opacity-60"
 								key={job.id}
 							>
 								<Tooltip label={job.status}>
@@ -82,9 +85,11 @@ export function JobsManager() {
 								</div>
 								<div className="flex-grow" />
 								<div className="flex space-x-2">
-									<Button className="!p-0 w-7 h-7 flex items-center" variant="gray">
-										<ArrowsClockwise className="w-4" />
-									</Button>
+									{job.status === 'Failed' && (
+										<Button className="!p-0 w-7 h-7 flex items-center" variant="gray">
+											<ArrowsClockwise className="w-4" />
+										</Button>
+									)}
 									<Button className="!p-0 w-7 h-7 flex items-center" variant="gray">
 										<XMarkIcon className="w-4" />
 									</Button>
