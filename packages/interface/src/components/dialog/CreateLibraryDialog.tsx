@@ -1,5 +1,6 @@
-import { queryClient, useBridgeMutation } from '@sd/client';
+import { useBridgeMutation } from '@sd/client';
 import { Input } from '@sd/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
 
 import Dialog from '../layout/Dialog';
@@ -11,6 +12,8 @@ interface Props {
 export default function CreateLibraryDialog(props: Props) {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
+
+	const queryClient = useQueryClient();
 
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',

@@ -1,6 +1,5 @@
-import { queryClient, useBridgeMutation } from '@sd/client';
-import { LibraryConfigWrapped } from '@sd/core';
-import { Input } from '@sd/ui';
+import { useBridgeMutation } from '@sd/client';
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
 
 import Dialog from '../layout/Dialog';
@@ -12,6 +11,8 @@ interface Props {
 
 export default function DeleteLibraryDialog(props: Props) {
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
+
+	const queryClient = useQueryClient();
 
 	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeMutation('library.delete', {
 		onSuccess: () => {
