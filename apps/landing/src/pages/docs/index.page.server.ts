@@ -22,14 +22,14 @@ export async function prerender() {
 
 	const individualDocs = docs.map((doc) => ({
 		url: `/docs/${doc.url}`,
-		pageContext: { pageProps: { doc, docsList } }
+		pageContext: { pageProps: { data: { doc, docsList } } }
 	}));
 
 	return [
 		...individualDocs,
 		{
 			url: '/docs',
-			pageContext: { pageProps: { docs, docsList } }
+			pageContext: { pageProps: { docsList } }
 		}
 	];
 }
