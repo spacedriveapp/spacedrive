@@ -7,10 +7,11 @@ import Markdown from '../../components/Markdown';
 import { SingleDocResponse } from './api';
 
 function Page({ data }: { data: SingleDocResponse }) {
+	if (!data) return <></>;
 	return (
 		<>
 			<Helmet>
-				<title>{data?.doc?.title} - Spacedrive Documentation</title>
+				<title>{data.doc?.title} - Spacedrive Documentation</title>
 				{/* <meta name="description" content={description} />
 				<meta property="og:title" content={post?.title} />
 				<meta property="og:description" content={description} />
@@ -18,9 +19,9 @@ function Page({ data }: { data: SingleDocResponse }) {
 				<meta content="summary_large_image" name="twitter:card" />
 				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} /> */}
 			</Helmet>
-			<DocsLayout doc={data.doc} docsList={data.docsList}>
+			<DocsLayout doc={data.doc} docsList={data?.docsList}>
 				<Markdown>
-					<div dangerouslySetInnerHTML={{ __html: data?.doc?.html as string }} />
+					<div dangerouslySetInnerHTML={{ __html: data.doc?.html as string }} />
 				</Markdown>
 			</DocsLayout>
 		</>

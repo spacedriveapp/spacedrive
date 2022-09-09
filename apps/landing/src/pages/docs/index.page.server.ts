@@ -25,8 +25,6 @@ export async function prerender() {
 		pageContext: { pageProps: { doc, docsList } }
 	}));
 
-	console.log({ individualDocs });
-
 	return [
 		...individualDocs,
 		{

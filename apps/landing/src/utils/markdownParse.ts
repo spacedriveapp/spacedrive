@@ -1,5 +1,3 @@
-import parseMD from 'parse-md';
-
 export interface MarkdownPageData {
 	name?: string;
 	index?: number;
@@ -15,7 +13,7 @@ export function parseMarkdown(markdownAsHtml: string, markdownRaw: string): Mark
 	let metadata: MarkdownPageData | undefined = undefined;
 
 	try {
-		metadata = parseMD(markdownRaw).metadata as MarkdownPageData;
+		metadata = require('parseMD')(markdownRaw).metadata as MarkdownPageData;
 	} catch (e) {
 		// console.warn('failed to parse markdown', e);
 		// this doesn't matter
