@@ -1,4 +1,3 @@
 # Libraries
 
-A library is a database, you can have many of them. They contain all the Spacedrive data, inluding file structure and metadata.
-
+A library is the database that Spacedrive stores all file structures and metadata. It can be synchronized with other [Nodes]()

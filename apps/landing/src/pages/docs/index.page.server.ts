@@ -1,30 +1,37 @@
-import { getAllDocs } from './api';
+import { getDocs, getDocsList } from './api';
 
 export async function onBeforeRender() {
-	const docs = await getAllDocs();
-
+	const docsList = getDocsList();
+	console.log({ docsList });
 	return {
 		pageContext: {
 			pageProps: {
-				docs
+				// index page renders its own markdown
+				// only give it the sidebar data
+				docsList
 			}
 		}
 	};
 }
 
+// pre-render all doc pages at the same time as index
 export async function prerender() {
-	const docs = await getAllDocs();
+	console.log('Prerendering');
+	const docs = getDocs();
+	const docsList = getDocsList(docs);
 
 	const individualDocs = docs.map((doc) => ({
 		url: `/docs/${doc.url}`,
-		pageContext: { pageProps: { doc } }
+		pageContext: { pageProps: { doc, docsList } }
 	}));
+
+	console.log({ individualDocs });
 
 	return [
 		...individualDocs,
 		{
 			url: '/docs',
-			pageContext: { pageProps: { docs } }
+			pageContext: { pageProps: { docs, docsList } }
 		}
 	];
 }

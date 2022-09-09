@@ -1,5 +1,10 @@
-# Objects
+---
+name: Objects
+index: 0
+new: false
+---
 
+# Objects
 
 Objects are files discovered on your devices and drives, but can also be virtual, existing only within Spacedrive.
  
@@ -10,8 +15,6 @@ If two or more files are discovered that are identical, they are linked to the s
 A CAS id is generated from set samples of the byte data, which is used to associate Objects uniquely with Paths found in a Location.
 
 Some Objects are purely virtual, meaning they have no Path and are likely only used in a Space.
-
-
 
 ## Types of object
 
@@ -34,4 +37,3 @@ Some Objects are purely virtual, meaning they have no Path and are likely only u
 | Widget           | A widget is a mini app that can be placed in a Space at various sizes, associated Widget struct required | 14   |
 | Album            | Albums can only have one level of children, and are associated with the Album struct | 15   |
 | Collection       | Its like a folder, but appears like a stack of files, designed for burst photos/associated groups of files | 16   |
-
