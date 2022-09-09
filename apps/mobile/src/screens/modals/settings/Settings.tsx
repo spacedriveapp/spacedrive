@@ -1,8 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-
-import tw from '../../../lib/tailwind';
-import { RootStackScreenProps } from '../../../navigation';
+import tw from '~/lib/tailwind';
+import { RootStackScreenProps } from '~/navigation';
 
 export default function SettingsScreen({ navigation }: RootStackScreenProps<'Settings'>) {
 	return (

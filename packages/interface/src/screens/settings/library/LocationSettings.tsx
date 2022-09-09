@@ -8,7 +8,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function LocationSettings() {
 	const platform = usePlatform();
-	const { data: locations } = useLibraryQuery(['locations.get']);
+	const { data: locations } = useLibraryQuery(['locations.list']);
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	return (

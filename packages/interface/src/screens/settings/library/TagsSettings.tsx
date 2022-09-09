@@ -1,3 +1,10 @@
+import Card from '../../../components/layout/Card';
+import Dialog from '../../../components/layout/Dialog';
+import { Toggle } from '../../../components/primitive';
+import { InputContainer } from '../../../components/primitive/InputContainer';
+import { PopoverPicker } from '../../../components/primitive/PopoverPicker';
+import { SettingsContainer } from '../../../components/settings/SettingsContainer';
+import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 import { TrashIcon } from '@heroicons/react/24/outline';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { TagUpdateArgs } from '@sd/core';
@@ -7,21 +14,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useDebounce } from 'rooks';
 
-import Card from '../../../components/layout/Card';
-import Dialog from '../../../components/layout/Dialog';
-import { Toggle } from '../../../components/primitive';
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { PopoverPicker } from '../../../components/primitive/PopoverPicker';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
-
 export default function TagsSettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	// creating new tag state
 	const [newColor, setNewColor] = useState('#A717D9');
 	const [newName, setNewName] = useState('');
 
-	const { data: tags } = useLibraryQuery(['tags.getAll']);
+	const { data: tags } = useLibraryQuery(['tags.list']);
 
 	const [selectedTag, setSelectedTag] = useState<null | number>(null);
 
@@ -33,7 +32,7 @@ export default function TagsSettings() {
 		onError: (e) => {
 			console.error('error', e);
 		},
-		onSuccess: (data) => {
+		onSuccess: (_) => {
 			setOpenCreateModal(false);
 		}
 	});
@@ -44,9 +43,7 @@ export default function TagsSettings() {
 
 	// set default selected tag
 	useEffect(() => {
-		if (!currentTag && tags?.length) {
-			setSelectedTag(tags[0].id);
-		}
+		if (!currentTag && tags?.length) setSelectedTag(tags[0].id);
 	}, [currentTag, tags]);
 
 	useEffect(() => {
@@ -111,7 +108,6 @@ export default function TagsSettings() {
 					</div>
 				}
 			/>
-
 			<Card className="!px-2 dark:bg-gray-800">
 				<div className="flex flex-wrap gap-2 m-1">
 					{tags?.map((tag) => (
@@ -148,17 +144,16 @@ export default function TagsSettings() {
 										/>
 									)}
 								/>
-
 								<Input className="w-28 pl-[40px]" {...register('color')} />
 							</div>
 						</div>
-						<div className="flex flex-col ">
+						<div className="flex flex-col">
 							<span className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-100">
 								Name
 							</span>
 							<Input {...register('name')} />
 						</div>
-						<div className="flex flex-grow"></div>
+						<div className="flex flex-grow" />
 						<Dialog
 							title="Delete Tag"
 							description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."

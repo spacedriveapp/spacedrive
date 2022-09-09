@@ -1,9 +1,9 @@
 import { DrawerScreenProps, createDrawerNavigator } from '@react-navigation/drawer';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { StackScreenProps } from '@react-navigation/stack';
+import DrawerContent from '~/components/drawer/DrawerContent';
 
 import type { RootStackParamList } from '.';
-import DrawerContent from '../components/drawer/DrawerContent';
 import type { TabParamList } from './TabNavigator';
 import TabNavigator from './TabNavigator';
 
@@ -13,19 +13,15 @@ export default function DrawerNavigator() {
 	return (
 		<Drawer.Navigator
 			initialRouteName="Home"
-			screenOptions={({ route }) => {
-				return {
-					headerShown: false,
-					drawerStyle: {
-						backgroundColor: '#08090D',
-						width: '75%'
-					},
-					overlayColor: 'transparent',
-					drawerType: 'slide'
-					// swipeEnabled: false
-					// drawerHideStatusBarOnOpen: true,
-					// drawerStatusBarAnimation: 'slide'
-				};
+			screenOptions={{
+				headerShown: false,
+				drawerStyle: {
+					backgroundColor: 'rgb(10,10,12)',
+					width: '75%'
+				},
+				overlayColor: 'transparent',
+				drawerType: 'slide',
+				swipeEdgeWidth: 50
 			}}
 			drawerContent={(props) => <DrawerContent {...(props as any)} />}
 		>

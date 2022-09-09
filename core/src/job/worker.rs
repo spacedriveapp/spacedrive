@@ -1,6 +1,6 @@
-use crate::job::{DynJob, JobError, JobManager, JobMetadata, JobReportUpdate, JobStatus};
+use crate::invalidate_query;
+use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
 use crate::library::LibraryContext;
-use crate::{api::LibraryArgs, invalidate_query};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 use tokio::{
@@ -13,7 +13,7 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
-use super::JobReport;
+use super::{JobMetadata, JobReport};
 
 // used to update the worker state from inside the worker thread
 #[derive(Debug)]
@@ -224,11 +224,7 @@ impl Worker {
 						}
 					}
 
-					invalidate_query!(
-						library,
-						"jobs.getRunning": LibraryArgs<()>,
-						LibraryArgs::new(library.id, ())
-					);
+					invalidate_query!(library, "jobs.getRunning");
 				}
 				WorkerEvent::Completed(done_tx, metadata) => {
 					worker.report.status = JobStatus::Completed;
@@ -238,17 +234,8 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(
-						library,
-						"jobs.getRunning": LibraryArgs<()>,
-						LibraryArgs::new(library.id, ())
-					);
-
-					invalidate_query!(
-						library,
-						"jobs.getHistory": LibraryArgs<()>,
-						LibraryArgs::new(library.id, ())
-					);
+					invalidate_query!(library, "jobs.getRunning");
+					invalidate_query!(library, "jobs.getHistory");
 
 					info!("{}", worker.report);
 
@@ -265,7 +252,7 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
-					invalidate_query!(library, "library.get": (), ());
+					invalidate_query!(library, "library.list");
 
 					warn!("{}", worker.report);
 
@@ -284,11 +271,7 @@ impl Worker {
 
 					info!("{}", worker.report);
 
-					invalidate_query!(
-						library,
-						"jobs.getHistory": LibraryArgs<()>,
-						LibraryArgs::new(library.id, ()),
-					);
+					invalidate_query!(library, "jobs.getHistory");
 
 					done_tx
 						.send(())

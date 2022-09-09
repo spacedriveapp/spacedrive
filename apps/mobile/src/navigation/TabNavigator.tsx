@@ -2,8 +2,8 @@ import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigatio
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { CirclesFour, Folder, Planet } from 'phosphor-react-native';
 import { PhotographIcon } from 'react-native-heroicons/outline';
+import tw from '~/lib/tailwind';
 
-import tw from '../lib/tailwind';
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
 import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
@@ -18,11 +18,11 @@ export default function TabNavigator() {
 			initialRouteName="OverviewStack"
 			screenOptions={{
 				headerShown: false,
-				tabBarActiveTintColor: tw.color('bg-primary'),
+				tabBarActiveTintColor: tw.color('primary'),
 				tabBarInactiveTintColor: 'white',
 				tabBarStyle: {
-					backgroundColor: '#08090D',
-					borderTopColor: 'transparent'
+					backgroundColor: tw.color('gray-650'),
+					borderTopColor: tw.color('gray-600')
 				}
 			}}
 		>

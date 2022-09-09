@@ -1,5 +1,5 @@
 import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
