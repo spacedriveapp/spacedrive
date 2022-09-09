@@ -2,22 +2,25 @@ import { MagnifyingGlass } from 'phosphor-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { Button } from '../../components/base/Button';
-import tw from '../../lib/tailwind';
-import { RootStackScreenProps } from '../../navigation';
+import { Button } from '~/components/primitive/Button';
+import tw from '~/lib/tailwind';
+import { RootStackScreenProps } from '~/navigation';
 
 const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 	const { top } = useSafeAreaInsets();
 
 	const [loading, setLoading] = useState(false);
 
+	// TODO: Animations!
+
 	return (
 		<View style={tw.style('flex-1', { marginTop: top + 10 })}>
 			{/* Header */}
 			<View style={tw`flex flex-row items-center mx-4`}>
 				{/* Search Input */}
-				<View style={tw`flex-1 bg-gray-550 rounded-md h-9 mr-3`}>
+				<View
+					style={tw`flex-1 bg-gray-500 border border-[#333949] bg-opacity-40 rounded h-10 mr-3`}
+				>
 					<View style={tw`flex flex-row h-full items-center px-3`}>
 						<View style={tw`mr-3`}>
 							{loading ? (
@@ -31,7 +34,7 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 							clearButtonMode="never" // can't change the color??
 							underlineColorAndroid="transparent"
 							placeholderTextColor={tw.color('gray-300')}
-							style={tw`text-white flex-1 text-sm`}
+							style={tw`flex-1 text-gray-300 font-medium text-sm`}
 							textContentType={'none'}
 							autoFocus
 							autoCapitalize="none"

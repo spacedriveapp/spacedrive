@@ -24,7 +24,8 @@ importers:
 
   apps/desktop:
     specifiers:
-      '@rspc/client': ^0.0.5
+      '@rspc/client': ^0.0.6
+      '@rspc/tauri': ^0.0.6
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -51,7 +52,8 @@ importers:
       vite-plugin-filter-replace: ^0.1.9
       vite-plugin-svgr: ^2.2.1
     dependencies:
-      '@rspc/client': 0.0.5_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.6
+      '@rspc/tauri': 0.0.6_@tauri-apps+api@1.0.2
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -170,7 +172,7 @@ importers:
   apps/web:
     specifiers:
       '@fontsource/inter': ^4.5.11
-      '@rspc/client': ^0.0.5
+      '@rspc/client': ^0.0.6
       '@sd/client': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -190,7 +192,7 @@ importers:
       vite-plugin-tsconfig-paths: ^1.1.0
     dependencies:
       '@fontsource/inter': 4.5.11
-      '@rspc/client': 0.0.5_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.6
       '@sd/client': link:../../packages/client
       '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
@@ -223,7 +225,8 @@ importers:
 
   packages/client:
     specifiers:
-      '@rspc/client': ^0.0.5
+      '@rspc/client': ^0.0.6
+      '@rspc/react': ^0.0.6
       '@sd/config': workspace:*
       '@sd/core': workspace:*
       '@sd/interface': workspace:*
@@ -240,7 +243,8 @@ importers:
       valtio-persist: ^1.0.2
       zustand: 4.0.0
     dependencies:
-      '@rspc/client': 0.0.5
+      '@rspc/client': 0.0.6
+      '@rspc/react': 0.0.6
       '@sd/config': link:../config
       '@sd/core': link:../../core
       '@sd/interface': link:../interface
@@ -3691,29 +3695,29 @@ packages:
       estree-walker: 2.0.2
       picomatch: 2.3.1
 
-  /@rspc/client/0.0.5:
-    resolution: {integrity: sha512-k6xLz1YoA9SBLNk/EdDjbo/0zUj5aBP6l104CQlaEVjmdIhacP10IC8CG9j9fyg3w5Svok8aO5dhLTRxZhPeIA==}
+  /@rspc/client/0.0.6:
+    resolution: {integrity: sha512-NcJbmObbf+BzFcYWGvZaP7+a+KWTbAk9CkBRqW1nIu7TamV7tZtkHVmibwPHTeFnpAKPlKV7SH5vodV4yYETcw==}
+    dev: false
+
+  /@rspc/react/0.0.6:
+    resolution: {integrity: sha512-iU7DUbc0WkMW7q53sx0+t/gUhcShQ/a0KLpBmHGT6QTwhjnFsdqzW7GohCD4CTcT+RYUxirqHq6TvKPlmtKHcQ==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
+      '@rspc/client': 0.0.6
       '@tanstack/react-query': 4.2.3
-      '@tauri-apps/api': 1.0.2
     transitivePeerDependencies:
       - react-dom
       - react-native
     dev: false
 
-  /@rspc/client/0.0.5_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-k6xLz1YoA9SBLNk/EdDjbo/0zUj5aBP6l104CQlaEVjmdIhacP10IC8CG9j9fyg3w5Svok8aO5dhLTRxZhPeIA==}
+  /@rspc/tauri/0.0.6_@tauri-apps+api@1.0.2:
+    resolution: {integrity: sha512-zFitmJC/r0WNv2s9yw9R1mHkUgYQ6Qfm79zp0X0GjV3qq8ZhViWcQNxvouYAJrqR3eBiuNHbqie0Fa6YnAuNCA==}
     peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      '@tauri-apps/api': ^1.0.2
     dependencies:
-      '@tanstack/react-query': 4.2.3_biqbaboplfbrettd7655fr4n2y
+      '@rspc/client': 0.0.6
       '@tauri-apps/api': 1.0.2
-      react: 18.2.0
-    transitivePeerDependencies:
-      - react-dom
-      - react-native
     dev: false
 
   /@sindresorhus/is/0.14.0:
@@ -18040,7 +18044,7 @@ packages:
       valtio: ^1.2.5
     dependencies:
       lodash: 4.17.21
-      valtio: 1.6.4_react@18.2.0+vite@3.0.9
+      valtio: 1.6.4
     dev: false
 
   /valtio/1.6.4:

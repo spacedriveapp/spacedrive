@@ -6,11 +6,11 @@ use crate::{
 	prisma::location,
 };
 
-use rspc::Type;
+use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 use std::path::PathBuf;
 
-use super::{CoreEvent, LibraryArgs, RouterBuilder};
+use super::{utils::LibraryRequest, CoreEvent, RouterBuilder};
 
 #[derive(Type, Deserialize)]
 pub struct GenerateThumbsForLocationArgs {
@@ -26,21 +26,15 @@ pub struct IdentifyUniqueFilesArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.query("getRunning", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, _) = arg.get_library(&ctx).await?;
-
+		.library_query("getRunning", |ctx, _: (), _| async move {
 			Ok(ctx.jobs.get_running().await)
 		})
-		.query("getHistory", |ctx, arg: LibraryArgs<()>| async move {
-			let (_, library) = arg.get_library(&ctx).await?;
-
+		.library_query("getHistory", |_, _: (), library| async move {
 			Ok(JobManager::get_history(&library).await?)
 		})
-		.mutation(
+		.library_mutation(
 			"generateThumbsForLocation",
-			|ctx, arg: LibraryArgs<GenerateThumbsForLocationArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
-
+			|_, args: GenerateThumbsForLocationArgs, library| async move {
 				if library
 					.db
 					.location()
@@ -65,18 +59,20 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			},
 		)
-		.mutation(
+		.library_mutation(
 			"identifyUniqueFiles",
-			|ctx, arg: LibraryArgs<IdentifyUniqueFilesArgs>| async move {
-				let (args, library) = arg.get_library(&ctx).await?;
+			|_, args: IdentifyUniqueFilesArgs, library| async move {
+				if fetch_location(&library, args.id).exec().await?.is_none() {
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Location not found".into(),
+					));
+				}
 
 				library
 					.spawn_job(Job::new(
 						FileIdentifierJobInit {
-							location: fetch_location(&library, args.id)
-								.exec()
-								.await?
-								.ok_or(LocationError::IdNotFound(args.id))?,
+							location_id: args.id,
 							sub_path: Some(args.path),
 						},
 						Box::new(FileIdentifierJob {}),
@@ -86,7 +82,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			},
 		)
-		.subscription("newThumbnail", |ctx, _: LibraryArgs<()>| {
+		.library_subscription("newThumbnail", |ctx, _: (), _| {
 			// TODO: Only return event for the library that was subscribed to
 
 			let mut event_bus_rx = ctx.event_bus.subscribe();

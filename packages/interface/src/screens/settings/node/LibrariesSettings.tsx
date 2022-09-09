@@ -52,7 +52,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 }
 
 export default function LibrarySettings() {
-	const { data: libraries } = useBridgeQuery(['library.get']);
+	const { data: libraries } = useBridgeQuery(['library.list']);
 
 	return (
 		<SettingsContainer>

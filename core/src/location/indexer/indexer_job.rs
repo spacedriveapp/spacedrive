@@ -32,10 +32,14 @@ pub enum ScanProgress {
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
 pub struct IndexerJob;
 
+location::include!(pub indexer_job_location {
+	indexer_rules: select { indexer_rule }
+});
+
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct IndexerJobInit {
-	pub location: location::Data,
+	pub location: indexer_job_location::Data,
 }
 
 /// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
@@ -123,19 +127,13 @@ impl StatefulJob for IndexerJob {
 			.unwrap_or(0);
 
 		let mut indexer_rules_by_kind = HashMap::new();
-		for indexer_rule_in_location in state
-			.init
-			.location
-			.indexer_rules
-			.as_ref()
-			.expect("critical error: indexer job init received a location object without indexes_rules_in_location being fetched")
-			{
-			let indexer_rule_data = indexer_rule_in_location.indexer_rule.as_ref()
-				.expect("critical error: indexer job init received a indexes_rules_in_location object without indexes_rules being fetched");
+		for location_rule in &state.init.location.indexer_rules {
+			let indexer_rule = IndexerRule::try_from(&location_rule.indexer_rule)?;
 
-			let indexer_rule = IndexerRule::try_from(indexer_rule_data.as_ref())?;
-
-			indexer_rules_by_kind.entry(indexer_rule.kind).or_insert(vec![]).push(indexer_rule);
+			indexer_rules_by_kind
+				.entry(indexer_rule.kind)
+				.or_insert(vec![])
+				.push(indexer_rule);
 		}
 
 		let scan_start = Instant::now();

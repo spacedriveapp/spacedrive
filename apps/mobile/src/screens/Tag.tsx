@@ -1,8 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-
-import tw from '../lib/tailwind';
-import { SharedScreenProps } from '../navigation/SharedScreens';
+import tw from '~/lib/tailwind';
+import { SharedScreenProps } from '~/navigation/SharedScreens';
 
 export default function TagScreen({ navigation, route }: SharedScreenProps<'Tag'>) {
 	const { id } = route.params;

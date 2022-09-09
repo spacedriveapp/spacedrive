@@ -140,7 +140,7 @@ impl LibraryManager {
 		)
 		.await?;
 
-		invalidate_query!(library, "library.get": (), ());
+		invalidate_query!(library, "library.list");
 
 		self.libraries.write().await.push(library);
 		Ok(())
@@ -189,7 +189,7 @@ impl LibraryManager {
 		)
 		.await?;
 
-		invalidate_query!(library, "library.get": (), ());
+		invalidate_query!(library, "library.list");
 
 		Ok(())
 	}
@@ -205,7 +205,7 @@ impl LibraryManager {
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.db", library.id)))?;
 		fs::remove_file(Path::new(&self.libraries_dir).join(format!("{}.sdlibrary", library.id)))?;
 
-		invalidate_query!(library, "library.get": (), ());
+		invalidate_query!(library, "library.list");
 
 		libraries.retain(|l| l.id != id);
 
@@ -231,12 +231,17 @@ impl LibraryManager {
 	) -> Result<LibraryContext, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db = Arc::new(
-			load_and_migrate(&format!(
-				"file:{}",
-				db_path.as_os_str().to_str().ok_or_else(|| {
+			load_and_migrate(
+				db_path.parent().ok_or_else(|| {
 					LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
-				})?
-			))
+				})?,
+				&format!(
+					"file:{}",
+					db_path.as_os_str().to_str().ok_or_else(|| {
+						LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
+					})?
+				),
+			)
 			.await
 			.unwrap(),
 		);

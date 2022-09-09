@@ -27,7 +27,7 @@ pub struct FileIdentifierJob {}
 // finally: creating unique file records, and linking them to their file_paths
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileIdentifierJobInit {
-	pub location: location::Data,
+	pub location_id: i32,
 	pub sub_path: Option<PathBuf>, // subpath to start from
 }
 
@@ -71,7 +71,7 @@ impl StatefulJob for FileIdentifierJob {
 
 		let library = ctx.library_ctx();
 
-		let location_id = state.init.location.id;
+		let location_id = state.init.location_id;
 
 		let location = library
 			.db
@@ -87,12 +87,8 @@ impl StatefulJob for FileIdentifierJob {
 			.map(PathBuf::from)
 			.unwrap_or_default();
 
-		let total_count = library
-			.db
-			.file_path()
-			.count(orphan_path_filters(location_id, None))
-			.exec()
-			.await? as usize;
+		let total_count = count_orphan_file_paths(&library, state.init.location_id).await?;
+		info!("Found {} orphan file paths", total_count);
 
 		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
 		info!(
@@ -119,7 +115,7 @@ impl StatefulJob for FileIdentifierJob {
 			location_path,
 			cursor: FilePathIdAndLocationIdCursor {
 				file_path_id: first_path_id,
-				location_id: state.init.location.id,
+				location_id: state.init.location_id,
 			},
 		});
 
@@ -133,6 +129,8 @@ impl StatefulJob for FileIdentifierJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
 	) -> Result<(), JobError> {
+		let db = ctx.library_ctx().db;
+
 		// link file_path ids to a CreateFile struct containing unique file data
 		let mut chunk: HashMap<i32, CreateFile> = HashMap::new();
 		let mut cas_lookup: HashMap<String, i32> = HashMap::new();
@@ -179,25 +177,20 @@ impl StatefulJob for FileIdentifierJob {
 
 		// find all existing files by cas id
 		let generated_cas_ids = chunk.values().map(|c| c.cas_id.clone()).collect();
-		let existing_files = ctx
-			.library_ctx()
-			.db
+		let existing_files = db
 			.file()
 			.find_many(vec![file::cas_id::in_vec(generated_cas_ids)])
 			.exec()
 			.await?;
 
-		info!("Found {} existing Objects", existing_files.len());
+		info!("Found {} existing files", existing_files.len());
 
-		// connect Paths that match existing Objects in the database
 		for existing_file in &existing_files {
-			if let Err(e) = ctx
-				.library_ctx()
-				.db
+			if let Err(e) = db
 				.file_path()
 				.update(
 					file_path::location_id_id(
-						state.init.location.id,
+						state.init.location_id,
 						*cas_lookup.get(&existing_file.cas_id).unwrap(),
 					),
 					vec![file_path::file_id::set(Some(existing_file.id))],
@@ -233,13 +226,12 @@ impl StatefulJob for FileIdentifierJob {
 			}
 
 			// create new file records with assembled values
-			let created_files: Vec<FileCreated> = ctx
-				.library_ctx()
-				.db
+			// TODO: Use create_many with skip_duplicates. Waiting on https://github.com/Brendonovich/prisma-client-rust/issues/143
+			let created_files: Vec<FileCreated> = db
 				._query_raw(Raw::new(
 					&format!(
 						"INSERT INTO files (cas_id, size_in_bytes, date_created) VALUES {}
-									ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
+						ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
 						vec!["({}, {}, {})"; new_files.len()].join(",")
 					),
 					values,
@@ -261,7 +253,7 @@ impl StatefulJob for FileIdentifierJob {
 					.file_path()
 					.update(
 						file_path::location_id_id(
-							state.init.location.id,
+							state.init.location_id,
 							*cas_lookup.get(&created_file.cas_id).unwrap(),
 						),
 						vec![file_path::file_id::set(Some(created_file.id))],
@@ -288,7 +280,7 @@ impl StatefulJob for FileIdentifierJob {
 			)),
 		]);
 
-		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location.id.into()).await?;
+		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location_id.into()).await?;
 		Ok(())
 	}
 
@@ -327,6 +319,24 @@ fn orphan_path_filters(location_id: i32, file_path_id: Option<i32>) -> Vec<file_
 #[derive(Deserialize, Serialize, Debug)]
 struct CountRes {
 	count: Option<usize>,
+}
+
+async fn count_orphan_file_paths(
+	ctx: &LibraryContext,
+	location_id: i32,
+) -> Result<usize, prisma_client_rust::QueryError> {
+	let files_count = ctx
+		.db
+		.file_path()
+		.count(vec![
+			file_path::file_id::equals(None),
+			file_path::is_dir::equals(false),
+			file_path::location_id::equals(location_id),
+		])
+		.exec()
+		.await?;
+	// Is this
+	Ok(files_count as usize)
 }
 
 async fn get_orphan_file_paths(

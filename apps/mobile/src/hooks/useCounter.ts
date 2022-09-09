@@ -1,21 +1,28 @@
 import { useEffect } from 'react';
 import { useCountUp } from 'use-count-up';
-import create from 'zustand';
+import { proxy, useSnapshot } from 'valtio';
 
-const useCounterStore = create<{
-	counterLastValue: Map<string, number>;
-	setCounterLastValue: (key: string, value: number) => void;
-}>((set) => ({
+// const useCounterStore = create<{
+// 	counterLastValue: Map<string, number>;
+// 	setCounterLastValue: (key: string, value: number) => void;
+// }>((set) => ({
+// 	counterLastValue: new Map<string, number>(),
+// 	setCounterLastValue: (name, lastValue) =>
+// 		set((state) => ({
+// 			...state,
+// 			counterLastValue: state.counterLastValue.set(name, lastValue)
+// 		}))
+// }));
+
+const counterStore = proxy({
 	counterLastValue: new Map<string, number>(),
-	setCounterLastValue: (name, lastValue) =>
-		set((state) => ({
-			...state,
-			counterLastValue: state.counterLastValue.set(name, lastValue)
-		}))
-}));
+	setCounterLastValue: (key: string, value: number) => {
+		counterStore.counterLastValue.set(key, value);
+	}
+});
 
 const useCounterState = (key: string) => {
-	const { counterLastValue, setCounterLastValue } = useCounterStore();
+	const { counterLastValue, setCounterLastValue } = useSnapshot(counterStore);
 
 	return {
 		lastValue: counterLastValue.get(key),
