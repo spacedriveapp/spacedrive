@@ -1,8 +1,13 @@
 # Objects
 
-Objects are primarily created by the identifier from Paths. They can be created from any kind of file or directory. All metadata created around files in Spacedrive are directly attached to the Object for that file. 
 
-A CAS id is generated from samples of the byte data, which is used to associate Objects uniquely with logical Paths found in a location.
+Objects are files discovered on your devices and drives, but can also be virtual, existing only within Spacedrive.
+ 
+All metadata associated with files in Spacedrive is linked to the Object for that file. 
+
+If two or more files are discovered that are identical, they are linked to the same Object in Spacedrive.
+
+A CAS id is generated from set samples of the byte data, which is used to associate Objects uniquely with Paths found in a Location.
 
 Some Objects are purely virtual, meaning they have no Path and are likely only used in a Space.
 

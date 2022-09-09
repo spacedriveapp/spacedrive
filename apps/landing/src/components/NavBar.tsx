@@ -86,6 +86,7 @@ export default function NavBar() {
 					<NavLink link="/faq">FAQ</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					<NavLink link="/blog">Blog</NavLink>
+					<NavLink link="/docs/">Docs</NavLink>
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
 						{positions.length > 0 ? (

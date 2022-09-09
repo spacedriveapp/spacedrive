@@ -8,7 +8,7 @@ import { Folder } from '../../../../packages/interface/src/components/icons/Fold
 function Page() {
 	const items = [
 		{
-			when: 'Big bang',
+			when: 'Big Bang',
 			subtext: 'Q1 2022',
 			completed: true,
 			title: 'File discovery',
@@ -85,7 +85,7 @@ function Page() {
 			description: 'Host select Spaces on our cloud to share with friends or publish on the web.'
 		},
 		{
-			when: '0.2.0 Beta',
+			when: '0.6.0 Beta',
 			subtext: 'Q1 2023',
 			title: 'Extensions',
 			description:

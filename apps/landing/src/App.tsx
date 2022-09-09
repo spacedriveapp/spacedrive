@@ -19,7 +19,7 @@ export default function App({
 	return (
 		<React.StrictMode>
 			<PageContextProvider pageContext={pageContext}>
-				<div className="dark dark:bg-black dark:text-white overflow-x-hidden">
+				<div className=" dark dark:bg-black dark:text-white">
 					<Button
 						href="#content"
 						className="fixed left-0 z-50 mt-3 ml-8 duration-200 -translate-y-16 cursor-pointer focus:translate-y-0"
@@ -29,7 +29,7 @@ export default function App({
 					</Button>
 
 					<NavBar />
-					<div className="sm:container w-full z-10 flex flex-col items-center px-4 mx-auto overflow-x-hidden sm:overflow-x-visible ">
+					<div className="z-10 flex flex-col items-center w-full px-4 mx-auto sm:container sm:overflow-x-visible ">
 						{children}
 						<Footer />
 					</div>
