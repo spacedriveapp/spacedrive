@@ -1,3 +1,5 @@
+import parseMD from 'parse-md';
+
 export interface MarkdownPageData {
 	name?: string;
 	index?: number;
@@ -6,11 +8,18 @@ export interface MarkdownPageData {
 
 interface MarkdownParsed {
 	render: string;
-	data: MarkdownPageData;
+	data?: MarkdownPageData;
 }
 
 export function parseMarkdown(markdownAsHtml: string, markdownRaw: string): MarkdownParsed {
-	if (markdownRaw.includes('# Objects')) console.log({ markdownAsHtml, markdownRaw });
+	let metadata: MarkdownPageData | undefined = undefined;
+
+	try {
+		metadata = parseMD(markdownRaw).metadata as MarkdownPageData;
+	} catch (e) {
+		// console.warn('failed to parse markdown', e);
+		// this doesn't matter
+	}
 
 	// make all non local links open in new tab
 	markdownAsHtml = markdownAsHtml.replaceAll(
@@ -20,10 +29,6 @@ export function parseMarkdown(markdownAsHtml: string, markdownRaw: string): Mark
 
 	return {
 		render: markdownAsHtml,
-		data: {
-			name: 'jeff',
-			index: 0,
-			new: false
-		}
+		data: metadata
 	};
 }

@@ -6,7 +6,9 @@ import { parseMarkdown } from '../../utils/markdownParse';
 
 export interface Doc {
 	title: string;
+	name?: string;
 	url: string;
+	sortByIndex: number;
 	active?: boolean;
 	html?: string;
 }
@@ -41,11 +43,13 @@ export function getDocs(): Doc[] {
 
 			const markdown = ReactDOMServer.renderToString(<Component />);
 
-			const { render } = parseMarkdown(markdown, docsRaw[path] as unknown as string);
+			const { render, data } = parseMarkdown(markdown, docsRaw[path] as unknown as string);
 
 			return {
-				title: url.split('/')[1],
+				title: data?.name ?? cap(url.split('/')[1]),
+				name: url.split('/')[1],
 				url: url,
+				sortByIndex: data?.index ?? 0,
 				html: render
 			};
 		})
@@ -73,14 +77,17 @@ export function getDocsList(docs?: Doc[]) {
 			});
 		}
 	}
-	return categories;
+	return categories.map((cat) => {
+		cat.items.sort((a, b) => b.sortByIndex - a.sortByIndex);
+		return cat;
+	});
 }
 
 // get a single doc, and the sidebar data
 export function getDoc(slug: string): SingleDocResponse {
 	const { name } = docInfo(slug),
 		docs = getDocs(),
-		doc = docs.find((d) => d.title === name);
+		doc = docs.find((d) => d.name === name);
 
 	return {
 		doc,
