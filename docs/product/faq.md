@@ -1,3 +1,7 @@
+---
+name: FAQ
+---
+
 # Frequently Asked Questions
 
 ## What is it?

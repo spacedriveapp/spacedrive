@@ -19,7 +19,7 @@ export default function App({
 	return (
 		<React.StrictMode>
 			<PageContextProvider pageContext={pageContext}>
-				<div className=" dark dark:bg-black dark:text-white">
+				<div className=" dark dark:bg-gray-850 dark:text-white">
 					<Button
 						href="#content"
 						className="fixed left-0 z-50 mt-3 ml-8 duration-200 -translate-y-16 cursor-pointer focus:translate-y-0"

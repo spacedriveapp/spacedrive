@@ -1,7 +1,7 @@
 ---
 name: Objects
-index: 1
-new: false
+index: 2
+new: true
 ---
 
 # Objects

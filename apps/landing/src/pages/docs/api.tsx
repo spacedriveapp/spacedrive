@@ -49,7 +49,7 @@ export function getDocs(): Doc[] {
 				title: data?.name ?? cap(url.split('/')[1]),
 				name: url.split('/')[1],
 				url: url,
-				sortByIndex: data?.index ?? 0,
+				sortByIndex: data?.index ?? 10000,
 				html: render
 			};
 		})
@@ -78,7 +78,8 @@ export function getDocsList(docs?: Doc[]) {
 		}
 	}
 	return categories.map((cat) => {
-		cat.items.sort((a, b) => b.sortByIndex - a.sortByIndex);
+		// sort by index
+		cat.items.sort((a, b) => a.sortByIndex - b.sortByIndex);
 		return cat;
 	});
 }
@@ -88,6 +89,8 @@ export function getDoc(slug: string): SingleDocResponse {
 	const { name } = docInfo(slug),
 		docs = getDocs(),
 		doc = docs.find((d) => d.name === name);
+
+	console.log({ html: doc.html });
 
 	return {
 		doc,

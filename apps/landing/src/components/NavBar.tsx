@@ -69,7 +69,7 @@ export default function NavBar() {
 				'fixed transition z-[55] w-full h-16 border-b ',
 				isAtTop
 					? 'bg-transparent border-transparent'
-					: 'border-gray-550 bg-gray-750 bg-opacity-80 backdrop-blur'
+					: 'border-gray-550 bg-gray-700 bg-opacity-80 backdrop-blur'
 			)}
 		>
 			<div className="relative flex items-center h-full px-5 m-auto sm:container">
