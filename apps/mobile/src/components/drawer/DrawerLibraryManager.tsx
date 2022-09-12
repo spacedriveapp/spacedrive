@@ -1,3 +1,4 @@
+import { useDrawerStatus } from '@react-navigation/drawer';
 import { MotiView } from 'moti';
 import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -13,9 +14,14 @@ import Dialog from '../layout/Dialog';
 import Divider from '../primitive/Divider';
 import { TextInput } from '../primitive/Input';
 
-// TODO: Maybe minimize this when drawer is closed?
 const DrawerLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);
+
+	// Closes the dropdown when the drawer is closed
+	const isDrawerOpen = useDrawerStatus() === 'open';
+	useEffect(() => {
+		if (!isDrawerOpen) setDropdownClosed(true);
+	}, [isDrawerOpen]);
 
 	// Init Libraries
 	const { initLibraries, switchLibrary } = useSnapshot(libraryStore);
@@ -28,7 +34,6 @@ const DrawerLibraryManager = () => {
 
 	// Create Library
 	const [libName, setLibName] = useState('');
-
 	const [createLibOpen, setCreateLibOpen] = useState(false);
 
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
