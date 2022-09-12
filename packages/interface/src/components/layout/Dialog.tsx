@@ -49,7 +49,6 @@ export default function Dialog(props: DialogProps) {
 								</DialogPrimitive.Close>
 								<Button
 									type="submit"
-									onClick={props.ctaAction}
 									size="sm"
 									loading={props.loading}
 									disabled={props.loading || props.submitDisabled}

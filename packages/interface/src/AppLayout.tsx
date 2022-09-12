@@ -1,3 +1,4 @@
+import { useCurrentLibrary } from '@sd/client';
 import clsx from 'clsx';
 import { Outlet } from 'react-router-dom';
 
@@ -5,7 +6,13 @@ import { Sidebar } from './components/layout/Sidebar';
 import { useOperatingSystem } from './hooks/useOperatingSystem';
 
 export function AppLayout() {
+	const { libraries } = useCurrentLibrary();
 	const os = useOperatingSystem();
+
+	// This will ensure nothing is rendered while the `useCurrentLibrary` hook navigates to the onboarding page. This prevents requests with an invalid library id being sent to the backend
+	if (libraries?.length === 0) {
+		return null;
+	}
 
 	return (
 		<div

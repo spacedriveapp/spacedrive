@@ -64,7 +64,7 @@ function LibraryScopedSection() {
 	const os = useOperatingSystem();
 	const platform = usePlatform();
 	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	const { data: tags } = useLibraryQuery(['tags.getAll'], { keepPreviousData: true });
+	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
 
 	return (

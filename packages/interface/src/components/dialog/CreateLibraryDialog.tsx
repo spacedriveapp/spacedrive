@@ -5,7 +5,10 @@ import { PropsWithChildren, useState } from 'react';
 
 import Dialog from '../layout/Dialog';
 
-export default function CreateLibraryDialog({ children }: PropsWithChildren) {
+export default function CreateLibraryDialog({
+	children,
+	onSubmit
+}: PropsWithChildren<{ onSubmit?: () => void }>) {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
 
@@ -13,9 +16,15 @@ export default function CreateLibraryDialog({ children }: PropsWithChildren) {
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
-			onSuccess: () => {
-				queryClient.invalidateQueries(['library.get']); // TODO: Change to `library.list`
+			onSuccess: (library) => {
+				console.log('SUBMITTING');
 				setOpenCreateModal(false);
+				queryClient.setQueryData(['library.list'], (libraries: any) => [
+					...(libraries || []),
+					library
+				]);
+
+				if (onSubmit) onSubmit();
 			},
 			onError: (err) => {
 				console.error(err);
