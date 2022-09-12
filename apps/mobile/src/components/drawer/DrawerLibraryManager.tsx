@@ -98,6 +98,8 @@ const DrawerLibraryManager = () => {
 						description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
 						ctaLabel="Create"
 						ctaAction={() => createLibrary(libName)}
+						loading={createLibLoading}
+						ctaDisabled={libName.length === 0}
 						trigger={
 							<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 								<PlusIcon size={18} style={tw`text-gray-100 mr-2`} />

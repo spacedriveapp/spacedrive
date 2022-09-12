@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
+import { PulseAnimation } from '../animation/lottie';
 import { Button } from '../primitive/Button';
 
 type DialogProps = {
@@ -23,6 +24,8 @@ type DialogProps = {
 	ctaAction?: () => void;
 	ctaLabel?: string;
 	ctaDanger?: boolean;
+	ctaDisabled?: boolean;
+	loading?: boolean;
 	/**
 	 * Disables backdrop press to close the modal.
 	 */
@@ -46,7 +49,7 @@ const Dialog = (props: DialogProps) => {
 				<Pressable
 					style={tw`bg-black bg-opacity-50 absolute inset-0`}
 					onPress={() => (props.setIsVisible ? props.setIsVisible(false) : setVisible(false))}
-					disabled={props.disableBackdropClose}
+					disabled={props.disableBackdropClose || props.loading}
 				/>
 				{/* Content */}
 				<KeyboardAvoidingView
@@ -77,11 +80,14 @@ const Dialog = (props: DialogProps) => {
 							</View>
 							{/* Actions */}
 							<View
-								style={tw`flex flex-row justify-end px-3 py-3 bg-gray-600 border-t border-gray-550`}
+								style={tw`flex flex-row items-center px-3 py-3 bg-gray-600 border-t border-gray-550`}
 							>
+								{props.loading && <PulseAnimation style={tw`h-7`} />}
+								<View style={tw`flex-grow`} />
 								<Button
 									variant="dark_gray"
 									size="md"
+									disabled={props.loading} // Disables Close button if loading
 									onPress={() =>
 										props.setIsVisible ? props.setIsVisible(false) : setVisible(false)
 									}
@@ -94,6 +100,7 @@ const Dialog = (props: DialogProps) => {
 										variant={props.ctaDanger ? 'danger' : 'primary'}
 										size="md"
 										onPress={props.ctaAction}
+										disabled={props.ctaDisabled || props.loading}
 									>
 										<Text style={tw`text-white text-sm`}>{props.ctaLabel}</Text>
 									</Button>
