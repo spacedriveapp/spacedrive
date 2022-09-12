@@ -20,7 +20,7 @@ static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/prisma/migrations
 #[derive(Error, Debug)]
 pub enum MigrationError {
 	#[error("An error occurred while initialising a new database connection: {0}")]
-	NewClient(#[from] NewClientError),
+	NewClient(#[from] Box<NewClientError>),
 	#[error("The temporary file path for the database migrations is invalid.")]
 	InvalidDirectory,
 	#[error("An error occurred creating the temporary directory for the migrations: {0}")]
@@ -40,7 +40,9 @@ pub async fn load_and_migrate(
 	base_path: &Path,
 	db_url: &str,
 ) -> Result<PrismaClient, MigrationError> {
-	let client = prisma::new_client_with_url(db_url).await?;
+	let client = prisma::new_client_with_url(db_url)
+		.await
+		.map_err(|err| Box::new(err))?;
 	let temp_migrations_dir = base_path.join("./migrations_temp");
 	let migrations_directory_path = temp_migrations_dir
 		.to_str()
@@ -60,7 +62,7 @@ pub async fn load_and_migrate(
 		.extract(&temp_migrations_dir)
 		.map_err(MigrationError::ExtractMigrations)?;
 
-	let mut connector = match &ConnectionInfo::from_url(&db_url)? {
+	let mut connector = match &ConnectionInfo::from_url(db_url)? {
 		ConnectionInfo::Sqlite { .. } => SqlMigrationConnector::new_sqlite(),
 		ConnectionInfo::InMemorySqlite { .. } => unreachable!(), // This is how it is in the Prisma Rust tests
 	};

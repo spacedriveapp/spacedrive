@@ -15,7 +15,7 @@ import {
 import { useSnapshot } from 'valtio';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
-	const tags = useLibraryQuery(['tags.getAll'], { suspense: true });
+	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 	const tagsForFile = useLibraryQuery(['tags.getForFile', props.objectId], { suspense: true });
 
 	const { mutate: assignTag } = useLibraryMutation('tags.assign');

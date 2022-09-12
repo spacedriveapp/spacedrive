@@ -1,4 +1,5 @@
-import { TauriTransport, createClient } from '@rspc/client';
+import { createClient } from '@rspc/client';
+import { TauriTransport } from '@rspc/tauri';
 import { OperatingSystem, Operations, PlatformProvider, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
 import { dialog, invoke, os } from '@tauri-apps/api';

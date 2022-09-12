@@ -26,7 +26,7 @@ export type Operations = {
         { key: ["files.setNote", LibraryArgs<SetNoteArgs>], result: null } | 
         { key: ["jobs.generateThumbsForLocation", LibraryArgs<GenerateThumbsForLocationArgs>], result: null } | 
         { key: ["jobs.identifyUniqueFiles", LibraryArgs<IdentifyUniqueFilesArgs>], result: null } | 
-        { key: ["library.create", string], result: null } | 
+        { key: ["library.create", string], result: LibraryConfigWrapped } | 
         { key: ["library.delete", string], result: null } | 
         { key: ["library.edit", EditLibraryArgs], result: null } | 
         { key: ["locations.create", LibraryArgs<LocationCreateArgs>], result: null } | 

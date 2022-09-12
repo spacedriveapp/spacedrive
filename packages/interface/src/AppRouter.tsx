@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
+import OnboardingScreen from './components/onboarding/Onboarding';
 import { useKeyboardHandler } from './hooks/useKeyboardHandler';
 import { ContentScreen } from './screens/Content';
 import { DebugScreen } from './screens/Debug';
@@ -41,7 +42,7 @@ export function AppRouter() {
 
 	return (
 		<Routes>
-			<Route path="onboarding" element={<p>TODO</p>} />
+			<Route path="onboarding" element={<OnboardingScreen />} />
 			<Route element={<AppLayout />}>
 				{/* As we are caching the libraries in localStore so this *shouldn't* result is visual problems unless something else is wrong */}
 				{library === undefined ? (

@@ -1,9 +1,9 @@
 import '@fontsource/inter/variable.css';
-import { queryClient } from '@sd/client';
+import { LibraryContextProvider, queryClient } from '@sd/client';
 import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ErrorBoundary } from 'react-error-boundary';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 
 import { AppRouter } from './AppRouter';
 import { ErrorFallback } from './ErrorFallback';
@@ -18,9 +18,20 @@ export default function SpacedriveInterface() {
 					<ReactQueryDevtools position="bottom-right" context={defaultContext} />
 				)}
 				<MemoryRouter>
-					<AppRouter />
+					<AppRouterWrapper />
 				</MemoryRouter>
 			</QueryClientProvider>
 		</ErrorBoundary>
+	);
+}
+
+// This can't go in `<SpacedriveInterface />` cause it needs the router context but it can't go in `<AppRouter />` because that requires this context
+function AppRouterWrapper() {
+	const navigate = useNavigate();
+
+	return (
+		<LibraryContextProvider onNoLibrary={() => navigate('/onboarding')}>
+			<AppRouter />
+		</LibraryContextProvider>
 	);
 }
