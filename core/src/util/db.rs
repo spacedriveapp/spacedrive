@@ -42,7 +42,7 @@ pub async fn load_and_migrate(
 ) -> Result<PrismaClient, MigrationError> {
 	let client = prisma::new_client_with_url(db_url)
 		.await
-		.map_err(|err| Box::new(err))?;
+		.map_err(Box::new)?;
 	let temp_migrations_dir = base_path.join("./migrations_temp");
 	let migrations_directory_path = temp_migrations_dir
 		.to_str()
