@@ -1,7 +1,7 @@
 import { OperatingSystem, usePlatform } from '@sd/client';
 import { useQuery } from '@tanstack/react-query';
 
-function guessOperatingSystem(): OperatingSystem {
+export function guessOperatingSystem(): OperatingSystem {
 	let os: OperatingSystem = 'unknown';
 	if (navigator.userAgent.indexOf('Win') != -1) os = 'windows';
 	if (navigator.userAgent.indexOf('Mac') != -1) os = 'macOS';

@@ -7,6 +7,7 @@ export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unkno
 export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
 	getThumbnailUrlById: (casId: string) => string;
+	openLink: (url: string) => void;
 	demoMode?: boolean; // TODO: Remove this in favour of demo mode being handled at the React Query level
 	getOs?(): Promise<OperatingSystem>;
 	openFilePickerDialog?(): Promise<null | string | string[]>;
