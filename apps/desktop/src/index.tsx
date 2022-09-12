@@ -29,6 +29,7 @@ async function getOs(): Promise<OperatingSystem> {
 const platform: Platform = {
 	platform: 'tauri',
 	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	openLink: open,
 	getOs,
 	openFilePickerDialog: () => dialog.open({ directory: true })
 };

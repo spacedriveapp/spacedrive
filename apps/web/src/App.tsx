@@ -12,6 +12,7 @@ const client = createClient<Operations>({
 const platform: Platform = {
 	platform: 'web',
 	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	openLink: (url) => window.open(url, '_blank')?.focus(),
 	demoMode: true
 };
 

@@ -1,7 +1,13 @@
+import { rspc, usePlatform } from '@sd/client';
 import { Button } from '@sd/ui';
 import { FallbackProps } from 'react-error-boundary';
 
+import { guessOperatingSystem } from './hooks/useOperatingSystem';
+
 export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+	const platform = usePlatform();
+	const version = 'unknown'; // TODO: Embed the version into the frontend via ENV var when compiled so we can use it here.
+
 	return (
 		<div
 			data-tauri-drag-region
@@ -15,7 +21,21 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 				<Button variant="primary" className="mt-2" onClick={resetErrorBoundary}>
 					Reload
 				</Button>
-				<Button variant="gray" className="mt-2" onClick={resetErrorBoundary}>
+				<Button
+					variant="gray"
+					className="mt-2"
+					onClick={() => {
+						platform.openLink(
+							`https://github.com/spacedriveapp/spacedrive/issues/new?assignees=&labels=kind%2Fbug%2Cstatus%2Fneeds-triage&template=bug_report.yml&logs=${encodeURIComponent(
+								error.toString()
+							)}&info=${encodeURIComponent(
+								`App version ${version} running on ${guessOperatingSystem() || 'unknown'}`
+							)}`
+						);
+
+						resetErrorBoundary();
+					}}
+				>
 					Send report
 				</Button>
 			</div>
