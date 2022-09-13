@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { explorerStore, useLibraryMutation } from '@sd/client';
+import { getExplorerStore, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -13,7 +13,6 @@ import {
 } from 'phosphor-react';
 import { DetailedHTMLProps, HTMLAttributes, forwardRef, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSnapshot } from 'valtio';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { Shortcut } from '../primitive/Shortcut';
@@ -77,7 +76,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
 });
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-	const store = useSnapshot(explorerStore);
+	const store = useExplorerStore();
 	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
 		{
@@ -156,7 +155,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								left
 								active={store.layoutMode === 'list'}
 								icon={Rows}
-								onClick={() => (explorerStore.layoutMode = 'list')}
+								onClick={() => (getExplorerStore().layoutMode = 'list')}
 							/>
 						</Tooltip>
 						<Tooltip label="Grid view">
@@ -165,7 +164,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								right
 								active={store.layoutMode === 'grid'}
 								icon={SquaresFour}
-								onClick={() => (explorerStore.layoutMode = 'grid')}
+								onClick={() => (getExplorerStore().layoutMode = 'grid')}
 							/>
 						</Tooltip>
 					</div>
@@ -191,7 +190,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				<div className="flex mr-3 space-x-2">
 					<TopBarButton
 						active={store.showInspector}
-						onClick={() => (explorerStore.showInspector = !store.showInspector)}
+						onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
 						className="my-2"
 						icon={SidebarSimple}
 					/>

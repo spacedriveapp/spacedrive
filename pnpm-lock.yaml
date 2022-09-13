@@ -239,7 +239,7 @@ importers:
       scripts: '*'
       tsconfig: '*'
       typescript: ^4.7.4
-      valtio: 1.6.4
+      valtio: ^1.7.0
       valtio-persist: ^1.0.2
       zustand: 4.0.0
     dependencies:
@@ -252,8 +252,8 @@ importers:
       eventemitter3: 4.0.7
       immer: 9.0.15
       lodash: 4.17.21
-      valtio: 1.6.4
-      valtio-persist: 1.0.2_valtio@1.6.4
+      valtio: 1.7.0
+      valtio-persist: 1.0.2_valtio@1.7.0
       zustand: 4.0.0_immer@9.0.15
     devDependencies:
       '@types/lodash': 4.14.182
@@ -349,7 +349,7 @@ importers:
       typescript: ^4.7.4
       use-count-up: ^3.0.1
       use-debounce: ^8.0.3
-      valtio: 1.6.4
+      valtio: ^1.7.0
       valtio-persist: ^1.0.2
       vite: ^3.0.3
       vite-plugin-svgr: ^2.2.1
@@ -381,7 +381,7 @@ importers:
       clsx: 1.2.1
       date-fns: 2.29.2
       immer: 9.0.15
-      jotai: 1.8.2_umupx7nluxw42lgh4svggrlwmq
+      jotai: 1.8.2_2l3h3ngvmdtjc5tzmiu2yv72be
       lodash: 4.17.21
       moment: 2.29.4
       phosphor-react: 1.4.1_react@18.2.0
@@ -410,8 +410,8 @@ importers:
       tailwindcss: 3.1.8
       use-count-up: 3.0.1_react@18.2.0
       use-debounce: 8.0.4_react@18.2.0
-      valtio: 1.6.4_react@18.2.0+vite@3.0.9
-      valtio-persist: 1.0.2_valtio@1.6.4
+      valtio: 1.7.0_react@18.2.0+vite@3.0.9
+      valtio-persist: 1.0.2_valtio@1.7.0
       zod: 3.18.0
       zustand: 4.0.0_immer@9.0.15+react@18.2.0
     devDependencies:
@@ -6407,7 +6407,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.18.6_@babel+core@7.18.13
       magic-string: 0.26.2
       react-refresh: 0.14.0
-      vite: 3.0.9_sass@1.54.6
+      vite: 3.0.9
     transitivePeerDependencies:
       - supports-color
 
@@ -7122,7 +7122,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
@@ -12320,7 +12319,7 @@ packages:
       regenerator-runtime: 0.13.9
     dev: true
 
-  /jotai/1.8.2_umupx7nluxw42lgh4svggrlwmq:
+  /jotai/1.8.2_2l3h3ngvmdtjc5tzmiu2yv72be:
     resolution: {integrity: sha512-jRKTQKChLAJGB3zG5zklJoMtpWYixUi2jK3pZd5ZRpH4pQnjYYEOAVYCzZGr4Ce5Uj7j0ffYoLM4ULAAQXUoGw==}
     engines: {node: '>=12.7.0'}
     peerDependencies:
@@ -12356,7 +12355,7 @@ packages:
     dependencies:
       immer: 9.0.15
       react: 18.2.0
-      valtio: 1.6.4_react@18.2.0+vite@3.0.9
+      valtio: 1.7.0_react@18.2.0+vite@3.0.9
     dev: false
 
   /jpeg-js/0.4.2:
@@ -18038,17 +18037,17 @@ packages:
       spdx-correct: 3.1.1
       spdx-expression-parse: 3.0.1
 
-  /valtio-persist/1.0.2_valtio@1.6.4:
+  /valtio-persist/1.0.2_valtio@1.7.0:
     resolution: {integrity: sha512-OBVEUZTS1heiA5R3j8CPDuXIMmmjIvq/4CiO+pElXd7f7b7nR3vIH5qql35hXw/AkLdftqTUcVCNVf6yAJ1ypA==}
     peerDependencies:
       valtio: ^1.2.5
     dependencies:
       lodash: 4.17.21
-      valtio: 1.6.4
+      valtio: 1.7.0
     dev: false
 
-  /valtio/1.6.4:
-    resolution: {integrity: sha512-wEslN1bO1ihuv2Xj4jIxkGaDgsnwSvZdcaYcJ6aSwaNYU0ZMe+eZipfEzbTqd4CwnMu7ihDBNes0ZP5CIl1NqA==}
+  /valtio/1.7.0:
+    resolution: {integrity: sha512-3Tnix66EERwMcrl1rfB3ylcewOcL5L/GiPmC3FlVNreQzqf2jufEeqlNmgnLgSGchkEmH3WYVtS+x6Qw4r+yzQ==}
     engines: {node: '>=12.7.0'}
     peerDependencies:
       '@babel/helper-module-imports': '>=7.12'
@@ -18075,8 +18074,8 @@ packages:
       use-sync-external-store: 1.2.0
     dev: false
 
-  /valtio/1.6.4_react@18.2.0+vite@3.0.9:
-    resolution: {integrity: sha512-wEslN1bO1ihuv2Xj4jIxkGaDgsnwSvZdcaYcJ6aSwaNYU0ZMe+eZipfEzbTqd4CwnMu7ihDBNes0ZP5CIl1NqA==}
+  /valtio/1.7.0_react@18.2.0+vite@3.0.9:
+    resolution: {integrity: sha512-3Tnix66EERwMcrl1rfB3ylcewOcL5L/GiPmC3FlVNreQzqf2jufEeqlNmgnLgSGchkEmH3WYVtS+x6Qw4r+yzQ==}
     engines: {node: '>=12.7.0'}
     peerDependencies:
       '@babel/helper-module-imports': '>=7.12'
@@ -18195,7 +18194,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 4.2.1
       '@svgr/core': 6.3.1
-      vite: 3.0.9_sass@1.54.6
+      vite: 3.0.9
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -18287,6 +18286,7 @@ packages:
       sass: 1.54.6
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vm-browserify/1.1.2:
     resolution: {integrity: sha512-2ham8XPWTONajOR0ohOKOHXkm3+gaBmGut3SRuu75xLd/RRaY6vqgh8NBYYk7+RW3u5AtzPQZG8F10LHkl0lAQ==}

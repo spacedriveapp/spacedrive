@@ -1,4 +1,4 @@
-import { explorerStore, usePlatform } from '@sd/client';
+import { useExplorerStore, usePlatform } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
 import { useSnapshot } from 'valtio';
@@ -16,7 +16,7 @@ interface Props {
 
 export default function FileThumb({ data, ...props }: Props) {
 	const platform = usePlatform();
-	const store = useSnapshot(explorerStore);
+	const store = useExplorerStore();
 
 	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
 
@@ -79,6 +79,4 @@ export default function FileThumb({ data, ...props }: Props) {
 			</svg>
 		</div>
 	);
-
-	return null;
 }

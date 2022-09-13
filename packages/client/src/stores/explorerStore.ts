@@ -1,4 +1,4 @@
-import { proxy, ref } from 'valtio';
+import { proxy, useSnapshot } from 'valtio';
 
 import { resetStore } from './util';
 
@@ -22,7 +22,8 @@ const state = {
 	newThumbnails: {} as Record<string, boolean>
 };
 
-export const explorerStore = proxy({
+// Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
+const explorerStore = proxy({
 	...state,
 	reset: () => resetStore(explorerStore, state),
 	addNewThumbnail: (cas_id: string) => {
@@ -38,3 +39,11 @@ export const explorerStore = proxy({
 		}
 	}
 });
+
+export function useExplorerStore() {
+	return useSnapshot(explorerStore);
+}
+
+export function getExplorerStore() {
+	return explorerStore;
+}
