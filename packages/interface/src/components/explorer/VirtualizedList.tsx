@@ -1,4 +1,4 @@
-import { ExplorerLayoutMode, explorerStore } from '@sd/client';
+import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
 import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
@@ -25,7 +25,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	const [goingUp, setGoingUp] = useState(false);
 	const [width, setWidth] = useState(0);
 
-	const store = useSnapshot(explorerStore);
+	const store = useExplorerStore();
 
 	function handleWindowResize() {
 		// so the virtualizer can render the correct number of columns
@@ -63,14 +63,14 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 		e.preventDefault();
 		setGoingUp(true);
 		if (store.selectedRowIndex !== -1 && store.selectedRowIndex !== 0)
-			explorerStore.selectedRowIndex = store.selectedRowIndex - 1;
+			getExplorerStore().selectedRowIndex = store.selectedRowIndex - 1;
 	});
 
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
 		setGoingUp(false);
 		if (store.selectedRowIndex !== -1 && store.selectedRowIndex !== (data.length ?? 1) - 1)
-			explorerStore.selectedRowIndex = store.selectedRowIndex + 1;
+			getExplorerStore().selectedRowIndex = store.selectedRowIndex + 1;
 	});
 
 	// const Header = () => (
@@ -166,7 +166,7 @@ const WrappedItem: React.FC<WrappedItemProps> = memo(({ item, index, isSelected,
 	}, [item, setSearchParams]);
 
 	const onClick = useCallback(() => {
-		explorerStore.selectedRowIndex = isSelected ? -1 : index;
+		getExplorerStore().selectedRowIndex = isSelected ? -1 : index;
 	}, [isSelected, index]);
 
 	if (kind === 'list') {

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { explorerStore, useCurrentLibrary, useLibraryQuery } from '@sd/client';
+import { getExplorerStore, useCurrentLibrary, useLibraryQuery } from '@sd/client';
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
@@ -21,7 +21,7 @@ export const LocationExplorer: React.FC<unknown> = () => {
 	const { library } = useCurrentLibrary();
 
 	useEffect(() => {
-		explorerStore.locationId = location_id;
+		getExplorerStore().locationId = location_id;
 	}, [location_id]);
 
 	const explorerData = useLibraryQuery([

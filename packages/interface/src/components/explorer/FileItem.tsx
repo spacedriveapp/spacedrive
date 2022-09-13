@@ -1,8 +1,7 @@
-import { explorerStore } from '@sd/client';
+import { getExplorerStore, useExplorerStore } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-import { useSnapshot } from 'valtio';
 
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
@@ -14,16 +13,16 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem(props: Props) {
-	const store = useSnapshot(explorerStore);
+	const store = useExplorerStore();
 
 	return (
 		<div
 			onContextMenu={(e) => {
 				const objectId = isObject(props.data) ? props.data.id : props.data.file?.id;
 				if (objectId != undefined) {
-					explorerStore.contextMenuObjectId = objectId;
+					getExplorerStore().contextMenuObjectId = objectId;
 					if (props.index != undefined) {
-						explorerStore.selectedRowIndex = props.index;
+						getExplorerStore().selectedRowIndex = props.index;
 					}
 				}
 			}}

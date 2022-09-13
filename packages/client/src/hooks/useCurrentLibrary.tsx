@@ -1,16 +1,7 @@
-import {
-	PropsWithChildren,
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useState
-} from 'react';
+import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 
-import { useBridgeQuery } from '../index';
-import { explorerStore } from '../stores/explorerStore';
+import { useBridgeQuery, useExplorerStore } from '../index';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
@@ -18,27 +9,23 @@ const libraryCacheLocalStorageKey = 'sd-library-list';
 type OnNoLibraryFunc = () => void | Promise<void>;
 
 // Keep this private and use `useCurrentLibrary` hook to access or mutate it
+const currentLibraryUuidStore = proxy({ id: null as string | null });
+
 const CringeContext = createContext<{
 	onNoLibrary: OnNoLibraryFunc;
-	currentLibraryId: string | null;
-	setCurrentLibraryId: (v: string | null) => void;
 }>(undefined!);
 
 export const LibraryContextProvider = ({
 	onNoLibrary,
 	children
 }: PropsWithChildren<{ onNoLibrary: OnNoLibraryFunc }>) => {
-	const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(null);
-
-	return (
-		<CringeContext.Provider value={{ onNoLibrary, currentLibraryId, setCurrentLibraryId }}>
-			{children}
-		</CringeContext.Provider>
-	);
+	return <CringeContext.Provider value={{ onNoLibrary }}>{children}</CringeContext.Provider>;
 };
 
 // this is a hook to get the current library loaded into the UI. It takes care of a bunch of invariants under the hood.
 export const useCurrentLibrary = () => {
+	const explorerStore = useExplorerStore();
+	const currentLibraryUuid = useSnapshot(currentLibraryUuidStore).id;
 	const ctx = useContext(CringeContext);
 	if (ctx === undefined)
 		throw new Error(
@@ -61,7 +48,7 @@ export const useCurrentLibrary = () => {
 		onSuccess: (data) => {
 			localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data));
 
-			// Redirect to the onboaording flow if the user doesn't have any libraries
+			// Redirect to the onboarding flow if the user doesn't have any libraries
 			if (libraries?.length === 0) {
 				ctx.onNoLibrary();
 			}
@@ -69,20 +56,20 @@ export const useCurrentLibrary = () => {
 	});
 
 	const switchLibrary = useCallback((libraryUuid: string) => {
-		ctx.setCurrentLibraryId(libraryUuid);
+		currentLibraryUuidStore.id = libraryUuid;
 		explorerStore.reset();
 	}, []);
 
 	// memorize library to avoid re-running find function
 	const library = useMemo(() => {
-		const current = libraries?.find((l: any) => l.uuid === ctx.currentLibraryId);
+		const current = libraries?.find((l: any) => l.uuid === currentLibraryUuid);
 		// switch to first library if none set
 		if (libraries && !current && libraries[0]?.uuid) {
 			switchLibrary(libraries[0]?.uuid);
 		}
 
 		return current;
-	}, [libraries, ctx.currentLibraryId]); // TODO: This runs when the 'libraries' change causing the whole app to re-render which is cringe.
+	}, [libraries, currentLibraryUuid]); // TODO: This runs when the 'libraries' change causing the whole app to re-render which is cringe.
 
 	return {
 		library,

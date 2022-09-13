@@ -1,6 +1,5 @@
-import { explorerStore, rspc, useCurrentLibrary } from '@sd/client';
+import { getExplorerStore, rspc, useCurrentLibrary } from '@sd/client';
 import { ExplorerData } from '@sd/core';
-import { useSnapshot } from 'valtio';
 
 import { Inspector } from '../explorer/Inspector';
 import { TopBar } from '../layout/TopBar';
@@ -12,7 +11,7 @@ interface Props {
 }
 
 export default function Explorer(props: Props) {
-	const expStore = useSnapshot(explorerStore);
+	const expStore = getExplorerStore();
 	const { library } = useCurrentLibrary();
 
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
