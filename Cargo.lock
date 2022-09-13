@@ -389,6 +389,15 @@ checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 
 [[package]]
 name = "block-buffer"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
+name = "block-buffer"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf7fe51849ea569fd452f37822f606a5cabb684dc918707a0193fd4664ff324"
@@ -957,21 +966,45 @@ source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777a
 dependencies = [
  "bigdecimal 0.2.2",
  "chrono",
- "datamodel-connector",
- "diagnostics",
- "dml",
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+ "diagnostics 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+ "dml 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "either",
  "enumflags2",
  "indoc",
  "itertools",
- "mongodb-datamodel-connector",
+ "mongodb-datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "once_cell",
- "parser-database",
+ "parser-database 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "regex",
- "schema-ast",
+ "schema-ast 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "serde",
  "serde_json",
- "sql-datamodel-connector",
+ "sql-datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+]
+
+[[package]]
+name = "datamodel"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "bigdecimal 0.2.2",
+ "chrono",
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "diagnostics 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "dml 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "either",
+ "enumflags2",
+ "indoc",
+ "itertools",
+ "mongodb-datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "once_cell",
+ "parser-database 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "regex",
+ "schema-ast 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "serde",
+ "serde_json",
+ "sql-datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
 ]
 
 [[package]]
@@ -979,10 +1012,23 @@ name = "datamodel-connector"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
- "diagnostics",
+ "diagnostics 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "enumflags2",
  "lsp-types",
- "parser-database",
+ "parser-database 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+ "serde_json",
+ "url",
+]
+
+[[package]]
+name = "datamodel-connector"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "diagnostics 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "enumflags2",
+ "lsp-types",
+ "parser-database 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
  "serde_json",
  "url",
 ]
@@ -1051,12 +1097,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "diagnostics"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "colored",
+ "pest",
+]
+
+[[package]]
+name = "digest"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2fb860ca6fafa5552fb6d0e816a69c8e49f0908bf524e30a90d97c85892d506"
 dependencies = [
- "block-buffer",
+ "block-buffer 0.10.2",
  "crypto-common",
  "subtle",
 ]
@@ -1117,11 +1181,25 @@ dependencies = [
  "cuid",
  "enumflags2",
  "indoc",
- "native-types",
- "prisma-value",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+ "prisma-value 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "serde",
  "serde_json",
  "uuid 0.8.2",
+]
+
+[[package]]
+name = "dml"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "chrono",
+ "enumflags2",
+ "indoc",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "prisma-value 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1130,7 +1208,7 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
  "bigdecimal 0.2.2",
- "datamodel",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "indexmap",
  "prisma-models",
  "schema",
@@ -2033,7 +2111,7 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
- "digest",
+ "digest 0.10.3",
 ]
 
 [[package]]
@@ -2467,6 +2545,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "json-rpc-api-build"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "backtrace",
+ "heck 0.3.3",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "jsonrpc-core"
+version = "17.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4467ab6dfa369b69e52bd0692e480c4d117410538526a57a304a0f2250fd95e"
+dependencies = [
+ "futures",
+ "futures-executor",
+ "futures-util",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "kuchiki"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2798,7 +2902,7 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "658646b21e0b72f7866c7038ab086d3d5e1cd6271f060fd37defb241949d0582"
 dependencies = [
- "digest",
+ "digest 0.10.3",
 ]
 
 [[package]]
@@ -2910,6 +3014,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "migration-connector"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "chrono",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "enumflags2",
+ "sha2 0.9.9",
+ "tracing",
+ "tracing-error",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+]
+
+[[package]]
+name = "migration-core"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "enumflags2",
+ "json-rpc-api-build",
+ "jsonrpc-core",
+ "migration-connector",
+ "mongodb-migration-connector",
+ "psl",
+ "serde",
+ "serde_json",
+ "sql-migration-connector",
+ "tokio",
+ "tracing",
+ "tracing-futures",
+ "tracing-subscriber",
+ "url",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2990,7 +3132,7 @@ dependencies = [
  "serde_bytes",
  "serde_with",
  "sha-1",
- "sha2",
+ "sha2 0.10.2",
  "socket2",
  "stringprep",
  "strsim",
@@ -3018,15 +3160,55 @@ dependencies = [
 ]
 
 [[package]]
+name = "mongodb-client"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "mongodb",
+ "once_cell",
+ "percent-encoding",
+ "thiserror",
+]
+
+[[package]]
 name = "mongodb-datamodel-connector"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
- "datamodel-connector",
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "enumflags2",
- "native-types",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "once_cell",
  "serde_json",
+]
+
+[[package]]
+name = "mongodb-datamodel-connector"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "enumflags2",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "once_cell",
+ "serde_json",
+]
+
+[[package]]
+name = "mongodb-migration-connector"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "enumflags2",
+ "futures",
+ "migration-connector",
+ "mongodb",
+ "mongodb-client 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "mongodb-schema-describer",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3039,17 +3221,17 @@ dependencies = [
  "bigdecimal 0.2.2",
  "chrono",
  "cuid",
- "datamodel",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "futures",
  "indexmap",
  "itertools",
  "metrics 0.18.1",
  "metrics-util 0.12.1",
  "mongodb",
- "mongodb-client",
- "native-types",
+ "mongodb-client 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "prisma-models",
- "prisma-value",
+ "prisma-value 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "query-connector",
  "rand 0.7.3",
  "regex",
@@ -3059,8 +3241,18 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-futures",
- "user-facing-errors",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "uuid 0.8.2",
+]
+
+[[package]]
+name = "mongodb-schema-describer"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "futures",
+ "mongodb",
+ "serde",
 ]
 
 [[package]]
@@ -3124,7 +3316,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha-1",
- "sha2",
+ "sha2 0.10.2",
  "smallvec",
  "subprocess",
  "thiserror",
@@ -3172,6 +3364,15 @@ dependencies = [
 name = "native-types"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "native-types"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
  "serde",
  "serde_json",
@@ -3426,6 +3627,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "074864da206b4973b84eb91683020dbefd6a8c3f0f38e054d93954e891935e4e"
 
 [[package]]
+name = "opaque-debug"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
+
+[[package]]
 name = "open"
 version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3667,11 +3874,23 @@ name = "parser-database"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
- "diagnostics",
+ "diagnostics 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "either",
  "enumflags2",
  "indexmap",
- "schema-ast",
+ "schema-ast 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+]
+
+[[package]]
+name = "parser-database"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "diagnostics 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "either",
+ "enumflags2",
+ "indexmap",
+ "schema-ast 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
 ]
 
 [[package]]
@@ -3692,7 +3911,7 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "271779f35b581956db91a3e55737327a03aa051e90b1c47aeb189508533adfd7"
 dependencies = [
- "digest",
+ "digest 0.10.3",
 ]
 
 [[package]]
@@ -3969,7 +4188,7 @@ dependencies = [
  "md-5",
  "memchr",
  "rand 0.8.5",
- "sha2",
+ "sha2 0.10.2",
  "stringprep",
 ]
 
@@ -4021,7 +4240,7 @@ dependencies = [
  "base64 0.13.0",
  "bigdecimal 0.2.2",
  "chrono",
- "datamodel",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "dmmf",
  "indexmap",
  "prisma-models",
@@ -4033,7 +4252,7 @@ dependencies = [
  "serde-value",
  "serde_json",
  "thiserror",
- "user-facing-errors",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "uuid 0.8.2",
 ]
 
@@ -4042,7 +4261,7 @@ name = "prisma-client-rust-cli"
 version = "0.6.0"
 source = "git+https://github.com//Brendonovich/prisma-client-rust.git?rev=8447fe493414471a23a38d780b3db246266f558f#8447fe493414471a23a38d780b3db246266f558f"
 dependencies = [
- "datamodel",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "prisma-client-rust-sdk",
  "prisma-models",
  "proc-macro2",
@@ -4061,7 +4280,7 @@ version = "0.6.0"
 source = "git+https://github.com//Brendonovich/prisma-client-rust.git?rev=8447fe493414471a23a38d780b3db246266f558f#8447fe493414471a23a38d780b3db246266f558f"
 dependencies = [
  "convert_case 0.5.0",
- "datamodel",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "directories",
  "dmmf",
  "flate2",
@@ -4086,10 +4305,10 @@ source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777a
 dependencies = [
  "bigdecimal 0.2.2",
  "chrono",
- "datamodel",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "itertools",
  "once_cell",
- "prisma-value",
+ "prisma-value 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "serde",
  "serde_derive",
  "serde_json",
@@ -4100,6 +4319,21 @@ dependencies = [
 name = "prisma-value"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "base64 0.12.3",
+ "bigdecimal 0.2.2",
+ "chrono",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "uuid 0.8.2",
+]
+
+[[package]]
+name = "prisma-value"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
  "base64 0.12.3",
  "bigdecimal 0.2.2",
@@ -4171,6 +4405,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "psl"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+]
+
+[[package]]
 name = "quaint"
 version = "0.2.0-alpha.13"
 source = "git+https://github.com/prisma/quaint?rev=fb4fe90682b4fecb485fd0d6975dd15a3bc9616b#fb4fe90682b4fecb485fd0d6975dd15a3bc9616b"
@@ -4211,6 +4453,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "quaint"
+version = "0.2.0-alpha.13"
+source = "git+https://github.com/prisma/quaint.git#2baa684d8c4d2512c9d99dc84fdafbdffc638b6a"
+dependencies = [
+ "async-trait",
+ "connection-string",
+ "futures",
+ "hex",
+ "libsqlite3-sys",
+ "metrics 0.18.1",
+ "num_cpus",
+ "percent-encoding",
+ "rusqlite",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-core",
+ "url",
+ "uuid 1.1.2",
+]
+
+[[package]]
 name = "quanta"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4238,11 +4502,11 @@ dependencies = [
  "indexmap",
  "itertools",
  "prisma-models",
- "prisma-value",
+ "prisma-value 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "serde",
  "serde_json",
  "thiserror",
- "user-facing-errors",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "uuid 0.8.2",
 ]
 
@@ -4258,8 +4522,8 @@ dependencies = [
  "connection-string",
  "crossbeam-queue",
  "cuid",
- "datamodel",
- "datamodel-connector",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "futures",
  "im",
  "indexmap",
@@ -4269,7 +4533,7 @@ dependencies = [
  "metrics 0.18.1",
  "metrics-exporter-prometheus",
  "metrics-util 0.12.1",
- "mongodb-client",
+ "mongodb-client 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "mongodb-query-connector",
  "once_cell",
  "opentelemetry",
@@ -4277,7 +4541,7 @@ dependencies = [
  "petgraph",
  "pin-utils",
  "prisma-models",
- "prisma-value",
+ "prisma-value 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "query-connector",
  "schema",
  "schema-builder",
@@ -4291,7 +4555,7 @@ dependencies = [
  "tracing-opentelemetry",
  "tracing-subscriber",
  "url",
- "user-facing-errors",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "uuid 0.8.2",
 ]
 
@@ -4526,7 +4790,7 @@ source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777a
 dependencies = [
  "bigdecimal 0.2.2",
  "connection-string",
- "datamodel",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "dmmf",
  "futures",
  "graphql-parser",
@@ -4538,7 +4802,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "url",
- "user-facing-errors",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
 ]
 
 [[package]]
@@ -4827,7 +5091,7 @@ name = "schema"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
- "datamodel-connector",
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "once_cell",
  "prisma-models",
 ]
@@ -4837,7 +5101,17 @@ name = "schema-ast"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
- "diagnostics",
+ "diagnostics 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+ "pest",
+ "pest_derive",
+]
+
+[[package]]
+name = "schema-ast"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "diagnostics 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
  "pest",
  "pest_derive",
 ]
@@ -4847,7 +5121,7 @@ name = "schema-builder"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
- "datamodel-connector",
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "itertools",
  "lazy_static",
  "once_cell",
@@ -4893,6 +5167,7 @@ dependencies = [
  "chrono",
  "ctor",
  "data-encoding",
+ "enumflags2",
  "ffmpeg-next",
  "fs_extra",
  "futures",
@@ -4903,14 +5178,17 @@ dependencies = [
  "int-enum",
  "itertools",
  "libc",
+ "migration-core",
  "once_cell",
  "prisma-client-rust",
+ "quaint 0.2.0-alpha.13 (git+https://github.com/prisma/quaint.git)",
  "ring 0.17.0-alpha.11",
  "rmp",
  "rmp-serde",
  "rspc",
  "serde",
  "serde_json",
+ "sql-migration-connector",
  "sysinfo",
  "tempfile",
  "thiserror",
@@ -5181,7 +5459,20 @@ checksum = "028f48d513f9678cda28f6e4064755b3fbb2af6acd672f2c209b62323f7aea0f"
 dependencies = [
  "cfg-if 1.0.0",
  "cpufeatures",
- "digest",
+ "digest 0.10.3",
+]
+
+[[package]]
+name = "sha2"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
+dependencies = [
+ "block-buffer 0.9.0",
+ "cfg-if 1.0.0",
+ "cpufeatures",
+ "digest 0.9.0",
+ "opaque-debug",
 ]
 
 [[package]]
@@ -5192,7 +5483,7 @@ checksum = "55deaec60f81eefe3cce0dc50bda92d6d8e88f2a27df7c5033b42afeb1ed2676"
 dependencies = [
  "cfg-if 1.0.0",
  "cpufeatures",
- "digest",
+ "digest 0.10.3",
 ]
 
 [[package]]
@@ -5366,14 +5657,62 @@ version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
  "connection-string",
- "datamodel-connector",
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "either",
  "enumflags2",
  "lsp-types",
- "native-types",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "once_cell",
  "regex",
  "serde_json",
+]
+
+[[package]]
+name = "sql-datamodel-connector"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "connection-string",
+ "datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "either",
+ "enumflags2",
+ "lsp-types",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "once_cell",
+ "regex",
+ "serde_json",
+]
+
+[[package]]
+name = "sql-ddl"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+
+[[package]]
+name = "sql-migration-connector"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "chrono",
+ "connection-string",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "either",
+ "enumflags2",
+ "indoc",
+ "migration-connector",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "once_cell",
+ "quaint 0.2.0-alpha.13 (git+https://github.com/prisma/quaint?rev=fb4fe90682b4fecb485fd0d6975dd15a3bc9616b)",
+ "regex",
+ "serde_json",
+ "sql-ddl",
+ "sql-schema-describer",
+ "tokio",
+ "tracing",
+ "tracing-futures",
+ "url",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -5386,26 +5725,48 @@ dependencies = [
  "bigdecimal 0.2.2",
  "chrono",
  "cuid",
- "datamodel",
+ "datamodel 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "futures",
  "itertools",
  "once_cell",
  "opentelemetry",
  "prisma-models",
- "prisma-value",
- "quaint",
+ "prisma-value 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+ "quaint 0.2.0-alpha.13 (git+https://github.com/prisma/quaint?rev=fb4fe90682b4fecb485fd0d6975dd15a3bc9616b)",
  "query-connector",
  "rand 0.7.3",
  "serde",
  "serde_json",
- "sql-datamodel-connector",
+ "sql-datamodel-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "thiserror",
  "tokio",
  "tracing",
  "tracing-futures",
  "tracing-opentelemetry",
- "user-facing-errors",
+ "user-facing-errors 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
  "uuid 0.8.2",
+]
+
+[[package]]
+name = "sql-schema-describer"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "async-trait",
+ "bigdecimal 0.2.2",
+ "enumflags2",
+ "indexmap",
+ "indoc",
+ "native-types 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "once_cell",
+ "prisma-value 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
+ "quaint 0.2.0-alpha.13 (git+https://github.com/prisma/quaint?rev=fb4fe90682b4fecb485fd0d6975dd15a3bc9616b)",
+ "regex",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-error",
+ "tracing-futures",
 ]
 
 [[package]]
@@ -5754,7 +6115,7 @@ dependencies = [
  "semver 1.0.13",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.10.2",
  "tauri-utils",
  "thiserror",
  "time 0.3.14",
@@ -6020,6 +6381,7 @@ dependencies = [
  "mio",
  "num_cpus",
  "once_cell",
+ "parking_lot 0.12.1",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
@@ -6219,6 +6581,16 @@ checksum = "5aeea4303076558a00714b823f9ad67d58a3bbda1df83d8827d21193156e22f7"
 dependencies = [
  "once_cell",
  "valuable",
+]
+
+[[package]]
+name = "tracing-error"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d686ec1c0f384b1277f097b2f279a2ecc11afe8c133c1aabf036a27cb4cd206e"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -6482,17 +6854,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "user-facing-error-macros"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "user-facing-errors"
 version = "0.1.0"
 source = "git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804#dcea2c532cb777afb290a613f769140647a16804"
 dependencies = [
  "backtrace",
  "indoc",
- "quaint",
+ "quaint 0.2.0-alpha.13 (git+https://github.com/prisma/quaint?rev=fb4fe90682b4fecb485fd0d6975dd15a3bc9616b)",
  "serde",
  "serde_json",
  "tracing",
- "user-facing-error-macros",
+ "user-facing-error-macros 0.1.0 (git+https://github.com/Brendonovich/prisma-engines?rev=dcea2c532cb777afb290a613f769140647a16804)",
+]
+
+[[package]]
+name = "user-facing-errors"
+version = "0.1.0"
+source = "git+https://github.com/Brendonovich/prisma-engines.git#dcea2c532cb777afb290a613f769140647a16804"
+dependencies = [
+ "backtrace",
+ "indoc",
+ "quaint 0.2.0-alpha.13 (git+https://github.com/prisma/quaint?rev=fb4fe90682b4fecb485fd0d6975dd15a3bc9616b)",
+ "serde",
+ "serde_json",
+ "tracing",
+ "user-facing-error-macros 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
 ]
 
 [[package]]

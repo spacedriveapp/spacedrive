@@ -38,6 +38,9 @@ prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust
   "rspc",
   "sqlite-create-many",
 ] }
+quaint = { git = "https://github.com/prisma/quaint.git", features = ["sqlite", "uuid"] }
+migration-core = { git = "https://github.com/Brendonovich/prisma-engines.git" }
+sql-migration-connector = { git = "https://github.com/Brendonovich/prisma-engines.git" }
 rspc = { version = "0.0.4", features = ["uuid", "chrono", "tracing"] }
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
@@ -58,6 +61,7 @@ once_cell = "1.13.0"
 ctor = "0.1.22"
 globset = { version = "^0.4.9", features = ["serde1"] }
 itertools = "^0.10.3"
+enumflags2 = "0.7.5"
 
 [dev-dependencies]
 tempfile = "^3.3.0"
