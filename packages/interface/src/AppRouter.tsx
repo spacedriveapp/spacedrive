@@ -48,16 +48,16 @@ export function AppRouter() {
 	}, [libraryState, libraryState.currentLibraryUuid, libraries]);
 
 	useEffect(() => {
-		const handler = (e: KeyboardEvent) => {
-			if (e.metaKey && e.key === ',') {
+		const handleKeybind = (e: KeybindEvent) => {
+			if (e.detail.action === 'open_settings') {
 				navigate('/settings');
 				e.preventDefault();
 				return;
 			}
 		};
 
-		document.addEventListener('keydown', handler);
-		return () => document.removeEventListener('keydown', handler);
+		document.addEventListener('exec_keybind', handleKeybind);
+		return () => document.removeEventListener('exec_keybind', handleKeybind);
 	}, [navigate]);
 
 	return (

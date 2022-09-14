@@ -37,8 +37,8 @@ function App() {
 		os.platform().then((platform) => setPlatform(getPlatform(platform)));
 		invoke('app_ready');
 
-		const unlisten = listen('do_keyboard_input', (input) => {
-			document.dispatchEvent(new KeyboardEvent('keydown', input.payload as any));
+		const unlisten = listen('exec_keybind', (input) => {
+			document.dispatchEvent(new CustomEvent('exec_keybind', { detail: input.payload }));
 		});
 
 		return () => {
@@ -49,12 +49,10 @@ function App() {
 	useEffect(() => {
 		const focusListener = listen('tauri://focus', () => setFocused(true));
 		const blurListener = listen('tauri://blur', () => setFocused(false));
-		const settingsNavigateListener = listen('navigate_to_settings', () => undefined);
 
 		return () => {
 			focusListener.then((unlisten) => unlisten());
 			blurListener.then((unlisten) => unlisten());
-			settingsNavigateListener.then((unlisten) => unlisten());
 		};
 	}, []);
 
