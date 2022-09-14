@@ -1,5 +1,6 @@
 import { useAppProps } from '@sd/client';
 import clsx from 'clsx';
+import React from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { Sidebar } from './components/layout/Sidebar';
