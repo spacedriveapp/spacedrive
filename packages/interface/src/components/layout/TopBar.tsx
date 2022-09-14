@@ -124,7 +124,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			}
 		};
 
-		const handleWebKeydown = (e: KeyboardEvent) => {
+		const handleDOMKeydown = (e: KeyboardEvent) => {
 			if (e.target === searchBar && e.key === 'Escape') {
 				(e.target as HTMLInputElement).blur();
 				e.preventDefault();
@@ -153,11 +153,11 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			}
 		};
 
-		document.addEventListener('keydown', handleWebKeydown);
+		document.addEventListener('keydown', handleDOMKeydown);
 		document.addEventListener('keybindexec', handleKeybindAction);
 
 		return () => {
-			document.removeEventListener('keydown', handleWebKeydown);
+			document.removeEventListener('keydown', handleDOMKeydown);
 			document.removeEventListener('keybindexec', handleKeybindAction);
 		};
 	}, [appProps?.platform]);
