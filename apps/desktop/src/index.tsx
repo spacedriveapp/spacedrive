@@ -3,6 +3,7 @@ import { createClient } from '@rspc/client';
 import { TauriTransport } from '@rspc/tauri';
 import { Operations, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
+import { KeybindEvent } from '@sd/interface';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
@@ -36,23 +37,19 @@ function App() {
 	useEffect(() => {
 		os.platform().then((platform) => setPlatform(getPlatform(platform)));
 		invoke('app_ready');
-
-		const unlisten = listen('exec_keybind', (input) => {
-			document.dispatchEvent(new CustomEvent('exec_keybind', { detail: input.payload }));
-		});
-
-		return () => {
-			unlisten.then((unlisten) => unlisten());
-		};
 	}, []);
 
 	useEffect(() => {
 		const focusListener = listen('tauri://focus', () => setFocused(true));
 		const blurListener = listen('tauri://blur', () => setFocused(false));
+		const keybindListener = listen('keybind', (input) => {
+			document.dispatchEvent(new KeybindEvent(input.payload as string));
+		});
 
 		return () => {
 			focusListener.then((unlisten) => unlisten());
 			blurListener.then((unlisten) => unlisten());
+			keybindListener.then((unlisten) => unlisten());
 		};
 	}, []);
 

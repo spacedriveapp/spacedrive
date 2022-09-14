@@ -14,6 +14,7 @@ import {
 import React, { DetailedHTMLProps, HTMLAttributes, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { KeybindEvent } from '../../util/keybind';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -146,20 +147,18 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				// only check for cmd-l on browser
 				(isBrowser && hasModifier && e.key === 'l')
 			) {
-				document.dispatchEvent(
-					new CustomEvent('exec_keybind', { detail: { action: 'open_search' } })
-				);
+				document.dispatchEvent(new KeybindEvent('open_search'));
 				e.preventDefault();
 				return;
 			}
 		};
 
 		document.addEventListener('keydown', handleWebKeydown);
-		document.addEventListener('exec_keybind', handleKeybindAction);
+		document.addEventListener('keybindexec', handleKeybindAction);
 
 		return () => {
 			document.removeEventListener('keydown', handleWebKeydown);
-			document.removeEventListener('exec_keybind', handleKeybindAction);
+			document.removeEventListener('keybindexec', handleKeybindAction);
 		};
 	}, [appProps?.platform]);
 
