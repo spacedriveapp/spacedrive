@@ -1,12 +1,11 @@
-import { AppPropsContext } from '@sd/client';
+import { useAppProps } from '@sd/client';
 import clsx from 'clsx';
-import React, { useContext } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { Sidebar } from './components/layout/Sidebar';
 
 export function AppLayout() {
-	const appProps = useContext(AppPropsContext);
+	const appProps = useAppProps();
 
 	const isWindowRounded = appProps?.platform === 'macOS';
 	const hasWindowBorder = appProps?.platform !== 'browser' && appProps?.platform !== 'windows';

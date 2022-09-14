@@ -1,9 +1,11 @@
-import { createContext } from 'react';
+import { createContext, useContext } from 'react';
 
 export const AppPropsContext = createContext<AppProps | null>(null);
 
 export type Platform = 'browser' | 'macOS' | 'windows' | 'linux' | 'unknown';
 export type CdnUrl = 'internal' | string;
+
+export const useAppProps = () => useContext(AppPropsContext);
 
 export interface AppProps {
 	platform: Platform;
