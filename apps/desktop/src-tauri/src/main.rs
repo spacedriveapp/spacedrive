@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use sdcore::Node;
-use tauri::{api::path, Manager, RunEvent};
+use tauri::{api::path, async_runtime::block_on, Manager, RunEvent};
 use tracing::{debug, error};
 #[cfg(target_os = "macos")]
 mod macos;
@@ -79,7 +79,7 @@ async fn main() {
 					}
 				});
 
-			node.shutdown();
+			block_on(node.shutdown());
 			app_handler.exit(0);
 		}
 	})
