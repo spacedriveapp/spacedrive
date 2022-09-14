@@ -1,14 +1,8 @@
 use std::env::consts;
 
-use serde::Serialize;
 use tauri::{
 	AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowMenuEvent, Wry,
 };
-
-#[derive(Serialize, Clone)]
-pub struct DOMKeybindEvent {
-	action: String,
-}
 
 pub(crate) fn get_menu() -> Menu {
 	match consts::OS {
@@ -90,15 +84,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			let app = event.window().app_handle();
 			app.exit(0);
 		}
-		"open_settings" => event
-			.window()
-			.emit(
-				"exec_keybind",
-				DOMKeybindEvent {
-					action: "open_settings".into(),
-				},
-			)
-			.unwrap(),
+		"open_settings" => event.window().emit("keybind", "open_settings").unwrap(),
 		"close" => {
 			let window = event.window();
 
@@ -114,12 +100,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 		}
 		"open_search" => event
 			.window()
-			.emit(
-				"exec_keybind",
-				DOMKeybindEvent {
-					action: "open_search".into(),
-				},
-			)
+			.emit("keybind", "open_search".to_string())
 			.unwrap(),
 		"reload_app" => {
 			#[cfg(target_os = "macos")]

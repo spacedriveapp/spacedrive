@@ -32,6 +32,7 @@ import TagsSettings from './screens/settings/library/TagsSettings';
 import ExperimentalSettings from './screens/settings/node/ExperimentalSettings';
 import LibrarySettings from './screens/settings/node/LibrariesSettings';
 import P2PSettings from './screens/settings/node/P2PSettings';
+import { KeybindEvent } from './util/keybind';
 
 export function AppRouter() {
 	const location = useLocation();
@@ -56,8 +57,8 @@ export function AppRouter() {
 			}
 		};
 
-		document.addEventListener('exec_keybind', handleKeybind);
-		return () => document.removeEventListener('exec_keybind', handleKeybind);
+		document.addEventListener('keybindexec', handleKeybind);
+		return () => document.removeEventListener('keybindexec', handleKeybind);
 	}, [navigate]);
 
 	return (
