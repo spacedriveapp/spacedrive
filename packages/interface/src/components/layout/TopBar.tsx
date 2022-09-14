@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { AppPropsContext, useAppProps, useExplorerStore, useLibraryMutation } from '@sd/client';
+import { useAppProps, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -11,7 +11,8 @@ import {
 	SidebarSimple,
 	SquaresFour
 } from 'phosphor-react';
-import React, { DetailedHTMLProps, HTMLAttributes, useContext } from 'react';
+import React, { DetailedHTMLProps, HTMLAttributes } from 'react';
+import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 
 import { KeybindEvent } from '../../util/keybind';
@@ -57,22 +58,44 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 	);
 };
 
-const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
-	//TODO: maybe pass the appProps, so we can have the context in the TopBar if needed again
-	const appProps = useContext(AppPropsContext);
+const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
+	const {
+		register,
+		handleSubmit,
+		reset,
+		formState: { isDirty, dirtyFields }
+	} = useForm();
+
+	const { ref, ...searchField } = register('searchField', {
+		onBlur: (e) => {
+			// if there's no text in the search bar, don't mark it as dirty so the key hint shows
+			if (!dirtyFields.searchField) reset();
+		}
+	});
 
 	return (
-		<div className="relative flex h-7">
+		<form onSubmit={handleSubmit(() => null)} className="relative flex h-7">
 			<input
-				ref={ref}
+				ref={(el) => {
+					ref(el);
+
+					if (typeof forwardedRef === 'function') forwardedRef(el);
+					else if (forwardedRef) forwardedRef.current = el;
+				}}
 				placeholder="Search"
 				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+				{...searchField}
 			/>
-			<div className="space-x-1 absolute top-[2px] right-1 peer-focus:invisible pointer-events-none">
+			<div
+				className={clsx(
+					'space-x-1 absolute top-[2px] right-1 peer-focus:invisible pointer-events-none',
+					isDirty && 'hidden'
+				)}
+			>
 				<Shortcut chars="/" aria-label="Press slash to focus search bar" />
 				{/* <Shortcut chars="S" /> */}
 			</div>
-		</div>
+		</form>
 	);
 });
 
