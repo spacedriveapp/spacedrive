@@ -29,14 +29,7 @@ async fn main() {
 		.unwrap_or(8080);
 
 	let (node, router) = Node::new(data_dir).await;
-
-	ctrlc::set_handler({
-		let node = node.clone();
-		move || {
-			node.shutdown();
-		}
-	})
-	.expect("Error setting Ctrl-C handler");
+	let signal = utils::axum_shutdown_signal(node.clone());
 
 	let app = axum::Router::new()
 		.route("/", get(|| async { "Spacedrive Server!" }))
@@ -55,7 +48,7 @@ async fn main() {
 	info!("Listening on http://localhost:{}", port);
 	axum::Server::bind(&addr)
 		.serve(app.into_make_service())
-		.with_graceful_shutdown(utils::axum_shutdown_signal())
+		.with_graceful_shutdown(signal)
 		.await
 		.expect("Error with HTTP server!");
 }

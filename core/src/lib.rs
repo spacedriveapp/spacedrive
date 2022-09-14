@@ -1,5 +1,4 @@
 use api::{CoreEvent, Ctx, Router};
-use futures::executor::block_on;
 use job::JobManager;
 use library::LibraryManager;
 use node::NodeConfigManager;
@@ -116,9 +115,9 @@ impl Node {
 		}
 	}
 
-	pub fn shutdown(&self) {
+	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		block_on(self.jobs.pause());
-		info!("Shutdown complete.");
+		self.jobs.pause().await;
+		info!("Spacedrive Core shutdown successful!");
 	}
 }
