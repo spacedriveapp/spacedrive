@@ -69,11 +69,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
 			/>
 			<div className="space-x-1 absolute top-[2px] right-1 peer-focus:invisible pointer-events-none">
-				<Shortcut
-					chars={
-						appProps?.platform === 'macOS' || appProps?.platform === 'browser' ? '⌘L' : 'CTRL+L'
-					}
-				/>
+				<Shortcut chars="/" aria-label="Press slash to focus search bar" />
 				{/* <Shortcut chars="S" /> */}
 			</div>
 		</div>
@@ -132,23 +128,18 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			}
 
 			const isBrowser = appProps?.platform === 'browser';
-			// use cmd on macOS and ctrl on Windows
-			const hasModifier = isBrowser && navigator.platform.startsWith('Mac') ? e.metaKey : e.ctrlKey;
 
-			if (
-				// allow slash on all platforms
-				(e.key === '/' &&
+			if (isBrowser)
+				if (
+					// allow slash on web
+					e.key === '/' &&
 					!(document.activeElement instanceof HTMLInputElement) &&
-					!(document.activeElement instanceof HTMLTextAreaElement)) ||
-				// only do the cmd-l keybind check on browser to allow for native keybind functionality
-				// this is particularly useful for power-user niche use cases,
-				// like how macOS lets you redefine keybinds for apps
-				(isBrowser && hasModifier && e.key === 'l')
-			) {
-				document.dispatchEvent(new KeybindEvent('open_search'));
-				e.preventDefault();
-				return;
-			}
+					!(document.activeElement instanceof HTMLTextAreaElement)
+				) {
+					document.dispatchEvent(new KeybindEvent('open_search'));
+					e.preventDefault();
+					return;
+				}
 		};
 
 		document.addEventListener('keydown', handleDOMKeydown);
