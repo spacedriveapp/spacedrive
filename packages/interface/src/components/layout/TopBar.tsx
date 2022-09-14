@@ -131,10 +131,6 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				return;
 			}
 
-			// only do this keybind check on browser to allow for native keybind functionality
-			// this is particularly useful for power-user niche use cases,
-			// like how macOS lets you redefine keybinds for apps
-
 			const isBrowser = appProps?.platform === 'browser';
 			// use cmd on macOS and ctrl on Windows
 			const hasModifier = isBrowser && navigator.platform.startsWith('Mac') ? e.metaKey : e.ctrlKey;
@@ -144,7 +140,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				(e.key === '/' &&
 					!(document.activeElement instanceof HTMLInputElement) &&
 					!(document.activeElement instanceof HTMLTextAreaElement)) ||
-				// only check for cmd-l on browser
+				// only do the cmd-l keybind check on browser to allow for native keybind functionality
+				// this is particularly useful for power-user niche use cases,
+				// like how macOS lets you redefine keybinds for apps
 				(isBrowser && hasModifier && e.key === 'l')
 			) {
 				document.dispatchEvent(new KeybindEvent('open_search'));
