@@ -6,10 +6,8 @@ use tauri::{
 };
 
 #[derive(Serialize, Clone)]
-pub struct DOMKeyboardEvent {
-	#[serde(rename = "metaKey")]
-	meta_key: bool,
-	key: String,
+pub struct DOMKeybindEvent {
+	action: String,
 }
 
 pub(crate) fn get_menu() -> Menu {
@@ -27,9 +25,7 @@ fn custom_menu_bar() -> Menu {
 		)) // TODO: fill out about metadata
 		.add_native_item(MenuItem::Separator)
 		.add_item(
-			// macOS 13 Ventura automatically changes "Preferences" to "Settings" for system-wide consistency.
-			// Use "Preferences" here to keep consistency on older versions
-			CustomMenuItem::new("open_settings".to_string(), "Preferences...")
+			CustomMenuItem::new("open_settings".to_string(), "Settings...")
 				.accelerator("CmdOrCtrl+Comma"),
 		)
 		.add_native_item(MenuItem::Separator)
@@ -97,10 +93,9 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 		"open_settings" => event
 			.window()
 			.emit(
-				"do_keyboard_input",
-				DOMKeyboardEvent {
-					meta_key: true,
-					key: ",".into(),
+				"exec_keybind",
+				DOMKeybindEvent {
+					action: "open_settings".into(),
 				},
 			)
 			.unwrap(),
@@ -120,10 +115,9 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 		"open_search" => event
 			.window()
 			.emit(
-				"do_keyboard_input",
-				DOMKeyboardEvent {
-					meta_key: true,
-					key: "l".into(),
+				"exec_keybind",
+				DOMKeybindEvent {
+					action: "open_search".into(),
 				},
 			)
 			.unwrap(),
