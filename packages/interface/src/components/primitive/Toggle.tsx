@@ -1,6 +1,5 @@
 import { Switch } from '@headlessui/react';
 import clsx from 'clsx';
-import React from 'react';
 
 export interface ToggleProps {
 	value: boolean;

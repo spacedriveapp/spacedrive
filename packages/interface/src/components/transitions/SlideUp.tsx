@@ -1,5 +1,4 @@
 import { Transition } from '@headlessui/react';
-import React from 'react';
 
 export default function SlideUp(props: { children: React.ReactNode }) {
 	return (

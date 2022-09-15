@@ -53,13 +53,12 @@ impl StatefulJob for ThumbnailJob {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		let library_ctx = ctx.library_ctx();
 		let thumbnail_dir = library_ctx
 			.config()
 			.data_directory()
 			.join(THUMBNAIL_CACHE_DIR_NAME);
-		// .join(state.init.location_id.to_string());
 
 		let location = library_ctx
 			.db
@@ -102,7 +101,7 @@ impl StatefulJob for ThumbnailJob {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		ctx.progress(vec![JobReportUpdate::Message(format!(
 			"Processing {}",
@@ -163,7 +162,7 @@ impl StatefulJob for ThumbnailJob {
 		&self,
 		_ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	) -> JobResult {
 		let data = state
 			.data
 			.as_ref()
@@ -173,7 +172,9 @@ impl StatefulJob for ThumbnailJob {
 			state.init.location_id,
 			data.root_path.display()
 		);
-		Ok(())
+
+		// TODO: Serialize and return metadata here
+		Ok(None)
 	}
 }
 

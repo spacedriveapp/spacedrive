@@ -1,7 +1,5 @@
 import { useBridgeMutation } from '@sd/client';
-import { LibraryConfigWrapped } from '@sd/core';
-import { Input } from '@sd/ui';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import Dialog from '../layout/Dialog';
 

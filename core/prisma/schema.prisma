@@ -313,12 +313,13 @@ model FileInSpace {
 }
 
 model Job {
-  id      Bytes  @id
-  name    String
-  node_id Int
-  action  Int
-  status  Int    @default(0)
-  data    Bytes?
+  id       Bytes  @id
+  name     String
+  node_id  Int
+  action   Int
+  status   Int    @default(0)
+  data     Bytes?
+  metadata Bytes?
 
   task_count           Int      @default(1)
   completed_task_count Int      @default(0)
