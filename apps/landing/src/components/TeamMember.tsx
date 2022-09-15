@@ -1,6 +1,5 @@
 import { Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
-import React from 'react';
 
 export interface TeamMemberProps {
 	// Name of team member

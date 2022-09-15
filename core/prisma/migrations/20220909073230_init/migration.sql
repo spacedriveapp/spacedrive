@@ -225,6 +225,7 @@ CREATE TABLE "jobs" (
     "action" INTEGER NOT NULL,
     "status" INTEGER NOT NULL DEFAULT 0,
     "data" BLOB,
+    "metadata" BLOB,
     "task_count" INTEGER NOT NULL DEFAULT 1,
     "completed_task_count" INTEGER NOT NULL DEFAULT 0,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

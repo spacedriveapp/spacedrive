@@ -10,13 +10,9 @@ rust-version = "1.63.0"
 
 [features]
 default = ["p2p"]
-p2p = [
-] # This feature controlls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
-mobile = [
-] # This feature allows features to be disabled when the Core is running on mobile.
-ffmpeg = [
-  "dep:ffmpeg-next",
-] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+p2p = [] # This feature controlls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
+mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
+ffmpeg = ["dep:ffmpeg-next"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 
 [dependencies]
 hostname = "0.3.1"

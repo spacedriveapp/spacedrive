@@ -1,8 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useExplorerStore, useLibraryQuery, useLibraryStore } from '@sd/client';
-import React, { useEffect } from 'react';
+import { getExplorerStore, useCurrentLibrary, useLibraryQuery } from '@sd/client';
+import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import z from 'zod';
 
 import Explorer from '../components/explorer/Explorer';
 
@@ -19,14 +18,11 @@ export function useExplorerParams() {
 
 export const LocationExplorer: React.FC<unknown> = () => {
 	const { location_id, path } = useExplorerParams();
+	const { library } = useCurrentLibrary();
 
-	// for top bar location context, could be replaced with react context as it is child component
-	const { set } = useExplorerStore();
 	useEffect(() => {
-		set({ locationId: location_id });
+		getExplorerStore().locationId = location_id;
 	}, [location_id]);
-
-	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
 
 	const explorerData = useLibraryQuery([
 		'locations.getExplorerData',
@@ -40,7 +36,7 @@ export const LocationExplorer: React.FC<unknown> = () => {
 
 	return (
 		<div className="relative flex flex-col w-full">
-			{library_id && explorerData.data && <Explorer data={explorerData.data} />}
+			{library!.uuid && explorerData.data && <Explorer data={explorerData.data} />}
 		</div>
 	);
 };
