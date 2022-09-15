@@ -27,6 +27,23 @@ export function parseMarkdown(markdownAsHtml: string, markdownRaw: string): Mark
 		`<a target="_blank" rel="noreferrer" href=`
 	);
 
+	// custom support for "slots" like vuepress
+	markdownAsHtml = markdownAsHtml
+		.split(':::')
+		.map((text, index) => {
+			if (index % 2 === 0) {
+				return text;
+			} else {
+				//extract first word
+				const [firstWord, ...remaining] = text.split(' ');
+
+				return `<div class="slot-block ${firstWord}"><h5 class="slot-block-title">${firstWord}</h5><p class="slot-block-content">${remaining.join(
+					' '
+				)}</p></div>`;
+			}
+		})
+		.join('');
+
 	return {
 		render: markdownAsHtml,
 		data: metadata

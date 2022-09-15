@@ -87,11 +87,8 @@ export function getDocsList(docs?: Doc[]) {
 // get a single doc, and the sidebar data
 export function getDoc(slug: string): SingleDocResponse {
 	const { name } = docInfo(slug),
-		docs = getDocs(),
-		doc = docs.find((d) => d.name === name);
-
-	console.log({ html: doc.html });
-
+		docs = getDocs();
+	const doc = docs.find((d) => d.name === name);
 	return {
 		doc,
 		docsList: getDocsList(docs)

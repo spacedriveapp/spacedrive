@@ -19,7 +19,7 @@ function MarkdownPage(props: MarkdownPageProps) {
 		<div className={clsx('max-w-4xl p-4 mt-[105px] mb-20 sm:container', props.classNames)}>
 			<article
 				id="content"
-				className="m-auto prose prose-a:text-primary prose-a:no-underline lg:prose-xs dark:prose-invert prose-td:p-2 prose-th:p-2 prose-td:border-l prose-td:border-gray-500 prose-td:last:border-r prose-table:border-b prose-table:border-gray-500 prose-tr:even:bg-gray-700"
+				className="m-auto prose prose-blockquote:bg-red-500 prose-a:text-primary prose-a:no-underline lg:prose-xs dark:prose-invert prose-td:p-2 prose-th:p-2 prose-td:border-l prose-td:border-gray-500 prose-td:last:border-r prose-table:border-b prose-table:border-gray-500 prose-tr:even:bg-gray-700"
 			>
 				{props.children}
 			</article>

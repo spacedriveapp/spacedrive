@@ -10,6 +10,19 @@ Objects are files discovered on your devices and drives, but can also be virtual
  
 All metadata associated with files in Spacedrive is linked to the Object for that file. 
 
+:::warning
+Spacedrive is under active development, most of the listed features are still experimental and subject to change.
+:::
+:::info
+Spacedrive is under active development, most of the listed features are still experimental and subject to change.
+:::
+:::note
+Spacedrive is under active development, most of the listed features are still experimental and subject to change.
+:::
+:::jeff
+Spacedrive is under active development, most of the listed features are still experimental and subject to change.
+:::
+
 If two or more files are discovered that are identical, they are linked to the same Object in Spacedrive.
 
 A CAS id is generated from set samples of the byte data, which is used to associate Objects uniquely with Paths found in a Location.
