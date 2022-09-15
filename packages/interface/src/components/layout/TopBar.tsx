@@ -1,5 +1,10 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { getExplorerStore, useExplorerStore, useLibraryMutation } from '@sd/client';
+import {
+	OperatingSystem,
+	getExplorerStore,
+	useExplorerStore,
+	useLibraryMutation
+} from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -12,9 +17,11 @@ import {
 	SquaresFour
 } from 'phosphor-react';
 import { DetailedHTMLProps, HTMLAttributes, forwardRef, useEffect, useRef } from 'react';
+import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
+import { KeybindEvent } from '../../util/keybind';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -57,25 +64,61 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 	);
 };
 
-const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
+const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
+	const {
+		register,
+		handleSubmit,
+		reset,
+		formState: { isDirty, dirtyFields }
+	} = useForm();
+
+	const { ref, ...searchField } = register('searchField', {
+		onBlur: (e) => {
+			// if there's no text in the search bar, don't mark it as dirty so the key hint shows
+			if (!dirtyFields.searchField) reset();
+		}
+	});
+
+	const platform = useOperatingSystem(false);
 	const os = useOperatingSystem(true);
 
 	return (
-		<div className="relative flex h-7">
+		<form onSubmit={handleSubmit(() => null)} className="relative flex h-7">
 			<input
-				ref={ref}
+				ref={(el) => {
+					ref(el);
+
+					if (typeof forwardedRef === 'function') forwardedRef(el);
+					else if (forwardedRef) forwardedRef.current = el;
+				}}
 				placeholder="Search"
 				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+				{...searchField}
 			/>
-			<div className="space-x-1 absolute top-[2px] right-1 peer-focus:invisible">
-				<Shortcut chars={os === 'macOS' ? '⌘L' : 'CTRL+L'} />
+
+			<div
+				className={clsx(
+					'space-x-1 absolute top-[2px] right-1 peer-focus:invisible pointer-events-none',
+					isDirty && 'hidden'
+				)}
+			>
+				{platform === 'browser' ? (
+					<Shortcut chars="/" aria-label={'Press slash to focus search bar'} />
+				) : os === 'macOS' ? (
+					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
+				) : (
+					<Shortcut chars="CTRL+F" aria-label={'Press CTRL-F to focus search bar'} />
+				)}
 				{/* <Shortcut chars="S" /> */}
 			</div>
-		</div>
+		</form>
 	);
 });
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
+	const platform = useOperatingSystem(false);
+	const os = useOperatingSystem(true);
+
 	const store = useExplorerStore();
 	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
@@ -99,32 +142,60 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 	//create function to focus on search box when cmd+k is pressed
 	const searchRef = useRef<HTMLInputElement>(null);
+
+	const focusSearchBar = (bar: HTMLInputElement, e?: Event): boolean => {
+		bar.focus();
+
+		e?.preventDefault();
+		return false;
+	};
+
 	useEffect(() => {
-		const handler = (e: KeyboardEvent) => {
-			if (e.metaKey && e.key === 'l') {
-				if (searchRef.current) searchRef.current.focus();
+		const searchBar = searchRef.current;
+
+		if (searchBar === null || !searchBar) return;
+
+		const handleKeybindAction = (e: KeybindEvent) => {
+			if (e.detail.action === 'open_search') {
+				return focusSearchBar(searchBar, e);
+			}
+		};
+
+		const handleDOMKeydown = (e: KeyboardEvent) => {
+			if (e.target === searchBar && e.key === 'Escape') {
+				(e.target as HTMLInputElement).blur();
 				e.preventDefault();
 				return;
 			}
 
-			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-				if (e.key === 'Escape') {
-					e.target.blur();
-					e.preventDefault();
-					return;
-				}
-			} else {
-				if (e.key === '/') {
-					if (searchRef.current) searchRef.current.focus();
-					e.preventDefault();
-					return;
-				}
+			const isBrowser = platform === 'browser';
+			// use cmd on macOS and ctrl on Windows
+			const hasModifier = os === 'macOS' ? e.metaKey : e.ctrlKey;
+
+			if (
+				// allow slash on all platforms
+				(e.key === '/' &&
+					!(document.activeElement instanceof HTMLInputElement) &&
+					!(document.activeElement instanceof HTMLTextAreaElement)) ||
+				// only do the cmd-f keybind check on browser to allow for native keybind functionality
+				// this is particularly useful for power-user niche use cases,
+				// like how macOS lets you redefine keybinds for apps
+				(isBrowser && hasModifier && e.key === 'f')
+			) {
+				document.dispatchEvent(new KeybindEvent('open_search'));
+				e.preventDefault();
+				return;
 			}
 		};
 
-		document.addEventListener('keydown', handler);
-		return () => document.removeEventListener('keydown', handler);
-	}, []);
+		document.addEventListener('keydown', handleDOMKeydown);
+		document.addEventListener('keybindexec', handleKeybindAction);
+
+		return () => {
+			document.removeEventListener('keydown', handleDOMKeydown);
+			document.removeEventListener('keybindexec', handleKeybindAction);
+		};
+	}, [os, platform]);
 
 	return (
 		<>
@@ -168,6 +239,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							/>
 						</Tooltip>
 					</div>
+
 					<SearchBar ref={searchRef} />
 
 					<div className="flex mx-8 space-x-2">

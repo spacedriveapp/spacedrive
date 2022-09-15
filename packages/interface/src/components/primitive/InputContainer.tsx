@@ -2,7 +2,7 @@ import clsx from 'clsx';
 
 import { DefaultProps } from './types';
 
-interface InputContainerProps extends DefaultProps {
+interface InputContainerProps extends DefaultProps<HTMLDivElement> {
 	title: string;
 	description?: string;
 	children: React.ReactNode;
