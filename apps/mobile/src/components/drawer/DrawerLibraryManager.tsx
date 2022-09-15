@@ -5,14 +5,12 @@ import { Pressable, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/outline';
 import { ChevronRightIcon, CogIcon, PlusIcon } from 'react-native-heroicons/solid';
 import { useSnapshot } from 'valtio';
-import { useBridgeMutation } from '~/hooks/rspc';
+import CreateLibraryDialog from '~/containers/dialog/CreateLibraryDialog';
 import tw from '~/lib/tailwind';
 import { libraryStore, useCurrentLibrary } from '~/stores/libraryStore';
 
 import { AnimatedHeight } from '../animation/layout';
-import Dialog from '../layout/Dialog';
 import Divider from '../primitive/Divider';
-import { TextInput } from '../primitive/Input';
 
 const DrawerLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);
@@ -31,24 +29,6 @@ const DrawerLibraryManager = () => {
 		if (libraries && !currentLibraryUuid) initLibraries(libraries);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [libraries, currentLibraryUuid]);
-
-	// Create Library
-	const [libName, setLibName] = useState('');
-	const [createLibOpen, setCreateLibOpen] = useState(false);
-
-	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
-		'library.create',
-		{
-			onSuccess: () => {
-				// Reset form
-				setLibName('');
-			},
-			onSettled: () => {
-				// Close create lib dialog
-				setCreateLibOpen(false);
-			}
-		}
-	);
 
 	return (
 		<View>
@@ -96,28 +76,12 @@ const DrawerLibraryManager = () => {
 						</View>
 					</Pressable>
 					{/* Create Library */}
-					<Dialog
-						isVisible={createLibOpen}
-						setIsVisible={setCreateLibOpen}
-						title="Create New Library"
-						description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
-						ctaLabel="Create"
-						ctaAction={() => createLibrary(libName)}
-						loading={createLibLoading}
-						ctaDisabled={libName.length === 0}
-						trigger={
-							<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-								<PlusIcon size={18} style={tw`text-gray-100 mr-2`} />
-								<Text style={tw`text-sm text-gray-200 font-semibold`}>Add Library</Text>
-							</View>
-						}
-					>
-						<TextInput
-							value={libName}
-							onChangeText={(text) => setLibName(text)}
-							placeholder="My Cool Library"
-						/>
-					</Dialog>
+					<CreateLibraryDialog>
+						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
+							<PlusIcon size={18} style={tw`text-gray-100 mr-2`} />
+							<Text style={tw`text-sm text-gray-200 font-semibold`}>Add Library</Text>
+						</View>
+					</CreateLibraryDialog>
 					<Pressable onPress={() => console.log('lock')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<LockClosedIcon size={18} style={tw`text-gray-100 mr-2`} />
