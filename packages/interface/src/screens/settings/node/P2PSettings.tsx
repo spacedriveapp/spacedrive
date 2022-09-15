@@ -1,5 +1,4 @@
 import { Input } from '@sd/ui';
-import React from 'react';
 
 import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';

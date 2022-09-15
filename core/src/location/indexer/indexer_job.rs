@@ -1,5 +1,5 @@
 use crate::{
-	job::{JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	prisma::{file_path, location},
 };
 
@@ -70,7 +70,7 @@ pub struct IndexerJobStepEntry {
 
 impl IndexerJobData {
 	fn on_scan_progress(ctx: WorkerContext, progress: Vec<ScanProgress>) {
-		ctx.progress(
+		ctx.progress_debounced(
 			progress
 				.iter()
 				.map(|p| match p.clone() {
@@ -98,7 +98,7 @@ impl StatefulJob for IndexerJob {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		let location_path = state
 			.init
 			.location
@@ -225,7 +225,7 @@ impl StatefulJob for IndexerJob {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	) -> Result<(), JobError> {
 		let location_path = &state
 			.data
 			.as_ref()
@@ -303,7 +303,7 @@ impl StatefulJob for IndexerJob {
 				.expect("critical error: non-negative duration"),
 		);
 
-		Ok(())
+		Ok(Some(serde_json::to_value(state)?))
 	}
 }
 

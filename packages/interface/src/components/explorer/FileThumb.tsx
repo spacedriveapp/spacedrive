@@ -1,7 +1,7 @@
-import { AppPropsContext, useExplorerStore } from '@sd/client';
+import { useExplorerStore, usePlatform } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
-import React, { useContext } from 'react';
+import { useSnapshot } from 'valtio';
 
 import icons from '../../assets/icons';
 import { Folder } from '../icons/Folder';
@@ -15,8 +15,8 @@ interface Props {
 }
 
 export default function FileThumb({ data, ...props }: Props) {
-	const appProps = useContext(AppPropsContext);
-	const { newThumbnails } = useExplorerStore();
+	const platform = usePlatform();
+	const store = useExplorerStore();
 
 	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
 
@@ -28,19 +28,15 @@ export default function FileThumb({ data, ...props }: Props) {
 		? data.has_thumbnail
 		: isPath(data)
 		? data.file?.has_thumbnail
-		: !!newThumbnails[cas_id];
+		: !!store.newThumbnails[cas_id];
 
-	const file_thumb_url =
-		has_thumbnail && appProps?.data_path
-			? appProps?.convertFileSrc(`${appProps.data_path}/thumbnails/${cas_id}.webp`)
-			: undefined;
-
-	if (file_thumb_url)
+	if (has_thumbnail)
 		return (
 			<img
+				// onLoad={}
 				style={props.style}
 				className={clsx('pointer-events-none z-90', props.className)}
-				src={file_thumb_url}
+				src={platform.getThumbnailUrlById(cas_id)}
 			/>
 		);
 
@@ -83,6 +79,4 @@ export default function FileThumb({ data, ...props }: Props) {
 			</svg>
 		</div>
 	);
-
-	return null;
 }

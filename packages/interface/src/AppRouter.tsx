@@ -1,9 +1,10 @@
-import { useBridgeQuery, useLibraryStore } from '@sd/client';
-import React, { useEffect } from 'react';
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
+import { Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
+import OnboardingScreen from './components/onboarding/Onboarding';
+import { useKeyboardHandler } from './hooks/useKeyboardHandler';
 import { ContentScreen } from './screens/Content';
 import { DebugScreen } from './screens/Debug';
 import { LocationExplorer } from './screens/LocationExplorer';
@@ -34,42 +35,25 @@ import LibrarySettings from './screens/settings/node/LibrariesSettings';
 import P2PSettings from './screens/settings/node/P2PSettings';
 
 export function AppRouter() {
-	const location = useLocation();
-	const state = location.state as { backgroundLocation?: Location };
-	const libraryState = useLibraryStore();
-	const navigate = useNavigate();
-	const { data: libraries } = useBridgeQuery(['library.list']);
+	const { library } = useCurrentLibrary();
 
-	// TODO: This can be removed once we add a setup flow to the app
-	useEffect(() => {
-		if (libraryState.currentLibraryUuid === null && libraries && libraries.length > 0) {
-			libraryState.switchLibrary(libraries[0].uuid);
-		}
-	}, [libraryState, libraryState.currentLibraryUuid, libraries]);
-
-	useEffect(() => {
-		const handler = (e: KeyboardEvent) => {
-			if (e.metaKey && e.key === ',') {
-				navigate('/settings');
-				e.preventDefault();
-				return;
-			}
-		};
-
-		document.addEventListener('keydown', handler);
-		return () => document.removeEventListener('keydown', handler);
-	}, [navigate]);
+	useKeyboardHandler();
+	useInvalidateQuery();
 
 	return (
-		<>
-			{libraryState.currentLibraryUuid === null ? (
-				<>
-					{/* TODO: Remove this when adding app setup flow */}
-					<h1>No Library Loaded...</h1>
-				</>
-			) : (
-				<Routes location={state?.backgroundLocation || location}>
-					<Route path="/" element={<AppLayout />}>
+		<Routes>
+			<Route path="onboarding" element={<OnboardingScreen />} />
+			<Route element={<AppLayout />}>
+				{/* As we are caching the libraries in localStore so this *shouldn't* result is visual problems unless something else is wrong */}
+				{library === undefined ? (
+					<Route
+						path="*"
+						element={
+							<h1 className="text-white p-4">Please select or create a library in the sidebar.</h1>
+						}
+					/>
+				) : (
+					<>
 						<Route index element={<RedirectPage to="/overview" />} />
 						<Route path="overview" element={<OverviewScreen />} />
 						<Route path="content" element={<ContentScreen />} />
@@ -104,9 +88,9 @@ export function AppRouter() {
 						<Route path="location/:id" element={<LocationExplorer />} />
 						<Route path="tag/:id" element={<TagExplorer />} />
 						<Route path="*" element={<NotFound />} />
-					</Route>
-				</Routes>
-			)}
-		</>
+					</>
+				)}
+			</Route>
+		</Routes>
 	);
 }

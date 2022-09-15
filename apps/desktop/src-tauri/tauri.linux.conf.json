@@ -78,7 +78,7 @@
 			}
 		],
 		"security": {
-			"csp": "default-src asset: blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
+			"csp": "default-src spacedrive: asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
 		}
 	}
 }

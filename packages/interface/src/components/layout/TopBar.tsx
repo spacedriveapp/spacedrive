@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { AppPropsContext, useExplorerStore, useLibraryMutation } from '@sd/client';
+import { getExplorerStore, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -11,9 +11,10 @@ import {
 	SidebarSimple,
 	SquaresFour
 } from 'phosphor-react';
-import React, { DetailedHTMLProps, HTMLAttributes, RefAttributes, useContext } from 'react';
+import { DetailedHTMLProps, HTMLAttributes, forwardRef, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -56,9 +57,8 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 	);
 };
 
-const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
-	//TODO: maybe pass the appProps, so we can have the context in the TopBar if needed again
-	const appProps = useContext(AppPropsContext);
+const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, ref) => {
+	const os = useOperatingSystem(true);
 
 	return (
 		<div className="relative flex h-7">
@@ -68,11 +68,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
 			/>
 			<div className="space-x-1 absolute top-[2px] right-1 peer-focus:invisible">
-				<Shortcut
-					chars={
-						appProps?.platform === 'macOS' || appProps?.platform === 'browser' ? '⌘L' : 'CTRL+L'
-					}
-				/>
+				<Shortcut chars={os === 'macOS' ? '⌘L' : 'CTRL+L'} />
 				{/* <Shortcut chars="S" /> */}
 			</div>
 		</div>
@@ -80,19 +76,19 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, ref) 
 });
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
-	const { layoutMode, set, locationId, showInspector } = useExplorerStore();
+	const store = useExplorerStore();
 	const { mutate: generateThumbsForLocation } = useLibraryMutation(
 		'jobs.generateThumbsForLocation',
 		{
 			onMutate: (data) => {
-				console.log('GenerateThumbsForLocation', data);
+				// console.log('GenerateThumbsForLocation', data);
 			}
 		}
 	);
 
 	const { mutate: identifyUniqueFiles } = useLibraryMutation('jobs.identifyUniqueFiles', {
 		onMutate: (data) => {
-			console.log('IdentifyUniqueFiles', data);
+			// console.log('IdentifyUniqueFiles', data);
 		},
 		onError: (error) => {
 			console.error('IdentifyUniqueFiles', error);
@@ -102,8 +98,8 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	const navigate = useNavigate();
 
 	//create function to focus on search box when cmd+k is pressed
-	const searchRef = React.useRef<HTMLInputElement>(null);
-	React.useEffect(() => {
+	const searchRef = useRef<HTMLInputElement>(null);
+	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if (e.metaKey && e.key === 'l') {
 				if (searchRef.current) searchRef.current.focus();
@@ -157,18 +153,18 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							<TopBarButton
 								group
 								left
-								active={layoutMode === 'list'}
+								active={store.layoutMode === 'list'}
 								icon={Rows}
-								onClick={() => set({ layoutMode: 'list' })}
+								onClick={() => (getExplorerStore().layoutMode = 'list')}
 							/>
 						</Tooltip>
 						<Tooltip label="Grid view">
 							<TopBarButton
 								group
 								right
-								active={layoutMode === 'grid'}
+								active={store.layoutMode === 'grid'}
 								icon={SquaresFour}
-								onClick={() => set({ layoutMode: 'grid' })}
+								onClick={() => (getExplorerStore().layoutMode = 'grid')}
 							/>
 						</Tooltip>
 					</div>
@@ -193,8 +189,8 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				</div>
 				<div className="flex mr-3 space-x-2">
 					<TopBarButton
-						active={showInspector}
-						onClick={() => set({ showInspector: !showInspector })}
+						active={store.showInspector}
+						onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
 						className="my-2"
 						icon={SidebarSimple}
 					/>
@@ -207,12 +203,14 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 									name: 'Generate Thumbs',
 									icon: ArrowsClockwise,
 									onPress: () =>
-										locationId && generateThumbsForLocation({ id: locationId, path: '' })
+										store.locationId &&
+										generateThumbsForLocation({ id: store.locationId, path: '' })
 								},
 								{
 									name: 'Identify Unique',
 									icon: ArrowsClockwise,
-									onPress: () => locationId && identifyUniqueFiles({ id: locationId, path: '' })
+									onPress: () =>
+										store.locationId && identifyUniqueFiles({ id: store.locationId, path: '' })
 								}
 							]
 						]}

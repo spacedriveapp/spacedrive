@@ -1,7 +1,7 @@
 import { Listbox as ListboxPrimitive } from '@headlessui/react';
 import { CheckIcon, SunIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ListboxOption {
 	option: string;
