@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use sdcore::Node;
 use tauri::{
 	api::path,
+	async_runtime::block_on,
 	http::{ResponseBuilder, Uri},
 	Manager, RunEvent,
 };
@@ -97,7 +98,7 @@ async fn main() {
 					}
 				});
 
-			node.shutdown();
+			block_on(node.shutdown());
 			app_handler.exit(0);
 		}
 	})
