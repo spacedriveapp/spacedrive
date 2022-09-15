@@ -3,7 +3,7 @@ import { useLibraryMutation } from '@sd/client';
 import { File } from '@sd/core';
 import { TextArea } from '@sd/ui';
 import { debounce } from 'lodash';
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { Divider } from './Divider';
 import { MetaItem } from './MetaItem';

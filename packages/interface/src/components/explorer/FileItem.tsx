@@ -1,31 +1,29 @@
-import { ReactComponent as Folder } from '@sd/assets/svgs/folder.svg';
-import { LocationContext, useExplorerStore } from '@sd/client';
-import { ExplorerData, ExplorerItem, File, FilePath } from '@sd/core';
+import { getExplorerStore, useExplorerStore } from '@sd/client';
+import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
-import React, { useContext } from 'react';
+import { HTMLAttributes } from 'react';
 
-import icons from '../../assets/icons';
 import FileThumb from './FileThumb';
-import { isObject, isPath } from './utils';
+import { isObject } from './utils';
 
-interface Props extends React.HTMLAttributes<HTMLDivElement> {
+interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
 	selected: boolean;
-	size: number;
 	index: number;
 }
 
-export default function FileItem(props: Props) {
-	const { set } = useExplorerStore();
-	const size = props.size || 100;
+function FileItem(props: Props) {
+	const store = useExplorerStore();
 
 	return (
 		<div
 			onContextMenu={(e) => {
 				const objectId = isObject(props.data) ? props.data.id : props.data.file?.id;
 				if (objectId != undefined) {
-					set({ contextMenuObjectId: objectId });
-					if (props.index != undefined) set({ selectedRowIndex: props.index });
+					getExplorerStore().contextMenuObjectId = objectId;
+					if (props.index != undefined) {
+						getExplorerStore().selectedRowIndex = props.index;
+					}
 				}
 			}}
 			draggable
@@ -33,7 +31,7 @@ export default function FileItem(props: Props) {
 			className={clsx('inline-block w-[100px] mb-3', props.className)}
 		>
 			<div
-				style={{ width: size, height: size }}
+				style={{ width: store.gridItemSize, height: store.gridItemSize }}
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
@@ -51,7 +49,7 @@ export default function FileItem(props: Props) {
 							'border-4 border-gray-250 rounded-sm shadow-md shadow-gray-750 max-h-full max-w-full overflow-hidden'
 						)}
 						data={props.data}
-						size={100}
+						size={store.gridItemSize}
 					/>
 				</div>
 			</div>
@@ -71,3 +69,5 @@ export default function FileItem(props: Props) {
 		</div>
 	);
 }
+
+export default FileItem;

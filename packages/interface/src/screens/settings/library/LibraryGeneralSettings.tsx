@@ -1,7 +1,7 @@
 import { useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
 import { Button, Input } from '@sd/ui';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDebounce } from 'use-debounce';
 
 import { Toggle } from '../../../components/primitive';
@@ -10,7 +10,7 @@ import { SettingsContainer } from '../../../components/settings/SettingsContaine
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function LibraryGeneralSettings() {
-	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
+	const { library, libraries } = useCurrentLibrary();
 
 	const { mutate: editLibrary } = useBridgeMutation('library.edit');
 
@@ -24,12 +24,12 @@ export default function LibraryGeneralSettings() {
 	const [descriptionDebounced] = useDebounce(description, 500);
 
 	useEffect(() => {
-		if (currentLibrary) {
-			const { name, description } = currentLibrary.config;
+		if (library) {
+			const { name, description } = library.config;
 			// currentLibrary must be loaded, name must not be empty, and must be different from the current
 			if (nameDebounced && (nameDebounced !== name || descriptionDebounced !== description)) {
 				editLibrary({
-					id: currentLibraryUuid!,
+					id: library.uuid!,
 					name: nameDebounced,
 					description: descriptionDebounced
 				});
@@ -39,21 +39,21 @@ export default function LibraryGeneralSettings() {
 	}, [nameDebounced, descriptionDebounced]);
 
 	useEffect(() => {
-		if (currentLibrary) {
-			setName(currentLibrary.config.name);
-			setDescription(currentLibrary.config.description);
+		if (library) {
+			setName(library.config.name);
+			setDescription(library.config.description);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [libraries]);
 
 	useEffect(() => {
-		if (currentLibrary) {
+		if (library) {
 			setBlockAutoUpdate(true);
-			setName(currentLibrary.config.name);
-			setDescription(currentLibrary.config.description);
+			setName(library.config.name);
+			setDescription(library.config.description);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentLibraryUuid]);
+	}, [library]);
 
 	useEffect(() => {
 		if (blockAutoUpdate) setBlockAutoUpdate(false);

@@ -1,9 +1,8 @@
 use api::{CoreEvent, Ctx, Router};
-use futures::executor::block_on;
 use job::JobManager;
 use library::LibraryManager;
 use node::NodeConfigManager;
-use std::{path::Path, sync::Arc};
+use std::{fs::File, io::Read, path::Path, sync::Arc};
 use tracing::{error, info};
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
@@ -116,9 +115,54 @@ impl Node {
 		}
 	}
 
-	pub fn shutdown(&self) {
+	// Note: this system doesn't use chunked encoding which could prove a problem with large files but I can't see an easy way to do chunked encoding with Tauri custom URIs.
+	// It would also be nice to use Tokio Filesystem operations instead of the std ones which block. Tauri's custom URI protocols don't seem to support async out of the box.
+	pub fn handle_custom_uri(
+		&self,
+		path: Vec<&str>,
+	) -> (
+		u16,     /* Status Code */
+		&str,    /* Content-Type */
+		Vec<u8>, /* Body */
+	) {
+		match path.first().copied() {
+			Some("thumbnail") => {
+				if path.len() != 2 {
+					return (
+						400,
+						"text/html",
+						b"Bad Request: Invalid number of parameters".to_vec(),
+					);
+				}
+
+				let filename = Path::new(&self.config.data_directory())
+					.join("thumbnails")
+					.join(path[1] /* file_cas_id */)
+					.with_extension("webp");
+				match File::open(&filename) {
+					Ok(mut file) => {
+						let mut buf = match std::fs::metadata(&filename) {
+							Ok(metadata) => Vec::with_capacity(metadata.len() as usize),
+							Err(_) => Vec::new(),
+						};
+
+						file.read_to_end(&mut buf).unwrap();
+						(200, "image/webp", buf)
+					}
+					Err(_) => (404, "text/html", b"File Not Found".to_vec()),
+				}
+			}
+			_ => (
+				400,
+				"text/html",
+				b"Bad Request: Invalid operation!".to_vec(),
+			),
+		}
+	}
+
+	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		block_on(self.jobs.pause());
-		info!("Shutdown complete.");
+		self.jobs.pause().await;
+		info!("Spacedrive Core shutdown successful!");
 	}
 }

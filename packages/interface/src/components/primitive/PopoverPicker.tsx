@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
 
 import useClickOutside from '../../hooks/useClickOutside';
