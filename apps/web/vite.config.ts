@@ -10,14 +10,7 @@ export default defineConfig({
 	server: {
 		port: 8002
 	},
-	plugins: [
-		// @ts-ignore
-		react({
-			jsxRuntime: 'classic'
-		}),
-		svg({ svgrOptions: { icon: true } }),
-		tsconfigPaths()
-	],
+	plugins: [react(), svg({ svgrOptions: { icon: true } }), tsconfigPaths()],
 	root: 'src',
 	publicDir: '../../packages/interface/src/assets',
 	define: {

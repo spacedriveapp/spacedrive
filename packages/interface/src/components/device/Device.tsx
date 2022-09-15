@@ -2,7 +2,7 @@ import { KeyIcon } from '@heroicons/react/24/outline';
 import { CogIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
 import { Cloud, Desktop, DeviceMobileCamera, DotsSixVertical, Laptop } from 'phosphor-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import FileItem from '../explorer/FileItem';
 import Loader from '../primitive/Loader';

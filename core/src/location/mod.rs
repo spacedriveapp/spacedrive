@@ -37,7 +37,10 @@ pub struct LocationCreateArgs {
 }
 
 impl LocationCreateArgs {
-	pub async fn create(self, ctx: &LibraryContext) -> Result<location::Data, LocationError> {
+	pub async fn create(
+		self,
+		ctx: &LibraryContext,
+	) -> Result<indexer_job_location::Data, LocationError> {
 		// check if we have access to this location
 		if !self.path.exists() {
 			return Err(LocationError::PathNotFound(self.path));
@@ -75,6 +78,7 @@ impl LocationCreateArgs {
 					location::local_path::set(Some(self.path.to_string_lossy().to_string())),
 				],
 			)
+			.include(indexer_job_location::include())
 			.exec()
 			.await?;
 
@@ -86,6 +90,7 @@ impl LocationCreateArgs {
 
 		// Updating our location variable to include information about the indexer rules
 		location = fetch_location(ctx, location.id)
+			.include(indexer_job_location::include())
 			.exec()
 			.await?
 			.ok_or(LocationError::IdNotFound(location.id))?;
@@ -232,35 +237,28 @@ async fn link_location_and_indexer_rules(
 	Ok(())
 }
 
-pub async fn scan_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
-	let location = ctx
-		.db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.include(indexer_job_location::include())
-		.exec()
-		.await?
-		.ok_or(LocationError::IdNotFound(location_id))?;
-
+pub async fn scan_location(
+	ctx: &LibraryContext,
+	location: indexer_job_location::Data,
+) -> Result<(), LocationError> {
 	if location.local_path.is_none() {
 		return Err(LocationError::MissingLocalPath(location.id));
 	};
 
-	ctx.spawn_job(Job::new(
-		IndexerJobInit { location },
-		Box::new(IndexerJob {}),
-	))
-	.await;
-
+	let location_id = location.id;
 	ctx.queue_job(Job::new(
 		FileIdentifierJobInit {
-			location_id,
+			location_id: location.id,
 			sub_path: None,
 		},
 		Box::new(FileIdentifierJob {}),
 	))
 	.await;
-
+	ctx.spawn_job(Job::new(
+		IndexerJobInit { location },
+		Box::new(IndexerJob {}),
+	))
+	.await;
 	ctx.queue_job(Job::new(
 		ThumbnailJobInit {
 			location_id,
