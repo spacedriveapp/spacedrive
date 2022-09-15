@@ -2,9 +2,11 @@ use crate::{
 	encode::{ThumbnailJob, ThumbnailJobInit},
 	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
 	job::{Job, JobManager},
+	location::{fetch_location, LocationError},
+	prisma::location,
 };
 
-use rspc::Type;
+use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -33,6 +35,16 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation(
 			"generateThumbsForLocation",
 			|_, args: GenerateThumbsForLocationArgs, library| async move {
+				if library
+					.db
+					.location()
+					.count(vec![location::id::equals(args.id)])
+					.exec()
+					.await? == 0
+				{
+					return Err(LocationError::IdNotFound(args.id).into());
+				}
+
 				library
 					.spawn_job(Job::new(
 						ThumbnailJobInit {
@@ -50,6 +62,13 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation(
 			"identifyUniqueFiles",
 			|_, args: IdentifyUniqueFilesArgs, library| async move {
+				if fetch_location(&library, args.id).exec().await?.is_none() {
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Location not found".into(),
+					));
+				}
+
 				library
 					.spawn_job(Job::new(
 						FileIdentifierJobInit {

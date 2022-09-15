@@ -23,11 +23,13 @@
 		"subpackage",
 		"svgr",
 		"tailwindcss",
+		"tanstack",
 		"titlebar",
 		"trivago",
 		"tsparticles",
 		"unlisten",
-		"upsert"
+		"upsert",
+		"valtio"
 	],
 	"[rust]": {
 		"editor.defaultFormatter": "rust-lang.rust-analyzer"

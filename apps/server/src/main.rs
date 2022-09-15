@@ -1,6 +1,11 @@
 use std::{env, net::SocketAddr, path::Path};
 
-use axum::{handler::Handler, routing::get};
+use axum::{
+	extract,
+	handler::Handler,
+	http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
+	routing::get,
+};
 use sdcore::Node;
 use tracing::info;
 
@@ -29,18 +34,28 @@ async fn main() {
 		.unwrap_or(8080);
 
 	let (node, router) = Node::new(data_dir).await;
-
-	ctrlc::set_handler({
-		let node = node.clone();
-		move || {
-			node.shutdown();
-		}
-	})
-	.expect("Error setting Ctrl-C handler");
+	let signal = utils::axum_shutdown_signal(node.clone());
 
 	let app = axum::Router::new()
 		.route("/", get(|| async { "Spacedrive Server!" }))
 		.route("/health", get(|| async { "OK" }))
+		.route("/spacedrive/:id", {
+			let node = node.clone();
+			get(|extract::Path(path): extract::Path<String>| async move {
+				let (status_code, content_type, body) =
+					node.handle_custom_uri(path.split('/').collect());
+
+				(
+					StatusCode::from_u16(status_code).unwrap(),
+					{
+						let mut headers = HeaderMap::new();
+						headers.insert(CONTENT_TYPE, content_type.parse().unwrap());
+						headers
+					},
+					body,
+				)
+			})
+		})
 		.route(
 			"/rspcws",
 			router.axum_ws_handler(move || node.get_request_context()),
@@ -55,7 +70,7 @@ async fn main() {
 	info!("Listening on http://localhost:{}", port);
 	axum::Server::bind(&addr)
 		.serve(app.into_make_service())
-		.with_graceful_shutdown(utils::axum_shutdown_signal())
+		.with_graceful_shutdown(signal)
 		.await
 		.expect("Error with HTTP server!");
 }

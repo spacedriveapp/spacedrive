@@ -1,4 +1,3 @@
-import React from 'react';
 import { Helmet } from 'react-helmet';
 import { ReactComponent as Content } from '~/docs/product/faq.md';
 

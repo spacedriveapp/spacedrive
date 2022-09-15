@@ -1,5 +1,4 @@
-import { PostOrPage, PostsOrPages, Tag } from '@tryghost/content-api';
-import React, { useEffect, useState } from 'react';
+import { PostOrPage, Tag } from '@tryghost/content-api';
 import { Helmet } from 'react-helmet';
 
 import { BlogTag } from '../../components/BlogTag';

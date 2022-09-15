@@ -1,5 +1,4 @@
 import * as ProgressPrimitive from '@radix-ui/react-progress';
-import React, { useEffect } from 'react';
 
 interface Props {
 	value: number;
