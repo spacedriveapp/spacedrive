@@ -4,7 +4,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
 import OnboardingScreen from './components/onboarding/Onboarding';
-import { useKeyboardHandler } from './hooks/useKeyboardHandler';
+import { useKeybindHandler } from './hooks/useKeyboardHandler';
 import { ContentScreen } from './screens/Content';
 import { DebugScreen } from './screens/Debug';
 import { LocationExplorer } from './screens/LocationExplorer';
@@ -37,7 +37,7 @@ import P2PSettings from './screens/settings/node/P2PSettings';
 export function AppRouter() {
 	const { library } = useCurrentLibrary();
 
-	useKeyboardHandler();
+	useKeybindHandler();
 	useInvalidateQuery();
 
 	return (

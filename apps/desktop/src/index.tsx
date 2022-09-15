@@ -2,6 +2,7 @@ import { createClient } from '@rspc/client';
 import { TauriTransport } from '@rspc/tauri';
 import { OperatingSystem, Operations, PlatformProvider, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
+import { KeybindEvent } from '@sd/interface';
 import { dialog, invoke, os } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import React, { useEffect } from 'react';
@@ -38,15 +39,15 @@ function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
 		invoke('app_ready');
+	}, []);
 
-		// This is a hacky solution to run the action items in the macOS menu bar by executing their keyboard shortcuts in the DOM.
-		// This means we can build shortcuts that work on web while calling them like native actions.
-		const unlisten = listen('do_keyboard_input', (input) => {
-			document.dispatchEvent(new KeyboardEvent('keydown', input.payload as any));
+	useEffect(() => {
+		const keybindListener = listen('keybind', (input) => {
+			document.dispatchEvent(new KeybindEvent(input.payload as string));
 		});
 
 		return () => {
-			unlisten.then((unlisten) => unlisten());
+			keybindListener.then((unlisten) => unlisten());
 		};
 	}, []);
 
