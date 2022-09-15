@@ -45,7 +45,7 @@ fn custom_menu_bar() -> Menu {
 		.add_native_item(MenuItem::Paste)
 		.add_native_item(MenuItem::SelectAll);
 	let view_menu = Menu::new()
-		.add_item(CustomMenuItem::new("open_search".to_string(), "Search...").accelerator("/"))
+		.add_item(CustomMenuItem::new("open_search".to_string(), "Search...").accelerator("CmdOrCtrl+F"))
 		// .add_item(
 		// 	CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
 		// 		.accelerator("CmdOrCtrl+P"),

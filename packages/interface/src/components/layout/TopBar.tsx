@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { useAppProps, useExplorerStore, useLibraryMutation } from '@sd/client';
+import { AppProps, useAppProps, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -19,6 +19,13 @@ import { KeybindEvent } from '../../util/keybind';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
+
+// useful for determining whether to show command or ctrl in keybinds
+const isPlatformMac = (appProps: AppProps | null) =>
+	// running on macOS desktop app
+	appProps?.platform === 'macOS' ||
+	// running in browser on macOS
+	navigator.platform.startsWith('Mac');
 
 export type TopBarProps = DefaultProps;
 export interface TopBarButtonProps
@@ -59,6 +66,8 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 };
 
 const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
+	const appProps = useAppProps();
+
 	const {
 		register,
 		handleSubmit,
@@ -92,7 +101,13 @@ const SearchBar = React.forwardRef<HTMLInputElement, DefaultProps>((props, forwa
 					isDirty && 'hidden'
 				)}
 			>
-				<Shortcut chars="/" aria-label="Press slash to focus search bar" />
+				{appProps?.platform === 'browser' ? (
+					<Shortcut chars="/" aria-label={'Press slash to focus search bar'} />
+				) : isPlatformMac(appProps) ? (
+					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
+				) : (
+					<Shortcut chars="CTRL+F" aria-label={'Press CTRL-F to focus search bar'} />
+				)}
 				{/* <Shortcut chars="S" /> */}
 			</div>
 		</form>
@@ -151,18 +166,23 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			}
 
 			const isBrowser = appProps?.platform === 'browser';
+			// use cmd on macOS and ctrl on Windows
+			const hasModifier = isBrowser && isPlatformMac(appProps) ? e.metaKey : e.ctrlKey;
 
-			if (isBrowser)
-				if (
-					// allow slash on web
-					e.key === '/' &&
+			if (
+				// allow slash on all platforms
+				(e.key === '/' &&
 					!(document.activeElement instanceof HTMLInputElement) &&
-					!(document.activeElement instanceof HTMLTextAreaElement)
-				) {
-					document.dispatchEvent(new KeybindEvent('open_search'));
-					e.preventDefault();
-					return;
-				}
+					!(document.activeElement instanceof HTMLTextAreaElement)) ||
+				// only do the cmd-f keybind check on browser to allow for native keybind functionality
+				// this is particularly useful for power-user niche use cases,
+				// like how macOS lets you redefine keybinds for apps
+				(isBrowser && hasModifier && e.key === 'f')
+			) {
+				document.dispatchEvent(new KeybindEvent('open_search'));
+				e.preventDefault();
+				return;
+			}
 		};
 
 		document.addEventListener('keydown', handleDOMKeydown);
@@ -172,7 +192,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			document.removeEventListener('keydown', handleDOMKeydown);
 			document.removeEventListener('keybindexec', handleKeybindAction);
 		};
-	}, [appProps?.platform]);
+	}, [appProps]);
 
 	return (
 		<>
