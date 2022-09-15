@@ -2,7 +2,6 @@ import { Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export interface ModalProps {

@@ -1,11 +1,11 @@
 import { ShareIcon } from '@heroicons/react/24/solid';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import { ExplorerContext, ExplorerItem, File, FilePath, Location } from '@sd/core';
 import { Button, TextArea } from '@sd/ui';
 import clsx from 'clsx';
 import moment from 'moment';
-import { Heart, Link } from 'phosphor-react';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'phosphor-react';
+import { useEffect, useState } from 'react';
 
 import types from '../../constants/file-types.json';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -26,7 +26,19 @@ export const Inspector = (props: Props) => {
 
 	const objectData = isObject(props.data) ? props.data : props.data.file;
 
-	const { data: tags } = useLibraryQuery(['tags.getForFile', objectData?.id || -1]);
+	// this prevents the inspector from fetching data when the user is navigating quickly
+	const [readyToFetch, setReadyToFetch] = useState(false);
+	useEffect(() => {
+		const timeout = setTimeout(() => {
+			setReadyToFetch(true);
+		}, 350);
+		return () => clearTimeout(timeout);
+	}, [props.data.id]);
+
+	// this is causing LAG
+	const { data: tags } = useLibraryQuery(['tags.getForFile', objectData?.id || -1], {
+		enabled: readyToFetch
+	});
 
 	return (
 		<div className="p-2 pr-1 overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">

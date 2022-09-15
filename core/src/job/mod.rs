@@ -26,6 +26,8 @@ pub enum JobError {
 	StateEncode(#[from] EncodeError),
 	#[error("Job state decode error: {0}")]
 	StateDecode(#[from] DecodeError),
+	#[error("Job metadata serialization error: {0}")]
+	MetadataSerialization(#[from] serde_json::Error),
 	#[error("Tried to resume a job with unknown name: job <name='{1}', uuid='{0}'>")]
 	UnknownJobName(Uuid, String),
 	#[error(
@@ -34,11 +36,14 @@ pub enum JobError {
 	MissingJobDataState(Uuid, String),
 	#[error("Indexer error: {0}")]
 	IndexerError(#[from] IndexerError),
+	#[error("Data needed for job execution not found: job <name='{0}'>")]
+	JobDataNotFound(String),
 	#[error("Job paused")]
 	Paused(Vec<u8>),
 }
 
-pub type JobResult = Result<(), JobError>;
+pub type JobResult = Result<JobMetadata, JobError>;
+pub type JobMetadata = Option<serde_json::Value>;
 
 #[async_trait::async_trait]
 pub trait StatefulJob: Send + Sync {
@@ -51,13 +56,13 @@ pub trait StatefulJob: Send + Sync {
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult;
+	) -> Result<(), JobError>;
 
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult;
+	) -> Result<(), JobError>;
 
 	async fn finalize(
 		&self,
@@ -149,6 +154,7 @@ where
 	fn name(&self) -> &'static str {
 		self.stateful_job.name()
 	}
+
 	async fn run(&mut self, ctx: WorkerContext) -> JobResult {
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
@@ -181,8 +187,6 @@ where
 
 		self.stateful_job
 			.finalize(ctx.clone(), &mut self.state)
-			.await?;
-
-		Ok(())
+			.await
 	}
 }

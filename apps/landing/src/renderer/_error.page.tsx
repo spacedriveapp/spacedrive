@@ -1,6 +1,5 @@
 import { Button } from '@sd/ui';
 import { SmileyXEyes } from 'phosphor-react';
-import React from 'react';
 import { Helmet } from 'react-helmet';
 
 import Markdown from '../components/Markdown';

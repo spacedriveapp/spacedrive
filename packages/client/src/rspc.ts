@@ -3,6 +3,8 @@ import { createReactQueryHooks } from '@rspc/react';
 import { LibraryArgs, Operations } from '@sd/core';
 import {
 	QueryClient,
+	UseInfiniteQueryOptions,
+	UseInfiniteQueryResult,
 	UseMutationOptions,
 	UseMutationResult,
 	UseQueryOptions,
@@ -10,7 +12,7 @@ import {
 	useMutation as _useMutation
 } from '@tanstack/react-query';
 
-import { useLibraryStore } from './stores';
+import { useCurrentLibrary } from './index';
 
 export const queryClient = new QueryClient();
 export const rspc = createReactQueryHooks<Operations>();
@@ -41,10 +43,30 @@ export function useLibraryQuery<K extends LibraryQueryKey>(
 	key: LibraryQueryArgs<K> extends null | undefined ? [K] : [K, LibraryQueryArgs<K>],
 	options?: UseQueryOptions<LibraryQueryResult<K>, RSPCError>
 ): UseQueryResult<LibraryQueryResult<K>, RSPCError> {
-	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
-	if (!library_id) throw new Error(`Attempted to do library query with no library set!`);
+	const { library } = useCurrentLibrary();
+
+	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
 	// @ts-ignore
-	return rspc.useQuery([key[0], { library_id: library_id || '', arg: key[1] || null }], options);
+	return rspc.useQuery(
+		// @ts-ignore
+		[key[0], { library_id: library?.uuid || '', arg: key[1] || null }],
+		options
+	);
+}
+
+export function useInfiniteLibraryQuery<K extends LibraryQueryKey>(
+	key: LibraryQueryArgs<K> extends null | undefined ? [K] : [K, LibraryQueryArgs<K>],
+	options?: UseInfiniteQueryOptions<LibraryQueryResult<K>, RSPCError>
+): UseInfiniteQueryResult<LibraryQueryResult<K>, RSPCError> {
+	const { library } = useCurrentLibrary();
+
+	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
+	// @ts-ignore
+	return rspc.useInfiniteQuery(
+		// @ts-ignore
+		[key[0], { library_id: library?.uuid || '', arg: key[1] || null }],
+		options
+	);
 }
 
 type LibraryMutations = Extract<Operations['mutations'], { key: [string, LibraryArgs<any>] }>;
@@ -58,12 +80,13 @@ export function useLibraryMutation<K extends LibraryMutationKey>(
 	options?: UseMutationOptions<LibraryMutationResult<K>, RSPCError>
 ) {
 	const ctx = rspc.useContext();
-	const library_id = useLibraryStore((state) => state.currentLibraryUuid);
-	if (!library_id) throw new Error(`Attempted to do library query with no library set!`);
+	const { library } = useCurrentLibrary();
+	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
 
 	// @ts-ignore
 	return _useMutation<LibraryMutationResult<K>, RSPCError, LibraryMutationArgs<K>>(
-		async (data) => ctx.client.mutation([key, { library_id: library_id || '', arg: data || null }]),
+		async (data) =>
+			ctx.client.mutation([key, { library_id: library?.uuid || '', arg: data || null }]),
 		{
 			...options,
 			context: rspc.ReactQueryContext

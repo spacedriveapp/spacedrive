@@ -1,13 +1,11 @@
-// import Spacedrive JS client
 import { createClient } from '@rspc/client';
 import { TauriTransport } from '@rspc/tauri';
-import { Operations, queryClient, rspc } from '@sd/client';
+import { OperatingSystem, Operations, PlatformProvider, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
-import { dialog, invoke, os, shell } from '@tauri-apps/api';
+import { KeybindEvent } from '@sd/interface';
+import { dialog, invoke, os } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
-import { convertFileSrc } from '@tauri-apps/api/tauri';
-import { appWindow } from '@tauri-apps/api/window';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';
@@ -16,66 +14,48 @@ const client = createClient<Operations>({
 	transport: new TauriTransport()
 });
 
-function App() {
-	function getPlatform(platform: string): Platform {
-		switch (platform) {
-			case 'darwin':
-				return 'macOS';
-			case 'win32':
-				return 'windows';
-			case 'linux':
-				return 'linux';
-			default:
-				return 'browser';
-		}
+async function getOs(): Promise<OperatingSystem> {
+	switch (await os.type()) {
+		case 'Linux':
+			return 'linux';
+		case 'Windows_NT':
+			return 'windows';
+		case 'Darwin':
+			return 'macOS';
+		default:
+			return 'unknown';
 	}
+}
 
-	const [platform, setPlatform] = useState<Platform>('unknown');
-	const [focused, setFocused] = useState(true);
+const platform: Platform = {
+	platform: 'tauri',
+	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	openLink: open,
+	getOs,
+	openFilePickerDialog: () => dialog.open({ directory: true })
+};
 
+function App() {
 	useEffect(() => {
-		os.platform().then((platform) => setPlatform(getPlatform(platform)));
+		// This tells Tauri to show the current window because it's finished loading
 		invoke('app_ready');
-
-		const unlisten = listen('do_keyboard_input', (input) => {
-			document.dispatchEvent(new KeyboardEvent('keydown', input.payload as any));
-		});
-
-		return () => {
-			unlisten.then((unlisten) => unlisten());
-		};
 	}, []);
 
 	useEffect(() => {
-		const focusListener = listen('tauri://focus', () => setFocused(true));
-		const blurListener = listen('tauri://blur', () => setFocused(false));
-		const settingsNavigateListener = listen('navigate_to_settings', () => undefined);
+		const keybindListener = listen('keybind', (input) => {
+			document.dispatchEvent(new KeybindEvent(input.payload as string));
+		});
 
 		return () => {
-			focusListener.then((unlisten) => unlisten());
-			blurListener.then((unlisten) => unlisten());
-			settingsNavigateListener.then((unlisten) => unlisten());
+			keybindListener.then((unlisten) => unlisten());
 		};
 	}, []);
 
 	return (
 		<rspc.Provider client={client} queryClient={queryClient}>
-			<SpacedriveInterface
-				platform={platform}
-				convertFileSrc={function (url: string): string {
-					return convertFileSrc(url);
-				}}
-				openDialog={function (options: {
-					directory?: boolean | undefined;
-				}): Promise<string | string[] | null> {
-					return dialog.open(options);
-				}}
-				isFocused={focused}
-				onClose={() => appWindow.close()}
-				onFullscreen={() => appWindow.setFullscreen(true)}
-				onMinimize={() => appWindow.minimize()}
-				onOpen={(path: string) => shell.open(path)}
-			/>
+			<PlatformProvider platform={platform}>
+				<SpacedriveInterface />
+			</PlatformProvider>
 		</rspc.Provider>
 	);
 }

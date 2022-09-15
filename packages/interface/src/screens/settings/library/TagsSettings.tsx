@@ -10,7 +10,7 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { TagUpdateArgs } from '@sd/core';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useDebounce } from 'rooks';
 
@@ -30,7 +30,7 @@ export default function TagsSettings() {
 
 	const { mutate: createTag, isLoading } = useLibraryMutation('tags.create', {
 		onError: (e) => {
-			console.log('error', e);
+			console.error('error', e);
 		},
 		onSuccess: (_) => {
 			setOpenCreateModal(false);

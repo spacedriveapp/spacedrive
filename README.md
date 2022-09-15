@@ -3,7 +3,7 @@
     
   </a>
   <p align="center">
-   <img width="150" height="150" src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_icon.png" alt="Logo">
+   <img width="150" height="150" src="https://github.com/spacedriveapp/spacedrive/blob/main/packages/assets/images/logo.png" alt="Logo">
   </p>
   <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
@@ -39,7 +39,7 @@ Organize files across many devices in one place. From cloud services to offline 
 For independent creatives, hoarders and those that want to own their digital footprint, Spacedrive provides a free file management experience like no other.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/app.png" alt="Logo">
+  <img src="https://raw.githubusercontent.com/spacedriveapp/spacedrive/main/apps/landing/public/app.png" alt="App screenshot">
   <br />
   <br />
   <a href="https://discord.gg/gTaF2Z44f5">
@@ -67,9 +67,9 @@ The first implementation of a VDFS can be found in this UC Berkeley [paper](http
 
 Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. We depend on cloud services like Google Photos and iCloud, but are locked in with limited capacity and almost zero interoperability between services and operating systems. Photo albums shouldn’t be stuck in a device ecosystem, or harvested for advertising data. They should be OS agnostic, permanent and personally owned. Data we create is our legacy, that will long outlive us—open source technology is the only way to ensure we retain absolute control over the data that defines our lives, at unlimited scale.
 
-# Features
+# Roadmap
 
-Check out our roadmap @ [spacedrive.com/roadmap](https://spacedrive.com/roadmap)
+View a list of our planned features here: [spacedrive.com/roadmap](https://spacedrive.com/roadmap)
 
 # Developer Guide
 
