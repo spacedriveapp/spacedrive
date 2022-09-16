@@ -27,8 +27,8 @@ export function parseMarkdown(markdownRaw: string): MarkdownParsed {
 
 	// make all non local links open in new tab
 	markdownAsHtml = markdownAsHtml.replaceAll(
-		'<a href=',
-		`<a target="_blank" rel="noreferrer" href=`
+		'<a href="http',
+		`<a target="_blank" rel="noreferrer" href="http`
 	);
 
 	const rawSplit = markdownRaw.split(':::');

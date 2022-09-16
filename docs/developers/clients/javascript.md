@@ -1,5 +1,5 @@
 ---
-name: JavaScript Client
+name: JavaScript
 index: 500
 ---
 
@@ -9,4 +9,18 @@ For developers who want to extend the functionality of Spacedrive, this library 
 ### Installation
 ```shell
 $ npm i @spacedrive/client
+```
+
+Initialize the Spacedrive client
+```ts
+import spacedrive from "@spacedrive/client";
+
+spacedrive.start()
+```
+
+Add a location
+```ts
+const location = await spacedrive.location.create("/Users/jamie/Documents");
+
+location.scan();
 ```

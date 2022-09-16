@@ -1,4 +1,5 @@
 import {
+	BuildingLibraryIcon,
 	CodeBracketIcon,
 	CubeIcon,
 	FolderIcon,
@@ -21,19 +22,21 @@ const config: DocsConfig = {
 		{
 			title: 'Product',
 			slug: 'product',
-			color: '#459EE8',
 			icon: SparklesIcon
 		},
 		{
-			title: 'Developer',
+			title: 'Developers',
 			slug: 'developers',
-			color: '#48BB78',
 			icon: CubeIcon
+		},
+		{
+			title: 'Company',
+			slug: 'company',
+			icon: BuildingLibraryIcon
 		},
 		{
 			title: 'Changelog',
 			slug: 'changelog',
-			color: '#8A47BB',
 			icon: StarIcon
 		}
 	]

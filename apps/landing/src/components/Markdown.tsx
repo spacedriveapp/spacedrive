@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-typescript';
 import { useEffect } from 'react';
 
 import '../atom-one.css';

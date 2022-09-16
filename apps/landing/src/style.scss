@@ -188,6 +188,33 @@ html {
 	@apply my-1 mx-0 mb-0 text-white
 }
 
+.doc-sidebar-button:hover, .doc-sidebar-button.nav-active {
+	&.product {
+		color:#459EE8;
+		div {
+			background-color: #459EE8;
+		}
+	}
+	&.developers {
+		color:#48BB78;
+		div {
+			background-color: #48BB78;
+		}
+	}
+	&.company {
+		color:#bb9247;
+		div {
+			background-color: #bb9247;
+		}
+	}
+	&.changelog {
+		color:#8A47BB;
+		div {
+			background-color: #8A47BB;
+		}
+	}
+}
+
 // Gradient colors
 // #3916BA
 // #7A1D77

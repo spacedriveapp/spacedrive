@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function DocsSidebar(props: Props) {
-	const activeSection = props.activePath?.split('/')[0];
+	const activeSection = props.activePath?.split('/')[0] || props.navigation[0].slug;
 
 	const activeSectionData = props.navigation.find((section) => section.slug === activeSection);
 
@@ -26,22 +26,19 @@ export default function DocsSidebar(props: Props) {
 			</div>
 			<div className="flex flex-col mb-6">
 				{props.navigation.map((section) => {
+					const isActive = section.slug === activeSection;
 					const Icon = config.sections.find((s) => s.slug === section.slug)?.icon;
 					return (
 						<a
 							href={`/docs/${section.section[0].category[0].url}`}
 							key={section.slug}
-							style={{ color: activeSection === section.slug ? section.color : '#fff' }}
-							className={`flex font-semibold text-[14px] items-center my-1.5  group hover:text-[${section.color}]`}
+							className={clsx(
+								`flex font-semibold text-[14px] items-center py-1.5 doc-sidebar-button`,
+								section.slug,
+								isActive && 'nav-active'
+							)}
 						>
-							<div
-								style={{
-									backgroundColor: activeSection === section.slug ? section.color : '#20222D'
-								}}
-								className={clsx(
-									`p-1 mr-4 bg-gray-500 border-t rounded-lg border-gray-400/20 group-hover:bg-[${section.color}]`
-								)}
-							>
+							<div className={clsx(`p-1 mr-4 bg-gray-500 border-t rounded-lg border-gray-400/20`)}>
 								<Icon className="w-4 h-4 text-white opacity-80" />
 							</div>
 							{section.title}
