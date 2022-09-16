@@ -1,3 +1,7 @@
+---
+index: 10
+---
+
 # Sync
 
 Spacedrive synchronizes library data in realtime across the distributed network of Nodes.

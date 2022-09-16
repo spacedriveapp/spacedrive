@@ -10,18 +10,20 @@ Objects are files discovered on your devices and drives, but can also be virtual
  
 All metadata associated with files in Spacedrive is linked to the Object for that file. 
 
-:::warning
+::: slot warning
 Spacedrive is under active development, most of the listed features are still experimental and subject to change.
 :::
-:::info
+::: slot info
 Spacedrive is under active development, most of the listed features are still experimental and subject to change.
 :::
-:::note
+::: slot note Note: This is jeff!
 Spacedrive is under active development, most of the listed features are still experimental and subject to change.
 :::
-:::jeff
+::: slot Custom Title 
 Spacedrive is under active development, most of the listed features are still experimental and subject to change.
 :::
+
+::: component DemoComponent :::
 
 If two or more files are discovered that are identical, they are linked to the same Object in Spacedrive.
 

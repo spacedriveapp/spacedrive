@@ -4,14 +4,14 @@ import { Helmet } from 'react-helmet';
 import '../../atom-one.css';
 import DocsLayout from '../../components/DocsLayout';
 import Markdown from '../../components/Markdown';
-import { SingleDocResponse } from './api';
+import { Doc, DocsNavigation } from './api';
 
-function Page({ data }: { data: SingleDocResponse }) {
-	if (!data) return <></>;
+function Page({ doc, navigation }: { doc: Doc; navigation: DocsNavigation }) {
+	if (!doc) return <></>;
 	return (
 		<>
 			<Helmet>
-				<title>{data.doc?.title} - Spacedrive Documentation</title>
+				<title>{doc?.title} - Spacedrive Documentation</title>
 				{/* <meta name="description" content={description} />
 				<meta property="og:title" content={post?.title} />
 				<meta property="og:description" content={description} />
@@ -19,9 +19,10 @@ function Page({ data }: { data: SingleDocResponse }) {
 				<meta content="summary_large_image" name="twitter:card" />
 				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} /> */}
 			</Helmet>
-			<DocsLayout doc={data.doc} docsList={data?.docsList}>
+			<DocsLayout doc={doc} navigation={navigation}>
 				<Markdown>
-					<div dangerouslySetInnerHTML={{ __html: data.doc?.html as string }} />
+					<h5 className="mb-2 text-sm font-semibold text-primary">{doc.categoryName}</h5>
+					<div dangerouslySetInnerHTML={{ __html: doc?.html as string }} />
 				</Markdown>
 			</DocsLayout>
 		</>

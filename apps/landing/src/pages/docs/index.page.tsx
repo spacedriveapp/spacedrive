@@ -1,11 +1,10 @@
 import { Helmet } from 'react-helmet';
-import { ReactComponent as Content } from '~/docs/welcome.md';
 
 import DocsLayout from '../../components/DocsLayout';
 import Markdown from '../../components/Markdown';
-import { DocsList, SidebarCategory } from './api';
+import { DocsNavigation } from './api';
 
-function Page({ docsList }: { docsList: DocsList }) {
+function Page({ navigation }: { navigation: DocsNavigation }) {
 	return (
 		<>
 			<Helmet>
@@ -13,10 +12,14 @@ function Page({ docsList }: { docsList: DocsList }) {
 				<meta name="description" content="Learn more about Spacedrive" />
 			</Helmet>
 
-			<DocsLayout docsList={docsList}>
+			<DocsLayout navigation={navigation}>
 				<Markdown>
 					<div className="">
-						<Content />
+						<h1 className="text-4xl font-bold">Spacedrive Docs</h1>
+						<p className="text-lg text-gray-400">
+							Welcome to the Spacedrive documentation. Here you can find all the information you
+							need to get started with Spacedrive.
+						</p>
 					</div>
 				</Markdown>
 			</DocsLayout>

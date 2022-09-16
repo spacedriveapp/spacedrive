@@ -1,14 +1,15 @@
-import { getDocs, getDocsList } from './api';
+import { getDocs, getDocsNavigation } from './api';
+import config from './docs';
 
 export async function onBeforeRender() {
-	const docsList = getDocsList();
-	console.log({ docsList });
+	const navigation = getDocsNavigation(config);
+
 	return {
 		pageContext: {
 			pageProps: {
-				// index page renders its own markdown
+				// index page renders its own content/markdown
 				// only give it the sidebar data
-				docsList
+				navigation
 			}
 		}
 	};
@@ -16,20 +17,19 @@ export async function onBeforeRender() {
 
 // pre-render all doc pages at the same time as index
 export async function prerender() {
-	console.log('Prerendering');
-	const docs = getDocs();
-	const docsList = getDocsList(docs);
+	const docs = getDocs(config);
+	const navigation = getDocsNavigation(config, docs);
 
-	const individualDocs = docs.map((doc) => ({
-		url: `/docs/${doc.url}`,
-		pageContext: { pageProps: { data: { doc, docsList } } }
+	const docsArray = Object.keys(docs).map((url) => ({
+		url: `/docs/${url}/`,
+		pageContext: { pageProps: { data: { doc: docs[url], navigation } } }
 	}));
 
 	return [
-		...individualDocs,
+		...docsArray,
 		{
 			url: '/docs',
-			pageContext: { pageProps: { docsList } }
+			pageContext: { pageProps: { navigation } }
 		}
 	];
 }

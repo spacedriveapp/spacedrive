@@ -1,5 +1,6 @@
 ---
 name: Preview Media
+index: 10
 ---
 
 # Preview Media

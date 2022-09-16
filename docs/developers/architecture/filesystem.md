@@ -1,3 +1,7 @@
+---
+index: 10
+---
+
 # sVFS???
 
 sVFS is a decentralized virtual filesystem

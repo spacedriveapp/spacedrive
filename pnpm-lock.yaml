@@ -94,6 +94,7 @@ importers:
       '@tryghost/content-api': ^1.11.0
       '@types/compression': ^1.7.2
       '@types/express': ^4.17.13
+      '@types/marked': ^4.0.7
       '@types/node': ^17.0.31
       '@types/prismjs': ^1.26.0
       '@types/react': ^18.0.6
@@ -106,6 +107,7 @@ importers:
       cross-env: ^7.0.3
       express: ^4.18.1
       markdown-yaml-metadata-parser: ^3.0.0
+      marked: ^4.1.0
       phosphor-react: ^1.4.1
       postcss: ^8.4.14
       prismjs: ^1.28.0
@@ -133,6 +135,7 @@ importers:
       '@tryghost/content-api': 1.11.0
       '@types/compression': 1.7.2
       '@types/express': 4.17.13
+      '@types/marked': 4.0.7
       '@types/node': 17.0.36
       '@types/react': 18.0.17
       '@types/react-dom': 18.0.5
@@ -142,6 +145,7 @@ importers:
       cross-env: 7.0.3
       express: 4.18.1
       markdown-yaml-metadata-parser: 3.0.0
+      marked: 4.1.0
       phosphor-react: 1.4.1_react@18.2.0
       prismjs: 1.28.0
       react: 18.2.0
@@ -6016,6 +6020,10 @@ packages:
   /@types/lodash/4.14.182:
     resolution: {integrity: sha512-/THyiqyQAP9AfARo4pF+aCGcyiQ94tX/Is2I7HofNRqoYLgN1PBoOWu2/zTA5zMxzP5EFutMtWtGAFRKUe961Q==}
 
+  /@types/marked/4.0.7:
+    resolution: {integrity: sha512-eEAhnz21CwvKVW+YvRvcTuFKNU9CV1qH+opcgVK3pIMI6YZzDm6gc8o2vHjldFk6MGKt5pueSB7IOpvpx5Qekw==}
+    dev: false
+
   /@types/mdast/3.0.10:
     resolution: {integrity: sha512-W864tg/Osz1+9f4lrGTZpCSO5/z4608eUp19tbozkq2HJK6i3z1kT0H9tlADXuYIb1YYOBByU4Jsqkk75q48qA==}
     dependencies:
@@ -7131,6 +7139,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
@@ -13189,6 +13198,12 @@ packages:
     engines: {node: '>= 12'}
     hasBin: true
     dev: true
+
+  /marked/4.1.0:
+    resolution: {integrity: sha512-+Z6KDjSPa6/723PQYyc1axYZpYYpDnECDaU6hkaf5gqBieBkMKYReL5hteF2QizhlMbgbo8umXl/clZ67+GlsA==}
+    engines: {node: '>= 12'}
+    hasBin: true
+    dev: false
 
   /matcher/3.0.0:
     resolution: {integrity: sha512-OkeDaAZ/bQCxeFAozM55PKcKU0yJMPGifLwV4Qgjitu+5MoAfSQN4lsLJeXZ1b8w0x+/Emda6MZgXS1jvsapng==}

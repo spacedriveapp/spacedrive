@@ -1,3 +1,8 @@
+---
+index: 10
+---
+
+
 # Search
 
 Press CTRL+F while on a Spacedrive window to access search.

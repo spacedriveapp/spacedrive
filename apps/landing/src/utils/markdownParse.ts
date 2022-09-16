@@ -1,4 +1,5 @@
 import parseMarkdownMetadata from 'markdown-yaml-metadata-parser';
+import { marked } from 'marked';
 
 export interface MarkdownPageData {
 	name?: string;
@@ -8,24 +9,29 @@ export interface MarkdownPageData {
 
 interface MarkdownParsed {
 	render: string;
-	data?: MarkdownPageData;
+	metadata?: MarkdownPageData;
 }
 
-export function parseMarkdown(markdownAsHtml: string, markdownRaw: string): MarkdownParsed {
+export function parseMarkdown(markdownRaw: string): MarkdownParsed {
 	let metadata: MarkdownPageData | undefined = undefined;
-
+	let withoutMetadata = markdownRaw;
 	try {
-		metadata = parseMarkdownMetadata(markdownRaw).metadata as MarkdownPageData;
+		const parsed = parseMarkdownMetadata(markdownRaw);
+		metadata = parsed.metadata;
+		withoutMetadata = parsed.content;
 	} catch (e) {
 		// console.warn('failed to parse markdown', e);
 		// this doesn't matter
 	}
+	let markdownAsHtml = marked(withoutMetadata);
 
 	// make all non local links open in new tab
 	markdownAsHtml = markdownAsHtml.replaceAll(
 		'<a href=',
 		`<a target="_blank" rel="noreferrer" href=`
 	);
+
+	const rawSplit = markdownRaw.split(':::');
 
 	// custom support for "slots" like vuepress
 	markdownAsHtml = markdownAsHtml
@@ -34,18 +40,31 @@ export function parseMarkdown(markdownAsHtml: string, markdownRaw: string): Mark
 			if (index % 2 === 0) {
 				return text;
 			} else {
-				//extract first word
-				const [firstWord, ...remaining] = text.split(' ');
+				const rawText = rawSplit[index],
+					meta = rawText.split(/\r?\n/)[0].trim(),
+					kind = meta.split(' ')[0],
+					name = meta.split(' ')[1],
+					extra = meta.substring(kind.length + name.length + 2),
+					content = text.substring(meta.length + 1, text.length).trim();
 
-				return `<div class="slot-block ${firstWord}"><h5 class="slot-block-title">${firstWord}</h5><p class="slot-block-content">${remaining.join(
-					' '
-				)}</p></div>`;
+				// console.log({ kind, name, extra, content });
+
+				switch (kind) {
+					case 'slot':
+						return `<div class="slot-block ${name}"><h5 class="slot-block-title">${
+							extra || name
+						}</h5><p class="slot-block-content">${content}</p></div>`;
+						break;
+
+					default:
+						break;
+				}
 			}
 		})
 		.join('');
 
 	return {
 		render: markdownAsHtml,
-		data: metadata
+		metadata
 	};
 }

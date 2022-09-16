@@ -1,5 +1,6 @@
 ---
 name: JavaScript Client
+index: 500
 ---
 
 # JavaScript Client

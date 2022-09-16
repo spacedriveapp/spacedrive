@@ -37,7 +37,7 @@ function Page({ post }: { post: PostOrPage }) {
 							<figcaption
 								dangerouslySetInnerHTML={{ __html: post.feature_image_caption as any }}
 							></figcaption>
-							<img src={featured_image} alt="" className="rounded-xl" />
+							<img src={featured_image} alt="" className="mt-8 rounded-xl" />
 						</figure>
 						<section className="flex flex-wrap gap-4 px-8 -mx-8 rounded-xl">
 							<div className="flex-grow">

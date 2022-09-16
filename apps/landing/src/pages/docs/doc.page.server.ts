@@ -1,16 +1,12 @@
 import { PageContextBuiltIn } from 'vite-plugin-ssr';
 
 import { getDoc } from './api';
+import config from './docs';
 
 export async function onBeforeRender(pageContext: PageContextBuiltIn) {
-	const slug = pageContext.routeParams['*'];
-	const data = getDoc(slug);
-
 	return {
 		pageContext: {
-			pageProps: {
-				data
-			}
+			pageProps: getDoc(pageContext.routeParams['*'], config)
 		}
 	};
 }
