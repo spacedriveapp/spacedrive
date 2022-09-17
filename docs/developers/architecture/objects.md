@@ -13,17 +13,6 @@ All metadata associated with files in Spacedrive is linked to the Object for tha
 ::: slot warning
 Spacedrive is under active development, most of the listed features are still experimental and subject to change.
 :::
-::: slot info
-Spacedrive is under active development, most of the listed features are still experimental and subject to change.
-:::
-::: slot note Note: This is jeff!
-Spacedrive is under active development, most of the listed features are still experimental and subject to change.
-:::
-::: slot Custom Title 
-Spacedrive is under active development, most of the listed features are still experimental and subject to change.
-:::
-
-::: component DemoComponent :::
 
 If two or more files are discovered that are identical, they are linked to the same Object in Spacedrive.
 

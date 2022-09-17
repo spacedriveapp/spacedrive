@@ -54,7 +54,7 @@ export function getDocs(config: DocsConfig): Record<string, Doc> {
 			title: metadata?.name ?? cap(url.split('/')[2]),
 			name: url.split('/')[2],
 			url,
-			categoryName: cap(url.split('/')[1]),
+			categoryName: toTitleCase(url.split('/')[1]),
 			sortByIndex: metadata?.index ?? DEFAULT_INDEX,
 			html: render
 		};
@@ -76,14 +76,16 @@ export function getDocsNavigation(config: DocsConfig, docs?: Record<string, Doc>
 			const clonedDoc = { ...doc };
 			// remove html so the sidebar doesn't have all the doc data
 			delete clonedDoc.html;
+
 			const category = url.split('/')[1],
-				existingCategory = categories.findIndex((i) => i.name === cap(category));
+				name = toTitleCase(category),
+				existingCategory = categories.findIndex((i) => i.name === name);
 
 			if (existingCategory != -1) {
 				categories[existingCategory].category.push(clonedDoc);
 			} else {
 				categories.push({
-					name: cap(category),
+					name,
 					index: DEFAULT_INDEX,
 					category: [clonedDoc]
 				});
@@ -128,4 +130,12 @@ function parsePath(path: string): string | null {
 }
 function cap(string: string) {
 	return string.charAt(0).toUpperCase() + string.slice(1);
+}
+function toTitleCase(str: string) {
+	return str
+		.toLowerCase()
+		.replace(/(?:^|[\s-/])\w/g, function (match) {
+			return match.toUpperCase();
+		})
+		.replaceAll('-', ' ');
 }

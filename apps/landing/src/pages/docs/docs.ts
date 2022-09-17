@@ -1,12 +1,4 @@
-import {
-	BuildingLibraryIcon,
-	CodeBracketIcon,
-	CubeIcon,
-	FolderIcon,
-	InformationCircleIcon,
-	SparklesIcon,
-	StarIcon
-} from '@heroicons/react/24/solid';
+import { BuildingLibraryIcon, CubeIcon, SparklesIcon, StarIcon } from '@heroicons/react/24/solid';
 
 import { DocsConfig } from './api';
 
