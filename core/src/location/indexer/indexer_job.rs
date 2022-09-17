@@ -226,7 +226,7 @@ impl StatefulJob for IndexerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
 	) -> Result<(), JobError> {
-		let location_path = &state
+		let data = &state
 			.data
 			.as_ref()
 			.expect("critical error: missing data on job state");
@@ -270,7 +270,6 @@ impl StatefulJob for IndexerJob {
 							vec![
 								file_path::is_dir::set(entry.is_dir),
 								file_path::extension::set(Some(extension)),
-								file_path::location_id::set(state.init.location.id),
 								file_path::parent_id::set(entry.parent_id),
 								file_path::date_created::set(entry.created_at.into()),
 							],

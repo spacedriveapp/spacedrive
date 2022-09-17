@@ -22,10 +22,7 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 		.map_err(Box::new)?;
 
 	#[cfg(debug_assertions)]
-	{
-		client._db_push(false).await?;
-		println!("Pushed current schema");
-	}
+	client._db_push(false).await?;
 
 	#[cfg(not(debug_assertions))]
 	client._migrate_deploy().await?;
