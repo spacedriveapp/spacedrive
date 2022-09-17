@@ -41,9 +41,9 @@ function Page() {
 		},
 		{
 			completed: true,
-			title: 'Media encoder',
+			title: 'Self hosting',
 			description:
-				'Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.'
+				'Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.'
 		},
 		{
 			completed: true,
@@ -71,9 +71,9 @@ function Page() {
 			description: 'Drop files between devices and contacts on a keybind like AirDrop.'
 		},
 		{
-			title: 'Self hosting',
+			title: 'Media encoder',
 			description:
-				'Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.'
+				'Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.'
 		},
 		{
 			title: 'Cloud integration',
