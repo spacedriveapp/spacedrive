@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 
 import { BlogTag } from '../../components/BlogTag';
 import { getWindow } from '../../utils';
-import { blogEnabled } from './api';
+import { blogEnabled } from './blog';
 
 function Page({ posts }: { posts: PostOrPage[] }) {
 	if (!blogEnabled) {

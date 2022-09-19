@@ -4,18 +4,17 @@ import { parseMarkdown } from '../../utils/markdownParse';
 
 export interface Doc {
 	title: string;
-	name?: string;
+	name: string;
 	sortByIndex: number;
 	url: string;
 	active?: boolean;
 	html?: string;
-	categoryName?: string;
+	categoryName: string;
 }
 
 export interface DocSectionConfig {
 	title: string;
 	slug: string;
-	color?: string;
 	icon?: React.Component | any;
 }
 
@@ -103,7 +102,6 @@ export function getDocsNavigation(config: DocsConfig, docs?: Record<string, Doc>
 		navigation.push({
 			title: section.title,
 			slug: section.slug,
-			color: section.color,
 			section: categories
 		});
 	}

@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+import { ChevronRightIcon } from '@heroicons/react/24/solid';
+import { Github } from '@icons-pack/react-simple-icons';
+import React, { PropsWithChildren, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 
 import '../../atom-one.css';
@@ -6,8 +8,17 @@ import DocsLayout from '../../components/DocsLayout';
 import Markdown from '../../components/Markdown';
 import { Doc, DocsNavigation } from './api';
 
+function BottomCard(props: PropsWithChildren) {
+	return (
+		<div className="flex flex-row items-center p-4 text-sm border border-gray-700 rounded-lg group !text-gray-200 hover:!text-primary hover:shadow-xl hover:border-primary hover:shadow-primary/10 transition-all duration-200 hover:-translate-y-[2px]">
+			{props.children}
+		</div>
+	);
+}
+
 function Page({ doc, navigation }: { doc: Doc; navigation: DocsNavigation }) {
 	if (!doc) return <></>;
+
 	return (
 		<>
 			<Helmet>
@@ -23,6 +34,30 @@ function Page({ doc, navigation }: { doc: Doc; navigation: DocsNavigation }) {
 				<Markdown>
 					<h5 className="mb-2 text-sm font-semibold text-primary">{doc.categoryName}</h5>
 					<div dangerouslySetInnerHTML={{ __html: doc?.html as string }} />
+					<div className="flex flex-row gap-3 mt-10">
+						<a
+							target="_blank"
+							rel="noreferrer"
+							href={`https://github.com/spacedriveapp/spacedrive/blob/main/docs/${doc.url}.md`}
+							className="w-full"
+						>
+							<BottomCard>
+								<Github className="w-5 mr-3" />
+								Edit this page on GitHub
+							</BottomCard>
+						</a>
+						<a
+							target="_blank"
+							rel="noreferrer"
+							href={`https://github.com/spacedriveapp/spacedrive/blob/main/docs/${doc.url}.md`}
+							className="w-full"
+						>
+							<BottomCard>
+								<ChevronRightIcon className="w-5 mr-3" />
+								Next article
+							</BottomCard>
+						</a>
+					</div>
 				</Markdown>
 			</DocsLayout>
 		</>

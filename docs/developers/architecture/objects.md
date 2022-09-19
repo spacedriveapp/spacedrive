@@ -10,10 +10,6 @@ Objects are files discovered on your devices and drives, but can also be virtual
  
 All metadata associated with files in Spacedrive is linked to the Object for that file. 
 
-::: slot warning
-Spacedrive is under active development, most of the listed features are still experimental and subject to change.
-:::
-
 If two or more files are discovered that are identical, they are linked to the same Object in Spacedrive.
 
 A CAS id is generated from set samples of the byte data, which is used to associate Objects uniquely with Paths found in a Location.
@@ -41,3 +37,7 @@ Some Objects are purely virtual, meaning they have no Path and are likely only u
 | Widget           | A widget is a mini app that can be placed in a Space at various sizes, associated Widget struct required | 14   |
 | Album            | Albums can only have one level of children, and are associated with the Album struct | 15   |
 | Collection       | Its like a folder, but appears like a stack of files, designed for burst photos/associated groups of files | 16   |
+| Database       | A database file | 17   |
+| Mesh       | A 3D mesh object | 18   |
+| Textured Mesh       | A 3D mesh object with textures | 19   |
+| Entity       | A rigged character  | 20   |

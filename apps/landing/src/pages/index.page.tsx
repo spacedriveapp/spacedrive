@@ -142,9 +142,7 @@ function Page() {
 						<br />
 						<a
 							className="transition text-primary-600 hover:text-primary-500"
-							href="https://github.com/spacedriveapp"
-							target="_blank"
-							rel="noreferrer"
+							href="/docs/product/getting-started/introduction"
 						>
 							Find out more →
 						</a>
