@@ -48,8 +48,8 @@ export default function DocsSidebar(props: Props) {
 			</div>
 			{activeSectionData?.section.map((category) => {
 				return (
-					<div className="mb-5" key={category.name}>
-						<h2 className="font-semibold no-underline">{category.name}</h2>
+					<div className="mb-5" key={category.title}>
+						<h2 className="font-semibold no-underline">{category.title}</h2>
 						<ul className="mt-3">
 							{category.category.map((page) => {
 								const active = props.activePath === page.url;

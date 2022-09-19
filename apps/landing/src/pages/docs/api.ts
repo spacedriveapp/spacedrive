@@ -4,7 +4,7 @@ import { parseMarkdown } from '../../utils/markdownParse';
 
 export interface Doc {
 	title: string;
-	name: string;
+	slug: string;
 	sortByIndex: number;
 	url: string;
 	active?: boolean;
@@ -27,7 +27,8 @@ export interface DocsConfig {
 export type DocMetadata = Omit<Doc, 'html'>;
 
 export interface DocCategory {
-	name: string;
+	title: string;
+	slug: string;
 	index: number;
 	category: DocMetadata[];
 }
@@ -51,7 +52,7 @@ export function getDocs(config: DocsConfig): Record<string, Doc> {
 
 		parsedDocs[url] = {
 			title: metadata?.name ?? cap(url.split('/')[2]),
-			name: url.split('/')[2],
+			slug: url.split('/')[2],
 			url,
 			categoryName: toTitleCase(url.split('/')[1]),
 			sortByIndex: metadata?.index ?? DEFAULT_INDEX,
@@ -77,14 +78,15 @@ export function getDocsNavigation(config: DocsConfig, docs?: Record<string, Doc>
 			delete clonedDoc.html;
 
 			const category = url.split('/')[1],
-				name = toTitleCase(category),
-				existingCategory = categories.findIndex((i) => i.name === name);
+				title = toTitleCase(category),
+				existingCategory = categories.findIndex((i) => i.slug === category);
 
 			if (existingCategory != -1) {
 				categories[existingCategory].category.push(clonedDoc);
 			} else {
 				categories.push({
-					name,
+					title,
+					slug: category,
 					index: DEFAULT_INDEX,
 					category: [clonedDoc]
 				});
@@ -109,15 +111,31 @@ export function getDocsNavigation(config: DocsConfig, docs?: Record<string, Doc>
 	return navigation;
 }
 
+export interface SingleDocResponse {
+	doc?: Doc;
+	navigation: DocsNavigation;
+	nextDoc?: { url: string; title: string };
+}
 // get a single doc, and the sidebar data
-export function getDoc(url: string, config: DocsConfig): { doc?: Doc; navigation: DocsNavigation } {
-	const docs = getDocs(config);
-
-	const doc = docs[url];
+export function getDoc(url: string, config: DocsConfig): SingleDocResponse {
+	const docs = getDocs(config),
+		navigation = getDocsNavigation(config, docs),
+		// next doc logic below, kinda scuffed
+		docCat = navigation
+			.find((i) => i.slug === url.split('/')[0])
+			?.section.find((i) => i.slug === url.split('/')[1]),
+		nextDocIndex = (docCat?.category.findIndex((i) => i.slug === url.split('/')[2]) || -1) + 1,
+		nextDoc = docCat?.category[nextDocIndex + 1];
 
 	return {
-		doc,
-		navigation: getDocsNavigation(config, docs)
+		doc: docs[url],
+		navigation,
+		nextDoc: nextDoc
+			? {
+					url: nextDoc.url,
+					title: nextDoc.title
+			  }
+			: undefined
 	};
 }
 

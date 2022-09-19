@@ -6,7 +6,7 @@ import { Helmet } from 'react-helmet';
 import '../../atom-one.css';
 import DocsLayout from '../../components/DocsLayout';
 import Markdown from '../../components/Markdown';
-import { Doc, DocsNavigation } from './api';
+import { SingleDocResponse } from './api';
 
 function BottomCard(props: PropsWithChildren) {
 	return (
@@ -16,12 +16,8 @@ function BottomCard(props: PropsWithChildren) {
 	);
 }
 
-function Page(
-	props:
-		| { doc: Doc; navigation: DocsNavigation }
-		| { data: { doc: Doc; navigation: DocsNavigation } }
-) {
-	const { doc, navigation } = 'data' in props ? props.data : props;
+function Page(props: SingleDocResponse | { data: SingleDocResponse }) {
+	const { doc, navigation, nextDoc } = 'data' in props ? props.data : props;
 	if (!doc) return <>{JSON.stringify(doc)}</>;
 	return (
 		<>
@@ -50,17 +46,14 @@ function Page(
 								Edit this page on GitHub
 							</BottomCard>
 						</a>
-						<a
-							target="_blank"
-							rel="noreferrer"
-							href={`https://github.com/spacedriveapp/spacedrive/blob/main/docs/${doc.url}.md`}
-							className="w-full"
-						>
-							<BottomCard>
-								<ChevronRightIcon className="w-5 mr-3" />
-								Next article
-							</BottomCard>
-						</a>
+						{nextDoc && (
+							<a href={`/docs/${nextDoc.url}`} className="w-full">
+								<BottomCard>
+									<ChevronRightIcon className="w-5 mr-3" />
+									Next article: {nextDoc?.title}
+								</BottomCard>
+							</a>
+						)}
 					</div>
 				</Markdown>
 			</DocsLayout>
