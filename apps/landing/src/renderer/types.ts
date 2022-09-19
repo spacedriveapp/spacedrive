@@ -3,7 +3,6 @@ export type PageProps = Record<string, unknown>;
 export type PageContext = {
 	Page: (pageProps: PageProps) => React.ReactElement;
 	pageProps: PageProps;
-	urlPathname: string;
 	documentProps?: {
 		title?: string;
 		description?: string;

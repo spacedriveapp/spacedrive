@@ -16,9 +16,13 @@ function BottomCard(props: PropsWithChildren) {
 	);
 }
 
-function Page({ doc, navigation }: { doc: Doc; navigation: DocsNavigation }) {
-	if (!doc) return <></>;
-
+function Page(
+	props:
+		| { doc: Doc; navigation: DocsNavigation }
+		| { data: { doc: Doc; navigation: DocsNavigation } }
+) {
+	const { doc, navigation } = 'data' in props ? props.data : props;
+	if (!doc) return <>{JSON.stringify(doc)}</>;
 	return (
 		<>
 			<Helmet>
