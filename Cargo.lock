@@ -5086,7 +5086,6 @@ name = "rspc"
 version = "0.0.4"
 source = "git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e#1b2a299e9061c81ff90706923a6d2389ea7c107e"
 dependencies = [
- "axum",
  "futures",
  "nanoid",
  "serde",
@@ -5102,6 +5101,7 @@ version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "443633b1d8808c9b4e27dce8797b9062f86ae214999c825fd9133a73d6550333"
 dependencies = [
+ "axum",
  "futures",
  "nanoid",
  "serde",
@@ -5601,7 +5601,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "ctrlc",
- "rspc 0.0.4",
+ "rspc 0.0.5",
  "sdcore",
  "tokio",
  "tracing",
