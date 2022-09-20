@@ -22,7 +22,7 @@ export async function prerender() {
 
 	const docsArray = Object.keys(docs).map((url) => ({
 		url: `/docs/${url}/`,
-		pageContext: { pageProps: { data: { doc: docs[url], navigation } } }
+		pageContext: { pageProps: { doc: docs[url], navigation } }
 	}));
 
 	return [

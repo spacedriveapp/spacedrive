@@ -16,8 +16,7 @@ function BottomCard(props: PropsWithChildren) {
 	);
 }
 
-function Page(props: SingleDocResponse | { data: SingleDocResponse }) {
-	const { doc, navigation, nextDoc } = 'data' in props ? props.data : props;
+function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 	if (!doc) return <>{JSON.stringify(doc)}</>;
 	return (
 		<>
