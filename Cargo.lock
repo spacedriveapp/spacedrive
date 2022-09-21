@@ -4350,7 +4350,7 @@ dependencies = [
  "prisma-models",
  "query-connector",
  "query-core",
- "rspc 0.0.5",
+ "rspc",
  "schema",
  "serde",
  "serde-value",
@@ -5083,20 +5083,6 @@ dependencies = [
 
 [[package]]
 name = "rspc"
-version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e#1b2a299e9061c81ff90706923a6d2389ea7c107e"
-dependencies = [
- "futures",
- "nanoid",
- "serde",
- "serde_json",
- "specta 0.0.2",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "rspc"
 version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "443633b1d8808c9b4e27dce8797b9062f86ae214999c825fd9133a73d6550333"
@@ -5106,7 +5092,7 @@ dependencies = [
  "nanoid",
  "serde",
  "serde_json",
- "specta 0.0.3",
+ "specta",
  "tauri",
  "thiserror",
  "tokio",
@@ -5351,7 +5337,7 @@ dependencies = [
  "ring 0.17.0-alpha.11",
  "rmp",
  "rmp-serde",
- "rspc 0.0.5",
+ "rspc",
  "serde",
  "serde_json",
  "sql-migration-connector 0.1.0 (git+https://github.com/Brendonovich/prisma-engines.git)",
@@ -5377,7 +5363,7 @@ dependencies = [
  "once_cell",
  "openssl",
  "openssl-sys",
- "rspc 0.0.4",
+ "rspc",
  "sdcore",
  "serde_json",
  "tokio",
@@ -5601,7 +5587,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "ctrlc",
- "rspc 0.0.5",
+ "rspc",
  "sdcore",
  "tokio",
  "tracing",
@@ -5776,7 +5762,7 @@ dependencies = [
 name = "spacedrive"
 version = "0.1.0"
 dependencies = [
- "rspc 0.0.5",
+ "rspc",
  "sdcore",
  "serde",
  "swift-rs",
@@ -5789,17 +5775,6 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "0.0.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e#1b2a299e9061c81ff90706923a6d2389ea7c107e"
-dependencies = [
- "convert_case 0.5.0",
- "serde_json",
- "specta-macros 0.0.2 (git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e)",
- "termcolor",
-]
-
-[[package]]
-name = "specta"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4145d41e1881c57b714f979ef01c8add58a1984b46f8858ea67f35fd01ebd1e"
@@ -5808,7 +5783,7 @@ dependencies = [
  "convert_case 0.5.0",
  "indexmap",
  "serde_json",
- "specta-macros 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "specta-macros",
  "termcolor",
  "uuid 1.1.2",
 ]
@@ -5818,18 +5793,6 @@ name = "specta-macros"
 version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5ad5db5dea9fa5816615d722b682781214fed875fe56c1bcd0a67ee9c477d84"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn",
- "termcolor",
-]
-
-[[package]]
-name = "specta-macros"
-version = "0.0.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e#1b2a299e9061c81ff90706923a6d2389ea7c107e"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -7868,3 +7831,8 @@ name = "xml-rs"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
+
+[[patch.unused]]
+name = "rspc"
+version = "0.0.4"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=1b2a299e9061c81ff90706923a6d2389ea7c107e#1b2a299e9061c81ff90706923a6d2389ea7c107e"

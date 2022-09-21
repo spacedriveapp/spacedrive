@@ -3,6 +3,8 @@ name: Rust Clippy check
 on:
   pull_request:
   push:
+    branches:
+      - main
     paths:
       - '**.rs'
       - '**.toml'
