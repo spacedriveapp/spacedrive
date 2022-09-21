@@ -44,7 +44,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ./core/src/prisma.rs
-          key: prisma-${{ hashFiles('./core/prisma/Cargo.toml', './core/prisma/schema.prisma', './core/prisma/src/main.rs') }}
+          key: prisma-${{ runner.os }}-${{ hashFiles('./core/prisma/Cargo.toml', './core/prisma/schema.prisma', './core/prisma/src/main.rs') }}
 
       - name: Generate Prisma client
         working-directory: core
