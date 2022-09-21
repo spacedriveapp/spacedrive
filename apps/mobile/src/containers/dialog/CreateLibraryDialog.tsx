@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { useSnapshot } from 'valtio';
 import Dialog from '~/components/layout/Dialog';
 import { TextInput } from '~/components/primitive/Input';
-import { useBridgeMutation } from '~/hooks/rspc';
-import { libraryStore } from '~/stores/libraryStore';
+import { queryClient, useBridgeMutation } from '~/hooks/rspc';
 
 type Props = {
 	onSubmit?: () => void;
@@ -15,18 +13,19 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 	const [libName, setLibName] = useState('');
 	const [createLibOpen, setCreateLibOpen] = useState(false);
 
-	const { switchLibrary } = useSnapshot(libraryStore);
-
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
-			onSuccess: (data) => {
+			onSuccess: (lib) => {
 				// Reset form
 				setLibName('');
-				// Switch to the new library
-				switchLibrary(data.uuid);
 
-				if (onSubmit) onSubmit();
+				queryClient.setQueryData(['library.list'], (libraries: any) => [...(libraries || []), lib]);
+
+				// Switch to the new library?
+				// switchLibrary(data.uuid);
+
+				onSubmit?.();
 			},
 			onSettled: () => {
 				// Close create lib dialog
@@ -46,6 +45,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 			ctaDisabled={libName.length === 0}
 			trigger={children}
 			disableBackdropClose={disableBackdropClose}
+			onClose={() => setLibName('')} // Reset form onClose
 		>
 			<TextInput
 				value={libName}

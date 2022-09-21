@@ -30,10 +30,20 @@ type DialogProps = {
 	 * Disables backdrop press to close the modal.
 	 */
 	disableBackdropClose?: boolean;
+	/**
+	 * Triggered when the dialog is closed (either by backdrop or the close button)
+	 */
+	onClose?: () => void;
 };
 
 const Dialog = (props: DialogProps) => {
 	const [visible, setVisible] = useState(props.isVisible ?? false);
+
+	function handleCloseDialog() {
+		props.setIsVisible ? props.setIsVisible(false) : setVisible(false);
+		// Cool undefined check
+		props.onClose?.();
+	}
 
 	return (
 		<View>
@@ -48,7 +58,7 @@ const Dialog = (props: DialogProps) => {
 				{/* Backdrop */}
 				<Pressable
 					style={tw`bg-black bg-opacity-50 absolute inset-0`}
-					onPress={() => (props.setIsVisible ? props.setIsVisible(false) : setVisible(false))}
+					onPress={handleCloseDialog}
 					disabled={props.disableBackdropClose || props.loading}
 				/>
 				{/* Content */}
@@ -88,9 +98,7 @@ const Dialog = (props: DialogProps) => {
 									variant="dark_gray"
 									size="md"
 									disabled={props.loading} // Disables Close button if loading
-									onPress={() =>
-										props.setIsVisible ? props.setIsVisible(false) : setVisible(false)
-									}
+									onPress={handleCloseDialog}
 								>
 									<Text style={tw`text-white text-sm`}>Close</Text>
 								</Button>
