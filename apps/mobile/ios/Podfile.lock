@@ -29,7 +29,7 @@ PODS:
     - ReactCommon/turbomodule/core (= 0.69.5)
   - fmt (6.2.1)
   - glog (0.3.5)
-  - hermes-engine (0.69.4)
+  - hermes-engine (0.69.5)
   - libevent (2.1.12)
   - lottie-ios (3.4.2)
   - lottie-react-native (5.1.4):
@@ -371,7 +371,7 @@ PODS:
   - RNScreens (3.15.0):
     - React-Core
     - React-RCTImage
-  - RNSVG (13.2.0):
+  - RNSVG (13.0.0):
     - React-Core
   - Yoga (1.14.0)
 
@@ -555,7 +555,7 @@ SPEC CHECKSUMS:
   FBReactNativeSpec: 1f6c7c4a63be1c4b2a1c71afbd1416caaa12e7aa
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
   glog: 3d02b25ca00c2d456734d0bcff864cbc62f6ae1a
-  hermes-engine: 761a544537e62df2a37189389b9d2654dc1f75af
+  hermes-engine: 479687cd0904b24f1b2ae71d1196b44786af5601
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
   lottie-ios: 6bbc53eef6957e4744a50321507015fba72d8ca6
   lottie-react-native: b702fab740cdb952a8e2354713d3beda63ff97b0
@@ -593,7 +593,7 @@ SPEC CHECKSUMS:
   RNGestureHandler: bad495418bcbd3ab47017a38d93d290ebd406f50
   RNReanimated: 7faa787e8d4493fbc95fab2ad331fa7625828cfa
   RNScreens: 4a1af06327774490d97342c00aee0c2bafb497b7
-  RNSVG: 07037623c36f12e41312730622d5f6b3656227ca
+  RNSVG: 42a0c731b11179ebbd27a3eeeafa7201ebb476ff
   Yoga: c2b1f2494060865ac1f27e49639e72371b1205fa
 
 PODFILE CHECKSUM: b77befb1871220c1a94408eeae0857d78b685698

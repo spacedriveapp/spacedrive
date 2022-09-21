@@ -48,7 +48,7 @@ importers:
       react-native-reanimated: ~2.10.0
       react-native-safe-area-context: 4.3.1
       react-native-screens: ~3.15.0
-      react-native-svg: 13.2.0
+      react-native-svg: 13.0.0
       react-native-svg-transformer: ^1.0.0
       twrnc: ^3.4.0
       typescript: ^4.8.3
@@ -78,16 +78,16 @@ importers:
       intl: 1.2.5
       lottie-react-native: 5.1.4_ws5w265lwlgfx6ddpl3mdiooma
       moti: 0.18.0_react@18.0.0
-      phosphor-react-native: 1.1.2_uarjgjwplkficas5sutljcpxdu
+      phosphor-react-native: 1.1.2_war7veqoz2ti5gw4huohgrno3m
       react: 18.0.0
       react-native: 0.69.5_react@18.0.0
       react-native-fs: 2.20.0_react-native@0.69.5
       react-native-gesture-handler: 2.5.0_ws5w265lwlgfx6ddpl3mdiooma
-      react-native-heroicons: 3.2.0_arssnftyomecrvswsxasosntwq
+      react-native-heroicons: 3.2.0_wxlif5cfng7xfd3uerlw46xcs4
       react-native-reanimated: 2.10.0_ws5w265lwlgfx6ddpl3mdiooma
       react-native-safe-area-context: 4.3.1_ws5w265lwlgfx6ddpl3mdiooma
       react-native-screens: 3.15.0_ws5w265lwlgfx6ddpl3mdiooma
-      react-native-svg: 13.2.0_ws5w265lwlgfx6ddpl3mdiooma
+      react-native-svg: 13.0.0_ws5w265lwlgfx6ddpl3mdiooma
       twrnc: 3.4.0_react-native@0.69.5
       use-count-up: 3.0.1_react@18.0.0
       valtio: 1.7.0_react@18.0.0
@@ -106,7 +106,7 @@ importers:
       eslint-plugin-react-hooks: 4.6.0_eslint@8.23.1
       eslint-plugin-react-native: 4.0.0_eslint@8.23.1
       metro-minify-terser: 0.72.2
-      react-native-svg-transformer: 1.0.0_5ukfmrhrhe4xab6hu3wkctbdey
+      react-native-svg-transformer: 1.0.0_i2ui74ibfudywpj5mtsafbknbq
       typescript: 4.8.3
 
 packages:
@@ -7356,7 +7356,7 @@ packages:
     resolution: {integrity: sha512-gDKb8aZMDeD/tZWs9P6+q0J9Mwkdl6xMV8TjnGP3qJVJ06bdMgkbBlLU8IdfOsIsFz2BW1rNVT3XuNEl8zPAvw==}
     engines: {node: '>=8'}
 
-  /phosphor-react-native/1.1.2_uarjgjwplkficas5sutljcpxdu:
+  /phosphor-react-native/1.1.2_war7veqoz2ti5gw4huohgrno3m:
     resolution: {integrity: sha512-uWYDG4S70JP89jmXljCA0K6/0mjQDHH8GVHFwF+dmbdYkALIE84jMMSemkFtjdsazB1j+xDBJcGaKN3PdEC8uQ==}
     peerDependencies:
       react: '*'
@@ -7366,7 +7366,7 @@ packages:
       caniuse-lite: 1.0.30001374
       react: 18.0.0
       react-native: 0.69.5_react@18.0.0
-      react-native-svg: 13.2.0_ws5w265lwlgfx6ddpl3mdiooma
+      react-native-svg: 13.0.0_ws5w265lwlgfx6ddpl3mdiooma
     dev: false
 
   /picocolors/1.0.0:
@@ -7714,14 +7714,14 @@ packages:
   /react-native-gradle-plugin/0.0.7:
     resolution: {integrity: sha512-+4JpbIx42zGTONhBTIXSyfyHICHC29VTvhkkoUOJAh/XHPEixpuBduYgf6Y4y9wsN1ARlQhBBoptTvXvAFQf5g==}
 
-  /react-native-heroicons/3.2.0_arssnftyomecrvswsxasosntwq:
+  /react-native-heroicons/3.2.0_wxlif5cfng7xfd3uerlw46xcs4:
     resolution: {integrity: sha512-M5jlhReLBALrmeKIjH1qgF3OCNphfw8xKpRlHpX8OH4zgsC3L6+Lt+c4/hNxSbxUIN2+s8XC0eK/NZLku14IzA==}
     peerDependencies:
       react: '>=16.8'
       react-native-svg: '>=9'
     dependencies:
       react: 18.0.0
-      react-native-svg: 13.2.0_ws5w265lwlgfx6ddpl3mdiooma
+      react-native-svg: 13.0.0_ws5w265lwlgfx6ddpl3mdiooma
     dev: false
 
   /react-native-reanimated/2.10.0_ws5w265lwlgfx6ddpl3mdiooma:
@@ -7775,7 +7775,7 @@ packages:
       warn-once: 0.1.0
     dev: false
 
-  /react-native-svg-transformer/1.0.0_5ukfmrhrhe4xab6hu3wkctbdey:
+  /react-native-svg-transformer/1.0.0_i2ui74ibfudywpj5mtsafbknbq:
     resolution: {integrity: sha512-ALHU5VvLLyKM/BvyEG7VYJmqglvaXtU7mGRCxrEwwpJO/GBf1ZMUzc4AeJAjSodj7yYtlDYRxNSt9ySWpaa6JQ==}
     peerDependencies:
       react-native: '>=0.59.0'
@@ -7785,13 +7785,13 @@ packages:
       '@svgr/plugin-svgo': 6.3.1_@svgr+core@6.3.1
       path-dirname: 1.0.2
       react-native: 0.69.5_react@18.0.0
-      react-native-svg: 13.2.0_ws5w265lwlgfx6ddpl3mdiooma
+      react-native-svg: 13.0.0_ws5w265lwlgfx6ddpl3mdiooma
     transitivePeerDependencies:
       - supports-color
     dev: true
 
-  /react-native-svg/13.2.0_ws5w265lwlgfx6ddpl3mdiooma:
-    resolution: {integrity: sha512-bDvMeFReA3F9pVp0EhACPrEerRcITzTu9N2m2lAPinhIMVvwzGzVXyFsXI8fCMSoeOIh+77hKvukoCedh06tLw==}
+  /react-native-svg/13.0.0_ws5w265lwlgfx6ddpl3mdiooma:
+    resolution: {integrity: sha512-CkWB8BYGjvmGiLqqJRHfTH8/Q5tJyhltUYCmi20sqOCbjfTR5dkQUUafV0oUOhvK2lS+zuB9Dpf1Beo92rls5Q==}
     peerDependencies:
       react: '*'
       react-native: '*'
