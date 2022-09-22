@@ -14,5 +14,13 @@ openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl" }
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "1b2a299e9061c81ff90706923a6d2389ea7c107e" }
 
 [patch."https://github.com/Brendonovich/prisma-client-rust.git"]
-prisma-client-rust = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "8447fe493414471a23a38d780b3db246266f558f" }
-prisma-client-rust-cli = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "8447fe493414471a23a38d780b3db246266f558f" }
+prisma-client-rust = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "43fd489cd817efc061096978030241bbf7ad3fb9", features = [
+  "migrations",
+  "rspc",
+  "sqlite-create-many",
+] }
+prisma-client-rust-cli = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "43fd489cd817efc061096978030241bbf7ad3fb9", features = [
+  "migrations",
+  "rspc",
+  "sqlite-create-many",
+] }

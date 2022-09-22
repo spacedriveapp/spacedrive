@@ -225,17 +225,12 @@ impl LibraryManager {
 	) -> Result<LibraryContext, LibraryManagerError> {
 		let db_path = db_path.as_ref();
 		let db = Arc::new(
-			load_and_migrate(
-				db_path.parent().ok_or_else(|| {
+			load_and_migrate(&format!(
+				"file:{}",
+				db_path.as_os_str().to_str().ok_or_else(|| {
 					LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
-				})?,
-				&format!(
-					"file:{}",
-					db_path.as_os_str().to_str().ok_or_else(|| {
-						LibraryManagerError::InvalidDatabasePath(db_path.to_path_buf())
-					})?
-				),
-			)
+				})?
+			))
 			.await
 			.unwrap(),
 		);
