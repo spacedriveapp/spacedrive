@@ -33,11 +33,15 @@ rmp-serde = "^1.1.0"
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.0", features = [
   "rspc",
   "sqlite-create-many",
+  "migrations",
 ] }
-quaint = { git = "https://github.com/prisma/quaint.git", features = ["sqlite", "uuid"] }
+quaint = { git = "https://github.com/prisma/quaint.git", features = [
+  "sqlite",
+  "uuid",
+] }
 migration-core = { git = "https://github.com/Brendonovich/prisma-engines.git" }
 sql-migration-connector = { git = "https://github.com/Brendonovich/prisma-engines.git" }
-rspc = { version = "0.0.4", features = ["uuid", "chrono", "tracing"] }
+rspc = { version = "0.0.5", features = ["uuid", "chrono", "tracing"] }
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
 thiserror = "1.0.30"

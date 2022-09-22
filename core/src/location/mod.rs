@@ -4,7 +4,7 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	library::LibraryContext,
-	prisma::{indexer_rule, indexer_rules_in_location, location, node},
+	prisma::{indexer_rules_in_location, location, node},
 };
 
 use rspc::Type;
@@ -222,13 +222,7 @@ async fn link_location_and_indexer_rules(
 		.create_many(
 			rules_ids
 				.iter()
-				.map(|id| {
-					indexer_rules_in_location::create(
-						location::id::equals(location_id),
-						indexer_rule::id::equals(*id),
-						vec![],
-					)
-				})
+				.map(|id| indexer_rules_in_location::create(location_id, *id, vec![]))
 				.collect(),
 		)
 		.exec()

@@ -32,7 +32,7 @@ pub enum ScanProgress {
 /// batches of [`BATCH_SIZE`]. Then for each chunk it write the file metadata to the database.
 pub struct IndexerJob;
 
-location::include!(pub indexer_job_location {
+location::include!(indexer_job_location {
 	indexer_rules: select { indexer_rule }
 });
 
@@ -226,11 +226,13 @@ impl StatefulJob for IndexerJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
 	) -> Result<(), JobError> {
-		let location_path = &state
+		let data = &state
 			.data
 			.as_ref()
-			.expect("critical error: missing data on job state")
-			.location_path;
+			.expect("critical error: missing data on job state");
+
+		let location_path = &data.location_path;
+		let location_id = state.init.location.id;
 
 		let count = ctx
 			.library_ctx()
@@ -262,12 +264,12 @@ impl StatefulJob for IndexerJob {
 
 						file_path::create(
 							entry.file_id,
+							location_id,
 							materialized_path,
 							name,
 							vec![
 								file_path::is_dir::set(entry.is_dir),
 								file_path::extension::set(Some(extension)),
-								file_path::location_id::set(state.init.location.id),
 								file_path::parent_id::set(entry.parent_id),
 								file_path::date_created::set(entry.created_at.into()),
 							],

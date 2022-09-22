@@ -29,8 +29,8 @@ pub enum ExplorerContext {
 	// Space(object_in_space::Data),
 }
 
-file_path::include!(pub file_path_with_file { file });
-file::include!(pub file_with_paths { paths });
+file_path::include!(file_path_with_file { file });
+file::include!(file_with_paths { paths });
 
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]

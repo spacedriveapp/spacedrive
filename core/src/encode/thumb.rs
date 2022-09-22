@@ -37,7 +37,7 @@ pub struct ThumbnailJobState {
 	root_path: PathBuf,
 }
 
-file_path::include!(pub image_path_with_file { file });
+file_path::include!(image_path_with_file { file });
 
 #[async_trait::async_trait]
 impl StatefulJob for ThumbnailJob {
