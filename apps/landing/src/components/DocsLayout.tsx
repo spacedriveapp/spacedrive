@@ -1,8 +1,8 @@
 import { Disclosure, Menu, Transition } from '@headlessui/react';
 import { ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
-import { List } from 'phosphor-react';
-import { PropsWithChildren, useState } from 'react';
+import { List, X } from 'phosphor-react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 
 import { Doc, DocsNavigation, toTitleCase } from '../pages/docs/api';
 import DocsSidebar from './DocsSidebar';
@@ -14,6 +14,16 @@ interface Props extends PropsWithChildren {
 
 export default function DocsLayout(props: Props) {
 	const [menuOpen, setMenuOpen] = useState(false);
+
+	// couldn't find a better way to do this
+	useEffect(() => {
+		if (menuOpen) {
+			document.body.style.overflow = 'hidden';
+		} else {
+			document.body.style.overflow = 'unset';
+		}
+	}, [menuOpen]);
+
 	return (
 		<div className="flex flex-col items-start w-full sm:flex-row">
 			<div className="h-12 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden  items-center px-3">
@@ -38,12 +48,13 @@ export default function DocsLayout(props: Props) {
 				<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 			</aside>
 			{menuOpen && (
-				<aside className="fixed top-0 left-0 z-[100] h-screen pt-7 pb-2 overflow-x-scroll bg-gray-900 px-7">
+				<aside className="fixed top-0 left-0 z-[100] h-screen pt-7 overflow-x-scroll bg-gray-950 shadow-2xl shadow-black px-7 pb-20">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
-						icon={<XMarkIcon className="w-5 h-5" />}
-						className="!p-1.5 mb-3 !border-none"
+						icon={<X weight="bold" className="w-6 h-6" />}
+						className="!px-1 -ml-0.5 mb-3 !border-none"
 					/>
+
 					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 				</aside>
 			)}

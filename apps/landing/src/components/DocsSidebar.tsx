@@ -2,7 +2,7 @@ import { CogIcon } from '@heroicons/react/24/outline';
 import { Input } from '@sd/ui';
 import clsx from 'clsx';
 import { MagnifyingGlass } from 'phosphor-react';
-import React from 'react';
+import React, { useCallback } from 'react';
 
 import { DocCategory, DocsNavigation } from '../pages/docs/api';
 import config from '../pages/docs/docs';
@@ -18,11 +18,11 @@ export default function DocsSidebar(props: Props) {
 	const activeSectionData = props.navigation.find((section) => section.slug === activeSection);
 
 	return (
-		<nav className="flex flex-col mr-8 w-52">
-			<div className="relative">
+		<nav className="flex flex-col w-full mr-8 sm:w-52">
+			<div className="relative w-full">
 				<MagnifyingGlass weight="bold" className="absolute top-3 left-3" />
-				<Input className="mb-5 pl-9" placeholder="Search" />
-				<span className="absolute font-bold text-gray-400 right-[22px] top-[7px]">⌘K</span>
+				<Input className="w-full mb-5 pl-9" placeholder="Search" />
+				<span className="absolute  text-sm font-semibold text-gray-400 right-3 top-[9px]">⌘K</span>
 			</div>
 			<div className="flex flex-col mb-6">
 				{props.navigation.map((section) => {
