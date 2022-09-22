@@ -4,13 +4,13 @@
 		"dev": "pnpm run server",
 		"prod": "pnpm run build && pnpm run server:prod",
 		"vercel-build": "./vercel/deploy.sh",
-		"build": "vite build && vite build",
+		"build": "vite build",
 		"server": "ts-node ./server",
 		"server:prod": "cross-env NODE_ENV=production ts-node ./server",
 		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
 	},
 	"dependencies": {
-		"@heroicons/react": "^2.0.10",
+		"@heroicons/react": "^2.0.11",
 		"@icons-pack/react-simple-icons": "^5.2.0",
 		"@sd/assets": "link:../../packages/assets",
 		"@sd/interface": "link:../../packages/interface",

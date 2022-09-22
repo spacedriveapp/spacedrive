@@ -83,7 +83,7 @@ importers:
 
   apps/landing:
     specifiers:
-      '@heroicons/react': ^2.0.10
+      '@heroicons/react': ^2.0.11
       '@icons-pack/react-simple-icons': ^5.2.0
       '@sd/assets': link:../../packages/assets
       '@sd/config': link:../../packages/config
@@ -128,7 +128,7 @@ importers:
       vite-plugin-ssr: ^0.4.28
       vite-plugin-svgr: ^2.2.1
     dependencies:
-      '@heroicons/react': 2.0.10_react@18.2.0
+      '@heroicons/react': 2.0.11_react@18.2.0
       '@icons-pack/react-simple-icons': 5.2.0_react@18.2.0
       '@sd/assets': link:../../packages/assets
       '@sd/interface': link:../../packages/interface
@@ -2487,6 +2487,14 @@ packages:
 
   /@heroicons/react/2.0.10_react@18.2.0:
     resolution: {integrity: sha512-Ufr+pgAElNiRCSklnHGOR10bXb02BLlosvbDK7sCRUMOcQ3R/HCXTfXs4BUkYZ4dKpx6l5dUD06VSW1dTpTEDw==}
+    peerDependencies:
+      react: '>= 16'
+    dependencies:
+      react: 18.2.0
+    dev: false
+
+  /@heroicons/react/2.0.11_react@18.2.0:
+    resolution: {integrity: sha512-bASjOgSSaYj8HqXWsOqaBiB6ZLalE/g90WYGgZ5lPm4KCCG7wPXntY4kzHf5NrLh6UBAcnPwvbiw1Ne9GYfJtw==}
     peerDependencies:
       react: '>= 16'
     dependencies:
@@ -7141,7 +7149,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}

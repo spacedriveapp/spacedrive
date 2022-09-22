@@ -6,6 +6,7 @@ import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
 
 import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
+// import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';
 import NewBanner from '../components/NewBanner';
 import { usePageContext } from '../renderer/usePageContext';
@@ -149,7 +150,7 @@ function Page() {
 					</>
 				}
 			/>
-			<Bubbles />
+			{typeof window !== 'undefined' && <Bubbles />}
 		</>
 	);
 }

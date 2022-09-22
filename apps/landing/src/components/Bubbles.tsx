@@ -2,16 +2,13 @@ import Particles from 'react-tsparticles';
 import { loadFull } from 'tsparticles';
 
 export const Bubbles = () => {
-	const particlesInit = async (main: any) => {
-		await loadFull(main);
-	};
-
 	return (
-		//@ts-ignore
 		<Particles
 			id="tsparticles"
 			className="absolute z-0"
-			init={particlesInit}
+			init={async (engine) => {
+				await loadFull(engine);
+			}}
 			options={{
 				fpsLimit: 120,
 				interactivity: {
