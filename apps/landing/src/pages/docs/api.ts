@@ -51,7 +51,7 @@ export function getDocs(config: DocsConfig): Record<string, Doc> {
 		const { render, metadata } = parseMarkdown(config.docs[path]);
 
 		parsedDocs[url] = {
-			title: metadata?.name ?? cap(url.split('/')[2]),
+			title: metadata?.name ?? toTitleCase(url.split('/')[2]),
 			slug: url.split('/')[2],
 			url,
 			categoryName: toTitleCase(url.split('/')[1]),
@@ -139,9 +139,7 @@ function parsePath(path: string): string | null {
 	if (!url.includes('/')) return null;
 	return url;
 }
-function cap(string: string) {
-	return string.charAt(0).toUpperCase() + string.slice(1);
-}
+
 export function toTitleCase(str: string) {
 	return str
 		.toLowerCase()
@@ -158,6 +156,7 @@ export function getNextDoc(
 	docUrl: string
 ): { url: string; title: string } {
 	const docUrls: DocUrls = [];
+	// flatten the navigation
 	for (const section of navigation) {
 		for (const category of section.section) {
 			for (const doc of category.category) {
@@ -166,6 +165,5 @@ export function getNextDoc(
 		}
 	}
 	const currentDocIndex = docUrls.findIndex((doc) => doc.url === docUrl);
-
 	return docUrls[currentDocIndex + 1];
 }

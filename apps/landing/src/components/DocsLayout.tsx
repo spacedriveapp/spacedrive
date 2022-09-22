@@ -21,14 +21,14 @@ export default function DocsLayout(props: Props) {
 	const [menuOpen, setMenuOpen] = useState(false);
 
 	return (
-		<div className={clsx('flex flex-col items-start w-full sm:flex-row')}>
+		<div className="flex flex-col items-start w-full sm:flex-row">
 			<Menu
 				onClose={() => setMenuOpen(false)}
 				customBurgerIcon={false}
 				isOpen={menuOpen}
 				pageWrapId="page-container"
 			>
-				<div className="h-screen pb-20 overflow-x-hidden pt-7 bg-gray-950 px-7">
+				<div className="visible h-screen pb-20 overflow-x-hidden pt-7 bg-gray-950 px-7 sm:invisible">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
 						icon={<X weight="bold" className="w-6 h-6" />}
@@ -37,9 +37,12 @@ export default function DocsLayout(props: Props) {
 					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 				</div>
 			</Menu>
-			{/* {menuOpen && <div className="absolute w-screen h-screen " />} */}
+
+			<aside className="sticky hidden px-5 mt-32 mb-20 ml-2 mr-0 lg:mr-4 top-32 sm:inline">
+				<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
+			</aside>
 			<div className="flex flex-col w-full sm:flex-row" id="page-container">
-				<div className="h-12 px-5 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden  items-center ">
+				<div className="h-12 px-5 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden items-center ">
 					<div className="flex sm:hidden">
 						<Button
 							onClick={() => setMenuOpen(!menuOpen)}
@@ -57,11 +60,8 @@ export default function DocsLayout(props: Props) {
 						);
 					})}
 				</div>
-				<aside className="sticky hidden px-4 mt-32 mb-20 sm:block top-32">
-					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
-				</aside>
-
-				<div className="w-full px-4">{props.children}</div>
+				<div className="px-4 mx-auto">{props.children}</div>
+				<div className="w-0 sm:w-32 lg:w-64" />
 			</div>
 		</div>
 	);

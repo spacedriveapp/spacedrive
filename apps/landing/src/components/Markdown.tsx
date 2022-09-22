@@ -18,7 +18,7 @@ function MarkdownPage(props: MarkdownPageProps) {
 	}, []);
 
 	return (
-		<div className={clsx('max-w-4xl min-h-screen p-4 mb-20 sm:container', props.classNames)}>
+		<div className={clsx('p-4 mb-10', props.classNames)}>
 			<article
 				id="content"
 				className={clsx(

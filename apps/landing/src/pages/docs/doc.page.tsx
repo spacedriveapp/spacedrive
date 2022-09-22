@@ -33,10 +33,8 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} /> */}
 			</Helmet>
 			<DocsLayout doc={doc} navigation={navigation}>
-				<Markdown>
-					<h5 className="mb-2 sm:mt-[105px] mt-6 text-sm font-semibold text-primary">
-						{doc.categoryName}
-					</h5>
+				<Markdown classNames="sm:mt-[105px] mt-6">
+					<h5 className="mb-2 text-sm font-semibold text-primary">{doc.categoryName}</h5>
 					<div dangerouslySetInnerHTML={{ __html: doc?.html as string }} />
 					<div className="flex flex-col gap-3 mt-10 sm:flex-row">
 						<a

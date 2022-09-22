@@ -202,7 +202,7 @@ const investors: Array<TeamMemberProps> = [
 
 function Page() {
 	return (
-		<Markdown articleClassNames="mx-auto prose-a:text-white">
+		<Markdown articleClassNames="mx-auto mt-32 prose-a:text-white">
 			<Helmet>
 				<title>Our Team - Spacedrive</title>
 				<meta name="description" content="Who's behind Spacedrive?" />

@@ -10,11 +10,12 @@ export { Page };
 function Page({ is404 }: { is404: boolean }) {
 	return (
 		<>
-			<Markdown>
+			<Markdown classNames="flex w-full justify-center">
 				<Helmet>
 					<title>Not Found - Spacedrive</title>
 				</Helmet>
-				<div className="flex flex-col items-center">
+				<div className="flex flex-col items-center m-auto ">
+					<div className="h-32" />
 					<SmileyXEyes className="mb-3 w-44 h-44" />
 					<h1 className="mb-2 text-center">In the quantum realm this page potentially exists.</h1>
 					<p>In other words, thats a 404.</p>
@@ -26,12 +27,12 @@ function Page({ is404 }: { is404: boolean }) {
 						>
 							← Back
 						</Button>
-						<Button href="/" className="mt-2 cursor-pointer" variant="primary">
+						<Button href="/" className="mt-2 cursor-pointer !text-white" variant="primary">
 							Discover Spacedrive →
 						</Button>
 					</div>
 				</div>
-				<div className="h-96" />
+				<div className="h-80" />
 			</Markdown>
 		</>
 	);

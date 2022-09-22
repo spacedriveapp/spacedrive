@@ -66,19 +66,16 @@ export default function NavBar() {
 	return (
 		<div
 			className={clsx(
-				'fixed transition z-[55] w-full h-16 border-b ',
+				'fixed transition px-2 z-[55] w-full h-16 border-b ',
 				isAtTop
 					? 'bg-transparent border-transparent'
 					: 'border-gray-550 bg-gray-700 bg-opacity-80 backdrop-blur'
 			)}
 		>
-			<div className="relative flex items-center h-full m-auto p-7 sm:px-5 sm:container">
+			<div className="relative flex max-w-[100rem] mx-auto items-center h-full m-auto p-5">
 				<a href="/" className="absolute flex flex-row items-center">
 					<img src={AppLogo} className="z-30 w-8 h-8 mr-3" />
-					<h3 className="text-xl font-bold text-white">
-						Spacedrive
-						{/* <span className="ml-2 text-xs text-gray-400 uppercase">ALPHA</span> */}
-					</h3>
+					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
 				</a>
 
 				<div className="hidden m-auto space-x-4 text-white lg:block ">
@@ -97,7 +94,7 @@ export default function NavBar() {
 					</div>
 				</div>
 				<Dropdown
-					className="absolute block h-6 w-44 top-2 right-4 sm:hidden"
+					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
 					items={[
 						[
 							dropdownItem({
