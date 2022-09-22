@@ -23,7 +23,7 @@ export default function DocsLayout(props: Props) {
 	return (
 		<div className={clsx('flex flex-col  items-start w-full sm:flex-row')}>
 			<Menu customBurgerIcon={false} isOpen={menuOpen} pageWrapId="page-view">
-				<div className="pb-20 overflow-x-hidden pt-7 bg-gray-950 px-7">
+				<div className="h-screen pb-20 overflow-x-hidden pt-7 bg-gray-950 px-7">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
 						icon={<X weight="bold" className="w-6 h-6" />}
@@ -32,7 +32,7 @@ export default function DocsLayout(props: Props) {
 					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 				</div>
 			</Menu>
-			<div className="h-12 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden  items-center px-3">
+			<div className="h-12 px-5 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden  items-center ">
 				<div className="flex sm:hidden">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
