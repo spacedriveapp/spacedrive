@@ -1,4 +1,4 @@
-import { renderToString } from 'react-dom/server';
+import ReactDOMServer from 'react-dom/server';
 import { Helmet } from 'react-helmet';
 import { dangerouslySkipEscape, escapeInject } from 'vite-plugin-ssr';
 import type { PageContextBuiltIn } from 'vite-plugin-ssr';
@@ -8,16 +8,13 @@ import type { PageContext } from './types';
 
 export { render };
 // See https://vite-plugin-ssr.com/data-fetching
-export const passToClient = ['pageProps'];
+export const passToClient = ['pageProps', 'urlPathname'];
 
 async function render(pageContext: PageContextBuiltIn & PageContext) {
 	const { Page, pageProps } = pageContext;
-	const content = <Page {...(pageProps ?? {})} />;
-	const pageHtml = renderToString(
+	const pageHtml = ReactDOMServer.renderToString(
 		<App pageContext={pageContext}>
-			{/*
-			// @ts-expect-error: I don't get it but this works so.... */}
-			<content />
+			<Page {...pageProps} />
 		</App>
 	);
 
