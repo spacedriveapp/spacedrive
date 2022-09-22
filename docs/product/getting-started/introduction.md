@@ -13,10 +13,6 @@ Create photo albums that you'll never loose, effortlessly catalogue terabytes of
 
 A decentralized, local-first design optimizes for privacy, security and data ownership—and best of all, its open source and entirely free.
 
-
-::: slot note Note
+::: slot note
 Spacedrive is not yet released, these docs are a work in progress. Check out our [roadmap](/roadmap) to see a timeline leading to release!
 :::
-
-
-
