@@ -29,7 +29,7 @@ export default function App({
 					</Button>
 
 					<NavBar />
-					<div className="z-10 flex flex-col items-center w-full px-4 mx-auto sm:container sm:overflow-x-visible ">
+					<div className="z-10 flex flex-col items-center w-full mx-auto sm:container sm:overflow-x-visible ">
 						{children}
 						<Footer />
 					</div>

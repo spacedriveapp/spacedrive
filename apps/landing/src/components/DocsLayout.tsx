@@ -1,8 +1,10 @@
-import { Disclosure, Menu, Transition } from '@headlessui/react';
+import { Disclosure, Transition } from '@headlessui/react';
 import { ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
+import clsx from 'clsx';
 import { List, X } from 'phosphor-react';
 import { PropsWithChildren, useEffect, useState } from 'react';
+import { slide as Menu } from 'react-burger-menu';
 
 import { Doc, DocsNavigation, toTitleCase } from '../pages/docs/api';
 import DocsSidebar from './DocsSidebar';
@@ -15,19 +17,20 @@ interface Props extends PropsWithChildren {
 export default function DocsLayout(props: Props) {
 	const [menuOpen, setMenuOpen] = useState(false);
 
-	// couldn't find a better way to do this
-	useEffect(() => {
-		if (menuOpen) {
-			document.body.style.overflow = 'hidden';
-		} else {
-			document.body.style.overflow = 'unset';
-		}
-	}, [menuOpen]);
-
 	return (
-		<div className="flex flex-col items-start w-full sm:flex-row">
+		<div className={clsx('flex flex-col  items-start w-full sm:flex-row')}>
+			<Menu customBurgerIcon={false} isOpen={menuOpen} pageWrapId="page-view">
+				<div className="pb-20 overflow-x-hidden pt-7 bg-gray-950 px-7">
+					<Button
+						onClick={() => setMenuOpen(!menuOpen)}
+						icon={<X weight="bold" className="w-6 h-6" />}
+						className="!px-1 -ml-0.5 mb-3 !border-none"
+					/>
+					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
+				</div>
+			</Menu>
 			<div className="h-12 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden  items-center px-3">
-				<div className="block sm:hidden">
+				<div className="flex sm:hidden">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
 						icon={<List weight="bold" className="w-5 h-5" />}
@@ -44,21 +47,11 @@ export default function DocsLayout(props: Props) {
 					);
 				})}
 			</div>
-			<aside className="sticky hidden mt-32 mb-20 sm:block top-32">
+			<aside className="sticky hidden px-4 mt-32 mb-20 sm:block top-32">
 				<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 			</aside>
-			{menuOpen && (
-				<aside className="fixed top-0 left-0 z-[100] h-screen pt-7 overflow-x-scroll bg-gray-950 shadow-2xl shadow-black px-7 pb-20">
-					<Button
-						onClick={() => setMenuOpen(!menuOpen)}
-						icon={<X weight="bold" className="w-6 h-6" />}
-						className="!px-1 -ml-0.5 mb-3 !border-none"
-					/>
 
-					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
-				</aside>
-			)}
-			<div className="w-full">{props.children}</div>
+			<div className="w-full px-4">{props.children}</div>
 		</div>
 	);
 }
