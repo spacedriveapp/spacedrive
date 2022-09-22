@@ -4,10 +4,13 @@ import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import { List, X } from 'phosphor-react';
 import { PropsWithChildren, useEffect, useState } from 'react';
-import { slide as Menu } from 'react-burger-menu';
+import pkg from 'react-burger-menu';
 
 import { Doc, DocsNavigation, toTitleCase } from '../pages/docs/api';
 import DocsSidebar from './DocsSidebar';
+
+// this is due to a commonjs export, it fixes build, trust
+const { slide: Menu } = pkg;
 
 interface Props extends PropsWithChildren {
 	doc?: Doc;
