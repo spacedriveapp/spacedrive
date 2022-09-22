@@ -153,7 +153,10 @@ export function toTitleCase(str: string) {
 
 type DocUrls = { url: string; title: string }[];
 
-function getNextDoc(navigation: DocsNavigation, docUrl: string): { url: string; title: string } {
+export function getNextDoc(
+	navigation: DocsNavigation,
+	docUrl: string
+): { url: string; title: string } {
 	const docUrls: DocUrls = [];
 	for (const section of navigation) {
 		for (const category of section.section) {

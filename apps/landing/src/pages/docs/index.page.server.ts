@@ -1,4 +1,4 @@
-import { getDocs, getDocsNavigation } from './api';
+import { getDocs, getDocsNavigation, getNextDoc } from './api';
 import config from './docs';
 
 export async function onBeforeRender() {
@@ -22,7 +22,7 @@ export async function prerender() {
 
 	const docsArray = Object.keys(docs).map((url) => ({
 		url: `/docs/${url}/`,
-		pageContext: { pageProps: { doc: docs[url], navigation } }
+		pageContext: { pageProps: { doc: docs[url], navigation, nextDoc: getNextDoc(navigation, url) } }
 	}));
 
 	return [
