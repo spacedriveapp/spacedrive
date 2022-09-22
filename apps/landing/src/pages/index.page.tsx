@@ -150,7 +150,7 @@ function Page() {
 					</>
 				}
 			/>
-			{typeof window !== 'undefined' && <Bubbles />}
+			<Bubbles />
 		</>
 	);
 }
