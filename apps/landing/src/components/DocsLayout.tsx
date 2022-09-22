@@ -22,7 +22,12 @@ export default function DocsLayout(props: Props) {
 
 	return (
 		<div className={clsx('flex flex-col items-start w-full sm:flex-row')}>
-			<Menu customBurgerIcon={false} isOpen={menuOpen} pageWrapId="page-container">
+			<Menu
+				onClose={() => setMenuOpen(false)}
+				customBurgerIcon={false}
+				isOpen={menuOpen}
+				pageWrapId="page-container"
+			>
 				<div className="h-screen pb-20 overflow-x-hidden pt-7 bg-gray-950 px-7">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
@@ -33,7 +38,7 @@ export default function DocsLayout(props: Props) {
 				</div>
 			</Menu>
 			{/* {menuOpen && <div className="absolute w-screen h-screen " />} */}
-			<div className="flex flex-col w-full" id="page-container">
+			<div className="flex flex-col w-full sm:flex-row" id="page-container">
 				<div className="h-12 px-5 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden  items-center ">
 					<div className="flex sm:hidden">
 						<Button

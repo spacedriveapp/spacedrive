@@ -22,7 +22,7 @@ function MarkdownPage(props: MarkdownPageProps) {
 			<article
 				id="content"
 				className={clsx(
-					'prose  prose-blockquote:bg-red-500 prose-a:text-primary prose-a:no-underline lg:prose-xs dark:prose-invert prose-td:p-2 prose-th:p-2 prose-td:border-l prose-td:border-gray-500 prose-td:last:border-r prose-table:border-b prose-table:border-gray-500 prose-tr:even:bg-gray-700',
+					'prose prose-h1:text-[3.25em] prose-blockquote:bg-red-500 prose-a:text-primary prose-a:no-underline lg:prose-xs dark:prose-invert prose-td:p-2 prose-th:p-2 prose-td:border-l prose-td:border-gray-500 prose-td:last:border-r prose-table:border-b prose-table:border-gray-500 prose-tr:even:bg-gray-700',
 					props.articleClassNames
 				)}
 			>
