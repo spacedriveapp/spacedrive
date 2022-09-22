@@ -32,18 +32,19 @@ export default function DocsLayout(props: Props) {
 					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 				</div>
 			</Menu>
+			{/* {menuOpen && <div className="absolute w-screen h-screen " />} */}
 			<div className="h-12 px-5 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden  items-center ">
 				<div className="flex sm:hidden">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
-						icon={<List weight="bold" className="w-5 h-5" />}
-						className="!p-1.5 !border-none"
+						icon={<List weight="bold" className="w-6 h-6" />}
+						className="!px-2 ml-1 !border-none"
 					/>
 				</div>
 				{props.doc?.url.split('/').map((item, index) => {
 					if (index === 2) return null;
 					return (
-						<div key={index} className="flex flex-row items-center ml-3">
+						<div key={index} className="flex flex-row items-center ml-2">
 							<a className="px-1 text-sm">{toTitleCase(item)}</a>
 							{index < 1 && <ChevronRightIcon className="w-4 h-4 ml-1 -mr-2" />}
 						</div>

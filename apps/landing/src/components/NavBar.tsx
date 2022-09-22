@@ -97,7 +97,7 @@ export default function NavBar() {
 					</div>
 				</div>
 				<Dropdown
-					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
+					className="absolute block h-6 w-44 top-2 right-4 sm:hidden"
 					items={[
 						[
 							dropdownItem({
