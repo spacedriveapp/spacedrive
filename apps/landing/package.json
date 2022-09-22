@@ -10,6 +10,7 @@
 		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
 	},
 	"dependencies": {
+		"@headlessui/react": "^1.6.6",
 		"@heroicons/react": "^2.0.11",
 		"@icons-pack/react-simple-icons": "^5.2.0",
 		"@sd/assets": "link:../../packages/assets",

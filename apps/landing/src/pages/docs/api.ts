@@ -142,7 +142,7 @@ function parsePath(path: string): string | null {
 function cap(string: string) {
 	return string.charAt(0).toUpperCase() + string.slice(1);
 }
-function toTitleCase(str: string) {
+export function toTitleCase(str: string) {
 	return str
 		.toLowerCase()
 		.replace(/(?:^|[\s-/])\w/g, function (match) {

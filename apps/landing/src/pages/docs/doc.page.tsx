@@ -1,12 +1,15 @@
+import { Disclosure, Menu, Transition } from '@headlessui/react';
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
 import { Github } from '@icons-pack/react-simple-icons';
+import { Button } from '@sd/ui';
+import { List } from 'phosphor-react';
 import React, { PropsWithChildren, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 
 import '../../atom-one.css';
 import DocsLayout from '../../components/DocsLayout';
 import Markdown from '../../components/Markdown';
-import { SingleDocResponse } from './api';
+import { SingleDocResponse, toTitleCase } from './api';
 
 function BottomCard(props: PropsWithChildren) {
 	return (
@@ -31,9 +34,11 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 			</Helmet>
 			<DocsLayout doc={doc} navigation={navigation}>
 				<Markdown>
-					<h5 className="mb-2 text-sm font-semibold text-primary">{doc.categoryName}</h5>
+					<h5 className="mb-2 sm:mt-[105px] mt-6 text-sm font-semibold text-primary">
+						{doc.categoryName}
+					</h5>
 					<div dangerouslySetInnerHTML={{ __html: doc?.html as string }} />
-					<div className="flex flex-row gap-3 mt-10">
+					<div className="flex flex-col gap-3 mt-10 sm:flex-row">
 						<a
 							target="_blank"
 							rel="noreferrer"

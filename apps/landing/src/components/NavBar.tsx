@@ -8,7 +8,7 @@ import { Discord, Github } from '@icons-pack/react-simple-icons';
 import AppLogo from '@sd/assets/images/logo.png';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
-import { List } from 'phosphor-react';
+import { DotsThreeVertical, List } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
 import { positions } from '../pages/careers.page';
@@ -72,7 +72,7 @@ export default function NavBar() {
 					: 'border-gray-550 bg-gray-700 bg-opacity-80 backdrop-blur'
 			)}
 		>
-			<div className="relative flex items-center h-full px-5 m-auto sm:container">
+			<div className="relative flex items-center h-full m-auto p-7 sm:px-5 sm:container">
 				<a href="/" className="absolute flex flex-row items-center">
 					<img src={AppLogo} className="z-30 w-8 h-8 mr-3" />
 					<h3 className="text-xl font-bold text-white">
@@ -118,9 +118,9 @@ export default function NavBar() {
 								path: '/roadmap'
 							}),
 							dropdownItem({
-								name: 'FAQ',
-								icon: QuestionMarkCircleIcon,
-								path: '/faq'
+								name: 'Docs',
+								icon: BookOpenIcon,
+								path: '/docs/product/getting-started/introduction'
 							}),
 							dropdownItem({
 								name: 'Team',
@@ -139,7 +139,7 @@ export default function NavBar() {
 							})
 						]
 					]}
-					buttonIcon={<List weight="bold" className="w-6 h-6" />}
+					buttonIcon={<DotsThreeVertical weight="bold" className="w-6 h-6" />}
 					buttonProps={{ className: '!p-1 ml-[140px]' }}
 				/>
 				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">

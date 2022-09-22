@@ -83,6 +83,7 @@ importers:
 
   apps/landing:
     specifiers:
+      '@headlessui/react': ^1.6.6
       '@heroicons/react': ^2.0.11
       '@icons-pack/react-simple-icons': ^5.2.0
       '@sd/assets': link:../../packages/assets
@@ -128,6 +129,7 @@ importers:
       vite-plugin-ssr: ^0.4.28
       vite-plugin-svgr: ^2.2.1
     dependencies:
+      '@headlessui/react': 1.6.6_biqbaboplfbrettd7655fr4n2y
       '@heroicons/react': 2.0.11_react@18.2.0
       '@icons-pack/react-simple-icons': 5.2.0_react@18.2.0
       '@sd/assets': link:../../packages/assets
@@ -7149,6 +7151,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.7_postcss@8.4.14:
     resolution: {integrity: sha512-ypHju4Y2Oav95SipEcCcI5J7CGPuvz8oat7sUtYj3ClK44bldfvtvcxK6IEK++7rqB7YchDGzweZIBG+SD0ZAA==}
