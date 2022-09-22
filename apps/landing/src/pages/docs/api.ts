@@ -120,12 +120,7 @@ export interface SingleDocResponse {
 export function getDoc(url: string, config: DocsConfig): SingleDocResponse {
 	const docs = getDocs(config),
 		navigation = getDocsNavigation(config, docs),
-		// next doc logic below, kinda scuffed
-		docCat = navigation
-			.find((i) => i.slug === url.split('/')[0])
-			?.section.find((i) => i.slug === url.split('/')[1]),
-		nextDocIndex = (docCat?.category.findIndex((i) => i.slug === url.split('/')[2]) || -1) + 1,
-		nextDoc = docCat?.category[nextDocIndex + 1];
+		nextDoc = getNextDoc(navigation, url);
 
 	return {
 		doc: docs[url],
@@ -154,4 +149,20 @@ function toTitleCase(str: string) {
 			return match.toUpperCase();
 		})
 		.replaceAll('-', ' ');
+}
+
+type DocUrls = { url: string; title: string }[];
+
+function getNextDoc(navigation: DocsNavigation, docUrl: string): { url: string; title: string } {
+	const docUrls: DocUrls = [];
+	for (const section of navigation) {
+		for (const category of section.section) {
+			for (const doc of category.category) {
+				docUrls.push({ url: doc.url, title: doc.title });
+			}
+		}
+	}
+	const currentDocIndex = docUrls.findIndex((doc) => doc.url === docUrl);
+
+	return docUrls[currentDocIndex + 1];
 }
