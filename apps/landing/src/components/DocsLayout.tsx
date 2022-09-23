@@ -61,7 +61,7 @@ export default function DocsLayout(props: Props) {
 						);
 					})}
 				</div>
-				<div className="px-4 mx-auto">{props.children}</div>
+				<div className="mx-4 overflow-x-hidden sm:mx-auto">{props.children}</div>
 				<div className="w-0 sm:w-32 lg:w-64" />
 			</div>
 		</div>

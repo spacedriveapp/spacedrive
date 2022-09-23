@@ -6,19 +6,36 @@ index: 1
 
 To get started contributing to Spacedrive, follow this guide carefully.
 
-This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
+This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). 
 
 ## Installation 
 
-1. Clone repo: `git clone https://github.com/spacedriveapp/spacedrive`
-2. Open directory: `cd spacedrive`
-3. For Linux or MacOS users run: `./.github/scripts/setup-system.sh`
-   _This will install FFMPEG and any other required dependencies for Spacedrive to build._
-4. For Windows users run using PowerShell: `.\.github\scripts\setup-system.ps1`
-  _This will install pnpm, LLVM, FFMPEG and any other required dependencies for Spacedrive to build. Ensure you run it like documented above as it expects it is executed from the root of the repository._
-5. Install dependencies: `pnpm i`
-6. `pnpm prep` - Runs all necessary codegen & builds required dependencies.
+1. **Clone repo**
+    ```shell
+    git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
+    ```  
+2. **Run setup script**
+   
+   **For Linux or MacOS users run:**
+    ```shell
+    ./.github/scripts/setup-system.sh
+    ```
+    This will install FFMPEG and any other required dependencies for Spacedrive to build.
 
+   **...or for Windows users run using PowerShell:**
+    ```shell
+    .\.github\scripts\setup-system.ps1
+    ```
+    _This will install pnpm, LLVM, FFMPEG and any other required dependencies for Spacedrive to build. Ensure you run it like documented above as it expects it is executed from the root of the repository._
+3. **Install dependencies**
+    ```shell
+    pnpm i
+    ```
+4. **Run codegen & build required dependencies**
+    ```shell
+    pnpm prep
+    ```
+   
 ## Running apps 
 
 - **Desktop:** `pnpm desktop dev`

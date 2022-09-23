@@ -1,7 +1,8 @@
 import {
+	AcademicCapIcon,
 	BookOpenIcon,
+	ChatBubbleOvalLeftIcon,
 	MapIcon,
-	QuestionMarkCircleIcon,
 	UsersIcon
 } from '@heroicons/react/24/solid';
 import { Discord, Github } from '@icons-pack/react-simple-icons';
@@ -94,7 +95,9 @@ export default function NavBar() {
 					</div>
 				</div>
 				<Dropdown
-					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
+					className="absolute block h-6 text-white w-44 top-2 right-4 lg:hidden"
+					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500"
+					itemButtonClassName="!py-1 !rounded-md text-[15px]"
 					items={[
 						[
 							dropdownItem({
@@ -126,18 +129,18 @@ export default function NavBar() {
 							}),
 							dropdownItem({
 								name: 'Blog',
-								icon: BookOpenIcon,
+								icon: ChatBubbleOvalLeftIcon,
 								path: '/blog'
 							}),
 							dropdownItem({
 								name: 'Careers',
-								icon: QuestionMarkCircleIcon,
+								icon: AcademicCapIcon,
 								path: '/careers'
 							})
 						]
 					]}
-					buttonIcon={<DotsThreeVertical weight="bold" className="w-6 h-6" />}
-					buttonProps={{ className: '!p-1 ml-[140px]' }}
+					buttonIcon={<DotsThreeVertical weight="bold" className="w-6 h-6 " />}
+					buttonProps={{ className: '!p-1 ml-[140px] hover:!bg-transparent' }}
 				/>
 				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
 					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
