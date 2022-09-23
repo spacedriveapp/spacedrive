@@ -11,10 +11,9 @@ use tokio::{
 #[allow(dead_code)]
 pub(crate) static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
-pub(crate) type NodeRouterLock = Mutex<Option<(Arc<Node>, Arc<Router>)>>;
-
+type LazyNode = Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>>;
 #[allow(dead_code)]
-pub(crate) static NODE: Lazy<NodeRouterLock> = Lazy::new(|| Mutex::new(None));
+pub(crate) static NODE: LazyNode = Lazy::new(|| Mutex::new(None));
 
 #[allow(dead_code)]
 pub(crate) static CLIENT_CONTEXT: Lazy<ClientContext> = Lazy::new(|| ClientContext {
