@@ -54,7 +54,6 @@ jobs:
   build-core:
     name: Build Core (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
-    needs: typescript
     strategy:
       fail-fast: true
       matrix:
