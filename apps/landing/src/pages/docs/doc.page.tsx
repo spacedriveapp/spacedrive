@@ -30,11 +30,14 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 				<meta property="og:description" content={description} />
 				<meta property="og:image" content={featured_image} />
 				<meta content="summary_large_image" name="twitter:card" />
-				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} /> */}
+			<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} /> */}
 			</Helmet>
+
 			<DocsLayout doc={doc} navigation={navigation}>
-				<Markdown classNames="sm:mt-[105px] mt-6">
-					<h5 className="mb-2 text-sm font-semibold text-primary">{doc.categoryName}</h5>
+				<Markdown classNames="sm:mt-[105px] mt-6 min-h-screen ">
+					<h5 className="mb-2 text-sm font-semibold text-primary lg:min-w-[700px]">
+						{doc.categoryName}
+					</h5>
 					<div dangerouslySetInnerHTML={{ __html: doc?.html as string }} />
 					<div className="flex flex-col gap-3 mt-10 sm:flex-row">
 						<a
