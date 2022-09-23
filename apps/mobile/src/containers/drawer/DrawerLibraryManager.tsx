@@ -9,8 +9,8 @@ import CreateLibraryDialog from '~/containers/dialog/CreateLibraryDialog';
 import tw from '~/lib/tailwind';
 import { libraryStore, useCurrentLibrary } from '~/stores/libraryStore';
 
-import { AnimatedHeight } from '../animation/layout';
-import Divider from '../primitive/Divider';
+import { AnimatedHeight } from '../../components/animation/layout';
+import Divider from '../../components/primitive/Divider';
 
 const DrawerLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);

@@ -8,7 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
 import { useSnapshot } from 'valtio';
 
-import { GlobalModals } from './components/modals/GlobalModals';
+import { GlobalModals } from './containers/modals/GlobalModals';
 import {
 	ReactNativeTransport,
 	queryClient,

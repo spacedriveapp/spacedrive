@@ -5,12 +5,11 @@ import { Button, Pressable, Text, View } from 'react-native';
 import { ChevronLeftIcon } from 'react-native-heroicons/outline';
 import { useSnapshot } from 'valtio';
 
+import FileIcon from '../../components/file/FileIcon';
+import { ModalBackdrop, ModalHandle } from '../../components/layout/Modal';
+import Divider from '../../components/primitive/Divider';
 import tw from '../../lib/tailwind';
 import { fileModalStore } from '../../stores/modalStore';
-import FileIcon from '../file/FileIcon';
-import Divider from '../primitive/Divider';
-import ModalBackdrop from './layout/ModalBackdrop';
-import ModalHandle from './layout/ModalHandle';
 
 interface MetaItemProps {
 	title: string;
