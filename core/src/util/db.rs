@@ -8,10 +8,10 @@ pub enum MigrationError {
 	#[error("An error occurred while initialising a new database connection: {0}")]
 	NewClient(#[from] Box<NewClientError>),
 	#[cfg(debug_assertions)]
-	#[error("An error occured during migartion: {0}")]
+	#[error("An error occurred during migartion: {0}")]
 	MigrateFailed(#[from] DbPushError),
 	#[cfg(not(debug_assertions))]
-	#[error("An error occured during migration: {0}")]
+	#[error("An error occurred during migration: {0}")]
 	MigrateFailed(#[from] MigrateDeployError),
 }
 
