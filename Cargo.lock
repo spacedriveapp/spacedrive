@@ -1171,6 +1171,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffmpegthumbnailer-rs"
+version = "0.1.0"
+dependencies = [
+ "ffmpeg-sys-next",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "webp",
+]
+
+[[package]]
 name = "field-offset"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4247,6 +4258,7 @@ dependencies = [
  "data-encoding",
  "enumflags2",
  "ffmpeg-next",
+ "ffmpegthumbnailer-rs",
  "fs_extra",
  "futures",
  "globset",
