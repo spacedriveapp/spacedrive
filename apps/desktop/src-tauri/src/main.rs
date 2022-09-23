@@ -7,7 +7,13 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use sdcore::Node;
-use tauri::{api::path, async_runtime::block_on, Manager, RunEvent};
+use tauri::async_runtime::block_on;
+use tauri::{
+	api::path,
+	http::{ResponseBuilder, Uri},
+	Manager, RunEvent,
+};
+use tokio::task::block_in_place;
 use tracing::{debug, error};
 #[cfg(target_os = "macos")]
 mod macos;
@@ -33,6 +39,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			let node = node.clone();
 			move || node.get_request_context()
 		}))
+		.register_uri_scheme_protocol("spacedrive", {
+			let node = node.clone();
+			move |_, req| {
+				let url = req.uri().parse::<Uri>().unwrap();
+				let mut path = url.path().split('/').collect::<Vec<_>>();
+				path[0] = url.host().unwrap(); // The first forward slash causes an empty item and we replace it with the URL's host which you expect to be at the start
+
+				let (status_code, content_type, body) =
+					block_in_place(|| block_on(node.handle_custom_uri(path)));
+				ResponseBuilder::new()
+					.status(status_code)
+					.mimetype(content_type)
+					.body(body)
+			}
+		})
 		.setup(|app| {
 			let app = app.handle();
 
@@ -79,7 +100,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					}
 				});
 
-			block_on(node.shutdown());
+			block_in_place(|| block_on(node.shutdown()));
 			app_handler.exit(0);
 		}
 	});

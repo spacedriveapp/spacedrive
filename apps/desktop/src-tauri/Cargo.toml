@@ -11,7 +11,7 @@ build = "build.rs"
 
 [dependencies]
 tauri = { version = "1.0.4", features = ["api-all", "macos-private-api"] }
-rspc = { version = "0.0.4", features = ["tauri"] }
+rspc = { version = "0.0.5", features = ["tauri"] }
 sdcore = { path = "../../../core", features = ["ffmpeg"] }
 tokio = { version = "1.17.0", features = ["sync"] }
 window-shadows = "0.1.2"
@@ -25,10 +25,8 @@ swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "aut
 tauri-build = { version = "1.0.0", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = [
-  "build",
-] }
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = ["build"] }
 
 [features]
-default = ["custom-protocol"]
-custom-protocol = ["tauri/custom-protocol"]
+default = [ "custom-protocol" ]
+custom-protocol = [ "tauri/custom-protocol" ]

@@ -1,2 +1,2 @@
-export * from './AppPropsContext';
 export * from './LocationContext';
+export * from './Platform';

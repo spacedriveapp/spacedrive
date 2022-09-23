@@ -4,12 +4,13 @@ use library::LibraryManager;
 use node::NodeConfigManager;
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
-use tokio::{fs, sync::broadcast};
+use tokio::{
+	fs::{self, File},
+	io::AsyncReadExt,
+	sync::broadcast,
+};
 use tracing::{error, info};
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
-
-#[cfg(feature = "ffmpeg")]
-use ffmpeg_next as ffmpeg;
 
 pub mod api;
 pub(crate) mod encode;
@@ -45,9 +46,6 @@ const CONSOLE_LOG_FILTER: LevelFilter = LevelFilter::INFO;
 
 impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
-		#[cfg(feature = "ffmpeg")]
-		ffmpeg::init()?;
-
 		let data_dir = data_dir.as_ref();
 		fs::create_dir_all(&data_dir).await?;
 
@@ -119,6 +117,50 @@ impl Node {
 		}
 	}
 
+	// Note: this system doesn't use chunked encoding which could prove a problem with large files but I can't see an easy way to do chunked encoding with Tauri custom URIs.
+	pub async fn handle_custom_uri(
+		&self,
+		path: Vec<&str>,
+	) -> (
+		u16,     /* Status Code */
+		&str,    /* Content-Type */
+		Vec<u8>, /* Body */
+	) {
+		match path.first().copied() {
+			Some("thumbnail") => {
+				if path.len() != 2 {
+					return (
+						400,
+						"text/html",
+						b"Bad Request: Invalid number of parameters".to_vec(),
+					);
+				}
+
+				let filename = Path::new(&self.config.data_directory())
+					.join("thumbnails")
+					.join(path[1] /* file_cas_id */)
+					.with_extension("webp");
+				match File::open(&filename).await {
+					Ok(mut file) => {
+						let mut buf = match fs::metadata(&filename).await {
+							Ok(metadata) => Vec::with_capacity(metadata.len() as usize),
+							Err(_) => Vec::new(),
+						};
+
+						file.read_to_end(&mut buf).await.unwrap();
+						(200, "image/webp", buf)
+					}
+					Err(_) => (404, "text/html", b"File Not Found".to_vec()),
+				}
+			}
+			_ => (
+				400,
+				"text/html",
+				b"Bad Request: Invalid operation!".to_vec(),
+			),
+		}
+	}
+
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
 		self.jobs.pause().await;
@@ -135,8 +177,4 @@ pub enum NodeError {
 	FailedToInitializeConfig(#[from] node::NodeConfigError),
 	#[error("Failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
-
-	#[cfg(feature = "ffmpeg")]
-	#[error("Failed to initialize ffmpeg: {0}")]
-	FailedToInitializeFfmpeg(#[from] ffmpeg::Error),
 }

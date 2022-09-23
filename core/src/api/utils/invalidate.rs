@@ -44,7 +44,7 @@ pub(crate) struct InvalidRequests {
 }
 
 impl InvalidRequests {
-	#[allow(dead_code)]
+	#[allow(unused)]
 	const fn new() -> Self {
 		Self {
 			queries: Vec::new(),

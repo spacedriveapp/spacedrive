@@ -1,6 +1,6 @@
 import { WebsocketTransport, createClient } from '@rspc/client';
-import { Operations, queryClient, rspc } from '@sd/client';
-import SpacedriveInterface from '@sd/interface';
+import { Operations, PlatformProvider, queryClient, rspc } from '@sd/client';
+import SpacedriveInterface, { Platform } from '@sd/interface';
 import { useEffect } from 'react';
 
 const client = createClient<Operations>({
@@ -9,26 +9,22 @@ const client = createClient<Operations>({
 	)
 });
 
+const platform: Platform = {
+	platform: 'web',
+	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	openLink: (url) => window.open(url, '_blank')?.focus(),
+	demoMode: true
+};
+
 function App() {
-	useEffect(() => {
-		window.parent.postMessage('spacedrive-hello', '*');
-	}, []);
+	useEffect(() => window.parent.postMessage('spacedrive-hello', '*'), []);
 
 	return (
 		<div className="App">
 			<rspc.Provider client={client} queryClient={queryClient}>
-				<SpacedriveInterface
-					demoMode
-					platform={'browser'}
-					convertFileSrc={function (url: string): string {
-						return url;
-					}}
-					openDialog={function (options: {
-						directory?: boolean | undefined;
-					}): Promise<string | string[]> {
-						return Promise.resolve([]);
-					}}
-				/>
+				<PlatformProvider platform={platform}>
+					<SpacedriveInterface />
+				</PlatformProvider>
 			</rspc.Provider>
 		</div>
 	);

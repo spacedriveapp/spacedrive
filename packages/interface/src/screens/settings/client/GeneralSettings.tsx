@@ -1,7 +1,6 @@
 import { useBridgeQuery } from '@sd/client';
 import { Input } from '@sd/ui';
 import { Database } from 'phosphor-react';
-import React from 'react';
 
 import Card from '../../../components/layout/Card';
 import { Toggle } from '../../../components/primitive';

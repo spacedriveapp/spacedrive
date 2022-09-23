@@ -1,6 +1,4 @@
 import { Tag } from '@tryghost/content-api';
-import clsx from 'clsx';
-import React from 'react';
 
 export interface BlogTagProps {
 	tag: Tag;

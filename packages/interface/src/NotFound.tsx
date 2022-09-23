@@ -1,5 +1,4 @@
 import { Button } from '@sd/ui';
-import React from 'react';
 import { useNavigate } from 'react-router';
 
 export function NotFound() {
