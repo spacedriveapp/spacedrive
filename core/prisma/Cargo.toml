@@ -7,4 +7,6 @@ edition = "2021"
 prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.0", features = [
   "rspc",
   "sqlite-create-many",
-] }
+  "migrations",
+  "sqlite",
+], default-features = false }

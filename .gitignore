@@ -63,3 +63,4 @@ examples/*/*.lock
 /target
 
 /sdserver_data
+.spacedrive

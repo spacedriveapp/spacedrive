@@ -3,7 +3,11 @@ index: 3
 ---
 # Spaces
 
-Spaces are virtual folders that can be shared publically on the internet, or privately with friends, family and teams. Spaces contain [Objects](/docs/developers/architecture/objects) which can be physically stored on any connected Node, or by Spacedrive as a service. Objects can be organised and presented spacially, with various layouts and variable grid placements. Color theme, icon packs and typeogrpahy can be customized per Space.
+<<<<<<< HEAD:docs/developers/architecture/spaces.md
+Spaces are virtual folders that can be shared publicly on the internet, or privately with friends, family and teams. Spaces contain [Objects](/docs/developers/architecture/objects) which can be physically stored on any connected Node, or by Spacedrive as a service. Objects can be organized and presented spatially, with various layouts and variable grid placements. Color theme, icon packs and typography can be customized per Space.
+=======
+Spaces are virtual folders that can be shared publicly on the internet, or privately with friends, family and teams. Spaces contain [Objects]() which can be physically stored on any connected Node, or by Spacedrive as a service. Objects can be organized and presented spatially, with various layouts and variable grid placements. Color theme, icon packs and typography can be customized per Space.
+>>>>>>> main:docs/architecture/spaces.md
 
 
 
