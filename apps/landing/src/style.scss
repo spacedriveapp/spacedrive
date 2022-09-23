@@ -221,3 +221,24 @@ html {
 // #8E4CAB
 // #1D054B
 // #9A3F8C
+
+
+.custom-scroll {
+	-ms-overflow-style: none; /* for Internet Explorer, Edge */
+	scrollbar-width: none; /* for Firefox */
+	overflow-y: scroll;
+}
+
+.doc-sidebar-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 7px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-[#00000006] dark:bg-[#00000030] my-[10px] rounded-[6px];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550 ;
+		
+	}
+}

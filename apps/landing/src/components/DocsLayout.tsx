@@ -27,8 +27,9 @@ export default function DocsLayout(props: Props) {
 				customBurgerIcon={false}
 				isOpen={menuOpen}
 				pageWrapId="page-container"
+				className="shadow-2xl shadow-black"
 			>
-				<div className="visible h-screen pb-20 overflow-x-hidden pt-7 bg-gray-950 px-7 sm:invisible">
+				<div className="visible h-screen pb-20 overflow-x-hidden custom-scroll doc-sidebar-scroll bg-gray-650 pt-7 px-7 sm:invisible">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
 						icon={<X weight="bold" className="w-6 h-6" />}
