@@ -1,6 +1,6 @@
 use rspc::{ErrorCode, Type};
 use serde::Deserialize;
-use tracing::log::info;
+use tracing::info;
 use uuid::Uuid;
 
 use crate::{

@@ -8,4 +8,5 @@ prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-
   "rspc",
   "sqlite-create-many",
   "migrations",
-] }
+  "sqlite",
+], default-features = false }
