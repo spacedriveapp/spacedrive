@@ -78,7 +78,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 					env.get_string(data_dir.into()).unwrap().into()
 				};
 
-				let new_node = Node::new(data_dir).await;
+				let new_node = Node::new(data_dir).await.expect("Unable to create node");
 				node.replace(new_node.clone());
 				new_node
 			},

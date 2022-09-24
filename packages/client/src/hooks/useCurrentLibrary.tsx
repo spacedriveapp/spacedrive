@@ -1,7 +1,7 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
 import { proxy, useSnapshot } from 'valtio';
 
-import { useBridgeQuery, useExplorerStore } from '../index';
+import { getExplorerStore, useBridgeQuery, useExplorerStore } from '../index';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
@@ -24,7 +24,6 @@ export const LibraryContextProvider = ({
 
 // this is a hook to get the current library loaded into the UI. It takes care of a bunch of invariants under the hood.
 export const useCurrentLibrary = () => {
-	const explorerStore = useExplorerStore();
 	const currentLibraryUuid = useSnapshot(currentLibraryUuidStore).id;
 	const ctx = useContext(CringeContext);
 	if (ctx === undefined)
@@ -57,7 +56,7 @@ export const useCurrentLibrary = () => {
 
 	const switchLibrary = useCallback((libraryUuid: string) => {
 		currentLibraryUuidStore.id = libraryUuid;
-		explorerStore.reset();
+		getExplorerStore().reset();
 	}, []);
 
 	// memorize library to avoid re-running find function
