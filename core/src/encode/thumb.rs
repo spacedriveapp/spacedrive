@@ -8,6 +8,7 @@ use crate::{
 
 use image::{self, imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::{
 	error::Error,
 	ops::Deref,
@@ -37,13 +38,26 @@ pub struct ThumbnailJobState {
 	root_path: PathBuf,
 }
 
-file_path::include!(image_path_with_file { file });
+file_path::include!(file_path_with_file { file });
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+enum ThumbnailJobStepKind {
+	Image,
+	#[cfg(feature = "ffmpeg")]
+	Video,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ThumbnailJobStep {
+	file: file_path_with_file::Data,
+	kind: ThumbnailJobStepKind,
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for ThumbnailJob {
 	type Init = ThumbnailJobInit;
 	type Data = ThumbnailJobState;
-	type Step = image_path_with_file::Data;
+	type Step = ThumbnailJobStep;
 
 	fn name(&self) -> &'static str {
 		THUMBNAIL_JOB_NAME
@@ -78,21 +92,81 @@ impl StatefulJob for ThumbnailJob {
 		fs::create_dir_all(&thumbnail_dir).await?;
 		let root_path = location.local_path.map(PathBuf::from).unwrap();
 
-		// query database for all files in this location that need thumbnails
-		let image_files =
-			get_images(&library_ctx, state.init.location_id, &state.init.path).await?;
-		info!("Found {:?} files", image_files.len());
+		// query database for all image files in this location that need thumbnails
+		let image_files = get_files_by_extension(
+			&library_ctx,
+			state.init.location_id,
+			&state.init.path,
+			vec![
+				"png".to_string(),
+				"jpeg".to_string(),
+				"jpg".to_string(),
+				"gif".to_string(),
+				"webp".to_string(),
+			],
+			ThumbnailJobStepKind::Image,
+		)
+		.await?;
+		info!("Found {:?} image files", image_files.len());
+
+		#[cfg(feature = "ffmpeg")]
+		let all_files = {
+			// query database for all video files in this location that need thumbnails
+			let video_files = get_files_by_extension(
+				&library_ctx,
+				state.init.location_id,
+				&state.init.path,
+				// Some formats extracted from https://ffmpeg.org/ffmpeg-formats.html
+				vec![
+					"avi".to_string(),
+					"asf".to_string(),
+					"mpeg".to_string(),
+					// "mpg".to_string(),
+					"mts".to_string(),
+					"mpe".to_string(),
+					"vob".to_string(),
+					"qt".to_string(),
+					"mov".to_string(),
+					"asf".to_string(),
+					"asx".to_string(),
+					// "swf".to_string(),
+					"mjpeg".to_string(),
+					"ts".to_string(),
+					"mxf".to_string(),
+					// "m2v".to_string(),
+					"m2ts".to_string(),
+					"f4v".to_string(),
+					"wm".to_string(),
+					"3gp".to_string(),
+					"m4v".to_string(),
+					"wmv".to_string(),
+					"mp4".to_string(),
+					"webm".to_string(),
+					"flv".to_string(),
+				],
+				ThumbnailJobStepKind::Video,
+			)
+			.await?;
+			info!("Found {:?} video files", video_files.len());
+
+			image_files
+				.into_iter()
+				.chain(video_files.into_iter())
+				.collect::<VecDeque<_>>()
+		};
+		#[cfg(not(feature = "ffmpeg"))]
+		let all_files = { image_files.into_iter().collect::<VecDeque<_>>() };
 
 		ctx.progress(vec![
-			JobReportUpdate::TaskCount(image_files.len()),
-			JobReportUpdate::Message(format!("Preparing to process {} files", image_files.len())),
+			JobReportUpdate::TaskCount(all_files.len()),
+			JobReportUpdate::Message(format!("Preparing to process {} files", all_files.len())),
 		]);
 
 		state.data = Some(ThumbnailJobState {
 			thumbnail_dir,
 			root_path,
 		});
-		state.steps = image_files.into_iter().collect();
+		state.steps = all_files;
 
 		Ok(())
 	}
@@ -105,7 +179,7 @@ impl StatefulJob for ThumbnailJob {
 		let step = &state.steps[0];
 		ctx.progress(vec![JobReportUpdate::Message(format!(
 			"Processing {}",
-			step.materialized_path
+			step.file.materialized_path
 		))]);
 
 		let data = state
@@ -114,16 +188,16 @@ impl StatefulJob for ThumbnailJob {
 			.expect("critical error: missing data on job state");
 
 		// assemble the file path
-		let path = data.root_path.join(&step.materialized_path);
+		let path = data.root_path.join(&step.file.materialized_path);
 		trace!("image_file {:?}", step);
 
 		// get cas_id, if none found skip
-		let cas_id = match &step.file {
+		let cas_id = match &step.file.file {
 			Some(f) => f.cas_id.clone(),
 			_ => {
 				warn!(
 					"skipping thumbnail generation for {}",
-					step.materialized_path
+					step.file.materialized_path
 				);
 				return Ok(());
 			}
@@ -136,8 +210,18 @@ impl StatefulJob for ThumbnailJob {
 		if !output_path.exists() {
 			info!("Writing {:?} to {:?}", path, output_path);
 
-			if let Err(e) = generate_thumbnail(&path, &output_path).await {
-				error!("Error generating thumb {:?}", e);
+			match step.kind {
+				ThumbnailJobStepKind::Image => {
+					if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
+						error!("Error generating thumb for image {:#?}", e);
+					}
+				}
+				#[cfg(feature = "ffmpeg")]
+				ThumbnailJobStepKind::Video => {
+					if let Err(e) = generate_video_thumbnail(&path, &output_path).await {
+						error!("Error generating thumb for video: {:?} {:#?}", &path, e);
+					}
+				}
 			}
 
 			if !state.init.background {
@@ -178,7 +262,7 @@ impl StatefulJob for ThumbnailJob {
 	}
 }
 
-pub async fn generate_thumbnail<P: AsRef<Path>>(
+async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
@@ -190,6 +274,7 @@ pub async fn generate_thumbnail<P: AsRef<Path>>(
 		// Optionally, resize the existing photo and convert back into DynamicImage
 		let img = DynamicImage::ImageRgba8(imageops::resize(
 			&img,
+			// FIXME : Think of a better heuristic to get the thumbnail size
 			(w as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
 			(h as f32 * THUMBNAIL_SIZE_FACTOR) as u32,
 			imageops::FilterType::Triangle,
@@ -205,25 +290,31 @@ pub async fn generate_thumbnail<P: AsRef<Path>>(
 		Ok(encoder.encode(THUMBNAIL_QUALITY).deref().to_owned())
 	})?;
 
-	fs::write(output_path, &webp).await?;
+	fs::write(output_path, &webp).await.map_err(Into::into)
+}
+
+#[cfg(feature = "ffmpeg")]
+async fn generate_video_thumbnail<P: AsRef<Path>>(
+	file_path: P,
+	output_path: P,
+) -> Result<(), Box<dyn Error>> {
+	use thumbnailer::to_thumbnail;
+
+	to_thumbnail(file_path, output_path, 256, THUMBNAIL_QUALITY).await?;
 
 	Ok(())
 }
 
-pub async fn get_images(
+async fn get_files_by_extension(
 	ctx: &LibraryContext,
 	location_id: i32,
 	path: impl AsRef<Path>,
-) -> Result<Vec<image_path_with_file::Data>, JobError> {
+	extensions: Vec<String>,
+	kind: ThumbnailJobStepKind,
+) -> Result<Vec<ThumbnailJobStep>, JobError> {
 	let mut params = vec![
 		file_path::location_id::equals(location_id),
-		file_path::extension::in_vec(vec![
-			"png".to_string(),
-			"jpeg".to_string(),
-			"jpg".to_string(),
-			"gif".to_string(),
-			"webp".to_string(),
-		]),
+		file_path::extension::in_vec(extensions),
 	];
 
 	let path_str = path.as_ref().to_string_lossy().to_string();
@@ -232,11 +323,14 @@ pub async fn get_images(
 		params.push(file_path::materialized_path::starts_with(path_str));
 	}
 
-	ctx.db
+	Ok(ctx
+		.db
 		.file_path()
 		.find_many(params)
-		.include(image_path_with_file::include())
+		.include(file_path_with_file::include())
 		.exec()
-		.await
-		.map_err(Into::into)
+		.await?
+		.into_iter()
+		.map(|file| ThumbnailJobStep { file, kind })
+		.collect())
 }

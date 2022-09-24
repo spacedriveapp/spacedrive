@@ -33,7 +33,7 @@ async fn main() {
 		.map(|port| port.parse::<u16>().unwrap_or(8080))
 		.unwrap_or(8080);
 
-	let (node, router) = Node::new(data_dir).await;
+	let (node, router) = Node::new(data_dir).await.expect("Unable to create node");
 	let signal = utils::axum_shutdown_signal(node.clone());
 
 	let app = axum::Router::new()
@@ -43,7 +43,7 @@ async fn main() {
 			let node = node.clone();
 			get(|extract::Path(path): extract::Path<String>| async move {
 				let (status_code, content_type, body) =
-					node.handle_custom_uri(path.split('/').collect());
+					node.handle_custom_uri(path.split('/').collect()).await;
 
 				(
 					StatusCode::from_u16(status_code).unwrap(),

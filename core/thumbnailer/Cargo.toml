@@ -1,0 +1,22 @@
+[package]
+name = "thumbnailer"
+version = "0.1.0"
+authors = ["Ericson Soares <ericson.ds999@gmail.com>"]
+edition = "2021"
+readme = "README.md"
+description = "A simple library to generate video thumbnails using ffmpeg with the webp format"
+license = "MIT"
+rust-version = "1.64.0"
+resolver = "2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ffmpeg-sys-next = "5.1.1"
+thiserror = "1.0.35"
+webp = "0.2.2"
+tokio = { version = "1.21.1", features = ["fs", "rt"] }
+
+[dev-dependencies]
+tempfile = "3.3.0"
+tokio = { version = "1.21.1", features = ["fs", "rt", "macros"] }
