@@ -1,4 +1,4 @@
-import { getExplorerStore, rspc, useCurrentLibrary } from '@sd/client';
+import { getExplorerStore, rspc, useCurrentLibrary, useExplorerStore } from '@sd/client';
 import { ExplorerData } from '@sd/core';
 
 import { Inspector } from '../explorer/Inspector';
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function Explorer(props: Props) {
-	const expStore = getExplorerStore();
+	const expStore = useExplorerStore();
 	const { library } = useCurrentLibrary();
 
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {

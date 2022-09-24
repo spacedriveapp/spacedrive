@@ -37,7 +37,7 @@ const FileItem = ({ file }: FileItemProps) => {
 				{/* Folder Icons/Thumbnail etc. */}
 				<FileIcon file={file} />
 				<View style={tw`px-1.5 py-[1px] mt-1`}>
-					<Text numberOfLines={1} style={tw`text-gray-300 text-center text-xs font-medium`}>
+					<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-gray-300`}>
 						{file?.name}
 					</Text>
 				</View>

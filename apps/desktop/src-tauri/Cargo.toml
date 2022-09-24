@@ -12,7 +12,7 @@ build = "build.rs"
 [dependencies]
 tauri = { version = "1.0.4", features = ["api-all", "macos-private-api"] }
 rspc = { version = "0.0.5", features = ["tauri"] }
-sdcore = { path = "../../../core" }
+sdcore = { path = "../../../core", features = ["ffmpeg"] }
 tokio = { version = "1.17.0", features = ["sync"] }
 window-shadows = "0.1.2"
 tracing = "0.1.35"
