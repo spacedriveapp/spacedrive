@@ -119,15 +119,26 @@ impl StatefulJob for ThumbnailJob {
 				// Some formats extracted from https://ffmpeg.org/ffmpeg-formats.html
 				vec![
 					"avi".to_string(),
+					"asf".to_string(),
 					"mpeg".to_string(),
-					"mpg".to_string(),
+					// "mpg".to_string(),
+					"mts".to_string(),
 					"mpe".to_string(),
 					"vob".to_string(),
 					"qt".to_string(),
 					"mov".to_string(),
 					"asf".to_string(),
 					"asx".to_string(),
+					// "swf".to_string(),
+					"mjpeg".to_string(),
+					"ts".to_string(),
+					"mxf".to_string(),
+					// "m2v".to_string(),
+					"m2ts".to_string(),
+					"f4v".to_string(),
 					"wm".to_string(),
+					"3gp".to_string(),
+					"m4v".to_string(),
 					"wmv".to_string(),
 					"mp4".to_string(),
 					"webm".to_string(),
@@ -208,7 +219,7 @@ impl StatefulJob for ThumbnailJob {
 				#[cfg(feature = "ffmpeg")]
 				ThumbnailJobStepKind::Video => {
 					if let Err(e) = generate_video_thumbnail(&path, &output_path).await {
-						error!("Error generating thumb for video {:#?}", e);
+						error!("Error generating thumb for video: {:?} {:#?}", &path, e);
 					}
 				}
 			}
@@ -287,7 +298,7 @@ async fn generate_video_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
-	use ffmpegthumbnailer_rs::to_thumbnail;
+	use thumbnailer::to_thumbnail;
 
 	to_thumbnail(file_path, output_path, 256, THUMBNAIL_QUALITY).await?;
 

@@ -24,6 +24,7 @@ pub async fn to_thumbnail(
 	quality: f32,
 ) -> Result<(), ThumbnailerError> {
 	ThumbnailerBuilder::new()
+		.with_film_strip(false)
 		.size(size)
 		.quality(quality)?
 		.build()
