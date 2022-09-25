@@ -5,7 +5,7 @@ index: 0
 
 # Welcome to Spacedrive
 
-Spacedrive is a cross-platform file manager. It connects your devices together to help you organize files from anywhere, as if you had one big filesystem. 
+Spacedrive is a cross-platform file manager. It connects your devices together to help you organize files from anywhere.
 
 Beyond being an opinionated, swiss army knife file explorer, Spacedrive is a personal database. It identifies your files uniquely, understanding more file types than any operating system. 
 
