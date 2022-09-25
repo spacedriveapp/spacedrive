@@ -58,7 +58,7 @@ To run the landing page
 
 If you are having issues ensure you are using the following versions of Rust and Node:
 
-- Rust version: **1.63.0**
+- Rust version: **1.64.0**
 - Node version: **17**
 
 ##### Mobile app
@@ -72,7 +72,7 @@ To run mobile app
 - `cd apps/mobile && pnpm i` - This is a separate workspace, you need to do this!
 - `pnpm android` - runs on Android Emulator
 - `pnpm ios` - runs on iOS Emulator
-- `pnpm dev` - For already bundled app - This is only temporarily supported. The final app will require the Spacedrive Rust code which isn't included in Expo Go.
+- `pnpm start` - For already bundled app
 
 ### Pull Request
 
