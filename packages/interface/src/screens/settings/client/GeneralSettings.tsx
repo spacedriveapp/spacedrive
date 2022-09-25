@@ -1,7 +1,6 @@
 import { useBridgeQuery } from '@sd/client';
 import { Input } from '@sd/ui';
 import { Database } from 'phosphor-react';
-import React from 'react';
 
 import Card from '../../../components/layout/Card';
 import { Toggle } from '../../../components/primitive';
@@ -59,7 +58,7 @@ export default function GeneralSettings() {
 						<span className="text-xs font-medium text-gray-700 dark:text-gray-400">
 							<Database className="inline w-4 h-4 mr-2 -mt-[2px]" />
 							<b className="mr-2">Data Folder</b>
-							{node?.data_path}
+							<span className="select-text">{node?.data_path}</span>
 						</span>
 					</div>
 				</div>

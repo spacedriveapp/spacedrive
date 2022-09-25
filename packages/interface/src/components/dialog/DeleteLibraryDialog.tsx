@@ -1,6 +1,6 @@
 import { useBridgeMutation } from '@sd/client';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import Dialog from '../layout/Dialog';
 

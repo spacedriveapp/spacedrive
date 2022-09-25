@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';

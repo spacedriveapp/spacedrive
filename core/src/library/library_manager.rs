@@ -111,20 +111,14 @@ impl LibraryManager {
 			node_context,
 		});
 
-		// TODO: Remove this before merging PR -> Currently it exists to make the app usable
-		if this.libraries.read().await.len() == 0 {
-			this.create(LibraryConfig {
-				name: "My Default Library".into(),
-				..Default::default()
-			})
-			.await?;
-		}
-
 		Ok(this)
 	}
 
 	/// create creates a new library with the given config and mounts it into the running [LibraryManager].
-	pub(crate) async fn create(&self, config: LibraryConfig) -> Result<(), LibraryManagerError> {
+	pub(crate) async fn create(
+		&self,
+		config: LibraryConfig,
+	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		let id = Uuid::new_v4();
 		LibraryConfig::save(
 			Path::new(&self.libraries_dir).join(format!("{id}.sdlibrary")),
@@ -135,7 +129,7 @@ impl LibraryManager {
 		let library = Self::load(
 			id,
 			self.libraries_dir.join(format!("{id}.db")),
-			config,
+			config.clone(),
 			self.node_context.clone(),
 		)
 		.await?;
@@ -143,7 +137,7 @@ impl LibraryManager {
 		invalidate_query!(library, "library.list");
 
 		self.libraries.write().await.push(library);
-		Ok(())
+		Ok(LibraryConfigWrapped { uuid: id, config })
 	}
 
 	pub(crate) async fn get_all_libraries_config(&self) -> Vec<LibraryConfigWrapped> {

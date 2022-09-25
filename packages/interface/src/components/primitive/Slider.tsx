@@ -1,5 +1,4 @@
 import * as SliderPrimitive from '@radix-ui/react-slider';
-import React from 'react';
 
 const Slider = (props: SliderPrimitive.SliderProps) => (
 	<SliderPrimitive.Root {...props} className="relative flex items-center w-full h-6 select-none">

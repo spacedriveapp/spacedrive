@@ -10,9 +10,7 @@ export default defineConfig({
 		port: 8001
 	},
 	plugins: [
-		react({
-			jsxRuntime: 'classic'
-		}),
+		react(),
 		svgr({
 			svgrOptions: {
 				icon: true

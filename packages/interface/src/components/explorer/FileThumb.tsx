@@ -1,7 +1,8 @@
-import { AppPropsContext, useExplorerStore } from '@sd/client';
+import { getExplorerStore, useExplorerStore, usePlatform } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
-import React, { useContext } from 'react';
+import { useState } from 'react';
+import { useSnapshot } from 'valtio';
 
 import icons from '../../assets/icons';
 import { Folder } from '../icons/Folder';
@@ -12,44 +13,47 @@ interface Props {
 	size: number;
 	className?: string;
 	style?: React.CSSProperties;
+	iconClassNames?: string;
 }
 
 export default function FileThumb({ data, ...props }: Props) {
-	const appProps = useContext(AppPropsContext);
-	const { newThumbnails } = useExplorerStore();
+	const platform = usePlatform();
+	// const store = useExplorerStore();
 
-	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
+	if (isPath(data) && data.is_dir)
+		return <Folder className={props.iconClassNames} size={props.size * 0.7} />;
 
 	const cas_id = isObject(data) ? data.cas_id : data.file?.cas_id;
 
-	if (!cas_id) return <div></div>;
+	if (cas_id) {
+		// this won't work
+		const new_thumbnail = !!getExplorerStore().newThumbnails[cas_id];
 
-	const has_thumbnail = isObject(data)
-		? data.has_thumbnail
-		: isPath(data)
-		? data.file?.has_thumbnail
-		: !!newThumbnails[cas_id];
+		const has_thumbnail = isObject(data)
+			? data.has_thumbnail
+			: isPath(data)
+			? data.file?.has_thumbnail
+			: new_thumbnail;
 
-	const file_thumb_url =
-		has_thumbnail && appProps?.data_path
-			? appProps?.convertFileSrc(`${appProps.data_path}/thumbnails/${cas_id}.webp`)
-			: undefined;
+		const url = platform.getThumbnailUrlById(cas_id);
 
-	if (file_thumb_url)
-		return (
-			<img
-				style={props.style}
-				className={clsx('pointer-events-none z-90', props.className)}
-				src={file_thumb_url}
-			/>
-		);
+		if (has_thumbnail && url)
+			return (
+				<img
+					style={props.style}
+					// width={props.size}
+					className={clsx('pointer-events-none', props.className)}
+					src={url}
+				/>
+			);
+	}
 
 	const Icon = icons[data.extension as keyof typeof icons];
 
 	return (
 		<div
 			style={{ width: props.size * 0.8, height: props.size * 0.8 }}
-			className="relative m-auto transition duration-200 "
+			className={clsx('relative m-auto transition duration-200 ', props.iconClassNames)}
 		>
 			<svg
 				// BACKGROUND
@@ -83,6 +87,4 @@ export default function FileThumb({ data, ...props }: Props) {
 			</svg>
 		</div>
 	);
-
-	return null;
 }

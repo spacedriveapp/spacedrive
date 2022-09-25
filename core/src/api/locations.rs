@@ -2,8 +2,9 @@ use crate::{
 	encode::THUMBNAIL_CACHE_DIR_NAME,
 	invalidate_query,
 	location::{
-		indexer::indexer_rules::IndexerRuleCreateArgs, scan_location, LocationCreateArgs,
-		LocationUpdateArgs,
+		fetch_location,
+		indexer::{indexer_job::indexer_job_location, indexer_rules::IndexerRuleCreateArgs},
+		scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	prisma::{file, file_path, indexer_rule, indexer_rules_in_location, location, tag},
 };
@@ -28,8 +29,8 @@ pub enum ExplorerContext {
 	// Space(object_in_space::Data),
 }
 
-file_path::include!(pub file_path_with_file { file });
-file::include!(pub file_with_paths { paths });
+file_path::include!(file_path_with_file { file });
+file::include!(file_with_paths { paths });
 
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
@@ -129,9 +130,8 @@ pub(crate) fn mount() -> RouterBuilder {
 			"create",
 			|_, args: LocationCreateArgs, library| async move {
 				let location = args.create(&library).await?;
-				scan_location(&library, location.id).await?;
-
-				Ok(location)
+				scan_location(&library, location).await?;
+				Ok(())
 			},
 		)
 		.library_mutation(
@@ -171,9 +171,16 @@ pub(crate) fn mount() -> RouterBuilder {
 			Ok(())
 		})
 		.library_mutation("fullRescan", |_, location_id: i32, library| async move {
-			scan_location(&library, location_id)
-				.await
-				.map_err(Into::into)
+			scan_location(
+				&library,
+				fetch_location(&library, location_id)
+					.include(indexer_job_location::include())
+					.exec()
+					.await?
+					.ok_or(LocationError::IdNotFound(location_id))?,
+			)
+			.await
+			.map_err(Into::into)
 		})
 		.library_mutation("quickRescan", |_, _: (), _| async move {
 			#[allow(unreachable_code)]

@@ -1,73 +1,105 @@
-import { ReactComponent as Folder } from '@sd/assets/svgs/folder.svg';
-import { LocationContext, useExplorerStore } from '@sd/client';
-import { ExplorerData, ExplorerItem, File, FilePath } from '@sd/core';
+import { getExplorerStore, useExplorerStore } from '@sd/client';
+import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
-import React, { useContext } from 'react';
+import { HTMLAttributes } from 'react';
 
-import icons from '../../assets/icons';
 import FileThumb from './FileThumb';
-import { isObject, isPath } from './utils';
+import { isObject } from './utils';
 
-interface Props extends React.HTMLAttributes<HTMLDivElement> {
+interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
 	selected: boolean;
-	size: number;
 	index: number;
 }
 
-export default function FileItem(props: Props) {
-	const { set } = useExplorerStore();
-	const size = props.size || 100;
+function FileItem({ data, selected, index, ...rest }: Props) {
+	// const store = useExplorerStore();
+
+	// store.layoutMode;
+
+	// props.index === store.selectedRowIndex
 
 	return (
 		<div
 			onContextMenu={(e) => {
-				const objectId = isObject(props.data) ? props.data.id : props.data.file?.id;
+				const objectId = isObject(data) ? data.id : data.file?.id;
 				if (objectId != undefined) {
-					set({ contextMenuObjectId: objectId });
-					if (props.index != undefined) set({ selectedRowIndex: props.index });
+					getExplorerStore().contextMenuObjectId = objectId;
+					if (index != undefined) {
+						getExplorerStore().selectedRowIndex = index;
+					}
 				}
 			}}
+			{...rest}
 			draggable
-			{...props}
-			className={clsx('inline-block w-[100px] mb-3', props.className)}
+			className={clsx('inline-block w-[100px] mb-3', rest.className)}
 		>
 			<div
-				style={{ width: size, height: size }}
+				style={{ width: getExplorerStore().gridItemSize, height: getExplorerStore().gridItemSize }}
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
-						'bg-gray-50 dark:bg-gray-750': props.selected
+						'bg-gray-50 dark:bg-gray-750': selected
 					}
 				)}
 			>
 				<div
 					className={clsx(
-						'relative grid place-content-center min-w-0 h-full p-1 rounded border-transparent border-2 shrink-0'
+						'flex items-center justify-center h-full  p-1 rounded border-transparent border-2 shrink-0'
 					)}
 				>
 					<FileThumb
 						className={clsx(
-							'border-4 border-gray-250 rounded-sm shadow-md shadow-gray-750 max-h-full max-w-full overflow-hidden'
+							'border-4  border-gray-250 rounded-sm shadow-md shadow-gray-750 object-cover max-w-full max-h-full w-auto overflow-hidden',
+							isVideo(data.extension || '') && 'border-gray-950'
 						)}
-						data={props.data}
-						size={100}
+						data={data}
+						size={getExplorerStore().gridItemSize}
 					/>
 				</div>
 			</div>
 			<div className="flex justify-center">
 				<span
 					className={clsx(
-						'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 dark:text-gray-300 cursor-default',
+						'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 dark:text-gray-300 cursor-default ',
 						{
-							'bg-primary !text-white': props.selected
+							'bg-primary !text-white': selected
 						}
 					)}
 				>
-					{props.data?.name}
-					{props.data?.extension && `.${props.data.extension}`}
+					{data?.name}
+					{data?.extension && `.${data.extension}`}
 				</span>
 			</div>
 		</div>
 	);
+}
+
+export default FileItem;
+
+function isVideo(extension: string) {
+	return [
+		'avi',
+		'asf',
+		'mpeg',
+		'mts',
+		'mpe',
+		'vob',
+		'qt',
+		'mov',
+		'asf',
+		'asx',
+		'mjpeg',
+		'ts',
+		'mxf',
+		'm2ts',
+		'f4v',
+		'wm',
+		'3gp',
+		'm4v',
+		'wmv',
+		'mp4',
+		'webm',
+		'flv'
+	].includes(extension);
 }

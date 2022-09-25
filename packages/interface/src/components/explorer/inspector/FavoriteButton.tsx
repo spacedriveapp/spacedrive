@@ -2,7 +2,7 @@ import { useLibraryMutation } from '@sd/client';
 import { File } from '@sd/core';
 import { Button } from '@sd/ui';
 import { Heart } from 'phosphor-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Props {
 	data: File;

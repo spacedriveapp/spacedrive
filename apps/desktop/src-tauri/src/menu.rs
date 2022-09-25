@@ -1,16 +1,8 @@
 use std::env::consts;
 
-use serde::Serialize;
 use tauri::{
 	AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowMenuEvent, Wry,
 };
-
-#[derive(Serialize, Clone)]
-pub struct DOMKeyboardEvent {
-	#[serde(rename = "metaKey")]
-	meta_key: bool,
-	key: String,
-}
 
 pub(crate) fn get_menu() -> Menu {
 	match consts::OS {
@@ -27,9 +19,7 @@ fn custom_menu_bar() -> Menu {
 		)) // TODO: fill out about metadata
 		.add_native_item(MenuItem::Separator)
 		.add_item(
-			// macOS 13 Ventura automatically changes "Preferences" to "Settings" for system-wide consistency.
-			// Use "Preferences" here to keep consistency on older versions
-			CustomMenuItem::new("open_settings".to_string(), "Preferences...")
+			CustomMenuItem::new("open_settings".to_string(), "Settings...")
 				.accelerator("CmdOrCtrl+Comma"),
 		)
 		.add_native_item(MenuItem::Separator)
@@ -56,7 +46,7 @@ fn custom_menu_bar() -> Menu {
 		.add_native_item(MenuItem::SelectAll);
 	let view_menu = Menu::new()
 		.add_item(
-			CustomMenuItem::new("open_search".to_string(), "Search").accelerator("CmdOrCtrl+L"),
+			CustomMenuItem::new("open_search".to_string(), "Search...").accelerator("CmdOrCtrl+F"),
 		)
 		// .add_item(
 		// 	CustomMenuItem::new("command_pallete".to_string(), "Command Pallete")
@@ -94,16 +84,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 			let app = event.window().app_handle();
 			app.exit(0);
 		}
-		"open_settings" => event
-			.window()
-			.emit(
-				"do_keyboard_input",
-				DOMKeyboardEvent {
-					meta_key: true,
-					key: ",".into(),
-				},
-			)
-			.unwrap(),
+		"open_settings" => event.window().emit("keybind", "open_settings").unwrap(),
 		"close" => {
 			let window = event.window();
 
@@ -119,13 +100,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 		}
 		"open_search" => event
 			.window()
-			.emit(
-				"do_keyboard_input",
-				DOMKeyboardEvent {
-					meta_key: true,
-					key: "l".into(),
-				},
-			)
+			.emit("keybind", "open_search".to_string())
 			.unwrap(),
 		"reload_app" => {
 			#[cfg(target_os = "macos")]

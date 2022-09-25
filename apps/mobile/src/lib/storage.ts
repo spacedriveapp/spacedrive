@@ -7,7 +7,7 @@ export const setItemToStorage = async (key: string, value: string | null) => {
 		return true;
 	} catch (e: any) {
 		// saving error
-		console.log('Error', e);
+		console.error('Error', e);
 		return false;
 	}
 };
@@ -20,7 +20,7 @@ export const getItemFromStorage = async (key: string) => {
 		}
 		return undefined;
 	} catch (e: any) {
-		console.log('Error', e);
+		console.error('Error', e);
 
 		return undefined;
 	}
@@ -34,7 +34,7 @@ export const setObjStorage = async (key: string, value: any) => {
 		return true;
 	} catch (e: any) {
 		// saving error
-		console.log('Error', e);
+		console.error('Error', e);
 
 		return false;
 	}
@@ -49,7 +49,7 @@ export const getObjFromStorage = async (key: string) => {
 		return null;
 	} catch (e: any) {
 		// error reading value
-		console.log('Error', e);
+		console.error('Error', e);
 
 		return null;
 	}
@@ -60,7 +60,7 @@ export async function removeFromStorage(key: string) {
 		await AsyncStorage.removeItem(key);
 	} catch (e: any) {
 		// remove error
-		console.log('Error', e);
+		console.error('Error', e);
 	}
 }
 

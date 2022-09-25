@@ -26,10 +26,10 @@ export type Operations = {
         { key: ["files.setNote", LibraryArgs<SetNoteArgs>], result: null } | 
         { key: ["jobs.generateThumbsForLocation", LibraryArgs<GenerateThumbsForLocationArgs>], result: null } | 
         { key: ["jobs.identifyUniqueFiles", LibraryArgs<IdentifyUniqueFilesArgs>], result: null } | 
-        { key: ["library.create", string], result: null } | 
+        { key: ["library.create", string], result: LibraryConfigWrapped } | 
         { key: ["library.delete", string], result: null } | 
         { key: ["library.edit", EditLibraryArgs], result: null } | 
-        { key: ["locations.create", LibraryArgs<LocationCreateArgs>], result: Location } | 
+        { key: ["locations.create", LibraryArgs<LocationCreateArgs>], result: null } | 
         { key: ["locations.delete", LibraryArgs<number>], result: null } | 
         { key: ["locations.fullRescan", LibraryArgs<number>], result: null } | 
         { key: ["locations.indexer_rules.create", LibraryArgs<IndexerRuleCreateArgs>], result: IndexerRule } | 
@@ -69,7 +69,7 @@ export interface IndexerRuleCreateArgs { kind: RuleKind, name: string, parameter
 
 export interface InvalidateOperationEvent { key: string, arg: any }
 
-export interface JobReport { id: string, name: string, data: Array<number> | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
+export interface JobReport { id: string, name: string, data: Array<number> | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 

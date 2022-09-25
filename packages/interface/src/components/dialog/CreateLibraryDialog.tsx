@@ -1,26 +1,35 @@
 import { useBridgeMutation } from '@sd/client';
 import { Input } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 
 import Dialog from '../layout/Dialog';
 
-interface Props {
-	children: React.ReactNode;
-}
-
-export default function CreateLibraryDialog(props: Props) {
+export default function CreateLibraryDialog({
+	children,
+	onSubmit
+}: PropsWithChildren<{ onSubmit?: () => void }>) {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
 	const [newLibName, setNewLibName] = useState('');
 
 	const queryClient = useQueryClient();
-
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
-			onSuccess: () => {
+			onSuccess: (library) => {
+				console.log('SUBMITTING');
+
 				setOpenCreateModal(false);
-				queryClient.invalidateQueries(['library.list']);
+
+				queryClient.setQueryData(['library.list'], (libraries: any) => [
+					...(libraries || []),
+					library
+				]);
+
+				if (onSubmit) onSubmit();
+			},
+			onError: (err) => {
+				console.error(err);
 			}
 		}
 	);
@@ -35,7 +44,7 @@ export default function CreateLibraryDialog(props: Props) {
 			loading={createLibLoading}
 			submitDisabled={!newLibName}
 			ctaLabel="Create"
-			trigger={props.children}
+			trigger={children}
 		>
 			<Input
 				className="flex-grow w-full mt-3"

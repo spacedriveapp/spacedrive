@@ -1,7 +1,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 
 import Loader from '../primitive/Loader';
 
@@ -27,6 +27,7 @@ export default function Dialog(props: DialogProps) {
 						<form
 							onSubmit={(e) => {
 								e.preventDefault();
+								if (props.ctaAction) props.ctaAction();
 							}}
 						>
 							<div className="p-5">
@@ -48,6 +49,7 @@ export default function Dialog(props: DialogProps) {
 								</DialogPrimitive.Close>
 								<Button
 									onClick={props.ctaAction}
+									type="submit"
 									size="sm"
 									loading={props.loading}
 									disabled={props.loading || props.submitDisabled}

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 
 const sizes = {
 	default: 'py-1 px-3 text-md font-medium',
@@ -124,6 +124,7 @@ export const Button = forwardRef<
 			variants[variant || 'default'],
 			{ 'active:translate-y-[1px]': pressEffect },
 			{ 'border-0': noBorder },
+			'disabled:opacity-50 disabled:cursor-not-allowed',
 			className
 		);
 

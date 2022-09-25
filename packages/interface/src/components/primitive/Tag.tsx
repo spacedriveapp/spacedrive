@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 
 import { DefaultProps } from './types';
 
@@ -8,7 +8,7 @@ export interface TagProps extends DefaultProps {
 	color: 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
 }
 
-export const Tag: React.FC<TagProps> = (props) => {
+export function Tag(props: TagProps) {
 	return (
 		<div
 			className={clsx(
@@ -28,4 +28,4 @@ export const Tag: React.FC<TagProps> = (props) => {
 			{props.children}
 		</div>
 	);
-};
+}
