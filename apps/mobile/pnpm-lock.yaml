@@ -42,6 +42,7 @@ importers:
       phosphor-react-native: ^1.1.2
       react: 18.0.0
       react-native: 0.69.5
+      react-native-document-picker: ^8.1.1
       react-native-fs: ^2.20.0
       react-native-gesture-handler: ~2.5.0
       react-native-heroicons: ^3.2.0
@@ -81,6 +82,7 @@ importers:
       phosphor-react-native: 1.1.2_war7veqoz2ti5gw4huohgrno3m
       react: 18.0.0
       react-native: 0.69.5_react@18.0.0
+      react-native-document-picker: 8.1.1_ws5w265lwlgfx6ddpl3mdiooma
       react-native-fs: 2.20.0_react-native@0.69.5
       react-native-gesture-handler: 2.5.0_ws5w265lwlgfx6ddpl3mdiooma
       react-native-heroicons: 3.2.0_wxlif5cfng7xfd3uerlw46xcs4
@@ -7681,6 +7683,21 @@ packages:
     transitivePeerDependencies:
       - '@babel/preset-env'
       - supports-color
+
+  /react-native-document-picker/8.1.1_ws5w265lwlgfx6ddpl3mdiooma:
+    resolution: {integrity: sha512-mH0oghd7ndgU9/1meVJdqts1sAkOfUQW1qbrqTTsvR5f2K9r0BAj/X02dve5IBMOMZvlGd7qWrNVuIFg5AUXWg==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+      react-native-windows: '*'
+    peerDependenciesMeta:
+      react-native-windows:
+        optional: true
+    dependencies:
+      invariant: 2.2.4
+      react: 18.0.0
+      react-native: 0.69.5_react@18.0.0
+    dev: false
 
   /react-native-fs/2.20.0_react-native@0.69.5:
     resolution: {integrity: sha512-VkTBzs7fIDUiy/XajOSNk0XazFE9l+QlMAce7lGuebZcag5CnjszB+u4BdqzwaQOdcYb5wsJIsqq4kxInIRpJQ==}

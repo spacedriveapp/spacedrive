@@ -35,6 +35,7 @@
 		"phosphor-react-native": "^1.1.2",
 		"react": "18.0.0",
 		"react-native": "0.69.5",
+		"react-native-document-picker": "^8.1.1",
 		"react-native-fs": "^2.20.0",
 		"react-native-gesture-handler": "~2.5.0",
 		"react-native-heroicons": "^3.2.0",

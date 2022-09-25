@@ -1,6 +1,7 @@
 import byteSize from 'byte-size';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import RNFS from 'react-native-fs';
 import { useLibraryQuery } from '~/hooks/rspc';
 import { Statistics } from '~/types/bindings';
 
@@ -37,10 +38,28 @@ const OverviewStats = () => {
 
 	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
+	// For Demo purposes as we probably wanna save this to database
+	// Sets Total Capacity and Free Space of the device
+	const [sizeInfo, setSizeInfo] = useState<RNFS.FSInfoResult>({ freeSpace: 0, totalSpace: 0 });
+
+	useEffect(() => {
+		const getFSInfo = async () => {
+			return await RNFS.getFSInfo();
+		};
+		getFSInfo().then((size) => {
+			setSizeInfo(size);
+		});
+	}, []);
+
 	return libraryStatistics ? (
 		<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 			{Object.entries(libraryStatistics).map(([key, bytes]) => {
 				if (!displayableStatItems.includes(key)) return null;
+				if (key === 'total_bytes_free') {
+					bytes = sizeInfo.freeSpace;
+				} else if (key === 'total_bytes_capacity') {
+					bytes = sizeInfo.totalSpace;
+				}
 				return <StatItem key={key} title={StatItemNames[key as keyof Statistics]!} bytes={bytes} />;
 			})}
 		</ScrollView>
