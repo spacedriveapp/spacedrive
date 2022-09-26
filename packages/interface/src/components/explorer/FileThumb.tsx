@@ -1,3 +1,5 @@
+import videoSvg from '@sd/assets/svgs/video.svg';
+import zipSvg from '@sd/assets/svgs/zip.svg';
 import { getExplorerStore, useExplorerStore, usePlatform } from '@sd/client';
 import { ExplorerItem } from '@sd/core';
 import clsx from 'clsx';
@@ -14,6 +16,7 @@ interface Props {
 	className?: string;
 	style?: React.CSSProperties;
 	iconClassNames?: string;
+	kind?: 'video' | 'image' | 'audio' | 'zip' | 'other';
 }
 
 export default function FileThumb({ data, ...props }: Props) {
@@ -46,6 +49,24 @@ export default function FileThumb({ data, ...props }: Props) {
 					src={url}
 				/>
 			);
+
+		if (props.kind === 'video') {
+			return (
+				<div className="">
+					<img
+						src={videoSvg}
+						className={clsx('w-full overflow-hidden h-full', props.iconClassNames)}
+					/>
+				</div>
+			);
+		}
+		if (props.kind === 'zip') {
+			return (
+				<div className="">
+					<img src={zipSvg} className={clsx('w-full overflow-hidden h-full')} />
+				</div>
+			);
+		}
 	}
 
 	const Icon = icons[data.extension as keyof typeof icons];

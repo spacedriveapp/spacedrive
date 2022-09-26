@@ -12,7 +12,8 @@ const MENU_CLASSES = `
   flex flex-col
   min-w-[11rem] p-2 space-y-1
   text-left text-sm dark:text-gray-100 text-gray-800
-  bg-gray-50 border-gray-200 dark:bg-gray-950
+  bg-gray-50 border-gray-200 dark:bg-gray-750 dark:bg-opacity-70 backdrop-blur
+	border border-transparent dark:border-gray-550
   shadow-md shadow-gray-300 dark:shadow-gray-750 
   select-none cursor-default rounded-lg 
 `;

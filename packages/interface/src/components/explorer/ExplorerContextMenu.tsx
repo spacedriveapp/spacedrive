@@ -101,18 +101,13 @@ export default function ExplorerContextMenu(props: Props) {
 					</CM.SubMenu>
 				)}
 				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.SubMenu label="Move to library" icon={FilePlus}>
-						{/* {libraries.map(library => <CM.Item key={library.id} label={library.config.name} />)} */}
-						<CM.Item label="Remove from library" icon={FileX} />
-					</CM.SubMenu>
-					<CM.Separator />
 					<CM.Item label="Encrypt" icon={LockSimple} />
 					<CM.Item label="Compress" icon={Package} />
 					<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 						<CM.Item label="PNG" />
 						<CM.Item label="WebP" />
 					</CM.SubMenu>
-					<CM.Item label="Secure delete" icon={TrashSimple} />
+					<CM.Item variant="danger" label="Secure delete" icon={TrashSimple} />
 				</CM.SubMenu>
 
 				<CM.Separator />

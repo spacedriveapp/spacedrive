@@ -162,7 +162,7 @@ export function Sidebar() {
 		<div
 			className={clsx(
 				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-750',
-				macOnly(os, 'dark:!bg-opacity-40')
+				macOnly(os, 'dark:!bg-opacity-30')
 			)}
 		>
 			<WindowControls />
