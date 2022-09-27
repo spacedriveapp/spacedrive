@@ -2,7 +2,7 @@
 name = "sdcore-lib"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.63.0"
+rust-version = "1.64.0"
 
 [lib]
 name = "sdcore"
