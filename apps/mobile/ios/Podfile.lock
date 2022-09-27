@@ -7,9 +7,9 @@ PODS:
     - ExpoModulesCore
   - EXFileSystem (14.1.0):
     - ExpoModulesCore
-  - EXFont (10.2.0):
+  - EXFont (10.2.1):
     - ExpoModulesCore
-  - Expo (46.0.10):
+  - Expo (46.0.13):
     - ExpoModulesCore
   - ExpoKeepAwake (10.2.0):
     - ExpoModulesCore
@@ -380,14 +380,14 @@ PODS:
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
-  - "EXApplication (from `../node_modules/.pnpm/expo-application@4.2.2_expo@46.0.10/node_modules/expo-application/ios`)"
-  - "EXConstants (from `../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.10/node_modules/expo-constants/ios`)"
-  - "EXFileSystem (from `../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.10/node_modules/expo-file-system/ios`)"
-  - "EXFont (from `../node_modules/.pnpm/expo-font@10.2.0_expo@46.0.10/node_modules/expo-font/ios`)"
-  - "Expo (from `../node_modules/.pnpm/expo@46.0.10/node_modules/expo`)"
-  - "ExpoKeepAwake (from `../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.10/node_modules/expo-keep-awake/ios`)"
+  - "EXApplication (from `../node_modules/.pnpm/expo-application@4.2.2_expo@46.0.13/node_modules/expo-application/ios`)"
+  - "EXConstants (from `../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.13/node_modules/expo-constants/ios`)"
+  - "EXFileSystem (from `../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.13/node_modules/expo-file-system/ios`)"
+  - "EXFont (from `../node_modules/.pnpm/expo-font@10.2.1_expo@46.0.13/node_modules/expo-font/ios`)"
+  - "Expo (from `../node_modules/.pnpm/expo@46.0.13/node_modules/expo`)"
+  - "ExpoKeepAwake (from `../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.13/node_modules/expo-keep-awake/ios`)"
   - "ExpoModulesCore (from `../node_modules/.pnpm/expo-modules-core@0.11.5/node_modules/expo-modules-core/ios`)"
-  - "EXSplashScreen (from `../node_modules/.pnpm/expo-splash-screen@0.16.2_expo@46.0.10/node_modules/expo-splash-screen/ios`)"
+  - "EXSplashScreen (from `../node_modules/.pnpm/expo-splash-screen@0.16.2_expo@46.0.13/node_modules/expo-splash-screen/ios`)"
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../node_modules/react-native/React/FBReactNativeSpec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
@@ -445,21 +445,21 @@ EXTERNAL SOURCES:
   DoubleConversion:
     :podspec: "../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
-    :path: "../node_modules/.pnpm/expo-application@4.2.2_expo@46.0.10/node_modules/expo-application/ios"
+    :path: "../node_modules/.pnpm/expo-application@4.2.2_expo@46.0.13/node_modules/expo-application/ios"
   EXConstants:
-    :path: "../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.10/node_modules/expo-constants/ios"
+    :path: "../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.13/node_modules/expo-constants/ios"
   EXFileSystem:
-    :path: "../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.10/node_modules/expo-file-system/ios"
+    :path: "../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.13/node_modules/expo-file-system/ios"
   EXFont:
-    :path: "../node_modules/.pnpm/expo-font@10.2.0_expo@46.0.10/node_modules/expo-font/ios"
+    :path: "../node_modules/.pnpm/expo-font@10.2.1_expo@46.0.13/node_modules/expo-font/ios"
   Expo:
-    :path: "../node_modules/.pnpm/expo@46.0.10/node_modules/expo"
+    :path: "../node_modules/.pnpm/expo@46.0.13/node_modules/expo"
   ExpoKeepAwake:
-    :path: "../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.10/node_modules/expo-keep-awake/ios"
+    :path: "../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.13/node_modules/expo-keep-awake/ios"
   ExpoModulesCore:
     :path: "../node_modules/.pnpm/expo-modules-core@0.11.5/node_modules/expo-modules-core/ios"
   EXSplashScreen:
-    :path: "../node_modules/.pnpm/expo-splash-screen@0.16.2_expo@46.0.10/node_modules/expo-splash-screen/ios"
+    :path: "../node_modules/.pnpm/expo-splash-screen@0.16.2_expo@46.0.13/node_modules/expo-splash-screen/ios"
   FBLazyVector:
     :path: "../node_modules/react-native/Libraries/FBLazyVector"
   FBReactNativeSpec:
@@ -551,8 +551,8 @@ SPEC CHECKSUMS:
   EXApplication: e418d737a036e788510f2c4ad6c10a7d54d18586
   EXConstants: 7c44785d41d8e959d527d23d29444277a4d1ee73
   EXFileSystem: 927e0a8885aa9c49e50fc38eaba2c2389f2f1019
-  EXFont: a5d80bd9b3452b2d5abbce2487da89b0150e6487
-  Expo: fcdb32274e2ca9c7638d3b21b30fb665c6869219
+  EXFont: 06df627203afcb8a3b3152ec06eb2f11f46f0cff
+  Expo: 39582e41ae9e0aa9ed016d3918da87ee61e87525
   ExpoKeepAwake: 0e8f18142e71bbf2c7f6aa66ebed249ba1420320
   ExpoModulesCore: 5a973701f4400d70254bc836305228731c829010
   EXSplashScreen: 799bece80089219b2c989c1082d70f3b00995cda

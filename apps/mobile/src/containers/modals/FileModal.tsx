@@ -93,6 +93,7 @@ export const FileModal = () => {
 						<>
 							{/* Temp, we need cas id */}
 							{data?.id && <MetaItem title="Unique Content ID" value={'555555555'} />}
+							<Divider style={tw`my-4`} />
 							<MetaItem title="URI" value={`/Users/utku/Somewhere/vite.config.js`} />
 							<Divider style={tw`my-4`} />
 							<MetaItem
