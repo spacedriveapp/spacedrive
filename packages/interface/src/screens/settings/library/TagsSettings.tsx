@@ -1,10 +1,3 @@
-import Card from '../../../components/layout/Card';
-import Dialog from '../../../components/layout/Dialog';
-import { Toggle } from '../../../components/primitive';
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { PopoverPicker } from '../../../components/primitive/PopoverPicker';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 import { TrashIcon } from '@heroicons/react/24/outline';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { TagUpdateArgs } from '@sd/core';
@@ -13,6 +6,14 @@ import clsx from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useDebounce } from 'rooks';
+
+import Card from '../../../components/layout/Card';
+import Dialog from '../../../components/layout/Dialog';
+import { Toggle } from '../../../components/primitive';
+import { InputContainer } from '../../../components/primitive/InputContainer';
+import { PopoverPicker } from '../../../components/primitive/PopoverPicker';
+import { SettingsContainer } from '../../../components/settings/SettingsContainer';
+import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function TagsSettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);

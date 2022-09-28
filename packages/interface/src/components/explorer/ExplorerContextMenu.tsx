@@ -1,4 +1,9 @@
-import { useExplorerStore, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	getExplorerStore,
+	useExplorerStore,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
@@ -59,7 +64,7 @@ interface Props {
 }
 
 export default function ExplorerContextMenu(props: Props) {
-	const store = useExplorerStore();
+	const store = getExplorerStore();
 
 	return (
 		<div className="relative">

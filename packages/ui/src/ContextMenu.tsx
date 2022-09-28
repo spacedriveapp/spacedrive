@@ -37,7 +37,7 @@ export const ContextMenu = ({
 };
 
 export const Separator = () => (
-	<RadixCM.Separator className="mx-2 border-0 border-b pointer-events-none border-b-gray-300 dark:border-b-gray-600" />
+	<RadixCM.Separator className="mx-2 border-0 border-b pointer-events-none border-b-gray-300 dark:border-b-gray-500" />
 );
 
 export const SubMenu = ({
