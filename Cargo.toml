@@ -13,5 +13,5 @@ resolver = "2"
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl" }
 
 [patch."https://github.com/Brendonovich/prisma-client-rust.git"]
-prisma-client-rust = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "fbfa3ecbbd35ca4b5a8e1f9948e7cabdc9c7e536" }
-prisma-client-rust-cli = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "fbfa3ecbbd35ca4b5a8e1f9948e7cabdc9c7e536" }
+prisma-client-rust = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "6b59d9f0a07c4c5df1f5c97f2c6c1df7082ccac6" }
+prisma-client-rust-cli = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "6b59d9f0a07c4c5df1f5c97f2c6c1df7082ccac6" }

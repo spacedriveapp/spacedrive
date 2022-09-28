@@ -16,9 +16,11 @@ export default function CreateLibraryDialog({
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
-			onSuccess: (library) => {
+			onSuccess: (library: any) => {
 				console.log('SUBMITTING');
+
 				setOpenCreateModal(false);
+
 				queryClient.setQueryData(['library.list'], (libraries: any) => [
 					...(libraries || []),
 					library
@@ -26,7 +28,7 @@ export default function CreateLibraryDialog({
 
 				if (onSubmit) onSubmit();
 			},
-			onError: (err) => {
+			onError: (err: any) => {
 				console.error(err);
 			}
 		}

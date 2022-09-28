@@ -24,12 +24,7 @@ export default function Dialog(props: DialogProps) {
 			<DialogPrimitive.Portal>
 				<DialogPrimitive.Overlay className="fixed top-0 dialog-overlay bottom-0 left-0 right-0 z-50 grid overflow-y-auto bg-black bg-opacity-50 rounded-xl place-items-center m-[1px]">
 					<DialogPrimitive.Content className="min-w-[300px] max-w-[400px] dialog-content rounded-md bg-gray-650 text-white border border-gray-550 shadow-deep">
-						<form
-							onSubmit={(e) => {
-								if (props.ctaAction) props.ctaAction();
-								e.preventDefault();
-							}}
-						>
+						<form onSubmit={(e) => e.preventDefault()}>
 							<div className="p-5">
 								<DialogPrimitive.Title className="mb-2 font-bold">
 									{props.title}
@@ -48,6 +43,7 @@ export default function Dialog(props: DialogProps) {
 									</Button>
 								</DialogPrimitive.Close>
 								<Button
+									onClick={props.ctaAction}
 									type="submit"
 									size="sm"
 									loading={props.loading}

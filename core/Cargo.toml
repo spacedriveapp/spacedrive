@@ -6,7 +6,7 @@ authors = ["Spacedrive Technology Inc."]
 license = "GNU GENERAL PUBLIC LICENSE"
 repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
-rust-version = "1.63.0"
+rust-version = "1.64.0"
 
 [features]
 default = ["p2p"]
@@ -15,7 +15,8 @@ p2p = [
 mobile = [
 ] # This feature allows features to be disabled when the Core is running on mobile.
 ffmpeg = [
-  "dep:ffmpeg-next", "dep:thumbnailer"
+  "dep:ffmpeg-next",
+  "dep:thumbnailer",
 ] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 
 [dependencies]

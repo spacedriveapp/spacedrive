@@ -93,7 +93,7 @@ function Page() {
 				<title>Careers - Spacedrive</title>
 				<meta name="description" content="Work with us to build the future of file management." />
 			</Helmet>
-			<div className="container relative max-w-4xl min-h-screen p-4 m-auto mt-32 mb-20 prose text-white prose-invert">
+			<div className="container relative max-w-4xl min-h-screen p-4 pt-32 m-auto mb-20 prose text-white prose-invert">
 				<div
 					className="bloom subtle egg-bloom-two -top-60 -right-[400px]"
 					style={{ transform: 'scale(2)' }}

@@ -8,7 +8,7 @@ import { Folder } from '../../../../packages/interface/src/components/icons/Fold
 function Page() {
 	const items = [
 		{
-			when: 'Big bang',
+			when: 'Big Bang',
 			subtext: 'Q1 2022',
 			completed: true,
 			title: 'File discovery',
@@ -85,7 +85,7 @@ function Page() {
 			description: 'Host select Spaces on our cloud to share with friends or publish on the web.'
 		},
 		{
-			when: '0.2.0 Beta',
+			when: '0.6.0 Beta',
 			subtext: 'Q1 2023',
 			title: 'Extensions',
 			description:
@@ -126,7 +126,7 @@ function Page() {
 				<title>Roadmap - Spacedrive</title>
 				<meta name="description" content="What can Spacedrive do?" />
 			</Helmet>
-			<div className="container flex flex-col max-w-4xl gap-20 p-4 m-auto mt-32 mb-20 prose lg:prose-xs dark:prose-invert">
+			<div className="container flex flex-col max-w-4xl gap-20 p-4 pt-32 m-auto mb-20 prose lg:prose-xs dark:prose-invert">
 				<section className="flex flex-col items-center">
 					<Folder className="w-24 pointer-events-none" />
 					<h1 className="mb-0 text-5xl leading-snug text-center fade-in-heading">
