@@ -23,6 +23,7 @@ packages/turbo-server/uploads/
 packages/*/node_modules
 packages/*/data
 apps/*/data
+apps/*/stats.html
 docs/public/*.st
 docs/public/*.toml
 dev.db
