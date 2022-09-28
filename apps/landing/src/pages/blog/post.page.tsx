@@ -30,7 +30,7 @@ function Page({ post }: { post: PostOrPage }) {
 				<meta content="summary_large_image" name="twitter:card" />
 				<meta name="author" content={post?.primary_author?.name || 'Spacedrive Technology Inc.'} />
 			</Helmet>
-			<div className="container max-w-4xl p-4 m-auto mt-8 mb-20 prose lg:prose-xs dark:prose-invert">
+			<div className="container max-w-4xl p-4 m-auto mb-20 prose pt-14 lg:prose-xs dark:prose-invert">
 				{post && (
 					<>
 						<figure>

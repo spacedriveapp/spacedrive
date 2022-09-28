@@ -4,5 +4,5 @@ module.exports = {
 		tsconfigRootDir: __dirname,
 		project: './tsconfig.json'
 	},
-	ignorePatterns: ['**/*.js', '**/*.json', 'node_modules', 'public', 'dist']
+	ignorePatterns: ['**/*.js', '**/*.json', 'node_modules', 'public', 'dist', 'vite.config.ts']
 };
