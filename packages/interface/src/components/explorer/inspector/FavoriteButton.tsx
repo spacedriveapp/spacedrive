@@ -1,5 +1,5 @@
 import { useLibraryMutation } from '@sd/client';
-import { File } from '@sd/core';
+import { File } from '@sd/client';
 import { Button } from '@sd/ui';
 import { Heart } from 'phosphor-react';
 import { useEffect, useState } from 'react';

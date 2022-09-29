@@ -1,7 +1,7 @@
 import { CogIcon, LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useCurrentLibrary, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
-import { LocationCreateArgs } from '@sd/core';
+import { LocationCreateArgs } from '@sd/client';
 import { Button, Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';

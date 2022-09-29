@@ -1,4 +1,4 @@
-import { ExplorerItem, File, FilePath } from '@sd/core';
+import { ExplorerItem, File, FilePath } from '@sd/client';
 
 export function isPath(item: ExplorerItem): item is Extract<ExplorerItem, { type: 'Path' }> {
 	return item.type === 'Path';

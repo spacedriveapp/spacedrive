@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useLibraryMutation } from '@sd/client';
-import { File } from '@sd/core';
+import { File } from '@sd/client';
 import { TextArea } from '@sd/ui';
 import { debounce } from 'lodash';
 import { useCallback, useState } from 'react';

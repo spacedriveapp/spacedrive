@@ -1,6 +1,6 @@
 import { EyeIcon, FolderIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useLibraryQuery } from '@sd/client';
-import { JobReport } from '@sd/core';
+import { JobReport } from '@sd/client';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import { formatDistanceToNow, formatDuration } from 'date-fns';

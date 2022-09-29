@@ -1,5 +1,5 @@
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
-import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
+import { ExplorerContext, ExplorerItem, FilePath } from '@sd/client';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
