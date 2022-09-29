@@ -1,5 +1,5 @@
 [package]
-name = "thumbnailer"
+name = "sd_ffmpeg"
 version = "0.1.0"
 authors = ["Ericson Soares <ericson.ds999@gmail.com>"]
 edition = "2021"

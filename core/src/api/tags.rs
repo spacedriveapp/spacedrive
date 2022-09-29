@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 use crate::{
 	api::locations::{file_with_paths, ExplorerContext, ExplorerData, ExplorerItem},
-	encode::THUMBNAIL_CACHE_DIR_NAME,
 	invalidate_query,
+	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file, tag, tag_on_file},
 };
 

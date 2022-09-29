@@ -9,7 +9,7 @@ use tokio::fs;
 use tracing::{debug, error};
 
 use super::{
-	indexer_rules::{IndexerRule, RuleKind},
+	rules::{IndexerRule, RuleKind},
 	IndexerError,
 };
 
@@ -273,7 +273,7 @@ pub(super) async fn walk(
 
 #[cfg(test)]
 mod tests {
-	use super::super::indexer_rules::ParametersPerKind;
+	use super::super::rules::ParametersPerKind;
 	use super::*;
 	use chrono::Utc;
 	use globset::Glob;

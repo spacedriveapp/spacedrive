@@ -1,9 +1,9 @@
 [workspace]
 members = [
+  "core",
+  "crates/*",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
-  "core",
-  "core/prisma",
   "apps/server",
 ]
 resolver = "2"
