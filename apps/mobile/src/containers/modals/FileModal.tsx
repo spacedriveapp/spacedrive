@@ -6,7 +6,7 @@ import { ChevronLeftIcon } from 'react-native-heroicons/outline';
 import { useSnapshot } from 'valtio';
 
 import FileIcon from '../../components/file/FileIcon';
-import { ModalBackdrop, ModalHandle } from '../../components/layout/Modal';
+import { Modal } from '../../components/layout/Modal';
 import Divider from '../../components/primitive/Divider';
 import tw from '../../lib/tailwind';
 import { fileModalStore } from '../../stores/modalStore';
@@ -32,12 +32,7 @@ export const FileModal = () => {
 
 	return (
 		<>
-			<BottomSheetModal
-				ref={fileRef}
-				snapPoints={['60%', '90%']}
-				backdropComponent={ModalBackdrop}
-				handleComponent={ModalHandle}
-			>
+			<Modal ref={fileRef} snapPoints={['60%', '90%']}>
 				{data && (
 					<View style={tw`flex-1 p-4 bg-gray-600`}>
 						{/* File Icon / Name */}
@@ -67,15 +62,13 @@ export const FileModal = () => {
 						<Button onPress={() => fileRef.current.close()} title="Delete" color="white" />
 					</View>
 				)}
-			</BottomSheetModal>
+			</Modal>
 			{/* Details Modal */}
-			<BottomSheetModal
+			<Modal
 				ref={fileDetailsRef}
 				enableContentPanningGesture={false}
 				enablePanDownToClose={false}
 				snapPoints={['70%']}
-				backdropComponent={ModalBackdrop}
-				handleComponent={ModalHandle}
 			>
 				{data && (
 					<BottomSheetScrollView style={tw`flex-1 p-4 bg-gray-600`}>
@@ -108,7 +101,7 @@ export const FileModal = () => {
 						</>
 					</BottomSheetScrollView>
 				)}
-			</BottomSheetModal>
+			</Modal>
 		</>
 	);
 };

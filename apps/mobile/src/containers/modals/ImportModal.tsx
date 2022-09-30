@@ -2,7 +2,7 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import React, { forwardRef, useCallback } from 'react';
 import { Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
-import { ModalBackdrop, ModalHandle } from '~/components/layout/Modal';
+import { Modal } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import { useLibraryMutation } from '~/hooks/rspc';
 import tw from '~/lib/tailwind';
@@ -27,12 +27,7 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 	}, [createLocation]);
 
 	return (
-		<BottomSheetModal
-			ref={ref}
-			snapPoints={['40%']}
-			backdropComponent={ModalBackdrop}
-			handleComponent={ModalHandle}
-		>
+		<Modal ref={ref} snapPoints={['20%']}>
 			<View style={tw`flex-1 p-4 bg-gray-600`}>
 				<Button size="md" variant="primary" style={tw`my-2`} onPress={handleDirectorySelection}>
 					<Text>Import from Files</Text>
@@ -41,7 +36,7 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 					<Text>Import from Photos</Text>
 				</Button>
 			</View>
-		</BottomSheetModal>
+		</Modal>
 	);
 });
 
