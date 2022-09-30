@@ -27,7 +27,6 @@ importers:
       '@rspc/client': ^0.0.6
       '@rspc/tauri': ^0.0.6
       '@sd/client': workspace:*
-      '@sd/core': workspace:*
       '@sd/interface': workspace:*
       '@sd/ui': workspace:*
       '@tanstack/react-query': ^4.0.10
@@ -55,7 +54,6 @@ importers:
       '@rspc/client': 0.0.6
       '@rspc/tauri': 0.0.6_@tauri-apps+api@1.0.2
       '@sd/client': link:../../packages/client
-      '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
       '@sd/ui': link:../../packages/ui
       '@tanstack/react-query': 4.6.0_biqbaboplfbrettd7655fr4n2y
@@ -188,7 +186,6 @@ importers:
       '@fontsource/inter': ^4.5.11
       '@rspc/client': ^0.0.6
       '@sd/client': workspace:*
-      '@sd/core': workspace:*
       '@sd/interface': workspace:*
       '@sd/ui': workspace:*
       '@tanstack/react-query': ^4.0.10
@@ -208,7 +205,6 @@ importers:
       '@fontsource/inter': 4.5.12
       '@rspc/client': 0.0.6
       '@sd/client': link:../../packages/client
-      '@sd/core': link:../../core
       '@sd/interface': link:../../packages/interface
       '@sd/ui': link:../../packages/ui
       '@tanstack/react-query': 4.6.0_biqbaboplfbrettd7655fr4n2y
@@ -226,14 +222,6 @@ importers:
       vite-plugin-svgr: 2.2.1_vite@3.1.3
       vite-plugin-tsconfig-paths: 1.2.0_qzzqzik23fiaove4fwm46zpole
 
-  core:
-    specifiers:
-      '@types/node': ^18.6.1
-      typescript: ^4.7.4
-    devDependencies:
-      '@types/node': 18.7.20
-      typescript: 4.8.3
-
   packages/assets:
     specifiers: {}
 
@@ -242,7 +230,6 @@ importers:
       '@rspc/client': ^0.0.6
       '@rspc/react': ^0.0.6
       '@sd/config': workspace:*
-      '@sd/core': workspace:*
       '@sd/interface': workspace:*
       '@tanstack/react-query': ^4.0.10
       '@types/lodash': ^4.14.182
@@ -260,7 +247,6 @@ importers:
       '@rspc/client': 0.0.6
       '@rspc/react': 0.0.6
       '@sd/config': link:../config
-      '@sd/core': link:../../core
       '@sd/interface': link:../interface
       '@tanstack/react-query': 4.6.0
       eventemitter3: 4.0.7
@@ -307,7 +293,6 @@ importers:
       '@sd/assets': workspace:*
       '@sd/client': workspace:*
       '@sd/config': workspace:*
-      '@sd/core': workspace:*
       '@sd/ui': workspace:*
       '@tailwindcss/forms': ^0.5.2
       '@tanstack/react-query': ^4.2.3
@@ -382,7 +367,6 @@ importers:
       '@radix-ui/react-tooltip': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@sd/assets': link:../assets
       '@sd/client': link:../client
-      '@sd/core': link:../../core
       '@sd/ui': link:../ui
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.1.8
       '@tanstack/react-query': 4.6.0_biqbaboplfbrettd7655fr4n2y
@@ -6963,7 +6947,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.12_postcss@8.4.16:
     resolution: {integrity: sha512-WrCGV9/b97Pa+jtwf5UGaRjgQIg7OK3D06GnoYoZNcG1Xb8Gt3EfuKjlhh9i/VtT16g6PYjZ69jdJ2g8FxSC4Q==}
