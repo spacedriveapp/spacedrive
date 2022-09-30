@@ -1,12 +1,13 @@
-import { Folder } from '../icons/Folder';
-import Dialog from '../layout/Dialog';
 import { TrashIcon } from '@heroicons/react/24/solid';
 import { useLibraryMutation } from '@sd/client';
-import { Location, Node } from '@sd/core';
+import { Location, Node } from '@sd/client';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import { Repeat } from 'phosphor-react';
 import React, { useState } from 'react';
+
+import { Folder } from '../icons/Folder';
+import Dialog from '../layout/Dialog';
 
 interface LocationListItemProps {
 	location: Location & { node: Node };

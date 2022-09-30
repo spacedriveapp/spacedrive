@@ -14,7 +14,7 @@ use std::{
 use tokio::{fs, io};
 use tracing::{error, info};
 
-use super::checksum::generate_cas_id;
+use super::cas::generate_cas_id;
 
 // we break this job into chunks of 100 to improve performance
 static CHUNK_SIZE: usize = 100;

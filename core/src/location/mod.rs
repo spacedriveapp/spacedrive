@@ -1,9 +1,11 @@
 use crate::{
-	encode::{ThumbnailJob, ThumbnailJobInit},
-	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
 	invalidate_query,
 	job::Job,
 	library::LibraryContext,
+	object::{
+		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
+		preview::{ThumbnailJob, ThumbnailJobInit},
+	},
 	prisma::{indexer_rules_in_location, location, node},
 };
 

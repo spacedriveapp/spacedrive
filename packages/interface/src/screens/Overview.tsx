@@ -1,6 +1,6 @@
 import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
 import { useBridgeQuery, useLibraryQuery, usePlatform } from '@sd/client';
-import { Statistics } from '@sd/core';
+import { Statistics } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
@@ -163,7 +163,7 @@ export const OverviewScreen = () => {
 					</div>
 
 					<div className="flex-grow" />
-					<div className="space-x-2 h-full flex items-center">
+					<div className="flex items-center h-full space-x-2">
 						<div>
 							<Dialog
 								title="Add Device"

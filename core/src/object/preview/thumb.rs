@@ -298,7 +298,7 @@ async fn generate_video_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
-	use thumbnailer::to_thumbnail;
+	use sd_ffmpeg::to_thumbnail;
 
 	to_thumbnail(file_path, output_path, 256, THUMBNAIL_QUALITY).await?;
 

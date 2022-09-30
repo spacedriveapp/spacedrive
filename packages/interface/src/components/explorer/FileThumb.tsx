@@ -1,5 +1,5 @@
 import { getExplorerStore, useExplorerStore, usePlatform } from '@sd/client';
-import { ExplorerItem } from '@sd/core';
+import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useSnapshot } from 'valtio';
