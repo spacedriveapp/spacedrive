@@ -57,7 +57,6 @@ image = "0.24.1"
 webp = "0.2.2"
 ffmpeg-next = { version = "5.0.3", optional = true, features = [] }
 sd_ffmpeg = { path = "../crates/ffmpeg", optional = true }
-crypto = { path = "../crates/crypto" }
 fs_extra = "1.2.0"
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.14", features = ["env-filter"] }
