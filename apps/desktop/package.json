@@ -22,7 +22,7 @@
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "1.0.5",
+		"@tauri-apps/cli": "1.1.1",
 		"@tauri-apps/tauricon": "github:tauri-apps/tauricon",
 		"@types/babel-core": "^6.25.7",
 		"@types/byte-size": "^8.1.0",
