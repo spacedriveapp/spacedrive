@@ -1,5 +1,4 @@
-import { getExplorerStore, rspc, useCurrentLibrary, useExplorerStore } from '@sd/client';
-import { ExplorerData } from '@sd/core';
+import { ExplorerData, rspc, useCurrentLibrary, useExplorerStore } from '@sd/client';
 
 import { Inspector } from '../explorer/Inspector';
 import { TopBar } from '../layout/TopBar';

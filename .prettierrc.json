@@ -7,13 +7,7 @@
 	"bracketSameLine": false,
 	"semi": true,
 	"quoteProps": "consistent",
-	"importOrder": [
-		"^@sd/core/(.*)$",
-		"^@sd/interface/(.*)$",
-		"^@sd/client/(.*)$",
-		"^@sd/ui/(.*)$",
-		"^[./]"
-	],
+	"importOrder": ["^@sd/interface/(.*)$", "^@sd/client/(.*)$", "^@sd/ui/(.*)$", "^[./]"],
 	"importOrderSeparation": true,
 	"importOrderSortSpecifiers": true
 }

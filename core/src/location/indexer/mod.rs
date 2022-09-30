@@ -1,12 +1,12 @@
 pub mod indexer_job;
-pub mod indexer_rules;
+pub mod rules;
 mod walk;
 
 use globset::Error;
-use indexer_rules::RuleKind;
 use int_enum::IntEnumError;
 use rmp_serde::{decode::Error as RMPDecodeError, encode::Error as RMPEncodeError};
 use rspc::ErrorCode;
+use rules::RuleKind;
 use serde_json::Error as SerdeJsonError;
 use std::io;
 use thiserror::Error;

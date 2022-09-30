@@ -1,6 +1,6 @@
 import { ShareIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
-import { ExplorerContext, ExplorerItem, File, FilePath, Location } from '@sd/core';
+import { ExplorerContext, ExplorerItem, File, FilePath, Location } from '@sd/client';
 import { Button, TextArea } from '@sd/ui';
 import clsx from 'clsx';
 import moment from 'moment';

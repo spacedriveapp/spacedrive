@@ -12,7 +12,7 @@ use tokio::time::Instant;
 use tracing::info;
 
 use super::{
-	indexer_rules::IndexerRule,
+	rules::IndexerRule,
 	walk::{walk, WalkEntry},
 };
 

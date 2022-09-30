@@ -1,11 +1,11 @@
 use crate::{
-	encode::THUMBNAIL_CACHE_DIR_NAME,
 	invalidate_query,
 	location::{
 		fetch_location,
-		indexer::{indexer_job::indexer_job_location, indexer_rules::IndexerRuleCreateArgs},
+		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
 		scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
+	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file, file_path, indexer_rule, indexer_rules_in_location, location, tag},
 };
 

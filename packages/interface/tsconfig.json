@@ -1,6 +1,7 @@
 {
 	"extends": "../config/interface.tsconfig.json",
 	"compilerOptions": {
+		"target": "es2020",
 		"outDir": "./dist"
 	},
 	"include": ["src"]

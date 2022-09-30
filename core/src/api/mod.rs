@@ -110,8 +110,10 @@ mod tests {
 	#[test]
 	fn test_and_export_rspc_bindings() {
 		let r = super::mount();
-		r.export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts"))
-			.expect("Error exporting rspc Typescript bindings!");
+		r.export_ts(
+			PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"),
+		)
+		.expect("Error exporting rspc Typescript bindings!");
 		r.export_ts(
 			PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../apps/mobile/src/types/bindings.ts"),
 		)
