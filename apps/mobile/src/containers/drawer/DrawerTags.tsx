@@ -2,6 +2,7 @@ import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
+import { useLibraryQuery } from '~/hooks/rspc';
 import tw from '~/lib/tailwind';
 
 import CollapsibleView from '../../components/layout/CollapsibleView';
@@ -30,26 +31,10 @@ type DrawerTagsProp = {
 	stackName: string;
 };
 
-const placeholderTagsData = [
-	{
-		id: 1,
-		name: 'Funny',
-		color: tw.color('blue-500')
-	},
-	{
-		id: 2,
-		name: 'Twitch',
-		color: tw.color('purple-500')
-	},
-	{
-		id: 3,
-		name: 'BlackMagic',
-		color: tw.color('red-500')
-	}
-];
-
 const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
+
+	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 
 	return (
 		<CollapsibleView
@@ -58,7 +43,7 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 			containerStyle={tw`mt-6 mb-3`}
 		>
 			<View style={tw`mt-2`}>
-				{placeholderTagsData.map((tag) => (
+				{tags?.map((tag) => (
 					<DrawerTagItem
 						key={tag.id}
 						tagName={tag.name}

@@ -3,6 +3,7 @@ import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript
 import { useNavigation } from '@react-navigation/native';
 import React, { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useLibraryQuery } from '~/hooks/rspc';
 import tw from '~/lib/tailwind';
 
 import FolderIcon from '../../components/icons/FolderIcon';
@@ -29,17 +30,6 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 	);
 };
 
-const placeholderLocationData = [
-	{
-		id: 1,
-		name: 'Spacedrive'
-	},
-	{
-		id: 2,
-		name: 'Content'
-	}
-];
-
 interface DrawerLocationsProp {
 	stackName: string;
 }
@@ -49,6 +39,8 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 
 	const importModalRef = useRef<BottomSheetModal>();
 
+	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+
 	return (
 		<>
 			<CollapsibleView
@@ -57,7 +49,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 				containerStyle={tw`mt-6 mb-3`}
 			>
 				<View style={tw`mt-2`}>
-					{placeholderLocationData.map((location) => (
+					{locations?.map((location) => (
 						<DrawerLocationItem
 							key={location.id}
 							folderName={location.name}
