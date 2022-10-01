@@ -10,19 +10,19 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-tauri = { version = "1.0.4", features = ["api-all", "macos-private-api"] }
-rspc = { version = "0.0.5", features = ["tauri"] }
+tauri = { version = "1.1.1", features = ["api-all", "macos-private-api"] }
+rspc = { version = "0.1.2", features = ["tauri"] }
 sdcore = { path = "../../../core", features = ["ffmpeg"] }
-tokio = { version = "1.17.0", features = ["sync"] }
-window-shadows = "0.1.2"
-tracing = "0.1.35"
-serde = "1.0.144"
+tokio = { version = "1.21.2", features = ["sync"] }
+window-shadows = "0.2.0"
+tracing = "0.1.36"
+serde = "1.0.145"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease" }
 
 [build-dependencies]
-tauri-build = { version = "1.0.0", features = [] }
+tauri-build = { version = "1.1.1", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = ["build"] }
