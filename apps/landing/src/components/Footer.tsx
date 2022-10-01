@@ -56,7 +56,7 @@ export function Footer() {
 					<h3 className="mb-1 text-xs font-bold uppercase ">About</h3>
 
 					<FooterLink link="/team">Team</FooterLink>
-					<FooterLink link="/faq">FAQ</FooterLink>
+					<FooterLink link="/docs/product/resources/faq">FAQ</FooterLink>
 					<FooterLink link="/careers">Careers</FooterLink>
 					<FooterLink link="/changelog">Changelog</FooterLink>
 					<FooterLink link="/blog">Blog</FooterLink>
