@@ -21,13 +21,13 @@
 	},
 	"devDependencies": {
 		"@cspell/dict-rust": "^2.0.1",
-		"@cspell/dict-typescript": "^2.0.1",
-		"@evilmartians/lefthook": "^1.0.5",
+		"@cspell/dict-typescript": "^2.0.2",
+		"@evilmartians/lefthook": "^1.1.1",
 		"@trivago/prettier-plugin-sort-imports": "^3.3.0",
-		"cspell": "^6.4.0",
-		"markdown-link-check": "^3.10.2",
+		"cspell": "^6.12.0",
+		"markdown-link-check": "^3.10.3",
 		"prettier": "^2.7.1",
-		"typescript": "^4.7.4"
+		"typescript": "^4.8.4"
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84"

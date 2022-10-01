@@ -22,9 +22,9 @@ import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { libraryStore } from './stores/libraryStore';
 import { onboardingStore } from './stores/onboardingStore';
-import type { Operations } from './types/bindings';
+import type { Procedures } from './types/bindings';
 
-const client = createClient<Operations>({
+const client = createClient<Procedures>({
 	transport: new ReactNativeTransport()
 });
 

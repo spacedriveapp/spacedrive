@@ -22,11 +22,9 @@ async fn main() {
 			}
 
 			std::env::current_dir()
-				.expect(
-					"Unable to get your current directory. Maybe try setting $DATA_DIR?",
-				)
+				.expect("Unable to get your current directory. Maybe try setting $DATA_DIR?")
 				.join("sdserver_data")
-		},
+		}
 	};
 
 	let port = env::var("PORT")
@@ -57,13 +55,10 @@ async fn main() {
 			})
 		})
 		.route(
-			"/rspcws",
-			router.axum_ws_handler(move || node.get_request_context()),
+			"/rspc/:id",
+			router.endpoint(move || node.get_request_context()).axum(),
 		)
-		.fallback(
-			(|| async { "404 Not Found: We're past the event horizon..." })
-				.into_service(),
-		);
+		.fallback((|| async { "404 Not Found: We're past the event horizon..." }).into_service());
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
 	addr.set_port(port);

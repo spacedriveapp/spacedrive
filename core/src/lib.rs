@@ -66,7 +66,11 @@ impl Node {
 						"desktop=debug"
 							.parse()
 							.expect("Error invalid tracing directive!"),
-					),
+					), // .add_directive(
+				    // 	"rspc=debug"
+				    // 		.parse()
+				    // 		.expect("Error invalid tracing directive!"),
+				    // ),
 			)
 			.with(fmt::layer().with_filter(CONSOLE_LOG_FILTER))
 			.init();

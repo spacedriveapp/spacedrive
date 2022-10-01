@@ -1,24 +1,23 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use once_cell::sync::{Lazy, OnceCell};
-use rspc::{ClientContext, Response};
+use rspc::internal::jsonrpc::{RequestId, Response};
 use sdcore::{api::Router, Node};
 use tokio::{
 	runtime::Runtime,
-	sync::{mpsc::UnboundedSender, Mutex},
+	sync::{mpsc::UnboundedSender, oneshot, Mutex},
 };
 
 #[allow(dead_code)]
 pub(crate) static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
-type LazyNode = Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>>;
 #[allow(dead_code)]
-pub(crate) static NODE: LazyNode = Lazy::new(|| Mutex::new(None));
+pub(crate) static NODE: Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>> =
+	Lazy::new(|| Mutex::new(None));
 
 #[allow(dead_code)]
-pub(crate) static CLIENT_CONTEXT: Lazy<ClientContext> = Lazy::new(|| ClientContext {
-	subscriptions: Default::default(),
-});
+pub(crate) static SUBSCRIPTIONS: Lazy<Mutex<HashMap<RequestId, oneshot::Sender<()>>>> =
+	Lazy::new(Default::default);
 
 #[allow(dead_code)]
 pub(crate) static EVENT_SENDER: OnceCell<UnboundedSender<Response>> = OnceCell::new();

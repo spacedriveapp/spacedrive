@@ -1,7 +1,7 @@
-use crate::{CLIENT_CONTEXT, EVENT_SENDER, NODE, RUNTIME};
+use crate::{EVENT_SENDER, NODE, RUNTIME, SUBSCRIPTIONS};
 use jni::objects::{JClass, JObject, JString};
 use jni::JNIEnv;
-use rspc::Request;
+use rspc::internal::jsonrpc::{handle_json_rpc, Request, Sender, SubscriptionMap};
 use sdcore::Node;
 use tokio::sync::mpsc::unbounded_channel;
 
@@ -22,7 +22,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
 				Err(err) => {
 					println!("Failed to serialize event: {}", err);
 					continue;
-				},
+				}
 			};
 
 			let env = jvm.attach_current_thread().unwrap();
@@ -45,7 +45,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 	env: JNIEnv,
 	class: JClass,
 	query: JString,
-	callback: JObject,
+	_callback: JObject,
 ) {
 	let jvm = env.get_java_vm().unwrap();
 	let query: String = env
@@ -53,7 +53,6 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 		.expect("Couldn't get java string!")
 		.into();
 	let class = env.new_global_ref(class).unwrap();
-	let callback = env.new_global_ref(callback).unwrap();
 
 	RUNTIME.spawn(async move {
 		let request: Request = serde_json::from_str(&query).unwrap();
@@ -65,12 +64,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 				let data_dir: String = {
 					let env = jvm.attach_current_thread().unwrap();
 					let data_dir = env
-						.call_method(
-							&class,
-							"getDataDirectory",
-							"()Ljava/lang/String;",
-							&[],
-						)
+						.call_method(&class, "getDataDirectory", "()Ljava/lang/String;", &[])
 						.unwrap()
 						.l()
 						.unwrap();
@@ -78,34 +72,19 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 					env.get_string(data_dir.into()).unwrap().into()
 				};
 
-				let new_node = Node::new(data_dir).await.expect("Unable to create node");
+				let new_node = Node::new(data_dir).await.unwrap();
 				node.replace(new_node.clone());
 				new_node
-			},
+			}
 		};
 
-		let resp = serde_json::to_string(
-			&request
-				.handle(
-					node.get_request_context(),
-					&router,
-					&CLIENT_CONTEXT,
-					EVENT_SENDER.get(),
-				)
-				.await,
+		handle_json_rpc(
+			node.get_request_context(),
+			request,
+			&router,
+			&mut Sender::ResponseChannel(&mut EVENT_SENDER.get().unwrap().clone()),
+			&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
 		)
-		.unwrap();
-
-		let env = jvm.attach_current_thread().unwrap();
-		env.call_method(
-			&callback,
-			"resolve",
-			"(Ljava/lang/Object;)V",
-			&[env
-				.new_string(resp)
-				.expect("Couldn't create java string!")
-				.into()],
-		)
-		.unwrap();
+		.await;
 	});
 }

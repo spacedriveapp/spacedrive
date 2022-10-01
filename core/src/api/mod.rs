@@ -1,4 +1,5 @@
 use std::{
+	path::PathBuf,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -62,12 +63,14 @@ pub(crate) fn mount() -> Arc<Router> {
 				// .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts")),
 				.set_ts_bindings_header("/* eslint-disable */"),
 		)
-		.query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
-		.query("getNode", |ctx, _: ()| async move {
-			Ok(NodeState {
-				config: ctx.config.get().await,
-				// We are taking the assumption here that this value is only used on the frontend for display purposes
-				data_path: ctx.config.data_directory().to_string_lossy().into_owned(),
+		.query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
+		.query("getNode", |t| {
+			t(|ctx, _: ()| async move {
+				Ok(NodeState {
+					config: ctx.config.get().await,
+					// We are taking the assumption here that this value is only used on the frontend for display purposes
+					data_path: ctx.config.data_directory().to_string_lossy().into_owned(),
+				})
 			})
 		})
 		.merge("library.", libraries::mount())
@@ -77,46 +80,48 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
 		// TODO: Scope the invalidate queries to a specific library (filtered server side)
-		.subscription("invalidateQuery", |ctx, _: ()| {
-			let mut event_bus_rx = ctx.event_bus.subscribe();
-			let mut last = Instant::now();
-			async_stream::stream! {
-				while let Ok(event) = event_bus_rx.recv().await {
-					match event {
-						CoreEvent::InvalidateOperation(op) => yield op,
-						CoreEvent::InvalidateOperationDebounced(op) => {
-							let current = Instant::now();
-							if current.duration_since(last) > Duration::from_millis(1000 / 60) {
-								last = current;
-								yield op;
-							}
-						},
-						_ => {}
+		.subscription("invalidateQuery", |t| {
+			t(|ctx, _: ()| {
+				let mut event_bus_rx = ctx.event_bus.subscribe();
+				let mut last = Instant::now();
+				async_stream::stream! {
+					while let Ok(event) = event_bus_rx.recv().await {
+						match event {
+							CoreEvent::InvalidateOperation(op) => yield op,
+							CoreEvent::InvalidateOperationDebounced(op) => {
+								let current = Instant::now();
+								if current.duration_since(last) > Duration::from_millis(1000 / 60) {
+									last = current;
+									yield op;
+								}
+							},
+							_ => {}
+						}
 					}
 				}
-			}
+			})
 		})
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
+	export_ts_bindings(&r);
 	r
+}
+
+pub fn export_ts_bindings(r: &Router) {
+	r.export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"))
+		.expect("Error exporting rspc Typescript bindings!");
+	r.export_ts(
+		PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../apps/mobile/src/types/bindings.ts"),
+	)
+	.expect("Error exporting rspc Typescript bindings!");
 }
 
 #[cfg(test)]
 mod tests {
-	use std::path::PathBuf;
-
 	/// This test will ensure the rspc router and all calls to `invalidate_query` are valid and also export an updated version of the Typescript bindings.
 	#[test]
 	fn test_and_export_rspc_bindings() {
-		let r = super::mount();
-		r.export_ts(
-			PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"),
-		)
-		.expect("Error exporting rspc Typescript bindings!");
-		r.export_ts(
-			PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../apps/mobile/src/types/bindings.ts"),
-		)
-		.expect("Error exporting rspc Typescript bindings!");
+		super::export_ts_bindings(super::mount());
 	}
 }

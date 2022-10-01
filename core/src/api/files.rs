@@ -19,25 +19,28 @@ pub struct SetFavoriteArgs {
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.library_query("readMetadata", |_, _id: i32, _| async move {
-			#[allow(unreachable_code)]
-			Ok(todo!())
+		.library_query("readMetadata", |t| {
+			t(|_, _id: i32, _| async move {
+				#[allow(unreachable_code)]
+				Ok(todo!())
+			})
 		})
-		.library_mutation("setNote", |_, args: SetNoteArgs, library| async move {
-			library
-				.db
-				.file()
-				.update(file::id::equals(args.id), vec![file::note::set(args.note)])
-				.exec()
-				.await?;
+		.library_mutation("setNote", |t| {
+			t(|_, args: SetNoteArgs, library| async move {
+				library
+					.db
+					.file()
+					.update(file::id::equals(args.id), vec![file::note::set(args.note)])
+					.exec()
+					.await?;
 
-			invalidate_query!(library, "locations.getExplorerData");
+				invalidate_query!(library, "locations.getExplorerData");
 
-			Ok(())
+				Ok(())
+			})
 		})
-		.library_mutation(
-			"setFavorite",
-			|_, args: SetFavoriteArgs, library| async move {
+		.library_mutation("setFavorite", |t| {
+			t(|_, args: SetFavoriteArgs, library| async move {
 				library
 					.db
 					.file()
@@ -51,17 +54,19 @@ pub(crate) fn mount() -> RouterBuilder {
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
-			},
-		)
-		.library_mutation("delete", |_, id: i32, library| async move {
-			library
-				.db
-				.file()
-				.delete(file::id::equals(id))
-				.exec()
-				.await?;
+			})
+		})
+		.library_mutation("delete", |t| {
+			t(|_, id: i32, library| async move {
+				library
+					.db
+					.file()
+					.delete(file::id::equals(id))
+					.exec()
+					.await?;
 
-			invalidate_query!(library, "locations.getExplorerData");
-			Ok(())
+				invalidate_query!(library, "locations.getExplorerData");
+				Ok(())
+			})
 		})
 }
