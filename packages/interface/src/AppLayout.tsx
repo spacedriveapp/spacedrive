@@ -1,5 +1,6 @@
 import { useCurrentLibrary } from '@sd/client';
 import clsx from 'clsx';
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { Sidebar } from './components/layout/Sidebar';
@@ -29,7 +30,9 @@ export function AppLayout() {
 		>
 			<Sidebar />
 			<div className="relative flex w-full h-screen max-h-screen bg-white dark:bg-gray-650">
-				<Outlet />
+				<Suspense fallback={<p>Loading...</p>}>
+					<Outlet />
+				</Suspense>
 			</div>
 		</div>
 	);

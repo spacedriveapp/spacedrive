@@ -1,5 +1,5 @@
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { format } from 'date-fns';
+import dayjs from 'dayjs';
 import React, { useRef } from 'react';
 import { Button, Pressable, Text, View } from 'react-native';
 import { ChevronLeftIcon } from 'react-native-heroicons/outline';
@@ -98,12 +98,12 @@ export const FileModal = () => {
 							<Divider style={tw`my-4`} />
 							<MetaItem
 								title="Date Created"
-								value={format(new Date(data.date_created), 'MMMM Do yyyy, h:mm:ss aaa')}
+								value={dayjs(data.date_created).format('MMMM Do yyyy, h:mm:ss aaa')}
 							/>
 							<Divider style={tw`my-4`} />
 							<MetaItem
 								title="Date Indexed"
-								value={format(new Date(data.date_indexed), 'MMMM Do yyyy, h:mm:ss aaa')}
+								value={dayjs(data.date_indexed).format('MMMM Do yyyy, h:mm:ss aaa')}
 							/>
 						</>
 					</BottomSheetScrollView>

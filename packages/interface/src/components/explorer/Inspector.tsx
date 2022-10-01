@@ -1,13 +1,14 @@
 import { ShareIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
-import { ExplorerContext, ExplorerItem, File, FilePath, Location } from '@sd/client';
-import { Button, TextArea } from '@sd/ui';
+import { ExplorerContext, ExplorerItem } from '@sd/client';
+import { Button } from '@sd/ui';
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { Link } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
-import types from '../../constants/file-types.json';
+// import types from '../../constants/file-types.json';
 import { Tooltip } from '../tooltip/Tooltip';
 import FileThumb from './FileThumb';
 import { Divider } from './inspector/Divider';
@@ -22,6 +23,11 @@ interface Props {
 }
 
 export const Inspector = (props: Props) => {
+	const { data: types } = useQuery(
+		['_file-types'],
+		() => import('../../constants/file-types.json')
+	);
+
 	const is_dir = props.data?.type === 'Path' ? props.data.is_dir : false;
 
 	const objectData = isObject(props.data) ? props.data : props.data.file;
@@ -41,18 +47,13 @@ export const Inspector = (props: Props) => {
 	});
 
 	return (
-		<div className="p-2 pt-0.5 pr-1 overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
+		<div className="p-2 pr-1 overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
 			{!!props.data && (
 				<>
-					<div className="flex items-center justify-center w-full overflow-hidden bg-black rounded-md ">
-						<FileThumb
-							iconClassNames="!my-10"
-							size={230}
-							className="!m-0 flex flex-shrink flex-grow-0"
-							data={props.data}
-						/>
+					<div className="flex bg-black items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
+						<FileThumb size={230} className="!m-0 flex flex-shrink flex-grow-0" data={props.data} />
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-4 overflow-hidden shadow select-text">
+					<div className="flex flex-col w-full pt-0.5 pb-4 overflow-hidden bg-white rounded-lg shadow select-text dark:shadow-gray-700 dark:bg-gray-550 dark:bg-opacity-40">
 						<h3 className="pt-3 pl-3 text-base font-bold">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}
@@ -111,12 +112,12 @@ export const Inspector = (props: Props) => {
 						<Divider />
 						<MetaItem
 							title="Date Created"
-							value={moment(props.data?.date_created).format('MMMM Do YYYY, h:mm:ss a')}
+							value={dayjs(props.data?.date_created).format('MMMM Do YYYY, h:mm:ss a')}
 						/>
 						<Divider />
 						<MetaItem
 							title="Date Indexed"
-							value={moment(props.data?.date_indexed).format('MMMM Do YYYY, h:mm:ss a')}
+							value={dayjs(props.data?.date_indexed).format('MMMM Do YYYY, h:mm:ss a')}
 						/>
 						{!is_dir && (
 							<>
@@ -128,7 +129,7 @@ export const Inspector = (props: Props) => {
 										</span>
 									)}
 									<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">
-										{props.data?.extension
+										{props.data?.extension && types !== undefined
 											? //@ts-ignore
 											  types[props.data.extension.toUpperCase()]?.descriptions.join(' / ')
 											: 'Unknown'}

@@ -16,7 +16,7 @@ export function useExplorerParams() {
 	return { location_id, path, limit };
 }
 
-export const LocationExplorer: React.FC<unknown> = () => {
+export default function LocationExplorer() {
 	const { location_id, path } = useExplorerParams();
 	const { library } = useCurrentLibrary();
 
@@ -39,4 +39,4 @@ export const LocationExplorer: React.FC<unknown> = () => {
 			{library!.uuid && explorerData.data && <Explorer data={explorerData.data} />}
 		</div>
 	);
-};
+}

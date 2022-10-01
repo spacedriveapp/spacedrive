@@ -11,9 +11,10 @@ use tokio::{
 #[allow(dead_code)]
 pub(crate) static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
+type NodeType = Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>>;
+
 #[allow(dead_code)]
-pub(crate) static NODE: Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>> =
-	Lazy::new(|| Mutex::new(None));
+pub(crate) static NODE: NodeType = Lazy::new(|| Mutex::new(None));
 
 #[allow(dead_code)]
 pub(crate) static SUBSCRIPTIONS: Lazy<Mutex<HashMap<RequestId, oneshot::Sender<()>>>> =
