@@ -26,7 +26,7 @@ importers:
       babel-plugin-module-resolver: ^4.1.0
       byte-size: ^8.1.0
       class-variance-authority: ^0.2.3
-      date-fns: ^2.29.2
+      dayjs: ^1.11.5
       eslint: ^8.21.0
       eslint-config-prettier: ^8.5.0
       eslint-plugin-react: ^7.30.1
@@ -70,7 +70,7 @@ importers:
       '@tanstack/react-query': 4.2.3_jk6ntyzimkrv4hwdmdgaaf5yaa
       byte-size: 8.1.0
       class-variance-authority: 0.2.3_typescript@4.7.4
-      date-fns: 2.29.2
+      dayjs: 1.11.5
       expo: 46.0.10_@babel+core@7.18.10
       expo-linking: 3.2.2_expo@46.0.10
       expo-splash-screen: 0.16.2_expo@46.0.10
@@ -3881,13 +3881,8 @@ packages:
     resolution: {integrity: sha512-+LSAiGFwQ9dRnRdOeaj7g47ZFJcOUPukAP8J3A3fuZ1g9Y44BG+P1sgApjLXTQPOzC4+7S9Wr8kXsfpINM4jpw==}
     dev: false
 
-  /date-fns/2.29.2:
-    resolution: {integrity: sha512-0VNbwmWJDS/G3ySwFSJA3ayhbURMTJLtwM2DTxf9CWondCnh6DTNlO9JgRSq6ibf4eD0lfMJNBxUdEAHHix+bA==}
-    engines: {node: '>=0.11'}
-    dev: false
-
-  /dayjs/1.11.4:
-    resolution: {integrity: sha512-Zj/lPM5hOvQ1Bf7uAvewDaUcsJoI6JmNqmHhHl3nyumwe0XHwt8sWdOVAPACJzCebL8gQCi+K49w7iKWnGwX9g==}
+  /dayjs/1.11.5:
+    resolution: {integrity: sha512-CAdX5Q3YW3Gclyo5Vpqkgpj8fSdLQcRuzfX6mC6Phy0nfJ0eGYOeS7m4mt2plDWLAtA4TqTakvbboHvUxfe4iA==}
 
   /debug/2.6.9:
     resolution: {integrity: sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==}
@@ -5886,7 +5881,7 @@ packages:
     hasBin: true
     dependencies:
       ansi-fragments: 0.2.1
-      dayjs: 1.11.4
+      dayjs: 1.11.5
       yargs: 15.4.1
 
   /loose-envify/1.4.0:

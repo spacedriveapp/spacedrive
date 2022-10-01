@@ -3,7 +3,7 @@ import { useLibraryQuery } from '@sd/client';
 import { JobReport } from '@sd/client';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import { formatDistanceToNow, formatDuration } from 'date-fns';
+import dayjs from 'dayjs';
 import { ArrowsClockwise } from 'phosphor-react';
 
 import { Tooltip } from '../tooltip/Tooltip';
@@ -70,12 +70,12 @@ export function JobsManager() {
 										<span className="text-xs opacity-60">
 											{job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
 											{job.seconds_elapsed
-												? formatDuration({ seconds: job.seconds_elapsed })
+												? dayjs.duration({ seconds: job.seconds_elapsed }).humanize()
 												: 'less than a second'}
 										</span>
 										<span className="mx-1 opacity-30">&#8226;</span>
 										<span className="text-xs opacity-60">
-											{formatDistanceToNow(new Date(job.date_created))} ago
+											{dayjs(job.date_created).toNow(true)} ago
 										</span>
 									</div>
 									<span className="text-xs opacity-60">{job.data}</span>
