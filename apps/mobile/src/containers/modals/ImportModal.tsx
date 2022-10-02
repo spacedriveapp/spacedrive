@@ -8,31 +8,34 @@ import { useLibraryMutation } from '~/hooks/rspc';
 import tw from '~/lib/tailwind';
 
 const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
-	const { mutate: createLocation } = useLibraryMutation('locations.create');
+	const { mutate: createLocation } = useLibraryMutation('locations.create', {
+		onError(error, variables, context) {
+			// TODO:
+			console.log(error);
+		}
+	});
 
 	const handleDirectorySelection = useCallback(async () => {
 		try {
 			const response = await DocumentPicker.pickDirectory({
 				presentationStyle: 'pageSheet'
 			});
-			// TODO: Make sure location doesn't already exist!
 			createLocation({
 				path: response.uri.replace('file://', '').replaceAll('%20', ' '), //TODO: Parse path better...
 				indexer_rules_ids: []
 			});
 		} catch (err) {
-			// TODO: TOAST msg
 			// console.warn(err);
 		}
 	}, [createLocation]);
 
 	return (
 		<Modal ref={ref} snapPoints={['20%']}>
-			<View style={tw`flex-1 p-4 bg-gray-600`}>
+			<View style={tw`flex-1 px-6 pt-1 pb-2 bg-gray-600`}>
 				<Button size="md" variant="primary" style={tw`my-2`} onPress={handleDirectorySelection}>
 					<Text>Import from Files</Text>
 				</Button>
-				<Button size="md" variant="primary" style={tw``}>
+				<Button size="md" variant="primary">
 					<Text>Import from Photos</Text>
 				</Button>
 			</View>
