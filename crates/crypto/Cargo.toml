@@ -1,0 +1,25 @@
+[package]
+name = "sd_crypto"
+version = "0.0.0"
+authors = ["Jake <brxken128@tutanota.com>"]
+readme = "README.md"
+description = "A library to handle cryptographic functions within Spacedrive"
+edition = "2021"
+license = "MIT"
+rust-version = "1.64.0"
+
+[dependencies]
+# rng
+rand = "0.8.5"
+
+# password hashing
+argon2 = "0.4.1"
+
+# aeads
+aes-gcm = "0.10.1"
+chacha20poly1305 = "0.10.1"
+aead = {version = "0.5.1", features = ["stream"] }
+
+# cryptographic hygiene
+zeroize = "1.5.7"
+secrecy = "0.8.0"
