@@ -34,6 +34,7 @@ impl StreamEncryption {
 		}
 	}
 
+	// This should be used for every block, except the final block
 	pub fn encrypt_next<'msg, 'aad>(
 		&mut self,
 		payload: impl Into<Payload<'msg, 'aad>>,
@@ -44,6 +45,7 @@ impl StreamEncryption {
 		}
 	}
 
+	// This should be used to encrypt the final block of data
 	pub fn encrypt_last<'msg, 'aad>(
 		self,
 		payload: impl Into<Payload<'msg, 'aad>>,

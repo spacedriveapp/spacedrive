@@ -18,7 +18,7 @@ argon2 = "0.4.1"
 # aeads
 aes-gcm = "0.10.1"
 chacha20poly1305 = "0.10.1"
-aead = {version = "0.5.1", features = ["stream"] }
+aead = { version = "0.5.1", features = ["stream"] }
 
 # cryptographic hygiene
 zeroize = "1.5.7"
