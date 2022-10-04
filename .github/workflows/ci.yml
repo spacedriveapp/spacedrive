@@ -103,8 +103,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
 
-  build-core:
-    name: Build Core (${{ matrix.platform }})
+  build-and-publish:
+    name: Build and Publish (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: true
