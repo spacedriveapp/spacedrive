@@ -23,3 +23,6 @@ aead = { version = "0.5.1", features = ["stream"] }
 # cryptographic hygiene
 zeroize = "1.5.7"
 secrecy = "0.8.0"
+
+# error handling
+thiserror = "1.0.37"

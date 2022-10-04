@@ -5,7 +5,7 @@ use std::{
 
 use zeroize::Zeroize;
 
-use crate::{primitives::BLOCK_SIZE, utils::stream::StreamEncryption};
+use crate::{primitives::BLOCK_SIZE, utils::stream::StreamEncryption, error::Error};
 
 // I'm not too sure `RefCell`s are the best choice here
 // They provide mutable ownership to the encryptor, and that allows us to have full control over them
@@ -65,55 +65,59 @@ where
 		}
 	}
 
-	pub fn step(&mut self) {
+	pub fn step(&mut self) -> Result<(), Error> {
 		let mut read_buffer = vec![0u8; BLOCK_SIZE];
-		let read_count = self.reader.borrow_mut().read(&mut read_buffer).unwrap();
+		let read_count = self.reader.borrow_mut().read(&mut read_buffer).map_err(Error::Io)?;
 		if read_count == BLOCK_SIZE && self.current_step < self.total_step {
 			let encrypted_data = self
 				.stream_object
 				.borrow_mut()
 				.encrypt_next(read_buffer.as_ref())
-				.unwrap();
+				.map_err(|_| Error::Encrypt)?;
 
 			// zeroize before writing, so any potential errors won't result in a potential data leak
 			read_buffer.zeroize();
 
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
-			let write_count = self.writer.borrow_mut().write(&encrypted_data).unwrap();
+			let write_count = self.writer.borrow_mut().write(&encrypted_data).map_err(Error::Io)?;
 
 			if read_count != write_count {
-				// error
+                return Err(Error::WriteMismatch)
 			}
 		} else {
-			// error here - step checks weren't calculated correctly elsewhere
+            return Err(Error::IncorrectStep)
 		}
 
 		self.current_step += 1;
+
+        Ok(())
 	}
 
 	// Finalize must be called when the `current_step` == `total_step`
-	pub fn finalize(self) {
+	pub fn finalize(self) -> Result<(), Error> {
 		let mut read_buffer = vec![0u8; BLOCK_SIZE];
-		let read_count = self.reader.borrow_mut().read(&mut read_buffer).unwrap();
+		let read_count = self.reader.borrow_mut().read(&mut read_buffer).map_err(Error::Io)?;
 
 		if read_count != BLOCK_SIZE && self.current_step == self.total_step {
 			let encrypted_data = self
 				.stream_object
 				.into_inner()
 				.encrypt_last(read_buffer.as_ref())
-				.unwrap();
+				.map_err(|_| Error::Encrypt)?;
 
 			// zeroize before writing, so any potential errors won't result in a potential data leak
 			read_buffer.zeroize();
 
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
-			let write_count = self.writer.borrow_mut().write(&encrypted_data).unwrap();
+			let write_count = self.writer.borrow_mut().write(&encrypted_data).map_err(Error::Io)?;
 
 			if read_count != write_count {
-				// error
+                return Err(Error::WriteMismatch)
 			}
 		} else {
-			// error here - step checks weren't calculated correctly elsewhere
+            return Err(Error::IncorrectStep)
 		}
+
+        Ok(())
 	}
 }

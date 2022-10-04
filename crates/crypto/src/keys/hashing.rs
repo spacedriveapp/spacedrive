@@ -1,4 +1,4 @@
-use crate::primitives::SALT_LEN;
+use crate::{primitives::SALT_LEN, error::Error};
 use argon2::Argon2;
 use secrecy::{ExposeSecret, Secret};
 
@@ -44,7 +44,7 @@ pub fn password_hash_argon2id(
 	password: Secret<Vec<u8>>,
 	salt: [u8; SALT_LEN],
 	params: Params,
-) -> Secret<[u8; 32]> {
+) -> Result<Secret<[u8; 32]>, Error> {
 	let mut key = [0u8; 32];
 
 	let argon2 = Argon2::new(
@@ -53,12 +53,15 @@ pub fn password_hash_argon2id(
 		params.get_argon2_params(),
 	);
 
-	let _result = argon2
-		.hash_password_into(password.expose_secret(), &salt, &mut key)
-		.unwrap();
-
+	let result = argon2
+		.hash_password_into(password.expose_secret(), &salt, &mut key);
+	
 	// Manual drop so we can ensure that it's gone
 	drop(password);
 
-	Secret::new(key)
+	if let Ok(_) = result {
+		Ok(Secret::new(key))
+	} else {
+		Err(Error::PasswordHash)
+	}
 }

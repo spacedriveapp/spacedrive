@@ -2,6 +2,7 @@ use std::{
 	cell::RefCell,
 	io::{Read, Seek, Write},
 };
+use crate::error::Error;
 
 use zeroize::Zeroize;
 
@@ -67,55 +68,59 @@ where
 		}
 	}
 
-	pub fn step(&mut self) {
+	pub fn step(&mut self) -> Result<(), Error> {
 		let mut read_buffer = vec![0u8; BLOCK_SIZE];
-		let read_count = self.reader.borrow_mut().read(&mut read_buffer).unwrap();
+		let read_count = self.reader.borrow_mut().read(&mut read_buffer).map_err(Error::Io)?;
 		if read_count == BLOCK_SIZE && self.current_step < self.total_step {
 			let mut decrypted_data = self
 				.stream_object
 				.borrow_mut()
 				.decrypt_next(read_buffer.as_ref())
-				.unwrap();
+				.map_err(|_| Error::Decrypt)?;
 
 			// zeroize before writing, so any potential errors won't result in a potential data leak
 			decrypted_data.zeroize();
 
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
-			let write_count = self.writer.borrow_mut().write(&decrypted_data).unwrap();
+			let write_count = self.writer.borrow_mut().write(&decrypted_data).map_err(Error::Io)?;
 
 			if read_count != write_count {
-				// error
+                return Err(Error::WriteMismatch)
 			}
 		} else {
-			// error here - step checks weren't calculated correctly elsewhere
+            return Err(Error::IncorrectStep)
 		}
 
 		self.current_step += 1;
+
+        Ok(())
 	}
 
 	// Finalize must be called when the `current_step` == `total_step`
-	pub fn finalize(self) {
+	pub fn finalize(self) -> Result<(), Error> {
 		let mut read_buffer = vec![0u8; BLOCK_SIZE];
-		let read_count = self.reader.borrow_mut().read(&mut read_buffer).unwrap();
+		let read_count = self.reader.borrow_mut().read(&mut read_buffer).map_err(Error::Io)?;
 
 		if read_count != BLOCK_SIZE && self.current_step == self.total_step {
 			let mut decrypted_data = self
 				.stream_object
 				.into_inner()
 				.decrypt_last(read_buffer[..read_count].as_ref())
-				.unwrap();
+				.map_err(|_| Error::Decrypt)?;
 
 			// zeroize before writing, so any potential errors won't result in a potential data leak
 			decrypted_data.zeroize();
 
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
-			let write_count = self.writer.borrow_mut().write(&decrypted_data).unwrap();
+			let write_count = self.writer.borrow_mut().write(&decrypted_data).map_err(Error::Io)?;
 
 			if read_count != write_count {
-				// error
+                return Err(Error::WriteMismatch)
 			}
 		} else {
-			// error here - step checks weren't calculated correctly elsewhere
+            return Err(Error::IncorrectStep)
 		}
+
+        Ok(())
 	}
 }
