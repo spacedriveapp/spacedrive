@@ -50,6 +50,39 @@ jobs:
       - name: Perform typechecks
         run: pnpm typecheck
 
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v1
+        with:
+          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache Prisma codegen
+        id: cache-prisma
+        uses: actions/cache@v3
+        with:
+          path: ./core/src/prisma.rs
+          key: prisma-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './Cargo.toml') }}
+
+      - name: Generate Prisma client
+        working-directory: core
+        if: steps.cache-prisma.outputs.cache-hit != 'true'
+        run: cargo run -p prisma-cli --release -- generate
+
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check
+
   build-core:
     name: Build Core (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
