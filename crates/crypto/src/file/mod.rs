@@ -2,6 +2,7 @@
 use crate::primitives::BLOCK_SIZE;
 
 pub mod encrypt;
+pub mod decrypt;
 
 // I'm unsure as to whether or not this will be needed, but I wrote it in advance just in case
 // The target block will be related to the "step", e.g. step 200/4000
