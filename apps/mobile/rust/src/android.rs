@@ -22,7 +22,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
 				Err(err) => {
 					println!("Failed to serialize event: {}", err);
 					continue;
-				},
+				}
 			};
 
 			let env = jvm.attach_current_thread().unwrap();
@@ -65,12 +65,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 				let data_dir: String = {
 					let env = jvm.attach_current_thread().unwrap();
 					let data_dir = env
-						.call_method(
-							&class,
-							"getDataDirectory",
-							"()Ljava/lang/String;",
-							&[],
-						)
+						.call_method(&class, "getDataDirectory", "()Ljava/lang/String;", &[])
 						.unwrap()
 						.l()
 						.unwrap();
@@ -81,7 +76,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 				let new_node = Node::new(data_dir).await.expect("Unable to create node");
 				node.replace(new_node.clone());
 				new_node
-			},
+			}
 		};
 
 		let resp = serde_json::to_string(
