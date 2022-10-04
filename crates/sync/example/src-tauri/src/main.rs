@@ -29,7 +29,7 @@ async fn main() {
 					let dbs = &mut ctx.lock().await.dbs;
 					let uuid = Uuid::new_v4();
 
-					dbs.insert(uuid.clone(), Db::new(uuid.clone()));
+					dbs.insert(uuid, Db::new(uuid));
 
 					println!("{:?}", dbs);
 
@@ -49,7 +49,7 @@ async fn main() {
 				r(|ctx, _: ()| async move {
 					let dbs = &mut ctx.lock().await.dbs;
 
-					Ok(dbs.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>())
+					Ok(dbs.iter().map(|(id, _)| *id).collect::<Vec<_>>())
 				})
 			})
 			.query("db.tags", |r| {
