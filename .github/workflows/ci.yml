@@ -68,20 +68,39 @@ jobs:
         with:
           sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Cache Prisma codegen
-        id: cache-prisma
-        uses: actions/cache@v3
-        with:
-          path: ./core/src/prisma.rs
-          key: prisma-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './Cargo.toml') }}
-
       - name: Generate Prisma client
-        working-directory: core
-        if: steps.cache-prisma.outputs.cache-hit != 'true'
-        run: cargo run -p prisma-cli --release -- generate
+        uses: ./.github/actions/generate-prisma-client
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check
+
+  clippy_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: clippy
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v1
+        with:
+          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
+
+      - name: Run Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
 
   build-core:
     name: Build Core (${{ matrix.platform }})
@@ -148,17 +167,8 @@ jobs:
       - name: Install pnpm dependencies
         run: pnpm --frozen-lockfile i
 
-      - name: Cache Prisma codegen
-        id: cache-prisma
-        uses: actions/cache@v3
-        with:
-          path: ./core/src/prisma.rs
-          key: prisma-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './Cargo.toml') }}
-
       - name: Generate Prisma client
-        working-directory: core
-        if: steps.cache-prisma.outputs.cache-hit != 'true'
-        run: cargo run -p prisma-cli --release -- generate
+        uses: ./.github/actions/generate-prisma-client
 
       - name: Cargo fetch
         run: cargo fetch
@@ -168,6 +178,15 @@ jobs:
 
       - name: Bundle Desktop
         run: pnpm desktop tauri build
+
+      - name: Build Server
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          cargo build -p server --release
+
+      - name: Publish server image
+        if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
+        uses: ./.github/actions/publish-server-image
 
       - name: Publish artifacts
         uses: ./.github/actions/publish-artifacts
