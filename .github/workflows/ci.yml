@@ -50,6 +50,22 @@ jobs:
 
       - name: Perform typechecks
         run: pnpm typecheck
+  
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check
 
   build-core:
     name: Build Core (${{ matrix.platform }})
