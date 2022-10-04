@@ -12,6 +12,7 @@
   "license": "MIT",
   "devDependencies": {
     "@tauri-apps/cli": "^1.1.0",
+    "@types/babel__core": "^7.1.19",
     "@types/node": "^18.7.10",
     "autoprefixer": "^10.4.12",
     "postcss": "^8.4.16",

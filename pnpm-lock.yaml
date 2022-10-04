@@ -229,6 +229,7 @@ importers:
       '@rspc/tauri': ~0.1.2
       '@tanstack/solid-query': 4.7.1
       '@tauri-apps/cli': ^1.1.0
+      '@types/babel__core': ^7.1.19
       '@types/node': ^18.7.10
       autoprefixer: ^10.4.12
       clsx: ^1.2.1
@@ -247,6 +248,7 @@ importers:
       solid-js: 1.5.7
     devDependencies:
       '@tauri-apps/cli': 1.1.1
+      '@types/babel__core': 7.1.19
       '@types/node': 18.7.20
       autoprefixer: 10.4.12_postcss@8.4.16
       postcss: 8.4.16
@@ -5835,6 +5837,35 @@ packages:
 
   /@types/babel-types/7.0.11:
     resolution: {integrity: sha512-pkPtJUUY+Vwv6B1inAz55rQvivClHJxc9aVEPPmaq2cbyeMLCiDpbKpcKyX4LAwpNGi+SHBv0tHv6+0gXv0P2A==}
+    dev: true
+
+  /@types/babel__core/7.1.19:
+    resolution: {integrity: sha512-WEOTgRsbYkvA/KCsDwVEGkd7WAr1e3g31VHQ8zy5gul/V1qKullU/BU5I68X5v7V3GnB9eotmom4v5a5gjxorw==}
+    dependencies:
+      '@babel/parser': 7.19.1
+      '@babel/types': 7.19.0
+      '@types/babel__generator': 7.6.4
+      '@types/babel__template': 7.4.1
+      '@types/babel__traverse': 7.18.2
+    dev: true
+
+  /@types/babel__generator/7.6.4:
+    resolution: {integrity: sha512-tFkciB9j2K755yrTALxD44McOrk+gfpIpvC3sxHjRawj6PfnQxrse4Clq5y/Rq+G3mrBurMax/lG8Qn2t9mSsg==}
+    dependencies:
+      '@babel/types': 7.19.0
+    dev: true
+
+  /@types/babel__template/7.4.1:
+    resolution: {integrity: sha512-azBFKemX6kMg5Io+/rdGT0dkGreboUVR0Cdm3fz9QJWpaQGJRQXl7C+6hOTCZcMll7KFyEQpgbYI2lHdsS4U7g==}
+    dependencies:
+      '@babel/parser': 7.19.1
+      '@babel/types': 7.19.0
+    dev: true
+
+  /@types/babel__traverse/7.18.2:
+    resolution: {integrity: sha512-FcFaxOr2V5KZCviw1TnutEMVUVsGt4D2hP1TAfXZAMKuHYW3xQhe3jTxNPWutgCJ3/X1c5yX8ZoGVEItxKbwBg==}
+    dependencies:
+      '@babel/types': 7.19.0
     dev: true
 
   /@types/babylon/6.16.6:
