@@ -10,7 +10,6 @@ on:
   workflow_dispatch:
 
 env:
-  CARGO_INCREMENTAL: 1
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
 jobs:
@@ -50,22 +49,6 @@ jobs:
 
       - name: Perform typechecks
         run: pnpm typecheck
-  
-  rustfmt:
-    name: rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: rustfmt
-
-      - name: Run rustfmt
-        run: cargo fmt --all -- --check
 
   build-core:
     name: Build Core (${{ matrix.platform }})
@@ -107,8 +90,6 @@ jobs:
 
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v1
-        with:
-          sharedKey: core-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run 'setup-system.sh' script
         if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
@@ -122,6 +103,7 @@ jobs:
         id: pnpm-cache
         run: |
           echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
+
       - uses: actions/cache@v3
         name: Setup pnpm cache
         with:
@@ -129,6 +111,7 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
+
       - name: Install pnpm dependencies
         run: pnpm --frozen-lockfile i
 
