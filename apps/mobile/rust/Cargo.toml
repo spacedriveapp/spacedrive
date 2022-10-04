@@ -10,7 +10,7 @@ crate-type = ["staticlib", "cdylib"] # staticlib for IOS and cdylib for Android
 
 [dependencies]
 once_cell = "1.13.0"
-sdcore = { path = "../../../core", features = [
+sd-core = { path = "../../../core", features = [
   "mobile",
   "p2p",
 ], default-features = false }

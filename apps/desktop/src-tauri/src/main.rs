@@ -6,7 +6,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use sdcore::Node;
+use sd_core::Node;
 use tauri::async_runtime::block_on;
 use tauri::{
 	api::path,

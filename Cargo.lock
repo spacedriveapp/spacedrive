@@ -696,17 +696,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crdt-rs"
-version = "0.1.0"
-dependencies = [
- "rspc 0.1.2",
- "serde",
- "serde_json",
- "uhlc",
- "uuid 1.1.2",
-]
-
-[[package]]
 name = "crossbeam-channel"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1118,8 +1107,8 @@ dependencies = [
 name = "example"
 version = "0.0.0"
 dependencies = [
- "crdt-rs",
  "rspc 0.1.2",
+ "sd-sync",
  "serde",
  "serde_json",
  "tauri",
@@ -3045,10 +3034,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "p2p"
-version = "0.1.0"
-
-[[package]]
 name = "pango"
 version = "0.15.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4262,18 +4247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
-name = "sd_ffmpeg"
-version = "0.1.0"
-dependencies = [
- "ffmpeg-sys-next",
- "tempfile",
- "thiserror",
- "tokio",
- "webp",
-]
-
-[[package]]
-name = "sdcore"
+name = "sd-core"
 version = "0.1.0"
 dependencies = [
  "async-stream",
@@ -4298,7 +4272,7 @@ dependencies = [
  "rmp",
  "rmp-serde",
  "rspc 0.0.5",
- "sd_ffmpeg",
+ "sd-ffmpeg",
  "serde",
  "serde_json",
  "sysinfo",
@@ -4313,6 +4287,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-ffmpeg"
+version = "0.1.0"
+dependencies = [
+ "ffmpeg-sys-next",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "webp",
+]
+
+[[package]]
+name = "sd-p2p"
+version = "0.1.0"
+
+[[package]]
+name = "sd-sync"
+version = "0.1.0"
+dependencies = [
+ "rspc 0.1.2",
+ "serde",
+ "serde_json",
+ "uhlc",
+ "uuid 1.1.2",
+]
+
+[[package]]
 name = "sdcore-lib"
 version = "0.1.0"
 dependencies = [
@@ -4324,7 +4324,7 @@ dependencies = [
  "openssl",
  "openssl-sys",
  "rspc 0.0.5",
- "sdcore",
+ "sd-core",
  "serde_json",
  "tokio",
 ]
@@ -4524,7 +4524,7 @@ dependencies = [
  "axum",
  "ctrlc",
  "rspc 0.0.5",
- "sdcore",
+ "sd-core",
  "tokio",
  "tracing",
 ]
@@ -4699,7 +4699,7 @@ name = "spacedrive"
 version = "0.1.0"
 dependencies = [
  "rspc 0.0.5",
- "sdcore",
+ "sd-core",
  "serde",
  "swift-rs",
  "tauri",
@@ -4977,10 +4977,6 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
-
-[[package]]
-name = "sync"
-version = "0.1.0"
 
 [[package]]
 name = "sync_wrapper"

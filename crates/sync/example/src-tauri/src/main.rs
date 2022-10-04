@@ -7,8 +7,8 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crdt_rs::*;
 use rspc::*;
+use sd_sync::*;
 
 #[derive(Default)]
 struct Ctx {
@@ -29,7 +29,7 @@ async fn main() {
 					let dbs = &mut ctx.lock().await.dbs;
 					let uuid = Uuid::new_v4();
 
-					dbs.insert(uuid.clone(), crdt_rs::Db::new(uuid.clone()));
+					dbs.insert(uuid.clone(), Db::new(uuid.clone()));
 
 					println!("{:?}", dbs);
 

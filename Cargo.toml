@@ -2,7 +2,7 @@
 members = [
   "core",
   "crates/*",
-  "crates/crdt-rs/example/src-tauri",
+  "crates/sync/example/src-tauri",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
   "apps/server",
