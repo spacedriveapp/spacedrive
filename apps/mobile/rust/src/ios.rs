@@ -45,7 +45,7 @@ pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
 				Err(err) => {
 					println!("Failed to serialize event: {}", err);
 					continue;
-				},
+				}
 			};
 			let data = NSString::from_str(&data);
 			let _: () = msg_send![id, sendCoreEvent: data];
@@ -73,7 +73,7 @@ pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_voi
 				let new_node = Node::new(doc_dir).await;
 				node.replace(new_node.clone());
 				new_node
-			},
+			}
 		};
 
 		resolve.resolve(
