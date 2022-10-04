@@ -3,7 +3,7 @@ pub const SALT_LEN: usize = 16;
 
 /// The size used for streaming blocks. This size seems to offer the best performance compared to alternatives.
 /// The file size gain is 16 bytes per 1MiB (due to the AEAD tag)
-pub const BLOCK_SIZE: usize = 1048576;
+pub const BLOCK_SIZE: usize = 1_048_576;
 
 // These are all possible algorithms that can be used for encryption
 // They tie in heavily with `StreamEncryption` and `StreamDecryption`
