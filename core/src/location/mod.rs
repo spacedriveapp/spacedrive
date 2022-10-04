@@ -1,9 +1,11 @@
 use crate::{
-	encode::{ThumbnailJob, ThumbnailJobInit},
-	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
 	invalidate_query,
 	job::Job,
 	library::LibraryContext,
+	object::{
+		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
+		preview::{ThumbnailJob, ThumbnailJobInit},
+	},
 	prisma::{indexer_rules_in_location, location, node},
 };
 
@@ -222,7 +224,7 @@ async fn link_location_and_indexer_rules(
 		.create_many(
 			rules_ids
 				.iter()
-				.map(|id| indexer_rules_in_location::create(location_id, *id, vec![]))
+				.map(|id| indexer_rules_in_location::create_unchecked(location_id, *id, vec![]))
 				.collect(),
 		)
 		.exec()

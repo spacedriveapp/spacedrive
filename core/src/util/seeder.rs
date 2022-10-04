@@ -1,6 +1,6 @@
 use crate::{
 	location::indexer::{
-		indexer_rules::{IndexerRule, ParametersPerKind, RuleKind},
+		rules::{IndexerRule, ParametersPerKind, RuleKind},
 		IndexerError,
 	},
 	prisma::PrismaClient,

@@ -12,7 +12,7 @@ use tokio::time::Instant;
 use tracing::info;
 
 use super::{
-	indexer_rules::IndexerRule,
+	rules::IndexerRule,
 	walk::{walk, WalkEntry},
 };
 
@@ -262,7 +262,7 @@ impl StatefulJob for IndexerJob {
 							.to_string_lossy()
 							.to_string();
 
-						file_path::create(
+						file_path::create_unchecked(
 							entry.file_id,
 							location_id,
 							materialized_path,

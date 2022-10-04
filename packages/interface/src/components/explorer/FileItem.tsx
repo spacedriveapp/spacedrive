@@ -1,5 +1,4 @@
-import { getExplorerStore, useExplorerStore } from '@sd/client';
-import { ExplorerItem } from '@sd/core';
+import { ExplorerItem, getExplorerStore } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
 

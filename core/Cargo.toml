@@ -1,5 +1,5 @@
 [package]
-name = "sdcore"
+name = "sd-core"
 version = "0.1.0"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
@@ -16,7 +16,7 @@ mobile = [
 ] # This feature allows features to be disabled when the Core is running on mobile.
 ffmpeg = [
   "dep:ffmpeg-next",
-  "dep:thumbnailer",
+  "dep:sd-ffmpeg",
 ] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 
 [dependencies]
@@ -35,12 +35,7 @@ rmp = "^0.8.11"
 rmp-serde = "^1.1.0"
 
 # Project dependencies
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.0", features = [
-  "rspc",
-  "sqlite-create-many",
-  "migrations",
-  "sqlite",
-], default-features = false }
+prisma-client-rust = { workspace = true }
 rspc = { version = "0.0.5", features = ["uuid", "chrono", "tracing"] }
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
@@ -56,7 +51,7 @@ async-trait = "^0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
 ffmpeg-next = { version = "5.0.3", optional = true, features = [] }
-thumbnailer = { path = "./thumbnailer", optional = true }
+sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 fs_extra = "1.2.0"
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.14", features = ["env-filter"] }

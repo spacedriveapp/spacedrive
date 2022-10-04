@@ -1,5 +1,5 @@
 import { useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
-import { LocationCreateArgs } from '@sd/core';
+import { LocationCreateArgs } from '@sd/client';
 import { Button } from '@sd/ui';
 
 import LocationListItem from '../../../components/location/LocationListItem';

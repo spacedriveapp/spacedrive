@@ -1,6 +1,6 @@
 import { TrashIcon } from '@heroicons/react/24/outline';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { TagUpdateArgs } from '@sd/core';
+import { TagUpdateArgs } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
