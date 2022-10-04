@@ -88,12 +88,12 @@ pub(crate) fn mount() -> RouterBuilder {
 				items: files,
 			})
 		})
-		.library_query("getForFile", |_, file_id: i32, library| async move {
+		.library_query("getForFile", |_, object_id: i32, library| async move {
 			Ok(library
 				.db
 				.tag()
 				.find_many(vec![tag::tag_objects::some(vec![
-					tag_on_object::object_id::equals(file_id),
+					tag_on_object::object_id::equals(object_id),
 				])])
 				.exec()
 				.await?)

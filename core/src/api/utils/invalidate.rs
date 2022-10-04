@@ -92,7 +92,7 @@ impl InvalidRequests {
 #[allow(clippy::crate_in_macro_def)]
 macro_rules! invalidate_query {
 	($ctx:expr, $key:literal) => {{
-		let _: &crate::library::LibraryContext = &$ctx; // Assert the context is the correct type
+		let ctx: &crate::library::LibraryContext = &$ctx; // Assert the context is the correct type
 
 		#[cfg(debug_assertions)]
 		{
@@ -105,13 +105,15 @@ macro_rules! invalidate_query {
 					.push(crate::api::utils::InvalidationRequest {
 						key: $key,
 						arg_ty: None,
-                        macro_src: concat!(file!(), ":", line!()),
+            macro_src: concat!(file!(), ":", line!()),
 					})
 			}
 		}
 
 		// The error are ignored here because they aren't mission critical. If they fail the UI might be outdated for a bit.
-		crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null)
+		ctx.emit(crate::api::CoreEvent::InvalidateOperation(
+			crate::api::utils::InvalidateOperationEvent::dangerously_create($key, serde_json::Value::Null)
+		))
 	}};
 	($ctx:expr, $key:literal: $arg_ty:ty, $arg:expr $(,)?) => {{
 		let _: $arg_ty = $arg; // Assert the type the user provided is correct

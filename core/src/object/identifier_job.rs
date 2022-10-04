@@ -177,23 +177,23 @@ impl StatefulJob for FileIdentifierJob {
 
 		// find all existing files by cas id
 		let generated_cas_ids = chunk.values().map(|c| c.cas_id.clone()).collect();
-		let existing_files = db
+		let existing_objects = db
 			.object()
 			.find_many(vec![object::cas_id::in_vec(generated_cas_ids)])
 			.exec()
 			.await?;
 
-		info!("Found {} existing files", existing_files.len());
+		info!("Found {} existing files", existing_objects.len());
 
-		for existing_file in &existing_files {
+		for existing_object in &existing_objects {
 			if let Err(e) = db
 				.file_path()
 				.update(
 					file_path::location_id_id(
 						state.init.location_id,
-						*cas_lookup.get(&existing_file.cas_id).unwrap(),
+						*cas_lookup.get(&existing_object.cas_id).unwrap(),
 					),
-					vec![file_path::object_id::set(Some(existing_file.id))],
+					vec![file_path::object_id::set(Some(existing_object.id))],
 				)
 				.exec()
 				.await
@@ -202,7 +202,7 @@ impl StatefulJob for FileIdentifierJob {
 			}
 		}
 
-		let existing_files_cas_ids = existing_files
+		let existing_object_cas_ids = existing_objects
 			.iter()
 			.map(|object| object.cas_id.clone())
 			.collect::<HashSet<_>>();
@@ -211,7 +211,7 @@ impl StatefulJob for FileIdentifierJob {
 		let new_objects = chunk
 			.iter()
 			.map(|(_id, create_file)| create_file)
-			.filter(|create_file| !existing_files_cas_ids.contains(&create_file.cas_id))
+			.filter(|create_file| !existing_object_cas_ids.contains(&create_file.cas_id))
 			.collect::<Vec<_>>();
 
 		if !new_objects.is_empty() {
@@ -230,7 +230,7 @@ impl StatefulJob for FileIdentifierJob {
 			let created_files: Vec<FileCreated> = db
 				._query_raw(Raw::new(
 					&format!(
-						"INSERT INTO objects (cas_id, size_in_bytes, date_created) VALUES {}
+						"INSERT INTO object (cas_id, size_in_bytes, date_created) VALUES {}
 						ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
 						vec!["({}, {}, {})"; new_objects.len()].join(",")
 					),
