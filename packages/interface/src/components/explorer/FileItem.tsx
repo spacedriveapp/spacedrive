@@ -23,7 +23,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 	return (
 		<div
 			onContextMenu={(e) => {
-				const objectId = isObject(data) ? data.id : data.file?.id;
+				const objectId = isObject(data) ? data.id : data.object?.id;
 				if (objectId != undefined) {
 					getExplorerStore().contextMenuObjectId = objectId;
 					if (index != undefined) {

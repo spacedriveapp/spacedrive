@@ -201,6 +201,5 @@ const WrappedItem: React.FC<WrappedItemProps> = ({ item, index, isSelected, kind
 	// 			selected={isSelected}
 	// 		/>
 	// 	);
-	// 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	// }, [item, index, isSelected]);
 };

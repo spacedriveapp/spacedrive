@@ -1,6 +1,6 @@
 import { ShareIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
-import { ExplorerContext, ExplorerItem, File, FilePath, Location } from '@sd/client';
+import { ExplorerContext, ExplorerItem, FilePath, Location, Object } from '@sd/client';
 import { Button, TextArea } from '@sd/ui';
 import clsx from 'clsx';
 import moment from 'moment';
@@ -24,7 +24,7 @@ interface Props {
 export const Inspector = (props: Props) => {
 	const is_dir = props.data?.type === 'Path' ? props.data.is_dir : false;
 
-	const objectData = isObject(props.data) ? props.data : props.data.file;
+	const objectData = isObject(props.data) ? props.data : props.data.object;
 
 	// this prevents the inspector from fetching data when the user is navigating quickly
 	const [readyToFetch, setReadyToFetch] = useState(false);

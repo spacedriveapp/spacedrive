@@ -39,7 +39,7 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 							assignTag({
 								tag_id: tag.id,
-								file_id: props.objectId,
+								object_id: props.objectId,
 								unassign: active
 							});
 						}}

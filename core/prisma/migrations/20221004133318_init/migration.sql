@@ -1,14 +1,5 @@
 -- CreateTable
-CREATE TABLE "_migrations" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "name" TEXT NOT NULL,
-    "checksum" TEXT NOT NULL,
-    "steps_applied" INTEGER NOT NULL DEFAULT 0,
-    "applied_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- CreateTable
-CREATE TABLE "sync_events" (
+CREATE TABLE "sync_event" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "node_id" INTEGER NOT NULL,
     "timestamp" TEXT NOT NULL,
@@ -16,14 +7,14 @@ CREATE TABLE "sync_events" (
     "kind" INTEGER NOT NULL,
     "column" TEXT,
     "value" TEXT NOT NULL,
-    CONSTRAINT "sync_events_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "sync_event_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "statistics" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "date_captured" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "total_file_count" INTEGER NOT NULL DEFAULT 0,
+    "total_object_count" INTEGER NOT NULL DEFAULT 0,
     "library_db_size" TEXT NOT NULL DEFAULT '0',
     "total_bytes_used" TEXT NOT NULL DEFAULT '0',
     "total_bytes_capacity" TEXT NOT NULL DEFAULT '0',
@@ -33,7 +24,7 @@ CREATE TABLE "statistics" (
 );
 
 -- CreateTable
-CREATE TABLE "nodes" (
+CREATE TABLE "node" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
     "name" TEXT NOT NULL,
@@ -45,7 +36,7 @@ CREATE TABLE "nodes" (
 );
 
 -- CreateTable
-CREATE TABLE "volumes" (
+CREATE TABLE "volume" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "node_id" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
@@ -59,7 +50,7 @@ CREATE TABLE "volumes" (
 );
 
 -- CreateTable
-CREATE TABLE "locations" (
+CREATE TABLE "location" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
     "node_id" INTEGER NOT NULL,
@@ -73,11 +64,11 @@ CREATE TABLE "locations" (
     "is_online" BOOLEAN NOT NULL DEFAULT true,
     "is_archived" BOOLEAN NOT NULL DEFAULT false,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "locations_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "location_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "files" (
+CREATE TABLE "object" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "cas_id" TEXT NOT NULL,
     "integrity_checksum" TEXT,
@@ -97,18 +88,18 @@ CREATE TABLE "files" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_indexed" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "files_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "keys" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "object_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "key" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "file_paths" (
+CREATE TABLE "file_path" (
     "id" INTEGER NOT NULL,
     "is_dir" BOOLEAN NOT NULL DEFAULT false,
     "location_id" INTEGER NOT NULL,
     "materialized_path" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "extension" TEXT,
-    "file_id" INTEGER,
+    "object_id" INTEGER,
     "parent_id" INTEGER,
     "key_id" INTEGER,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -116,19 +107,19 @@ CREATE TABLE "file_paths" (
     "date_indexed" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY ("location_id", "id"),
-    CONSTRAINT "file_paths_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "file_paths_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "locations" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "file_paths_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "keys" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "file_path_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "file_path_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "location" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "file_path_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "key" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "file_conflicts" (
-    "original_file_id" INTEGER NOT NULL,
-    "detactched_file_id" INTEGER NOT NULL
+CREATE TABLE "file_conflict" (
+    "original_object_id" INTEGER NOT NULL,
+    "detactched_object_id" INTEGER NOT NULL
 );
 
 -- CreateTable
-CREATE TABLE "keys" (
+CREATE TABLE "key" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "checksum" TEXT NOT NULL,
     "name" TEXT,
@@ -150,34 +141,34 @@ CREATE TABLE "media_data" (
     "duration_seconds" INTEGER,
     "codecs" TEXT,
     "streams" INTEGER,
-    CONSTRAINT "media_data_id_fkey" FOREIGN KEY ("id") REFERENCES "files" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "media_data_id_fkey" FOREIGN KEY ("id") REFERENCES "object" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "tags" (
+CREATE TABLE "tag" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
     "name" TEXT,
     "color" TEXT,
-    "total_files" INTEGER DEFAULT 0,
+    "total_objects" INTEGER DEFAULT 0,
     "redundancy_goal" INTEGER DEFAULT 1,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateTable
-CREATE TABLE "tags_on_file" (
+CREATE TABLE "tag_on_object" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "tag_id" INTEGER NOT NULL,
-    "file_id" INTEGER NOT NULL,
+    "object_id" INTEGER NOT NULL,
 
-    PRIMARY KEY ("tag_id", "file_id"),
-    CONSTRAINT "tags_on_file_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "tags" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT "tags_on_file_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+    PRIMARY KEY ("tag_id", "object_id"),
+    CONSTRAINT "tag_on_object_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "tag" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT "tag_on_object_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
 -- CreateTable
-CREATE TABLE "labels" (
+CREATE TABLE "label" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
     "name" TEXT,
@@ -186,18 +177,18 @@ CREATE TABLE "labels" (
 );
 
 -- CreateTable
-CREATE TABLE "label_on_file" (
+CREATE TABLE "label_on_object" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "label_id" INTEGER NOT NULL,
-    "file_id" INTEGER NOT NULL,
+    "object_id" INTEGER NOT NULL,
 
-    PRIMARY KEY ("label_id", "file_id"),
-    CONSTRAINT "label_on_file_label_id_fkey" FOREIGN KEY ("label_id") REFERENCES "labels" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT "label_on_file_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+    PRIMARY KEY ("label_id", "object_id"),
+    CONSTRAINT "label_on_object_label_id_fkey" FOREIGN KEY ("label_id") REFERENCES "label" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT "label_on_object_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
 -- CreateTable
-CREATE TABLE "spaces" (
+CREATE TABLE "space" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
     "name" TEXT,
@@ -207,18 +198,18 @@ CREATE TABLE "spaces" (
 );
 
 -- CreateTable
-CREATE TABLE "file_in_space" (
+CREATE TABLE "object_in_space" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "space_id" INTEGER NOT NULL,
-    "file_id" INTEGER NOT NULL,
+    "object_id" INTEGER NOT NULL,
 
-    PRIMARY KEY ("space_id", "file_id"),
-    CONSTRAINT "file_in_space_space_id_fkey" FOREIGN KEY ("space_id") REFERENCES "spaces" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT "file_in_space_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+    PRIMARY KEY ("space_id", "object_id"),
+    CONSTRAINT "object_in_space_space_id_fkey" FOREIGN KEY ("space_id") REFERENCES "space" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT "object_in_space_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
 -- CreateTable
-CREATE TABLE "jobs" (
+CREATE TABLE "job" (
     "id" BLOB NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "node_id" INTEGER NOT NULL,
@@ -231,11 +222,11 @@ CREATE TABLE "jobs" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "seconds_elapsed" INTEGER NOT NULL DEFAULT 0,
-    CONSTRAINT "jobs_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "job_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "node" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "albums" (
+CREATE TABLE "album" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
     "name" TEXT NOT NULL,
@@ -245,29 +236,29 @@ CREATE TABLE "albums" (
 );
 
 -- CreateTable
-CREATE TABLE "files_in_albums" (
+CREATE TABLE "object_in_album" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "album_id" INTEGER NOT NULL,
-    "file_id" INTEGER NOT NULL,
+    "object_id" INTEGER NOT NULL,
 
-    PRIMARY KEY ("album_id", "file_id"),
-    CONSTRAINT "files_in_albums_album_id_fkey" FOREIGN KEY ("album_id") REFERENCES "albums" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT "files_in_albums_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+    PRIMARY KEY ("album_id", "object_id"),
+    CONSTRAINT "object_in_album_album_id_fkey" FOREIGN KEY ("album_id") REFERENCES "album" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT "object_in_album_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
 -- CreateTable
-CREATE TABLE "comments" (
+CREATE TABLE "comment" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "pub_id" BLOB NOT NULL,
     "content" TEXT NOT NULL,
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "file_id" INTEGER,
-    CONSTRAINT "comments_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    "object_id" INTEGER,
+    CONSTRAINT "comment_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "indexer_rules" (
+CREATE TABLE "indexer_rule" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "kind" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
@@ -277,60 +268,57 @@ CREATE TABLE "indexer_rules" (
 );
 
 -- CreateTable
-CREATE TABLE "indexer_rules_in_location" (
+CREATE TABLE "indexer_rule_in_location" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "location_id" INTEGER NOT NULL,
     "indexer_rule_id" INTEGER NOT NULL,
 
     PRIMARY KEY ("location_id", "indexer_rule_id"),
-    CONSTRAINT "indexer_rules_in_location_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "locations" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT "indexer_rules_in_location_indexer_rule_id_fkey" FOREIGN KEY ("indexer_rule_id") REFERENCES "indexer_rules" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+    CONSTRAINT "indexer_rule_in_location_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "location" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT "indexer_rule_in_location_indexer_rule_id_fkey" FOREIGN KEY ("indexer_rule_id") REFERENCES "indexer_rule" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "_migrations_checksum_key" ON "_migrations"("checksum");
+CREATE UNIQUE INDEX "node_pub_id_key" ON "node"("pub_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "nodes_pub_id_key" ON "nodes"("pub_id");
+CREATE UNIQUE INDEX "volume_node_id_mount_point_name_key" ON "volume"("node_id", "mount_point", "name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "volumes_node_id_mount_point_name_key" ON "volumes"("node_id", "mount_point", "name");
+CREATE UNIQUE INDEX "location_pub_id_key" ON "location"("pub_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "locations_pub_id_key" ON "locations"("pub_id");
+CREATE UNIQUE INDEX "object_cas_id_key" ON "object"("cas_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "files_cas_id_key" ON "files"("cas_id");
+CREATE UNIQUE INDEX "object_integrity_checksum_key" ON "object"("integrity_checksum");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "files_integrity_checksum_key" ON "files"("integrity_checksum");
+CREATE INDEX "file_path_location_id_idx" ON "file_path"("location_id");
 
 -- CreateIndex
-CREATE INDEX "file_paths_location_id_idx" ON "file_paths"("location_id");
+CREATE UNIQUE INDEX "file_path_location_id_materialized_path_name_extension_key" ON "file_path"("location_id", "materialized_path", "name", "extension");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "file_paths_location_id_materialized_path_name_extension_key" ON "file_paths"("location_id", "materialized_path", "name", "extension");
+CREATE UNIQUE INDEX "file_conflict_original_object_id_key" ON "file_conflict"("original_object_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "file_conflicts_original_file_id_key" ON "file_conflicts"("original_file_id");
+CREATE UNIQUE INDEX "file_conflict_detactched_object_id_key" ON "file_conflict"("detactched_object_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "file_conflicts_detactched_file_id_key" ON "file_conflicts"("detactched_file_id");
+CREATE UNIQUE INDEX "key_checksum_key" ON "key"("checksum");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "keys_checksum_key" ON "keys"("checksum");
+CREATE UNIQUE INDEX "tag_pub_id_key" ON "tag"("pub_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "tags_pub_id_key" ON "tags"("pub_id");
+CREATE UNIQUE INDEX "label_pub_id_key" ON "label"("pub_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "labels_pub_id_key" ON "labels"("pub_id");
+CREATE UNIQUE INDEX "space_pub_id_key" ON "space"("pub_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "spaces_pub_id_key" ON "spaces"("pub_id");
+CREATE UNIQUE INDEX "album_pub_id_key" ON "album"("pub_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "albums_pub_id_key" ON "albums"("pub_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "comments_pub_id_key" ON "comments"("pub_id");
+CREATE UNIQUE INDEX "comment_pub_id_key" ON "comment"("pub_id");
