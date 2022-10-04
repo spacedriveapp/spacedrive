@@ -90,6 +90,17 @@ jobs:
       - name: Cache Rust dependencies
         uses: ./.github/actions/cache-rust-deps
 
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 17
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.0.1
+        with:
+          version: 7
+          run_install: false
+
       - name: Run 'setup-system.sh' script
         run: ./.github/scripts/setup-system.sh
 
