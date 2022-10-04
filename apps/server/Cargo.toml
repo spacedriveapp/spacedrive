@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sdcore = { path = "../../core", features = [] }
+sd-core = { path = "../../core", features = [] }
 rspc = { version = "0.0.5", features = ["axum"] }
 axum = "0.5.13"
 tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread", "signal"] }

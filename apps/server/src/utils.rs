@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use sdcore::Node;
+use sd_core::Node;
 use tokio::signal;
 
 /// shutdown_signal will inform axum to gracefully shutdown when the process is asked to shutdown.
