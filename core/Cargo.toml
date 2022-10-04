@@ -1,5 +1,5 @@
 [package]
-name = "sdcore"
+name = "sd-core"
 version = "0.1.0"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
@@ -16,7 +16,7 @@ mobile = [
 ] # This feature allows features to be disabled when the Core is running on mobile.
 ffmpeg = [
   "dep:ffmpeg-next",
-  "dep:sd_ffmpeg",
+  "dep:sd-ffmpeg",
 ] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 
 [dependencies]
@@ -51,7 +51,7 @@ async-trait = "^0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
 ffmpeg-next = { version = "5.0.3", optional = true, features = [] }
-sd_ffmpeg = { path = "../crates/ffmpeg", optional = true }
+sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 fs_extra = "1.2.0"
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.14", features = ["env-filter"] }

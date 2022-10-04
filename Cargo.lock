@@ -628,6 +628,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb4a24b1aaf0fd0ce8b45161144d6f42cd91677fd5940fd431183eb023b3a2b8"
 
 [[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1092,6 +1101,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "example"
+version = "0.0.0"
+dependencies = [
+ "rspc 0.1.2",
+ "sd-sync",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tokio",
+ "uuid 1.1.2",
 ]
 
 [[package]]
@@ -1830,6 +1853,12 @@ name = "httpdate"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
+
+[[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
@@ -3005,10 +3034,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "p2p"
-version = "0.1.0"
-
-[[package]]
 name = "pango"
 version = "0.15.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3404,7 +3429,7 @@ dependencies = [
  "prisma-models",
  "query-connector",
  "query-core",
- "rspc",
+ "rspc 0.0.5",
  "schema",
  "serde",
  "serde-value",
@@ -3540,9 +3565,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.43"
+version = "1.0.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a2ca2c61bc9f3d74d2886294ab7b9853abd9c1ad903a3ac7815c58989bb7bab"
+checksum = "94e2ef8dbfc347b10c094890f778ee2e36ca9bb4262e86dc99cd217e35f3470b"
 dependencies = [
  "unicode-ident",
 ]
@@ -4064,11 +4089,27 @@ dependencies = [
  "nanoid",
  "serde",
  "serde_json",
- "specta",
+ "specta 0.0.3",
  "tauri",
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "rspc"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "712fc4e2fc79297d308fa4575f19f6967bf7610e3292446dfb392738aeab5239"
+dependencies = [
+ "async-stream",
+ "futures",
+ "serde",
+ "serde_json",
+ "specta 0.0.4",
+ "tauri",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -4206,18 +4247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
-name = "sd_ffmpeg"
-version = "0.1.0"
-dependencies = [
- "ffmpeg-sys-next",
- "tempfile",
- "thiserror",
- "tokio",
- "webp",
-]
-
-[[package]]
-name = "sdcore"
+name = "sd-core"
 version = "0.1.0"
 dependencies = [
  "async-stream",
@@ -4241,8 +4271,8 @@ dependencies = [
  "ring",
  "rmp",
  "rmp-serde",
- "rspc",
- "sd_ffmpeg",
+ "rspc 0.0.5",
+ "sd-ffmpeg",
  "serde",
  "serde_json",
  "sysinfo",
@@ -4257,6 +4287,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-ffmpeg"
+version = "0.1.0"
+dependencies = [
+ "ffmpeg-sys-next",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "webp",
+]
+
+[[package]]
+name = "sd-p2p"
+version = "0.1.0"
+
+[[package]]
+name = "sd-sync"
+version = "0.1.0"
+dependencies = [
+ "rspc 0.1.2",
+ "serde",
+ "serde_json",
+ "uhlc",
+ "uuid 1.1.2",
+]
+
+[[package]]
 name = "sdcore-lib"
 version = "0.1.0"
 dependencies = [
@@ -4267,8 +4323,8 @@ dependencies = [
  "once_cell",
  "openssl",
  "openssl-sys",
- "rspc",
- "sdcore",
+ "rspc 0.0.5",
+ "sd-core",
  "serde_json",
  "tokio",
 ]
@@ -4467,8 +4523,8 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "ctrlc",
- "rspc",
- "sdcore",
+ "rspc 0.0.5",
+ "sd-core",
  "tokio",
  "tracing",
 ]
@@ -4642,8 +4698,8 @@ dependencies = [
 name = "spacedrive"
 version = "0.1.0"
 dependencies = [
- "rspc",
- "sdcore",
+ "rspc 0.0.5",
+ "sd-core",
  "serde",
  "swift-rs",
  "tauri",
@@ -4662,6 +4718,19 @@ dependencies = [
  "chrono",
  "convert_case 0.5.0",
  "indexmap",
+ "serde_json",
+ "specta-macros",
+ "termcolor",
+ "uuid 1.1.2",
+]
+
+[[package]]
+name = "specta"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5886f252f583ae32d4ae21c228c7a4ab3da40a7ebed646886b942f4085047394"
+dependencies = [
+ "convert_case 0.6.0",
  "serde_json",
  "specta-macros",
  "termcolor",
@@ -4908,10 +4977,6 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
-
-[[package]]
-name = "sync"
-version = "0.1.0"
 
 [[package]]
 name = "sync_wrapper"
@@ -5257,18 +5322,18 @@ checksum = "8eaa81235c7058867fa8c0e7314f33dcce9c215f535d1913822a2b3f5e289f3c"
 
 [[package]]
 name = "thiserror"
-version = "1.0.35"
+version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c53f98874615aea268107765aa1ed8f6116782501d18e53d08b471733bea6c85"
+checksum = "10deb33631e3c9018b9baf9dcbbc4f737320d2b576bac10f6aefa048fa407e3e"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.35"
+version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8b463991b4eab2d801e724172285ec4195c650e8ec79b149e6c2a8e6dd3f783"
+checksum = "982d17546b47146b28f7c22e3d08465f6b8903d0ea13c1660d9d84a6e7adcdbb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5342,9 +5407,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.21.1"
+version = "1.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0020c875007ad96677dcc890298f4b942882c5d4eb7cc8f439fc3bf813dc9c95"
+checksum = "a9e03c497dc955702ba729190dc4aac6f2a0ce97f913e5b1b5912fc5039d9099"
 dependencies = [
  "autocfg",
  "bytes",
@@ -5352,7 +5417,6 @@ dependencies = [
  "memchr",
  "mio",
  "num_cpus",
- "once_cell",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
@@ -5628,6 +5692,20 @@ name = "ucd-trie"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e79c4d996edb816c91e4308506774452e55e95c3c9de07b6729e17e15a5ef81"
+
+[[package]]
+name = "uhlc"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7908438f98a5824af02b34c2b31fb369c5764ef835d26df0badbb9897fb28245"
+dependencies = [
+ "hex",
+ "humantime",
+ "lazy_static",
+ "log",
+ "serde",
+ "uuid 1.1.2",
+]
 
 [[package]]
 name = "unicode-bidi"

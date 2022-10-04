@@ -2,7 +2,7 @@ use crate::{CLIENT_CONTEXT, EVENT_SENDER, NODE, RUNTIME};
 use jni::objects::{JClass, JObject, JString};
 use jni::JNIEnv;
 use rspc::Request;
-use sdcore::Node;
+use sd_core::Node;
 use tokio::sync::mpsc::unbounded_channel;
 
 #[no_mangle]
