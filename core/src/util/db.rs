@@ -11,6 +11,9 @@ pub enum MigrationError {
 	#[error("An error occurred during migration: {0}")]
 	MigrateFailed(#[from] DbPushError),
 	#[cfg(not(debug_assertions))]
+	#[error("An error occurred during base-lining: {0}")]
+	ResolveFailed(#[from] MigrateResolveError),
+	#[cfg(not(debug_assertions))]
 	#[error("An error occurred during migration: {0}")]
 	MigrateFailed(#[from] MigrateDeployError),
 }
@@ -36,7 +39,15 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 	}
 
 	#[cfg(not(debug_assertions))]
-	client._migrate_deploy().await?;
+	{
+		if std::env::var("SD_BASELINE_DB")
+			.map(|v| v == "true")
+			.unwrap_or(false)
+		{
+			client._migrate_resolve("20221004133318_init").await?;
+		}
+		client._migrate_deploy().await?;
+	}
 
 	Ok(client)
 }

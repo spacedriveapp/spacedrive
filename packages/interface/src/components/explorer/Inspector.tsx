@@ -18,13 +18,13 @@ import { isObject } from './utils';
 
 interface Props {
 	context?: ExplorerContext;
-	data: ExplorerItem;
+	data?: ExplorerItem;
 }
 
 export const Inspector = (props: Props) => {
 	const is_dir = props.data?.type === 'Path' ? props.data.is_dir : false;
 
-	const objectData = isObject(props.data) ? props.data : props.data.object;
+	const objectData = props.data ? (isObject(props.data) ? props.data : props.data.object) : null;
 
 	// this prevents the inspector from fetching data when the user is navigating quickly
 	const [readyToFetch, setReadyToFetch] = useState(false);
@@ -33,7 +33,7 @@ export const Inspector = (props: Props) => {
 			setReadyToFetch(true);
 		}, 350);
 		return () => clearTimeout(timeout);
-	}, [props.data.id]);
+	}, [props.data?.id]);
 
 	// this is causing LAG
 	const { data: tags } = useLibraryQuery(['tags.getForFile', objectData?.id || -1], {
