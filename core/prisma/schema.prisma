@@ -5,7 +5,7 @@ datasource db {
 
 generator client {
   provider = "cargo prisma"
-  output   = "../../core/src/prisma.rs"
+  output   = "../src/prisma.rs"
 }
 
 model Migration {
