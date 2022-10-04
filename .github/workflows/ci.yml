@@ -91,7 +91,6 @@ jobs:
         uses: ./.github/actions/cache-rust-deps
 
       - name: Run 'setup-system.sh' script
-        if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
         run: ./.github/scripts/setup-system.sh
 
       - name: Generate Prisma client
