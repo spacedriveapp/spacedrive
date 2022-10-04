@@ -1,4 +1,4 @@
-use crate::{invalidate_query, prisma::file};
+use crate::{invalidate_query, prisma::object};
 
 use rspc::Type;
 use serde::Deserialize;
@@ -26,8 +26,11 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("setNote", |_, args: SetNoteArgs, library| async move {
 			library
 				.db
-				.file()
-				.update(file::id::equals(args.id), vec![file::note::set(args.note)])
+				.object()
+				.update(
+					object::id::equals(args.id),
+					vec![object::note::set(args.note)],
+				)
 				.exec()
 				.await?;
 
@@ -40,10 +43,10 @@ pub(crate) fn mount() -> RouterBuilder {
 			|_, args: SetFavoriteArgs, library| async move {
 				library
 					.db
-					.file()
+					.object()
 					.update(
-						file::id::equals(args.id),
-						vec![file::favorite::set(args.favorite)],
+						object::id::equals(args.id),
+						vec![object::favorite::set(args.favorite)],
 					)
 					.exec()
 					.await?;
@@ -56,8 +59,8 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("delete", |_, id: i32, library| async move {
 			library
 				.db
-				.file()
-				.delete(file::id::equals(id))
+				.object()
+				.delete(object::id::equals(id))
 				.exec()
 				.await?;
 

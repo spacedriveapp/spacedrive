@@ -1,7 +1,7 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	prisma::{file, file_path, location},
+	prisma::{file_path, location, object},
 };
 
 use chrono::{DateTime, FixedOffset};
@@ -162,10 +162,10 @@ impl StatefulJob for FileIdentifierJob {
 		for file_path in &file_paths {
 			// get the cas_id and extract metadata
 			match assemble_object_metadata(&data.location_path, file_path).await {
-				Ok(file) => {
-					let cas_id = file.cas_id.clone();
+				Ok(object) => {
+					let cas_id = object.cas_id.clone();
 					// create entry into chunks for created file data
-					chunk.insert(file_path.id, file);
+					chunk.insert(file_path.id, object);
 					cas_lookup.insert(cas_id, file_path.id);
 				}
 				Err(e) => {
@@ -178,8 +178,8 @@ impl StatefulJob for FileIdentifierJob {
 		// find all existing files by cas id
 		let generated_cas_ids = chunk.values().map(|c| c.cas_id.clone()).collect();
 		let existing_files = db
-			.file()
-			.find_many(vec![file::cas_id::in_vec(generated_cas_ids)])
+			.object()
+			.find_many(vec![object::cas_id::in_vec(generated_cas_ids)])
 			.exec()
 			.await?;
 
@@ -193,7 +193,7 @@ impl StatefulJob for FileIdentifierJob {
 						state.init.location_id,
 						*cas_lookup.get(&existing_file.cas_id).unwrap(),
 					),
-					vec![file_path::file_id::set(Some(existing_file.id))],
+					vec![file_path::object_id::set(Some(existing_file.id))],
 				)
 				.exec()
 				.await
@@ -204,24 +204,24 @@ impl StatefulJob for FileIdentifierJob {
 
 		let existing_files_cas_ids = existing_files
 			.iter()
-			.map(|file| file.cas_id.clone())
+			.map(|object| object.cas_id.clone())
 			.collect::<HashSet<_>>();
 
-		// extract files that don't already exist in the database
-		let new_files = chunk
+		// extract objects that don't already exist in the database
+		let new_objects = chunk
 			.iter()
 			.map(|(_id, create_file)| create_file)
 			.filter(|create_file| !existing_files_cas_ids.contains(&create_file.cas_id))
 			.collect::<Vec<_>>();
 
-		if !new_files.is_empty() {
+		if !new_objects.is_empty() {
 			// assemble prisma values for new unique files
-			let mut values = Vec::with_capacity(new_files.len() * 3);
-			for file in &new_files {
+			let mut values = Vec::with_capacity(new_objects.len() * 3);
+			for object in &new_objects {
 				values.extend([
-					PrismaValue::String(file.cas_id.clone()),
-					PrismaValue::Int(file.size_in_bytes),
-					PrismaValue::DateTime(file.date_created),
+					PrismaValue::String(object.cas_id.clone()),
+					PrismaValue::Int(object.size_in_bytes),
+					PrismaValue::DateTime(object.date_created),
 				]);
 			}
 
@@ -230,9 +230,9 @@ impl StatefulJob for FileIdentifierJob {
 			let created_files: Vec<FileCreated> = db
 				._query_raw(Raw::new(
 					&format!(
-						"INSERT INTO files (cas_id, size_in_bytes, date_created) VALUES {}
+						"INSERT INTO objects (cas_id, size_in_bytes, date_created) VALUES {}
 						ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
-						vec!["({}, {}, {})"; new_files.len()].join(",")
+						vec!["({}, {}, {})"; new_objects.len()].join(",")
 					),
 					values,
 				))
@@ -256,7 +256,7 @@ impl StatefulJob for FileIdentifierJob {
 							state.init.location_id,
 							*cas_lookup.get(&created_file.cas_id).unwrap(),
 						),
-						vec![file_path::file_id::set(Some(created_file.id))],
+						vec![file_path::object_id::set(Some(created_file.id))],
 					)
 					.exec()
 					.await
@@ -305,7 +305,7 @@ impl StatefulJob for FileIdentifierJob {
 
 fn orphan_path_filters(location_id: i32, file_path_id: Option<i32>) -> Vec<file_path::WhereParam> {
 	let mut params = vec![
-		file_path::file_id::equals(None),
+		file_path::object_id::equals(None),
 		file_path::is_dir::equals(false),
 		file_path::location_id::equals(location_id),
 	];
@@ -329,7 +329,7 @@ async fn count_orphan_file_paths(
 		.db
 		.file_path()
 		.count(vec![
-			file_path::file_id::equals(None),
+			file_path::object_id::equals(None),
 			file_path::is_dir::equals(false),
 			file_path::location_id::equals(location_id),
 		])

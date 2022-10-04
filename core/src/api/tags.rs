@@ -4,10 +4,10 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::{
-	api::locations::{file_with_paths, ExplorerContext, ExplorerData, ExplorerItem},
+	api::locations::{object_with_file_paths, ExplorerContext, ExplorerData, ExplorerItem},
 	invalidate_query,
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
-	prisma::{file, tag, tag_on_file},
+	prisma::{object, tag, tag_on_object},
 };
 
 use super::{utils::LibraryRequest, RouterBuilder};
@@ -20,7 +20,7 @@ pub struct TagCreateArgs {
 
 #[derive(Debug, Type, Deserialize)]
 pub struct TagAssignArgs {
-	pub file_id: i32,
+	pub object_id: i32,
 	pub tag_id: i32,
 	pub unassign: bool,
 }
@@ -52,32 +52,32 @@ pub(crate) fn mount() -> RouterBuilder {
 
 			let files: Vec<ExplorerItem> = library
 				.db
-				.file()
-				.find_many(vec![file::tags::some(vec![tag_on_file::tag_id::equals(
-					tag_id,
-				)])])
-				.include(file_with_paths::include())
+				.object()
+				.find_many(vec![object::tags::some(vec![
+					tag_on_object::tag_id::equals(tag_id),
+				])])
+				.include(object_with_file_paths::include())
 				.exec()
 				.await?
 				.into_iter()
-				.map(|mut file| {
+				.map(|mut object| {
 					// sorry brendan
 					// grab the first path and tac on the name
-					let oldest_path = &file.paths[0];
-					file.name = Some(oldest_path.name.clone());
-					file.extension = oldest_path.extension.clone();
+					let oldest_path = &object.file_paths[0];
+					object.name = Some(oldest_path.name.clone());
+					object.extension = oldest_path.extension.clone();
 					// a long term fix for this would be to have the indexer give the Object a name and extension, sacrificing its own and only store newly found Path names that differ from the Object name
 
 					let thumb_path = library
 						.config()
 						.data_directory()
 						.join(THUMBNAIL_CACHE_DIR_NAME)
-						.join(&file.cas_id)
+						.join(&object.cas_id)
 						.with_extension("webp");
 
-					file.has_thumbnail = thumb_path.exists();
+					object.has_thumbnail = thumb_path.exists();
 
-					ExplorerItem::Object(Box::new(file))
+					ExplorerItem::Object(Box::new(object))
 				})
 				.collect();
 
@@ -92,8 +92,8 @@ pub(crate) fn mount() -> RouterBuilder {
 			Ok(library
 				.db
 				.tag()
-				.find_many(vec![tag::tag_files::some(vec![
-					tag_on_file::file_id::equals(file_id),
+				.find_many(vec![tag::tag_objects::some(vec![
+					tag_on_object::object_id::equals(file_id),
 				])])
 				.exec()
 				.await?)
@@ -128,17 +128,17 @@ pub(crate) fn mount() -> RouterBuilder {
 			if args.unassign {
 				library
 					.db
-					.tag_on_file()
-					.delete(tag_on_file::tag_id_file_id(args.tag_id, args.file_id))
+					.tag_on_object()
+					.delete(tag_on_object::tag_id_object_id(args.tag_id, args.object_id))
 					.exec()
 					.await?;
 			} else {
 				library
 					.db
-					.tag_on_file()
+					.tag_on_object()
 					.create(
 						tag::id::equals(args.tag_id),
-						file::id::equals(args.file_id),
+						object::id::equals(args.object_id),
 						vec![],
 					)
 					.exec()
