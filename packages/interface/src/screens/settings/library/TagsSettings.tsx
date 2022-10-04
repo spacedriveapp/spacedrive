@@ -1,5 +1,5 @@
 import { TrashIcon } from '@heroicons/react/24/outline';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { TagUpdateArgs } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
@@ -23,11 +23,7 @@ export default function TagsSettings() {
 
 	const { data: tags } = useLibraryQuery(['tags.list']);
 
-	const [selectedTag, setSelectedTag] = useState<null | number>(null);
-
-	const currentTag = useMemo(() => {
-		return tags?.find((t) => t.id === selectedTag);
-	}, [tags, selectedTag]);
+	const [selectedTag, setSelectedTag] = useState<null | Tag>(tags?.[0] ?? null);
 
 	const { mutate: createTag, isLoading } = useLibraryMutation('tags.create', {
 		onError: (e) => {
@@ -38,25 +34,27 @@ export default function TagsSettings() {
 		}
 	});
 
-	const { mutate: updateTag } = useLibraryMutation('tags.update');
+	const updateTag = useLibraryMutation('tags.update');
 
-	const { mutate: deleteTag, isLoading: tagDeleteLoading } = useLibraryMutation('tags.delete');
-
-	// set default selected tag
-	useEffect(() => {
-		if (!currentTag && tags?.length) setSelectedTag(tags[0].id);
-	}, [currentTag, tags]);
-
-	useEffect(() => {
-		reset(currentTag);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentTag]);
-
-	const { register, handleSubmit, watch, reset, control } = useForm({
-		defaultValues: currentTag as TagUpdateArgs
+	const deleteTag = useLibraryMutation('tags.delete', {
+		onSuccess: () => {
+			setSelectedTag(null);
+		}
 	});
 
-	const submitTagUpdate = handleSubmit((data) => updateTag(data));
+	const { register, handleSubmit, watch, reset, control } = useForm({
+		defaultValues: selectedTag as TagUpdateArgs
+	});
+
+	const setTag = useCallback(
+		(tag: Tag | null) => {
+			if (tag) reset(tag);
+			setSelectedTag(tag);
+		},
+		[setSelectedTag, reset]
+	);
+
+	const submitTagUpdate = handleSubmit((data) => updateTag.mutate(data));
 
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const autoUpdateTag = useCallback(useDebounce(submitTagUpdate, 500), []);
@@ -113,11 +111,11 @@ export default function TagsSettings() {
 				<div className="flex flex-wrap gap-2 m-1">
 					{tags?.map((tag) => (
 						<div
-							onClick={() => setSelectedTag(tag.id === selectedTag ? null : tag.id)}
+							onClick={() => setTag(tag.id === selectedTag?.id ? null : tag)}
 							key={tag.id}
 							className={clsx(
 								'flex items-center rounded px-1.5 py-0.5',
-								selectedTag === tag.id && 'ring'
+								selectedTag?.id === tag.id && 'ring'
 							)}
 							style={{ backgroundColor: tag.color + 'CC' }}
 						>
@@ -126,7 +124,7 @@ export default function TagsSettings() {
 					))}
 				</div>
 			</Card>
-			{currentTag ? (
+			{selectedTag ? (
 				<form onSubmit={submitTagUpdate}>
 					<div className="flex flex-row mb-10 space-x-3">
 						<div className="flex flex-col">
@@ -159,9 +157,9 @@ export default function TagsSettings() {
 							title="Delete Tag"
 							description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 							ctaAction={() => {
-								deleteTag(currentTag.id);
+								deleteTag.mutate(selectedTag.id);
 							}}
-							loading={tagDeleteLoading}
+							loading={deleteTag.isLoading}
 							ctaDanger
 							ctaLabel="Delete"
 							trigger={

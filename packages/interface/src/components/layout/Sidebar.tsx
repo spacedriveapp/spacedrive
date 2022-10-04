@@ -186,10 +186,10 @@ export function Sidebar() {
 				buttonText={isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
 				buttonTextClassName={library === null || isLoadingLibraries ? 'text-gray-300' : undefined}
 				items={[
-					libraries?.map((library) => ({
-						name: library.config.name,
-						selected: library.uuid === library?.uuid,
-						onPress: () => switchLibrary(library.uuid)
+					libraries?.map((lib) => ({
+						name: lib.config.name,
+						selected: lib.uuid === library?.uuid,
+						onPress: () => switchLibrary(lib.uuid)
 					})) || [],
 					[
 						{

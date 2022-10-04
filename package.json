@@ -3,11 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prep": "pnpm db:gen && cargo test",
+    "prep": "pnpm gen:prisma && cargo test",
     "build": "turbo run build",
     "landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
-    "db:migrate": "cd crates && cargo prisma migrate dev",
-    "db:gen": "cd core && cargo prisma generate",
+		"gen:migrations": "cd core && cargo prisma migrate dev",
+		"gen:prisma": "cd core && cargo prisma generate",
     "format": "prettier --config .prettierrc.cli.js --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
     "desktop": "pnpm --filter @sd/desktop --",
     "web": "pnpm --filter @sd/web -- ",
@@ -30,7 +30,8 @@
     "typescript": "^4.7.4"
   },
   "overrides": {
-    "vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84"
+    "vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",
+    "@types/node": "^16.0.0"
   },
   "engines": {
     "pnpm": ">=6.0.0",
