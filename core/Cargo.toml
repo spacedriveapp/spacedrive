@@ -35,12 +35,7 @@ rmp = "^0.8.11"
 rmp-serde = "^1.1.0"
 
 # Project dependencies
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.0", features = [
-  "rspc",
-  "sqlite-create-many",
-  "migrations",
-  "sqlite",
-], default-features = false }
+prisma-client-rust = { workspace = true }
 rspc = { version = "0.0.5", features = ["uuid", "chrono", "tracing"] }
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"

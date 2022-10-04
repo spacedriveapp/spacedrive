@@ -8,10 +8,20 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "f9e0579c1b70727b6f030095da264a885b13f0c6", features = [
+  "rspc",
+  "sqlite-create-many",
+  "migrations",
+  "sqlite",
+], default-features = false }
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "f9e0579c1b70727b6f030095da264a885b13f0c6", features = [
+  "rspc",
+  "sqlite-create-many",
+  "migrations",
+  "sqlite",
+], default-features = false }
+
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl" }
-
-[patch."https://github.com/Brendonovich/prisma-client-rust.git"]
-prisma-client-rust = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "6b59d9f0a07c4c5df1f5c97f2c6c1df7082ccac6" }
-prisma-client-rust-cli = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "6b59d9f0a07c4c5df1f5c97f2c6c1df7082ccac6" }

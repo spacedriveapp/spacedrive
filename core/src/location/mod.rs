@@ -224,7 +224,7 @@ async fn link_location_and_indexer_rules(
 		.create_many(
 			rules_ids
 				.iter()
-				.map(|id| indexer_rules_in_location::create(location_id, *id, vec![]))
+				.map(|id| indexer_rules_in_location::create_unchecked(location_id, *id, vec![]))
 				.collect(),
 		)
 		.exec()
