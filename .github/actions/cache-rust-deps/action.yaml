@@ -1,0 +1,10 @@
+
+name: Cache Rust Dependencies
+description: Caches Rust dependencies
+runs:
+  using: 'composite'
+  steps:
+    - name: Cache Rust Dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        sharedKey: rust-deps-v1
