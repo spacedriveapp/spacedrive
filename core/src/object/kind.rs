@@ -66,18 +66,6 @@ impl Display for Extension {
 }
 
 /// Define a public enum with static array of all possible variants
-///
-/// # Example
-/// ```
-/// enum_with_variants! {
-/// 	#[derive(Serialize, Deserialize)]
-/// 	#[serde(rename_all = "snake_case")]
-/// 	ImageExtension ALL_IMAGE_EXTENSIONS {
-/// 		Jpg,
-/// 		Png,
-/// 	}
-/// }
-/// ```
 macro_rules! enum_with_variants {
 	(
 		$(#[$enum_attr:meta])*

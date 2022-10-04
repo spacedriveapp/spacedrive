@@ -44,6 +44,7 @@ export default function FileThumb({ data, ...props }: Props) {
 			return (
 				<img
 					style={props.style}
+					decoding="async"
 					// width={props.size}
 					className={clsx('pointer-events-none', props.className)}
 					src={url}
