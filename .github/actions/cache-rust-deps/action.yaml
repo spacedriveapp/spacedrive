@@ -7,4 +7,4 @@ runs:
     - name: Cache Rust Dependencies
       uses: Swatinem/rust-cache@v2
       with:
-        sharedKey: rust-deps-v1
+        shared-key: rust-deps-v1
