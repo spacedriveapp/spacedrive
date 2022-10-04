@@ -132,7 +132,7 @@ jobs:
         run: cargo fetch
 
       - name: Check Core
-        run: cargo check -p sdcore --release
+        run: cargo check -p sd-core --release
 
       - name: Bundle Desktop
         run: pnpm desktop tauri build
