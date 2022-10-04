@@ -63,9 +63,11 @@ jobs:
           toolchain: stable
           components: rustfmt
 
-      - uses: ./.github/actions/cache-rust-deps
+      - name: Cache Rust dependencies
+        uses: ./.github/actions/cache-rust-deps
 
-      - uses: ./.github/actions/generate-prisma-client
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check
@@ -85,9 +87,15 @@ jobs:
           override: true
           components: clippy
 
-      - uses: ./.github/actions/cache-rust-deps
+      - name: Cache Rust dependencies
+        uses: ./.github/actions/cache-rust-deps
 
-      - uses: ./.github/actions/generate-prisma-client
+      - name: Run 'setup-system.sh' script
+        if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
+        run: ./.github/scripts/setup-system.sh
+
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
 
       - name: Run Clippy
         uses: actions-rs/clippy-check@v1
@@ -114,6 +122,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, rust-src
+
+      - name: Cache Rust dependencies
+        uses: ./.github/actions/cache-rust-deps
+
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
@@ -124,16 +143,6 @@ jobs:
         with:
           version: 7
           run_install: false
-
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          components: rustfmt, rust-src
-
-      - uses: ./.github/actions/cache-rust-deps
 
       - name: Run 'setup-system.sh' script
         if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
@@ -159,7 +168,8 @@ jobs:
       - name: Install pnpm dependencies
         run: pnpm --frozen-lockfile i
 
-      - uses: ./.github/actions/generate-prisma-client
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
 
       - name: Build everything
         run: cargo build
