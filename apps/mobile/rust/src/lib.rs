@@ -23,7 +23,7 @@ pub(crate) static CLIENT_CONTEXT: Lazy<ClientContext> = Lazy::new(|| ClientConte
 #[allow(dead_code)]
 pub(crate) static EVENT_SENDER: OnceCell<UnboundedSender<Response>> = OnceCell::new();
 
-#[cfg(target_os = "ios")]
+// #[cfg(target_os = "ios")]
 mod ios;
 
 /// This is `not(ios)` instead of `android` because of https://github.com/mozilla/rust-android-gradle/issues/93
