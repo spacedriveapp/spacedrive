@@ -8,16 +8,6 @@ generator client {
   output   = "../src/prisma.rs"
 }
 
-model Migration {
-  id            Int      @id @default(autoincrement())
-  name          String
-  checksum      String   @unique
-  steps_applied Int      @default(0)
-  applied_at    DateTime @default(now())
-
-  @@map("_migrations")
-}
-
 model SyncEvent {
   id        Int     @id @default(autoincrement())
   node_id   Int
@@ -33,13 +23,13 @@ model SyncEvent {
 
   node Node @relation(fields: [node_id], references: [id])
 
-  @@map("sync_events")
+  @@map("sync_event")
 }
 
 model Statistics {
   id                   Int      @id @default(autoincrement())
   date_captured        DateTime @default(now())
-  total_file_count     Int      @default(0)
+  total_object_count   Int      @default(0)
   library_db_size      String   @default("0")
   total_bytes_used     String   @default("0")
   total_bytes_capacity String   @default("0")
@@ -65,7 +55,7 @@ model Node {
 
   Location Location[]
 
-  @@map("nodes")
+  @@map("node")
 }
 
 model Volume {
@@ -81,7 +71,7 @@ model Volume {
   date_modified         DateTime @default(now())
 
   @@unique([node_id, mount_point, name])
-  @@map("volumes")
+  @@map("volume")
 }
 
 model Location {
@@ -103,10 +93,10 @@ model Location {
   file_paths    FilePath[]
   indexer_rules IndexerRulesInLocation[]
 
-  @@map("locations")
+  @@map("location")
 }
 
-model File {
+model Object {
   id                 Int      @id @default(autoincrement())
   // content addressable storage id - sha256 sampled checksum
   cas_id             String   @unique
@@ -118,11 +108,11 @@ model File {
   kind               Int      @default(0)
   size_in_bytes      String
   key_id             Int?
-  // handy ways to mark a file
+  // handy ways to mark an object
   hidden             Boolean  @default(false)
   favorite           Boolean  @default(false)
   important          Boolean  @default(false)
-  // if we have generated preview media for this file
+  // if we have generated preview media for this object
   has_thumbnail      Boolean  @default(false)
   has_thumbstrip     Boolean  @default(false)
   has_video_preview  Boolean  @default(false)
@@ -130,24 +120,24 @@ model File {
   ipfs_id            String?
   // plain text note
   note               String?
-  // the original known creation date of this file
+  // the original known creation date of this object
   date_created       DateTime @default(now())
-  // the last time this file was modified
+  // the last time this object was modified
   date_modified      DateTime @default(now())
-  // when this file was first indexed
+  // when this object was first indexed
   date_indexed       DateTime @default(now())
 
-  tags       TagOnFile[]
-  labels     LabelOnFile[]
-  albums     FileInAlbum[]
-  spaces     FileInSpace[]
-  paths      FilePath[]
+  tags       TagOnObject[]
+  labels     LabelOnObject[]
+  albums     ObjectInAlbum[]
+  spaces     ObjectInSpace[]
+  file_paths FilePath[]
   comments   Comment[]
   media_data MediaData?
 
   key Key? @relation(fields: [key_id], references: [id])
 
-  @@map("files")
+  @@map("object")
 }
 
 model FilePath {
@@ -160,8 +150,8 @@ model FilePath {
   // the name and extension
   name              String
   extension         String?
-  // the unique File for this file path
-  file_id           Int?
+  // the unique Object for this file path
+  object_id         Int?
   // the parent in the file tree
   parent_id         Int?
   key_id            Int? // replacement for encryption
@@ -172,7 +162,7 @@ model FilePath {
   date_modified DateTime @default(now())
   date_indexed  DateTime @default(now())
 
-  file     File?     @relation(fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  object   Object?   @relation(fields: [object_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   location Location? @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
@@ -184,15 +174,15 @@ model FilePath {
   @@id([location_id, id])
   @@unique([location_id, materialized_path, name, extension])
   @@index([location_id])
-  @@map("file_paths")
+  @@map("file_path")
 }
 
 // if there is a conflicting cas_id, the conficting file should be updated to have a larger cas_id as the field is unique, however this record is kept to tell the indexer (upon discovering this CAS) that there is alternate versions of the file and to check by a full integrity hash to define for which to associate with.
 model FileConflict {
-  original_file_id   Int @unique
-  detactched_file_id Int @unique
+  original_object_id   Int @unique
+  detactched_object_id Int @unique
 
-  @@map("file_conflicts")
+  @@map("file_conflict")
 }
 
 // keys allow us to know exactly which files can be decrypted with a given key
@@ -207,10 +197,10 @@ model Key {
   // so we know which algorithm to use, can be null if user must select
   algorithm    Int?      @default(0)
 
-  files      File[]
+  objects    Object[]
   file_paths FilePath[]
 
-  @@map("keys")
+  @@map("key")
 }
 
 model MediaData {
@@ -227,8 +217,8 @@ model MediaData {
   codecs                  String? // eg: "h264,acc"
   streams                 Int?
 
-  // change this relation to File after testing
-  files File? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  // change this relation to Object after testing
+  objects Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("media_data")
 }
@@ -238,27 +228,27 @@ model Tag {
   pub_id          Bytes    @unique
   name            String?
   color           String?
-  total_files     Int?     @default(0)
+  total_objects   Int?     @default(0)
   redundancy_goal Int?     @default(1)
   date_created    DateTime @default(now())
   date_modified   DateTime @default(now())
 
-  tag_files TagOnFile[]
+  tag_objects TagOnObject[]
 
-  @@map("tags")
+  @@map("tag")
 }
 
-model TagOnFile {
+model TagOnObject {
   date_created DateTime @default(now())
 
   tag_id Int
   tag    Tag @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  file_id Int
-  file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  object_id Int
+  object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([tag_id, file_id])
-  @@map("tags_on_file")
+  @@id([tag_id, object_id])
+  @@map("tag_on_object")
 }
 
 model Label {
@@ -268,22 +258,22 @@ model Label {
   date_created  DateTime @default(now())
   date_modified DateTime @default(now())
 
-  label_files LabelOnFile[]
+  label_objects LabelOnObject[]
 
-  @@map("labels")
+  @@map("label")
 }
 
-model LabelOnFile {
+model LabelOnObject {
   date_created DateTime @default(now())
 
   label_id Int
   label    Label @relation(fields: [label_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  file_id Int
-  file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  object_id Int
+  object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([label_id, file_id])
-  @@map("label_on_file")
+  @@id([label_id, object_id])
+  @@map("label_on_object")
 }
 
 model Space {
@@ -294,22 +284,22 @@ model Space {
   date_created  DateTime @default(now())
   date_modified DateTime @default(now())
 
-  files FileInSpace[]
+  objects ObjectInSpace[]
 
-  @@map("spaces")
+  @@map("space")
 }
 
-model FileInSpace {
+model ObjectInSpace {
   date_created DateTime @default(now())
 
   space_id Int
   space    Space @relation(fields: [space_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  file_id Int
-  file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  object_id Int
+  object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([space_id, file_id])
-  @@map("file_in_space")
+  @@id([space_id, object_id])
+  @@map("object_in_space")
 }
 
 model Job {
@@ -329,7 +319,7 @@ model Job {
 
   nodes Node @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@map("jobs")
+  @@map("job")
 }
 
 model Album {
@@ -341,22 +331,22 @@ model Album {
   date_created  DateTime @default(now())
   date_modified DateTime @default(now())
 
-  files FileInAlbum[]
+  objects ObjectInAlbum[]
 
-  @@map("albums")
+  @@map("album")
 }
 
-model FileInAlbum {
+model ObjectInAlbum {
   date_created DateTime @default(now())
 
   album_id Int
   album    Album @relation(fields: [album_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  file_id Int
-  file    File @relation(fields: [file_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  object_id Int
+  object    Object @relation(fields: [object_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([album_id, file_id])
-  @@map("files_in_albums")
+  @@id([album_id, object_id])
+  @@map("object_in_album")
 }
 
 model Comment {
@@ -365,10 +355,10 @@ model Comment {
   content       String
   date_created  DateTime @default(now())
   date_modified DateTime @default(now())
-  file_id       Int?
-  file          File?    @relation(fields: [file_id], references: [id])
+  object_id     Int?
+  object        Object?  @relation(fields: [object_id], references: [id])
 
-  @@map("comments")
+  @@map("comment")
 }
 
 model IndexerRule {
@@ -381,7 +371,7 @@ model IndexerRule {
 
   locations IndexerRulesInLocation[]
 
-  @@map("indexer_rules")
+  @@map("indexer_rule")
 }
 
 model IndexerRulesInLocation {
@@ -394,5 +384,5 @@ model IndexerRulesInLocation {
   indexer_rule    IndexerRule @relation(fields: [indexer_rule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([location_id, indexer_rule_id])
-  @@map("indexer_rules_in_location")
+  @@map("indexer_rule_in_location")
 }

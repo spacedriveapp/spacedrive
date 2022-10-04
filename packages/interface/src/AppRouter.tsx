@@ -1,5 +1,5 @@
 import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
@@ -10,7 +10,6 @@ import { DebugScreen } from './screens/Debug';
 import { LocationExplorer } from './screens/LocationExplorer';
 import { OverviewScreen } from './screens/Overview';
 import { PhotosScreen } from './screens/Photos';
-import { RedirectPage } from './screens/Redirect';
 import { TagExplorer } from './screens/TagExplorer';
 import { SettingsScreen } from './screens/settings/Settings';
 import AppearanceSettings from './screens/settings/client/AppearanceSettings';
@@ -49,12 +48,12 @@ export function AppRouter() {
 					<Route
 						path="*"
 						element={
-							<h1 className="text-white p-4">Please select or create a library in the sidebar.</h1>
+							<h1 className="p-4 text-white">Please select or create a library in the sidebar.</h1>
 						}
 					/>
 				) : (
 					<>
-						<Route index element={<RedirectPage to="/overview" />} />
+						<Route index element={<Navigate to="/overview" />} />
 						<Route path="overview" element={<OverviewScreen />} />
 						<Route path="content" element={<ContentScreen />} />
 						<Route path="photos" element={<PhotosScreen />} />

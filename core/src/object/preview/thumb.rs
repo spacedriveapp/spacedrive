@@ -38,7 +38,7 @@ pub struct ThumbnailJobState {
 	root_path: PathBuf,
 }
 
-file_path::include!(file_path_with_file { file });
+file_path::include!(file_path_with_object { object });
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailJobStepKind {
@@ -49,7 +49,7 @@ enum ThumbnailJobStepKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailJobStep {
-	file: file_path_with_file::Data,
+	file_path: file_path_with_object::Data,
 	kind: ThumbnailJobStepKind,
 }
 
@@ -179,7 +179,7 @@ impl StatefulJob for ThumbnailJob {
 		let step = &state.steps[0];
 		ctx.progress(vec![JobReportUpdate::Message(format!(
 			"Processing {}",
-			step.file.materialized_path
+			step.file_path.materialized_path
 		))]);
 
 		let data = state
@@ -188,16 +188,16 @@ impl StatefulJob for ThumbnailJob {
 			.expect("critical error: missing data on job state");
 
 		// assemble the file path
-		let path = data.root_path.join(&step.file.materialized_path);
+		let path = data.root_path.join(&step.file_path.materialized_path);
 		trace!("image_file {:?}", step);
 
 		// get cas_id, if none found skip
-		let cas_id = match &step.file.file {
+		let cas_id = match &step.file_path.object {
 			Some(f) => f.cas_id.clone(),
 			_ => {
 				warn!(
 					"skipping thumbnail generation for {}",
-					step.file.materialized_path
+					step.file_path.materialized_path
 				);
 				return Ok(());
 			}
@@ -327,10 +327,10 @@ async fn get_files_by_extension(
 		.db
 		.file_path()
 		.find_many(params)
-		.include(file_path_with_file::include())
+		.include(file_path_with_object::include())
 		.exec()
 		.await?
 		.into_iter()
-		.map(|file| ThumbnailJobStep { file, kind })
+		.map(|file_path| ThumbnailJobStep { file_path, kind })
 		.collect())
 }
