@@ -4287,6 +4287,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-core-mobile"
+version = "0.1.0"
+dependencies = [
+ "jni",
+ "objc",
+ "objc-foundation",
+ "objc_id",
+ "once_cell",
+ "openssl",
+ "openssl-sys",
+ "rspc 0.0.5",
+ "sd-core",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "sd-ffmpeg"
 version = "0.1.0"
 dependencies = [
@@ -4310,23 +4327,6 @@ dependencies = [
  "serde_json",
  "uhlc",
  "uuid 1.1.2",
-]
-
-[[package]]
-name = "sdcore-lib"
-version = "0.1.0"
-dependencies = [
- "jni",
- "objc",
- "objc-foundation",
- "objc_id",
- "once_cell",
- "openssl",
- "openssl-sys",
- "rspc 0.0.5",
- "sd-core",
- "serde_json",
- "tokio",
 ]
 
 [[package]]
