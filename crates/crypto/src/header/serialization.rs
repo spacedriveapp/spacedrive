@@ -1,3 +1,7 @@
+//! This module defines all of the serialization and deserialization rules for the headers
+//!
+//! It contains byte -> enum and enum -> byte conversions for everything that could be written to a header (except headers and keyslots themselves)
+
 use crate::{
 	error::Error,
 	keys::hashing::Params,

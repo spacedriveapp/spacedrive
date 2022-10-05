@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+/// This enum defines all possible errors that this crate can give
 #[derive(Error, Debug)]
 pub enum Error {
 	#[error("not enough bytes were written to the output file")]

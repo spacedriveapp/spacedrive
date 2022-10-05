@@ -38,6 +38,9 @@ impl Params {
 }
 
 // Shouldn't be called directly - call it on the `HashingAlgorithm` struct
+/// This function should NOT be called directly!
+///
+/// Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
 pub fn password_hash_argon2id(
 	password: Secret<Vec<u8>>,
 	salt: [u8; SALT_LEN],

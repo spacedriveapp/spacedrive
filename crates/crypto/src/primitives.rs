@@ -13,22 +13,27 @@ pub const SALT_LEN: usize = 16;
 /// The file size gain is 16 bytes per 1MiB (due to the AEAD tag)
 pub const BLOCK_SIZE: usize = 1_048_576;
 
+/// The length of the encrypted master key
 pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
+
+/// The length of the (unencrypted) master key
 pub const MASTER_KEY_LEN: usize = 32;
 
-// These are all possible algorithms that can be used for encryption
-// They tie in heavily with `StreamEncryption` and `StreamDecryption`
+/// These are all possible algorithms that can be used for encryption
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,
 }
 
-// These are the different "modes" for encryption
-// Stream works in "blocks", incrementing the nonce on each block (so the same nonce isn't used twice)
-// Memory loads all data into memory before encryption, and encrypts it in one pass.
-// Stream mode is going to be the default for files, containers, etc. as  memory usage is roughly equal to the `BLOCK_SIZE`
-// Memory mode is only going to be used for small amounts of data (such as a master key) - streaming modes aren't viable here
+/// These are the different "modes" for encryption
+/// Stream works in "blocks", incrementing the nonce on each block (so the same nonce isn't used twice)
+///
+/// Memory loads all data into memory before encryption, and encrypts it in one pass
+///
+/// Stream mode is going to be the default for files, containers, etc. as  memory usage is roughly equal to the `BLOCK_SIZE`
+///
+/// Memory mode is only going to be used for small amounts of data (such as a master key) - streaming modes aren't viable here
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Mode {
 	Stream,
@@ -41,6 +46,9 @@ pub enum HashingAlgorithm {
 }
 
 impl HashingAlgorithm {
+	/// This function should be used to hash passwords
+	///
+	/// It handles all of the security "levels" and paramaters
 	pub fn hash(
 		&self,
 		password: Secret<Vec<u8>>,
@@ -69,7 +77,9 @@ impl Algorithm {
 	}
 }
 
-// The length can easily be obtained via `algorithm.nonce_len(mode)`
+/// The length can easily be obtained via `algorithm.nonce_len(mode)`
+///
+/// This function uses `ChaCha20Rng` for cryptographically-securely generating random data
 #[must_use]
 pub fn generate_nonce(len: usize) -> Vec<u8> {
 	let mut nonce = vec![0u8; len];
@@ -77,6 +87,7 @@ pub fn generate_nonce(len: usize) -> Vec<u8> {
 	nonce
 }
 
+/// This function uses `ChaCha20Rng` for cryptographically-securely generating random data
 #[must_use]
 pub fn generate_salt() -> [u8; SALT_LEN] {
 	let mut salt = [0u8; SALT_LEN];
@@ -84,6 +95,11 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
 	salt
 }
 
+/// This generates a master key, which should be used for encrypting the data
+///
+/// This is then stored encrypted in the header
+///
+/// This function uses `ChaCha20Rng` for cryptographically-securely generating random data
 #[must_use]
 pub fn generate_master_key() -> [u8; MASTER_KEY_LEN] {
 	let mut master_key = [0u8; MASTER_KEY_LEN];

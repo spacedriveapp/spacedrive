@@ -6,14 +6,13 @@ use zeroize::Zeroize;
 use crate::{
 	error::Error,
 	objects::memory::MemoryDecryption,
-	primitives::{
-		Algorithm, Mode, MASTER_KEY_LEN,
-	},
+	primitives::{Algorithm, Mode, MASTER_KEY_LEN},
 };
 
 use super::keyslot::Keyslot;
 
-// random values, can be changed
+/// These are used to quickly and easily identify Spacedrive-encrypted files
+/// Random values - can be changed (up until 0.1.0)
 pub const MAGIC_BYTES: [u8; 6] = [0x08, 0xFF, 0x55, 0x32, 0x58, 0x1A];
 
 // Everything contained within this header can be flaunted around with minimal security risk
@@ -29,14 +28,15 @@ pub struct FileHeader {
 	pub keyslots: Vec<Keyslot>,
 }
 
-// The goal is to try and keep these in sync as much as possible,
-// but the option to increment one is always there.
-// I designed with a lot of future-proofing, even if it doesn't fit our current plans
+/// This defines the main file header version
 pub enum FileHeaderVersion {
 	V1,
 }
 
 impl FileHeader {
+	/// This is a helper function to decrypt a master key from a set of keyslots
+	/// It's easier to call this on the header for now - but this may be changed in the future
+	/// You receive an error if the password doesn't match
 	pub fn decrypt_master_key(&self, password: Secret<Vec<u8>>) -> Result<Secret<[u8; 32]>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 

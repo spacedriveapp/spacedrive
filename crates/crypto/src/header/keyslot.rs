@@ -1,10 +1,15 @@
-use std::io::{Seek, Read};
+use std::io::{Read, Seek};
 
-use crate::{primitives::{HashingAlgorithm, SALT_LEN, Mode, Algorithm, ENCRYPTED_MASTER_KEY_LEN}, error::Error};
+use crate::{
+	error::Error,
+	primitives::{Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
+};
 
-// I chose to add the mode for uniformity, that way it's clear that master keys are encrypted differently
-// I opted to include a hashing algorithm - it's 2 additional bytes but it may save a version iteration in the future
-// Keyslots should inherit the parent's encryption algorithm, but I chose to add it anyway just in case
+/// A keyslot. 96 bytes, and contains all the information for future-proofing while keeping the size reasonable
+///
+/// The mode was added so others can see that master keys are encrypted differently from data
+///
+/// The algorithm (should) be inherited from the parent header, but that's not a guarantee
 pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
@@ -15,11 +20,13 @@ pub struct Keyslot {
 	pub nonce: Vec<u8>,
 }
 
+/// This defines the keyslot version
 pub enum KeyslotVersion {
 	V1,
 }
 
 impl Keyslot {
+	/// This function is used to serialize a keyslot into bytes
 	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
@@ -38,6 +45,7 @@ impl Keyslot {
 		}
 	}
 
+	/// This function reads a keyslot from a reader, and attempts to serialize a keyslot
 	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
 	where
 		R: Read + Seek,

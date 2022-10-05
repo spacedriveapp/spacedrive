@@ -75,8 +75,6 @@ impl StreamEncryption {
 		}
 	}
 
-	// This does not handle writing the header
-	// I'm unsure whether this should be taking ownership of `reader` and `writer`, but it seems like a good idea
 	pub fn encrypt_streams<R, W>(
 		mut self,
 		mut reader: R,
@@ -183,8 +181,6 @@ impl StreamDecryption {
 		}
 	}
 
-	// This does not handle writing the header
-	// I'm unsure whether this should be taking ownership of `reader` and `writer`, but it seems like a good idea
 	pub fn decrypt_streams<R, W>(
 		mut self,
 		mut reader: R,
