@@ -12,10 +12,10 @@ export const Shortcut: React.FC<ShortcutProps> = (props) => {
 	return (
 		<kbd
 			className={clsx(
-				`px-1 py-0.5 border border-b-2`,
+				`px-1 border border-b-2`,
 				`rounded-lg text-xs font-bold`,
 				`text-gray-400 bg-gray-200 border-gray-300`,
-				`dark:text-gray-400 dark:bg-gray-600 dark:border-gray-500`,
+				`dark:text-gray-400 dark:bg-transparent dark:border-transparent`,
 				className
 			)}
 			{...rest}

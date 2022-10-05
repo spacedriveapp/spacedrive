@@ -51,6 +51,8 @@ impl Node {
 
 		fs::create_dir_all(&data_dir).await?;
 
+		// dbg!(get_object_kind_from_extension("png"));
+
 		tracing_subscriber::registry()
 			.with(
 				EnvFilter::from_default_env()

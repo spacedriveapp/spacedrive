@@ -102,7 +102,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 
 			<div
 				className={clsx(
-					'space-x-1 absolute top-[2px] right-1 peer-focus:invisible pointer-events-none',
+					'space-x-1 absolute top-[1px] right-1 peer-focus:invisible pointer-events-none',
 					isDirty && 'hidden'
 				)}
 			>
