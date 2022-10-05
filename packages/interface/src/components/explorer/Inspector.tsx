@@ -45,7 +45,7 @@ export const Inspector = (props: Props) => {
 			<div className="">
 				{!!props.data && (
 					<>
-						<div className="flex items-center justify-center w-full overflow-hidden rounded-md ">
+						<div className="flex items-center justify-center w-full py-4 overflow-hidden rounded-md">
 							<FileThumb
 								iconClassNames="!my-10"
 								size={230}
