@@ -2,7 +2,7 @@ import { proxy, useSnapshot } from 'valtio';
 
 import { resetStore } from './util';
 
-export type ExplorerLayoutMode = 'list' | 'grid';
+export type ExplorerLayoutMode = 'list' | 'grid' | 'media';
 
 export enum ExplorerKind {
 	Location,

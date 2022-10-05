@@ -51,8 +51,8 @@ pub(crate) fn mount() -> RouterBuilder {
 					.spawn_job(Job::new(
 						ThumbnailJobInit {
 							location_id: args.id,
-							path: args.path,
-							background: false, // fix
+							path: PathBuf::new(),
+							background: true,
 						},
 						Box::new(ThumbnailJob {}),
 					))
