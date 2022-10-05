@@ -174,7 +174,6 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
-						DevelopmentTeam = 72SE38W7T9;
 						LastSwiftMigration = 1250;
 					};
 				};
@@ -266,7 +265,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/zsh;
-			shellScript = "set -e\n\nif [[ -n \"${DEVELOPER_SDK_DIR:-}\" ]]; then\n  # Assume we're in Xcode, which means we're probably cross-compiling.\n  # In this case, we need to add an extra library search path for build scripts and proc-macros,\n  # which run on the host instead of the target.\n  # (macOS Big Sur does not have linkable libraries in /usr/lib/.)\n  export LIBRARY_PATH=\"${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}\"\nfi\n\nCARGO_FLAGS=\nif [[ \"$BUILDVARIANT\" != \"debug\" ]]; then\n  CARGO_FLAGS=--release\nfi\n\nTARGET_DIRECTORY=../../../target\nif [[ $PLATFORM_NAME = \"iphonesimulator\" ]]\nthen\n    cargo build -p sd-core-mobile $CARGO_FLAGS --lib --target aarch64-apple-ios-sim\n    lipo -create -output $TARGET_DIRECTORY/libsd_core_mobile-iossim.a $TARGET_DIRECTORY/aarch64-apple-ios-sim/release/libsd_core_mobile.a\nelse\n    cargo build -p sdcore-lib $CARGO_FLAGS --lib --target aarch64-apple-ios\n    lipo -create -output $TARGET_DIRECTORY/libsd_core_mobile-ios.a $TARGET_DIRECTORY/aarch64-apple-ios/release/libsd_core_mobile.a\nfi\n";
+			shellScript = "set -e\n\nif [[ -n \"${DEVELOPER_SDK_DIR:-}\" ]]; then\n  # Assume we're in Xcode, which means we're probably cross-compiling.\n  # In this case, we need to add an extra library search path for build scripts and proc-macros,\n  # which run on the host instead of the target.\n  # (macOS Big Sur does not have linkable libraries in /usr/lib/.)\n  export LIBRARY_PATH=\"${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}\"\nfi\n\nCARGO_FLAGS=\nif [[ \"$BUILDVARIANT\" != \"debug\" ]]; then\n  CARGO_FLAGS=--release\nfi\n\nTARGET_DIRECTORY=../../../target\nif [[ $PLATFORM_NAME = \"iphonesimulator\" ]]\nthen\n    cargo build -p sd-core-mobile $CARGO_FLAGS --lib --target aarch64-apple-ios-sim\n    lipo -create -output $TARGET_DIRECTORY/libsd_core_mobile-iossim.a $TARGET_DIRECTORY/aarch64-apple-ios-sim/release/libsd_core_mobile.a\nelse\n    cargo build -p sd-core-mobile $CARGO_FLAGS --lib --target aarch64-apple-ios\n    lipo -create -output $TARGET_DIRECTORY/libsd_core_mobile-ios.a $TARGET_DIRECTORY/aarch64-apple-ios/release/libsd_core_mobile.a\nfi\n";
 		};
 		EE23FABC21723647AF9773BD /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -352,8 +351,10 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Spacedrive/Spacedrive.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 72SE38W7T9;
+				DEVELOPMENT_TEAM = H7MGS2DHHJ;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -431,6 +432,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
 				PRODUCT_NAME = Spacedrive;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -446,8 +448,10 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Spacedrive/Spacedrive.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 72SE38W7T9;
+				DEVELOPMENT_TEAM = H7MGS2DHHJ;
 				INFOPLIST_FILE = Spacedrive/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -520,6 +524,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
 				PRODUCT_NAME = Spacedrive;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
