@@ -20,32 +20,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 17
-
       - name: Install pnpm
         uses: pnpm/action-setup@v2.2.2
         with:
           version: 7.x.x
-          run_install: false
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        run: |
-          echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
-
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
+      - name: Install Node.js
+        uses: actions/setup-node@v3
         with:
-          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+          node-version: 17
+          cache: 'pnpm'
 
       - name: Install pnpm dependencies
-        run: pnpm --frozen-lockfile i
+        run: pnpm i --frozen-lockfile
 
       - name: Perform typechecks
         run: pnpm typecheck
@@ -143,16 +130,19 @@ jobs:
       - name: Cache Rust dependencies
         uses: ./.github/actions/cache-rust-deps
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 7.x.x
+
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 17
+          cache: 'pnpm'
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.0.1
-        with:
-          version: 7
-          run_install: false
+      - name: Install pnpm dependencies
+        run: pnpm i --frozen-lockfile
 
       - name: Run 'setup-system.sh' script
         if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
@@ -161,22 +151,6 @@ jobs:
       - name: Run 'setup-system.ps1' script
         if: matrix.platform == 'windows-latest'
         run: ./.github/scripts/setup-system.ps1 -ci
-
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        run: |
-          echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
-
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
-        with:
-          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install pnpm dependencies
-        run: pnpm --frozen-lockfile i
 
       - name: Generate Prisma client
         uses: ./.github/actions/generate-prisma-client
