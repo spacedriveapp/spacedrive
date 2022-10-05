@@ -70,7 +70,7 @@ pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_voi
 					.to_str()
 					.unwrap()
 					.to_string();
-				let new_node = Node::new(doc_dir).await;
+				let new_node = Node::new(doc_dir).await.unwrap();
 				node.replace(new_node.clone());
 				new_node
 			}
