@@ -4,6 +4,7 @@ use crate::primitives::{Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_
 // The only way this could compromise any data is if a weak password/key was used
 // Even then, `argon2id` helps alleiviate this somewhat (brute-forcing it is incredibly tough)
 // We also use high memory parameters in order to hinder attacks with ASICs
+// There should be no more than two keyslots in this header type
 pub struct FileHeader {
 	pub version: FileHeaderVersion,
 	pub algorithm: Algorithm,
@@ -33,6 +34,8 @@ pub enum FileHeaderVersion {
 	V1,
 }
 
+// TODO(brxken128): use a trait/impl, so we can call `keyslot.version.serialize()` instead
+// This should work for all serializable/deserializable values
 pub enum FileKeyslotVersion {
 	V1,
 }
@@ -90,6 +93,14 @@ impl FileHeader {
 		header.extend_from_slice(&self.nonce); // 20 OR 32
 		header.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // padded until 36 bytes
 
-		todo!()
+		for keyslot in &self.keyslots {
+			header.extend_from_slice(&keyslot.serialize());
+		}
+
+		for _ in 0..(2 - self.keyslots.len()) {
+			header.extend_from_slice(&[0u8; 96]);
+		}
+
+		header
 	}
 }
