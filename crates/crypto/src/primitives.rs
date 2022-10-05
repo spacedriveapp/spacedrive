@@ -21,7 +21,7 @@ pub enum Algorithm {
 // Memory loads all data into memory before encryption, and encrypts it in one pass.
 // Stream mode is going to be the default for files, containers, etc. as  memory usage is roughly equal to the `BLOCK_SIZE`
 // Memory mode is only going to be used for small amounts of data (such as a master key) - streaming modes aren't viable here
-#[derive(PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Mode {
 	Stream,
 	Memory,
