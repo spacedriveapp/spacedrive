@@ -21,6 +21,6 @@ pre-push:
     rust-lint-tauri:
       run: cargo clippy --package spacedrive -- -D warnings
     rust-lint-core:
-      run: cargo clippy --package sdcore --lib -- -D warnings
+      run: cargo clippy --package sd-core --lib -- -D warnings
     rust-lint-server:
       run: cargo clippy --package server -- -D warnings

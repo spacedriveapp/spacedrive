@@ -100,42 +100,22 @@ export default function OverviewScreen() {
 
 	// get app props from context
 	useEffect(() => {
-		if (platform.demoMode === true) {
-			if (!Object.entries(overviewStats).length)
-				setOverviewStats({
-					total_bytes_capacity: '8093333345230',
-					preview_media_bytes: '2304387532',
-					library_db_size: '83345230',
-					total_file_count: '20342345',
-					total_bytes_free: '89734502034',
-					total_bytes_used: '8093333345230',
-					total_unique_bytes: '9347397'
-				});
-		} else {
-			const newStatistics: OverviewStats = {
-				total_bytes_capacity: '0',
-				preview_media_bytes: '0',
-				library_db_size: '0',
-				total_file_count: '0',
-				total_bytes_free: '0',
-				total_bytes_used: '0',
-				total_unique_bytes: '0'
-			};
+		const newStatistics: OverviewStats = {
+			total_bytes_capacity: '0',
+			preview_media_bytes: '0',
+			library_db_size: '0',
+			total_object_count: '0',
+			total_bytes_free: '0',
+			total_bytes_used: '0',
+			total_unique_bytes: '0'
+		};
 
-			Object.entries((libraryStatistics as Statistics) || {}).forEach(([key, value]) => {
-				newStatistics[key as keyof Statistics] = `${value}`;
-			});
+		Object.entries((libraryStatistics as Statistics) || {}).forEach(([key, value]) => {
+			newStatistics[key as keyof Statistics] = `${value}`;
+		});
 
-			setOverviewStats(newStatistics);
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [platform, libraryStatistics]);
-
-	// useEffect(() => {
-	// 	setTimeout(() => {
-	// 		setOverviewStat('total_bytes_capacity', '4093333345230');
-	// 	}, 2000);
-	// }, [overviewStats]);
+		setOverviewStats(newStatistics);
+	}, [platform, libraryStatistics, setOverviewStats]);
 
 	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 

@@ -6,7 +6,7 @@ use axum::{
 	http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
 	routing::get,
 };
-use sdcore::Node;
+use sd_core::Node;
 use tracing::info;
 
 mod utils;

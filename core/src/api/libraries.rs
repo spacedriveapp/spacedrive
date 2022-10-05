@@ -58,7 +58,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let params = vec![
 					id::set(1), // Each library is a database so only one of these ever exists
 					date_captured::set(Utc::now().into()),
-					total_file_count::set(0),
+					total_object_count::set(0),
 					library_db_size::set(library_db_size.to_string()),
 					total_bytes_used::set(0.to_string()),
 					total_bytes_capacity::set(total_capacity.to_string()),

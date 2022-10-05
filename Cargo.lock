@@ -1124,6 +1124,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "example"
+version = "0.0.0"
+dependencies = [
+ "rspc",
+ "sd-sync",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tokio",
+ "uuid 1.1.2",
+]
+
+[[package]]
 name = "exr"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1877,6 +1891,12 @@ dependencies = [
  "sha1",
  "tokio",
 ]
+
+[[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
@@ -3044,10 +3064,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "p2p"
-version = "0.1.0"
-
-[[package]]
 name = "pango"
 version = "0.15.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3430,7 +3446,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.1"
-source = "git+https://github.com//Brendonovich/prisma-client-rust.git?branch=rspc-0.1.1#c580af4195c7278c1fddf12149ae38cec2c9869e"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=f5d4a952d8e8bc799a0006dc5f375a22fd64ac27#f5d4a952d8e8bc799a0006dc5f375a22fd64ac27"
 dependencies = [
  "base64 0.13.0",
  "bigdecimal",
@@ -3459,7 +3475,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.1"
-source = "git+https://github.com//Brendonovich/prisma-client-rust.git?branch=rspc-0.1.1#c580af4195c7278c1fddf12149ae38cec2c9869e"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=f5d4a952d8e8bc799a0006dc5f375a22fd64ac27#f5d4a952d8e8bc799a0006dc5f375a22fd64ac27"
 dependencies = [
  "datamodel",
  "prisma-client-rust-sdk",
@@ -3474,7 +3490,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.1"
-source = "git+https://github.com//Brendonovich/prisma-client-rust.git?branch=rspc-0.1.1#c580af4195c7278c1fddf12149ae38cec2c9869e"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=f5d4a952d8e8bc799a0006dc5f375a22fd64ac27#f5d4a952d8e8bc799a0006dc5f375a22fd64ac27"
 dependencies = [
  "convert_case 0.5.0",
  "datamodel",
@@ -4236,18 +4252,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
-name = "sd_ffmpeg"
-version = "0.1.0"
-dependencies = [
- "ffmpeg-sys-next",
- "tempfile",
- "thiserror",
- "tokio",
- "webp",
-]
-
-[[package]]
-name = "sdcore"
+name = "sd-core"
 version = "0.1.0"
 dependencies = [
  "async-stream",
@@ -4272,7 +4277,7 @@ dependencies = [
  "rmp",
  "rmp-serde",
  "rspc",
- "sd_ffmpeg",
+ "sd-ffmpeg",
  "serde",
  "serde_json",
  "sysinfo",
@@ -4287,6 +4292,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-ffmpeg"
+version = "0.1.0"
+dependencies = [
+ "ffmpeg-sys-next",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "webp",
+]
+
+[[package]]
+name = "sd-p2p"
+version = "0.1.0"
+
+[[package]]
+name = "sd-sync"
+version = "0.1.0"
+dependencies = [
+ "rspc",
+ "serde",
+ "serde_json",
+ "uhlc",
+ "uuid 1.1.2",
+]
+
+[[package]]
 name = "sdcore-lib"
 version = "0.1.0"
 dependencies = [
@@ -4298,7 +4329,7 @@ dependencies = [
  "openssl",
  "openssl-sys",
  "rspc",
- "sdcore",
+ "sd-core",
  "serde_json",
  "tokio",
 ]
@@ -4498,7 +4529,7 @@ dependencies = [
  "axum",
  "ctrlc",
  "rspc",
- "sdcore",
+ "sd-core",
  "tokio",
  "tracing",
 ]
@@ -4673,7 +4704,7 @@ name = "spacedrive"
 version = "0.1.0"
 dependencies = [
  "rspc",
- "sdcore",
+ "sd-core",
  "serde",
  "swift-rs",
  "tauri",
@@ -4938,10 +4969,6 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
-
-[[package]]
-name = "sync"
-version = "0.1.0"
 
 [[package]]
 name = "sync_wrapper"
@@ -5653,6 +5680,20 @@ name = "ucd-trie"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e79c4d996edb816c91e4308506774452e55e95c3c9de07b6729e17e15a5ef81"
+
+[[package]]
+name = "uhlc"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7908438f98a5824af02b34c2b31fb369c5764ef835d26df0badbb9897fb28245"
+dependencies = [
+ "hex",
+ "humantime",
+ "lazy_static",
+ "log",
+ "serde",
+ "uuid 1.1.2",
+]
 
 [[package]]
 name = "unicode-bidi"

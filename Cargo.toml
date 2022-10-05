@@ -2,16 +2,28 @@
 members = [
   "core",
   "crates/*",
+  "crates/sync/example/src-tauri",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
   "apps/server",
 ]
 resolver = "2"
 
+[workspace.dependencies]
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "f5d4a952d8e8bc799a0006dc5f375a22fd64ac27", features = [
+  "rspc",
+  "sqlite-create-many",
+  "migrations",
+  "sqlite",
+], default-features = false }
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "f5d4a952d8e8bc799a0006dc5f375a22fd64ac27", features = [
+  "rspc",
+  "sqlite-create-many",
+  "migrations",
+  "sqlite",
+], default-features = false }
+rspc = { version = "0.1.2" }
+
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl" }
-
-[patch."https://github.com/Brendonovich/prisma-client-rust.git"]
-prisma-client-rust ={ git = "https://github.com//Brendonovich/prisma-client-rust.git", branch = "rspc-0.1.1" }
-prisma-client-rust-cli = { git = "https://github.com//Brendonovich/prisma-client-rust.git", branch = "rspc-0.1.1" }

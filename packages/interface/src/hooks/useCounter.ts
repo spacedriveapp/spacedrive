@@ -53,13 +53,12 @@ const useCounter = ({ name, start = 0, end, duration = 2, saveState = true }: Us
 		duration,
 		easing: 'easeOutCubic'
 	});
-	
+
 	useEffect(() => {
 		if (saveState && value == end) {
 			setLastValue(name, end);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [end, value]);
+	}, [end, name, saveState, setLastValue, value]);
 
 	if (start === end) return end;
 

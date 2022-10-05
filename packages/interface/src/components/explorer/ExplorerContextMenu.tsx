@@ -16,14 +16,14 @@ import { useSnapshot } from 'valtio';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
-	const tagsForFile = useLibraryQuery(['tags.getForFile', props.objectId], { suspense: true });
+	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], { suspense: true });
 
 	const { mutate: assignTag } = useLibraryMutation('tags.assign');
 
 	return (
 		<>
 			{tags.data?.map((tag) => {
-				const active = !!tagsForFile.data?.find((t) => t.id === tag.id);
+				const active = !!tagsForObject.data?.find((t) => t.id === tag.id);
 
 				return (
 					<CM.Item
@@ -34,7 +34,7 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 							assignTag({
 								tag_id: tag.id,
-								file_id: props.objectId,
+								object_id: props.objectId,
 								unassign: active
 							});
 						}}

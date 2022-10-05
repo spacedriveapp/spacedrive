@@ -3,3 +3,4 @@ packages:
   - 'apps/*'
   - '!apps/mobile'
   - 'core'
+  - 'crates/sync/example'

@@ -226,7 +226,7 @@ function Page() {
 						lives, at unlimited scale.
 					</p>
 					<a
-						href="/faq"
+						href="/docs/product/resources/faq"
 						className="flex flex-row items-center text-gray-400 duration-150 animation-delay-3 fade-in-heading hover:text-white text-underline underline-offset-4"
 					>
 						<ArrowRight className="mr-2" />

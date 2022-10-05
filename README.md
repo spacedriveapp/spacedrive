@@ -51,7 +51,9 @@ For independent creatives, hoarders and those that want to own their digital foo
   <a href="https://instagram.com/spacedriveapp">
     <img src="https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white" />
   </a>
-  <img src="https://img.shields.io/static/v1?label=Licence&message=GNU%20v3&color=000" />
+  <a href="https://www.gnu.org/licenses/agpl-3.0">
+    <img src="https://img.shields.io/static/v1?label=Licence&message=AGPL%20v3&color=000" />
+  </a>
   <img src="https://img.shields.io/static/v1?label=Bundled%20Size&message=16.3MB&color=0974B4" />
   <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB" />
   <br />
