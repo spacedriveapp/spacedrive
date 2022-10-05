@@ -14,7 +14,7 @@ pub const MASTER_KEY_LEN: usize = 32;
 
 // These are all possible algorithms that can be used for encryption
 // They tie in heavily with `StreamEncryption` and `StreamDecryption`
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,
@@ -25,7 +25,7 @@ pub enum Algorithm {
 // Memory loads all data into memory before encryption, and encrypts it in one pass.
 // Stream mode is going to be the default for files, containers, etc. as  memory usage is roughly equal to the `BLOCK_SIZE`
 // Memory mode is only going to be used for small amounts of data (such as a master key) - streaming modes aren't viable here
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Mode {
 	Stream,
 	Memory,
@@ -38,33 +38,36 @@ pub enum HashingAlgorithm {
 impl Algorithm {
 	// This function calculates the expected nonce length for a given algorithm
 	// 4 bytes are deducted for streaming mode, due to the LE31 counter being the last 4 bytes of the nonce
+	#[must_use]
 	pub fn nonce_len(&self, mode: Mode) -> usize {
 		let base = match self {
 			Self::XChaCha20Poly1305 => 24,
 			Self::Aes256Gcm => 12,
 		};
 
-		if mode == Mode::Stream {
-			base - 4
-		} else {
-			base
+		match mode {
+			Mode::Stream => base - 4,
+			Mode::Memory => base,
 		}
 	}
 }
 
 // The length can easily be obtained via `algorithm.nonce_len(mode)`
+#[must_use]
 pub fn generate_nonce(len: usize) -> Vec<u8> {
 	let mut nonce = vec![0u8; len];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut nonce);
 	nonce
 }
 
+#[must_use]
 pub fn generate_salt() -> [u8; SALT_LEN] {
 	let mut salt = [0u8; SALT_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut salt);
 	salt
 }
 
+#[must_use]
 pub fn generate_master_key() -> [u8; MASTER_KEY_LEN] {
 	let mut master_key = [0u8; MASTER_KEY_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut master_key);

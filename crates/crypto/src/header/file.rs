@@ -29,8 +29,8 @@ pub struct FileKeyslot {
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
 	pub mode: Mode,
 	pub salt: [u8; SALT_LEN],
-	pub nonce: Vec<u8>,
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is encrypted so we can store it
+	pub nonce: Vec<u8>,
 }
 
 // The goal is to try and keep these in sync as much as possible,
@@ -43,6 +43,7 @@ pub enum FileHeaderVersion {
 // TODO(brxken128): maybe use a deserialization error
 // TODO(brxken128): move all serialization/deserialization rules
 impl FileHeaderVersion {
+	#[must_use]
 	pub fn serialize(&self) -> [u8; 2] {
 		match self {
 			FileHeaderVersion::V1 => [0x0A, 0x01],
@@ -62,6 +63,7 @@ pub enum FileKeyslotVersion {
 }
 
 impl FileKeyslotVersion {
+	#[must_use]
 	pub fn serialize(&self) -> [u8; 2] {
 		match self {
 			FileKeyslotVersion::V1 => [0x0D, 0x01],
@@ -77,6 +79,7 @@ impl FileKeyslotVersion {
 }
 
 impl HashingAlgorithm {
+	#[must_use]
 	pub fn serialize(&self) -> [u8; 2] {
 		match self {
 			HashingAlgorithm::Argon2id(p) => match p {
@@ -98,6 +101,7 @@ impl HashingAlgorithm {
 }
 
 impl FileKeyslot {
+	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
 			FileKeyslotVersion::V1 => {
@@ -167,6 +171,7 @@ impl FileKeyslot {
 }
 
 impl Algorithm {
+	#[must_use]
 	pub fn serialize(&self) -> [u8; 2] {
 		match self {
 			Algorithm::XChaCha20Poly1305 => [0x0B, 0x01],
@@ -184,6 +189,7 @@ impl Algorithm {
 }
 
 impl Mode {
+	#[must_use]
 	pub fn serialize(&self) -> [u8; 2] {
 		match self {
 			Mode::Stream => [0x0C, 0x01],
@@ -204,6 +210,7 @@ impl Mode {
 pub const MAGIC_BYTES: [u8; 6] = [0x08, 0xFF, 0x55, 0x32, 0x58, 0x1A];
 
 impl FileHeader {
+	#[must_use]
 	pub fn create_aad(&self) -> Vec<u8> {
 		match self.version {
 			FileHeaderVersion::V1 => {
@@ -219,6 +226,7 @@ impl FileHeader {
 		}
 	}
 
+	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
 			FileHeaderVersion::V1 => {
@@ -243,12 +251,14 @@ impl FileHeader {
 		}
 	}
 
+	#[must_use]
 	pub fn length(&self) -> usize {
 		match self.version {
 			FileHeaderVersion::V1 => 228,
 		}
 	}
 
+	#[must_use]
 	pub fn aad_length(&self) -> usize {
 		match self.version {
 			FileHeaderVersion::V1 => 36,
@@ -299,15 +309,13 @@ impl FileHeader {
 					}
 				}
 
-				let file_header = FileHeader {
+				FileHeader {
 					version,
 					algorithm,
 					mode,
 					nonce,
 					keyslots,
-				};
-
-				file_header
+				}
 			}
 		};
 
