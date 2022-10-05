@@ -17,6 +17,7 @@
 		"docs": "pnpm --filter @sd/docs -- ",
 		"client": "pnpm --filter @sd/client -- ",
 		"server": "pnpm --filter @sd/server -- ",
+		"prisma": "cd core && cargo prisma",
 		"typecheck": "pnpm -r exec tsc"
 	},
 	"devDependencies": {

@@ -35,7 +35,7 @@ export default function LocationExplorer() {
 
 	return (
 		<div className="relative flex flex-col w-full">
-			{library!.uuid && explorerData.data && <Explorer data={explorerData.data} />}
+			<Explorer data={explorerData.data} />
 		</div>
 	);
 }

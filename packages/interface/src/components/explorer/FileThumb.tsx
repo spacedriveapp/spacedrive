@@ -1,15 +1,22 @@
 import { Folder } from '../icons/Folder';
 import { isObject, isPath } from './utils';
-import { useExplorerStore, usePlatform } from '@sd/client';
+import videoSvg from '@sd/assets/svgs/video.svg';
+import zipSvg from '@sd/assets/svgs/zip.svg';
+import { getExplorerStore, usePlatform } from '@sd/client';
+import { useExplorerStore } from '@sd/client';
 import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
+import { useState } from 'react';
 import { Suspense, lazy, useMemo } from 'react';
+import { useSnapshot } from 'valtio';
 
 interface Props {
 	data: ExplorerItem;
 	size: number;
 	className?: string;
 	style?: React.CSSProperties;
+	iconClassNames?: string;
+	kind?: 'video' | 'image' | 'audio' | 'zip' | 'other';
 }
 
 const icons = import.meta.glob('../../../../assets/icons/*.svg');
@@ -20,6 +27,7 @@ export default function FileThumb({ data, ...props }: Props) {
 
 	const Icon = useMemo(() => {
 		const icon = icons[`../../../../assets/icons/${data.extension as any}.svg`];
+
 		const Icon = icon
 			? lazy(() => icon().then((v) => ({ default: (v as any).ReactComponent })))
 			: undefined;
@@ -38,15 +46,36 @@ export default function FileThumb({ data, ...props }: Props) {
 		? data.object?.has_thumbnail
 		: !!store.newThumbnails[cas_id];
 
-	if (has_thumbnail)
+	const url = platform.getThumbnailUrlById(cas_id);
+
+	if (has_thumbnail && url)
 		return (
 			<img
-				// onLoad={}
 				style={props.style}
+				decoding="async"
+				// width={props.size}
 				className={clsx('pointer-events-none z-90', props.className)}
-				src={platform.getThumbnailUrlById(cas_id)}
+				src={url}
 			/>
 		);
+
+	if (props.kind === 'video') {
+		return (
+			<div className="">
+				<img
+					src={videoSvg}
+					className={clsx('w-full overflow-hidden h-full', props.iconClassNames)}
+				/>
+			</div>
+		);
+	}
+	if (props.kind === 'zip') {
+		return (
+			<div className="">
+				<img src={zipSvg} className={clsx('w-full overflow-hidden h-full')} />
+			</div>
+		);
+	}
 
 	return (
 		<div

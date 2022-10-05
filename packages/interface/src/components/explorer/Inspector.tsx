@@ -8,7 +8,7 @@ import Note from './inspector/Note';
 import { isObject } from './utils';
 import { ShareIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
-import { ExplorerContext, ExplorerItem, FilePath, Object } from '@sd/client';
+import { ExplorerContext, ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 
 interface Props {
 	context?: ExplorerContext;
-	data: ExplorerItem;
+	data?: ExplorerItem;
 }
 
 export const Inspector = (props: Props) => {
@@ -29,7 +29,7 @@ export const Inspector = (props: Props) => {
 
 	const is_dir = props.data?.type === 'Path' ? props.data.is_dir : false;
 
-	const objectData = isObject(props.data) ? props.data : props.data.object;
+	const objectData = props.data ? (isObject(props.data) ? props.data : props.data.object) : null;
 
 	// this prevents the inspector from fetching data when the user is navigating quickly
 	const [readyToFetch, setReadyToFetch] = useState(false);
@@ -38,10 +38,10 @@ export const Inspector = (props: Props) => {
 			setReadyToFetch(true);
 		}, 350);
 		return () => clearTimeout(timeout);
-	}, [props.data.id]);
+	}, [props.data?.id]);
 
 	// this is causing LAG
-	const { data: tags } = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
+	const tags = useLibraryQuery(['tags.getForObject', objectData?.id || -1], {
 		enabled: readyToFetch
 	});
 
@@ -50,7 +50,12 @@ export const Inspector = (props: Props) => {
 			{!!props.data && (
 				<>
 					<div className="flex bg-black items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
-						<FileThumb size={230} className="!m-0 flex flex-shrink flex-grow-0" data={props.data} />
+						<FileThumb
+							iconClassNames="!my-10"
+							size={230}
+							className="!m-0 flex flex-shrink flex-grow-0"
+							data={props.data}
+						/>
 					</div>
 					<div className="flex flex-col w-full pt-0.5 pb-4 overflow-hidden bg-white rounded-lg shadow select-text dark:shadow-gray-700 dark:bg-gray-550 dark:bg-opacity-40">
 						<h3 className="pt-3 pl-3 text-base font-bold">
@@ -74,14 +79,14 @@ export const Inspector = (props: Props) => {
 								</Tooltip>
 							</div>
 						)}
-						{!!tags?.length && (
+						{!!tags?.data?.length && (
 							<>
 								<Divider />
 								<MetaItem
 									// title="Tags"
 									value={
 										<div className="flex flex-wrap mt-1.5 gap-1.5">
-											{tags?.map((tag) => (
+											{tags?.data?.map((tag) => (
 												<div
 													// onClick={() => setSelectedTag(tag.id === selectedTag ? null : tag.id)}
 													key={tag.id}
@@ -128,7 +133,7 @@ export const Inspector = (props: Props) => {
 										</span>
 									)}
 									<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">
-										{props.data?.extension && types !== undefined
+										{props.data?.extension
 											? //@ts-ignore
 											  types[props.data.extension.toUpperCase()]?.descriptions.join(' / ')
 											: 'Unknown'}

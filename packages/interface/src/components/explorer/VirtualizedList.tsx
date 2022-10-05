@@ -1,13 +1,12 @@
-import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
-import { ExplorerContext, ExplorerItem, FilePath } from '@sd/client';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useKey, useOnWindowResize } from 'rooks';
-
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import { isPath } from './utils';
+import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
+import { ExplorerContext, ExplorerItem } from '@sd/client';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useKey, useOnWindowResize } from 'rooks';
 
 const TOP_BAR_HEIGHT = 50;
 const GRID_TEXT_AREA_HEIGHT = 25;
@@ -32,6 +31,9 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	}
 	useOnWindowResize(handleWindowResize);
 	useLayoutEffect(() => handleWindowResize(), []);
+	useEffect(() => {
+		setWidth(innerRef.current?.offsetWidth || 0);
+	}, [explorerStore.showInspector]);
 
 	// sizing calculations
 	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 8,
