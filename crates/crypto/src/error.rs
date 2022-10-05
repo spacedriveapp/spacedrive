@@ -4,8 +4,6 @@ use thiserror::Error;
 pub enum Error {
 	#[error("not enough bytes were written to the output file")]
 	WriteMismatch,
-	#[error("tried to run an incorrect step operation")]
-	IncorrectStep,
 	#[error("there was an error hashing the password")]
 	PasswordHash,
 	#[error("I/O error: {0}")]
@@ -18,4 +16,8 @@ pub enum Error {
 	NonceLengthMismatch,
 	#[error("invalid file header")]
 	FileHeader,
+	#[error("error initialising stream encryption/decryption")]
+	StreamModeInit,
+	#[error("error initialising in-memory encryption/decryption")]
+	MemoryModeInit,
 }

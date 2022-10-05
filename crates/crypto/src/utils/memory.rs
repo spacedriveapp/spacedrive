@@ -1,0 +1,86 @@
+use aead::{Aead, KeyInit, Payload};
+use aes_gcm::Aes256Gcm;
+use chacha20poly1305::XChaCha20Poly1305;
+use secrecy::{ExposeSecret, Secret};
+
+use crate::{error::Error, primitives::Algorithm};
+
+// Although these two objects are identical, I think it'll be good practice to keep their usage separate.
+// One for encryption, and one for decryption. This can easily be changed if needed.
+pub enum MemoryEncryption {
+	XChaCha20Poly1305(Box<XChaCha20Poly1305>),
+	Aes256Gcm(Box<Aes256Gcm>),
+}
+
+pub enum MemoryDecryption {
+	XChaCha20Poly1305(Box<XChaCha20Poly1305>),
+	Aes256Gcm(Box<Aes256Gcm>),
+}
+
+impl MemoryEncryption {
+	pub fn initialize(key: Secret<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
+		let encryption_object = match algorithm {
+			Algorithm::XChaCha20Poly1305 => {
+				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
+					.map_err(|_| Error::MemoryModeInit)?;
+				drop(key);
+
+				Self::XChaCha20Poly1305(Box::new(cipher))
+			}
+			Algorithm::Aes256Gcm => {
+				let cipher = Aes256Gcm::new_from_slice(key.expose_secret())
+					.map_err(|_| Error::MemoryModeInit)?;
+				drop(key);
+
+				Self::Aes256Gcm(Box::new(cipher))
+			}
+		};
+
+		Ok(encryption_object)
+	}
+
+	pub fn encrypt<'msg, 'aad>(
+		&self,
+		nonce: &[u8],
+		plaintext: impl Into<Payload<'msg, 'aad>>,
+	) -> aead::Result<Vec<u8>> {
+		match self {
+			Self::XChaCha20Poly1305(m) => m.encrypt(nonce.into(), plaintext),
+			Self::Aes256Gcm(m) => m.encrypt(nonce.into(), plaintext),
+		}
+	}
+}
+
+impl MemoryDecryption {
+	pub fn initialize(key: Secret<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
+		let decryption_object = match algorithm {
+			Algorithm::XChaCha20Poly1305 => {
+				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
+					.map_err(|_| Error::MemoryModeInit)?;
+				drop(key);
+
+				Self::XChaCha20Poly1305(Box::new(cipher))
+			}
+			Algorithm::Aes256Gcm => {
+				let cipher = Aes256Gcm::new_from_slice(key.expose_secret())
+					.map_err(|_| Error::MemoryModeInit)?;
+				drop(key);
+
+				Self::Aes256Gcm(Box::new(cipher))
+			}
+		};
+
+		Ok(decryption_object)
+	}
+
+	pub fn decrypt<'msg, 'aad>(
+		&self,
+		nonce: &[u8],
+		ciphertext: impl Into<Payload<'msg, 'aad>>,
+	) -> aead::Result<Vec<u8>> {
+		match self {
+			Self::XChaCha20Poly1305(m) => m.decrypt(nonce.into(), ciphertext),
+			Self::Aes256Gcm(m) => m.decrypt(nonce.into(), ciphertext),
+		}
+	}
+}

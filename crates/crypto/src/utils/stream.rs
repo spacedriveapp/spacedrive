@@ -32,14 +32,16 @@ impl StreamEncryption {
 
 		let encryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
-				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret()).unwrap();
+				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
+					.map_err(|_| Error::StreamModeInit)?;
 				drop(key);
 
 				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
 				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
-				let cipher = Aes256Gcm::new_from_slice(key.expose_secret()).unwrap();
+				let cipher = Aes256Gcm::new_from_slice(key.expose_secret())
+					.map_err(|_| Error::StreamModeInit)?;
 				drop(key);
 
 				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
@@ -138,14 +140,16 @@ impl StreamDecryption {
 
 		let decryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
-				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret()).unwrap();
+				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
+					.map_err(|_| Error::StreamModeInit)?;
 				drop(key);
 
 				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
 				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
-				let cipher = Aes256Gcm::new_from_slice(key.expose_secret()).unwrap();
+				let cipher = Aes256Gcm::new_from_slice(key.expose_secret())
+					.map_err(|_| Error::StreamModeInit)?;
 				drop(key);
 
 				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
