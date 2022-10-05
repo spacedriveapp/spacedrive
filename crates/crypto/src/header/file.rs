@@ -34,24 +34,33 @@ pub enum FileHeaderVersion {
 	V1,
 }
 
-// TODO(brxken128): use a trait/impl, so we can call `keyslot.version.serialize()` instead
-// This should work for all serializable/deserializable values
+// TODO(brxken128): move all serialization/deserialization rules
+impl FileHeaderVersion {
+	pub fn serialize(&self) -> [u8; 2] {
+		match self {
+			FileHeaderVersion::V1 => [0x0A, 0x01],
+		}
+	}
+}
+
 pub enum FileKeyslotVersion {
 	V1,
 }
 
-impl FileKeyslot {
-	fn serialize_keyslot_version(&self) -> [u8; 2] {
-		match self.version {
+impl FileKeyslotVersion {
+	pub fn serialize(&self) -> [u8; 2] {
+		match self {
 			FileKeyslotVersion::V1 => [0x0D, 0x01],
 		}
 	}
+}
 
+impl FileKeyslot {
 	fn serialize(&self) -> Vec<u8> {
 		let mut keyslot: Vec<u8> = Vec::new();
-		keyslot.extend_from_slice(&self.serialize_keyslot_version()); // 2
-		keyslot.extend_from_slice(&serialize_algorithm(self.algorithm)); // 4
-		keyslot.extend_from_slice(&serialize_mode(self.mode)); // 6
+		keyslot.extend_from_slice(&self.version.serialize()); // 2
+		keyslot.extend_from_slice(&self.algorithm.serialize()); // 10
+		keyslot.extend_from_slice(&self.mode.serialize()); // 12
 		keyslot.extend_from_slice(&self.salt); // 22
 		keyslot.extend_from_slice(&self.master_key); // 70
 		keyslot.extend_from_slice(&self.nonce); // 82 OR 94
@@ -60,17 +69,21 @@ impl FileKeyslot {
 	}
 }
 
-fn serialize_algorithm(algorithm: Algorithm) -> [u8; 2] {
-	match algorithm {
-		Algorithm::XChaCha20Poly1305 => [0x0B, 0x01],
-		Algorithm::Aes256Gcm => [0x0B, 0x02],
+impl Algorithm {
+	pub fn serialize(&self) -> [u8; 2] {
+		match self {
+			Algorithm::XChaCha20Poly1305 => [0x0B, 0x01],
+			Algorithm::Aes256Gcm => [0x0B, 0x02],
+		}
 	}
 }
 
-fn serialize_mode(mode: Mode) -> [u8; 2] {
-	match mode {
-		Mode::Stream => [0x0C, 0x01],
-		Mode::Memory => [0x0C, 0x02],
+impl Mode {
+	pub fn serialize(&self) -> [u8; 2] {
+		match self {
+			Mode::Stream => [0x0C, 0x01],
+			Mode::Memory => [0x0C, 0x02],
+		}
 	}
 }
 
@@ -78,18 +91,12 @@ fn serialize_mode(mode: Mode) -> [u8; 2] {
 pub const MAGIC_BYTES: [u8; 6] = [0x08, 0xFF, 0x55, 0x32, 0x58, 0x1A];
 
 impl FileHeader {
-	fn serialize_header_version(&self) -> [u8; 2] {
-		match self.version {
-			FileHeaderVersion::V1 => [0x0A, 0x01],
-		}
-	}
-
 	pub fn serialize(&self) -> Vec<u8> {
 		let mut header: Vec<u8> = Vec::new();
 		header.extend_from_slice(&MAGIC_BYTES); // 6
-		header.extend_from_slice(&self.serialize_header_version()); // 8
-		header.extend_from_slice(&serialize_algorithm(self.algorithm)); // 10
-		header.extend_from_slice(&serialize_mode(self.mode)); // 12
+		header.extend_from_slice(&self.version.serialize()); // 8
+		header.extend_from_slice(&self.algorithm.serialize()); // 10
+		header.extend_from_slice(&self.mode.serialize()); // 12
 		header.extend_from_slice(&self.nonce); // 20 OR 32
 		header.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // padded until 36 bytes
 
