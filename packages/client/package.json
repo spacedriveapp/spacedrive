@@ -1,41 +1,41 @@
 {
-  "name": "@sd/client",
-  "version": "0.0.0",
-  "private": true,
-  "main": "./src/index.ts",
-  "files": [
-    "dist/**"
-  ],
-  "scripts": {
-    "test": "jest",
-    "dev": "tsc -w",
-    "build": "tsc",
-    "lint": "TIMING=1 eslint src --fix",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
-  },
-  "jest": {
-    "preset": "scripts/jest/node"
-  },
-  "dependencies": {
-    "@rspc/client": "^0.0.6",
-    "@rspc/react": "^0.0.6",
-    "@sd/config": "workspace:*",
-    "@tanstack/react-query": "^4.0.10",
-    "eventemitter3": "^4.0.7",
-    "immer": "^9.0.15",
-    "lodash": "^4.17.21",
-    "valtio": "^1.7.0",
-    "valtio-persist": "^1.0.2",
-    "zustand": "4.0.0"
-  },
-  "devDependencies": {
-    "@types/lodash": "^4.14.182",
-    "@types/react": "^18.0.15",
-    "scripts": "*",
-    "tsconfig": "*",
-    "typescript": "^4.7.4"
-  },
-  "peerDependencies": {
-    "react": "^18.2.0"
-  }
+	"name": "@sd/client",
+	"version": "0.0.0",
+	"private": true,
+	"main": "./src/index.ts",
+	"files": [
+		"dist/**"
+	],
+	"scripts": {
+		"test": "jest",
+		"dev": "tsc -w",
+		"build": "tsc",
+		"lint": "TIMING=1 eslint src --fix",
+		"clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
+	},
+	"jest": {
+		"preset": "scripts/jest/node"
+	},
+	"dependencies": {
+		"@rspc/client": "^0.0.6",
+		"@rspc/react": "^0.0.6",
+		"@sd/config": "workspace:*",
+		"@tanstack/react-query": "^4.0.10",
+		"eventemitter3": "^4.0.7",
+		"immer": "^9.0.15",
+		"lodash": "^4.17.21",
+		"valtio": "^1.7.0",
+		"valtio-persist": "^1.0.2",
+		"zustand": "4.0.0"
+	},
+	"devDependencies": {
+		"@types/lodash": "^4.14.182",
+		"@types/react": "^18.0.15",
+		"scripts": "*",
+		"tsconfig": "*",
+		"typescript": "^4.7.4"
+	},
+	"peerDependencies": {
+		"react": "^18.2.0"
+	}
 }
