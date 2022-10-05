@@ -4,3 +4,4 @@ packages:
   - '!apps/mobile'
   - 'core'
   - 'crates/sync/example'
+  - 'docs'
