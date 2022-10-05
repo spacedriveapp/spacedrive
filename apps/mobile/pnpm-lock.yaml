@@ -32,6 +32,7 @@ importers:
       eslint-plugin-react-native: ^4.0.0
       expo: ~46.0.13
       expo-linking: ~3.2.2
+      expo-media-library: ~14.2.0
       expo-splash-screen: ~0.16.2
       expo-status-bar: ~1.4.0
       immer: ^9.0.15
@@ -73,6 +74,7 @@ importers:
       date-fns: 2.29.2
       expo: 46.0.13
       expo-linking: 3.2.2_expo@46.0.13
+      expo-media-library: 14.2.0_expo@46.0.13
       expo-splash-screen: 0.16.2_expo@46.0.13
       expo-status-bar: 1.4.0
       immer: 9.0.15
@@ -5113,6 +5115,17 @@ packages:
       url-parse: 1.5.10
     transitivePeerDependencies:
       - expo
+      - supports-color
+    dev: false
+
+  /expo-media-library/14.2.0_expo@46.0.13:
+    resolution: {integrity: sha512-Z7PFo742oCUDBXkSkz7yqveiRxYxAuxeYOWS6khnEJg0wMghJg1NeSyObFKkfOLEqItbFUJ8r6wi+B97ZGmiFA==}
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      '@expo/config-plugins': 5.0.1
+      expo: 46.0.13
+    transitivePeerDependencies:
       - supports-color
     dev: false
 

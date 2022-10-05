@@ -9,6 +9,9 @@ PODS:
     - ExpoModulesCore
   - EXFont (10.2.1):
     - ExpoModulesCore
+  - EXMediaLibrary (14.2.0):
+    - ExpoModulesCore
+    - React-Core
   - Expo (46.0.13):
     - ExpoModulesCore
   - ExpoKeepAwake (10.2.0):
@@ -384,6 +387,7 @@ DEPENDENCIES:
   - "EXConstants (from `../node_modules/.pnpm/expo-constants@13.2.4_expo@46.0.13/node_modules/expo-constants/ios`)"
   - "EXFileSystem (from `../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.13/node_modules/expo-file-system/ios`)"
   - "EXFont (from `../node_modules/.pnpm/expo-font@10.2.1_expo@46.0.13/node_modules/expo-font/ios`)"
+  - "EXMediaLibrary (from `../node_modules/.pnpm/expo-media-library@14.2.0_expo@46.0.13/node_modules/expo-media-library/ios`)"
   - "Expo (from `../node_modules/.pnpm/expo@46.0.13/node_modules/expo`)"
   - "ExpoKeepAwake (from `../node_modules/.pnpm/expo-keep-awake@10.2.0_expo@46.0.13/node_modules/expo-keep-awake/ios`)"
   - "ExpoModulesCore (from `../node_modules/.pnpm/expo-modules-core@0.11.5/node_modules/expo-modules-core/ios`)"
@@ -452,6 +456,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/.pnpm/expo-file-system@14.1.0_expo@46.0.13/node_modules/expo-file-system/ios"
   EXFont:
     :path: "../node_modules/.pnpm/expo-font@10.2.1_expo@46.0.13/node_modules/expo-font/ios"
+  EXMediaLibrary:
+    :path: "../node_modules/.pnpm/expo-media-library@14.2.0_expo@46.0.13/node_modules/expo-media-library/ios"
   Expo:
     :path: "../node_modules/.pnpm/expo@46.0.13/node_modules/expo"
   ExpoKeepAwake:
@@ -552,6 +558,7 @@ SPEC CHECKSUMS:
   EXConstants: 7c44785d41d8e959d527d23d29444277a4d1ee73
   EXFileSystem: 927e0a8885aa9c49e50fc38eaba2c2389f2f1019
   EXFont: 06df627203afcb8a3b3152ec06eb2f11f46f0cff
+  EXMediaLibrary: e8c8a365701629b7b21dd29769b86e8320610f18
   Expo: 39582e41ae9e0aa9ed016d3918da87ee61e87525
   ExpoKeepAwake: 0e8f18142e71bbf2c7f6aa66ebed249ba1420320
   ExpoModulesCore: 5a973701f4400d70254bc836305228731c829010

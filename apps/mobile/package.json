@@ -26,6 +26,7 @@
 		"date-fns": "^2.29.2",
 		"expo": "~46.0.13",
 		"expo-linking": "~3.2.2",
+		"expo-media-library": "~14.2.0",
 		"expo-splash-screen": "~0.16.2",
 		"expo-status-bar": "~1.4.0",
 		"immer": "^9.0.15",
