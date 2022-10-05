@@ -5,6 +5,9 @@ pub const SALT_LEN: usize = 16;
 /// The file size gain is 16 bytes per 1MiB (due to the AEAD tag)
 pub const BLOCK_SIZE: usize = 1_048_576;
 
+pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
+pub const MASTER_KEY_LEN: usize = 32;
+
 // These are all possible algorithms that can be used for encryption
 // They tie in heavily with `StreamEncryption` and `StreamDecryption`
 #[derive(Clone, Copy, PartialEq)]
@@ -22,6 +25,10 @@ pub enum Algorithm {
 pub enum Mode {
 	Stream,
 	Memory,
+}
+
+pub enum HashingAlgorithm {
+	Argon2id,
 }
 
 impl Algorithm {
