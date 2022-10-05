@@ -255,6 +255,7 @@ impl FileHeader {
 		}
 	}
 
+	// This returns both the Header and the AAD
 	// The AAD retrieval here could be optimised - we do rewind a couple of times
 	pub fn deserialize<R>(reader: &mut R) -> Result<(Self, Vec<u8>), Error>
 	where
