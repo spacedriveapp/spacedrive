@@ -7,9 +7,11 @@ use crate::{
 	error::Error,
 	objects::memory::MemoryDecryption,
 	primitives::{
-		Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+		Algorithm, Mode, MASTER_KEY_LEN,
 	},
 };
+
+use super::keyslot::Keyslot;
 
 // random values, can be changed
 pub const MAGIC_BYTES: [u8; 6] = [0x08, 0xFF, 0x55, 0x32, 0x58, 0x1A];
@@ -24,21 +26,7 @@ pub struct FileHeader {
 	pub algorithm: Algorithm,
 	pub mode: Mode,
 	pub nonce: Vec<u8>,
-	pub keyslots: Vec<FileKeyslot>,
-}
-
-// I chose to add the mode for uniformity, that way it's clear that master keys are encrypted differently
-// I opted to include a hashing algorithm - it's 2 additional bytes but it may save a version iteration in the future
-// This also may become the universal keyslot standard, so maybe `FileKeyslot` isn't the best name
-// Keyslots should inherit the parent's encryption algorithm, but I chose to add it anyway just in case
-pub struct FileKeyslot {
-	pub version: FileKeyslotVersion,
-	pub algorithm: Algorithm,                // encryption algorithm
-	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub mode: Mode,
-	pub salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is encrypted so we can store it
-	pub nonce: Vec<u8>,
+	pub keyslots: Vec<Keyslot>,
 }
 
 // The goal is to try and keep these in sync as much as possible,
@@ -46,80 +34,6 @@ pub struct FileKeyslot {
 // I designed with a lot of future-proofing, even if it doesn't fit our current plans
 pub enum FileHeaderVersion {
 	V1,
-}
-
-pub enum FileKeyslotVersion {
-	V1,
-}
-
-impl FileKeyslot {
-	#[must_use]
-	pub fn serialize(&self) -> Vec<u8> {
-		match self.version {
-			FileKeyslotVersion::V1 => {
-				let mut keyslot: Vec<u8> = Vec::new();
-				keyslot.extend_from_slice(&self.version.serialize()); // 2
-				keyslot.extend_from_slice(&self.algorithm.serialize()); // 4
-				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
-				keyslot.extend_from_slice(&self.mode.serialize()); // 8
-				keyslot.extend_from_slice(&self.salt); // 24
-				keyslot.extend_from_slice(&self.master_key); // 72
-				keyslot.extend_from_slice(&self.nonce); // 82 OR 94
-				keyslot.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // 96 total bytes
-				keyslot
-			}
-		}
-	}
-
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
-	where
-		R: Read + Seek,
-	{
-		let mut version = [0u8; 2];
-		reader.read(&mut version).map_err(Error::Io)?;
-		let version = FileKeyslotVersion::deserialize(version)?;
-
-		match version {
-			FileKeyslotVersion::V1 => {
-				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm).map_err(Error::Io)?;
-				let algorithm = Algorithm::deserialize(algorithm)?;
-
-				let mut hashing_algorithm = [0u8; 2];
-				reader.read(&mut hashing_algorithm).map_err(Error::Io)?;
-				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
-
-				let mut mode = [0u8; 2];
-				reader.read(&mut mode).map_err(Error::Io)?;
-				let mode = Mode::deserialize(mode)?;
-
-				let mut salt = [0u8; SALT_LEN];
-				reader.read(&mut salt).map_err(Error::Io)?;
-
-				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
-				reader.read(&mut master_key).map_err(Error::Io)?;
-
-				let mut nonce = vec![0u8; algorithm.nonce_len(mode)];
-				reader.read(&mut nonce).map_err(Error::Io)?;
-
-				reader
-					.read(&mut vec![0u8; 26 - nonce.len()])
-					.map_err(Error::Io)?;
-
-				let keyslot = Self {
-					version,
-					algorithm,
-					hashing_algorithm,
-					mode,
-					salt,
-					master_key,
-					nonce,
-				};
-
-				Ok(keyslot)
-			}
-		}
-	}
 }
 
 impl FileHeader {
@@ -251,10 +165,10 @@ impl FileHeader {
 					.read(&mut vec![0u8; 24 - nonce.len()])
 					.map_err(Error::Io)?;
 
-				let mut keyslots: Vec<FileKeyslot> = Vec::new();
+				let mut keyslots: Vec<Keyslot> = Vec::new();
 
 				for _ in 0..2 {
-					if let Ok(keyslot) = FileKeyslot::deserialize(reader) {
+					if let Ok(keyslot) = Keyslot::deserialize(reader) {
 						keyslots.push(keyslot);
 					}
 				}

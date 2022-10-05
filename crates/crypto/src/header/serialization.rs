@@ -4,7 +4,7 @@ use crate::{
 	primitives::{Algorithm, HashingAlgorithm, Mode},
 };
 
-use super::file::{FileHeaderVersion, FileKeyslotVersion};
+use super::{file::FileHeaderVersion, keyslot::KeyslotVersion};
 
 impl FileHeaderVersion {
 	#[must_use]
@@ -22,7 +22,7 @@ impl FileHeaderVersion {
 	}
 }
 
-impl FileKeyslotVersion {
+impl KeyslotVersion {
 	#[must_use]
 	pub const fn serialize(&self) -> [u8; 2] {
 		match self {
