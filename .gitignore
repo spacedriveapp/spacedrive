@@ -66,3 +66,4 @@ examples/*/*.lock
 
 /sdserver_data
 .spacedrive
+dev.db-journal

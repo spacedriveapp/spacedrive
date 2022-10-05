@@ -1,10 +1,9 @@
+import { Folder } from '../icons/Folder';
+import { isObject, isPath } from './utils';
 import { useExplorerStore, usePlatform } from '@sd/client';
 import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
 import { Suspense, lazy, useMemo } from 'react';
-
-import { Folder } from '../icons/Folder';
-import { isObject, isPath } from './utils';
 
 interface Props {
 	data: ExplorerItem;
@@ -29,14 +28,14 @@ export default function FileThumb({ data, ...props }: Props) {
 
 	if (isPath(data) && data.is_dir) return <Folder size={props.size * 0.7} />;
 
-	const cas_id = isObject(data) ? data.cas_id : data.file?.cas_id;
+	const cas_id = isObject(data) ? data.cas_id : data.object?.cas_id;
 
 	if (!cas_id) return <div></div>;
 
 	const has_thumbnail = isObject(data)
 		? data.has_thumbnail
 		: isPath(data)
-		? data.file?.has_thumbnail
+		? data.object?.has_thumbnail
 		: !!store.newThumbnails[cas_id];
 
 	if (has_thumbnail)

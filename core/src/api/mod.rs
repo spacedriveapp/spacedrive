@@ -122,6 +122,6 @@ mod tests {
 	/// This test will ensure the rspc router and all calls to `invalidate_query` are valid and also export an updated version of the Typescript bindings.
 	#[test]
 	fn test_and_export_rspc_bindings() {
-		super::export_ts_bindings(super::mount());
+		super::export_ts_bindings(&super::mount());
 	}
 }

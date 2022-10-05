@@ -1,13 +1,20 @@
 {
-	"pluginSearchDirs": ["."],
-	"useTabs": true,
-	"printWidth": 100,
-	"singleQuote": true,
-	"trailingComma": "none",
-	"bracketSameLine": false,
-	"semi": true,
-	"quoteProps": "consistent",
-	"importOrder": ["^@sd/interface/(.*)$", "^@sd/client/(.*)$", "^@sd/ui/(.*)$", "^[./]"],
-	"importOrderSeparation": true,
-	"importOrderSortSpecifiers": true
+  "pluginSearchDirs": [
+    "."
+  ],
+  "useTabs": true,
+  "printWidth": 100,
+  "singleQuote": true,
+  "trailingComma": "none",
+  "bracketSameLine": false,
+  "semi": true,
+  "quoteProps": "consistent",
+  "importOrder": [
+    "^[./]",
+    "^@sd/ui/(.*)$",
+    "^@sd/client/(.*)$",
+    "^@sd/interface/(.*)$"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true
 }

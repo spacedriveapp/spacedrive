@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use once_cell::sync::{Lazy, OnceCell};
 use rspc::internal::jsonrpc::{RequestId, Response};
-use sdcore::{api::Router, Node};
+use sd_core::{api::Router, Node};
 use tokio::{
 	runtime::Runtime,
 	sync::{mpsc::UnboundedSender, oneshot, Mutex},

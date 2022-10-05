@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import { getExplorerStore, useCurrentLibrary, useLibraryQuery } from '@sd/client';
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
