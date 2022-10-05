@@ -155,8 +155,11 @@ jobs:
       - name: Generate Prisma client
         uses: ./.github/actions/generate-prisma-client
 
-      - name: Build everything
-        run: cargo build --release
+      - name: Cargo fetch
+        run: cargo fetch
+
+      - name: Check core
+        run: cargo check -p sd-core --release
 
       - name: Bundle Desktop
         run: pnpm desktop tauri build
