@@ -11,6 +11,7 @@ rust-version = "1.64.0"
 [dependencies]
 # rng
 rand = "0.8.5"
+rand_chacha = "0.3.1"
 
 # password hashing
 argon2 = "0.4.1"

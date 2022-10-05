@@ -1,3 +1,5 @@
+use rand::{RngCore, SeedableRng};
+
 use crate::keys::hashing::Params;
 
 // This is the default salt size, and the recommended size for argon2id.
@@ -48,4 +50,23 @@ impl Algorithm {
 			base
 		}
 	}
+}
+
+// The length can easily be obtained via `algorithm.nonce_len(mode)`
+pub fn generate_nonce(len: usize) -> Vec<u8> {
+	let mut nonce = vec![0u8; len];
+	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut nonce);
+	nonce
+}
+
+pub fn generate_salt() -> [u8; SALT_LEN] {
+	let mut salt = [0u8; SALT_LEN];
+	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut salt);
+	salt
+}
+
+pub fn generate_master_key() -> [u8; MASTER_KEY_LEN] {
+	let mut master_key = [0u8; MASTER_KEY_LEN];
+	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut master_key);
+	master_key
 }
