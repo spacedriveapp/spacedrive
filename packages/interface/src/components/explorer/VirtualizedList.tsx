@@ -1,7 +1,7 @@
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
 import { ExplorerContext, ExplorerItem, FilePath } from '@sd/client';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize, useWindowSize } from 'rooks';
 import { useSnapshot } from 'valtio';
@@ -33,6 +33,9 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	}
 	useOnWindowResize(handleWindowResize);
 	useLayoutEffect(() => handleWindowResize(), []);
+	useEffect(() => {
+		setWidth(innerRef.current?.offsetWidth || 0);
+	}, [explorerStore.showInspector]);
 
 	// sizing calculations
 	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 8,
