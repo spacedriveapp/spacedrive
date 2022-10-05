@@ -3446,7 +3446,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.1"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=f5d4a952d8e8bc799a0006dc5f375a22fd64ac27#f5d4a952d8e8bc799a0006dc5f375a22fd64ac27"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=4ea7b785ec9539d80e29c9b90ebc2010ea3a390e#4ea7b785ec9539d80e29c9b90ebc2010ea3a390e"
 dependencies = [
  "base64 0.13.0",
  "bigdecimal",
@@ -3475,7 +3475,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.1"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=f5d4a952d8e8bc799a0006dc5f375a22fd64ac27#f5d4a952d8e8bc799a0006dc5f375a22fd64ac27"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=4ea7b785ec9539d80e29c9b90ebc2010ea3a390e#4ea7b785ec9539d80e29c9b90ebc2010ea3a390e"
 dependencies = [
  "datamodel",
  "prisma-client-rust-sdk",
@@ -3490,7 +3490,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.1"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=f5d4a952d8e8bc799a0006dc5f375a22fd64ac27#f5d4a952d8e8bc799a0006dc5f375a22fd64ac27"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=4ea7b785ec9539d80e29c9b90ebc2010ea3a390e#4ea7b785ec9539d80e29c9b90ebc2010ea3a390e"
 dependencies = [
  "convert_case 0.5.0",
  "datamodel",

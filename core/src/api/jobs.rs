@@ -47,16 +47,16 @@ pub(crate) fn mount() -> RouterBuilder {
 						return Err(LocationError::IdNotFound(args.id).into());
 					}
 
-					library
-						.spawn_job(Job::new(
-							ThumbnailJobInit {
-								location_id: args.id,
-								path: args.path,
-								background: false, // fix
-							},
-							Box::new(ThumbnailJob {}),
-						))
-						.await;
+				library
+					.spawn_job(Job::new(
+						ThumbnailJobInit {
+							location_id: args.id,
+							path: PathBuf::new(),
+							background: true,
+						},
+						Box::new(ThumbnailJob {}),
+					))
+					.await;
 
 					Ok(())
 				},
