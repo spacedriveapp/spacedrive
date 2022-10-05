@@ -44,15 +44,15 @@ pub enum FileHeaderVersion {
 // TODO(brxken128): move all serialization/deserialization rules
 impl FileHeaderVersion {
 	#[must_use]
-	pub fn serialize(&self) -> [u8; 2] {
+	pub const fn serialize(&self) -> [u8; 2] {
 		match self {
-			FileHeaderVersion::V1 => [0x0A, 0x01],
+			Self::V1 => [0x0A, 0x01],
 		}
 	}
 
-	pub fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
 		match bytes {
-			[0x0A, 0x01] => Ok(FileHeaderVersion::V1),
+			[0x0A, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
 		}
 	}
@@ -64,15 +64,15 @@ pub enum FileKeyslotVersion {
 
 impl FileKeyslotVersion {
 	#[must_use]
-	pub fn serialize(&self) -> [u8; 2] {
+	pub const fn serialize(&self) -> [u8; 2] {
 		match self {
-			FileKeyslotVersion::V1 => [0x0D, 0x01],
+			Self::V1 => [0x0D, 0x01],
 		}
 	}
 
-	pub fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
 		match bytes {
-			[0x0D, 0x01] => Ok(FileKeyslotVersion::V1),
+			[0x0D, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
 		}
 	}
@@ -80,9 +80,9 @@ impl FileKeyslotVersion {
 
 impl HashingAlgorithm {
 	#[must_use]
-	pub fn serialize(&self) -> [u8; 2] {
+	pub const fn serialize(&self) -> [u8; 2] {
 		match self {
-			HashingAlgorithm::Argon2id(p) => match p {
+			Self::Argon2id(p) => match p {
 				Params::Standard => [0x0F, 0x01],
 				Params::Hardened => [0x0F, 0x02],
 				Params::Paranoid => [0x0F, 0x03],
@@ -90,11 +90,11 @@ impl HashingAlgorithm {
 		}
 	}
 
-	pub fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
 		match bytes {
-			[0x0F, 0x01] => Ok(HashingAlgorithm::Argon2id(Params::Standard)),
-			[0x0F, 0x02] => Ok(HashingAlgorithm::Argon2id(Params::Hardened)),
-			[0x0F, 0x03] => Ok(HashingAlgorithm::Argon2id(Params::Paranoid)),
+			[0x0F, 0x01] => Ok(Self::Argon2id(Params::Standard)),
+			[0x0F, 0x02] => Ok(Self::Argon2id(Params::Hardened)),
+			[0x0F, 0x03] => Ok(Self::Argon2id(Params::Paranoid)),
 			_ => Err(Error::FileHeader),
 		}
 	}
@@ -119,7 +119,7 @@ impl FileKeyslot {
 		}
 	}
 
-	pub fn deserialize<R>(reader: &mut R) -> Result<FileKeyslot, Error>
+	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
 	where
 		R: Read + Seek,
 	{
@@ -154,7 +154,7 @@ impl FileKeyslot {
 					.read(&mut vec![0u8; 26 - nonce.len()])
 					.map_err(Error::Io)?;
 
-				let keyslot = FileKeyslot {
+				let keyslot = Self {
 					version,
 					algorithm,
 					hashing_algorithm,
@@ -172,17 +172,17 @@ impl FileKeyslot {
 
 impl Algorithm {
 	#[must_use]
-	pub fn serialize(&self) -> [u8; 2] {
+	pub const fn serialize(&self) -> [u8; 2] {
 		match self {
-			Algorithm::XChaCha20Poly1305 => [0x0B, 0x01],
-			Algorithm::Aes256Gcm => [0x0B, 0x02],
+			Self::XChaCha20Poly1305 => [0x0B, 0x01],
+			Self::Aes256Gcm => [0x0B, 0x02],
 		}
 	}
 
-	pub fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
 		match bytes {
-			[0x0B, 0x01] => Ok(Algorithm::XChaCha20Poly1305),
-			[0x0B, 0x02] => Ok(Algorithm::Aes256Gcm),
+			[0x0B, 0x01] => Ok(Self::XChaCha20Poly1305),
+			[0x0B, 0x02] => Ok(Self::Aes256Gcm),
 			_ => Err(Error::FileHeader),
 		}
 	}
@@ -190,17 +190,17 @@ impl Algorithm {
 
 impl Mode {
 	#[must_use]
-	pub fn serialize(&self) -> [u8; 2] {
+	pub const fn serialize(&self) -> [u8; 2] {
 		match self {
-			Mode::Stream => [0x0C, 0x01],
-			Mode::Memory => [0x0C, 0x02],
+			Self::Stream => [0x0C, 0x01],
+			Self::Memory => [0x0C, 0x02],
 		}
 	}
 
-	pub fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
 		match bytes {
-			[0x0C, 0x01] => Ok(Mode::Stream),
-			[0x0C, 0x02] => Ok(Mode::Memory),
+			[0x0C, 0x01] => Ok(Self::Stream),
+			[0x0C, 0x02] => Ok(Self::Memory),
 			_ => Err(Error::FileHeader),
 		}
 	}
@@ -252,14 +252,14 @@ impl FileHeader {
 	}
 
 	#[must_use]
-	pub fn length(&self) -> usize {
+	pub const fn length(&self) -> usize {
 		match self.version {
 			FileHeaderVersion::V1 => 228,
 		}
 	}
 
 	#[must_use]
-	pub fn aad_length(&self) -> usize {
+	pub const fn aad_length(&self) -> usize {
 		match self.version {
 			FileHeaderVersion::V1 => 36,
 		}
@@ -309,7 +309,7 @@ impl FileHeader {
 					}
 				}
 
-				FileHeader {
+				Self {
 					version,
 					algorithm,
 					mode,

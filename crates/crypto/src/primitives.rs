@@ -39,7 +39,7 @@ impl Algorithm {
 	// This function calculates the expected nonce length for a given algorithm
 	// 4 bytes are deducted for streaming mode, due to the LE31 counter being the last 4 bytes of the nonce
 	#[must_use]
-	pub fn nonce_len(&self, mode: Mode) -> usize {
+	pub const fn nonce_len(&self, mode: Mode) -> usize {
 		let base = match self {
 			Self::XChaCha20Poly1305 => 24,
 			Self::Aes256Gcm => 12,

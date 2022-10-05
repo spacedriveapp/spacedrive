@@ -36,14 +36,14 @@ impl StreamEncryption {
 				drop(key);
 
 				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
-				StreamEncryption::XChaCha20Poly1305(Box::new(stream))
+				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
 				let cipher = Aes256Gcm::new_from_slice(key.expose_secret()).unwrap();
 				drop(key);
 
 				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
-				StreamEncryption::Aes256Gcm(Box::new(stream))
+				Self::Aes256Gcm(Box::new(stream))
 			}
 		};
 
@@ -56,8 +56,8 @@ impl StreamEncryption {
 		payload: impl Into<Payload<'msg, 'aad>>,
 	) -> aead::Result<Vec<u8>> {
 		match self {
-			StreamEncryption::XChaCha20Poly1305(s) => s.encrypt_next(payload),
-			StreamEncryption::Aes256Gcm(s) => s.encrypt_next(payload),
+			Self::XChaCha20Poly1305(s) => s.encrypt_next(payload),
+			Self::Aes256Gcm(s) => s.encrypt_next(payload),
 		}
 	}
 
@@ -68,8 +68,8 @@ impl StreamEncryption {
 		payload: impl Into<Payload<'msg, 'aad>>,
 	) -> aead::Result<Vec<u8>> {
 		match self {
-			StreamEncryption::XChaCha20Poly1305(s) => s.encrypt_last(payload),
-			StreamEncryption::Aes256Gcm(s) => s.encrypt_last(payload),
+			Self::XChaCha20Poly1305(s) => s.encrypt_last(payload),
+			Self::Aes256Gcm(s) => s.encrypt_last(payload),
 		}
 	}
 
@@ -142,14 +142,14 @@ impl StreamDecryption {
 				drop(key);
 
 				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
-				StreamDecryption::XChaCha20Poly1305(Box::new(stream))
+				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
 				let cipher = Aes256Gcm::new_from_slice(key.expose_secret()).unwrap();
 				drop(key);
 
 				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
-				StreamDecryption::Aes256Gcm(Box::new(stream))
+				Self::Aes256Gcm(Box::new(stream))
 			}
 		};
 
@@ -162,8 +162,8 @@ impl StreamDecryption {
 		payload: impl Into<Payload<'msg, 'aad>>,
 	) -> aead::Result<Vec<u8>> {
 		match self {
-			StreamDecryption::XChaCha20Poly1305(s) => s.decrypt_next(payload),
-			StreamDecryption::Aes256Gcm(s) => s.decrypt_next(payload),
+			Self::XChaCha20Poly1305(s) => s.decrypt_next(payload),
+			Self::Aes256Gcm(s) => s.decrypt_next(payload),
 		}
 	}
 
@@ -174,8 +174,8 @@ impl StreamDecryption {
 		payload: impl Into<Payload<'msg, 'aad>>,
 	) -> aead::Result<Vec<u8>> {
 		match self {
-			StreamDecryption::XChaCha20Poly1305(s) => s.decrypt_last(payload),
-			StreamDecryption::Aes256Gcm(s) => s.decrypt_last(payload),
+			Self::XChaCha20Poly1305(s) => s.decrypt_last(payload),
+			Self::Aes256Gcm(s) => s.decrypt_last(payload),
 		}
 	}
 
