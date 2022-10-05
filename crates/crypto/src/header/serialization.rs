@@ -1,4 +1,8 @@
-use crate::{error::Error, keys::hashing::Params, primitives::{HashingAlgorithm, Mode, Algorithm}};
+use crate::{
+	error::Error,
+	keys::hashing::Params,
+	primitives::{Algorithm, HashingAlgorithm, Mode},
+};
 
 use super::file::{FileHeaderVersion, FileKeyslotVersion};
 

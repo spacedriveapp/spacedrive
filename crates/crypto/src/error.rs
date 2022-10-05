@@ -20,4 +20,8 @@ pub enum Error {
 	StreamModeInit,
 	#[error("error initialising in-memory encryption/decryption")]
 	MemoryModeInit,
+	#[error("wrong password provided")]
+	IncorrectPassword,
+	#[error("no keyslots available")]
+	NoKeyslots,
 }

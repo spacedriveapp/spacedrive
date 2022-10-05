@@ -18,7 +18,7 @@ pub enum MemoryDecryption {
 }
 
 impl MemoryEncryption {
-	pub fn initialize(key: Secret<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
+	pub fn new(key: Secret<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
 		let encryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
@@ -41,8 +41,8 @@ impl MemoryEncryption {
 
 	pub fn encrypt<'msg, 'aad>(
 		&self,
-		nonce: &[u8],
 		plaintext: impl Into<Payload<'msg, 'aad>>,
+		nonce: &[u8],
 	) -> aead::Result<Vec<u8>> {
 		match self {
 			Self::XChaCha20Poly1305(m) => m.encrypt(nonce.into(), plaintext),
@@ -52,7 +52,7 @@ impl MemoryEncryption {
 }
 
 impl MemoryDecryption {
-	pub fn initialize(key: Secret<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
+	pub fn new(key: Secret<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
 		let decryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
@@ -75,8 +75,8 @@ impl MemoryDecryption {
 
 	pub fn decrypt<'msg, 'aad>(
 		&self,
-		nonce: &[u8],
 		ciphertext: impl Into<Payload<'msg, 'aad>>,
+		nonce: &[u8],
 	) -> aead::Result<Vec<u8>> {
 		match self {
 			Self::XChaCha20Poly1305(m) => m.decrypt(nonce.into(), ciphertext),

@@ -25,7 +25,7 @@ pub enum StreamDecryption {
 }
 
 impl StreamEncryption {
-	pub fn init(key: Secret<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self, Error> {
+	pub fn new(key: Secret<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self, Error> {
 		if nonce.len() != algorithm.nonce_len(Mode::Stream) {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -133,7 +133,7 @@ impl StreamEncryption {
 }
 
 impl StreamDecryption {
-	pub fn init(key: Secret<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self, Error> {
+	pub fn new(key: Secret<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self, Error> {
 		if nonce.len() != algorithm.nonce_len(Mode::Stream) {
 			return Err(Error::NonceLengthMismatch);
 		}

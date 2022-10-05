@@ -37,9 +37,7 @@ impl Params {
 	}
 }
 
-// This is really basic for the time being - I just want things functional before making them perfect
-// Maybe a `Password` struct could work better, so we can call things such as `password.hash()`
-// It'll allow for 3 "tiers" of security, each tier increasing the parameters (and hashing time)
+// Shouldn't be called directly - call it on the `HashingAlgorithm` struct
 pub fn password_hash_argon2id(
 	password: Secret<Vec<u8>>,
 	salt: [u8; SALT_LEN],
