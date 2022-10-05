@@ -1,4 +1,4 @@
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, Write};
 
 use crate::{
 	error::Error,
@@ -119,6 +119,11 @@ impl FileKeyslot {
 }
 
 impl FileHeader {
+	pub fn write<W>(&self, writer: &mut W) -> Result<(), Error> where W: Write + Seek {
+		writer.write(&self.serialize()).map_err(Error::Io)?;
+		Ok(())
+	}
+
 	#[must_use]
 	pub fn create_aad(&self) -> Vec<u8> {
 		match self.version {
