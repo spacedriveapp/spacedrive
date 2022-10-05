@@ -1,11 +1,10 @@
 [package]
-name = "sdcore-lib"
+name = "sd-core-mobile"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.64.0"
 
 [lib]
-name = "sdcore"
 crate-type = ["staticlib", "cdylib"] # staticlib for IOS and cdylib for Android
 
 [dependencies]
