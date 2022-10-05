@@ -4302,7 +4302,7 @@ dependencies = [
  "once_cell",
  "openssl",
  "openssl-sys",
- "rspc 0.0.5",
+ "rspc",
  "sd-core",
  "serde_json",
  "tokio",
