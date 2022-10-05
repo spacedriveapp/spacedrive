@@ -1,6 +1,10 @@
 use rand::{RngCore, SeedableRng};
+use secrecy::Secret;
 
-use crate::keys::hashing::Params;
+use crate::{
+	error::Error,
+	keys::hashing::{password_hash_argon2id, Params},
+};
 
 // This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
@@ -31,8 +35,21 @@ pub enum Mode {
 	Memory,
 }
 
+// (Password)HashingAlgorithm
 pub enum HashingAlgorithm {
 	Argon2id(Params),
+}
+
+impl HashingAlgorithm {
+	pub fn hash(
+		&self,
+		password: Secret<Vec<u8>>,
+		salt: [u8; SALT_LEN],
+	) -> Result<Secret<[u8; 32]>, Error> {
+		match self {
+			Self::Argon2id(params) => password_hash_argon2id(password, salt, *params),
+		}
+	}
 }
 
 impl Algorithm {
