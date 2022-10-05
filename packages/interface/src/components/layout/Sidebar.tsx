@@ -1,7 +1,7 @@
 import { CogIcon, LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useCurrentLibrary, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
-import { LocationCreateArgs } from '@sd/core';
+import { LocationCreateArgs } from '@sd/client';
 import { Button, Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
@@ -162,7 +162,7 @@ export function Sidebar() {
 		<div
 			className={clsx(
 				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-750',
-				macOnly(os, 'dark:!bg-opacity-40')
+				macOnly(os, 'dark:!bg-opacity-30')
 			)}
 		>
 			<WindowControls />
@@ -186,10 +186,10 @@ export function Sidebar() {
 				buttonText={isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
 				buttonTextClassName={library === null || isLoadingLibraries ? 'text-gray-300' : undefined}
 				items={[
-					libraries?.map((library) => ({
-						name: library.config.name,
-						selected: library.uuid === library?.uuid,
-						onPress: () => switchLibrary(library.uuid)
+					libraries?.map((lib) => ({
+						name: lib.config.name,
+						selected: lib.uuid === library?.uuid,
+						onPress: () => switchLibrary(lib.uuid)
 					})) || [],
 					[
 						{

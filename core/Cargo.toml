@@ -1,18 +1,23 @@
 [package]
-name = "sdcore"
+name = "sd-core"
 version = "0.1.0"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc."]
 license = "GNU GENERAL PUBLIC LICENSE"
 repository = "https://github.com/spacedriveapp/spacedrive"
 edition = "2021"
-rust-version = "1.63.0"
+rust-version = "1.64.0"
 
 [features]
 default = ["p2p"]
-p2p = [] # This feature controlls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
-mobile = [] # This feature allows features to be disabled when the Core is running on mobile.
-ffmpeg = ["dep:ffmpeg-next"] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+p2p = [
+] # This feature controls whether the Spacedrive Core contains the Peer to Peer syncing engine (It isn't required for the hosted core so we can disable it).
+mobile = [
+] # This feature allows features to be disabled when the Core is running on mobile.
+ffmpeg = [
+  "dep:ffmpeg-next",
+  "dep:sd-ffmpeg",
+] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 
 [dependencies]
 hostname = "0.3.1"
@@ -30,24 +35,23 @@ rmp = "^0.8.11"
 rmp-serde = "^1.1.0"
 
 # Project dependencies
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.0", features = [
-  "rspc",
-  "sqlite-create-many",
-] }
-quaint = { git = "https://github.com/prisma/quaint.git", features = ["sqlite", "uuid"] }
-migration-core = { git = "https://github.com/Brendonovich/prisma-engines.git" }
-sql-migration-connector = { git = "https://github.com/Brendonovich/prisma-engines.git" }
-rspc = { version = "0.0.4", features = ["uuid", "chrono", "tracing"] }
+prisma-client-rust = { workspace = true }
+rspc = { version = "0.0.5", features = ["uuid", "chrono", "tracing"] }
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
 sysinfo = "0.23.9"
 thiserror = "1.0.30"
 
-tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread"] }
+tokio = { version = "1.17.0", features = [
+  "sync",
+  "rt-multi-thread",
+  "io-util",
+] }
 include_dir = { version = "0.7.2", features = ["glob"] }
 async-trait = "^0.1.52"
 image = "0.24.1"
 webp = "0.2.2"
 ffmpeg-next = { version = "5.0.3", optional = true, features = [] }
+sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 fs_extra = "1.2.0"
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.14", features = ["env-filter"] }

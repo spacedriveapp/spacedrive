@@ -1,7 +1,7 @@
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
-import { ExplorerContext, ExplorerItem, FilePath } from '@sd/core';
+import { ExplorerContext, ExplorerItem, FilePath } from '@sd/client';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize, useWindowSize } from 'rooks';
 import { useSnapshot } from 'valtio';
@@ -25,7 +25,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	const [goingUp, setGoingUp] = useState(false);
 	const [width, setWidth] = useState(0);
 
-	const store = useExplorerStore();
+	const explorerStore = useExplorerStore();
 
 	function handleWindowResize() {
 		// so the virtualizer can render the correct number of columns
@@ -33,18 +33,23 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	}
 	useOnWindowResize(handleWindowResize);
 	useLayoutEffect(() => handleWindowResize(), []);
+	useEffect(() => {
+		setWidth(innerRef.current?.offsetWidth || 0);
+	}, [explorerStore.showInspector]);
 
 	// sizing calculations
-	const amountOfColumns = Math.floor(width / store.gridItemSize) || 8,
+	const amountOfColumns = Math.floor(width / explorerStore.gridItemSize) || 8,
 		amountOfRows =
-			store.layoutMode === 'grid' ? Math.ceil(data.length / amountOfColumns) : data.length,
+			explorerStore.layoutMode === 'grid' ? Math.ceil(data.length / amountOfColumns) : data.length,
 		itemSize =
-			store.layoutMode === 'grid' ? store.gridItemSize + GRID_TEXT_AREA_HEIGHT : store.listItemSize;
+			explorerStore.layoutMode === 'grid'
+				? explorerStore.gridItemSize + GRID_TEXT_AREA_HEIGHT
+				: explorerStore.listItemSize;
 
 	const rowVirtualizer = useVirtualizer({
 		count: amountOfRows,
 		getScrollElement: () => scrollRef.current,
-		overscan: 500,
+		overscan: 200,
 		estimateSize: () => itemSize,
 		measureElement: (index) => itemSize
 	});
@@ -62,15 +67,18 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	useKey('ArrowUp', (e) => {
 		e.preventDefault();
 		setGoingUp(true);
-		if (store.selectedRowIndex !== -1 && store.selectedRowIndex !== 0)
-			getExplorerStore().selectedRowIndex = store.selectedRowIndex - 1;
+		if (explorerStore.selectedRowIndex !== -1 && explorerStore.selectedRowIndex !== 0)
+			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex - 1;
 	});
 
 	useKey('ArrowDown', (e) => {
 		e.preventDefault();
 		setGoingUp(false);
-		if (store.selectedRowIndex !== -1 && store.selectedRowIndex !== (data.length ?? 1) - 1)
-			getExplorerStore().selectedRowIndex = store.selectedRowIndex + 1;
+		if (
+			explorerStore.selectedRowIndex !== -1 &&
+			explorerStore.selectedRowIndex !== (data.length ?? 1) - 1
+		)
+			getExplorerStore().selectedRowIndex = explorerStore.selectedRowIndex + 1;
 	});
 
 	// const Header = () => (
@@ -115,10 +123,10 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 							className="absolute top-0 left-0 flex w-full"
 							key={virtualRow.key}
 						>
-							{store.layoutMode === 'list' ? (
+							{explorerStore.layoutMode === 'list' ? (
 								<WrappedItem
 									kind="list"
-									isSelected={store.selectedRowIndex === virtualRow.index}
+									isSelected={getExplorerStore().selectedRowIndex === virtualRow.index}
 									index={virtualRow.index}
 									item={data[virtualRow.index]}
 								/>
@@ -126,13 +134,14 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 								[...Array(amountOfColumns)].map((_, i) => {
 									const index = virtualRow.index * amountOfColumns + i;
 									const item = data[index];
+									const isSelected = explorerStore.selectedRowIndex === index;
 									return (
 										<div key={index} className="w-32 h-32">
 											<div className="flex">
 												{item && (
 													<WrappedItem
 														kind="grid"
-														isSelected={store.selectedRowIndex === index}
+														isSelected={isSelected}
 														index={index}
 														item={item}
 													/>
@@ -158,7 +167,7 @@ interface WrappedItemProps {
 }
 
 // Wrap either list item or grid item with click logic as it is the same for both
-const WrappedItem: React.FC<WrappedItemProps> = memo(({ item, index, isSelected, kind }) => {
+const WrappedItem: React.FC<WrappedItemProps> = ({ item, index, isSelected, kind }) => {
 	const [_, setSearchParams] = useSearchParams();
 
 	const onDoubleClick = useCallback(() => {
@@ -169,20 +178,9 @@ const WrappedItem: React.FC<WrappedItemProps> = memo(({ item, index, isSelected,
 		getExplorerStore().selectedRowIndex = isSelected ? -1 : index;
 	}, [isSelected, index]);
 
-	if (kind === 'list') {
-		return (
-			<FileRow
-				data={item}
-				index={index}
-				onClick={onClick}
-				onDoubleClick={onDoubleClick}
-				selected={isSelected}
-			/>
-		);
-	}
-
+	const ItemComponent = kind === 'list' ? FileRow : FileItem;
 	return (
-		<FileItem
+		<ItemComponent
 			data={item}
 			index={index}
 			onClick={onClick}
@@ -190,4 +188,18 @@ const WrappedItem: React.FC<WrappedItemProps> = memo(({ item, index, isSelected,
 			selected={isSelected}
 		/>
 	);
-});
+
+	// // Memorize the item so that it doesn't get re-rendered when the selection changes
+	// return useMemo(() => {
+	// 	const ItemComponent = kind === 'list' ? FileRow : FileItem;
+	// 	return (
+	// 		<ItemComponent
+	// 			data={item}
+	// 			index={index}
+	// 			onClick={onClick}
+	// 			onDoubleClick={onDoubleClick}
+	// 			selected={isSelected}
+	// 		/>
+	// 	);
+	// }, [item, index, isSelected]);
+};

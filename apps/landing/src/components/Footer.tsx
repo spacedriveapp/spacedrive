@@ -24,7 +24,7 @@ function FooterLink(props: { children: string | JSX.Element; link: string; blank
 export function Footer() {
 	return (
 		<footer id="footer" className="z-50 w-screen pt-3 border-t border-gray-550 bg-gray-850">
-			<div className="container grid grid-cols-2 gap-6 p-8 pt-10 pb-20 m-auto text-white min-h-64 sm:grid-cols-2 lg:grid-cols-6">
+			<div className="max-w-[100rem] mx-auto grid grid-cols-2 gap-6 p-8 pt-10 pb-20 m-auto text-white min-h-64 sm:grid-cols-2 lg:grid-cols-6">
 				<div className="col-span-2">
 					<img src={AppLogo} className="w-10 h-10 mb-5" />
 
@@ -56,7 +56,7 @@ export function Footer() {
 					<h3 className="mb-1 text-xs font-bold uppercase ">About</h3>
 
 					<FooterLink link="/team">Team</FooterLink>
-					<FooterLink link="/faq">FAQ</FooterLink>
+					<FooterLink link="/docs/product/resources/faq">FAQ</FooterLink>
 					<FooterLink link="/careers">Careers</FooterLink>
 					<FooterLink link="/changelog">Changelog</FooterLink>
 					<FooterLink link="/blog">Blog</FooterLink>

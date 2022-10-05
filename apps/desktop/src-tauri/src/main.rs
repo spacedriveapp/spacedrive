@@ -3,15 +3,17 @@
 	windows_subsystem = "windows"
 )]
 
+use std::error::Error;
 use std::path::PathBuf;
 
-use sdcore::Node;
+use sd_core::Node;
+use tauri::async_runtime::block_on;
 use tauri::{
 	api::path,
-	async_runtime::block_on,
 	http::{ResponseBuilder, Uri},
 	Manager, RunEvent,
 };
+use tokio::task::block_in_place;
 use tracing::{debug, error};
 #[cfg(target_os = "macos")]
 mod macos;
@@ -25,12 +27,12 @@ async fn app_ready(app_handle: tauri::AppHandle) {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
 	let data_dir = path::data_dir()
 		.unwrap_or_else(|| PathBuf::from("./"))
 		.join("spacedrive");
 
-	let (node, router) = Node::new(data_dir).await;
+	let (node, router) = Node::new(data_dir).await?;
 
 	let app = tauri::Builder::default()
 		.plugin(rspc::integrations::tauri::plugin(router, {
@@ -44,7 +46,8 @@ async fn main() {
 				let mut path = url.path().split('/').collect::<Vec<_>>();
 				path[0] = url.host().unwrap(); // The first forward slash causes an empty item and we replace it with the URL's host which you expect to be at the start
 
-				let (status_code, content_type, body) = node.handle_custom_uri(path);
+				let (status_code, content_type, body) =
+					block_in_place(|| block_on(node.handle_custom_uri(path)));
 				ResponseBuilder::new()
 					.status(status_code)
 					.mimetype(content_type)
@@ -82,8 +85,7 @@ async fn main() {
 		.on_menu_event(menu::handle_menu_event)
 		.invoke_handler(tauri::generate_handler![app_ready,])
 		.menu(menu::get_menu())
-		.build(tauri::generate_context!())
-		.expect("error while building tauri application");
+		.build(tauri::generate_context!())?;
 
 	app.run(move |app_handler, event| {
 		if let RunEvent::ExitRequested { .. } = event {
@@ -98,8 +100,10 @@ async fn main() {
 					}
 				});
 
-			block_on(node.shutdown());
+			block_in_place(|| block_on(node.shutdown()));
 			app_handler.exit(0);
 		}
-	})
+	});
+
+	Ok(())
 }

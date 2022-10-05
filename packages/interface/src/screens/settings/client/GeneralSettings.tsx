@@ -1,4 +1,4 @@
-import { useBridgeQuery } from '@sd/client';
+import { useBridgeQuery, usePlatform } from '@sd/client';
 import { Input } from '@sd/ui';
 import { Database } from 'phosphor-react';
 
@@ -9,6 +9,8 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function GeneralSettings() {
 	const { data: node } = useBridgeQuery(['getNode']);
+
+	const platform = usePlatform();
 
 	return (
 		<SettingsContainer>
@@ -55,10 +57,17 @@ export default function GeneralSettings() {
 						<span className="text-sm text-gray-200">Run daemon when app closed</span>
 					</div>
 					<div className="mt-3">
-						<span className="text-xs font-medium text-gray-700 dark:text-gray-400">
+						<span
+							onClick={() => {
+								if (node && platform?.openLink) {
+									platform.openLink(node.data_path);
+								}
+							}}
+							className="text-xs font-medium text-gray-700 dark:text-gray-400"
+						>
 							<Database className="inline w-4 h-4 mr-2 -mt-[2px]" />
 							<b className="mr-2">Data Folder</b>
-							{node?.data_path}
+							<span className="select-text">{node?.data_path}</span>
 						</span>
 					</div>
 				</div>

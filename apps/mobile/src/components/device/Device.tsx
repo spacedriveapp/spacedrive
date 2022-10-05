@@ -14,7 +14,7 @@ const placeholderFileItems: FilePath[] = [
 		date_indexed: '2020-01-01T00:00:00.000Z',
 		date_modified: '2020-01-01T00:00:00.000Z',
 		extension: '',
-		file_id: 1,
+		object_id: 1,
 		id: 1,
 		location_id: 1,
 		materialized_path: '',
@@ -28,7 +28,7 @@ const placeholderFileItems: FilePath[] = [
 		date_indexed: '2020-01-01T00:00:00.000Z',
 		date_modified: '2020-01-01T00:00:00.000Z',
 		extension: '',
-		file_id: 2,
+		object_id: 2,
 		id: 2,
 		location_id: 2,
 		materialized_path: '',
@@ -42,7 +42,7 @@ const placeholderFileItems: FilePath[] = [
 		date_indexed: '2020-01-01T00:00:00.000Z',
 		date_modified: '2020-01-01T00:00:00.000Z',
 		extension: 'tsx',
-		file_id: 3,
+		object_id: 3,
 		id: 3,
 		location_id: 3,
 		materialized_path: '',
@@ -56,7 +56,7 @@ const placeholderFileItems: FilePath[] = [
 		date_indexed: '2020-01-01T00:00:00.000Z',
 		date_modified: '2020-01-01T00:00:00.000Z',
 		extension: 'vite',
-		file_id: 4,
+		object_id: 4,
 		id: 4,
 		location_id: 4,
 		materialized_path: '',
@@ -70,7 +70,7 @@ const placeholderFileItems: FilePath[] = [
 		date_indexed: '2020-01-01T00:00:00.000Z',
 		date_modified: '2020-01-01T00:00:00.000Z',
 		extension: 'docker',
-		file_id: 5,
+		object_id: 5,
 		id: 5,
 		location_id: 5,
 		materialized_path: '',
@@ -90,7 +90,7 @@ export interface DeviceProps {
 
 const Device = ({ name, locations, size, type }: DeviceProps) => {
 	return (
-		<View style={tw`bg-gray-600 border rounded-md border-gray-550 my-2`}>
+		<View style={tw`my-2 bg-gray-600 border rounded-md border-gray-550`}>
 			<View style={tw`flex flex-row items-center px-3.5 pt-3 pb-2`}>
 				<View style={tw`flex flex-row items-center`}>
 					{type === 'phone' && (
@@ -107,7 +107,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 					</View>
 				</View>
 				{/* Size */}
-				<Text style={tw`font-semibold text-sm ml-2 text-gray-400`}>{size}</Text>
+				<Text style={tw`ml-2 text-sm font-semibold text-gray-400`}>{size}</Text>
 			</View>
 			{/* Locations/Files TODO: Maybe use FlashList? */}
 			<FlatList

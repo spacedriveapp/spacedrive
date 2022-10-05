@@ -1,8 +1,10 @@
 use crate::{
-	encode::{ThumbnailJob, ThumbnailJobInit},
-	file::cas::{FileIdentifierJob, FileIdentifierJobInit},
 	job::{Job, JobManager},
 	location::{fetch_location, LocationError},
+	object::{
+		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
+		preview::{ThumbnailJob, ThumbnailJobInit},
+	},
 	prisma::location,
 };
 
@@ -49,8 +51,8 @@ pub(crate) fn mount() -> RouterBuilder {
 					.spawn_job(Job::new(
 						ThumbnailJobInit {
 							location_id: args.id,
-							path: args.path,
-							background: false, // fix
+							path: PathBuf::new(),
+							background: true,
 						},
 						Box::new(ThumbnailJob {}),
 					))

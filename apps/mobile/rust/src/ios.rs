@@ -42,19 +42,18 @@ pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
 		let (tx, mut rx) = unbounded_channel();
 		let _ = EVENT_SENDER.set(tx);
 
-		RUNTIME.spawn(async move {
-			while let Some(event) = rx.recv().await {
-				let data = match serde_json::to_string(&event) {
-					Ok(json) => json,
-					Err(err) => {
-						println!("Failed to serialize event: {}", err);
-						continue;
-					},
-				};
-				let data = NSString::from_str(&data);
-				let _: () = msg_send![id, sendCoreEvent: data];
-			}
-		});
+	RUNTIME.spawn(async move {
+		while let Some(event) = rx.recv().await {
+			let data = match serde_json::to_string(&event) {
+				Ok(json) => json,
+				Err(err) => {
+					println!("Failed to serialize event: {}", err);
+					continue;
+				}
+			};
+			let data = NSString::from_str(&data);
+			let _: () = msg_send![id, sendCoreEvent: data];
+		}
 	});
 	if let Err(err) = result {
 		error!("Spacedrive core panicked!");
@@ -72,19 +71,19 @@ pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_voi
 		RUNTIME.spawn(async move {
 			let request: Request = serde_json::from_str(&query).unwrap();
 
-			let node = &mut *NODE.lock().await;
-			let (node, router) = match node {
-				Some(node) => node.clone(),
-				None => {
-					let doc_dir = CStr::from_ptr(get_data_directory())
-						.to_str()
-						.unwrap()
-						.to_string();
-					let new_node = Node::new(doc_dir).await;
-					node.replace(new_node.clone());
-					new_node
-				},
-			};
+		let node = &mut *NODE.lock().await;
+		let (node, router) = match node {
+			Some(node) => node.clone(),
+			None => {
+				let doc_dir = CStr::from_ptr(get_data_directory())
+					.to_str()
+					.unwrap()
+					.to_string();
+				let new_node = Node::new(doc_dir).await.unwrap();
+				node.replace(new_node.clone());
+				new_node
+			}
+		};
 
 			resolve.resolve(
 				CString::new(

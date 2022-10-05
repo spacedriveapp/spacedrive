@@ -1,5 +1,4 @@
-import { getExplorerStore, useExplorerStore } from '@sd/client';
-import { ExplorerItem } from '@sd/core';
+import { ExplorerItem, getExplorerStore } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
 
@@ -12,58 +11,71 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	index: number;
 }
 
-function FileItem(props: Props) {
-	const store = useExplorerStore();
+function FileItem({ data, selected, index, ...rest }: Props) {
+	// const store = useExplorerStore();
+
+	// store.layoutMode;
+
+	// props.index === store.selectedRowIndex
+
+	const isVid = isVideo(data.extension || '');
 
 	return (
 		<div
 			onContextMenu={(e) => {
-				const objectId = isObject(props.data) ? props.data.id : props.data.file?.id;
+				const objectId = isObject(data) ? data.id : data.object?.id;
 				if (objectId != undefined) {
 					getExplorerStore().contextMenuObjectId = objectId;
-					if (props.index != undefined) {
-						getExplorerStore().selectedRowIndex = props.index;
+					if (index != undefined) {
+						getExplorerStore().selectedRowIndex = index;
 					}
 				}
 			}}
+			{...rest}
 			draggable
-			{...props}
-			className={clsx('inline-block w-[100px] mb-3', props.className)}
+			className={clsx('inline-block w-[100px] mb-3', rest.className)}
 		>
 			<div
-				style={{ width: store.gridItemSize, height: store.gridItemSize }}
+				style={{ width: getExplorerStore().gridItemSize, height: getExplorerStore().gridItemSize }}
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
-						'bg-gray-50 dark:bg-gray-750': props.selected
+						'bg-gray-50 dark:bg-gray-750': selected
 					}
 				)}
 			>
 				<div
 					className={clsx(
-						'relative grid place-content-center min-w-0 h-full p-1 rounded border-transparent border-2 shrink-0'
+						'flex relative items-center justify-center h-full  p-1 rounded border-transparent border-2 shrink-0'
 					)}
 				>
 					<FileThumb
 						className={clsx(
-							'border-4 border-gray-250 rounded-sm shadow-md shadow-gray-750 max-h-full max-w-full overflow-hidden'
+							'border-4 border-gray-250 rounded shadow-md shadow-gray-750 object-cover max-w-full max-h-full w-auto overflow-hidden',
+							isVid && 'border-gray-950 border-x-0 border-y-[9px]'
 						)}
-						data={props.data}
-						size={store.gridItemSize}
+						data={data}
+						kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
+						size={getExplorerStore().gridItemSize}
 					/>
+					{data?.extension && isVid && (
+						<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-gray-800 rounded">
+							{data.extension}
+						</div>
+					)}
 				</div>
 			</div>
 			<div className="flex justify-center">
 				<span
 					className={clsx(
-						'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 dark:text-gray-300 cursor-default',
+						'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 dark:text-gray-300 cursor-default ',
 						{
-							'bg-primary !text-white': props.selected
+							'bg-primary !text-white': selected
 						}
 					)}
 				>
-					{props.data?.name}
-					{props.data?.extension && `.${props.data.extension}`}
+					{data?.name}
+					{data?.extension && `.${data.extension}`}
 				</span>
 			</div>
 		</div>
@@ -71,3 +83,35 @@ function FileItem(props: Props) {
 }
 
 export default FileItem;
+
+function isVideo(extension: string) {
+	return [
+		'avi',
+		'asf',
+		'mpeg',
+		'mts',
+		'mpe',
+		'vob',
+		'qt',
+		'mov',
+		'asf',
+		'asx',
+		'mjpeg',
+		'ts',
+		'mxf',
+		'm2ts',
+		'f4v',
+		'wm',
+		'3gp',
+		'm4v',
+		'wmv',
+		'mp4',
+		'webm',
+		'flv',
+		'mpg',
+		'hevc',
+		'ogv',
+		'swf',
+		'wtv'
+	].includes(extension);
+}

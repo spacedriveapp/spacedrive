@@ -1,4 +1,9 @@
-import { useExplorerStore, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import {
+	getExplorerStore,
+	useExplorerStore,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
@@ -34,7 +39,7 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 							assignTag({
 								tag_id: tag.id,
-								file_id: props.objectId,
+								object_id: props.objectId,
 								unassign: active
 							});
 						}}
@@ -59,7 +64,7 @@ interface Props {
 }
 
 export default function ExplorerContextMenu(props: Props) {
-	const store = useExplorerStore();
+	const store = getExplorerStore();
 
 	return (
 		<div className="relative">
@@ -101,18 +106,13 @@ export default function ExplorerContextMenu(props: Props) {
 					</CM.SubMenu>
 				)}
 				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.SubMenu label="Move to library" icon={FilePlus}>
-						{/* {libraries.map(library => <CM.Item key={library.id} label={library.config.name} />)} */}
-						<CM.Item label="Remove from library" icon={FileX} />
-					</CM.SubMenu>
-					<CM.Separator />
 					<CM.Item label="Encrypt" icon={LockSimple} />
 					<CM.Item label="Compress" icon={Package} />
 					<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 						<CM.Item label="PNG" />
 						<CM.Item label="WebP" />
 					</CM.SubMenu>
-					<CM.Item label="Secure delete" icon={TrashSimple} />
+					<CM.Item variant="danger" label="Secure delete" icon={TrashSimple} />
 				</CM.SubMenu>
 
 				<CM.Separator />

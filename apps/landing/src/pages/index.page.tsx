@@ -6,6 +6,7 @@ import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
 
 import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
+// import { Bubbles } from '../components/Bubbles';
 import HomeCTA from '../components/HomeCTA';
 import NewBanner from '../components/NewBanner';
 import { usePageContext } from '../renderer/usePageContext';
@@ -81,7 +82,7 @@ function Page() {
 	}, []);
 
 	return (
-		<>
+		<div className="flex flex-col items-center w-full px-4">
 			<Helmet>
 				<title>Spacedrive — A file manager from the future.</title>
 				<meta
@@ -142,9 +143,7 @@ function Page() {
 						<br />
 						<a
 							className="transition text-primary-600 hover:text-primary-500"
-							href="https://github.com/spacedriveapp"
-							target="_blank"
-							rel="noreferrer"
+							href="/docs/product/getting-started/introduction"
 						>
 							Find out more →
 						</a>
@@ -152,7 +151,7 @@ function Page() {
 				}
 			/>
 			<Bubbles />
-		</>
+		</div>
 	);
 }
 

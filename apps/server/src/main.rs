@@ -6,7 +6,7 @@ use axum::{
 	http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
 	routing::get,
 };
-use sdcore::Node;
+use sd_core::Node;
 use tracing::info;
 
 mod utils;
@@ -22,18 +22,16 @@ async fn main() {
 			}
 
 			std::env::current_dir()
-				.expect(
-					"Unable to get your current directory. Maybe try setting $DATA_DIR?",
-				)
+				.expect("Unable to get your current directory. Maybe try setting $DATA_DIR?")
 				.join("sdserver_data")
-		},
+		}
 	};
 
 	let port = env::var("PORT")
 		.map(|port| port.parse::<u16>().unwrap_or(8080))
 		.unwrap_or(8080);
 
-	let (node, router) = Node::new(data_dir).await;
+	let (node, router) = Node::new(data_dir).await.expect("Unable to create node");
 	let signal = utils::axum_shutdown_signal(node.clone());
 
 	let app = axum::Router::new()
@@ -43,7 +41,7 @@ async fn main() {
 			let node = node.clone();
 			get(|extract::Path(path): extract::Path<String>| async move {
 				let (status_code, content_type, body) =
-					node.handle_custom_uri(path.split('/').collect());
+					node.handle_custom_uri(path.split('/').collect()).await;
 
 				(
 					StatusCode::from_u16(status_code).unwrap(),
@@ -60,10 +58,7 @@ async fn main() {
 			"/rspcws",
 			router.axum_ws_handler(move || node.get_request_context()),
 		)
-		.fallback(
-			(|| async { "404 Not Found: We're past the event horizon..." })
-				.into_service(),
-		);
+		.fallback((|| async { "404 Not Found: We're past the event horizon..." }).into_service());
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
 	addr.set_port(port);

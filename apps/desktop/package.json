@@ -14,7 +14,6 @@
 		"@rspc/client": "^0.0.6",
 		"@rspc/tauri": "^0.0.6",
 		"@sd/client": "workspace:*",
-		"@sd/core": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@tanstack/react-query": "^4.0.10",

@@ -202,12 +202,12 @@ const investors: Array<TeamMemberProps> = [
 
 function Page() {
 	return (
-		<Markdown>
+		<Markdown articleClassNames="mx-auto mt-32 prose-a:text-white">
 			<Helmet>
 				<title>Our Team - Spacedrive</title>
 				<meta name="description" content="Who's behind Spacedrive?" />
 			</Helmet>
-			<div className="relative team-page">
+			<div className="relative mx-auto team-page">
 				<div
 					className="bloom subtle egg-bloom-one -top-60 -right-[400px]"
 					style={{ transform: 'scale(2)' }}
@@ -216,17 +216,17 @@ function Page() {
 					<h1 className="text-5xl leading-tight sm:leading-snug fade-in-heading ">
 						We believe file management should be <span className="title-gradient">universal</span>.
 					</h1>
-					<p className="text-gray-400 animation-delay-2 fade-in-heading ">
+					<p className="text-white/50 animation-delay-2 fade-in-heading ">
 						Your priceless personal data shouldn't be stuck in a device ecosystem. It should be OS
 						agnostic, permanent and owned by you.
 					</p>
-					<p className="text-gray-400 animation-delay-2 fade-in-heading ">
+					<p className="text-white/50 animation-delay-2 fade-in-heading ">
 						The data we create daily is our legacy—that will long outlive us. Open source technology
 						is the only way to ensure we retain absolute control over the files that define our
 						lives, at unlimited scale.
 					</p>
 					<a
-						href="/faq"
+						href="/docs/product/resources/faq"
 						className="flex flex-row items-center text-gray-400 duration-150 animation-delay-3 fade-in-heading hover:text-white text-underline underline-offset-4"
 					>
 						<ArrowRight className="mr-2" />

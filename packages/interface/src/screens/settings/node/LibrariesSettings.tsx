@@ -1,6 +1,6 @@
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useBridgeMutation, useBridgeQuery } from '@sd/client';
-import { LibraryConfigWrapped } from '@sd/core';
+import { LibraryConfigWrapped } from '@sd/client';
 import { Button } from '@sd/ui';
 import { DotsSixVertical } from 'phosphor-react';
 import { useState } from 'react';

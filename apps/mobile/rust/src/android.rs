@@ -4,7 +4,7 @@ use crate::{CLIENT_CONTEXT, EVENT_SENDER, NODE, RUNTIME};
 use jni::objects::{JClass, JObject, JString};
 use jni::JNIEnv;
 use rspc::Request;
-use sdcore::Node;
+use sd_core::Node;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::error;
 
@@ -26,7 +26,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
 					Err(err) => {
 						println!("Failed to serialize event: {}", err);
 						continue;
-					},
+					}
 				};
 
 				let env = jvm.attach_current_thread().unwrap();
@@ -75,12 +75,7 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 					let data_dir: String = {
 						let env = jvm.attach_current_thread().unwrap();
 						let data_dir = env
-							.call_method(
-								&class,
-								"getDataDirectory",
-								"()Ljava/lang/String;",
-								&[],
-							)
+							.call_method(&class, "getDataDirectory", "()Ljava/lang/String;", &[])
 							.unwrap()
 							.l()
 							.unwrap();
@@ -88,10 +83,10 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 						env.get_string(data_dir.into()).unwrap().into()
 					};
 
-					let new_node = Node::new(data_dir).await;
+					let new_node = Node::new(data_dir).await.expect("Unable to create node");
 					node.replace(new_node.clone());
 					new_node
-				},
+				}
 			};
 
 			let resp = serde_json::to_string(

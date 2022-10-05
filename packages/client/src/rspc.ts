@@ -1,6 +1,5 @@
 import { RSPCError } from '@rspc/client';
 import { createReactQueryHooks } from '@rspc/react';
-import { LibraryArgs, Operations } from '@sd/core';
 import {
 	QueryClient,
 	UseInfiniteQueryOptions,
@@ -12,6 +11,7 @@ import {
 	useMutation as _useMutation
 } from '@tanstack/react-query';
 
+import { LibraryArgs, Operations } from './core';
 import { useCurrentLibrary } from './index';
 
 export const queryClient = new QueryClient();

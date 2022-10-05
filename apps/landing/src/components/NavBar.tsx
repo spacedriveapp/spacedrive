@@ -1,14 +1,15 @@
 import {
+	AcademicCapIcon,
 	BookOpenIcon,
+	ChatBubbleOvalLeftIcon,
 	MapIcon,
-	QuestionMarkCircleIcon,
 	UsersIcon
 } from '@heroicons/react/24/solid';
 import { Discord, Github } from '@icons-pack/react-simple-icons';
 import AppLogo from '@sd/assets/images/logo.png';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
-import { List } from 'phosphor-react';
+import { DotsThreeVertical, List } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
 import { positions } from '../pages/careers.page';
@@ -66,26 +67,23 @@ export default function NavBar() {
 	return (
 		<div
 			className={clsx(
-				'fixed transition z-[55] w-full h-16 border-b ',
+				'fixed transition px-2 z-[55] w-full h-16 border-b ',
 				isAtTop
 					? 'bg-transparent border-transparent'
-					: 'border-gray-550 bg-gray-750 bg-opacity-80 backdrop-blur'
+					: 'border-gray-550 bg-gray-700 bg-opacity-80 backdrop-blur'
 			)}
 		>
-			<div className="relative flex items-center h-full px-5 m-auto sm:container">
+			<div className="relative flex max-w-[100rem] mx-auto items-center h-full m-auto p-5">
 				<a href="/" className="absolute flex flex-row items-center">
 					<img src={AppLogo} className="z-30 w-8 h-8 mr-3" />
-					<h3 className="text-xl font-bold text-white">
-						Spacedrive
-						{/* <span className="ml-2 text-xs text-gray-400 uppercase">ALPHA</span> */}
-					</h3>
+					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
 				</a>
 
 				<div className="hidden m-auto space-x-4 text-white lg:block ">
 					<NavLink link="/roadmap">Roadmap</NavLink>
-					<NavLink link="/faq">FAQ</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					<NavLink link="/blog">Blog</NavLink>
+					<NavLink link="/docs/product/getting-started/introduction">Docs</NavLink>
 					<div className="relative inline">
 						<NavLink link="/careers">Careers</NavLink>
 						{positions.length > 0 ? (
@@ -97,7 +95,9 @@ export default function NavBar() {
 					</div>
 				</div>
 				<Dropdown
-					className="absolute block h-6 w-44 top-2 right-4 lg:hidden"
+					className="absolute block h-6 text-white w-44 top-2 right-4 lg:hidden"
+					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500"
+					itemButtonClassName="!py-1 !rounded-md text-[15px]"
 					items={[
 						[
 							dropdownItem({
@@ -118,9 +118,9 @@ export default function NavBar() {
 								path: '/roadmap'
 							}),
 							dropdownItem({
-								name: 'FAQ',
-								icon: QuestionMarkCircleIcon,
-								path: '/faq'
+								name: 'Docs',
+								icon: BookOpenIcon,
+								path: '/docs/product/getting-started/introduction'
 							}),
 							dropdownItem({
 								name: 'Team',
@@ -129,18 +129,18 @@ export default function NavBar() {
 							}),
 							dropdownItem({
 								name: 'Blog',
-								icon: BookOpenIcon,
+								icon: ChatBubbleOvalLeftIcon,
 								path: '/blog'
 							}),
 							dropdownItem({
 								name: 'Careers',
-								icon: QuestionMarkCircleIcon,
+								icon: AcademicCapIcon,
 								path: '/careers'
 							})
 						]
 					]}
-					buttonIcon={<List weight="bold" className="w-6 h-6" />}
-					buttonProps={{ className: '!p-1 ml-[140px]' }}
+					buttonIcon={<DotsThreeVertical weight="bold" className="w-6 h-6 " />}
+					buttonProps={{ className: '!p-1 ml-[140px] hover:!bg-transparent' }}
 				/>
 				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
 					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">

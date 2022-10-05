@@ -169,9 +169,76 @@ html {
 	box-shadow: 0px 0px 100px 0px rgba(0, 0, 0, 0.5);
 }
 
+.slot-block {
+	@apply bg-gray-550 py-3 px-4 border-l-4 border-gray-400 rounded mb-2
+}
+.slot-block.note {
+	@apply border-yellow-400 bg-yellow-300/20
+}
+.slot-block.info {
+	@apply border-green-400 bg-green-400/20
+}
+.slot-block.warning {
+	@apply border-red-400 bg-red-400/20
+}
+.slot-block-title {
+	@apply text-white font-bold text-sm m-0 uppercase;
+}
+.slot-block-content {
+	@apply my-1 mx-0 mb-0 text-white
+}
+
+.doc-sidebar-button:hover, .doc-sidebar-button.nav-active {
+	&.product {
+		color:#459EE8;
+		div {
+			background-color: #459EE8;
+		}
+	}
+	&.developers {
+		color:#48BB78;
+		div {
+			background-color: #48BB78;
+		}
+	}
+	&.company {
+		color:#bb9247;
+		div {
+			background-color: #bb9247;
+		}
+	}
+	&.changelog {
+		color:#8A47BB;
+		div {
+			background-color: #8A47BB;
+		}
+	}
+}
+
 // Gradient colors
 // #3916BA
 // #7A1D77
 // #8E4CAB
 // #1D054B
 // #9A3F8C
+
+
+.custom-scroll {
+	-ms-overflow-style: none; /* for Internet Explorer, Edge */
+	scrollbar-width: none; /* for Firefox */
+	overflow-y: scroll;
+}
+
+.doc-sidebar-scroll {
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 7px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-[#00000006] dark:bg-[#00000030] my-[10px] rounded-[6px];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550 ;
+		
+	}
+}

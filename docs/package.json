@@ -1,0 +1,5 @@
+{
+  "name": "@sd/docs",
+  "description": "Allows turborepo to detect our markdown files",
+  "private": true
+}

@@ -1,12 +1,12 @@
 use crate::{
-	encode::THUMBNAIL_CACHE_DIR_NAME,
 	invalidate_query,
 	location::{
 		fetch_location,
-		indexer::{indexer_job::indexer_job_location, indexer_rules::IndexerRuleCreateArgs},
+		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
 		scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	prisma::{file, file_path, indexer_rule, indexer_rules_in_location, location, tag},
+	object::preview::THUMBNAIL_CACHE_DIR_NAME,
+	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
 use rspc::{self, ErrorCode, Type};
@@ -29,14 +29,14 @@ pub enum ExplorerContext {
 	// Space(object_in_space::Data),
 }
 
-file_path::include!(pub file_path_with_file { file });
-file::include!(pub file_with_paths { paths });
+file_path::include!(file_path_with_object { object });
+object::include!(object_with_file_paths { file_paths });
 
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
-	Path(Box<file_path_with_file::Data>),
-	Object(Box<file_with_paths::Data>),
+	Path(Box<file_path_with_object::Data>),
+	Object(Box<object_with_file_paths::Data>),
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
@@ -100,7 +100,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						file_path::location_id::equals(location.id),
 						file_path::parent_id::equals(Some(directory.id)),
 					])
-					.include(file_path_with_file::include())
+					.include(file_path_with_object::include())
 					.exec()
 					.await?;
 
@@ -109,16 +109,16 @@ pub(crate) fn mount() -> RouterBuilder {
 					items: file_paths
 						.into_iter()
 						.map(|mut file_path| {
-							if let Some(file) = &mut file_path.file.as_mut() {
+							if let Some(object) = &mut file_path.object.as_mut() {
 								// TODO: Use helper function to build this url as as the Rust file loading layer
 								let thumb_path = library
 									.config()
 									.data_directory()
 									.join(THUMBNAIL_CACHE_DIR_NAME)
-									.join(&file.cas_id)
+									.join(&object.cas_id)
 									.with_extension("webp");
 
-								file.has_thumbnail = thumb_path.exists();
+								object.has_thumbnail = thumb_path.exists();
 							}
 							ExplorerItem::Path(Box::new(file_path))
 						})

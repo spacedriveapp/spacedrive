@@ -3,7 +3,7 @@
     
   </a>
   <p align="center">
-   <img width="150" height="150" src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/spacedrive_icon.png" alt="Logo">
+   <img width="150" height="150" src="https://github.com/spacedriveapp/spacedrive/blob/main/packages/assets/images/logo.png" alt="Logo">
   </p>
   <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
@@ -39,7 +39,7 @@ Organize files across many devices in one place. From cloud services to offline 
 For independent creatives, hoarders and those that want to own their digital footprint, Spacedrive provides a free file management experience like no other.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/spacedriveapp/.github/main/profile/app.png" alt="Logo">
+  <img src="https://raw.githubusercontent.com/spacedriveapp/spacedrive/main/apps/landing/public/app.png" alt="App screenshot">
   <br />
   <br />
   <a href="https://discord.gg/gTaF2Z44f5">
@@ -51,7 +51,9 @@ For independent creatives, hoarders and those that want to own their digital foo
   <a href="https://instagram.com/spacedriveapp">
     <img src="https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white" />
   </a>
-  <img src="https://img.shields.io/static/v1?label=Licence&message=GNU%20v3&color=000" />
+  <a href="https://www.gnu.org/licenses/agpl-3.0">
+    <img src="https://img.shields.io/static/v1?label=Licence&message=AGPL%20v3&color=000" />
+  </a>
   <img src="https://img.shields.io/static/v1?label=Bundled%20Size&message=16.3MB&color=0974B4" />
   <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB" />
   <br />
@@ -67,39 +69,9 @@ The first implementation of a VDFS can be found in this UC Berkeley [paper](http
 
 Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. We depend on cloud services like Google Photos and iCloud, but are locked in with limited capacity and almost zero interoperability between services and operating systems. Photo albums shouldn’t be stuck in a device ecosystem, or harvested for advertising data. They should be OS agnostic, permanent and personally owned. Data we create is our legacy, that will long outlive us—open source technology is the only way to ensure we retain absolute control over the data that defines our lives, at unlimited scale.
 
-# Features
+# Roadmap
 
-_Note: Links are for highlight purposes only until feature specific documentation is complete._
-
-**Complete:** _(in testing)_
-
-- **[File discovery](#features)** - Scan devices, drives and cloud accounts to build a directory of all files with metadata.
-- **[Preview generation](#features)** - Auto generate lower resolution stand-ins for image and video.
-- **[Statistics](#features)** - Total capacity, index size, preview media size, free space etc.
-
-**In progress:**
-
-- **[File Explorer](#features)** - Browse online/offline storage locations, view files with metadata, perform basic CRUD.
-- **[Realtime synchronization](#features)** - Data index synchronized in realtime between devices, prioritizing peer-to-peer LAN connections (WiFi sync).
-
-**To be developed (MVP):**
-
-- **[Photos](#features)** - Photo and video albums similar to Apple/Google photos.
-- **[Search](#features)** - Deep search into your filesystem with a keybinding, including offline locations.
-- **[Tags](#features)** - Define routines on custom tags to automate workflows, easily tag files individually, in bulk and automatically via rules.
-- **[Extensions](#features)** - Build tools on top of Spacedrive, extend functionality and integrate third party services. Extension directory on [spacedrive.com/extensions](#features).
-
-**To be developed (Post-MVP):**
-
-- **[Cloud integration](#features)** - Index & backup to Apple Photos, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.
-- **[Encrypted vault(s)](#features)** - Effortlessly manage & encrypt sensitive files, built on top of VeraCrypt. Encrypt individual files or create flexible-size vaults.
-- **[Key manager](#features)** - View, mount, dismount and hide keys. Mounted keys automatically unlock respective areas of your filesystem.
-- **[Redundancy Goal](#features)** - Ensure a specific amount of copies exist for your important data, discover at-risk files and monitor device/drive health.
-- **[Timeline](#features)** - View a linear timeline of content, travel to any time and see media represented visually.
-- **[Media encoder](#features)** - Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.
-- **[Workers](#features)** - Utilize the compute power of your devices in unison to encode and perform tasks at increased speeds.
-- **[Spacedrive Cloud](#features)** - We'll host an always-on cloud device for you, with pay-as-you-go plans for storage.
-- **[Self hosted](#features)** - Spacedrive can be deployed as a service, behaving as just another device powering your personal cloud.
+View a list of our planned features here: [spacedrive.com/roadmap](https://spacedrive.com/roadmap)
 
 # Developer Guide
 
@@ -111,7 +83,7 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 
 - Prisma on the front-end? 🤯 Made possible thanks to [prisma-client-rust](https://github.com/brendonovich/prisma-client-rust), developed by [Brendonovich](https://github.com/brendonovich). Gives us access to the powerful migration CLI in development, along with the Prisma syntax for our schema. The application bundles with the Prisma query engine and codegen for a beautiful Rust API. Our lightweight migration runner is custom built for a desktop app context.
 - Tauri allows us to create a pure Rust native OS webview, without the overhead of your average Electron app. This brings the bundle size and average memory usage down dramatically. It also contributes to a more native feel, especially on macOS due to Safari's close integration with the OS.
-- We also use [rspc](https://rspc.otbeaumont.me) which allows us to define functions in Rust and call them on the Typescript frontend in a completly typesafe manner, so no unnecessary bugs make it into production!
+- We also use [rspc](https://rspc.otbeaumont.me) which allows us to define functions in Rust and call them on the Typescript frontend in a completely typesafe manner, so no unnecessary bugs make it into production!
 - The core (`sdcore`) is written in pure Rust.
 
 ## Monorepo structure:
