@@ -1,3 +1,5 @@
+use crate::keys::hashing::Params;
+
 // This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
 
@@ -28,7 +30,7 @@ pub enum Mode {
 }
 
 pub enum HashingAlgorithm {
-	Argon2id,
+	Argon2id(Params),
 }
 
 impl Algorithm {
