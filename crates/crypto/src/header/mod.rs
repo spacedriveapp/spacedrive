@@ -2,3 +2,4 @@
 //! It'll handle serialisation, deserialisation, AAD, keyslots and everything else
 
 pub mod file;
+pub mod serialization;
