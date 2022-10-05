@@ -1,10 +1,15 @@
 use std::io::{Read, Seek, Write};
 
+use secrecy::{ExposeSecret, Secret};
+use zeroize::Zeroize;
+
 use crate::{
 	error::Error,
-	primitives::{Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
+	objects::memory::MemoryDecryption,
+	primitives::{
+		Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+	},
 };
-
 
 // random values, can be changed
 pub const MAGIC_BYTES: [u8; 6] = [0x08, 0xFF, 0x55, 0x32, 0x58, 0x1A];
@@ -46,7 +51,6 @@ pub enum FileHeaderVersion {
 pub enum FileKeyslotVersion {
 	V1,
 }
-
 
 impl FileKeyslot {
 	#[must_use]
@@ -119,7 +123,39 @@ impl FileKeyslot {
 }
 
 impl FileHeader {
-	pub fn write<W>(&self, writer: &mut W) -> Result<(), Error> where W: Write + Seek {
+	pub fn decrypt_master_key(&self, password: Secret<Vec<u8>>) -> Result<Secret<[u8; 32]>, Error> {
+		let mut master_key = [0u8; MASTER_KEY_LEN];
+
+		for keyslot in &self.keyslots {
+			let key = keyslot
+				.hashing_algorithm
+				.hash(Secret::new(password.expose_secret().clone()), keyslot.salt)
+				.map_err(|_| Error::PasswordHash)?;
+
+			let decryptor =
+				MemoryDecryption::new(key, keyslot.algorithm).map_err(|_| Error::MemoryModeInit)?;
+			if let Ok(mut decrypted_master_key) =
+				decryptor.decrypt(keyslot.master_key.as_ref(), &keyslot.nonce)
+			{
+				master_key.copy_from_slice(&decrypted_master_key);
+				decrypted_master_key.zeroize();
+			}
+		}
+
+		// Manual drop of the password - nothing above should error
+		drop(password);
+
+		if master_key == [0u8; MASTER_KEY_LEN] {
+			Err(Error::IncorrectPassword)
+		} else {
+			Ok(Secret::new(master_key))
+		}
+	}
+
+	pub fn write<W>(&self, writer: &mut W) -> Result<(), Error>
+	where
+		W: Write + Seek,
+	{
 		writer.write(&self.serialize()).map_err(Error::Io)?;
 		Ok(())
 	}
