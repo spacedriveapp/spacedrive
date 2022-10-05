@@ -204,6 +204,21 @@ impl Mode {
 pub const MAGIC_BYTES: [u8; 6] = [0x08, 0xFF, 0x55, 0x32, 0x58, 0x1A];
 
 impl FileHeader {
+	pub fn create_aad(&self) -> Vec<u8> {
+		match self.version {
+			FileHeaderVersion::V1 => {
+				let mut aad: Vec<u8> = Vec::new();
+				aad.extend_from_slice(&MAGIC_BYTES); // 6
+				aad.extend_from_slice(&self.version.serialize()); // 8
+				aad.extend_from_slice(&self.algorithm.serialize()); // 10
+				aad.extend_from_slice(&self.mode.serialize()); // 12
+				aad.extend_from_slice(&self.nonce); // 20 OR 32
+				aad.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // padded until 36 bytes
+				aad
+			}
+		}
+	}
+
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
 			FileHeaderVersion::V1 => {
@@ -228,7 +243,20 @@ impl FileHeader {
 		}
 	}
 
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
+	pub fn length(&self) -> usize {
+		match self.version {
+			FileHeaderVersion::V1 => 228,
+		}
+	}
+
+	pub fn aad_length(&self) -> usize {
+		match self.version {
+			FileHeaderVersion::V1 => 36,
+		}
+	}
+
+	// The AAD retrieval here could be optimised - we do rewind a couple of times
+	pub fn deserialize<R>(reader: &mut R) -> Result<(Self, Vec<u8>), Error>
 	where
 		R: Read + Seek,
 	{
@@ -244,7 +272,7 @@ impl FileHeader {
 		reader.read(&mut version).map_err(Error::Io)?;
 		let version = FileHeaderVersion::deserialize(version)?;
 
-		match version {
+		let header = match version {
 			FileHeaderVersion::V1 => {
 				let mut algorithm = [0u8; 2];
 				reader.read(&mut algorithm).map_err(Error::Io)?;
@@ -278,8 +306,22 @@ impl FileHeader {
 					keyslots,
 				};
 
-				Ok(file_header)
+				file_header
 			}
-		}
+		};
+
+		// Rewind so we can get the AAD
+		reader.rewind().map_err(Error::Io)?;
+
+		let mut aad = vec![0u8; header.aad_length()];
+		reader.read(&mut aad).map_err(Error::Io)?;
+
+		// We return the cursor position to the end of the header,
+		// So that the encrypted data can be read directly afterwards
+		reader
+			.seek(std::io::SeekFrom::Start(header.length() as u64))
+			.map_err(Error::Io)?;
+
+		Ok((header, aad))
 	}
 }

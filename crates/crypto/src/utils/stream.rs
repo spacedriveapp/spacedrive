@@ -75,7 +75,12 @@ impl StreamEncryption {
 
 	// This does not handle writing the header
 	// I'm unsure whether this should be taking ownership of `reader` and `writer`, but it seems like a good idea
-	pub fn encrypt_streams<R, W>(mut self, mut reader: R, mut writer: W) -> Result<(), Error>
+	pub fn encrypt_streams<R, W>(
+		mut self,
+		mut reader: R,
+		mut writer: W,
+		aad: &[u8],
+	) -> Result<(), Error>
 	where
 		R: Read + Seek,
 		W: Write + Seek,
@@ -83,9 +88,12 @@ impl StreamEncryption {
 		let mut read_buffer = vec![0u8; BLOCK_SIZE];
 		let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
 		if read_count == BLOCK_SIZE {
-			let encrypted_data = self
-				.encrypt_next(read_buffer.as_ref())
-				.map_err(|_| Error::Encrypt)?;
+			let payload = Payload {
+				aad,
+				msg: &read_buffer,
+			};
+
+			let encrypted_data = self.encrypt_next(payload).map_err(|_| Error::Encrypt)?;
 
 			// zeroize before writing, so any potential errors won't result in a potential data leak
 			read_buffer.zeroize();
@@ -97,9 +105,13 @@ impl StreamEncryption {
 				return Err(Error::WriteMismatch);
 			}
 		} else {
-			let encrypted_data = self
-				.encrypt_last(read_buffer.as_ref())
-				.map_err(|_| Error::Encrypt)?;
+			// we use `..read_count` in order to only use the read data, and not zeroes also
+			let payload = Payload {
+				aad,
+				msg: &read_buffer[..read_count],
+			};
+
+			let encrypted_data = self.encrypt_last(payload).map_err(|_| Error::Encrypt)?;
 
 			// zeroize before writing, so any potential errors won't result in a potential data leak
 			read_buffer.zeroize();
@@ -169,17 +181,25 @@ impl StreamDecryption {
 
 	// This does not handle writing the header
 	// I'm unsure whether this should be taking ownership of `reader` and `writer`, but it seems like a good idea
-	pub fn decrypt_streams<R, W>(mut self, mut reader: R, mut writer: W) -> Result<(), Error>
+	pub fn decrypt_streams<R, W>(
+		mut self,
+		mut reader: R,
+		mut writer: W,
+		aad: &[u8],
+	) -> Result<(), Error>
 	where
 		R: Read + Seek,
 		W: Write + Seek,
 	{
 		let mut read_buffer = vec![0u8; BLOCK_SIZE];
 		let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
-		if read_count == BLOCK_SIZE {
-			let mut decrypted_data = self
-				.decrypt_next(read_buffer.as_ref())
-				.map_err(|_| Error::Decrypt)?;
+		if read_count == (BLOCK_SIZE + 16) {
+			let payload = Payload {
+				aad,
+				msg: &read_buffer,
+			};
+
+			let mut decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
 
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
 			let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
@@ -191,9 +211,12 @@ impl StreamDecryption {
 				return Err(Error::WriteMismatch);
 			}
 		} else {
-			let mut decrypted_data = self
-				.decrypt_last(read_buffer[..read_count].as_ref())
-				.map_err(|_| Error::Decrypt)?;
+			let payload = Payload {
+				aad,
+				msg: &read_buffer[..read_count],
+			};
+
+			let mut decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
 
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
 			let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
