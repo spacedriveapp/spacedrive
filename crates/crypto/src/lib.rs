@@ -15,7 +15,7 @@ pub mod error;
 pub mod header;
 pub mod keys;
 pub mod primitives;
-pub mod utils;
+pub mod objects;
 
 pub use secrecy::Secret;
 pub use zeroize::Zeroize;
