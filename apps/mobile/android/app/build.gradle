@@ -7,7 +7,7 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 
 cargo {
     module  = "../../rust"
-    libname = "sdcore"
+    libname = "sd_core_mobile"
     // profile = 'release',
     pythonCommand = 'python3'
     targets = ["arm", "arm64", "x86", "x86_64"]

@@ -14,7 +14,7 @@ export default function Explorer(props: Props) {
 	const { library } = useCurrentLibrary();
 
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
-		onNext: (cas_id) => {
+		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}
 	});
