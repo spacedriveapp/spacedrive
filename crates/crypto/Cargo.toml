@@ -5,7 +5,6 @@ authors = ["Jake <brxken128@tutanota.com>"]
 readme = "README.md"
 description = "A library to handle cryptographic functions within Spacedrive"
 edition = "2021"
-license = "MIT"
 rust-version = "1.64.0"
 
 [dependencies]
