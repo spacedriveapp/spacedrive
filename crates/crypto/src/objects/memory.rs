@@ -1,7 +1,7 @@
+use crate::protected::Protected;
 use aead::{Aead, KeyInit, Payload};
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
-use secrecy::{ExposeSecret, Secret};
 
 use crate::{error::Error, primitives::Algorithm};
 
@@ -18,18 +18,18 @@ pub enum MemoryDecryption {
 }
 
 impl MemoryEncryption {
-	pub fn new(key: Secret<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
+	pub fn new(key: Protected<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
 		let encryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
-				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
+				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::MemoryModeInit)?;
 				drop(key);
 
 				Self::XChaCha20Poly1305(Box::new(cipher))
 			}
 			Algorithm::Aes256Gcm => {
-				let cipher = Aes256Gcm::new_from_slice(key.expose_secret())
-					.map_err(|_| Error::MemoryModeInit)?;
+				let cipher =
+					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::MemoryModeInit)?;
 				drop(key);
 
 				Self::Aes256Gcm(Box::new(cipher))
@@ -52,18 +52,18 @@ impl MemoryEncryption {
 }
 
 impl MemoryDecryption {
-	pub fn new(key: Secret<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
+	pub fn new(key: Protected<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
 		let decryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
-				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
+				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::MemoryModeInit)?;
 				drop(key);
 
 				Self::XChaCha20Poly1305(Box::new(cipher))
 			}
 			Algorithm::Aes256Gcm => {
-				let cipher = Aes256Gcm::new_from_slice(key.expose_secret())
-					.map_err(|_| Error::MemoryModeInit)?;
+				let cipher =
+					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::MemoryModeInit)?;
 				drop(key);
 
 				Self::Aes256Gcm(Box::new(cipher))

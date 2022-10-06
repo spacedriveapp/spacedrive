@@ -1,12 +1,12 @@
 use std::io::{Read, Seek, Write};
 
-use secrecy::{ExposeSecret, Secret};
 use zeroize::Zeroize;
 
 use crate::{
 	error::Error,
 	objects::memory::MemoryDecryption,
 	primitives::{Algorithm, Mode, MASTER_KEY_LEN},
+	protected::Protected,
 };
 
 use super::keyslot::Keyslot;
@@ -37,13 +37,16 @@ impl FileHeader {
 	/// This is a helper function to decrypt a master key from a set of keyslots
 	/// It's easier to call this on the header for now - but this may be changed in the future
 	/// You receive an error if the password doesn't match
-	pub fn decrypt_master_key(&self, password: Secret<Vec<u8>>) -> Result<Secret<[u8; 32]>, Error> {
+	pub fn decrypt_master_key(
+		&self,
+		password: Protected<Vec<u8>>,
+	) -> Result<Protected<[u8; 32]>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
 		for keyslot in &self.keyslots {
 			let key = keyslot
 				.hashing_algorithm
-				.hash(Secret::new(password.expose_secret().clone()), keyslot.salt)
+				.hash(password.clone(), keyslot.salt)
 				.map_err(|_| Error::PasswordHash)?;
 
 			let decryptor =
@@ -57,12 +60,13 @@ impl FileHeader {
 		}
 
 		// Manual drop of the password - nothing above should error
+		// If it does error, the password will go out of scope and zeroize automatically anyway
 		drop(password);
 
 		if master_key == [0u8; MASTER_KEY_LEN] {
 			Err(Error::IncorrectPassword)
 		} else {
-			Ok(Secret::new(master_key))
+			Ok(Protected::new(master_key))
 		}
 	}
 
@@ -75,7 +79,7 @@ impl FileHeader {
 	}
 
 	#[must_use]
-	pub fn create_aad(&self) -> Vec<u8> {
+	pub fn generate_aad(&self) -> Vec<u8> {
 		match self.version {
 			FileHeaderVersion::V1 => {
 				let mut aad: Vec<u8> = Vec::new();
@@ -129,8 +133,9 @@ impl FileHeader {
 		}
 	}
 
-	// This returns both the Header and the AAD
 	// The AAD retrieval here could be optimised - we do rewind a couple of times
+	/// This deserializes a header directly from a reader, and leaves the reader at the start of the encrypted data
+	/// It returns both the header, and the AAD that should be used for decryption
 	pub fn deserialize<R>(reader: &mut R) -> Result<(Self, Vec<u8>), Error>
 	where
 		R: Read + Seek,

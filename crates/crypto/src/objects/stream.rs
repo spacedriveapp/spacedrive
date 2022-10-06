@@ -6,12 +6,12 @@ use aead::{
 };
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
-use secrecy::{ExposeSecret, Secret};
 use zeroize::Zeroize;
 
 use crate::{
 	error::Error,
 	primitives::{Algorithm, Mode, BLOCK_SIZE},
+	protected::Protected,
 };
 
 pub enum StreamEncryption {
@@ -25,14 +25,18 @@ pub enum StreamDecryption {
 }
 
 impl StreamEncryption {
-	pub fn new(key: Secret<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self, Error> {
+	pub fn new(
+		key: Protected<[u8; 32]>,
+		nonce: &[u8],
+		algorithm: Algorithm,
+	) -> Result<Self, Error> {
 		if nonce.len() != algorithm.nonce_len(Mode::Stream) {
 			return Err(Error::NonceLengthMismatch);
 		}
 
 		let encryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
-				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
+				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::StreamModeInit)?;
 				drop(key);
 
@@ -40,8 +44,8 @@ impl StreamEncryption {
 				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
-				let cipher = Aes256Gcm::new_from_slice(key.expose_secret())
-					.map_err(|_| Error::StreamModeInit)?;
+				let cipher =
+					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
 				drop(key);
 
 				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
@@ -101,7 +105,8 @@ impl StreamEncryption {
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
 			let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
 
-			if read_count != write_count + 16 {
+			if read_count != write_count - 16 {
+				// -16 to account for the AEAD tag
 				return Err(Error::WriteMismatch);
 			}
 		} else {
@@ -119,7 +124,8 @@ impl StreamEncryption {
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
 			let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
 
-			if read_count != write_count + 16 {
+			if read_count != write_count - 16 {
+				// -16 to account for the AEAD tag
 				return Err(Error::WriteMismatch);
 			}
 		}
@@ -131,14 +137,18 @@ impl StreamEncryption {
 }
 
 impl StreamDecryption {
-	pub fn new(key: Secret<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self, Error> {
+	pub fn new(
+		key: Protected<[u8; 32]>,
+		nonce: &[u8],
+		algorithm: Algorithm,
+	) -> Result<Self, Error> {
 		if nonce.len() != algorithm.nonce_len(Mode::Stream) {
 			return Err(Error::NonceLengthMismatch);
 		}
 
 		let decryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
-				let cipher = XChaCha20Poly1305::new_from_slice(key.expose_secret())
+				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::StreamModeInit)?;
 				drop(key);
 
@@ -146,8 +156,8 @@ impl StreamDecryption {
 				Self::XChaCha20Poly1305(Box::new(stream))
 			}
 			Algorithm::Aes256Gcm => {
-				let cipher = Aes256Gcm::new_from_slice(key.expose_secret())
-					.map_err(|_| Error::StreamModeInit)?;
+				let cipher =
+					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
 				drop(key);
 
 				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
@@ -208,6 +218,7 @@ impl StreamDecryption {
 			decrypted_data.zeroize();
 
 			if read_count - 16 != write_count {
+				// -16 to account for the AEAD tag
 				return Err(Error::WriteMismatch);
 			}
 		} else {
@@ -225,6 +236,7 @@ impl StreamDecryption {
 			decrypted_data.zeroize();
 
 			if read_count - 16 != write_count {
+				// -16 to account for the AEAD tag
 				return Err(Error::WriteMismatch);
 			}
 		}

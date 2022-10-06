@@ -1,6 +1,6 @@
+use crate::protected::Protected;
 use crate::{error::Error, primitives::SALT_LEN};
 use argon2::Argon2;
-use secrecy::{ExposeSecret, Secret};
 
 // These names are not final
 // I'm considering adding an `(i32)` to each, to allow specific versioning of each parameter version
@@ -42,10 +42,10 @@ impl Params {
 ///
 /// Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
 pub fn password_hash_argon2id(
-	password: Secret<Vec<u8>>,
+	password: Protected<Vec<u8>>,
 	salt: [u8; SALT_LEN],
 	params: Params,
-) -> Result<Secret<[u8; 32]>, Error> {
+) -> Result<Protected<[u8; 32]>, Error> {
 	let mut key = [0u8; 32];
 
 	let argon2 = Argon2::new(
@@ -54,13 +54,13 @@ pub fn password_hash_argon2id(
 		params.get_argon2_params(),
 	);
 
-	let result = argon2.hash_password_into(password.expose_secret(), &salt, &mut key);
+	let result = argon2.hash_password_into(password.expose(), &salt, &mut key);
 
 	// Manual drop so we can ensure that it's gone
 	drop(password);
 
 	if result.is_ok() {
-		Ok(Secret::new(key))
+		Ok(Protected::new(key))
 	} else {
 		Err(Error::PasswordHash)
 	}

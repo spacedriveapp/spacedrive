@@ -16,6 +16,8 @@ pub mod header;
 pub mod keys;
 pub mod objects;
 pub mod primitives;
+pub mod protected;
 
-pub use secrecy::Secret;
+// Re-export this so that payloads can be generated elsewhere
+pub use aead::Payload;
 pub use zeroize::Zeroize;
