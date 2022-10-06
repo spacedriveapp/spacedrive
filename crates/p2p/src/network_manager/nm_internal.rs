@@ -7,10 +7,10 @@ use std::{
 use futures_util::StreamExt;
 use if_watch::{IfEvent, IfWatcher};
 use quinn::{ClientConfig, Incoming, NewConnection, VarInt};
+use sd_tunnel_utils::{quic::client_config, PeerId};
 use thiserror::Error;
 use tokio::{select, sync::mpsc, time::sleep};
 use tracing::{debug, error, warn};
-use tunnel_utils::{quic::client_config, PeerId};
 
 use crate::{
 	ConnectionType, DiscoveryStack, NetworkManager, NetworkManagerError, P2PManager, Peer,

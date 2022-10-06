@@ -1,10 +1,10 @@
 [package]
-name = "p2p"
+name = "sd-p2p"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tunnel-utils = { path = "./tunnel/utils" }
+sd-tunnel-utils = { path = "./tunnel/utils" }
 
 dashmap = "5.3.4"
 rcgen = "0.9.2"

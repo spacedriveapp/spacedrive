@@ -53,10 +53,10 @@ impl Node {
 
 		// dbg!(get_object_kind_from_extension("png"));
 
-		let (non_blocking, _guard) = tracing_appender::non_blocking(rolling::daily(
-			Path::new(&data_dir).join("logs"),
-			"log",
-		));
+		// let (non_blocking, _guard) = tracing_appender::non_blocking(rolling::daily(
+		// 	Path::new(&data_dir).join("logs"),
+		// 	"log",
+		// ));
 		// TODO: Make logs automatically delete after x time https://github.com/tokio-rs/tracing/pull/2169
 
 		tracing_subscriber::registry()

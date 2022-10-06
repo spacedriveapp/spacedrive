@@ -10,11 +10,11 @@ use dashmap::{DashMap, DashSet};
 use futures_util::future::join_all;
 use quinn::{Chunk, Endpoint, NewConnection, RecvStream, SendStream, ServerConfig};
 use rustls::{Certificate, PrivateKey};
+use sd_tunnel_utils::{quic, write_value, PeerId, UtilError};
 use spake2::{Ed25519Group, Password, Spake2};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, warn};
-use tunnel_utils::{quic, write_value, PeerId, UtilError};
 
 use crate::{
 	ConnectError, ConnectionEstablishmentPayload, ConnectionType, Identity, NetworkManagerConfig,

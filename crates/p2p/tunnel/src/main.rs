@@ -42,37 +42,37 @@ async fn main() {
 		.init();
 
 	let certificate = match env::var("SD_ROOT_CERTIFICATE") {
-		Ok(certificate) => rustls::Certificate(
-			decode(certificate).expect("Error decoding 'SD_ROOT_CERTIFICATE'"),
-		),
+		Ok(certificate) => {
+			rustls::Certificate(decode(certificate).expect("Error decoding 'SD_ROOT_CERTIFICATE'"))
+		}
 		Err(_) => {
 			error!("Error: 'SD_ROOT_CERTIFICATE' env var is not set!");
 			return;
-		},
+		}
 	};
 	let priv_key = match env::var("SD_ROOT_CERTIFICATE_KEY") {
-		Ok(key) => rustls::PrivateKey(
-			decode(key).expect("Error decoding 'SD_ROOT_CERTIFICATE_KEY'"),
-		),
+		Ok(key) => {
+			rustls::PrivateKey(decode(key).expect("Error decoding 'SD_ROOT_CERTIFICATE_KEY'"))
+		}
 		Err(_) => {
 			error!("Error: 'SD_ROOT_CERTIFICATE_KEY' env var is not set!");
 			return;
-		},
+		}
 	};
 	let redis_url = match env::var("SD_REDIS_URL") {
 		Ok(redis_url) => redis_url,
 		Err(_) => {
 			error!("Error: 'SD_REDIS_URL' env var is not set!");
 			return;
-		},
+		}
 	};
 	let server_port = env::var("SD_PORT")
 		.map(|port| port.parse::<u16>().unwrap_or(9000))
 		.unwrap_or(9000);
 	let bind_addr = env::var("SD_BIND_ADDR").unwrap_or(Ipv4Addr::UNSPECIFIED.to_string());
 
-	let manager = RedisConnectionManager::new(redis_url)
-		.expect("Error creating Redis connection manager!");
+	let manager =
+		RedisConnectionManager::new(redis_url).expect("Error creating Redis connection manager!");
 	let redis_pool = Pool::builder()
 		.build(manager)
 		.await
@@ -141,12 +141,12 @@ async fn handle_connection(
 			error!("Error: peer has multiple client certificates!");
 			increment_counter!("spacetunnel_connections_invalid");
 			return Ok(());
-		},
+		}
 		Err(_) => {
 			error!("Error: peer did not provide a client certificates!");
 			increment_counter!("spacetunnel_connections_invalid");
 			return Ok(());
-		},
+		}
 	};
 	info!(
 		"established connection with peer '{}' from addr '{}'",
@@ -164,9 +164,12 @@ async fn handle_connection(
 				error_code,
 				reason,
 			})) => {
-				debug!("closed connection with peer '{}' with error_code '{}' and reason '{:?}' ", peer_id, error_code, reason);
+				debug!(
+					"closed connection with peer '{}' with error_code '{}' and reason '{:?}' ",
+					peer_id, error_code, reason
+				);
 				return Ok(());
-			},
+			}
 			Err(e) => return Err(e.into()),
 			Ok(s) => s,
 		};
@@ -189,11 +192,11 @@ async fn handle_connection(
 				match Message::Error(MessageError::InternalServerErr).encode() {
 					Ok(msg) => {
 						let _ = tx.write_all(&msg).await;
-					},
+					}
 					Err(e) => {
 						error!("Error encoding error error message: {}", e.to_string());
 						increment_counter!("spacetunnel_stream_errored");
-					},
+					}
 				}
 			} else {
 				debug!("closed stream from peer '{}'", peer_id);
@@ -215,7 +218,7 @@ async fn handle_stream(
 			error!("Error getting Redis connection: {}", err);
 			increment_counter!("spacetunnel_redis_error", "error_src" => "get");
 			return Ok(());
-		},
+		}
 	};
 
 	while let Some(chunk) = recv.read_chunk(MAX_MESSAGE_SIZE, true).await? {
@@ -241,7 +244,7 @@ async fn handle_stream(
 
 					Message::ClientAnnouncementOk
 				}
-			},
+			}
 			Message::QueryClientAnnouncement(peer_ids) => {
 				increment_counter!("spacetunnel_discovery_announcement_queries");
 
@@ -253,15 +256,12 @@ async fn handle_stream(
 						"Client requested too many client announcements '{}'",
 						peer_ids.len()
 					);
-					increment_counter!(
-						"spacetunnel_discovery_announcement_queries_invalid"
-					);
+					increment_counter!("spacetunnel_discovery_announcement_queries_invalid");
 					Message::Error(MessageError::InvalidReqErr)
 				} else {
 					let mut peers = Vec::with_capacity(peer_ids.len());
 					for peer_id in peer_ids.iter() {
-						let redis_key =
-							format!("peer:announcement:{}", peer_id.to_string());
+						let redis_key = format!("peer:announcement:{}", peer_id.to_string());
 
 						let resp: HashMap<String, String> = cmd("HGETALL")
 							.arg(&redis_key)
@@ -280,7 +280,7 @@ async fn handle_stream(
 					}
 					Message::QueryClientAnnouncementResponse(peers)
 				}
-			},
+			}
 			Message::ClientAnnouncementOk
 			| Message::QueryClientAnnouncementResponse { .. }
 			| Message::Error(_) => Message::Error(MessageError::InvalidReqErr),

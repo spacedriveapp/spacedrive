@@ -1,4 +1,4 @@
-app = "sdtunnel"
+app = "sd-tunnel"
 
 [env]
 SD_PORT = 9000

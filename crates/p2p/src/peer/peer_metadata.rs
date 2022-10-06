@@ -1,8 +1,8 @@
 use std::{collections::HashMap, env, str::FromStr};
 
+use sd_tunnel_utils::PeerId;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tunnel_utils::PeerId;
 
 /// Represents the operating system which the remote peer is running.
 /// This is not used internally and predominantly is designed to be used for display purposes by the embedding application.

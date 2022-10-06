@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use tunnel_utils::PeerId;
+use sd_tunnel_utils::PeerId;
 
 /// Stores configuration which is given to the [crate::NetworkManager] at startup so it can resume from it's previous state.
 #[derive(Clone)]

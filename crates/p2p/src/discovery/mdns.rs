@@ -1,8 +1,8 @@
 use std::{net::Ipv4Addr, sync::Arc};
 
 use mdns_sd::{Receiver, ServiceDaemon, ServiceEvent, ServiceInfo};
+use sd_tunnel_utils::PeerId;
 use tracing::warn;
-use tunnel_utils::PeerId;
 
 use crate::{NetworkManager, NetworkManagerError, P2PManager, PeerCandidate, PeerMetadata};
 
