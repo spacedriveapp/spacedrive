@@ -16,21 +16,12 @@ use tracing::info;
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
 
 #[derive(Serialize, Deserialize, Type, Debug)]
-pub struct ExplorerData {
-	pub context: ExplorerContext,
-	pub items: Vec<ExplorerItem>,
-}
-
-#[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerContext {
 	Location(location::Data),
 	Tag(tag::Data),
 	// Space(object_in_space::Data),
 }
-
-file_path::include!(file_path_with_object { object });
-object::include!(object_with_file_paths { file_paths });
 
 #[derive(Serialize, Deserialize, Type, Debug)]
 #[serde(tag = "type")]
@@ -39,13 +30,14 @@ pub enum ExplorerItem {
 	Object(Box<object_with_file_paths::Data>),
 }
 
-#[derive(Clone, Serialize, Deserialize, Type, Debug)]
-pub struct LocationExplorerArgs {
-	pub location_id: i32,
-	pub path: String,
-	pub limit: i32,
-	pub cursor: Option<String>,
+#[derive(Serialize, Deserialize, Type, Debug)]
+pub struct ExplorerData {
+	pub context: ExplorerContext,
+	pub items: Vec<ExplorerItem>,
 }
+
+file_path::include!(file_path_with_object { object });
+object::include!(object_with_file_paths { file_paths });
 
 // TODO(@Oscar): This return type sucks. Add an upstream rspc solution.
 pub(crate) fn mount() -> rspc::RouterBuilder<
@@ -76,6 +68,14 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 			})
 		})
 		.library_query("getExplorerData", |t| {
+			#[derive(Clone, Serialize, Deserialize, Type, Debug)]
+			pub struct LocationExplorerArgs {
+				pub location_id: i32,
+				pub path: String,
+				pub limit: i32,
+				pub cursor: Option<String>,
+			}
+
 			t(|_, args: LocationExplorerArgs, library| async move {
 				let location = library
 					.db

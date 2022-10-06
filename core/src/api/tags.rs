@@ -12,26 +12,6 @@ use crate::{
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
-#[derive(Type, Deserialize)]
-pub struct TagCreateArgs {
-	pub name: String,
-	pub color: String,
-}
-
-#[derive(Debug, Type, Deserialize)]
-pub struct TagAssignArgs {
-	pub object_id: i32,
-	pub tag_id: i32,
-	pub unassign: bool,
-}
-
-#[derive(Type, Deserialize)]
-pub struct TagUpdateArgs {
-	pub id: i32,
-	pub name: Option<String>,
-	pub color: Option<String>,
-}
-
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_query("list", |t| {
@@ -118,6 +98,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("create", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct TagCreateArgs {
+				pub name: String,
+				pub color: String,
+			}
+
 			t(|_, args: TagCreateArgs, library| async move {
 				let created_tag = library
 					.db
@@ -138,6 +124,13 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("assign", |t| {
+			#[derive(Debug, Type, Deserialize)]
+			pub struct TagAssignArgs {
+				pub object_id: i32,
+				pub tag_id: i32,
+				pub unassign: bool,
+			}
+
 			t(|_, args: TagAssignArgs, library| async move {
 				if args.unassign {
 					library
@@ -165,6 +158,13 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("update", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct TagUpdateArgs {
+				pub id: i32,
+				pub name: Option<String>,
+				pub color: Option<String>,
+			}
+
 			t(|_, args: TagUpdateArgs, library| async move {
 				library
 					.db

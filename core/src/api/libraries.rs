@@ -12,13 +12,6 @@ use serde::Deserialize;
 use tokio::fs;
 use uuid::Uuid;
 
-#[derive(Type, Deserialize)]
-pub struct EditLibraryArgs {
-	pub id: Uuid,
-	pub name: Option<String>,
-	pub description: Option<String>,
-}
-
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
 		.query("list", |t| {
@@ -91,6 +84,13 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.mutation("edit", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct EditLibraryArgs {
+				pub id: Uuid,
+				pub name: Option<String>,
+				pub description: Option<String>,
+			}
+
 			t(|ctx, args: EditLibraryArgs| async move {
 				Ok(ctx
 					.library_manager

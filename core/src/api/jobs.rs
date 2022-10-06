@@ -14,18 +14,6 @@ use std::path::PathBuf;
 
 use super::{utils::LibraryRequest, CoreEvent, RouterBuilder};
 
-#[derive(Type, Deserialize)]
-pub struct GenerateThumbsForLocationArgs {
-	pub id: i32,
-	pub path: PathBuf,
-}
-
-#[derive(Type, Deserialize)]
-pub struct IdentifyUniqueFilesArgs {
-	pub id: i32,
-	pub path: PathBuf,
-}
-
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
 		.library_query("getRunning", |t| {
@@ -35,6 +23,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, _: (), library| async move { Ok(JobManager::get_history(&library).await?) })
 		})
 		.library_mutation("generateThumbsForLocation", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct GenerateThumbsForLocationArgs {
+				pub id: i32,
+				pub path: PathBuf,
+			}
+
 			t(
 				|_, args: GenerateThumbsForLocationArgs, library| async move {
 					if library
@@ -63,6 +57,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			)
 		})
 		.library_mutation("identifyUniqueFiles", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct IdentifyUniqueFilesArgs {
+				pub id: i32,
+				pub path: PathBuf,
+			}
+
 			t(|_, args: IdentifyUniqueFilesArgs, library| async move {
 				if fetch_location(&library, args.id).exec().await?.is_none() {
 					return Err(rspc::Error::new(
