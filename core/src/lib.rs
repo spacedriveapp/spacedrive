@@ -46,7 +46,12 @@ const CONSOLE_LOG_FILTER: LevelFilter = LevelFilter::INFO;
 impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
+		#[cfg(debug_assertions)]
+		let data_dir = data_dir.join("dev");
+
 		fs::create_dir_all(&data_dir).await?;
+
+		// dbg!(get_object_kind_from_extension("png"));
 
 		tracing_subscriber::registry()
 			.with(

@@ -10,11 +10,13 @@ davidmytton
 deel
 elon
 encryptor
+Flac
 haden
 haoyuan
 haris
 josephjacks
 justinhoffman
+Keychain
 Keyslot
 keyslots
 lesterlee

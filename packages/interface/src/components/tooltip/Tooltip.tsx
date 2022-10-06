@@ -17,9 +17,9 @@ export const Tooltip = ({
 				</TooltipPrimitive.Trigger>
 				<TooltipPrimitive.Content
 					side={position}
-					className="text-sm  rounded   px-2 py-1 mb-[2px]  bg-gray-300 dark:!bg-gray-500 dark:text-gray-100"
+					className="text-xs  rounded px-2 py-1 mb-[2px] bg-gray-300 dark:!bg-gray-900 dark:text-gray-100"
 				>
-					<TooltipPrimitive.Arrow className="fill-gray-300 dark:!fill-gray-500" />
+					<TooltipPrimitive.Arrow className="fill-gray-300 dark:!fill-gray-900" />
 					{label}
 				</TooltipPrimitive.Content>
 			</TooltipPrimitive.Root>

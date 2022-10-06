@@ -1,3 +1,5 @@
+import videoSvg from '@sd/assets/svgs/video.svg';
+import zipSvg from '@sd/assets/svgs/zip.svg';
 import { getExplorerStore, useExplorerStore, usePlatform } from '@sd/client';
 import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
@@ -14,6 +16,7 @@ interface Props {
 	className?: string;
 	style?: React.CSSProperties;
 	iconClassNames?: string;
+	kind?: 'video' | 'image' | 'audio' | 'zip' | 'other';
 }
 
 export default function FileThumb({ data, ...props }: Props) {
@@ -23,7 +26,7 @@ export default function FileThumb({ data, ...props }: Props) {
 	if (isPath(data) && data.is_dir)
 		return <Folder className={props.iconClassNames} size={props.size * 0.7} />;
 
-	const cas_id = isObject(data) ? data.cas_id : data.file?.cas_id;
+	const cas_id = isObject(data) ? data.cas_id : data.object?.cas_id;
 
 	if (cas_id) {
 		// this won't work
@@ -32,7 +35,7 @@ export default function FileThumb({ data, ...props }: Props) {
 		const has_thumbnail = isObject(data)
 			? data.has_thumbnail
 			: isPath(data)
-			? data.file?.has_thumbnail
+			? data.object?.has_thumbnail
 			: new_thumbnail;
 
 		const url = platform.getThumbnailUrlById(cas_id);
@@ -41,11 +44,30 @@ export default function FileThumb({ data, ...props }: Props) {
 			return (
 				<img
 					style={props.style}
+					decoding="async"
 					// width={props.size}
 					className={clsx('pointer-events-none', props.className)}
 					src={url}
 				/>
 			);
+
+		if (props.kind === 'video') {
+			return (
+				<div className="">
+					<img
+						src={videoSvg}
+						className={clsx('w-full overflow-hidden h-full', props.iconClassNames)}
+					/>
+				</div>
+			);
+		}
+		if (props.kind === 'zip') {
+			return (
+				<div className="">
+					<img src={zipSvg} className={clsx('w-full overflow-hidden h-full')} />
+				</div>
+			);
+		}
 	}
 
 	const Icon = icons[data.extension as keyof typeof icons];

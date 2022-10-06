@@ -6,21 +6,9 @@
 pre-push:
   parallel: true
   commands:
-    type-check:
-      glob: '*.{ts,tsx}'
-      run: pnpm typecheck
     lint:
       glob: '*.{ts,tsx}'
       run: pnpm eslint {staged_files}
     markdown-link-check:
       glob: '*.md'
       run: pnpm markdown-link-check {staged_files}
-    rust-fmt:
-      glob: '*.rs'
-      run: cargo fmt --all -- --check
-    rust-lint-tauri:
-      run: cargo clippy --package spacedrive -- -D warnings
-    rust-lint-core:
-      run: cargo clippy --package sdcore --lib -- -D warnings
-    rust-lint-server:
-      run: cargo clippy --package server -- -D warnings

@@ -3,6 +3,7 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
+	object::kind::{Extension, ImageExtension, VideoExtension, ALL_VIDEO_EXTENSIONS},
 	prisma::{file_path, location},
 };
 
@@ -38,7 +39,7 @@ pub struct ThumbnailJobState {
 	root_path: PathBuf,
 }
 
-file_path::include!(file_path_with_file { file });
+file_path::include!(file_path_with_object { object });
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailJobStepKind {
@@ -49,7 +50,7 @@ enum ThumbnailJobStepKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailJobStep {
-	file: file_path_with_file::Data,
+	file_path: file_path_with_object::Data,
 	kind: ThumbnailJobStepKind,
 }
 
@@ -93,17 +94,20 @@ impl StatefulJob for ThumbnailJob {
 		let root_path = location.local_path.map(PathBuf::from).unwrap();
 
 		// query database for all image files in this location that need thumbnails
-		let image_files = get_files_by_extension(
+		let image_files = get_files_by_extensions(
 			&library_ctx,
 			state.init.location_id,
 			&state.init.path,
-			vec![
-				"png".to_string(),
-				"jpeg".to_string(),
-				"jpg".to_string(),
-				"gif".to_string(),
-				"webp".to_string(),
-			],
+			[
+				ImageExtension::Png,
+				ImageExtension::Jpeg,
+				ImageExtension::Jpg,
+				ImageExtension::Gif,
+				ImageExtension::Webp,
+			]
+			.into_iter()
+			.map(Extension::Image)
+			.collect(),
 			ThumbnailJobStepKind::Image,
 		)
 		.await?;
@@ -112,38 +116,16 @@ impl StatefulJob for ThumbnailJob {
 		#[cfg(feature = "ffmpeg")]
 		let all_files = {
 			// query database for all video files in this location that need thumbnails
-			let video_files = get_files_by_extension(
+			let video_files = get_files_by_extensions(
 				&library_ctx,
 				state.init.location_id,
 				&state.init.path,
-				// Some formats extracted from https://ffmpeg.org/ffmpeg-formats.html
-				vec![
-					"avi".to_string(),
-					"asf".to_string(),
-					"mpeg".to_string(),
-					// "mpg".to_string(),
-					"mts".to_string(),
-					"mpe".to_string(),
-					"vob".to_string(),
-					"qt".to_string(),
-					"mov".to_string(),
-					"asf".to_string(),
-					"asx".to_string(),
-					// "swf".to_string(),
-					"mjpeg".to_string(),
-					"ts".to_string(),
-					"mxf".to_string(),
-					// "m2v".to_string(),
-					"m2ts".to_string(),
-					"f4v".to_string(),
-					"wm".to_string(),
-					"3gp".to_string(),
-					"m4v".to_string(),
-					"wmv".to_string(),
-					"mp4".to_string(),
-					"webm".to_string(),
-					"flv".to_string(),
-				],
+				ALL_VIDEO_EXTENSIONS
+					.into_iter()
+					.map(Clone::clone)
+					.filter(can_generate_thumbnail_for_video)
+					.map(Extension::Video)
+					.collect(),
 				ThumbnailJobStepKind::Video,
 			)
 			.await?;
@@ -179,7 +161,7 @@ impl StatefulJob for ThumbnailJob {
 		let step = &state.steps[0];
 		ctx.progress(vec![JobReportUpdate::Message(format!(
 			"Processing {}",
-			step.file.materialized_path
+			step.file_path.materialized_path
 		))]);
 
 		let data = state
@@ -188,16 +170,16 @@ impl StatefulJob for ThumbnailJob {
 			.expect("critical error: missing data on job state");
 
 		// assemble the file path
-		let path = data.root_path.join(&step.file.materialized_path);
+		let path = data.root_path.join(&step.file_path.materialized_path);
 		trace!("image_file {:?}", step);
 
 		// get cas_id, if none found skip
-		let cas_id = match &step.file.file {
+		let cas_id = match &step.file_path.object {
 			Some(f) => f.cas_id.clone(),
 			_ => {
 				warn!(
 					"skipping thumbnail generation for {}",
-					step.file.materialized_path
+					step.file_path.materialized_path
 				);
 				return Ok(());
 			}
@@ -305,16 +287,16 @@ async fn generate_video_thumbnail<P: AsRef<Path>>(
 	Ok(())
 }
 
-async fn get_files_by_extension(
+async fn get_files_by_extensions(
 	ctx: &LibraryContext,
 	location_id: i32,
 	path: impl AsRef<Path>,
-	extensions: Vec<String>,
+	extensions: Vec<Extension>,
 	kind: ThumbnailJobStepKind,
 ) -> Result<Vec<ThumbnailJobStep>, JobError> {
 	let mut params = vec![
 		file_path::location_id::equals(location_id),
-		file_path::extension::in_vec(extensions),
+		file_path::extension::in_vec(extensions.iter().map(|e| e.to_string()).collect()),
 	];
 
 	let path_str = path.as_ref().to_string_lossy().to_string();
@@ -327,10 +309,18 @@ async fn get_files_by_extension(
 		.db
 		.file_path()
 		.find_many(params)
-		.include(file_path_with_file::include())
+		.include(file_path_with_object::include())
 		.exec()
 		.await?
 		.into_iter()
-		.map(|file| ThumbnailJobStep { file, kind })
+		.map(|file_path| ThumbnailJobStep { file_path, kind })
 		.collect())
+}
+
+pub fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) -> bool {
+	use VideoExtension::*;
+	match video_extension {
+		Mpg | Swf | M2v => false,
+		_ => true,
+	}
 }
