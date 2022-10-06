@@ -24,6 +24,7 @@
     "@radix-ui/react-progress": "^1.0.0",
     "@radix-ui/react-slider": "^1.0.0",
     "@radix-ui/react-tabs": "^1.0.0",
+    "@radix-ui/react-toast": "^1.0.0",
     "@radix-ui/react-tooltip": "^1.0.0",
     "@sd/assets": "workspace:*",
     "@sd/client": "workspace:*",
