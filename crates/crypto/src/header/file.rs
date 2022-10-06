@@ -13,7 +13,7 @@ use super::keyslot::Keyslot;
 
 /// These are used to quickly and easily identify Spacedrive-encrypted files
 /// Random values - can be changed (up until 0.1.0)
-pub const MAGIC_BYTES: [u8; 6] = [0x08, 0xFF, 0x55, 0x32, 0x58, 0x1A];
+pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 
 // Everything contained within this header can be flaunted around with minimal security risk
 // The only way this could compromise any data is if a weak password/key was used
@@ -132,17 +132,19 @@ impl FileHeader {
 		}
 	}
 
+	// This includes the magic bytes at the start of the file
 	#[must_use]
 	pub const fn length(&self) -> usize {
 		match self.version {
-			FileHeaderVersion::V1 => 228,
+			FileHeaderVersion::V1 => 222 + MAGIC_BYTES.len(),
 		}
 	}
 
+	// This includes the magic bytes at the start of the file
 	#[must_use]
 	pub const fn aad_length(&self) -> usize {
 		match self.version {
-			FileHeaderVersion::V1 => 36,
+			FileHeaderVersion::V1 => 30 + MAGIC_BYTES.len(),
 		}
 	}
 
@@ -153,7 +155,7 @@ impl FileHeader {
 	where
 		R: Read + Seek,
 	{
-		let mut magic_bytes = [0u8; 6];
+		let mut magic_bytes = [0u8; MAGIC_BYTES.len()];
 		reader.read(&mut magic_bytes).map_err(Error::Io)?;
 
 		if magic_bytes != MAGIC_BYTES {
