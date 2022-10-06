@@ -18,6 +18,7 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"server": "pnpm --filter @sd/server -- ",
 		"prisma": "cd core && cargo prisma",
+		"codegen": "cargo test api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r exec tsc"
 	},
 	"devDependencies": {
