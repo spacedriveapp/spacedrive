@@ -5,18 +5,6 @@ use serde::Deserialize;
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
-#[derive(Type, Deserialize)]
-pub struct SetNoteArgs {
-	pub id: i32,
-	pub note: Option<String>,
-}
-
-#[derive(Type, Deserialize)]
-pub struct SetFavoriteArgs {
-	pub id: i32,
-	pub favorite: bool,
-}
-
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
 		.library_query("readMetadata", |t| {
@@ -26,6 +14,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("setNote", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct SetNoteArgs {
+				pub id: i32,
+				pub note: Option<String>,
+			}
+
 			t(|_, args: SetNoteArgs, library| async move {
 				library
 					.db
@@ -43,6 +37,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("setFavorite", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct SetFavoriteArgs {
+				pub id: i32,
+				pub favorite: bool,
+			}
+
 			t(|_, args: SetFavoriteArgs, library| async move {
 				library
 					.db
