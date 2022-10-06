@@ -21,7 +21,8 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
 				className={clsx(
 					'max-w mb-[2px] text-gray-550 dark:text-gray-300 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
-						'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
+						'!bg-gray-400 !bg-opacity-10 !text-white hover:bg-gray-400 dark:hover:bg-gray-400':
+							isActive
 					},
 					props.className
 				)}
@@ -85,13 +86,14 @@ function LibraryScopedSection() {
 										className={clsx(
 											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center  truncate text-sm',
 											{
-												'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
+												'!bg-gray-400 !bg-opacity-10 !text-white hover:bg-gray-400 dark:hover:bg-gray-400':
+													isActive
 											}
 										)}
 									>
 										<div className="-mt-0.5 flex-grow-0 flex-shrink-0">
-											<Folder size={18} className={clsx(!isActive && 'hidden')} white />
-											<Folder size={18} className={clsx(isActive && 'hidden')} />
+											{/* <Folder size={18} className={clsx(!isActive && 'hidden')} white /> */}
+											<Folder size={18} />
 										</div>
 
 										<span className="flex-grow flex-shrink-0">{location.name}</span>
