@@ -21,7 +21,7 @@
 		"@rspc/react": "^0.1.2",
 		"@sd/config": "workspace:*",
 		"@sd/interface": "workspace:*",
-		"@tanstack/react-query": "^4.8.0",
+		"@tanstack/react-query": "^4.10.1",
 		"eventemitter3": "^4.0.7",
 		"immer": "^9.0.15",
 		"lodash": "^4.17.21",
