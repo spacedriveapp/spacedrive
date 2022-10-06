@@ -8,7 +8,7 @@
 		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
 		"gen:migrations": "cd core && cargo prisma migrate dev",
 		"gen:prisma": "cd core && cargo prisma generate",
-		"format": "prettier --config .prettierrc.cli.js --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
+		"format": "prettier --config .prettierrc.js --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
 		"desktop": "pnpm --filter @sd/desktop --",
 		"web": "pnpm --filter @sd/web -- ",
 		"landing": "pnpm --filter @sd/landing -- ",

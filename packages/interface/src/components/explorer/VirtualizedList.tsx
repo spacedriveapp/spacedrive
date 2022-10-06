@@ -1,12 +1,13 @@
-import FileItem from './FileItem';
-import FileRow from './FileRow';
-import { isPath } from './utils';
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
 import { ExplorerContext, ExplorerItem } from '@sd/client';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
+
+import FileItem from './FileItem';
+import FileRow from './FileRow';
+import { isPath } from './utils';
 
 const TOP_BAR_HEIGHT = 50;
 const GRID_TEXT_AREA_HEIGHT = 25;
