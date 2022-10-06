@@ -1,4 +1,4 @@
-export const PhotosScreen: React.FC<unknown> = (props) => {
+export default function PhotosScreen() {
 	return (
 		<div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll">
 			<div className="flex flex-col space-y-5 pb-7">
@@ -9,4 +9,4 @@ export const PhotosScreen: React.FC<unknown> = (props) => {
 			</div>
 		</div>
 	);
-};
+}

@@ -17,7 +17,7 @@ tauri-build = { version = "1.1", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.1", features = ["api-all"] }
-rspc = { version = "0.1.2", features = ["tauri", "uuid"] }
+rspc = { workspace = true, features = ["tauri", "uuid"] }
 sd-sync = { path = "../.." }
 tokio = { version = "1.21.2", features = ["macros"] }
 uuid = { version = "1.1.2", features = ["v4"] }

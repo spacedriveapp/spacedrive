@@ -1,7 +1,7 @@
 import { useLibraryMutation } from '@sd/client';
 import { Object as SDObject } from '@sd/client';
 import { TextArea } from '@sd/ui';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import { useCallback, useState } from 'react';
 
 import { Divider } from './Divider';
