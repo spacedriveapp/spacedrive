@@ -1,8 +1,9 @@
+import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
+import { Suspense, lazy } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+
 import { AppLayout } from './AppLayout';
 import { useKeybindHandler } from './hooks/useKeyboardHandler';
-import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
-import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
 
 const DebugScreen = lazy(() => import('./screens/Debug'));
 const SettingsScreen = lazy(() => import('./screens/settings/Settings'));

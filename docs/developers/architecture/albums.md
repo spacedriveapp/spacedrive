@@ -1,6 +1,7 @@
 ---
 index: 10
 ---
-# Albums 
+
+# Albums
 
 you can put photos here

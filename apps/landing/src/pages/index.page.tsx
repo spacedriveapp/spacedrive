@@ -2,8 +2,6 @@ import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 
-import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
-
 import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 // import { Bubbles } from '../components/Bubbles';
@@ -11,6 +9,8 @@ import HomeCTA from '../components/HomeCTA';
 import NewBanner from '../components/NewBanner';
 import { usePageContext } from '../renderer/usePageContext';
 import { getWindow } from '../utils';
+
+import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
 
 interface SectionProps {
 	orientation: 'left' | 'right';

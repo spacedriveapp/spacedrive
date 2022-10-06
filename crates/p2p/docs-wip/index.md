@@ -4,7 +4,7 @@ This document outlines the peer to peer protocol used by the Spacedrive desktop 
 
 ## Concepts
 
- - **Peer** - TODO
+- **Peer** - TODO
 
 ### P2PManager
 
@@ -34,7 +34,7 @@ To discovery other machines running Spacedrive over your local network, we make 
 
 Spacedrive advertise a SRV record that looks like:
 
-_{peer_id}_spacedrive_._udp_.local. 86400 IN SRV 10 5 5223 server.example.com.
+_{peer_id}\_spacedrive_._udp_.local. 86400 IN SRV 10 5 5223 server.example.com.
 
 This system will continue to passively discover clients while Spacedrive is running.
 
@@ -58,24 +58,11 @@ TODO
 Message::QueryClientAnnouncement(vec![peer_id, peer_id2]);
 ```
 
-
-
-
-
-
-
-
-
-
-
 ## General Overview
 
 This system is designed on top of the following main technologies:
- - [QUIC]() - A tcp-like protocol built on top of UDP. QUIC also supports [TLS 1.3]() for encryption and pro
 
-
-
-
+- [QUIC]() - A tcp-like protocol built on top of UDP. QUIC also supports [TLS 1.3]() for encryption and pro
 
 ## Pairing
 
@@ -83,5 +70,5 @@ TODO
 
 # External Resources
 
- - TODO: Magic Wormhole talk
- - TODO: Syncthing spec
+- TODO: Magic Wormhole talk
+- TODO: Syncthing spec
