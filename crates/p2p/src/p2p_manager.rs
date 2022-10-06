@@ -1,8 +1,8 @@
 use std::{collections::HashMap, future::Future, pin::Pin};
 
 use quinn::{RecvStream, SendStream};
+use sd_tunnel_utils::PeerId;
 use tokio::sync::oneshot;
-use tunnel_utils::PeerId;
 
 use crate::{NetworkManager, Peer, PeerMetadata};
 

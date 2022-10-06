@@ -3397,30 +3397,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "p2p"
-version = "0.1.0"
-dependencies = [
- "bip39",
- "ctrlc",
- "dashmap",
- "futures-util",
- "if-watch",
- "mdns-sd",
- "quinn",
- "rcgen",
- "rmp-serde",
- "rustls",
- "serde",
- "spake2",
- "specta 0.0.2",
- "thiserror",
- "tokio",
- "tracing",
- "ts-rs",
- "tunnel-utils",
-]
-
-[[package]]
 name = "pango"
 version = "0.15.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4988,6 +4964,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-p2p"
+version = "0.1.0"
+dependencies = [
+ "bip39",
+ "ctrlc",
+ "dashmap",
+ "futures-util",
+ "if-watch",
+ "mdns-sd",
+ "quinn",
+ "rcgen",
+ "rmp-serde",
+ "rustls",
+ "sd-tunnel-utils",
+ "serde",
+ "spake2",
+ "specta 0.0.2",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "ts-rs",
+]
+
+[[package]]
 name = "sd-sync"
 version = "0.1.0"
 dependencies = [
@@ -4996,6 +4996,43 @@ dependencies = [
  "serde_json",
  "uhlc",
  "uuid 1.1.2",
+]
+
+[[package]]
+name = "sd-tunnel"
+version = "0.1.0"
+dependencies = [
+ "base64 0.13.0",
+ "bb8-redis",
+ "dotenv",
+ "futures",
+ "metrics 0.19.0",
+ "metrics-exporter-prometheus",
+ "quinn",
+ "rcgen",
+ "rmp-serde",
+ "rustls",
+ "sd-tunnel-utils",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "sd-tunnel-utils"
+version = "0.1.0"
+dependencies = [
+ "quinn",
+ "ring 0.16.20",
+ "rmp",
+ "rmp-serde",
+ "rustls",
+ "serde",
+ "specta 0.0.2",
+ "thiserror",
+ "ts-rs",
 ]
 
 [[package]]
@@ -6432,43 +6469,6 @@ dependencies = [
  "thiserror",
  "url",
  "utf-8",
-]
-
-[[package]]
-name = "tunnel"
-version = "0.1.0"
-dependencies = [
- "base64 0.13.0",
- "bb8-redis",
- "dotenv",
- "futures",
- "metrics 0.19.0",
- "metrics-exporter-prometheus",
- "quinn",
- "rcgen",
- "rmp-serde",
- "rustls",
- "serde",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "tunnel-utils",
-]
-
-[[package]]
-name = "tunnel-utils"
-version = "0.1.0"
-dependencies = [
- "quinn",
- "ring 0.16.20",
- "rmp",
- "rmp-serde",
- "rustls",
- "serde",
- "specta 0.0.2",
- "thiserror",
- "ts-rs",
 ]
 
 [[package]]

@@ -1,11 +1,11 @@
 [package]
-name = "tunnel"
+name = "sd-tunnel"
 version = "0.1.0"
 edition = "2021"
-default-run = "tunnel"
+default-run = "sd-tunnel"
 
 [dependencies]
-tunnel-utils = { path = "./utils" }
+sd-tunnel-utils = { path = "./utils" }
 
 base64 = "0.13.0"
 dotenv = "0.15.0"

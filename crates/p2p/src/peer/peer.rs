@@ -5,8 +5,8 @@ use std::{
 
 use futures_util::StreamExt;
 use quinn::{ApplicationClose, Connection, IncomingBiStreams};
+use sd_tunnel_utils::PeerId;
 use tracing::{debug, error};
-use tunnel_utils::PeerId;
 
 use crate::{NetworkManager, P2PManager, PeerMetadata};
 

@@ -28,6 +28,7 @@ impl P2PManager for SdP2PManager {
 		PeerMetadata {
 			name: self.peer_name.clone(),
 			version: Some(env!("CARGO_PKG_VERSION").into()),
+			operating_system: todo!(),
 		}
 	}
 
