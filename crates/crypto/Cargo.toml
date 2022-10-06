@@ -1,5 +1,5 @@
 [package]
-name = "sd_crypto"
+name = "sd-crypto"
 version = "0.0.0"
 authors = ["Jake <brxken128@tutanota.com>"]
 readme = "README.md"
