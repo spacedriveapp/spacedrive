@@ -2,6 +2,8 @@
 members = [
   "core",
   "crates/*",
+  "crates/p2p/tunnel",
+  "crates/p2p/tunnel/utils",
   "crates/sync/example/src-tauri",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
