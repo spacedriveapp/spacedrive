@@ -79,7 +79,7 @@ export const Inspector = (props: Props) => {
 								</Tooltip>
 							</div>
 						)}
-						{!!tags?.data?.length && (
+						{tags?.data && tags.data.length > 0 && (
 							<>
 								<Divider />
 								<MetaItem
