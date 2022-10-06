@@ -1,15 +1,15 @@
-use crate::{CLIENT_CONTEXT, EVENT_SENDER, NODE, RUNTIME};
+use crate::{EVENT_SENDER, NODE, RUNTIME, SUBSCRIPTIONS};
+use objc::{msg_send, runtime::Object, sel, sel_impl};
+use objc_foundation::{INSString, NSString};
+use objc_id::Id;
+use rspc::internal::jsonrpc::{handle_json_rpc, Request, Sender, SubscriptionMap};
+use sd_core::Node;
 use std::{
 	ffi::{CStr, CString},
 	os::raw::{c_char, c_void},
+	panic,
 };
 use tokio::sync::mpsc::unbounded_channel;
-
-use objc::{class, msg_send, runtime::Object, sel, sel_impl};
-use objc_foundation::{INSString, NSString};
-use objc_id::Id;
-use rspc::Request;
-use sd_core::Node;
 
 extern "C" {
 	fn get_data_directory() -> *const c_char;
@@ -33,64 +33,81 @@ impl RNPromise {
 
 #[no_mangle]
 pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
-	let id = Id::<Object>::from_ptr(id);
+	let result = panic::catch_unwind(|| {
+		let id = Id::<Object>::from_ptr(id);
 
-	let (tx, mut rx) = unbounded_channel();
-	let _ = EVENT_SENDER.set(tx);
+		let (tx, mut rx) = unbounded_channel();
+		let _ = EVENT_SENDER.set(tx);
 
-	RUNTIME.spawn(async move {
-		while let Some(event) = rx.recv().await {
-			let data = match serde_json::to_string(&event) {
-				Ok(json) => json,
-				Err(err) => {
-					println!("Failed to serialize event: {}", err);
-					continue;
-				}
-			};
-			let data = NSString::from_str(&data);
-			let _: () = msg_send![id, sendCoreEvent: data];
-		}
+		RUNTIME.spawn(async move {
+			while let Some(event) = rx.recv().await {
+				let data = match serde_json::to_string(&event) {
+					Ok(json) => json,
+					Err(err) => {
+						println!("Failed to serialize event: {}", err);
+						continue;
+					}
+				};
+				let data = NSString::from_str(&data);
+				let _: () = msg_send![id, sendCoreEvent: data];
+			}
+		});
 	});
+
+	if let Err(err) = result {
+		// TODO: Send rspc error or something here so we can show this in the UI.
+		// TODO: Maybe reinitialise the core cause it could be in an invalid state?
+		println!("Error in register_core_event_listener: {:?}", err);
+	}
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_void) {
-	// This string is cloned to the Rust heap. This is important as Objective-C may remove the query once this function completions but prior to the async block finishing.
-	let query = CStr::from_ptr(query).to_str().unwrap().to_string();
+	let result = panic::catch_unwind(|| {
+		// This string is cloned to the Rust heap. This is important as Objective-C may remove the query once this function completions but prior to the async block finishing.
+		let query = CStr::from_ptr(query).to_str().unwrap().to_string();
 
-	let resolve = RNPromise(resolve);
-	RUNTIME.spawn(async move {
-		let request: Request = serde_json::from_str(&query).unwrap();
+		let resolve = RNPromise(resolve);
+		RUNTIME.spawn(async move {
+			let request: Request = serde_json::from_str(&query).unwrap();
 
-		let node = &mut *NODE.lock().await;
-		let (node, router) = match node {
-			Some(node) => node.clone(),
-			None => {
-				let doc_dir = CStr::from_ptr(get_data_directory())
-					.to_str()
-					.unwrap()
-					.to_string();
-				let new_node = Node::new(doc_dir).await.unwrap();
-				node.replace(new_node.clone());
-				new_node
-			}
-		};
+			let node = &mut *NODE.lock().await;
+			let (node, router) = match node {
+				Some(node) => node.clone(),
+				None => {
+					let doc_dir = CStr::from_ptr(get_data_directory())
+						.to_str()
+						.unwrap()
+						.to_string();
+					let new_node = Node::new(doc_dir).await.unwrap();
+					node.replace(new_node.clone());
+					new_node
+				}
+			};
 
-		resolve.resolve(
-			CString::new(
-				serde_json::to_vec(
-					&request
-						.handle(
-							node.get_request_context(),
-							&router,
-							&CLIENT_CONTEXT,
-							EVENT_SENDER.get(),
-						)
-						.await,
-				)
-				.unwrap(),
+			let mut channel = EVENT_SENDER.get().unwrap().clone();
+			let mut resp = Sender::ResponseAndChannel(None, &mut channel);
+			handle_json_rpc(
+				node.get_request_context(),
+				request,
+				&router,
+				&mut resp,
+				&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
 			)
-			.unwrap(),
-		)
+			.await;
+
+			match resp {
+				Sender::ResponseAndChannel(Some(resp), _) => {
+					resolve.resolve(CString::new(serde_json::to_vec(&resp).unwrap()).unwrap());
+				}
+				_ => unreachable!(),
+			}
+		});
 	});
+
+	if let Err(err) = result {
+		// TODO: Send rspc error or something here so we can show this in the UI.
+		// TODO: Maybe reinitialise the core cause it could be in an invalid state?
+		println!("Error in sd_core_msg: {:?}", err);
+	}
 }

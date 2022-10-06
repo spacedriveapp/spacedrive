@@ -1877,8 +1877,7 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 [[package]]
 name = "httpz"
 version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "566824942ad0ee59fd23ded19025b37b51137eab4e467e48f7cab325a43efa50"
+source = "git+https://github.com/oscartbeaumont/httpz.git#d3a36ba9b9d878399e851e8b5e88387868b3a2ce"
 dependencies = [
  "async-tungstenite",
  "axum",
@@ -2986,9 +2985,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-src"
-version = "111.22.0+1.1.1q"
+version = "300.0.9+3.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f31f0d509d1c1ae9cada2f9539ff8f37933831fd5098879e482aa687d659853"
+checksum = "df52116687e2d276515a1cbf0b84d2fb646f519aebe65d2fa82f28c5d078f174"
 dependencies = [
  "cc",
 ]
@@ -2996,8 +2995,7 @@ dependencies = [
 [[package]]
 name = "openssl-sys"
 version = "0.9.76"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5230151e44c0f05157effb743e8d517472843121cf9243e8b81393edb5acd9ce"
+source = "git+https://github.com/spacedriveapp/rust-openssl?rev=92c3dec225a9e984884d5b30a517e5d44a24d03b#92c3dec225a9e984884d5b30a517e5d44a24d03b"
 dependencies = [
  "autocfg",
  "cc",
@@ -4102,8 +4100,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "712fc4e2fc79297d308fa4575f19f6967bf7610e3292446dfb392738aeab5239"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
 dependencies = [
  "async-stream",
  "futures",
@@ -4272,6 +4269,7 @@ dependencies = [
  "int-enum",
  "itertools",
  "once_cell",
+ "openssl-sys",
  "prisma-client-rust",
  "ring",
  "rmp",
@@ -4717,8 +4715,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5886f252f583ae32d4ae21c228c7a4ab3da40a7ebed646886b942f4085047394"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
@@ -4731,9 +4728,8 @@ dependencies = [
 
 [[package]]
 name = "specta-macros"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5ad5db5dea9fa5816615d722b682781214fed875fe56c1bcd0a67ee9c477d84"
+version = "0.0.4"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -6403,8 +6399,3 @@ name = "xml-rs"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
-
-[[patch.unused]]
-name = "openssl-sys"
-version = "0.9.75"
-source = "git+https://github.com/spacedriveapp/rust-openssl#f49328d2fc62e5ade3a321eed75cf4b250bda8b7"
