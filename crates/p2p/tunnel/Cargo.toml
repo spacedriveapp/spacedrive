@@ -1,0 +1,24 @@
+[package]
+name = "tunnel"
+version = "0.1.0"
+edition = "2021"
+default-run = "tunnel"
+
+[dependencies]
+tunnel-utils = { path = "./utils" }
+
+base64 = "0.13.0"
+dotenv = "0.15.0"
+futures = "0.3.21"
+quinn = "0.8.3"
+rcgen = "0.9.2"
+rustls = "0.20.6"
+serde = { version = "1.0.137", features = ["derive"] }
+tokio = { version = "1.19.2", features = ["rt-multi-thread", "macros"] }
+tracing = "0.1.35"
+tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
+metrics = "0.19.0"
+metrics-exporter-prometheus = { version = "0.10.0", features = ["http-listener"] }
+thiserror = "1.0.31"
+rmp-serde = "1.1.0"
+bb8-redis = "0.11.0"
