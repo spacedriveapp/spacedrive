@@ -18,12 +18,13 @@ pub enum MemoryDecryption {
 }
 
 impl MemoryEncryption {
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn new(key: Protected<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
 		let encryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::MemoryModeInit)?;
-					
+
 				Self::XChaCha20Poly1305(Box::new(cipher))
 			}
 			Algorithm::Aes256Gcm => {
@@ -50,6 +51,7 @@ impl MemoryEncryption {
 }
 
 impl MemoryDecryption {
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn new(key: Protected<[u8; 32]>, algorithm: Algorithm) -> Result<Self, Error> {
 		let decryption_object = match algorithm {
 			Algorithm::XChaCha20Poly1305 => {

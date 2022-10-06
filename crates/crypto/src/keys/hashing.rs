@@ -41,6 +41,7 @@ impl Params {
 /// This function should NOT be called directly!
 ///
 /// Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
+#[allow(clippy::needless_pass_by_value)]
 pub fn password_hash_argon2id(
 	password: Protected<Vec<u8>>,
 	salt: [u8; SALT_LEN],

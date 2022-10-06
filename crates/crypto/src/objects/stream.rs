@@ -25,6 +25,7 @@ pub enum StreamDecryption {
 }
 
 impl StreamEncryption {
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn new(
 		key: Protected<[u8; 32]>,
 		nonce: &[u8],
@@ -135,6 +136,7 @@ impl StreamEncryption {
 }
 
 impl StreamDecryption {
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn new(
 		key: Protected<[u8; 32]>,
 		nonce: &[u8],

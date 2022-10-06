@@ -37,6 +37,7 @@ impl FileHeader {
 	/// This is a helper function to decrypt a master key from a set of keyslots
 	/// It's easier to call this on the header for now - but this may be changed in the future
 	/// You receive an error if the password doesn't match
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_master_key(
 		&self,
 		password: Protected<Vec<u8>>,
