@@ -14,7 +14,7 @@ use crate::{NetworkManager, P2PManager, PeerMetadata};
 /// QUIC is a client/server protocol so when doing P2P communication one client will be the server and one will be the client from a QUIC perspective.
 /// The protocol is bi-directional so this doesn't matter a huge amount and the P2P library does it's best to hide this detail from the embedding application as thinking about this can be very confusing.
 /// The decision for who is the client and server should be treated as arbitrary and shouldn't affect how the protocol operates.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConnectionType {
 	/// I am the QUIC server.
 	Server,

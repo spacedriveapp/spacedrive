@@ -13,8 +13,7 @@ fn main() {
 	}
 
 	// TODO: Replace 'generate_simple_self_signed' with full code so we have full control over generated certificate.
-	let cert =
-		generate_simple_self_signed(vec!["sdtunnel.spacedrive.com".into()]).unwrap();
+	let cert = generate_simple_self_signed(vec!["sdtunnel.spacedrive.com".into()]).unwrap();
 
 	match fs::write(
 		env_file,
@@ -26,7 +25,7 @@ SD_REDIS_URL=redis://127.0.0.1/"#,
 			encode(cert.serialize_private_key_der())
 		),
 	) {
-		Ok(_) => {},
+		Ok(_) => {}
 		Err(err) => println!("Error writing to '{}': {}", env_file.display(), err),
 	}
 
