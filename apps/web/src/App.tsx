@@ -1,11 +1,11 @@
 import { WebsocketTransport, createClient } from '@rspc/client';
-import { Operations, PlatformProvider, queryClient, rspc } from '@sd/client';
+import { PlatformProvider, Procedures, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
 import { useEffect } from 'react';
 
-const client = createClient<Operations>({
+const client = createClient<Procedures>({
 	transport: new WebsocketTransport(
-		import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/rspcws'
+		import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/rspc/ws'
 	)
 });
 

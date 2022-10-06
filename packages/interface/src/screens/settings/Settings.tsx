@@ -17,7 +17,7 @@ import {
 	SettingsScreenContainer
 } from '../../components/settings/SettingsScreenContainer';
 
-export const SettingsScreen: React.FC = () => {
+export default function SettingsScreen() {
 	return (
 		<SettingsScreenContainer>
 			<SettingsHeading className="!mt-0">Client</SettingsHeading>
@@ -100,4 +100,4 @@ export const SettingsScreen: React.FC = () => {
 			</SidebarLink>
 		</SettingsScreenContainer>
 	);
-};
+}

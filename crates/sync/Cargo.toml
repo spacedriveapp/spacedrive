@@ -5,7 +5,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rspc = { version = "0.1.2", features = ["uuid"] }
+rspc = { workspace = true, features = ["uuid"] }
 serde = "1.0.145"
 serde_json = "1.0.85"
 uhlc = "0.5.1"
