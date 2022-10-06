@@ -59,10 +59,6 @@ impl FileHeader {
 			}
 		}
 
-		// Manual drop of the password - nothing above should error
-		// If it does error, the password will go out of scope and zeroize automatically anyway
-		drop(password);
-
 		if master_key == [0u8; MASTER_KEY_LEN] {
 			Err(Error::IncorrectPassword)
 		} else {

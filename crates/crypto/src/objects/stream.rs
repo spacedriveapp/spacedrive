@@ -38,7 +38,6 @@ impl StreamEncryption {
 			Algorithm::XChaCha20Poly1305 => {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::StreamModeInit)?;
-				drop(key);
 
 				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
 				Self::XChaCha20Poly1305(Box::new(stream))
@@ -46,7 +45,6 @@ impl StreamEncryption {
 			Algorithm::Aes256Gcm => {
 				let cipher =
 					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
-				drop(key);
 
 				let stream = EncryptorLE31::from_aead(cipher, nonce.into());
 				Self::Aes256Gcm(Box::new(stream))
@@ -150,7 +148,6 @@ impl StreamDecryption {
 			Algorithm::XChaCha20Poly1305 => {
 				let cipher = XChaCha20Poly1305::new_from_slice(key.expose())
 					.map_err(|_| Error::StreamModeInit)?;
-				drop(key);
 
 				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
 				Self::XChaCha20Poly1305(Box::new(stream))
@@ -158,7 +155,6 @@ impl StreamDecryption {
 			Algorithm::Aes256Gcm => {
 				let cipher =
 					Aes256Gcm::new_from_slice(key.expose()).map_err(|_| Error::StreamModeInit)?;
-				drop(key);
 
 				let stream = DecryptorLE31::from_aead(cipher, nonce.into());
 				Self::Aes256Gcm(Box::new(stream))

@@ -56,9 +56,6 @@ pub fn password_hash_argon2id(
 
 	let result = argon2.hash_password_into(password.expose(), &salt, &mut key);
 
-	// Manual drop so we can ensure that it's gone
-	drop(password);
-
 	if result.is_ok() {
 		Ok(Protected::new(key))
 	} else {
