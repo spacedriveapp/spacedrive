@@ -96,7 +96,10 @@ impl StreamEncryption {
 				msg: &read_buffer,
 			};
 
-			let encrypted_data = self.encrypt_next(payload).map_err(|_| Error::Encrypt)?;
+			let encrypted_data = self.encrypt_next(payload).map_err(|_| {
+				read_buffer.zeroize();
+				Error::Encrypt
+			})?;
 
 			// zeroize before writing, so any potential errors won't result in a potential data leak
 			read_buffer.zeroize();
@@ -115,7 +118,10 @@ impl StreamEncryption {
 				msg: &read_buffer[..read_count],
 			};
 
-			let encrypted_data = self.encrypt_last(payload).map_err(|_| Error::Encrypt)?;
+			let encrypted_data = self.encrypt_last(payload).map_err(|_| {
+				read_buffer.zeroize();
+				Error::Encrypt
+			})?;
 
 			// zeroize before writing, so any potential errors won't result in a potential data leak
 			read_buffer.zeroize();
@@ -207,7 +213,10 @@ impl StreamDecryption {
 				msg: &read_buffer,
 			};
 
-			let mut decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
+			let mut decrypted_data = self.decrypt_next(payload).map_err(|_| {
+				read_buffer.zeroize();
+				Error::Decrypt
+			})?;
 
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
 			let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
@@ -225,7 +234,10 @@ impl StreamDecryption {
 				msg: &read_buffer[..read_count],
 			};
 
-			let mut decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
+			let mut decrypted_data = self.decrypt_last(payload).map_err(|_| {
+				read_buffer.zeroize();
+				Error::Decrypt
+			})?;
 
 			// Using `write` instead of `write_all` so we can check the amount of bytes written
 			let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
