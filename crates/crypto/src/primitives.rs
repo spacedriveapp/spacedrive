@@ -1,9 +1,10 @@
 use rand::{RngCore, SeedableRng};
-use secrecy::Secret;
+use zeroize::Zeroize;
 
 use crate::{
 	error::Error,
 	keys::hashing::{password_hash_argon2id, Params},
+	protected::Protected,
 };
 
 // This is the default salt size, and the recommended size for argon2id.
@@ -51,9 +52,9 @@ impl HashingAlgorithm {
 	/// It handles all of the security "levels" and paramaters
 	pub fn hash(
 		&self,
-		password: Secret<Vec<u8>>,
+		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
-	) -> Result<Secret<[u8; 32]>, Error> {
+	) -> Result<Protected<[u8; 32]>, Error> {
 		match self {
 			Self::Argon2id(params) => password_hash_argon2id(password, salt, *params),
 		}
@@ -101,8 +102,22 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
 ///
 /// This function uses `ChaCha20Rng` for cryptographically-securely generating random data
 #[must_use]
-pub fn generate_master_key() -> [u8; MASTER_KEY_LEN] {
+pub fn generate_master_key() -> Protected<[u8; MASTER_KEY_LEN]> {
 	let mut master_key = [0u8; MASTER_KEY_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut master_key);
-	master_key
+	Protected::new(master_key)
+}
+
+/// This is used for converting a `Vec<u8>` to an array of bytes
+///
+/// It's main usage is for converting an encrypted master key from a `Vec<u8>` to `[u8; ENCRYPTED_MASTER_KEY_LEN]`
+///
+/// As the master key is encrypted at this point, it does not need to be `Protected<>`
+///
+/// This function still `zeroize`s any data it can
+pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I], Error> {
+	bytes.try_into().map_err(|mut b: Vec<u8>| {
+		b.zeroize();
+		Error::VecArrSizeMismatch
+	})
 }

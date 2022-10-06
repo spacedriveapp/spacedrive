@@ -25,4 +25,6 @@ pub enum Error {
 	IncorrectPassword,
 	#[error("no keyslots available")]
 	NoKeyslots,
+	#[error("mismatched data length while converting vec to array")]
+	VecArrSizeMismatch,
 }
