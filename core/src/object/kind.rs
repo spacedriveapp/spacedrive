@@ -13,8 +13,6 @@ use rspc::Type;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::prisma::file_path;
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Type, IntEnum)]
 #[repr(u8)]
 pub enum ObjectKind {
@@ -56,6 +54,12 @@ pub enum ObjectKind {
 	Collection = 17,
 	// You know, text init
 	Font = 18,
+	// 3D Object
+	Mesh = 19,
+	// Editable source code file
+	Code = 20,
+	// Database file
+	Database = 21,
 }
 
 /// Construct the extensions enum
@@ -105,63 +109,62 @@ macro_rules! extension_enum {
 	};
 }
 
-#[cfg(test)]
-mod test {
-	use super::*;
+pub fn verify_magic_bytes<T: MagicBytes>(ext: T, file: &mut std::fs::File) -> Option<T> {
+	use std::io::{Read, Seek, SeekFrom};
 
-	#[test]
-	fn extension_from_str() {
-		// single extension match
-		assert_eq!(
-			Extension::from_str("jpg"),
-			Some(ExtensionPossibility::Known(Extension::Image(
-				ImageExtension::Jpg
-			)))
-		);
-		// with conflicts
-		assert_eq!(
-			Extension::from_str("ts"),
-			Some(ExtensionPossibility::Conflicts(vec![
-				Extension::Video(VideoExtension::Ts),
-				Extension::Text(TextExtension::Ts)
-			]))
-		);
-		// invalid case
-		assert_eq!(Extension::from_str("jeff"), None);
-	}
+	let mut buf = vec![0; ext.magic_bytes_len()];
+
+	file.seek(SeekFrom::Start(
+		ext.magic_bytes_offset().try_into().unwrap(),
+	))
+	.unwrap();
+
+	file.read_exact(&mut buf).unwrap();
+	println!("MAGIC BYTES: {:x?}", buf);
+
+	T::from_magic_bytes_buf(&buf).map(|_| ext)
 }
 
-impl file_path::Data {
-	// fn extension(&self, magic_bytes: Option<&[u8]>) -> Option<ExtensionPossibility>V {
-	// 	let ext = match self.extension {
-	// 		Some(ext) => ext.as_str(),
-	// 		None => return Ok(Extension::Unknown("".to_string())),
-	// 	};
+impl Extension {
+	pub fn resolve_conflicting(
+		ext_str: &str,
+		file: &mut std::fs::File,
+		always_check_magic_bytes: bool,
+	) -> Option<Extension> {
+		let ext = match Extension::from_str(ext_str) {
+			Some(e) => e,
+			None => return None,
+		};
 
-	// 	// if let Ok(ex) = VideoExtension::from_str(ext) {
-	// 	// 	// .ts files can be video or text
-	// 	// 	match ex {
-	// 	// 		VideoExtension::Ts => {
-	// 	// 			// double check if it is a video=
-	// 	// 		}
-	// 	// 		_ => Extension::Video(ex),
-	// 	// 	}
-	// 	// //
-	// 	// } else if let Ok(ex) = ImageExtension::from_str(ext) {
-	// 	// 	return Extension::Image(ex);
-	// 	// //
-	// 	// } else if let Ok(ex) = AudioExtension::from_str(ext) {
-	// 	// 	return Extension::Audio(ex);
-	// 	// //
-	// 	// } else {
-	// 	// 	return Extension::Unknown(ext);
-	// 	// }
-	// }
-
-	// fn object_kind(&self, magic_bytes: Option<&[u8]>) -> ObjectKind {
-	// 	let extension = self.extension(magic_bytes);
-	// 	extension.into()
-	// }
+		match ext {
+			// we don't need to check the magic bytes unless there is conflict
+			// always_check_magic_bytes forces the check for tests
+			ExtensionPossibility::Known(e) => {
+				if always_check_magic_bytes {
+					match e {
+						Self::Image(x) => verify_magic_bytes(x, file).map(Self::Image),
+						Self::Audio(x) => verify_magic_bytes(x, file).map(Self::Audio),
+						Self::Video(x) => verify_magic_bytes(x, file).map(Self::Video),
+						Self::Executable(x) => verify_magic_bytes(x, file).map(Self::Executable),
+						_ => return None,
+					}
+				} else {
+					Some(Extension::from(e))
+				}
+			}
+			ExtensionPossibility::Conflicts(ext) => match ext_str {
+				"ts" => {
+					let maybe_video_ext = if ext.iter().any(|e| matches!(e, Extension::Video(_))) {
+						verify_magic_bytes(VideoExtension::Ts, file).map(Extension::Video)
+					} else {
+						None
+					};
+					Some(maybe_video_ext.unwrap_or(Extension::Code(CodeExtension::Ts)))
+				}
+				_ => None,
+			},
+		}
+	}
 }
 
 extension_enum! {
@@ -175,6 +178,10 @@ extension_enum! {
 		Encrypted(EncryptedExtension),
 		Key(KeyExtension),
 		Font(FontExtension),
+		Mesh(MeshExtension),
+		Code(CodeExtension),
+		Database(DatabaseExtension),
+
 	}
 }
 
@@ -271,23 +278,23 @@ macro_rules! extension_category_enum {
 extension_category_enum! {
 	VideoExtension ALL_VIDEO_EXTENSIONS {
 		Avi = [0x52, 0x49, 0x46, 0x46, _, _, _, _, 0x41, 0x56, 0x49, 0x20],
-		Mpeg = [0x47],
-		Mts = [0x47, 0x41, 0x39, 0x34],
-		Mpg = [],
-		Mpe = [],
+		Ts = [0x47],
 		Qt = [0x71, 0x74, 0x20, 0x20],
 		Mov = [0x66, 0x74, 0x79, 0x70, 0x71, 0x74, 0x20, 0x20] + 4,
 		Swf = [0x5A, 0x57, 0x53],
 		Mjpeg = [],
-		Ts = [0x47],
+		Mpeg = [0x47],
+		Mts = [0x47, 0x41, 0x39, 0x34],
 		Mxf = [0x06, 0x0E, 0x2B, 0x34, 0x02, 0x05, 0x01, 0x01, 0x0D, 0x01, 0x02, 0x01, 0x01, 0x02],
 		M2v = [0x00, 0x00, 0x01, 0xBA],
+		Mpg = [],
+		Mpe = [],
 		M2ts = [],
-		Flv = [0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x56, 0x20] + 4,
+		Flv = [0x46, 0x4C, 0x56],
 		Wm = [],
 		#[serde(rename = "3gp")]
 		_3gp = [],
-		M4v = [0x66, 0x74, 0x79, 0x70, 0x6D, 0x70, 0x34, 0x32] + 4,
+		M4v = [0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x56] + 4,
 		Wmv = [0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C],
 		Asf = [0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C],
 		Wma = [0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C],
@@ -324,6 +331,8 @@ extension_category_enum! {
 		Flac = [0x66, 0x4C, 0x61, 0x43],
 		Ogg = [0x4F, 0x67, 0x67, 0x53],
 		Opus = [0x4F, 0x70, 0x75, 0x73, 0x48, 0x65, 0x61, 0x64],
+		Wma = [0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C],
+		Amr = [0x23, 0x21, 0x41, 0x4D, 0x52],
 	}
 }
 
@@ -344,14 +353,16 @@ extension_category_enum! {
 // executable extensions
 extension_category_enum! {
 	ExecutableExtension _ALL_EXECUTABLE_EXTENSIONS {
-		Exe = [],
-		App = [],
+		Exe = [0x4D, 0x5A],
+		App = [0x4D, 0x5A],
 		Apk = [0x50, 0x4B, 0x03, 0x04],
-		Deb = [],
-		Dmg = [],
-		Pkg = [],
-		Rpm = [],
-		Msi = [],
+		Deb = [0x21, 0x3C, 0x61, 0x72, 0x63, 0x68, 0x3E, 0x0A, 0x64, 0x65, 0x62, 0x69, 0x61, 0x6E, 0x2D, 0x62, 0x69, 0x6E, 0x61, 0x72, 0x79],
+		Dmg = [0x78, 0x01, 0x73, 0x0D, 0x62, 0x62, 0x60],
+		Pkg = [0x4D, 0x5A],
+		Rpm = [0xED, 0xAB, 0xEE, 0xDB],
+		Msi = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1],
+		Jar = [0x50, 0x4B, 0x03, 0x04],
+		Bat = [],
 	}
 }
 
@@ -372,6 +383,7 @@ extension_category_enum! {
 		Ods = [0x50, 0x4B, 0x03, 0x04],
 		Odp = [0x50, 0x4B, 0x03, 0x04],
 		Ics = [0x42, 0x45, 0x47, 0x49, 0x4E, 0x3A, 0x56, 0x43, 0x41, 0x52, 0x44],
+		Hwp = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1],
 	}
 }
 
@@ -380,27 +392,27 @@ extension_category_enum! {
 	TextExtension _ALL_TEXT_EXTENSIONS {
 		Txt,
 		Rtf,
-		Csv,
-		Html,
-		Css,
+		Md,
 		Json,
 		Yaml,
+		Yml,
+		Toml,
 		Xml,
-		Md,
-		Ts,
+		Csv,
+		Cfg,
 	}
 }
 // encrypted file extensions
 extension_category_enum! {
 	EncryptedExtension _ALL_ENCRYPTED_EXTENSIONS {
-		Bit,
-		Box,
-		Block,
+		// Spacedrive encrypted file
+		Bit = [0x73, 0x64, 0x62, 0x69, 0x74],
+		// Spacedrive container
+		Box = [0x73, 0x64, 0x62, 0x6F, 0x78],
+		// Spacedrive block storage,
+		Block = [0x73, 0x64, 0x62, 0x6C, 0x6F, 0x63, 0x6B],
 	}
 }
-// Spacedrive encrypted file
-// Spacedrive container
-// Spacedrive block storage,
 
 // key extensions
 extension_category_enum! {
@@ -419,5 +431,147 @@ extension_category_enum! {
 	FontExtension _ALL_FONT_EXTENSIONS {
 		Ttf = [0x00, 0x01, 0x00, 0x00, 0x00],
 		Otf = [0x4F, 0x54, 0x54, 0x4F, 0x00],
+	}
+}
+
+// font extensions
+extension_category_enum! {
+	MeshExtension _ALL_MESH_EXTENSIONS {
+		Fbx = [0x46, 0x42, 0x58, 0x20],
+		Obj = [0x6F, 0x62, 0x6A],
+	}
+}
+
+// code extensions
+extension_category_enum! {
+	CodeExtension _ALL_CODE_EXTENSIONS {
+		Rs,
+		Ts,
+		Tsx,
+		Js,
+		Jsx,
+		Vue,
+		Php,
+		Py,
+		Rb,
+		Sh,
+		Html,
+		Css,
+		Sass,
+		Scss,
+		Less,
+		Bash,
+		Zsh,
+		C,
+		Cpp,
+		H,
+		Hpp,
+		Java,
+		Scala,
+		Go,
+		Dart,
+		Swift,
+		Mdx,
+		Astro,
+	}
+}
+
+// database extensions
+extension_category_enum! {
+	DatabaseExtension _ALL_DATABASE_EXTENSIONS {
+		Sqlite = [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00],
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use std::path::{Path, PathBuf};
+
+	use super::*;
+
+	#[test]
+	fn extension_from_str() {
+		// single extension match
+		assert_eq!(
+			Extension::from_str("jpg"),
+			Some(ExtensionPossibility::Known(Extension::Image(
+				ImageExtension::Jpg
+			)))
+		);
+		// with conflicts
+		assert_eq!(
+			Extension::from_str("ts"),
+			Some(ExtensionPossibility::Conflicts(vec![
+				Extension::Video(VideoExtension::Ts),
+				Extension::Code(CodeExtension::Ts)
+			]))
+		);
+		// invalid case
+		assert_eq!(Extension::from_str("jeff"), None);
+	}
+	#[test]
+	fn magic_bytes() {
+		fn test_path(subpath: &str) -> Option<Extension> {
+			let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+				.parent()
+				.unwrap()
+				.join("packages/test-files/files")
+				.join(subpath);
+			let mut file = std::fs::File::open(path).unwrap();
+			Extension::resolve_conflicting(&subpath.split(".").last().unwrap(), &mut file, true)
+		}
+
+		assert_eq!(
+			dbg!(test_path("video/video.ts")),
+			Some(Extension::Video(VideoExtension::Ts))
+		);
+		assert_eq!(
+			dbg!(test_path("code/typescript.ts")),
+			Some(Extension::Code(CodeExtension::Ts))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.3gp")),
+			Some(Extension::Video(VideoExtension::_3gp))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.mov")),
+			Some(Extension::Video(VideoExtension::Mov))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.asf")),
+			Some(Extension::Video(VideoExtension::Asf))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.avi")),
+			Some(Extension::Video(VideoExtension::Avi))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.flv")),
+			Some(Extension::Video(VideoExtension::Flv))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.m4v")),
+			Some(Extension::Video(VideoExtension::M4v))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.mkv")),
+			Some(Extension::Video(VideoExtension::Mkv))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.mpg")),
+			Some(Extension::Video(VideoExtension::Mpg))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.mpeg")),
+			Some(Extension::Video(VideoExtension::Mpeg))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.mts")),
+			Some(Extension::Video(VideoExtension::Mts))
+		);
+		assert_eq!(
+			dbg!(test_path("video/video.mxf")),
+			Some(Extension::Video(VideoExtension::Mxf))
+		);
 	}
 }
