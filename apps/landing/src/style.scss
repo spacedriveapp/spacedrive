@@ -116,7 +116,7 @@ html {
 	&.bloom-one {
 		@apply left-0 -ml-[300px];
 		background: url('/bloom-one.png') no-repeat center center;
-		background-size: contain;    
+		background-size: contain;
 		animation-delay: 300ms;
 	}
 	&.bloom-two {
@@ -139,7 +139,6 @@ html {
 		background: url('/egg-bloom-two.png') no-repeat center center;
 		background-size: contain;
 	}
-
 }
 
 @keyframes bloomBurst {
@@ -170,47 +169,48 @@ html {
 }
 
 .slot-block {
-	@apply bg-gray-550 py-3 px-4 border-l-4 border-gray-400 rounded mb-2
+	@apply bg-gray-550 py-3 px-4 border-l-4 border-gray-400 rounded mb-2;
 }
 .slot-block.note {
-	@apply border-yellow-400 bg-yellow-300/20
+	@apply border-yellow-400 bg-yellow-300/20;
 }
 .slot-block.info {
-	@apply border-green-400 bg-green-400/20
+	@apply border-green-400 bg-green-400/20;
 }
 .slot-block.warning {
-	@apply border-red-400 bg-red-400/20
+	@apply border-red-400 bg-red-400/20;
 }
 .slot-block-title {
 	@apply text-white font-bold text-sm m-0 uppercase;
 }
 .slot-block-content {
-	@apply my-1 mx-0 mb-0 text-white
+	@apply my-1 mx-0 mb-0 text-white;
 }
 
-.doc-sidebar-button:hover, .doc-sidebar-button.nav-active {
+.doc-sidebar-button:hover,
+.doc-sidebar-button.nav-active {
 	&.product {
-		color:#459EE8;
+		color: #459ee8;
 		div {
-			background-color: #459EE8;
+			background-color: #459ee8;
 		}
 	}
 	&.developers {
-		color:#48BB78;
+		color: #48bb78;
 		div {
-			background-color: #48BB78;
+			background-color: #48bb78;
 		}
 	}
 	&.company {
-		color:#bb9247;
+		color: #bb9247;
 		div {
 			background-color: #bb9247;
 		}
 	}
 	&.changelog {
-		color:#8A47BB;
+		color: #8a47bb;
 		div {
-			background-color: #8A47BB;
+			background-color: #8a47bb;
 		}
 	}
 }
@@ -221,7 +221,6 @@ html {
 // #8E4CAB
 // #1D054B
 // #9A3F8C
-
 
 .custom-scroll {
 	-ms-overflow-style: none; /* for Internet Explorer, Edge */
@@ -238,7 +237,6 @@ html {
 		@apply bg-[#00000006] dark:bg-[#00000030] my-[10px] rounded-[6px];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550 ;
-		
+		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
 	}
 }

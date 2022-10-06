@@ -1,5 +1,3 @@
-import { Folder } from '../icons/Folder';
-import { isObject, isPath } from './utils';
 import videoSvg from '@sd/assets/svgs/video.svg';
 import zipSvg from '@sd/assets/svgs/zip.svg';
 import { getExplorerStore, usePlatform } from '@sd/client';
@@ -9,6 +7,9 @@ import clsx from 'clsx';
 import { useState } from 'react';
 import { Suspense, lazy, useMemo } from 'react';
 import { useSnapshot } from 'valtio';
+
+import { Folder } from '../icons/Folder';
+import { isObject, isPath } from './utils';
 
 interface Props {
 	data: ExplorerItem;

@@ -1,11 +1,4 @@
 // import types from '../../constants/file-types.json';
-import { Tooltip } from '../tooltip/Tooltip';
-import FileThumb from './FileThumb';
-import { Divider } from './inspector/Divider';
-import FavoriteButton from './inspector/FavoriteButton';
-import { MetaItem } from './inspector/MetaItem';
-import Note from './inspector/Note';
-import { isObject } from './utils';
 import { ShareIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
 import { ExplorerContext, ExplorerItem } from '@sd/client';
@@ -15,6 +8,14 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { Link } from 'phosphor-react';
 import { useEffect, useState } from 'react';
+
+import { Tooltip } from '../tooltip/Tooltip';
+import FileThumb from './FileThumb';
+import { Divider } from './inspector/Divider';
+import FavoriteButton from './inspector/FavoriteButton';
+import { MetaItem } from './inspector/MetaItem';
+import Note from './inspector/Note';
+import { isObject } from './utils';
 
 interface Props {
 	context?: ExplorerContext;
