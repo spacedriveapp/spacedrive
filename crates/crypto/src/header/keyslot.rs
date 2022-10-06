@@ -26,6 +26,25 @@ pub enum KeyslotVersion {
 }
 
 impl Keyslot {
+	#[must_use]
+	pub fn new(
+		version: KeyslotVersion,
+		algorithm: Algorithm,
+		hashing_algorithm: HashingAlgorithm,
+		salt: [u8; SALT_LEN],
+		encrypted_master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
+		nonce: Vec<u8>,
+	) -> Self {
+		Self {
+			version,
+			algorithm,
+			hashing_algorithm,
+			mode: Mode::Memory,
+			salt,
+			master_key: encrypted_master_key,
+			nonce,
+		}
+	}
 	/// This function is used to serialize a keyslot into bytes
 	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {

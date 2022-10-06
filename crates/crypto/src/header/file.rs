@@ -34,6 +34,22 @@ pub enum FileHeaderVersion {
 }
 
 impl FileHeader {
+	#[must_use]
+	pub fn new(
+		version: FileHeaderVersion,
+		algorithm: Algorithm,
+		nonce: Vec<u8>,
+		keyslots: Vec<Keyslot>,
+	) -> Self {
+		Self {
+			version,
+			algorithm,
+			mode: Mode::Stream,
+			nonce,
+			keyslots,
+		}
+	}
+
 	/// This is a helper function to decrypt a master key from a set of keyslots
 	/// It's easier to call this on the header for now - but this may be changed in the future
 	/// You receive an error if the password doesn't match
