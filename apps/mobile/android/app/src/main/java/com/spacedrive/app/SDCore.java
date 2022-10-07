@@ -28,7 +28,7 @@ public class SDCore extends ReactContextBaseJavaModule {
     }
 
     static {
-        System.loadLibrary("sdcore");
+        System.loadLibrary("sd_core_mobile");
     }
 
     // is exposed by Rust and is used to register the subscription
@@ -45,6 +45,11 @@ public class SDCore extends ReactContextBaseJavaModule {
     public String getDataDirectory()
     {
         return getCurrentActivity().getFilesDir().toString();
+    }
+
+    public void print(String msg)
+    {
+        System.out.println(msg);
     }
 
     @ReactMethod

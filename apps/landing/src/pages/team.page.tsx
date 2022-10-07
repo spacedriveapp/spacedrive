@@ -1,10 +1,10 @@
 import { Helmet } from 'react-helmet';
 
-import { ReactComponent as ArrowRight } from '@sd/interface/assets/svg/arrow-right.svg';
-
 import Markdown from '../components/Markdown';
 import { TeamMember, TeamMemberProps } from '../components/TeamMember';
 import { resolveFilesGlob } from '../utils';
+
+import { ReactComponent as ArrowRight } from '@sd/interface/assets/svg/arrow-right.svg';
 
 const teamImages = resolveFilesGlob(import.meta.globEager('../assets/images/team/*'));
 const investorImages = resolveFilesGlob(import.meta.globEager('../assets/images/investors/*'));

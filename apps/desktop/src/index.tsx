@@ -1,6 +1,6 @@
 import { createClient } from '@rspc/client';
 import { TauriTransport } from '@rspc/tauri';
-import { OperatingSystem, Operations, PlatformProvider, queryClient, rspc } from '@sd/client';
+import { OperatingSystem, PlatformProvider, Procedures, queryClient, rspc } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
 import { KeybindEvent } from '@sd/interface';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
@@ -10,7 +10,7 @@ import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';
 
-const client = createClient<Operations>({
+const client = createClient<Procedures>({
 	transport: new TauriTransport()
 });
 
