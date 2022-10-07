@@ -1,29 +1,51 @@
-# Get ci parameter to check if running with ci
+# Get CI parameter -- will be $True if running in CI
 param(
     [Parameter()]
     [Switch]$ci
 )
 
+# Self-elevate the script if required
+# from: https://blog.expta.com/2017/03/how-to-self-elevate-powershell-script.html
+if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
+   if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
+      $CommandLine = "-File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
+      Start-Process -FilePath PowerShell.exe -Verb RunAs -ArgumentList $CommandLine
+      Exit
+   }
+}
+
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
 
 # Get current running dir
-$currentLocation = $((Get-Location).path)
+# $currentLocation = $((Get-Location).path)
+
+function AddToPath {
+   param ($entry, $scope = [System.EnvironmentVariableTarget]::User)
+
+   $ExistingPath = [Environment]::GetEnvironmentVariable("Path", $scope)
+   [Environment]::GetEnvironmentVariable("Path", "$entry;$ExistingPath", $scope)
+}
 
 # Check to see if a command exists (eg if an app is installed)
-Function CheckCommand {
+function CheckCommand {
+   param ($command)
 
-   Param ($command)
-
+   # Store user's existing ErrorActionPreference so we can restore it later.
    $oldPreference = $ErrorActionPreference
 
    $ErrorActionPreference = 'stop'
 
-   try { if (Get-Command $command) { RETURN $true } }
-
-   Catch { RETURN $false }
-
-   Finally { $ErrorActionPreference = $oldPreference }
+   try {
+      if (Get-Command $command) {
+         RETURN $true
+      }
+   } catch {
+      RETURN $false
+   } finally {
+      # Restore user's ErrorActionPreference now that we're done.
+      $ErrorActionPreference = $oldPreference
+   }
 
 }
 
@@ -32,39 +54,92 @@ Write-Host @"
 
 To set up your machine for Spacedrive development, this script will do the following:
 
-1) Check for Rust and Cargo
-
-2) Install pnpm (if not installed)
-
-3) Install the latest version of Node.js using pnpm
-
-4) Install LLVM (compiler for ffmpeg-rust)
-
-4) Download ffmpeg and set as an environment variable
+- Install required build tools (minimal; MSVC, LLVM Clang, and Windows 10 SDK)
+- Check for Cargo
+- Install pnpm (if not installed)
+- Install Node.js using pnpm
+- Download ffmpeg and reference it in configuration
 
 "@ 
 
-Write-Host "Checking for Rust and Cargo..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
+Write-Host "Checking for Visual Studio Build Tools..." -ForegroundColor Yellow
 
-$cargoCheck = CheckCommand cargo
+function Install-Build-Tools {
+   $downloadUri = "https://aka.ms/vs/17/release/vs_buildtools.exe"
 
-if ($cargoCheck -eq $false) {
-   Write-Host @"
-Cargo is not installed.
+   Read-Host @"
 
-To use Spacedrive on Windows, Cargo needs to be installed.
-The Visual Studio C++ Build tools are also required.
-Instructions can be found here:
+We'd like to run the Visual Studio Build Tools installer.
 
-https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows
+This package comes from the internet:
+Source: $downloadUri
 
-Once you have installed Cargo, re-run this script.
-
+Press ENTER to run
 "@
+
+   # Download and run VS Build Tools installer. Install MSVC, Clang, and Windows 10 SDK (requried by Cargo)
+   Start-BitsTransfer -Source $downloadUri -Destination "$temp\vs_buildtools.exe"
+   & "$temp\vs_buildtools.exe" --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Llvm.Clang --add Microsoft.VisualStudio.Component.Windows10SDK.19041 --passive | Out-Null
+
+   Write-Host "Installed build tools. Please restart this setup script once Visual Studio Installer installation completes."
+   Read-Host "Press ENTER to exit"
+
    Exit
 }
-else {
+
+$vswherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$hasVSInstaller = Test-Path -Path $vswherePath
+
+if ($hasVSInstaller -eq $false) {
+   Write-Host "Couldn't find VS Installer."
+
+   Install-Build-Tools
+}
+
+$VSINSTALLDIR = $(& $vswherePath -latest -property installationPath -products 'Microsoft.VisualStudio.Product.BuildTools')
+$VCINSTALLDIR = "$VSINSTALLDIR\VC\Tools"
+
+$hasMSVC = Test-Path -Path "$VCINSTALLDIR\MSVC"
+$hasClang = Test-Path -Path "$VCINSTALLDIR\Llvm\x64\bin"
+$hasWin10SDK = Test-Path -Path "${env:ProgramFiles(x86)}\Windows Kits\10"
+
+if (($hasMSVC -eq $false) -or ($hasClang -eq $false) -or ($hasWin10SDK -eq $false)) {
+   Write-Host "Couldn't find the required build tools. Installing."
+
+   Install-Build-Tools
+}
+
+Write-Host "Checking for Rust and Cargo..." -ForegroundColor Yellow
+
+function Install-Rustup {
+   $downloadUri = "https://win.rustup.rs/"
+
+   Read-Host @"
+
+We'd like to run the Cargo installer (rustup-init).
+
+This package comes from the internet:
+Source: $downloadUri
+
+Press ENTER to run
+"@
+
+   Start-BitsTransfer -Source $downloadUri -Destination "$temp\rustup-init.exe"
+   Start-Process -Verb RunAs -FilePath "$temp\rustup-init.exe" -PassThru -Wait
+
+   Write-Host "Installed Cargo. Please restart this setup script."
+   Read-Host "Press ENTER to exit"
+
+   Exit
+}
+
+$hasCargo = CheckCommand cargo
+
+if ($hasCargo -eq $false) {
+   Write-Host "Couldn't find Cargo. Installing."
+
+   Install-Rustup
+} else {
    Write-Host "Cargo is installed."
 }
 
@@ -72,110 +147,122 @@ Write-Host
 Write-Host "Checking for pnpm..." -ForegroundColor Yellow
 Start-Sleep -Milliseconds 150
 
-$pnpmCheck = CheckCommand pnpm
-if ($pnpmCheck -eq $false) {
+$hasPnpm = CheckCommand pnpm
 
-   Write-Host "pnpm is not installed. Installing now."
-   Write-Host "Running the pnpm installer..."
+if ($hasPnpm -eq $false) {
+   Write-Host "pnpm is not installed. Installing."
 
-   #pnpm installer taken from https://pnpm.io
-   Invoke-WebRequest https://get.pnpm.io/install.ps1 -useb | Invoke-Expression
+   $scriptUri = "https://get.pnpm.io/install.ps1"
 
-   # Reset the PATH env variables to make sure pnpm is accessible 
-   $env:PNPM_HOME = [System.Environment]::GetEnvironmentVariable("PNPM_HOME", "User")
-   $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable("Path", "User"))
+   Read-Host @"
 
-}
-else {
+We'd like to run the pnpm setup script.
+
+This script comes from the internet:
+Source: $scriptUri
+
+Press ENTER to run
+"@
+
+   # Download and run the pnpm installer.
+   Invoke-WebRequest $scriptUri -useb | Invoke-Expression
+
+   # Set environment variables to ensure pnpm is accessible.
+   $env:PNPM_HOME = [System.Environment]::GetEnvironmentVariable("PNPM_HOME", [System.EnvironmentVariableTarget]::User)
+   $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User))
+
+} else {
    Write-Host "pnpm is installed."
 }
 
-# A GitHub Action takes care of installing node, so this isn't necessary if running in the ci.
 if ($ci -eq $True) {
+   # Skip Node install; CI setup takes care of installing Node for us.
    Write-Host
-   Write-Host "Running with Ci, skipping Node install." -ForegroundColor Yellow
-}
-else {
-   Write-Host
-   Write-Host "Using pnpm to install the latest version of Node..." -ForegroundColor Yellow
-   Write-Host "This will set your global Node version to the latest!"
-   Start-Sleep -Milliseconds 150
-
-   # Runs the pnpm command to use the latest version of node, which also installs it
-   Start-Process -Wait -FilePath "pnpm" -ArgumentList "env use --global latest" -PassThru -Verb runAs
-}
-
-
-
-# The ci has LLVM installed already, so we instead just set the env variables.
-if ($ci -eq $True) {
-   Write-Host
-   Write-Host "Running with Ci, skipping LLVM install." -ForegroundColor Yellow
-
-   $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
-   Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
-
+   Write-Host "We're in CI, skipping Node install." -ForegroundColor Yellow
 } else {
    Write-Host
-   Write-Host "Downloading the LLVM installer..." -ForegroundColor Yellow
-   # Downloads latest installer for LLVM
-   $filenamePattern = "*-win64.exe"
-   $releasesUri = "https://api.github.com/repos/llvm/llvm-project/releases/latest"
-   $downloadUri = ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).browser_download_url
+   Write-Host "Using pnpm to install the latest version of Node..." -ForegroundColor Yellow
+   Write-Host "This will set your Node installation to the latest stable version."
+   Start-Sleep -Milliseconds 150
 
-   Start-BitsTransfer -Source $downloadUri -Destination "$temp\llvm.exe"
+   Start-Process -Wait -FilePath "pnpm" -ArgumentList "env","use","--global","latest" -PassThru -NoNewWindow
+}
 
+
+
+$ClangPath = "$VCINSTALLDIR\Llvm\x64\bin"
+
+# The CI has LLVM installed already, so just set the env variables.
+if ($ci -eq $True) {
    Write-Host
-   Write-Host "Running the LLVM installer..." -ForegroundColor Yellow
-   Write-Host "Please follow the instructions to install LLVM."
-   Write-Host "Ensure you add LLVM to your PATH."
+   Write-Host "Running with CI, skipping LLVM Clang install." -ForegroundColor Yellow
 
-   Start-Process "$temp\llvm.exe" -Wait
+   Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=$ClangPath`n"
+} else {
+   [System.Environment]::SetEnvironmentVariable("LIBCLANG_PATH", $ClangPath, [System.EnvironmentVariableTarget]::Machine)
 }
 
 
 
 Write-Host
-Write-Host "Downloading the latest ffmpeg build..." -ForegroundColor Yellow
-
-# Downloads the latest shared build of ffmpeg from GitHub
-# $filenamePattern = "*-full_build-shared.zip"
-# $releasesUri = "https://api.github.com/repos/GyanD/codexffmpeg/releases/latest"
-$downloadUri = "https://github.com/GyanD/codexffmpeg/releases/download/5.0.1/ffmpeg-5.0.1-full_build-shared.zip" # ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).browser_download_url
-$filename = "ffmpeg-5.0.1-full_build-shared.zip" # ((Invoke-RestMethod -Method GET -Uri $releasesUri).assets | Where-Object name -like $filenamePattern ).name
-$remove = ".zip"
-$foldername = $filename.Substring(0, ($filename.Length - $remove.Length))
-
-Start-BitsTransfer -Source $downloadUri -Destination "$temp\ffmpeg.zip"
-
-Write-Host
-Write-Host "Expanding ffmpeg zip..." -ForegroundColor Yellow
-
-Expand-Archive "$temp\ffmpeg.zip" $HOME -ErrorAction SilentlyContinue
-
-Remove-Item "$temp\ffmpeg.zip"
-
-Write-Host
-Write-Host "Setting environment variables..." -ForegroundColor Yellow
+Write-Host "Checking for vcpkg..." -ForegroundColor Yellow
 
 if ($ci -eq $True) {
+   # NOTE (8 Oct 2022, maxichrome): Not sure how to update this / CI to use new vcpkg based linking system.
+   # Contributions / suggestions welcome for this!
+
    # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
    Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
    Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
+} else {
+   $hasVcpkg = CheckCommand vcpkg
+   $vcpkgPath = "vcpkg"
+
+   if ($hasVcpkg -eq $false) {
+      $installDir = "C:\vcpkg"
+
+      $(& git clone https://github.com/Microsoft/vcpkg.git $installDir) | Out-Null
+
+      $vcpkgPath = "$installDir\vcpkg.exe"
+      Start-Process -FilePath "$installDir\bootstrap-vcpkg.bat" -NoNewWindow -Wait -PassThru | Out-Default
+   }
+
+   Start-Process -FilePath $vcpkgPath -Verb RunAs -ArgumentList 'integrate','install' -Wait -PassThru | Out-Null
+   Start-Process -FilePath $vcpkgPath -Verb RunAs -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru | Out-Default
 }
-else {
-   # Sets environment variable for ffmpeg
-   [System.Environment]::SetEnvironmentVariable('FFMPEG_DIR', "$HOME\$foldername", [System.EnvironmentVariableTarget]::User)
-}
+
+
 
 Write-Host
-Write-Host "Copying Required .dll files..." -ForegroundColor Yellow
+Write-Host "Checking for perl (required to build openssl, a Spacedrive dependency)..."
 
-# Create target\debug folder, continue if already exists
-New-Item -Path $currentLocation\target\debug -ItemType Directory -ErrorAction SilentlyContinue
+$hasPerl = CheckCommand perl
 
-# Copies all .dll required for rust-ffmpeg to target\debug folder
-Get-ChildItem "$HOME\$foldername\bin" -recurse -filter *.dll | Copy-Item -Destination "$currentLocation\target\debug"
+if ($hasPerl -eq $false) {
+   Write-Host "`perl` executable not found in PATH. Installing Strawberry Perl..."
+
+   $releasesUri = "https://strawberryperl.com/releases.json"
+   $downloadUri = ((Invoke-RestMethod -Method GET -Uri $releasesUri) | Where-Object archname -Contains 'MSWin32-x64-multi-thread' | Select-Object -First 1 ).edition.msi.url
+
+   # Download and run Strawberry Perl installer. Install MSVC, Clang, and Windows 10 SDK (requried by Cargo)
+   Start-BitsTransfer -Source $downloadUri -Destination "$temp\strawberry.msi"
+   Start-Process -FilePath "$temp\strawberry.msi" -ArgumentList "/quiet","/passive" -Wait -PassThru
+
+   Write-Host @"
+   
+Installed Strawberry Perl.
+Please REBOOT YOUR SYSTEM and then rerun this script.
+
+"@
+   Read-Host "Press ENTER to exit"
+
+   Exit
+} else {
+   Write-Host "`perl` executable was found in PATH!"
+}
+
+
 
 Write-Host
-Write-Host "Your machine has been setup for Spacedrive development!"
+Write-Host "Your machine has been set up for Spacedrive development!"
+Read-Host "Press ENTER to finish"
