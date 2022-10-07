@@ -37,7 +37,7 @@ async function render(pageContext: PageContextBuiltIn & PageContext) {
 				${dangerouslySkipEscape(helmet.link.toString())}
 	    </head>
 	      <body id="outer-container" ${dangerouslySkipEscape(helmet.bodyAttributes.toString())}>
-	        <main id="page-view">${dangerouslySkipEscape(pageHtml)}</main>
+	        <main id="page-view" class="overflow-hidden">${dangerouslySkipEscape(pageHtml)}</main>
 	      </body>
 	    </html>
 		`;
