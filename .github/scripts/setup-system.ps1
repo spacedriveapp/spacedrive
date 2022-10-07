@@ -223,6 +223,7 @@ if ($ci -eq $True) {
 
       $(& git clone https://github.com/Microsoft/vcpkg.git $installDir) | Out-Null
 
+      [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $installDir, [System.EnvironmentVariableTarget]::Machine)
       $vcpkgPath = "$installDir\vcpkg.exe"
       Start-Process -FilePath "$installDir\bootstrap-vcpkg.bat" -NoNewWindow -Wait -PassThru | Out-Default
    }
