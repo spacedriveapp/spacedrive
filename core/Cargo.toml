@@ -25,43 +25,45 @@ hostname = "0.3.1"
 # Universal Dependencies
 base64 = "0.13.0"
 serde = { version = "1.0", features = ["derive"] }
-chrono = { version = "0.4.19", features = ["serde"] }
+chrono = { version = "0.4.22", features = ["serde"] }
 serde_json = "1.0"
 futures = "0.3"
 data-encoding = "2.3.2"
-ring = "0.17.0-alpha.10"
+ring = "0.17.0-alpha.11"
 int-enum = "0.4.0"
 rmp = "^0.8.11"
-rmp-serde = "^1.1.0"
+rmp-serde = "^1.1.1"
 
 # Project dependencies
+rspc = { workspace = true, features = ["uuid", "chrono", "tracing"] }
 prisma-client-rust = { workspace = true }
-rspc = { version = "0.0.5", features = ["uuid", "chrono", "tracing"] }
 uuid = { version = "1.1.2", features = ["v4", "serde"] }
-sysinfo = "0.23.9"
-thiserror = "1.0.30"
+sysinfo = "0.26.4"
+thiserror = "1.0.37"
 
-tokio = { version = "1.17.0", features = [
+tokio = { version = "1.21.2", features = [
   "sync",
   "rt-multi-thread",
   "io-util",
 ] }
 include_dir = { version = "0.7.2", features = ["glob"] }
-async-trait = "^0.1.52"
-image = "0.24.1"
+async-trait = "^0.1.57"
+image = "0.24.4"
 webp = "0.2.2"
-ffmpeg-next = { version = "5.0.3", optional = true, features = [] }
+ffmpeg-next = { version = "5.1.1", optional = true, features = [] }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext = { path = "../crates/file-ext"}
 fs_extra = "1.2.0"
-tracing = "0.1.35"
-tracing-subscriber = { version = "0.3.14", features = ["env-filter"] }
+tracing = "0.1.36"
+tracing-subscriber = { version = "0.3.15", features = ["env-filter"] }
 async-stream = "0.3.3"
-once_cell = "1.13.0"
-ctor = "0.1.22"
+once_cell = "1.15.0"
+ctor = "0.1.23"
 globset = { version = "^0.4.9", features = ["serde1"] }
-itertools = "^0.10.3"
+itertools = "^0.10.5"
 enumflags2 = "0.7.5"
+
+openssl-sys = "0.9.76" # We don't use this in the core but it exists so that the workspace level patch doesn't complain that the dependency isn't used.
 
 [dev-dependencies]
 tempfile = "^3.3.0"

@@ -53,6 +53,12 @@ impl Node {
 
 		// dbg!(get_object_kind_from_extension("png"));
 
+		// let (non_blocking, _guard) = tracing_appender::non_blocking(rolling::daily(
+		// 	Path::new(&data_dir).join("logs"),
+		// 	"log",
+		// ));
+		// TODO: Make logs automatically delete after x time https://github.com/tokio-rs/tracing/pull/2169
+
 		tracing_subscriber::registry()
 			.with(
 				EnvFilter::from_default_env()
@@ -71,9 +77,19 @@ impl Node {
 						"desktop=debug"
 							.parse()
 							.expect("Error invalid tracing directive!"),
-					),
+					), // .add_directive(
+				    // 	"rspc=debug"
+				    // 		.parse()
+				    // 		.expect("Error invalid tracing directive!"),
+				    // ),
 			)
 			.with(fmt::layer().with_filter(CONSOLE_LOG_FILTER))
+			// .with(
+			// 	Layer::default()
+			// 		.with_writer(non_blocking)
+			// 		.with_ansi(false)
+			// 		.with_filter(LevelFilter::DEBUG),
+			// )
 			.init();
 
 		let event_bus = broadcast::channel(1024);

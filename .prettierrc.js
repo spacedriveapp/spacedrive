@@ -7,7 +7,7 @@ module.exports = {
 	bracketSameLine: false,
 	semi: true,
 	quoteProps: 'consistent',
-	importOrder: ['^@sd/interface/(.*)$', '^@sd/client/(.*)$', '^@sd/ui/(.*)$', '^[./]'],
+	importOrder: ['^[./]', '^@sd/interface/(.*)$', '^@sd/client/(.*)$', '^@sd/ui/(.*)$'],
 	importOrderSeparation: true,
 	importOrderSortSpecifiers: true,
 	plugins: ['@trivago/prettier-plugin-sort-imports']

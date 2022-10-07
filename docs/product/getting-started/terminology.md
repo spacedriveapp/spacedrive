@@ -4,4 +4,3 @@ index: 0
 ---
 
 # Terminology
-
