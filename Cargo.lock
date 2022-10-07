@@ -2058,7 +2058,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b1428b2b1abe959e6eedb0a17d0ab12f6ba20e1106cc29fc4874e3ba393c177"
 dependencies = [
  "cfg-if 0.1.10",
- "int-enum-impl",
+ "int-enum-impl 0.4.0",
+]
+
+[[package]]
+name = "int-enum"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cff87d3cc4b79b4559e3c75068d64247284aceb6a038bd4bb38387f3f164476d"
+dependencies = [
+ "int-enum-impl 0.5.0",
 ]
 
 [[package]]
@@ -2069,6 +2078,18 @@ checksum = "a2c3cecaad8ca1a5020843500c696de2b9a07b63b624ddeef91f85f9bafb3671"
 dependencies = [
  "cfg-if 0.1.10",
  "proc-macro-crate 0.1.5",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "int-enum-impl"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df1f2f068675add1a3fc77f5f5ab2e29290c841ee34d151abc007bce902e5d34"
+dependencies = [
+ "proc-macro-crate 1.2.1",
  "proc-macro2",
  "quote",
  "syn",
@@ -4264,7 +4285,7 @@ dependencies = [
  "hostname 0.3.1",
  "image",
  "include_dir",
- "int-enum",
+ "int-enum 0.4.0",
  "itertools",
  "once_cell",
  "prisma-client-rust",
@@ -4273,6 +4294,7 @@ dependencies = [
  "rmp-serde",
  "rspc 0.0.5",
  "sd-ffmpeg",
+ "sd-file-ext",
  "serde",
  "serde_json",
  "sysinfo",
@@ -4312,6 +4334,15 @@ dependencies = [
  "thiserror",
  "tokio",
  "webp",
+]
+
+[[package]]
+name = "sd-file-ext"
+version = "0.0.0"
+dependencies = [
+ "int-enum 0.5.0",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

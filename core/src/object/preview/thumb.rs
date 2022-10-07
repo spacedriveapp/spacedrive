@@ -3,9 +3,9 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	object::kind::{Extension, ImageExtension, VideoExtension, ALL_VIDEO_EXTENSIONS},
 	prisma::{file_path, location},
 };
+use sd_file_ext::extensions::{Extension, ImageExtension, VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use image::{self, imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
