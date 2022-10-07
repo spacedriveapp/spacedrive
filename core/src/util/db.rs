@@ -29,7 +29,7 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 			.map(|v| v == "true")
 			.unwrap_or(false)
 		{
-			builder = builder.force_reset();
+			builder = builder.accept_data_loss().force_reset();
 		}
 
 		builder.await?;

@@ -6,37 +6,42 @@ index: 1
 
 To get started contributing to Spacedrive, follow this guide carefully.
 
-This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). 
+This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation).
 
-## Installation 
+## Installation
 
 1. **Clone repo**
-    ```shell
-    git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
-    ```  
+   ```shell
+   git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
+   ```
 2. **Run setup script**
-   
+
    **For Linux or MacOS users run:**
-    ```shell
-    ./.github/scripts/setup-system.sh
-    ```
-    This will install FFMPEG and any other required dependencies for Spacedrive to build.
+
+   ```shell
+   ./.github/scripts/setup-system.sh
+   ```
+
+   This will install FFMPEG and any other required dependencies for Spacedrive to build.
 
    **...or for Windows users run using PowerShell:**
-    ```shell
-    .\.github\scripts\setup-system.ps1
-    ```
-    _This will install pnpm, LLVM, FFMPEG and any other required dependencies for Spacedrive to build. Ensure you run it like documented above as it expects it is executed from the root of the repository._
+
+   ```shell
+   .\.github\scripts\setup-system.ps1
+   ```
+
+   _This will install pnpm, LLVM, FFMPEG and any other required dependencies for Spacedrive to build. Ensure you run it like documented above as it expects it is executed from the root of the repository._
+
 3. **Install dependencies**
-    ```shell
-    pnpm i
-    ```
+   ```shell
+   pnpm i
+   ```
 4. **Run codegen & build required dependencies**
-    ```shell
-    pnpm prep
-    ```
-   
-## Running apps 
+   ```shell
+   pnpm prep
+   ```
+
+## Running apps
 
 - **Desktop:** `pnpm desktop dev`
 - **Landing:** `pnpm landing dev`
@@ -53,7 +58,7 @@ To run mobile app
 
 1. Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for IOS development
 2. `./.github/scripts/setup-system.sh mobile`
-  _The should setup most of the dependencies for the mobile app to build._
+   _The should setup most of the dependencies for the mobile app to build._
 3. You must also ensure you have [NDK 24.0.8215888 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
 4. `cd apps/mobile && pnpm i` - This is a separate workspace, you need to do this!
 5. `pnpm android` - runs on Android Emulator

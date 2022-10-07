@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 
 import Explorer from '../components/explorer/Explorer';
 
-export const TagExplorer: React.FC<unknown> = () => {
+export default function TagExplorer() {
 	const { id } = useParams();
 	const { library } = useCurrentLibrary();
 
@@ -16,4 +16,4 @@ export const TagExplorer: React.FC<unknown> = () => {
 			)}
 		</div>
 	);
-};
+}

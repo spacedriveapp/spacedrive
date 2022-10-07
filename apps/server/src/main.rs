@@ -55,8 +55,8 @@ async fn main() {
 			})
 		})
 		.route(
-			"/rspcws",
-			router.axum_ws_handler(move || node.get_request_context()),
+			"/rspc/:id",
+			router.endpoint(move || node.get_request_context()).axum(),
 		)
 		.fallback((|| async { "404 Not Found: We're past the event horizon..." }).into_service());
 

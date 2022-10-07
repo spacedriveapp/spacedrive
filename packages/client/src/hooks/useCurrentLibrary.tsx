@@ -22,6 +22,10 @@ export const LibraryContextProvider = ({
 	return <CringeContext.Provider value={{ onNoLibrary }}>{children}</CringeContext.Provider>;
 };
 
+export function getLibraryIdRaw(): string | null {
+	return currentLibraryUuidStore.id;
+}
+
 // this is a hook to get the current library loaded into the UI. It takes care of a bunch of invariants under the hood.
 export const useCurrentLibrary = () => {
 	const currentLibraryUuid = useSnapshot(currentLibraryUuidStore).id;

@@ -3,7 +3,7 @@ import { useBridgeQuery, useLibraryMutation, useLibraryQuery, usePlatform } from
 import CodeBlock from '../components/primitive/Codeblock';
 
 // TODO: Bring this back with a button in the sidebar near settings at the bottom
-export const DebugScreen: React.FC<unknown> = (props) => {
+export default function DebugScreen() {
 	const platform = usePlatform();
 	const { data: nodeState } = useBridgeQuery(['getNode']);
 	const { data: libraryState } = useBridgeQuery(['library.list']);
@@ -45,4 +45,4 @@ export const DebugScreen: React.FC<unknown> = (props) => {
 			</div>
 		</div>
 	);
-};
+}

@@ -1,10 +1,9 @@
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
-import { ExplorerContext, ExplorerItem, FilePath } from '@sd/client';
+import { ExplorerContext, ExplorerItem } from '@sd/client';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useKey, useOnWindowResize, useWindowSize } from 'rooks';
-import { useSnapshot } from 'valtio';
+import { useKey, useOnWindowResize } from 'rooks';
 
 import FileItem from './FileItem';
 import FileRow from './FileRow';
