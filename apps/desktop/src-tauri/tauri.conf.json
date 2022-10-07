@@ -22,7 +22,7 @@
 				"icons/icon.icns",
 				"icons/icon.ico"
 			],
-			"resources": [],
+			"resources": ["$VCPKG_ROOT/packages/ffmpeg_x64-windows/bin/*.dll"],
 			"externalBin": [],
 			"copyright": "Spacedrive Technology Inc.",
 			"shortDescription": "The universal file manager.",
