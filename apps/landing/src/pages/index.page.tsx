@@ -82,7 +82,7 @@ function Page() {
 	}, []);
 
 	return (
-		<div className="flex flex-col items-center w-full px-4 overflow-hidden">
+		<div className="flex flex-col items-center w-full px-4">
 			<Helmet>
 				<title>Spacedrive — A file manager from the future.</title>
 				<meta
