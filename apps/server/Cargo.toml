@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 sd-core = { path = "../../core", features = [] }
-rspc = { version = "0.0.5", features = ["axum"] }
-axum = "0.5.13"
-tokio = { version = "1.17.0", features = ["sync", "rt-multi-thread", "signal"] }
-tracing = "0.1.35"
-ctrlc = "3.2.2"
+rspc = { workspace = true, features = ["axum"] }
+axum = "0.5.16"
+tokio = { version = "1.21.2", features = ["sync", "rt-multi-thread", "signal"] }
+tracing = "0.1.36"
+ctrlc = "3.2.3"

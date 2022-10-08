@@ -1,18 +1,15 @@
-use std::panic;
-
-use crate::{CLIENT_CONTEXT, EVENT_SENDER, NODE, RUNTIME};
+use crate::{EVENT_SENDER, NODE, RUNTIME, SUBSCRIPTIONS};
+use objc::{msg_send, runtime::Object, sel, sel_impl};
+use objc_foundation::{INSString, NSString};
+use objc_id::Id;
+use rspc::internal::jsonrpc::{handle_json_rpc, Request, Sender, SubscriptionMap};
+use sd_core::Node;
 use std::{
 	ffi::{CStr, CString},
 	os::raw::{c_char, c_void},
+	panic,
 };
 use tokio::sync::mpsc::unbounded_channel;
-
-use objc::{class, msg_send, runtime::Object, sel, sel_impl};
-use objc_foundation::{INSString, NSString};
-use objc_id::Id;
-use rspc::Request;
-use sd_core::Node;
-use tracing::error;
 
 extern "C" {
 	fn get_data_directory() -> *const c_char;
@@ -56,9 +53,11 @@ pub unsafe extern "C" fn register_core_event_listener(id: *mut Object) {
 			}
 		});
 	});
+
 	if let Err(err) = result {
-		error!("Spacedrive core panicked!");
-		// TODO: Do something useful
+		// TODO: Send rspc error or something here so we can show this in the UI.
+		// TODO: Maybe reinitialise the core cause it could be in an invalid state?
+		println!("Error in register_core_event_listener: {:?}", err);
 	}
 }
 
@@ -86,26 +85,29 @@ pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_voi
 				}
 			};
 
-			resolve.resolve(
-				CString::new(
-					serde_json::to_vec(
-						&request
-							.handle(
-								node.get_request_context(),
-								&router,
-								&CLIENT_CONTEXT,
-								EVENT_SENDER.get(),
-							)
-							.await,
-					)
-					.unwrap(),
-				)
-				.unwrap(),
+			let mut channel = EVENT_SENDER.get().unwrap().clone();
+			let mut resp = Sender::ResponseAndChannel(None, &mut channel);
+			handle_json_rpc(
+				node.get_request_context(),
+				request,
+				&router,
+				&mut resp,
+				&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
 			)
+			.await;
+
+			match resp {
+				Sender::ResponseAndChannel(Some(resp), _) => {
+					resolve.resolve(CString::new(serde_json::to_vec(&resp).unwrap()).unwrap());
+				}
+				_ => unreachable!(),
+			}
 		});
 	});
+
 	if let Err(err) = result {
-		error!("Spacedrive core panicked!");
-		// TODO: Do something useful
+		// TODO: Send rspc error or something here so we can show this in the UI.
+		// TODO: Maybe reinitialise the core cause it could be in an invalid state?
+		println!("Error in sd_core_msg: {:?}", err);
 	}
 }

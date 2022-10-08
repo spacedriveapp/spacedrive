@@ -1,7 +1,7 @@
 use crate::volume::get_volumes;
 
-use super::{Router, RouterBuilder};
+use super::RouterBuilder;
 
 pub(crate) fn mount() -> RouterBuilder {
-	<Router>::new().query("list", |_, _: ()| Ok(get_volumes()?))
+	RouterBuilder::new().query("list", |t| t(|_, _: ()| Ok(get_volumes()?)))
 }

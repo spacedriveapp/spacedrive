@@ -2,12 +2,12 @@ import { Button } from '@sd/ui';
 import React from 'react';
 import { PageContextBuiltIn } from 'vite-plugin-ssr';
 
-import '@sd/ui/style';
-
 import { Footer } from './components/Footer';
 import NavBar from './components/NavBar';
 import { PageContextProvider } from './renderer/usePageContext';
 import './style.scss';
+
+import '@sd/ui/style';
 
 export default function App({
 	children,

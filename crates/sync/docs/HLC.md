@@ -1,5 +1,3 @@
-
-
 ```rust
 pub fn update_with_timestamp(&self, timestamp: &Timestamp) -> Result<(), String> {
     let mut now = (self.clock)();
@@ -31,49 +29,45 @@ pub fn update_with_timestamp(&self, timestamp: &Timestamp) -> Result<(), String>
 ```
 
 ```javascript
-Timestamp.recv = function(msg) {
-  if (!clock) {
-    return null;
-  }
+Timestamp.recv = function (msg) {
+	if (!clock) {
+		return null;
+	}
 
-  var now = Date.now();
+	var now = Date.now();
 
-  var msg_time = msg.millis();
-  var msg_time = msg.counter();
+	var msg_time = msg.millis();
+	var msg_time = msg.counter();
 
-  if (msg_time - now > config.maxDrift) {
-    throw new Timestamp.ClockDriftError();
-  }
+	if (msg_time - now > config.maxDrift) {
+		throw new Timestamp.ClockDriftError();
+	}
 
-  var last_time = clock.timestamp.millis();
-  var last_time = clock.timestamp.counter();
+	var last_time = clock.timestamp.millis();
+	var last_time = clock.timestamp.counter();
 
-  var max_time = Math.max(Math.max(last_time, now), msg_time);
+	var max_time = Math.max(Math.max(last_time, now), msg_time);
 
-  var last_time =
-    max_time === last_time && lNew === msg_time
-      ? Math.max(last_time, msg_time) + 1
-      : max_time === last_time
-      ? last_time + 1
-      : max_time === msg_time
-      ? msg_time + 1
-      : 0;
+	var last_time =
+		max_time === last_time && lNew === msg_time
+			? Math.max(last_time, msg_time) + 1
+			: max_time === last_time
+			? last_time + 1
+			: max_time === msg_time
+			? msg_time + 1
+			: 0;
 
-  // 3.
-  if (max_time - phys > config.maxDrift) {
-    throw new Timestamp.ClockDriftError();
-  }
-  if (last_time > MAX_COUNTER) {
-    throw new Timestamp.OverflowError();
-  }
+	// 3.
+	if (max_time - phys > config.maxDrift) {
+		throw new Timestamp.ClockDriftError();
+	}
+	if (last_time > MAX_COUNTER) {
+		throw new Timestamp.OverflowError();
+	}
 
-  clock.timestamp.setMillis(max_time);
-  clock.timestamp.setCounter(last_time);
+	clock.timestamp.setMillis(max_time);
+	clock.timestamp.setCounter(last_time);
 
-  return new Timestamp(
-    clock.timestamp.millis(),
-    clock.timestamp.counter(),
-    clock.timestamp.node()
-  );
+	return new Timestamp(clock.timestamp.millis(), clock.timestamp.counter(), clock.timestamp.node());
 };
 ```

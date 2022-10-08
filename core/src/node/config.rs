@@ -40,6 +40,12 @@ pub struct NodeConfig {
 	pub name: String,
 	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
 	pub p2p_port: Option<u32>,
+	// /// The P2P identity public key
+	// pub p2p_cert: Vec<u8>,
+	// /// The P2P identity private key
+	// pub p2p_key: Vec<u8>,
+	// /// The address of the Spacetunnel discovery service being used.
+	// pub spacetunnel_addr: Option<String>,
 }
 
 #[derive(Error, Debug)]

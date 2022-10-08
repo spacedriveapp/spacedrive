@@ -1,6 +1,5 @@
 pub mod cas;
 pub mod identifier_job;
-pub mod kind;
 pub mod preview;
 
 // Objects are primarily created by the identifier from Paths

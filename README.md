@@ -109,4 +109,3 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 - `ios`: A [Swift](https://developer.apple.com/swift/) Native binary (planned).
 - `windows`: A [C#](https://docs.microsoft.com/en-us/dotnet/csharp/) Native binary (planned).
 - `android`: A [Kotlin](https://kotlinlang.org/) Native binary (planned).
-

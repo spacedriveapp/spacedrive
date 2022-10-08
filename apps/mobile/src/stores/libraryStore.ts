@@ -27,6 +27,10 @@ export const libraryStore = proxyWithPersist({
 	getStorage: () => StorageEngine
 });
 
+export function getLibraryIdRaw(): string | null {
+	return libraryStore.currentLibraryUuid;
+}
+
 // this must be used at least once in the app to correct the initial state
 // is memorized and can be used safely in any component
 export const useCurrentLibrary = () => {
