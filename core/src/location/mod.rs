@@ -113,7 +113,7 @@ impl LocationCreateArgs {
 			.ok_or(LocationError::IdNotFound(location.id))?;
 
 		// write a file called .spacedrive to path containing the location id in JSON format
-		let mut dotfile = File::create(self.path.with_file_name(DOTFILE_NAME))
+		let mut dotfile = File::create(self.path.join(DOTFILE_NAME))
 			.await
 			.map_err(|e| LocationError::DotfileWriteFailure(e, self.path.clone()))?;
 

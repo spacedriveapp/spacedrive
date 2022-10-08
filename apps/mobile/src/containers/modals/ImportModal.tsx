@@ -3,6 +3,7 @@ import * as MediaLibrary from 'expo-media-library';
 import React, { forwardRef, useCallback } from 'react';
 import { Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
+import RFS from 'react-native-fs';
 import { Modal } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import { useLibraryMutation } from '~/hooks/rspc';
@@ -21,6 +22,11 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 			const response = await DocumentPicker.pickDirectory({
 				presentationStyle: 'pageSheet'
 			});
+			RFS.readdir(response.uri.replace('file://', '').replaceAll('%20', ' ')).then((files) => {
+				files.forEach((file) => {
+					console.log(file);
+				});
+			});
 			createLocation({
 				path: response.uri.replace('file://', '').replaceAll('%20', ' '), //TODO: Parse path better...
 				indexer_rules_ids: []
@@ -34,19 +40,30 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 	// console.log(status);
 
 	const handlePhotosButton = useCallback(async () => {
-		const permission = await MediaLibrary.getPermissionsAsync();
+		const permission = await MediaLibrary.requestPermissionsAsync();
 		console.log(permission);
 
 		const assets = await MediaLibrary.getAssetsAsync({ mediaType: MediaLibrary.MediaType.photo });
 		assets.assets.map(async (i) => {
-			console.log(await MediaLibrary.getAssetInfoAsync(i));
+			console.log((await MediaLibrary.getAssetInfoAsync(i)).localUri);
 		});
 		// console.log(await MediaLibrary.getAssetInfoAsync({id: }))
+	}, []);
+
+	const testFN = useCallback(async () => {
+		RFS.readdir('/var/mobile/Media/DCIM/').then((files) => {
+			files.forEach((file) => {
+				console.log(file);
+			});
+		});
 	}, []);
 
 	return (
 		<Modal ref={ref} snapPoints={['20%']}>
 			<View style={tw`flex-1 px-6 pt-1 pb-2 bg-gray-600`}>
+				<Button size="md" variant="primary" style={tw`my-2`} onPress={testFN}>
+					<Text>TEST</Text>
+				</Button>
 				<Button size="md" variant="primary" style={tw`my-2`} onPress={handleFilesButton}>
 					<Text>Import from Files</Text>
 				</Button>

@@ -16,7 +16,7 @@ const CreateLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'CreateL
 				Onboarding screen for users to create their first library
 			</Text>
 			<CreateLibraryDialog onSubmit={() => hideOnboarding()} disableBackdropClose>
-				<AnimatedButton variant="primary">
+				<AnimatedButton disabled variant="primary">
 					<Text style={tw`text-white text-center px-6 py-2 text-base font-medium`}>
 						Create Library
 					</Text>
