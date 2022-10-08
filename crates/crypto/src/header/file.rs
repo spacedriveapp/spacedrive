@@ -17,7 +17,7 @@ pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 
 // Everything contained within this header can be flaunted around with minimal security risk
 // The only way this could compromise any data is if a weak password/key was used
-// Even then, `argon2id` helps alleiviate this somewhat (brute-forcing it is incredibly tough)
+// Even then, `argon2id` helps alleviate this somewhat (brute-forcing it is incredibly tough)
 // We also use high memory parameters in order to hinder attacks with ASICs
 // There should be no more than two keyslots in this header type
 pub struct FileHeader {
