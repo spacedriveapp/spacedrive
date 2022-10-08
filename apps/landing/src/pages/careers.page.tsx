@@ -184,7 +184,7 @@ function Page() {
 					<hr className="w-full my-24 border-gray-200 opacity-10 border-1" />
 					<h2 className="px-2 mb-0 text-3xl font-black text-center text-white">How to apply?</h2>
 					<p className="mt-2">
-						Send your cover letter and resume to <strong>careers at spacedrive dot com</strong> and
+						Send your cover letter and resume to <strong>careers@spacedrive.com</strong> and
 						we'll get back to you shortly!
 					</p>
 				</div>
