@@ -7,5 +7,62 @@ fn main() {
 		link_swift_package("sd-desktop-macos", "./native/macos/");
 	}
 
+	#[cfg(target_os = "windows")]
+	{
+		use std::{env, ffi::OsStr, fs};
+
+		let vcpkg_root = env::var("VCPKG_ROOT").unwrap();
+		let ffmpeg_root = format!("{}/packages/ffmpeg_x64-windows/bin", vcpkg_root);
+
+		for path in fs::read_dir(ffmpeg_root).unwrap() {
+			let path = path.unwrap().path().to_owned();
+
+			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
+				let copy_result = fs::copy(
+					path.clone(),
+					format!("./lib/{:?}", path.file_name().and_then(OsStr::to_str)),
+				);
+
+				assert!(
+					copy_result.is_ok(),
+					"Could not copy required DLL: \"{}\"\n{:#?}",
+					path.file_name().and_then(OsStr::to_str).unwrap(),
+					copy_result.err()
+				)
+			} else {
+				break;
+			}
+		}
+	}
+
+	// #[cfg(target_os = "windows")]
+	// {
+	// 	use std::{env, ffi::OsStr, fs, io, path::PathBuf};
+
+	// 	let destination_dir = "./lib";
+
+	// 	let vcpkg_root = env::var("VCPKG_ROOT").unwrap().as_str();
+
+	// 	if !vcpkg_root.is_empty() {
+	// 		let ffmpeg_root = format!("{}", vcpkg_root);
+
+	// 		for path in fs::read_dir(ffmpeg_root).unwrap() {
+	// 			let path = match path {
+	// 				Err(e) => {
+	// 					panic!("Error: {}", e);
+	// 				}
+	// 				Ok(p) => p,
+	// 			}
+	// 			.path();
+
+	// 			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
+	// 				fs::copy(path, "./lib");
+	// 			}
+	// 		}
+	// 	} else {
+	// 		panic!("VCPKG_ROOT is not set! Please set a VCPKG_ROOT.")
+	// 	}
+	// }
+
 	tauri_build::build();
 }
