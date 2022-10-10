@@ -60,6 +60,10 @@ where
 	pub const fn expose(&self) -> &T {
 		&self.data
 	}
+
+	pub fn zeroize(mut self) {
+		self.data.zeroize();
+	}
 }
 
 impl<T> Drop for Protected<T>
