@@ -57,12 +57,7 @@ struct NodeState {
 
 pub(crate) fn mount() -> Arc<Router> {
 	let r = <Router>::new()
-		.config(
-			Config::new()
-				// TODO: This messes with Tauri's hot reload so we can't use it until their is a solution upstream. https://github.com/tauri-apps/tauri/issues/4617
-				// .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts")),
-				.set_ts_bindings_header("/* eslint-disable */"),
-		)
+		.config(Config::new().set_ts_bindings_header("/* eslint-disable */"))
 		.query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
 		.query("getNode", |t| {
 			t(|ctx, _: ()| async move {
@@ -104,7 +99,10 @@ pub(crate) fn mount() -> Arc<Router> {
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
+
+	#[cfg(not(feature = "mobile"))]
 	export_ts_bindings(&r);
+
 	r
 }
 
