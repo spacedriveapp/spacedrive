@@ -64,26 +64,6 @@ impl PreviewMedia {
 		}
 	}
 
-	/// This returns the full length of this header item, including the encrypted preview media itself
-	#[must_use]
-	pub const fn get_length(&self) -> usize {
-		117 + self.media_length
-	}
-
-	fn serialize_media_length(&self) -> Vec<u8> {
-		// length_bytes needs to be 21 digits, with zeroes prepending it
-		// I'm unsure as to whether or not this is the best way to go about it
-		// We add a lot of additional data (13 bytes), but we skip differences between little and big endian platforms
-		// We also avoid x64 and x86 differences (4 byte usize vs 8 byte usize)
-		// This function will likely not be final
-		let mut length_bytes: Vec<u8> = Vec::new();
-		length_bytes.extend_from_slice(self.media_length.to_string().as_bytes());
-		for _ in 0..(21 - self.media_length.to_string().len()) {
-			length_bytes.insert(0, 0x30);
-		}
-		length_bytes
-	}
-
 	/// This function is used to serialize a preview media header item into bytes
 	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {
@@ -100,7 +80,7 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.master_key_nonce.len()]); // 96
 				preview_media.extend_from_slice(&self.media_nonce); // 108 or 120
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 120
-				preview_media.extend_from_slice(&self.serialize_media_length()); // 141 total bytes
+				preview_media.extend_from_slice(&self.media_length.to_le_bytes()); // 128 total bytes
 				preview_media.extend_from_slice(&self.media); // this can vary in length
 				preview_media
 			}
@@ -180,13 +160,10 @@ impl PreviewMedia {
 					.read(&mut vec![0u8; 24 - media_nonce.len()])
 					.map_err(Error::Io)?;
 
-				let mut media_length = vec![0u8; 21];
+				let mut media_length = [0u8; 8];
 				reader.read(&mut media_length).map_err(Error::Io)?;
 
-				let media_length: usize = String::from_utf8(media_length)
-					.map_err(|_| Error::MediaLengthParse)?
-					.parse::<usize>()
-					.map_err(|_| Error::MediaLengthParse)?;
+				let media_length: usize = usize::from_le_bytes(media_length);
 
 				let mut media = vec![0u8; media_length];
 				reader.read(&mut media).map_err(Error::Io)?;
