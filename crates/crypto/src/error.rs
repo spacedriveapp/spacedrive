@@ -27,4 +27,6 @@ pub enum Error {
 	NoKeyslots,
 	#[error("mismatched data length while converting vec to array")]
 	VecArrSizeMismatch,
+	#[error("error while parsing preview media length")]
+	MediaLengthParse,
 }

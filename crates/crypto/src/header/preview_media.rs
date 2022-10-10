@@ -65,7 +65,7 @@ impl PreviewMedia {
 		let mut length_bytes: Vec<u8> = Vec::new();
 		length_bytes.extend_from_slice(self.media_length.to_string().as_bytes());
 		for _ in 0..(21 - self.media_length.to_string().len()) {
-			length_bytes.insert(0, 0);
+			length_bytes.insert(0, 0x30);
 		}
 		length_bytes
 	}
@@ -84,8 +84,8 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&self.master_key); // 72
 				preview_media.extend_from_slice(&self.master_key_nonce); // 84 or 96
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.master_key_nonce.len()]); // 96
-                preview_media.extend_from_slice(&self.master_key_nonce); // 108 or 120
-				preview_media.extend_from_slice(&vec![0u8; 24 - self.master_key_nonce.len()]); // 120
+                preview_media.extend_from_slice(&self.media_nonce); // 108 or 120
+				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 120
 				preview_media.extend_from_slice(&self.serialize_media_length()); // 141 total bytes
 				preview_media.extend_from_slice(&self.preview_media); // this can vary in length
 				preview_media
@@ -140,9 +140,9 @@ impl PreviewMedia {
 				reader.read(&mut media_length).map_err(Error::Io)?;
 
 				let media_length: usize = String::from_utf8(media_length)
-					.unwrap()
+					.map_err(|_| Error::MediaLengthParse)?
 					.parse::<usize>()
-					.unwrap();
+					.map_err(|_| Error::MediaLengthParse)?;
 
 				let mut preview_media = vec![0u8; media_length];
 				reader.read(&mut preview_media).map_err(Error::Io)?;

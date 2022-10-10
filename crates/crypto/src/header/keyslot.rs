@@ -97,7 +97,7 @@ impl Keyslot {
 				reader.read(&mut nonce).map_err(Error::Io)?;
 
 				reader
-					.read(&mut vec![0u8; 26 - nonce.len()])
+					.read(&mut vec![0u8; 24 - nonce.len()])
 					.map_err(Error::Io)?;
 
 				let keyslot = Self {

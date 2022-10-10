@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, Write, SeekFrom};
 
 use zeroize::Zeroize;
 
@@ -31,8 +31,17 @@ pub struct FileHeader {
 }
 
 /// This defines the main file header version
+#[derive(Clone, Copy)]
 pub enum FileHeaderVersion {
 	V1,
+}
+
+// This includes the magic bytes at the start of the file
+#[must_use]
+pub const fn aad_length(version: FileHeaderVersion) -> usize {
+	match version {
+		FileHeaderVersion::V1 => 30 + MAGIC_BYTES.len(),
+	}
 }
 
 impl FileHeader {
@@ -152,14 +161,6 @@ impl FileHeader {
 		}
 	}
 
-	// This includes the magic bytes at the start of the file
-	#[must_use]
-	pub const fn aad_length(&self) -> usize {
-		match self.version {
-			FileHeaderVersion::V1 => 30 + MAGIC_BYTES.len(),
-		}
-	}
-
 	// The AAD retrieval here could be optimised - we do rewind a couple of times
 	/// This deserializes a header directly from a reader, and leaves the reader at the start of the encrypted data
 	/// It returns both the header, and the AAD that should be used for decryption
@@ -178,6 +179,14 @@ impl FileHeader {
 
 		reader.read(&mut version).map_err(Error::Io)?;
 		let version = FileHeaderVersion::deserialize(version)?;
+
+		// Rewind so we can get the AAD
+		reader.rewind().map_err(Error::Io)?;
+
+		let mut aad = vec![0u8; aad_length(version)];
+		reader.read(&mut aad).map_err(Error::Io)?;
+
+		reader.seek(SeekFrom::Start(MAGIC_BYTES.len() as u64 + 2)).map_err(Error::Io)?;
 
 		let header = match version {
 			FileHeaderVersion::V1 => {
@@ -202,6 +211,12 @@ impl FileHeader {
 				for _ in 0..2 {
 					if let Ok(keyslot) = Keyslot::deserialize(reader) {
 						keyslots.push(keyslot);
+					} else {
+						// We use this so we can seek to the end of the keyslot
+						// Probably not the best solution as this may not always error on the version identifier
+						// But it's probably best to fail if it's not something we created anyway
+						// Will require some more thought
+						let _ = reader.seek(SeekFrom::Current(94)).map_err(Error::Io)?;
 					}
 				}
 
@@ -218,21 +233,6 @@ impl FileHeader {
 				}
 			}
 		};
-
-		// TODO(brxken128): get the AAD at the start, as we're not going to be in full control of the length all the time
-		// We could either get AAD at the start, or try to sum our length totals and just move the cursor to the correct position
-
-		// Rewind so we can get the AAD
-		reader.rewind().map_err(Error::Io)?;
-
-		let mut aad = vec![0u8; header.aad_length()];
-		reader.read(&mut aad).map_err(Error::Io)?;
-
-		// We return the cursor position to the end of the header,
-		// So that the encrypted data can be read directly afterwards
-		reader
-			.seek(std::io::SeekFrom::Start(header.length() as u64))
-			.map_err(Error::Io)?;
 
 		Ok((header, aad))
 	}
