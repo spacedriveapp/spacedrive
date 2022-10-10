@@ -1,18 +1,21 @@
-use std::io::{Seek, Read};
+use std::io::{Read, Seek};
 
-use crate::{primitives::{Algorithm, HashingAlgorithm, Mode, SALT_LEN, ENCRYPTED_MASTER_KEY_LEN}, error::Error};
+use crate::{
+	error::Error,
+	primitives::{Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
+};
 
 #[derive(Clone)]
 pub struct PreviewMedia {
-    pub version: PreviewMediaVersion,
+	pub version: PreviewMediaVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
 	pub mode: Mode,
 	pub salt: [u8; SALT_LEN],
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
 	pub nonce: Vec<u8>,
-    pub media_length: usize,
-    pub preview_media: Vec<u8>,
+	pub media_length: usize,
+	pub preview_media: Vec<u8>,
 }
 
 #[derive(Clone, Copy)]
@@ -29,7 +32,7 @@ impl PreviewMedia {
 		salt: [u8; SALT_LEN],
 		encrypted_master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
 		nonce: Vec<u8>,
-        preview_media: Vec<u8>,
+		preview_media: Vec<u8>,
 	) -> Self {
 		Self {
 			version,
@@ -39,29 +42,30 @@ impl PreviewMedia {
 			salt,
 			master_key: encrypted_master_key,
 			nonce,
-            media_length: preview_media.len(),
-            preview_media,
+			media_length: preview_media.len(),
+			preview_media,
 		}
 	}
 
-    /// This returns the full length of this header item, including the encrypted preview media itself
-    pub fn get_length(&self) -> usize {
-        117 + self.media_length
-    }
+	/// This returns the full length of this header item, including the encrypted preview media itself
+    #[must_use]
+	pub const fn get_length(&self) -> usize {
+		117 + self.media_length
+	}
 
-    fn serialize_media_length(&self) -> Vec<u8> {
-        // length_bytes needs to be 21 digits, with zeroes prepending it
-        // I'm unsure as to whether or not this is the best way to go about it
-        // We add a lot of additional data (13 bytes), but we skip differences between little and big endian platforms
-        // We also avoid x64 and x86 differences (4 byte usize vs 8 byte usize)
-        // This function will likely not be final
-        let mut length_bytes: Vec<u8> = Vec::new();
-        length_bytes.extend_from_slice(self.media_length.to_string().as_bytes());
-        for _ in 0..(21 - self.media_length.to_string().len()) {
-            length_bytes.insert(0, 0);
-        }
-        length_bytes
-    }
+	fn serialize_media_length(&self) -> Vec<u8> {
+		// length_bytes needs to be 21 digits, with zeroes prepending it
+		// I'm unsure as to whether or not this is the best way to go about it
+		// We add a lot of additional data (13 bytes), but we skip differences between little and big endian platforms
+		// We also avoid x64 and x86 differences (4 byte usize vs 8 byte usize)
+		// This function will likely not be final
+		let mut length_bytes: Vec<u8> = Vec::new();
+		length_bytes.extend_from_slice(self.media_length.to_string().as_bytes());
+		for _ in 0..(21 - self.media_length.to_string().len()) {
+			length_bytes.insert(0, 0);
+		}
+		length_bytes
+	}
 
 	/// This function is used to serialize a preview media header item into bytes
 	#[must_use]
@@ -77,8 +81,8 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&self.master_key); // 72
 				preview_media.extend_from_slice(&self.nonce); // 82 OR 94
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // 96
-                preview_media.extend_from_slice(&self.serialize_media_length()); // 117 total bytes
-                preview_media.extend_from_slice(&self.preview_media); // this can vary in length
+				preview_media.extend_from_slice(&self.serialize_media_length()); // 117 total bytes
+				preview_media.extend_from_slice(&self.preview_media); // this can vary in length
 				preview_media
 			}
 		}
@@ -119,14 +123,17 @@ impl PreviewMedia {
 				reader
 					.read(&mut vec![0u8; 26 - nonce.len()])
 					.map_err(Error::Io)?;
-                
-                let mut media_length = vec![0u8; 21];
-                reader.read(&mut media_length).map_err(Error::Io)?;
 
-                let media_length: usize = String::from_utf8(media_length).unwrap().parse::<usize>().unwrap();
+				let mut media_length = vec![0u8; 21];
+				reader.read(&mut media_length).map_err(Error::Io)?;
 
-                let mut preview_media = vec![0u8; media_length];
-                reader.read(&mut preview_media).map_err(Error::Io)?;
+				let media_length: usize = String::from_utf8(media_length)
+					.unwrap()
+					.parse::<usize>()
+					.unwrap();
+
+				let mut preview_media = vec![0u8; media_length];
+				reader.read(&mut preview_media).map_err(Error::Io)?;
 
 				let preview_media = Self {
 					version,
@@ -136,8 +143,8 @@ impl PreviewMedia {
 					salt,
 					master_key,
 					nonce,
-                    preview_media,
                     media_length,
+					preview_media,
 				};
 
 				Ok(preview_media)

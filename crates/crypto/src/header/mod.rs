@@ -3,6 +3,6 @@
 
 pub mod file;
 pub mod keyslot;
-pub mod serialization;
 pub mod metadata;
 pub mod preview_media;
+pub mod serialization;

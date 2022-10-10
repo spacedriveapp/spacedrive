@@ -43,7 +43,7 @@ impl FileHeader {
 		nonce: Vec<u8>,
 		keyslots: Vec<Keyslot>,
 		metadata: Option<Metadata>,
-		preview_media: Option<PreviewMedia>
+		preview_media: Option<PreviewMedia>,
 	) -> Self {
 		Self {
 			version,
@@ -136,7 +136,7 @@ impl FileHeader {
 				// TODO(brxken128): metadata serialization
 
 				if let Some(preview_media) = self.preview_media.clone() {
-					header.extend_from_slice(&preview_media.serialize())
+					header.extend_from_slice(&preview_media.serialize());
 				}
 
 				header
