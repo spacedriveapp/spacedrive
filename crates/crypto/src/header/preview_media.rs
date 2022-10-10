@@ -166,7 +166,7 @@ impl PreviewMedia {
 				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
 				reader.read(&mut master_key).map_err(Error::Io)?;
 
-				let mut master_key_nonce = vec![0u8; algorithm.nonce_len(Mode::Memory)]; // hardcode memory mode here as master keys should always be this
+				let mut master_key_nonce = vec![0u8; algorithm.nonce_len(Mode::Memory)];
 				reader.read(&mut master_key_nonce).map_err(Error::Io)?;
 
 				reader

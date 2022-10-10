@@ -28,6 +28,7 @@ pub enum Algorithm {
 }
 
 /// These are the different "modes" for encryption
+/// 
 /// Stream works in "blocks", incrementing the nonce on each block (so the same nonce isn't used twice)
 ///
 /// Memory loads all data into memory before encryption, and encrypts it in one pass
@@ -35,6 +36,8 @@ pub enum Algorithm {
 /// Stream mode is going to be the default for files, containers, etc. as  memory usage is roughly equal to the `BLOCK_SIZE`
 ///
 /// Memory mode is only going to be used for small amounts of data (such as a master key) - streaming modes aren't viable here
+/// 
+/// `Mode` should only be used in reference to actual data, such as preview media or file data. Master keys should **always** use memory mode.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Mode {
 	Stream,

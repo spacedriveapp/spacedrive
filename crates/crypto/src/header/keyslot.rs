@@ -7,14 +7,11 @@ use crate::{
 
 /// A keyslot. 96 bytes, and contains all the information for future-proofing while keeping the size reasonable
 ///
-/// The mode was added so others can see that master keys are encrypted differently from data
-///
 /// The algorithm (should) be inherited from the parent header, but that's not a guarantee
 pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub mode: Mode,
 	pub salt: [u8; SALT_LEN],
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is encrypted so we can store it
 	pub nonce: Vec<u8>,
@@ -39,7 +36,6 @@ impl Keyslot {
 			version,
 			algorithm,
 			hashing_algorithm,
-			mode: Mode::Memory,
 			salt,
 			master_key: encrypted_master_key,
 			nonce,
@@ -54,11 +50,10 @@ impl Keyslot {
 				keyslot.extend_from_slice(&self.version.serialize()); // 2
 				keyslot.extend_from_slice(&self.algorithm.serialize()); // 4
 				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
-				keyslot.extend_from_slice(&self.mode.serialize()); // 8
-				keyslot.extend_from_slice(&self.salt); // 24
-				keyslot.extend_from_slice(&self.master_key); // 72
-				keyslot.extend_from_slice(&self.nonce); // 84 or 96
-				keyslot.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // 96 total bytes
+				keyslot.extend_from_slice(&self.salt); // 22
+				keyslot.extend_from_slice(&self.master_key); // 70
+				keyslot.extend_from_slice(&self.nonce); // 82 or 94
+				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 96 total bytes
 				keyslot
 			}
 		}
@@ -83,28 +78,23 @@ impl Keyslot {
 				reader.read(&mut hashing_algorithm).map_err(Error::Io)?;
 				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
 
-				let mut mode = [0u8; 2];
-				reader.read(&mut mode).map_err(Error::Io)?;
-				let mode = Mode::deserialize(mode)?;
-
 				let mut salt = [0u8; SALT_LEN];
 				reader.read(&mut salt).map_err(Error::Io)?;
 
 				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
 				reader.read(&mut master_key).map_err(Error::Io)?;
 
-				let mut nonce = vec![0u8; algorithm.nonce_len(mode)];
+				let mut nonce = vec![0u8; algorithm.nonce_len(Mode::Memory)];
 				reader.read(&mut nonce).map_err(Error::Io)?;
 
 				reader
-					.read(&mut vec![0u8; 24 - nonce.len()])
+					.read(&mut vec![0u8; 26 - nonce.len()])
 					.map_err(Error::Io)?;
 
 				let keyslot = Self {
 					version,
 					algorithm,
 					hashing_algorithm,
-					mode,
 					salt,
 					master_key,
 					nonce,
