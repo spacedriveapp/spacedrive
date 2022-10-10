@@ -118,7 +118,8 @@ impl PreviewMedia {
 	{
 		let mut version = [0u8; 2];
 		reader.read(&mut version).map_err(Error::Io)?;
-		let version = PreviewMediaVersion::deserialize(version).map_err(|_| Error::NoPreviewMedia)?;
+		let version =
+			PreviewMediaVersion::deserialize(version).map_err(|_| Error::NoPreviewMedia)?;
 
 		match version {
 			PreviewMediaVersion::V1 => {
