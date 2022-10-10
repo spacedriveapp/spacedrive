@@ -5,7 +5,7 @@
 use crate::{
 	error::Error,
 	keys::hashing::Params,
-	primitives::{Algorithm, HashingAlgorithm, Mode},
+	primitives::{Algorithm, HashingAlgorithm},
 };
 
 use super::{file::FileHeaderVersion, keyslot::KeyslotVersion, preview_media::PreviewMediaVersion};
@@ -93,24 +93,6 @@ impl Algorithm {
 		match bytes {
 			[0x0B, 0x01] => Ok(Self::XChaCha20Poly1305),
 			[0x0B, 0x02] => Ok(Self::Aes256Gcm),
-			_ => Err(Error::FileHeader),
-		}
-	}
-}
-
-impl Mode {
-	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
-		match self {
-			Self::Stream => [0x0C, 0x01],
-			Self::Memory => [0x0C, 0x02],
-		}
-	}
-
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
-		match bytes {
-			[0x0C, 0x01] => Ok(Self::Stream),
-			[0x0C, 0x02] => Ok(Self::Memory),
 			_ => Err(Error::FileHeader),
 		}
 	}
