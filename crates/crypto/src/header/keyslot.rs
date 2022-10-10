@@ -57,7 +57,7 @@ impl Keyslot {
 				keyslot.extend_from_slice(&self.mode.serialize()); // 8
 				keyslot.extend_from_slice(&self.salt); // 24
 				keyslot.extend_from_slice(&self.master_key); // 72
-				keyslot.extend_from_slice(&self.nonce); // 82 OR 94
+				keyslot.extend_from_slice(&self.nonce); // 84 or 96
 				keyslot.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // 96 total bytes
 				keyslot
 			}

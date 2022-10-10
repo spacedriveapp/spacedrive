@@ -13,7 +13,8 @@ pub struct PreviewMedia {
 	pub mode: Mode,
 	pub salt: [u8; SALT_LEN],
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
-	pub nonce: Vec<u8>,
+	pub master_key_nonce: Vec<u8>,
+    pub media_nonce: Vec<u8>,
 	pub media_length: usize,
 	pub preview_media: Vec<u8>,
 }
@@ -31,7 +32,8 @@ impl PreviewMedia {
 		hashing_algorithm: HashingAlgorithm,
 		salt: [u8; SALT_LEN],
 		encrypted_master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
-		nonce: Vec<u8>,
+		master_key_nonce: Vec<u8>,
+        media_nonce: Vec<u8>,
 		preview_media: Vec<u8>,
 	) -> Self {
 		Self {
@@ -41,7 +43,8 @@ impl PreviewMedia {
 			mode: Mode::Memory,
 			salt,
 			master_key: encrypted_master_key,
-			nonce,
+			master_key_nonce,
+            media_nonce,
 			media_length: preview_media.len(),
 			preview_media,
 		}
@@ -79,9 +82,11 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&self.mode.serialize()); // 8
 				preview_media.extend_from_slice(&self.salt); // 24
 				preview_media.extend_from_slice(&self.master_key); // 72
-				preview_media.extend_from_slice(&self.nonce); // 82 OR 94
-				preview_media.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // 96
-				preview_media.extend_from_slice(&self.serialize_media_length()); // 117 total bytes
+				preview_media.extend_from_slice(&self.master_key_nonce); // 84 or 96
+				preview_media.extend_from_slice(&vec![0u8; 24 - self.master_key_nonce.len()]); // 96
+                preview_media.extend_from_slice(&self.master_key_nonce); // 108 or 120
+				preview_media.extend_from_slice(&vec![0u8; 24 - self.master_key_nonce.len()]); // 120
+				preview_media.extend_from_slice(&self.serialize_media_length()); // 141 total bytes
 				preview_media.extend_from_slice(&self.preview_media); // this can vary in length
 				preview_media
 			}
@@ -117,12 +122,19 @@ impl PreviewMedia {
 				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
 				reader.read(&mut master_key).map_err(Error::Io)?;
 
-				let mut nonce = vec![0u8; algorithm.nonce_len(mode)];
-				reader.read(&mut nonce).map_err(Error::Io)?;
+				let mut master_key_nonce = vec![0u8; algorithm.nonce_len(mode)];
+				reader.read(&mut master_key_nonce).map_err(Error::Io)?;
 
 				reader
-					.read(&mut vec![0u8; 26 - nonce.len()])
+					.read(&mut vec![0u8; 24 - master_key_nonce.len()])
 					.map_err(Error::Io)?;
+
+                let mut media_nonce = vec![0u8; algorithm.nonce_len(mode)];
+                reader.read(&mut media_nonce).map_err(Error::Io)?;
+
+                reader
+                    .read(&mut vec![0u8; 24 - media_nonce.len()])
+                    .map_err(Error::Io)?;
 
 				let mut media_length = vec![0u8; 21];
 				reader.read(&mut media_length).map_err(Error::Io)?;
@@ -142,7 +154,8 @@ impl PreviewMedia {
 					mode,
 					salt,
 					master_key,
-					nonce,
+					master_key_nonce,
+                    media_nonce,
                     media_length,
 					preview_media,
 				};

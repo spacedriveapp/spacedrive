@@ -12,7 +12,7 @@ use crate::{
 use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};
 
 /// These are used to quickly and easily identify Spacedrive-encrypted files
-/// Random values - can be changed (up until 0.1.0)
+/// These currently are set as "ballapp"
 pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 
 // Everything contained within this header can be flaunted around with minimal security risk
