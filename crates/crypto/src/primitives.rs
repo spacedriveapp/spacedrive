@@ -27,23 +27,6 @@ pub enum Algorithm {
 	Aes256Gcm,
 }
 
-/// These are the different "modes" for encryption
-/// 
-/// Stream works in "blocks", incrementing the nonce on each block (so the same nonce isn't used twice)
-///
-/// Memory loads all data into memory before encryption, and encrypts it in one pass
-///
-/// Stream mode is going to be the default for files, containers, etc. as  memory usage is roughly equal to the `BLOCK_SIZE`
-///
-/// Memory mode is only going to be used for small amounts of data (such as a master key) - streaming modes aren't viable here
-/// 
-/// `Mode` should only be used in reference to actual data, such as preview media or file data. Master keys should **always** use memory mode.
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub enum Mode {
-	Stream,
-	Memory,
-}
-
 #[derive(Clone, Copy)]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
@@ -68,15 +51,10 @@ impl Algorithm {
 	// This function calculates the expected nonce length for a given algorithm
 	// 4 bytes are deducted for streaming mode, due to the LE31 counter being the last 4 bytes of the nonce
 	#[must_use]
-	pub const fn nonce_len(&self, mode: Mode) -> usize {
-		let base = match self {
-			Self::XChaCha20Poly1305 => 24,
-			Self::Aes256Gcm => 12,
-		};
-
-		match mode {
-			Mode::Stream => base - 4,
-			Mode::Memory => base,
+	pub const fn nonce_len(&self) -> usize {
+		match self {
+			Self::XChaCha20Poly1305 => 20,
+			Self::Aes256Gcm => 8,
 		}
 	}
 }
