@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, Write, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 
 use zeroize::Zeroize;
 
@@ -186,7 +186,9 @@ impl FileHeader {
 		let mut aad = vec![0u8; aad_length(version)];
 		reader.read(&mut aad).map_err(Error::Io)?;
 
-		reader.seek(SeekFrom::Start(MAGIC_BYTES.len() as u64 + 2)).map_err(Error::Io)?;
+		reader
+			.seek(SeekFrom::Start(MAGIC_BYTES.len() as u64 + 2))
+			.map_err(Error::Io)?;
 
 		let header = match version {
 			FileHeaderVersion::V1 => {

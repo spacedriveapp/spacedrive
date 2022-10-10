@@ -14,7 +14,7 @@ pub struct PreviewMedia {
 	pub salt: [u8; SALT_LEN],
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
 	pub master_key_nonce: Vec<u8>,
-    pub media_nonce: Vec<u8>,
+	pub media_nonce: Vec<u8>,
 	pub media_length: usize,
 	pub preview_media: Vec<u8>,
 }
@@ -25,6 +25,7 @@ pub enum PreviewMediaVersion {
 }
 
 impl PreviewMedia {
+    #[allow(clippy::too_many_arguments)]
 	#[must_use]
 	pub fn new(
 		version: PreviewMediaVersion,
@@ -33,7 +34,7 @@ impl PreviewMedia {
 		salt: [u8; SALT_LEN],
 		encrypted_master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
 		master_key_nonce: Vec<u8>,
-        media_nonce: Vec<u8>,
+		media_nonce: Vec<u8>,
 		preview_media: Vec<u8>,
 	) -> Self {
 		Self {
@@ -44,14 +45,14 @@ impl PreviewMedia {
 			salt,
 			master_key: encrypted_master_key,
 			master_key_nonce,
-            media_nonce,
+			media_nonce,
 			media_length: preview_media.len(),
 			preview_media,
 		}
 	}
 
 	/// This returns the full length of this header item, including the encrypted preview media itself
-    #[must_use]
+	#[must_use]
 	pub const fn get_length(&self) -> usize {
 		117 + self.media_length
 	}
@@ -84,7 +85,7 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&self.master_key); // 72
 				preview_media.extend_from_slice(&self.master_key_nonce); // 84 or 96
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.master_key_nonce.len()]); // 96
-                preview_media.extend_from_slice(&self.media_nonce); // 108 or 120
+				preview_media.extend_from_slice(&self.media_nonce); // 108 or 120
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 120
 				preview_media.extend_from_slice(&self.serialize_media_length()); // 141 total bytes
 				preview_media.extend_from_slice(&self.preview_media); // this can vary in length
@@ -129,12 +130,12 @@ impl PreviewMedia {
 					.read(&mut vec![0u8; 24 - master_key_nonce.len()])
 					.map_err(Error::Io)?;
 
-                let mut media_nonce = vec![0u8; algorithm.nonce_len(mode)];
-                reader.read(&mut media_nonce).map_err(Error::Io)?;
+				let mut media_nonce = vec![0u8; algorithm.nonce_len(mode)];
+				reader.read(&mut media_nonce).map_err(Error::Io)?;
 
-                reader
-                    .read(&mut vec![0u8; 24 - media_nonce.len()])
-                    .map_err(Error::Io)?;
+				reader
+					.read(&mut vec![0u8; 24 - media_nonce.len()])
+					.map_err(Error::Io)?;
 
 				let mut media_length = vec![0u8; 21];
 				reader.read(&mut media_length).map_err(Error::Io)?;
@@ -155,8 +156,8 @@ impl PreviewMedia {
 					salt,
 					master_key,
 					master_key_nonce,
-                    media_nonce,
-                    media_length,
+					media_nonce,
+					media_length,
 					preview_media,
 				};
 
