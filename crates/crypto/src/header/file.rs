@@ -9,7 +9,7 @@ use crate::{
 	protected::Protected,
 };
 
-use super::keyslot::Keyslot;
+use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};
 
 /// These are used to quickly and easily identify Spacedrive-encrypted files
 /// Random values - can be changed (up until 0.1.0)
@@ -26,6 +26,8 @@ pub struct FileHeader {
 	pub mode: Mode,
 	pub nonce: Vec<u8>,
 	pub keyslots: Vec<Keyslot>,
+	pub metadata: Option<Metadata>,
+	pub preview_media: Option<PreviewMedia>,
 }
 
 /// This defines the main file header version
@@ -40,6 +42,8 @@ impl FileHeader {
 		algorithm: Algorithm,
 		nonce: Vec<u8>,
 		keyslots: Vec<Keyslot>,
+		metadata: Option<Metadata>,
+		preview_media: Option<PreviewMedia>
 	) -> Self {
 		Self {
 			version,
@@ -47,6 +51,8 @@ impl FileHeader {
 			mode: Mode::Stream,
 			nonce,
 			keyslots,
+			metadata,
+			preview_media,
 		}
 	}
 
@@ -127,6 +133,12 @@ impl FileHeader {
 					header.extend_from_slice(&[0u8; 96]);
 				}
 
+				// TODO(brxken128): metadata serialization
+
+				if let Some(preview_media) = self.preview_media.clone() {
+					header.extend_from_slice(&preview_media.serialize())
+				}
+
 				header
 			}
 		}
@@ -193,15 +205,22 @@ impl FileHeader {
 					}
 				}
 
+				let preview_media = Some(PreviewMedia::deserialize(reader)?);
+
 				Self {
 					version,
 					algorithm,
 					mode,
 					nonce,
 					keyslots,
+					metadata: None, // set these to none temporarily
+					preview_media,
 				}
 			}
 		};
+
+		// TODO(brxken128): get the AAD at the start, as we're not going to be in full control of the length all the time
+		// We could either get AAD at the start, or try to sum our length totals and just move the cursor to the correct position
 
 		// Rewind so we can get the AAD
 		reader.rewind().map_err(Error::Io)?;

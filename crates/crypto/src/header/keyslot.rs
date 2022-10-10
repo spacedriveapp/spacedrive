@@ -64,7 +64,7 @@ impl Keyslot {
 		}
 	}
 
-	/// This function reads a keyslot from a reader, and attempts to serialize a keyslot
+	/// This function reads a keyslot from a reader
 	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
 	where
 		R: Read + Seek,

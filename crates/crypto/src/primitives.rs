@@ -41,7 +41,7 @@ pub enum Mode {
 	Memory,
 }
 
-// (Password)HashingAlgorithm
+#[derive(Clone, Copy)]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 }
