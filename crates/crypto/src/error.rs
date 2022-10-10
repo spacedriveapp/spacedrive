@@ -19,8 +19,6 @@ pub enum Error {
 	FileHeader,
 	#[error("error initialising stream encryption/decryption")]
 	StreamModeInit,
-	#[error("error initialising in-memory encryption/decryption")]
-	MemoryModeInit,
 	#[error("wrong password provided")]
 	IncorrectPassword,
 	#[error("no keyslots available")]
