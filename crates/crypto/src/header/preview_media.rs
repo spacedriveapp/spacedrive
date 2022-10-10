@@ -1,13 +1,9 @@
 use std::io::{Cursor, Read, Seek};
 
-use zeroize::Zeroize;
-
 use crate::{
 	error::Error,
-	objects::{memory::MemoryDecryption, stream::StreamDecryption},
-	primitives::{
-		Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
-	},
+	objects::stream::StreamDecryption,
+	primitives::{Algorithm, HashingAlgorithm, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
 	protected::Protected,
 };
 
@@ -23,7 +19,6 @@ pub struct PreviewMedia {
 	pub version: PreviewMediaVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub mode: Mode,
 	pub salt: [u8; SALT_LEN],
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
 	pub master_key_nonce: Vec<u8>,
@@ -54,7 +49,6 @@ impl PreviewMedia {
 			version,
 			algorithm,
 			hashing_algorithm,
-			mode: Mode::Stream,
 			salt,
 			master_key: encrypted_master_key,
 			master_key_nonce,
@@ -73,11 +67,10 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&self.version.serialize()); // 2
 				preview_media.extend_from_slice(&self.algorithm.serialize()); // 4
 				preview_media.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
-				preview_media.extend_from_slice(&self.mode.serialize()); // 8
-				preview_media.extend_from_slice(&self.salt); // 24
-				preview_media.extend_from_slice(&self.master_key); // 72
-				preview_media.extend_from_slice(&self.master_key_nonce); // 84 or 96
-				preview_media.extend_from_slice(&vec![0u8; 24 - self.master_key_nonce.len()]); // 96
+				preview_media.extend_from_slice(&self.salt); // 22
+				preview_media.extend_from_slice(&self.master_key); // 70
+				preview_media.extend_from_slice(&self.master_key_nonce); // 82 or 94
+				preview_media.extend_from_slice(&vec![0u8; 26 - self.master_key_nonce.len()]); // 96
 				preview_media.extend_from_slice(&self.media_nonce); // 108 or 120
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 120
 				preview_media.extend_from_slice(&self.media_length.to_le_bytes()); // 128 total bytes
@@ -87,17 +80,18 @@ impl PreviewMedia {
 		}
 	}
 
-    // This function assumes preview media will be encrypted in streaming mode
+	// This function assumes preview media will be encrypted in streaming mode
 	pub fn decrypt_preview_media(&self, hashed_key: Protected<[u8; 32]>) -> Result<Vec<u8>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
-		let decryptor =
-			MemoryDecryption::new(hashed_key, self.algorithm).map_err(|_| Error::MemoryModeInit)?;
-		let master_key = if let Ok(mut decrypted_master_key) =
-			decryptor.decrypt(self.master_key.as_ref(), &self.master_key_nonce)
-		{
+		let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+			hashed_key,
+			&self.master_key_nonce,
+			self.algorithm,
+			&self.master_key,
+			&[],
+		) {
 			master_key.copy_from_slice(&decrypted_master_key);
-			decrypted_master_key.zeroize();
 			Ok(Protected::new(master_key))
 		} else {
 			Err(Error::IncorrectPassword)
@@ -124,7 +118,7 @@ impl PreviewMedia {
 	{
 		let mut version = [0u8; 2];
 		reader.read(&mut version).map_err(Error::Io)?;
-		let version = PreviewMediaVersion::deserialize(version)?;
+		let version = PreviewMediaVersion::deserialize(version).map_err(|_| Error::NoPreviewMedia)?;
 
 		match version {
 			PreviewMediaVersion::V1 => {
@@ -136,24 +130,20 @@ impl PreviewMedia {
 				reader.read(&mut hashing_algorithm).map_err(Error::Io)?;
 				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
 
-				let mut mode = [0u8; 2];
-				reader.read(&mut mode).map_err(Error::Io)?;
-				let mode = Mode::deserialize(mode)?;
-
 				let mut salt = [0u8; SALT_LEN];
 				reader.read(&mut salt).map_err(Error::Io)?;
 
 				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
 				reader.read(&mut master_key).map_err(Error::Io)?;
 
-				let mut master_key_nonce = vec![0u8; algorithm.nonce_len(Mode::Memory)];
+				let mut master_key_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read(&mut master_key_nonce).map_err(Error::Io)?;
 
 				reader
-					.read(&mut vec![0u8; 24 - master_key_nonce.len()])
+					.read(&mut vec![0u8; 26 - master_key_nonce.len()])
 					.map_err(Error::Io)?;
 
-				let mut media_nonce = vec![0u8; algorithm.nonce_len(mode)];
+				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read(&mut media_nonce).map_err(Error::Io)?;
 
 				reader
@@ -172,7 +162,6 @@ impl PreviewMedia {
 					version,
 					algorithm,
 					hashing_algorithm,
-					mode,
 					salt,
 					master_key,
 					master_key_nonce,

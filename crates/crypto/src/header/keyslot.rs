@@ -2,7 +2,7 @@ use std::io::{Read, Seek};
 
 use crate::{
 	error::Error,
-	primitives::{Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
+	primitives::{Algorithm, HashingAlgorithm, ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
 };
 
 /// A keyslot. 96 bytes, and contains all the information for future-proofing while keeping the size reasonable
@@ -52,7 +52,7 @@ impl Keyslot {
 				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
 				keyslot.extend_from_slice(&self.salt); // 22
 				keyslot.extend_from_slice(&self.master_key); // 70
-				keyslot.extend_from_slice(&self.nonce); // 82 or 94
+				keyslot.extend_from_slice(&self.nonce); // 78 or 90
 				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 96 total bytes
 				keyslot
 			}
@@ -84,7 +84,7 @@ impl Keyslot {
 				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
 				reader.read(&mut master_key).map_err(Error::Io)?;
 
-				let mut nonce = vec![0u8; algorithm.nonce_len(Mode::Memory)];
+				let mut nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read(&mut nonce).map_err(Error::Io)?;
 
 				reader

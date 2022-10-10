@@ -1,11 +1,9 @@
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
-use zeroize::Zeroize;
-
 use crate::{
 	error::Error,
-	objects::memory::MemoryDecryption,
-	primitives::{Algorithm, Mode, MASTER_KEY_LEN},
+	objects::stream::StreamDecryption,
+	primitives::{Algorithm, MASTER_KEY_LEN},
 	protected::Protected,
 };
 
@@ -23,7 +21,6 @@ pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 pub struct FileHeader {
 	pub version: FileHeaderVersion,
 	pub algorithm: Algorithm,
-	pub mode: Mode,
 	pub nonce: Vec<u8>,
 	pub keyslots: Vec<Keyslot>,
 	pub metadata: Option<Metadata>,
@@ -40,7 +37,7 @@ pub enum FileHeaderVersion {
 #[must_use]
 pub const fn aad_length(version: FileHeaderVersion) -> usize {
 	match version {
-		FileHeaderVersion::V1 => 30 + MAGIC_BYTES.len(),
+		FileHeaderVersion::V1 => 36,
 	}
 }
 
@@ -57,7 +54,6 @@ impl FileHeader {
 		Self {
 			version,
 			algorithm,
-			mode: Mode::Stream,
 			nonce,
 			keyslots,
 			metadata,
@@ -81,13 +77,14 @@ impl FileHeader {
 				.hash(password.clone(), keyslot.salt)
 				.map_err(|_| Error::PasswordHash)?;
 
-			let decryptor =
-				MemoryDecryption::new(key, keyslot.algorithm).map_err(|_| Error::MemoryModeInit)?;
-			if let Ok(mut decrypted_master_key) =
-				decryptor.decrypt(keyslot.master_key.as_ref(), &keyslot.nonce)
-			{
+			if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+				key,
+				&keyslot.nonce,
+				keyslot.algorithm,
+				&keyslot.master_key,
+				&[],
+			) {
 				master_key.copy_from_slice(&decrypted_master_key);
-				decrypted_master_key.zeroize();
 			}
 		}
 
@@ -111,12 +108,11 @@ impl FileHeader {
 		match self.version {
 			FileHeaderVersion::V1 => {
 				let mut aad: Vec<u8> = Vec::new();
-				aad.extend_from_slice(&MAGIC_BYTES); // 6
-				aad.extend_from_slice(&self.version.serialize()); // 8
-				aad.extend_from_slice(&self.algorithm.serialize()); // 10
-				aad.extend_from_slice(&self.mode.serialize()); // 12
-				aad.extend_from_slice(&self.nonce); // 20 OR 32
-				aad.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // padded until 36 bytes
+				aad.extend_from_slice(&MAGIC_BYTES); // 7
+				aad.extend_from_slice(&self.version.serialize()); // 9
+				aad.extend_from_slice(&self.algorithm.serialize()); // 11
+				aad.extend_from_slice(&self.nonce); // 19 OR 31
+				aad.extend_from_slice(&vec![0u8; 25 - self.nonce.len()]); // padded until 36 bytes
 				aad
 			}
 		}
@@ -127,12 +123,11 @@ impl FileHeader {
 		match self.version {
 			FileHeaderVersion::V1 => {
 				let mut header: Vec<u8> = Vec::new();
-				header.extend_from_slice(&MAGIC_BYTES); // 6
-				header.extend_from_slice(&self.version.serialize()); // 8
-				header.extend_from_slice(&self.algorithm.serialize()); // 10
-				header.extend_from_slice(&self.mode.serialize()); // 12
-				header.extend_from_slice(&self.nonce); // 20 OR 32
-				header.extend_from_slice(&vec![0u8; 24 - self.nonce.len()]); // padded until 36 bytes
+				header.extend_from_slice(&MAGIC_BYTES); // 7
+				header.extend_from_slice(&self.version.serialize()); // 9
+				header.extend_from_slice(&self.algorithm.serialize()); // 11
+				header.extend_from_slice(&self.nonce); // 19 OR 31
+				header.extend_from_slice(&vec![0u8; 25 - self.nonce.len()]); // padded until 36 bytes
 
 				for keyslot in &self.keyslots {
 					header.extend_from_slice(&keyslot.serialize());
@@ -196,16 +191,12 @@ impl FileHeader {
 				reader.read(&mut algorithm).map_err(Error::Io)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
-				let mut mode = [0u8; 2];
-				reader.read(&mut mode).map_err(Error::Io)?;
-				let mode = Mode::deserialize(mode)?;
-
-				let mut nonce = vec![0u8; algorithm.nonce_len(mode)];
+				let mut nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read(&mut nonce).map_err(Error::Io)?;
 
 				// read and discard the padding
 				reader
-					.read(&mut vec![0u8; 24 - nonce.len()])
+					.read(&mut vec![0u8; 25 - nonce.len()])
 					.map_err(Error::Io)?;
 
 				let mut keyslot_bytes = [0u8; 192]; // length of 2x keyslots
@@ -220,12 +211,18 @@ impl FileHeader {
 					}
 				}
 
-				let preview_media = Some(PreviewMedia::deserialize(reader)?);
+				let preview_media = if let Ok(preview_media) = PreviewMedia::deserialize(reader) {
+					Some(preview_media)
+				} else {
+					// TODO(brxken128): this will need changing once we add metadata
+					// header/aad area, keyslot area
+					reader.seek(SeekFrom::Start(36 + 192)).map_err(Error::Io)?;
+					None
+				};
 
 				Self {
 					version,
 					algorithm,
-					mode,
 					nonce,
 					keyslots,
 					metadata: None, // set these to none temporarily

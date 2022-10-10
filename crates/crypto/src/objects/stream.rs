@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, Write};
+use std::io::{Cursor, Read, Seek, Write};
 
 use aead::{
 	stream::{DecryptorLE31, EncryptorLE31},
@@ -10,7 +10,7 @@ use zeroize::Zeroize;
 
 use crate::{
 	error::Error,
-	primitives::{Algorithm, Mode, BLOCK_SIZE},
+	primitives::{Algorithm, BLOCK_SIZE},
 	protected::Protected,
 };
 
@@ -31,7 +31,7 @@ impl StreamEncryption {
 		nonce: &[u8],
 		algorithm: Algorithm,
 	) -> Result<Self, Error> {
-		if nonce.len() != algorithm.nonce_len(Mode::Stream) {
+		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
 
@@ -139,6 +139,26 @@ impl StreamEncryption {
 
 		Ok(())
 	}
+
+	/// A thin wrapper to create cursors and return bytes
+	#[allow(unused_mut)]
+	pub fn encrypt_bytes(
+		key: Protected<[u8; 32]>,
+		nonce: &[u8],
+		algorithm: Algorithm,
+		bytes: &[u8],
+		aad: &[u8],
+	) -> Result<Vec<u8>, Error> {
+		let mut reader = Cursor::new(bytes);
+		let mut writer = Cursor::new(Vec::<u8>::new());
+
+		let encryptor = Self::new(key, nonce, algorithm)?;
+
+		match encryptor.encrypt_streams(&mut reader, &mut writer, aad) {
+			Ok(_) => Ok(writer.into_inner()),
+			Err(e) => Err(e),
+		}
+	}
 }
 
 impl StreamDecryption {
@@ -148,7 +168,7 @@ impl StreamDecryption {
 		nonce: &[u8],
 		algorithm: Algorithm,
 	) -> Result<Self, Error> {
-		if nonce.len() != algorithm.nonce_len(Mode::Stream) {
+		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
 
@@ -254,5 +274,25 @@ impl StreamDecryption {
 		writer.flush().map_err(Error::Io)?;
 
 		Ok(())
+	}
+
+	/// A thin wrapper to create cursors and return bytes
+	#[allow(unused_mut)]
+	pub fn decrypt_bytes(
+		key: Protected<[u8; 32]>,
+		nonce: &[u8],
+		algorithm: Algorithm,
+		bytes: &[u8],
+		aad: &[u8],
+	) -> Result<Protected<Vec<u8>>, Error> {
+		let mut reader = Cursor::new(bytes);
+		let mut writer = Cursor::new(Vec::<u8>::new());
+
+		let decryptor = Self::new(key, nonce, algorithm)?;
+
+		match decryptor.decrypt_streams(&mut reader, &mut writer, aad) {
+			Ok(_) => Ok(Protected::new(writer.into_inner())),
+			Err(e) => Err(e),
+		}
 	}
 }
