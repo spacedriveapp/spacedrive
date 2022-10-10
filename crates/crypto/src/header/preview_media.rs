@@ -107,9 +107,7 @@ impl PreviewMedia {
 		}
 	}
 
-	/// This function assumes that preview media will be encrypted in "memory mode"
-	/// I'm unsure whether or not this is the best choice, and it mostly comes down to the average size of the preview media
-	/// Can always be altered to use stream encryption/decryption
+    // This function assumes preview media will be encrypted in streaming mode
 	pub fn decrypt_preview_media(&self, hashed_key: Protected<[u8; 32]>) -> Result<Vec<u8>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
