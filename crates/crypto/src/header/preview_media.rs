@@ -1,10 +1,23 @@
-use std::io::{Read, Seek};
+use std::io::{Cursor, Read, Seek};
+
+use zeroize::Zeroize;
 
 use crate::{
 	error::Error,
-	primitives::{Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
+	objects::{memory::MemoryDecryption, stream::StreamDecryption},
+	primitives::{
+		Algorithm, HashingAlgorithm, Mode, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+	},
+	protected::Protected,
 };
 
+/// `mode` here refers to how the data within is encrypted - this should be streaming mode.
+///
+/// The master key is always encrypted with memory mode.
+///
+/// Here we have two nonces - one is for the encrypted master key, and the other is for the data itself.
+///
+/// We need the `media_length` so we're able to determine how long this header object is
 #[derive(Clone)]
 pub struct PreviewMedia {
 	pub version: PreviewMediaVersion,
@@ -16,7 +29,7 @@ pub struct PreviewMedia {
 	pub master_key_nonce: Vec<u8>,
 	pub media_nonce: Vec<u8>,
 	pub media_length: usize,
-	pub preview_media: Vec<u8>,
+	pub media: Vec<u8>,
 }
 
 #[derive(Clone, Copy)]
@@ -25,7 +38,7 @@ pub enum PreviewMediaVersion {
 }
 
 impl PreviewMedia {
-    #[allow(clippy::too_many_arguments)]
+	#[allow(clippy::too_many_arguments)]
 	#[must_use]
 	pub fn new(
 		version: PreviewMediaVersion,
@@ -35,19 +48,19 @@ impl PreviewMedia {
 		encrypted_master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
 		master_key_nonce: Vec<u8>,
 		media_nonce: Vec<u8>,
-		preview_media: Vec<u8>,
+		media: Vec<u8>,
 	) -> Self {
 		Self {
 			version,
 			algorithm,
 			hashing_algorithm,
-			mode: Mode::Memory,
+			mode: Mode::Stream,
 			salt,
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			media_nonce,
-			media_length: preview_media.len(),
-			preview_media,
+			media_length: media.len(),
+			media,
 		}
 	}
 
@@ -88,10 +101,42 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&self.media_nonce); // 108 or 120
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 120
 				preview_media.extend_from_slice(&self.serialize_media_length()); // 141 total bytes
-				preview_media.extend_from_slice(&self.preview_media); // this can vary in length
+				preview_media.extend_from_slice(&self.media); // this can vary in length
 				preview_media
 			}
 		}
+	}
+
+	/// This function assumes that preview media will be encrypted in "memory mode"
+	/// I'm unsure whether or not this is the best choice, and it mostly comes down to the average size of the preview media
+	/// Can always be altered to use stream encryption/decryption
+	pub fn decrypt_preview_media(&self, hashed_key: Protected<[u8; 32]>) -> Result<Vec<u8>, Error> {
+		let mut master_key = [0u8; MASTER_KEY_LEN];
+
+		let decryptor =
+			MemoryDecryption::new(hashed_key, self.algorithm).map_err(|_| Error::MemoryModeInit)?;
+		let master_key = if let Ok(mut decrypted_master_key) =
+			decryptor.decrypt(self.master_key.as_ref(), &self.master_key_nonce)
+		{
+			master_key.copy_from_slice(&decrypted_master_key);
+			decrypted_master_key.zeroize();
+			Ok(Protected::new(master_key))
+		} else {
+			Err(Error::IncorrectPassword)
+		}?;
+
+		let decryptor = StreamDecryption::new(master_key, &self.media_nonce, self.algorithm)
+			.map_err(|_| Error::StreamModeInit)?;
+
+		// Maybe this isn't the most efficient way to read this data - cloning may be costly depending on the size of the media
+		let mut reader = Cursor::new(self.media.clone());
+		let mut writer = Cursor::new(Vec::<u8>::new());
+
+		decryptor
+			.decrypt_streams(&mut reader, &mut writer, &[])
+			.map_err(|_| Error::Decrypt)?;
+
+		Ok(writer.into_inner())
 	}
 
 	/// This function reads a preview media header item from a reader
@@ -123,7 +168,7 @@ impl PreviewMedia {
 				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
 				reader.read(&mut master_key).map_err(Error::Io)?;
 
-				let mut master_key_nonce = vec![0u8; algorithm.nonce_len(mode)];
+				let mut master_key_nonce = vec![0u8; algorithm.nonce_len(Mode::Memory)]; // hardcode memory mode here as master keys should always be this
 				reader.read(&mut master_key_nonce).map_err(Error::Io)?;
 
 				reader
@@ -145,8 +190,8 @@ impl PreviewMedia {
 					.parse::<usize>()
 					.map_err(|_| Error::MediaLengthParse)?;
 
-				let mut preview_media = vec![0u8; media_length];
-				reader.read(&mut preview_media).map_err(Error::Io)?;
+				let mut media = vec![0u8; media_length];
+				reader.read(&mut media).map_err(Error::Io)?;
 
 				let preview_media = Self {
 					version,
@@ -158,7 +203,7 @@ impl PreviewMedia {
 					master_key_nonce,
 					media_nonce,
 					media_length,
-					preview_media,
+					media,
 				};
 
 				Ok(preview_media)

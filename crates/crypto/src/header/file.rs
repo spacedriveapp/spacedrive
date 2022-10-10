@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use zeroize::Zeroize;
 
@@ -72,7 +72,7 @@ impl FileHeader {
 	pub fn decrypt_master_key(
 		&self,
 		password: Protected<Vec<u8>>,
-	) -> Result<Protected<[u8; 32]>, Error> {
+	) -> Result<Protected<[u8; MASTER_KEY_LEN]>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
 		for keyslot in &self.keyslots {
@@ -208,17 +208,15 @@ impl FileHeader {
 					.read(&mut vec![0u8; 24 - nonce.len()])
 					.map_err(Error::Io)?;
 
+				let mut keyslot_bytes = [0u8; 192]; // length of 2x keyslots
 				let mut keyslots: Vec<Keyslot> = Vec::new();
 
+				reader.read(&mut keyslot_bytes).map_err(Error::Io)?;
+				let mut keyslot_reader = Cursor::new(keyslot_bytes);
+
 				for _ in 0..2 {
-					if let Ok(keyslot) = Keyslot::deserialize(reader) {
+					if let Ok(keyslot) = Keyslot::deserialize(&mut keyslot_reader) {
 						keyslots.push(keyslot);
-					} else {
-						// We use this so we can seek to the end of the keyslot
-						// Probably not the best solution as this may not always error on the version identifier
-						// But it's probably best to fail if it's not something we created anyway
-						// Will require some more thought
-						let _ = reader.seek(SeekFrom::Current(94)).map_err(Error::Io)?;
 					}
 				}
 

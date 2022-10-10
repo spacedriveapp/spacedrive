@@ -29,4 +29,6 @@ pub enum Error {
 	VecArrSizeMismatch,
 	#[error("error while parsing preview media length")]
 	MediaLengthParse,
+	#[error("no preview media found")]
+	NoPreviewMedia,
 }
