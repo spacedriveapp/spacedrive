@@ -1,2 +1,2 @@
-# dynamic libraries are copied into this directory and packaged with build on windows
-*.dll
+# dynamic libraries are copied into this directory and packaged with build
+*
