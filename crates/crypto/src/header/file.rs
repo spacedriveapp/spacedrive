@@ -73,14 +73,14 @@ impl FileHeader {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
 		if self.keyslots.is_empty() {
-			return Err(Error::NoKeyslots)
+			return Err(Error::NoKeyslots);
 		}
 
 		for keyslot in &self.keyslots {
 			if let Ok(decrypted_master_key) = keyslot.decrypt_master_key(&password) {
-				master_key.copy_from_slice(&decrypted_master_key)
+				master_key.copy_from_slice(&decrypted_master_key);
 			}
-		};
+		}
 
 		if master_key == [0u8; MASTER_KEY_LEN] {
 			Err(Error::IncorrectPassword)
