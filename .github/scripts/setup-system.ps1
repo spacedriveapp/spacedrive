@@ -9,7 +9,22 @@ param(
 if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
    if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
       $CommandLine = "-File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
-      Start-Process -FilePath PowerShell.exe -Verb RunAs -ArgumentList $CommandLine
+
+      try {
+         Start-Process -FilePath PowerShell.exe -Verb RunAs -ArgumentList $CommandLine
+      } catch {
+         Write-Host "@
+
+ERROR:
+
+Setup MUST be run elevated to set up the environment
+This includes installing dependencies and setting environment variables.
+
+The source code for this script is available at '.github/scripts/setup-system.ps1'.
+
+@" -ForegroundColor Red
+      }
+
       Exit
    }
 }
@@ -17,18 +32,8 @@ if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
 
-# Get current running dir
-# $currentLocation = $((Get-Location).path)
-
-function AddToPath {
-   param ($entry, $scope = [System.EnvironmentVariableTarget]::User)
-
-   $ExistingPath = [Environment]::GetEnvironmentVariable("Path", $scope)
-   [Environment]::GetEnvironmentVariable("Path", "$entry;$ExistingPath", $scope)
-}
-
-# Check to see if a command exists (eg if an app is installed)
 function CheckCommand {
+   # Checks to see if a command exists in PATH
    param ($command)
 
    # Store user's existing ErrorActionPreference so we can restore it later.
@@ -38,10 +43,12 @@ function CheckCommand {
 
    try {
       if (Get-Command $command) {
-         RETURN $true
+         return $true
+      } else {
+         return $false
       }
    } catch {
-      RETURN $false
+      return $false
    } finally {
       # Restore user's ErrorActionPreference now that we're done.
       $ErrorActionPreference = $oldPreference
@@ -52,13 +59,16 @@ function CheckCommand {
 Write-Host "Spacedrive Development Environment Setup" -ForegroundColor Magenta
 Write-Host @"
 
-To set up your machine for Spacedrive development, this script will do the following:
+To set up your machine for Spacedrive development, this script will check for and install the following:
 
-- Install required build tools (minimal; MSVC, LLVM Clang, and Windows 10 SDK)
-- Check for Cargo
-- Install pnpm (if not installed)
-- Install Node.js using pnpm
-- Download ffmpeg and reference it in configuration
+
+
+- Install required build tools (MSVC, LLVM Clang, and Windows 10 SDK) (if not found)
+- Install Cargo (if not found)
+- Install pnpm (if not found)
+- Install latest Node.js using pnpm
+- Install Strawberry Perl (if no Perl executable found)
+- Install vcpkg (if no VCPKG_ROOT found)
 
 "@ 
 
@@ -109,6 +119,8 @@ if (($hasMSVC -eq $false) -or ($hasClang -eq $false) -or ($hasWin10SDK -eq $fals
    Install-Build-Tools
 }
 
+
+
 Write-Host "Checking for Rust and Cargo..." -ForegroundColor Yellow
 
 function Install-Rustup {
@@ -125,7 +137,7 @@ Press ENTER to run
 "@
 
    Start-BitsTransfer -Source $downloadUri -Destination "$temp\rustup-init.exe"
-   Start-Process -Verb RunAs -FilePath "$temp\rustup-init.exe" -PassThru -Wait
+   Start-Process -FilePath "$temp\rustup-init.exe" -PassThru -Wait -NoNewWindow
 
    Write-Host "Installed Cargo. Please restart this setup script."
    Read-Host "Press ENTER to exit"
@@ -143,9 +155,10 @@ if ($hasCargo -eq $false) {
    Write-Host "Cargo is installed."
 }
 
+
+
 Write-Host
 Write-Host "Checking for pnpm..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 150
 
 $hasPnpm = CheckCommand pnpm
 
@@ -175,17 +188,18 @@ Press ENTER to run
    Write-Host "pnpm is installed."
 }
 
+
+
 if ($ci -eq $True) {
    # Skip Node install; CI setup takes care of installing Node for us.
    Write-Host
-   Write-Host "We're in CI, skipping Node install." -ForegroundColor Yellow
+   Write-Host "We're in CI. Skipping Node install"
 } else {
    Write-Host
-   Write-Host "Using pnpm to install the latest version of Node..." -ForegroundColor Yellow
+   Write-Host "Using pnpm to install the latest version of Node..."
    Write-Host "This will set your Node installation to the latest stable version."
-   Start-Sleep -Milliseconds 150
 
-   Start-Process -Wait -FilePath "pnpm" -ArgumentList "env","use","--global","latest" -PassThru -NoNewWindow
+   Start-Process -FilePath "pnpm" -ArgumentList "env","use","--global","latest" -Wait -PassThru -NoNewWindow
 }
 
 
@@ -195,11 +209,42 @@ $ClangPath = "$VCINSTALLDIR\Llvm\x64\bin"
 # The CI has LLVM installed already, so just set the env variables.
 if ($ci -eq $True) {
    Write-Host
-   Write-Host "Running with CI, skipping LLVM Clang install." -ForegroundColor Yellow
+   Write-Host "We're in CI. Skipping LLVM Clang install." -ForegroundColor Yellow
 
    Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=$ClangPath`n"
 } else {
    [System.Environment]::SetEnvironmentVariable("LIBCLANG_PATH", $ClangPath, [System.EnvironmentVariableTarget]::Machine)
+}
+
+# perl check
+
+Write-Host
+Write-Host "Checking for perl (required to build openssl, a Spacedrive dependency)..." -ForegroundColor Yellow
+
+$hasPerl = CheckCommand perl
+
+if ($hasPerl -eq $false) {
+   Write-Host "`perl` executable not found in PATH. Downloading and installing Strawberry Perl..."
+
+   $releasesUri = "https://strawberryperl.com/releases.json"
+   # fetch most recent Stretbarry Perl release
+   $downloadUri = ((Invoke-RestMethod -Method GET -Uri $releasesUri) | Where-Object archname -Contains 'MSWin32-x64-multi-thread' | Select-Object -First 1 ).edition.msi.url
+
+   # Download and run Strawberry Perl installer. Install MSVC, Clang, and Windows 10 SDK (requried by Cargo)
+   Start-BitsTransfer -Source $downloadUri -Destination "$temp\strawberry.msi"
+   Start-Process -FilePath "$temp\strawberry.msi" -ArgumentList "/quiet","/passive" -Wait -PassThru
+
+   Write-Host @"
+   
+Installed Strawberry Perl.
+Please REBOOT YOUR SYSTEM and then rerun this script.
+
+"@ -ForegroundColor Magenta
+   Read-Host "Press ENTER to exit"
+
+   Exit
+} else {
+   Write-Host "`perl` executable was found in PATH!" -ForegroundColor Green
 }
 
 
@@ -215,55 +260,25 @@ if ($ci -eq $True) {
    Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
    Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
 } else {
+   $vcpkgExec = "vcpkg"
    $hasVcpkg = CheckCommand vcpkg
-   $vcpkgPath = "vcpkg"
 
-   if ($hasVcpkg -eq $false) {
+   if ($hasVcpkg -ne $true) {
       $installDir = "C:\vcpkg"
 
-      $(& git clone https://github.com/Microsoft/vcpkg.git $installDir) | Out-Null
+      Start-Process -FilePath "git" -ArgumentList 'clone','https://github.com/Microsoft/vcpkg.git',"$installDir" -Wait -PassThru -NoNewWindow
 
       [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $installDir, [System.EnvironmentVariableTarget]::Machine)
-      $vcpkgPath = "$installDir\vcpkg.exe"
-      Start-Process -FilePath "$installDir\bootstrap-vcpkg.bat" -NoNewWindow -Wait -PassThru | Out-Default
+      $vcpkgExec = "$installDir\vcpkg.exe"
+      Start-Process -FilePath "$installDir\bootstrap-vcpkg.bat" -Wait -PassThru -NoNewWindow
    }
 
-   Start-Process -FilePath $vcpkgPath -Verb RunAs -ArgumentList 'integrate','install' -Wait -PassThru | Out-Null
-   Start-Process -FilePath $vcpkgPath -Verb RunAs -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru | Out-Default
+   Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -NoNewWindow
+   Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -NoNewWindow
 }
 
-
-
-Write-Host
-Write-Host "Checking for perl (required to build openssl, a Spacedrive dependency)..."
-
-$hasPerl = CheckCommand perl
-
-if ($hasPerl -eq $false) {
-   Write-Host "`perl` executable not found in PATH. Installing Strawberry Perl..."
-
-   $releasesUri = "https://strawberryperl.com/releases.json"
-   $downloadUri = ((Invoke-RestMethod -Method GET -Uri $releasesUri) | Where-Object archname -Contains 'MSWin32-x64-multi-thread' | Select-Object -First 1 ).edition.msi.url
-
-   # Download and run Strawberry Perl installer. Install MSVC, Clang, and Windows 10 SDK (requried by Cargo)
-   Start-BitsTransfer -Source $downloadUri -Destination "$temp\strawberry.msi"
-   Start-Process -FilePath "$temp\strawberry.msi" -ArgumentList "/quiet","/passive" -Wait -PassThru
-
-   Write-Host @"
-   
-Installed Strawberry Perl.
-Please REBOOT YOUR SYSTEM and then rerun this script.
-
-"@
-   Read-Host "Press ENTER to exit"
-
-   Exit
-} else {
-   Write-Host "`perl` executable was found in PATH!"
-}
-
-
+# Finished!
 
 Write-Host
 Write-Host "Your machine has been set up for Spacedrive development!"
-Read-Host "Press ENTER to finish"
+Read-Host "Press ENTER to exit"
