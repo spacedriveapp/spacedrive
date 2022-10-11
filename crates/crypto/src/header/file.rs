@@ -145,7 +145,9 @@ impl FileHeader {
 					header.extend_from_slice(&[0u8; 96]);
 				}
 
-				// TODO(brxken128): metadata serialization
+				if let Some(metadata) = self.metadata.clone() {
+					header.extend_from_slice(&metadata.serialize());
+				}
 
 				if let Some(preview_media) = self.preview_media.clone() {
 					header.extend_from_slice(&preview_media.serialize());
@@ -241,7 +243,7 @@ impl FileHeader {
 					algorithm,
 					nonce,
 					keyslots,
-					metadata: None, // set these to none temporarily
+					metadata,
 					preview_media,
 				}
 			}
