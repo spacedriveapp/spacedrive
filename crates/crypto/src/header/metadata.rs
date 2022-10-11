@@ -21,7 +21,6 @@ pub struct Metadata {
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
 	pub master_key_nonce: Vec<u8>,
 	pub metadata_nonce: Vec<u8>,
-	pub metadata_length: usize,
 	pub metadata: Vec<u8>,
 }
 
@@ -69,9 +68,15 @@ impl Metadata {
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			metadata_nonce,
-			metadata_length: encrypted_metadata.len(),
 			metadata: encrypted_metadata,
 		})
+	}
+
+	#[must_use]
+	pub fn get_length(&self) -> usize {
+		match self.version {
+			MetadataVersion::V1 => 128 + self.metadata.len()
+		}
 	}
 
 	/// This function is used to serialize a metadata item into bytes
@@ -91,7 +96,7 @@ impl Metadata {
 				metadata.extend_from_slice(&vec![0u8; 26 - self.master_key_nonce.len()]); // 96
 				metadata.extend_from_slice(&self.metadata_nonce); // 108 or 120
 				metadata.extend_from_slice(&vec![0u8; 24 - self.metadata_nonce.len()]); // 120
-				metadata.extend_from_slice(&self.metadata_length.to_le_bytes()); // 128 total bytes
+				metadata.extend_from_slice(&self.metadata.len().to_le_bytes()); // 128 total bytes
 				metadata.extend_from_slice(&self.metadata); // this can vary in length
 				metadata
 			}
@@ -184,7 +189,6 @@ impl Metadata {
 					master_key,
 					master_key_nonce,
 					metadata_nonce,
-					metadata_length,
 					metadata,
 				};
 

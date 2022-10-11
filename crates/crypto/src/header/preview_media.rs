@@ -1,4 +1,4 @@
-use std::io::{Cursor, Read, Seek};
+use std::io::{Read, Seek};
 
 use crate::{
 	error::Error,
@@ -9,13 +9,9 @@ use crate::{
 
 /// This is a preview media header item. You may add it to a header, and this will be stored with the file.
 ///
-/// The master key needs to be encrypted prior to creation, and it should have no AAD.
-///
-/// The media should also be encrypted prior to creation.
+/// The `Metadata::new()` function handles master key and metadata encryption.
 ///
 /// The salt should be generated elsewhere (e.g. a key management system).
-///
-/// Here we have two nonces - one is for the encrypted master key, and the other is for the data itself.
 #[derive(Clone)]
 pub struct PreviewMedia {
 	pub version: PreviewMediaVersion,
@@ -25,7 +21,6 @@ pub struct PreviewMedia {
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
 	pub master_key_nonce: Vec<u8>,
 	pub media_nonce: Vec<u8>,
-	pub media_length: usize,
 	pub media: Vec<u8>,
 }
 
@@ -38,7 +33,7 @@ impl PreviewMedia {
 	#[must_use]
 	/// This handles encrypting the master key and encrypting the preview media.
 	/// 
-	/// You will need to provide the user's password/key, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption of preview media.
+	/// You will need to provide the user's password/key, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
 	pub fn new(
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
@@ -73,9 +68,15 @@ impl PreviewMedia {
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			media_nonce,
-			media_length: encrypted_media.len(),
 			media: encrypted_media,
 		})
+	}
+
+	#[must_use]
+	pub fn get_length(&self) -> usize {
+		match self.version {
+			PreviewMediaVersion::V1 => 128 + self.media.len()
+		}
 	}
 
 	/// This function is used to serialize a preview media header item into bytes
@@ -95,7 +96,7 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&vec![0u8; 26 - self.master_key_nonce.len()]); // 96
 				preview_media.extend_from_slice(&self.media_nonce); // 108 or 120
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 120
-				preview_media.extend_from_slice(&self.media_length.to_le_bytes()); // 128 total bytes
+				preview_media.extend_from_slice(&self.media.len().to_le_bytes()); // 128 total bytes
 				preview_media.extend_from_slice(&self.media); // this can vary in length
 				preview_media
 			}
@@ -104,10 +105,10 @@ impl PreviewMedia {
 
 	/// This function is what you'll want to use to get the preview media for a file
 	///
-	/// All it requires is a hashed key, encrypted with the "master salt"
+	/// All it requires is a hashed key, encrypted with the preview media "master salt"
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub fn decrypt_preview_media(&self, hashed_key: Protected<[u8; 32]>) -> Result<Vec<u8>, Error> {
+	pub fn decrypt_preview_media(&self, hashed_key: Protected<[u8; 32]>) -> Result<Protected<Vec<u8>>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
 		let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
@@ -123,18 +124,9 @@ impl PreviewMedia {
 			Err(Error::IncorrectPassword)
 		}?;
 
-		let decryptor = StreamDecryption::new(master_key, &self.media_nonce, self.algorithm)
-			.map_err(|_| Error::StreamModeInit)?;
+		let media = StreamDecryption::decrypt_bytes(master_key, &self.media_nonce, self.algorithm, &self.media, &[])?;
 
-		// Maybe this isn't the most efficient way to read this data - cloning may be costly depending on the size of the media
-		let mut reader = Cursor::new(self.media.clone());
-		let mut writer = Cursor::new(Vec::<u8>::new());
-
-		decryptor
-			.decrypt_streams(&mut reader, &mut writer, &[])
-			.map_err(|_| Error::Decrypt)?;
-
-		Ok(writer.into_inner())
+		Ok(media)
 	}
 
 	/// This function reads a preview media header item from a reader
@@ -197,7 +189,6 @@ impl PreviewMedia {
 					master_key,
 					master_key_nonce,
 					media_nonce,
-					media_length,
 					media,
 				};
 
