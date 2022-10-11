@@ -29,4 +29,8 @@ pub enum Error {
 	MediaLengthParse,
 	#[error("no preview media found")]
 	NoPreviewMedia,
+	#[error("error while serializing/deserializing the metadata")]
+	MetadataDeSerialization,
+	#[error("no metadata found")]
+	NoMetadata,
 }

@@ -8,7 +8,7 @@ use crate::{
 	primitives::{Algorithm, HashingAlgorithm},
 };
 
-use super::{file::FileHeaderVersion, keyslot::KeyslotVersion, preview_media::PreviewMediaVersion};
+use super::{file::FileHeaderVersion, keyslot::KeyslotVersion, preview_media::PreviewMediaVersion, metadata::MetadataVersion};
 
 impl FileHeaderVersion {
 	#[must_use]
@@ -53,6 +53,22 @@ impl PreviewMediaVersion {
 	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
 		match bytes {
 			[0x0E, 0x01] => Ok(Self::V1),
+			_ => Err(Error::FileHeader),
+		}
+	}
+}
+
+impl MetadataVersion {
+	#[must_use]
+	pub const fn serialize(&self) -> [u8; 2] {
+		match self {
+			Self::V1 => [0x1F, 0x01],
+		}
+	}
+
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+		match bytes {
+			[0x1F, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
 		}
 	}
