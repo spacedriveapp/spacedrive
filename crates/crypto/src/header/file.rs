@@ -28,12 +28,14 @@ pub struct FileHeader {
 }
 
 /// This defines the main file header version
+///
+/// The goal is to not increment this much, but it's here in case we need to make breaking changes
 #[derive(Clone, Copy)]
 pub enum FileHeaderVersion {
 	V1,
 }
 
-// This includes the magic bytes at the start of the file
+/// This includes the magic bytes at the start of the file, and the first 36 bytes of the header (the main information that won't change)
 #[must_use]
 pub const fn aad_length(version: FileHeaderVersion) -> usize {
 	match version {
@@ -62,7 +64,7 @@ impl FileHeader {
 	}
 
 	/// This is a helper function to decrypt a master key from a set of keyslots
-	/// It's easier to call this on the header for now - but this may be changed in the future
+	///
 	/// You receive an error if the password doesn't match
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_master_key(
@@ -103,6 +105,9 @@ impl FileHeader {
 		Ok(())
 	}
 
+	/// This function should be used for generating AAD before encryption
+	///
+	/// Use the return value from `FileHeader::deserialize()` for decryption
 	#[must_use]
 	pub fn generate_aad(&self) -> Vec<u8> {
 		match self.version {
@@ -118,6 +123,9 @@ impl FileHeader {
 		}
 	}
 
+	/// This function serializes a full header.
+	///
+	/// This will include keyslots, metadata and preview media (if provided)
 	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
@@ -148,21 +156,12 @@ impl FileHeader {
 		}
 	}
 
-	// This includes the magic bytes at the start of the file
-	#[must_use]
-	pub const fn length(&self) -> usize {
-		match self.version {
-			FileHeaderVersion::V1 => 222 + MAGIC_BYTES.len(),
-		}
-	}
-
-	// The AAD retrieval here could be optimised - we do rewind a couple of times
 	/// This deserializes a header directly from a reader, and leaves the reader at the start of the encrypted data
-	/// 
+	///
 	/// On error, the cursor will not be rewound.
-	/// 
+	///
 	/// It returns both the header, and the AAD that should be used for decryption.
-	/// 
+	///
 	/// For creating AAD, use `generate_aad()`
 	pub fn deserialize<R>(reader: &mut R) -> Result<(Self, Vec<u8>), Error>
 	where

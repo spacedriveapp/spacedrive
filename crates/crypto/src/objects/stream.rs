@@ -134,7 +134,7 @@ impl StreamEncryption {
 					// -16 to account for the AEAD tag
 					return Err(Error::WriteMismatch);
 				}
-				
+
 				break;
 			}
 		}
@@ -145,7 +145,7 @@ impl StreamEncryption {
 	}
 
 	/// A thin wrapper to create cursors and return bytes
-	/// 
+	///
 	/// This should ideally only be used for small amounts of data
 	#[allow(unused_mut)]
 	pub fn encrypt_bytes(
@@ -219,7 +219,7 @@ impl StreamDecryption {
 	}
 
 	/// This function reads from a reader, and writes to a writer while decrypting on-the-fly.
-	/// 
+	///
 	/// It takes special care to `zeroize` buffers that may contain sensitive information.
 	pub fn decrypt_streams<R, W>(
 		mut self,
@@ -240,15 +240,15 @@ impl StreamDecryption {
 					msg: &read_buffer,
 				};
 
-				let mut decrypted_data = self.decrypt_next(payload).map_err(|_| {
-					read_buffer.zeroize();
-					Error::Decrypt
-				})?;
+				let mut decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
 
 				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
+				// Zeroize buffer on write error
+				let write_count = writer.write(&decrypted_data).map_err(|e| {
+					decrypted_data.zeroize();
+					Error::Io(e)
+				})?;
 
-				// zeroize before writing, so any potential errors won't result in a potential data leak
 				decrypted_data.zeroize();
 
 				if read_count - 16 != write_count {
@@ -261,15 +261,15 @@ impl StreamDecryption {
 					msg: &read_buffer[..read_count],
 				};
 
-				let mut decrypted_data = self.decrypt_last(payload).map_err(|_| {
-					read_buffer.zeroize();
-					Error::Decrypt
-				})?;
+				let mut decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
 
 				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
+				// Zeroize buffer on write error
+				let write_count = writer.write(&decrypted_data).map_err(|e| {
+					decrypted_data.zeroize();
+					Error::Io(e)
+				})?;
 
-				// zeroize before writing, so any potential errors won't result in a potential data leak
 				decrypted_data.zeroize();
 
 				if read_count - 16 != write_count {
@@ -287,6 +287,8 @@ impl StreamDecryption {
 	}
 
 	/// A thin wrapper to create cursors and return bytes
+	/// 
+	/// This should ideally only be used for small amounts of data
 	#[allow(unused_mut)]
 	pub fn decrypt_bytes(
 		key: Protected<[u8; 32]>,

@@ -8,11 +8,11 @@ use crate::{
 };
 
 /// This is a preview media header item. You may add it to a header, and this will be stored with the file.
-/// 
+///
 /// The master key needs to be encrypted prior to creation, and it should have no AAD.
-/// 
+///
 /// The media should also be encrypted prior to creation.
-/// 
+///
 /// The salt should be generated elsewhere (e.g. a key management system).
 ///
 /// Here we have two nonces - one is for the encrypted master key, and the other is for the data itself.
@@ -61,7 +61,7 @@ impl PreviewMedia {
 	}
 
 	/// This function is used to serialize a preview media header item into bytes
-	/// 
+	///
 	/// This also includes the encrypted preview media itself, so this may be large
 	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {
@@ -85,9 +85,9 @@ impl PreviewMedia {
 	}
 
 	/// This function is what you'll want to use to get the preview media for a file
-	/// 
+	///
 	/// All it requires is a hashed key, encrypted with the "master salt"
-	/// 
+	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
 	pub fn decrypt_preview_media(&self, hashed_key: Protected<[u8; 32]>) -> Result<Vec<u8>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
@@ -120,9 +120,9 @@ impl PreviewMedia {
 	}
 
 	/// This function reads a preview media header item from a reader
-	/// 
+	///
 	/// The cursor will be left at the end of the preview media item on success
-	/// 
+	///
 	/// The cursor will not be rewound on error.
 	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
 	where
