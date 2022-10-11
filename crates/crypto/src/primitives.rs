@@ -11,8 +11,9 @@ use crate::{
 pub const SALT_LEN: usize = 16;
 
 /// The size used for streaming blocks. This size seems to offer the best performance compared to alternatives.
-/// The file size gain is 16 bytes per 1MiB (due to the AEAD tag)
-pub const BLOCK_SIZE: usize = 1_048_576;
+/// This was changed from 1MiB due to blazingly fast speeds, and still pretty low file size gain.
+/// The file size gain is 16 bytes per 0.0625MiB (due to the AEAD tag)
+pub const BLOCK_SIZE: usize = 65_536;
 
 /// The length of the encrypted master key
 pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
@@ -35,7 +36,7 @@ pub enum HashingAlgorithm {
 impl HashingAlgorithm {
 	/// This function should be used to hash passwords
 	///
-	/// It handles all of the security "levels" and paramaters
+	/// It handles all of the security "levels"/paramaters
 	pub fn hash(
 		&self,
 		password: Protected<Vec<u8>>,

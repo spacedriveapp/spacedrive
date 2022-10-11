@@ -18,7 +18,7 @@ impl Params {
 		match self {
 			// We can use `.unwrap()` here as the values are hardcoded, and this shouldn't error
 			// The values are NOT final, as we need to find a good average.
-			// It's very hardware dependant but we should aim for at least 16MB of RAM usage on standard
+			// It's very hardware dependant but we should aim for at least 64MB of RAM usage on standard
 			// Provided they all take one (ish) second or longer, and less than 3/4 seconds (for paranoid), they will be fine
 			// It's not so much the parameters themselves that matter, it's the duration (and ensuring that they use enough RAM to hinder ASIC brute-force attacks)
 			Self::Standard => {
@@ -37,7 +37,6 @@ impl Params {
 	}
 }
 
-// Shouldn't be called directly - call it on the `HashingAlgorithm` struct
 /// This function should NOT be called directly!
 ///
 /// Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)

@@ -88,50 +88,54 @@ impl StreamEncryption {
 		R: Read + Seek,
 		W: Write + Seek,
 	{
-		let mut read_buffer = vec![0u8; BLOCK_SIZE];
-		let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
-		if read_count == BLOCK_SIZE {
-			let payload = Payload {
-				aad,
-				msg: &read_buffer,
-			};
+		let mut read_buffer = vec![0u8; BLOCK_SIZE].into_boxed_slice();
+		loop {
+			let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
+			if read_count == BLOCK_SIZE {
+				let payload = Payload {
+					aad,
+					msg: &read_buffer,
+				};
 
-			let encrypted_data = self.encrypt_next(payload).map_err(|_| {
+				let encrypted_data = self.encrypt_next(payload).map_err(|_| {
+					read_buffer.zeroize();
+					Error::Encrypt
+				})?;
+
+				// zeroize before writing, so any potential errors won't result in a potential data leak
 				read_buffer.zeroize();
-				Error::Encrypt
-			})?;
 
-			// zeroize before writing, so any potential errors won't result in a potential data leak
-			read_buffer.zeroize();
+				// Using `write` instead of `write_all` so we can check the amount of bytes written
+				let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
 
-			// Using `write` instead of `write_all` so we can check the amount of bytes written
-			let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
+				if read_count != write_count - 16 {
+					// -16 to account for the AEAD tag
+					return Err(Error::WriteMismatch);
+				}
+			} else {
+				// we use `..read_count` in order to only use the read data, and not zeroes also
+				let payload = Payload {
+					aad,
+					msg: &read_buffer[..read_count],
+				};
 
-			if read_count != write_count - 16 {
-				// -16 to account for the AEAD tag
-				return Err(Error::WriteMismatch);
-			}
-		} else {
-			// we use `..read_count` in order to only use the read data, and not zeroes also
-			let payload = Payload {
-				aad,
-				msg: &read_buffer[..read_count],
-			};
+				let encrypted_data = self.encrypt_last(payload).map_err(|_| {
+					read_buffer.zeroize();
+					Error::Encrypt
+				})?;
 
-			let encrypted_data = self.encrypt_last(payload).map_err(|_| {
+				// zeroize before writing, so any potential errors won't result in a potential data leak
 				read_buffer.zeroize();
-				Error::Encrypt
-			})?;
 
-			// zeroize before writing, so any potential errors won't result in a potential data leak
-			read_buffer.zeroize();
+				// Using `write` instead of `write_all` so we can check the amount of bytes written
+				let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
 
-			// Using `write` instead of `write_all` so we can check the amount of bytes written
-			let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
-
-			if read_count != write_count - 16 {
-				// -16 to account for the AEAD tag
-				return Err(Error::WriteMismatch);
+				if read_count != write_count - 16 {
+					// -16 to account for the AEAD tag
+					return Err(Error::WriteMismatch);
+				}
+				
+				break;
 			}
 		}
 
@@ -141,6 +145,8 @@ impl StreamEncryption {
 	}
 
 	/// A thin wrapper to create cursors and return bytes
+	/// 
+	/// This should ideally only be used for small amounts of data
 	#[allow(unused_mut)]
 	pub fn encrypt_bytes(
 		key: Protected<[u8; 32]>,
@@ -192,7 +198,6 @@ impl StreamDecryption {
 		Ok(decryption_object)
 	}
 
-	// This should be used for every block, except the final block
 	pub fn decrypt_next<'msg, 'aad>(
 		&mut self,
 		payload: impl Into<Payload<'msg, 'aad>>,
@@ -203,8 +208,6 @@ impl StreamDecryption {
 		}
 	}
 
-	// This should be used to decrypt the final block of data
-	// This takes ownership of `self` to prevent usage after finalization
 	pub fn decrypt_last<'msg, 'aad>(
 		self,
 		payload: impl Into<Payload<'msg, 'aad>>,
@@ -215,6 +218,9 @@ impl StreamDecryption {
 		}
 	}
 
+	/// This function reads from a reader, and writes to a writer while decrypting on-the-fly.
+	/// 
+	/// It takes special care to `zeroize` buffers that may contain sensitive information.
 	pub fn decrypt_streams<R, W>(
 		mut self,
 		mut reader: R,
@@ -225,49 +231,53 @@ impl StreamDecryption {
 		R: Read + Seek,
 		W: Write + Seek,
 	{
-		let mut read_buffer = vec![0u8; BLOCK_SIZE];
-		let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
-		if read_count == (BLOCK_SIZE + 16) {
-			let payload = Payload {
-				aad,
-				msg: &read_buffer,
-			};
+		let mut read_buffer = vec![0u8; BLOCK_SIZE + 16].into_boxed_slice();
+		loop {
+			let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
+			if read_count == (BLOCK_SIZE + 16) {
+				let payload = Payload {
+					aad,
+					msg: &read_buffer,
+				};
 
-			let mut decrypted_data = self.decrypt_next(payload).map_err(|_| {
-				read_buffer.zeroize();
-				Error::Decrypt
-			})?;
+				let mut decrypted_data = self.decrypt_next(payload).map_err(|_| {
+					read_buffer.zeroize();
+					Error::Decrypt
+				})?;
 
-			// Using `write` instead of `write_all` so we can check the amount of bytes written
-			let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
+				// Using `write` instead of `write_all` so we can check the amount of bytes written
+				let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
 
-			// zeroize before writing, so any potential errors won't result in a potential data leak
-			decrypted_data.zeroize();
+				// zeroize before writing, so any potential errors won't result in a potential data leak
+				decrypted_data.zeroize();
 
-			if read_count - 16 != write_count {
-				// -16 to account for the AEAD tag
-				return Err(Error::WriteMismatch);
-			}
-		} else {
-			let payload = Payload {
-				aad,
-				msg: &read_buffer[..read_count],
-			};
+				if read_count - 16 != write_count {
+					// -16 to account for the AEAD tag
+					return Err(Error::WriteMismatch);
+				}
+			} else {
+				let payload = Payload {
+					aad,
+					msg: &read_buffer[..read_count],
+				};
 
-			let mut decrypted_data = self.decrypt_last(payload).map_err(|_| {
-				read_buffer.zeroize();
-				Error::Decrypt
-			})?;
+				let mut decrypted_data = self.decrypt_last(payload).map_err(|_| {
+					read_buffer.zeroize();
+					Error::Decrypt
+				})?;
 
-			// Using `write` instead of `write_all` so we can check the amount of bytes written
-			let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
+				// Using `write` instead of `write_all` so we can check the amount of bytes written
+				let write_count = writer.write(&decrypted_data).map_err(Error::Io)?;
 
-			// zeroize before writing, so any potential errors won't result in a potential data leak
-			decrypted_data.zeroize();
+				// zeroize before writing, so any potential errors won't result in a potential data leak
+				decrypted_data.zeroize();
 
-			if read_count - 16 != write_count {
-				// -16 to account for the AEAD tag
-				return Err(Error::WriteMismatch);
+				if read_count - 16 != write_count {
+					// -16 to account for the AEAD tag
+					return Err(Error::WriteMismatch);
+				}
+
+				break;
 			}
 		}
 
