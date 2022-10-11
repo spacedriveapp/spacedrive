@@ -215,12 +215,24 @@ impl FileHeader {
 					}
 				}
 
+				let metadata = if let Ok(metadata) = Metadata::deserialize(reader) {
+					Some(metadata)
+				} else {
+					// header/aad area, keyslot area
+					reader.seek(SeekFrom::Start(36 + 192)).map_err(Error::Io)?;
+					None
+				};
+
 				let preview_media = if let Ok(preview_media) = PreviewMedia::deserialize(reader) {
 					Some(preview_media)
 				} else {
-					// TODO(brxken128): this will need changing once we add metadata
-					// header/aad area, keyslot area
-					reader.seek(SeekFrom::Start(36 + 192)).map_err(Error::Io)?;
+					// header/aad area, keyslot area, full metadata length
+					if metadata.is_some() {
+						reader.seek(SeekFrom::Start(36 + 192 + 128 + metadata.clone().unwrap().get_length() as u64)).map_err(Error::Io)?;
+					} else {
+						// header/aad area, keyslot area
+						reader.seek(SeekFrom::Start(36 + 192)).map_err(Error::Io)?;
+					}
 					None
 				};
 
