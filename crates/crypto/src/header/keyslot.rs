@@ -5,9 +5,11 @@ use crate::{
 	primitives::{Algorithm, HashingAlgorithm, ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
 };
 
-/// A keyslot. 96 bytes, and contains all the information for future-proofing while keeping the size reasonable
+/// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
 ///
-/// The algorithm (should) be inherited from the parent header, but that's not a guarantee
+/// The algorithm (should) be inherited from the parent header, but that's not a guarantee so we include it here too
+/// 
+/// The master key needs to be encrypted before being added to the keyslot (the master key have no AAD).
 pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
@@ -18,6 +20,8 @@ pub struct Keyslot {
 }
 
 /// This defines the keyslot version
+/// 
+/// The goal is to not increment this much, but it's here in case we need to make breaking changes
 pub enum KeyslotVersion {
 	V1,
 }
@@ -60,6 +64,10 @@ impl Keyslot {
 	}
 
 	/// This function reads a keyslot from a reader
+	/// 
+	/// It will leave the cursor at the end of the keyslot on success
+	/// 
+	/// The cursor will not be rewound on error.
 	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
 	where
 		R: Read + Seek,

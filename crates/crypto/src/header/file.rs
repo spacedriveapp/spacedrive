@@ -158,7 +158,12 @@ impl FileHeader {
 
 	// The AAD retrieval here could be optimised - we do rewind a couple of times
 	/// This deserializes a header directly from a reader, and leaves the reader at the start of the encrypted data
-	/// It returns both the header, and the AAD that should be used for decryption
+	/// 
+	/// On error, the cursor will not be rewound.
+	/// 
+	/// It returns both the header, and the AAD that should be used for decryption.
+	/// 
+	/// For creating AAD, use `generate_aad()`
 	pub fn deserialize<R>(reader: &mut R) -> Result<(Self, Vec<u8>), Error>
 	where
 		R: Read + Seek,
