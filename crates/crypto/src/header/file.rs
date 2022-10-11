@@ -2,7 +2,6 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
 	error::Error,
-	objects::stream::StreamDecryption,
 	primitives::{Algorithm, MASTER_KEY_LEN},
 	protected::Protected,
 };
@@ -65,7 +64,7 @@ impl FileHeader {
 
 	/// This is a helper function to decrypt a master key from a set of keyslots
 	///
-	/// You receive an error if the password doesn't match
+	/// You receive an error if the password doesn't match or if there are no keyslots
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_master_key(
 		&self,
@@ -73,22 +72,15 @@ impl FileHeader {
 	) -> Result<Protected<[u8; MASTER_KEY_LEN]>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
-		for keyslot in &self.keyslots {
-			let key = keyslot
-				.hashing_algorithm
-				.hash(password.clone(), keyslot.salt)
-				.map_err(|_| Error::PasswordHash)?;
-
-			if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-				key,
-				&keyslot.nonce,
-				keyslot.algorithm,
-				&keyslot.master_key,
-				&[],
-			) {
-				master_key.copy_from_slice(&decrypted_master_key);
-			}
+		if self.keyslots.is_empty() {
+			return Err(Error::NoKeyslots)
 		}
+
+		for keyslot in &self.keyslots {
+			if let Ok(decrypted_master_key) = keyslot.decrypt_master_key(&password) {
+				master_key.copy_from_slice(&decrypted_master_key)
+			}
+		};
 
 		if master_key == [0u8; MASTER_KEY_LEN] {
 			Err(Error::IncorrectPassword)

@@ -2,7 +2,7 @@ use std::io::{Read, Seek};
 
 use crate::{
 	error::Error,
-	objects::stream::StreamEncryption,
+	objects::stream::{StreamEncryption, StreamDecryption},
 	primitives::{
 		generate_nonce, generate_salt, to_array, Algorithm, HashingAlgorithm,
 		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
@@ -32,6 +32,24 @@ pub enum KeyslotVersion {
 }
 
 impl Keyslot {
+	/// This function should not be used directly, use `header.decrypt_master_key()` instead
+	/// 
+	/// This attempts to decrypt the master key for a single keyslot
+	pub fn decrypt_master_key(&self, password: &Protected<Vec<u8>>,) -> Result<Protected<Vec<u8>>, Error> {
+		let key = self
+			.hashing_algorithm
+			.hash(password.clone(), self.salt)
+			.map_err(|_| Error::PasswordHash)?;
+
+		StreamDecryption::decrypt_bytes(
+			key,
+			&self.nonce,
+			self.algorithm,
+			&self.master_key,
+			&[],
+		)
+	}
+
 	/// This handles encrypting the master key.
 	///
 	/// You will need to provide the user's password/key, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
