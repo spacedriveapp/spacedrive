@@ -287,7 +287,7 @@ impl StreamDecryption {
 	}
 
 	/// A thin wrapper to create cursors and return bytes
-	/// 
+	///
 	/// This should ideally only be used for small amounts of data
 	#[allow(unused_mut)]
 	pub fn decrypt_bytes(

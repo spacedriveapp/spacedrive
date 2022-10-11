@@ -2,7 +2,12 @@ use std::io::{Read, Seek};
 
 use crate::{
 	error::Error,
-	primitives::{Algorithm, HashingAlgorithm, ENCRYPTED_MASTER_KEY_LEN, SALT_LEN, generate_nonce, generate_salt, to_array, MASTER_KEY_LEN}, objects::stream::StreamEncryption, protected::Protected,
+	objects::stream::StreamEncryption,
+	primitives::{
+		generate_nonce, generate_salt, to_array, Algorithm, HashingAlgorithm,
+		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+	},
+	protected::Protected,
 };
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
@@ -28,9 +33,8 @@ pub enum KeyslotVersion {
 
 impl Keyslot {
 	/// This handles encrypting the master key.
-	/// 
+	///
 	/// You will need to provide the user's password/key, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
-	#[must_use]
 	pub fn new(
 		version: KeyslotVersion,
 		algorithm: Algorithm,
@@ -41,19 +45,15 @@ impl Keyslot {
 		let salt = generate_salt();
 		let nonce = generate_nonce(algorithm.nonce_len());
 
-		let hashed_password = hashing_algorithm
-        .hash(password, salt)
-        .unwrap();
+		let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 
-		let encrypted_master_key: [u8; 48] = to_array(
-			StreamEncryption::encrypt_bytes(
-				hashed_password,
-				&nonce,
-				algorithm,
-				master_key.expose(),
-				&[],
-			)?,
-		)?;
+		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+			hashed_password,
+			&nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
 
 		Ok(Self {
 			version,

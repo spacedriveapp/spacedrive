@@ -3,7 +3,10 @@ use std::io::{Read, Seek};
 use crate::{
 	error::Error,
 	objects::stream::{StreamDecryption, StreamEncryption},
-	primitives::{Algorithm, HashingAlgorithm, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN, generate_nonce, generate_master_key, to_array},
+	primitives::{
+		generate_master_key, generate_nonce, to_array, Algorithm, HashingAlgorithm,
+		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+	},
 	protected::Protected,
 };
 
@@ -30,9 +33,8 @@ pub enum PreviewMediaVersion {
 }
 
 impl PreviewMedia {
-	#[must_use]
 	/// This handles encrypting the master key and encrypting the preview media.
-	/// 
+	///
 	/// You will need to provide the user's password/key, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
 	pub fn new(
 		version: PreviewMediaVersion,
@@ -40,7 +42,7 @@ impl PreviewMedia {
 		hashing_algorithm: HashingAlgorithm,
 		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
-		media: Vec<u8>,
+		media: &[u8],
 	) -> Result<Self, Error> {
 		let media_nonce = generate_nonce(algorithm.nonce_len());
 		let master_key_nonce = generate_nonce(algorithm.nonce_len());
@@ -48,17 +50,16 @@ impl PreviewMedia {
 
 		let hashed_password = hashing_algorithm.hash(password, salt)?;
 
-		let encrypted_master_key: [u8; 48] = to_array(
-			StreamEncryption::encrypt_bytes(
-				hashed_password,
-				&master_key_nonce,
-				algorithm,
-				master_key.expose(),
-				&[],
-			)?,
-		)?;
+		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+			hashed_password,
+			&master_key_nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
 
-		let encrypted_media = StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, &media, &[])?;
+		let encrypted_media =
+			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])?;
 
 		Ok(Self {
 			version,
@@ -75,7 +76,7 @@ impl PreviewMedia {
 	#[must_use]
 	pub fn get_length(&self) -> usize {
 		match self.version {
-			PreviewMediaVersion::V1 => 128 + self.media.len()
+			PreviewMediaVersion::V1 => 128 + self.media.len(),
 		}
 	}
 
@@ -108,7 +109,10 @@ impl PreviewMedia {
 	/// All it requires is a hashed key, encrypted with the preview media "master salt"
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
-	pub fn decrypt_preview_media(&self, hashed_key: Protected<[u8; 32]>) -> Result<Protected<Vec<u8>>, Error> {
+	pub fn decrypt_preview_media(
+		&self,
+		hashed_key: Protected<[u8; 32]>,
+	) -> Result<Protected<Vec<u8>>, Error> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
 		let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
@@ -124,7 +128,13 @@ impl PreviewMedia {
 			Err(Error::IncorrectPassword)
 		}?;
 
-		let media = StreamDecryption::decrypt_bytes(master_key, &self.media_nonce, self.algorithm, &self.media, &[])?;
+		let media = StreamDecryption::decrypt_bytes(
+			master_key,
+			&self.media_nonce,
+			self.algorithm,
+			&self.media,
+			&[],
+		)?;
 
 		Ok(media)
 	}

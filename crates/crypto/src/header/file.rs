@@ -230,7 +230,11 @@ impl FileHeader {
 				} else {
 					// header/aad area, keyslot area, full metadata length
 					if metadata.is_some() {
-						reader.seek(SeekFrom::Start(36 + 192 + metadata.clone().unwrap().get_length() as u64)).map_err(Error::Io)?;
+						reader
+							.seek(SeekFrom::Start(
+								36 + 192 + metadata.clone().unwrap().get_length() as u64,
+							))
+							.map_err(Error::Io)?;
 					} else {
 						// header/aad area, keyslot area
 						reader.seek(SeekFrom::Start(36 + 192)).map_err(Error::Io)?;

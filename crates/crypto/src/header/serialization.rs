@@ -8,7 +8,10 @@ use crate::{
 	primitives::{Algorithm, HashingAlgorithm},
 };
 
-use super::{file::FileHeaderVersion, keyslot::KeyslotVersion, preview_media::PreviewMediaVersion, metadata::MetadataVersion};
+use super::{
+	file::FileHeaderVersion, keyslot::KeyslotVersion, metadata::MetadataVersion,
+	preview_media::PreviewMediaVersion,
+};
 
 impl FileHeaderVersion {
 	#[must_use]

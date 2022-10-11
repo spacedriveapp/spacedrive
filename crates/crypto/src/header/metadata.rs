@@ -3,7 +3,10 @@ use std::io::{Read, Seek};
 use crate::{
 	error::Error,
 	objects::stream::{StreamDecryption, StreamEncryption},
-	primitives::{Algorithm, HashingAlgorithm, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN, generate_nonce, generate_master_key, to_array},
+	primitives::{
+		generate_master_key, generate_nonce, to_array, Algorithm, HashingAlgorithm,
+		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+	},
 	protected::Protected,
 };
 
@@ -30,9 +33,8 @@ pub enum MetadataVersion {
 }
 
 impl Metadata {
-	#[must_use]
 	/// This handles encrypting the master key and encrypting the metadata.
-	/// 
+	///
 	/// You will need to provide the user's password/key, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
 	pub fn new<T>(
 		version: MetadataVersion,
@@ -41,24 +43,31 @@ impl Metadata {
 		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
 		media: &T,
-	) -> Result<Self, Error> where T: ?Sized + serde::Serialize {
+	) -> Result<Self, Error>
+	where
+		T: ?Sized + serde::Serialize,
+	{
 		let metadata_nonce = generate_nonce(algorithm.nonce_len());
 		let master_key_nonce = generate_nonce(algorithm.nonce_len());
 		let master_key = generate_master_key();
 
 		let hashed_password = hashing_algorithm.hash(password, salt)?;
 
-		let encrypted_master_key: [u8; 48] = to_array(
-			StreamEncryption::encrypt_bytes(
-				hashed_password,
-				&master_key_nonce,
-				algorithm,
-				master_key.expose(),
-				&[],
-			)?,
-		)?;
+		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+			hashed_password,
+			&master_key_nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
 
-		let encrypted_metadata = StreamEncryption::encrypt_bytes(master_key, &metadata_nonce, algorithm, &serde_json::to_vec(media).map_err(|_| Error::MetadataDeSerialization)?, &[])?;
+		let encrypted_metadata = StreamEncryption::encrypt_bytes(
+			master_key,
+			&metadata_nonce,
+			algorithm,
+			&serde_json::to_vec(media).map_err(|_| Error::MetadataDeSerialization)?,
+			&[],
+		)?;
 
 		Ok(Self {
 			version,
@@ -75,7 +84,7 @@ impl Metadata {
 	#[must_use]
 	pub fn get_length(&self) -> usize {
 		match self.version {
-			MetadataVersion::V1 => 128 + self.metadata.len()
+			MetadataVersion::V1 => 128 + self.metadata.len(),
 		}
 	}
 
@@ -108,7 +117,10 @@ impl Metadata {
 	/// All it requires is a hashed key, encrypted with the metadata "master salt"
 	///
 	/// A deserialized data type will be returned from this function
-	pub fn decrypt_metadata<T>(&self, hashed_key: Protected<[u8; 32]>) -> Result<T, Error> where T: serde::de::DeserializeOwned {
+	pub fn decrypt_metadata<T>(&self, hashed_key: Protected<[u8; 32]>) -> Result<T, Error>
+	where
+		T: serde::de::DeserializeOwned,
+	{
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
 		let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
@@ -124,7 +136,13 @@ impl Metadata {
 			Err(Error::IncorrectPassword)
 		}?;
 
-		let metadata = StreamDecryption::decrypt_bytes(master_key, &self.metadata_nonce, self.algorithm, &self.metadata, &[])?;
+		let metadata = StreamDecryption::decrypt_bytes(
+			master_key,
+			&self.metadata_nonce,
+			self.algorithm,
+			&self.metadata,
+			&[],
+		)?;
 
 		serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
 	}
@@ -140,8 +158,7 @@ impl Metadata {
 	{
 		let mut version = [0u8; 2];
 		reader.read(&mut version).map_err(Error::Io)?;
-		let version =
-			MetadataVersion::deserialize(version).map_err(|_| Error::NoMetadata)?;
+		let version = MetadataVersion::deserialize(version).map_err(|_| Error::NoMetadata)?;
 
 		match version {
 			MetadataVersion::V1 => {
