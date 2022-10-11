@@ -2,8 +2,8 @@ use std::io::{Cursor, Read, Seek};
 
 use crate::{
 	error::Error,
-	objects::stream::StreamDecryption,
-	primitives::{Algorithm, HashingAlgorithm, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
+	objects::stream::{StreamDecryption, StreamEncryption},
+	primitives::{Algorithm, HashingAlgorithm, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN, generate_nonce, generate_master_key, to_array},
 	protected::Protected,
 };
 
@@ -35,19 +35,37 @@ pub enum PreviewMediaVersion {
 }
 
 impl PreviewMedia {
-	#[allow(clippy::too_many_arguments)]
 	#[must_use]
+	/// This handles encrypting the master key and encrypting the preview media.
+	/// 
+	/// You will need to provide the user's password/key, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption of preview media.
 	pub fn new(
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
+		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
-		encrypted_master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
-		master_key_nonce: Vec<u8>,
-		media_nonce: Vec<u8>,
 		media: Vec<u8>,
-	) -> Self {
-		Self {
+	) -> Result<Self, Error> {
+		let media_nonce = generate_nonce(algorithm.nonce_len());
+		let master_key_nonce = generate_nonce(algorithm.nonce_len());
+		let master_key = generate_master_key();
+
+		let hashed_password = hashing_algorithm.hash(password, salt)?;
+
+		let encrypted_master_key: [u8; 48] = to_array(
+			StreamEncryption::encrypt_bytes(
+				hashed_password,
+				&master_key_nonce,
+				algorithm,
+				master_key.expose(),
+				&[],
+			)?,
+		)?;
+
+		let encrypted_media = StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, &media, &[])?;
+
+		Ok(Self {
 			version,
 			algorithm,
 			hashing_algorithm,
@@ -55,9 +73,9 @@ impl PreviewMedia {
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			media_nonce,
-			media_length: media.len(),
-			media,
-		}
+			media_length: encrypted_media.len(),
+			media: encrypted_media,
+		})
 	}
 
 	/// This function is used to serialize a preview media header item into bytes
