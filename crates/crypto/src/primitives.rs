@@ -12,10 +12,8 @@ pub const SALT_LEN: usize = 16;
 
 /// The size used for streaming blocks. This size seems to offer the best performance compared to alternatives.
 ///
-/// This was changed from 1MiB due to blazingly fast speeds, and still pretty low file size gain.
-///
-/// The file size gain is 16 bytes per 0.0625MiB (due to the AEAD tag)
-pub const BLOCK_SIZE: usize = 65_536;
+/// The file size gain is 16 bytes per 1048576 bytes (due to the AEAD tag)
+pub const BLOCK_SIZE: usize = 1_048_576;
 
 /// The length of the encrypted master key
 pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
