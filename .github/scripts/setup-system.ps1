@@ -182,7 +182,13 @@ Press ENTER to run
 
    # Set environment variables to ensure pnpm is accessible.
    $env:PNPM_HOME = [System.Environment]::GetEnvironmentVariable("PNPM_HOME", [System.EnvironmentVariableTarget]::User)
-   $env:Path = [System.Environment]::ExpandEnvironmentVariables([System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User))
+   [System.Environment]::SetEnvironmentVariable(
+      "Path",
+      [System.Environment]::ExpandEnvironmentVariables(
+         [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+      ),
+      [System.EnvironmentVariableTarget]::User
+   );
 
 } else {
    Write-Host "pnpm is installed."
