@@ -1,29 +1,29 @@
 //! This module contains the metadata header item.
-//! 
+//!
 //! This is an optional item, and anything that may be serialized with `serde` can be used here.
-//! 
+//!
 //! # Examples
-//! 
+//!
 //! ```rust,ignore
 //! #[derive(Serialize, Deserialize)]
 //! pub struct FileInformation {
-//! 	pub file_name: String,
+//!     pub file_name: String,
 //! }
-//! 
+//!
 //! let embedded_metadata = FileInformation {
-//! 	file_name: "filename.txt".to_string(),
+//!     file_name: "filename.txt".to_string(),
 //! };
-//! 
+//!
 //! // Ideally this will be generated via a key management system
 //! let md_salt = generate_salt();
-//! 
+//!
 //! let md = Metadata::new(
-//! 	MetadataVersion::V1,
-//! 	ALGORITHM,
-//! 	HASHING_ALGORITHM,
-//! 	password,
-//! 	&md_salt,
-//! 	&embedded_metadata,
+//!     MetadataVersion::V1,
+//!     ALGORITHM,
+//!     HASHING_ALGORITHM,
+//!     password,
+//!     &md_salt,
+//!     &embedded_metadata,
 //! )
 //! .unwrap();
 //! ```

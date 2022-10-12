@@ -1,33 +1,33 @@
 //! This module contains a standard file header, and the functions needed to serialize/deserialize it.
-//! 
+//!
 //! # Examples
-//! 
+//!
 //! ```rust,ignore
-//!	let password = Protected::new(b"password".to_vec());
+//! let password = Protected::new(b"password".to_vec());
 //!
-//!	let mut writer = File::create("test.encrypted").unwrap();
+//! let mut writer = File::create("test.encrypted").unwrap();
 //!
-//!	// This needs to be generated here, otherwise we won't have access to it for encryption
-//!	let master_key = generate_master_key();
+//! // This needs to be generated here, otherwise we won't have access to it for encryption
+//! let master_key = generate_master_key();
 //!
-//!	// Create a keyslot to be added to the header
-//!	let mut keyslots: Vec<Keyslot> = Vec::new();
-//!	keyslots.push(
-//!		Keyslot::new(
-//!			KeyslotVersion::V1,
-//!			ALGORITHM,
-//!			HASHING_ALGORITHM,
-//!			password,
-//!			&master_key,
-//!		)
-//!		.unwrap(),
-//!	);
+//! // Create a keyslot to be added to the header
+//! let mut keyslots: Vec<Keyslot> = Vec::new();
+//! keyslots.push(
+//!     Keyslot::new(
+//!         KeyslotVersion::V1,
+//!         ALGORITHM,
+//!         HASHING_ALGORITHM,
+//!         password,
+//!         &master_key,
+//!     )
+//!     .unwrap(),
+//! );
 //!
-//!	// Create the header for the encrypted file
-//!	let header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots, None, None);
+//! // Create the header for the encrypted file
+//! let header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots, None, None);
 //!
-//!	// Write the header to the file
-//!	header.write(&mut writer).unwrap();
+//! // Write the header to the file
+//! header.write(&mut writer).unwrap();
 //! ```
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 

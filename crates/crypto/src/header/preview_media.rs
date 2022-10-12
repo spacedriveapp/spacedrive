@@ -1,24 +1,24 @@
 //! This module contains the preview media header item.
-//! 
+//!
 //! It is an optional extension to a header, and is intended for video/image thumbnails.
-//! 
+//!
 //! # Examples
-//! 
+//!
 //! ```rust,ignore
-//!	// Ideally this will be generated via a key management system
-//!	let pvm_salt = generate_salt();
+//! // Ideally this will be generated via a key management system
+//! let pvm_salt = generate_salt();
 //!
-//!	let pvm_media = b"a nice mountain".to_vec();
+//! let pvm_media = b"a nice mountain".to_vec();
 //!
-//!	let pvm = PreviewMedia::new(
-//!		PreviewMediaVersion::V1,
-//!		ALGORITHM,
-//!		HASHING_ALGORITHM,
-//!		password,
-//!		&pvm_salt,
-//!		&pvm_media,
-//!	)
-//!	.unwrap();
+//! let pvm = PreviewMedia::new(
+//!     PreviewMediaVersion::V1,
+//!     ALGORITHM,
+//!     HASHING_ALGORITHM,
+//!     password,
+//!     &pvm_salt,
+//!     &pvm_media,
+//! )
+//! .unwrap();
 //! ```
 use std::io::{Read, Seek};
 
