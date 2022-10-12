@@ -2,7 +2,6 @@
 //!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the streaming block size.
-
 use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 

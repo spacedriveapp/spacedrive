@@ -21,7 +21,6 @@
 //!
 //! let keyslot = Keyslot::new(KeyslotVersion::V1, Algorithm::XChaCha20Poly1305, HashingAlgorithm::Argon2id(Params::Standard), user_password, &master_key).unwrap();
 //! ```
-
 use std::io::{Read, Seek};
 
 use crate::{

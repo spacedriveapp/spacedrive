@@ -1,7 +1,15 @@
 //! This module contains all password-hashing related functions.
 //!
 //! Everything contained within is used to hash a user's password into strong key material, suitable for encrypting master keys.
-
+//! 
+//! # Examples
+//! 
+//! ```rust,ignore
+//! let password = Protected::new(b"password".to_vec());
+//! let hashing_algorithm = HashingAlgorithm::Argon2id(Params::Standard);
+//! let salt = generate_salt();
+//! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
+//! ```
 use crate::Protected;
 use crate::{error::Error, primitives::SALT_LEN};
 use argon2::Argon2;

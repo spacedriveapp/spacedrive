@@ -1,5 +1,4 @@
 //! This module contains all possible errors that this crate can return.
-
 use thiserror::Error;
 
 /// This enum defines all possible errors that this crate can give

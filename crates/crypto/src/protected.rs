@@ -28,7 +28,6 @@
 //! let value = protected_data.expose();
 //! ```
 //!
-
 use std::fmt::Debug;
 use zeroize::Zeroize;
 

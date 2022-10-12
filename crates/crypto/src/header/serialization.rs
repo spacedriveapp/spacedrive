@@ -1,7 +1,6 @@
 //! This module defines all of the serialization and deserialization rules for the header items
 //!
 //! It contains `byte -> enum` and `enum -> byte` conversions for everything that could be written to a header (except headers, keyslots, and other header items)
-
 use crate::{
 	crypto::stream::Algorithm,
 	error::Error,

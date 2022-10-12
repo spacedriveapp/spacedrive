@@ -20,5 +20,9 @@ pub mod protected;
 
 // Re-export this so that payloads can be generated elsewhere
 pub use aead::Payload;
+
+// Make this easier to use (e.g. `sd_crypto::Protected`)
 pub use protected::Protected;
+
+// Re-export zeroize so it can be used elsewhere
 pub use zeroize::Zeroize;

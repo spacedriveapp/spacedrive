@@ -1,5 +1,4 @@
 //! This module contains the crate's STREAM implementation, and wrappers that allow us to support multiple AEADs.
-
 use std::io::{Cursor, Read, Seek, Write};
 
 use aead::{
