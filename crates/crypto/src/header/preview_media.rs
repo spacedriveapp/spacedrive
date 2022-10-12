@@ -2,12 +2,12 @@ use std::io::{Read, Seek};
 
 use crate::{
 	error::Error,
-	objects::stream::{StreamDecryption, StreamEncryption},
+	crypto::stream::{StreamDecryption, StreamEncryption, Algorithm},
 	primitives::{
-		generate_master_key, generate_nonce, to_array, Algorithm, HashingAlgorithm,
+		generate_master_key, generate_nonce, to_array,
 		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
 	},
-	protected::Protected,
+	protected::Protected, keys::hashing::HashingAlgorithm,
 };
 
 /// This is a preview media header item. You may add it to a header, and this will be stored with the file.

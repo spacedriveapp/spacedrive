@@ -33,4 +33,6 @@ pub enum Error {
 	MetadataDeSerialization,
 	#[error("no metadata found")]
 	NoMetadata,
+	#[error("tried adding too many keyslots to a header")]
+	TooManyKeyslots,
 }

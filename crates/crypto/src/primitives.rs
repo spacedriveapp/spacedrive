@@ -3,7 +3,6 @@ use zeroize::Zeroize;
 
 use crate::{
 	error::Error,
-	keys::hashing::{password_hash_argon2id, Params},
 	protected::Protected,
 };
 
@@ -20,46 +19,6 @@ pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
 
 /// The length of the (unencrypted) master key
 pub const MASTER_KEY_LEN: usize = 32;
-
-/// These are all possible algorithms that can be used for encryption
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub enum Algorithm {
-	XChaCha20Poly1305,
-	Aes256Gcm,
-}
-
-/// A hashing algorithm with desired parameters
-#[derive(Clone, Copy)]
-pub enum HashingAlgorithm {
-	Argon2id(Params),
-}
-
-impl HashingAlgorithm {
-	/// This function should be used to hash passwords
-	///
-	/// It also handles all the security "levels"
-	pub fn hash(
-		&self,
-		password: Protected<Vec<u8>>,
-		salt: [u8; SALT_LEN],
-	) -> Result<Protected<[u8; 32]>, Error> {
-		match self {
-			Self::Argon2id(params) => password_hash_argon2id(password, salt, *params),
-		}
-	}
-}
-
-impl Algorithm {
-	// This function calculates the expected nonce length for a given algorithm
-	// 4 bytes are deducted for streaming mode, due to the LE31 counter being the last 4 bytes of the nonce
-	#[must_use]
-	pub const fn nonce_len(&self) -> usize {
-		match self {
-			Self::XChaCha20Poly1305 => 20,
-			Self::Aes256Gcm => 8,
-		}
-	}
-}
 
 /// The length can easily be obtained via `algorithm.nonce_len()`
 ///

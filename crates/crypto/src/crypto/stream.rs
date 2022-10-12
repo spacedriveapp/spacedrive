@@ -10,9 +10,28 @@ use zeroize::Zeroize;
 
 use crate::{
 	error::Error,
-	primitives::{Algorithm, BLOCK_SIZE},
+	primitives::{BLOCK_SIZE},
 	protected::Protected,
 };
+
+/// These are all possible algorithms that can be used for encryption
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum Algorithm {
+	XChaCha20Poly1305,
+	Aes256Gcm,
+}
+
+impl Algorithm {
+	// This function calculates the expected nonce length for a given algorithm
+	// 4 bytes are deducted for streaming mode, due to the LE31 counter being the last 4 bytes of the nonce
+	#[must_use]
+	pub const fn nonce_len(&self) -> usize {
+		match self {
+			Self::XChaCha20Poly1305 => 20,
+			Self::Aes256Gcm => 8,
+		}
+	}
+}
 
 pub enum StreamEncryption {
 	XChaCha20Poly1305(Box<EncryptorLE31<XChaCha20Poly1305>>),

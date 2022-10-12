@@ -4,8 +4,7 @@
 
 use crate::{
 	error::Error,
-	keys::hashing::Params,
-	primitives::{Algorithm, HashingAlgorithm},
+	keys::hashing::{HashingAlgorithm, Params}, crypto::stream::Algorithm,
 };
 
 use super::{

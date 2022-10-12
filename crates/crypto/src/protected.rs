@@ -17,7 +17,9 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust
+//! use sd_crypto::protected::Protected;
+//!
 //! let secret_data = "this is classified information".to_string();
 //! let protected_data = Protected::new(secret_data);
 //!

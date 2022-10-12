@@ -3,13 +3,32 @@ use crate::{error::Error, primitives::SALT_LEN};
 use argon2::Argon2;
 
 // These names are not final
-// I'm considering adding an `(i32)` to each, to allow specific versioning of each parameter version
-// These will be serializable/deserializable with regards to the header/storage of this information
 #[derive(Clone, Copy)]
 pub enum Params {
 	Standard,
 	Hardened,
 	Paranoid,
+}
+
+/// A hashing algorithm with desired parameters
+#[derive(Clone, Copy)]
+pub enum HashingAlgorithm {
+	Argon2id(Params),
+}
+
+impl HashingAlgorithm {
+	/// This function should be used to hash passwords
+	///
+	/// It also handles all the security "levels"
+	pub fn hash(
+		&self,
+		password: Protected<Vec<u8>>,
+		salt: [u8; SALT_LEN],
+	) -> Result<Protected<[u8; 32]>, Error> {
+		match self {
+			Self::Argon2id(params) => password_hash_argon2id(password, salt, *params),
+		}
+	}
 }
 
 impl Params {

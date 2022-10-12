@@ -1,13 +1,37 @@
+//! This module contains the keyslot header item.
+//!
+//! At least one keyslot needs to be attached to a main header.
+//!
+//! Headers have limitations on the maximum amount of keyslots, and you should double check before usage.
+//!
+//! The `Keyslot::new()` function should always be used to create a keyslot, as it handles encrypting the master key.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use sd_crypto::header::keyslot::{Keyslot, KeyslotVersion};
+//! use sd_crypto::protected::Protected;
+//! use sd_crypto::keys::hashing::{HashingAlgorithm, Params};
+//! use sd_crypto::crypto::stream::Algorithm;
+//! use sd_crypto::primitives::generate_master_key;
+//!
+//!
+//! let user_password = Protected::new(b"password".to_vec());
+//! let master_key = generate_master_key();
+//!
+//! let keyslot = Keyslot::new(KeyslotVersion::V1, Algorithm::XChaCha20Poly1305, HashingAlgorithm::Argon2id(Params::Standard), user_password, &master_key).unwrap();
+//! ```
+
 use std::io::{Read, Seek};
 
 use crate::{
 	error::Error,
-	objects::stream::{StreamDecryption, StreamEncryption},
+	crypto::stream::{StreamDecryption, StreamEncryption, Algorithm},
 	primitives::{
-		generate_nonce, generate_salt, to_array, Algorithm, HashingAlgorithm,
+		generate_nonce, generate_salt, to_array,
 		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
 	},
-	protected::Protected,
+	protected::Protected, keys::hashing::HashingAlgorithm,
 };
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
@@ -15,6 +39,7 @@ use crate::{
 /// The algorithm (should) be inherited from the parent header, but that's not a guarantee so we include it here too
 ///
 /// The master key needs to be encrypted before being added to the keyslot (the master key have no AAD).
+#[derive(Clone)]
 pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
@@ -27,26 +52,12 @@ pub struct Keyslot {
 /// This defines the keyslot version
 ///
 /// The goal is to not increment this much, but it's here in case we need to make breaking changes
+#[derive(Clone, Copy)]
 pub enum KeyslotVersion {
 	V1,
 }
 
 impl Keyslot {
-	/// This function should not be used directly, use `header.decrypt_master_key()` instead
-	///
-	/// This attempts to decrypt the master key for a single keyslot
-	pub fn decrypt_master_key(
-		&self,
-		password: &Protected<Vec<u8>>,
-	) -> Result<Protected<Vec<u8>>, Error> {
-		let key = self
-			.hashing_algorithm
-			.hash(password.clone(), self.salt)
-			.map_err(|_| Error::PasswordHash)?;
-
-		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
-	}
-
 	/// This handles encrypting the master key.
 	///
 	/// You will need to provide the user's password/key, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
@@ -79,6 +90,22 @@ impl Keyslot {
 			nonce,
 		})
 	}
+
+	/// This function should not be used directly, use `header.decrypt_master_key()` instead
+	///
+	/// This attempts to decrypt the master key for a single keyslot
+	pub fn decrypt_master_key(
+		&self,
+		password: &Protected<Vec<u8>>,
+	) -> Result<Protected<Vec<u8>>, Error> {
+		let key = self
+			.hashing_algorithm
+			.hash(password.clone(), self.salt)
+			.map_err(|_| Error::PasswordHash)?;
+
+		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
+	}
+
 	/// This function is used to serialize a keyslot into bytes
 	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {
