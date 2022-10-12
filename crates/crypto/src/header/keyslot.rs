@@ -8,7 +8,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use sd_crypto::header::keyslot::{Keyslot, KeyslotVersion};
 //! use sd_crypto::Protected;
 //! use sd_crypto::keys::hashing::{HashingAlgorithm, Params};
