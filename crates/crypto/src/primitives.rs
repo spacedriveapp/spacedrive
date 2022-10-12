@@ -1,15 +1,20 @@
+//! This module contains constant values and functions that are used around the crate.
+//! 
+//! This includes things such as cryptographically-secure random salt/master key/nonce generation,
+//! lengths for master keys and even the streaming block size.
+
 use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 
 use crate::{
 	error::Error,
-	protected::Protected,
+	Protected, crypto::stream::Algorithm,
 };
 
-// This is the default salt size, and the recommended size for argon2id.
+/// This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
 
-/// The size used for streaming blocks. This size seems to offer the best performance compared to alternatives.
+/// The size used for streaming encryption/decryption. This size seems to offer the best performance compared to alternatives.
 ///
 /// The file size gain is 16 bytes per 1048576 bytes (due to the AEAD tag)
 pub const BLOCK_SIZE: usize = 1_048_576;
@@ -20,17 +25,21 @@ pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
 /// The length of the (unencrypted) master key
 pub const MASTER_KEY_LEN: usize = 32;
 
-/// The length can easily be obtained via `algorithm.nonce_len()`
+/// This should be used for generating nonces for encryption.
+/// 
+/// An algorithm is required so this function can calculate the length of the nonce.
 ///
-/// This function uses `ChaCha20Rng` for cryptographically-securely generating random data
+/// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
 #[must_use]
-pub fn generate_nonce(len: usize) -> Vec<u8> {
-	let mut nonce = vec![0u8; len];
+pub fn generate_nonce(algorithm: Algorithm) -> Vec<u8> {
+	let mut nonce = vec![0u8; algorithm.nonce_len()];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut nonce);
 	nonce
 }
 
-/// This function uses `ChaCha20Rng` for cryptographically-securely generating random data
+/// This should be used for generating salts for hashing.
+///
+/// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
 #[must_use]
 pub fn generate_salt() -> [u8; SALT_LEN] {
 	let mut salt = [0u8; SALT_LEN];
@@ -40,9 +49,9 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
 
 /// This generates a master key, which should be used for encrypting the data
 ///
-/// This is then stored encrypted in the header
+/// This is then stored (encrypted) within the header.
 ///
-/// This function uses `ChaCha20Rng` for cryptographically-securely generating random data
+/// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
 #[must_use]
 pub fn generate_master_key() -> Protected<[u8; MASTER_KEY_LEN]> {
 	let mut master_key = [0u8; MASTER_KEY_LEN];

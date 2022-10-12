@@ -7,7 +7,7 @@ use crate::{
 		generate_master_key, generate_nonce, to_array,
 		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
 	},
-	protected::Protected, keys::hashing::HashingAlgorithm,
+	Protected, keys::hashing::HashingAlgorithm,
 };
 
 /// This is a metadata header item. You may add it to a header, and this will be stored with the file.
@@ -33,9 +33,13 @@ pub enum MetadataVersion {
 }
 
 impl Metadata {
-	/// This handles encrypting the master key and encrypting the metadata.
+	/// This should be used for creating a header metadata item.
+	/// 
+	/// It handles encrypting the master key and metadata.
 	///
-	/// You will need to provide the user's password/key, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
+	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
+	/// 
+	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
 	pub fn new<T>(
 		version: MetadataVersion,
 		algorithm: Algorithm,
@@ -47,8 +51,8 @@ impl Metadata {
 	where
 		T: ?Sized + serde::Serialize,
 	{
-		let metadata_nonce = generate_nonce(algorithm.nonce_len());
-		let master_key_nonce = generate_nonce(algorithm.nonce_len());
+		let metadata_nonce = generate_nonce(algorithm);
+		let master_key_nonce = generate_nonce(algorithm);
 		let master_key = generate_master_key();
 
 		let hashed_password = hashing_algorithm.hash(password, salt)?;
@@ -112,9 +116,9 @@ impl Metadata {
 		}
 	}
 
-	/// This function is what you'll want to use to get the metadata for a file
+	/// This function should be used to retrieve the metadata for a file
 	///
-	/// All it requires is a hashed key, encrypted with the metadata "master salt"
+	/// All it requires is a pre-hashed key (hashed with the salt provided on creation)
 	///
 	/// A deserialized data type will be returned from this function
 	pub fn decrypt_metadata<T>(&self, hashed_key: Protected<[u8; 32]>) -> Result<T, Error>

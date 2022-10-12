@@ -7,7 +7,7 @@ use crate::{
 		generate_master_key, generate_nonce, to_array,
 		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
 	},
-	protected::Protected, keys::hashing::HashingAlgorithm,
+	Protected, keys::hashing::HashingAlgorithm,
 };
 
 /// This is a preview media header item. You may add it to a header, and this will be stored with the file.
@@ -33,9 +33,13 @@ pub enum PreviewMediaVersion {
 }
 
 impl PreviewMedia {
-	/// This handles encrypting the master key and encrypting the preview media.
+	/// This should be used for creating a header preview media item.
+	/// 
+	/// This handles encrypting the master key and preview media.
 	///
-	/// You will need to provide the user's password/key, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
+	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
+	/// 
+	/// Preview media needs to be accessed switfly, so a key management system should handle the salt generation.
 	pub fn new(
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
@@ -44,8 +48,8 @@ impl PreviewMedia {
 		salt: [u8; SALT_LEN],
 		media: &[u8],
 	) -> Result<Self, Error> {
-		let media_nonce = generate_nonce(algorithm.nonce_len());
-		let master_key_nonce = generate_nonce(algorithm.nonce_len());
+		let media_nonce = generate_nonce(algorithm);
+		let master_key_nonce = generate_nonce(algorithm);
 		let master_key = generate_master_key();
 
 		let hashed_password = hashing_algorithm.hash(password, salt)?;
@@ -82,7 +86,7 @@ impl PreviewMedia {
 
 	/// This function is used to serialize a preview media header item into bytes
 	///
-	/// This also includes the encrypted preview media itself, so this may be large
+	/// This also includes the encrypted preview media itself, so this may be sizeable
 	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
@@ -106,7 +110,7 @@ impl PreviewMedia {
 
 	/// This function is what you'll want to use to get the preview media for a file
 	///
-	/// All it requires is a hashed key, encrypted with the preview media "master salt"
+	/// All it requires is a pre-hashed key (hashed with the salt provided on creation)
 	///
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
 	pub fn decrypt_preview_media(

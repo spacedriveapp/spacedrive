@@ -10,7 +10,7 @@
 //!
 //! ```rust
 //! use sd_crypto::header::keyslot::{Keyslot, KeyslotVersion};
-//! use sd_crypto::protected::Protected;
+//! use sd_crypto::Protected;
 //! use sd_crypto::keys::hashing::{HashingAlgorithm, Params};
 //! use sd_crypto::crypto::stream::Algorithm;
 //! use sd_crypto::primitives::generate_master_key;
@@ -31,14 +31,12 @@ use crate::{
 		generate_nonce, generate_salt, to_array,
 		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
 	},
-	protected::Protected, keys::hashing::HashingAlgorithm,
+	Protected, keys::hashing::HashingAlgorithm,
 };
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
 ///
-/// The algorithm (should) be inherited from the parent header, but that's not a guarantee so we include it here too
-///
-/// The master key needs to be encrypted before being added to the keyslot (the master key have no AAD).
+/// The algorithm (should) be inherited from the parent (the header, in this case), but that's not a guarantee so we include it here too
 #[derive(Clone)]
 pub struct Keyslot {
 	pub version: KeyslotVersion,
@@ -58,9 +56,11 @@ pub enum KeyslotVersion {
 }
 
 impl Keyslot {
-	/// This handles encrypting the master key.
+	/// This should be used for creating a keyslot.
+	/// 
+	/// This handles generating the nonce/salt, and encrypting the master key.
 	///
-	/// You will need to provide the user's password/key, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
+	/// You will need to provide the password, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
 	pub fn new(
 		version: KeyslotVersion,
 		algorithm: Algorithm,
@@ -69,7 +69,7 @@ impl Keyslot {
 		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
 	) -> Result<Self, Error> {
 		let salt = generate_salt();
-		let nonce = generate_nonce(algorithm.nonce_len());
+		let nonce = generate_nonce(algorithm);
 
 		let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 
@@ -94,6 +94,8 @@ impl Keyslot {
 	/// This function should not be used directly, use `header.decrypt_master_key()` instead
 	///
 	/// This attempts to decrypt the master key for a single keyslot
+	/// 
+	/// An error will be returned on failure.
 	pub fn decrypt_master_key(
 		&self,
 		password: &Protected<Vec<u8>>,

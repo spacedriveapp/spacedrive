@@ -13,7 +13,7 @@ use zeroize::Zeroize;
 use crate::{
 	error::Error,
 	primitives::{BLOCK_SIZE},
-	protected::Protected,
+	Protected,
 };
 
 /// These are all possible algorithms that can be used for encryption and decryption

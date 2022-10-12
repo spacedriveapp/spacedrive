@@ -21,3 +21,4 @@ pub mod protected;
 // Re-export this so that payloads can be generated elsewhere
 pub use aead::Payload;
 pub use zeroize::Zeroize;
+pub use protected::Protected;

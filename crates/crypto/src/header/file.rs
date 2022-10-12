@@ -1,9 +1,10 @@
+//! This module contains a standard file header, and the functions needed to serialize/deserialize it.
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
 	error::Error,
 	primitives::{MASTER_KEY_LEN},
-	protected::Protected, crypto::stream::Algorithm,
+	Protected, crypto::stream::Algorithm,
 };
 
 use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};
@@ -12,11 +13,14 @@ use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};
 /// These currently are set as "ballapp"
 pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 
-// Everything contained within this header can be flaunted around with minimal security risk
-// The only way this could compromise any data is if a weak password/key was used
-// Even then, `argon2id` helps alleviate this somewhat (brute-forcing it is incredibly tough)
-// We also use high memory parameters in order to hinder attacks with ASICs
-// There should be no more than two keyslots in this header type
+/// This header is primarily used for encrypting/decrypting single files.
+/// 
+/// It has support for 2 keyslots (maximum).
+/// 
+/// You may optionally attach `Metadata` and `PreviewMedia` structs to this header, and they will be accessible on deserialization.
+/// 
+/// This contains everything necessary for decryption, and the entire header can be flaunted with no worries (provided a suitable password was selected by the user).
+#[derive(Clone)]
 pub struct FileHeader {
 	pub version: FileHeaderVersion,
 	pub algorithm: Algorithm,
@@ -26,15 +30,13 @@ pub struct FileHeader {
 	pub preview_media: Option<PreviewMedia>,
 }
 
-/// This defines the main file header version
-///
-/// The goal is to not increment this much, but it's here in case we need to make breaking changes
+/// This defines the main file header version.
 #[derive(Clone, Copy)]
 pub enum FileHeaderVersion {
 	V1,
 }
 
-/// This includes the magic bytes at the start of the file, and the first 36 bytes of the header (the main information that won't change)
+/// This includes the magic bytes at the start of the file, and remainder of the header itself (excluding keyslots, metadata, and preview media as these can all change)
 #[must_use]
 pub const fn aad_length(version: FileHeaderVersion) -> usize {
 	match version {
@@ -43,6 +45,7 @@ pub const fn aad_length(version: FileHeaderVersion) -> usize {
 }
 
 impl FileHeader {
+	/// This function is used for creating a file header.
 	#[must_use]
 	pub fn new(
 		version: FileHeaderVersion,
@@ -62,9 +65,9 @@ impl FileHeader {
 		}
 	}
 
-	/// This is a helper function to decrypt a master key from a set of keyslots
+	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
 	///
-	/// You receive an error if the password doesn't match or if there are no keyslots
+	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_master_key(
 		&self,
@@ -118,12 +121,16 @@ impl FileHeader {
 	/// This function serializes a full header.
 	///
 	/// This will include keyslots, metadata and preview media (if provided)
+	/// 
+	/// An error will be returned if there are no keyslots/more than two keyslots attached.
 	#[must_use]
 	pub fn serialize(&self) -> Result<Vec<u8>, Error> {
 		match self.version {
 			FileHeaderVersion::V1 => {
 				if self.keyslots.len() > 2 {
 					return Err(Error::TooManyKeyslots);
+				} else if self.keyslots.is_empty() {
+					return Err(Error::NoKeyslots);
 				}
 
 				let mut header: Vec<u8> = Vec::new();
@@ -154,13 +161,11 @@ impl FileHeader {
 		}
 	}
 
-	/// This deserializes a header directly from a reader, and leaves the reader at the start of the encrypted data
+	/// This deserializes a header directly from a reader, and leaves the reader at the start of the encrypted data.
 	///
 	/// On error, the cursor will not be rewound.
 	///
 	/// It returns both the header, and the AAD that should be used for decryption.
-	///
-	/// For creating AAD, use `generate_aad()`
 	pub fn deserialize<R>(reader: &mut R) -> Result<(Self, Vec<u8>), Error>
 	where
 		R: Read + Seek,
