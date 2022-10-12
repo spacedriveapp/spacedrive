@@ -3,7 +3,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
 	error::Error,
-	primitives::{MASTER_KEY_LEN},
+	primitives::{MASTER_KEY_LEN, generate_nonce},
 	Protected, crypto::stream::Algorithm,
 };
 
@@ -50,11 +50,12 @@ impl FileHeader {
 	pub fn new(
 		version: FileHeaderVersion,
 		algorithm: Algorithm,
-		nonce: Vec<u8>,
 		keyslots: Vec<Keyslot>,
 		metadata: Option<Metadata>,
 		preview_media: Option<PreviewMedia>,
 	) -> Self {
+		let nonce = generate_nonce(algorithm);
+
 		Self {
 			version,
 			algorithm,
