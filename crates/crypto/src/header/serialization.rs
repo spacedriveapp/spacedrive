@@ -3,8 +3,9 @@
 //! It contains `byte -> enum` and `enum -> byte` conversions for everything that could be written to a header (except headers, keyslots, and other header items)
 
 use crate::{
+	crypto::stream::Algorithm,
 	error::Error,
-	keys::hashing::{HashingAlgorithm, Params}, crypto::stream::Algorithm,
+	keys::hashing::{HashingAlgorithm, Params},
 };
 
 use super::{

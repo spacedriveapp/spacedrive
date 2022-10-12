@@ -1,5 +1,5 @@
 //! This module contains all password-hashing related functions.
-//! 
+//!
 //! Everything contained within is used to hash a user's password into strong key material, suitable for encrypting master keys.
 
 use crate::Protected;
@@ -7,7 +7,7 @@ use crate::{error::Error, primitives::SALT_LEN};
 use argon2::Argon2;
 
 /// These parameters define the password-hashing level.
-/// 
+///
 /// The harder the parameter, the longer the password will take to hash.
 #[derive(Clone, Copy)]
 pub enum Params {
@@ -39,7 +39,7 @@ impl HashingAlgorithm {
 
 impl Params {
 	/// This function is used to generate parameters for password hashing.
-	/// 
+	///
 	/// This should not be called directly. Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
 	#[must_use]
 	pub fn get_argon2_params(&self) -> argon2::Params {

@@ -1,15 +1,12 @@
 //! This module contains constant values and functions that are used around the crate.
-//! 
+//!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the streaming block size.
 
 use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 
-use crate::{
-	error::Error,
-	Protected, crypto::stream::Algorithm,
-};
+use crate::{crypto::stream::Algorithm, error::Error, Protected};
 
 /// This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
@@ -26,7 +23,7 @@ pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
 pub const MASTER_KEY_LEN: usize = 32;
 
 /// This should be used for generating nonces for encryption.
-/// 
+///
 /// An algorithm is required so this function can calculate the length of the nonce.
 ///
 /// This function uses `ChaCha20Rng` for generating cryptographically-secure random data

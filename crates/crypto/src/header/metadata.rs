@@ -1,13 +1,14 @@
 use std::io::{Read, Seek};
 
 use crate::{
+	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	error::Error,
-	crypto::stream::{StreamDecryption, StreamEncryption, Algorithm},
+	keys::hashing::HashingAlgorithm,
 	primitives::{
-		generate_master_key, generate_nonce, to_array,
-		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+		generate_master_key, generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN,
+		SALT_LEN,
 	},
-	Protected, keys::hashing::HashingAlgorithm,
+	Protected,
 };
 
 /// This is a metadata header item. You may add it to a header, and this will be stored with the file.
@@ -34,11 +35,11 @@ pub enum MetadataVersion {
 
 impl Metadata {
 	/// This should be used for creating a header metadata item.
-	/// 
+	///
 	/// It handles encrypting the master key and metadata.
 	///
 	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
-	/// 
+	///
 	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
 	pub fn new<T>(
 		version: MetadataVersion,

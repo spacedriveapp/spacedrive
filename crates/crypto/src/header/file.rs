@@ -2,9 +2,10 @@
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
+	crypto::stream::Algorithm,
 	error::Error,
-	primitives::{MASTER_KEY_LEN, generate_nonce},
-	Protected, crypto::stream::Algorithm,
+	primitives::{generate_nonce, MASTER_KEY_LEN},
+	Protected,
 };
 
 use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};
@@ -14,11 +15,11 @@ use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};
 pub const MAGIC_BYTES: [u8; 7] = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70];
 
 /// This header is primarily used for encrypting/decrypting single files.
-/// 
+///
 /// It has support for 2 keyslots (maximum).
-/// 
+///
 /// You may optionally attach `Metadata` and `PreviewMedia` structs to this header, and they will be accessible on deserialization.
-/// 
+///
 /// This contains everything necessary for decryption, and the entire header can be flaunted with no worries (provided a suitable password was selected by the user).
 #[derive(Clone)]
 pub struct FileHeader {
@@ -122,9 +123,8 @@ impl FileHeader {
 	/// This function serializes a full header.
 	///
 	/// This will include keyslots, metadata and preview media (if provided)
-	/// 
+	///
 	/// An error will be returned if there are no keyslots/more than two keyslots attached.
-	#[must_use]
 	pub fn serialize(&self) -> Result<Vec<u8>, Error> {
 		match self.version {
 			FileHeaderVersion::V1 => {
@@ -262,8 +262,9 @@ impl FileHeader {
 #[cfg(test)]
 mod test {
 	use crate::{
+		crypto::stream::Algorithm,
 		header::keyslot::{Keyslot, KeyslotVersion},
-		keys::hashing::{Params, HashingAlgorithm}, crypto::stream::Algorithm,
+		keys::hashing::{HashingAlgorithm, Params},
 	};
 	use std::io::Cursor;
 

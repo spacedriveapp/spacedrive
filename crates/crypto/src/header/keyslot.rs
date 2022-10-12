@@ -25,13 +25,13 @@
 use std::io::{Read, Seek};
 
 use crate::{
+	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	error::Error,
-	crypto::stream::{StreamDecryption, StreamEncryption, Algorithm},
+	keys::hashing::HashingAlgorithm,
 	primitives::{
-		generate_nonce, generate_salt, to_array,
-		ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+		generate_nonce, generate_salt, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
 	},
-	Protected, keys::hashing::HashingAlgorithm,
+	Protected,
 };
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
@@ -57,7 +57,7 @@ pub enum KeyslotVersion {
 
 impl Keyslot {
 	/// This should be used for creating a keyslot.
-	/// 
+	///
 	/// This handles generating the nonce/salt, and encrypting the master key.
 	///
 	/// You will need to provide the password, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
@@ -94,7 +94,7 @@ impl Keyslot {
 	/// This function should not be used directly, use `header.decrypt_master_key()` instead
 	///
 	/// This attempts to decrypt the master key for a single keyslot
-	/// 
+	///
 	/// An error will be returned on failure.
 	pub fn decrypt_master_key(
 		&self,

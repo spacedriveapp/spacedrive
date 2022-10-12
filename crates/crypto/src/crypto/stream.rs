@@ -10,11 +10,7 @@ use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use zeroize::Zeroize;
 
-use crate::{
-	error::Error,
-	primitives::{BLOCK_SIZE},
-	Protected,
-};
+use crate::{error::Error, primitives::BLOCK_SIZE, Protected};
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -46,7 +42,7 @@ pub enum StreamDecryption {
 
 impl StreamEncryption {
 	/// This should be used to initialize a stream encryption object.
-	/// 
+	///
 	/// The master key, a suitable nonce, and a specific algorithm should be provided.
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn new(
@@ -99,13 +95,13 @@ impl StreamEncryption {
 	}
 
 	/// This function should be used for encrypting large amounts of data.
-	/// 
+	///
 	/// The streaming implementation reads blocks of data in `BLOCK_SIZE`, encrypts, and writes to the writer.
-	/// 
+	///
 	/// Measures are in place to zeroize any buffers that may contain sensitive information.
-	/// 
+	///
 	/// It requires a reader, a writer, and any AAD to go with it.
-	/// 
+	///
 	/// The AAD will be authenticated with each block of data.
 	pub fn encrypt_streams<R, W>(
 		mut self,
@@ -174,7 +170,7 @@ impl StreamEncryption {
 	}
 
 	/// This should ideally only be used for small amounts of data
-	/// 
+	///
 	/// It is just a thin wrapper around `encrypt_streams()`, but reduces the amount of code needed elsewhere.
 	#[allow(unused_mut)]
 	pub fn encrypt_bytes(
@@ -198,7 +194,7 @@ impl StreamEncryption {
 
 impl StreamDecryption {
 	/// This should be used to initialize a stream decryption object.
-	/// 
+	///
 	/// The master key, nonce and algorithm that were used for encryption should be provided.
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn new(
@@ -251,13 +247,13 @@ impl StreamDecryption {
 	}
 
 	/// This function should be used for decrypting large amounts of data.
-	/// 
+	///
 	/// The streaming implementation reads blocks of data in `BLOCK_SIZE`, decrypts, and writes to the writer.
-	/// 
+	///
 	/// Measures are in place to zeroize any buffers that may contain sensitive information.
-	/// 
+	///
 	/// It requires a reader, a writer, and any AAD that was used.
-	/// 
+	///
 	/// The AAD will be authenticated with each block of data - if the AAD doesn't match what was used during encryption, an error will be returned.
 	pub fn decrypt_streams<R, W>(
 		mut self,
@@ -325,7 +321,7 @@ impl StreamDecryption {
 	}
 
 	/// This should ideally only be used for small amounts of data
-	/// 
+	///
 	/// It is just a thin wrapper around `decrypt_streams()`, but reduces the amount of code needed elsewhere.
 	#[allow(unused_mut)]
 	pub fn decrypt_bytes(
