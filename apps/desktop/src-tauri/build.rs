@@ -18,6 +18,8 @@ fn main() {
 		for path in fs::read_dir(ffmpeg_root).unwrap() {
 			let path = path.unwrap().path().to_owned();
 
+			println!(path);
+
 			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
 				let copy_result = fs::copy(
 					path.clone(),
