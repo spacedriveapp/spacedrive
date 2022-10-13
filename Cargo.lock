@@ -1462,7 +1462,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tokio",
- "uuid 1.2.0",
+ "uuid 1.2.1",
 ]
 
 [[package]]
@@ -2251,7 +2251,7 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 [[package]]
 name = "httpz"
 version = "0.0.3"
-source = "git+https://github.com/oscartbeaumont/httpz.git#d3a36ba9b9d878399e851e8b5e88387868b3a2ce"
+source = "git+https://github.com/oscartbeaumont/httpz.git?rev=1ddbd9ad594ac7ee3e5b167afe689d1ce1228519#1ddbd9ad594ac7ee3e5b167afe689d1ce1228519"
 dependencies = [
  "async-tungstenite",
  "axum",
@@ -2262,6 +2262,7 @@ dependencies = [
  "http",
  "hyper",
  "sha1",
+ "thiserror",
  "tokio",
 ]
 
@@ -2721,9 +2722,9 @@ checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 
 [[package]]
 name = "libc"
-version = "0.2.134"
+version = "0.2.135"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "329c933548736bc49fd575ee68c89e8be4d260064184389a5b77517cddd99ffb"
+checksum = "68783febc7782c6c5cb401fbda4de5a9898be1762314da0bb2c10ced61f18b0c"
 
 [[package]]
 name = "libdbus-sys"
@@ -4908,7 +4909,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
 dependencies = [
  "async-stream",
  "futures",
@@ -5167,7 +5168,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-test",
- "uuid 1.2.0",
+ "uuid 1.2.1",
  "webp",
 ]
 
@@ -5254,7 +5255,7 @@ dependencies = [
  "serde",
  "serde_json",
  "uhlc",
- "uuid 1.2.0",
+ "uuid 1.2.1",
 ]
 
 [[package]]
@@ -5374,9 +5375,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.85"
+version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e55a28e3aaef9d5ce0506d0a14dbba8054ddc7e499ef522dd8b26859ec9d4a44"
+checksum = "41feea4228a6f1cd09ec7a3593a682276702cd67b5273544757dae23c096f074"
 dependencies = [
  "indexmap",
  "itoa 1.0.4",
@@ -5688,7 +5689,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
@@ -5696,7 +5697,7 @@ dependencies = [
  "serde_json",
  "specta-macros 0.0.4",
  "termcolor",
- "uuid 1.2.0",
+ "uuid 1.2.1",
 ]
 
 [[package]]
@@ -5715,7 +5716,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -6066,7 +6067,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "unicode-segmentation",
- "uuid 1.2.0",
+ "uuid 1.2.1",
  "windows 0.39.0",
  "windows-implement",
  "x11-dl",
@@ -6130,7 +6131,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "url",
- "uuid 1.2.0",
+ "uuid 1.2.1",
  "webkit2gtk",
  "webview2-com",
  "windows 0.39.0",
@@ -6174,7 +6175,7 @@ dependencies = [
  "tauri-utils",
  "thiserror",
  "time 0.3.15",
- "uuid 1.2.0",
+ "uuid 1.2.1",
  "walkdir",
 ]
 
@@ -6208,7 +6209,7 @@ dependencies = [
  "serde_json",
  "tauri-utils",
  "thiserror",
- "uuid 1.2.0",
+ "uuid 1.2.1",
  "webview2-com",
  "windows 0.39.0",
 ]
@@ -6226,7 +6227,7 @@ dependencies = [
  "raw-window-handle",
  "tauri-runtime",
  "tauri-utils",
- "uuid 1.2.0",
+ "uuid 1.2.1",
  "webkit2gtk",
  "webview2-com",
  "windows 0.39.0",
@@ -6514,9 +6515,9 @@ dependencies = [
 
 [[package]]
 name = "tower-layer"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "343bc9466d3fe6b0f960ef45960509f84480bf4fd96f92901afe7ff3df9d3a62"
+checksum = "c20c8dbed6283a09604c3e69b4b7eeb54e298b8a600d4d5ecb5ad39de609f1d0"
 
 [[package]]
 name = "tower-service"
@@ -6724,7 +6725,7 @@ dependencies = [
  "lazy_static",
  "log",
  "serde",
- "uuid 1.2.0",
+ "uuid 1.2.1",
 ]
 
 [[package]]
@@ -6735,9 +6736,9 @@ checksum = "099b7128301d285f79ddd55b9a83d5e6b9e97c92e0ea0daebee7263e932de992"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcc811dc4066ac62f84f11307873c4850cb653bfa9b1719cee2bd2204a4bc5dd"
+checksum = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3"
 
 [[package]]
 name = "unicode-normalization"
@@ -6845,9 +6846,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "683f0a095f6dcf74520a5f17a12452ae6f970abbd2443299a1e226fd38195f2b"
+checksum = "feb41e78f93363bb2df8b0e86a2ca30eed7806ea16ea0c790d757cf93f79be83"
 dependencies = [
  "getrandom 0.2.7",
  "serde",

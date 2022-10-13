@@ -3,7 +3,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"prep": "pnpm gen:prisma && cargo test",
+		"prep": "pnpm gen:prisma && cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"build": "turbo run build",
 		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
 		"gen:migrations": "cd core && cargo prisma migrate dev",
@@ -18,7 +18,7 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"server": "pnpm --filter @sd/server -- ",
 		"prisma": "cd core && cargo prisma",
-		"codegen": "cargo test api::tests::test_and_export_rspc_bindings -- --exact",
+		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r exec tsc"
 	},
 	"devDependencies": {
