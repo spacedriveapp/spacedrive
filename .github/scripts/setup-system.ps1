@@ -69,11 +69,7 @@ Press ENTER to run
    & "$temp\vs_buildtools.exe" --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Llvm.Clang --add Microsoft.VisualStudio.Component.Windows10SDK.19041 --passive | Out-Null
 
    Write-Host "Installed build tools. Please restart this setup script once Visual Studio Installer installation completes."
-   if ($ci -eq $true) {
-      Update-SessionEnvironment
-   } else {
-      Read-Host "Press ENTER to exit"
-   }
+   Read-Host "Press ENTER to exit"
 
    Exit
 }
@@ -102,6 +98,8 @@ if (
    Write-Host "Couldn't find the required build tools. Installing."
 
    Install-Build-Tools
+} else {
+   Write-Host "Found required build tools (or skipped check if running in CI)." -ForegroundColor Green
 }
 
 
@@ -130,7 +128,7 @@ Press ENTER to run
    Exit
 }
 
-$hasCargo = ($ci -ne $true) -and (CheckCommand cargo)
+$hasCargo = ($ci -eq $true) -or (CheckCommand cargo)
 
 if ($hasCargo -eq $false) {
    Write-Host "Couldn't find Cargo. Installing."
@@ -145,7 +143,7 @@ if ($hasCargo -eq $false) {
 Write-Host
 Write-Host "Checking for pnpm..." -ForegroundColor Yellow
 
-$hasPnpm = ($ci -ne $true) -and (CheckCommand pnpm)
+$hasPnpm = ($ci -eq $true) -or (CheckCommand pnpm)
 
 if ($hasPnpm -eq $false) {
    Write-Host "pnpm is not installed. Installing."
@@ -198,7 +196,7 @@ if ($ci -ne $true) {
 $ClangPath = "$VCINSTALLDIR\Llvm\x64\bin"
 
 # The CI has LLVM installed already, so just set the env variables.
-if ($ci -ne $True) {
+if ($ci -ne $true) {
    Start-Process -FilePath "powershell" -ArgumentList "-Command","'[System.Environment]::SetEnvironmentVariable(""LIBCLANG_PATH"", $ClangPath, [System.EnvironmentVariableTarget]::Machine)'" -Wait -PassThru -Verb RunAs
 } else {
    Write-Host
@@ -212,7 +210,7 @@ if ($ci -ne $True) {
 Write-Host
 Write-Host "Checking for perl (required to build openssl, a Spacedrive dependency)..." -ForegroundColor Yellow
 
-$hasPerl = ($ci -ne $true) -and (CheckCommand perl)
+$hasPerl = ($ci -eq $true) -or (CheckCommand perl)
 
 if ($hasPerl -eq $false) {
    Write-Host "`perl` executable not found in PATH. Downloading and installing Strawberry Perl..."
