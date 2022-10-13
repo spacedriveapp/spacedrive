@@ -1,4 +1,4 @@
-use sha2::{Digest, Sha256};
+use blake3::Hasher;
 use std::path::PathBuf;
 use tokio::{
 	fs::File,
@@ -25,7 +25,7 @@ pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Err
 	// open file reference
 	let mut file = File::open(path).await?;
 
-	let mut hasher = Sha256::new();
+	let mut hasher = Hasher::new();
 
 	// include the file size in the checksum
 	hasher.update(&size.to_le_bytes());
@@ -46,26 +46,25 @@ pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Err
 		hasher.update(&buf);
 	}
 
-	let hex = to_hex_string(&hasher.finalize());
+	let hex = to_hex_string(hasher.finalize().as_bytes());
 
 	Ok(hex)
 }
 
-// pub fn full_checksum(path: &str) -> Result<String> {
-// 	// read file as buffer and convert to digest
-// 	let mut reader = BufReader::new(File::open(path).unwrap());
-// 	let mut context = Context::new(&SHA256);
-// 	let mut buffer = [0; 1024];
-// 	loop {
-// 		let count = reader.read(&mut buffer)?;
-// 		if count == 0 {
-// 			break;
-// 		}
-// 		context.update(&buffer[..count]);
-// 	}
-// 	let digest = context.finish();
-// 	// create a lowercase hash from
-// 	let hex = HEXLOWER.encode(digest.as_ref());
+pub async fn full_checksum(path: &str) -> Result<String, io::Error> {
+	const BLOCK_SIZE: usize = 1048576;
+	//read file as buffer and convert to digest
+	let mut reader = File::open(path).await?;
+	let mut context = Hasher::new();
+	let mut buffer = [0; 1048576];
+	loop {
+		let read_count = reader.read(&mut buffer).await?;
+		context.update(&buffer[..read_count]);
+		if read_count != BLOCK_SIZE {
+			break;
+		}
+	}
+	let hex = to_hex_string(context.finalize().as_bytes());
 
-// 	Ok(hex)
-// }
+	Ok(hex)
+}
