@@ -21,10 +21,13 @@ fn main() {
 			println!("{}", path.as_os_str().to_str().unwrap());
 
 			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
-				let copy_result = fs::copy(
-					path.clone(),
-					format!(".\\lib\\{:?}", path.file_name().and_then(OsStr::to_str)),
-				);
+				let mut destination_path: PathBuf = PathBuf::from(".");
+				destination_path
+					.extend(&["lib", path.file_name().and_then(OsStr::to_str).unwrap()]);
+
+				println!("{}", destination_path.as_os_str().to_str().unwrap());
+
+				let copy_result = fs::copy(path.clone(), destination_path);
 
 				assert!(
 					copy_result.is_ok(),
