@@ -69,6 +69,7 @@ To set up your machine for Spacedrive development, this script will check for an
 - Install latest Node.js using pnpm
 - Install Strawberry Perl (if no Perl executable found)
 - Install vcpkg (if no VCPKG_ROOT found)
+- Install ffmpeg and openssl with vcpkg
 
 "@ 
 
