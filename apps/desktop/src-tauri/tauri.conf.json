@@ -22,7 +22,7 @@
 				"icons/icon.icns",
 				"icons/icon.ico"
 			],
-			"resources": ["lib/*.dll", "lib/*.o", "lib/*.so"],
+			"resources": ["lib/*"],
 			"externalBin": [],
 			"copyright": "Spacedrive Technology Inc.",
 			"shortDescription": "The universal file manager.",
