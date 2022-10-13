@@ -126,6 +126,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayref"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4c527152e37cf757a3f78aae5a06fbeefdb07ccc535c980a3208ee3060dd544"
+
+[[package]]
+name = "arrayvec"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
+
+[[package]]
 name = "ascii"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -490,6 +502,20 @@ version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9cf849ee05b2ee5fba5e36f97ff8ec2533916700fc0758d40d92136a42f3388"
 dependencies = [
+ "digest 0.10.5",
+]
+
+[[package]]
+name = "blake3"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a08e53fc5a564bb15bfe6fae56bd71522205f1f91893f9c0116edad6496c183f"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if 1.0.0",
+ "constant_time_eq",
  "digest 0.10.5",
 ]
 
@@ -862,6 +888,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "constant_time_eq"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
+
+[[package]]
 name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1199,12 +1231,6 @@ dependencies = [
  "once_cell",
  "parking_lot_core 0.9.3",
 ]
-
-[[package]]
-name = "data-encoding"
-version = "2.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ee2393c4a91429dffb4bedf19f4d6abf27d8a732c8ce4980305d782e5426d57"
 
 [[package]]
 name = "datamodel"
@@ -4394,7 +4420,7 @@ dependencies = [
  "bytes",
  "fxhash",
  "rand 0.8.5",
- "ring 0.16.20",
+ "ring",
  "rustls",
  "rustls-native-certs",
  "rustls-pemfile 0.2.1",
@@ -4696,7 +4722,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6413f3de1edee53342e6138e75b56d32e7bc6e332b3bd62d497b1929d4cfbcdd"
 dependencies = [
  "pem",
- "ring 0.16.20",
+ "ring",
  "time 0.3.15",
  "yasna",
 ]
@@ -4870,21 +4896,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ring"
-version = "0.17.0-alpha.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4575a179070909595bea5f999d67934737c2e0757a1eb9839af555917817b257"
-dependencies = [
- "cc",
- "libc",
- "once_cell",
- "spin 0.5.2",
- "untrusted",
- "web-sys",
- "winapi",
-]
-
-[[package]]
 name = "rmp"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4991,7 +5002,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aab8ee6c7097ed6057f43c187a62418d0c05a4bd5f18b3571db50ee0f9ce033"
 dependencies = [
  "log",
- "ring 0.16.20",
+ "ring",
  "sct",
  "webpki",
 ]
@@ -5126,7 +5137,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d53dcdb7c9f8158937a7981b48accfd39a43af418591a5d008c7b22b5e1b7ca4"
 dependencies = [
- "ring 0.16.20",
+ "ring",
  "untrusted",
 ]
 
@@ -5137,9 +5148,9 @@ dependencies = [
  "async-stream",
  "async-trait",
  "base64 0.13.0",
+ "blake3",
  "chrono",
  "ctor",
- "data-encoding",
  "enumflags2",
  "ffmpeg-next",
  "fs_extra",
@@ -5153,7 +5164,6 @@ dependencies = [
  "once_cell",
  "openssl-sys",
  "prisma-client-rust",
- "ring 0.17.0-alpha.11",
  "rmp",
  "rmp-serde",
  "rspc",
@@ -5265,7 +5275,7 @@ name = "sd-tunnel-utils"
 version = "0.1.0"
 dependencies = [
  "quinn",
- "ring 0.16.20",
+ "ring",
  "rmp",
  "rmp-serde",
  "rustls",
@@ -7076,7 +7086,7 @@ version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f095d78192e208183081cc07bc5515ef55216397af48b873e5edcd72637fa1bd"
 dependencies = [
- "ring 0.16.20",
+ "ring",
  "untrusted",
 ]
 
