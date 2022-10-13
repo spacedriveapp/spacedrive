@@ -1,5 +1,4 @@
-use data_encoding::HEXLOWER;
-use ring::digest::{Context, SHA256};
+use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use tokio::{
 	fs::File,
@@ -18,32 +17,36 @@ async fn read_at(file: &mut File, offset: u64, size: u64) -> Result<Vec<u8>, io:
 	Ok(buf)
 }
 
+fn to_hex_string(b: &[u8]) -> String {
+	b.iter().map(|c| format!("{:02x}", c)).collect::<String>()
+}
+
 pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Error> {
 	// open file reference
 	let mut file = File::open(path).await?;
 
-	let mut context = Context::new(&SHA256);
+	let mut hasher = Sha256::new();
 
 	// include the file size in the checksum
-	context.update(&size.to_le_bytes());
+	hasher.update(&size.to_le_bytes());
 
 	// if size is small enough, just read the whole thing
+
 	if SAMPLE_COUNT * SAMPLE_SIZE > size {
 		let buf = read_at(&mut file, 0, size).await?;
-		context.update(&buf);
+		hasher.update(&buf);
 	} else {
 		// loop over samples
 		for i in 0..SAMPLE_COUNT {
 			let buf = read_at(&mut file, (size / SAMPLE_COUNT) * i, SAMPLE_SIZE).await?;
-			context.update(&buf);
+			hasher.update(&buf);
 		}
 		// sample end of file
 		let buf = read_at(&mut file, size - SAMPLE_SIZE, SAMPLE_SIZE).await?;
-		context.update(&buf);
+		hasher.update(&buf);
 	}
 
-	let digest = context.finish();
-	let hex = HEXLOWER.encode(digest.as_ref());
+	let hex = to_hex_string(&hasher.finalize());
 
 	Ok(hex)
 }

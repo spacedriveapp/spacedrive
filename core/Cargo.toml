@@ -28,11 +28,10 @@ serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4.22", features = ["serde"] }
 serde_json = "1.0"
 futures = "0.3"
-data-encoding = "2.3.2"
-ring = "0.17.0-alpha.11"
 int-enum = "0.4.0"
 rmp = "^0.8.11"
 rmp-serde = "^1.1.1"
+sha2 = "0.10.6"
 
 # Project dependencies
 rspc = { workspace = true, features = ["uuid", "chrono", "tracing"] }
