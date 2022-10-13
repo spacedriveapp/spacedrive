@@ -34,6 +34,10 @@ fn main() {
 
 				println!("{}", destination_path.as_os_str().to_str().unwrap());
 
+				let _source_lock = fs::OpenOptions::new().read(true).open(path.clone());
+
+				let _destination_lock = fs::OpenOptions::new().create(true);
+
 				let copy_result = fs::copy(path.clone(), destination_path);
 
 				assert!(
@@ -41,7 +45,7 @@ fn main() {
 					"Could not copy required DLL: \"{}\"\n{:#?}",
 					path.file_name().and_then(OsStr::to_str).unwrap(),
 					copy_result.err()
-				)
+				);
 			} else {
 				break;
 			}
