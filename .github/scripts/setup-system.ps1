@@ -31,6 +31,7 @@ The source code for this script is available at '.github/scripts/setup-system.ps
 
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
+$cwd = $((Get-Location).path)
 
 function CheckCommand {
    # Checks to see if a command exists in PATH
@@ -285,7 +286,7 @@ if ($ci -eq $True) {
    Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -NoNewWindow
 
    Write-Host "Copying FFmpeg DLL files to lib directory..."
-   Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" ".\apps\desktop\src-tauri\lib\"
+   Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\lib\"
 }
 
 # Finished!
