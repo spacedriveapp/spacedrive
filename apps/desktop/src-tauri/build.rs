@@ -9,9 +9,9 @@ fn main() {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::{env, ffi::OsStr, fs, path::PathBuf, str::FromStr};
+		use std::{env, ffi::OsStr, fs, path::PathBuf};
 
-		let _cwd: PathBuf = env::current_dir().unwrap();
+		let cwd: PathBuf = env::current_dir().unwrap();
 
 		let vcpkg_root = env::var("VCPKG_ROOT").unwrap();
 		let mut ffmpeg_root: PathBuf = PathBuf::from(vcpkg_root);
@@ -23,14 +23,12 @@ fn main() {
 			println!("{}", path.as_os_str().to_str().unwrap());
 
 			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
-				// let mut destination_path: PathBuf = PathBuf::from(cwd.to_str().unwrap());
-				let mut destination_path: PathBuf =
-					PathBuf::from_str("C:\\Users\\io\\Desktop").unwrap();
+				let mut destination_path: PathBuf = PathBuf::from(cwd.to_str().unwrap());
 				destination_path.extend(&[
-					// 	"apps",
-					// 	"desktop",
-					// 	"src-tauri",
-					// 	"lib",
+					"apps",
+					"desktop",
+					"src-tauri",
+					"lib",
 					path.file_name().and_then(OsStr::to_str).unwrap(),
 				]);
 
