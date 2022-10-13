@@ -259,10 +259,22 @@ if ($hasVcpkg -ne $true) {
 }
 
 Write-Host "Installing vcpkg integration..." -ForegroundColor Yellow
-Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -Verb if ($ci -eq $true) { $null } else { RunAs } -NoNewWindow if ($ci -eq $true) { $true } else { $false }
+# couldn't figure out an easy, more ergonomic way to do this dynamic param switching... -maxichrome
+if($ci -ne $true) {
+   Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -Verb RunAs
+} else {
+   # running in CI
+   & vcpkg integrate install | Out-Default
+}
 
 Write-Host "Installing ffmpeg and openssl via vcpkg..." -ForegroundColor Yellow
-Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru if ($ci -eq $true) { $null } else { RunAs } -NoNewWindow if ($ci -eq $true) { $true } else { $false }
+# see param switch note above
+if($ci -ne $true) {
+   Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -Verb RunAs
+} else {
+   # running in CI, no need to hoist
+   & vcpkg install ffmpeg:x64-windows openssl:x64-windows-static | Out-Default
+}
 
 Write-Host "Copying FFmpeg DLL files to lib directory..."
 Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\"
