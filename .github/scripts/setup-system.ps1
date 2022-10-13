@@ -4,31 +4,6 @@ param(
     [Switch]$ci
 )
 
-# Self-elevate the script if required
-# from: https://blog.expta.com/2017/03/how-to-self-elevate-powershell-script.html
-if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
-   if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
-      $CommandLine = "-File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
-
-      try {
-         Start-Process -FilePath PowerShell.exe -Verb RunAs -ArgumentList $CommandLine
-      } catch {
-         Write-Host "@
-
-ERROR:
-
-Setup MUST be run elevated to set up the environment
-This includes installing dependencies and setting environment variables.
-
-The source code for this script is available at '.github/scripts/setup-system.ps1'.
-
-@" -ForegroundColor Red
-      }
-
-      Exit
-   }
-}
-
 # Get temp folder
 $temp = [System.IO.Path]::GetTempPath()
 $cwd = $((Get-Location).path)
@@ -139,7 +114,7 @@ Press ENTER to run
 "@
 
    Start-BitsTransfer -Source $downloadUri -Destination "$temp\rustup-init.exe"
-   Start-Process -FilePath "$temp\rustup-init.exe" -PassThru -Wait -NoNewWindow
+   Start-Process -FilePath "$temp\rustup-init.exe" -PassThru -Wait -Verb RunAs
 
    Write-Host "Installed Cargo. Please restart this setup script."
    Read-Host "Press ENTER to exit"
@@ -221,7 +196,7 @@ if ($ci -eq $True) {
 
    Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=$ClangPath`n"
 } else {
-   [System.Environment]::SetEnvironmentVariable("LIBCLANG_PATH", $ClangPath, [System.EnvironmentVariableTarget]::Machine)
+   Start-Process -FilePath "powershell" -ArgumentList "-Command","'[System.Environment]::SetEnvironmentVariable(""LIBCLANG_PATH"", $ClangPath, [System.EnvironmentVariableTarget]::Machine)'" -Wait -PassThru -Verb RunAs
 }
 
 # perl check
@@ -240,7 +215,7 @@ if ($hasPerl -eq $false) {
 
    # Download and run Strawberry Perl installer. Install MSVC, Clang, and Windows 10 SDK (requried by Cargo)
    Start-BitsTransfer -Source $downloadUri -Destination "$temp\strawberry.msi"
-   Start-Process -FilePath "$temp\strawberry.msi" -ArgumentList "/quiet","/passive" -Wait -PassThru
+   Start-Process -FilePath "$temp\strawberry.msi" -ArgumentList "/quiet","/passive" -Wait -PassThru -Verb RunAs
 
    Write-Host @"
    
@@ -279,11 +254,11 @@ if ($ci -eq $True) {
 
       [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $vcpkgRoot, [System.EnvironmentVariableTarget]::Machine)
       $vcpkgExec = "$vcpkgRoot\vcpkg.exe"
-      Start-Process -FilePath "$vcpkgRoot\bootstrap-vcpkg.bat" -Wait -PassThru -NoNewWindow
+      Start-Process -FilePath "$vcpkgRoot\bootstrap-vcpkg.bat" -Wait -PassThru -Verb RunAs
    }
 
-   Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -NoNewWindow
-   Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -NoNewWindow
+   Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -Verb RunAs
+   Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -Verb RunAs
 
    Write-Host "Copying FFmpeg DLL files to lib directory..."
    Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\lib\"
