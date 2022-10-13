@@ -69,7 +69,11 @@ Press ENTER to run
    & "$temp\vs_buildtools.exe" --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Llvm.Clang --add Microsoft.VisualStudio.Component.Windows10SDK.19041 --passive | Out-Null
 
    Write-Host "Installed build tools. Please restart this setup script once Visual Studio Installer installation completes."
-   Read-Host "Press ENTER to exit"
+   if ($ci -eq $true) {
+      Update-SessionEnvironment
+   } else {
+      Read-Host "Press ENTER to exit"
+   }
 
    Exit
 }
@@ -90,7 +94,11 @@ $hasMSVC = Test-Path -Path "$VCINSTALLDIR\MSVC"
 $hasClang = Test-Path -Path "$VCINSTALLDIR\Llvm\x64\bin"
 $hasWin10SDK = Test-Path -Path "${env:ProgramFiles(x86)}\Windows Kits\10"
 
-if (($hasMSVC -eq $false) -or ($hasClang -eq $false) -or ($hasWin10SDK -eq $false)) {
+if (
+   ($ci -ne $true) -and (
+      ($hasMSVC -eq $false) -or
+      ($hasClang -eq $false) -or
+      ($hasWin10SDK -eq $false))) {
    Write-Host "Couldn't find the required build tools. Installing."
 
    Install-Build-Tools
@@ -122,7 +130,7 @@ Press ENTER to run
    Exit
 }
 
-$hasCargo = CheckCommand cargo
+$hasCargo = ($ci -ne $true) -and (CheckCommand cargo)
 
 if ($hasCargo -eq $false) {
    Write-Host "Couldn't find Cargo. Installing."
@@ -137,7 +145,7 @@ if ($hasCargo -eq $false) {
 Write-Host
 Write-Host "Checking for pnpm..." -ForegroundColor Yellow
 
-$hasPnpm = CheckCommand pnpm
+$hasPnpm = ($ci -ne $true) -and (CheckCommand pnpm)
 
 if ($hasPnpm -eq $false) {
    Write-Host "pnpm is not installed. Installing."
@@ -173,16 +181,16 @@ Press ENTER to run
 
 
 
-if ($ci -eq $True) {
-   # Skip Node install; CI setup takes care of installing Node for us.
-   Write-Host
-   Write-Host "We're in CI. Skipping Node install"
-} else {
+if ($ci -ne $true) {
    Write-Host
    Write-Host "Using pnpm to install the latest version of Node..."
    Write-Host "This will set your Node installation to the latest stable version."
 
    Start-Process -FilePath "pnpm" -ArgumentList "env","use","--global","latest" -Wait -PassThru -Verb RunAs
+} else {
+   # Skip Node install; CI setup takes care of installing Node for us.
+   Write-Host
+   Write-Host "We're in CI. Skipping Node install"
 }
 
 
@@ -190,13 +198,13 @@ if ($ci -eq $True) {
 $ClangPath = "$VCINSTALLDIR\Llvm\x64\bin"
 
 # The CI has LLVM installed already, so just set the env variables.
-if ($ci -eq $True) {
+if ($ci -ne $True) {
+   Start-Process -FilePath "powershell" -ArgumentList "-Command","'[System.Environment]::SetEnvironmentVariable(""LIBCLANG_PATH"", $ClangPath, [System.EnvironmentVariableTarget]::Machine)'" -Wait -PassThru -Verb RunAs
+} else {
    Write-Host
    Write-Host "We're in CI. Skipping LLVM Clang install." -ForegroundColor Yellow
 
    Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=$ClangPath`n"
-} else {
-   Start-Process -FilePath "powershell" -ArgumentList "-Command","'[System.Environment]::SetEnvironmentVariable(""LIBCLANG_PATH"", $ClangPath, [System.EnvironmentVariableTarget]::Machine)'" -Wait -PassThru -Verb RunAs
 }
 
 # perl check
@@ -204,7 +212,7 @@ if ($ci -eq $True) {
 Write-Host
 Write-Host "Checking for perl (required to build openssl, a Spacedrive dependency)..." -ForegroundColor Yellow
 
-$hasPerl = CheckCommand perl
+$hasPerl = ($ci -ne $true) -and (CheckCommand perl)
 
 if ($hasPerl -eq $false) {
    Write-Host "`perl` executable not found in PATH. Downloading and installing Strawberry Perl..."
@@ -233,36 +241,35 @@ Please REBOOT YOUR SYSTEM and then rerun this script.
 
 
 Write-Host
-Write-Host "Checking for vcpkg..." -ForegroundColor Yellow
+Write-Host "Checking for vcpkg and installing dependencies..." -ForegroundColor Yellow
 
-if ($ci -eq $True) {
-   # NOTE (8 Oct 2022, maxichrome): Not sure how to update this / CI to use new vcpkg based linking system.
-   # Contributions / suggestions welcome for this!
+$vcpkgRoot = [System.Environment]::GetEnvironmentVariable("VCPKG_ROOT")
+$vcpkgExec = "$vcpkgRoot\vcpkg"
+$hasVcpkg =  If ($vcpkgRoot -ne $null) { $true } Else { CheckCommand vcpkg -or CheckCommand $vcpkgExec }
 
-   # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
-   Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
-   Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
-} else {
-   $vcpkgRoot = [System.Environment]::GetEnvironmentVariable("VCPKG_ROOT")
-   $vcpkgExec = "$vcpkgRoot\vcpkg"
-   $hasVcpkg =  If ($vcpkgRoot -ne $null) { $true } Else { CheckCommand vcpkg -or CheckCommand $vcpkgExec }
+if ($hasVcpkg -ne $true) {
+   $vcpkgRoot = "C:\vcpkg"
 
-   if ($hasVcpkg -ne $true) {
-      $vcpkgRoot = "C:\vcpkg"
+   Start-Process -FilePath "git" -ArgumentList 'clone','https://github.com/Microsoft/vcpkg.git',"$vcpkgRoot" -Wait -PassThru -NoNewWindow
 
-      Start-Process -FilePath "git" -ArgumentList 'clone','https://github.com/Microsoft/vcpkg.git',"$vcpkgRoot" -Wait -PassThru -NoNewWindow
-
-      [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $vcpkgRoot, [System.EnvironmentVariableTarget]::Machine)
-      $vcpkgExec = "$vcpkgRoot\vcpkg.exe"
-      Start-Process -FilePath "$vcpkgRoot\bootstrap-vcpkg.bat" -Wait -PassThru -Verb RunAs
-   }
-
-   Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -Verb RunAs
-   Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -Verb RunAs
-
-   Write-Host "Copying FFmpeg DLL files to lib directory..."
-   Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\"
+   [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $vcpkgRoot, [System.EnvironmentVariableTarget]::Machine)
+   $vcpkgExec = "$vcpkgRoot\vcpkg.exe"
+   Start-Process -FilePath "$vcpkgRoot\bootstrap-vcpkg.bat" -Wait -PassThru -Verb RunAs
 }
+
+Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -Verb RunAs
+Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -Verb RunAs
+
+Write-Host "Copying FFmpeg DLL files to lib directory..."
+Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\"
+# } else {
+#    # NOTE (8 Oct 2022, maxichrome): Not sure how to update this / CI to use new vcpkg based linking system.
+#    # Contributions / suggestions welcome for this!
+
+#    # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
+#    Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
+#    Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
+# }
 
 # Finished!
 
