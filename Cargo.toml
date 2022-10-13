@@ -5,7 +5,7 @@ members = [
   "crates/*",
   # "crates/p2p/tunnel",
   # "crates/p2p/tunnel/utils",
-  "crates/sync/example/src-tauri",
+  "crates/sync/example/api",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
   "apps/server",
@@ -30,4 +30,5 @@ rspc = { version = "0.1.2" }
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "b41e4d7868818119d8e3e4e0319d7dce0e675eb0" }  # TODO: Move back to crates.io when new jsonrpc executor is released
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "b41e4d7868818119d8e3e4e0319d7dce0e675eb0" } # TODO: Move back to crates.io when new jsonrpc executor is released
+

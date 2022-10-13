@@ -3,5 +3,5 @@ packages:
   - 'apps/*'
   - '!apps/mobile'
   - 'core'
-  - 'crates/sync/example'
+  - 'crates/sync/example/web'
   - 'docs'

@@ -1,7 +1,18 @@
-# Tauri + Solid + Typescript
+# Create rspc app
 
-This template should help get you started developing with Tauri, Solid and Typescript in Vite.
+This app was scaffolded using the [create-rspc-app](https://rspc.dev) CLI.
 
-## Recommended IDE Setup
+## Usage
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+```bash
+# Terminal One
+cd web
+pnpm i
+pnpm dev
+
+# Terminal Two
+cd api/
+cargo prisma generate
+cargo prisma db push
+cargo run
+```

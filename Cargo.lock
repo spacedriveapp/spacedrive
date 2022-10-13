@@ -1384,6 +1384,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
+
+[[package]]
 name = "dtoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1452,16 +1458,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
-name = "example"
-version = "0.0.0"
+name = "example-2"
+version = "0.1.0"
 dependencies = [
+ "axum",
+ "dotenv",
+ "http",
  "rspc",
  "sd-sync",
  "serde",
  "serde_json",
- "tauri",
- "tauri-build",
  "tokio",
+ "tower-http",
  "uuid 1.2.1",
 ]
 
@@ -2251,7 +2259,8 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 [[package]]
 name = "httpz"
 version = "0.0.3"
-source = "git+https://github.com/oscartbeaumont/httpz.git?rev=1ddbd9ad594ac7ee3e5b167afe689d1ce1228519#1ddbd9ad594ac7ee3e5b167afe689d1ce1228519"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "566824942ad0ee59fd23ded19025b37b51137eab4e467e48f7cab325a43efa50"
 dependencies = [
  "async-tungstenite",
  "axum",
@@ -2262,7 +2271,6 @@ dependencies = [
  "http",
  "hyper",
  "sha1",
- "thiserror",
  "tokio",
 ]
 
@@ -4909,7 +4917,8 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "712fc4e2fc79297d308fa4575f19f6967bf7610e3292446dfb392738aeab5239"
 dependencies = [
  "async-stream",
  "futures",
@@ -5251,6 +5260,7 @@ dependencies = [
 name = "sd-sync"
 version = "0.1.0"
 dependencies = [
+ "rand 0.8.5",
  "rspc",
  "serde",
  "serde_json",
@@ -5682,20 +5692,21 @@ checksum = "b8dfbc46bfad9289e01928a228b82fdf615131212aded5497cce2d460b452e94"
 dependencies = [
  "convert_case 0.5.0",
  "serde_json",
- "specta-macros 0.0.2",
+ "specta-macros",
  "termcolor",
 ]
 
 [[package]]
 name = "specta"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5886f252f583ae32d4ae21c228c7a4ab3da40a7ebed646886b942f4085047394"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
  "indexmap",
  "serde_json",
- "specta-macros 0.0.4",
+ "specta-macros",
  "termcolor",
  "uuid 1.2.1",
 ]
@@ -5705,18 +5716,6 @@ name = "specta-macros"
 version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5ad5db5dea9fa5816615d722b682781214fed875fe56c1bcd0a67ee9c477d84"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn",
- "termcolor",
-]
-
-[[package]]
-name = "specta-macros"
-version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -6427,6 +6426,7 @@ dependencies = [
  "memchr",
  "mio",
  "num_cpus",
+ "parking_lot 0.12.1",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",

@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use super::crdt::*;
 
+// Bytes
 #[derive(Default, Debug, Serialize, Type, Clone)]
 pub struct Color {
 	pub red: u8,
@@ -15,28 +16,29 @@ pub struct Color {
 	pub blue: u8,
 }
 
-/// Unique Shared
+// Unique Shared
 #[derive(Default, Debug, Serialize, Type, Clone)]
 pub struct Tag {
 	pub color: Color,
 	pub name: String,
 }
 
-/// Atomic Shared
+// Atomic Shared
 #[derive(Default, Debug, Serialize, Type, Clone)]
-pub struct File {
+pub struct Object {
 	pub name: String,
 }
 
-/// Owned
+// Owned
 #[derive(Serialize, Deserialize, Debug, Type, Clone)]
 pub struct FilePath {
+	pub id: i32,
 	pub path: String,
 	pub file: Option<i32>,
 }
 
 pub struct Db {
-	pub files: HashMap<i32, File>,
+	pub files: HashMap<i32, Object>,
 	pub file_paths: HashMap<i32, FilePath>,
 	pub tags: HashMap<Uuid, Tag>,
 	_operations: Vec<CRDTOperation>,
@@ -65,7 +67,7 @@ impl Db {
 		}
 	}
 
-	pub fn create_crdt_operation(&self, typ: CRDTOperationType) -> CRDTOperation {
+	pub fn create_crdt_operation(&mut self, typ: CRDTOperationType) -> CRDTOperation {
 		let hlc_timestamp = self._clock.new_timestamp();
 
 		let op = CRDTOperation {
@@ -75,7 +77,9 @@ impl Db {
 			typ,
 		};
 
-		dbg!(op)
+		self._operations.push(op.clone());
+
+		op
 	}
 
 	fn compare_messages(&self, operations: Vec<CRDTOperation>) -> Vec<(CRDTOperation, bool)> {
