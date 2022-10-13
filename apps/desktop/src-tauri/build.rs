@@ -9,7 +9,7 @@ fn main() {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::{env, ffi::OsStr, fs, path::PathBuf};
+		use std::{env, ffi::OsStr, fs, path::PathBuf, str::FromStr};
 
 		let cwd: PathBuf = env::current_dir().unwrap();
 
