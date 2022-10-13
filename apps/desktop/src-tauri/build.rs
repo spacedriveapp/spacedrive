@@ -11,7 +11,7 @@ fn main() {
 	{
 		use std::{env, ffi::OsStr, fs, path::PathBuf};
 
-		let cwd = env::current_dir().unwrap();
+		let cwd: PathBuf = env::current_dir().unwrap();
 
 		let vcpkg_root = env::var("VCPKG_ROOT").unwrap();
 		let mut ffmpeg_root: PathBuf = PathBuf::from(vcpkg_root);
@@ -23,7 +23,7 @@ fn main() {
 			println!("{}", path.as_os_str().to_str().unwrap());
 
 			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
-				let mut destination_path: PathBuf = PathBuf::from(cwd);
+				let mut destination_path: PathBuf = PathBuf::from(cwd.to_str().unwrap());
 				destination_path.extend(&[
 					"apps",
 					"desktop",
