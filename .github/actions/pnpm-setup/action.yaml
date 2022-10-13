@@ -1,0 +1,28 @@
+name: Install pnpm & package dependencies
+description: Install pnpm, npm package dependencies, and sets up caching for dependency install.
+runs:
+  using: 'composite'
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2.2.2
+      with:
+        version: 7.x.x
+        run_install: false
+
+    - name: Get pnpm cache directory
+      shell: sh
+      id: pnpm-cache
+      run: |
+        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache@v3
+      name: Set up pnpm cache
+      with:
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install pnpm dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
