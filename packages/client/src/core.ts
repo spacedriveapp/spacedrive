@@ -24,6 +24,7 @@ export type Procedures = {
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
+        { key: "jobs.deleteFiles", input: LibraryArgs<DeleteFilesArgs>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "library.create", input: string, result: LibraryConfigWrapped } | 
@@ -46,6 +47,8 @@ export type Procedures = {
 };
 
 export interface ConfigMetadata { version: string | null }
+
+export interface DeleteFilesArgs { location_id: number, object_id: number }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 

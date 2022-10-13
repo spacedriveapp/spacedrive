@@ -3,7 +3,7 @@ use crate::{
 	location::{fetch_location, LocationError},
 	object::{
 		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
-		preview::{ThumbnailJob, ThumbnailJobInit},
+		preview::{ThumbnailJob, ThumbnailJobInit}, fs::delete::{DeleteFilesJobInit, DeleteFilesJob},
 	},
 	prisma::location,
 };
@@ -55,6 +55,34 @@ pub(crate) fn mount() -> RouterBuilder {
 					Ok(())
 				},
 			)
+		})
+		.library_mutation("deleteFiles", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct DeleteFilesArgs {
+				pub location_id: i32,
+				pub object_id: i32,
+			}
+
+			t(|_, args: DeleteFilesArgs, library| async move {
+				if fetch_location(&library, args.location_id).exec().await?.is_none() {
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Location not found".into(),
+					));
+				}
+
+				library
+					.spawn_job(Job::new(
+						DeleteFilesJobInit {
+							location_id: args.location_id,
+							object_id: args.object_id
+						},
+						Box::new(DeleteFilesJob {}),
+					))
+					.await;
+
+				Ok(())
+			})
 		})
 		.library_mutation("identifyUniqueFiles", |t| {
 			#[derive(Type, Deserialize)]

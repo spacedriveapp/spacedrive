@@ -65,6 +65,7 @@ interface Props {
 
 export default function ExplorerContextMenu(props: Props) {
 	const store = getExplorerStore();
+	const { mutate: deleteFiles } = useLibraryMutation('jobs.deleteFiles');
 
 	return (
 		<div className="relative">
@@ -117,7 +118,13 @@ export default function ExplorerContextMenu(props: Props) {
 
 				<CM.Separator />
 
-				<CM.Item icon={Trash} label="Delete" variant="danger" />
+				<CM.Item icon={Trash} label="Delete" variant="danger" onClick={() => {
+					store.locationId && store.contextMenuObjectId &&
+					deleteFiles({
+						location_id: store.locationId,
+						object_id: store.contextMenuObjectId
+					})
+				}} />
 			</CM.ContextMenu>
 		</div>
 	);
