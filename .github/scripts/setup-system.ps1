@@ -182,7 +182,7 @@ if ($ci -eq $True) {
    Write-Host "Using pnpm to install the latest version of Node..."
    Write-Host "This will set your Node installation to the latest stable version."
 
-   Start-Process -FilePath "pnpm" -ArgumentList "env","use","--global","latest" -Wait -PassThru -NoNewWindow
+   Start-Process -FilePath "pnpm" -ArgumentList "env","use","--global","latest" -Wait -PassThru -Verb RunAs
 }
 
 
