@@ -268,20 +268,24 @@ if ($ci -eq $True) {
    Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
 } else {
    $vcpkgExec = "vcpkg"
-   $hasVcpkg = CheckCommand vcpkg
+   $vcpkgRoot = [System.Environment]::GetEnvironmentVariable("VCPKG_ROOT")
+   $hasVcpkg =  If ($vcpkgRoot -ne $null) { $true } Else { CheckCommand vcpkg }
 
    if ($hasVcpkg -ne $true) {
-      $installDir = "C:\vcpkg"
+      $vcpkgRoot = "C:\vcpkg"
 
-      Start-Process -FilePath "git" -ArgumentList 'clone','https://github.com/Microsoft/vcpkg.git',"$installDir" -Wait -PassThru -NoNewWindow
+      Start-Process -FilePath "git" -ArgumentList 'clone','https://github.com/Microsoft/vcpkg.git',"$vcpkgRoot" -Wait -PassThru -NoNewWindow
 
-      [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $installDir, [System.EnvironmentVariableTarget]::Machine)
-      $vcpkgExec = "$installDir\vcpkg.exe"
-      Start-Process -FilePath "$installDir\bootstrap-vcpkg.bat" -Wait -PassThru -NoNewWindow
+      [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $vcpkgRoot, [System.EnvironmentVariableTarget]::Machine)
+      $vcpkgExec = "$vcpkgRoot\vcpkg.exe"
+      Start-Process -FilePath "$vcpkgRoot\bootstrap-vcpkg.bat" -Wait -PassThru -NoNewWindow
    }
 
    Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -NoNewWindow
    Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -NoNewWindow
+
+   Write-Host "Copying FFmpeg DLL files to lib directory..."
+   Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" ".\apps\desktop\src-tauri\lib\"
 }
 
 # Finished!

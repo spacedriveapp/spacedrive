@@ -7,78 +7,49 @@ fn main() {
 		link_swift_package("sd-desktop-macos", "./native/macos/");
 	}
 
-	#[cfg(target_os = "windows")]
-	{
-		use std::{env, ffi::OsStr, fs, path::PathBuf};
-
-		let cwd: PathBuf = env::current_dir().unwrap();
-
-		let vcpkg_root = env::var("VCPKG_ROOT").unwrap();
-		let mut ffmpeg_root: PathBuf = PathBuf::from(vcpkg_root);
-		ffmpeg_root.extend(&["packages", "ffmpeg_x64-windows", "bin"]);
-
-		for path in fs::read_dir(ffmpeg_root).unwrap() {
-			let path = path.unwrap().path().to_owned();
-
-			println!("{}", path.as_os_str().to_str().unwrap());
-
-			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
-				let mut destination_path: PathBuf = PathBuf::from(cwd.to_str().unwrap());
-				destination_path.extend(&[
-					"apps",
-					"desktop",
-					"src-tauri",
-					"lib",
-					path.file_name().and_then(OsStr::to_str).unwrap(),
-				]);
-
-				println!("{}", destination_path.as_os_str().to_str().unwrap());
-
-				let _source_lock = fs::OpenOptions::new().read(true).open(path.clone());
-				let _destination_lock = fs::OpenOptions::new()
-					.create(true)
-					.open(destination_path.clone());
-
-				let copy_result = fs::copy(path.clone(), destination_path);
-
-				assert!(
-					copy_result.is_ok(),
-					"Could not copy required DLL: \"{}\"\n{:#?}",
-					path.file_name().and_then(OsStr::to_str).unwrap(),
-					copy_result.err()
-				);
-			} else {
-				break;
-			}
-		}
-	}
-
 	// #[cfg(target_os = "windows")]
 	// {
-	// 	use std::{env, ffi::OsStr, fs, io, path::PathBuf};
+	// 	use std::{env, ffi::OsStr, fs, path::PathBuf};
 
-	// 	let destination_dir = "./lib";
+	// 	let cwd: PathBuf = env::current_dir().unwrap();
 
-	// 	let vcpkg_root = env::var("VCPKG_ROOT").unwrap().as_str();
+	// 	let vcpkg_root = env::var("VCPKG_ROOT").unwrap();
+	// 	let mut ffmpeg_root: PathBuf = PathBuf::from(vcpkg_root);
+	// 	ffmpeg_root.extend(&["packages", "ffmpeg_x64-windows", "bin"]);
 
-	// 	if !vcpkg_root.is_empty() {
-	// 		let ffmpeg_root = format!("{}", vcpkg_root);
+	// 	for path in fs::read_dir(ffmpeg_root).unwrap() {
+	// 		let path = path.unwrap().path().to_owned();
 
-	// 		for path in fs::read_dir(ffmpeg_root).unwrap() {
-	// 			let path = match path {
-	// 				Err(e) => {
-	// 					panic!("Error: {}", e);
-	// 				}
-	// 				Ok(p) => p,
-	// 			}
-	// 			.path();
+	// 		println!("{}", path.as_os_str().to_str().unwrap());
 
-	// 			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
-	// 				fs::copy(path, "./lib");
-	// 			}
+	// 		if let Some("dll") = path.extension().and_then(OsStr::to_str) {
+	// 			let mut destination_path: PathBuf = PathBuf::from(cwd.to_str().unwrap());
+	// 			destination_path.extend(&[
+	// 				"apps",
+	// 				"desktop",
+	// 				"src-tauri",
+	// 				"lib",
+	// 				path.file_name().and_then(OsStr::to_str).unwrap(),
+	// 			]);
+
+	// 			println!("{}", destination_path.as_os_str().to_str().unwrap());
+
+	// 			let _source_lock = fs::OpenOptions::new().read(true).open(path.clone());
+	// 			let _destination_lock = fs::OpenOptions::new()
+	// 				.create(true)
+	// 				.open(destination_path.clone());
+
+	// 			let copy_result = fs::copy(path.clone(), destination_path);
+
+	// 			assert!(
+	// 				copy_result.is_ok(),
+	// 				"Could not copy required DLL: \"{}\"\n{:#?}",
+	// 				path.file_name().and_then(OsStr::to_str).unwrap(),
+	// 				copy_result.err()
+	// 			);
+	// 		} else {
+	// 			break;
 	// 		}
-	// 	} else {
-	// 		panic!("VCPKG_ROOT is not set! Please set a VCPKG_ROOT.")
 	// 	}
 	// }
 
