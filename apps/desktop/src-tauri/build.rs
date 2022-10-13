@@ -11,7 +11,7 @@ fn main() {
 	{
 		use std::{env, ffi::OsStr, fs, path::PathBuf, str::FromStr};
 
-		let cwd: PathBuf = env::current_dir().unwrap();
+		let _cwd: PathBuf = env::current_dir().unwrap();
 
 		let vcpkg_root = env::var("VCPKG_ROOT").unwrap();
 		let mut ffmpeg_root: PathBuf = PathBuf::from(vcpkg_root);
