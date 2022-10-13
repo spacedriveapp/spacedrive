@@ -35,4 +35,5 @@ runs:
       working-directory: '${{ github.workspace }}/vcpkg'
       run: |
         .\vcpkg.exe integrate install
-        Copy-Item ".\packages\ffmpeg_x64-windows\bin\*.dll" "..\apps\desktop\src-tauri\"
+        dir
+        dir packages
