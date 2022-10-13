@@ -9,10 +9,11 @@ fn main() {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::{env, ffi::OsStr, fs};
+		use std::{env, ffi::OsStr, fs, path::PathBuf};
 
 		let vcpkg_root = env::var("VCPKG_ROOT").unwrap();
-		let ffmpeg_root = format!("{}/packages/ffmpeg_x64-windows/bin", vcpkg_root);
+		let mut ffmpeg_root: PathBuf = PathBuf::from(vcpkg_root);
+		ffmpeg_root.extend(&["packages", "ffmpeg_x64-windows", "bin"]);
 
 		for path in fs::read_dir(ffmpeg_root).unwrap() {
 			let path = path.unwrap().path().to_owned();
@@ -20,7 +21,7 @@ fn main() {
 			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
 				let copy_result = fs::copy(
 					path.clone(),
-					format!("./lib/{:?}", path.file_name().and_then(OsStr::to_str)),
+					format!(".\\lib\\{:?}", path.file_name().and_then(OsStr::to_str)),
 				);
 
 				assert!(
