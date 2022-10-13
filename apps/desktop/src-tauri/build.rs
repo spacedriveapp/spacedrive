@@ -24,15 +24,15 @@ fn main() {
 
 			if let Some("dll") = path.extension().and_then(OsStr::to_str) {
 				// let mut destination_path: PathBuf = PathBuf::from(cwd.to_str().unwrap());
-				let destination_path: PathBuf =
+				let mut destination_path: PathBuf =
 					PathBuf::from_str("C:\\Users\\io\\Desktop").unwrap();
-				// destination_path.extend(&[
-				// 	"apps",
-				// 	"desktop",
-				// 	"src-tauri",
-				// 	"lib",
-				// 	// path.file_name().and_then(OsStr::to_str).unwrap(),
-				// ]);
+				destination_path.extend(&[
+					// 	"apps",
+					// 	"desktop",
+					// 	"src-tauri",
+					// 	"lib",
+					path.file_name().and_then(OsStr::to_str).unwrap(),
+				]);
 
 				println!("{}", destination_path.as_os_str().to_str().unwrap());
 
