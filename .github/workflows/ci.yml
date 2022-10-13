@@ -24,7 +24,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 17
-          cache: 'pnpm'
 
       - name: Set up pnpm & dependencies
         uses: ./.github/actions/pnpm-setup
@@ -130,7 +129,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 17
-          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2.0.1
