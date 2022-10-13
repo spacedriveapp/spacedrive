@@ -29,7 +29,7 @@ fn main() {
 					"desktop",
 					"src-tauri",
 					"lib",
-					path.file_name().and_then(OsStr::to_str).unwrap(),
+					// path.file_name().and_then(OsStr::to_str).unwrap(),
 				]);
 
 				println!("{}", destination_path.as_os_str().to_str().unwrap());
