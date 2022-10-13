@@ -883,6 +883,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cookie"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "344adc371239ef32293cb1c4fe519592fcf21206c79c02854320afcdf3ab4917"
+dependencies = [
+ "percent-encoding",
+ "time 0.3.15",
+ "version_check",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2240,11 +2251,12 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 [[package]]
 name = "httpz"
 version = "0.0.3"
-source = "git+https://github.com/oscartbeaumont/httpz.git#1ddbd9ad594ac7ee3e5b167afe689d1ce1228519"
+source = "git+https://github.com/oscartbeaumont/httpz.git?rev=1ddbd9ad594ac7ee3e5b167afe689d1ce1228519#1ddbd9ad594ac7ee3e5b167afe689d1ce1228519"
 dependencies = [
  "async-tungstenite",
  "axum",
  "base64 0.13.0",
+ "cookie",
  "form_urlencoded",
  "futures",
  "http",
@@ -4897,7 +4909,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
 dependencies = [
  "async-stream",
  "futures",
@@ -5677,7 +5689,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
@@ -5704,7 +5716,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=08c19f5e485dfc6841c7e9877c80058402bf71d7#08c19f5e485dfc6841c7e9877c80058402bf71d7"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -6379,7 +6391,14 @@ dependencies = [
  "itoa 1.0.4",
  "libc",
  "num_threads",
+ "time-macros",
 ]
+
+[[package]]
+name = "time-macros"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
 
 [[package]]
 name = "tinyvec"
