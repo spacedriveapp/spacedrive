@@ -1,0 +1,6 @@
+{
+	"name": "spacedrive",
+	"version-string": "0.1.0",
+	"supports": "windows & (!arm & !arm64)",
+	"dependencies": ["ffmpeg", "openssl"]
+}

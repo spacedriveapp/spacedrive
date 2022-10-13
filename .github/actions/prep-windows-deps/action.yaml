@@ -1,0 +1,36 @@
+name: Prepare Windows dependencies
+description: Installs necessary Windows build dependencies
+runs:
+  using: composite
+  steps:
+    - name: Set up or restore vcpkg
+      uses: lukka/run-vcpkg@v10
+      with:
+        # This is the default location of the directory containing vcpkg sources.
+        # Change it to the right location if needed.
+        vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+
+        # If not using a submodule for vcpkg sources, this specifies which commit
+        # id must be checkout from a Git repo. It must not set if using a submodule
+        # for vcpkg.
+        vcpkgGitCommitId: '${{ matrix.vcpkgCommitId }}'
+
+        # This is the glob expression used to locate the vcpkg.json and add its
+        # hash to the cache key. Change it to match a single manifest file you want
+        # to use.
+        # Note: do not use `${{ github.context }}` to compose the value as it
+        # contains backslashes that would be misinterpreted. Instead
+        # compose a value relative to the root of the repository using
+        # `**/path/from/root/of/repo/to/vcpkg.json` to match the desired `vcpkg.json`.
+        vcpkgJsonGlob: '**/apps/desktop/src-tauri/vcpkg.json'
+
+        # This is needed to run `vcpkg install` command (after vcpkg is built) in
+        # the directory where vcpkg.json has been located. Default is false,
+        # It is highly suggested to let `run-cmake` to run vcpkg (i.e. `false`)
+        # (i.e. let CMake run `vcpkg install`) using the vcpkg.cmake toolchain.
+        runVcpkgInstall: true
+
+    - name: Set up vcpkg integration
+      shell: powershell
+      working-directory: '${{ github.workspace }}/vcpkg'
+      run: .\vcpkg.exe integrate install
