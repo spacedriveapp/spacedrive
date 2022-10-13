@@ -1,10 +1,22 @@
-use crate::protected::Protected;
+//! This module contains all password-hashing related functions.
+//!
+//! Everything contained within is used to hash a user's password into strong key material, suitable for encrypting master keys.
+//!
+//! # Examples
+//!
+//! ```rust,ignore
+//! let password = Protected::new(b"password".to_vec());
+//! let hashing_algorithm = HashingAlgorithm::Argon2id(Params::Standard);
+//! let salt = generate_salt();
+//! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
+//! ```
+use crate::Protected;
 use crate::{error::Error, primitives::SALT_LEN};
 use argon2::Argon2;
 
-// These names are not final
-// I'm considering adding an `(i32)` to each, to allow specific versioning of each parameter version
-// These will be serializable/deserializable with regards to the header/storage of this information
+/// These parameters define the password-hashing level.
+///
+/// The harder the parameter, the longer the password will take to hash.
 #[derive(Clone, Copy)]
 pub enum Params {
 	Standard,
@@ -12,13 +24,37 @@ pub enum Params {
 	Paranoid,
 }
 
+/// This defines all available password hashing algorithms.
+#[derive(Clone, Copy)]
+pub enum HashingAlgorithm {
+	Argon2id(Params),
+}
+
+impl HashingAlgorithm {
+	/// This function should be used to hash passwords
+	///
+	/// It also handles all the password hashing parameters.
+	pub fn hash(
+		&self,
+		password: Protected<Vec<u8>>,
+		salt: [u8; SALT_LEN],
+	) -> Result<Protected<[u8; 32]>, Error> {
+		match self {
+			Self::Argon2id(params) => password_hash_argon2id(password, salt, *params),
+		}
+	}
+}
+
 impl Params {
+	/// This function is used to generate parameters for password hashing.
+	///
+	/// This should not be called directly. Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
 	#[must_use]
 	pub fn get_argon2_params(&self) -> argon2::Params {
 		match self {
 			// We can use `.unwrap()` here as the values are hardcoded, and this shouldn't error
 			// The values are NOT final, as we need to find a good average.
-			// It's very hardware dependant but we should aim for at least 16MB of RAM usage on standard
+			// It's very hardware dependant but we should aim for at least 64MB of RAM usage on standard
 			// Provided they all take one (ish) second or longer, and less than 3/4 seconds (for paranoid), they will be fine
 			// It's not so much the parameters themselves that matter, it's the duration (and ensuring that they use enough RAM to hinder ASIC brute-force attacks)
 			Self::Standard => {
@@ -37,7 +73,6 @@ impl Params {
 	}
 }
 
-// Shouldn't be called directly - call it on the `HashingAlgorithm` struct
 /// This function should NOT be called directly!
 ///
 /// Call it via the `HashingAlgorithm` struct (e.g. `HashingAlgorithm::Argon2id(Params::Standard).hash()`)
