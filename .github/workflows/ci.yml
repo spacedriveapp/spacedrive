@@ -107,7 +107,7 @@ jobs:
       fail-fast: true
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
-        vcpkgCommitId: ['', '', 4a723f2d160e20d9be368482e5bcaa2b849be9b1]
+        vcpkgCommitId: [4a723f2d160e20d9be368482e5bcaa2b849be9b1]
     steps:
       - name: Log in to the Container registry
         if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
