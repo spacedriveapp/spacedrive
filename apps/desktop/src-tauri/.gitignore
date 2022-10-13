@@ -2,3 +2,7 @@
 # will have compiled files and executables
 /target/
 WixTools
+
+# dynamic libraries are copied into this directory and packaged with build
+*.dll
+*.o

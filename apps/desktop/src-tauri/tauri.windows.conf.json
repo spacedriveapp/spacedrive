@@ -22,20 +22,15 @@
 				"icons/icon.icns",
 				"icons/icon.ico"
 			],
-			"resources": [],
+			"resources": ["*.dll"],
 			"externalBin": [],
 			"copyright": "Spacedrive Technology Inc.",
 			"shortDescription": "The universal file manager.",
 			"longDescription": "A cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
-			"deb": {
-				"depends": []
-			},
-			"macOS": {
-				"frameworks": [],
-				"minimumSystemVersion": "10.15",
-				"exceptionDomain": "",
-				"signingIdentity": null,
-				"entitlements": null
+			"windows": {
+				"certificateThumbprint": null,
+				"digestAlgorithm": "sha256",
+				"timestampUrl": ""
 			}
 		},
 		"updater": {
