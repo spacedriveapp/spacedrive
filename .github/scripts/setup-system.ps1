@@ -248,14 +248,20 @@ $hasVcpkg =  If ($vcpkgRoot -ne $null) { $true } Else { CheckCommand vcpkg -or C
 if ($hasVcpkg -ne $true) {
    $vcpkgRoot = "C:\vcpkg"
 
+   Write-Host "Cloning vcpkg..." -ForegroundColor Yellow
    Start-Process -FilePath "git" -ArgumentList 'clone','https://github.com/Microsoft/vcpkg.git',"$vcpkgRoot" -Wait -PassThru -NoNewWindow
-
+   
    [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $vcpkgRoot, [System.EnvironmentVariableTarget]::Machine)
    $vcpkgExec = "$vcpkgRoot\vcpkg.exe"
-   Start-Process -FilePath "$vcpkgRoot\bootstrap-vcpkg.bat" -Wait -PassThru -Verb RunAs
+   
+   Write-Host "Bootstrapping vcpkg..." -ForegroundColor Yellow
+   Start-Process -FilePath "$vcpkgRoot\bootstrap-vcpkg.bat" -Wait -PassThru -Verb if ($ci -eq $true) { $null } else { RunAs } -NoNewWindow if ($ci -eq $true) { $true } else { $false }
 }
 
+Write-Host "Installing vcpkg integration..." -ForegroundColor Yellow
 Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -Verb if ($ci -eq $true) { $null } else { RunAs } -NoNewWindow if ($ci -eq $true) { $true } else { $false }
+
+Write-Host "Installing ffmpeg and openssl via vcpkg..." -ForegroundColor Yellow
 Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru if ($ci -eq $true) { $null } else { RunAs } -NoNewWindow if ($ci -eq $true) { $true } else { $false }
 
 Write-Host "Copying FFmpeg DLL files to lib directory..."
