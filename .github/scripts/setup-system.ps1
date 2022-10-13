@@ -267,9 +267,9 @@ if ($ci -eq $True) {
    Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
    Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
 } else {
-   $vcpkgExec = "vcpkg"
    $vcpkgRoot = [System.Environment]::GetEnvironmentVariable("VCPKG_ROOT")
-   $hasVcpkg =  If ($vcpkgRoot -ne $null) { $true } Else { CheckCommand vcpkg }
+   $vcpkgExec = "$vcpkgRoot\vcpkg"
+   $hasVcpkg =  If ($vcpkgRoot -ne $null) { $true } Else { CheckCommand vcpkg -or CheckCommand $vcpkgExec }
 
    if ($hasVcpkg -ne $true) {
       $vcpkgRoot = "C:\vcpkg"
