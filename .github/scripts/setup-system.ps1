@@ -255,8 +255,8 @@ if ($hasVcpkg -ne $true) {
    Start-Process -FilePath "$vcpkgRoot\bootstrap-vcpkg.bat" -Wait -PassThru -Verb RunAs
 }
 
-Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -Verb RunAs
-Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -Verb RunAs
+Start-Process -FilePath $vcpkgExec -ArgumentList 'integrate','install' -Wait -PassThru -Verb if ($ci -eq $true) { $null } else { RunAs } -NoNewWindow if ($ci -eq $true) { $true } else { $false }
+Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru if ($ci -eq $true) { $null } else { RunAs } -NoNewWindow if ($ci -eq $true) { $true } else { $false }
 
 Write-Host "Copying FFmpeg DLL files to lib directory..."
 Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\"
