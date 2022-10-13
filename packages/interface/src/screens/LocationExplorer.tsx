@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import { getExplorerStore, useCurrentLibrary, useLibraryQuery } from '@sd/client';
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -16,7 +15,7 @@ export function useExplorerParams() {
 	return { location_id, path, limit };
 }
 
-export const LocationExplorer: React.FC<unknown> = () => {
+export default function LocationExplorer() {
 	const { location_id, path } = useExplorerParams();
 	const { library } = useCurrentLibrary();
 
@@ -36,7 +35,7 @@ export const LocationExplorer: React.FC<unknown> = () => {
 
 	return (
 		<div className="relative flex flex-col w-full">
-			{library!.uuid && explorerData.data && <Explorer data={explorerData.data} />}
+			<Explorer data={explorerData.data} />
 		</div>
 	);
-};
+}

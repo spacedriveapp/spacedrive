@@ -18,10 +18,12 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 
 	// props.index === store.selectedRowIndex
 
+	const isVid = isVideo(data.extension || '');
+
 	return (
 		<div
 			onContextMenu={(e) => {
-				const objectId = isObject(data) ? data.id : data.file?.id;
+				const objectId = isObject(data) ? data.id : data.object?.id;
 				if (objectId != undefined) {
 					getExplorerStore().contextMenuObjectId = objectId;
 					if (index != undefined) {
@@ -44,17 +46,23 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 			>
 				<div
 					className={clsx(
-						'flex items-center justify-center h-full  p-1 rounded border-transparent border-2 shrink-0'
+						'flex relative items-center justify-center h-full  p-1 rounded border-transparent border-2 shrink-0'
 					)}
 				>
 					<FileThumb
 						className={clsx(
-							'border-4  border-gray-250 rounded-sm shadow-md shadow-gray-750 object-cover max-w-full max-h-full w-auto overflow-hidden',
-							isVideo(data.extension || '') && 'border-gray-950'
+							'border-4 border-gray-250 rounded shadow-md shadow-gray-750 object-cover max-w-full max-h-full w-auto overflow-hidden',
+							isVid && 'border-gray-950 border-x-0 border-y-[9px]'
 						)}
 						data={data}
+						kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
 						size={getExplorerStore().gridItemSize}
 					/>
+					{data?.extension && isVid && (
+						<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-gray-800 rounded">
+							{data.extension}
+						</div>
+					)}
 				</div>
 			</div>
 			<div className="flex justify-center">
@@ -99,6 +107,11 @@ function isVideo(extension: string) {
 		'wmv',
 		'mp4',
 		'webm',
-		'flv'
+		'flv',
+		'mpg',
+		'hevc',
+		'ogv',
+		'swf',
+		'wtv'
 	].includes(extension);
 }

@@ -17,24 +17,24 @@
 		"preset": "scripts/jest/node"
 	},
 	"dependencies": {
-		"@rspc/client": "^0.0.6",
-		"@rspc/react": "^0.0.6",
+		"@rspc/client": "^0.1.2",
+		"@rspc/react": "^0.1.2",
 		"@sd/config": "workspace:*",
 		"@sd/interface": "workspace:*",
-		"@tanstack/react-query": "^4.0.10",
+		"@tanstack/react-query": "^4.10.1",
 		"eventemitter3": "^4.0.7",
 		"immer": "^9.0.15",
 		"lodash": "^4.17.21",
 		"valtio": "^1.7.0",
 		"valtio-persist": "^1.0.2",
-		"zustand": "4.0.0"
+		"zustand": "4.1.1"
 	},
 	"devDependencies": {
-		"@types/lodash": "^4.14.182",
-		"@types/react": "^18.0.15",
+		"@types/lodash": "^4.14.186",
+		"@types/react": "^18.0.21",
 		"scripts": "*",
 		"tsconfig": "*",
-		"typescript": "^4.7.4"
+		"typescript": "^4.8.4"
 	},
 	"peerDependencies": {
 		"react": "^18.2.0"

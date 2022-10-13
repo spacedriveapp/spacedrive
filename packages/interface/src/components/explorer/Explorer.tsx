@@ -6,7 +6,7 @@ import ExplorerContextMenu from './ExplorerContextMenu';
 import { VirtualizedList } from './VirtualizedList';
 
 interface Props {
-	data: ExplorerData;
+	data?: ExplorerData;
 }
 
 export default function Explorer(props: Props) {
@@ -14,7 +14,7 @@ export default function Explorer(props: Props) {
 	const { library } = useCurrentLibrary();
 
 	rspc.useSubscription(['jobs.newThumbnail', { library_id: library!.uuid, arg: null }], {
-		onNext: (cas_id) => {
+		onData: (cas_id) => {
 			expStore.addNewThumbnail(cas_id);
 		}
 	});
@@ -24,16 +24,17 @@ export default function Explorer(props: Props) {
 			<ExplorerContextMenu>
 				<div className="relative flex flex-col w-full bg-gray-650">
 					<TopBar />
-					<div className="relative flex flex-row w-full max-h-full">
-						<VirtualizedList data={props.data?.items || []} context={props.data.context} />
+
+					<div className="relative flex flex-row w-full max-h-full ">
+						{props.data && (
+							<VirtualizedList data={props.data.items || []} context={props.data.context} />
+						)}
 						{expStore.showInspector && (
-							<div className="min-w-[260px] max-w-[260px]">
-								{props.data.items[expStore.selectedRowIndex]?.id && (
-									<Inspector
-										key={props.data.items[expStore.selectedRowIndex].id}
-										data={props.data.items[expStore.selectedRowIndex]}
-									/>
-								)}
+							<div className="flex min-w-[260px] max-w-[260px]">
+								<Inspector
+									key={props.data?.items[expStore.selectedRowIndex]?.id}
+									data={props.data?.items[expStore.selectedRowIndex]}
+								/>
 							</div>
 						)}
 					</div>

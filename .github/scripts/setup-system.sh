@@ -112,5 +112,4 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 else
         echo "Your OS '$OSTYPE' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
         exit 1
-
 fi

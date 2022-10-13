@@ -27,7 +27,6 @@ apps/*/stats.html
 docs/public/*.st
 docs/public/*.toml
 dev.db
-stats.html
 
 !cli/cmd/turbo
 cli/npm/turbo-android-arm64/bin
@@ -66,3 +65,4 @@ examples/*/*.lock
 
 /sdserver_data
 .spacedrive
+dev.db-journal

@@ -35,16 +35,14 @@ export default function LibraryGeneralSettings() {
 				});
 			}
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [nameDebounced, descriptionDebounced]);
+	}, [nameDebounced, descriptionDebounced, library, editLibrary]);
 
 	useEffect(() => {
 		if (library) {
 			setName(library.config.name);
 			setDescription(library.config.description);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [libraries]);
+	}, [libraries, library]);
 
 	useEffect(() => {
 		if (library) {
@@ -52,7 +50,6 @@ export default function LibraryGeneralSettings() {
 			setName(library.config.name);
 			setDescription(library.config.description);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [library]);
 
 	useEffect(() => {

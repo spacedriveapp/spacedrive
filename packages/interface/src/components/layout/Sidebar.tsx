@@ -21,7 +21,8 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
 				className={clsx(
 					'max-w mb-[2px] text-gray-550 dark:text-gray-300 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
-						'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
+						'!bg-gray-400 !bg-opacity-10 !text-white hover:bg-gray-400 dark:hover:bg-gray-400':
+							isActive
 					},
 					props.className
 				)}
@@ -85,13 +86,14 @@ function LibraryScopedSection() {
 										className={clsx(
 											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center  truncate text-sm',
 											{
-												'!bg-primary !text-white hover:bg-primary dark:hover:bg-primary': isActive
+												'!bg-gray-400 !bg-opacity-10 !text-white hover:bg-gray-400 dark:hover:bg-gray-400':
+													isActive
 											}
 										)}
 									>
 										<div className="-mt-0.5 flex-grow-0 flex-shrink-0">
-											<Folder size={18} className={clsx(!isActive && 'hidden')} white />
-											<Folder size={18} className={clsx(isActive && 'hidden')} />
+											{/* <Folder size={18} className={clsx(!isActive && 'hidden')} white /> */}
+											<Folder size={18} />
 										</div>
 
 										<span className="flex-grow flex-shrink-0">{location.name}</span>
@@ -162,7 +164,7 @@ export function Sidebar() {
 		<div
 			className={clsx(
 				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-750',
-				macOnly(os, 'dark:!bg-opacity-40')
+				macOnly(os, 'dark:!bg-opacity-30')
 			)}
 		>
 			<WindowControls />
@@ -186,10 +188,10 @@ export function Sidebar() {
 				buttonText={isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
 				buttonTextClassName={library === null || isLoadingLibraries ? 'text-gray-300' : undefined}
 				items={[
-					libraries?.map((library) => ({
-						name: library.config.name,
-						selected: library.uuid === library?.uuid,
-						onPress: () => switchLibrary(library.uuid)
+					libraries?.map((lib) => ({
+						name: lib.config.name,
+						selected: lib.uuid === library?.uuid,
+						onPress: () => switchLibrary(lib.uuid)
 					})) || [],
 					[
 						{

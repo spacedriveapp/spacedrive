@@ -1,5 +1,13 @@
+use std::sync::Arc;
+
 use futures::{Future, Stream};
-use rspc::{internal::specta, ErrorCode, IntoLayerResult, Type};
+use rspc::{
+	internal::{
+		specta, BuiltProcedureBuilder, MiddlewareBuilderLike, RequestResult,
+		UnbuiltProcedureBuilder,
+	},
+	ErrorCode, Type,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -12,116 +20,172 @@ pub(crate) struct LibraryArgs<T> {
 	pub arg: T,
 }
 
+// WARNING: This is system is using internal API's which means it will break between rspc release. I would avoid copying it unless you understand the cost of maintaining it!
 pub trait LibraryRequest {
-	fn library_query<T, TArg, TResult, TResultMarker>(
+	fn library_query<TUnbuiltResolver, TUnbuiltResult, TUnbuiltResultMarker, TBuiltResolver, TArg>(
 		self,
 		key: &'static str,
-		resolver: fn(Ctx, TArg, LibraryContext) -> TResult,
+		builder: impl FnOnce(
+			UnbuiltProcedureBuilder<Ctx, TUnbuiltResolver>,
+		) -> BuiltProcedureBuilder<TBuiltResolver>,
 	) -> Self
 	where
-		TArg: DeserializeOwned + specta::Type + Send + 'static,
-		TResult: Future<Output = Result<T, rspc::Error>> + Send + 'static,
-		T: IntoLayerResult<TResultMarker> + Send + Serialize + specta::Type;
+		TUnbuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send,
+		TBuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send + Sync + 'static,
+		TUnbuiltResult: RequestResult<TUnbuiltResultMarker> + Send,
+		TArg: DeserializeOwned + specta::Type + Send + 'static;
 
-	fn library_mutation<T, TArg, TResult, TResultMarker>(
+	fn library_mutation<
+		TUnbuiltResolver,
+		TUnbuiltResult,
+		TUnbuiltResultMarker,
+		TBuiltResolver,
+		TArg,
+	>(
 		self,
 		key: &'static str,
-		resolver: fn(Ctx, TArg, LibraryContext) -> TResult,
+		builder: impl FnOnce(
+			UnbuiltProcedureBuilder<Ctx, TUnbuiltResolver>,
+		) -> BuiltProcedureBuilder<TBuiltResolver>,
 	) -> Self
 	where
-		TArg: DeserializeOwned + specta::Type + Send + 'static,
-		TResult: Future<Output = Result<T, rspc::Error>> + Send + 'static,
-		T: IntoLayerResult<TResultMarker> + Send + Serialize + specta::Type;
+		TUnbuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send,
+		TBuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send + Sync + 'static,
+		TUnbuiltResult: RequestResult<TUnbuiltResultMarker> + Send,
+		TArg: DeserializeOwned + specta::Type + Send + 'static;
 
-	fn library_subscription<T, TArg, TResult>(
+	fn library_subscription<TResolver, TArg, TStream, TResult>(
 		self,
 		key: &'static str,
-		resolver: fn(Ctx, TArg, Uuid) -> T,
+		builder: impl Fn(UnbuiltProcedureBuilder<Ctx, TResolver>) -> BuiltProcedureBuilder<TResolver>,
 	) -> Self
 	where
-		TArg: DeserializeOwned + specta::Type + Send + 'static,
-		T: Stream<Item = TResult> + Send + 'static,
-		TResult: Serialize + specta::Type;
+		TArg: DeserializeOwned + specta::Type + 'static,
+		TStream: Stream<Item = TResult> + Send + Sync + 'static,
+		TResult: Serialize + specta::Type,
+		TResolver: Fn(Ctx, TArg, Uuid) -> TStream + Send + Sync + 'static;
 }
 
 // Note: This will break with middleware context switching but that's fine for now
-impl LibraryRequest for rspc::RouterBuilder<Ctx, (), Ctx> {
-	fn library_query<T, TArg, TResult, TResultMarker>(
+impl<TMiddleware> LibraryRequest for rspc::RouterBuilder<Ctx, (), TMiddleware>
+where
+	TMiddleware: MiddlewareBuilderLike<Ctx, LayerContext = Ctx> + Send + 'static,
+{
+	fn library_query<TUnbuiltResolver, TUnbuiltResult, TUnbuiltResultMarker, TBuiltResolver, TArg>(
 		self,
 		key: &'static str,
-		resolver: fn(Ctx, TArg, LibraryContext) -> TResult,
+		builder: impl FnOnce(
+			UnbuiltProcedureBuilder<Ctx, TUnbuiltResolver>,
+		) -> BuiltProcedureBuilder<TBuiltResolver>,
 	) -> Self
 	where
+		TUnbuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send,
+		TBuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send + Sync + 'static,
+		TUnbuiltResult: RequestResult<TUnbuiltResultMarker> + Send,
 		TArg: DeserializeOwned + specta::Type + Send + 'static,
-		TResult: Future<Output = Result<T, rspc::Error>> + Send + 'static,
-		T: IntoLayerResult<TResultMarker> + Send + Serialize + specta::Type,
 	{
-		self.query(key, move |ctx, arg: LibraryArgs<TArg>| async move {
-			let library = ctx
-				.library_manager
-				.get_ctx(arg.library_id)
-				.await
-				.ok_or_else(|| {
-					rspc::Error::new(
-						ErrorCode::BadRequest,
-						"You must specify a valid library to use this operation.".to_string(),
-					)
-				})?;
+		self.query(key, move |t| {
+			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::new(t.data())).resolver);
 
-			resolver(ctx, arg.arg, library).await
+			t(move |ctx, arg: LibraryArgs<TArg>| {
+				let resolver = resolver.clone();
+				async move {
+					let library = ctx
+						.library_manager
+						.get_ctx(arg.library_id)
+						.await
+						.ok_or_else(|| {
+							rspc::Error::new(
+								ErrorCode::BadRequest,
+								"You must specify a valid library to use this operation."
+									.to_string(),
+							)
+						})?;
+
+					Ok(resolver(ctx, arg.arg, library)
+						.into_request_future()?
+						.exec()
+						.await?)
+				}
+			})
 		})
 	}
 
-	fn library_mutation<T, TArg, TResult, TResultMarker>(
+	fn library_mutation<
+		TUnbuiltResolver,
+		TUnbuiltResult,
+		TUnbuiltResultMarker,
+		TBuiltResolver,
+		TArg,
+	>(
 		self,
 		key: &'static str,
-		resolver: fn(Ctx, TArg, LibraryContext) -> TResult,
+		builder: impl FnOnce(
+			UnbuiltProcedureBuilder<Ctx, TUnbuiltResolver>,
+		) -> BuiltProcedureBuilder<TBuiltResolver>,
 	) -> Self
 	where
+		TUnbuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send,
+		TBuiltResolver: Fn(Ctx, TArg, LibraryContext) -> TUnbuiltResult + Send + Sync + 'static,
+		TUnbuiltResult: RequestResult<TUnbuiltResultMarker> + Send,
 		TArg: DeserializeOwned + specta::Type + Send + 'static,
-		TResult: Future<Output = Result<T, rspc::Error>> + Send + 'static,
-		T: IntoLayerResult<TResultMarker> + Send + Serialize + specta::Type,
 	{
-		self.mutation(key, move |ctx, arg: LibraryArgs<TArg>| async move {
-			let library = ctx
-				.library_manager
-				.get_ctx(arg.library_id)
-				.await
-				.ok_or_else(|| {
-					rspc::Error::new(
-						ErrorCode::BadRequest,
-						"You must specify a valid library to use this operation.".to_string(),
-					)
-				})?;
+		self.mutation(key, move |t| {
+			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::new(t.data())).resolver);
 
-			resolver(ctx, arg.arg, library).await
+			t(move |ctx, arg: LibraryArgs<TArg>| {
+				let resolver = resolver.clone();
+				async move {
+					let library = ctx
+						.library_manager
+						.get_ctx(arg.library_id)
+						.await
+						.ok_or_else(|| {
+							rspc::Error::new(
+								ErrorCode::BadRequest,
+								"You must specify a valid library to use this operation."
+									.to_string(),
+							)
+						})?;
+
+					Ok(resolver(ctx, arg.arg, library)
+						.into_request_future()?
+						.exec()
+						.await?)
+				}
+			})
 		})
 	}
 
-	fn library_subscription<T, TArg, TResult>(
+	fn library_subscription<TResolver, TArg, TStream, TResult>(
 		self,
 		key: &'static str,
-		resolver: fn(Ctx, TArg, Uuid) -> T,
+		builder: impl Fn(UnbuiltProcedureBuilder<Ctx, TResolver>) -> BuiltProcedureBuilder<TResolver>,
 	) -> Self
 	where
-		TArg: DeserializeOwned + specta::Type + Send + 'static,
-		T: Stream<Item = TResult> + Send + 'static,
+		TArg: DeserializeOwned + specta::Type + 'static,
+		TStream: Stream<Item = TResult> + Send + Sync + 'static,
 		TResult: Serialize + specta::Type,
+		TResolver: Fn(Ctx, TArg, Uuid) -> TStream + Send + Sync + 'static,
 	{
-		self.subscription(key, move |ctx, arg: LibraryArgs<TArg>| {
-			// TODO: Make this fetch the library like the other functions. This needs upstream rspc work to be supported.
-			// let library = ctx
-			// 	.library_manager
-			// 	.get_ctx(arg.library_id)
-			// 	.await
-			// 	.ok_or_else(|| {
-			// 		rspc::Error::new(
-			// 			ErrorCode::BadRequest,
-			// 			"You must specify a valid library to use this operation.".to_string(),
-			// 		)
-			// 	})?;
+		self.subscription(key, |t| {
+			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::new(t.data())).resolver);
 
-			resolver(ctx, arg.arg, arg.library_id)
+			t(move |ctx, arg: LibraryArgs<TArg>| {
+				// TODO(@Oscar): Upstream rspc work to allow this to work
+				// let library = ctx
+				// 	.library_manager
+				// 	.get_ctx(arg.library_id)
+				// 	.await
+				// 	.ok_or_else(|| {
+				// 		rspc::Error::new(
+				// 			ErrorCode::BadRequest,
+				// 			"You must specify a valid library to use this operation.".to_string(),
+				// 		)
+				// 	})?;
+
+				resolver(ctx, arg.arg, arg.library_id)
+			})
 		})
 	}
 }

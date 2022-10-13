@@ -2,16 +2,32 @@
 members = [
   "core",
   "crates/*",
+  # "crates/p2p/tunnel",
+  # "crates/p2p/tunnel/utils",
+  "crates/sync/example/src-tauri",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
   "apps/server",
 ]
 resolver = "2"
 
+[workspace.dependencies]
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
+  "rspc",
+  "sqlite-create-many",
+  "migrations",
+  "sqlite",
+], default-features = false }
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
+  "rspc",
+  "sqlite-create-many",
+  "migrations",
+  "sqlite",
+], default-features = false }
+rspc = { version = "0.1.2" }
+
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
-openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl" }
+openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
 
-[patch."https://github.com/Brendonovich/prisma-client-rust.git"]
-prisma-client-rust = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "6b59d9f0a07c4c5df1f5c97f2c6c1df7082ccac6" }
-prisma-client-rust-cli = { git = "https://github.com//Brendonovich/prisma-client-rust.git", rev = "6b59d9f0a07c4c5df1f5c97f2c6c1df7082ccac6" }
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "08c19f5e485dfc6841c7e9877c80058402bf71d7" }  # TODO: Move back to crates.io when new jsonrpc executor is release

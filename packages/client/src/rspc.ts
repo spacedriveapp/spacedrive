@@ -1,120 +1,61 @@
-import { RSPCError } from '@rspc/client';
+import { ProcedureDef } from '@rspc/client';
 import { createReactQueryHooks } from '@rspc/react';
-import {
-	QueryClient,
-	UseInfiniteQueryOptions,
-	UseInfiniteQueryResult,
-	UseMutationOptions,
-	UseMutationResult,
-	UseQueryOptions,
-	UseQueryResult,
-	useMutation as _useMutation
-} from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 
-import { LibraryArgs, Operations } from './core';
-import { useCurrentLibrary } from './index';
+import { LibraryArgs, Procedures } from './core';
+import { getLibraryIdRaw } from './index';
 
 export const queryClient = new QueryClient();
-export const rspc = createReactQueryHooks<Operations>();
+export const rspc = createReactQueryHooks<Procedures>();
 
-type NonLibraryQueries = Exclude<Operations['queries'], { key: [any, LibraryArgs<any>] }> &
-	Extract<Operations['queries'], { key: [any] }>;
-type NonLibraryQuery<K extends string> = Extract<NonLibraryQueries, { key: [K] | [K, any] }>;
-type NonLibraryQueryKey = NonLibraryQueries['key'][0];
-type NonLibraryQueryResult<K extends NonLibraryQueryKey> = NonLibraryQuery<K>['result'];
+type NonLibraryProcedure<T extends keyof Procedures> =
+	| Exclude<Procedures[T], { input: LibraryArgs<any> }>
+	| Extract<Procedures[T], { input: never }>;
 
-export function useBridgeQuery<K extends NonLibraryQueries['key']>(
-	key: K,
-	options?: UseQueryOptions<NonLibraryQueryResult<K[0]>, RSPCError>
-): UseQueryResult<NonLibraryQueryResult<K[0]>, RSPCError> {
-	// @ts-ignore
-	return rspc.useQuery(key, options);
-}
-
-type LibraryQueries = Extract<Operations['queries'], { key: [string, LibraryArgs<any>] }>;
-type LibraryQuery<K extends string> = Extract<LibraryQueries, { key: [K, any] }>;
-type LibraryQueryKey = LibraryQueries['key'][0];
-type LibraryQueryArgs<K extends string> = LibraryQuery<K>['key'][1] extends LibraryArgs<infer A>
-	? A
-	: never;
-type LibraryQueryResult<K extends string> = LibraryQuery<K>['result'];
-
-export function useLibraryQuery<K extends LibraryQueryKey>(
-	key: LibraryQueryArgs<K> extends null | undefined ? [K] : [K, LibraryQueryArgs<K>],
-	options?: UseQueryOptions<LibraryQueryResult<K>, RSPCError>
-): UseQueryResult<LibraryQueryResult<K>, RSPCError> {
-	const { library } = useCurrentLibrary();
-
-	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
-	// @ts-ignore
-	return rspc.useQuery(
-		// @ts-ignore
-		[key[0], { library_id: library?.uuid || '', arg: key[1] || null }],
-		options
-	);
-}
-
-export function useInfiniteLibraryQuery<K extends LibraryQueryKey>(
-	key: LibraryQueryArgs<K> extends null | undefined ? [K] : [K, LibraryQueryArgs<K>],
-	options?: UseInfiniteQueryOptions<LibraryQueryResult<K>, RSPCError>
-): UseInfiniteQueryResult<LibraryQueryResult<K>, RSPCError> {
-	const { library } = useCurrentLibrary();
-
-	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
-	// @ts-ignore
-	return rspc.useInfiniteQuery(
-		// @ts-ignore
-		[key[0], { library_id: library?.uuid || '', arg: key[1] || null }],
-		options
-	);
-}
-
-type LibraryMutations = Extract<Operations['mutations'], { key: [string, LibraryArgs<any>] }>;
-type LibraryMutation<K extends LibraryMutationKey> = Extract<LibraryMutations, { key: [K, any] }>;
-type LibraryMutationKey = LibraryMutations['key'][0];
-type LibraryMutationArgs<K extends LibraryMutationKey> =
-	LibraryMutation<K>['key'][1] extends LibraryArgs<infer A> ? A : never;
-type LibraryMutationResult<K extends LibraryMutationKey> = LibraryMutation<K>['result'];
-export function useLibraryMutation<K extends LibraryMutationKey>(
-	key: K,
-	options?: UseMutationOptions<LibraryMutationResult<K>, RSPCError>
-) {
-	const ctx = rspc.useContext();
-	const { library } = useCurrentLibrary();
-	if (!library?.uuid) throw new Error(`Attempted to do library query with no library set!`);
-
-	// @ts-ignore
-	return _useMutation<LibraryMutationResult<K>, RSPCError, LibraryMutationArgs<K>>(
-		async (data) =>
-			ctx.client.mutation([key, { library_id: library?.uuid || '', arg: data || null }]),
-		{
-			...options,
-			context: rspc.ReactQueryContext
-		}
-	);
-}
-
-type NonLibraryMutations = Exclude<Operations['mutations'], { key: [any, LibraryArgs<any>] }>;
-type NonLibraryMutation<K extends NonLibraryMutationKey> = Extract<
-	NonLibraryMutations,
-	{ key: [K] | [K, any] }
+type LibraryProcedures<T extends keyof Procedures> = Exclude<
+	Extract<Procedures[T], { input: LibraryArgs<any> }>,
+	{ input: never }
 >;
-type NonLibraryMutationKey = NonLibraryMutations['key'][0];
-type NonLibraryMutationArgs<K extends NonLibraryMutationKey> = NonLibraryMutation<K>['key'][1];
-type NonLibraryMutationResult<K extends NonLibraryMutationKey> = NonLibraryMutation<K>['result'];
-export function useBridgeMutation<K extends NonLibraryMutationKey>(
-	key: K,
-	options?: UseMutationOptions<NonLibraryMutationResult<K>, RSPCError>
-): UseMutationResult<NonLibraryMutationResult<K>, RSPCError, NonLibraryMutationArgs<K>> {
-	// @ts-ignore
-	return rspc.useMutation(key, options);
-}
+
+type MoreConstrainedQueries<T extends ProcedureDef> = T extends any
+	? T['input'] extends LibraryArgs<infer E>
+		? {
+				key: T['key'];
+				input: E;
+				result: T['result'];
+		  }
+		: never
+	: never;
+
+export const useBridgeQuery = rspc.customQuery<NonLibraryProcedure<'queries'>>(
+	(keyAndInput) => keyAndInput as any
+);
+
+export const useBridgeMutation = rspc.customMutation<NonLibraryProcedure<'mutations'>>(
+	(keyAndInput) => keyAndInput
+);
+
+export const useLibraryQuery = rspc.customQuery<
+	MoreConstrainedQueries<LibraryProcedures<'queries'>>
+>((keyAndInput) => {
+	const library_id = getLibraryIdRaw();
+	if (library_id === null) throw new Error('Attempted to do library query with no library set!');
+	return [keyAndInput[0], { library_id, arg: keyAndInput[1] || null }];
+});
+
+export const useLibraryMutation = rspc.customMutation<
+	MoreConstrainedQueries<LibraryProcedures<'mutations'>>
+>((keyAndInput) => {
+	const library_id = getLibraryIdRaw();
+	if (library_id === null) throw new Error('Attempted to do library query with no library set!');
+	return [keyAndInput[0], { library_id, arg: keyAndInput[1] || null }];
+});
 
 export function useInvalidateQuery() {
 	const context = rspc.useContext();
 	rspc.useSubscription(['invalidateQuery'], {
-		onNext: (invalidateOperation) => {
-			let key = [invalidateOperation.key];
+		onData: (invalidateOperation) => {
+			const key = [invalidateOperation.key];
 			if (invalidateOperation.arg !== null) {
 				key.concat(invalidateOperation.arg);
 			}

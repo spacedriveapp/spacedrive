@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import {
 	OperatingSystem,
 	getExplorerStore,
@@ -8,10 +8,14 @@ import {
 import { Dropdown } from '@sd/ui';
 import clsx from 'clsx';
 import {
+	Aperture,
 	ArrowsClockwise,
+	FilmStrip,
 	IconProps,
+	Image,
 	Key,
 	List,
+	MonitorPlay,
 	Rows,
 	SidebarSimple,
 	SquaresFour
@@ -49,7 +53,7 @@ const TopBarButton: React.FC<TopBarButtonProps> = ({
 		<button
 			{...props}
 			className={clsx(
-				'mr-[1px] py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-550 rounded-md transition-colors duration-100',
+				'mr-[1px] flex py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-550 rounded-md transition-colors duration-100',
 				{
 					'rounded-r-none rounded-l-none': group && !left && !right,
 					'rounded-r-none': group && left,
@@ -98,7 +102,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 
 			<div
 				className={clsx(
-					'space-x-1 absolute top-[2px] right-1 peer-focus:invisible pointer-events-none',
+					'space-x-1 absolute top-[1px] right-1 peer-focus:invisible pointer-events-none',
 					isDirty && 'hidden'
 				)}
 			>
@@ -220,22 +224,31 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 				<div data-tauri-drag-region className="flex flex-row justify-center flex-grow">
 					<div className="flex mx-8">
-						<Tooltip label="List view">
+						<Tooltip label="Grid view">
 							<TopBarButton
 								group
 								left
+								active={store.layoutMode === 'grid'}
+								icon={SquaresFour}
+								onClick={() => (getExplorerStore().layoutMode = 'grid')}
+							/>
+						</Tooltip>
+						<Tooltip label="List view">
+							<TopBarButton
+								group
 								active={store.layoutMode === 'list'}
 								icon={Rows}
 								onClick={() => (getExplorerStore().layoutMode = 'list')}
 							/>
 						</Tooltip>
-						<Tooltip label="Grid view">
+
+						<Tooltip label="Media view">
 							<TopBarButton
 								group
 								right
-								active={store.layoutMode === 'grid'}
-								icon={SquaresFour}
-								onClick={() => (getExplorerStore().layoutMode = 'grid')}
+								active={store.layoutMode === 'media'}
+								icon={MonitorPlay}
+								onClick={() => (getExplorerStore().layoutMode = 'media')}
 							/>
 						</Tooltip>
 					</div>

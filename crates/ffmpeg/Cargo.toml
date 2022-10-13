@@ -1,5 +1,5 @@
 [package]
-name = "sd_ffmpeg"
+name = "sd-ffmpeg"
 version = "0.1.0"
 authors = ["Ericson Soares <ericson.ds999@gmail.com>"]
 edition = "2021"
@@ -13,10 +13,10 @@ resolver = "2"
 
 [dependencies]
 ffmpeg-sys-next = "5.1.1"
-thiserror = "1.0.35"
+thiserror = "1.0.37"
 webp = "0.2.2"
-tokio = { version = "1.21.1", features = ["fs", "rt"] }
+tokio = { version = "1.21.2", features = ["fs", "rt"] }
 
 [dev-dependencies]
 tempfile = "3.3.0"
-tokio = { version = "1.21.1", features = ["fs", "rt", "macros"] }
+tokio = { version = "1.21.2", features = ["fs", "rt", "macros"] }

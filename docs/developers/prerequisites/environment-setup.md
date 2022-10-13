@@ -97,4 +97,7 @@ To run mobile app
 If you are having issues ensure you are using the following versions of Rust and Node:
 
 - Rust version: **1.64.0**
-- Node.js version: **≥17**
+  <<<<<<< HEAD
+- # Node.js version: **≥17**
+- Node version: **17**
+  > > > > > > > 3bed836989b6eb5eda8d0045ed10461e1772caa9
