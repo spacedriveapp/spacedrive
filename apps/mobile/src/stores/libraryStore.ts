@@ -27,6 +27,10 @@ export const libraryStore = proxyWithPersist({
 	getStorage: () => StorageEngine
 });
 
+export function useLibraryStore() {
+	return useSnapshot(libraryStore);
+}
+
 export function getLibraryIdRaw(): string | null {
 	return libraryStore.currentLibraryUuid;
 }

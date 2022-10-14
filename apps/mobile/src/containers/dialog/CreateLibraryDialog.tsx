@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { useSnapshot } from 'valtio';
 import Dialog from '~/components/layout/Dialog';
 import { TextInput } from '~/components/primitive/Input';
 import { queryClient, useBridgeMutation } from '~/hooks/rspc';
-import { libraryStore } from '~/stores/libraryStore';
+import { useLibraryStore } from '~/stores/libraryStore';
 
 type Props = {
 	onSubmit?: () => void;
@@ -15,7 +14,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 	const [libName, setLibName] = useState('');
 	const [createLibOpen, setCreateLibOpen] = useState(false);
 
-	const { switchLibrary } = useSnapshot(libraryStore);
+	const { switchLibrary } = useLibraryStore();
 
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',

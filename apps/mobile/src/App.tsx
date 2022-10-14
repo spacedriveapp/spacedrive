@@ -20,7 +20,7 @@ import useCachedResources from './hooks/useCachedResources';
 import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
-import { libraryStore } from './stores/libraryStore';
+import { useLibraryStore } from './stores/libraryStore';
 import { onboardingStore } from './stores/onboardingStore';
 import type { Procedures } from './types/bindings';
 
@@ -50,7 +50,7 @@ function AppContainer() {
 		}
 	});
 
-	const { _persist, switchLibrary } = useSnapshot(libraryStore);
+	const { _persist, switchLibrary } = useLibraryStore();
 
 	console.log('persisted?', _persist.loaded);
 

@@ -1,11 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useSnapshot } from 'valtio';
 
 import tw from '../../lib/tailwind';
 import { SharedScreenProps } from '../../navigation/SharedScreens';
-import { fileModalStore } from '../../stores/modalStore';
+import { useFileModalStore } from '../../stores/modalStore';
 import { FilePath } from '../../types/bindings';
 import FileIcon from './FileIcon';
 
@@ -16,7 +15,7 @@ type FileItemProps = {
 // TODO: Menu for file actions (File details, Share etc.)
 
 const FileItem = ({ file }: FileItemProps) => {
-	const { fileRef, setData } = useSnapshot(fileModalStore);
+	const { fileRef, setData } = useFileModalStore();
 
 	const navigation = useNavigation<SharedScreenProps<'Location'>['navigation']>();
 

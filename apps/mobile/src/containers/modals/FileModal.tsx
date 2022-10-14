@@ -3,13 +3,12 @@ import dayjs from 'dayjs';
 import React, { useRef } from 'react';
 import { Button, Pressable, Text, View } from 'react-native';
 import { ChevronLeftIcon } from 'react-native-heroicons/outline';
-import { useSnapshot } from 'valtio';
 
 import FileIcon from '../../components/file/FileIcon';
 import { Modal } from '../../components/layout/Modal';
 import Divider from '../../components/primitive/Divider';
 import tw from '../../lib/tailwind';
-import { fileModalStore } from '../../stores/modalStore';
+import { useFileModalStore } from '../../stores/modalStore';
 
 interface MetaItemProps {
 	title: string;
@@ -26,7 +25,7 @@ function MetaItem({ title, value }: MetaItemProps) {
 }
 
 export const FileModal = () => {
-	const { fileRef, data } = useSnapshot(fileModalStore);
+	const { fileRef, data } = useFileModalStore();
 
 	const fileDetailsRef = useRef<BottomSheetModal>(null);
 

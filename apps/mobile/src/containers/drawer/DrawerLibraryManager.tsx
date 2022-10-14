@@ -4,10 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/outline';
 import { ChevronRightIcon, CogIcon, PlusIcon } from 'react-native-heroicons/solid';
-import { useSnapshot } from 'valtio';
 import CreateLibraryDialog from '~/containers/dialog/CreateLibraryDialog';
 import tw from '~/lib/tailwind';
-import { libraryStore, useCurrentLibrary } from '~/stores/libraryStore';
+import { useCurrentLibrary, useLibraryStore } from '~/stores/libraryStore';
 
 import { AnimatedHeight } from '../../components/animation/layout';
 import Divider from '../../components/primitive/Divider';
@@ -22,7 +21,7 @@ const DrawerLibraryManager = () => {
 	}, [isDrawerOpen]);
 
 	// Init Libraries
-	const { initLibraries, switchLibrary } = useSnapshot(libraryStore);
+	const { initLibraries, switchLibrary } = useLibraryStore();
 	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
 
 	useEffect(() => {
