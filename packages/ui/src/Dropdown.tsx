@@ -2,17 +2,28 @@ import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 import { Button } from './Button';
 
-export type DropdownItem = {
-	name: string;
-	icon?: any;
-	disabled?: boolean;
-	selected?: boolean;
-	onPress?: () => any;
-	wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
-}[];
+export type DropdownItem = (
+	| {
+			name: string;
+			icon?: any;
+			selected?: boolean;
+			to?: string;
+			wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
+	  }
+	| {
+			name: string;
+			icon?: any;
+			disabled?: boolean;
+			selected?: boolean;
+			onPress?: () => any;
+			to?: string;
+			wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
+	  }
+)[];
 
 export interface DropdownProps {
 	items: DropdownItem[];
@@ -81,28 +92,54 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 
 											return (
 												<WrappedItem>
-													<button
-														onClick={button.onPress}
-														disabled={button?.disabled === true}
-														className={clsx(
-															'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-650 disabled:opacity-50 disabled:cursor-not-allowed',
-															{
-																'bg-gray-300 dark:bg-primary dark:hover:bg-primary': button.selected
-																// 'text-gray-900 dark:text-gray-200': !active
-															},
-															props.itemButtonClassName
-														)}
-													>
-														{button.icon && (
-															<button.icon
-																className={clsx('mr-2 w-4 h-4', {
-																	'dark:text-gray-100': active,
-																	'text-gray-600 dark:text-gray-200': !active
-																})}
-															/>
-														)}
-														<span className="text-left">{button.name}</span>
-													</button>
+													{button.to ? (
+														<Link
+															to={button.to}
+															className={clsx(
+																'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-650 disabled:opacity-50 disabled:cursor-not-allowed',
+																{
+																	'bg-gray-300 dark:bg-primary dark:hover:bg-primary':
+																		button.selected
+																	// 'text-gray-900 dark:text-gray-200': !active
+																},
+																props.itemButtonClassName
+															)}
+														>
+															{button.icon && (
+																<button.icon
+																	className={clsx('mr-2 w-4 h-4', {
+																		'dark:text-gray-100': active,
+																		'text-gray-600 dark:text-gray-200': !active
+																	})}
+																/>
+															)}
+															<span className="text-left">{button.name}</span>
+														</Link>
+													) : (
+														<button
+															onClick={(button as any).onPress}
+															disabled={(button as any)?.disabled === true}
+															className={clsx(
+																'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] dark:hover:bg-gray-650 disabled:opacity-50 disabled:cursor-not-allowed',
+																{
+																	'bg-gray-300 dark:bg-primary dark:hover:bg-primary':
+																		button.selected
+																	// 'text-gray-900 dark:text-gray-200': !active
+																},
+																props.itemButtonClassName
+															)}
+														>
+															{button.icon && (
+																<button.icon
+																	className={clsx('mr-2 w-4 h-4', {
+																		'dark:text-gray-100': active,
+																		'text-gray-600 dark:text-gray-200': !active
+																	})}
+																/>
+															)}
+															<span className="text-left">{button.name}</span>
+														</button>
+													)}
 												</WrappedItem>
 											);
 										}}
