@@ -17,8 +17,6 @@ export default function CreateLibraryDialog({
 		'library.create',
 		{
 			onSuccess: (library: any) => {
-				console.log('SUBMITTING');
-
 				setOpenCreateModal(false);
 
 				queryClient.setQueryData(['library.list'], (libraries: any) => [
