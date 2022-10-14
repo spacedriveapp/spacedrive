@@ -98,9 +98,9 @@ model Location {
 
 model Object {
   id                 Int      @id @default(autoincrement())
-  // content addressable storage id - sha256 sampled checksum
+  // content addressable storage id - blake3 sampled checksum
   cas_id             String   @unique
-  // full byte contents digested into sha256 checksum
+  // full byte contents digested into blake3 checksum
   integrity_checksum String?  @unique
   // basic metadata
   name               String?
