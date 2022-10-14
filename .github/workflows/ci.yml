@@ -130,11 +130,8 @@ jobs:
         with:
           node-version: 17
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.0.1
-        with:
-          version: 7
-          run_install: false
+      - name: Set up pnpm & dependencies
+        uses: ./.github/actions/pnpm-setup
 
       - name: Run 'setup-system.sh' script
         if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
