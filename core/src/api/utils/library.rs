@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use futures::{Future, Stream};
+use futures::Stream;
 use rspc::{
 	internal::{
 		specta, BuiltProcedureBuilder, MiddlewareBuilderLike, RequestResult,

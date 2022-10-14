@@ -5,7 +5,7 @@ use crate::{
 	library::LibraryContext,
 	prisma::{file_path, location},
 };
-use sd_file_ext::extensions::{Extension, ImageExtension, VideoExtension, ALL_VIDEO_EXTENSIONS};
+use sd_file_ext::extensions::{Extension, ImageExtension, VideoExtension};
 
 use image::{self, imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
@@ -120,8 +120,8 @@ impl StatefulJob for ThumbnailJob {
 				&library_ctx,
 				state.init.location_id,
 				&state.init.path,
-				ALL_VIDEO_EXTENSIONS
-					.into_iter()
+				sd_file_ext::extensions::ALL_VIDEO_EXTENSIONS
+					.iter()
 					.map(Clone::clone)
 					.filter(can_generate_thumbnail_for_video)
 					.map(Extension::Video)
@@ -317,10 +317,8 @@ async fn get_files_by_extensions(
 		.collect())
 }
 
+#[allow(unused)]
 pub fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) -> bool {
 	use VideoExtension::*;
-	match video_extension {
-		Mpg | Swf | M2v => false,
-		_ => true,
-	}
+	!matches!(video_extension, Mpg | Swf | M2v)
 }
