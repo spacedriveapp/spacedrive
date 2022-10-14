@@ -95,13 +95,18 @@ jobs:
           args: --all-features --release
 
   build-and-publish:
-    name: Build and Publish (${{ matrix.platform }})
+    name: Build and Publish (${{ matrix.platform }}-${{ matrix.architecture }})
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: true
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
+        architecture: [x64]
         vcpkgCommitId: [4a723f2d160e20d9be368482e5bcaa2b849be9b1]
+        include:
+          - platform: macos-latest
+            architecture: arm64
+            vcpkgCommitId: 4a723f2d160e20d9be368482e5bcaa2b849be9b1
     steps:
       - name: Log in to the Container registry
         if: matrix.platform == 'ubuntu-latest' && github.event_name != 'pull_request'
