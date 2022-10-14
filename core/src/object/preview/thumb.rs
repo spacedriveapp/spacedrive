@@ -189,7 +189,7 @@ impl StatefulJob for ThumbnailJob {
 		let output_path = data.thumbnail_dir.join(&cas_id).with_extension("webp");
 
 		// check if file exists at output path
-		if !output_path.exists() {
+		if !output_path.try_exists().unwrap() {
 			info!("Writing {:?} to {:?}", path, output_path);
 
 			match step.kind {
