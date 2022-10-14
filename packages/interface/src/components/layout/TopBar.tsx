@@ -142,6 +142,15 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		}
 	});
 
+	const { mutate: objectValidator } = useLibraryMutation(
+		'jobs.objectValidator',
+		{
+			onMutate: (data) => {
+				// console.log('ObjectValidator', data);
+			}
+		}
+	);
+
 	const navigate = useNavigate();
 
 	//create function to focus on search box when cmd+k is pressed
@@ -296,6 +305,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 									icon: ArrowsClockwise,
 									onPress: () =>
 										store.locationId && identifyUniqueFiles({ id: store.locationId, path: '' })
+								},
+								{
+									name: 'Validate Objects',
+									icon: ArrowsClockwise,
+									onPress: () =>
+										store.locationId && objectValidator({ id: store.locationId, path: '' })
 								}
 							]
 						]}
