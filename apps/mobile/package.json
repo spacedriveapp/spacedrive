@@ -20,6 +20,7 @@
 		"@rspc/client": "^0.1.2",
 		"@rspc/react": "^0.1.2",
 		"@sd/assets": "file:../../packages/assets",
+		"@shopify/flash-list": "^1.3.1",
 		"@tanstack/react-query": "^4.10.3",
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.2.3",
