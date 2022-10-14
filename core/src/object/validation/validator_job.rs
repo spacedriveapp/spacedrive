@@ -4,7 +4,7 @@ use std::{collections::VecDeque, path::PathBuf};
 
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	prisma::{file_path, location, object, self},
+	prisma::{self, file_path, location, object},
 };
 
 use tracing::info;
@@ -71,15 +71,12 @@ impl StatefulJob for ObjectValidatorJob {
 			.await?
 			.unwrap();
 
-		state.data = Some(ObjectValidatorJobState { root_path: location
-			.local_path
-			.as_ref()
-			.map(PathBuf::from)
-			.unwrap(), task_count: state.steps.len() });
+		state.data = Some(ObjectValidatorJobState {
+			root_path: location.local_path.as_ref().map(PathBuf::from).unwrap(),
+			task_count: state.steps.len(),
+		});
 
-		ctx.progress(vec![JobReportUpdate::TaskCount(
-			state.steps.len(),
-		)]);
+		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
 		Ok(())
 	}
@@ -92,30 +89,41 @@ impl StatefulJob for ObjectValidatorJob {
 		let step = &state.steps[0];
 		let library_ctx = ctx.library_ctx();
 
-		let data = state
-			.data
-			.as_ref()
-			.expect("fatal: missing job state");
+		let data = state.data.as_ref().expect("fatal: missing job state");
 
 		let path = data.root_path.join(&step.path.materialized_path);
 
 		// skip directories
 		if path.is_dir() {
-			return Ok(())
+			return Ok(());
 		}
 
 		if let Some(object_id) = step.path.object_id {
 			// this is to skip files that already have checksums
 			// i'm unsure what the desired behaviour is in this case
 			// we can also compare old and new checksums here
-			let object = library_ctx.db.object().find_unique(object::id::equals(object_id)).exec().await?.unwrap();
+			let object = library_ctx
+				.db
+				.object()
+				.find_unique(object::id::equals(object_id))
+				.exec()
+				.await?
+				.unwrap();
 			if object.integrity_checksum.is_some() {
-				return Ok(())
+				return Ok(());
 			}
 
 			let hash = file_checksum(path).await?;
 
-			library_ctx.db.object().update(object::id::equals(object_id), vec![prisma::object::SetParam::SetIntegrityChecksum(Some(hash))]).exec().await?;
+			library_ctx
+				.db
+				.object()
+				.update(
+					object::id::equals(object_id),
+					vec![prisma::object::SetParam::SetIntegrityChecksum(Some(hash))],
+				)
+				.exec()
+				.await?;
 		}
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
