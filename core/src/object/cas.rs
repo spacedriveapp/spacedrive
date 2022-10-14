@@ -17,10 +17,6 @@ async fn read_at(file: &mut File, offset: u64, size: u64) -> Result<Vec<u8>, io:
 	Ok(buf)
 }
 
-fn to_hex_string(b: &[u8]) -> String {
-	b.iter().map(|c| format!("{:02x}", c)).collect::<String>()
-}
-
 pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Error> {
 	// open file reference
 	let mut file = File::open(path).await?;
@@ -46,9 +42,9 @@ pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Err
 		hasher.update(&buf);
 	}
 
-	let hex = to_hex_string(hasher.finalize().as_bytes());
+	let hex = hasher.finalize().to_hex();
 
-	Ok(hex)
+	Ok(hex.to_string())
 }
 
 pub async fn full_checksum(path: &str) -> Result<String, io::Error> {
@@ -64,7 +60,7 @@ pub async fn full_checksum(path: &str) -> Result<String, io::Error> {
 			break;
 		}
 	}
-	let hex = to_hex_string(context.finalize().as_bytes());
+	let hex = context.finalize().to_hex();
 
-	Ok(hex)
+	Ok(hex.to_string())
 }
