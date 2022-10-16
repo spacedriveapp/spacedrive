@@ -43,15 +43,19 @@ const Key: React.FC<{ data: FakeKey; index: number }> = ({ data, index }) => {
 	return (
 		<div
 			className={clsx(
-				'flex items-center justify-between px-2 py-1.5 shadow-gray-900/20 text-sm text-gray-300 bg-gray-500/30  shadow-lg border-gray-500 rounded-md'
+				'flex items-center justify-between px-2 py-1.5 shadow-gray-900/20 text-sm text-gray-300 bg-gray-500/30 shadow-lg border-gray-500 rounded-lg'
 				// !odd && 'bg-opacity-10'
 			)}
 		>
 			<div className="flex items-center">
 				<KeyIcon
 					className={clsx(
-						'w-6 h-6 ml-1 mr-3',
-						data.mounted ? (data.locked ? 'text-gray-300' : 'text-primary-500') : 'text-gray-400/40'
+						'w-5 h-5 ml-1 mr-3',
+						data.mounted
+							? data.locked
+								? 'text-primary-600'
+								: 'text-primary-600'
+							: 'text-gray-400/80'
 					)}
 				/>
 				<div className="flex flex-col ">
@@ -64,7 +68,7 @@ const Key: React.FC<{ data: FakeKey; index: number }> = ({ data, index }) => {
 						)}
 					</div>
 					{/* <div className="text-xs text-gray-300 opacity-30">#{data.id}</div> */}
-					{data.stats && (
+					{/* {data.stats && (
 						<div className="flex flex-row space-x-3">
 							{data.stats.objectCount && (
 								<div className="text-[8pt] text-gray-300 opacity-30">
@@ -77,7 +81,7 @@ const Key: React.FC<{ data: FakeKey; index: number }> = ({ data, index }) => {
 								</div>
 							)}
 						</div>
-					)}
+					)} */}
 				</div>
 			</div>
 			<div className="space-x-1">
@@ -144,21 +148,21 @@ export function KeyManager(props: KeyManagerProps) {
 					</Tooltip>
 				</div>
 				<div className="flex flex-row items-center mt-3 mb-1">
-					<Toggle className="dark:bg-gray-450/20" size="sm" value={toggle} onChange={setToggle} />
-					<span className="ml-3 mt-[1px] font-medium">Sync with Library</span>
+					<Toggle className="dark:bg-gray-400/30" size="sm" value={toggle} onChange={setToggle} />
+					<span className="ml-3 mt-[1px] font-medium text-xs">Sync with Library</span>
 					<Tooltip label="This key will be mounted on all devices running your Library">
-						<InformationCircleIcon className="w-4 h-4 ml-1 text-gray-400" />
+						<InformationCircleIcon className="w-4 h-4 ml-1.5 text-gray-400" />
 					</Tooltip>
 				</div>
-				<p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-gray-300 opacity-50 w-[90%]">
+				{/* <p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-gray-300 opacity-50 w-[90%]">
 					Files encrypted with this key will be revealed and decrypted on the fly.
-				</p>
+				</p> */}
 			</div>
 			<hr className="border-gray-500" />
 			<div className="p-3 custom-scroll overlay-scroll">
 				<div className="">
 					<Heading>Mounted keys</Heading>
-					<div className="pt-1 space-y-1">
+					<div className="pt-1 space-y-1.5">
 						<Key
 							index={0}
 							data={{
@@ -186,6 +190,15 @@ export function KeyManager(props: KeyManagerProps) {
 						<Key index={3} data={{ id: 'b02303d68d05a562', name: 'Key 6' }} />
 					</div>
 				</div>
+			</div>
+			<div className="flex w-full p-2 bg-gray-600 border-t border-gray-500 rounded-b-md">
+				<Button size="sm" variant="gray">
+					Unmount All
+				</Button>
+				<div className="flex-grow" />
+				<Button size="sm" variant="gray">
+					Close
+				</Button>
 			</div>
 		</div>
 	);

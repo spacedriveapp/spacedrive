@@ -257,14 +257,13 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					<div className="flex mx-8 space-x-2">
 						<OverlayPanel
 							className="focus:outline-none"
-							// disabled={!library}
 							trigger={
 								// <Tooltip label="Major Key Alert">
 								<TopBarButton icon={Key} />
 								// </Tooltip>
 							}
 						>
-							<div className="block w-[350px] h-[425px]">
+							<div className="block w-[350px] h-[435px]">
 								<KeyManager />
 							</div>
 						</OverlayPanel>
@@ -283,7 +282,17 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						className="my-2"
 						icon={SidebarSimple}
 					/>
-					<Dropdown
+					<OverlayPanel
+						className="focus:outline-none"
+						trigger={
+							// <Tooltip label="Major Key Alert">
+							<TopBarButton icon={List} className="my-2" />
+							// </Tooltip>
+						}
+					>
+						<div className="block w-[250px] h-[335px]">{/* <KeyManager /> */}</div>
+					</OverlayPanel>
+					{/* <Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
 						align="right"
 						items={[
@@ -304,7 +313,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							]
 						]}
 						buttonComponent={<TopBarButton icon={List} />}
-					/>
+					/> */}
 				</div>
 			</div>
 		</>

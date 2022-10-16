@@ -32,7 +32,7 @@ export function AppLayout() {
 		>
 			<Sidebar />
 			<div className="relative flex w-full h-screen max-h-screen bg-white dark:bg-gray-650">
-				<Suspense fallback={<p>Loading...</p>}>
+				<Suspense>
 					<Outlet />
 				</Suspense>
 			</div>

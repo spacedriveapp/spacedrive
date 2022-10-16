@@ -3,7 +3,7 @@ import { forwardRef } from 'react';
 
 const sizes = {
 	default: 'py-1 px-3 text-md font-medium',
-	sm: 'py-1 px-2 text-sm font-medium'
+	sm: 'py-1 px-2 text-xs font-medium'
 };
 
 const variants = {
@@ -117,14 +117,16 @@ export const Button = forwardRef<
 		ref
 	) => {
 		className = clsx(
-			'border rounded-md items-center transition-colors duration-100 cursor-default',
-			{ 'opacity-70': loading, '!p-1': noPadding },
-			{ 'justify-center': !justifyLeft },
+			'border rounded-md items-center transition-colors duration-100 cursor-default disabled:opacity-50 disabled:cursor-not-allowed',
+			{
+				'opacity-70': loading,
+				'!p-1': noPadding,
+				'justify-center': !justifyLeft,
+				'active:translate-y-[1px]': pressEffect,
+				'border-0': noBorder
+			},
 			sizes[size || 'default'],
 			variants[variant || 'default'],
-			{ 'active:translate-y-[1px]': pressEffect },
-			{ 'border-0': noBorder },
-			'disabled:opacity-50 disabled:cursor-not-allowed',
 			className
 		);
 

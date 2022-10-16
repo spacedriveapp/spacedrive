@@ -36,8 +36,8 @@ export const OverlayPanel = ({
 			transform: `scale(${0.9})`,
 			transformOrigin: transformOrigin || 'top'
 		},
-		enter: { opacity: 1, transform: `scale(${1})` },
-		leave: { opacity: 0, transform: `scale(${0.9})` },
+		enter: { opacity: 1, transform: 'scale(1)' },
+		leave: { opacity: -0.5, transform: 'scale(0.95)' },
 		config: { mass: 0.4, tension: 200, friction: 10 }
 	});
 
