@@ -60,7 +60,7 @@ function Toasts() {
 	// }, []);
 
 	return (
-		<div className="fixed flex right-0">
+		<div className="fixed right-0 flex">
 			<ToastPrimitive.Provider>
 				<>
 					{toasts.map((toast) => (
@@ -81,7 +81,7 @@ function Toasts() {
 							)}
 						>
 							<div className="flex">
-								<div className="w-0 flex-1 flex items-center pl-5 py-4">
+								<div className="flex items-center flex-1 w-0 py-4 pl-5">
 									<div className="w-full radix">
 										<ToastPrimitive.Title className="text-sm font-medium text-gray-900 dark:text-gray-100">
 											{toast.title}
@@ -95,11 +95,11 @@ function Toasts() {
 								</div>
 								<div className="flex">
 									<div className="flex flex-col px-3 py-2 space-y-1">
-										<div className="h-0 flex-1 flex">
+										<div className="flex flex-1 h-0">
 											{toast.actionButton && (
 												<ToastPrimitive.Action
 													altText="view now"
-													className="w-full border border-transparent rounded-lg px-3 py-2 flex items-center justify-center text-sm font-medium text-primary dark:text-primary hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-primary focus-visible:ring-opacity-75"
+													className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium border border-transparent rounded-lg text-primary dark:text-primary hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-primary focus-visible:ring-opacity-75"
 													onClick={(e) => {
 														e.preventDefault();
 														toast.actionButton?.onClick();
@@ -110,8 +110,8 @@ function Toasts() {
 												</ToastPrimitive.Action>
 											)}
 										</div>
-										<div className="h-0 flex-1 flex">
-											<ToastPrimitive.Close className="w-full border border-transparent rounded-lg px-3 py-2 flex items-center justify-center text-sm font-medium text-gray-700 dark:text-gray-100 hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-primary focus-visible:ring-opacity-75">
+										<div className="flex flex-1 h-0">
+											<ToastPrimitive.Close className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium text-gray-700 border border-transparent rounded-lg dark:text-gray-100 hover:bg-white/10 focus:z-10 focus:outline-none focus-visible:ring focus-visible:ring-primary focus-visible:ring-opacity-75">
 												Dismiss
 											</ToastPrimitive.Close>
 										</div>

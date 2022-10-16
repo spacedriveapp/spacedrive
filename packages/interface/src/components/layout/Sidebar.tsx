@@ -250,6 +250,7 @@ export function Sidebar() {
 				</NavLink>
 				<OverlayPanel
 					className="focus:outline-none"
+					transformOrigin="bottom left"
 					disabled={!library}
 					trigger={
 						<Button
