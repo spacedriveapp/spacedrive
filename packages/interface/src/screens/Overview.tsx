@@ -2,6 +2,7 @@ import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
 import { useBridgeQuery, useLibraryQuery, usePlatform } from '@sd/client';
 import { Statistics } from '@sd/client';
 import { Button, Input } from '@sd/ui';
+import { Dialog } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { useEffect } from 'react';
@@ -10,7 +11,6 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
 
 import { Device } from '../components/device/Device';
-import Dialog from '../components/layout/Dialog';
 import useCounter from '../hooks/useCounter';
 
 interface StatItemProps {

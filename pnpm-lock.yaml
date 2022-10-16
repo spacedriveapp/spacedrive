@@ -485,6 +485,7 @@ importers:
       '@headlessui/react': ^1.7.3
       '@heroicons/react': ^2.0.12
       '@radix-ui/react-context-menu': ^1.0.0
+      '@radix-ui/react-dialog': ^1.0.0
       '@radix-ui/react-dropdown-menu': ^1.0.0
       '@sd/config': workspace:*
       '@storybook/addon-actions': ^6.5.12
@@ -512,6 +513,7 @@ importers:
       postcss-loader: ^7.0.1
       react: ^18.2.0
       react-dom: ^18.2.0
+      react-loading-icons: ^1.1.0
       react-spring: ^9.5.5
       sass: ^1.55.0
       sass-loader: ^13.0.2
@@ -524,6 +526,7 @@ importers:
       '@headlessui/react': 1.7.3_biqbaboplfbrettd7655fr4n2y
       '@heroicons/react': 2.0.12_react@18.2.0
       '@radix-ui/react-context-menu': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
+      '@radix-ui/react-dialog': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@radix-ui/react-dropdown-menu': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.1.8
       class-variance-authority: 0.2.3_typescript@4.8.4
@@ -532,6 +535,7 @@ importers:
       postcss: 8.4.17
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
+      react-loading-icons: 1.1.0
       react-spring: 9.5.5_biqbaboplfbrettd7655fr4n2y
       storybook: 6.5.12_yalvw3r2waubxycyb7k7qsruca
       tailwindcss: 3.1.8
