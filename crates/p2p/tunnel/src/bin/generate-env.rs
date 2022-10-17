@@ -7,7 +7,7 @@ fn main() {
 	println!("Issuing sdtunnel certificate...");
 
 	let env_file = Path::new("./.env");
-	if env_file.exists() {
+	if env_file.try_exists().unwrap() {
 		println!("File '{}' already exists. Exiting...", env_file.display());
 		return;
 	}
