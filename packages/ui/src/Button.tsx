@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { forwardRef } from 'react';
+import { Link, LinkProps } from 'react-router-dom';
 
 const sizes = {
 	default: 'py-1 px-3 text-md font-medium',
@@ -144,6 +145,37 @@ export const Button = forwardRef<
 					{props.children}
 				</>
 			</button>
+		);
+	}
+);
+
+export const ButtonLink = forwardRef<
+	HTMLLinkElement,
+	ButtonBaseProps & LinkProps & React.RefAttributes<HTMLAnchorElement>
+>(
+	(
+		{ loading, justifyLeft, className, pressEffect, noBorder, noPadding, size, variant, ...props },
+		ref
+	) => {
+		className = clsx(
+			'border rounded-md items-center transition-colors duration-100 cursor-default',
+			{ 'opacity-70': loading, '!p-1': noPadding },
+			{ 'justify-center': !justifyLeft },
+			sizes[size || 'default'],
+			variants[variant || 'default'],
+			{ 'active:translate-y-[1px]': pressEffect },
+			{ 'border-0': noBorder },
+			'disabled:opacity-50 disabled:cursor-not-allowed',
+			className
+		);
+
+		return (
+			<Link {...props} ref={ref as any} className={clsx(className, 'no-underline')}>
+				<>
+					{props.icon}
+					{props.children}
+				</>
+			</Link>
 		);
 	}
 );
