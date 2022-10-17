@@ -33,7 +33,7 @@ export const OverlayPanel = ({
 	const transitions = useTransition(open, {
 		from: {
 			opacity: 0,
-			transform: `scale(${0.9})`,
+			transform: `scale(0.9)`,
 			transformOrigin: transformOrigin || 'top'
 		},
 		enter: { opacity: 1, transform: 'scale(1)' },

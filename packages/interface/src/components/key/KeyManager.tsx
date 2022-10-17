@@ -68,20 +68,20 @@ const Key: React.FC<{ data: FakeKey; index: number }> = ({ data, index }) => {
 						)}
 					</div>
 					{/* <div className="text-xs text-gray-300 opacity-30">#{data.id}</div> */}
-					{/* {data.stats && (
-						<div className="flex flex-row space-x-3">
+					{data.stats && (
+						<div className="flex flex-row mt-[1px] space-x-3">
 							{data.stats.objectCount && (
-								<div className="text-[8pt] text-gray-300 opacity-30">
+								<div className="text-[8pt] font-medium text-gray-200 opacity-30">
 									{data.stats.objectCount} Objects
 								</div>
 							)}
 							{data.stats.containerCount && (
-								<div className="text-[8pt] text-gray-300 opacity-30">
+								<div className="text-[8pt] font-medium text-gray-200 opacity-30">
 									{data.stats.containerCount} Containers
 								</div>
 							)}
 						</div>
-					)} */}
+					)}
 				</div>
 			</div>
 			<div className="space-x-1">
@@ -154,9 +154,9 @@ export function KeyManager(props: KeyManagerProps) {
 						<InformationCircleIcon className="w-4 h-4 ml-1.5 text-gray-400" />
 					</Tooltip>
 				</div>
-				{/* <p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-gray-300 opacity-50 w-[90%]">
+				<p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-gray-300 opacity-50 w-[90%]">
 					Files encrypted with this key will be revealed and decrypted on the fly.
-				</p> */}
+				</p>
 			</div>
 			<hr className="border-gray-500" />
 			<div className="p-3 custom-scroll overlay-scroll">
