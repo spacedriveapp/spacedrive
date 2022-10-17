@@ -1,5 +1,5 @@
 // const colors = require('tailwindcss/colors');
-// const plugin = require('tailwindcss/plugin');
+const plugin = require('tailwindcss/plugin');
 const defaultTheme = require('tailwindcss/defaultTheme');
 
 module.exports = function (app, options) {
@@ -120,7 +120,13 @@ module.exports = function (app, options) {
 		variants: {
 			extend: {}
 		},
-		plugins: [require('@tailwindcss/forms')]
+		plugins: [
+			require('@tailwindcss/forms'),
+			plugin(({ addVariant }) => {
+				addVariant('open', '&[data-state="open"]');
+				addVariant('closed', '&[data-state="closed"]');
+			})
+		]
 	};
 	if (app === 'landing') {
 		config.plugins.push(require('@tailwindcss/typography'));

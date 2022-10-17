@@ -25,8 +25,7 @@ const variants = {
 
     dark:text-white 
     placeholder-gray-300
-  `,
-	primary: ''
+  `
 };
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
