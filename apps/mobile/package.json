@@ -8,7 +8,8 @@
 		"android": "expo run:android",
 		"ios": "expo run:ios",
 		"xcode": "open ios/spacedrive.xcworkspace",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
+		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
+		"postinstall": "node scripts/postinstall.js"
 	},
 	"dependencies": {
 		"@gorhom/bottom-sheet": "^4.4.3",

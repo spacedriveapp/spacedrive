@@ -6599,7 +6599,7 @@ packages:
     dependencies:
       '@babel/core': 7.19.3
       '@svgr/babel-preset': 6.4.0_@babel+core@7.19.3
-      '@svgr/core': 6.4.0
+      '@svgr/core': 6.4.0_@babel+core@7.19.3
       '@svgr/hast-util-to-babel-ast': 6.4.0
       svg-parser: 2.0.4
     transitivePeerDependencies:
