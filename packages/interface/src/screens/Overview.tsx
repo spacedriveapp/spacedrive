@@ -70,7 +70,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 			)}
 		>
 			<span className="text-sm text-gray-400">{title}</span>
-			<span className="text-2xl font-bold">
+			<span className="text-2xl">
 				{isLoading && (
 					<div>
 						<Skeleton enableAnimation={true} baseColor={'#21212e'} highlightColor={'#13131a'} />
@@ -81,7 +81,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 						hidden: isLoading
 					})}
 				>
-					<span className="tabular-nums">{count}</span>
+					<span className="font-black tabular-nums">{count}</span>
 					<span className="ml-1 text-[16px] text-gray-400">{size.unit}</span>
 				</div>
 			</span>

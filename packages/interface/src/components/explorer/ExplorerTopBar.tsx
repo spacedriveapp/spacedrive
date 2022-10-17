@@ -31,6 +31,7 @@ import { KeyManager } from '../key/KeyManager';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
+import { ExplorerOptionsPanel } from './ExplorerOptionsPanel';
 
 export interface TopBarButtonProps {
 	icon: React.ComponentType<IconProps>;
@@ -276,12 +277,6 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					</div>
 				</div>
 				<div className="flex mr-3 space-x-2">
-					<TopBarButton
-						active={store.showInspector}
-						onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
-						className="my-2"
-						icon={SidebarSimple}
-					/>
 					<OverlayPanel
 						className="focus:outline-none"
 						trigger={
@@ -290,8 +285,16 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							// </Tooltip>
 						}
 					>
-						<div className="block w-[250px] h-[335px]">{/* <KeyManager /> */}</div>
+						<div className="block w-[250px] ">
+							<ExplorerOptionsPanel />
+						</div>
 					</OverlayPanel>
+					<TopBarButton
+						active={store.showInspector}
+						onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
+						className="my-2"
+						icon={SidebarSimple}
+					/>
 					{/* <Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
 						align="right"

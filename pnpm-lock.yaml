@@ -487,6 +487,8 @@ importers:
       '@radix-ui/react-context-menu': ^1.0.0
       '@radix-ui/react-dialog': ^1.0.0
       '@radix-ui/react-dropdown-menu': ^1.0.0
+      '@radix-ui/react-select': ^1.0.0
+      '@sd/assets': workspace:*
       '@sd/config': workspace:*
       '@storybook/addon-actions': ^6.5.12
       '@storybook/addon-essentials': ^6.5.12
@@ -521,6 +523,7 @@ importers:
       storybook-tailwind-dark-mode: ^1.0.15
       style-loader: ^3.3.1
       tailwindcss: ^3.1.8
+      tailwindcss-radix: ^2.6.0
       typescript: ^4.8.4
     dependencies:
       '@headlessui/react': 1.7.3_biqbaboplfbrettd7655fr4n2y
@@ -528,6 +531,8 @@ importers:
       '@radix-ui/react-context-menu': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@radix-ui/react-dialog': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@radix-ui/react-dropdown-menu': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
+      '@radix-ui/react-select': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
+      '@sd/assets': link:../assets
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.1.8
       class-variance-authority: 0.2.3_typescript@4.8.4
       clsx: 1.2.1
@@ -539,6 +544,7 @@ importers:
       react-spring: 9.5.5_biqbaboplfbrettd7655fr4n2y
       storybook: 6.5.12_yalvw3r2waubxycyb7k7qsruca
       tailwindcss: 3.1.8
+      tailwindcss-radix: 2.6.0
     devDependencies:
       '@babel/core': 7.19.3
       '@sd/config': link:../config
@@ -3285,6 +3291,21 @@ packages:
       react: 18.2.0
     dev: false
 
+  /@radix-ui/react-label/1.0.0_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-k+EbxeRaVbSJ4oaR9eUYuC0cDIGRB4TAPhilbFCIMpP9pXFNcyQPQUvRaVOQBrviuArYM80xh0BQR/0y3kjUdQ==}
+    peerDependencies:
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+    dependencies:
+      '@babel/runtime': 7.19.0
+      '@radix-ui/react-compose-refs': 1.0.0_react@18.2.0
+      '@radix-ui/react-context': 1.0.0_react@18.2.0
+      '@radix-ui/react-id': 1.0.0_react@18.2.0
+      '@radix-ui/react-primitive': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+    dev: false
+
   /@radix-ui/react-menu/1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce:
     resolution: {integrity: sha512-icW4C64T6nHh3Z4Q1fxO1RlSShouFF4UpUmPV8FLaJZfphDljannKErDuALDx4ClRLihAPZ9i+PrLNPoWS2DMA==}
     peerDependencies:
@@ -3406,6 +3427,40 @@ packages:
       '@radix-ui/react-use-controllable-state': 1.0.0_react@18.2.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
+    dev: false
+
+  /@radix-ui/react-select/1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce:
+    resolution: {integrity: sha512-GfbVBxx7JPvytNT+0XYCFCOImEMmpl0Vg7hhifLaLV7p5zRottFMgQ7qrrxw8v6B8buKXz41kWYMrdRrWqsZaQ==}
+    peerDependencies:
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+    dependencies:
+      '@babel/runtime': 7.19.0
+      '@radix-ui/number': 1.0.0
+      '@radix-ui/primitive': 1.0.0
+      '@radix-ui/react-collection': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-compose-refs': 1.0.0_react@18.2.0
+      '@radix-ui/react-context': 1.0.0_react@18.2.0
+      '@radix-ui/react-direction': 1.0.0_react@18.2.0
+      '@radix-ui/react-dismissable-layer': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-focus-guards': 1.0.0_react@18.2.0
+      '@radix-ui/react-focus-scope': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-id': 1.0.0_react@18.2.0
+      '@radix-ui/react-label': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-portal': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-primitive': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-slot': 1.0.0_react@18.2.0
+      '@radix-ui/react-use-callback-ref': 1.0.0_react@18.2.0
+      '@radix-ui/react-use-controllable-state': 1.0.0_react@18.2.0
+      '@radix-ui/react-use-layout-effect': 1.0.0_react@18.2.0
+      '@radix-ui/react-use-previous': 1.0.0_react@18.2.0
+      '@radix-ui/react-visually-hidden': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      aria-hidden: 1.2.1_iapumuv4e6jcjznwuxpf4tt22e
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      react-remove-scroll: 2.5.4_iapumuv4e6jcjznwuxpf4tt22e
+    transitivePeerDependencies:
+      - '@types/react'
     dev: false
 
   /@radix-ui/react-slider/1.0.0_biqbaboplfbrettd7655fr4n2y:
@@ -6374,7 +6429,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.18.6_@babel+core@7.19.3
       magic-string: 0.26.6
       react-refresh: 0.14.0
-      vite: 3.1.4
+      vite: 3.1.4_sass@1.55.0
     transitivePeerDependencies:
       - supports-color
 
@@ -7109,7 +7164,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.12_postcss@8.4.17:
     resolution: {integrity: sha512-WrCGV9/b97Pa+jtwf5UGaRjgQIg7OK3D06GnoYoZNcG1Xb8Gt3EfuKjlhh9i/VtT16g6PYjZ69jdJ2g8FxSC4Q==}
@@ -7699,7 +7753,7 @@ packages:
     dev: true
 
   /buffer-equal/0.0.1:
-    resolution: {integrity: sha512-RgSV6InVQ9ODPdLWJ5UAqBqJBOg370Nz6ZQtRzpt6nUjc8v0St97uJ4PYC6NztqIScrAXafKM3mZPMygSe1ggA==}
+    resolution: {integrity: sha1-kbx0sR6kBbyRa8aqkI+q+ltKrEs=}
     engines: {node: '>=0.4.0'}
     dev: true
 
@@ -10990,7 +11044,7 @@ packages:
     dev: true
 
   /github-from-package/0.0.0:
-    resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
+    resolution: {integrity: sha1-l/tdlr/eiXMxPyDoKI75oWf6ZM4=}
     dev: true
 
   /github-slugger/1.4.0:
@@ -16955,6 +17009,10 @@ packages:
       - utf-8-validate
     dev: true
 
+  /tailwindcss-radix/2.6.0:
+    resolution: {integrity: sha512-32gv65ommaEMPKRS9yPmbvc6QcV+LsAqtSe1RFindBctVpS6+SbmkfcdecW/zgRvHW7KeAgl3iyzq2ZmRqsdZQ==}
+    dev: false
+
   /tailwindcss/3.1.8:
     resolution: {integrity: sha512-YSneUCZSFDYMwk+TGq8qYFdCA3yfBRdBlS7txSq0LUmzyeqRe3a8fBQzbz9M3WS/iFT4BNf/nmw9mEzrnSaC0g==}
     engines: {node: '>=12.13.0'}
@@ -18265,7 +18323,7 @@ packages:
       valtio: ^1.2.5
     dependencies:
       lodash: 4.17.21
-      valtio: 1.7.0_react@18.2.0+vite@3.1.4
+      valtio: 1.7.0
     dev: false
 
   /valtio/1.7.0:
@@ -18429,7 +18487,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 4.2.1
       '@svgr/core': 6.4.0
-      vite: 3.1.4
+      vite: 3.1.4_sass@1.55.0
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color

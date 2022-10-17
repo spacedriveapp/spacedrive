@@ -125,7 +125,8 @@ module.exports = function (app, options) {
 			plugin(({ addVariant }) => {
 				addVariant('open', '&[data-state="open"]');
 				addVariant('closed', '&[data-state="closed"]');
-			})
+			}),
+			require('tailwindcss-radix')()
 		]
 	};
 	if (app === 'landing') {
