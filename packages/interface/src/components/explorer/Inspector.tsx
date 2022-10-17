@@ -69,12 +69,12 @@ export const Inspector = (props: Props) => {
 									<FavoriteButton data={objectData} />
 								</Tooltip>
 								<Tooltip label="Share">
-									<Button size="sm" noPadding>
+									<Button size="sm" padding="sm">
 										<ShareIcon className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>
 								<Tooltip label="Link">
-									<Button size="sm" noPadding>
+									<Button size="sm" padding="sm">
 										<Link className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>

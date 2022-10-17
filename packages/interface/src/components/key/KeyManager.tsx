@@ -5,13 +5,11 @@ import {
 	KeyIcon,
 	LockClosedIcon,
 	LockOpenIcon,
-	PlusIcon,
-	TrashIcon,
 	XMarkIcon
 } from '@heroicons/react/24/solid';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
-import { Eject, EjectSimple, Plus } from 'phosphor-react';
+import { Plus } from 'phosphor-react';
 import { useState } from 'react';
 
 import { Toggle } from '../primitive';
@@ -88,20 +86,20 @@ const Key: React.FC<{ data: FakeKey; index: number }> = ({ data, index }) => {
 				{data.mounted ? (
 					<>
 						<Tooltip label="Browse files">
-							<Button noPadding>
+							<Button padding="sm">
 								<EyeIcon className="w-4 h-4 text-gray-400" />
 							</Button>
 						</Tooltip>
 
 						{data.locked ? (
 							<Tooltip label="Unlock key">
-								<Button noPadding>
+								<Button padding="sm">
 									<LockClosedIcon className="w-4 h-4 text-gray-400" />
 								</Button>
 							</Tooltip>
 						) : (
 							<Tooltip label="Lock key">
-								<Button noPadding>
+								<Button padding="sm">
 									<LockOpenIcon className="w-4 h-4 text-gray-400" />
 								</Button>
 							</Tooltip>
@@ -109,7 +107,7 @@ const Key: React.FC<{ data: FakeKey; index: number }> = ({ data, index }) => {
 					</>
 				) : (
 					<Tooltip label="Dismount key">
-						<Button noPadding>
+						<Button padding="sm">
 							<XMarkIcon className="w-4 h-4 text-gray-400" />
 						</Button>
 					</Tooltip>
@@ -135,14 +133,14 @@ export function KeyManager(props: KeyManagerProps) {
 						<Button
 							onClick={() => setShowKey(!showKey)}
 							noBorder
-							noPadding
+							padding="sm"
 							className="absolute right-[5px] top-[5px]"
 						>
 							<CurrentEyeIcon className="w-4 h-4" />
 						</Button>
 					</div>
 					<Tooltip className="flex" label="Mount key">
-						<Button variant="gray" noPadding>
+						<Button variant="gray" padding="sm">
 							<Plus weight="fill" className="w-4 h-4 mx-1" />
 						</Button>
 					</Tooltip>
