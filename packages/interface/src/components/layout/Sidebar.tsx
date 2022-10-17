@@ -197,7 +197,7 @@ export function Sidebar() {
 						{
 							name: 'Library Settings',
 							icon: CogIcon,
-							onPress: () => navigate('settings/library')
+							to: 'settings/library'
 						},
 						{
 							name: 'Add Library',

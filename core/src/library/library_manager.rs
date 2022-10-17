@@ -93,7 +93,7 @@ impl LibraryManager {
 			};
 
 			let db_path = config_path.clone().with_extension("db");
-			if !db_path.exists() {
+			if !db_path.try_exists().unwrap() {
 				println!(
 					"Found library '{}' but no matching database file was found. Skipping...",
 					config_path.display()

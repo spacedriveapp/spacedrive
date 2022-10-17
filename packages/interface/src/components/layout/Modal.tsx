@@ -1,8 +1,7 @@
 import { Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/solid';
-import { Button } from '@sd/ui';
+import { ButtonLink } from '@sd/ui';
 import clsx from 'clsx';
-import { useNavigate } from 'react-router-dom';
 
 export interface ModalProps {
 	full?: boolean;
@@ -10,7 +9,6 @@ export interface ModalProps {
 }
 
 export const Modal: React.FC<ModalProps> = (props) => {
-	const navigate = useNavigate();
 	return (
 		<div
 			className={clsx('absolute w-screen h-screen z-30', {
@@ -29,17 +27,12 @@ export const Modal: React.FC<ModalProps> = (props) => {
 				>
 					<div
 						data-tauri-drag-region
-						onClick={() => navigate('/')}
 						className="absolute top-0 left-0 w-screen h-screen bg-white -z-50 rounded-2xl dark:bg-gray-800 bg-opacity-90"
 					/>
 				</Transition>
-				<Button
-					onClick={() => navigate('/')}
-					variant="gray"
-					className="!px-1.5 absolute top-2 right-2"
-				>
+				<ButtonLink to="/" variant="gray" className="!px-1.5 absolute top-2 right-2">
 					<XMarkIcon className="w-4 h-4" />
-				</Button>
+				</ButtonLink>
 				<Transition
 					show
 					className="flex flex-grow"

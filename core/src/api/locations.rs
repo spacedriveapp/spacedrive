@@ -126,7 +126,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 									.join(&object.cas_id)
 									.with_extension("webp");
 
-								object.has_thumbnail = thumb_path.exists();
+								object.has_thumbnail = thumb_path.try_exists().unwrap();
 							}
 							ExplorerItem::Path(Box::new(file_path))
 						})
