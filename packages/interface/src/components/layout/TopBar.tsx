@@ -5,11 +5,12 @@ import {
 	useExplorerStore,
 	useLibraryMutation
 } from '@sd/client';
-import { Dropdown } from '@sd/ui';
+import { Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
 import {
 	Aperture,
 	ArrowsClockwise,
+	Cloud,
 	FilmStrip,
 	IconProps,
 	Image,
@@ -26,47 +27,43 @@ import { useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { KeybindEvent } from '../../util/keybind';
+import { KeyManager } from '../key/KeyManager';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
 
-export type TopBarProps = DefaultProps;
-export interface TopBarButtonProps
-	extends DetailedHTMLProps<HTMLAttributes<HTMLButtonElement>, HTMLButtonElement> {
+export interface TopBarButtonProps {
 	icon: React.ComponentType<IconProps>;
 	group?: boolean;
 	active?: boolean;
 	left?: boolean;
 	right?: boolean;
+	className?: string;
+	onClick?: () => void;
 }
 
-const TopBarButton: React.FC<TopBarButtonProps> = ({
-	icon: Icon,
-	left,
-	right,
-	group,
-	active,
-	className,
-	...props
-}) => {
-	return (
-		<button
-			{...props}
-			className={clsx(
-				'mr-[1px] flex py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-550 rounded-md transition-colors duration-100',
-				{
-					'rounded-r-none rounded-l-none': group && !left && !right,
-					'rounded-r-none': group && left,
-					'rounded-l-none': group && right,
-					'dark:bg-gray-500': active
-				},
-				className
-			)}
-		>
-			<Icon weight={'regular'} className="m-0.5 w-5 h-5 text-gray-450 dark:text-gray-150" />
-		</button>
-	);
-};
+const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
+	({ icon: Icon, left, right, group, active, className, ...props }, ref) => {
+		return (
+			<button
+				{...props}
+				ref={ref}
+				className={clsx(
+					'mr-[1px] flex py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-550 rounded-md open:dark:bg-gray-550 transition-colors duration-100 outline-none !cursor-normal',
+					{
+						'rounded-r-none rounded-l-none': group && !left && !right,
+						'rounded-r-none': group && left,
+						'rounded-l-none': group && right,
+						'dark:bg-gray-500': active
+					},
+					className
+				)}
+			>
+				<Icon weight={'regular'} className="m-0.5 w-5 h-5 text-gray-450 dark:text-gray-150" />
+			</button>
+		);
+	}
+);
 
 const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
 	const {
@@ -118,6 +115,8 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 		</form>
 	);
 });
+
+export type TopBarProps = DefaultProps;
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
 	const platform = useOperatingSystem(false);
@@ -256,20 +255,24 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					<SearchBar ref={searchRef} />
 
 					<div className="flex mx-8 space-x-2">
-						<Tooltip label="Major Key Alert">
-							<TopBarButton icon={Key} />
-						</Tooltip>
-						{/* <Tooltip label="Cloud">
+						<OverlayPanel
+							className="focus:outline-none"
+							trigger={
+								// <Tooltip label="Major Key Alert">
+								<TopBarButton icon={Key} />
+								// </Tooltip>
+							}
+						>
+							<div className="block w-[350px] h-[435px]">
+								<KeyManager />
+							</div>
+						</OverlayPanel>
+						<Tooltip label="Cloud">
 							<TopBarButton icon={Cloud} />
-						</Tooltip> */}
-						{/* <Tooltip label="Refresh">
-							<TopBarButton
-								icon={ArrowsClockwise}
-								onClick={() => {
-									// generateThumbsForLocation({ id: locationId, path: '' });
-								}}
-							/>
-						</Tooltip> */}
+						</Tooltip>
+						<Tooltip label="Refresh">
+							<TopBarButton icon={ArrowsClockwise} />
+						</Tooltip>
 					</div>
 				</div>
 				<div className="flex mr-3 space-x-2">
@@ -279,7 +282,17 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						className="my-2"
 						icon={SidebarSimple}
 					/>
-					<Dropdown
+					<OverlayPanel
+						className="focus:outline-none"
+						trigger={
+							// <Tooltip label="Major Key Alert">
+							<TopBarButton icon={List} className="my-2" />
+							// </Tooltip>
+						}
+					>
+						<div className="block w-[250px] h-[335px]">{/* <KeyManager /> */}</div>
+					</OverlayPanel>
+					{/* <Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
 						align="right"
 						items={[
@@ -300,7 +313,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							]
 						]}
 						buttonComponent={<TopBarButton icon={List} />}
-					/>
+					/> */}
 				</div>
 			</div>
 		</>

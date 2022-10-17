@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { ReactNode } from 'react';
 
 interface SettingsHeaderProps {
@@ -18,3 +19,16 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = (props) => {
 		</div>
 	);
 };
+
+export const SettingsIcon = ({ component: Icon, ...props }: any) => (
+	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
+);
+
+export const SettingsHeading: React.FC<{ className?: string; children: string }> = ({
+	children,
+	className
+}) => (
+	<div className={clsx('mt-5 mb-1 ml-1 text-xs font-semibold text-gray-400', className)}>
+		{children}
+	</div>
+);

@@ -47,7 +47,7 @@ export function AppRouter() {
 	useInvalidateQuery();
 
 	return (
-		<Suspense fallback={<p>Loading...</p>}>
+		<Suspense>
 			<Routes>
 				<Route path="onboarding" element={<OnboardingScreen />} />
 				<Route element={<AppLayout />}>
@@ -56,7 +56,7 @@ export function AppRouter() {
 						<Route
 							path="*"
 							element={
-								<h1 className="text-white p-4">
+								<h1 className="p-4 text-white">
 									Please select or create a library in the sidebar.
 								</h1>
 							}

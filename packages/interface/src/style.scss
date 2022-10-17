@@ -78,6 +78,25 @@ body {
 	}
 }
 
+.overlay-scroll {
+	// overflow: overlay;
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 5px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-transparent my-[5px];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] opacity-0 bg-gray-300 dark:bg-gray-950 w-[5px];
+	}
+	&:hover {
+		&::-webkit-scrollbar-thumb {
+			@apply opacity-100;
+		}
+	}
+}
+
 @keyframes fadeIn {
 	from {
 		opacity: 0;

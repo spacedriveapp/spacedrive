@@ -2,6 +2,7 @@ import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
 import { useBridgeQuery, useLibraryQuery, usePlatform } from '@sd/client';
 import { Statistics } from '@sd/client';
 import { Button, Input } from '@sd/ui';
+import { Dialog } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { useEffect } from 'react';
@@ -10,7 +11,6 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import create from 'zustand';
 
 import { Device } from '../components/device/Device';
-import Dialog from '../components/layout/Dialog';
 import useCounter from '../hooks/useCounter';
 
 interface StatItemProps {
@@ -123,6 +123,7 @@ export default function OverviewScreen() {
 		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
 			{/* PAGE */}
+
 			<div className="flex flex-col w-full h-screen px-4">
 				{/* STAT HEADER */}
 				<div className="flex w-full">
@@ -179,13 +180,9 @@ export default function OverviewScreen() {
 					</div>
 				</div>
 				<div className="flex flex-col pb-4 mt-4 space-y-4">
-					<Device name={`James' MacBook Pro`} size="1TB" locations={[]} type="desktop" />
-					<Device name={`James' iPhone 12`} size="47.7GB" locations={[]} type="phone" />
-					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" />
-				</div>
-				<div className="px-5 py-3 text-sm text-gray-400 rounded-md bg-gray-50 dark:text-gray-400 dark:bg-gray-600">
-					<b>Note: </b>This is a pre-alpha build of Spacedrive, many features are yet to be
-					functional.
+					{/* <Device name={`James' MacBook Pro`} size="1TB" locations={[]} type="desktop" /> */}
+					{/* <Device name={`James' iPhone 12`} size="47.7GB" locations={[]} type="phone" />
+					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" /> */}
 				</div>
 				<div className="flex flex-shrink-0 w-full h-4" />
 			</div>
