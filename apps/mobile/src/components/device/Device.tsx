@@ -83,22 +83,24 @@ const placeholderFileItems: FilePath[] = [
 export interface DeviceProps {
 	name: string;
 	size: string;
-	type: 'laptop' | 'desktop' | 'phone' | 'server';
+	type: keyof typeof DeviceIcon;
 	locations: { name: string; folder?: boolean; format?: string; icon?: string }[];
 	runningJob?: { amount: number; task: string };
 }
+
+const DeviceIcon = {
+	phone: <DeviceMobileCamera color="white" weight="fill" size={18} style={tw`mr-2`} />,
+	laptop: <Laptop color="white" weight="fill" size={18} style={tw`mr-2`} />,
+	desktop: <Desktop color="white" weight="fill" size={18} style={tw`mr-2`} />,
+	server: <Cloud color="white" weight="fill" size={18} style={tw`mr-2`} />
+};
 
 const Device = ({ name, locations, size, type }: DeviceProps) => {
 	return (
 		<View style={tw`my-2 bg-gray-600 border rounded-md border-gray-550`}>
 			<View style={tw`flex flex-row items-center px-3.5 pt-3 pb-2`}>
 				<View style={tw`flex flex-row items-center`}>
-					{type === 'phone' && (
-						<DeviceMobileCamera color="white" weight="fill" size={18} style={tw`mr-2`} />
-					)}
-					{type === 'laptop' && <Laptop color="white" weight="fill" size={18} style={tw`mr-2`} />}
-					{type === 'desktop' && <Desktop color="white" weight="fill" size={18} style={tw`mr-2`} />}
-					{type === 'server' && <Cloud color="white" weight="fill" size={18} style={tw`mr-2`} />}
+					{DeviceIcon[type]}
 					<Text style={tw`text-base font-semibold text-white`}>{name || 'Unnamed Device'}</Text>
 					{/* P2P Lock */}
 					<View style={tw`flex flex-row rounded items-center ml-2 bg-gray-500 py-[1px] px-[4px]`}>
