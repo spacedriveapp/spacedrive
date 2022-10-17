@@ -67,18 +67,16 @@ impl PreviewMedia {
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		password: Protected<Vec<u8>>,
-		salt: &[u8; SALT_LEN],
+		content_salt: &[u8; SALT_LEN],
+		hashed_key: &Protected<[u8; 32]>,
 		media: &[u8],
 	) -> Result<Self, Error> {
 		let media_nonce = generate_nonce(algorithm);
 		let master_key_nonce = generate_nonce(algorithm);
 		let master_key = generate_master_key();
 
-		let hashed_password = hashing_algorithm.hash(password, *salt)?;
-
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-			hashed_password,
+			hashed_key.clone(),
 			&master_key_nonce,
 			algorithm,
 			master_key.expose(),
@@ -92,7 +90,7 @@ impl PreviewMedia {
 			version,
 			algorithm,
 			hashing_algorithm,
-			salt: *salt,
+			salt: *content_salt,
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			media_nonce,

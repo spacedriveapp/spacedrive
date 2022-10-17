@@ -74,8 +74,8 @@ impl Metadata {
 		version: MetadataVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		password: Protected<Vec<u8>>,
-		salt: &[u8; SALT_LEN],
+		hashed_key: Protected<[u8; 32]>,
+		content_salt: &[u8; SALT_LEN],
 		media: &T,
 	) -> Result<Self, Error>
 	where
@@ -85,10 +85,8 @@ impl Metadata {
 		let master_key_nonce = generate_nonce(algorithm);
 		let master_key = generate_master_key();
 
-		let hashed_password = hashing_algorithm.hash(password, *salt)?;
-
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-			hashed_password,
+			hashed_key,
 			&master_key_nonce,
 			algorithm,
 			master_key.expose(),
@@ -107,7 +105,7 @@ impl Metadata {
 			version,
 			algorithm,
 			hashing_algorithm,
-			salt: *salt,
+			salt: *content_salt,
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			metadata_nonce,

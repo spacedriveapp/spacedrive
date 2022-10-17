@@ -114,8 +114,9 @@ impl StoredKey {
 
 		let mounted_key = MountedKey {
 			key,
-			content_salt: self.content_salt.clone(),
+			content_salt: self.content_salt,
 			hashed_key,
+			hashing_algorithm: self.hashing_algorithm,
 		};
 
 		Ok(mounted_key)
@@ -126,4 +127,5 @@ pub struct MountedKey {
 	pub key: Protected<Vec<u8>>,
 	pub content_salt: [u8; SALT_LEN],
 	pub hashed_key: Protected<[u8; 32]>, // this is used for encrypting/decrypting MD/PVM
+	pub hashing_algorithm: HashingAlgorithm,
 }
