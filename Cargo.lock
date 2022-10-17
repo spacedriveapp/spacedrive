@@ -906,15 +906,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb4a24b1aaf0fd0ce8b45161144d6f42cd91677fd5940fd431183eb023b3a2b8"
 
 [[package]]
-name = "convert_case"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
 name = "cookie"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3355,6 +3346,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "normi"
+version = "0.0.1"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
+dependencies = [
+ "normi-macros",
+ "rspc",
+ "serde",
+ "serde_json",
+ "specta 0.0.4",
+]
+
+[[package]]
+name = "normi-macros"
+version = "0.0.1"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "notify-rust"
 version = "4.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4257,9 +4270,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.46"
+version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94e2ef8dbfc347b10c094890f778ee2e36ca9bb4262e86dc99cd217e35f3470b"
+checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
 dependencies = [
  "unicode-ident",
 ]
@@ -4920,7 +4933,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
 dependencies = [
  "async-stream",
  "futures",
@@ -5161,6 +5174,7 @@ dependencies = [
  "include_dir",
  "int-enum 0.4.0",
  "itertools",
+ "normi",
  "once_cell",
  "openssl-sys",
  "prisma-client-rust",
@@ -5171,6 +5185,7 @@ dependencies = [
  "sd-file-ext",
  "serde",
  "serde_json",
+ "specta 0.0.4",
  "sysinfo",
  "tempfile",
  "thiserror",
@@ -5701,14 +5716,12 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
 dependencies = [
  "chrono",
- "convert_case 0.6.0",
  "indexmap",
  "serde_json",
  "specta-macros 0.0.4",
- "termcolor",
  "uuid 1.2.1",
 ]
 
@@ -5728,7 +5741,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=b41e4d7868818119d8e3e4e0319d7dce0e675eb0#b41e4d7868818119d8e3e4e0319d7dce0e675eb0"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
 dependencies = [
  "Inflector",
  "proc-macro2",

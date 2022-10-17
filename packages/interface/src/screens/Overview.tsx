@@ -1,5 +1,11 @@
-import { ExclamationCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
-import { useBridgeQuery, useLibraryQuery, usePlatform } from '@sd/client';
+import { PlusIcon } from '@heroicons/react/24/solid';
+import {
+	onLibraryChange,
+	queryClient,
+	useCurrentLibrary,
+	useLibraryQuery,
+	usePlatform
+} from '@sd/client';
 import { Statistics } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import { Dialog } from '@sd/ui';
@@ -8,9 +14,8 @@ import clsx from 'clsx';
 import { useEffect } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import create from 'zustand';
+import { proxy } from 'valtio';
 
-import { Device } from '../components/device/Device';
 import useCounter from '../hooks/useCounter';
 
 interface StatItemProps {
@@ -26,41 +31,63 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_free: 'Free space'
 };
 
-type OverviewStats = Partial<Record<keyof Statistics, string>>;
-type OverviewState = {
-	overviewStats: OverviewStats;
-	setOverviewStat: (name: keyof OverviewStats, newValue: string) => void;
-	setOverviewStats: (stats: OverviewStats) => void;
-};
+const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
-export const useOverviewState = create<OverviewState>((set) => ({
-	overviewStats: {},
-	setOverviewStat: (name, newValue) =>
-		set((state) => ({
-			...state,
-			overviewStats: {
-				...state.overviewStats,
-				[name]: newValue
+export const state = proxy({
+	lastRenderedLibraryId: undefined as string | undefined
+});
+
+onLibraryChange((newLibraryId) => {
+	state.lastRenderedLibraryId = undefined;
+
+	// TODO: Fix
+	// This is bad solution to the fact that the hooks don't rerun when opening a library that is already cached.
+	// This is because the count never drops back to zero as their is no loading state given the libraries data was already in the React Query cache.
+	queryClient.setQueryData(
+		[
+			'library.getStatistics',
+			{
+				library_id: newLibraryId,
+				arg: null
 			}
-		})),
-	setOverviewStats: (stats) =>
-		set((state) => ({
-			...state,
-			overviewStats: stats
-		}))
-}));
+		],
+		{
+			id: 0,
+			date_captured: '',
+			total_bytes_capacity: '0',
+			preview_media_bytes: '0',
+			library_db_size: '0',
+			total_object_count: 0,
+			total_bytes_free: '0',
+			total_bytes_used: '0',
+			total_unique_bytes: '0'
+		}
+	);
+	queryClient.invalidateQueries(['library.getStatistics']);
+});
 
 const StatItem: React.FC<StatItemProps> = (props) => {
+	const { library } = useCurrentLibrary();
 	const { title, bytes = '0', isLoading } = props;
 
-	// const appProps = useContext(AppPropsContext);
-
 	const size = byteSize(+bytes);
-
 	const count = useCounter({
 		name: title,
-		end: +size.value
+		end: +size.value,
+		duration: state.lastRenderedLibraryId === library?.uuid ? 0 : undefined,
+		saveState: false
 	});
+
+	if (count !== 0 && count == +size.value) {
+		state.lastRenderedLibraryId = library?.uuid;
+	}
+
+	useEffect(() => {
+		return () => {
+			if (count !== 0) state.lastRenderedLibraryId = library?.uuid;
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	return (
 		<div
@@ -91,33 +118,25 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 
 export default function OverviewScreen() {
 	const platform = usePlatform();
-	const { data: libraryStatistics, isLoading: isStatisticsLoading } = useLibraryQuery([
-		'library.getStatistics'
-	]);
-	const { data: nodeState } = useBridgeQuery(['getNode']);
+	const { library } = useCurrentLibrary();
+	const { data: overviewStats, isLoading: isStatisticsLoading } = useLibraryQuery(
+		['library.getStatistics'],
+		{
+			initialData: {
+				id: 0,
+				date_captured: '',
+				total_bytes_capacity: '0',
+				preview_media_bytes: '0',
+				library_db_size: '0',
+				total_object_count: 0,
+				total_bytes_free: '0',
+				total_bytes_used: '0',
+				total_unique_bytes: '0'
+			}
+		}
+	);
 
-	const { overviewStats, setOverviewStats } = useOverviewState();
-
-	// get app props from context
-	useEffect(() => {
-		const newStatistics: OverviewStats = {
-			total_bytes_capacity: '0',
-			preview_media_bytes: '0',
-			library_db_size: '0',
-			total_object_count: '0',
-			total_bytes_free: '0',
-			total_bytes_used: '0',
-			total_unique_bytes: '0'
-		};
-
-		Object.entries((libraryStatistics as Statistics) || {}).forEach(([key, value]) => {
-			newStatistics[key as keyof Statistics] = `${value}`;
-		});
-
-		setOverviewStats(newStatistics);
-	}, [platform, libraryStatistics, setOverviewStats]);
-
-	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
+	console.log(overviewStats);
 
 	return (
 		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
@@ -129,12 +148,12 @@ export default function OverviewScreen() {
 				<div className="flex w-full">
 					{/* STAT CONTAINER */}
 					<div className="flex -mb-1 overflow-hidden">
-						{Object.entries(overviewStats).map(([key, value]) => {
+						{Object.entries(overviewStats || []).map(([key, value]) => {
 							if (!displayableStatItems.includes(key)) return null;
 
 							return (
 								<StatItem
-									key={key}
+									key={library?.uuid + ' ' + key}
 									title={StatItemNames[key as keyof Statistics]!}
 									bytes={value}
 									isLoading={platform.demoMode === true ? false : isStatisticsLoading}
@@ -183,9 +202,18 @@ export default function OverviewScreen() {
 					{/* <Device name={`James' MacBook Pro`} size="1TB" locations={[]} type="desktop" /> */}
 					{/* <Device name={`James' iPhone 12`} size="47.7GB" locations={[]} type="phone" />
 					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" /> */}
+					<Debug />
 				</div>
 				<div className="flex flex-shrink-0 w-full h-4" />
 			</div>
 		</div>
 	);
+}
+
+// TODO(@Oscar): Remove this
+function Debug() {
+	// const org = useBridgeQuery(['normi.org']);
+	// console.log(org.data);
+
+	return null;
 }

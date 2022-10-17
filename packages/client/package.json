@@ -17,10 +17,10 @@
 		"preset": "scripts/jest/node"
 	},
 	"dependencies": {
-		"@rspc/client": "^0.1.2",
-		"@rspc/react": "^0.1.2",
+		"@rspc/client": "^0.0.0-main-7c0a67c1",
+		"@rspc/react": "^0.0.0-main-7c0a67c1",
 		"@sd/config": "workspace:*",
-		"@tanstack/react-query": "^4.10.1",
+		"@tanstack/react-query": "^4.12.0",
 		"eventemitter3": "^4.0.7",
 		"immer": "^9.0.15",
 		"lodash": "^4.17.21",

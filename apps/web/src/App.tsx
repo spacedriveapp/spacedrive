@@ -1,12 +1,20 @@
-import { WebsocketTransport, createClient } from '@rspc/client';
-import { PlatformProvider, Procedures, queryClient, rspc } from '@sd/client';
+import { createWSClient, loggerLink, wsLink } from '@rspc/client';
+import { PlatformProvider, hooks, queryClient } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
 import { useEffect } from 'react';
 
-const client = createClient<Procedures>({
-	transport: new WebsocketTransport(
-		import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/rspc/ws'
-	)
+const wsClient = createWSClient({
+	url: import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/rspc/ws'
+});
+
+const isDev = import.meta.env.DEV && false; // TODO: Remove false
+const client = hooks.createClient({
+	links: [
+		...(isDev ? [loggerLink()] : []),
+		wsLink({
+			client: wsClient
+		})
+	]
 });
 
 const platform: Platform = {
@@ -21,11 +29,11 @@ function App() {
 
 	return (
 		<div className="App">
-			<rspc.Provider client={client} queryClient={queryClient}>
+			<hooks.Provider client={client} queryClient={queryClient}>
 				<PlatformProvider platform={platform}>
 					<SpacedriveInterface />
 				</PlatformProvider>
-			</rspc.Provider>
+			</hooks.Provider>
 		</div>
 	);
 }
