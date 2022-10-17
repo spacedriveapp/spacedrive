@@ -4,7 +4,7 @@ import React, { useRef } from 'react';
 import { Button, Pressable, Text, View } from 'react-native';
 import { ChevronLeftIcon } from 'react-native-heroicons/outline';
 
-import FileIcon from '../../components/file/FileIcon';
+import { default as FileIcon, default as FileThumb } from '../../components/explorer/FileThumb';
 import { Modal } from '../../components/layout/Modal';
 import Divider from '../../components/primitive/Divider';
 import tw from '../../lib/tailwind';
@@ -36,7 +36,7 @@ export const FileModal = () => {
 					<View style={tw`flex-1 p-4 bg-gray-600`}>
 						{/* File Icon / Name */}
 						<View style={tw`flex flex-row items-center`}>
-							<FileIcon file={data} size={1.6} />
+							<FileIcon data={data} size={1.6} />
 							{/* File Name, Details etc. */}
 							<View style={tw`ml-2`}>
 								<Text style={tw`text-base font-bold text-gray-200`}>{data?.name}</Text>
@@ -77,7 +77,7 @@ export const FileModal = () => {
 						</Pressable>
 						{/* File Icon / Name */}
 						<View style={tw`items-center`}>
-							<FileIcon file={data} size={1.8} />
+							<FileThumb data={data} size={1.8} />
 							<Text style={tw`text-base font-bold text-gray-200 mt-3`}>{data.name}</Text>
 						</View>
 						{/* Details */}

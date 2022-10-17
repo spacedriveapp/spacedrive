@@ -2,12 +2,12 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import React from 'react';
 import { proxy, ref, useSnapshot } from 'valtio';
 
-import { FilePath } from '../types/bindings';
+import { ExplorerItem } from '../types/bindings';
 
 export const fileModalStore = proxy({
 	fileRef: ref(React.createRef<BottomSheetModal>()),
-	data: null as FilePath | null,
-	setData: (data: FilePath) => {
+	data: null as ExplorerItem | null,
+	setData: (data: ExplorerItem) => {
 		fileModalStore.data = data;
 	}
 });
