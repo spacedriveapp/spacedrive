@@ -7,12 +7,13 @@ use aead::{
 };
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
+use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
 use crate::{error::Error, primitives::BLOCK_SIZE, Protected};
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,
