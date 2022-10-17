@@ -278,7 +278,6 @@ importers:
       '@rspc/client': ^0.1.2
       '@rspc/react': ^0.1.2
       '@sd/config': workspace:*
-      '@sd/interface': workspace:*
       '@tanstack/react-query': ^4.10.1
       '@types/lodash': ^4.14.186
       '@types/react': ^18.0.21
@@ -295,7 +294,6 @@ importers:
       '@rspc/client': 0.1.2
       '@rspc/react': 0.1.2_2j6p62nqyqxwo4xyixi65nw6l4
       '@sd/config': link:../config
-      '@sd/interface': link:../interface
       '@tanstack/react-query': 4.10.1
       eventemitter3: 4.0.7
       immer: 9.0.15
@@ -331,6 +329,7 @@ importers:
       '@fontsource/inter': ^4.5.13
       '@headlessui/react': ^1.7.3
       '@heroicons/react': ^2.0.12
+      '@loadable/component': ^5.15.2
       '@radix-ui/react-dialog': ^1.0.0
       '@radix-ui/react-dropdown-menu': ^1.0.0
       '@radix-ui/react-icons': ^1.1.1
@@ -349,6 +348,7 @@ importers:
       '@tanstack/react-virtual': 3.0.0-beta.18
       '@types/babel-core': ^6.25.7
       '@types/byte-size': ^8.1.0
+      '@types/loadable__component': ^5.13.4
       '@types/lodash': ^4.14.186
       '@types/node': ^18.8.2
       '@types/pretty-bytes': ^5.2.0
@@ -406,6 +406,7 @@ importers:
       '@fontsource/inter': 4.5.13
       '@headlessui/react': 1.7.3_biqbaboplfbrettd7655fr4n2y
       '@heroicons/react': 2.0.12_react@18.2.0
+      '@loadable/component': 5.15.2_react@18.2.0
       '@radix-ui/react-dialog': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@radix-ui/react-dropdown-menu': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@radix-ui/react-icons': 1.1.1_react@18.2.0
@@ -464,6 +465,7 @@ importers:
       '@sd/config': link:../config
       '@types/babel-core': 6.25.7
       '@types/byte-size': 8.1.0
+      '@types/loadable__component': 5.13.4
       '@types/lodash': 4.14.186
       '@types/node': 18.8.2
       '@types/pretty-bytes': 5.2.0
@@ -516,6 +518,7 @@ importers:
       react: ^18.2.0
       react-dom: ^18.2.0
       react-loading-icons: ^1.1.0
+      react-router-dom: 6.4.2
       react-spring: ^9.5.5
       sass: ^1.55.0
       sass-loader: ^13.0.2
@@ -541,6 +544,7 @@ importers:
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       react-loading-icons: 1.1.0
+      react-router-dom: 6.4.2_biqbaboplfbrettd7655fr4n2y
       react-spring: 9.5.5_biqbaboplfbrettd7655fr4n2y
       storybook: 6.5.12_yalvw3r2waubxycyb7k7qsruca
       tailwindcss: 3.1.8
@@ -2975,6 +2979,18 @@ packages:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.0
       '@jridgewell/sourcemap-codec': 1.4.14
+    dev: false
+
+  /@loadable/component/5.15.2_react@18.2.0:
+    resolution: {integrity: sha512-ryFAZOX5P2vFkUdzaAtTG88IGnr9qxSdvLRvJySXcUA4B4xVWurUNADu3AnKPksxOZajljqTrDEDcYjeL4lvLw==}
+    engines: {node: '>=8'}
+    peerDependencies:
+      react: '>=16.3.0'
+    dependencies:
+      '@babel/runtime': 7.19.0
+      hoist-non-react-statics: 3.3.2
+      react: 18.2.0
+      react-is: 16.13.1
     dev: false
 
   /@mdx-js/mdx/1.6.22:
@@ -6055,6 +6071,12 @@ packages:
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
     dependencies:
       '@types/node': 18.8.2
+
+  /@types/loadable__component/5.13.4:
+    resolution: {integrity: sha512-YhoCCxyuvP2XeZNbHbi8Wb9EMaUJuA2VGHxJffcQYrJKIKSkymJrhbzsf9y4zpTmr5pExAAEh5hbF628PAZ8Dg==}
+    dependencies:
+      '@types/react': 18.0.21
+    dev: true
 
   /@types/lodash/4.14.186:
     resolution: {integrity: sha512-eHcVlLXP0c2FlMPm56ITode2AgLMSa6aJ05JTTbYbI+7EMkCEE5qk2E41d5g2lCVTqRe0GnnRFurmlCsDODrPw==}
@@ -11483,6 +11505,12 @@ packages:
       hash.js: 1.1.7
       minimalistic-assert: 1.0.1
       minimalistic-crypto-utils: 1.0.1
+
+  /hoist-non-react-statics/3.3.2:
+    resolution: {integrity: sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==}
+    dependencies:
+      react-is: 16.13.1
+    dev: false
 
   /hosted-git-info/2.8.9:
     resolution: {integrity: sha512-mxIDAb9Lsm6DoOJ7xH+5+X4y1LU/4Hi50L9C5sIswK3JzULS4bwk1FvjdBgvYR4bzT4tuUQiC15FE2f5HbLvYw==}
