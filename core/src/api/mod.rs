@@ -39,6 +39,7 @@ mod files;
 mod jobs;
 mod libraries;
 mod locations;
+mod normi;
 mod tags;
 pub mod utils;
 pub mod volumes;
@@ -52,12 +53,7 @@ struct NodeState {
 
 pub(crate) fn mount() -> Arc<Router> {
 	let r = <Router>::new()
-		.config(
-			Config::new()
-				// TODO: This messes with Tauri's hot reload so we can't use it until their is a solution upstream. https://github.com/tauri-apps/tauri/issues/4617
-				// .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts")),
-				.set_ts_bindings_header("/* eslint-disable */"),
-		)
+		.config(Config::new().set_ts_bindings_header("/* eslint-disable */"))
 		.query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
 		.query("getNode", |t| {
 			t(|ctx, _: ()| async move {
@@ -68,6 +64,7 @@ pub(crate) fn mount() -> Arc<Router> {
 				})
 			})
 		})
+		.merge("normi.", normi::mount())
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
