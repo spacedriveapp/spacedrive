@@ -1,9 +1,8 @@
 import { Github } from '@icons-pack/react-simple-icons';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
-import React, { FormEvent, useState } from 'react';
-// import ReactCanvasConfetti from 'react-canvas-confetti';
-import { SubmitHandler, useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 import { ReactComponent as Alert } from '@sd/interface/assets/svg/alert.svg';
 import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';

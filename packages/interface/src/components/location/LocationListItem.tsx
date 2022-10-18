@@ -4,7 +4,7 @@ import { Location, Node } from '@sd/client';
 import { Button, Dialog } from '@sd/ui';
 import clsx from 'clsx';
 import { Repeat } from 'phosphor-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { Folder } from '../icons/Folder';
 
