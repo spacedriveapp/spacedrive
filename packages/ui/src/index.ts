@@ -6,3 +6,5 @@ export * as ContextMenu from './ContextMenu';
 export * from './OverlayPanel';
 export * from './Input';
 export * from './Select';
+export * as Tabs from './Tabs';
+export * from './Typography';

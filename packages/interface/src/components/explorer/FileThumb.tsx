@@ -60,24 +60,17 @@ export default function FileThumb({ data, ...props }: Props) {
 			/>
 		);
 
+	// Hacky (and temporary) way to integrate thumbnails
 	if (props.kind === 'video') {
 		return (
-			<div className="">
-				<img
-					src={videoSvg}
-					className={clsx('w-full overflow-hidden h-full', props.iconClassNames)}
-				/>
-			</div>
+			<img src={videoSvg} className={clsx('w-full overflow-hidden h-full', props.iconClassNames)} />
 		);
 	}
 	if (props.kind === 'zip') {
-		return (
-			<div className="">
-				<img src={zipSvg} className={clsx('w-full overflow-hidden h-full')} />
-			</div>
-		);
+		return <img src={zipSvg} className={clsx('w-full overflow-hidden h-full')} />;
 	}
 
+	// return default file icon
 	return (
 		<div
 			style={{ width: props.size * 0.8, height: props.size * 0.8 }}

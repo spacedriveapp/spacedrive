@@ -17,10 +17,6 @@ async fn read_at(file: &mut File, offset: u64, size: u64) -> Result<Vec<u8>, io:
 	Ok(buf)
 }
 
-fn to_hex_string(b: &[u8]) -> String {
-	b.iter().map(|c| format!("{:02x}", c)).collect::<String>()
-}
-
 pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Error> {
 	// open file reference
 	let mut file = File::open(path).await?;
@@ -46,25 +42,25 @@ pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Err
 		hasher.update(&buf);
 	}
 
-	let hex = to_hex_string(hasher.finalize().as_bytes());
+	let hex = hasher.finalize().to_hex();
 
 	Ok(hex)
 }
 
-// pub async fn full_checksum(path: &str) -> Result<String, io::Error> {
-// 	const BLOCK_SIZE: usize = 1048576;
-// 	//read file as buffer and convert to digest
-// 	let mut reader = File::open(path).await?;
-// 	let mut context = Hasher::new();
-// 	let mut buffer = [0; 1048576];
-// 	loop {
-// 		let read_count = reader.read(&mut buffer).await?;
-// 		context.update(&buffer[..read_count]);
-// 		if read_count != BLOCK_SIZE {
-// 			break;
-// 		}
-// 	}
-// 	let hex = to_hex_string(context.finalize().as_bytes());
+pub async fn full_checksum(path: &str) -> Result<String, io::Error> {
+	const BLOCK_SIZE: usize = 1048576;
+	//read file as buffer and convert to digest
+	let mut reader = File::open(path).await?;
+	let mut context = Hasher::new();
+	let mut buffer = [0; 1048576];
+	loop {
+		let read_count = reader.read(&mut buffer).await?;
+		context.update(&buffer[..read_count]);
+		if read_count != BLOCK_SIZE {
+			break;
+		}
+	}
+	let hex = to_hex_string(context.finalize().as_bytes());
 
-// 	Ok(hex)
-// }
+	Ok(hex)
+}
