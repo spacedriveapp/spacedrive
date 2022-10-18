@@ -205,7 +205,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center  dark:bg-gray-650 border-gray-100 dark:border-gray-800 !bg-opacity-80 backdrop-blur"
+				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center dark:bg-gray-700 border-gray-100 !bg-opacity-80 backdrop-blur overflow-hidden rounded-tl-md"
 			>
 				<div className="flex ">
 					<Tooltip label="Navigate back">
