@@ -103,13 +103,16 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	// );
 
 	return (
-		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full pl-2 cursor-default">
+		<div
+			// style={{ marginTop: -TOP_BAR_HEIGHT }}
+			className="w-full pl-2 cursor-default"
+		>
 			<div ref={scrollRef} className="h-screen custom-scroll explorer-scroll">
 				<div
 					ref={innerRef}
 					style={{
-						height: `${rowVirtualizer.getTotalSize()}px`,
-						marginTop: `${TOP_BAR_HEIGHT}px`
+						height: `${rowVirtualizer.getTotalSize()}px`
+						// marginTop: `${TOP_BAR_HEIGHT + 10}px`
 					}}
 					className="relative w-full"
 				>

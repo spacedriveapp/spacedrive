@@ -31,7 +31,12 @@ export function AppLayout() {
 			)}
 		>
 			<Sidebar />
-			<div className="relative flex w-full h-screen max-h-screen bg-white dark:bg-gray-650">
+			<div
+				className={clsx(
+					'relative flex w-full h-screen max-h-screen bg-white dark:bg-gray-600',
+					os === 'macOS' && 'dark:bg-gray-650/80'
+				)}
+			>
 				<Suspense>
 					<Outlet />
 				</Suspense>

@@ -95,7 +95,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
 				placeholder="Search"
-				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600/70 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
 				{...searchField}
 			/>
 
@@ -206,7 +206,11 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center dark:bg-gray-700 border-gray-100 !bg-opacity-80 backdrop-blur overflow-hidden rounded-tl-md"
+				// Backdrop blur was removed
+				// but the explorer still resides under the top bar
+				// in case you wanna turn it back on
+				// honestly its just work to revert
+				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center dark:bg-gray-none border-gray-100  overflow-hidden rounded-tl-md "
 			>
 				<div className="flex ">
 					<Tooltip label="Navigate back">
