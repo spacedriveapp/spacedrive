@@ -5,14 +5,12 @@ import {
 	KeyIcon,
 	LockClosedIcon,
 	LockOpenIcon,
-	PlusIcon,
-	TrashIcon,
 	XMarkIcon
 } from '@heroicons/react/24/solid';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
-import { Eject, EjectSimple, Plus } from 'phosphor-react';
-import { useState } from 'react';
+import { Plus } from 'phosphor-react';
+import { PropsWithChildren, useState } from 'react';
 
 import { Toggle } from '../primitive';
 import { DefaultProps } from '../primitive/types';
@@ -33,11 +31,11 @@ interface FakeKey {
 	nodes?: string[]; // will be node object
 }
 
-const Heading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-	<div className="mt-1 mb-1 text-xs font-semibold text-gray-300">{children}</div>
-);
+function Heading({ children }: PropsWithChildren) {
+	return <div className="mt-1 mb-1 text-xs font-semibold text-gray-300">{children}</div>;
+}
 
-const Key: React.FC<{ data: FakeKey; index: number }> = ({ data, index }) => {
+function Key({ data, index }: { data: FakeKey; index: number }) {
 	const odd = (index || 0) % 2 === 0;
 
 	return (
@@ -117,7 +115,7 @@ const Key: React.FC<{ data: FakeKey; index: number }> = ({ data, index }) => {
 			</div>
 		</div>
 	);
-};
+}
 
 export function KeyManager(props: KeyManagerProps) {
 	const [showKey, setShowKey] = useState(false);
