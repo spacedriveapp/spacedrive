@@ -1,4 +1,3 @@
-import React from 'react';
 import { FlatList, View } from 'react-native';
 import Device from '~/components/device/Device';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';

@@ -1,9 +1,8 @@
 import { useBridgeMutation } from '@sd/client';
 import { Input } from '@sd/ui';
+import { Dialog } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { PropsWithChildren, useState } from 'react';
-
-import Dialog from '../layout/Dialog';
 
 export default function CreateLibraryDialog({
 	children,
@@ -17,8 +16,6 @@ export default function CreateLibraryDialog({
 		'library.create',
 		{
 			onSuccess: (library: any) => {
-				console.log('SUBMITTING');
-
 				setOpenCreateModal(false);
 
 				queryClient.setQueryData(['library.list'], (libraries: any) => [

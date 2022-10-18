@@ -142,6 +142,7 @@ export default function NavBar() {
 					buttonIcon={<DotsThreeVertical weight="bold" className="w-6 h-6 " />}
 					buttonProps={{ className: '!p-1 ml-[140px] hover:!bg-transparent' }}
 				/>
+
 				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
 					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">
 						<Discord className="text-white" />

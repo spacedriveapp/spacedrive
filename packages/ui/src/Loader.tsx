@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { Puff } from 'react-loading-icons';
 
-export default function Loader(props: { className?: string }) {
+export function Loader(props: { className?: string }) {
 	return (
 		<Puff
 			stroke="#2599FF"

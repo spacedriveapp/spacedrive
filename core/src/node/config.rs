@@ -115,7 +115,7 @@ impl NodeConfigManager {
 	async fn read(base_path: &PathBuf) -> Result<NodeConfig, NodeConfigError> {
 		let path = Path::new(base_path).join(NODE_STATE_CONFIG_NAME);
 
-		match path.exists() {
+		match path.try_exists().unwrap() {
 			true => {
 				let mut file = File::open(&path)?;
 				let base_config: ConfigMetadata =

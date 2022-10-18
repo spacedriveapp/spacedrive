@@ -1,8 +1,8 @@
 import { ExplorerData, rspc, useCurrentLibrary, useExplorerStore } from '@sd/client';
 
 import { Inspector } from '../explorer/Inspector';
-import { TopBar } from '../layout/TopBar';
 import ExplorerContextMenu from './ExplorerContextMenu';
+import { TopBar } from './ExplorerTopBar';
 import { VirtualizedList } from './VirtualizedList';
 
 interface Props {
