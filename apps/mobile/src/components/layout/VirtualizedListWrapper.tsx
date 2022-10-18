@@ -1,4 +1,3 @@
-import React from 'react';
 import { FlatList } from 'react-native';
 
 export default function VirtualizedListWrapper({ children }) {

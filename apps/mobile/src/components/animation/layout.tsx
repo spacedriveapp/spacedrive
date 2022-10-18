@@ -1,5 +1,5 @@
 import { MotiView, useDynamicAnimation } from 'moti';
-import React from 'react';
+import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
 import Layout from '~/constants/Layout';
@@ -33,7 +33,7 @@ export const LogoAnimation = ({ children }: { children: any }) => (
 );
 
 type AnimatedHeightProps = {
-	children?: React.ReactNode;
+	children?: ReactNode;
 	/**
 	 * If `true`, the height will automatically animate to 0. Default: `false`.
 	 */
