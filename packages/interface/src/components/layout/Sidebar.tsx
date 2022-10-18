@@ -2,7 +2,7 @@ import { CogIcon, LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useCurrentLibrary, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
-import { Button, Dropdown, OverlayPanel } from '@sd/ui';
+import { Button, CategoryHeading, Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
@@ -38,10 +38,6 @@ const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
 );
 
-function Heading({ children }: PropsWithChildren) {
-	return <div className="mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300">{children}</div>;
-}
-
 // cute little helper to decrease code clutter
 const macOnly = (platform: string | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
@@ -72,7 +68,7 @@ function LibraryScopedSection() {
 	return (
 		<>
 			<div>
-				<Heading>Locations</Heading>
+				<CategoryHeading className="mt-5">Locations</CategoryHeading>
 				{locations?.map((location) => {
 					return (
 						<div key={location.id} className="flex flex-row items-center">
@@ -136,7 +132,7 @@ function LibraryScopedSection() {
 			</div>
 			{tags?.length ? (
 				<div>
-					<Heading>Tags</Heading>
+					<CategoryHeading className="mt-5">Tags</CategoryHeading>
 					<div className="mb-2">
 						{tags?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">

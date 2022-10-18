@@ -521,6 +521,7 @@ importers:
       '@radix-ui/react-dialog': ^1.0.0
       '@radix-ui/react-dropdown-menu': ^1.0.0
       '@radix-ui/react-select': ^1.0.0
+      '@radix-ui/react-tabs': ^1.0.0
       '@sd/assets': workspace:*
       '@sd/config': workspace:*
       '@storybook/addon-actions': ^6.5.12
@@ -556,6 +557,7 @@ importers:
       storybook: ^6.5.12
       storybook-tailwind-dark-mode: ^1.0.15
       style-loader: ^3.3.1
+      tailwind-styled-components: 2.1.7
       tailwindcss: ^3.1.8
       tailwindcss-radix: ^2.6.0
       typescript: ^4.8.4
@@ -566,6 +568,7 @@ importers:
       '@radix-ui/react-dialog': 1.0.2_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@radix-ui/react-dropdown-menu': 1.0.0_rj7ozvcq3uehdlnj3cbwzbi5ce
       '@radix-ui/react-select': 1.1.1_rj7ozvcq3uehdlnj3cbwzbi5ce
+      '@radix-ui/react-tabs': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@sd/assets': link:../assets
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.1.8
       class-variance-authority: 0.2.4_typescript@4.8.4
@@ -577,6 +580,7 @@ importers:
       react-loading-icons: 1.1.0
       react-router-dom: 6.4.2_biqbaboplfbrettd7655fr4n2y
       react-spring: 9.5.5_biqbaboplfbrettd7655fr4n2y
+      tailwind-styled-components: 2.1.7_biqbaboplfbrettd7655fr4n2y
       tailwindcss-radix: 2.6.0
     devDependencies:
       '@babel/core': 7.19.3
@@ -4065,6 +4069,26 @@ packages:
       react-dom: 18.2.0_react@18.2.0
     dev: false
 
+  /@radix-ui/react-roving-focus/1.0.1_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-TB76u5TIxKpqMpUAuYH2VqMhHYKa+4Vs1NHygo/llLvlffN6mLVsFhz0AnSFlSBAvTBYVHYAkHAyEt7x1gPJOA==}
+    peerDependencies:
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+    dependencies:
+      '@babel/runtime': 7.19.4
+      '@radix-ui/primitive': 1.0.0
+      '@radix-ui/react-collection': 1.0.1_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-compose-refs': 1.0.0_react@18.2.0
+      '@radix-ui/react-context': 1.0.0_react@18.2.0
+      '@radix-ui/react-direction': 1.0.0_react@18.2.0
+      '@radix-ui/react-id': 1.0.0_react@18.2.0
+      '@radix-ui/react-primitive': 1.0.1_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-use-callback-ref': 1.0.0_react@18.2.0
+      '@radix-ui/react-use-controllable-state': 1.0.0_react@18.2.0
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+    dev: false
+
   /@radix-ui/react-select/1.1.1_rj7ozvcq3uehdlnj3cbwzbi5ce:
     resolution: {integrity: sha512-kvdEho5Yvf2HBaqVCQEJftpXE0zAR5ctMWzijoNhcifF7B09z4xgDyYsAgkwe40/S/8B1mEalG6cjmbkoWcpXw==}
     peerDependencies:
@@ -4138,6 +4162,25 @@ packages:
       '@babel/runtime': 7.19.4
       '@radix-ui/react-compose-refs': 1.0.0_react@18.2.0
       react: 18.2.0
+    dev: false
+
+  /@radix-ui/react-tabs/1.0.1_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-mVNEwHwgjy2G9F7b39f9VY+jF0QUZykTm0Sdv+Uz6KC4KOEIa4HLDiHU8MeEZluRtZE3aqGYDhl93O7QbJDwhg==}
+    peerDependencies:
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+    dependencies:
+      '@babel/runtime': 7.19.4
+      '@radix-ui/primitive': 1.0.0
+      '@radix-ui/react-context': 1.0.0_react@18.2.0
+      '@radix-ui/react-direction': 1.0.0_react@18.2.0
+      '@radix-ui/react-id': 1.0.0_react@18.2.0
+      '@radix-ui/react-presence': 1.0.0_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-primitive': 1.0.1_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-roving-focus': 1.0.1_biqbaboplfbrettd7655fr4n2y
+      '@radix-ui/react-use-controllable-state': 1.0.0_react@18.2.0
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
     dev: false
 
   /@radix-ui/react-toast/1.1.1_biqbaboplfbrettd7655fr4n2y:
@@ -8428,7 +8471,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.12_postcss@8.4.18:
     resolution: {integrity: sha512-WrCGV9/b97Pa+jtwf5UGaRjgQIg7OK3D06GnoYoZNcG1Xb8Gt3EfuKjlhh9i/VtT16g6PYjZ69jdJ2g8FxSC4Q==}
@@ -12992,7 +13034,7 @@ packages:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.3.7
+      semver: 7.3.8
       serialize-error: 7.0.1
     dev: true
 
@@ -16101,7 +16143,7 @@ packages:
     resolution: {integrity: sha512-jRVtMFTChbi2i/jqo/i2iP9634KMe+7K1v35mIdj3Mn59i5q27ZYhn+sW6npISM/PQg7HrP2kwtRBMmh5Uvzdg==}
     engines: {node: '>=10'}
     dependencies:
-      semver: 7.3.7
+      semver: 7.3.8
     dev: true
 
   /node-addon-api/5.0.0:
@@ -17066,7 +17108,7 @@ packages:
     dependencies:
       '@types/node': 17.0.45
       jimp: 0.16.2
-      minimist: 1.2.6
+      minimist: 1.2.7
     dev: true
 
   /pngjs/3.4.0:
@@ -17314,7 +17356,7 @@ packages:
       detect-libc: 2.0.1
       expand-template: 2.0.3
       github-from-package: 0.0.0
-      minimist: 1.2.6
+      minimist: 1.2.7
       mkdirp-classic: 0.5.3
       napi-build-utils: 1.0.2
       node-abi: 3.26.0
@@ -19233,7 +19275,7 @@ packages:
       detect-libc: 2.0.1
       node-addon-api: 5.0.0
       prebuild-install: 7.1.1
-      semver: 7.3.7
+      semver: 7.3.8
       simple-get: 4.0.1
       tar-fs: 2.1.1
       tunnel-agent: 0.6.0
@@ -20025,6 +20067,21 @@ packages:
   /synchronous-promise/2.0.16:
     resolution: {integrity: sha512-qImOD23aDfnIDNqlG1NOehdB9IYsn1V9oByPjKY1nakv2MQYCEMyX033/q+aEtYCpmYK1cv2+NTmlH+ra6GA5A==}
     dev: true
+
+  /tailwind-merge/1.6.2:
+    resolution: {integrity: sha512-/JbgwDwsI8F4aryXAcQ6tVOZvI/YyZqPqdkG/Dj/8XZq8JDp64XxZCIDbyp7/iOpIfWFkF8swEwjXQEQkAvJNw==}
+    dev: false
+
+  /tailwind-styled-components/2.1.7_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-L20oQlwWM+kbYHIrwvvMQ0HHqt1Z/tInnO/Q9zM0IV/vqUxSIcLAmhMwbbiZmyXTdAVz84N4s1GtIyGODq80Pw==}
+    peerDependencies:
+      react: '>= 16.8.0'
+      react-dom: '>= 16.8.0'
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      tailwind-merge: 1.6.2
+    dev: false
 
   /tailwind/4.0.0:
     resolution: {integrity: sha512-LlUNoD/5maFG1h5kQ6/hXfFPdcnYw+1Z7z+kUD/W/E71CUMwcnrskxiBM8c3G8wmPsD1VvCuqGYMHviI8+yrmg==}
@@ -21264,7 +21321,7 @@ packages:
       is-yarn-global: 0.3.0
       latest-version: 5.1.0
       pupa: 2.1.1
-      semver: 7.3.7
+      semver: 7.3.8
       semver-diff: 3.1.1
       xdg-basedir: 4.0.0
     dev: true

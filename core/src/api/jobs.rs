@@ -4,6 +4,7 @@ use crate::{
 	object::{
 		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
+		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
 	prisma::location,
 };
@@ -55,6 +56,35 @@ pub(crate) fn mount() -> RouterBuilder {
 					Ok(())
 				},
 			)
+		})
+		.library_mutation("objectValidator", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct ObjectValidatorArgs {
+				pub id: i32,
+				pub path: PathBuf,
+			}
+
+			t(|_, args: ObjectValidatorArgs, library| async move {
+				if fetch_location(&library, args.id).exec().await?.is_none() {
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Location not found".into(),
+					));
+				}
+
+				library
+					.spawn_job(Job::new(
+						ObjectValidatorJobInit {
+							location_id: args.id,
+							path: args.path,
+							background: true,
+						},
+						Box::new(ObjectValidatorJob {}),
+					))
+					.await;
+
+				Ok(())
+			})
 		})
 		.library_mutation("identifyUniqueFiles", |t| {
 			#[derive(Type, Deserialize)]
