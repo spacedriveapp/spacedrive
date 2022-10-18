@@ -33,7 +33,6 @@
 		"expo-linking": "~3.2.2",
 		"expo-splash-screen": "~0.16.2",
 		"expo-status-bar": "~1.4.0",
-		"immer": "^9.0.15",
 		"intl": "^1.2.5",
 		"lottie-react-native": "^5.1.4",
 		"moti": "^0.18.0",
