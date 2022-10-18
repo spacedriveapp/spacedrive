@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleProp, Text, View, ViewStyle } from 'react-native';
 import tw from '~/lib/tailwind';
 

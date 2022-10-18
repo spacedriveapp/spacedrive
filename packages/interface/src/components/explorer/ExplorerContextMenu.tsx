@@ -17,6 +17,7 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
+import { PropsWithChildren } from 'react';
 import { useSnapshot } from 'valtio';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
@@ -59,11 +60,7 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 	);
 };
 
-interface Props {
-	children: React.ReactNode;
-}
-
-export default function ExplorerContextMenu(props: Props) {
+export default function ExplorerContextMenu(props: PropsWithChildren) {
 	const store = getExplorerStore();
 
 	return (

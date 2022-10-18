@@ -1,13 +1,18 @@
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { PropsWithChildren } from 'react';
 
 export interface TooltipProps {
-	children: React.ReactNode;
 	label: string;
 	position?: 'top' | 'right' | 'bottom' | 'left';
 	className?: string;
 }
 
-export const Tooltip = ({ children, label, position = 'bottom', className }: TooltipProps) => {
+export const Tooltip = ({
+	children,
+	label,
+	position = 'bottom',
+	className
+}: PropsWithChildren<TooltipProps>) => {
 	return (
 		<TooltipPrimitive.Provider>
 			<TooltipPrimitive.Root>

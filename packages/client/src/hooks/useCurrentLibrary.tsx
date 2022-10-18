@@ -1,7 +1,7 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
-import { proxy, useSnapshot } from 'valtio';
+import { proxy, subscribe, useSnapshot } from 'valtio';
 
-import { getExplorerStore, useBridgeQuery, useExplorerStore } from '../index';
+import { getExplorerStore, useBridgeQuery } from '../index';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
@@ -24,6 +24,10 @@ export const LibraryContextProvider = ({
 
 export function getLibraryIdRaw(): string | null {
 	return currentLibraryUuidStore.id;
+}
+
+export function onLibraryChange(func: (newLibraryId: string | null) => void) {
+	subscribe(currentLibraryUuidStore, () => func(currentLibraryUuidStore.id));
 }
 
 // this is a hook to get the current library loaded into the UI. It takes care of a bunch of invariants under the hood.

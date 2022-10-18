@@ -1,5 +1,5 @@
 import byteSize from 'byte-size';
-import React from 'react';
+import { FC } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { Statistics } from '~/types/bindings';
 
@@ -17,7 +17,7 @@ type OverviewStatsProps = {
 	stats: Statistics | undefined;
 };
 
-const StatItem: React.FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
+const StatItem: FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
 	const { value, unit } = byteSize(+bytes);
 
 	const count = useCounter({ name: title, end: Number(value) });
