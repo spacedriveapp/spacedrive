@@ -8,9 +8,11 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 cargo {
     module  = "../../rust"
     libname = "sd_core_mobile"
-    // profile = 'release',
     pythonCommand = 'python3'
-    targets = ["arm", "arm64", "x86", "x86_64"]
+    // profile = 'release',
+    // targets = ["arm", "arm64", "x86", "x86_64"]
+    profile = 'debug'
+    targets = ["arm64"]
     targetDirectory = "../.././../../target" // Monorepo moment
 
 }

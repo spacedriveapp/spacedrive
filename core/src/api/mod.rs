@@ -1,5 +1,4 @@
 use std::{
-	path::PathBuf,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -52,8 +51,15 @@ struct NodeState {
 }
 
 pub(crate) fn mount() -> Arc<Router> {
+	let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
+
+	#[cfg(all(debug_assertions, not(feature = "mobile")))]
+	let config = config.export_ts_bindings(
+		std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"),
+	);
+
 	let r = <Router>::new()
-		.config(Config::new().set_ts_bindings_header("/* eslint-disable */"))
+		.config(config)
 		.query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
 		.query("getNode", |t| {
 			t(|ctx, _: ()| async move {
@@ -96,17 +102,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
-	export_ts_bindings(&r);
 	r
-}
-
-pub fn export_ts_bindings(r: &Router) {
-	r.export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"))
-		.expect("Error exporting rspc Typescript bindings!");
-	r.export_ts(
-		PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../apps/mobile/src/types/bindings.ts"),
-	)
-	.expect("Error exporting rspc Typescript bindings!");
 }
 
 #[cfg(test)]
@@ -114,6 +110,6 @@ mod tests {
 	/// This test will ensure the rspc router and all calls to `invalidate_query` are valid and also export an updated version of the Typescript bindings.
 	#[test]
 	fn test_and_export_rspc_bindings() {
-		super::export_ts_bindings(&super::mount());
+		super::mount();
 	}
 }
