@@ -26,6 +26,7 @@ export type Procedures = {
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
+        { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "library.create", input: string, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
@@ -92,6 +93,8 @@ export interface NodeConfig { version: string | null, id: string, name: string, 
 export interface NodeState { version: string | null, id: string, name: string, p2p_port: number | null, data_path: string }
 
 export interface Object { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
+
+export interface ObjectValidatorArgs { id: number, path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
