@@ -1,7 +1,7 @@
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
-import React from 'react';
+import { Component, PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Button } from './Button';
@@ -12,7 +12,7 @@ export type DropdownItem = (
 			icon?: any;
 			selected?: boolean;
 			to?: string;
-			wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
+			wrapItemComponent?: Component<PropsWithChildren>;
 	  }
 	| {
 			name: string;
@@ -21,7 +21,7 @@ export type DropdownItem = (
 			selected?: boolean;
 			onPress?: () => any;
 			to?: string;
-			wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
+			wrapItemComponent?: Component<PropsWithChildren>;
 	  }
 )[];
 

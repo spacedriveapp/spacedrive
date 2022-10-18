@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
@@ -9,7 +9,7 @@ interface BrowseLocationItemProps {
 	onPress: () => void;
 }
 
-const BrowseLocationItem: React.FC<BrowseLocationItemProps> = (props) => {
+const BrowseLocationItem: FC<BrowseLocationItemProps> = (props) => {
 	const { folderName, onPress } = props;
 
 	return (

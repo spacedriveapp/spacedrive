@@ -1,5 +1,5 @@
 import { MotiView } from 'moti';
-import React, { useReducer } from 'react';
+import { ReactNode, useReducer } from 'react';
 import { Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { ChevronRightIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';
@@ -9,7 +9,7 @@ import { AnimatedHeight } from '../animation/layout';
 type CollapsibleViewProps = {
 	title: string;
 	titleStyle?: StyleProp<TextStyle>;
-	children: React.ReactNode;
+	children: ReactNode;
 	containerStyle?: StyleProp<ViewStyle>;
 };
 

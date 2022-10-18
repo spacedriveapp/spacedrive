@@ -3,7 +3,6 @@ import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript
 import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { List } from 'phosphor-react-native';
-import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import tw from '~/lib/tailwind';
