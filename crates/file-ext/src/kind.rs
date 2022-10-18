@@ -3,8 +3,8 @@
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, IntEnum)]
-#[repr(u8)]
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, IntEnum)]
 pub enum ObjectKind {
 	// A file that can not be identified by the indexer
 	Unknown = 0,
