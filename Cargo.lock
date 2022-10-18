@@ -1977,7 +1977,7 @@ checksum = "25a68131a662b04931e71891fb14aaf65ee4b44d08e8abc10f49e77418c86c64"
 dependencies = [
  "anyhow",
  "heck 0.4.0",
- "proc-macro-crate 1.2.1",
+ "proc-macro-crate",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -2083,7 +2083,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24f518afe90c23fba585b2d7697856f9e6a7bbc62f65588035e66f6afb01a2e9"
 dependencies = [
  "anyhow",
- "proc-macro-crate 1.2.1",
+ "proc-macro-crate",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -2540,34 +2540,11 @@ dependencies = [
 
 [[package]]
 name = "int-enum"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b1428b2b1abe959e6eedb0a17d0ab12f6ba20e1106cc29fc4874e3ba393c177"
-dependencies = [
- "cfg-if 0.1.10",
- "int-enum-impl 0.4.0",
-]
-
-[[package]]
-name = "int-enum"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cff87d3cc4b79b4559e3c75068d64247284aceb6a038bd4bb38387f3f164476d"
 dependencies = [
- "int-enum-impl 0.5.0",
-]
-
-[[package]]
-name = "int-enum-impl"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2c3cecaad8ca1a5020843500c696de2b9a07b63b624ddeef91f85f9bafb3671"
-dependencies = [
- "cfg-if 0.1.10",
- "proc-macro-crate 0.1.5",
- "proc-macro2",
- "quote",
- "syn",
+ "int-enum-impl",
 ]
 
 [[package]]
@@ -2576,7 +2553,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df1f2f068675add1a3fc77f5f5ab2e29290c841ee34d151abc007bce902e5d34"
 dependencies = [
- "proc-macro-crate 1.2.1",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn",
@@ -3461,7 +3438,7 @@ version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b0498641e53dd6ac1a4f22547548caa6864cc4933784319cd1775271c5a46ce"
 dependencies = [
- "proc-macro-crate 1.2.1",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn",
@@ -4203,15 +4180,6 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid 0.8.2",
-]
-
-[[package]]
-name = "proc-macro-crate"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
-dependencies = [
- "toml",
 ]
 
 [[package]]
@@ -5159,7 +5127,7 @@ dependencies = [
  "hostname 0.3.1",
  "image",
  "include_dir",
- "int-enum 0.4.0",
+ "int-enum",
  "itertools",
  "once_cell",
  "openssl-sys",
@@ -5230,7 +5198,7 @@ dependencies = [
 name = "sd-file-ext"
 version = "0.0.0"
 dependencies = [
- "int-enum 0.5.0",
+ "int-enum",
  "serde",
  "serde_json",
 ]

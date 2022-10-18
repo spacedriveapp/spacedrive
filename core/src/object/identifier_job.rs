@@ -223,7 +223,7 @@ impl StatefulJob for FileIdentifierJob {
 					PrismaValue::String(object.cas_id.clone()),
 					PrismaValue::Int(object.size_in_bytes),
 					PrismaValue::DateTime(object.date_created),
-					PrismaValue::Int(object.kind.int_value()),
+					PrismaValue::Int(object.kind.int_value() as i64),
 				]);
 			}
 
