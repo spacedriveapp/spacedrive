@@ -10,12 +10,12 @@ import AppLogo from '@sd/assets/images/logo.png';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
 import { DotsThreeVertical, List } from 'phosphor-react';
-import { useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 
 import { positions } from '../pages/careers.page';
 import { getWindow } from '../utils';
 
-function NavLink(props: { link?: string; children: string }) {
+function NavLink(props: PropsWithChildren<{ link?: string }>) {
 	return (
 		<a
 			href={props.link ?? '#'}

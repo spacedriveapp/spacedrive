@@ -2,13 +2,13 @@ import { Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/solid';
 import { ButtonLink } from '@sd/ui';
 import clsx from 'clsx';
+import { PropsWithChildren } from 'react';
 
-export interface ModalProps {
-	full?: boolean;
-	children: React.ReactNode;
-}
-
-export const Modal: React.FC<ModalProps> = (props) => {
+export function Model(
+	props: PropsWithChildren<{
+		full?: boolean;
+	}>
+) {
 	return (
 		<div
 			className={clsx('absolute w-screen h-screen z-30', {
@@ -51,4 +51,4 @@ export const Modal: React.FC<ModalProps> = (props) => {
 			</div>
 		</div>
 	);
-};
+}

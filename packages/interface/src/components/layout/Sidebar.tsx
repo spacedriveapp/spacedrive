@@ -5,6 +5,7 @@ import { LocationCreateArgs } from '@sd/client';
 import { Button, Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
+import { PropsWithChildren } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
@@ -14,7 +15,7 @@ import { JobsManager } from '../jobs/JobManager';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
 
-export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode }) => (
+export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => (
 	<NavLink {...props}>
 		{({ isActive }) => (
 			<span
@@ -37,9 +38,9 @@ const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
 );
 
-const Heading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-	<div className="mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300">{children}</div>
-);
+function Heading({ children }: PropsWithChildren) {
+	return <div className="mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300">{children}</div>;
+}
 
 // cute little helper to decrease code clutter
 const macOnly = (platform: string | undefined, classnames: string) =>

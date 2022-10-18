@@ -1,5 +1,6 @@
 import { Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
+import { PropsWithChildren } from 'react';
 
 export interface TeamMemberProps {
 	// Name of team member
@@ -23,14 +24,10 @@ export interface TeamMemberProps {
 }
 
 interface LinkProps {
-	// Elements inside anchor tag
-	children: React.ReactNode;
-
-	// Anchor href
 	href: string;
 }
 
-function Link(props: LinkProps) {
+function Link(props: PropsWithChildren<LinkProps>) {
 	return (
 		<a
 			className="duration-300 hover:scale-105 hover:opacity-80"

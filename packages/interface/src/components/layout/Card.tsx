@@ -1,7 +1,7 @@
 import clsx from 'clsx';
-import { ReactNode } from 'react';
+import { PropsWithChildren } from 'react';
 
-export default function Card(props: { children: ReactNode; className?: string }) {
+export default function Card(props: PropsWithChildren<{ className?: string }>) {
 	return (
 		<div
 			className={clsx(

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { PropsWithChildren } from 'react';
 import { PageContextBuiltIn } from 'vite-plugin-ssr';
 
 import { Footer } from './components/Footer';
@@ -11,10 +11,9 @@ import '@sd/ui/style';
 export default function App({
 	children,
 	pageContext
-}: {
-	children: React.ReactNode;
+}: PropsWithChildren<{
 	pageContext: PageContextBuiltIn;
-}) {
+}>) {
 	return (
 		<React.StrictMode>
 			<PageContextProvider pageContext={pageContext}>
