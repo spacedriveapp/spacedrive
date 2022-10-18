@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, TagIcon } from '@heroicons/react/24/outline';
 import {
 	OperatingSystem,
 	getExplorerStore,
@@ -264,12 +264,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								// </Tooltip>
 							}
 						>
-							<div className="block w-[350px] h-[435px]">
+							<div className="block w-[350px]">
 								<KeyManager />
 							</div>
 						</OverlayPanel>
-						<Tooltip label="Cloud">
-							<TopBarButton icon={Cloud} />
+						<Tooltip label="Tag Assign Mode">
+							<TopBarButton icon={TagIcon} />
 						</Tooltip>
 						<Tooltip label="Refresh">
 							<TopBarButton icon={ArrowsClockwise} />
