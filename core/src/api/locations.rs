@@ -7,11 +7,12 @@ use crate::{
 	},
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
+	LocationManager,
 };
 
 use rspc::{self, internal::MiddlewareBuilderLike, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{error, info};
 
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
 
@@ -172,6 +173,9 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.await?;
 
 				invalidate_query!(library, "locations.list");
+				if let Err(e) = LocationManager::global().remove(location_id).await {
+					error!("Failed to remove location from manager: {e:#?}");
+				}
 
 				info!("Location {} deleted", location_id);
 

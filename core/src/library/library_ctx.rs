@@ -1,11 +1,16 @@
-use crate::job::DynJob;
+use crate::{
+	api::CoreEvent, job::DynJob, node::NodeConfigManager, prisma::PrismaClient, NodeContext,
+};
+
+use std::{
+	fmt::{Debug, Formatter},
+	sync::Arc,
+};
+
 use sd_crypto::keys::keymanager::KeyManager;
-use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::warn;
 use uuid::Uuid;
-
-use crate::{api::CoreEvent, node::NodeConfigManager, prisma::PrismaClient, NodeContext};
 
 use super::LibraryConfig;
 
@@ -24,6 +29,19 @@ pub struct LibraryContext {
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
 	pub(super) node_context: NodeContext,
+}
+
+impl Debug for LibraryContext {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		// Rolling out this implementation because `NodeContext` contains a DynJob which is
+		// troublesome to implement Debug trait
+		f.debug_struct("LibraryContext")
+			.field("id", &self.id)
+			.field("config", &self.config)
+			.field("db", &self.db)
+			.field("node_local_id", &self.node_local_id)
+			.finish()
+	}
 }
 
 impl LibraryContext {

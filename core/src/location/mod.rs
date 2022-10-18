@@ -12,23 +12,26 @@ use crate::{
 
 use rspc::Type;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+	collections::HashSet,
+	path::{Path, PathBuf},
+};
 use tokio::{
-	fs::{metadata, File},
-	io::AsyncWriteExt,
+	fs::{self, File},
+	io::{self, AsyncWriteExt},
 };
 use tracing::{debug, info};
 use uuid::Uuid;
 
 mod error;
 pub mod indexer;
+mod manager;
 
 pub use error::LocationError;
-use indexer::indexer_job::{IndexerJob, IndexerJobInit};
+use indexer::indexer_job::{indexer_job_location, IndexerJob, IndexerJobInit};
+pub use manager::{LocationManager, LocationManagerError};
 
-use self::indexer::indexer_job::indexer_job_location;
-
-static DOTFILE_NAME: &str = ".spacedrive";
+static LOCATION_METADATA_HIDDEN_DIR: &str = ".spacedrive";
 
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -49,43 +52,56 @@ impl LocationCreateArgs {
 			return Err(LocationError::PathNotFound(self.path));
 		}
 
-		let path_metadata = metadata(&self.path)
+		let path_metadata = fs::metadata(&self.path)
 			.await
-			.map_err(|e| LocationError::DotfileReadFailure(e, self.path.clone()))?;
+			.map_err(|e| LocationError::LocationPathMetadataAccess(e, self.path.clone()))?;
 
 		if path_metadata.permissions().readonly() {
-			return Err(LocationError::ReadonlyDotFileLocationFailure(self.path));
+			return Err(LocationError::ReadonlyLocationFailure(self.path));
 		}
 
 		if !path_metadata.is_dir() {
 			return Err(LocationError::NotDirectory(self.path));
 		}
 
-		debug!(
-			"Trying to create new location for '{}'",
-			self.path.display()
-		);
-		let uuid = Uuid::new_v4();
+		check_or_create_location_metadata_dir(&self.path).await?;
 
-		let mut location = ctx
-			.db
-			.location()
-			.create(
-				uuid.as_bytes().to_vec(),
-				node::id::equals(ctx.node_local_id),
-				vec![
-					location::name::set(Some(
-						self.path.file_name().unwrap().to_str().unwrap().to_string(),
-					)),
-					location::is_online::set(true),
-					location::local_path::set(Some(self.path.to_string_lossy().to_string())),
-				],
+		let metadata_file_name = self
+			.path
+			.join(LOCATION_METADATA_HIDDEN_DIR)
+			.join(format!("{}.json", ctx.id));
+
+		let location_metadata = match fs::read(&metadata_file_name).await {
+			Ok(data) => Some(
+				serde_json::from_slice::<SpacedriveLocationMetadata>(&data)
+					.map_err(|e| LocationError::DotfileSerializeFailure(e, self.path.clone()))?,
+			),
+			Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+			Err(e) => {
+				return Err(LocationError::LocationMetadataReadFailure(
+					e,
+					self.path.clone(),
+				));
+			}
+		};
+
+		let location_name = self.path.file_name().unwrap().to_str().unwrap().to_string();
+		let local_path_str = self.path.to_string_lossy().to_string();
+
+		let mut location = if let Some(location_metadata) = location_metadata {
+			if location_metadata.library_uuid != ctx.id {
+				return Err(LocationError::CorruptedLocationMetadataFile(self.path));
+			}
+			handle_existing_location_relink(
+				location_metadata.location_uuid,
+				local_path_str,
+				&metadata_file_name,
+				ctx,
 			)
-			.include(indexer_job_location::include())
-			.exec()
-			.await?;
-
-		info!("Created location: {:?}", location);
+			.await?
+		} else {
+			create_new_location(location_name, local_path_str, ctx).await?
+		};
 
 		if !self.indexer_rules_ids.is_empty() {
 			link_location_and_indexer_rules(ctx, location.id, &self.indexer_rules_ids).await?;
@@ -98,23 +114,28 @@ impl LocationCreateArgs {
 			.await?
 			.ok_or(LocationError::IdNotFound(location.id))?;
 
-		// write a file called .spacedrive to path containing the location id in JSON format
-		let mut dotfile = File::create(self.path.with_file_name(DOTFILE_NAME))
+		// Write a location metadata file on a .spacedrive hidden directory with
+		// `<library_id>.json` file name containing the location pub id and library id in JSON format
+		let mut metadata_file = File::create(metadata_file_name)
 			.await
-			.map_err(|e| LocationError::DotfileWriteFailure(e, self.path.clone()))?;
+			.map_err(|e| LocationError::LocationMetadataWriteFailure(e, self.path.clone()))?;
 
-		let json_bytes = serde_json::to_vec(&DotSpacedrive {
-			location_uuid: uuid,
+		let json_bytes = serde_json::to_vec(&SpacedriveLocationMetadata {
+			location_uuid: Uuid::from_slice(&location.pub_id).unwrap(),
 			library_uuid: ctx.id,
 		})
 		.map_err(|e| LocationError::DotfileSerializeFailure(e, self.path.clone()))?;
 
-		dotfile
+		metadata_file
 			.write_all(&json_bytes)
 			.await
-			.map_err(|e| LocationError::DotfileWriteFailure(e, self.path))?;
+			.map_err(|e| LocationError::LocationMetadataWriteFailure(e, self.path))?;
 
 		invalidate_query!(ctx, "locations.list");
+
+		LocationManager::global()
+			.add(location.id, ctx.clone())
+			.await?;
 
 		Ok(location)
 	}
@@ -191,23 +212,10 @@ impl LocationUpdateArgs {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct DotSpacedrive {
+pub struct SpacedriveLocationMetadata {
 	pub location_uuid: Uuid,
 	pub library_uuid: Uuid,
 }
-
-// checks to see if a location is:
-// - accessible on from the local filesystem
-// - already exists in the database
-// pub async fn check_location(path: &str) -> Result<DotSpacedrive, LocationError> {
-// 	let dotfile: DotSpacedrive = match fs::File::open(format!("{}/{}", path.clone(), DOTFILE_NAME))
-// 	{
-// 		Ok(file) => serde_json::from_reader(file).unwrap_or(DotSpacedrive::default()),
-// 		Err(e) => return Err(LocationError::DotfileReadFailure(e)),
-// 	};
-
-// 	Ok(dotfile)
-// }
 
 pub fn fetch_location(ctx: &LibraryContext, location_id: i32) -> location::FindUnique {
 	ctx.db
@@ -276,4 +284,95 @@ pub async fn scan_location(
 	.await;
 
 	Ok(())
+}
+
+async fn handle_existing_location_relink(
+	location_pub_id: Uuid,
+	local_path_str: String,
+	metadata_file_name: impl AsRef<Path>,
+	ctx: &LibraryContext,
+) -> Result<indexer_job_location::Data, LocationError> {
+	let mut location = ctx
+		.db
+		.location()
+		.find_unique(location::pub_id::equals(location_pub_id.as_ref().to_vec()))
+		.include(indexer_job_location::include())
+		.exec()
+		.await?
+		.ok_or_else(|| {
+			LocationError::LocationMetadataInvalidPubId(
+				location_pub_id,
+				metadata_file_name.as_ref().to_path_buf(),
+			)
+		})?;
+
+	if let Some(ref old_local_path) = location.local_path {
+		if *old_local_path != local_path_str {
+			location = ctx
+				.db
+				.location()
+				.update(
+					location::id::equals(location.id),
+					vec![
+						location::local_path::set(Some(local_path_str)),
+						location::is_online::set(true),
+					],
+				)
+				.include(indexer_job_location::include())
+				.exec()
+				.await?;
+		}
+	}
+
+	// As we're relinking a location, let's just forget the old indexing rules to receive new ones
+	ctx.db
+		.indexer_rules_in_location()
+		.delete_many(vec![indexer_rules_in_location::location_id::equals(
+			location.id,
+		)])
+		.exec()
+		.await?;
+
+	Ok(location)
+}
+
+async fn create_new_location(
+	location_name: String,
+	local_path_str: String,
+	ctx: &LibraryContext,
+) -> Result<indexer_job_location::Data, LocationError> {
+	debug!("Trying to create new location for '{local_path_str}'",);
+	let uuid = Uuid::new_v4();
+
+	let location = ctx
+		.db
+		.location()
+		.create(
+			uuid.as_bytes().to_vec(),
+			node::id::equals(ctx.node_local_id),
+			vec![
+				location::name::set(Some(location_name)),
+				location::is_online::set(true),
+				location::local_path::set(Some(local_path_str)),
+			],
+		)
+		.include(indexer_job_location::include())
+		.exec()
+		.await?;
+
+	info!("Created location: {location:?}");
+
+	Ok(location)
+}
+
+async fn check_or_create_location_metadata_dir(
+	path: impl AsRef<Path>,
+) -> Result<(), LocationError> {
+	let metadata_dir_path = path.as_ref().join(LOCATION_METADATA_HIDDEN_DIR);
+	(match fs::metadata(&metadata_dir_path).await {
+		Ok(_) => Ok(()),
+		Err(e) if e.kind() == io::ErrorKind::NotFound => fs::create_dir(&metadata_dir_path).await,
+		Err(e) => Err(e),
+	})
+	.map_err(|e| LocationError::LocationMetadataDir(e, metadata_dir_path))
 }

@@ -1,3 +1,4 @@
+use crate::LocationManagerError;
 use rspc::{self, ErrorCode};
 use std::path::PathBuf;
 use thiserror::Error;
@@ -24,14 +25,22 @@ pub enum LocationError {
 	// Internal Errors
 	#[error("Failed to create location (uuid {uuid:?})")]
 	CreateFailure { uuid: Uuid },
-	#[error("Failed to read location dotfile (path: {1:?}); (error: {0:?})")]
-	DotfileReadFailure(io::Error, PathBuf),
+	#[error("Failed to read location metadata file (path: {1:?}); (error: {0:?})")]
+	LocationMetadataReadFailure(io::Error, PathBuf),
+	#[error("Failed to read location path metadata info (path: {1:?}); (error: {0:?})")]
+	LocationPathMetadataAccess(io::Error, PathBuf),
+	#[error("Failed to create location metadata hidden directory (path: {1:?}); (error: {0:?})")]
+	LocationMetadataDir(io::Error, PathBuf),
 	#[error("Failed to serialize dotfile for location (at path: {1:?}); (error: {0:?})")]
 	DotfileSerializeFailure(serde_json::Error, PathBuf),
-	#[error("Dotfile location is read only (at path: {0:?})")]
-	ReadonlyDotFileLocationFailure(PathBuf),
+	#[error("Location is read only (at path: {0:?})")]
+	ReadonlyLocationFailure(PathBuf),
+	#[error("Location metadata file contains a location pub_id that is not in the database: (path: {1:?}); (uuid: {0:?})")]
+	LocationMetadataInvalidPubId(Uuid, PathBuf),
 	#[error("Failed to write dotfile (path: {1:?}); (error: {0:?})")]
-	DotfileWriteFailure(io::Error, PathBuf),
+	LocationMetadataWriteFailure(io::Error, PathBuf),
+	#[error("Corrupted location metadata file (path: {0:?})")]
+	CorruptedLocationMetadataFile(PathBuf),
 	#[error("Failed to open file from local os (error: {0:?})")]
 	FileReadError(io::Error),
 	#[error("Failed to read mounted volumes from local os (error: {0:?})")]
@@ -40,6 +49,8 @@ pub enum LocationError {
 	IOError(io::Error),
 	#[error("Database error (error: {0:?})")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
+	#[error("Location manager error (error: {0:?})")]
+	LocationManagerError(#[from] LocationManagerError),
 }
 
 impl From<LocationError> for rspc::Error {
