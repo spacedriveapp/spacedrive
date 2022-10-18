@@ -100,6 +100,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "android_log-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85965b6739a430150bdd138e2374a98af0c3ee0d030b3bb7fc3bddff58d0102e"
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5191,6 +5197,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-android",
  "tracing-subscriber",
  "tracing-test",
  "uuid 1.2.1",
@@ -5201,6 +5208,7 @@ dependencies = [
 name = "sd-core-mobile"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "jni",
  "objc",
  "objc-foundation",
@@ -5212,6 +5220,7 @@ dependencies = [
  "sd-core",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6561,6 +6570,17 @@ dependencies = [
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-android"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12612be8f868a09c0ceae7113ff26afe79d81a24473a393cb9120ece162e86c0"
+dependencies = [
+ "android_log-sys",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

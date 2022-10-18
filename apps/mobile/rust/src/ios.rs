@@ -1,9 +1,11 @@
 use crate::{EVENT_SENDER, NODE, RUNTIME, SUBSCRIPTIONS};
+use futures::future::join_all;
 use objc::{msg_send, runtime::Object, sel, sel_impl};
 use objc_foundation::{INSString, NSString};
 use objc_id::Id;
 use rspc::internal::jsonrpc::{handle_json_rpc, Request, Sender, SubscriptionMap};
 use sd_core::Node;
+use serde_json::Value;
 use std::{
 	ffi::{CStr, CString},
 	os::raw::{c_char, c_void},
@@ -69,39 +71,63 @@ pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_voi
 
 		let resolve = RNPromise(resolve);
 		RUNTIME.spawn(async move {
-			let request: Request = serde_json::from_str(&query).unwrap();
+			let reqs =
+				match serde_json::from_str::<Value>(&query).and_then(|v| match v.is_array() {
+					true => serde_json::from_value::<Vec<Request>>(v),
+					false => serde_json::from_value::<Request>(v).map(|v| vec![v]),
+				}) {
+					Ok(v) => v,
+					Err(err) => {
+						println!("failed to decode JSON-RPC request: {}", err); // Don't use tracing here because it's before the `Node` is initialised which sets that config!
 
-			let node = &mut *NODE.lock().await;
-			let (node, router) = match node {
-				Some(node) => node.clone(),
-				None => {
-					let doc_dir = CStr::from_ptr(get_data_directory())
-						.to_str()
-						.unwrap()
-						.to_string();
-					let new_node = Node::new(doc_dir).await.unwrap();
-					node.replace(new_node.clone());
-					new_node
+						resolve.resolve(
+							CString::new(serde_json::to_vec(&(vec![] as Vec<Request>)).unwrap())
+								.unwrap(),
+						); // TODO: Proper error handling
+						return;
+					}
+				};
+
+			let resps = join_all(reqs.into_iter().map(|request| async move {
+				let node = &mut *NODE.lock().await;
+				let (node, router) = match node {
+					Some(node) => node.clone(),
+					None => {
+						let data_dir = CStr::from_ptr(get_data_directory())
+							.to_str()
+							.unwrap()
+							.to_string();
+						let new_node = Node::new(data_dir).await.unwrap();
+						node.replace(new_node.clone());
+						new_node
+					}
+				};
+
+				let mut channel = EVENT_SENDER.get().unwrap().clone();
+				let mut resp = Sender::ResponseAndChannel(None, &mut channel);
+				handle_json_rpc(
+					node.get_request_context(),
+					request,
+					&router,
+					&mut resp,
+					&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
+				)
+				.await;
+
+				match resp {
+					Sender::ResponseAndChannel(resp, _) => resp,
+					_ => unreachable!(),
 				}
-			};
-
-			let mut channel = EVENT_SENDER.get().unwrap().clone();
-			let mut resp = Sender::ResponseAndChannel(None, &mut channel);
-			handle_json_rpc(
-				node.get_request_context(),
-				request,
-				&router,
-				&mut resp,
-				&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
-			)
+			}))
 			.await;
 
-			match resp {
-				Sender::ResponseAndChannel(Some(resp), _) => {
-					resolve.resolve(CString::new(serde_json::to_vec(&resp).unwrap()).unwrap());
-				}
-				_ => unreachable!(),
-			}
+			resolve.resolve(
+				CString::new(
+					serde_json::to_vec(&resps.into_iter().filter_map(|v| v).collect::<Vec<_>>())
+						.unwrap(),
+				)
+				.unwrap(),
+			);
 		});
 	});
 

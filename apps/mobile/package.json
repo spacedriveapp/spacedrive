@@ -3,11 +3,13 @@
 	"version": "1.0.0",
 	"main": "index.js",
 	"license": "GPL-3.0-only",
+	"private": true,
 	"scripts": {
 		"start": "expo start --dev-client",
 		"android": "expo run:android",
 		"ios": "expo run:ios",
 		"xcode": "open ios/spacedrive.xcworkspace",
+		"android-studio": "open -a '/Applications/Android Studio.app' ./android",
 		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
 		"postinstall": "node scripts/postinstall.js"
 	},
@@ -67,6 +69,5 @@
 		"metro-minify-terser": "^0.72.1",
 		"react-native-svg-transformer": "^1.0.0",
 		"typescript": "^4.7.4"
-	},
-	"private": true
+	}
 }
