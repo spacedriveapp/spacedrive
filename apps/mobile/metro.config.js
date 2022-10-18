@@ -6,24 +6,29 @@ const [SDAssetsPath, SDAssetsPathExclude] = resolveUniqueModule('@sd/assets', '.
 const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
 const [reactPath, reactExclude] = resolveUniqueModule('react');
 
+const path = require('path');
+
 // Needed for transforming svgs from @sd/assets
 const [reactSVGPath, reactSVGExclude] = resolveUniqueModule('react-native-svg');
 
 const { getDefaultConfig } = require('expo/metro-config');
 const expoDefaultConfig = getDefaultConfig(__dirname);
 
+const projectRoot = __dirname;
+const workspaceRoot = path.resolve(projectRoot, '../..');
+
 const metroConfig = makeMetroConfig({
-	projectRoot: __dirname,
+	projectRoot,
+	watchFolders: [workspaceRoot],
 	resolver: {
 		...expoDefaultConfig.resolver,
-		resolveRequest: MetroSymlinksResolver(),
+		// resolveRequest: MetroSymlinksResolver(),
 		extraNodeModules: {
 			'@babel/runtime': babelRuntimePath,
 			'@sd/assets': SDAssetsPath,
 			'react': reactPath,
 			'react-native-svg': reactSVGPath
 		},
-
 		blockList: exclusionList([
 			babelRuntimeExclude,
 			SDAssetsPathExclude,
@@ -31,7 +36,12 @@ const metroConfig = makeMetroConfig({
 			reactSVGExclude
 		]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
-		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg')
+		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
+		disableHierarchicalLookup: true,
+		nodeModulesPaths: [
+			path.resolve(projectRoot, 'node_modules'),
+			path.resolve(workspaceRoot, 'node_modules')
+		]
 	},
 	transformer: {
 		// Metro default is "uglify-es" but terser should be faster and has better defaults.

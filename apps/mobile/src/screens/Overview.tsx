@@ -5,15 +5,16 @@ import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import OverviewStats from '~/containers/OverviewStats';
 import tw from '~/lib/tailwind';
 import { OverviewStackScreenProps } from '~/navigation/tabs/OverviewStack';
+import { Statistics } from '~/types/bindings';
 
-const placeholderOverviewStats = {
+const placeholderOverviewStats: Statistics = {
 	id: 1,
 	total_bytes_capacity: '8093333345230',
 	preview_media_bytes: '2304387532',
 	library_db_size: '83345230',
-	total_file_count: 20342345,
 	total_bytes_free: '89734502034',
 	total_bytes_used: '8093333345230',
+	total_object_count: 0,
 	total_unique_bytes: '9347397',
 	date_captured: '2020-01-01'
 };

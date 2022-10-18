@@ -1,42 +1,44 @@
+import loadable from '@loadable/component';
 import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import { useKeybindHandler } from './hooks/useKeyboardHandler';
 
-const DebugScreen = lazy(() => import('./screens/Debug'));
-const SettingsScreen = lazy(() => import('./screens/settings/Settings'));
-const TagExplorer = lazy(() => import('./screens/TagExplorer'));
-const PhotosScreen = lazy(() => import('./screens/Photos'));
-const OverviewScreen = lazy(() => import('./screens/Overview'));
-const ContentScreen = lazy(() => import('./screens/Content'));
-const LocationExplorer = lazy(() => import('./screens/LocationExplorer'));
-const OnboardingScreen = lazy(() => import('./components/onboarding/Onboarding'));
-const NotFound = lazy(() => import('./NotFound'));
+// Using React.lazy breaks hot reload so we don't use it.
+const DebugScreen = loadable(() => import('./screens/Debug'));
+const SettingsScreen = loadable(() => import('./screens/settings/Settings'));
+const TagExplorer = loadable(() => import('./screens/TagExplorer'));
+const PhotosScreen = loadable(() => import('./screens/Photos'));
+const OverviewScreen = loadable(() => import('./screens/Overview'));
+const ContentScreen = loadable(() => import('./screens/Content'));
+const LocationExplorer = loadable(() => import('./screens/LocationExplorer'));
+const OnboardingScreen = loadable(() => import('./components/onboarding/Onboarding'));
+const NotFound = loadable(() => import('./NotFound'));
 
-const AppearanceSettings = lazy(() => import('./screens/settings/client/AppearanceSettings'));
-const ExtensionSettings = lazy(() => import('./screens/settings/client/ExtensionsSettings'));
-const GeneralSettings = lazy(() => import('./screens/settings/client/GeneralSettings'));
-const KeybindingSettings = lazy(() => import('./screens/settings/client/KeybindingSettings'));
-const PrivacySettings = lazy(() => import('./screens/settings/client/PrivacySettings'));
-const AboutSpacedrive = lazy(() => import('./screens/settings/info/AboutSpacedrive'));
-const Changelog = lazy(() => import('./screens/settings/info/Changelog'));
-const Support = lazy(() => import('./screens/settings/info/Support'));
-const ContactsSettings = lazy(() => import('./screens/settings/library/ContactsSettings'));
-const KeysSettings = lazy(() => import('./screens/settings/library/KeysSetting'));
-const LibraryGeneralSettings = lazy(
+const AppearanceSettings = loadable(() => import('./screens/settings/client/AppearanceSettings'));
+const ExtensionSettings = loadable(() => import('./screens/settings/client/ExtensionsSettings'));
+const GeneralSettings = loadable(() => import('./screens/settings/client/GeneralSettings'));
+const KeybindingSettings = loadable(() => import('./screens/settings/client/KeybindingSettings'));
+const PrivacySettings = loadable(() => import('./screens/settings/client/PrivacySettings'));
+const AboutSpacedrive = loadable(() => import('./screens/settings/info/AboutSpacedrive'));
+const Changelog = loadable(() => import('./screens/settings/info/Changelog'));
+const Support = loadable(() => import('./screens/settings/info/Support'));
+const ContactsSettings = loadable(() => import('./screens/settings/library/ContactsSettings'));
+const KeysSettings = loadable(() => import('./screens/settings/library/KeysSetting'));
+const LibraryGeneralSettings = loadable(
 	() => import('./screens/settings/library/LibraryGeneralSettings')
 );
-const LocationSettings = lazy(() => import('./screens/settings/library/LocationSettings'));
-const NodesSettings = lazy(() => import('./screens/settings/library/NodesSettings'));
-const SecuritySettings = lazy(() => import('./screens/settings/library/SecuritySettings'));
-const SharingSettings = lazy(() => import('./screens/settings/library/SharingSettings'));
-const SyncSettings = lazy(() => import('./screens/settings/library/SyncSettings'));
-const TagsSettings = lazy(() => import('./screens/settings/library/TagsSettings'));
-const ExperimentalSettings = lazy(() => import('./screens/settings/node/ExperimentalSettings'));
-const LibrarySettings = lazy(() => import('./screens/settings/node/LibrariesSettings'));
-const P2PSettings = lazy(() => import('./screens/settings/node/P2PSettings'));
+const LocationSettings = loadable(() => import('./screens/settings/library/LocationSettings'));
+const NodesSettings = loadable(() => import('./screens/settings/library/NodesSettings'));
+const SecuritySettings = loadable(() => import('./screens/settings/library/SecuritySettings'));
+const SharingSettings = loadable(() => import('./screens/settings/library/SharingSettings'));
+const SyncSettings = loadable(() => import('./screens/settings/library/SyncSettings'));
+const TagsSettings = loadable(() => import('./screens/settings/library/TagsSettings'));
+const ExperimentalSettings = loadable(() => import('./screens/settings/node/ExperimentalSettings'));
+const LibrarySettings = loadable(() => import('./screens/settings/node/LibrariesSettings'));
+const P2PSettings = loadable(() => import('./screens/settings/node/P2PSettings'));
 
 export function AppRouter() {
 	const { library } = useCurrentLibrary();
@@ -45,7 +47,7 @@ export function AppRouter() {
 	useInvalidateQuery();
 
 	return (
-		<Suspense fallback={<p>Loading...</p>}>
+		<Suspense>
 			<Routes>
 				<Route path="onboarding" element={<OnboardingScreen />} />
 				<Route element={<AppLayout />}>
@@ -54,7 +56,7 @@ export function AppRouter() {
 						<Route
 							path="*"
 							element={
-								<h1 className="text-white p-4">
+								<h1 className="p-4 text-white">
 									Please select or create a library in the sidebar.
 								</h1>
 							}

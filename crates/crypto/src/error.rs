@@ -1,3 +1,4 @@
+//! This module contains all possible errors that this crate can return.
 use thiserror::Error;
 
 /// This enum defines all possible errors that this crate can give
@@ -19,12 +20,20 @@ pub enum Error {
 	FileHeader,
 	#[error("error initialising stream encryption/decryption")]
 	StreamModeInit,
-	#[error("error initialising in-memory encryption/decryption")]
-	MemoryModeInit,
 	#[error("wrong password provided")]
 	IncorrectPassword,
 	#[error("no keyslots available")]
 	NoKeyslots,
 	#[error("mismatched data length while converting vec to array")]
 	VecArrSizeMismatch,
+	#[error("error while parsing preview media length")]
+	MediaLengthParse,
+	#[error("no preview media found")]
+	NoPreviewMedia,
+	#[error("error while serializing/deserializing the metadata")]
+	MetadataDeSerialization,
+	#[error("no metadata found")]
+	NoMetadata,
+	#[error("tried adding too many keyslots to a header")]
+	TooManyKeyslots,
 }

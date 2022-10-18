@@ -46,25 +46,28 @@ export const Inspector = (props: Props) => {
 		enabled: readyToFetch
 	});
 
+	const isVid = isVideo(props.data?.extension || '');
+
 	return (
-		<div className="p-2 pr-1 overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
+		<div className="-mt-[50px] pt-[55px] pl-1.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
 			{!!props.data && (
 				<>
 					<div className="flex bg-black items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
 						<FileThumb
-							iconClassNames="!my-10"
+							iconClassNames="mx-10"
 							size={230}
-							className="!m-0 flex flex-shrink flex-grow-0"
+							kind={props.data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
+							className="!m-0 flex bg-green-500 flex-shrink flex-grow-0"
 							data={props.data}
 						/>
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-4 overflow-hidden bg-white rounded-lg shadow select-text dark:shadow-gray-700 dark:bg-gray-550 dark:bg-opacity-40">
-						<h3 className="pt-3 pl-3 text-base font-bold">
+					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-white rounded-lg shadow select-text dark:shadow-gray-800/40 dark:bg-gray-550 dark:bg-opacity-40 border border-gray-550/70">
+						<h3 className="pt-2 pb-1 pl-3 text-base font-bold">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}
 						</h3>
 						{objectData && (
-							<div className="flex flex-row m-3 space-x-2">
+							<div className="flex flex-row mt-1 mx-3 space-x-0.5">
 								<Tooltip label="Favorite">
 									<FavoriteButton data={objectData} />
 								</Tooltip>
@@ -84,9 +87,8 @@ export const Inspector = (props: Props) => {
 							<>
 								<Divider />
 								<MetaItem
-									// title="Tags"
 									value={
-										<div className="flex flex-wrap mt-1.5 gap-1.5">
+										<div className="flex flex-wrap  gap-1.5">
 											{tags?.data?.map((tag) => (
 												<div
 													// onClick={() => setSelectedTag(tag.id === selectedTag ? null : tag.id)}
@@ -157,3 +159,35 @@ export const Inspector = (props: Props) => {
 		</div>
 	);
 };
+
+function isVideo(extension: string) {
+	return [
+		'avi',
+		'asf',
+		'mpeg',
+		'mts',
+		'mpe',
+		'vob',
+		'qt',
+		'mov',
+		'asf',
+		'asx',
+		'mjpeg',
+		'ts',
+		'mxf',
+		'm2ts',
+		'f4v',
+		'wm',
+		'3gp',
+		'm4v',
+		'wmv',
+		'mp4',
+		'webm',
+		'flv',
+		'mpg',
+		'hevc',
+		'ogv',
+		'swf',
+		'wtv'
+	].includes(extension);
+}

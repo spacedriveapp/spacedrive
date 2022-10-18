@@ -1,8 +1,7 @@
 import { useBridgeMutation } from '@sd/client';
+import { Dialog } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-
-import Dialog from '../layout/Dialog';
 
 interface Props {
 	children: React.ReactNode;
