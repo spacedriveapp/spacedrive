@@ -44,5 +44,23 @@ pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Err
 
 	let hex = hasher.finalize().to_hex();
 
-	Ok(hex.to_string())
+	Ok(hex)
+}
+
+pub async fn full_checksum(path: &str) -> Result<String, io::Error> {
+	const BLOCK_SIZE: usize = 1048576;
+	//read file as buffer and convert to digest
+	let mut reader = File::open(path).await?;
+	let mut context = Hasher::new();
+	let mut buffer = [0; 1048576];
+	loop {
+		let read_count = reader.read(&mut buffer).await?;
+		context.update(&buffer[..read_count]);
+		if read_count != BLOCK_SIZE {
+			break;
+		}
+	}
+	let hex = to_hex_string(context.finalize().as_bytes());
+
+	Ok(hex)
 }

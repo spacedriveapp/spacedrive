@@ -45,7 +45,7 @@ impl LocationCreateArgs {
 		ctx: &LibraryContext,
 	) -> Result<indexer_job_location::Data, LocationError> {
 		// check if we have access to this location
-		if !self.path.exists() {
+		if !self.path.try_exists().unwrap() {
 			return Err(LocationError::PathNotFound(self.path));
 		}
 

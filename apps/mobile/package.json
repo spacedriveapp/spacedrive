@@ -7,7 +7,9 @@
 		"start": "expo start --dev-client",
 		"android": "expo run:android",
 		"ios": "expo run:ios",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
+		"xcode": "open ios/spacedrive.xcworkspace",
+		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
+		"postinstall": "node scripts/postinstall.js"
 	},
 	"dependencies": {
 		"@gorhom/bottom-sheet": "^4.4.3",
@@ -19,7 +21,8 @@
 		"@react-navigation/stack": "^6.2.3",
 		"@rspc/client": "^0.1.2",
 		"@rspc/react": "^0.1.2",
-		"@sd/assets": "file:../../packages/assets",
+		"@sd/assets": "workspace:*",
+		"@sd/client": "workspace:*",
 		"@tanstack/react-query": "^4.2.3",
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.2.3",
