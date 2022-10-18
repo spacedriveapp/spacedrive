@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "mobilenew.app"
-               BlueprintName = "mobilenew"
-               ReferencedContainer = "container:mobilenew.xcodeproj">
+               BuildableName = "Spacedrive.app"
+               BlueprintName = "Spacedrive"
+               ReferencedContainer = "container:Spacedrive.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -35,7 +35,7 @@
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
                BuildableName = "mobilenewTests.xctest"
                BlueprintName = "mobilenewTests"
-               ReferencedContainer = "container:mobilenew.xcodeproj">
+               ReferencedContainer = "container:Spacedrive.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -64,9 +64,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "mobilenew.app"
-            BlueprintName = "mobilenew"
-            ReferencedContainer = "container:mobilenew.xcodeproj">
+            BuildableName = "Spacedrive.app"
+            BlueprintName = "Spacedrive"
+            ReferencedContainer = "container:Spacedrive.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
    </LaunchAction>
@@ -81,9 +81,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "mobilenew.app"
-            BlueprintName = "mobilenew"
-            ReferencedContainer = "container:mobilenew.xcodeproj">
+            BuildableName = "Spacedrive.app"
+            BlueprintName = "Spacedrive"
+            ReferencedContainer = "container:Spacedrive.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

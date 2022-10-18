@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
@@ -9,7 +9,7 @@ interface DrawerLocationItemProps {
 	onPress: () => void;
 }
 
-const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
+const DrawerLocationItem: FC<DrawerLocationItemProps> = (props) => {
 	const { folderName, onPress } = props;
 	return (
 		<Pressable onPress={onPress}>

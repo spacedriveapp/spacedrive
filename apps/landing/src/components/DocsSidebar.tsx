@@ -1,10 +1,8 @@
-import { CogIcon } from '@heroicons/react/24/outline';
 import { Input } from '@sd/ui';
 import clsx from 'clsx';
 import { MagnifyingGlass } from 'phosphor-react';
-import React, { useCallback } from 'react';
 
-import { DocCategory, DocsNavigation } from '../pages/docs/api';
+import { DocsNavigation } from '../pages/docs/api';
 import config from '../pages/docs/docs';
 
 interface Props {

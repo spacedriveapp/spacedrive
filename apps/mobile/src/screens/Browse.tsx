@@ -1,4 +1,3 @@
-import React from 'react';
 import { ColorValue, Text, View } from 'react-native';
 import BrowseLocationItem from '~/components/browse/BrowseLocationItem';
 import BrowseTagItem from '~/components/browse/BrowseTagItem';

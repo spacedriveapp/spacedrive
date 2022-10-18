@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
@@ -8,7 +8,7 @@ type BrowseTagItemProps = {
 	onPress: () => void;
 };
 
-const BrowseTagItem: React.FC<BrowseTagItemProps> = (props) => {
+const BrowseTagItem: FC<BrowseTagItemProps> = (props) => {
 	const { tagName, tagColor, onPress } = props;
 	return (
 		<Pressable onPress={onPress}>

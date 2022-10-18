@@ -1,15 +1,15 @@
 import clsx from 'clsx';
+import { PropsWithChildren } from 'react';
 
 import { DefaultProps } from './types';
 
 interface InputContainerProps extends DefaultProps<HTMLDivElement> {
 	title: string;
 	description?: string;
-	children: React.ReactNode;
 	mini?: boolean;
 }
 
-export const InputContainer: React.FC<InputContainerProps> = (props) => {
+export function InputContainer(props: PropsWithChildren<InputContainerProps>) {
 	return (
 		<div className="flex flex-row">
 			<div
@@ -23,4 +23,4 @@ export const InputContainer: React.FC<InputContainerProps> = (props) => {
 			{props.mini && props.children}
 		</div>
 	);
-};
+}

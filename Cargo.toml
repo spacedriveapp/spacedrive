@@ -25,9 +25,13 @@ prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-
   "sqlite",
 ], default-features = false }
 rspc = { version = "0.1.2" }
+normi = { version = "0.0.1" }
+specta = { version = "0.0.4" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "b41e4d7868818119d8e3e4e0319d7dce0e675eb0" }  # TODO: Move back to crates.io when new jsonrpc executor is released
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "7c0a67c1176a8af33b604c68d8edcbf0d70b8429" }  # TODO: Move back to crates.io when new jsonrpc executor is released
+normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "7c0a67c1176a8af33b604c68d8edcbf0d70b8429" } # TODO: When normi is released on crates.io
+specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "7c0a67c1176a8af33b604c68d8edcbf0d70b8429" } # TODO: When normi is released on crates.io

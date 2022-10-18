@@ -1,6 +1,6 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import { MotiPressable, MotiPressableProps } from 'moti/interactions';
-import React, { useMemo } from 'react';
+import { FC, useMemo } from 'react';
 import { Pressable, PressableProps } from 'react-native';
 import tw from '~/lib/tailwind';
 
@@ -28,14 +28,14 @@ const button = cva(['border rounded-md items-center shadow-sm'], {
 
 type ButtonProps = VariantProps<typeof button> & PressableProps;
 
-export const Button: React.FC<ButtonProps> = ({ variant, size, ...props }) => {
+export const Button: FC<ButtonProps> = ({ variant, size, ...props }) => {
 	const { style, ...otherProps } = props;
 	return <Pressable style={tw.style(button({ variant, size }), style as string)} {...otherProps} />;
 };
 
 type AnimatedButtonProps = VariantProps<typeof button> & MotiPressableProps;
 
-export const AnimatedButton: React.FC<AnimatedButtonProps> = ({ variant, size, ...props }) => {
+export const AnimatedButton: FC<AnimatedButtonProps> = ({ variant, size, ...props }) => {
 	const { style, containerStyle, ...otherProps } = props;
 	return (
 		<MotiPressable
