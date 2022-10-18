@@ -47,7 +47,7 @@ export const Inspector = (props: Props) => {
 	});
 
 	return (
-		<div className="p-2 pr-1 w-full overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
+		<div className="pt-1 pl-1.5 pr-1 w-full overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
 			{!!props.data && (
 				<>
 					<div className="flex bg-black items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
@@ -58,13 +58,13 @@ export const Inspector = (props: Props) => {
 							data={props.data}
 						/>
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-4 overflow-hidden bg-white rounded-lg shadow select-text dark:shadow-gray-700 dark:bg-gray-550 dark:bg-opacity-40">
-						<h3 className="pt-3 pl-3 text-base font-bold">
+					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-white rounded-lg shadow select-text dark:shadow-gray-700 dark:bg-gray-550 dark:bg-opacity-40 border border-gray-550/70">
+						<h3 className="pt-2 pb-1 pl-3 text-base font-bold">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}
 						</h3>
 						{objectData && (
-							<div className="flex flex-row m-3 space-x-2">
+							<div className="flex flex-row mt-1 mx-3 space-x-0.5">
 								<Tooltip label="Favorite">
 									<FavoriteButton data={objectData} />
 								</Tooltip>

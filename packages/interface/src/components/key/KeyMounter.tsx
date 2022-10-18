@@ -13,7 +13,7 @@ import {
 import { Button, CategoryHeading, Input, Select, SelectOption } from '@sd/ui';
 import clsx from 'clsx';
 import { Eject, EjectSimple, Plus } from 'phosphor-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Toggle } from '../primitive';
 import { DefaultProps } from '../primitive/types';
@@ -21,6 +21,8 @@ import { Tooltip } from '../tooltip/Tooltip';
 import { Key } from './Key';
 
 export function KeyMounter() {
+	const ref = useRef<HTMLInputElement>(null);
+
 	const [showKey, setShowKey] = useState(false);
 	const [toggle, setToggle] = useState(false);
 
@@ -30,12 +32,21 @@ export function KeyMounter() {
 
 	const CurrentEyeIcon = showKey ? EyeSlashIcon : EyeIcon;
 
+	// this keeps the input focused when switching tabs
+	// feel free to replace with something cleaner
+	useEffect(() => {
+		setTimeout(() => {
+			ref.current?.focus();
+		});
+	}, []);
+
 	return (
 		<div className="p-3 pt-3 mb-1">
 			<CategoryHeading>Mount key</CategoryHeading>
 			<div className="flex space-x-2">
 				<div className="relative flex flex-grow">
 					<Input
+						ref={ref}
 						value={key}
 						onChange={(e) => setKey(e.target.value)}
 						autoFocus

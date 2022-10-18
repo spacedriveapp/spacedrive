@@ -67,7 +67,7 @@ function LibraryScopedSection() {
 	return (
 		<>
 			<div>
-				<CategoryHeading>Locations</CategoryHeading>
+				<CategoryHeading className="mt-5">Locations</CategoryHeading>
 				{locations?.map((location) => {
 					return (
 						<div key={location.id} className="flex flex-row items-center">
@@ -131,7 +131,7 @@ function LibraryScopedSection() {
 			</div>
 			{tags?.length ? (
 				<div>
-					<CategoryHeading>Tags</CategoryHeading>
+					<CategoryHeading className="mt-5">Tags</CategoryHeading>
 					<div className="mb-2">
 						{tags?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
