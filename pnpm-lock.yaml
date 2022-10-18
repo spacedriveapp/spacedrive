@@ -503,6 +503,7 @@ importers:
       react-transition-group: ^4.4.5
       react-virtuoso: ^2.19.1
       rooks: ^5.14.0
+      tailwind-styled-components: 2.1.7
       tailwindcss: ^3.1.8
       typescript: ^4.8.4
       use-count-up: ^3.0.1
@@ -565,6 +566,7 @@ importers:
       react-transition-group: 4.4.5_biqbaboplfbrettd7655fr4n2y
       react-virtuoso: 2.19.1_biqbaboplfbrettd7655fr4n2y
       rooks: 5.14.1_biqbaboplfbrettd7655fr4n2y
+      tailwind-styled-components: 2.1.7_biqbaboplfbrettd7655fr4n2y
       tailwindcss: 3.1.8
       use-count-up: 3.0.1_react@18.2.0
       use-debounce: 8.0.4_react@18.2.0
@@ -6601,7 +6603,7 @@ packages:
     dependencies:
       '@babel/core': 7.19.3
       '@svgr/babel-preset': 6.4.0_@babel+core@7.19.3
-      '@svgr/core': 6.4.0_@babel+core@7.19.3
+      '@svgr/core': 6.4.0
       '@svgr/hast-util-to-babel-ast': 6.4.0
       svg-parser: 2.0.4
     transitivePeerDependencies:
@@ -21597,7 +21599,7 @@ packages:
       valtio: ^1.2.5
     dependencies:
       lodash: 4.17.21
-      valtio: 1.7.0
+      valtio: 1.7.0_react@18.2.0+vite@3.1.4
     dev: false
 
   /valtio/1.7.0:

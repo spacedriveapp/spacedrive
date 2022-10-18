@@ -1,4 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon, TagIcon } from '@heroicons/react/24/outline';
+import { KeyIcon as KeyIconSolid, TagIcon as TagIconSolid } from '@heroicons/react/24/solid';
 import {
 	OperatingSystem,
 	getExplorerStore,
@@ -55,7 +56,7 @@ const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
 						'rounded-r-none rounded-l-none': group && !left && !right,
 						'rounded-r-none': group && left,
 						'rounded-l-none': group && right,
-						'dark:bg-gray-500': active
+						'dark:bg-gray-550': active
 					},
 					className
 				)}
@@ -269,7 +270,11 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							</div>
 						</OverlayPanel>
 						<Tooltip label="Tag Assign Mode">
-							<TopBarButton icon={TagIcon} />
+							<TopBarButton
+								onClick={() => (getExplorerStore().tagAssignMode = !store.tagAssignMode)}
+								active={store.tagAssignMode}
+								icon={store.tagAssignMode ? TagIconSolid : TagIcon}
+							/>
 						</Tooltip>
 						<Tooltip label="Refresh">
 							<TopBarButton icon={ArrowsClockwise} />
