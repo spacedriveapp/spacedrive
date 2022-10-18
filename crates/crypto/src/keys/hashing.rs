@@ -31,6 +31,15 @@ pub enum HashingAlgorithm {
 	Argon2id(Params),
 }
 
+/// This is so we can iterate over all hashing algorithms and parameters.
+///
+/// The main usage is for pre-hashing a key during mounting.
+pub const HASHING_ALGORITHM_LIST: [HashingAlgorithm; 3] = [
+	HashingAlgorithm::Argon2id(Params::Standard),
+	HashingAlgorithm::Argon2id(Params::Hardened),
+	HashingAlgorithm::Argon2id(Params::Paranoid),
+];
+
 impl HashingAlgorithm {
 	/// This function should be used to hash passwords
 	///
