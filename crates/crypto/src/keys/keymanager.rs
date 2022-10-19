@@ -48,7 +48,6 @@ pub struct KeyManager {
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
-/// Do NOT use the `StoredKey` functions directly.
 impl KeyManager {
 	/// Initialize the Key Manager with the user's master password, and `StoredKeys` retrieved from Prisma
 	#[must_use]
@@ -68,6 +67,7 @@ impl KeyManager {
 		}
 	}
 
+	/// This allows you to set the default key
 	pub fn set_default(&mut self, id: Uuid) -> Result<(), Error> {
 		if self.keystore.contains_key(&id) {
 			self.default = Some(id);
@@ -77,6 +77,7 @@ impl KeyManager {
 		}
 	}
 
+	/// This allows you to get the default key's ID
 	pub fn get_default(&self) -> Result<Uuid, Error> {
 		if let Some(default) = self.default {
 			Ok(default)
@@ -153,6 +154,7 @@ impl KeyManager {
 		}
 	}
 
+	/// This function is for accessing a `StoredKey` from an ID.
 	pub fn access_store(&self, id: Uuid) -> Result<StoredKey, Error> {
 		match self.keystore.get(&id) {
 			Some(key) => Ok(key.clone()),

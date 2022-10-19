@@ -124,6 +124,7 @@ impl FileHeader {
 		}
 	}
 
+	/// This is a helper function to serialize and write a header to a file.
 	pub fn write<W>(&self, writer: &mut W) -> Result<(), Error>
 	where
 		W: Write + Seek,
