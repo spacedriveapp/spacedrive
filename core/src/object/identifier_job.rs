@@ -401,17 +401,6 @@ async fn assemble_object_metadata(
 		None => ObjectKind::Unknown,
 	};
 
-	// let object_kind: ObjectKind = match path.extension() {
-	// 	Some(ext) => match ext.to_str() {
-	// 		Extension::resolve_conflicting(ext_str, &mut file, true).map(Into::into).unwrap()
-	// 	},
-	// 	None => {
-	// 		return ObjectKind::Document
-	// 	},
-	// };
-
-	// let date_created: DateTime<Utc> = metadata.created().unwrap().into();
-
 	let size = metadata.len();
 
 	let cas_id = {

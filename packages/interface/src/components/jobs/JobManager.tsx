@@ -1,4 +1,11 @@
-import { EyeIcon, FolderIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+	EyeIcon,
+	FingerPrintIcon,
+	FolderIcon,
+	PhotoIcon,
+	XMarkIcon
+} from '@heroicons/react/24/solid';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
 import { JobReport } from '@sd/client';
 import { Button } from '@sd/ui';
@@ -13,20 +20,26 @@ interface JobNiceData {
 	icon: React.FC<React.ComponentProps<'svg'>>;
 }
 
-const NiceData: Record<string, JobNiceData> = {
+const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 	indexer: {
-		name: 'Indexed location',
+		name: `Indexed ${numberWithCommas(job.metadata?.data?.total_paths || 0)} paths at "${
+			job.metadata?.data?.location_path || '?'
+		}"`,
 		icon: FolderIcon
 	},
 	thumbnailer: {
-		name: 'Generated thumbnails',
+		name: `Generated ${numberWithCommas(job.task_count)} thumbnails`,
 		icon: PhotoIcon
 	},
 	file_identifier: {
-		name: 'Identified unique files',
+		name: `Extracted metadata for ${numberWithCommas(job.task_count)} files`,
 		icon: EyeIcon
+	},
+	object_validator: {
+		name: `Generated ${numberWithCommas(job.task_count)} full object hashes`,
+		icon: FingerPrintIcon
 	}
-};
+});
 
 const StatusColors: Record<JobReport['status'], string> = {
 	Running: 'text-blue-500',
@@ -53,8 +66,11 @@ export function JobsManager() {
 					</div>
 					<div className="h-10"></div>
 					{jobs.data?.map((job) => {
-						const color = StatusColors[job.status];
-						const niceData = NiceData[job.name];
+						// const color = StatusColors[job.status];
+						const niceData = getNiceData(job)[job.name] || {
+							name: job.name,
+							icon: QuestionMarkCircleIcon
+						};
 
 						return (
 							<div
@@ -62,10 +78,12 @@ export function JobsManager() {
 								key={job.id}
 							>
 								<Tooltip label={job.status}>
-									<niceData.icon className={clsx('w-5 mr-3', color)} />
+									<niceData.icon className={clsx('w-5 mr-3')} />
 								</Tooltip>
 								<div className="flex flex-col">
-									<span className="flex mt-0.5 items-center font-semibold">{niceData.name}</span>
+									<span className="flex mt-0.5 items-center font-semibold truncate">
+										{niceData.name}
+									</span>
 									<div className="flex items-center">
 										<span className="text-xs opacity-60">
 											{job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
@@ -83,11 +101,11 @@ export function JobsManager() {
 								<div className="flex-grow" />
 								<div className="flex space-x-2">
 									{job.status === 'Failed' && (
-										<Button className="!p-0 w-7 h-7 flex items-center" variant="gray">
+										<Button className="!p-0 w-7 h-7 flex items-center">
 											<ArrowsClockwise className="w-4" />
 										</Button>
 									)}
-									<Button className="!p-0 w-7 h-7 flex items-center" variant="gray">
+									<Button className="!p-0 w-7 h-7 flex items-center">
 										<XMarkIcon className="w-4" />
 									</Button>
 								</div>
@@ -98,4 +116,8 @@ export function JobsManager() {
 			</div>
 		</div>
 	);
+}
+
+function numberWithCommas(x: number) {
+	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
