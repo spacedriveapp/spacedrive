@@ -178,7 +178,7 @@ impl FileHeader {
 
 	/// This function should be used to retrieve the metadata for a file
 	///
-	/// All it requires is a pre-hashed keys returned from the KeyManager
+	/// All it requires is pre-hashed keys returned from the KeyManager
 	///
 	/// A deserialized data type will be returned from this function
 	pub fn decrypt_metadata_from_prehashed<T>(
@@ -188,7 +188,34 @@ impl FileHeader {
 	where
 		T: serde::de::DeserializeOwned,
 	{
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).unwrap();
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
+
+		// could be an expensive clone (a few MiB at most)
+		if let Some(metadata) = self.metadata.clone() {
+			let metadata = StreamDecryption::decrypt_bytes(
+				master_key,
+				&metadata.metadata_nonce,
+				metadata.algorithm,
+				&metadata.metadata,
+				&[],
+			)?;
+
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
+		} else {
+			Err(Error::NoMetadata)
+		}
+	}
+
+	/// This function should be used to retrieve the metadata for a file
+	///
+	/// All it requires is a password. Hashing is handled for you.
+	///
+	/// A deserialized data type will be returned from this function
+	pub fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T, Error>
+	where
+		T: serde::de::DeserializeOwned,
+	{
+		let master_key = self.decrypt_master_key(password)?;
 
 		// could be an expensive clone (a few MiB at most)
 		if let Some(metadata) = self.metadata.clone() {
@@ -215,7 +242,34 @@ impl FileHeader {
 		&self,
 		hashed_keys: Vec<Protected<[u8; 32]>>,
 	) -> Result<Protected<Vec<u8>>, Error> {
-		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).unwrap();
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
+
+		// could be an expensive clone (a few MiB at most)
+		if let Some(pvm) = self.preview_media.clone() {
+			let media = StreamDecryption::decrypt_bytes(
+				master_key,
+				&pvm.media_nonce,
+				pvm.algorithm,
+				&pvm.media,
+				&[],
+			)?;
+
+			Ok(media)
+		} else {
+			Err(Error::NoPreviewMedia)
+		}
+	}
+
+	/// This function is what you'll want to use to get the preview media for a file
+	///
+	/// All it requires is the user's password. Hashing is handled for you.
+	///
+	/// Once provided, a `Vec<u8>` is returned that contains the preview media
+	pub fn decrypt_preview_media(
+		&self,
+		password: Protected<Vec<u8>>,
+	) -> Result<Protected<Vec<u8>>, Error> {
+		let master_key = self.decrypt_master_key(password)?;
 
 		// could be an expensive clone (a few MiB at most)
 		if let Some(pvm) = self.preview_media.clone() {
