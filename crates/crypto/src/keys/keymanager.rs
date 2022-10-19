@@ -28,7 +28,7 @@ use super::hashing::{HashingAlgorithm, HASHING_ALGORITHM_LIST};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StoredKey {
-	pub id: uuid::Uuid,                      // uuid for identification
+	pub uuid: uuid::Uuid,                      // uuid for identification
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm to use for hashing everything related to this key. can't be changed once set.
 	pub salt: [u8; SALT_LEN],                // salt to hash the master password with
@@ -54,7 +54,7 @@ impl KeyManager {
 	pub fn new(stored_keys: Vec<StoredKey>, master_password: Option<Protected<Vec<u8>>>) -> Self {
 		let mut keystore = HashMap::new();
 		for key in stored_keys {
-			keystore.insert(key.id, key);
+			keystore.insert(key.uuid, key);
 		}
 
 		let keymount: HashMap<Uuid, MountedKey> = HashMap::new();
@@ -68,9 +68,9 @@ impl KeyManager {
 	}
 
 	/// This allows you to set the default key
-	pub fn set_default(&mut self, id: Uuid) -> Result<(), Error> {
-		if self.keystore.contains_key(&id) {
-			self.default = Some(id);
+	pub fn set_default(&mut self, uuid: Uuid) -> Result<(), Error> {
+		if self.keystore.contains_key(&uuid) {
+			self.default = Some(uuid);
 			Ok(())
 		} else {
 			Err(Error::KeyNotFound)
@@ -98,8 +98,8 @@ impl KeyManager {
 	/// Once a key is mounted, access it with `KeyManager::access()`
 	/// This is to ensure that only functions which require access to the mounted key receive it.
 	/// We could add a log to this, so that the user can view mounts
-	pub fn mount(&mut self, id: Uuid) -> Result<(), Error> {
-		match self.keystore.get(&id) {
+	pub fn mount(&mut self, uuid: Uuid) -> Result<(), Error> {
+		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
 				let master_password = self.get_master_password()?;
 
@@ -147,7 +147,7 @@ impl KeyManager {
 					hashed_keys,
 				};
 
-				self.keymount.insert(id, mounted_key);
+				self.keymount.insert(uuid, mounted_key);
 
 				Ok(())
 			}
@@ -157,16 +157,16 @@ impl KeyManager {
 
 	/// This function is for accessing the internal keymount.
 	/// We could add a log to this, so that the user can view accesses
-	pub fn access_mount(&self, id: Uuid) -> Result<MountedKey, Error> {
-		match self.keymount.get(&id) {
+	pub fn access_mount(&self, uuid: Uuid) -> Result<MountedKey, Error> {
+		match self.keymount.get(&uuid) {
 			Some(key) => Ok(key.clone()),
 			None => Err(Error::KeyNotFound),
 		}
 	}
 
 	/// This function is for accessing a `StoredKey` from an ID.
-	pub fn access_store(&self, id: Uuid) -> Result<StoredKey, Error> {
-		match self.keystore.get(&id) {
+	pub fn access_store(&self, uuid: Uuid) -> Result<StoredKey, Error> {
+		match self.keystore.get(&uuid) {
 			Some(key) => Ok(key.clone()),
 			None => Err(Error::KeyNotFound),
 		}
@@ -184,7 +184,7 @@ impl KeyManager {
 	) -> Result<Uuid, Error> {
 		let master_password = self.get_master_password()?;
 
-		let id = uuid::Uuid::new_v4();
+		let uuid = uuid::Uuid::new_v4();
 
 		// Generate items we'll need for encryption
 		let key_nonce = generate_nonce(algorithm);
@@ -211,7 +211,7 @@ impl KeyManager {
 
 		// Construct the StoredKey
 		let stored_key = StoredKey {
-			id,
+			uuid,
 			algorithm,
 			hashing_algorithm,
 			salt,
@@ -223,10 +223,10 @@ impl KeyManager {
 		};
 
 		// Insert it into the Keystore
-		self.keystore.insert(stored_key.id, stored_key);
+		self.keystore.insert(stored_key.uuid, stored_key);
 
 		// Return the ID so it can be identified
-		Ok(id)
+		Ok(uuid)
 	}
 }
 
