@@ -4,16 +4,34 @@ export type Procedures = {
     queries: 
         { key: "db.tags", input: string, result: Record<string, Tag> } | 
         { key: "dbs", input: never, result: Array<string> } | 
-        { key: "file_path.list", input: string, result: Array<FilePath> },
+        { key: "file_path.list", input: string, result: Array<FilePath> } | 
+        { key: "message.list", input: string, result: Array<CRDTOperation> },
     mutations: 
-        { key: "createDatabase", input: never, result: string } | 
+        { key: "createDatabase", input: string, result: string } | 
         { key: "file_path.create", input: string, result: FilePath } | 
-        { key: "removeDatabases", input: never, result: null },
+        { key: "pullOperations", input: string, result: null } | 
+        { key: "removeDatabases", input: string, result: null },
     subscriptions: never
 };
+
+export interface CRDTOperation { node: string, timestamp: bigint, id: string, typ: CRDTOperationType }
+
+export type CRDTOperationType = SharedOperation | OwnedOperation
 
 export interface Color { red: number, green: number, blue: number }
 
 export interface FilePath { id: number, path: string, file: number | null }
+
+export interface OwnedOperation { model: string, items: Array<OwnedOperationItem> }
+
+export type OwnedOperationData = { Create: Record<string, any> } | { Update: Record<string, any> } | "Delete"
+
+export interface OwnedOperationItem { id: any, data: OwnedOperationData }
+
+export interface SharedOperation { record_id: any, model: string, data: SharedOperationData }
+
+export type SharedOperationCreateData = { Unique: Record<string, any> } | "Atomic"
+
+export type SharedOperationData = { Create: SharedOperationCreateData } | { Update: { field: string, value: any } } | "Delete"
 
 export interface Tag { color: Color, name: string }

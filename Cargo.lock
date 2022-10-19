@@ -906,15 +906,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb4a24b1aaf0fd0ce8b45161144d6f42cd91677fd5940fd431183eb023b3a2b8"
 
 [[package]]
-name = "convert_case"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
 name = "cookie"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2285,8 +2276,7 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 [[package]]
 name = "httpz"
 version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "566824942ad0ee59fd23ded19025b37b51137eab4e467e48f7cab325a43efa50"
+source = "git+https://github.com/oscartbeaumont/httpz.git?rev=1ddbd9ad594ac7ee3e5b167afe689d1ce1228519#1ddbd9ad594ac7ee3e5b167afe689d1ce1228519"
 dependencies = [
  "async-tungstenite",
  "axum",
@@ -2297,6 +2287,7 @@ dependencies = [
  "http",
  "hyper",
  "sha1",
+ "thiserror",
  "tokio",
 ]
 
@@ -4265,9 +4256,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.46"
+version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94e2ef8dbfc347b10c094890f778ee2e36ca9bb4262e86dc99cd217e35f3470b"
+checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
 dependencies = [
  "unicode-ident",
 ]
@@ -4928,8 +4919,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "712fc4e2fc79297d308fa4575f19f6967bf7610e3292446dfb392738aeab5239"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=59327f275ca8a12bd0d8e0aeda7ba191853e675e#59327f275ca8a12bd0d8e0aeda7ba191853e675e"
 dependencies = [
  "async-stream",
  "futures",
@@ -5704,22 +5694,20 @@ checksum = "b8dfbc46bfad9289e01928a228b82fdf615131212aded5497cce2d460b452e94"
 dependencies = [
  "convert_case 0.5.0",
  "serde_json",
- "specta-macros",
+ "specta-macros 0.0.2",
  "termcolor",
 ]
 
 [[package]]
 name = "specta"
 version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5886f252f583ae32d4ae21c228c7a4ab3da40a7ebed646886b942f4085047394"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=59327f275ca8a12bd0d8e0aeda7ba191853e675e#59327f275ca8a12bd0d8e0aeda7ba191853e675e"
 dependencies = [
  "chrono",
- "convert_case 0.6.0",
  "indexmap",
  "serde_json",
- "specta-macros",
- "termcolor",
+ "specta-macros 0.0.4",
+ "uhlc",
  "uuid 1.2.1",
 ]
 
@@ -5728,6 +5716,18 @@ name = "specta-macros"
 version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5ad5db5dea9fa5816615d722b682781214fed875fe56c1bcd0a67ee9c477d84"
+dependencies = [
+ "Inflector",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "termcolor",
+]
+
+[[package]]
+name = "specta-macros"
+version = "0.0.4"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=59327f275ca8a12bd0d8e0aeda7ba191853e675e#59327f275ca8a12bd0d8e0aeda7ba191853e675e"
 dependencies = [
  "Inflector",
  "proc-macro2",

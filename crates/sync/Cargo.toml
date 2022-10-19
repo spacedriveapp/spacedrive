@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
-rspc = { workspace = true, features = ["uuid"] }
+rspc = { workspace = true, features = ["uuid", "uhlc"] }
 serde = "1.0.145"
 serde_json = "1.0.85"
 uhlc = "0.5.1"

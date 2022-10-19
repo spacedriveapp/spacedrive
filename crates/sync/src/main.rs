@@ -11,50 +11,50 @@ fn main() {
 
 	let mut db = Db::new(uuid);
 
-	db.receive_crdt_operations(vec![db.create_crdt_operation(CRDTOperationType::Owned(
-		OwnedOperation {
-			model: "FilePath".to_string(),
-			items: vec![OwnedOperationItem {
-				id: json!(0),
-				data: OwnedOperationData::Create(map([("path", json!("some/file.path"))])),
-			}],
-		},
-	))]);
+	// db.receive_crdt_operations(vec![db.create_crdt_operation(CRDTOperationType::Owned(
+	// 	OwnedOperation {
+	// 		model: "FilePath".to_string(),
+	// 		items: vec![OwnedOperationItem {
+	// 			id: json!(0),
+	// 			data: OwnedOperationData::Create(map([("path", json!("some/file.path"))])),
+	// 		}],
+	// 	},
+	// ))]);
 
-	dbg!(&db);
+	// dbg!(&db);
 
-	db.receive_crdt_operations(vec![db.create_crdt_operation(CRDTOperationType::Shared(
-		SharedOperation {
-			record_id: json!(0),
-			model: "File".to_string(),
-			data: SharedOperationData::Create(SharedOperationCreateData::Atomic),
-		},
-	))]);
+	// db.receive_crdt_operations(vec![db.create_crdt_operation(CRDTOperationType::Shared(
+	// 	SharedOperation {
+	// 		record_id: json!(0),
+	// 		model: "File".to_string(),
+	// 		data: SharedOperationData::Create(SharedOperationCreateData::Atomic),
+	// 	},
+	// ))]);
 
-	dbg!(&db);
+	// dbg!(&db);
 
-	db.receive_crdt_operations(vec![db.create_crdt_operation(CRDTOperationType::Shared(
-		SharedOperation {
-			record_id: json!(0),
-			model: "File".to_string(),
-			data: SharedOperationData::Update {
-				field: "name".to_string(),
-				value: json!("Lmaoooo"),
-			},
-		},
-	))]);
+	// db.receive_crdt_operations(vec![db.create_crdt_operation(CRDTOperationType::Shared(
+	// 	SharedOperation {
+	// 		record_id: json!(0),
+	// 		model: "File".to_string(),
+	// 		data: SharedOperationData::Update {
+	// 			field: "name".to_string(),
+	// 			value: json!("Lmaoooo"),
+	// 		},
+	// 	},
+	// ))]);
 
-	dbg!(&db);
+	// dbg!(&db);
 
-	db.receive_crdt_operations(vec![db.create_crdt_operation(CRDTOperationType::Owned(
-		OwnedOperation {
-			model: "FilePath".to_string(),
-			items: vec![OwnedOperationItem {
-				id: json!(0),
-				data: OwnedOperationData::Update(map([("file", json!(0))])),
-			}],
-		},
-	))]);
+	// db.receive_crdt_operations(vec![db.create_crdt_operation(CRDTOperationType::Owned(
+	// 	OwnedOperation {
+	// 		model: "FilePath".to_string(),
+	// 		items: vec![OwnedOperationItem {
+	// 			id: json!(0),
+	// 			data: OwnedOperationData::Update(map([("file", json!(0))])),
+	// 		}],
+	// 	},
+	// ))]);
 
 	dbg!(&db);
 }

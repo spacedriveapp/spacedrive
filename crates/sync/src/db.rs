@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use rspc::Type;
 use serde::*;
 use serde_json::*;
-use uhlc::{HLCBuilder, Timestamp, HLC};
+use uhlc::{HLCBuilder, Timestamp, HLC, NTP64};
 use uuid::Uuid;
 
 use super::crdt::*;
@@ -41,7 +41,8 @@ pub struct Db {
 	pub files: HashMap<i32, Object>,
 	pub file_paths: HashMap<i32, FilePath>,
 	pub tags: HashMap<Uuid, Tag>,
-	_operations: Vec<CRDTOperation>,
+	pub _operations: Vec<CRDTOperation>,
+	pub _clocks: HashMap<Uuid, NTP64>,
 	_clock: HLC,
 	_node: Uuid,
 }
@@ -61,9 +62,16 @@ impl Db {
 			files: Default::default(),
 			file_paths: Default::default(),
 			tags: Default::default(),
+			_clocks: Default::default(),
 			_node: node,
 			_clock: HLCBuilder::new().with_id(node.into()).build(),
 			_operations: Default::default(),
+		}
+	}
+
+	pub fn register_node(&mut self, id: Uuid) {
+		if !self._clocks.contains_key(&id) {
+			self._clocks.insert(id, Duration::from_millis(0).into());
 		}
 	}
 
@@ -114,7 +122,9 @@ impl Db {
 		for op in &ops {
 			self._clock
 				.update_with_timestamp(&Timestamp::new(op.timestamp, op.node.into()))
-				.unwrap();
+				.ok();
+
+			self._clocks.insert(self._node.clone(), op.timestamp);
 		}
 
 		for (op, old) in self.compare_messages(ops) {
