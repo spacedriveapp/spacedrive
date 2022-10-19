@@ -49,10 +49,6 @@ use crate::{
 pub struct Metadata {
 	pub version: MetadataVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
-	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
-	pub master_key_nonce: Vec<u8>,
 	pub metadata_nonce: Vec<u8>,
 	pub metadata: Vec<u8>,
 }
@@ -63,56 +59,6 @@ pub enum MetadataVersion {
 }
 
 impl Metadata {
-	/// This should be used for creating a header metadata item.
-	///
-	/// It handles encrypting the master key and metadata.
-	///
-	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
-	///
-	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
-	pub fn new<T>(
-		version: MetadataVersion,
-		algorithm: Algorithm,
-		hashing_algorithm: HashingAlgorithm,
-		hashed_key: Protected<[u8; 32]>,
-		content_salt: &[u8; SALT_LEN],
-		media: &T,
-	) -> Result<Self, Error>
-	where
-		T: ?Sized + serde::Serialize,
-	{
-		let metadata_nonce = generate_nonce(algorithm);
-		let master_key_nonce = generate_nonce(algorithm);
-		let master_key = generate_master_key();
-
-		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-			hashed_key,
-			&master_key_nonce,
-			algorithm,
-			master_key.expose(),
-			&[],
-		)?)?;
-
-		let encrypted_metadata = StreamEncryption::encrypt_bytes(
-			master_key,
-			&metadata_nonce,
-			algorithm,
-			&serde_json::to_vec(media).map_err(|_| Error::MetadataDeSerialization)?,
-			&[],
-		)?;
-
-		Ok(Self {
-			version,
-			algorithm,
-			hashing_algorithm,
-			salt: *content_salt,
-			master_key: encrypted_master_key,
-			master_key_nonce,
-			metadata_nonce,
-			metadata: encrypted_metadata,
-		})
-	}
-
 	#[must_use]
 	pub fn get_length(&self) -> usize {
 		match self.version {

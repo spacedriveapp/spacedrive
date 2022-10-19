@@ -32,13 +32,13 @@
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
-	crypto::stream::Algorithm,
+	crypto::stream::{Algorithm, StreamEncryption},
 	error::Error,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
 	Protected,
 };
 
-use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};
+use super::{keyslot::Keyslot, metadata::{Metadata, MetadataVersion}, preview_media::{PreviewMedia, PreviewMediaVersion}};
 
 /// These are used to quickly and easily identify Spacedrive-encrypted files
 /// These currently are set as "ballapp"
@@ -82,8 +82,8 @@ impl FileHeader {
 		version: FileHeaderVersion,
 		algorithm: Algorithm,
 		keyslots: Vec<Keyslot>,
-		metadata: Option<Metadata>,
-		preview_media: Option<PreviewMedia>,
+		//metadata: Option<Metadata>,
+		//preview_media: Option<PreviewMedia>,
 	) -> Self {
 		let nonce = generate_nonce(algorithm);
 
@@ -92,10 +92,82 @@ impl FileHeader {
 			algorithm,
 			nonce,
 			keyslots,
-			metadata,
-			preview_media,
+			metadata: None,
+			preview_media: None,
 		}
 	}
+
+	/// This should be used for creating a header metadata item.
+	///
+	/// It handles encrypting the master key and metadata.
+	///
+	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
+	///
+	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
+	pub fn add_metadata<T>(
+		&self,
+		version: MetadataVersion,
+		algorithm: Algorithm,
+		master_key: Protected<[u8; MASTER_KEY_LEN]>,
+		metadata: &T,
+	) -> Result<(), Error>
+	where
+		T: ?Sized + serde::Serialize,
+	{
+		let metadata_nonce = generate_nonce(algorithm);
+
+		let encrypted_metadata = StreamEncryption::encrypt_bytes(
+			master_key,
+			&metadata_nonce,
+			algorithm,
+			&serde_json::to_vec(metadata).map_err(|_| Error::MetadataDeSerialization)?,
+			&[],
+		)?;
+
+		let metadata = Metadata {
+			version,
+			algorithm,
+			metadata_nonce,
+			metadata: encrypted_metadata,
+		};
+
+		self.metadata = Some(metadata);
+
+
+		Ok(())
+	}
+
+	/// This should be used for creating a header preview media item.
+	///
+	/// This handles encrypting the master key and preview media.
+	///
+	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
+	///
+	/// Preview media needs to be accessed switfly, so a key management system should handle the salt generation.
+	pub fn add_preview_media(
+		&self,
+		version: PreviewMediaVersion,
+		algorithm: Algorithm,
+		master_key: Protected<[u8; MASTER_KEY_LEN]>,
+		media: &[u8],
+	) -> Result<(), Error> {
+		let media_nonce = generate_nonce(algorithm);
+
+		let encrypted_media =
+			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])?;
+
+		let pvm = PreviewMedia {
+			version,
+			algorithm,
+			media_nonce,
+			media: encrypted_media,
+		};
+
+		self.preview_media = Some(pvm);
+
+		Ok(())
+	}
+
 
 	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
 	///

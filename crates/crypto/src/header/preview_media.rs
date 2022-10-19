@@ -42,10 +42,6 @@ use crate::{
 pub struct PreviewMedia {
 	pub version: PreviewMediaVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
-	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN],
-	pub master_key_nonce: Vec<u8>,
 	pub media_nonce: Vec<u8>,
 	pub media: Vec<u8>,
 }
