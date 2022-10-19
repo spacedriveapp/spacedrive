@@ -29,7 +29,12 @@
 //! ```
 use std::io::{Read, Seek};
 
-use crate::{crypto::stream::{Algorithm, StreamEncryption, StreamDecryption}, error::Error, Protected, primitives::{MASTER_KEY_LEN, generate_nonce}};
+use crate::{
+	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
+	error::Error,
+	primitives::{generate_nonce, MASTER_KEY_LEN},
+	Protected,
+};
 
 use super::file::FileHeader;
 
@@ -52,7 +57,7 @@ pub enum MetadataVersion {
 }
 
 impl FileHeader {
-		/// This should be used for creating a header metadata item.
+	/// This should be used for creating a header metadata item.
 	///
 	/// It handles encrypting the master key and metadata.
 	///
@@ -93,7 +98,7 @@ impl FileHeader {
 
 	/// This function should be used to retrieve the metadata for a file
 	///
-	/// All it requires is pre-hashed keys returned from the KeyManager
+	/// All it requires is pre-hashed keys returned from the key manager
 	///
 	/// A deserialized data type will be returned from this function
 	pub fn decrypt_metadata_from_prehashed<T>(

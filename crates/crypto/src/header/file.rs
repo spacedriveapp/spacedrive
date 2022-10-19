@@ -32,17 +32,13 @@
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
-	crypto::stream::{Algorithm},
+	crypto::stream::Algorithm,
 	error::Error,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
 	Protected,
 };
 
-use super::{
-	keyslot::Keyslot,
-	metadata::{Metadata},
-	preview_media::{PreviewMedia},
-};
+use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};
 
 /// These are used to quickly and easily identify Spacedrive-encrypted files
 /// These currently are set as "ballapp"

@@ -22,7 +22,12 @@
 //! ```
 use std::io::{Read, Seek};
 
-use crate::{crypto::stream::{Algorithm, StreamDecryption, StreamEncryption}, error::Error, Protected, primitives::{MASTER_KEY_LEN, generate_nonce}};
+use crate::{
+	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
+	error::Error,
+	primitives::{generate_nonce, MASTER_KEY_LEN},
+	Protected,
+};
 
 use super::file::FileHeader;
 
@@ -45,7 +50,7 @@ pub enum PreviewMediaVersion {
 }
 
 impl FileHeader {
-		/// This should be used for creating a header preview media item.
+	/// This should be used for creating a header preview media item.
 	///
 	/// This handles encrypting the master key and preview media.
 	///

@@ -49,7 +49,7 @@ pub struct KeyManager {
 /// The `KeyManager` functions should be used for all key-related management.
 /// Do NOT use the `StoredKey` functions directly.
 impl KeyManager {
-	/// Initialize the Key Manager with the user's master password, and StoredKeys retrieved from Prisma
+	/// Initialize the Key Manager with the user's master password, and `StoredKeys` retrieved from Prisma
 	#[must_use]
 	pub fn new(password: Protected<Vec<u8>>, stored_keys: Vec<StoredKey>) -> Self {
 		let mut keystore = HashMap::new();
