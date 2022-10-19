@@ -15,8 +15,9 @@ use std::{
 	str::FromStr,
 	sync::Arc,
 };
+use sd_crypto::keys::keymanager::{KeyManager, StoredKey};
 use thiserror::Error;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, Mutex};
 use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -263,10 +264,13 @@ impl LibraryManager {
 		// Run seeders
 		indexer_rules_seeder(&db).await?;
 
+		let key_manager = Arc::new(Mutex::new(KeyManager::new(Vec::<StoredKey>::new(), None)));
+
 		Ok(LibraryContext {
 			id,
 			config,
 			db,
+			key_manager,
 			node_local_id: node_data.id,
 			node_context,
 		})
