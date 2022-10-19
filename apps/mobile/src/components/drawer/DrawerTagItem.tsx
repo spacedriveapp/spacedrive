@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
@@ -8,7 +8,7 @@ type DrawerTagItemProps = {
 	onPress: () => void;
 };
 
-const DrawerTagItem: React.FC<DrawerTagItemProps> = (props) => {
+const DrawerTagItem: FC<DrawerTagItemProps> = (props) => {
 	const { tagName, tagColor, onPress } = props;
 	return (
 		<Pressable onPress={onPress}>

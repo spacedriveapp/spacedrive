@@ -161,7 +161,7 @@
 			dependencies = (
 			);
 			name = Spacedrive;
-			productName = mobilenew;
+			productName = Spacedrive;
 			productReference = 13B07F961A680F5B00A75B9A /* Spacedrive.app */;
 			productType = "com.apple.product-type.application";
 		};

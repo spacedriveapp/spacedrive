@@ -18,13 +18,6 @@
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@tryghost/content-api": "^1.11.4",
-		"@types/compression": "^1.7.2",
-		"@types/express": "^4.17.14",
-		"@types/marked": "^4.0.7",
-		"@types/node": "^18.8.2",
-		"@types/react": "^18.0.21",
-		"@types/react-burger-menu": "^2.8.3",
-		"@types/react-dom": "^18.0.6",
 		"@vitejs/plugin-react": "^2.1.0",
 		"clsx": "^1.2.1",
 		"compression": "^1.7.4",
@@ -48,7 +41,7 @@
 		"vite-plugin-ssr": "^0.4.39"
 	},
 	"devDependencies": {
-		"@sd/config": "link:../../packages/config",
+		"@sd/config": "workspace:*",
 		"@tailwindcss/line-clamp": "^0.4.2",
 		"@tailwindcss/typography": "^0.5.7",
 		"@types/prismjs": "^1.26.0",
@@ -59,6 +52,13 @@
 		"sass": "^1.55.0",
 		"tailwind": "^4.0.0",
 		"vite-plugin-markdown": "^2.1.0",
-		"vite-plugin-svgr": "^2.2.1"
+		"vite-plugin-svgr": "^2.2.1",
+		"@types/compression": "^1.7.2",
+		"@types/express": "^4.17.14",
+		"@types/marked": "^4.0.7",
+		"@types/node": "^18.8.2",
+		"@types/react": "^18.0.21",
+		"@types/react-burger-menu": "^2.8.3",
+		"@types/react-dom": "^18.0.6"
 	}
 }

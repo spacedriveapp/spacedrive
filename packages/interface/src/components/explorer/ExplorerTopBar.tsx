@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, TagIcon } from '@heroicons/react/24/outline';
 import {
 	OperatingSystem,
 	getExplorerStore,
@@ -142,6 +142,15 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		}
 	});
 
+	const { mutate: objectValidator } = useLibraryMutation(
+		'jobs.objectValidator',
+		{
+			onMutate: (data) => {
+				// console.log('ObjectValidator', data);
+			}
+		}
+	);
+
 	const navigate = useNavigate();
 
 	//create function to focus on search box when cmd+k is pressed
@@ -205,7 +214,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center  dark:bg-gray-650 border-gray-100 dark:border-gray-800 !bg-opacity-80 backdrop-blur"
+				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center dark:bg-gray-700 border-gray-100 !bg-opacity-80 backdrop-blur overflow-hidden rounded-tl-md"
 			>
 				<div className="flex ">
 					<Tooltip label="Navigate back">
@@ -264,12 +273,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								// </Tooltip>
 							}
 						>
-							<div className="block w-[350px] h-[435px]">
+							<div className="block w-[350px]">
 								<KeyManager />
 							</div>
 						</OverlayPanel>
-						<Tooltip label="Cloud">
-							<TopBarButton icon={Cloud} />
+						<Tooltip label="Tag Assign Mode">
+							<TopBarButton icon={TagIcon} />
 						</Tooltip>
 						<Tooltip label="Refresh">
 							<TopBarButton icon={ArrowsClockwise} />
@@ -312,6 +321,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 									icon: ArrowsClockwise,
 									onPress: () =>
 										store.locationId && identifyUniqueFiles({ id: store.locationId, path: '' })
+								},
+								{
+									name: 'Validate Objects',
+									icon: ArrowsClockwise,
+									onPress: () =>
+										store.locationId && objectValidator({ id: store.locationId, path: '' })
 								}
 							]
 						]}

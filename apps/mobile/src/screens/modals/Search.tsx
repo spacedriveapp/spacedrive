@@ -1,5 +1,5 @@
 import { MagnifyingGlass } from 'phosphor-react-native';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '~/components/primitive/Button';

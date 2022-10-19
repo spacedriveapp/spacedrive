@@ -22,7 +22,7 @@ export default function SpacedriveInterface() {
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<QueryClientProvider client={queryClient} contextSharing={true}>
 				{/* The `context={defaultContext}` part is required for this to work on Windows. Why, idk, don't question it */}
-				{import.meta.env.MODE === 'development' && (
+				{import.meta.env.DEV && (
 					<ReactQueryDevtools position="bottom-right" context={defaultContext} />
 				)}
 				<MemoryRouter>

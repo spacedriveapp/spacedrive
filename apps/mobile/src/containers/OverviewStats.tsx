@@ -1,21 +1,10 @@
 import byteSize from 'byte-size';
-import React from 'react';
+import { FC } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { Statistics } from '~/types/bindings';
 
 import useCounter from '../hooks/useCounter';
 import tw from '../lib/tailwind';
-
-interface Statistics {
-	id: number;
-	date_captured: string;
-	total_file_count: number;
-	library_db_size: string;
-	total_bytes_used: string;
-	total_bytes_capacity: string;
-	total_unique_bytes: string;
-	total_bytes_free: string;
-	preview_media_bytes: string;
-}
 
 const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_capacity: 'Total capacity',
@@ -28,7 +17,7 @@ type OverviewStatsProps = {
 	stats: Statistics | undefined;
 };
 
-const StatItem: React.FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
+const StatItem: FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
 	const { value, unit } = byteSize(+bytes);
 
 	const count = useCounter({ name: title, end: Number(value) });
