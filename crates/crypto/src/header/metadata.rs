@@ -29,7 +29,9 @@
 //! ```
 use std::io::{Read, Seek};
 
-use crate::{crypto::stream::Algorithm, error::Error};
+use crate::{crypto::stream::{Algorithm, StreamEncryption, StreamDecryption}, error::Error, Protected, primitives::{MASTER_KEY_LEN, generate_nonce}};
+
+use super::file::FileHeader;
 
 /// This is a metadata header item. You may add it to a header, and this will be stored with the file.
 ///
@@ -47,6 +49,104 @@ pub struct Metadata {
 #[derive(Clone, Copy)]
 pub enum MetadataVersion {
 	V1,
+}
+
+impl FileHeader {
+		/// This should be used for creating a header metadata item.
+	///
+	/// It handles encrypting the master key and metadata.
+	///
+	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
+	///
+	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
+	pub fn add_metadata<T>(
+		&mut self,
+		version: MetadataVersion,
+		algorithm: Algorithm,
+		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
+		metadata: &T,
+	) -> Result<(), Error>
+	where
+		T: ?Sized + serde::Serialize,
+	{
+		let metadata_nonce = generate_nonce(algorithm);
+
+		let encrypted_metadata = StreamEncryption::encrypt_bytes(
+			master_key.clone(),
+			&metadata_nonce,
+			algorithm,
+			&serde_json::to_vec(metadata).map_err(|_| Error::MetadataDeSerialization)?,
+			&[],
+		)?;
+
+		let metadata = Metadata {
+			version,
+			algorithm,
+			metadata_nonce,
+			metadata: encrypted_metadata,
+		};
+
+		self.metadata = Some(metadata);
+
+		Ok(())
+	}
+
+	/// This function should be used to retrieve the metadata for a file
+	///
+	/// All it requires is pre-hashed keys returned from the KeyManager
+	///
+	/// A deserialized data type will be returned from this function
+	pub fn decrypt_metadata_from_prehashed<T>(
+		&self,
+		hashed_keys: Vec<Protected<[u8; 32]>>,
+	) -> Result<T, Error>
+	where
+		T: serde::de::DeserializeOwned,
+	{
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
+
+		// could be an expensive clone (a few MiB at most)
+		if let Some(metadata) = self.metadata.clone() {
+			let metadata = StreamDecryption::decrypt_bytes(
+				master_key,
+				&metadata.metadata_nonce,
+				metadata.algorithm,
+				&metadata.metadata,
+				&[],
+			)?;
+
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
+		} else {
+			Err(Error::NoMetadata)
+		}
+	}
+
+	/// This function should be used to retrieve the metadata for a file
+	///
+	/// All it requires is a password. Hashing is handled for you.
+	///
+	/// A deserialized data type will be returned from this function
+	pub fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T, Error>
+	where
+		T: serde::de::DeserializeOwned,
+	{
+		let master_key = self.decrypt_master_key(password)?;
+
+		// could be an expensive clone (a few MiB at most)
+		if let Some(metadata) = self.metadata.clone() {
+			let metadata = StreamDecryption::decrypt_bytes(
+				master_key,
+				&metadata.metadata_nonce,
+				metadata.algorithm,
+				&metadata.metadata,
+				&[],
+			)?;
+
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
+		} else {
+			Err(Error::NoMetadata)
+		}
+	}
 }
 
 impl Metadata {

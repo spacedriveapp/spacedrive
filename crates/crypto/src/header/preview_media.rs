@@ -22,7 +22,9 @@
 //! ```
 use std::io::{Read, Seek};
 
-use crate::{crypto::stream::Algorithm, error::Error};
+use crate::{crypto::stream::{Algorithm, StreamDecryption, StreamEncryption}, error::Error, Protected, primitives::{MASTER_KEY_LEN, generate_nonce}};
+
+use super::file::FileHeader;
 
 /// This is a preview media header item. You may add it to a header, and this will be stored with the file.
 ///
@@ -40,6 +42,98 @@ pub struct PreviewMedia {
 #[derive(Clone, Copy)]
 pub enum PreviewMediaVersion {
 	V1,
+}
+
+impl FileHeader {
+		/// This should be used for creating a header preview media item.
+	///
+	/// This handles encrypting the master key and preview media.
+	///
+	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
+	///
+	/// Preview media needs to be accessed switfly, so a key management system should handle the salt generation.
+	pub fn add_preview_media(
+		&mut self,
+		version: PreviewMediaVersion,
+		algorithm: Algorithm,
+		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
+		media: &[u8],
+	) -> Result<(), Error> {
+		let media_nonce = generate_nonce(algorithm);
+
+		let encrypted_media = StreamEncryption::encrypt_bytes(
+			master_key.clone(),
+			&media_nonce,
+			algorithm,
+			media,
+			&[],
+		)?;
+
+		let pvm = PreviewMedia {
+			version,
+			algorithm,
+			media_nonce,
+			media: encrypted_media,
+		};
+
+		self.preview_media = Some(pvm);
+
+		Ok(())
+	}
+
+	/// This function is what you'll want to use to get the preview media for a file
+	///
+	/// All it requires is pre-hashed keys returned from the key manager
+	///
+	/// Once provided, a `Vec<u8>` is returned that contains the preview media
+	pub fn decrypt_preview_media_from_prehashed(
+		&self,
+		hashed_keys: Vec<Protected<[u8; 32]>>,
+	) -> Result<Protected<Vec<u8>>, Error> {
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
+
+		// could be an expensive clone (a few MiB at most)
+		if let Some(pvm) = self.preview_media.clone() {
+			let media = StreamDecryption::decrypt_bytes(
+				master_key,
+				&pvm.media_nonce,
+				pvm.algorithm,
+				&pvm.media,
+				&[],
+			)?;
+
+			Ok(media)
+		} else {
+			Err(Error::NoPreviewMedia)
+		}
+	}
+
+	/// This function is what you'll want to use to get the preview media for a file
+	///
+	/// All it requires is the user's password. Hashing is handled for you.
+	///
+	/// Once provided, a `Vec<u8>` is returned that contains the preview media
+	pub fn decrypt_preview_media(
+		&self,
+		password: Protected<Vec<u8>>,
+	) -> Result<Protected<Vec<u8>>, Error> {
+		let master_key = self.decrypt_master_key(password)?;
+
+		// could be an expensive clone (a few MiB at most)
+		if let Some(pvm) = self.preview_media.clone() {
+			let media = StreamDecryption::decrypt_bytes(
+				master_key,
+				&pvm.media_nonce,
+				pvm.algorithm,
+				&pvm.media,
+				&[],
+			)?;
+
+			Ok(media)
+		} else {
+			Err(Error::NoPreviewMedia)
+		}
+	}
 }
 
 impl PreviewMedia {
