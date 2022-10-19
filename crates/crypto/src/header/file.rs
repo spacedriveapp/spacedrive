@@ -32,13 +32,17 @@
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
-	crypto::stream::{Algorithm, StreamEncryption},
+	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	error::Error,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
 	Protected,
 };
 
-use super::{keyslot::Keyslot, metadata::{Metadata, MetadataVersion}, preview_media::{PreviewMedia, PreviewMediaVersion}};
+use super::{
+	keyslot::Keyslot,
+	metadata::{Metadata, MetadataVersion},
+	preview_media::{PreviewMedia, PreviewMediaVersion},
+};
 
 /// These are used to quickly and easily identify Spacedrive-encrypted files
 /// These currently are set as "ballapp"
@@ -133,7 +137,6 @@ impl FileHeader {
 
 		self.metadata = Some(metadata);
 
-
 		Ok(())
 	}
 
@@ -168,8 +171,62 @@ impl FileHeader {
 		Ok(())
 	}
 
+	/// This function should be used to retrieve the metadata for a file
+	///
+	/// All it requires is a pre-hashed keys returned from the KeyManager
+	///
+	/// A deserialized data type will be returned from this function
+	pub fn decrypt_metadata_from_prehashed<T>(
+		&self,
+		hashed_keys: Vec<Protected<[u8; 32]>>,
+	) -> Result<T, Error>
+	where
+		T: serde::de::DeserializeOwned,
+	{
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).unwrap();
 
-	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
+		if let Some(metadata) = self.metadata {
+			let metadata = StreamDecryption::decrypt_bytes(
+				master_key,
+				&metadata.metadata_nonce,
+				metadata.algorithm,
+				&metadata.metadata,
+				&[],
+			)?;
+
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
+		} else {
+			return Err(Error::NoMetadata);
+		}
+	}
+
+	/// This function is what you'll want to use to get the preview media for a file
+	///
+	/// All it requires is pre-hashed keys returned from the key manager
+	///
+	/// Once provided, a `Vec<u8>` is returned that contains the preview media
+	pub fn decrypt_preview_media_from_prehashed(
+		&self,
+		hashed_keys: Vec<Protected<[u8; 32]>>,
+	) -> Result<Protected<Vec<u8>>, Error> {
+		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).unwrap();
+
+		if let Some(pvm) = self.preview_media {
+			let media = StreamDecryption::decrypt_bytes(
+				master_key,
+				&pvm.media_nonce,
+				pvm.algorithm,
+				&pvm.media,
+				&[],
+			)?;
+
+			Ok(media)
+		} else {
+			return Err(Error::NoPreviewMedia);
+		}
+	}
+
+	/// This is a helper function to decrypt a master key from keyslots that are attached to a header, from a user-supplied password.
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
@@ -202,6 +259,37 @@ impl FileHeader {
 	{
 		writer.write(&self.serialize()?).map_err(Error::Io)?;
 		Ok(())
+	}
+
+	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
+	///
+	/// It takes in a Vec of pre-hashed keys, which is what the key manager returns
+	///
+	/// You receive an error if the password doesn't match or if there are no keyslots.
+	#[allow(clippy::needless_pass_by_value)]
+	pub fn decrypt_master_key_from_prehashed(
+		&self,
+		hashed_keys: Vec<Protected<[u8; 32]>>,
+	) -> Result<Protected<[u8; MASTER_KEY_LEN]>, Error> {
+		let mut master_key = [0u8; MASTER_KEY_LEN];
+
+		if self.keyslots.is_empty() {
+			return Err(Error::NoKeyslots);
+		}
+
+		for key in hashed_keys {
+			for keyslot in &self.keyslots {
+				if let Ok(decrypted_master_key) = keyslot.decrypt_master_key_from_prehashed(&key) {
+					master_key.copy_from_slice(&decrypted_master_key);
+				}
+			}
+		}
+
+		if master_key == [0u8; MASTER_KEY_LEN] {
+			Err(Error::IncorrectPassword)
+		} else {
+			Ok(Protected::new(master_key))
+		}
 	}
 
 	/// This function should be used for generating AAD before encryption

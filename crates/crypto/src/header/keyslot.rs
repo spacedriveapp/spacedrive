@@ -107,6 +107,20 @@ impl Keyslot {
 		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
 	}
 
+	/// This function should not be used directly, use `header.decrypt_master_key()` instead
+	///
+	/// This attempts to decrypt the master key for a single keyslot, using a pre-hashed key
+	/// 
+	/// No hashing is done internally.
+	///
+	/// An error will be returned on failure.
+	pub fn decrypt_master_key_from_prehashed(
+		&self,
+		key: &Protected<[u8; 32]>,
+	) -> Result<Protected<Vec<u8>>, Error> {
+		StreamDecryption::decrypt_bytes(*key, &self.nonce, self.algorithm, &self.master_key, &[])
+	}
+
 	/// This function is used to serialize a keyslot into bytes
 	#[must_use]
 	pub fn serialize(&self) -> Vec<u8> {

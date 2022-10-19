@@ -30,14 +30,8 @@
 use std::io::{Read, Seek};
 
 use crate::{
-	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
+	crypto::stream::{Algorithm},
 	error::Error,
-	keys::hashing::HashingAlgorithm,
-	primitives::{
-		generate_master_key, generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN,
-		SALT_LEN,
-	},
-	Protected,
 };
 
 /// This is a metadata header item. You may add it to a header, and this will be stored with the file.
@@ -48,7 +42,7 @@ use crate::{
 #[derive(Clone)]
 pub struct Metadata {
 	pub version: MetadataVersion,
-	pub algorithm: Algorithm,                // encryption algorithm
+	pub algorithm: Algorithm, // encryption algorithm
 	pub metadata_nonce: Vec<u8>,
 	pub metadata: Vec<u8>,
 }
@@ -76,53 +70,13 @@ impl Metadata {
 				let mut metadata: Vec<u8> = Vec::new();
 				metadata.extend_from_slice(&self.version.serialize()); // 2
 				metadata.extend_from_slice(&self.algorithm.serialize()); // 4
-				metadata.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
-				metadata.extend_from_slice(&self.salt); // 22
-				metadata.extend_from_slice(&self.master_key); // 70
-				metadata.extend_from_slice(&self.master_key_nonce); // 82 or 94
-				metadata.extend_from_slice(&vec![0u8; 26 - self.master_key_nonce.len()]); // 96
-				metadata.extend_from_slice(&self.metadata_nonce); // 108 or 120
-				metadata.extend_from_slice(&vec![0u8; 24 - self.metadata_nonce.len()]); // 120
-				metadata.extend_from_slice(&self.metadata.len().to_le_bytes()); // 128 total bytes
+				metadata.extend_from_slice(&self.metadata_nonce); // 24 max
+				metadata.extend_from_slice(&vec![0u8; 24 - self.metadata_nonce.len()]); // 28
+				metadata.extend_from_slice(&self.metadata.len().to_le_bytes()); // 36 total bytes
 				metadata.extend_from_slice(&self.metadata); // this can vary in length
 				metadata
 			}
 		}
-	}
-
-	/// This function should be used to retrieve the metadata for a file
-	///
-	/// All it requires is a pre-hashed key (hashed with the salt provided on creation)
-	///
-	/// A deserialized data type will be returned from this function
-	pub fn decrypt_metadata<T>(&self, hashed_key: Protected<[u8; 32]>) -> Result<T, Error>
-	where
-		T: serde::de::DeserializeOwned,
-	{
-		let mut master_key = [0u8; MASTER_KEY_LEN];
-
-		let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-			hashed_key,
-			&self.master_key_nonce,
-			self.algorithm,
-			&self.master_key,
-			&[],
-		) {
-			master_key.copy_from_slice(&decrypted_master_key);
-			Ok(Protected::new(master_key))
-		} else {
-			Err(Error::IncorrectPassword)
-		}?;
-
-		let metadata = StreamDecryption::decrypt_bytes(
-			master_key,
-			&self.metadata_nonce,
-			self.algorithm,
-			&self.metadata,
-			&[],
-		)?;
-
-		serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
 	}
 
 	/// This function reads a metadata header item from a reader
@@ -144,23 +98,6 @@ impl Metadata {
 				reader.read(&mut algorithm).map_err(Error::Io)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
-				let mut hashing_algorithm = [0u8; 2];
-				reader.read(&mut hashing_algorithm).map_err(Error::Io)?;
-				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
-
-				let mut salt = [0u8; SALT_LEN];
-				reader.read(&mut salt).map_err(Error::Io)?;
-
-				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
-				reader.read(&mut master_key).map_err(Error::Io)?;
-
-				let mut master_key_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut master_key_nonce).map_err(Error::Io)?;
-
-				reader
-					.read(&mut vec![0u8; 26 - master_key_nonce.len()])
-					.map_err(Error::Io)?;
-
 				let mut metadata_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read(&mut metadata_nonce).map_err(Error::Io)?;
 
@@ -179,10 +116,6 @@ impl Metadata {
 				let metadata = Self {
 					version,
 					algorithm,
-					hashing_algorithm,
-					salt,
-					master_key,
-					master_key_nonce,
 					metadata_nonce,
 					metadata,
 				};
