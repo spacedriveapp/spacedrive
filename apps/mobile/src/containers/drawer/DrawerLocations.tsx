@@ -1,9 +1,9 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
-import React, { useRef } from 'react';
+import { useLibraryQuery } from '@sd/client';
+import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useLibraryQuery } from '~/hooks/rspc';
 import tw from '~/lib/tailwind';
 
 import FolderIcon from '../../components/icons/FolderIcon';

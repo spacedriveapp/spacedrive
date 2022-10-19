@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { queryClient, useBridgeMutation } from '@sd/client';
+import { useState } from 'react';
 import Dialog from '~/components/layout/Dialog';
 import { TextInput } from '~/components/primitive/Input';
-import { queryClient, useBridgeMutation } from '~/hooks/rspc';
 import { useLibraryStore } from '~/stores/libraryStore';
 
 type Props = {

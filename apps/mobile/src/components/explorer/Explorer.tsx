@@ -1,7 +1,6 @@
+import { useLibraryQuery } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
-import React from 'react';
 import { Text, View } from 'react-native';
-import { useLibraryQuery } from '~/hooks/rspc';
 import tw from '~/lib/tailwind';
 
 import FileItem from './FileItem';
