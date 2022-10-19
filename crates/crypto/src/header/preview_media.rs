@@ -48,7 +48,7 @@ impl PreviewMedia {
 	#[must_use]
 	pub fn get_length(&self) -> usize {
 		match self.version {
-			PreviewMediaVersion::V1 => 128 + self.media.len(),
+			PreviewMediaVersion::V1 => 36 + self.media.len(),
 		}
 	}
 

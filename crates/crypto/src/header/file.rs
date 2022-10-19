@@ -109,10 +109,10 @@ impl FileHeader {
 	///
 	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
 	pub fn add_metadata<T>(
-		&self,
+		&mut self,
 		version: MetadataVersion,
 		algorithm: Algorithm,
-		master_key: Protected<[u8; MASTER_KEY_LEN]>,
+		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
 		metadata: &T,
 	) -> Result<(), Error>
 	where
@@ -121,7 +121,7 @@ impl FileHeader {
 		let metadata_nonce = generate_nonce(algorithm);
 
 		let encrypted_metadata = StreamEncryption::encrypt_bytes(
-			master_key,
+			master_key.clone(),
 			&metadata_nonce,
 			algorithm,
 			&serde_json::to_vec(metadata).map_err(|_| Error::MetadataDeSerialization)?,
@@ -148,16 +148,16 @@ impl FileHeader {
 	///
 	/// Preview media needs to be accessed switfly, so a key management system should handle the salt generation.
 	pub fn add_preview_media(
-		&self,
+		&mut self,
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
-		master_key: Protected<[u8; MASTER_KEY_LEN]>,
+		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
 		media: &[u8],
 	) -> Result<(), Error> {
 		let media_nonce = generate_nonce(algorithm);
 
 		let encrypted_media =
-			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])?;
+			StreamEncryption::encrypt_bytes(master_key.clone(), &media_nonce, algorithm, media, &[])?;
 
 		let pvm = PreviewMedia {
 			version,
@@ -185,7 +185,8 @@ impl FileHeader {
 	{
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).unwrap();
 
-		if let Some(metadata) = self.metadata {
+		// could be an expensive clone (a few MiB at most)
+		if let Some(metadata) = self.metadata.clone() {
 			let metadata = StreamDecryption::decrypt_bytes(
 				master_key,
 				&metadata.metadata_nonce,
@@ -211,7 +212,8 @@ impl FileHeader {
 	) -> Result<Protected<Vec<u8>>, Error> {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys).unwrap();
 
-		if let Some(pvm) = self.preview_media {
+		// could be an expensive clone (a few MiB at most)
+		if let Some(pvm) = self.preview_media.clone() {
 			let media = StreamDecryption::decrypt_bytes(
 				master_key,
 				&pvm.media_nonce,
@@ -279,7 +281,7 @@ impl FileHeader {
 
 		for key in hashed_keys {
 			for keyslot in &self.keyslots {
-				if let Ok(decrypted_master_key) = keyslot.decrypt_master_key_from_prehashed(&key) {
+				if let Ok(decrypted_master_key) = keyslot.decrypt_master_key_from_prehashed(key.clone()) {
 					master_key.copy_from_slice(&decrypted_master_key);
 				}
 			}

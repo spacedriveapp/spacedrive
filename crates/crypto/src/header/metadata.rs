@@ -56,7 +56,7 @@ impl Metadata {
 	#[must_use]
 	pub fn get_length(&self) -> usize {
 		match self.version {
-			MetadataVersion::V1 => 128 + self.metadata.len(),
+			MetadataVersion::V1 => 36 + self.metadata.len(),
 		}
 	}
 

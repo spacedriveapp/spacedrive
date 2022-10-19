@@ -28,7 +28,7 @@ use crate::{
 	error::Error,
 	keys::hashing::HashingAlgorithm,
 	primitives::{
-		generate_nonce, generate_salt, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
+		generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
 	},
 	Protected,
 };
@@ -64,10 +64,10 @@ impl Keyslot {
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
+		salt: [u8; SALT_LEN],
 		password: Protected<Vec<u8>>,
 		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
 	) -> Result<Self, Error> {
-		let salt = generate_salt();
 		let nonce = generate_nonce(algorithm);
 
 		let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
@@ -116,9 +116,9 @@ impl Keyslot {
 	/// An error will be returned on failure.
 	pub fn decrypt_master_key_from_prehashed(
 		&self,
-		key: &Protected<[u8; 32]>,
+		key: Protected<[u8; 32]>,
 	) -> Result<Protected<Vec<u8>>, Error> {
-		StreamDecryption::decrypt_bytes(*key, &self.nonce, self.algorithm, &self.master_key, &[])
+		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
 	}
 
 	/// This function is used to serialize a keyslot into bytes
