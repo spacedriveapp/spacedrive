@@ -94,6 +94,12 @@ impl KeyManager {
 		}
 	}
 
+	pub fn set_master_password(&mut self, master_password: Protected<Vec<u8>>) -> Result<(), Error> {
+		// this returns a result, so we can potentially implement password checking functionality
+		self.master_password = Some(master_password);
+		Ok(())
+	}
+
 	/// This function is used for emptying the entire keystore.
 	pub fn empty_keystore(&mut self) {
 		self.keystore.clear();
