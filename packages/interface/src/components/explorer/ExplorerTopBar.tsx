@@ -118,7 +118,9 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 	);
 });
 
-export type TopBarProps = DefaultProps;
+export type TopBarProps = DefaultProps & {
+	showSeparator?: boolean;
+};
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
 	const platform = useOperatingSystem(false);
@@ -143,14 +145,11 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		}
 	});
 
-	const { mutate: objectValidator } = useLibraryMutation(
-		'jobs.objectValidator',
-		{
-			onMutate: (data) => {
-				// console.log('ObjectValidator', data);
-			}
+	const { mutate: objectValidator } = useLibraryMutation('jobs.objectValidator', {
+		onMutate: (data) => {
+			// console.log('ObjectValidator', data);
 		}
-	);
+	});
 
 	const navigate = useNavigate();
 
@@ -219,9 +218,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				// but the explorer still resides under the top bar
 				// in case you wanna turn it back on
 				// honestly its just work to revert
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center dark:bg-gray-none border-gray-100  overflow-hidden rounded-tl-md "
+				className={clsx(
+					'flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b app-bg overflow-hidden rounded-tl-md transition-[background-color] transition-[border-color] duration-250 ease-out',
+					props.showSeparator && 'top-bar-blur'
+				)}
 			>
-				<div className="flex ">
+				<div className="flex">
 					<Tooltip label="Navigate back">
 						<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
 					</Tooltip>

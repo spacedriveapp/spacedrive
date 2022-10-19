@@ -7,6 +7,16 @@ body {
 	font-family: 'InterVariable', sans-serif;
 }
 
+.app-bg {
+	@apply bg-white dark:bg-gray-650;
+}
+
+.has-blur-effects {
+	.app-bg {
+		@apply dark:bg-gray-650/80;
+	}
+}
+
 .no-scrollbar {
 	-ms-overflow-style: none; /* for Internet Explorer, Edge */
 	scrollbar-width: none; /* for Firefox */

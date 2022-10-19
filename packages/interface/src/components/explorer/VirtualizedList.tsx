@@ -1,7 +1,7 @@
 import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
 import { ExplorerContext, ExplorerItem } from '@sd/client';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { UIEventHandler, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
 
@@ -15,9 +15,10 @@ const GRID_TEXT_AREA_HEIGHT = 25;
 interface Props {
 	context: ExplorerContext;
 	data: ExplorerItem[];
+	onScroll?: (posY: number) => void;
 }
 
-export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
+export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) => {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const innerRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +45,19 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 			explorerStore.layoutMode === 'grid'
 				? explorerStore.gridItemSize + GRID_TEXT_AREA_HEIGHT
 				: explorerStore.listItemSize;
+
+	useEffect(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+
+		const onElementScroll = (event: Event) => {
+			onScroll?.((event.target as HTMLElement).scrollTop);
+		};
+
+		el.addEventListener('scroll', onElementScroll);
+
+		return () => el.removeEventListener('scroll', onElementScroll);
+	}, [scrollRef, onScroll]);
 
 	const rowVirtualizer = useVirtualizer({
 		count: amountOfRows,
@@ -103,16 +117,13 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 	// );
 
 	return (
-		<div
-			// style={{ marginTop: -TOP_BAR_HEIGHT }}
-			className="w-full pl-2 cursor-default"
-		>
+		<div style={{ marginTop: -TOP_BAR_HEIGHT }} className="w-full pl-2 cursor-default">
 			<div ref={scrollRef} className="h-screen custom-scroll explorer-scroll">
 				<div
 					ref={innerRef}
 					style={{
-						height: `${rowVirtualizer.getTotalSize()}px`
-						// marginTop: `${TOP_BAR_HEIGHT + 10}px`
+						height: `${rowVirtualizer.getTotalSize()}px`,
+						marginTop: `${TOP_BAR_HEIGHT + 10}px`
 					}}
 					className="relative w-full"
 				>

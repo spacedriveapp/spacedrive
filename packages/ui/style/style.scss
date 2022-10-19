@@ -12,6 +12,12 @@
 	-webkit-backdrop-filter: blur(18px);
 }
 
+.top-bar-blur {
+	@apply border-gray-100 dark:border-gray-550;
+
+	backdrop-filter: saturate(120%) blur(18px);
+}
+
 .inset-center {
 	position: absolute;
 	top: 50%;

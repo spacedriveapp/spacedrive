@@ -26,17 +26,12 @@ export function AppLayout() {
 			}}
 			className={clsx(
 				'flex flex-row h-screen overflow-hidden text-gray-900 select-none dark:text-white cursor-default',
-				os === 'macOS' && 'rounded-xl',
+				os === 'macOS' && 'rounded-xl has-blur-effects',
 				os !== 'browser' && os !== 'windows' && 'border border-gray-200 dark:border-gray-500'
 			)}
 		>
 			<Sidebar />
-			<div
-				className={clsx(
-					'relative flex w-full h-screen max-h-screen bg-white dark:bg-gray-600',
-					os === 'macOS' && 'dark:bg-gray-650/80'
-				)}
-			>
+			<div className={clsx('relative flex w-full h-screen max-h-screen')}>
 				<Suspense>
 					<Outlet />
 				</Suspense>

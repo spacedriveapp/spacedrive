@@ -60,8 +60,8 @@ export function JobsManager() {
 		<div className="h-full">
 			{/* <div className="z-10 flex flex-row w-full h-10 bg-gray-500 border-b border-gray-700 bg-opacity-30"></div> */}
 			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
-				<div className="py-1 pl-2">
-					<div className="fixed flex items-center h-10">
+				<div className="py-1 pl-2 ">
+					<div className="fixed flex items-center w-full h-10 bg-gray-500">
 						<h3 className="mt-1.5 ml-2 text-md font-medium opacity-40">Recent Jobs</h3>
 					</div>
 					<div className="h-10"></div>
@@ -96,13 +96,14 @@ export function JobsManager() {
 									</div>
 									<span className="text-xs">{job.data}</span>
 								</div>
-								<div className="space-x-2">
+								<div className="flex-grow" />
+								<div className="flex flex-row space-x-2">
 									{job.status === 'Failed' && (
-										<Button className="!p-0 w-7 h-7 flex items-center">
+										<Button className="!p-1">
 											<ArrowsClockwise className="w-4" />
 										</Button>
 									)}
-									<Button className="!p-0 w-7 h-7 flex items-center">
+									<Button className="!p-1">
 										<XMarkIcon className="w-4" />
 									</Button>
 								</div>
