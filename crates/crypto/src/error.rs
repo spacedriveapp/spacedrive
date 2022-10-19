@@ -36,7 +36,8 @@ pub enum Error {
 	NoMetadata,
 	#[error("tried adding too many keyslots to a header")]
 	TooManyKeyslots,
-
 	#[error("requested key wasn't found in the key manager")]
 	KeyNotFound,
+	#[error("no default key has been set")]
+	NoDefaultSet,
 }

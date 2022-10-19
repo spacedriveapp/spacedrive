@@ -44,6 +44,7 @@ pub struct KeyManager {
 	master_password: Protected<Vec<u8>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
 	keystore: HashMap<Uuid, StoredKey>,
 	keymount: HashMap<Uuid, MountedKey>,
+	default: Option<Uuid>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
@@ -63,6 +64,24 @@ impl KeyManager {
 			master_password: password,
 			keystore,
 			keymount,
+			default: None,
+		}
+	}
+
+	pub fn set_default(&mut self, id: Uuid) -> Result<(), Error> {
+		if self.keystore.contains_key(&id) {
+			self.default = Some(id);
+			Ok(())
+		} else {
+			Err(Error::KeyNotFound)
+		}
+	}
+
+	pub fn get_default(&self) -> Result<Uuid, Error> {
+		if let Some(default) = self.default {
+			Ok(default)
+		} else {
+			Err(Error::NoDefaultSet)
 		}
 	}
 
@@ -70,8 +89,8 @@ impl KeyManager {
 	/// Once a key is mounted, access it with `KeyManager::access()`
 	/// This is to ensure that only functions which require access to the mounted key receive it.
 	/// We could add a log to this, so that the user can view mounts
-	pub fn mount(&mut self, uuid: &Uuid) -> Result<(), Error> {
-		match self.keystore.get(uuid) {
+	pub fn mount(&mut self, id: Uuid) -> Result<(), Error> {
+		match self.keystore.get(&id) {
 			Some(stored_key) => {
 				let hashed_password = stored_key
 					.hashing_algorithm
@@ -117,7 +136,7 @@ impl KeyManager {
 					hashed_keys,
 				};
 
-				self.keymount.insert(*uuid, mounted_key);
+				self.keymount.insert(id, mounted_key);
 
 				Ok(())
 			}
@@ -127,8 +146,15 @@ impl KeyManager {
 
 	/// This function is for accessing the internal keymount.
 	/// We could add a log to this, so that the user can view accesses
-	pub fn access(&self, uuid: &Uuid) -> Result<MountedKey, Error> {
-		match self.keymount.get(uuid) {
+	pub fn access_mount(&self, id: Uuid) -> Result<MountedKey, Error> {
+		match self.keymount.get(&id) {
+			Some(key) => Ok(key.clone()),
+			None => Err(Error::KeyNotFound),
+		}
+	}
+
+	pub fn access_store(&self, id: Uuid) -> Result<StoredKey, Error> {
+		match self.keystore.get(&id) {
 			Some(key) => Ok(key.clone()),
 			None => Err(Error::KeyNotFound),
 		}
@@ -137,7 +163,7 @@ impl KeyManager {
 	/// This function is used to add a new key/password to the keystore.
 	/// It does not mount the key, it just registers it.
 	/// Once added, you will need to use `KeyManager::access_store()` to retrieve it and add it to Prisma.
-	/// You may use the returned UUID to identify this key.
+	/// You may use the returned ID to identify this key.
 	pub fn add_to_keystore(
 		&mut self,
 		key: &Protected<Vec<u8>>,
