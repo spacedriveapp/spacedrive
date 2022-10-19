@@ -156,8 +156,13 @@ impl FileHeader {
 	) -> Result<(), Error> {
 		let media_nonce = generate_nonce(algorithm);
 
-		let encrypted_media =
-			StreamEncryption::encrypt_bytes(master_key.clone(), &media_nonce, algorithm, media, &[])?;
+		let encrypted_media = StreamEncryption::encrypt_bytes(
+			master_key.clone(),
+			&media_nonce,
+			algorithm,
+			media,
+			&[],
+		)?;
 
 		let pvm = PreviewMedia {
 			version,
@@ -197,7 +202,7 @@ impl FileHeader {
 
 			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
 		} else {
-			return Err(Error::NoMetadata);
+			Err(Error::NoMetadata)
 		}
 	}
 
@@ -224,7 +229,7 @@ impl FileHeader {
 
 			Ok(media)
 		} else {
-			return Err(Error::NoPreviewMedia);
+			Err(Error::NoPreviewMedia)
 		}
 	}
 
@@ -281,7 +286,9 @@ impl FileHeader {
 
 		for key in hashed_keys {
 			for keyslot in &self.keyslots {
-				if let Ok(decrypted_master_key) = keyslot.decrypt_master_key_from_prehashed(key.clone()) {
+				if let Ok(decrypted_master_key) =
+					keyslot.decrypt_master_key_from_prehashed(key.clone())
+				{
 					master_key.copy_from_slice(&decrypted_master_key);
 				}
 			}

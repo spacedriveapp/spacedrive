@@ -27,9 +27,7 @@ use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	error::Error,
 	keys::hashing::HashingAlgorithm,
-	primitives::{
-		generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN,
-	},
+	primitives::{generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
 	Protected,
 };
 
@@ -110,7 +108,7 @@ impl Keyslot {
 	/// This function should not be used directly, use `header.decrypt_master_key()` instead
 	///
 	/// This attempts to decrypt the master key for a single keyslot, using a pre-hashed key
-	/// 
+	///
 	/// No hashing is done internally.
 	///
 	/// An error will be returned on failure.

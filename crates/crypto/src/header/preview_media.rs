@@ -22,9 +22,7 @@
 //! ```
 use std::io::{Read, Seek};
 
-use crate::{
-	crypto::stream::{Algorithm},
-	error::Error,	};
+use crate::{crypto::stream::Algorithm, error::Error};
 
 /// This is a preview media header item. You may add it to a header, and this will be stored with the file.
 ///
