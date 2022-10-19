@@ -39,5 +39,7 @@ pub enum Error {
 	#[error("requested key wasn't found in the key manager")]
 	KeyNotFound,
 	#[error("no default key has been set")]
-	NoDefaultSet,
+	NoDefaultKeySet,
+	#[error("no master password has been provided to the keymanager")]
+	NoMasterPassword,
 }

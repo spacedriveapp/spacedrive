@@ -41,7 +41,7 @@ pub struct StoredKey {
 }
 
 pub struct KeyManager {
-	master_password: Protected<Vec<u8>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
+	master_password: Option<Protected<Vec<u8>>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
 	keystore: HashMap<Uuid, StoredKey>,
 	keymount: HashMap<Uuid, MountedKey>,
 	default: Option<Uuid>,
@@ -51,7 +51,7 @@ pub struct KeyManager {
 impl KeyManager {
 	/// Initialize the Key Manager with the user's master password, and `StoredKeys` retrieved from Prisma
 	#[must_use]
-	pub fn new(password: Protected<Vec<u8>>, stored_keys: Vec<StoredKey>) -> Self {
+	pub fn new(stored_keys: Vec<StoredKey>, master_password: Option<Protected<Vec<u8>>>) -> Self {
 		let mut keystore = HashMap::new();
 		for key in stored_keys {
 			keystore.insert(key.id, key);
@@ -60,7 +60,7 @@ impl KeyManager {
 		let keymount: HashMap<Uuid, MountedKey> = HashMap::new();
 
 		Self {
-			master_password: password,
+			master_password,
 			keystore,
 			keymount,
 			default: None,
@@ -82,7 +82,15 @@ impl KeyManager {
 		if let Some(default) = self.default {
 			Ok(default)
 		} else {
-			Err(Error::NoDefaultSet)
+			Err(Error::NoDefaultKeySet)
+		}
+	}
+
+	/// This should ONLY be used within the key manager
+	fn get_master_password(&self) -> Result<Protected<Vec<u8>>, Error> {
+		match self.master_password.clone() {
+			Some(k) => Ok(k),
+			None => Err(Error::NoMasterPassword),
 		}
 	}
 
@@ -93,9 +101,11 @@ impl KeyManager {
 	pub fn mount(&mut self, id: Uuid) -> Result<(), Error> {
 		match self.keystore.get(&id) {
 			Some(stored_key) => {
+				let master_password = self.get_master_password()?;
+
 				let hashed_password = stored_key
 					.hashing_algorithm
-					.hash(self.master_password.clone(), stored_key.salt)?;
+					.hash(master_password, stored_key.salt)?;
 
 				let mut master_key = [0u8; MASTER_KEY_LEN];
 
@@ -172,6 +182,8 @@ impl KeyManager {
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 	) -> Result<Uuid, Error> {
+		let master_password = self.get_master_password()?;
+
 		let id = uuid::Uuid::new_v4();
 
 		// Generate items we'll need for encryption
@@ -182,7 +194,7 @@ impl KeyManager {
 		let content_salt = generate_salt(); // for PVM/MD
 
 		// Hash the user's master password
-		let hashed_password = hashing_algorithm.hash(self.master_password.clone(), salt)?;
+		let hashed_password = hashing_algorithm.hash(master_password, salt)?;
 
 		// Encrypted the master key with the user's hashed password
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
