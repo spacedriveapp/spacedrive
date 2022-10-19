@@ -2,6 +2,7 @@
 	"expo": {
 		"name": "Spacedrive",
 		"slug": "spacedrive",
+		"owner": "spacedrive",
 		"version": "0.0.1",
 		"orientation": "portrait",
 		"jsEngine": "hermes",
@@ -19,6 +20,11 @@
 		"android": {
 			"package": "com.spacedrive.app"
 		},
-		"privacy": "hidden"
+		"privacy": "hidden",
+		"extra": {
+			"eas": {
+				"projectId": "0cbf4456-87fb-499c-8dfa-554bfa5129f3"
+			}
+		}
 	}
 }

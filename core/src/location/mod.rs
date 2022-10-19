@@ -5,6 +5,7 @@ use crate::{
 	object::{
 		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
+		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
 	prisma::{indexer_rules_in_location, location, node},
 };
@@ -277,6 +278,15 @@ pub async fn scan_location(
 			background: true,
 		},
 		Box::new(ThumbnailJob {}),
+	))
+	.await;
+	ctx.queue_job(Job::new(
+		ObjectValidatorJobInit {
+			location_id,
+			path: PathBuf::new(),
+			background: true,
+		},
+		Box::new(ObjectValidatorJob {}),
 	))
 	.await;
 

@@ -1,5 +1,4 @@
 import { Cloud, Desktop, DeviceMobileCamera, Laptop } from 'phosphor-react-native';
-import React from 'react';
 import { FlatList, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';

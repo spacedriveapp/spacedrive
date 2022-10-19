@@ -1,27 +1,14 @@
 use std::panic;
 
 use crate::{EVENT_SENDER, NODE, RUNTIME, SUBSCRIPTIONS};
+use futures::future::join_all;
 use jni::objects::{JClass, JObject, JString};
 use jni::JNIEnv;
 use rspc::internal::jsonrpc::{handle_json_rpc, Request, Sender, SubscriptionMap};
 use sd_core::Node;
+use serde_json::Value;
 use tokio::sync::mpsc::unbounded_channel;
-
-// fn print(jvm: &JavaVM, class: &GlobalRef, msg: &str) {
-// 	let env = jvm.attach_current_thread().unwrap();
-// 	env.call_method(
-// 		class,
-// 		"print",
-// 		"(Ljava/lang/String;)V",
-// 		&[env
-// 			.new_string(msg)
-// 			.expect("Couldn't create java string!")
-// 			.into()],
-// 	)
-// 	.unwrap()
-// 	.l()
-// 	.unwrap();
-// }
+use tracing::{error, info};
 
 #[no_mangle]
 pub extern "system" fn Java_com_spacedrive_app_SDCore_registerCoreEventListener(
@@ -86,63 +73,105 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 		let callback = env.new_global_ref(callback).unwrap();
 
 		RUNTIME.spawn(async move {
-			let request: Request = serde_json::from_str(&query).unwrap();
+			let (node, router) = {
+				let node = &mut *NODE.lock().await;
+				match node {
+					Some(node) => node.clone(),
+					None => {
+						let data_dir: String = {
+							let env = jvm.attach_current_thread().unwrap();
+							let data_dir = env
+								.call_method(
+									&class,
+									"getDataDirectory",
+									"()Ljava/lang/String;",
+									&[],
+								)
+								.unwrap()
+								.l()
+								.unwrap();
 
-			let node = &mut *NODE.lock().await;
-			let (node, router) = match node {
-				Some(node) => node.clone(),
-				None => {
-					let data_dir: String = {
-						let env = jvm.attach_current_thread().unwrap();
-						let data_dir = env
-							.call_method(&class, "getDataDirectory", "()Ljava/lang/String;", &[])
-							.unwrap()
-							.l()
-							.unwrap();
+							env.get_string(data_dir.into()).unwrap().into()
+						};
 
-						env.get_string(data_dir.into()).unwrap().into()
-					};
+						let new_node = Node::new(data_dir).await;
+						let new_node = match new_node {
+							Ok(new_node) => new_node,
+							Err(err) => {
+								info!("677 {:?}", err);
 
-					let new_node = Node::new(data_dir).await.unwrap();
-					node.replace(new_node.clone());
-					new_node
+								// TODO: Android return?
+								return;
+							}
+						};
+
+						node.replace(new_node.clone());
+						new_node
+					}
 				}
 			};
 
-			let mut channel = EVENT_SENDER.get().unwrap().clone();
-			let mut resp = Sender::ResponseAndChannel(None, &mut channel);
-			handle_json_rpc(
-				node.get_request_context(),
-				request,
-				&router,
-				&mut resp,
-				&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
-			)
+			let reqs =
+				match serde_json::from_str::<Value>(&query).and_then(|v| match v.is_array() {
+					true => serde_json::from_value::<Vec<Request>>(v),
+					false => serde_json::from_value::<Request>(v).map(|v| vec![v]),
+				}) {
+					Ok(v) => v,
+					Err(err) => {
+						error!("failed to decode JSON-RPC request: {}", err); // Don't use tracing here because it's before the `Node` is initialised which sets that config!
+						return;
+					}
+				};
+
+			let resps = join_all(reqs.into_iter().map(|request| {
+				let node = node.clone();
+				let router = router.clone();
+				async move {
+					let mut channel = EVENT_SENDER.get().unwrap().clone();
+					let mut resp = Sender::ResponseAndChannel(None, &mut channel);
+
+					handle_json_rpc(
+						node.get_request_context(),
+						request,
+						&router,
+						&mut resp,
+						&mut SubscriptionMap::Mutex(&SUBSCRIPTIONS),
+					)
+					.await;
+
+					match resp {
+						Sender::ResponseAndChannel(resp, _) => resp,
+						_ => unreachable!(),
+					}
+				}
+			}))
 			.await;
 
-			match resp {
-				Sender::Response(Some(resp)) => {
-					let env = jvm.attach_current_thread().unwrap();
-					env.call_method(
-						&callback,
-						"resolve",
-						"(Ljava/lang/Object;)V",
-						&[env
-							.new_string(serde_json::to_string(&resp).unwrap())
-							.expect("Couldn't create java string!")
-							.into()],
+			let env = jvm.attach_current_thread().unwrap();
+			env.call_method(
+				&callback,
+				"resolve",
+				"(Ljava/lang/Object;)V",
+				&[env
+					.new_string(
+						serde_json::to_string(
+							&resps.into_iter().filter_map(|v| v).collect::<Vec<_>>(),
+						)
+						.unwrap(),
 					)
-					.unwrap();
-				}
-				_ => unreachable!(),
-			}
+					.expect("Couldn't create java string!")
+					.into()],
+			)
+			.unwrap();
 		});
 	});
 
 	if let Err(err) = result {
 		// TODO: Send rspc error or something here so we can show this in the UI.
 		// TODO: Maybe reinitialise the core cause it could be in an invalid state?
-		println!(
+
+		// TODO: This log statement doesn't work. I recon the JNI env is being dropped before it's called.
+		error!(
 			"Error in Java_com_spacedrive_app_SDCore_registerCoreEventListener: {:?}",
 			err
 		);

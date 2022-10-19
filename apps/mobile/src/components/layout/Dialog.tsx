@@ -1,5 +1,5 @@
 import { MotiView } from 'moti';
-import React, { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
@@ -9,7 +9,7 @@ import { Button } from '../primitive/Button';
 type DialogProps = {
 	title: string;
 	description?: string;
-	trigger?: React.ReactNode;
+	trigger?: ReactNode;
 	/**
 	 * if `true`, dialog will be visible when mounted.
 	 * It can be used when trigger is not provided and/or you need to open the dialog programmatically
@@ -20,7 +20,7 @@ type DialogProps = {
 	 * It can be used to control dialog state from outside
 	 */
 	setIsVisible?: (v: boolean) => void;
-	children?: React.ReactNode;
+	children?: ReactNode;
 	ctaAction?: () => void;
 	ctaLabel?: string;
 	ctaDanger?: boolean;

@@ -1,17 +1,16 @@
 import { MotiView } from 'moti';
-import React, { useReducer } from 'react';
+import { PropsWithChildren, ReactNode, useReducer } from 'react';
 import { Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { ChevronRightIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';
 
 import { AnimatedHeight } from '../animation/layout';
 
-type CollapsibleViewProps = {
+type CollapsibleViewProps = PropsWithChildren<{
 	title: string;
 	titleStyle?: StyleProp<TextStyle>;
-	children: React.ReactNode;
 	containerStyle?: StyleProp<ViewStyle>;
-};
+}>;
 
 const CollapsibleView = ({ title, titleStyle, containerStyle, children }: CollapsibleViewProps) => {
 	const [hide, toggle] = useReducer((hide) => !hide, false);

@@ -9,11 +9,11 @@
 	},
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
-		"@rspc/client": "^0.1.2",
+		"@rspc/client": "^0.0.0-main-7c0a67c1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
-		"@tanstack/react-query": "^4.10.1",
+		"@tanstack/react-query": "^4.12.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0"
 	},

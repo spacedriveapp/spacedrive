@@ -1,4 +1,3 @@
-import React from 'react';
 import { ColorValue, Text, View } from 'react-native';
 import CollapsibleView from '~/components/layout/CollapsibleView';
 import BrowseLocationItem from '~/containers/browse/BrowseLocationItem';

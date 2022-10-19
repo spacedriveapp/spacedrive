@@ -1,8 +1,8 @@
+import { useLibraryQuery } from '@sd/client';
 import byteSize from 'byte-size';
-import React, { useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import RNFS from 'react-native-fs';
-import { useLibraryQuery } from '~/hooks/rspc';
 import { Statistics } from '~/types/bindings';
 
 import useCounter from '../hooks/useCounter';
@@ -15,7 +15,7 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	total_bytes_free: 'Free space'
 };
 
-const StatItem: React.FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
+const StatItem: FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
 	const { value, unit } = byteSize(+bytes);
 
 	const count = useCounter({ name: title, end: Number(value) });

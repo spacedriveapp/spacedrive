@@ -48,8 +48,7 @@ impl Node {
 		let data_dir = data_dir.as_ref();
 		#[cfg(debug_assertions)]
 		let data_dir = data_dir.join("dev");
-
-		fs::create_dir_all(&data_dir).await?;
+		let _ = fs::create_dir_all(&data_dir).await; // This error is ignore because it throwing on mobile despite the folder existing.
 
 		// dbg!(get_object_kind_from_extension("png"));
 
@@ -59,31 +58,39 @@ impl Node {
 		// ));
 		// TODO: Make logs automatically delete after x time https://github.com/tokio-rs/tracing/pull/2169
 
-		tracing_subscriber::registry()
-			.with(
-				EnvFilter::from_default_env()
-					.add_directive("warn".parse().expect("Error invalid tracing directive!"))
-					.add_directive(
-						"sdcore=debug"
-							.parse()
-							.expect("Error invalid tracing directive!"),
-					)
-					.add_directive(
-						"server=debug"
-							.parse()
-							.expect("Error invalid tracing directive!"),
-					)
-					.add_directive(
-						"desktop=debug"
-							.parse()
-							.expect("Error invalid tracing directive!"),
-					), // .add_directive(
-				    // 	"rspc=debug"
-				    // 		.parse()
-				    // 		.expect("Error invalid tracing directive!"),
-				    // ),
-			)
-			.with(fmt::layer().with_filter(CONSOLE_LOG_FILTER))
+		let subscriber = tracing_subscriber::registry().with(
+			EnvFilter::from_default_env()
+				.add_directive("warn".parse().expect("Error invalid tracing directive!"))
+				.add_directive(
+					"sd-core=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
+					"sd-core-mobile=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
+					"server=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
+					"desktop=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				), // .add_directive(
+			    // 	"rspc=debug"
+			    // 		.parse()
+			    // 		.expect("Error invalid tracing directive!"),
+			    // ),
+		);
+		#[cfg(not(feature = "android"))]
+		let subscriber = subscriber.with(fmt::layer().with_filter(CONSOLE_LOG_FILTER));
+		#[cfg(feature = "android")]
+		let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
+		subscriber
 			// .with(
 			// 	Layer::default()
 			// 		.with_writer(non_blocking)

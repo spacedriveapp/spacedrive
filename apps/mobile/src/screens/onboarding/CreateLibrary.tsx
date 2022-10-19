@@ -1,4 +1,3 @@
-import React from 'react';
 import { Text, View } from 'react-native';
 import { useSnapshot } from 'valtio';
 import { AnimatedButton } from '~/components/primitive/Button';

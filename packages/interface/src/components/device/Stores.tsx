@@ -1,19 +1,19 @@
-import create from 'zustand';
+import { useState } from 'react';
 
 const getLocalStorage = (key: string) => JSON.parse(window.localStorage.getItem(key) || '{}');
 const setLocalStorage = (key: string, value: any) =>
 	window.localStorage.setItem(key, JSON.stringify(value));
 
-type NodeState = {
-	isExperimental: boolean;
-	setIsExperimental: (experimental: boolean) => void;
-};
+export function useNodeStore() {
+	const [state, setState] = useState(
+		(getLocalStorage('isExperimental') as boolean) === true || false
+	);
 
-export const useNodeStore = create<NodeState>((set) => ({
-	isExperimental: (getLocalStorage('isExperimental') as boolean) === true || false,
-	setIsExperimental: (experimental: boolean) =>
-		set((state) => {
+	return {
+		isExperimental: state,
+		setIsExperimental: (experimental: boolean) => {
 			setLocalStorage('isExperimental', experimental);
-			return { ...state, isExperimental: experimental };
-		})
-}));
+			setState(experimental);
+		}
+	};
+}

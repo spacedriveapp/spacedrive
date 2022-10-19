@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { forwardRef } from 'react';
+import { PropsWithChildren, forwardRef } from 'react';
 
 const variants = {
 	default: `
@@ -64,8 +64,10 @@ export const TextArea = ({ size, ...props }: TextAreaProps) => {
 	);
 };
 
-export const Label: React.FC<{ slug?: string; children: string }> = (props) => (
-	<label className="text-sm font-bold" htmlFor={props.slug}>
-		{props.children}
-	</label>
-);
+export function Label(props: PropsWithChildren<{ slug?: string }>) {
+	return (
+		<label className="text-sm font-bold" htmlFor={props.slug}>
+			{props.children}
+		</label>
+	);
+}

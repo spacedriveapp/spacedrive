@@ -1,7 +1,7 @@
+import { useBridgeQuery } from '@sd/client';
 import { useMemo } from 'react';
 import { useSnapshot } from 'valtio';
 import proxyWithPersist, { PersistStrategy } from 'valtio-persist';
-import { useBridgeQuery } from '~/hooks/rspc';
 import { LibraryConfigWrapped } from '~/types/bindings';
 
 import { StorageEngine } from './utils';

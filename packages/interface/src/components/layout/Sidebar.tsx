@@ -5,6 +5,7 @@ import { LocationCreateArgs } from '@sd/client';
 import { Button, CategoryHeading, Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
+import { PropsWithChildren } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
@@ -14,7 +15,7 @@ import { JobsManager } from '../jobs/JobManager';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
 
-export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode }) => (
+export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => (
 	<NavLink {...props}>
 		{({ isActive }) => (
 			<span

@@ -1,6 +1,7 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { createClient } from '@rspc/client';
+import { queryClient, rspc, useBridgeQuery, useInvalidateQuery } from '@sd/client';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,14 +10,8 @@ import { useDeviceContext } from 'twrnc';
 import { useSnapshot } from 'valtio';
 
 import { GlobalModals } from './containers/modals/GlobalModals';
-import {
-	ReactNativeTransport,
-	queryClient,
-	rspc,
-	useBridgeQuery,
-	useInvalidateQuery
-} from './hooks/rspc';
 import useCachedResources from './hooks/useCachedResources';
+import { reactNativeLink } from './lib/rspcReactNativeTransport';
 import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
@@ -25,7 +20,7 @@ import { onboardingStore } from './stores/onboardingStore';
 import type { Procedures } from './types/bindings';
 
 const client = createClient<Procedures>({
-	transport: new ReactNativeTransport()
+	links: [reactNativeLink()]
 });
 
 const NavigatorTheme: Theme = {

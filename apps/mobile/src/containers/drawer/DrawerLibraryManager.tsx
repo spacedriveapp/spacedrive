@@ -1,15 +1,15 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { MotiView } from 'moti';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/outline';
 import { ChevronRightIcon, CogIcon, PlusIcon } from 'react-native-heroicons/solid';
-import CreateLibraryDialog from '~/containers/dialog/CreateLibraryDialog';
 import tw from '~/lib/tailwind';
 import { useCurrentLibrary, useLibraryStore } from '~/stores/libraryStore';
 
 import { AnimatedHeight } from '../../components/animation/layout';
 import Divider from '../../components/primitive/Divider';
+import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 
 const DrawerLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);
