@@ -48,7 +48,7 @@ export function JobsManager() {
 			{/* <div className="z-10 flex flex-row w-full h-10 bg-gray-500 border-b border-gray-700 bg-opacity-30"></div> */}
 			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
 				<div className="py-1 pl-2">
-					<div className="fixed flex items-center h-10 ">
+					<div className="fixed flex items-center h-10">
 						<h3 className="mt-1.5 ml-2 text-md font-medium opacity-40">Recent Jobs</h3>
 					</div>
 					<div className="h-10"></div>
@@ -64,31 +64,28 @@ export function JobsManager() {
 								<Tooltip label={job.status}>
 									<niceData.icon className={clsx('w-5 mr-3', color)} />
 								</Tooltip>
-								<div className="flex flex-col">
-									<span className="flex mt-0.5 items-center font-semibold">{niceData.name}</span>
-									<div className="flex items-center">
-										<span className="text-xs opacity-60">
+								<div className="flex flex-1 flex-col">
+									<span className="mt-0.5 font-semibold">{niceData.name}</span>
+									<div className="flex items-center opacity-60">
+										<span className="text-xs">
 											{job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
 											{job.seconds_elapsed
 												? dayjs.duration({ seconds: job.seconds_elapsed }).humanize()
 												: 'less than a second'}
 										</span>
-										<span className="mx-1 opacity-30">&#8226;</span>
-										<span className="text-xs opacity-60">
-											{dayjs(job.date_created).toNow(true)} ago
-										</span>
+										<span className="mx-1 opacity-50">&#8226;</span>
+										<span className="text-xs">{dayjs(job.date_created).toNow(true)} ago</span>
 									</div>
-									<span className="text-xs opacity-60">{job.data}</span>
+									<span className="text-xs">{job.data}</span>
 								</div>
-								<div className="flex-grow" />
-								<div className="flex space-x-2">
+								<div className="space-x-2">
 									{job.status === 'Failed' && (
-										<Button className="!p-0 w-7 h-7 flex items-center" variant="gray">
-											<ArrowsClockwise className="w-4" />
+										<Button padding="thin" variant="gray">
+											<ArrowsClockwise className="w-4 h-4" />
 										</Button>
 									)}
-									<Button className="!p-0 w-7 h-7 flex items-center" variant="gray">
-										<XMarkIcon className="w-4" />
+									<Button padding="thin" variant="gray">
+										<XMarkIcon className="w-4 h-4" />
 									</Button>
 								</div>
 							</div>

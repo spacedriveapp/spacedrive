@@ -168,7 +168,7 @@ export function Sidebar() {
 
 			<Dropdown
 				buttonProps={{
-					justifyLeft: true,
+					justify: 'left',
 					className: clsx(
 						`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded !bg-gray-50 border-gray-150 hover:!bg-gray-1000 dark:!bg-gray-500 dark:hover:!bg-gray-500 dark:!border-gray-550 dark:hover:!border-gray-500`,
 						macOnly(
@@ -233,14 +233,10 @@ export function Sidebar() {
 
 			{library && <RunningJobsWidget />}
 
-			<div className="mt-2 mb-2">
+			<div className="mt-2 mb-3">
 				<NavLink to="/settings/general">
 					{({ isActive }) => (
-						<Button
-							noPadding
-							variant={'default'}
-							className={clsx('px-[4px] hover:!bg-opacity-20 mb-1')}
-						>
+						<Button padding="sm" variant="default" className={clsx('hover:!bg-opacity-20')}>
 							<CogIcon className="w-5 h-5" />
 						</Button>
 					)}
@@ -251,9 +247,9 @@ export function Sidebar() {
 					disabled={!library}
 					trigger={
 						<Button
-							noPadding
+							padding="sm"
 							className={clsx(
-								'px-[4px] !outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
+								'!outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
 							)}
 						>
 							<CheckCircle className="w-5 h-5" />
