@@ -388,12 +388,27 @@ async fn assemble_object_metadata(
 	let metadata = fs::metadata(&path).await?;
 
 	// derive Object kind
-	// TODO: remove all unwrap bozo
-	let mut file = std::fs::File::open(&path).unwrap();
-	let ext_str = path.extension().unwrap().to_str().unwrap();
-	let object_kind: ObjectKind = Extension::resolve_conflicting(ext_str, &mut file, true)
-		.map(Into::into)
-		.unwrap();
+	let object_kind: ObjectKind = match path.extension() {
+		Some(ext) => match ext.to_str() {
+			Some(ext) => {
+				let mut file = std::fs::File::open(&path).unwrap();
+				let resolved_ext = Extension::resolve_conflicting(ext, &mut file, true);
+
+				resolved_ext.map(Into::into).unwrap_or(ObjectKind::Unknown)
+			}
+			None => ObjectKind::Unknown,
+		},
+		None => ObjectKind::Unknown,
+	};
+
+	// let object_kind: ObjectKind = match path.extension() {
+	// 	Some(ext) => match ext.to_str() {
+	// 		Extension::resolve_conflicting(ext_str, &mut file, true).map(Into::into).unwrap()
+	// 	},
+	// 	None => {
+	// 		return ObjectKind::Document
+	// 	},
+	// };
 
 	// let date_created: DateTime<Utc> = metadata.created().unwrap().into();
 
