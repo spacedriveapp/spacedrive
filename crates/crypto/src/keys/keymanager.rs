@@ -26,9 +26,9 @@ use super::hashing::{HashingAlgorithm, HASHING_ALGORITHM_LIST};
 // The `hashed_key` refers to the value you'd pass to PVM/MD decryption functions. It has been pre-hashed with the content salt.
 // The content salt refers to the semi-universal salt that's used for metadata/preview media (unique to each key in the manager)
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StoredKey {
-	pub uuid: uuid::Uuid,                      // uuid for identification
+	pub uuid: uuid::Uuid,                      // uuid for identification. shared with mounted keys
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm to use for hashing everything related to this key. can't be changed once set.
 	pub salt: [u8; SALT_LEN],                // salt to hash the master password with
@@ -88,10 +88,66 @@ impl KeyManager {
 
 	/// This should ONLY be used within the key manager
 	fn get_master_password(&self) -> Result<Protected<Vec<u8>>, Error> {
-		match self.master_password.clone() {
-			Some(k) => Ok(k),
+		match &self.master_password {
+			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}
+	}
+
+	/// This function is used for emptying the entire keystore.
+	pub fn empty_keystore(&mut self) {
+		self.keystore.clear();
+
+	}
+
+	/// This function is used for unmounting all keys at once.
+	pub fn empty_keymount(&mut self) {
+		// i'm unsure whether or not `.clear()` also calls drop
+		// if it doesn't, we're going to need to find another way to call drop on these values
+		// that way they will be zeroized and removed from memory fully
+		self.keymount.clear();
+	}
+
+	/// This function can be used for comparing an array of `StoredKeys` to the currently loaded keystore.
+	pub fn compare_keystore(&self, supplied_keys: &[StoredKey]) -> Result<(), Error> {
+		if supplied_keys.len() != self.keystore.len() {
+			return Err(Error::KeystoreMismatch)
+		}
+
+		for key in supplied_keys {
+			let keystore_key = match self.keystore.get(&key.uuid) {
+				Some(key) => key,
+				None => return Err(Error::KeystoreMismatch),
+			};
+
+			if key != keystore_key {
+				return Err(Error::KeystoreMismatch)
+			}
+		}
+
+		Ok(())
+	}
+
+	pub fn unmount(&mut self, uuid: Uuid) -> Result<(), Error> {
+		if self.keymount.contains_key(&uuid) {
+			self.keymount.remove(&uuid);
+			Ok(())
+		} else {
+			Err(Error::KeyNotFound)
+		}
+	}
+
+	/// This function returns a Vec of `StoredKey`s, so you can write them somewhere/update the database with them/etc
+	/// 
+	/// The database and keystore should be in sync at ALL times
+	pub fn dump_keystore(&self) -> Result<Vec<StoredKey>, Error> {
+		let mut keys = Vec::<StoredKey>::new();
+
+		for (_, key) in &self.keystore {
+			keys.push(key.clone());
+		}
+		
+		Ok(keys)
 	}
 
 	/// This function does not return a value by design.
@@ -142,6 +198,7 @@ impl KeyManager {
 
 				// Construct the MountedKey and insert it into the Keymount
 				let mounted_key = MountedKey {
+					uuid: stored_key.uuid,
 					key,
 					content_salt: stored_key.content_salt,
 					hashed_keys,
@@ -157,7 +214,7 @@ impl KeyManager {
 
 	/// This function is for accessing the internal keymount.
 	/// We could add a log to this, so that the user can view accesses
-	pub fn access_mount(&self, uuid: Uuid) -> Result<MountedKey, Error> {
+	pub fn access_keymount(&self, uuid: Uuid) -> Result<MountedKey, Error> {
 		match self.keymount.get(&uuid) {
 			Some(key) => Ok(key.clone()),
 			None => Err(Error::KeyNotFound),
@@ -165,7 +222,7 @@ impl KeyManager {
 	}
 
 	/// This function is for accessing a `StoredKey` from an ID.
-	pub fn access_store(&self, uuid: Uuid) -> Result<StoredKey, Error> {
+	pub fn access_keystore(&self, uuid: Uuid) -> Result<StoredKey, Error> {
 		match self.keystore.get(&uuid) {
 			Some(key) => Ok(key.clone()),
 			None => Err(Error::KeyNotFound),
@@ -174,7 +231,7 @@ impl KeyManager {
 
 	/// This function is used to add a new key/password to the keystore.
 	/// It does not mount the key, it just registers it.
-	/// Once added, you will need to use `KeyManager::access_store()` to retrieve it and add it to Prisma.
+	/// Once added, you will need to use `KeyManager::access_keystore()` to retrieve it and add it to Prisma.
 	/// You may use the returned ID to identify this key.
 	pub fn add_to_keystore(
 		&mut self,
@@ -233,6 +290,7 @@ impl KeyManager {
 // derive explicit CLONES only
 #[derive(Clone)]
 pub struct MountedKey {
+	pub uuid: Uuid, // used for identification. shared with stored keys
 	pub key: Protected<Vec<u8>>, // the actual key itself, text format encodable (so it can be viewed with an UI)
 	pub content_salt: [u8; SALT_LEN], // the salt used for file data
 	pub hashed_keys: Vec<Protected<[u8; 32]>>, // this is hashed with the content salt, for instant access

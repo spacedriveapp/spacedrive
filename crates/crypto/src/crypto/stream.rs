@@ -128,6 +128,8 @@ impl StreamEncryption {
 				})?;
 
 				// zeroize before writing, so any potential errors won't result in a potential data leak
+				// this specific zeroize technically isn't needed due to the boxed slice, but performance impact is
+				// negligible and it's good practice either way
 				read_buffer.zeroize();
 
 				// Using `write` instead of `write_all` so we can check the amount of bytes written

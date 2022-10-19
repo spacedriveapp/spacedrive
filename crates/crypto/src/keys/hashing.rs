@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 /// These parameters define the password-hashing level.
 ///
 /// The harder the parameter, the longer the password will take to hash.
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Params {
 	Standard,
 	Hardened,
@@ -26,7 +26,7 @@ pub enum Params {
 }
 
 /// This defines all available password hashing algorithms.
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 }

@@ -42,4 +42,6 @@ pub enum Error {
 	NoDefaultKeySet,
 	#[error("no master password has been provided to the keymanager")]
 	NoMasterPassword,
+	#[error("mismatch between supplied keys and the keystore")]
+	KeystoreMismatch,
 }
