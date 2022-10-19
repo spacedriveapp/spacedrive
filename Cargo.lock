@@ -5167,6 +5167,7 @@ dependencies = [
  "rmp",
  "rmp-serde",
  "rspc",
+ "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
  "serde",
