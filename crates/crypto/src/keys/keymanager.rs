@@ -100,6 +100,10 @@ impl KeyManager {
 		Ok(())
 	}
 
+	pub fn has_master_password(&self) -> bool {
+		self.master_password.is_some()
+	}
+
 	/// This function is used for emptying the entire keystore.
 	pub fn empty_keystore(&mut self) {
 		self.keystore.clear();
