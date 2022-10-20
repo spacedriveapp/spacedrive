@@ -28,16 +28,6 @@ fn to_map(v: &impl serde::Serialize) -> serde_json::Map<String, Value> {
 	}
 }
 
-fn model_change(model: &str) {
-    return |ctx, args, invalidate| async move {
-        for event in ctx.event_channel.recv().await {
-            if event.model === model && event.record_id == args {
-                invalidate()
-            }
-        }
-    }
-}
-
 pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 	Router::new()
 		.config(Config::new().export_ts_bindings(
@@ -85,7 +75,6 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 
 				Ok(dbs.get(&id).unwrap().tags.clone())
 			})
-            .invalidate(model_change("database"))
 		})
 		.query("file_path.list", |r| {
 			r(|ctx, id: String| async move {

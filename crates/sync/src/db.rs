@@ -93,25 +93,32 @@ impl Db {
 	fn compare_messages(&self, operations: Vec<CRDTOperation>) -> Vec<(CRDTOperation, bool)> {
 		operations
 			.into_iter()
-			.map(|op| {
+			.map(|op| (op.id.clone(), op))
+			.collect::<HashMap<_, _>>()
+			.into_iter()
+			.map(|(_, op)| {
 				let old = match &op.typ {
-					CRDTOperationType::Owned(_) => false,
+					CRDTOperationType::Owned(_) => {
+						self._operations.iter().find(|find_op| match &find_op.typ {
+							CRDTOperationType::Owned(_) => {
+								find_op.timestamp >= op.timestamp && find_op.node == op.node
+							}
+							_ => false,
+						})
+					}
 					CRDTOperationType::Shared(shared_op) => {
-						let similar_op = self._operations.iter().find(|find_op| {
-							if let CRDTOperationType::Shared(find_shared_op) = &find_op.typ {
+						self._operations.iter().find(|find_op| match &find_op.typ {
+							CRDTOperationType::Shared(find_shared_op) => {
 								shared_op.model == find_shared_op.model
 									&& shared_op.record_id == find_shared_op.record_id
-									&& op.timestamp >= find_op.timestamp
-							} else {
-								false
+									&& find_op.timestamp >= op.timestamp
 							}
-						});
-
-						similar_op
-							.map(|similar_op| similar_op.timestamp == op.timestamp)
-							.unwrap_or(false)
+							_ => false,
+						})
 					}
-				};
+				}
+				.map(|similar_op| similar_op.timestamp == op.timestamp)
+				.unwrap_or(false);
 
 				(op, old)
 			})
@@ -188,9 +195,9 @@ impl Db {
 						_ => unreachable!(),
 					},
 				}
-			}
 
-			self._operations.push(push_op)
+				self._operations.push(push_op)
+			}
 		}
 	}
 }

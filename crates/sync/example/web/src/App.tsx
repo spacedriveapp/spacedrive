@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Suspense, useState } from 'react';
+import { PropsWithChildren, Suspense, useState } from 'react';
 
 import { CRDTOperationType, queryClient, rspc } from './utils/rspc';
 
