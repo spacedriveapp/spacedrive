@@ -62,50 +62,60 @@ if [ "$1" == "mobile" ]; then
         rustup target add x86_64-pc-windows-msvc    # for win32-x86-64-msvc
 fi
 
+KNOWN_DISTRO="(Debian|Ubuntu|RedHat|CentOS|openSUSE|Arch|Fedora)"
+DISTRO=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release 2>/dev/null | grep -Eo $KNOWN_DISTRO  || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s | grep -Eo $KNOWN_DISTRO  || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s)
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if which apt-get &> /dev/null; then
-                echo "Detected 'apt' based distro!"
-                
-                DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg" # FFMPEG dependencies
-                DEBIAN_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev" # Tauri dependencies
-                DEBIAN_BINDGEN_DEPS="pkg-config clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
-                
-                sudo apt-get -y update
-                sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
-        elif which pacman &> /dev/null; then
-                echo "Detected 'pacman' based distro!"
-                ARCH_TAURI_DEPS="webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips" # Tauri deps https://tauri.studio/guides/getting-started/setup/linux#1-system-dependencies
-                ARCH_FFMPEG_DEPS="ffmpeg" # FFMPEG dependencies
-                ARCH_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
+if [ $DISTRO = "Darwin" ]; then
+      if ! brew tap | grep spacedriveapp/deps > /dev/null; then
+        brew tap-new spacedriveapp/deps > /dev/null
+      fi
+      brew extract --force --version 5.0.1 ffmpeg spacedriveapp/deps > /dev/null
+      brew unlink ffmpeg &> /dev/null || true
+      brew install spacedriveapp/deps/ffmpeg@5.0.1 &> /dev/null
 
-                sudo pacman -Syu
-                sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS
-        elif which dnf &> /dev/null; then
-                echo "Detected 'dnf' based distro!"
-                FEDORA_TAURI_DEPS="webkit2gtk3-devel.x86_64 openssl-devel curl wget libappindicator-gtk3 librsvg2-devel" # Tauri dependencies
-                FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel" # FFMPEG dependencies
-                FEDORA_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
+      echo "ffmpeg v5.0.1 has been installed and is now being used on your system."
 
-                sudo dnf check-update
-                sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
-                sudo dnf group install "C Development Tools and Libraries"
-        else
-                echo "Your Linux distro '$(lsb_release -s -d)' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
-                exit 1
-        fi
+elif [ -f /etc/debian_version -o "$DISTRO" == "Debian" -o "$DISTRO" == "Ubuntu" ]; then
+        echo "Detected $DISTRO based distro!"
+        DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg" # FFMPEG dependencies
+        DEBIAN_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev" # Tauri dependencies
+        DEBIAN_BINDGEN_DEPS="pkg-config clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
 
-        echo "Your machine has been setup for Spacedrive development!"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-		if ! brew tap | grep spacedriveapp/deps > /dev/null; then
-			brew tap-new spacedriveapp/deps > /dev/null
-		fi
-		brew extract --force --version 5.0.1 ffmpeg spacedriveapp/deps > /dev/null
-		brew unlink ffmpeg &> /dev/null || true
-		brew install spacedriveapp/deps/ffmpeg@5.0.1 &> /dev/null
+        sudo apt-get -y update
+        sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
 
-		echo "ffmpeg v5.0.1 has been installed and is now being used on your system."
+elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
+        echo "Detected $DISTRO based distro!"
+        SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel" # Tauri dependencies
+        SUSE_FFMPEG_DEPS="ffmpeg-4 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel" # FFMPEG dependencies
+        SUSE_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
+
+        sudo zypper up
+        sudo zypper in $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
+        sudo zypper in -t pattern devel_basis
+
+elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
+        echo "Detected $DISTRO based distro!"
+        ARCH_TAURI_DEPS="webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips" # Tauri deps https://tauri.studio/guides/getting-started/setup/linux#1-system-dependencies
+        ARCH_FFMPEG_DEPS="ffmpeg" # FFMPEG dependencies
+        ARCH_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
+
+        sudo pacman -Syu
+        sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS
+
+elif [ -f /etc/redhat-release -o "$DISTRO" == "RedHat" -o "$DISTRO" == "CentOS" -o "$DISTRO" == "Fedora" ]; then
+        echo "Detected $DISTRO based distro!"
+        FEDORA_TAURI_DEPS="webkit2gtk3-devel.x86_64 openssl-devel curl wget libappindicator-gtk3 librsvg2-devel" # Tauri dependencies
+        FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel" # FFMPEG dependencies
+        FEDORA_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
+
+        sudo dnf check-update
+        sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
+        sudo dnf group install "C Development Tools and Libraries"
+
 else
-        echo "Your OS '$OSTYPE' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
+        echo "Your Linux distro '$(lsb_release -s -d)' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
         exit 1
 fi
+
+echo "Your machine has been setup for Spacedrive development!"

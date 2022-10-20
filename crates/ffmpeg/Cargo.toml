@@ -12,7 +12,7 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ffmpeg-sys-next = "5.1.1"
+ffmpeg-sys-next = "^4.4.0"
 thiserror = "1.0.37"
 webp = "0.2.2"
 tokio = { version = "1.21.2", features = ["fs", "rt"] }
