@@ -114,6 +114,7 @@ importers:
       sass: ^1.55.0
       sirv: ^2.0.2
       tailwind: ^4.0.0
+      tailwind-styled-components: 2.1.7
       ts-node: ^10.9.1
       tsparticles: ^2.3.4
       typescript: ^4.8.4
@@ -169,6 +170,7 @@ importers:
       rollup-plugin-visualizer: 5.8.3
       sass: 1.55.0
       tailwind: 4.0.0
+      tailwind-styled-components: 2.1.7_biqbaboplfbrettd7655fr4n2y
       vite-plugin-markdown: 2.1.0_vite@3.1.8
       vite-plugin-svgr: 2.2.2_vite@3.1.8
 
@@ -582,7 +584,6 @@ importers:
       react-loading-icons: 1.1.0
       react-router-dom: 6.4.2_biqbaboplfbrettd7655fr4n2y
       react-spring: 9.5.5_biqbaboplfbrettd7655fr4n2y
-      tailwind-styled-components: 2.1.7_biqbaboplfbrettd7655fr4n2y
       tailwindcss-radix: 2.6.0
     devDependencies:
       '@babel/core': 7.19.3
@@ -610,6 +611,7 @@ importers:
       storybook: 6.5.12_yalvw3r2waubxycyb7k7qsruca
       storybook-tailwind-dark-mode: 1.0.15_biqbaboplfbrettd7655fr4n2y
       style-loader: 3.3.1
+      tailwind-styled-components: 2.1.7_biqbaboplfbrettd7655fr4n2y
       tailwindcss: 3.1.8
       typescript: 4.8.4
 
@@ -7663,7 +7665,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.18.6_@babel+core@7.19.3
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 3.1.8
+      vite: 3.1.8_sass@1.55.0
     transitivePeerDependencies:
       - supports-color
 
@@ -8473,6 +8475,7 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
+    dev: false
 
   /autoprefixer/10.4.12_postcss@8.4.18:
     resolution: {integrity: sha512-WrCGV9/b97Pa+jtwf5UGaRjgQIg7OK3D06GnoYoZNcG1Xb8Gt3EfuKjlhh9i/VtT16g6PYjZ69jdJ2g8FxSC4Q==}
@@ -20061,7 +20064,6 @@ packages:
 
   /tailwind-merge/1.6.2:
     resolution: {integrity: sha512-/JbgwDwsI8F4aryXAcQ6tVOZvI/YyZqPqdkG/Dj/8XZq8JDp64XxZCIDbyp7/iOpIfWFkF8swEwjXQEQkAvJNw==}
-    dev: false
 
   /tailwind-styled-components/2.1.7_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-L20oQlwWM+kbYHIrwvvMQ0HHqt1Z/tInnO/Q9zM0IV/vqUxSIcLAmhMwbbiZmyXTdAVz84N4s1GtIyGODq80Pw==}
@@ -20072,7 +20074,6 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       tailwind-merge: 1.6.2
-    dev: false
 
   /tailwind/4.0.0:
     resolution: {integrity: sha512-LlUNoD/5maFG1h5kQ6/hXfFPdcnYw+1Z7z+kUD/W/E71CUMwcnrskxiBM8c3G8wmPsD1VvCuqGYMHviI8+yrmg==}
@@ -21825,7 +21826,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.1
       '@svgr/core': 6.5.0
-      vite: 3.1.8
+      vite: 3.1.8_sass@1.55.0
     transitivePeerDependencies:
       - rollup
       - supports-color

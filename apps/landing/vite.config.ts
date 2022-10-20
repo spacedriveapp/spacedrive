@@ -7,11 +7,16 @@ import svg from 'vite-plugin-svgr';
 
 export default defineConfig({
 	plugins: [react(), ssr({ prerender: true }), svg(), md({ mode: [Mode.REACT] }), visualizer()],
+	build: {
+		rollupOptions: {
+			output: {
+				format: 'cjs'
+			}
+		}
+	},
 	resolve: {
 		alias: {
-			'~/docs': __dirname + '../../../docs',
-			'@heroicons/react/24/solid': '@heroicons/react/24/solid/index.js',
-			'@heroicons/react/24/outline': '@heroicons/react/24/outline/index.js'
+			'~/docs': __dirname + '../../../docs'
 		}
 	},
 	server: {

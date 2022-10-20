@@ -1,14 +1,7 @@
-import {
-	getExplorerStore,
-	useExplorerStore,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
+import { getExplorerStore, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
-	FilePlus,
-	FileX,
 	LockSimple,
 	Package,
 	Plus,
@@ -18,7 +11,6 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
-import { useSnapshot } from 'valtio';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
@@ -28,12 +20,13 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 	return (
 		<>
-			{tags.data?.map((tag) => {
+			{tags.data?.map((tag, index) => {
 				const active = !!tagsForObject.data?.find((t) => t.id === tag.id);
 
 				return (
 					<CM.Item
 						key={tag.id}
+						keybind={`${index + 1}`}
 						onClick={(e) => {
 							e.preventDefault();
 							if (props.objectId === null) return;
@@ -66,18 +59,18 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 	return (
 		<div className="relative">
 			<CM.ContextMenu trigger={props.children}>
-				<CM.Item label="Open" />
+				<CM.Item label="Open" keybind="⌘O" />
 				<CM.Item label="Open with..." />
 
 				<CM.Separator />
 
-				<CM.Item label="Quick view" />
-				<CM.Item label="Open in Finder" />
+				<CM.Item label="Quick view" keybind="␣" />
+				<CM.Item label="Open in Finder" keybind="⌘Y" />
 
 				<CM.Separator />
 
 				<CM.Item label="Rename" />
-				<CM.Item label="Duplicate" />
+				<CM.Item label="Duplicate" keybind="⌘D" />
 
 				<CM.Separator />
 
@@ -103,8 +96,8 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 					</CM.SubMenu>
 				)}
 				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item label="Encrypt" icon={LockSimple} />
-					<CM.Item label="Compress" icon={Package} />
+					<CM.Item label="Encrypt" icon={LockSimple} keybind="⌘E" />
+					<CM.Item label="Compress" icon={Package} keybind="⌘B" />
 					<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 						<CM.Item label="PNG" />
 						<CM.Item label="WebP" />
@@ -114,7 +107,7 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 
 				<CM.Separator />
 
-				<CM.Item icon={Trash} label="Delete" variant="danger" />
+				<CM.Item icon={Trash} label="Delete" variant="danger" keybind="⌘DEL" />
 			</CM.ContextMenu>
 		</div>
 	);
