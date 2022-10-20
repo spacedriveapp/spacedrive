@@ -193,6 +193,8 @@ model Key {
   uuid         String    @unique
   // the name that the user sets
   name         String?
+  // is this key the default for encryption?
+  default      Boolean
   // nullable if concealed for security
   date_created DateTime? @default(now())
   // encryption algorithm used to encrypt the key
