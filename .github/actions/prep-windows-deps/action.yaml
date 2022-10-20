@@ -35,5 +35,3 @@ runs:
       working-directory: '${{ github.workspace }}/vcpkg'
       run: |
         .\vcpkg.exe integrate install
-        dir
-        dir packages
