@@ -19,13 +19,6 @@ export default defineConfig({
 			'~/docs': __dirname + '../../../docs'
 		}
 	},
-	build: {
-		rollupOptions: {
-			output: {
-				format: 'cjs'
-			}
-		}
-	},
 	server: {
 		port: 8003
 	},
