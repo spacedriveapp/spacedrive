@@ -1,5 +1,4 @@
 import { BottomSheetHandle, BottomSheetHandleProps } from '@gorhom/bottom-sheet';
-import React from 'react';
 
 import tw from '../../../lib/tailwind';
 

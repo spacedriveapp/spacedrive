@@ -13,23 +13,15 @@
 		"lint": "TIMING=1 eslint src --fix",
 		"clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
 	},
-	"jest": {
-		"preset": "scripts/jest/node"
-	},
 	"dependencies": {
-		"@rspc/client": "^0.1.2",
-		"@rspc/react": "^0.1.2",
+		"@rspc/client": "^0.0.0-main-7c0a67c1",
+		"@rspc/react": "^0.0.0-main-7c0a67c1",
 		"@sd/config": "workspace:*",
-		"@tanstack/react-query": "^4.10.1",
-		"eventemitter3": "^4.0.7",
-		"immer": "^9.0.15",
-		"lodash": "^4.17.21",
+		"@tanstack/react-query": "^4.12.0",
 		"valtio": "^1.7.0",
-		"valtio-persist": "^1.0.2",
-		"zustand": "4.1.1"
+		"valtio-persist": "^1.0.2"
 	},
 	"devDependencies": {
-		"@types/lodash": "^4.14.186",
 		"@types/react": "^18.0.21",
 		"scripts": "*",
 		"tsconfig": "*",

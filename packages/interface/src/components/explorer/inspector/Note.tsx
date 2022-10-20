@@ -1,8 +1,8 @@
 import { useLibraryMutation } from '@sd/client';
 import { Object as SDObject } from '@sd/client';
 import { TextArea } from '@sd/ui';
-import debounce from 'lodash/debounce';
 import { useCallback, useState } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { Divider } from './Divider';
 import { MetaItem } from './MetaItem';
@@ -19,18 +19,16 @@ export default function Note(props: Props) {
 
 	const { mutate: fileSetNote } = useLibraryMutation('files.setNote');
 
-	const debouncedNote = useCallback(
+	const debounce = useDebouncedCallback(
 		(note: string) =>
-			debounce(
-				() =>
-					fileSetNote({
-						id: props.data.id,
-						note
-					}),
-				2000
-			),
-		[props.data.id, fileSetNote]
+			fileSetNote({
+				id: props.data.id,
+				note
+			}),
+		2000
 	);
+
+	const debouncedNote = useCallback((note: string) => debounce(note), [props.data.id, fileSetNote]);
 
 	// when input is updated, cache note
 	function handleNoteUpdate(e: React.ChangeEvent<HTMLTextAreaElement>) {

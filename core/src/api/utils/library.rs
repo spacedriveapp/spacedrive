@@ -85,7 +85,7 @@ where
 		TArg: DeserializeOwned + specta::Type + Send + 'static,
 	{
 		self.query(key, move |t| {
-			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::new(t.data())).resolver);
+			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::from_builder(&t)).resolver);
 
 			t(move |ctx, arg: LibraryArgs<TArg>| {
 				let resolver = resolver.clone();
@@ -131,7 +131,7 @@ where
 		TArg: DeserializeOwned + specta::Type + Send + 'static,
 	{
 		self.mutation(key, move |t| {
-			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::new(t.data())).resolver);
+			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::from_builder(&t)).resolver);
 
 			t(move |ctx, arg: LibraryArgs<TArg>| {
 				let resolver = resolver.clone();
@@ -169,7 +169,7 @@ where
 		TResolver: Fn(Ctx, TArg, Uuid) -> TStream + Send + Sync + 'static,
 	{
 		self.subscription(key, |t| {
-			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::new(t.data())).resolver);
+			let resolver = Arc::new(builder(UnbuiltProcedureBuilder::from_builder(&t)).resolver);
 
 			t(move |ctx, arg: LibraryArgs<TArg>| {
 				// TODO(@Oscar): Upstream rspc work to allow this to work

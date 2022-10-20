@@ -1,17 +1,17 @@
 import { Select, SelectOption } from '@sd/ui';
-import { useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 
 import Slider from '../primitive/Slider';
 
-const Heading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-	<div className="text-xs font-semibold text-gray-300">{children}</div>
-);
+function Heading({ children }: PropsWithChildren) {
+	return <div className="text-xs font-semibold text-gray-300">{children}</div>;
+}
 
-const SubHeading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-	<div className="mb-1 text-xs font-medium text-gray-300">{children}</div>
-);
+function SubHeading({ children }: PropsWithChildren) {
+	return <div className="mb-1 text-xs font-medium text-gray-300">{children}</div>;
+}
 
-export const ExplorerOptionsPanel: React.FC = () => {
+export function ExplorerOptionsPanel() {
 	const [sortBy, setSortBy] = useState('name');
 	const [stackBy, setStackBy] = useState('kind');
 	const [size, setSize] = useState([50]);
@@ -44,4 +44,4 @@ export const ExplorerOptionsPanel: React.FC = () => {
 			</div>
 		</div>
 	);
-};
+}

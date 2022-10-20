@@ -2,9 +2,10 @@ import { CogIcon, LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useCurrentLibrary, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
-import { Button, Dropdown, OverlayPanel } from '@sd/ui';
+import { Button, CategoryHeading, Dropdown, OverlayPanel } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
+import { PropsWithChildren } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
@@ -14,7 +15,7 @@ import { JobsManager } from '../jobs/JobManager';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
 
-export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode }) => (
+export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => (
 	<NavLink {...props}>
 		{({ isActive }) => (
 			<span
@@ -35,10 +36,6 @@ export const SidebarLink = (props: NavLinkProps & { children: React.ReactNode })
 
 const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
-);
-
-const Heading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-	<div className="mt-5 mb-1 ml-1 text-xs font-semibold text-gray-300">{children}</div>
 );
 
 // cute little helper to decrease code clutter
@@ -71,7 +68,7 @@ function LibraryScopedSection() {
 	return (
 		<>
 			<div>
-				<Heading>Locations</Heading>
+				<CategoryHeading className="mt-5">Locations</CategoryHeading>
 				{locations?.map((location) => {
 					return (
 						<div key={location.id} className="flex flex-row items-center">
@@ -135,7 +132,7 @@ function LibraryScopedSection() {
 			</div>
 			{tags?.length ? (
 				<div>
-					<Heading>Tags</Heading>
+					<CategoryHeading className="mt-5">Tags</CategoryHeading>
 					<div className="mb-2">
 						{tags?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
@@ -171,7 +168,7 @@ export function Sidebar() {
 
 			<Dropdown
 				buttonProps={{
-					justifyLeft: true,
+					justify: 'left',
 					className: clsx(
 						`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded !bg-gray-50 border-gray-150 hover:!bg-gray-1000 dark:!bg-gray-500 dark:hover:!bg-gray-500 dark:!border-gray-550 dark:hover:!border-gray-500`,
 						macOnly(
@@ -236,14 +233,10 @@ export function Sidebar() {
 
 			{library && <RunningJobsWidget />}
 
-			<div className="mt-2 mb-2">
+			<div className="mt-2 mb-3">
 				<NavLink to="/settings/general">
 					{({ isActive }) => (
-						<Button
-							noPadding
-							variant={'default'}
-							className={clsx('px-[4px] hover:!bg-opacity-20 mb-1')}
-						>
+						<Button padding="sm" variant="default" className={clsx('hover:!bg-opacity-20')}>
 							<CogIcon className="w-5 h-5" />
 						</Button>
 					)}
@@ -254,9 +247,9 @@ export function Sidebar() {
 					disabled={!library}
 					trigger={
 						<Button
-							noPadding
+							padding="sm"
 							className={clsx(
-								'px-[4px] !outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
+								'!outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
 							)}
 						>
 							<CheckCircle className="w-5 h-5" />

@@ -14,6 +14,11 @@ export type Procedures = {
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node }> } | 
+        { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
+        { key: "normi.org", input: never, result: NormalisedOrganisation } | 
+        { key: "normi.user", input: never, result: NormalisedUser } | 
+        { key: "normi.userSync", input: never, result: NormalisedUser } | 
+        { key: "normi.version", input: never, result: string } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getExplorerData", input: LibraryArgs<number>, result: ExplorerData } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Array<Tag> } | 
@@ -26,6 +31,7 @@ export type Procedures = {
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
+        { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "library.create", input: string, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
@@ -91,7 +97,17 @@ export interface NodeConfig { version: string | null, id: string, name: string, 
 
 export interface NodeState { version: string | null, id: string, name: string, p2p_port: number | null, data_path: string }
 
+export interface NormalisedCompositeId { $type: string, $id: any, org_id: string, user_id: string }
+
+export interface NormalisedOrganisation { $type: string, $id: any, id: string, name: string, users: NormalizedVec<NormalisedUser>, owner: NormalisedUser, non_normalised_data: Array<null> }
+
+export interface NormalisedUser { $type: string, $id: any, id: string, name: string }
+
+export interface NormalizedVec<T> { $type: string, edges: Array<T> }
+
 export interface Object { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
+
+export interface ObjectValidatorArgs { id: number, path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 

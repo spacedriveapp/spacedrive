@@ -3,11 +3,15 @@
 	"version": "1.0.0",
 	"main": "index.js",
 	"license": "GPL-3.0-only",
+	"private": true,
 	"scripts": {
 		"start": "expo start --dev-client",
 		"android": "expo run:android",
 		"ios": "expo run:ios",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
+		"xcode": "open ios/spacedrive.xcworkspace",
+		"android-studio": "open -a '/Applications/Android Studio.app' ./android",
+		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
+		"postinstall": "node scripts/postinstall.js"
 	},
 	"dependencies": {
 		"@gorhom/bottom-sheet": "^4.4.3",
@@ -17,10 +21,11 @@
 		"@react-navigation/drawer": "^6.4.4",
 		"@react-navigation/native": "^6.0.12",
 		"@react-navigation/stack": "^6.2.3",
-		"@rspc/client": "^0.1.2",
-		"@rspc/react": "^0.1.2",
-		"@sd/assets": "file:../../packages/assets",
-		"@tanstack/react-query": "^4.2.3",
+		"@rspc/client": "^0.0.0-main-7c0a67c1",
+		"@rspc/react": "^0.0.0-main-7c0a67c1",
+		"@sd/assets": "workspace:*",
+		"@sd/client": "workspace:*",
+		"@tanstack/react-query": "^4.12.0",
 		"byte-size": "^8.1.0",
 		"class-variance-authority": "^0.2.3",
 		"date-fns": "^2.29.2",
@@ -28,7 +33,6 @@
 		"expo-linking": "~3.2.2",
 		"expo-splash-screen": "~0.16.2",
 		"expo-status-bar": "~1.4.0",
-		"immer": "^9.0.15",
 		"intl": "^1.2.5",
 		"lottie-react-native": "^5.1.4",
 		"moti": "^0.18.0",
@@ -64,6 +68,5 @@
 		"metro-minify-terser": "^0.72.1",
 		"react-native-svg-transformer": "^1.0.0",
 		"typescript": "^4.7.4"
-	},
-	"private": true
+	}
 }

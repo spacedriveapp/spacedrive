@@ -14,6 +14,13 @@ export default defineConfig({
 			'@heroicons/react/24/outline': '@heroicons/react/24/outline/index.js'
 		}
 	},
+	build: {
+		rollupOptions: {
+			output: {
+				format: 'cjs'
+			}
+		}
+	},
 	server: {
 		port: 8003
 	},
