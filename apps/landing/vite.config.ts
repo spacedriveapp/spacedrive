@@ -1,12 +1,20 @@
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
+import esm from 'vite-plugin-esmodule';
 import md, { Mode } from 'vite-plugin-markdown';
 import ssr from 'vite-plugin-ssr/plugin';
 import svg from 'vite-plugin-svgr';
 
 export default defineConfig({
-	plugins: [react(), ssr({ prerender: true }), svg(), md({ mode: [Mode.REACT] }), visualizer()],
+	plugins: [
+		react(),
+		ssr({ prerender: true }),
+		svg(),
+		md({ mode: [Mode.REACT] }),
+		visualizer(),
+		esm(['tailwind-styled-components', '@radix-ui/react-tabs'])
+	],
 	resolve: {
 		alias: {
 			'~/docs': __dirname + '../../../docs',
@@ -14,13 +22,7 @@ export default defineConfig({
 			'@heroicons/react/24/outline': '@heroicons/react/24/outline/index.js'
 		}
 	},
-	build: {
-		rollupOptions: {
-			output: {
-				format: 'cjs'
-			}
-		}
-	},
+
 	server: {
 		port: 8003
 	},

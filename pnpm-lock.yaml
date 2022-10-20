@@ -116,6 +116,7 @@ importers:
       tsparticles: ^2.3.4
       typescript: ^4.8.4
       vite: ^3.1.4
+      vite-plugin-esmodule: ^1.4.4
       vite-plugin-markdown: ^2.1.0
       vite-plugin-ssr: ^0.4.39
       vite-plugin-svgr: ^2.2.1
@@ -167,6 +168,7 @@ importers:
       rollup-plugin-visualizer: 5.8.3
       sass: 1.55.0
       tailwind: 4.0.0
+      vite-plugin-esmodule: 1.4.4
       vite-plugin-markdown: 2.1.0_vite@3.1.8
       vite-plugin-svgr: 2.2.2_vite@3.1.8
 
@@ -249,7 +251,7 @@ importers:
       moti: 0.18.0_react@18.0.0
       phosphor-react-native: 1.1.2_ipumakbosk2s7ylysjmrulvctq
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-gesture-handler: 2.5.0_jk6ntyzimkrv4hwdmdgaaf5yaa
       react-native-heroicons: 2.2.0_wxlif5cfng7xfd3uerlw46xcs4
       react-native-reanimated: 2.10.0_ifayjdo6vuwky63y7hdw4ayxzu
@@ -357,7 +359,7 @@ importers:
       '@types/node': 18.11.2
       autoprefixer: 10.4.12_postcss@8.4.18
       postcss: 8.4.18
-      tailwindcss: 3.1.8_postcss@8.4.18
+      tailwindcss: 3.1.8
       typescript: 4.8.4
       vite: 3.1.8
       vite-plugin-solid: 2.3.9_solid-js@1.5.9+vite@3.1.8
@@ -555,7 +557,7 @@ importers:
       storybook: ^6.5.12
       storybook-tailwind-dark-mode: ^1.0.15
       style-loader: ^3.3.1
-      tailwind-styled-components: 2.1.7
+      tailwind-styled-components: 2.2.0
       tailwindcss: ^3.1.8
       tailwindcss-radix: ^2.6.0
       typescript: ^4.8.4
@@ -578,7 +580,7 @@ importers:
       react-loading-icons: 1.1.0
       react-router-dom: 6.4.2_biqbaboplfbrettd7655fr4n2y
       react-spring: 9.5.5_biqbaboplfbrettd7655fr4n2y
-      tailwind-styled-components: 2.1.7_biqbaboplfbrettd7655fr4n2y
+      tailwind-styled-components: 2.2.0_biqbaboplfbrettd7655fr4n2y
       tailwindcss-radix: 2.6.1
     devDependencies:
       '@babel/core': 7.19.3
@@ -606,7 +608,7 @@ importers:
       storybook: 6.5.12_yalvw3r2waubxycyb7k7qsruca
       storybook-tailwind-dark-mode: 1.0.15_biqbaboplfbrettd7655fr4n2y
       style-loader: 3.3.1
-      tailwindcss: 3.1.8_postcss@8.4.18
+      tailwindcss: 3.1.8
       typescript: 4.8.4
 
 packages:
@@ -2144,8 +2146,8 @@ packages:
       '@cspell/dict-docker': 1.1.1
       '@cspell/dict-dotnet': 2.0.1
       '@cspell/dict-elixir': 2.0.1
-      '@cspell/dict-en-gb': 1.1.33
       '@cspell/dict-en_us': 2.3.3
+      '@cspell/dict-en-gb': 1.1.33
       '@cspell/dict-filetypes': 2.1.1
       '@cspell/dict-fonts': 2.1.0
       '@cspell/dict-fullstack': 2.0.6
@@ -2880,7 +2882,7 @@ packages:
       '@gorhom/portal': 1.0.14_jk6ntyzimkrv4hwdmdgaaf5yaa
       invariant: 2.2.4
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-gesture-handler: 2.5.0_jk6ntyzimkrv4hwdmdgaaf5yaa
       react-native-reanimated: 2.10.0_ifayjdo6vuwky63y7hdw4ayxzu
     dev: false
@@ -2893,7 +2895,7 @@ packages:
     dependencies:
       nanoid: 3.3.4
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
     dev: false
 
   /@graphql-typed-document-node/core/3.1.1_graphql@15.8.0:
@@ -3942,7 +3944,7 @@ packages:
       react-native: ^0.0.0-0 || 0.60 - 0.70 || 1000.0.0
     dependencies:
       merge-options: 3.0.4
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
     dev: false
 
   /@react-native-community/cli-clean/8.0.4:
@@ -4035,7 +4037,7 @@ packages:
     transitivePeerDependencies:
       - encoding
 
-  /@react-native-community/cli-plugin-metro/8.0.4_@babel+core@7.19.3:
+  /@react-native-community/cli-plugin-metro/8.0.4:
     resolution: {integrity: sha512-UWzY1eMcEr/6262R2+d0Is5M3L/7Y/xXSDIFMoc5Rv5Wucl3hJM/TxHXmByvHpuJf6fJAfqOskyt4bZCvbI+wQ==}
     dependencies:
       '@react-native-community/cli-server-api': 8.0.4
@@ -4044,12 +4046,11 @@ packages:
       metro: 0.70.3
       metro-config: 0.70.3
       metro-core: 0.70.3
-      metro-react-native-babel-transformer: 0.70.3_@babel+core@7.19.3
+      metro-react-native-babel-transformer: 0.70.3
       metro-resolver: 0.70.3
       metro-runtime: 0.70.3
       readline: 1.3.0
     transitivePeerDependencies:
-      - '@babel/core'
       - bufferutil
       - encoding
       - supports-color
@@ -4094,7 +4095,7 @@ packages:
     dependencies:
       joi: 17.6.3
 
-  /@react-native-community/cli/8.0.6_2wrsnxuq7u2kmzd6diim7k7fvu:
+  /@react-native-community/cli/8.0.6_react-native@0.69.4:
     resolution: {integrity: sha512-E36hU/if3quQCfJHGWVkpsCnwtByRCwORuAX0r6yr1ebKktpKeEO49zY9PAu/Z1gfyxCtgluXY0HfRxjKRFXTg==}
     engines: {node: '>=12'}
     hasBin: true
@@ -4106,7 +4107,7 @@ packages:
       '@react-native-community/cli-debugger-ui': 8.0.0
       '@react-native-community/cli-doctor': 8.0.6
       '@react-native-community/cli-hermes': 8.0.5
-      '@react-native-community/cli-plugin-metro': 8.0.4_@babel+core@7.19.3
+      '@react-native-community/cli-plugin-metro': 8.0.4
       '@react-native-community/cli-server-api': 8.0.4
       '@react-native-community/cli-tools': 8.0.4
       '@react-native-community/cli-types': 8.0.0
@@ -4120,10 +4121,9 @@ packages:
       lodash: 4.17.21
       minimist: 1.2.7
       prompts: 2.4.2
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       semver: 6.3.0
     transitivePeerDependencies:
-      - '@babel/core'
       - bufferutil
       - encoding
       - supports-color
@@ -4136,7 +4136,7 @@ packages:
       react-native: '>=0.57'
     dependencies:
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
     dev: false
 
   /@react-native/assets/1.0.0:
@@ -4161,7 +4161,7 @@ packages:
       '@react-navigation/native': 6.0.13_jk6ntyzimkrv4hwdmdgaaf5yaa
       color: 4.2.3
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-safe-area-context: 4.3.1_jk6ntyzimkrv4hwdmdgaaf5yaa
       react-native-screens: 3.15.0_jk6ntyzimkrv4hwdmdgaaf5yaa
       warn-once: 0.1.1
@@ -4196,7 +4196,7 @@ packages:
       '@react-navigation/native': 6.0.13_jk6ntyzimkrv4hwdmdgaaf5yaa
       color: 4.2.3
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-gesture-handler: 2.5.0_jk6ntyzimkrv4hwdmdgaaf5yaa
       react-native-reanimated: 2.10.0_ifayjdo6vuwky63y7hdw4ayxzu
       react-native-safe-area-context: 4.3.1_jk6ntyzimkrv4hwdmdgaaf5yaa
@@ -4214,7 +4214,7 @@ packages:
     dependencies:
       '@react-navigation/native': 6.0.13_jk6ntyzimkrv4hwdmdgaaf5yaa
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-safe-area-context: 4.3.1_jk6ntyzimkrv4hwdmdgaaf5yaa
     dev: false
 
@@ -4229,7 +4229,7 @@ packages:
       fast-deep-equal: 3.1.3
       nanoid: 3.3.4
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
     dev: false
 
   /@react-navigation/routers/6.1.3:
@@ -4252,7 +4252,7 @@ packages:
       '@react-navigation/native': 6.0.13_jk6ntyzimkrv4hwdmdgaaf5yaa
       color: 4.2.3
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-gesture-handler: 2.5.0_jk6ntyzimkrv4hwdmdgaaf5yaa
       react-native-safe-area-context: 4.3.1_jk6ntyzimkrv4hwdmdgaaf5yaa
       react-native-screens: 3.15.0_jk6ntyzimkrv4hwdmdgaaf5yaa
@@ -4408,7 +4408,7 @@ packages:
       '@rnx-kit/tools-node': 1.3.0
       '@rnx-kit/tools-workspaces': 0.1.1
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
     transitivePeerDependencies:
       - '@babel/core'
       - '@babel/plugin-transform-typescript'
@@ -6223,7 +6223,7 @@ packages:
       tailwindcss: '>=3.0.0 || >= 3.0.0-alpha.1'
     dependencies:
       mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.1.8_postcss@8.4.18
+      tailwindcss: 3.1.8
     dev: false
 
   /@tailwindcss/line-clamp/0.4.2:
@@ -6237,7 +6237,7 @@ packages:
     peerDependencies:
       tailwindcss: '>=2.0.0 || >=3.0.0 || >=3.0.0-alpha.1'
     dependencies:
-      tailwindcss: 3.1.8_postcss@8.4.18
+      tailwindcss: 3.1.8
     dev: true
 
   /@tailwindcss/typography/0.5.7:
@@ -6260,7 +6260,7 @@ packages:
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       postcss-selector-parser: 6.0.10
-      tailwindcss: 3.1.8_postcss@8.4.18
+      tailwindcss: 3.1.8
     dev: true
 
   /@tanstack/match-sorter-utils/8.5.14:
@@ -6341,7 +6341,7 @@ packages:
     dependencies:
       '@tanstack/query-core': 4.12.0
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       use-sync-external-store: 1.2.0_react@18.0.0
     dev: false
 
@@ -6640,13 +6640,13 @@ packages:
     resolution: {integrity: sha512-9K4zoImiZc3HlIp6AVUDE4CWYx22a+lhSZMYNpbjW04+YF0KWj4pJXnEMjdnFTiQibFFmElcsasJXDbdI/EPhA==}
     dependencies:
       '@types/eslint': 8.4.6
-      '@types/estree': 0.0.51
+      '@types/estree': 1.0.0
     dev: true
 
   /@types/eslint/8.4.6:
     resolution: {integrity: sha512-/fqTbjxyFUaYNO7VcW5g+4npmqVACz1bB7RTHYuLj+PRjw9hrCwrUXVQFpChUS0JsyEFvMZ7U/PfmvWgxJhI9g==}
     dependencies:
-      '@types/estree': 0.0.51
+      '@types/estree': 1.0.0
       '@types/json-schema': 7.0.11
     dev: true
 
@@ -6911,7 +6911,6 @@ packages:
     dependencies:
       tailwindcss: 3.1.8
     transitivePeerDependencies:
-      - postcss
       - ts-node
     dev: true
 
@@ -8020,7 +8019,6 @@ packages:
       normalize-range: 0.1.2
       picocolors: 1.0.0
       postcss-value-parser: 4.2.0
-    dev: false
 
   /autoprefixer/10.4.12_postcss@8.4.18:
     resolution: {integrity: sha512-WrCGV9/b97Pa+jtwf5UGaRjgQIg7OK3D06GnoYoZNcG1Xb8Gt3EfuKjlhh9i/VtT16g6PYjZ69jdJ2g8FxSC4Q==}
@@ -8267,7 +8265,7 @@ packages:
       '@babel/preset-env': 7.19.4_@babel+core@7.19.3
       babel-plugin-module-resolver: 4.1.0
       babel-plugin-react-native-web: 0.18.9
-      metro-react-native-babel-preset: 0.70.3_@babel+core@7.19.3
+      metro-react-native-babel-preset: 0.70.3
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
@@ -8771,7 +8769,7 @@ packages:
       mississippi: 3.0.0
       mkdirp: 0.5.6
       move-concurrently: 1.0.1
-      promise-inflight: 1.0.1_bluebird@3.7.2
+      promise-inflight: 1.0.1
       rimraf: 2.7.1
       ssri: 6.0.2
       unique-filename: 1.1.1
@@ -13772,6 +13770,10 @@ packages:
       type-check: 0.4.0
     dev: true
 
+  /lib-esm/0.3.0:
+    resolution: {integrity: sha512-P7YcG7OnoaGL2h4j46g/m0P2xHMXlYf+0iCDvVrEfzUVxLe+abytgd2VjUhj9puqEgqRGEDbT504YWj75jHacA==}
+    dev: true
+
   /lilconfig/2.0.6:
     resolution: {integrity: sha512-9JROoBW7pobfsx+Sq2JsASvCo6Pfo6WWoUW79HuB1BCoBXD4PLWJPqDF6fNj67pqBYTbAHkE57M1kS/+L1neOg==}
     engines: {node: '>=10'}
@@ -13972,7 +13974,7 @@ packages:
     dependencies:
       invariant: 2.2.4
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-safe-modules: 1.0.3_react-native@0.69.4
     dev: false
 
@@ -14365,10 +14367,8 @@ packages:
     dependencies:
       uglify-es: 3.3.9
 
-  /metro-react-native-babel-preset/0.70.3_@babel+core@7.19.3:
+  /metro-react-native-babel-preset/0.70.3:
     resolution: {integrity: sha512-4Nxc1zEiHEu+GTdEMEsHnRgfaBkg8f/Td3+FcQ8NTSvs+xL3LBrQy6N07idWSQZHIdGFf+tTHvRfSIWLD8u8Tg==}
-    peerDependencies:
-      '@babel/core': '*'
     dependencies:
       '@babel/core': 7.19.3
       '@babel/plugin-proposal-async-generator-functions': 7.19.1_@babel+core@7.19.3
@@ -14412,16 +14412,14 @@ packages:
     transitivePeerDependencies:
       - supports-color
 
-  /metro-react-native-babel-transformer/0.70.3_@babel+core@7.19.3:
+  /metro-react-native-babel-transformer/0.70.3:
     resolution: {integrity: sha512-WKBU6S/G50j9cfmFM4k4oRYprd8u3qjleD4so1E2zbTNILg+gYla7ZFGCAvi2G0ZcqS2XuGCR375c2hF6VVvwg==}
-    peerDependencies:
-      '@babel/core': '*'
     dependencies:
       '@babel/core': 7.19.3
       babel-preset-fbjs: 3.4.0_@babel+core@7.19.3
       hermes-parser: 0.6.0
       metro-babel-transformer: 0.70.3
-      metro-react-native-babel-preset: 0.70.3_@babel+core@7.19.3
+      metro-react-native-babel-preset: 0.70.3
       metro-source-map: 0.70.3
       nullthrows: 1.1.1
     transitivePeerDependencies:
@@ -14534,7 +14532,7 @@ packages:
       metro-hermes-compiler: 0.70.3
       metro-inspector-proxy: 0.70.3
       metro-minify-uglify: 0.70.3
-      metro-react-native-babel-preset: 0.70.3_@babel+core@7.19.3
+      metro-react-native-babel-preset: 0.70.3
       metro-resolver: 0.70.3
       metro-runtime: 0.70.3
       metro-source-map: 0.70.3
@@ -15611,7 +15609,7 @@ packages:
     dependencies:
       caniuse-lite: 1.0.30001421
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-svg: 13.0.0_jk6ntyzimkrv4hwdmdgaaf5yaa
     dev: false
 
@@ -15744,16 +15742,6 @@ packages:
       postcss: 7.0.39
     dev: true
 
-  /postcss-import/14.1.0:
-    resolution: {integrity: sha512-flwI+Vgm4SElObFVPpTIT7SU7R3qk2L7PyduMcokiaVKuWv9d/U+Gm/QAd8NDLuykTWTkcrjOeD2Pp1rMeBTGw==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      postcss: ^8.0.0
-    dependencies:
-      postcss-value-parser: 4.2.0
-      read-cache: 1.0.0
-      resolve: 1.22.1
-
   /postcss-import/14.1.0_postcss@8.4.18:
     resolution: {integrity: sha512-flwI+Vgm4SElObFVPpTIT7SU7R3qk2L7PyduMcokiaVKuWv9d/U+Gm/QAd8NDLuykTWTkcrjOeD2Pp1rMeBTGw==}
     engines: {node: '>=10.0.0'}
@@ -15765,14 +15753,6 @@ packages:
       read-cache: 1.0.0
       resolve: 1.22.1
 
-  /postcss-js/4.0.0:
-    resolution: {integrity: sha512-77QESFBwgX4irogGVPgQ5s07vLvFqWr228qZY+w6lW599cRlK/HmnlivnnVUxkjHnCu4J16PDMHcH+e+2HbvTQ==}
-    engines: {node: ^12 || ^14 || >= 16}
-    peerDependencies:
-      postcss: ^8.3.3
-    dependencies:
-      camelcase-css: 2.0.1
-
   /postcss-js/4.0.0_postcss@8.4.18:
     resolution: {integrity: sha512-77QESFBwgX4irogGVPgQ5s07vLvFqWr228qZY+w6lW599cRlK/HmnlivnnVUxkjHnCu4J16PDMHcH+e+2HbvTQ==}
     engines: {node: ^12 || ^14 || >= 16}
@@ -15781,21 +15761,6 @@ packages:
     dependencies:
       camelcase-css: 2.0.1
       postcss: 8.4.18
-
-  /postcss-load-config/3.1.4:
-    resolution: {integrity: sha512-6DiM4E7v4coTE4uzA8U//WhtPwyhiim3eyjEMFCnUpzbrkK9wJHgKDT2mR+HbtSrd/NubVaYTOpSpjUl8NQeRg==}
-    engines: {node: '>= 10'}
-    peerDependencies:
-      postcss: '>=8.0.9'
-      ts-node: '>=9.0.0'
-    peerDependenciesMeta:
-      postcss:
-        optional: true
-      ts-node:
-        optional: true
-    dependencies:
-      lilconfig: 2.0.6
-      yaml: 1.10.2
 
   /postcss-load-config/3.1.4_postcss@8.4.18:
     resolution: {integrity: sha512-6DiM4E7v4coTE4uzA8U//WhtPwyhiim3eyjEMFCnUpzbrkK9wJHgKDT2mR+HbtSrd/NubVaYTOpSpjUl8NQeRg==}
@@ -15929,14 +15894,6 @@ packages:
       icss-utils: 5.1.0_postcss@8.4.18
       postcss: 8.4.18
     dev: true
-
-  /postcss-nested/5.0.6:
-    resolution: {integrity: sha512-rKqm2Fk0KbA8Vt3AdGN0FB9OBOMDVajMG6ZCf/GoHgdxUJ4sBFp0A/uMIRm+MJUdo33YXEtjqIz8u7DAp8B7DA==}
-    engines: {node: '>=12.0'}
-    peerDependencies:
-      postcss: ^8.2.14
-    dependencies:
-      postcss-selector-parser: 6.0.10
 
   /postcss-nested/5.0.6_postcss@8.4.18:
     resolution: {integrity: sha512-rKqm2Fk0KbA8Vt3AdGN0FB9OBOMDVajMG6ZCf/GoHgdxUJ4sBFp0A/uMIRm+MJUdo33YXEtjqIz8u7DAp8B7DA==}
@@ -16077,17 +16034,6 @@ packages:
     peerDependenciesMeta:
       bluebird:
         optional: true
-
-  /promise-inflight/1.0.1_bluebird@3.7.2:
-    resolution: {integrity: sha512-6zWPyEOFaQBJYcGMHBKTKJ3u6TBsnMFOIZSa6ce1e/ZrrsOlnHRHbabMjLiBYKp+n44X9eUI6VUPaukCXHuG4g==}
-    peerDependencies:
-      bluebird: '*'
-    peerDependenciesMeta:
-      bluebird:
-        optional: true
-    dependencies:
-      bluebird: 3.7.2
-    dev: true
 
   /promise.allsettled/1.0.5:
     resolution: {integrity: sha512-tVDqeZPoBC0SlzJHzWGZ2NKAguVq2oiYj7gbggbiTvH2itHohijTp7njOUA0aQ/nl+0lr/r6egmhoYu63UZ/pQ==}
@@ -16580,7 +16526,7 @@ packages:
       lodash: 4.17.21
       prop-types: 15.8.1
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
     dev: false
 
   /react-native-gradle-plugin/0.0.7:
@@ -16610,7 +16556,7 @@ packages:
       invariant: 2.2.4
       lodash.isequal: 4.5.0
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       setimmediate: 1.0.5
       string-hash-64: 1.0.3
     transitivePeerDependencies:
@@ -16624,7 +16570,7 @@ packages:
       react-native: '*'
     dependencies:
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
     dev: false
 
   /react-native-safe-modules/1.0.3_react-native@0.69.4:
@@ -16633,7 +16579,7 @@ packages:
       react-native: '*'
     dependencies:
       dedent: 0.6.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
     dev: false
 
   /react-native-screens/3.15.0_jk6ntyzimkrv4hwdmdgaaf5yaa:
@@ -16644,7 +16590,7 @@ packages:
     dependencies:
       react: 18.0.0
       react-freeze: 1.0.3_react@18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       warn-once: 0.1.1
     dev: false
 
@@ -16657,7 +16603,7 @@ packages:
       '@svgr/core': 6.5.0
       '@svgr/plugin-svgo': 6.5.0_@svgr+core@6.5.0
       path-dirname: 1.0.2
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       react-native-svg: 13.0.0_jk6ntyzimkrv4hwdmdgaaf5yaa
     transitivePeerDependencies:
       - supports-color
@@ -16672,9 +16618,9 @@ packages:
       css-select: 5.1.0
       css-tree: 1.1.3
       react: 18.0.0
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
 
-  /react-native/0.69.4_qwcebhcz7kt2t6qvska3nnpfdm:
+  /react-native/0.69.4_react@18.0.0:
     resolution: {integrity: sha512-rqNMialM/T4pHRKWqTIpOxA65B/9kUjtnepxwJqvsdCeMP9Q2YdSx4VASFR9RoEFYcPRU41yGf6EKrChNfns3g==}
     engines: {node: '>=14'}
     hasBin: true
@@ -16682,7 +16628,7 @@ packages:
       react: 18.0.0
     dependencies:
       '@jest/create-cache-key-function': 27.5.1
-      '@react-native-community/cli': 8.0.6_2wrsnxuq7u2kmzd6diim7k7fvu
+      '@react-native-community/cli': 8.0.6_react-native@0.69.4
       '@react-native-community/cli-platform-android': 8.0.5
       '@react-native-community/cli-platform-ios': 8.0.6
       '@react-native/assets': 1.0.0
@@ -16696,7 +16642,7 @@ packages:
       invariant: 2.2.4
       jsc-android: 250230.2.1
       memoize-one: 5.2.1
-      metro-react-native-babel-transformer: 0.70.3_@babel+core@7.19.3
+      metro-react-native-babel-transformer: 0.70.3
       metro-runtime: 0.70.3
       metro-source-map: 0.70.3
       mkdirp: 0.5.6
@@ -16716,7 +16662,6 @@ packages:
       whatwg-fetch: 3.6.2
       ws: 6.2.2
     transitivePeerDependencies:
-      - '@babel/core'
       - '@babel/preset-env'
       - bufferutil
       - encoding
@@ -18474,8 +18419,8 @@ packages:
     resolution: {integrity: sha512-/JbgwDwsI8F4aryXAcQ6tVOZvI/YyZqPqdkG/Dj/8XZq8JDp64XxZCIDbyp7/iOpIfWFkF8swEwjXQEQkAvJNw==}
     dev: false
 
-  /tailwind-styled-components/2.1.7_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-L20oQlwWM+kbYHIrwvvMQ0HHqt1Z/tInnO/Q9zM0IV/vqUxSIcLAmhMwbbiZmyXTdAVz84N4s1GtIyGODq80Pw==}
+  /tailwind-styled-components/2.2.0_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-Ogemwk0p69aU8WE/ooJZHjqstdJgT5R6HGU6TFz2uSnveSEtvW+C6aWOjGCvCr5H/bREv0IbbQ4yODknRrLBRQ==}
     peerDependencies:
       react: '>= 16.8.0'
       react-dom: '>= 16.8.0'
@@ -18529,39 +18474,6 @@ packages:
     resolution: {integrity: sha512-YSneUCZSFDYMwk+TGq8qYFdCA3yfBRdBlS7txSq0LUmzyeqRe3a8fBQzbz9M3WS/iFT4BNf/nmw9mEzrnSaC0g==}
     engines: {node: '>=12.13.0'}
     hasBin: true
-    peerDependencies:
-      postcss: ^8.0.9
-    dependencies:
-      arg: 5.0.2
-      chokidar: 3.5.3
-      color-name: 1.1.4
-      detective: 5.2.1
-      didyoumean: 1.2.2
-      dlv: 1.1.3
-      fast-glob: 3.2.12
-      glob-parent: 6.0.2
-      is-glob: 4.0.3
-      lilconfig: 2.0.6
-      normalize-path: 3.0.0
-      object-hash: 3.0.0
-      picocolors: 1.0.0
-      postcss-import: 14.1.0
-      postcss-js: 4.0.0
-      postcss-load-config: 3.1.4
-      postcss-nested: 5.0.6
-      postcss-selector-parser: 6.0.10
-      postcss-value-parser: 4.2.0
-      quick-lru: 5.1.1
-      resolve: 1.22.1
-    transitivePeerDependencies:
-      - ts-node
-
-  /tailwindcss/3.1.8_postcss@8.4.18:
-    resolution: {integrity: sha512-YSneUCZSFDYMwk+TGq8qYFdCA3yfBRdBlS7txSq0LUmzyeqRe3a8fBQzbz9M3WS/iFT4BNf/nmw9mEzrnSaC0g==}
-    engines: {node: '>=12.13.0'}
-    hasBin: true
-    peerDependencies:
-      postcss: ^8.0.9
     dependencies:
       arg: 5.0.2
       chokidar: 3.5.3
@@ -19357,10 +19269,9 @@ packages:
     peerDependencies:
       react-native: '>=0.63.0'
     dependencies:
-      react-native: 0.69.4_qwcebhcz7kt2t6qvska3nnpfdm
+      react-native: 0.69.4_react@18.0.0
       tailwindcss: 3.1.8
     transitivePeerDependencies:
-      - postcss
       - ts-node
     dev: false
 
@@ -20090,6 +20001,19 @@ packages:
       vfile-message: 2.0.4
     dev: true
 
+  /vite-plugin-esmodule/1.4.4:
+    resolution: {integrity: sha512-vTQQTkC1ftJxAheWU/NOfNNkY+zgEsEfQfJYtOQXuvNsEj2FCvu53s9wMvui2mIzDne3ih2g+ba1j9cZKwJLcg==}
+    dependencies:
+      lib-esm: 0.3.0
+      vite-plugin-optimizer: 1.4.2
+      webpack: 5.74.0
+    transitivePeerDependencies:
+      - '@swc/core'
+      - esbuild
+      - uglify-js
+      - webpack-cli
+    dev: true
+
   /vite-plugin-html/3.2.0_vite@3.1.8:
     resolution: {integrity: sha512-2VLCeDiHmV/BqqNn5h2V+4280KRgQzCFN47cst3WiNK848klESPQnzuC3okH5XHtgwHH/6s1Ho/YV6yIO0pgoQ==}
     peerDependencies:
@@ -20119,6 +20043,10 @@ packages:
       htmlparser2: 6.1.0
       markdown-it: 12.3.2
       vite: 3.1.8_sass@1.55.0
+    dev: true
+
+  /vite-plugin-optimizer/1.4.2:
+    resolution: {integrity: sha512-UNQy+J31b+DeEc2NCxV+WIkwyYPWGPjYsnXO4+gM26CKY5KJ47JeRjchR11F3qfR8MWDX1+425LZfkUyXOfGFA==}
     dev: true
 
   /vite-plugin-solid/2.3.9_solid-js@1.5.9+vite@3.1.8:
