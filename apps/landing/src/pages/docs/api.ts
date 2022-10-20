@@ -1,4 +1,4 @@
-import React from 'react';
+import { Component } from 'react';
 
 import { parseMarkdown } from '../../utils/markdownParse';
 
@@ -15,7 +15,7 @@ export interface Doc {
 export interface DocSectionConfig {
 	title: string;
 	slug: string;
-	icon?: React.Component | any;
+	icon?: Component | any;
 }
 
 export interface DocsConfig {

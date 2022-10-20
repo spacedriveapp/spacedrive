@@ -1,7 +1,7 @@
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
-import React from 'react';
+import { Fragment, PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Button } from './Button';
@@ -12,7 +12,7 @@ export type DropdownItem = (
 			icon?: any;
 			selected?: boolean;
 			to?: string;
-			wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
+			wrapItemComponent?: React.FC<PropsWithChildren>;
 	  }
 	| {
 			name: string;
@@ -21,7 +21,7 @@ export type DropdownItem = (
 			selected?: boolean;
 			onPress?: () => any;
 			to?: string;
-			wrapItemComponent?: React.FC<{ children: React.ReactNode }>;
+			wrapItemComponent?: React.FC<PropsWithChildren>;
 	  }
 )[];
 
@@ -65,7 +65,7 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 				</Menu.Button>
 
 				<Transition
-					as={React.Fragment}
+					as={Fragment}
 					enter="transition duration-100 ease-out"
 					enterFrom="transform scale-95 opacity-0"
 					enterTo="transform scale-100 opacity-100"
@@ -86,7 +86,7 @@ export const Dropdown: React.FC<DropdownProps> = (props) => {
 								{item.map((button, index) => (
 									<Menu.Item key={index}>
 										{({ active }) => {
-											const WrappedItem = button.wrapItemComponent
+											const WrappedItem: any = button.wrapItemComponent
 												? button.wrapItemComponent
 												: (props: React.PropsWithChildren) => <>{props.children}</>;
 

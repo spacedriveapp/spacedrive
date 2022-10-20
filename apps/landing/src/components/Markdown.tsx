@@ -2,17 +2,16 @@ import clsx from 'clsx';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-rust';
 import 'prismjs/components/prism-typescript';
-import { useEffect } from 'react';
+import { PropsWithChildren, useEffect } from 'react';
 
 import '../atom-one.css';
 
 interface MarkdownPageProps {
-	children: React.ReactNode;
 	classNames?: string;
 	articleClassNames?: string;
 }
 
-function MarkdownPage(props: MarkdownPageProps) {
+function MarkdownPage(props: PropsWithChildren<MarkdownPageProps>) {
 	useEffect(() => {
 		Prism.highlightAll();
 	}, []);

@@ -2,17 +2,16 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/s
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
 import clsx from 'clsx';
-import { CaretDown } from 'phosphor-react';
+import { PropsWithChildren } from 'react';
 
 interface SelectProps {
 	value: string;
 	size?: 'sm' | 'md' | 'lg';
 	className?: string;
 	onChange: (value: string) => void;
-	children: React.ReactNode;
 }
 
-export function Select(props: SelectProps) {
+export function Select(props: PropsWithChildren<SelectProps>) {
 	return (
 		<SelectPrimitive.Root
 			defaultValue={props.value}
@@ -47,12 +46,7 @@ export function Select(props: SelectProps) {
 	);
 }
 
-export interface SelectOptionProps {
-	value: string;
-	children: string;
-}
-
-export function SelectOption(props: SelectOptionProps) {
+export function SelectOption(props: PropsWithChildren<{ value: string }>) {
 	return (
 		<SelectPrimitive.Item
 			className={clsx(

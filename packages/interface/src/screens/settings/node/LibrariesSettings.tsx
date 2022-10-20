@@ -14,7 +14,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
-	const { mutate: deleteLib, isLoading: libDeletePending } = useBridgeMutation('library.delete', {
+	const deleteLibrary = useBridgeMutation('library.delete', {
 		onSuccess: () => {
 			setOpenDeleteModal(false);
 		}
@@ -23,16 +23,16 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 	return (
 		<Card>
 			<DotsSixVertical weight="bold" className="mt-[15px] mr-3 opacity-30" />
-			<div className="flex-grow my-0.5">
+			<div className="flex-1 my-0.5">
 				<h3 className="font-semibold">{props.library.config.name}</h3>
 				<p className="mt-0.5 text-xs text-gray-200">{props.library.uuid}</p>
 			</div>
-			<div className="mt-2 space-x-2">
-				<ButtonLink to="/settings/library" variant="gray" className="!p-1.5">
+			<div className="flex flex-row space-x-2 items-center">
+				<ButtonLink to="/settings/library" variant="gray" padding="sm">
 					<PencilIcon className="w-4 h-4" />
 				</ButtonLink>
 				<DeleteLibraryDialog libraryUuid={props.library.uuid}>
-					<Button variant="gray" className="!p-1.5">
+					<Button variant="gray" padding="sm">
 						<TrashIcon className="w-4 h-4" />
 					</Button>
 				</DeleteLibraryDialog>

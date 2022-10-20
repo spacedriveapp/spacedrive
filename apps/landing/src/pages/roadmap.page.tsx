@@ -1,6 +1,4 @@
-import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import React from 'react';
 import { Helmet } from 'react-helmet';
 
 import { Folder } from '../../../../packages/interface/src/components/icons/Folder';

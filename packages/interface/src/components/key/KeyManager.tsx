@@ -1,12 +1,6 @@
-import { Button, Input, Select, SelectOption, Tabs } from '@sd/ui';
-import clsx from 'clsx';
-import { Eject, EjectSimple, Plus } from 'phosphor-react';
-import { useState } from 'react';
+import { Tabs } from '@sd/ui';
 
-import { Toggle } from '../primitive';
 import { DefaultProps } from '../primitive/types';
-import { Tooltip } from '../tooltip/Tooltip';
-import { Key } from './Key';
 import { KeyList } from './KeyList';
 import { KeyMounter } from './KeyMounter';
 
@@ -17,10 +11,10 @@ export function KeyManager(props: KeyManagerProps) {
 		<div>
 			<Tabs.Root defaultValue="mount">
 				<Tabs.List>
-					<Tabs.Trigger className="text-sm font-medium text-gray-300" value="mount">
+					<Tabs.Trigger className="text-sm font-medium " value="mount">
 						Mount
 					</Tabs.Trigger>
-					<Tabs.Trigger className="text-sm font-medium text-gray-300" value="keys">
+					<Tabs.Trigger className="text-sm font-medium " value="keys">
 						Keys
 					</Tabs.Trigger>
 				</Tabs.List>
