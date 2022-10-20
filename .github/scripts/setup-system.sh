@@ -81,15 +81,10 @@ elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
         SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel" # Tauri dependencies
         SUSE_FFMPEG_DEPS="ffmpeg-4 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel" # FFMPEG dependencies
         SUSE_BINDGEN_DEPS="clang" # Bindgen dependencies - it's used by a dependency of Spacedrive
-        if [ "${SPACEDRIVE_SKIP_PNPM_CHECK:-}" != "true" ]; then
 
         if ! which pnpm &> /dev/null; then
                 echo "PNPM was not detected on your system. Ensure the 'pnpm' command is in your \$PATH. You are not able to use Yarn or NPM."
                 curl -fsSL https://get.pnpm.io/install.sh | sh -
-        fi
-        else
-                echo "Skipped PNPM check!"
-        fi
 
         sudo zypper up
         sudo zypper in $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
