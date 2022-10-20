@@ -189,13 +189,28 @@ model FileConflict {
 // they can be "mounted" to a client, and then used to decrypt files automatically
 model Key {
   id           Int       @id @default(autoincrement())
-  // used to identify the key when it is entered by user
-  checksum     String    @unique
+  // uuid to identify the key
+  uuid         String    @unique
+  // the name that the user sets
   name         String?
   // nullable if concealed for security
   date_created DateTime? @default(now())
-  // so we know which algorithm to use, can be null if user must select
-  algorithm    Int?      @default(0)
+  // encryption algorithm used to encrypt the key
+  algorithm    Bytes
+  // hashing algorithm used for hashing the master password
+  hashing_algorithm Bytes
+  // salt to hash the master password with
+  salt Bytes
+  // salt used for encrypting data with this key
+  content_salt Bytes
+  // the *encrypted* master key (48 bytes)
+  master_key Bytes
+  // the nonce used for encrypting the master key
+  master_key_nonce Bytes
+  // the nonce used for encrypting the key
+  key_nonce Bytes
+  // the *encrypted* key
+  key Bytes
 
   objects    Object[]
   file_paths FilePath[]
