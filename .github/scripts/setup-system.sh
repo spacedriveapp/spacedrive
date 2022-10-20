@@ -84,7 +84,7 @@ elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
 
         if ! which pnpm &> /dev/null; then
                 echo "PNPM was not detected on your system. Ensure the 'pnpm' command is in your \$PATH. You are not able to use Yarn or NPM." && curl -fsSL https://get.pnpm.io/install.sh | sh -
-
+        fi
         sudo zypper up
         sudo zypper in $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
         sudo zypper in -t pattern devel_basis
