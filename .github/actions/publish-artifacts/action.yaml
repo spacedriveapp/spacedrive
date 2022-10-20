@@ -36,7 +36,7 @@ runs:
         uses: actions/upload-artifact@v3
         with:
           name: Spacedrive-rpm-${{ env.GITHUB_SHA_SHORT }}
-          path: ./target/release/bundle/rpm/spacedrive*.deb
+          path: ./target/release/bundle/rpm/spacedrive*.rpm
 
     - name: Publish artifacts (server)
       if: matrix.platform == 'ubuntu-latest'
