@@ -28,7 +28,7 @@ use super::hashing::{HashingAlgorithm, HASHING_ALGORITHM_LIST};
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StoredKey {
-	pub uuid: uuid::Uuid,                      // uuid for identification. shared with mounted keys
+	pub uuid: uuid::Uuid,     // uuid for identification. shared with mounted keys
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm to use for hashing everything related to this key. can't be changed once set.
 	pub salt: [u8; SALT_LEN],                // salt to hash the master password with
@@ -89,7 +89,7 @@ impl KeyManager {
 	}
 
 	/// This allows you to get the default key's ID
-	pub fn get_default(&self) -> Result<Uuid, Error> {
+	pub const fn get_default(&self) -> Result<Uuid, Error> {
 		if let Some(default) = self.default {
 			Ok(default)
 		} else {
@@ -105,20 +105,23 @@ impl KeyManager {
 		}
 	}
 
-	pub fn set_master_password(&mut self, master_password: Protected<Vec<u8>>) -> Result<(), Error> {
+	pub fn set_master_password(
+		&mut self,
+		master_password: Protected<Vec<u8>>,
+	) -> Result<(), Error> {
 		// this returns a result, so we can potentially implement password checking functionality
 		self.master_password = Some(master_password);
 		Ok(())
 	}
 
-	pub fn has_master_password(&self) -> bool {
+	#[must_use]
+	pub const fn has_master_password(&self) -> bool {
 		self.master_password.is_some()
 	}
 
 	/// This function is used for emptying the entire keystore.
 	pub fn empty_keystore(&mut self) {
 		self.keystore.clear();
-
 	}
 
 	/// This function is used for unmounting all keys at once.
@@ -132,7 +135,7 @@ impl KeyManager {
 	/// This function can be used for comparing an array of `StoredKeys` to the currently loaded keystore.
 	pub fn compare_keystore(&self, supplied_keys: &[StoredKey]) -> Result<(), Error> {
 		if supplied_keys.len() != self.keystore.len() {
-			return Err(Error::KeystoreMismatch)
+			return Err(Error::KeystoreMismatch);
 		}
 
 		for key in supplied_keys {
@@ -142,7 +145,7 @@ impl KeyManager {
 			};
 
 			if key != keystore_key {
-				return Err(Error::KeystoreMismatch)
+				return Err(Error::KeystoreMismatch);
 			}
 		}
 
@@ -159,15 +162,15 @@ impl KeyManager {
 	}
 
 	/// This function returns a Vec of `StoredKey`s, so you can write them somewhere/update the database with them/etc
-	/// 
+	///
 	/// The database and keystore should be in sync at ALL times
 	pub fn dump_keystore(&self) -> Result<Vec<StoredKey>, Error> {
 		let mut keys = Vec::<StoredKey>::new();
 
-		for (_, key) in &self.keystore {
+		for key in self.keystore.values() {
 			keys.push(key.clone());
 		}
-		
+
 		Ok(keys)
 	}
 
@@ -234,7 +237,7 @@ impl KeyManager {
 	}
 
 	/// This function is for accessing the internal keymount.
-	/// 
+	///
 	/// We could add a log to this, so that the user can view accesses
 	pub fn access_keymount(&self, uuid: Uuid) -> Result<MountedKey, Error> {
 		match self.keymount.get(&uuid) {
@@ -252,14 +255,15 @@ impl KeyManager {
 	}
 
 	/// This function is used to add a new key/password to the keystore.
-	/// 
+	///
 	/// You should use this when a new key is added, as it will generate salts/nonces/etc.
-	/// 
+	///
 	/// It does not mount the key, it just registers it.
-	/// 
+	///
 	/// Once added, you will need to use `KeyManager::access_keystore()` to retrieve it and add it to Prisma.
-	/// 
+	///
 	/// You may use the returned ID to identify this key.
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn add_to_keystore(
 		&mut self,
 		key: Protected<Vec<u8>>,
@@ -317,7 +321,7 @@ impl KeyManager {
 // derive explicit CLONES only
 #[derive(Clone)]
 pub struct MountedKey {
-	pub uuid: Uuid, // used for identification. shared with stored keys
+	pub uuid: Uuid,                   // used for identification. shared with stored keys
 	pub key: Protected<Vec<u8>>, // the actual key itself, text format encodable (so it can be viewed with an UI)
 	pub content_salt: [u8; SALT_LEN], // the salt used for file data
 	pub hashed_keys: Vec<Protected<[u8; 32]>>, // this is hashed with the content salt, for instant access
