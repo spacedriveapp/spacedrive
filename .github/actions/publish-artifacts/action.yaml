@@ -15,6 +15,7 @@ runs:
       run: |
         chmod +x ./target/release/bundle/appimage/spacedrive*.AppImage
         tar -czvf ./Spacedrive-AppImage-${{ env.GITHUB_SHA_SHORT }}.tar.gz ./target/release/bundle/appimage/spacedrive*.AppImage
+        
 
     - name: Publish artifacts (AppImage)
       if: matrix.platform == 'ubuntu-latest'
@@ -29,6 +30,13 @@ runs:
       with:
         name: Spacedrive-deb-${{ env.GITHUB_SHA_SHORT }}
         path: ./target/release/bundle/deb/spacedrive*.deb
+
+    -   name: Publish artifacts (rpm)
+        if: matrix.platform == 'openSUSE'
+        uses: actions/upload-artifact@v3
+        with:
+          name: Spacedrive-rpm-${{ env.GITHUB_SHA_SHORT }}
+          path: ./target/release/bundle/rpm/spacedrive*.deb
 
     - name: Publish artifacts (server)
       if: matrix.platform == 'ubuntu-latest'
