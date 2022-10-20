@@ -68,7 +68,7 @@ impl Keyslot {
 	) -> Result<Self, Error> {
 		let nonce = generate_nonce(algorithm);
 
-		let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
+		let hashed_password = hashing_algorithm.hash(password, salt)?;
 
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
 			hashed_password,
