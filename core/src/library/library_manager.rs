@@ -4,7 +4,7 @@ use crate::{
 	prisma::node,
 	util::{
 		db::load_and_migrate,
-		seeder::{indexer_rules_seeder, SeederError},
+		seeder::{indexer_rules_seeder, SeederError, keystore_seeder},
 	},
 	NodeContext,
 };
@@ -15,7 +15,7 @@ use std::{
 	str::FromStr,
 	sync::Arc,
 };
-use sd_crypto::keys::keymanager::{KeyManager, StoredKey};
+use sd_crypto::{keys::{keymanager::{KeyManager, StoredKey}}};
 use thiserror::Error;
 use tokio::sync::{RwLock, Mutex};
 use uuid::Uuid;
@@ -261,10 +261,12 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
+		// create a new key manager
+		let key_manager = Arc::new(Mutex::new(KeyManager::new(Vec::<StoredKey>::new(), None)));
+
 		// Run seeders
 		indexer_rules_seeder(&db).await?;
-
-		let key_manager = Arc::new(Mutex::new(KeyManager::new(Vec::<StoredKey>::new(), None)));
+		keystore_seeder(&db, key_manager.clone()).await?;
 
 		Ok(LibraryContext {
 			id,
