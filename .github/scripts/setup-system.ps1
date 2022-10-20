@@ -267,17 +267,15 @@ if($ci -ne $true) {
    Write-Host "Installing ffmpeg and openssl via vcpkg..." -ForegroundColor Yellow
    # see param switch note above
    Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -Verb RunAs
+}
 
-   Write-Host "Copying FFmpeg DLL files to lib directory..."
+Write-Host "Copying FFmpeg DLL files to lib directory..."
+if($ci -ne $true) {
+   # on non-CI computers, vcpkg usually installs to `packages`
    Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\"
-   # } else {
-      #    # NOTE (8 Oct 2022, maxichrome): Not sure how to update this / CI to use new vcpkg based linking system.
-      #    # Contributions / suggestions welcome for this!
-      
-      #    # If running in ci, we need to use GITHUB_ENV and GITHUB_PATH instead of the normal PATH env variables, so we set them here
-      #    Add-Content $env:GITHUB_ENV "FFMPEG_DIR=$HOME\$foldername`n"
-      #    Add-Content $env:GITHUB_PATH "$HOME\$foldername\bin`n" 
-      # }
+} else {
+   # ... but in CI, `packages` doesn't exist for some reason
+   Copy-Item "$vcpkgRoot\installed\x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\"
 }
 
 # Finished!
