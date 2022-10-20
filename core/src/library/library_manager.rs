@@ -1,10 +1,10 @@
 use crate::{
 	invalidate_query,
 	node::Platform,
-	prisma::node,
+	prisma::{node, PrismaClient},
 	util::{
 		db::load_and_migrate,
-		seeder::{indexer_rules_seeder, SeederError, keystore_seeder},
+		seeder::{indexer_rules_seeder, SeederError},
 	},
 	NodeContext,
 };
@@ -15,7 +15,7 @@ use std::{
 	str::FromStr,
 	sync::Arc,
 };
-use sd_crypto::{keys::{keymanager::{KeyManager, StoredKey}}};
+use sd_crypto::{keys::{keymanager::{KeyManager, StoredKey}, hashing::HashingAlgorithm}, primitives::to_array, crypto::stream::Algorithm};
 use thiserror::Error;
 use tokio::sync::{RwLock, Mutex};
 use uuid::Uuid;
@@ -30,6 +30,47 @@ pub struct LibraryManager {
 	libraries: RwLock<Vec<LibraryContext>>,
 	/// node_context holds the context for the node which this library manager is running on.
 	node_context: NodeContext,
+}
+
+pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, SeederError> {
+	// retrieve all stored keys from the DB
+	let mut key_manager = KeyManager::new(vec![], None);
+	
+	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
+
+	let mut default = Uuid::default();
+
+	// collect and serialize the stored keys
+	let stored_keys: Vec<StoredKey> = db_stored_keys.iter().map(|d| {
+		let d = d.clone();
+		let uuid = uuid::Uuid::from_str(&d.uuid).unwrap();
+
+		if d.default {
+			default = uuid.clone();
+		}
+
+		StoredKey {
+			uuid,
+			salt: to_array(d.salt).unwrap(),
+			algorithm: Algorithm::deserialize(to_array(d.algorithm).unwrap()).unwrap(),
+			content_salt: to_array(d.content_salt).unwrap(),
+			master_key: to_array(d.master_key).unwrap(),
+			master_key_nonce: d.master_key_nonce,
+			key_nonce: d.key_nonce,
+			key: d.key,
+			hashing_algorithm: HashingAlgorithm::deserialize(to_array(d.hashing_algorithm).unwrap()).unwrap(),
+		}
+	}).collect();
+
+	// insert all keys from the DB into the keymanager's keystore
+	key_manager.populate_keystore(stored_keys).unwrap();
+
+	// if any key had an associated default tag
+	if !default.is_nil() {
+		key_manager.set_default(default).unwrap();
+	}
+
+	Ok(key_manager)
 }
 
 #[derive(Error, Debug)]
@@ -261,12 +302,10 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		// create a new key manager
-		let key_manager = Arc::new(Mutex::new(KeyManager::new(Vec::<StoredKey>::new(), None)));
-
 		// Run seeders
 		indexer_rules_seeder(&db).await?;
-		keystore_seeder(&db, key_manager.clone()).await?;
+
+		let key_manager = Arc::new(Mutex::new(create_keymanager(&db).await?));
 
 		Ok(LibraryContext {
 			id,
