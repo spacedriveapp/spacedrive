@@ -267,15 +267,10 @@ if($ci -ne $true) {
    Write-Host "Installing ffmpeg and openssl via vcpkg..." -ForegroundColor Yellow
    # see param switch note above
    Start-Process -FilePath $vcpkgExec -ArgumentList 'install','ffmpeg:x64-windows','openssl:x64-windows-static' -Wait -PassThru -Verb RunAs
-}
 
-Write-Host "Copying FFmpeg DLL files to lib directory..."
-if($ci -ne $true) {
+   Write-Host "Copying FFmpeg DLL files to lib directory..."
    # on non-CI computers, vcpkg usually installs to `packages`
    Copy-Item "$vcpkgRoot\packages\ffmpeg_x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\"
-} else {
-   # ... but in CI, `packages` doesn't exist for some reason
-   Copy-Item "$vcpkgRoot\installed\x64-windows\bin\*.dll" "$cwd\apps\desktop\src-tauri\"
 }
 
 # Finished!
