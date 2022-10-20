@@ -9,15 +9,22 @@ use crate::{
 	NodeContext,
 };
 
+use sd_crypto::{
+	crypto::stream::Algorithm,
+	keys::{
+		hashing::HashingAlgorithm,
+		keymanager::{KeyManager, StoredKey},
+	},
+	primitives::to_array,
+};
 use std::{
 	env, fs, io,
 	path::{Path, PathBuf},
 	str::FromStr,
 	sync::Arc,
 };
-use sd_crypto::{keys::{keymanager::{KeyManager, StoredKey}, hashing::HashingAlgorithm}, primitives::to_array, crypto::stream::Algorithm};
 use thiserror::Error;
-use tokio::sync::{RwLock, Mutex};
+use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -35,32 +42,38 @@ pub struct LibraryManager {
 pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, SeederError> {
 	// retrieve all stored keys from the DB
 	let mut key_manager = KeyManager::new(vec![], None);
-	
+
 	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
 
 	let mut default = Uuid::default();
 
 	// collect and serialize the stored keys
-	let stored_keys: Vec<StoredKey> = db_stored_keys.iter().map(|d| {
-		let d = d.clone();
-		let uuid = uuid::Uuid::from_str(&d.uuid).unwrap();
+	let stored_keys: Vec<StoredKey> = db_stored_keys
+		.iter()
+		.map(|d| {
+			let d = d.clone();
+			let uuid = uuid::Uuid::from_str(&d.uuid).unwrap();
 
-		if d.default {
-			default = uuid.clone();
-		}
+			if d.default {
+				default = uuid;
+			}
 
-		StoredKey {
-			uuid,
-			salt: to_array(d.salt).unwrap(),
-			algorithm: Algorithm::deserialize(to_array(d.algorithm).unwrap()).unwrap(),
-			content_salt: to_array(d.content_salt).unwrap(),
-			master_key: to_array(d.master_key).unwrap(),
-			master_key_nonce: d.master_key_nonce,
-			key_nonce: d.key_nonce,
-			key: d.key,
-			hashing_algorithm: HashingAlgorithm::deserialize(to_array(d.hashing_algorithm).unwrap()).unwrap(),
-		}
-	}).collect();
+			StoredKey {
+				uuid,
+				salt: to_array(d.salt).unwrap(),
+				algorithm: Algorithm::deserialize(to_array(d.algorithm).unwrap()).unwrap(),
+				content_salt: to_array(d.content_salt).unwrap(),
+				master_key: to_array(d.master_key).unwrap(),
+				master_key_nonce: d.master_key_nonce,
+				key_nonce: d.key_nonce,
+				key: d.key,
+				hashing_algorithm: HashingAlgorithm::deserialize(
+					to_array(d.hashing_algorithm).unwrap(),
+				)
+				.unwrap(),
+			}
+		})
+		.collect();
 
 	// insert all keys from the DB into the keymanager's keystore
 	key_manager.populate_keystore(stored_keys).unwrap();

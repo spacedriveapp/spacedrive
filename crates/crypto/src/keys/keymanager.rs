@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::error::Error;
 use crate::primitives::{
@@ -15,8 +13,6 @@ use crate::{
 
 use uuid::Uuid;
 
-use serde_big_array::BigArray;
-
 use super::hashing::{HashingAlgorithm, HASHING_ALGORITHM_LIST};
 
 // The terminology in this file is very confusing.
@@ -26,14 +22,13 @@ use super::hashing::{HashingAlgorithm, HASHING_ALGORITHM_LIST};
 // The `hashed_key` refers to the value you'd pass to PVM/MD decryption functions. It has been pre-hashed with the content salt.
 // The content salt refers to the semi-universal salt that's used for metadata/preview media (unique to each key in the manager)
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct StoredKey {
 	pub uuid: uuid::Uuid,     // uuid for identification. shared with mounted keys
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm to use for hashing everything related to this key. can't be changed once set.
 	pub salt: [u8; SALT_LEN],                // salt to hash the master password with
 	pub content_salt: [u8; SALT_LEN],        // salt used for file data
-	#[serde(with = "BigArray")]
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is for encrypting the `key`
 	pub master_key_nonce: Vec<u8>,           // nonce for encrypting the master key
 	pub key_nonce: Vec<u8>,                  // nonce used for encrypting the main key
