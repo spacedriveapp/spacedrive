@@ -5,7 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/outline';
 import { ChevronRightIcon, CogIcon, PlusIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';
-import { useCurrentLibrary, useLibraryStore } from '~/stores/libraryStore';
+import { useLibraryStore } from '~/stores/libraryStore';
 
 import { AnimatedHeight } from '../../components/animation/layout';
 import Divider from '../../components/primitive/Divider';
@@ -20,14 +20,7 @@ const DrawerLibraryManager = () => {
 		if (!isDrawerOpen) setDropdownClosed(true);
 	}, [isDrawerOpen]);
 
-	// Init Libraries
-	const { initLibraries, switchLibrary } = useLibraryStore();
-	const { currentLibrary, libraries, currentLibraryUuid } = useCurrentLibrary();
-
-	useEffect(() => {
-		if (libraries && !currentLibraryUuid) initLibraries(libraries);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [libraries, currentLibraryUuid]);
+	const { currentLibrary, libraries, switchLibrary } = useLibraryStore();
 
 	return (
 		<View>
@@ -59,7 +52,7 @@ const DrawerLibraryManager = () => {
 							<View
 								style={tw.style(
 									'p-2',
-									library.uuid === currentLibraryUuid && 'bg-gray-500 bg-opacity-70 rounded'
+									library.uuid === currentLibrary.uuid && 'bg-gray-500 bg-opacity-70 rounded'
 								)}
 							>
 								<Text style={tw`text-sm text-gray-200 font-semibold`}>{library.config.name}</Text>

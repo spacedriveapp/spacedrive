@@ -1,14 +1,7 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { createClient } from '@rspc/client';
-import {
-	Platform,
-	PlatformProvider,
-	queryClient,
-	rspc,
-	useBridgeQuery,
-	useInvalidateQuery
-} from '@sd/client';
+import { Platform, PlatformProvider, queryClient, rspc, useInvalidateQuery } from '@sd/client';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Linking, Platform as RNPlatform } from 'react-native';
@@ -45,26 +38,21 @@ function AppContainer() {
 
 	const { showOnboarding } = useSnapshot(onboardingStore);
 
-	const { data: libraries } = useBridgeQuery(['library.list'], {
-		onError(err) {
-			console.error(err);
-		}
-	});
+	const { switchLibrary, currentLibrary, isLoaded } = useLibraryStore();
 
-	const { _persist, switchLibrary } = useLibraryStore();
-
-	console.log('persisted?', _persist.loaded);
+	console.log('persisted?', isLoaded);
 
 	// Runs when the app is launched
 	useEffect(() => {
-		// Temporarly set the first library to be the current library
-		if (libraries && libraries.length > 0) {
-			switchLibrary(libraries[0].uuid);
+		if (currentLibrary) {
+			switchLibrary(currentLibrary.uuid);
+		} else {
+			// TODO: Handle this.
 		}
-	}, [libraries, showOnboarding, switchLibrary]);
+	}, [currentLibrary, switchLibrary]);
 
 	// Might need to move _persist.loaded to useCacheResources hook.
-	if (!isLoadingComplete || !_persist.loaded) {
+	if (!isLoadingComplete || !isLoaded) {
 		return null;
 	} else {
 		return (
