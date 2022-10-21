@@ -103,9 +103,6 @@ pub(crate) fn mount() -> Arc<Router> {
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
 
-	#[cfg(not(feature = "mobile"))]
-	export_ts_bindings(&r);
-
 	r
 }
 

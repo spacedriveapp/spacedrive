@@ -11,6 +11,9 @@ type OnNoLibraryFunc = () => void | Promise<void>;
 // Keep this private and use `useCurrentLibrary` hook to access or mutate it
 const currentLibraryUuidStore = proxy({ id: null as string | null });
 
+// Cringe method to get rspc working on mobile.
+export const mobileSync = currentLibraryUuidStore;
+
 const CringeContext = createContext<{
 	onNoLibrary: OnNoLibraryFunc;
 }>(undefined!);

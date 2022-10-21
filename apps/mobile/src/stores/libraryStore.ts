@@ -1,4 +1,5 @@
 import { useBridgeQuery } from '@sd/client';
+import { mobileSync } from '@sd/client';
 import { useMemo } from 'react';
 import { useSnapshot } from 'valtio';
 import proxyWithPersist, { PersistStrategy } from 'valtio-persist';
@@ -12,11 +13,17 @@ export const libraryStore = proxyWithPersist({
 		switchLibrary: (libraryUuid: string) => {
 			libraryStore.currentLibraryUuid = libraryUuid;
 			// Reset any other stores connected to library
+
+			// Sync with @sd/client
+			mobileSync.id = libraryUuid;
 		},
 		initLibraries: async (libraries: LibraryConfigWrapped[]) => {
 			// use first library default if none set
 			if (!libraryStore.currentLibraryUuid) {
 				libraryStore.currentLibraryUuid = libraries[0].uuid;
+
+				// Sync with @sd/client
+				mobileSync.id = libraries[0].uuid;
 			}
 		}
 	},
