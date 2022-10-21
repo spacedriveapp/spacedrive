@@ -60,28 +60,29 @@ export const SubMenu = ({
 	);
 };
 
-const ITEM_CLASSES = `
-  flex flex-row items-center justify-start flex-1 
-  px-2 py-1 space-x-2
-  cursor-default rounded
-  focus:outline-none
-`;
-
-const itemStyles = cva([ITEM_CLASSES], {
-	variants: {
-		variant: {
-			default: 'hover:bg-primary focus:bg-primary',
-			danger: `
-        text-red-600 dark:text-red-400
-        hover:text-white focus:text-white
-        hover:bg-red-500 focus:bg-red-500
-      `
+const itemStyles = cva(
+	[
+		'flex flex-row items-center justify-start flex-1',
+		'px-2 py-1 space-x-2',
+		'cursor-default rounded',
+		'focus:outline-none'
+	],
+	{
+		variants: {
+			variant: {
+				default: 'hover:bg-primary focus:bg-primary',
+				danger: [
+					'text-red-600 dark:text-red-400',
+					'hover:text-white focus:text-white',
+					'hover:bg-red-500 focus:bg-red-500'
+				]
+			}
+		},
+		defaultVariants: {
+			variant: 'default'
 		}
-	},
-	defaultVariants: {
-		variant: 'default'
 	}
-});
+);
 
 interface ItemProps extends VariantProps<typeof itemStyles> {
 	icon?: Icon;
