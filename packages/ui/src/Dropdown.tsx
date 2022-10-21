@@ -1,12 +1,12 @@
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
-import { VariantProps } from 'class-variance-authority';
+import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Fragment, PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
 
 import * as UI from '.';
-import { cva, tw } from '.';
+import { tw } from './utils';
 
 export const Section = tw.div`px-1 py-1 space-y-[2px]`;
 
