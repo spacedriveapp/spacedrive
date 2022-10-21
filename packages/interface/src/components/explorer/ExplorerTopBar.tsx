@@ -142,14 +142,11 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		}
 	});
 
-	const { mutate: objectValidator } = useLibraryMutation(
-		'jobs.objectValidator',
-		{
-			onMutate: (data) => {
-				// console.log('ObjectValidator', data);
-			}
+	const { mutate: objectValidator } = useLibraryMutation('jobs.objectValidator', {
+		onMutate: (data) => {
+			// console.log('ObjectValidator', data);
 		}
-	);
+	});
 
 	const navigate = useNavigate();
 
@@ -214,7 +211,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center dark:bg-gray-700 border-gray-100 !bg-opacity-80 backdrop-blur overflow-hidden rounded-tl-md"
+				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center overflow-hidden rounded-tl-md"
 			>
 				<div className="flex ">
 					<Tooltip label="Navigate back">
