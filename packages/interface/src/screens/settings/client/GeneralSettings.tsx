@@ -1,7 +1,6 @@
 import { useBridgeQuery, usePlatform } from '@sd/client';
-import { Input } from '@sd/ui';
+import { Input, tw } from '@sd/ui';
 import { Database } from 'phosphor-react';
-import tw from 'tailwind-styled-components';
 
 import Card from '../../../components/layout/Card';
 import { Toggle } from '../../../components/primitive';
