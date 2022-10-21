@@ -1,0 +1,67 @@
+
+
+// Notes
+// shadow should be used as shadow-black/40
+.vanilla-dark {
+  // global
+  --color-black: 0, 0, 0;
+  --color-white: 255, 255, 255;
+   // accent theme colors
+  --color-accent: 0, 0, 0;
+  --color-accent-faint: 0, 0, 0; 
+  --color-accent-deep: 0, 0, 0; 
+  // text
+  --color-ink: 255, 255, 255;
+  --color-ink-dull: 190, 190, 190;
+  --color-ink-faint: 150, 150, 150;
+  // sidebar
+  --color-sidebar: 13, 17, 23;
+  --color-sidebar-box: 48,53,68;
+  --color-sidebar-border: 48,53,68;
+  --color-sidebar-divider: 48,53,68;
+  --color-sidebar-button: 48,53,68;
+  --color-sidebar-selected: 48,53,68;
+  --color-sidebar-separator: 48,53,68;
+  // main
+  --color-app: 0, 0, 0;
+  --color-app-box: 0, 0, 0;
+  --color-app-input: 0, 0, 0;
+  --color-app-border: 0, 0, 0;
+  --color-app-button: 0, 0, 0;
+  --color-app-divider: 0, 0, 0;
+  --color-app-selected: 0, 0, 0;
+  --color-app-hover: 0, 0, 0;
+  --color-app-separator: 0, 0, 0;
+}
+
+.vanilla-light {
+  // global
+  --color-black: 0,0,0;
+  --color-white: 255,255,255;
+   // accent theme colors
+  --color-accent: 0,0,0;
+  --color-accent-faint: 0,0,0; 
+  --color-accent-deep: 0,0,0; 
+  // text
+  --color-ink: 0,0,0;
+  --color-ink-dull: 35,35,35;
+  --color-ink-faint: 55,55,55;
+  // sidebar
+  --color-sidebar: 255,255,255;
+  --color-sidebar-box: 233,237,253;
+  --color-sidebar-border: 233,237,253;
+  --color-sidebar-divider: 233,237,253;
+  --color-sidebar-button: 233,237,253;
+  --color-sidebar-selected: 233,237,253;
+  --color-sidebar-separator: 233,237,253;
+  // main
+  --color-app: 0,0,0;
+  --color-app-box: 0,0,0;
+  --color-app-input: 0,0,0;
+  --color-app-border: 0,0,0;
+  --color-app-button: 0,0,0;
+  --color-app-divider: 0,0,0;
+  --color-app-selected: 0,0,0;
+  --color-app-hover: 0,0,0;
+  --color-app-separator: 0,0,0;
+}
