@@ -1,5 +1,6 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs';
-import tw from 'tailwind-styled-components';
+
+import { tw } from './utils';
 
 export const Root = tw(TabsPrimitive.Root)`
   flex flex-col 

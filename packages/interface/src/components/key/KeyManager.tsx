@@ -11,10 +11,10 @@ export function KeyManager(props: KeyManagerProps) {
 		<div>
 			<Tabs.Root defaultValue="mount">
 				<Tabs.List>
-					<Tabs.Trigger className="text-sm font-medium " value="mount">
+					<Tabs.Trigger className="text-sm font-medium" value="mount">
 						Mount
 					</Tabs.Trigger>
-					<Tabs.Trigger className="text-sm font-medium " value="keys">
+					<Tabs.Trigger className="text-sm font-medium" value="keys">
 						Keys
 					</Tabs.Trigger>
 				</Tabs.List>
