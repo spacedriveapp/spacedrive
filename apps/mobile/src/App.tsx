@@ -1,9 +1,17 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { createClient } from '@rspc/client';
-import { queryClient, rspc, useBridgeQuery, useInvalidateQuery } from '@sd/client';
+import {
+	Platform,
+	PlatformProvider,
+	queryClient,
+	rspc,
+	useBridgeQuery,
+	useInvalidateQuery
+} from '@sd/client';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Linking, Platform as RNPlatform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
@@ -19,10 +27,6 @@ import { useLibraryStore } from './stores/libraryStore';
 import { onboardingStore } from './stores/onboardingStore';
 import type { Procedures } from './types/bindings';
 
-const client = createClient<Procedures>({
-	links: [reactNativeLink()]
-});
-
 const NavigatorTheme: Theme = {
 	...DefaultTheme,
 	colors: {
@@ -34,6 +38,8 @@ const NavigatorTheme: Theme = {
 function AppContainer() {
 	// Enables dark mode, and screen size breakpoints, etc. for tailwind
 	useDeviceContext(tw, { withDeviceColorScheme: false });
+
+	useInvalidateQuery();
 
 	const isLoadingComplete = useCachedResources();
 
@@ -77,18 +83,25 @@ function AppContainer() {
 	}
 }
 
+const client = createClient<Procedures>({
+	links: [reactNativeLink()]
+});
+
+const platform: Platform = {
+	platform: 'mobile',
+	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	getOs: () => Promise.resolve(RNPlatform.OS === 'ios' ? 'ios' : 'android'),
+	openLink: (url) => Linking.canOpenURL(url).then((canOpen) => canOpen && Linking.openURL(url))
+};
+
 export default function App() {
 	return (
 		<rspc.Provider client={client} queryClient={queryClient}>
 			<>
-				<InvalidateQuery />
-				<AppContainer />
+				<PlatformProvider platform={platform}>
+					<AppContainer />
+				</PlatformProvider>
 			</>
 		</rspc.Provider>
 	);
-}
-
-function InvalidateQuery() {
-	useInvalidateQuery();
-	return null;
 }

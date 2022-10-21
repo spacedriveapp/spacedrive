@@ -1,11 +1,18 @@
 import { PropsWithChildren, createContext, useContext } from 'react';
 
-export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
+export type OperatingSystem =
+	| 'browser'
+	| 'linux'
+	| 'macOS'
+	| 'windows'
+	| 'ios'
+	| 'android'
+	| 'unknown';
 
 // Platform represents the underlying native layer the app is running on.
-// This could be Tauri or web.
+// This could be Tauri, mobile or web.
 export type Platform = {
-	platform: 'web' | 'tauri'; // This represents the specific platform implementation
+	platform: 'web' | 'tauri' | 'mobile'; // This represents the specific platform implementation
 	getThumbnailUrlById: (casId: string) => string;
 	openLink: (url: string) => void;
 	demoMode?: boolean; // TODO: Remove this in favour of demo mode being handled at the React Query level
