@@ -128,18 +128,13 @@ jobs:
         working-directory: ./apps/mobile
         run: pnpm i --frozen-lockfile
       
-      # - name: Generate Prisma client
-      #   uses: ./.github/actions/generate-prisma-client
-
-      # - name: Generate Prisma client
-      #   uses: ./.github/actions/generate-prisma-client
-
-      # Something is broke. This should be cached but that no worky.
-      # - name: Generate Prisma client
-      #   working-directory: core
-      #   # if: steps.cache-prisma.outputs.cache-hit != 'true'
-      #   shell: bash
-      #   run: cargo run -p prisma-cli --release -- generate
+      # TODO: Debug
+      - name: Why Prisma????
+        run: ls ./core/src
+      - name: Cargo fetch
+        run: cargo fetch
+      - name: Check core
+        run: cargo check -p sd-core --release
       
       - name: Build Android
         working-directory: ./apps/mobile

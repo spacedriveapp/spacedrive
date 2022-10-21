@@ -12,6 +12,9 @@ on:
       - '**.rs'
   workflow_dispatch:
 
+env:
+  SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
+
 jobs:
   rustfmt:
     name: Rust Format
