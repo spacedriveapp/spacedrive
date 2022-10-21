@@ -1,0 +1,68 @@
+name: Rust CI
+
+on:
+  pull_request:
+    paths:
+      - '**.rs'
+  push:
+    branches:
+      - main
+      - mobile-ci # TEMP
+    paths:
+      - '**.rs'
+  workflow_dispatch:
+
+jobs:
+  rustfmt:
+    name: Rust Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+      
+      - name: Cache Rust dependencies
+        uses: ./.github/actions/cache-rust-deps
+
+      - name: Run 'setup-system.sh' script
+        run: ./.github/scripts/setup-system.sh
+
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
+
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check
+  
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: clippy
+
+      - name: Cache Rust dependencies
+        uses: ./.github/actions/cache-rust-deps
+
+      - name: Run 'setup-system.sh' script
+        run: ./.github/scripts/setup-system.sh
+
+      - name: Generate Prisma client
+        uses: ./.github/actions/generate-prisma-client
+
+      - name: Run Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features --release
