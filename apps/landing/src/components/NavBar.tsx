@@ -9,10 +9,8 @@ import { Discord, Github } from '@icons-pack/react-simple-icons';
 import AppLogo from '@sd/assets/images/logo.png';
 import { Dropdown, DropdownItem } from '@sd/ui';
 import clsx from 'clsx';
-
 import { DotsThreeVertical } from 'phosphor-react';
 import { PropsWithChildren, useEffect, useState } from 'react';
-
 
 import { positions } from '../pages/careers.page';
 import { getWindow } from '../utils';
@@ -96,7 +94,7 @@ export default function NavBar() {
 						) : null}
 					</div>
 				</div>
-				<Dropdown
+				<Dropdown.Root
 					className="absolute block h-6 text-white w-44 top-2 right-4 lg:hidden"
 					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500"
 					itemButtonClassName="!py-1 !rounded-md text-[15px]"
