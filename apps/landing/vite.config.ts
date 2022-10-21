@@ -7,14 +7,7 @@ import ssr from 'vite-plugin-ssr/plugin';
 import svg from 'vite-plugin-svgr';
 
 export default defineConfig({
-	plugins: [
-		react(),
-		ssr({ prerender: true }),
-		svg(),
-		md({ mode: [Mode.REACT] }),
-		visualizer(),
-		esm(['tailwind-styled-components', '@radix-ui/react-tabs'])
-	],
+	plugins: [react(), ssr({ prerender: true }), svg(), md({ mode: [Mode.REACT] }), visualizer()],
 	resolve: {
 		alias: {
 			'~/docs': __dirname + '../../../docs',
