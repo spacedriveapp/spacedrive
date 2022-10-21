@@ -3,9 +3,7 @@ import clsx from 'clsx';
 import { forwardRef } from 'react';
 import { Link, LinkProps } from 'react-router-dom';
 
-export interface ButtonBaseProps extends VariantProps<typeof styles> {
-	icon?: React.ReactNode;
-}
+export interface ButtonBaseProps extends VariantProps<typeof styles> {}
 
 export type ButtonProps = ButtonBaseProps &
 	React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -69,7 +67,8 @@ const styles = cva(
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				selected: [
 					'bg-gray-100 dark:bg-gray-500 text-black hover:text-black active:text-black dark:hover:text-white dark:text-white'
-				]
+				],
+				bare: ''
 			}
 		},
 		defaultVariants: {
@@ -86,21 +85,10 @@ export const Button = forwardRef<
 >(({ className, ...props }, ref) => {
 	className = clsx(styles(props), className);
 
-	let children = (
-		<>
-			{props.icon}
-			{props.children}
-		</>
-	);
-
 	return hasHref(props) ? (
-		<a {...props} ref={ref as any} className={clsx(className, 'no-underline inline-block')}>
-			{children}
-		</a>
+		<a {...props} ref={ref as any} className={clsx(className, 'no-underline inline-block')} />
 	) : (
-		<button {...(props as ButtonProps)} ref={ref as any} className={className}>
-			{children}
-		</button>
+		<button {...(props as ButtonProps)} ref={ref as any} className={className} />
 	);
 });
 
@@ -116,10 +104,7 @@ export const ButtonLink = forwardRef<
 
 	return (
 		<Link to={to} ref={ref as any} className={className}>
-			<>
-				{props.icon}
-				{props.children}
-			</>
+			{props.children}
 		</Link>
 	);
 });
