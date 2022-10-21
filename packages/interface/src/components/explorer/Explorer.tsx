@@ -22,7 +22,7 @@ export default function Explorer(props: Props) {
 	return (
 		<div className="relative">
 			<ExplorerContextMenu>
-				<div className="relative flex flex-col w-full bg-gray-650">
+				<div className="relative flex flex-col w-full dark:bg-gray-650">
 					<TopBar />
 
 					<div className="relative flex flex-row w-full max-h-full ">

@@ -21,10 +21,9 @@ export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => (
 		{({ isActive }) => (
 			<span
 				className={clsx(
-					'max-w mb-[2px] text-gray-550 dark:text-gray-300 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
+					'max-w mb-[2px] text-gray-550 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
 					{
-						'!bg-gray-400 !bg-opacity-10 !text-white hover:bg-gray-400 dark:hover:bg-gray-400':
-							isActive
+						'bg-sidebar-selected': isActive
 					},
 					props.className
 				)}
@@ -82,15 +81,10 @@ function LibraryScopedSection() {
 								{({ isActive }) => (
 									<span
 										className={clsx(
-											'max-w mb-[2px] text-gray-550 dark:text-gray-150 rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center  truncate text-sm',
-											{
-												'!bg-gray-400 !bg-opacity-10 !text-white hover:bg-gray-400 dark:hover:bg-gray-400':
-													isActive
-											}
+											'max-w mb-[2px] rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center truncate text-sm'
 										)}
 									>
 										<div className="-mt-0.5 flex-grow-0 flex-shrink-0">
-											{/* <Folder size={18} className={clsx(!isActive && 'hidden')} white /> */}
 											<Folder size={18} />
 										</div>
 
@@ -102,7 +96,7 @@ function LibraryScopedSection() {
 					);
 				})}
 
-				{(locations?.length || 0) < 1 && (
+				{(locations?.length || 0) < 4 && (
 					<button
 						onClick={() => {
 							if (!platform.openFilePickerDialog) {
@@ -110,7 +104,6 @@ function LibraryScopedSection() {
 								alert('Opening a dialogue is not supported on this platform!');
 								return;
 							}
-
 							platform.openFilePickerDialog().then((result) => {
 								// TODO: Pass indexer rules ids to create location
 								if (result)
@@ -121,10 +114,10 @@ function LibraryScopedSection() {
 							});
 						}}
 						className={clsx(
-							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-gray-400 border border-dashed rounded border-transparent cursor-normal border-gray-350 transition',
-							os === 'macOS'
-								? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
-								: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
+							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-ink-faint border border-dashed rounded border-sidebar-box cursor-normal transition'
+							// os === 'macOS'
+							// 	? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
+							// 	: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
 						)}
 					>
 						Add Location
@@ -163,8 +156,8 @@ export function Sidebar() {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-gray-100 no-scrollbar bg-gray-50 dark:bg-gray-850 dark:border-gray-750',
-				macOnly(os, 'dark:!bg-opacity-30')
+				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar/100'
+				// macOnly(os, 'bg-sidebar/30')
 			)}
 		>
 			<WindowControls />
