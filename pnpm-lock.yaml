@@ -555,7 +555,6 @@ importers:
       storybook: ^6.5.12
       storybook-tailwind-dark-mode: ^1.0.15
       style-loader: ^3.3.1
-      tailwind-styled-components: 2.1.7
       tailwindcss: ^3.1.8
       tailwindcss-radix: ^2.6.0
       typescript: ^4.8.4
@@ -578,7 +577,6 @@ importers:
       react-loading-icons: 1.1.0
       react-router-dom: 6.4.2_biqbaboplfbrettd7655fr4n2y
       react-spring: 9.5.5_biqbaboplfbrettd7655fr4n2y
-      tailwind-styled-components: 2.1.7_biqbaboplfbrettd7655fr4n2y
       tailwindcss-radix: 2.6.1
     devDependencies:
       '@babel/core': 7.19.3
@@ -18469,21 +18467,6 @@ packages:
   /synchronous-promise/2.0.16:
     resolution: {integrity: sha512-qImOD23aDfnIDNqlG1NOehdB9IYsn1V9oByPjKY1nakv2MQYCEMyX033/q+aEtYCpmYK1cv2+NTmlH+ra6GA5A==}
     dev: true
-
-  /tailwind-merge/1.6.2:
-    resolution: {integrity: sha512-/JbgwDwsI8F4aryXAcQ6tVOZvI/YyZqPqdkG/Dj/8XZq8JDp64XxZCIDbyp7/iOpIfWFkF8swEwjXQEQkAvJNw==}
-    dev: false
-
-  /tailwind-styled-components/2.1.7_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-L20oQlwWM+kbYHIrwvvMQ0HHqt1Z/tInnO/Q9zM0IV/vqUxSIcLAmhMwbbiZmyXTdAVz84N4s1GtIyGODq80Pw==}
-    peerDependencies:
-      react: '>= 16.8.0'
-      react-dom: '>= 16.8.0'
-    dependencies:
-      react: 18.2.0
-      react-dom: 18.2.0_react@18.2.0
-      tailwind-merge: 1.6.2
-    dev: false
 
   /tailwind/4.0.0:
     resolution: {integrity: sha512-LlUNoD/5maFG1h5kQ6/hXfFPdcnYw+1Z7z+kUD/W/E71CUMwcnrskxiBM8c3G8wmPsD1VvCuqGYMHviI8+yrmg==}
