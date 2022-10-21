@@ -184,7 +184,9 @@ export function Sidebar() {
 						)}
 					>
 						{/* this shouldn't default to "My Library", it is only this way for landing demo */}
-						{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
+						<span className="w-32 truncate">
+							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
+						</span>
 					</Dropdown.Button>
 				}
 				// to support the transparent sidebar on macOS we use slightly adjusted styles
@@ -206,9 +208,11 @@ export function Sidebar() {
 					<Dropdown.Item className={itemStyles} icon={CogIcon} to="settings/library">
 						Library Settings
 					</Dropdown.Item>
-					<Dropdown.Item className={itemStyles} icon={PlusIcon}>
-						Library Settings
-					</Dropdown.Item>
+					<CreateLibraryDialog>
+						<Dropdown.Item className={itemStyles} icon={PlusIcon}>
+							Add Library
+						</Dropdown.Item>
+					</CreateLibraryDialog>
 					<Dropdown.Item
 						className={itemStyles}
 						icon={LockClosedIcon}
