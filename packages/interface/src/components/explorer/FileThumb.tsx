@@ -78,11 +78,11 @@ export default function FileThumb({ data, ...props }: Props) {
 		>
 			<svg
 				// BACKGROUND
-				className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none top-1/2 left-1/2 fill-gray-150 dark:fill-gray-550"
+				className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none top-1/2 left-1/2 fill-app-box"
 				width="100%"
 				height="100%"
 				viewBox="0 0 65 81"
-				style={{ filter: 'drop-shadow(0px 5px 2px rgb(0 0 0 / 0.05))' }}
+				style={{ filter: 'drop-shadow(0px 2px 1px rgb(0 0 0 / 0.15))' }}
 			>
 				<path d="M0 8C0 3.58172 3.58172 0 8 0H39.6863C41.808 0 43.8429 0.842855 45.3431 2.34315L53.5 10.5L62.6569 19.6569C64.1571 21.1571 65 23.192 65 25.3137V73C65 77.4183 61.4183 81 57 81H8C3.58172 81 0 77.4183 0 73V8Z" />
 			</svg>
@@ -103,8 +103,9 @@ export default function FileThumb({ data, ...props }: Props) {
 				// PEEL
 				width="28%"
 				height="28%"
-				className="absolute top-0 right-0 -translate-x-[35%] z-0 pointer-events-none fill-gray-50 dark:fill-gray-500"
-				viewBox="0 0 41 41"
+				className="absolute top-0 right-0 -translate-x-[40%] z-0 pointer-events-none fill-app-selected"
+				viewBox="0 0 40 40"
+				style={{ filter: 'drop-shadow(-3px 1px 1px rgb(0 0 0 / 0.05))' }}
 			>
 				<path d="M41.4116 40.5577H11.234C5.02962 40.5577 0 35.5281 0 29.3238V0L41.4116 40.5577Z" />
 			</svg>

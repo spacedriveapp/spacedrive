@@ -49,11 +49,7 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 				<KeyIcon
 					className={clsx(
 						'w-5 h-5 ml-1 mr-3',
-						data.mounted
-							? data.locked
-								? 'text-primary-600'
-								: 'text-primary-600'
-							: 'text-gray-400/80'
+						data.mounted ? (data.locked ? 'text-accent' : 'text-accent') : 'text-gray-400/80'
 					)}
 				/>
 				<div className="flex flex-col ">

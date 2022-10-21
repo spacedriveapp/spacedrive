@@ -2,10 +2,18 @@ import { CogIcon, LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useCurrentLibrary, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
-import { Button, CategoryHeading, Dropdown, OverlayPanel } from '@sd/ui';
+import { Button, CategoryHeading, Dropdown, OverlayPanel, cva } from '@sd/ui';
 import { restyle } from '@sd/ui';
+import { tw } from '@sd/ui';
 import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
+import {
+	CheckCircle,
+	CirclesFour,
+	Hexagon,
+	Planet,
+	ShareNetwork,
+	WaveTriangle
+} from 'phosphor-react';
 import { PropsWithChildren, forwardRef } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
@@ -16,18 +24,21 @@ import { JobsManager } from '../jobs/JobManager';
 import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
 
+const sidebarItemClass = cva(
+	'max-w mb-[2px] rounded px-2 py-1 gap-0.5 flex flex-row flex-grow items-center font-medium truncate text-sm',
+	{
+		variants: {
+			isActive: {
+				true: 'bg-sidebar-selected/60'
+			}
+		}
+	}
+);
+
 export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => (
 	<NavLink {...props}>
 		{({ isActive }) => (
-			<span
-				className={clsx(
-					'max-w mb-[2px] text-gray-550 rounded px-2 py-1 flex flex-row flex-grow items-center font-medium text-sm',
-					{
-						'bg-sidebar-selected': isActive
-					},
-					props.className
-				)}
-			>
+			<span className={clsx(sidebarItemClass({ isActive }), props.className)}>
 				{props.children}
 			</span>
 		)}
@@ -58,6 +69,8 @@ function WindowControls() {
 	return null;
 }
 
+const SidebarCategoryHeading = tw(CategoryHeading)`mt-5 mb-1 ml-1`;
+
 function LibraryScopedSection() {
 	const os = useOperatingSystem();
 	const platform = usePlatform();
@@ -68,7 +81,7 @@ function LibraryScopedSection() {
 	return (
 		<>
 			<div>
-				<CategoryHeading className="mt-5">Locations</CategoryHeading>
+				<SidebarCategoryHeading>Locations</SidebarCategoryHeading>
 				{locations?.map((location) => {
 					return (
 						<div key={location.id} className="flex flex-row items-center">
@@ -79,12 +92,8 @@ function LibraryScopedSection() {
 								}}
 							>
 								{({ isActive }) => (
-									<span
-										className={clsx(
-											'max-w mb-[2px] rounded px-2 py-1 gap-2 flex flex-row flex-grow items-center truncate text-sm'
-										)}
-									>
-										<div className="-mt-0.5 flex-grow-0 flex-shrink-0">
+									<span className={sidebarItemClass({ isActive })}>
+										<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
 											<Folder size={18} />
 										</div>
 
@@ -114,7 +123,7 @@ function LibraryScopedSection() {
 							});
 						}}
 						className={clsx(
-							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-ink-faint border border-dashed rounded border-sidebar-box cursor-normal transition'
+							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-ink-faint border border-dashed rounded border-sidebar-border cursor-normal transition'
 							// os === 'macOS'
 							// 	? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
 							// 	: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
@@ -126,15 +135,15 @@ function LibraryScopedSection() {
 			</div>
 			{tags?.length ? (
 				<div>
-					<CategoryHeading className="mt-5">Tags</CategoryHeading>
-					<div className="mb-2">
+					<SidebarCategoryHeading>Tags</SidebarCategoryHeading>
+					<div className="mt-1 mb-2">
 						{tags?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
 								<div
 									className="w-[12px] h-[12px] rounded-full"
 									style={{ backgroundColor: tag.color || '#efefef' }}
 								/>
-								<span className="ml-2 text-sm">{tag.name}</span>
+								<span className="ml-1.5 text-sm">{tag.name}</span>
 							</SidebarLink>
 						))}
 					</div>
@@ -151,44 +160,41 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 
-	const itemStyles = macOnly(os, 'dark:hover:bg-gray-550 dark:hover:bg-opacity-50');
+	// const itemStyles = macOnly(os, 'dark:hover:bg-gray-550 dark:hover:bg-opacity-50');
 
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-grow-0 flex-shrink-0 w-48 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar/100'
-				// macOnly(os, 'bg-sidebar/30')
+				'flex flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar/100',
+				macOnly(os, 'bg-sidebar/80')
 			)}
 		>
 			<WindowControls />
 
 			<Dropdown.Root
 				className="mt-2"
+				itemsClassName="bg-app-box border-sidebar-border"
 				button={
 					<Dropdown.Button
 						variant="gray"
 						className={clsx(
-							`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded !bg-gray-50 border-gray-150 hover:!bg-gray-1000 dark:!bg-gray-500 dark:hover:!bg-gray-500 dark:!border-gray-550 dark:hover:!border-gray-500`,
-							(library === null || isLoadingLibraries) && 'text-gray-300',
-							macOnly(
-								os,
-								'dark:!bg-opacity-40 dark:hover:!bg-opacity-70 dark:!border-[#333949] dark:hover:!border-[#394052]'
-							)
+							`w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded`,
+							`!bg-sidebar-box !border-sidebar-border hover:!border-sidebar-selected !text-ink`,
+							(library === null || isLoadingLibraries) && '!text-ink-faint',
+							macOnly(os, '!bg-opacity-80 !border-opacity-40')
 						)}
 					>
-						{/* this shouldn't default to "My Library", it is only this way for landing demo */}
-						<span className="w-32 truncate">
+						<span className="truncate">
 							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
 						</span>
 					</Dropdown.Button>
 				}
 				// to support the transparent sidebar on macOS we use slightly adjusted styles
-				itemsClassName={macOnly(os, 'dark:bg-gray-800	dark:divide-gray-600')}
+				// itemsClassName={macOnly(os, 'bg-app/60')}
 			>
 				<Dropdown.Section>
 					{libraries?.map((lib) => (
 						<Dropdown.Item
-							className={itemStyles}
 							selected={lib.uuid === library?.uuid}
 							key={lib.uuid}
 							onClick={() => switchLibrary(lib.uuid)}
@@ -198,19 +204,13 @@ export function Sidebar() {
 					))}
 				</Dropdown.Section>
 				<Dropdown.Section>
-					<Dropdown.Item className={itemStyles} icon={CogIcon} to="settings/library">
+					<Dropdown.Item icon={CogIcon} to="settings/library">
 						Library Settings
 					</Dropdown.Item>
 					<CreateLibraryDialog>
-						<Dropdown.Item className={itemStyles} icon={PlusIcon}>
-							Add Library
-						</Dropdown.Item>
+						<Dropdown.Item icon={PlusIcon}>Add Library</Dropdown.Item>
 					</CreateLibraryDialog>
-					<Dropdown.Item
-						className={itemStyles}
-						icon={LockClosedIcon}
-						onClick={() => alert('TODO: Not implemented yet!')}
-					>
+					<Dropdown.Item icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
 						Lock
 					</Dropdown.Item>
 				</Dropdown.Section>
@@ -220,13 +220,13 @@ export function Sidebar() {
 					<Icon component={Planet} />
 					Overview
 				</SidebarLink>
+				<SidebarLink to="photos">
+					<Icon component={ShareNetwork} />
+					Nodes
+				</SidebarLink>
 				<SidebarLink to="content">
 					<Icon component={CirclesFour} />
 					Spaces
-				</SidebarLink>
-				<SidebarLink to="photos">
-					<Icon component={PhotoIcon} />
-					Photos
 				</SidebarLink>
 			</div>
 

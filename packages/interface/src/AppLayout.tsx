@@ -20,9 +20,9 @@ export function AppLayout() {
 		<div
 			className={clsx(
 				// App level styles
-				'flex flex-row overflow-hidden text-ink select-none cursor-default',
-				os === 'macOS' && 'rounded-xl has-blur-effects',
-				os !== 'browser' && os !== 'windows' && 'border border-app-divider'
+				'flex overflow-hidden text-ink select-none cursor-default',
+				os === 'macOS' && 'rounded-[10px] has-blur-effects',
+				os !== 'browser' && os !== 'windows' && 'border border-app-divider/30'
 			)}
 			onContextMenu={(e) => {
 				// TODO: allow this on some UI text at least / disable default browser context menu
@@ -31,7 +31,7 @@ export function AppLayout() {
 			}}
 		>
 			<Sidebar />
-			<div className="relative flex w-full h-screen max-h-screen">
+			<div className="relative flex w-full">
 				<Suspense>
 					<Outlet />
 				</Suspense>

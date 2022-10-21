@@ -51,17 +51,16 @@ const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
 				{...props}
 				ref={ref}
 				className={clsx(
-					'mr-[1px] flex py-0.5 px-0.5 text-md font-medium hover:bg-gray-150 dark:transparent dark:hover:bg-gray-550 rounded-md open:dark:bg-gray-550 transition-colors duration-100 outline-none !cursor-normal',
+					'mr-[1px] flex py-0.5 px-0.5 text-md font-medium rounded-md open:bg-selected transition-colors duration-100 outline-none !cursor-normal',
 					{
 						'rounded-r-none rounded-l-none': group && !left && !right,
 						'rounded-r-none': group && left,
-						'rounded-l-none': group && right,
-						'dark:bg-gray-550': active
+						'rounded-l-none': group && right
 					},
 					className
 				)}
 			>
-				<Icon weight={'regular'} className="m-0.5 w-5 h-5 text-gray-450 dark:text-gray-150" />
+				<Icon weight={'regular'} className="m-0.5 w-5 h-5 text-ink-dull" />
 			</button>
 		);
 	}
@@ -95,7 +94,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
 				placeholder="Search"
-				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow dark:shadow-gray-900/30 dark:bg-gray-600/70 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2 border shadow  transition-all bg-app-input border-app-border"
 				{...searchField}
 			/>
 
@@ -219,7 +218,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				// in case you wanna turn it back on
 				// honestly its just work to revert
 				className={clsx(
-					'flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b app-bg overflow-hidden rounded-tl-md transition-[background-color] transition-[border-color] duration-250 ease-out',
+					'flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b app-background overflow-hidden rounded-tl-md transition-[background-color] transition-[border-color] duration-250 ease-out',
 					props.showSeparator && 'top-bar-blur'
 				)}
 			>

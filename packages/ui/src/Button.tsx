@@ -41,7 +41,7 @@ const styles = cva(
 			},
 			size: {
 				md: 'py-1 px-3 text-md font-medium',
-				sm: 'py-1 px-2 text-xs font-medium'
+				sm: 'py-1 px-2 text-sm font-medium'
 			},
 			justify: {
 				left: 'justify-left',
@@ -49,17 +49,13 @@ const styles = cva(
 			},
 			variant: {
 				default: [
-					'bg-gray-50 shadow-sm hover:bg-gray-100 active:bg-gray-50 dark:bg-transparent',
-					'dark:active:bg-gray-600 dark:hover:bg-gray-550 dark:active:opacity-80',
-					'border-gray-100 hover:border-gray-200 active:border-gray-200',
-					'dark:border-transparent dark:active:border-gray-600 dark:hover:border-gray-500',
-					'text-gray-700 hover:text-gray-900 active:text-gray-600',
-					'dark:text-gray-200 dark:active:text-white dark:hover:text-white'
+					'bg-app-button bg-transparent active:bg-app-selected hover:bg-app-hover',
+					'border-transparent hover:border-app-border active:border-app-border'
 				],
 				gray: [
-					'bg-gray-100 shadow-sm hover:bg-gray-200 active:bg-gray-100 dark:bg-gray-500 dark:hover:bg-gray-500 dark:bg-opacity-80 dark:hover:bg-opacity-100 dark:active:opacity-80',
-					'border-gray-200 hover:border-gray-300 active:border-gray-200 dark:border-gray-500 dark:hover:border-gray-500',
-					'text-gray-700 hover:text-gray-900 active:text-gray-600 dark:text-gray-200 dark:active:text-white dark:hover:text-white'
+					'bg-gray-100 shadow-sm hover:bg-gray-200 active:bg-gray-100',
+					'border-gray-200 hover:border-app-border active:border-gray-200',
+					'text-gray-700 hover:text-gray-900 active:text-gray-600'
 				],
 				primary: [
 					'bg-primary-600 text-white shadow-sm active:bg-primary-600 hover:bg-primary border-primary-500 hover:border-primary-500 active:border-primary-700'
