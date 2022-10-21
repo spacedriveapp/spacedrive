@@ -16,6 +16,7 @@ const state = {
 	gridItemSize: 100,
 	listItemSize: 40,
 	selectedRowIndex: 1,
+	tagAssignMode: false,
 	showInspector: true,
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,

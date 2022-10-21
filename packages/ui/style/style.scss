@@ -14,6 +14,11 @@
 	-webkit-backdrop-filter: blur(18px);
 }
 
+.top-bar-blur {
+	@apply border-app-divider;
+	backdrop-filter: saturate(120%) blur(18px);
+}
+
 .inset-center {
 	position: absolute;
 	top: 50%;

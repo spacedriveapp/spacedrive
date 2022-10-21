@@ -40,7 +40,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
-						'bg-gray-50 dark:bg-gray-750': selected
+						'bg-gray-50 dark:bg-gray-750/50': selected
 					}
 				)}
 			>
@@ -51,7 +51,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				>
 					<FileThumb
 						className={clsx(
-							'border-4 border-gray-250 shadow-md shadow-gray-750 object-cover max-w-full max-h-full w-auto overflow-hidden',
+							'border-4 border-gray-250 shadow shadow-gray-750 object-cover max-w-full max-h-full w-auto overflow-hidden',
 							isVid && 'border-gray-950 rounded border-x-0 border-y-[9px]'
 						)}
 						data={data}

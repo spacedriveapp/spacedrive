@@ -1,4 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon, TagIcon } from '@heroicons/react/24/outline';
+import { KeyIcon as KeyIconSolid, TagIcon as TagIconSolid } from '@heroicons/react/24/solid';
 import {
 	OperatingSystem,
 	getExplorerStore,
@@ -55,7 +56,7 @@ const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
 						'rounded-r-none rounded-l-none': group && !left && !right,
 						'rounded-r-none': group && left,
 						'rounded-l-none': group && right,
-						'dark:bg-gray-500': active
+						'dark:bg-gray-550': active
 					},
 					className
 				)}
@@ -94,7 +95,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
 				placeholder="Search"
-				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow-md dark:bg-gray-600 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
+				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2  placeholder-gray-400 dark:placeholder-gray-450 bg-[#F6F2F6] border border-gray-50 shadow dark:shadow-gray-900/30 dark:bg-gray-600/70 dark:border-gray-550 focus:ring-gray-100 dark:focus:ring-gray-550 dark:focus:bg-gray-800 transition-all"
 				{...searchField}
 			/>
 
@@ -117,7 +118,9 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 	);
 });
 
-export type TopBarProps = DefaultProps;
+export type TopBarProps = DefaultProps & {
+	showSeparator?: boolean;
+};
 
 export const TopBar: React.FC<TopBarProps> = (props) => {
 	const platform = useOperatingSystem(false);
@@ -211,9 +214,16 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				className="flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center overflow-hidden rounded-tl-md"
+				// Backdrop blur was removed
+				// but the explorer still resides under the top bar
+				// in case you wanna turn it back on
+				// honestly its just work to revert
+				className={clsx(
+					'flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b app-bg overflow-hidden rounded-tl-md transition-[background-color] transition-[border-color] duration-250 ease-out',
+					props.showSeparator && 'top-bar-blur'
+				)}
 			>
-				<div className="flex ">
+				<div className="flex">
 					<Tooltip label="Navigate back">
 						<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
 					</Tooltip>
@@ -275,7 +285,11 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							</div>
 						</OverlayPanel>
 						<Tooltip label="Tag Assign Mode">
-							<TopBarButton icon={TagIcon} />
+							<TopBarButton
+								onClick={() => (getExplorerStore().tagAssignMode = !store.tagAssignMode)}
+								active={store.tagAssignMode}
+								icon={store.tagAssignMode ? TagIconSolid : TagIcon}
+							/>
 						</Tooltip>
 						<Tooltip label="Refresh">
 							<TopBarButton icon={ArrowsClockwise} />

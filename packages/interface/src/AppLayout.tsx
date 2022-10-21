@@ -21,7 +21,7 @@ export function AppLayout() {
 			className={clsx(
 				// App level styles
 				'flex flex-row overflow-hidden text-ink select-none cursor-default',
-				os === 'macOS' && 'rounded-xl',
+				os === 'macOS' && 'rounded-xl has-blur-effects',
 				os !== 'browser' && os !== 'windows' && 'border border-app-divider'
 			)}
 			onContextMenu={(e) => {
