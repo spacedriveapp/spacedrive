@@ -5182,7 +5182,6 @@ dependencies = [
  "itertools",
  "normi",
  "once_cell",
- "openssl-sys",
  "prisma-client-rust",
  "rmp",
  "rmp-serde",
