@@ -1,9 +1,7 @@
-import { Disclosure, Transition } from '@headlessui/react';
-import { ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { ChevronRightIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
-import clsx from 'clsx';
 import { List, X } from 'phosphor-react';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import pkg from 'react-burger-menu';
 
 import { Doc, DocsNavigation, toTitleCase } from '../pages/docs/api';
@@ -32,9 +30,10 @@ export default function DocsLayout(props: Props) {
 				<div className="visible h-screen pb-20 overflow-x-hidden custom-scroll doc-sidebar-scroll bg-gray-650 pt-7 px-7 sm:invisible">
 					<Button
 						onClick={() => setMenuOpen(!menuOpen)}
-						icon={<X weight="bold" className="w-6 h-6" />}
 						className="!px-1 -ml-0.5 mb-3 !border-none"
-					/>
+					>
+						<X weight="bold" className="w-6 h-6" />
+					</Button>
 					<DocsSidebar activePath={props?.doc?.url} navigation={props.navigation} />
 				</div>
 			</Menu>
@@ -45,11 +44,9 @@ export default function DocsLayout(props: Props) {
 			<div className="flex flex-col w-full sm:flex-row" id="page-container">
 				<div className="h-12 px-5 flex w-full border-t border-gray-600 border-b mt-[65px] sm:hidden items-center ">
 					<div className="flex sm:hidden">
-						<Button
-							onClick={() => setMenuOpen(!menuOpen)}
-							icon={<List weight="bold" className="w-6 h-6" />}
-							className="!px-2 ml-1 !border-none"
-						/>
+						<Button onClick={() => setMenuOpen(!menuOpen)} className="!px-2 ml-1 !border-none">
+							<List weight="bold" className="w-6 h-6" />
+						</Button>
 					</div>
 					{props.doc?.url.split('/').map((item, index) => {
 						if (index === 2) return null;

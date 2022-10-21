@@ -3,9 +3,10 @@ import { PlusIcon } from '@heroicons/react/24/solid';
 import { useCurrentLibrary, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
 import { Button, CategoryHeading, Dropdown, OverlayPanel } from '@sd/ui';
+import { restyle } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, WaveTriangle } from 'phosphor-react';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, forwardRef } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
@@ -157,6 +158,8 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 
+	const itemStyles = macOnly(os, 'dark:hover:bg-gray-550 dark:hover:bg-opacity-50');
+
 	return (
 		<div
 			className={clsx(
@@ -166,52 +169,59 @@ export function Sidebar() {
 		>
 			<WindowControls />
 
-			<Dropdown
-				buttonProps={{
-					justify: 'left',
-					className: clsx(
-						`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded !bg-gray-50 border-gray-150 hover:!bg-gray-1000 dark:!bg-gray-500 dark:hover:!bg-gray-500 dark:!border-gray-550 dark:hover:!border-gray-500`,
-						macOnly(
-							os,
-							'dark:!bg-opacity-40 dark:hover:!bg-opacity-70 dark:!border-[#333949] dark:hover:!border-[#394052]'
-						)
-					),
-					variant: 'gray'
-				}}
+			<Dropdown.Root
+				className="mt-2"
+				button={
+					<Dropdown.Button
+						variant="gray"
+						className={clsx(
+							`flex w-full text-left max-w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded !bg-gray-50 border-gray-150 hover:!bg-gray-1000 dark:!bg-gray-500 dark:hover:!bg-gray-500 dark:!border-gray-550 dark:hover:!border-gray-500`,
+							(library === null || isLoadingLibraries) && 'text-gray-300',
+							macOnly(
+								os,
+								'dark:!bg-opacity-40 dark:hover:!bg-opacity-70 dark:!border-[#333949] dark:hover:!border-[#394052]'
+							)
+						)}
+					>
+						{/* this shouldn't default to "My Library", it is only this way for landing demo */}
+						<span className="w-32 truncate">
+							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
+						</span>
+					</Dropdown.Button>
+				}
 				// to support the transparent sidebar on macOS we use slightly adjusted styles
 				itemsClassName={macOnly(os, 'dark:bg-gray-800	dark:divide-gray-600')}
-				itemButtonClassName={macOnly(os, 'dark:hover:bg-gray-550 dark:hover:bg-opacity-50')}
-				// this shouldn't default to "My Library", it is only this way for landing demo
-				buttonText={isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
-				buttonTextClassName={library === null || isLoadingLibraries ? 'text-gray-300' : undefined}
-				items={[
-					libraries?.map((lib) => ({
-						name: lib.config.name,
-						selected: lib.uuid === library?.uuid,
-						onPress: () => switchLibrary(lib.uuid)
-					})) || [],
-					[
-						{
-							name: 'Library Settings',
-							icon: CogIcon,
-							to: 'settings/library'
-						},
-						{
-							name: 'Add Library',
-							icon: PlusIcon,
-							wrapItemComponent: CreateLibraryDialog
-						},
-						{
-							name: 'Lock',
-							icon: LockClosedIcon,
-							disabled: true,
-							onPress: () => {
-								alert('TODO: Not implemented yet!');
-							}
-						}
-					]
-				]}
-			/>
+			>
+				<Dropdown.Section>
+					{libraries?.map((lib) => (
+						<Dropdown.Item
+							className={itemStyles}
+							selected={lib.uuid === library?.uuid}
+							key={lib.uuid}
+							onClick={() => switchLibrary(lib.uuid)}
+						>
+							{lib.config.name}
+						</Dropdown.Item>
+					))}
+				</Dropdown.Section>
+				<Dropdown.Section>
+					<Dropdown.Item className={itemStyles} icon={CogIcon} to="settings/library">
+						Library Settings
+					</Dropdown.Item>
+					<CreateLibraryDialog>
+						<Dropdown.Item className={itemStyles} icon={PlusIcon}>
+							Add Library
+						</Dropdown.Item>
+					</CreateLibraryDialog>
+					<Dropdown.Item
+						className={itemStyles}
+						icon={LockClosedIcon}
+						onClick={() => alert('TODO: Not implemented yet!')}
+					>
+						Lock
+					</Dropdown.Item>
+				</Dropdown.Section>
+			</Dropdown.Root>
 			<div className="pt-1">
 				<SidebarLink to="/overview">
 					<Icon component={Planet} />

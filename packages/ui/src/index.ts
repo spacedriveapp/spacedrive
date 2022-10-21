@@ -1,5 +1,5 @@
 export * from './Button';
-export * from './Dropdown';
+export * as Dropdown from './Dropdown';
 export * from './Dialog';
 export * from './Loader';
 export * as ContextMenu from './ContextMenu';
@@ -8,5 +8,5 @@ export * from './Input';
 export * from './Select';
 export * as Tabs from './Tabs';
 export * from './Typography';
-export { tw } from './utils';
+export * from './utils';
 export { cva } from 'class-variance-authority';

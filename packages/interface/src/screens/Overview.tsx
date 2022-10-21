@@ -171,11 +171,8 @@ export default function OverviewScreen() {
 								// ctaAction={() => {}}
 								ctaLabel="Connect"
 								trigger={
-									<Button
-										size="sm"
-										icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 xl:mr-1" />}
-										variant="gray"
-									>
+									<Button size="sm" variant="gray">
+										<PlusIcon className="inline w-4 h-4 -mt-0.5 xl:mr-1" />
 										<span className="hidden xl:inline-block">Add Device</span>
 									</Button>
 								}
