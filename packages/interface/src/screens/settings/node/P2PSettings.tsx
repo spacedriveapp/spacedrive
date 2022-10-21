@@ -28,7 +28,7 @@ export default function P2PSettings() {
 				<div className="flex flex-col mt-1">
 					<Input className="flex-grow" disabled defaultValue="https://p2p.spacedrive.com" />
 					<div className="flex justify-end mt-1">
-						<a className="p-1 text-sm font-bold text-primary-500 hover:text-primary-400">Change</a>
+						<a className="p-1 text-sm font-bold text-accent hover:text-accent">Change</a>
 					</div>
 				</div>
 			</InputContainer>

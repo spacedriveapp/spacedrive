@@ -28,7 +28,7 @@ export default function GeneralSettings() {
 						<span className="font-semibold">Connected Node</span>
 						<div className="grid grid-cols-2 gap-1">
 							<NodePill>0 Peers</NodePill>
-							<NodePill className="bg-primary-600">Running</NodePill>
+							<NodePill className="bg-accent">Running</NodePill>
 						</div>
 					</div>
 

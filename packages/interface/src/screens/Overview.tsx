@@ -92,7 +92,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600',
+				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default ',
 				!+bytes && 'hidden'
 			)}
 		>
@@ -139,7 +139,7 @@ export default function OverviewScreen() {
 	console.log(overviewStats);
 
 	return (
-		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll app-bg">
+		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll app-background">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
 			{/* PAGE */}
 
@@ -165,7 +165,7 @@ export default function OverviewScreen() {
 					<div className="flex-grow" />
 					<div className="flex items-center h-full space-x-2">
 						<div>
-							<Dialog
+							{/* <Dialog
 								title="Add Device"
 								description="Connect a new device to your library. Either enter another device's code or copy this one."
 								// ctaAction={() => {}}
@@ -191,7 +191,7 @@ export default function OverviewScreen() {
 										<Input value="" />
 									</div>
 								</div>
-							</Dialog>
+							</Dialog>*/}
 						</div>
 					</div>
 				</div>

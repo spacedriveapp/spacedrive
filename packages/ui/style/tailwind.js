@@ -5,7 +5,7 @@ const defaultTheme = require('tailwindcss/defaultTheme');
 function alpha(variableName) {
 	// some tailwind magic to allow us to specify opacity with CSS variables (eg: bg-app/80)
 	// https://tailwindcss.com/docs/customizing-colors#using-css-variables
-	return `rgba(var(${variableName}), <alpha-value>)`;
+	return `hsla(var(${variableName}), <alpha-value>)`;
 }
 
 module.exports = function (app, options) {
@@ -24,7 +24,7 @@ module.exports = function (app, options) {
 			fontSize: {
 				'tiny': '.65rem',
 				'xs': '.75rem',
-				'sm': '.84rem',
+				'sm': '.80rem',
 				'base': '1rem',
 				'lg': '1.125rem',
 				'xl': '1.25rem',

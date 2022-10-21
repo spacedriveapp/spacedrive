@@ -2,66 +2,69 @@
 
 // Notes
 // shadow should be used as shadow-black/40
-.vanilla-dark {
-  // global
-  --color-black: 0, 0, 0;
-  --color-white: 255, 255, 255;
-   // accent theme colors
-  --color-accent: 0, 0, 0;
-  --color-accent-faint: 0, 0, 0; 
-  --color-accent-deep: 0, 0, 0; 
-  // text
-  --color-ink: 255, 255, 255;
-  --color-ink-dull: 190, 190, 190;
-  --color-ink-faint: 150, 150, 150;
-  // sidebar
-  --color-sidebar: 13, 17, 23;
-  --color-sidebar-box: 48,53,68;
-  --color-sidebar-border: 48,53,68;
-  --color-sidebar-divider: 48,53,68;
-  --color-sidebar-button: 48,53,68;
-  --color-sidebar-selected: 48,53,68;
-  --color-sidebar-separator: 48,53,68;
-  // main
-  --color-app: 0, 0, 0;
-  --color-app-box: 0, 0, 0;
-  --color-app-input: 0, 0, 0;
-  --color-app-border: 0, 0, 0;
-  --color-app-button: 0, 0, 0;
-  --color-app-divider: 0, 0, 0;
-  --color-app-selected: 0, 0, 0;
-  --color-app-hover: 0, 0, 0;
-  --color-app-separator: 0, 0, 0;
-}
 
 .vanilla-light {
   // global
-  --color-black: 0,0,0;
-  --color-white: 255,255,255;
+  --color-black: 0, 0%, 0%;
+  --color-white: 0, 0%, 100%;
    // accent theme colors
-  --color-accent: 0,0,0;
-  --color-accent-faint: 0,0,0; 
-  --color-accent-deep: 0,0,0; 
+   --color-accent: 208, 100%, 57%;
+   --color-accent-faint: 208, 100%, 67%;
+   --color-accent-deep: 208, 100%, 47%;
   // text
-  --color-ink: 0,0,0;
-  --color-ink-dull: 35,35,35;
-  --color-ink-faint: 55,55,55;
+  --color-ink: 215, 5%, 20%;
+  --color-ink-dull: 215, 5%, 30%;
+  --color-ink-faint: 215, 5%, 60%;
   // sidebar
-  --color-sidebar: 255,255,255;
-  --color-sidebar-box: 233,237,253;
-  --color-sidebar-border: 233,237,253;
-  --color-sidebar-divider: 233,237,253;
-  --color-sidebar-button: 233,237,253;
-  --color-sidebar-selected: 233,237,253;
-  --color-sidebar-separator: 233,237,253;
+  --color-sidebar: 215, 5%, 98%;
+  --color-sidebar-box: 215, 5%, 100%;
+  --color-sidebar-border: 215, 10%, 85%;
+  --color-sidebar-divider: 215, 15%, 90%;
+  --color-sidebar-button: 215, 15%, 100%;
+  --color-sidebar-selected: 215, 10%, 90%;
+  --color-sidebar-separator: 215, 15%, 100%;
   // main
-  --color-app: 0,0,0;
-  --color-app-box: 0,0,0;
-  --color-app-input: 0,0,0;
-  --color-app-border: 0,0,0;
-  --color-app-button: 0,0,0;
-  --color-app-divider: 0,0,0;
-  --color-app-selected: 0,0,0;
-  --color-app-hover: 0,0,0;
-  --color-app-separator: 0,0,0;
+  --color-app: 215, 5%, 100%;
+  --color-app-box: 215, 5%, 98%;
+  --color-app-input: 215, 5%, 100%;
+  --color-app-border: 215, 5%, 94%;
+  --color-app-button: 215, 5%, 100%;
+  --color-app-divider: 215, 5%, 100%;
+  --color-app-selected: 215, 5%, 80%;
+  --color-app-hover: 215, 5%, 100%;
+  --color-app-separator: 215, 5%, 100%;
 }
+
+
+.vanilla-dark {
+  // global
+  --color-black: 0, 0%, 0%;
+  --color-white: 0, 0%, 100%;
+   // accent theme colors
+  --color-accent: 208, 100%, 57%;
+  --color-accent-faint: 208, 100%, 67%;
+  --color-accent-deep: 208, 100%, 47%;
+  // text
+  --color-ink: 215, 0%, 100%;
+  --color-ink-dull: 215, 10%, 70%;
+  --color-ink-faint: 215, 10%, 25%;
+  // sidebar
+  --color-sidebar: 215, 15%, 7%;
+  --color-sidebar-box: 215, 15%, 13%;
+  --color-sidebar-border: 215, 15%, 23%;
+  --color-sidebar-divider: 215, 15%, 23%;
+  --color-sidebar-button: 215, 15%, 23%;
+  --color-sidebar-selected: 215, 15%, 16%;
+  --color-sidebar-separator: 215, 15%, 23%;
+  // main
+  --color-app: 215, 15%, 13%;
+  --color-app-box: 215, 15%, 20%;
+  --color-app-input: 215, 15%, 23%;
+  --color-app-border: 215, 15%, 30%;
+  --color-app-button: 215, 15%, 23%;
+  --color-app-divider: 215, 15%, 23%;
+  --color-app-selected: 215, 15%, 23%;
+  --color-app-hover: 215, 15%, 23%;
+  --color-app-separator: 215, 15%, 23%;
+}
+

@@ -19,7 +19,7 @@ export const Toggle: React.FC<ToggleProps> = (props) => {
 				'transition relative flex-shrink-0 inline-flex items-center h-6 w-11 rounded-full bg-gray-200 dark:bg-gray-550',
 				props.className,
 				{
-					'!bg-primary-500 dark:!bg-primary-500': isEnabled,
+					'!bg-accent dark:!bg-accent': isEnabled,
 					'h-[20px] w-[35px]': size === 'sm',
 					'h-8 w-[55px]': size === 'md'
 				}

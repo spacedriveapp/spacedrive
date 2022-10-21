@@ -55,7 +55,7 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 								className={({ active }) =>
 									`cursor-default select-none relative rounded m-1 py-2 pl-8 pr-4 dark:text-white focus:outline-none  ${
 										active
-											? 'text-primary-900 bg-primary-600'
+											? 'text-accent bg-accent'
 											: 'text-gray-900 dark:hover:bg-gray-600 dark:hover:bg-opacity-20'
 									}`
 								}

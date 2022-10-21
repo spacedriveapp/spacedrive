@@ -4,15 +4,15 @@ button {
 }
 
 body {
-	font-family: 'InterVariable', sans-serif;
+	// font-family: 'InterVariable', sans-serif;
 }
 
-.app-bg {
+.app-background {
 	@apply bg-app;
 }
 
 .has-blur-effects {
-	.app-bg {
+	.app-background {
 		@apply bg-app/90;
 	}
 }

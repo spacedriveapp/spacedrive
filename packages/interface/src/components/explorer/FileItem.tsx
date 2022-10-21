@@ -40,7 +40,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
-						'bg-gray-50 dark:bg-gray-750/50': selected
+						'bg-app-selected/30': selected
 					}
 				)}
 			>
@@ -51,15 +51,15 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				>
 					<FileThumb
 						className={clsx(
-							'border-4 border-gray-250 shadow shadow-gray-750 object-cover max-w-full max-h-full w-auto overflow-hidden',
-							isVid && 'border-gray-950 rounded border-x-0 border-y-[9px]'
+							'border-4 border-gray-250 shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
+							isVid && 'border-black rounded border-x-0 border-y-[9px]'
 						)}
 						data={data}
 						kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
 						size={getExplorerStore().gridItemSize}
 					/>
 					{data?.extension && isVid && (
-						<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-gray-800 rounded">
+						<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-black/60 rounded">
 							{data.extension}
 						</div>
 					)}
@@ -68,9 +68,9 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 			<div className="flex justify-center">
 				<span
 					className={clsx(
-						'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 dark:text-gray-300 cursor-default ',
+						'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 cursor-default ',
 						{
-							'bg-primary !text-white': selected
+							'bg-accent !text-white': selected
 						}
 					)}
 				>
