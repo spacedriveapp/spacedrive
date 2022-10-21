@@ -17,7 +17,7 @@ const MENU_CLASSES = `
   border border-gray-300 dark:border-gray-500
   shadow-2xl shadow-gray-300 dark:shadow-gray-950 
   select-none cursor-default rounded-lg 
-	!bg-opacity-80 backdrop-blur
+	!bg-opacity-90 backdrop-blur
 `;
 
 export const OverlayPanel = ({

@@ -5,7 +5,7 @@ import { SettingsSidebar } from '../../components/settings/SettingsSidebar';
 
 export default function SettingsScreen() {
 	return (
-		<div className="flex flex-row w-full">
+		<div className="flex flex-row w-full app-bg">
 			<SettingsSidebar />
 			<div className="w-full">
 				<div data-tauri-drag-region className="w-full h-7" />

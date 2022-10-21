@@ -139,7 +139,7 @@ export default function OverviewScreen() {
 	console.log(overviewStats);
 
 	return (
-		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
+		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll app-bg">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
 			{/* PAGE */}
 

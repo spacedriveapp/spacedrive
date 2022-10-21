@@ -3,9 +3,10 @@ use crate::{
 	library::LibraryContext,
 	prisma::{file_path, location, object},
 };
-
 use chrono::{DateTime, FixedOffset};
+use int_enum::IntEnum;
 use prisma_client_rust::{prisma_models::PrismaValue, raw::Raw, Direction};
+use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, HashSet},
@@ -131,8 +132,8 @@ impl StatefulJob for FileIdentifierJob {
 	) -> Result<(), JobError> {
 		let db = ctx.library_ctx().db;
 
-		// link file_path ids to a CreateFile struct containing unique file data
-		let mut chunk: HashMap<i32, CreateFile> = HashMap::new();
+		// link file_path ids to a CreateObject struct containing unique file data
+		let mut chunk: HashMap<i32, CreateObject> = HashMap::new();
 		let mut cas_lookup: HashMap<String, i32> = HashMap::new();
 
 		let data = state
@@ -222,6 +223,7 @@ impl StatefulJob for FileIdentifierJob {
 					PrismaValue::String(object.cas_id.clone()),
 					PrismaValue::Int(object.size_in_bytes),
 					PrismaValue::DateTime(object.date_created),
+					PrismaValue::Int(object.kind.int_value() as i64),
 				]);
 			}
 
@@ -230,9 +232,9 @@ impl StatefulJob for FileIdentifierJob {
 			let created_files: Vec<FileCreated> = db
 				._query_raw(Raw::new(
 					&format!(
-						"INSERT INTO object (cas_id, size_in_bytes, date_created) VALUES {}
+						"INSERT INTO object (cas_id, size_in_bytes, date_created, kind) VALUES {}
 						ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
-						vec!["({}, {}, {})"; new_objects.len()].join(",")
+						vec!["({}, {}, {}, {})"; new_objects.len()].join(",")
 					),
 					values,
 				))
@@ -360,10 +362,11 @@ async fn get_orphan_file_paths(
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-struct CreateFile {
+struct CreateObject {
 	pub cas_id: String,
 	pub size_in_bytes: i64,
 	pub date_created: DateTime<FixedOffset>,
+	pub kind: ObjectKind,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -375,7 +378,7 @@ struct FileCreated {
 async fn assemble_object_metadata(
 	location_path: impl AsRef<Path>,
 	file_path: &file_path::Data,
-) -> Result<CreateFile, io::Error> {
+) -> Result<CreateObject, io::Error> {
 	let path = location_path
 		.as_ref()
 		.join(file_path.materialized_path.as_str());
@@ -384,7 +387,19 @@ async fn assemble_object_metadata(
 
 	let metadata = fs::metadata(&path).await?;
 
-	// let date_created: DateTime<Utc> = metadata.created().unwrap().into();
+	// derive Object kind
+	let object_kind: ObjectKind = match path.extension() {
+		Some(ext) => match ext.to_str() {
+			Some(ext) => {
+				let mut file = std::fs::File::open(&path).unwrap();
+				let resolved_ext = Extension::resolve_conflicting(ext, &mut file, true);
+
+				resolved_ext.map(Into::into).unwrap_or(ObjectKind::Unknown)
+			}
+			None => ObjectKind::Unknown,
+		},
+		None => ObjectKind::Unknown,
+	};
 
 	let size = metadata.len();
 
@@ -398,9 +413,10 @@ async fn assemble_object_metadata(
 		}
 	};
 
-	Ok(CreateFile {
+	Ok(CreateObject {
 		cas_id,
 		size_in_bytes: size as i64,
 		date_created: file_path.date_created,
+		kind: object_kind,
 	})
 }
