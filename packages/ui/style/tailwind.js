@@ -68,7 +68,17 @@ module.exports = function (app, options) {
 						button: alpha('--color-app-button'),
 						selected: alpha('--color-app-selected'),
 						hover: alpha('--color-app-hover'),
-						shade: alpha('--color-app-shade')
+						shade: alpha('--color-app-shade'),
+						frame: alpha('--color-app-frame')
+					},
+					menu: {
+						DEFAULT: alpha('--color-menu'),
+						line: alpha('--color-menu-line'),
+						hover: alpha('--color-menu-hover'),
+						selected: alpha('--color-menu-selected'),
+						shade: alpha('--color-menu-shade'),
+						ink: alpha('--color-menu-ink'),
+						faint: alpha('--color-menu-faint')
 					}
 				},
 				extend: {

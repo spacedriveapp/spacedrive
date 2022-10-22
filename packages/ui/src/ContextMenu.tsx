@@ -10,11 +10,11 @@ interface Props extends RadixCM.MenuContentProps {
 
 const MENU_CLASSES = `
   flex flex-col
-  min-w-[8rem] p-1
-  text-left text-sm dark:text-gray-100 text-gray-800
-  bg-gray-50 border-gray-200 dark:bg-gray-650 dark:bg-opacity-80 backdrop-blur
-	border border-transparent dark:border-gray-550
-  shadow-md shadow-gray-300 dark:shadow-gray-750 
+  min-w-[8rem] px-1 py-0.5
+  text-left text-sm text-menu-ink
+  bg-menu border-menu-border backdrop-blur
+	border border-transparent
+  shadow-md shadow-menu-shade/20 
   select-none cursor-default rounded-md
 `;
 
@@ -37,7 +37,7 @@ export const ContextMenu = ({
 };
 
 export const Separator = () => (
-	<RadixCM.Separator className="mx-2 border-0 border-b pointer-events-none border-b-gray-300 dark:border-b-gray-550" />
+	<RadixCM.Separator className="mx-2 border-0 border-b pointer-events-none border-b-menu-line" />
 );
 
 export const SubMenu = ({
@@ -70,7 +70,7 @@ const itemStyles = cva(
 	{
 		variants: {
 			variant: {
-				default: 'hover:bg-primary focus:bg-primary',
+				default: 'hover:bg-accent focus:bg-accent',
 				danger: [
 					'text-red-600 dark:text-red-400',
 					'hover:text-white focus:text-white',
@@ -124,14 +124,14 @@ const ItemInternals = ({ icon, label, rightArrow, keybind }: ItemProps) => {
 			{label && <p>{label}</p>}
 
 			{keybind && (
-				<span className="absolute text-xs font-medium text-gray-500 right-3 flex-end dark:text-gray-400 group-hover:dark:text-white">
+				<span className="absolute text-xs font-medium right-3 flex-end text-menu-faint group-hover:text-white">
 					{keybind}
 				</span>
 			)}
 			{rightArrow && (
 				<>
 					<div className="flex-1" />
-					<CaretRight weight="fill" size={12} alt="" />
+					<CaretRight weight="fill" size={12} alt="" className="text-menu-faint" />
 				</>
 			)}
 		</>

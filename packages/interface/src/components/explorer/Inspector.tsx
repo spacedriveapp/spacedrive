@@ -67,7 +67,7 @@ export const Inspector = (props: Props) => {
 							data={props.data}
 						/>
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-app-box/50 rounded-lg shadow select-text shadow-app-shade/20 border border-app-line/60">
+					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-app-box rounded-lg shadow select-text shadow-app-shade/10 border border-app-line">
 						<h3 className="pt-2 pb-1 pl-3 text-base font-bold">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}
@@ -78,12 +78,12 @@ export const Inspector = (props: Props) => {
 									<FavoriteButton data={objectData} />
 								</Tooltip>
 								<Tooltip label="Share">
-									<Button size="sm" padding="sm">
+									<Button size="sm" forIcon>
 										<ShareIcon className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>
 								<Tooltip label="Link">
-									<Button size="sm" padding="sm">
+									<Button size="sm" forIcon>
 										<Link className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>

@@ -15,7 +15,7 @@ import { SettingsHeading, SettingsIcon } from './SettingsHeader';
 
 export const SettingsSidebar = () => {
 	return (
-		<div className="h-full border-r max-w-[200px] flex-shrink-0 border-app-line w-60">
+		<div className="h-full border-r max-w-[180px] flex-shrink-0 border-app-line w-60">
 			<div data-tauri-drag-region className="w-full h-7" />
 			<div className="px-4 py-2.5">
 				<SettingsHeading className="!mt-0">Client</SettingsHeading>

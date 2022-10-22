@@ -22,7 +22,7 @@ export function AppLayout() {
 				// App level styles
 				'flex h-screen overflow-hidden text-ink select-none cursor-default',
 				os === 'macOS' && 'rounded-[10px] has-blur-effects',
-				os !== 'browser' && os !== 'windows' && 'border border-app-divider/30'
+				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
 			)}
 			onContextMenu={(e) => {
 				// TODO: allow this on some UI text at least / disable default browser context menu

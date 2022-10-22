@@ -11,13 +11,13 @@ import { tw } from './utils';
 export const Section = tw.div`px-1 py-1 space-y-[2px]`;
 
 const itemStyles = cva(
-	'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] disabled:opacity-50 disabled:cursor-not-allowed',
+	'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[3px] disabled:opacity-50 font-medium',
 	{
 		variants: {
 			selected: {
-				true: 'bg-app-selected hover:bg-app-selected',
-				undefined: 'hover:bg-app-selected/50',
-				false: 'hover:bg-app-selected/50'
+				true: 'bg-accent hover:bg-accent text-white',
+				undefined: 'hover:bg-menu-hover/50',
+				false: 'hover:bg-menu-hover/50'
 			},
 			active: {
 				true: ''
@@ -64,7 +64,7 @@ export const Button = ({ children, className, ...props }: UI.ButtonProps) => {
 			{children}
 			<span className="flex-grow" />
 			<CaretDown
-				className="w-[10px] text-ink-dull transition-transform ui-open:rotate-180"
+				className="w-[12px] text-ink-dull transition-transform ui-open:rotate-180 ui-open:-translate-y-[1px] translate-y-[1px]"
 				aria-hidden="true"
 			/>
 		</UI.Button>
@@ -88,15 +88,15 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 				<Transition
 					as={Fragment}
 					enter="transition duration-100 ease-out"
-					enterFrom="transform scale-95 opacity-0"
-					enterTo="transform scale-100 opacity-100"
+					enterFrom="transform -translate-y-2 opacity-0"
+					enterTo="transform translate-y-0 opacity-100"
 					leave="transition duration-75 ease-out"
-					leaveFrom="transform scale-100 opacity-100"
-					leaveTo="transform scale-95 opacity-0"
+					leaveFrom="transform translate-y-0 opacity-100"
+					leaveTo="transform -translate-y-2 opacity-0"
 				>
 					<Menu.Items
 						className={clsx(
-							'absolute z-50 min-w-fit w-full border divide-y divide-app-line/50 rounded shadow-xl top-full ring-1 ring-black ring-opacity-5 focus:outline-none bg-app-box border-app-border',
+							'absolute z-50 min-w-fit w-full border divide-y divide-menu-line rounded shadow-xl shadow-menu-shade/30 top-full focus:outline-none bg-menu border-menu-line text-menu-ink',
 							props.itemsClassName,
 							{ 'left-0': props.align === 'left' },
 							{ 'right-0': props.align === 'right' }

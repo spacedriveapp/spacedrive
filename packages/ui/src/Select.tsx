@@ -20,7 +20,8 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 		>
 			<SelectPrimitive.Trigger
 				className={clsx(
-					'inline-flex items-center pl-2 py-0.5 bg-app-box border rounded-md shadow outline-none border-app-line shadow-app-shade/10',
+					'inline-flex items-center pl-2 py-0.5 bg-app-box border',
+					'rounded-md shadow outline-none border-app-line shadow-app-shade/10',
 					props.className
 				)}
 			>
@@ -34,12 +35,12 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 			</SelectPrimitive.Trigger>
 
 			<SelectPrimitive.Portal className="relative">
-				<SelectPrimitive.Content className="absolute z-50 w-full p-1 border rounded-md shadow-2xl bg-app-box border-app-line backdrop-blur shadow-app-shade/20 ">
-					<SelectPrimitive.ScrollUpButton className="flex ">
+				<SelectPrimitive.Content className="absolute z-50 w-full p-1 border rounded-md shadow-2xl bg-app-box border-app-line shadow-app-shade/20 ">
+					<SelectPrimitive.ScrollUpButton className="hidden ">
 						<ChevronDownIcon />
 					</SelectPrimitive.ScrollUpButton>
 					<SelectPrimitive.Viewport>{props.children}</SelectPrimitive.Viewport>
-					<SelectPrimitive.ScrollDownButton className="flex "></SelectPrimitive.ScrollDownButton>
+					<SelectPrimitive.ScrollDownButton className="hidden "></SelectPrimitive.ScrollDownButton>
 				</SelectPrimitive.Content>
 			</SelectPrimitive.Portal>
 		</SelectPrimitive.Root>
@@ -50,9 +51,9 @@ export function SelectOption(props: PropsWithChildren<{ value: string }>) {
 	return (
 		<SelectPrimitive.Item
 			className={clsx(
-				'relative flex items-center pl-6 px-1 py-0.5 dark:text-white pr-4 text-xs rounded font-sm cursor-pointer focus:bg-gray-100 dark:focus:bg-accent',
-				'radix-disabled:opacity-50',
-				'focus:outline-none select-none'
+				'relative flex items-center pl-6 px-1 py-0.5 pr-4 text-xs',
+				'rounded font-sm cursor-pointer select-none text-ink',
+				'focus:outline-none radix-disabled:opacity-50 radix-state-checked:bg-accent'
 			)}
 			value={props.value}
 		>

@@ -9,7 +9,7 @@ import FileItem from './FileItem';
 import FileRow from './FileRow';
 import { isPath } from './utils';
 
-const TOP_BAR_HEIGHT = 50;
+const TOP_BAR_HEIGHT = 46;
 const GRID_TEXT_AREA_HEIGHT = 25;
 
 interface Props {
@@ -123,7 +123,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) =>
 					ref={innerRef}
 					style={{
 						height: `${rowVirtualizer.getTotalSize()}px`,
-						marginTop: `${TOP_BAR_HEIGHT + 10}px`
+						marginTop: `${TOP_BAR_HEIGHT}px`
 					}}
 					className="relative w-full"
 				>

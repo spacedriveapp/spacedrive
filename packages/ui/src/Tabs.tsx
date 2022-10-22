@@ -6,7 +6,7 @@ export const Root = tw(TabsPrimitive.Root)`
   flex flex-col
 `;
 
-export const Content = tw(TabsPrimitive.TabsContent)``;
+export const Content = tw(TabsPrimitive.TabsContent)`outline-none`;
 
 export const List = tw(TabsPrimitive.TabsList)`
   flex flex-row p-2 items-center space-x-1 border-b border-app-line/70

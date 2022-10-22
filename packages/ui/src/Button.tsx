@@ -31,9 +31,8 @@ const styles = cva(
 			loading: {
 				true: 'opacity-70'
 			},
-			padding: {
-				thin: '!p-1',
-				sm: '!p-1.5'
+			forIcon: {
+				true: '!px-1'
 			},
 			size: {
 				md: 'py-1 px-3 text-md font-medium',
@@ -44,12 +43,9 @@ const styles = cva(
 					'bg-app-button bg-transparent active:bg-app-selected hover:bg-app-hover',
 					'border-transparent hover:border-app-line active:border-app-line'
 				],
-				gray: [
-					'bg-app-button shadow-sm active:bg-app-hover',
-					'border-app-line hover:border-app-line'
-				],
+				gray: ['bg-app-button active:bg-app-hover', 'border-app-line hover:border-app-line'],
 				accent: [
-					'bg-accent text-white shadow-sm active:bg-accent hover:bg-accent/90 border-accent-deep hover:border-accent-deep active:border-accent-deep'
+					'bg-accent text-white active:bg-accent hover:bg-accent/90 border-accent-deep hover:border-accent-deep active:border-accent-deep'
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''
