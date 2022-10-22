@@ -14,39 +14,39 @@ env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
 
 jobs:
-  # lint:
-  #   name: Typecheck & Lint
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+  lint:
+    name: Typecheck & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  #     - name: Install pnpm
-  #       uses: pnpm/action-setup@v2.2.4
-  #       with:
-  #         version: 7.x.x
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.4
+        with:
+          version: 7.x.x
 
-  #     - name: Install Node.js
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version: 17
-  #         cache: 'pnpm'
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 17
+          cache: 'pnpm'
 
-  #     - name: Install workspace pnpm dependencies
-  #       run: pnpm i --frozen-lockfile
+      - name: Install workspace pnpm dependencies
+        run: pnpm i --frozen-lockfile
       
-  #     - name: Install mobile pnpm dependencies
-  #       working-directory: ./apps/mobile
-  #       run: pnpm i --frozen-lockfile
+      - name: Install mobile pnpm dependencies
+        working-directory: ./apps/mobile
+        run: pnpm i --frozen-lockfile
 
-  #     - name: Perform typechecks
-  #       working-directory: ./apps/mobile
-  #       run: pnpm lint
+      - name: Perform typechecks
+        working-directory: ./apps/mobile
+        run: pnpm lint
   
   build:
     name: Build
     runs-on: ubuntu-latest
-    # needs: lint
+    needs: lint
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -89,17 +89,9 @@ jobs:
       
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
-      
-      # - name: Install pnpm dependencies
-      #   run: pnpm i --frozen-lockfile
 
       - name: Run 'setup-system.sh' script
-        # if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest'
-        run: ./.github/scripts/setup-system.sh mobile # TODO: Mobile flag
-
-      # - name: Run 'setup-system.ps1' script
-      #   if: matrix.platform == 'windows-latest'
-      #   run: ./.github/scripts/setup-system.ps1 -ci
+        run: ./.github/scripts/setup-system.sh mobile
 
       - name: Generate Prisma client
         uses: ./.github/actions/generate-prisma-client
@@ -109,13 +101,6 @@ jobs:
           sudo mkdir -p /usr/local/lib/android/sdk/ndk
           sudo chmod -R 777 /usr/local/lib/android/sdk/ndk
           sudo chown -R $USER:$USER /usr/local/lib/android/sdk/ndk
-      
-      # - name: NDK Cache
-      #   id: ndk-cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: /usr/local/lib/android/sdk/ndk
-      #     key: ndk-cache-21.4.7075529-v2
 
       - name: plz work?
         run: export CARGO_TARGET_DIR="$(pwd)/../../target"
@@ -130,14 +115,6 @@ jobs:
       - name: Install mobile pnpm dependencies
         working-directory: ./apps/mobile
         run: pnpm i --frozen-lockfile
-      
-      # TODO: Debug
-      # - name: Why Prisma????
-      #   run: ls ./core/src
-      # - name: Cargo fetch
-      #   run: cargo fetch
-      # - name: Check core
-      #   run: cargo check -p sd-core --release
       
       - name: Build Android
         working-directory: ./apps/mobile
