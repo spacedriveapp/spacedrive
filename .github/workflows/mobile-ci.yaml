@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - mobile-ci # TEMP
     paths-ignore:
       - '**/.md'
   workflow_dispatch:
