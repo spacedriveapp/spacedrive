@@ -6,8 +6,8 @@ import Card from '../../../components/layout/Card';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
-const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-gray-500`;
-const NodeSettingLabel = tw.div`mb-1 text-xs font-medium text-gray-700 dark:text-gray-100`;
+const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-button`;
+const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
 export default function GeneralSettings() {
 	const { data: node } = useBridgeQuery(['getNode']);
@@ -20,7 +20,7 @@ export default function GeneralSettings() {
 				title="General Settings"
 				description="General settings related to this client."
 			/>
-			<Card className="px-5 dark:bg-gray-600">
+			<Card className="px-5">
 				<div className="flex flex-col w-full my-2">
 					<div className="flex flex-row items-center justify-between">
 						<span className="font-semibold">Connected Node</span>
@@ -30,7 +30,7 @@ export default function GeneralSettings() {
 						</div>
 					</div>
 
-					<hr className="mt-2 mb-4 border-gray-500 " />
+					<hr className="mt-2 mb-4 border-app-line" />
 					<div className="grid grid-cols-3 gap-2">
 						<div className="flex flex-col">
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
@@ -43,7 +43,7 @@ export default function GeneralSettings() {
 					</div>
 					<div className="flex items-center mt-5 space-x-3">
 						<Switch size="sm" checked />
-						<span className="text-sm text-gray-200">Run daemon when app closed</span>
+						<span className="text-sm text-ink-dull">Run daemon when app closed</span>
 					</div>
 					<div className="mt-3">
 						<div
@@ -52,7 +52,7 @@ export default function GeneralSettings() {
 									platform.openLink(node.data_path);
 								}
 							}}
-							className="text-xs font-medium leading-relaxed text-gray-700 dark:text-gray-400"
+							className="text-xs font-medium leading-relaxed text-ink-faint"
 						>
 							<b className="inline mr-2 truncate ">
 								<Database className="inline w-4 h-4 mr-1 -mt-[2px]" /> Data Folder
