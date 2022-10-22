@@ -1,6 +1,5 @@
-import { Input } from '@sd/ui';
+import { Input, Switch } from '@sd/ui';
 
-import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
@@ -18,7 +17,7 @@ export default function P2PSettings() {
 				title="Enable Node Discovery"
 				description="Allow or block this node from calling an external server to assist in forming a peer-to-peer connection. "
 			>
-				<Toggle value />
+				<Switch checked />
 			</InputContainer>
 
 			<InputContainer

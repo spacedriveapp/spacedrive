@@ -52,7 +52,7 @@ export default function LibrarySettings() {
 				rightArea={
 					<div className="flex-row space-x-2">
 						<CreateLibraryDialog>
-							<Button variant="primary" size="sm">
+							<Button variant="accent" size="sm">
 								Add Library
 							</Button>
 						</CreateLibraryDialog>

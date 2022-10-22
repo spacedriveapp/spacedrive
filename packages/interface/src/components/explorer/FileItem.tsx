@@ -1,9 +1,23 @@
 import { ExplorerItem, getExplorerStore } from '@sd/client';
+import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
 
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
+
+const NameArea = tw.div`flex justify-center`;
+
+const nameContainerStyles = cva(
+	'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 cursor-default',
+	{
+		variants: {
+			selected: {
+				true: 'bg-accent text-white'
+			}
+		}
+	}
+);
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -51,7 +65,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				>
 					<FileThumb
 						className={clsx(
-							'border-4 border-gray-250 shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
+							'border-4 border-app-line shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
 							isVid && 'border-black rounded border-x-0 border-y-[9px]'
 						)}
 						data={data}
@@ -65,19 +79,12 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 					)}
 				</div>
 			</div>
-			<div className="flex justify-center">
-				<span
-					className={clsx(
-						'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 cursor-default ',
-						{
-							'bg-accent !text-white': selected
-						}
-					)}
-				>
+			<NameArea>
+				<span className={nameContainerStyles({ selected })}>
 					{data?.name}
 					{data?.extension && `.${data.extension}`}
 				</span>
-			</div>
+			</NameArea>
 		</div>
 	);
 }

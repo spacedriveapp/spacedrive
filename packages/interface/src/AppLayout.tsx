@@ -20,7 +20,7 @@ export function AppLayout() {
 		<div
 			className={clsx(
 				// App level styles
-				'flex overflow-hidden text-ink select-none cursor-default',
+				'flex h-screen overflow-hidden text-ink select-none cursor-default',
 				os === 'macOS' && 'rounded-[10px] has-blur-effects',
 				os !== 'browser' && os !== 'windows' && 'border border-app-divider/30'
 			)}

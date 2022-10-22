@@ -20,7 +20,7 @@ export default function LocationSettings() {
 				rightArea={
 					<div className="flex-row space-x-2">
 						<Button
-							variant="primary"
+							variant="accent"
 							size="sm"
 							onClick={() => {
 								if (!platform.openFilePickerDialog) {

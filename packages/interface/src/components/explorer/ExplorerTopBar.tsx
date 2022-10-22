@@ -1,20 +1,11 @@
 import { ChevronLeftIcon, ChevronRightIcon, TagIcon } from '@heroicons/react/24/outline';
-import { KeyIcon as KeyIconSolid, TagIcon as TagIconSolid } from '@heroicons/react/24/solid';
-import {
-	OperatingSystem,
-	getExplorerStore,
-	useExplorerStore,
-	useLibraryMutation
-} from '@sd/client';
-import { Dropdown, OverlayPanel } from '@sd/ui';
+import { TagIcon as TagIconSolid } from '@heroicons/react/24/solid';
+import { getExplorerStore, useExplorerStore, useLibraryMutation } from '@sd/client';
+import { Button, Input, OverlayPanel, cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import {
-	Aperture,
 	ArrowsClockwise,
-	Cloud,
-	FilmStrip,
 	IconProps,
-	Image,
 	Key,
 	List,
 	MonitorPlay,
@@ -22,7 +13,7 @@ import {
 	SidebarSimple,
 	SquaresFour
 } from 'phosphor-react';
-import { DetailedHTMLProps, HTMLAttributes, forwardRef, useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 
@@ -44,24 +35,41 @@ export interface TopBarButtonProps {
 	onClick?: () => void;
 }
 
+const topBarButtonStyle = cva(
+	'mr-[1px] flex py-0.5 px-0.5 text-md font-medium rounded-md transition-colors duration-100 outline-none hover:bg-app-selected',
+	{
+		variants: {
+			active: {
+				true: 'bg-app-selected',
+				false: 'bg-transparent'
+			},
+			group: {
+				true: 'rounded-l-none rounded-r-none'
+			},
+			left: {
+				true: 'rounded-l-md'
+			},
+			right: {
+				true: 'rounded-r-md'
+			}
+		}
+	}
+);
+
 const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
 	({ icon: Icon, left, right, group, active, className, ...props }, ref) => {
 		return (
-			<button
+			<Button
 				{...props}
 				ref={ref}
 				className={clsx(
-					'mr-[1px] flex py-0.5 px-0.5 text-md font-medium rounded-md open:bg-selected transition-colors duration-100 outline-none !cursor-normal',
-					{
-						'rounded-r-none rounded-l-none': group && !left && !right,
-						'rounded-r-none': group && left,
-						'rounded-l-none': group && right
-					},
+					'border-none',
+					topBarButtonStyle({ left, right, group, active }),
 					className
 				)}
 			>
 				<Icon weight={'regular'} className="m-0.5 w-5 h-5 text-ink-dull" />
-			</button>
+			</Button>
 		);
 	}
 );
@@ -86,7 +94,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 
 	return (
 		<form onSubmit={handleSubmit(() => null)} className="relative flex h-7">
-			<input
+			<Input
 				ref={(el) => {
 					ref(el);
 
@@ -94,7 +102,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 					else if (forwardedRef) forwardedRef.current = el;
 				}}
 				placeholder="Search"
-				className="peer w-32 h-[30px] focus:w-52 text-sm p-3 rounded-lg outline-none focus:ring-2 border shadow  transition-all bg-app-input border-app-border"
+				className="w-32 transition-all focus:w-52"
 				{...searchField}
 			/>
 
@@ -105,13 +113,12 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 				)}
 			>
 				{platform === 'browser' ? (
-					<Shortcut chars="/" aria-label={'Press slash to focus search bar'} />
+					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
 				) : os === 'macOS' ? (
 					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
 				) : (
 					<Shortcut chars="CTRL+F" aria-label={'Press CTRL-F to focus search bar'} />
 				)}
-				{/* <Shortcut chars="S" /> */}
 			</div>
 		</form>
 	);
@@ -126,29 +133,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 	const os = useOperatingSystem(true);
 
 	const store = useExplorerStore();
-	const { mutate: generateThumbsForLocation } = useLibraryMutation(
-		'jobs.generateThumbsForLocation',
-		{
-			onMutate: (data) => {
-				// console.log('GenerateThumbsForLocation', data);
-			}
-		}
-	);
 
-	const { mutate: identifyUniqueFiles } = useLibraryMutation('jobs.identifyUniqueFiles', {
-		onMutate: (data) => {
-			// console.log('IdentifyUniqueFiles', data);
-		},
-		onError: (error) => {
-			console.error('IdentifyUniqueFiles', error);
-		}
-	});
-
-	const { mutate: objectValidator } = useLibraryMutation('jobs.objectValidator', {
-		onMutate: (data) => {
-			// console.log('ObjectValidator', data);
-		}
-	});
+	// const { mutate: generateThumbsForLocation } = useLibraryMutation(
+	// 	'jobs.generateThumbsForLocation'
+	// );
+	// const { mutate: identifyUniqueFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
+	// const { mutate: objectValidator } = useLibraryMutation('jobs.objectValidator');
 
 	const navigate = useNavigate();
 
@@ -218,7 +208,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				// in case you wanna turn it back on
 				// honestly its just work to revert
 				className={clsx(
-					'flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b app-background overflow-hidden rounded-tl-md transition-[background-color] transition-[border-color] duration-250 ease-out',
+					'flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b app-background overflow-hidden transition-[background-color] transition-[border-color] duration-250 ease-out',
 					props.showSeparator && 'top-bar-blur'
 				)}
 			>

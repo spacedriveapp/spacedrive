@@ -88,7 +88,7 @@ export function HomeCTA() {
 						<Button
 							onClick={() => setShowWaitlistInput(true)}
 							className="z-30 border-0 cursor-pointer"
-							variant="primary"
+							variant="accent"
 						>
 							Join Waitlist
 						</Button>
@@ -150,7 +150,7 @@ export function HomeCTA() {
 											'opacity-50 cursor-default': loading
 										})}
 										disabled={loading}
-										variant="primary"
+										variant="accent"
 										type="submit"
 									>
 										{loading ? (

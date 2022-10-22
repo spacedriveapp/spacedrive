@@ -123,10 +123,9 @@ function LibraryScopedSection() {
 							});
 						}}
 						className={clsx(
-							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-ink-faint border border-dashed rounded border-sidebar-border cursor-normal transition'
-							// os === 'macOS'
-							// 	? 'dark:text-gray-450 dark:border-gray-450 hover:dark:border-gray-400 dark:border-opacity-60'
-							// 	: 'dark:text-gray-450 dark:border-gray-550 hover:dark:border-gray-500'
+							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-ink-faint',
+							'rounded border border-dashed border-sidebar-line hover:border-sidebar-selected',
+							'cursor-normal transition'
 						)}
 					>
 						Add Location
@@ -173,13 +172,13 @@ export function Sidebar() {
 
 			<Dropdown.Root
 				className="mt-2"
-				itemsClassName="bg-app-box border-sidebar-border"
+				itemsClassName="bg-app-box border-sidebar-line"
 				button={
 					<Dropdown.Button
 						variant="gray"
 						className={clsx(
 							`w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded`,
-							`!bg-sidebar-box !border-sidebar-border hover:!border-sidebar-selected !text-ink`,
+							`!bg-sidebar-box !border-sidebar-line hover:!border-sidebar-selected !text-ink`,
 							(library === null || isLoadingLibraries) && '!text-ink-faint',
 							macOnly(os, '!bg-opacity-80 !border-opacity-40')
 						)}
