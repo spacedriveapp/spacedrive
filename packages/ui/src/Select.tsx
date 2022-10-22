@@ -29,7 +29,7 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 				</span>
 
 				<SelectPrimitive.Icon>
-					<ChevronDouble className="w-3 h-3 mr-0.5 text-gray-300" />
+					<ChevronDouble className="w-3 h-3 mr-0.5 text-ink-dull" />
 				</SelectPrimitive.Icon>
 			</SelectPrimitive.Trigger>
 

@@ -1,5 +1,5 @@
 import { Menu, Transition } from '@headlessui/react';
-import { ChevronDownIcon } from '@heroicons/react/24/solid';
+import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
 import { Fragment, PropsWithChildren } from 'react';
@@ -11,7 +11,7 @@ import { tw } from './utils';
 export const Section = tw.div`px-1 py-1 space-y-[2px]`;
 
 const itemStyles = cva(
-	'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px]   disabled:opacity-50 disabled:cursor-not-allowed',
+	'text-sm group flex grow shrink-0 rounded items-center w-full whitespace-nowrap px-2 py-1 mb-[2px] disabled:opacity-50 disabled:cursor-not-allowed',
 	{
 		variants: {
 			selected: {
@@ -21,19 +21,13 @@ const itemStyles = cva(
 			},
 			active: {
 				true: ''
-				//   false: 'text-gray-900 dark:text-gray-200'
 			}
 		}
 	}
 );
 
 const itemIconStyles = cva('mr-2 w-4 h-4', {
-	variants: {
-		// active: {
-		// 	// true: 'dark:text-ink-dull'
-		// 	// false: 'text-gray-600 dark:text-gray-200'
-		// }
-	}
+	variants: {}
 });
 
 type DropdownItemProps =
@@ -69,7 +63,10 @@ export const Button = ({ children, className, ...props }: UI.ButtonProps) => {
 		<UI.Button size="sm" {...props} className={clsx('flex text-left', className)}>
 			{children}
 			<span className="flex-grow" />
-			<ChevronDownIcon className="w-5 h-5" aria-hidden="true" />
+			<CaretDown
+				className="w-[10px] text-ink-dull transition-transform ui-open:rotate-180"
+				aria-hidden="true"
+			/>
 		</UI.Button>
 	);
 };
@@ -99,7 +96,7 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 				>
 					<Menu.Items
 						className={clsx(
-							'absolute z-50 min-w-fit w-full border divide-y divide-app-border/50 rounded shadow-xl top-full ring-1 ring-black ring-opacity-5 focus:outline-none bg-app-box border-app-border',
+							'absolute z-50 min-w-fit w-full border divide-y divide-app-line/50 rounded shadow-xl top-full ring-1 ring-black ring-opacity-5 focus:outline-none bg-app-box border-app-border',
 							props.itemsClassName,
 							{ 'left-0': props.align === 'left' },
 							{ 'right-0': props.align === 'right' }

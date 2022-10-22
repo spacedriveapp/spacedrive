@@ -1,20 +1,16 @@
-import { CogIcon, LockClosedIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { CogIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
-import { useCurrentLibrary, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
-import { LocationCreateArgs } from '@sd/client';
-import { Button, CategoryHeading, Dropdown, OverlayPanel, cva } from '@sd/ui';
-import { restyle } from '@sd/ui';
-import { tw } from '@sd/ui';
-import clsx from 'clsx';
 import {
-	CheckCircle,
-	CirclesFour,
-	Hexagon,
-	Planet,
-	ShareNetwork,
-	WaveTriangle
-} from 'phosphor-react';
-import { PropsWithChildren, forwardRef } from 'react';
+	LocationCreateArgs,
+	useCurrentLibrary,
+	useLibraryMutation,
+	useLibraryQuery,
+	usePlatform
+} from '@sd/client';
+import { Button, CategoryHeading, Dropdown, OverlayPanel, cva, tw } from '@sd/ui';
+import clsx from 'clsx';
+import { CheckCircle, CirclesFour, Planet, ShareNetwork } from 'phosphor-react';
+import { PropsWithChildren } from 'react';
 import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
@@ -178,7 +174,7 @@ export function Sidebar() {
 						variant="gray"
 						className={clsx(
 							`w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded`,
-							`!bg-sidebar-box !border-sidebar-line hover:!border-sidebar-selected !text-ink`,
+							`bg-sidebar-button border-sidebar-line active:bg-sidebar-button hover:!border-sidebar-selected text-ink`,
 							(library === null || isLoadingLibraries) && '!text-ink-faint',
 							macOnly(os, '!bg-opacity-80 !border-opacity-40')
 						)}

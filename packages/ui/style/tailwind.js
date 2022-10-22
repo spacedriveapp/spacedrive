@@ -107,10 +107,11 @@ module.exports = function (app, options) {
 		},
 		plugins: [
 			require('@tailwindcss/forms'),
-			plugin(({ addVariant }) => {
-				addVariant('open', '&[data-state="open"]');
-				addVariant('closed', '&[data-state="closed"]');
-			}),
+			// plugin(({ addVariant }) => {
+			// 	addVariant('open', '&[data-state="open"]');
+			// 	addVariant('closed', '&[data-state="closed"]');
+			// }),
+			require('@headlessui/tailwindcss'),
 			require('tailwindcss-radix')()
 		]
 	};

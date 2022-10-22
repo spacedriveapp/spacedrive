@@ -34,7 +34,7 @@ const thumbStyles = cva(
 	{
 		variants: {
 			size: {
-				sm: 'w-[12px] h-[12px] radix-state-checked:translate-x-[15px]',
+				sm: 'w-[12px] h-[12px] radix-state-checked:translate-x-[14px]',
 				md: 'w-[19px] h-[19px] radix-state-checked:translate-x-[20px]',
 				lg: 'w-6 h-6 radix-state-checked:translate-x-[23px]'
 			}

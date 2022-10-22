@@ -13,5 +13,5 @@ export const List = tw(TabsPrimitive.TabsList)`
 `;
 
 export const Trigger = tw(TabsPrimitive.TabsTrigger)`
-  px-1.5 py-0.5 rounded text-sm font-medium radix-state-active:bg-accent radix-state-active:text-white
+  px-2 py-0.5 rounded-full text-sm font-medium radix-state-active:bg-app-selected
 `;

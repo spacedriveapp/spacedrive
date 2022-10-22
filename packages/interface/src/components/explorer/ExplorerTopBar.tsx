@@ -26,49 +26,48 @@ import { Tooltip } from '../tooltip/Tooltip';
 import { ExplorerOptionsPanel } from './ExplorerOptionsPanel';
 
 export interface TopBarButtonProps {
-	icon: React.ComponentType<IconProps>;
-	group?: boolean;
+	children: React.ReactNode;
+	rounding?: 'none' | 'left' | 'right' | 'both';
 	active?: boolean;
-	left?: boolean;
-	right?: boolean;
 	className?: string;
 	onClick?: () => void;
 }
 
+// export const TopBarIcon = (icon: any) => tw(icon)`m-0.5 w-5 h-5 text-ink-dull`;
+
 const topBarButtonStyle = cva(
-	'mr-[1px] flex py-0.5 px-0.5 text-md font-medium rounded-md transition-colors duration-100 outline-none hover:bg-app-selected',
+	'border-none text-ink-dull hover:text-ink mr-[1px] flex py-0.5 px-0.5 text-md font-medium transition-colors duration-100 outline-none hover:bg-app-selected radix-state-open:bg-app-selected',
 	{
 		variants: {
 			active: {
 				true: 'bg-app-selected',
 				false: 'bg-transparent'
 			},
-			group: {
-				true: 'rounded-l-none rounded-r-none'
-			},
-			left: {
-				true: 'rounded-l-md'
-			},
-			right: {
-				true: 'rounded-r-md'
+			rounding: {
+				none: 'rounded-none',
+				left: 'rounded-l-md rounded-r-none',
+				right: 'rounded-r-md rounded-l-none',
+				both: 'rounded-md'
 			}
+		},
+		defaultVariants: {
+			active: false,
+			rounding: 'both'
 		}
 	}
 );
 
+const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
+
 const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
-	({ icon: Icon, left, right, group, active, className, ...props }, ref) => {
+	({ rounding, active, className, ...props }, ref) => {
 		return (
 			<Button
 				{...props}
 				ref={ref}
-				className={clsx(
-					'border-none',
-					topBarButtonStyle({ left, right, group, active }),
-					className
-				)}
+				className={clsx(topBarButtonStyle({ rounding, active }), className)}
 			>
-				<Icon weight={'regular'} className="m-0.5 w-5 h-5 text-ink-dull" />
+				{props.children}
 			</Button>
 		);
 	}
@@ -203,10 +202,6 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 		<>
 			<div
 				data-tauri-drag-region
-				// Backdrop blur was removed
-				// but the explorer still resides under the top bar
-				// in case you wanna turn it back on
-				// honestly its just work to revert
 				className={clsx(
 					'flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b app-background overflow-hidden transition-[background-color] transition-[border-color] duration-250 ease-out',
 					props.showSeparator && 'top-bar-blur'
@@ -214,10 +209,14 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			>
 				<div className="flex">
 					<Tooltip label="Navigate back">
-						<TopBarButton icon={ChevronLeftIcon} onClick={() => navigate(-1)} />
+						<TopBarButton onClick={() => navigate(-1)}>
+							<ChevronLeftIcon className={TOP_BAR_ICON_STYLE} />
+						</TopBarButton>
 					</Tooltip>
 					<Tooltip label="Navigate forward">
-						<TopBarButton icon={ChevronRightIcon} onClick={() => navigate(1)} />
+						<TopBarButton onClick={() => navigate(1)}>
+							<ChevronRightIcon className={TOP_BAR_ICON_STYLE} />
+						</TopBarButton>
 					</Tooltip>
 				</div>
 
@@ -231,30 +230,31 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					<div className="flex mx-8">
 						<Tooltip label="Grid view">
 							<TopBarButton
-								group
-								left
+								rounding="left"
 								active={store.layoutMode === 'grid'}
-								icon={SquaresFour}
 								onClick={() => (getExplorerStore().layoutMode = 'grid')}
-							/>
+							>
+								<SquaresFour className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
 						</Tooltip>
 						<Tooltip label="List view">
 							<TopBarButton
-								group
+								rounding="none"
 								active={store.layoutMode === 'list'}
-								icon={Rows}
 								onClick={() => (getExplorerStore().layoutMode = 'list')}
-							/>
+							>
+								<Rows className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
 						</Tooltip>
 
 						<Tooltip label="Media view">
 							<TopBarButton
-								group
-								right
+								rounding="right"
 								active={store.layoutMode === 'media'}
-								icon={MonitorPlay}
 								onClick={() => (getExplorerStore().layoutMode = 'media')}
-							/>
+							>
+								<MonitorPlay className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
 						</Tooltip>
 					</div>
 
@@ -265,23 +265,32 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							className="focus:outline-none"
 							trigger={
 								// <Tooltip label="Major Key Alert">
-								<TopBarButton icon={Key} />
+								<TopBarButton>
+									<Key className={TOP_BAR_ICON_STYLE} />
+								</TopBarButton>
 								// </Tooltip>
 							}
 						>
 							<div className="block w-[350px]">
-								<KeyManager />
+								<KeyManager className={TOP_BAR_ICON_STYLE} />
 							</div>
 						</OverlayPanel>
 						<Tooltip label="Tag Assign Mode">
 							<TopBarButton
 								onClick={() => (getExplorerStore().tagAssignMode = !store.tagAssignMode)}
 								active={store.tagAssignMode}
-								icon={store.tagAssignMode ? TagIconSolid : TagIcon}
-							/>
+							>
+								{store.tagAssignMode ? (
+									<TagIconSolid className={TOP_BAR_ICON_STYLE} />
+								) : (
+									<TagIcon className={TOP_BAR_ICON_STYLE} />
+								)}
+							</TopBarButton>
 						</Tooltip>
 						<Tooltip label="Refresh">
-							<TopBarButton icon={ArrowsClockwise} />
+							<TopBarButton>
+								<ArrowsClockwise className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
 						</Tooltip>
 					</div>
 				</div>
@@ -290,7 +299,9 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						className="focus:outline-none"
 						trigger={
 							// <Tooltip label="Major Key Alert">
-							<TopBarButton icon={List} className="my-2" />
+							<TopBarButton className="my-2">
+								<List className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
 							// </Tooltip>
 						}
 					>
@@ -302,8 +313,13 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						active={store.showInspector}
 						onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
 						className="my-2"
-						icon={SidebarSimple}
-					/>
+					>
+						{store.showInspector ? (
+							<SidebarSimple className={TOP_BAR_ICON_STYLE} />
+						) : (
+							<SidebarSimple className={TOP_BAR_ICON_STYLE} />
+						)}
+					</TopBarButton>
 					{/* <Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
 						align="right"
