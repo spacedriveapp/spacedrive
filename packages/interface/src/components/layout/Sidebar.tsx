@@ -25,7 +25,7 @@ const sidebarItemClass = cva(
 	{
 		variants: {
 			isActive: {
-				true: 'bg-sidebar-selected text-ink',
+				true: 'bg-sidebar-selected/40 text-ink',
 				false: 'text-ink-dull'
 			},
 			isTransparent: {
@@ -131,9 +131,9 @@ function LibraryScopedSection() {
 							});
 						}}
 						className={clsx(
-							'w-full px-2 py-1.5 mt-1 text-xs font-bold text-center text-ink-faint',
+							'w-full px-2 py-1 mt-1 text-xs font-medium text-center',
 							'rounded border border-dashed border-sidebar-line hover:border-sidebar-selected',
-							'cursor-normal transition'
+							'cursor-normal transition text-ink-faint'
 						)}
 					>
 						Add Location
@@ -172,23 +172,22 @@ export function Sidebar() {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar',
-				macOnly(os, 'bg-opacity-90')
+				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar'
+				// macOnly(os, 'bg-opacity-[0.85]')
 			)}
 		>
 			<WindowControls />
 
 			<Dropdown.Root
 				className="mt-2"
-				itemsClassName="bg-app-box border-sidebar-line"
 				button={
 					<Dropdown.Button
 						variant="gray"
 						className={clsx(
-							`w-full mb-1 mt-1 -mr-0.5 shadow-xs rounded`,
-							`bg-sidebar-button border-sidebar-line active:bg-sidebar-button hover:!border-sidebar-selected text-ink`,
-							(library === null || isLoadingLibraries) && '!text-ink-faint',
-							macOnly(os, '!bg-opacity-80 !border-opacity-40')
+							`w-full mb-1 mt-1 -mr-0.5`,
+							`border-sidebar-line/70 bg-sidebar-button active:border-sidebar-line text-ink`,
+							(library === null || isLoadingLibraries) && '!text-ink-faint'
+							// macOnly(os, '!bg-opacity-80 !border-opacity-40')
 						)}
 					>
 						<span className="truncate">
@@ -239,14 +238,16 @@ export function Sidebar() {
 
 			{library && <LibraryScopedSection />}
 
-			<div className="flex-grow" />
+			<div className="flex-grow " />
 
 			{library && <RunningJobsWidget />}
 
-			<div className="mt-2 mb-3">
+			<div className="fixed bottom-[2px] left-[2px] w-full h-20 rounded-[8px] bg-gradient-to-t from-sidebar via-sidebar to-transparent" />
+
+			<div className="fixed bottom-0 mt-2 mb-3">
 				<NavLink to="/settings/general">
 					{({ isActive }) => (
-						<Button padding="sm" variant="default" className={clsx('hover:!bg-opacity-20')}>
+						<Button forIcon className={clsx('hover:!bg-opacity-20')}>
 							<CogIcon className="w-5 h-5" />
 						</Button>
 					)}
@@ -257,7 +258,7 @@ export function Sidebar() {
 					disabled={!library}
 					trigger={
 						<Button
-							padding="sm"
+							forIcon
 							className={clsx(
 								'!outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
 							)}
