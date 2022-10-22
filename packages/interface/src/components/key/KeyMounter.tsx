@@ -11,7 +11,7 @@ export function KeyMounter() {
 	const ref = useRef<HTMLInputElement>(null);
 
 	const [showKey, setShowKey] = useState(false);
-	const [toggle, setToggle] = useState(false);
+	const [toggle, setToggle] = useState(true);
 
 	const [key, setKey] = useState('');
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
@@ -58,20 +58,8 @@ export function KeyMounter() {
 						checked={toggle}
 						onCheckedChange={setToggle}
 					/>
-					<Switch
-						className="bg-app-selected"
-						size="md"
-						checked={toggle}
-						onCheckedChange={setToggle}
-					/>
-					<Switch
-						className="bg-app-selected"
-						size="lg"
-						checked={toggle}
-						onCheckedChange={setToggle}
-					/>
 				</div>
-				<span className="ml-3 mt-[1px] font-medium text-xs">Sync with Library</span>
+				<span className="ml-3 text-xs font-medium">Sync with Library</span>
 				<Tooltip label="This key will be mounted on all devices running your Library">
 					<InformationCircleIcon className="w-4 h-4 ml-1.5 text-ink-faint" />
 				</Tooltip>
