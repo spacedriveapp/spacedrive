@@ -1,7 +1,10 @@
 use crate::{library::LibraryContext, prisma::location};
 
-use std::path::Path;
-use std::{collections::HashSet, time::Duration};
+use std::{
+	collections::{HashMap, HashSet},
+	path::Path,
+	time::Duration,
+};
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
@@ -12,10 +15,10 @@ use tokio::{
 	sync::{mpsc, oneshot},
 	time::sleep,
 };
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 static LOCATION_MANAGER: OnceCell<LocationManager> = OnceCell::new();
-const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(30);
+const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Error, Debug)]
 pub enum LocationManagerError {
@@ -24,7 +27,7 @@ pub enum LocationManagerError {
 	#[error("Unable to send location id to be checked by actor: (error: {0})")]
 	ActorSendAddLocationError(#[from] mpsc::error::SendError<(i32, LibraryContext)>),
 	#[error("Unable to send location id to be removed from actor: (error: {0})")]
-	ActorSendRemoveLocationError(#[from] mpsc::error::SendError<i32>),
+	ActorSendRemoveLocationError(#[from] mpsc::error::SendError<(i32, Option<String>)>),
 	#[error("Watcher error: (error: {0})")]
 	WatcherError(#[from] notify::Error),
 }
@@ -32,7 +35,7 @@ pub enum LocationManagerError {
 #[derive(Debug)]
 pub struct LocationManager {
 	add_locations_tx: mpsc::Sender<(i32, LibraryContext)>,
-	remove_locations_tx: mpsc::Sender<i32>,
+	remove_locations_tx: mpsc::Sender<(i32, Option<String>)>,
 	stop_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -66,6 +69,8 @@ impl LocationManager {
 
 		LOCATION_MANAGER.set(manager).unwrap(); // SAFETY: We checked that it's not set before
 
+		debug!("Location manager initialized");
+
 		Ok(Self::global())
 	}
 
@@ -80,20 +85,25 @@ impl LocationManager {
 			.map_err(Into::into)
 	}
 
-	pub async fn remove(&self, location_id: i32) -> Result<(), LocationManagerError> {
+	pub async fn remove(
+		&self,
+		location_id: i32,
+		local_path: Option<String>,
+	) -> Result<(), LocationManagerError> {
 		self.remove_locations_tx
-			.send(location_id)
+			.send((location_id, local_path))
 			.await
 			.map_err(Into::into)
 	}
 
 	async fn run_locations_checker(
 		mut add_locations_rx: mpsc::Receiver<(i32, LibraryContext)>,
-		mut remove_locations_rx: mpsc::Receiver<i32>,
+		mut remove_locations_rx: mpsc::Receiver<(i32, Option<String>)>,
 		mut stop_rx: oneshot::Receiver<()>,
 	) -> Result<(), LocationManagerError> {
 		let mut to_check_futures = FuturesUnordered::new();
-		let mut to_remove = HashSet::new();
+		let mut to_remove = HashMap::new();
+		let mut locations_watched = HashSet::new();
 
 		let (events_tx, events_rx) = mpsc::unbounded_channel();
 
@@ -116,59 +126,46 @@ impl LocationManager {
 							// SAFETY:: This unwrap is ok because we check if we have a `local_path`
 							// on `check_online` function above
 							let local_path = Path::new(location.local_path.as_ref().unwrap());
-							if let Err(e) = watcher.watch(local_path, RecursiveMode::Recursive) {
-								error!(
-									"Unable to watch location: (path: {}, error: {e:#?}) ",
-									local_path.display()
-								);
-							}
+							watch_location(&mut watcher, location_id, local_path, &mut locations_watched);
 						}
 
 						to_check_futures.push(location_check_sleep(location_id, library_ctx));
 					}
 				}
 
-				Some(location_id) = remove_locations_rx.recv() => {
-					to_remove.insert(location_id);
+				Some((location_id, local_path)) = remove_locations_rx.recv() => {
+					to_remove.insert(location_id, local_path);
 				}
 
 				Some((location_id, library_ctx)) = to_check_futures.next() => {
 					if let Some(location) = get_location(location_id, &library_ctx).await {
-						if let Some(ref local_path) = location.local_path {
-							let local_path = Path::new(local_path);
-							if to_remove.contains(&location_id) {
-								to_remove.remove(&location_id);
-								if let Err(e) = watcher.unwatch(local_path) {
-									error!(
-										"Unable to unwatch location: (path: {}, error: {e:#?})",
-										local_path.display()
-									);
+						if let Some(ref local_path_str) = location.local_path {
+							let local_path = Path::new(local_path_str);
+							if to_remove.contains_key(&location_id) {
+								if locations_watched.contains(&location_id) {
+									unwatch_location(&mut watcher, location_id, local_path, &mut locations_watched);
+									to_remove.remove(&location_id);
 								}
 							} else {
 								if check_online(&location, &library_ctx).await {
-									if let Err(e) = watcher.watch(local_path, RecursiveMode::Recursive) {
-										error!(
-											"Unable to watch location: (path: {}, error: {e:#?})",
-											local_path.display()
-										);
+									if !locations_watched.contains(&location_id) {
+										watch_location(&mut watcher, location_id, local_path, &mut locations_watched);
 									}
-								} else if let Err(e) = watcher.unwatch(local_path) {
-									error!(
-										"Unable to unwatch location: (path: {}, error: {e:#?})"
-										, local_path.display()
-									);
+								} else if locations_watched.contains(&location_id) {
+									unwatch_location(&mut watcher, location_id, local_path, &mut locations_watched);
 								}
 								to_check_futures.push(location_check_sleep(location_id, library_ctx));
 							}
 						} else {
-							warn!("Dropping location from location manager, but leaking watchers
-							 because we don't have a `local_path` to unwatch: 
+							warn!("Dropping location from location manager, but leaking watchers \
+							 because we don't have a `local_path` to unwatch: \
 							 (location_id: {location_id}, library_id: {})", library_ctx.id);
 						}
-					}  else {
-						warn!("Dropping location from location manager, but leaking watchers because
-						 we weren't able to fetch from db: 
-						 (location_id: {location_id}, library_id: {})", library_ctx.id);
+					} else if let Some(maybe_local_path) = to_remove.get(&location_id) {
+						if let Some(local_path) = maybe_local_path {
+							unwatch_location(&mut watcher, location_id, local_path, &mut locations_watched);
+						}
+						to_remove.remove(&location_id);
 					}
 				}
 
@@ -261,6 +258,42 @@ async fn handle_watch_events(mut events_rx: mpsc::UnboundedReceiver<notify::Resu
 				error!("watch error: {:#?}", e);
 			}
 		}
+	}
+}
+
+fn watch_location(
+	watcher: &mut RecommendedWatcher,
+	location_id: i32,
+	local_path: impl AsRef<Path>,
+	watched_locations: &mut HashSet<i32>,
+) {
+	let local_path = local_path.as_ref();
+	if let Err(e) = watcher.watch(local_path, RecursiveMode::Recursive) {
+		error!(
+			"Unable to watch location: (path: {}, error: {e:#?})",
+			local_path.display()
+		);
+	} else {
+		debug!("Now watching location: (path: {})", local_path.display());
+		watched_locations.insert(location_id);
+	}
+}
+
+fn unwatch_location(
+	watcher: &mut RecommendedWatcher,
+	location_id: i32,
+	local_path: impl AsRef<Path>,
+	watched_locations: &mut HashSet<i32>,
+) {
+	let local_path = local_path.as_ref();
+	if let Err(e) = watcher.unwatch(local_path) {
+		error!(
+			"Unable to unwatch location: (path: {}, error: {e:#?})",
+			local_path.display()
+		);
+	} else {
+		debug!("Stop watching location: (path: {})", local_path.display());
+		watched_locations.remove(&location_id);
 	}
 }
 

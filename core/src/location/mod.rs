@@ -7,31 +7,28 @@ use crate::{
 		preview::{ThumbnailJob, ThumbnailJobInit},
 		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
-	prisma::{indexer_rules_in_location, location, node},
+	prisma::{file_path, indexer_rules_in_location, location, node},
 };
 
 use rspc::Type;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{
 	collections::HashSet,
 	path::{Path, PathBuf},
 };
-use tokio::{
-	fs::{self, File},
-	io::{self, AsyncWriteExt},
-};
-use tracing::{debug, info};
+use tokio::{fs, io};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 mod error;
 pub mod indexer;
 mod manager;
+mod metadata;
 
 pub use error::LocationError;
 use indexer::indexer_job::{indexer_job_location, IndexerJob, IndexerJobInit};
 pub use manager::{LocationManager, LocationManagerError};
-
-static LOCATION_METADATA_HIDDEN_DIR: &str = ".spacedrive";
+use metadata::SpacedriveLocationMetadataFile;
 
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -47,14 +44,17 @@ impl LocationCreateArgs {
 		self,
 		ctx: &LibraryContext,
 	) -> Result<indexer_job_location::Data, LocationError> {
-		// check if we have access to this location
-		if !self.path.try_exists().unwrap() {
-			return Err(LocationError::PathNotFound(self.path));
-		}
-
-		let path_metadata = fs::metadata(&self.path)
-			.await
-			.map_err(|e| LocationError::LocationPathMetadataAccess(e, self.path.clone()))?;
+		let path_metadata = match fs::metadata(&self.path).await {
+			Ok(metadata) => metadata,
+			Err(e) if e.kind() == io::ErrorKind::NotFound => {
+				return Err(LocationError::PathNotFound(self.path))
+			}
+			Err(e) => {
+				return Err(LocationError::LocationPathFilesystemMetadataAccess(
+					e, self.path,
+				));
+			}
+		};
 
 		if path_metadata.permissions().readonly() {
 			return Err(LocationError::ReadonlyLocationFailure(self.path));
@@ -64,78 +64,79 @@ impl LocationCreateArgs {
 			return Err(LocationError::NotDirectory(self.path));
 		}
 
-		check_or_create_location_metadata_dir(&self.path).await?;
-
-		let metadata_file_name = self
-			.path
-			.join(LOCATION_METADATA_HIDDEN_DIR)
-			.join(format!("{}.json", ctx.id));
-
-		let location_metadata = match fs::read(&metadata_file_name).await {
-			Ok(data) => Some(
-				serde_json::from_slice::<SpacedriveLocationMetadata>(&data)
-					.map_err(|e| LocationError::DotfileSerializeFailure(e, self.path.clone()))?,
-			),
-			Err(e) if e.kind() == io::ErrorKind::NotFound => None,
-			Err(e) => {
-				return Err(LocationError::LocationMetadataReadFailure(
-					e,
-					self.path.clone(),
-				));
-			}
-		};
-
-		let location_name = self.path.file_name().unwrap().to_str().unwrap().to_string();
-		let local_path_str = self.path.to_string_lossy().to_string();
-
-		let mut location = if let Some(location_metadata) = location_metadata {
-			if location_metadata.library_uuid != ctx.id {
-				return Err(LocationError::CorruptedLocationMetadataFile(self.path));
-			}
-			handle_existing_location_relink(
-				location_metadata.location_uuid,
-				local_path_str,
-				&metadata_file_name,
-				ctx,
-			)
-			.await?
-		} else {
-			create_new_location(location_name, local_path_str, ctx).await?
-		};
-
-		if !self.indexer_rules_ids.is_empty() {
-			link_location_and_indexer_rules(ctx, location.id, &self.indexer_rules_ids).await?;
+		if let Some(metadata) = SpacedriveLocationMetadataFile::try_load(&self.path).await? {
+			return if metadata.has_library(ctx.id) {
+				Err(LocationError::NeedRelink {
+					// SAFETY: This unwrap is ok as we checked that we have this library_id
+					old_path: metadata.location_path(ctx.id).unwrap().to_path_buf(),
+					new_path: self.path,
+				})
+			} else {
+				Err(LocationError::AddLibraryToMetadata(self.path))
+			};
 		}
 
-		// Updating our location variable to include information about the indexer rules
-		location = fetch_location(ctx, location.id)
-			.include(indexer_job_location::include())
-			.exec()
+		debug!(
+			"Trying to create new location for '{}'",
+			self.path.display()
+		);
+		let uuid = Uuid::new_v4();
+
+		let location = create_location(ctx, uuid, &self.path, &self.indexer_rules_ids).await?;
+
+		// Write a location metadata on a .spacedrive file
+		SpacedriveLocationMetadataFile::create_and_save(
+			ctx.id,
+			uuid,
+			&self.path,
+			location.name.as_ref().unwrap().clone(),
+		)
+		.await?;
+
+		info!("Created location: {location:?}");
+
+		Ok(location)
+	}
+
+	pub async fn add_library(
+		self,
+		ctx: &LibraryContext,
+	) -> Result<indexer_job_location::Data, LocationError> {
+		let mut metadata = SpacedriveLocationMetadataFile::try_load(&self.path)
 			.await?
-			.ok_or(LocationError::IdNotFound(location.id))?;
+			.ok_or_else(|| LocationError::MetadataNotFound(self.path.clone()))?;
 
-		// Write a location metadata file on a .spacedrive hidden directory with
-		// `<library_id>.json` file name containing the location pub id and library id in JSON format
-		let mut metadata_file = File::create(metadata_file_name)
-			.await
-			.map_err(|e| LocationError::LocationMetadataWriteFailure(e, self.path.clone()))?;
+		if metadata.has_library(ctx.id) {
+			return Err(LocationError::NeedRelink {
+				// SAFETY: This unwrap is ok as we checked that we have this library_id
+				old_path: metadata.location_path(ctx.id).unwrap().to_path_buf(),
+				new_path: self.path,
+			});
+		}
 
-		let json_bytes = serde_json::to_vec(&SpacedriveLocationMetadata {
-			location_uuid: Uuid::from_slice(&location.pub_id).unwrap(),
-			library_uuid: ctx.id,
-		})
-		.map_err(|e| LocationError::DotfileSerializeFailure(e, self.path.clone()))?;
+		debug!(
+			"Trying to add a new library (library_id = {}) to an already existing location '{}'",
+			ctx.id,
+			self.path.display()
+		);
 
-		metadata_file
-			.write_all(&json_bytes)
-			.await
-			.map_err(|e| LocationError::LocationMetadataWriteFailure(e, self.path))?;
+		let uuid = Uuid::new_v4();
 
-		invalidate_query!(ctx, "locations.list");
+		let location = create_location(ctx, uuid, &self.path, &self.indexer_rules_ids).await?;
 
-		LocationManager::global()
-			.add(location.id, ctx.clone())
+		metadata
+			.add_library(
+				ctx.id,
+				uuid,
+				&self.path,
+				location.name.as_ref().unwrap().clone(),
+			)
 			.await?;
+
+		info!(
+			"Added library (library_id = {}) to location: {location:?}",
+			ctx.id
+		);
 
 		Ok(location)
 	}
@@ -162,15 +163,23 @@ impl LocationUpdateArgs {
 			.await?
 			.ok_or(LocationError::IdNotFound(self.id))?;
 
-		if location.name != self.name {
+		if self.name.is_some() && location.name != self.name {
 			ctx.db
 				.location()
 				.update(
 					location::id::equals(self.id),
-					vec![location::name::set(self.name)],
+					vec![location::name::set(self.name.clone())],
 				)
 				.exec()
 				.await?;
+
+			if let Some(ref local_path) = location.local_path {
+				if let Some(mut metadata) =
+					SpacedriveLocationMetadataFile::try_load(local_path).await?
+				{
+					metadata.update(ctx.id, self.name.unwrap().clone()).await?;
+				}
+			}
 		}
 
 		let current_rules_ids = location
@@ -209,12 +218,6 @@ impl LocationUpdateArgs {
 
 		Ok(())
 	}
-}
-
-#[derive(Serialize, Deserialize, Default)]
-pub struct SpacedriveLocationMetadata {
-	pub location_uuid: Uuid,
-	pub library_uuid: Uuid,
 }
 
 pub fn fetch_location(ctx: &LibraryContext, location_id: i32) -> location::FindUnique {
@@ -286,93 +289,123 @@ pub async fn scan_location(
 	Ok(())
 }
 
-async fn handle_existing_location_relink(
-	location_pub_id: Uuid,
-	local_path_str: String,
-	metadata_file_name: impl AsRef<Path>,
+pub async fn relink_location(
 	ctx: &LibraryContext,
-) -> Result<indexer_job_location::Data, LocationError> {
-	let mut location = ctx
-		.db
-		.location()
-		.find_unique(location::pub_id::equals(location_pub_id.as_ref().to_vec()))
-		.include(indexer_job_location::include())
-		.exec()
+	location_path: impl AsRef<Path>,
+) -> Result<(), LocationError> {
+	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
-		.ok_or_else(|| {
-			LocationError::LocationMetadataInvalidPubId(
-				location_pub_id,
-				metadata_file_name.as_ref().to_path_buf(),
-			)
-		})?;
+		.ok_or_else(|| LocationError::MissingMetadataFile(location_path.as_ref().to_path_buf()))?;
 
-	if let Some(ref old_local_path) = location.local_path {
-		if *old_local_path != local_path_str {
-			location = ctx
-				.db
-				.location()
-				.update(
-					location::id::equals(location.id),
-					vec![
-						location::local_path::set(Some(local_path_str)),
-						location::is_online::set(true),
-					],
-				)
-				.include(indexer_job_location::include())
-				.exec()
-				.await?;
-		}
-	}
+	metadata.relink(ctx.id, &location_path).await?;
 
-	// As we're relinking a location, let's just forget the old indexing rules to receive new ones
+	ctx.db
+		.location()
+		.update(
+			location::pub_id::equals(metadata.location_pub_id(ctx.id)?.as_ref().to_vec()),
+			vec![
+				location::local_path::set(Some(
+					location_path.as_ref().to_string_lossy().to_string(),
+				)),
+				location::is_online::set(true),
+			],
+		)
+		.exec()
+		.await?;
+
+	Ok(())
+}
+
+pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
+	ctx.db
+		.file_path()
+		.delete_many(vec![file_path::location_id::equals(location_id)])
+		.exec()
+		.await?;
+
 	ctx.db
 		.indexer_rules_in_location()
 		.delete_many(vec![indexer_rules_in_location::location_id::equals(
-			location.id,
+			location_id,
 		)])
 		.exec()
 		.await?;
 
-	Ok(location)
-}
-
-async fn create_new_location(
-	location_name: String,
-	local_path_str: String,
-	ctx: &LibraryContext,
-) -> Result<indexer_job_location::Data, LocationError> {
-	debug!("Trying to create new location for '{local_path_str}'",);
-	let uuid = Uuid::new_v4();
-
 	let location = ctx
 		.db
 		.location()
+		.delete(location::id::equals(location_id))
+		.exec()
+		.await?;
+
+	if let Err(e) = LocationManager::global()
+		.remove(location_id, location.local_path.clone())
+		.await
+	{
+		error!("Failed to remove location from manager: {e:#?}");
+	}
+
+	if let Some(local_path) = location.local_path {
+		if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(&local_path).await
+		{
+			metadata.remove_library(ctx.id).await?;
+		}
+	}
+
+	info!("Location {} deleted", location_id);
+	invalidate_query!(ctx, "locations.list");
+
+	Ok(())
+}
+
+async fn create_location(
+	ctx: &LibraryContext,
+	location_pub_id: Uuid,
+	location_path: impl AsRef<Path>,
+	indexer_rules_ids: &[i32],
+) -> Result<indexer_job_location::Data, LocationError> {
+	let location_name = location_path
+		.as_ref()
+		.file_name()
+		.unwrap()
+		.to_str()
+		.unwrap()
+		.to_string();
+
+	let mut location = ctx
+		.db
+		.location()
 		.create(
-			uuid.as_bytes().to_vec(),
+			location_pub_id.as_bytes().to_vec(),
 			node::id::equals(ctx.node_local_id),
 			vec![
-				location::name::set(Some(location_name)),
+				location::name::set(Some(location_name.clone())),
 				location::is_online::set(true),
-				location::local_path::set(Some(local_path_str)),
+				location::local_path::set(Some(
+					location_path.as_ref().to_string_lossy().to_string(),
+				)),
 			],
 		)
 		.include(indexer_job_location::include())
 		.exec()
 		.await?;
 
-	info!("Created location: {location:?}");
+	if !indexer_rules_ids.is_empty() {
+		link_location_and_indexer_rules(ctx, location.id, indexer_rules_ids).await?;
+	}
+
+	// Updating our location variable to include information about the indexer rules
+	location = fetch_location(ctx, location.id)
+		.include(indexer_job_location::include())
+		.exec()
+		.await?
+		.ok_or(LocationError::IdNotFound(location.id))?;
+
+	invalidate_query!(ctx, "locations.list");
+
+	LocationManager::global()
+		.add(location.id, ctx.clone())
+		.await?;
 
 	Ok(location)
-}
-
-async fn check_or_create_location_metadata_dir(
-	path: impl AsRef<Path>,
-) -> Result<(), LocationError> {
-	let metadata_dir_path = path.as_ref().join(LOCATION_METADATA_HIDDEN_DIR);
-	(match fs::metadata(&metadata_dir_path).await {
-		Ok(_) => Ok(()),
-		Err(e) if e.kind() == io::ErrorKind::NotFound => fs::create_dir(&metadata_dir_path).await,
-		Err(e) => Err(e),
-	})
-	.map_err(|e| LocationError::LocationMetadataDir(e, metadata_dir_path))
 }

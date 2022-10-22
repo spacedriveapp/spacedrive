@@ -1,18 +1,17 @@
 use crate::{
-	invalidate_query,
 	location::{
-		fetch_location,
+		delete_location, fetch_location,
 		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
-		scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
+		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
 	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
-	LocationManager,
 };
+
+use std::path::PathBuf;
 
 use rspc::{self, internal::MiddlewareBuilderLike, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
 
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
 
@@ -149,36 +148,22 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 		})
 		.library_mutation("delete", |t| {
 			t(|_, location_id: i32, library| async move {
-				library
-					.db
-					.file_path()
-					.delete_many(vec![file_path::location_id::equals(location_id)])
-					.exec()
-					.await?;
-
-				library
-					.db
-					.indexer_rules_in_location()
-					.delete_many(vec![indexer_rules_in_location::location_id::equals(
-						location_id,
-					)])
-					.exec()
-					.await?;
-
-				library
-					.db
-					.location()
-					.delete(location::id::equals(location_id))
-					.exec()
-					.await?;
-
-				invalidate_query!(library, "locations.list");
-				if let Err(e) = LocationManager::global().remove(location_id).await {
-					error!("Failed to remove location from manager: {e:#?}");
-				}
-
-				info!("Location {} deleted", location_id);
-
+				delete_location(&library, location_id)
+					.await
+					.map_err(Into::into)
+			})
+		})
+		.library_mutation("relink", |t| {
+			t(|_, location_path: PathBuf, library| async move {
+				relink_location(&library, location_path)
+					.await
+					.map_err(Into::into)
+			})
+		})
+		.library_mutation("addLibrary", |t| {
+			t(|_, args: LocationCreateArgs, library| async move {
+				let location = args.add_library(&library).await?;
+				scan_location(&library, location).await?;
 				Ok(())
 			})
 		})

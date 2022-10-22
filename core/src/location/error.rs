@@ -5,6 +5,8 @@ use thiserror::Error;
 use tokio::io;
 use uuid::Uuid;
 
+use super::metadata::LocationMetadataError;
+
 /// Error type for location related errors
 #[derive(Error, Debug)]
 pub enum LocationError {
@@ -21,26 +23,25 @@ pub enum LocationError {
 	NotDirectory(PathBuf),
 	#[error("Missing local_path (id: {0})")]
 	MissingLocalPath(i32),
+	#[error("Library exists in the location metadata file, must relink: (old_path: {old_path:?}, new_path: {new_path:?})")]
+	NeedRelink {
+		old_path: PathBuf,
+		new_path: PathBuf,
+	},
+	#[error("Exist a different library in the location metadata file, must add a new library: (path: {0:?})")]
+	AddLibraryToMetadata(PathBuf),
+	#[error("Location metadata file not found: (path: {0:?})")]
+	MetadataNotFound(PathBuf),
 
 	// Internal Errors
-	#[error("Failed to create location (uuid {uuid:?})")]
-	CreateFailure { uuid: Uuid },
-	#[error("Failed to read location metadata file (path: {1:?}); (error: {0:?})")]
-	LocationMetadataReadFailure(io::Error, PathBuf),
+	#[error("Location metadata error (error: {0:?})")]
+	LocationMetadataError(#[from] LocationMetadataError),
 	#[error("Failed to read location path metadata info (path: {1:?}); (error: {0:?})")]
-	LocationPathMetadataAccess(io::Error, PathBuf),
-	#[error("Failed to create location metadata hidden directory (path: {1:?}); (error: {0:?})")]
-	LocationMetadataDir(io::Error, PathBuf),
-	#[error("Failed to serialize dotfile for location (at path: {1:?}); (error: {0:?})")]
-	DotfileSerializeFailure(serde_json::Error, PathBuf),
+	LocationPathFilesystemMetadataAccess(io::Error, PathBuf),
 	#[error("Location is read only (at path: {0:?})")]
 	ReadonlyLocationFailure(PathBuf),
-	#[error("Location metadata file contains a location pub_id that is not in the database: (path: {1:?}); (uuid: {0:?})")]
-	LocationMetadataInvalidPubId(Uuid, PathBuf),
-	#[error("Failed to write dotfile (path: {1:?}); (error: {0:?})")]
-	LocationMetadataWriteFailure(io::Error, PathBuf),
-	#[error("Corrupted location metadata file (path: {0:?})")]
-	CorruptedLocationMetadataFile(PathBuf),
+	#[error("Missing metadata file for location (path: {0:?})")]
+	MissingMetadataFile(PathBuf),
 	#[error("Failed to open file from local os (error: {0:?})")]
 	FileReadError(io::Error),
 	#[error("Failed to read mounted volumes from local os (error: {0:?})")]
@@ -56,13 +57,18 @@ pub enum LocationError {
 impl From<LocationError> for rspc::Error {
 	fn from(err: LocationError) -> Self {
 		match err {
+			// Not found errors
 			LocationError::PathNotFound(_)
 			| LocationError::UuidNotFound(_)
 			| LocationError::IdNotFound(_) => {
 				rspc::Error::with_cause(ErrorCode::NotFound, err.to_string(), err)
 			}
 
-			LocationError::NotDirectory(_) | LocationError::MissingLocalPath(_) => {
+			// User's fault errors
+			LocationError::NotDirectory(_)
+			| LocationError::MissingLocalPath(_)
+			| LocationError::NeedRelink { .. }
+			| LocationError::AddLibraryToMetadata(_) => {
 				rspc::Error::with_cause(ErrorCode::BadRequest, err.to_string(), err)
 			}
 

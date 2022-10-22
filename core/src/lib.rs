@@ -50,7 +50,9 @@ impl Node {
 		let data_dir = data_dir.as_ref();
 		#[cfg(debug_assertions)]
 		let data_dir = data_dir.join("dev");
-		let _ = fs::create_dir_all(&data_dir).await; // This error is ignore because it throwing on mobile despite the folder existing.
+
+		// This error is ignored because it's throwing on mobile despite the folder existing.
+		let _ = fs::create_dir_all(&data_dir).await;
 
 		// dbg!(get_object_kind_from_extension("png"));
 
@@ -64,12 +66,12 @@ impl Node {
 			EnvFilter::from_default_env()
 				.add_directive("warn".parse().expect("Error invalid tracing directive!"))
 				.add_directive(
-					"sd-core=debug"
+					"sd_core=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)
 				.add_directive(
-					"sd-core-mobile=debug"
+					"sd_core_mobile=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)

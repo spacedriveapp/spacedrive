@@ -153,6 +153,8 @@ impl StatefulJob for IndexerJob {
 		)
 		.await?;
 
+		// TODO eliminate repeated paths already on DB
+
 		let total_paths = paths.len();
 		let mut dirs_ids = HashMap::new();
 		let paths_entries = paths
