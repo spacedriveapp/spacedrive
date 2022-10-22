@@ -35,7 +35,7 @@ export default function LibraryGeneralSettings() {
 				});
 			}
 		}
-	}, [nameDebounced, descriptionDebounced, library, editLibrary]);
+	}, [nameDebounced, descriptionDebounced, editLibrary]);
 
 	useEffect(() => {
 		if (library) {
