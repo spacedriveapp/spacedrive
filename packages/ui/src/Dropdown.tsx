@@ -83,31 +83,32 @@ export interface DropdownRootProps {
 
 export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 	return (
-		<Menu as="div" className={clsx('relative flex w-full text-left', props.className)}>
-			<Menu.Button as="div" className="flex-1 outline-none">
-				{props.button}
-			</Menu.Button>
-
-			<Transition
-				as={Fragment}
-				enter="transition duration-100 ease-out"
-				enterFrom="transform scale-95 opacity-0"
-				enterTo="transform scale-100 opacity-100"
-				leave="transition duration-75 ease-out"
-				leaveFrom="transform scale-100 opacity-100"
-				leaveTo="transform scale-95 opacity-0"
-			>
-				<Menu.Items
-					className={clsx(
-						'absolute z-50 min-w-fit w-full border divide-y divide-app-border/50 rounded shadow-xl top-full ring-1 ring-black ring-opacity-5 focus:outline-none bg-app-box border-app-line',
-						props.itemsClassName,
-						{ 'left-0': props.align === 'left' },
-						{ 'right-0': props.align === 'right' }
-					)}
+		<div className={props.className}>
+			<Menu as="div" className={clsx('relative flex w-full text-left')}>
+				<Menu.Button as="div" className="flex-1 outline-none">
+					{props.button}
+				</Menu.Button>
+				<Transition
+					as={Fragment}
+					enter="transition duration-100 ease-out"
+					enterFrom="transform scale-95 opacity-0"
+					enterTo="transform scale-100 opacity-100"
+					leave="transition duration-75 ease-out"
+					leaveFrom="transform scale-100 opacity-100"
+					leaveTo="transform scale-95 opacity-0"
 				>
-					{props.children}
-				</Menu.Items>
-			</Transition>
-		</Menu>
+					<Menu.Items
+						className={clsx(
+							'absolute z-50 min-w-fit w-full border divide-y divide-app-border/50 rounded shadow-xl top-full ring-1 ring-black ring-opacity-5 focus:outline-none bg-app-box border-app-border',
+							props.itemsClassName,
+							{ 'left-0': props.align === 'left' },
+							{ 'right-0': props.align === 'right' }
+						)}
+					>
+						{props.children}
+					</Menu.Items>
+				</Transition>
+			</Menu>
+		</div>
 	);
 };
