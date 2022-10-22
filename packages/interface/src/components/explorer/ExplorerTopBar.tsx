@@ -59,19 +59,13 @@ const topBarButtonStyle = cva(
 
 const TOP_BAR_ICON_STYLE = 'm-0.5 w-5 h-5 text-ink-dull';
 
-const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>(
-	({ rounding, active, className, ...props }, ref) => {
-		return (
-			<Button
-				{...props}
-				ref={ref}
-				className={clsx(topBarButtonStyle({ rounding, active }), className)}
-			>
-				{props.children}
-			</Button>
-		);
-	}
-);
+const TopBarButton = forwardRef<HTMLButtonElement, TopBarButtonProps>((props, ref) => {
+	return (
+		<Button {...props} ref={ref} className={clsx(topBarButtonStyle(props), props.className)}>
+			{props.children}
+		</Button>
+	);
+});
 
 const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRef) => {
 	const {

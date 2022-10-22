@@ -25,21 +25,34 @@ const sidebarItemClass = cva(
 	{
 		variants: {
 			isActive: {
-				true: 'bg-sidebar-selected/60'
+				true: 'bg-sidebar-selected text-ink',
+				false: 'text-ink-dull'
+			},
+			isTransparent: {
+				true: 'bg-opacity-90',
+				false: ''
 			}
 		}
 	}
 );
 
-export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => (
-	<NavLink {...props}>
-		{({ isActive }) => (
-			<span className={clsx(sidebarItemClass({ isActive }), props.className)}>
-				{props.children}
-			</span>
-		)}
-	</NavLink>
-);
+export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => {
+	const os = useOperatingSystem();
+	return (
+		<NavLink {...props}>
+			{({ isActive }) => (
+				<span
+					className={clsx(
+						sidebarItemClass({ isActive, isTransparent: os === 'macOS' }),
+						props.className
+					)}
+				>
+					{props.children}
+				</span>
+			)}
+		</NavLink>
+	);
+};
 
 const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
@@ -68,7 +81,6 @@ function WindowControls() {
 const SidebarCategoryHeading = tw(CategoryHeading)`mt-5 mb-1 ml-1`;
 
 function LibraryScopedSection() {
-	const os = useOperatingSystem();
 	const platform = usePlatform();
 	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
@@ -160,8 +172,8 @@ export function Sidebar() {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar/100',
-				macOnly(os, 'bg-sidebar/80')
+				'flex flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar',
+				macOnly(os, 'bg-opacity-90')
 			)}
 		>
 			<WindowControls />

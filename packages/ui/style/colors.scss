@@ -54,13 +54,13 @@
   --color-sidebar-box: 230, 15%, 13%;
   --color-sidebar-line: 230, 15%, 23%;
   --color-sidebar-divider: 230, 15%, 17%;
-  --color-sidebar-button: 230, 15%, 17%;
-  --color-sidebar-selected: 230, 15%, 22%;
+  --color-sidebar-button: 230, 15%, 18%;
+  --color-sidebar-selected: 230, 15%, 14%;
   --color-sidebar-separator: 230, 15%, 23%;
   --color-sidebar-shade: 230, 15%, 23%;
   // main
   --color-app: 230, 15%, 13%;
-  --color-app-box: 230, 15%, 20%;
+  --color-app-box: 230, 15%, 18%;
   --color-app-overlay: 230, 15%, 14%;
   --color-app-input: 230, 15%, 20%;
   --color-app-focus: 230, 15%, 10%;
@@ -70,5 +70,40 @@
   --color-app-selected: 230, 15%, 23%;
   --color-app-hover: 230, 15%, 20%;
   --color-app-shade: 230, 15%, 0%;
+}
+
+.vanilla-ruby {
+  // global
+  --color-black: 0, 0%, 0%;
+  --color-white: 0, 0%, 100%;
+   // accent theme colors
+  --color-accent: 208, 100%, 57%;
+  --color-accent-faint: 208, 100%, 67%;
+  --color-accent-deep: 208, 100%, 47%;
+  // text
+  --color-ink: 295, 0%, 100%;
+  --color-ink-dull: 295, 10%, 70%;
+  --color-ink-faint: 295, 10%, 55%;
+  // sidebar
+  --color-sidebar: 295, 15%, 7%;
+  --color-sidebar-box: 295, 15%, 13%;
+  --color-sidebar-line: 295, 15%, 23%;
+  --color-sidebar-divider: 295, 15%, 17%;
+  --color-sidebar-button: 295, 15%, 17%;
+  --color-sidebar-selected: 295, 15%, 22%;
+  --color-sidebar-separator: 295, 15%, 23%;
+  --color-sidebar-shade: 295, 15%, 23%;
+  // main
+  --color-app: 295, 15%, 13%;
+  --color-app-box: 295, 15%, 18%;
+  --color-app-overlay: 295, 15%, 14%;
+  --color-app-input: 295, 15%, 20%;
+  --color-app-focus: 295, 15%, 10%;
+  --color-app-line: 295, 15%, 26%;
+  --color-app-button: 295, 15%, 23%;
+  --color-app-divider: 295, 15%, 5%;
+  --color-app-selected: 295, 15%, 23%;
+  --color-app-hover: 295, 15%, 20%;
+  --color-app-shade: 295, 15%, 0%;
 }
 
