@@ -77,6 +77,7 @@ export function KeyMounter() {
 					<span className="text-xs font-bold">Hashing</span>
 					<Select className="mt-2" onChange={setHashingAlgo} value={hashingAlgo}>
 						<SelectOption value="Argon2id">Argon2id</SelectOption>
+						<SelectOption value="Bcrypt">Bcrypt</SelectOption>
 					</Select>
 				</div>
 			</div>

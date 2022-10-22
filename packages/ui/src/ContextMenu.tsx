@@ -12,7 +12,7 @@ const MENU_CLASSES = `
   flex flex-col
   min-w-[8rem] px-1 py-0.5
   text-left text-sm text-menu-ink
-  bg-menu border-menu-border backdrop-blur
+  bg-menu border-menu-border 
 	border border-transparent
   shadow-md shadow-menu-shade/20 
   select-none cursor-default rounded-md

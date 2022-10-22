@@ -172,8 +172,8 @@ export function Sidebar() {
 	return (
 		<div
 			className={clsx(
-				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar'
-				// macOnly(os, 'bg-opacity-[0.85]')
+				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar',
+				macOnly(os, 'bg-opacity-[0.80]')
 			)}
 		>
 			<WindowControls />
@@ -242,35 +242,38 @@ export function Sidebar() {
 
 			{library && <RunningJobsWidget />}
 
-			<div className="fixed bottom-[2px] left-[2px] w-full h-20 rounded-[8px] bg-gradient-to-t from-sidebar via-sidebar to-transparent" />
+			{/* <div className="fixed w-[174px] bottom-[2px] left-[2px] h-20 rounded-[8px] bg-gradient-to-t from-sidebar-box/90 via-sidebar-box/50 to-transparent" /> */}
 
-			<div className="fixed bottom-0 mt-2 mb-3">
-				<NavLink to="/settings/general">
-					{({ isActive }) => (
-						<Button forIcon className={clsx('hover:!bg-opacity-20')}>
-							<CogIcon className="w-5 h-5" />
-						</Button>
-					)}
-				</NavLink>
-				<OverlayPanel
-					className="focus:outline-none"
-					transformOrigin="bottom left"
-					disabled={!library}
-					trigger={
-						<Button
-							forIcon
-							className={clsx(
-								'!outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
-							)}
-						>
-							<CheckCircle className="w-5 h-5" />
-						</Button>
-					}
-				>
-					<div className="block w-[500px] h-96">
-						<JobsManager />
-					</div>
-				</OverlayPanel>
+			<div className="fixed bottom-0 flex flex-col mt-2 mb-3">
+				<div className="flex flex-row">
+					<NavLink to="/settings/general">
+						{({ isActive }) => (
+							<Button forIcon className={clsx('hover:!bg-opacity-20')}>
+								<CogIcon className="w-5 h-5 mt-[1px]" />
+							</Button>
+						)}
+					</NavLink>
+					<OverlayPanel
+						className="focus:outline-none"
+						transformOrigin="bottom left"
+						disabled={!library}
+						trigger={
+							<Button
+								forIcon
+								className={clsx(
+									'!outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
+								)}
+							>
+								<CheckCircle className="w-5 h-5" />
+							</Button>
+						}
+					>
+						<div className="block w-[500px] h-96">
+							<JobsManager />
+						</div>
+					</OverlayPanel>
+				</div>
+				<span className="w-full ml-1 mt-1 text-[7pt] text-ink-faint/50">Development Build</span>
 			</div>
 		</div>
 	);
