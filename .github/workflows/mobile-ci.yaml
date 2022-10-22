@@ -116,6 +116,9 @@ jobs:
       #   with:
       #     path: /usr/local/lib/android/sdk/ndk
       #     key: ndk-cache-21.4.7075529-v2
+
+      - name: plz work?
+        run: export CARGO_TARGET_DIR="$(pwd)/../../target"
       
       - name: Install NDK
         if: steps.ndk-cache.outputs.cache-hit != 'true'
@@ -129,12 +132,12 @@ jobs:
         run: pnpm i --frozen-lockfile
       
       # TODO: Debug
-      - name: Why Prisma????
-        run: ls ./core/src
-      - name: Cargo fetch
-        run: cargo fetch
-      - name: Check core
-        run: cargo check -p sd-core --release
+      # - name: Why Prisma????
+      #   run: ls ./core/src
+      # - name: Cargo fetch
+      #   run: cargo fetch
+      # - name: Check core
+      #   run: cargo check -p sd-core --release
       
       - name: Build Android
         working-directory: ./apps/mobile
