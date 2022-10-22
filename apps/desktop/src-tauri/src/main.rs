@@ -59,9 +59,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 			#[cfg(target_os = "macos")]
 			{
-				use macos::{lock_app_theme, AppThemeType};
+				// use macos::{lock_app_theme, AppThemeType};
 
-				lock_app_theme(AppThemeType::Dark as _);
+				// lock_app_theme(AppThemeType::Dark as _);
 			}
 
 			app.windows().iter().for_each(|(_, window)| {

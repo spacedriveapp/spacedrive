@@ -23,7 +23,13 @@ export default function SpacedriveInterface() {
 			<QueryClientProvider client={queryClient} contextSharing={true}>
 				{/* The `context={defaultContext}` part is required for this to work on Windows. Why, idk, don't question it */}
 				{import.meta.env.DEV && (
-					<ReactQueryDevtools position="bottom-right" context={defaultContext} />
+					<ReactQueryDevtools
+						position="bottom-right"
+						context={defaultContext}
+						toggleButtonProps={{
+							className: 'opacity-0'
+						}}
+					/>
 				)}
 				<MemoryRouter>
 					<AppRouterWrapper />
