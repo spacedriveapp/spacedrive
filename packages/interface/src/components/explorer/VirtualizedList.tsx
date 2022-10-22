@@ -149,7 +149,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) =>
 									const item = data[index];
 									const isSelected = explorerStore.selectedRowIndex === index;
 									return (
-										<div key={index} className="w-32 h-32">
+										<div key={index} className="">
 											<div className="flex">
 												{item && (
 													<WrappedItem

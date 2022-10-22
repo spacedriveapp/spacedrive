@@ -13,7 +13,8 @@ body {
 
 .has-blur-effects {
 	.app-background {
-		@apply bg-app/90;
+		// adjust macOS blur intensity here
+		@apply bg-app/[0.88];
 	}
 }
 

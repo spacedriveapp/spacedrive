@@ -23,6 +23,7 @@
 		"@radix-ui/react-dialog": "^1.0.0",
 		"@radix-ui/react-dropdown-menu": "^1.0.0",
 		"@radix-ui/react-select": "^1.0.0",
+		"@radix-ui/react-switch": "^1.0.1",
 		"@radix-ui/react-tabs": "^1.0.0",
 		"@sd/assets": "workspace:*",
 		"@tailwindcss/forms": "^0.5.3",

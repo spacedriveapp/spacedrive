@@ -1,10 +1,9 @@
 import { useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
-import { Button, Input } from '@sd/ui';
+import { Button, Input, Switch } from '@sd/ui';
 import { useEffect, useState } from 'react';
 import { useDebounce } from 'use-debounce';
 
-import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
@@ -89,7 +88,7 @@ export default function LibraryGeneralSettings() {
 				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
 			>
 				<div className="flex items-center ml-3">
-					<Toggle value={encryptLibrary} onChange={setEncryptLibrary} />
+					<Switch checked={encryptLibrary} onCheckedChange={setEncryptLibrary} />
 				</div>
 			</InputContainer>
 			<InputContainer mini title="Export Library" description="Export this library to a file.">

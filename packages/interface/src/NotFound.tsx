@@ -12,7 +12,7 @@ export default function NotFound() {
 			<p className="m-3 text-sm font-semibold uppercase text-ink-faint">Error: 404</p>
 			<h1 className="text-4xl font-bold">You chose nothingness.</h1>
 			<div className="flex flex-row space-x-2">
-				<Button variant="primary" className="mt-4" onClick={() => navigate(-1)}>
+				<Button variant="accent" className="mt-4" onClick={() => navigate(-1)}>
 					Go Back
 				</Button>
 			</div>

@@ -10,7 +10,7 @@ export default function OnboardingPage() {
 			<h1 className="text-red-500">Welcome to Spacedrive</h1>
 
 			<CreateLibraryDialog onSubmit={() => navigate('overview')}>
-				<Button variant="primary" size="sm">
+				<Button variant="accent" size="sm">
 					Create your library
 				</Button>
 			</CreateLibraryDialog>

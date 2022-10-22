@@ -99,7 +99,7 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 			>
 				<Menu.Items
 					className={clsx(
-						'absolute z-50 min-w-fit w-full border divide-y divide-app-border/50 rounded shadow-xl top-full ring-1 ring-black ring-opacity-5 focus:outline-none bg-app-box border-app-border',
+						'absolute z-50 min-w-fit w-full border divide-y divide-app-border/50 rounded shadow-xl top-full ring-1 ring-black ring-opacity-5 focus:outline-none bg-app-box border-app-line',
 						props.itemsClassName,
 						{ 'left-0': props.align === 'left' },
 						{ 'right-0': props.align === 'right' }

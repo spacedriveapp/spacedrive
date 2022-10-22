@@ -1,10 +1,9 @@
 import { useBridgeQuery, usePlatform } from '@sd/client';
-import { Input } from '@sd/ui';
+import { Input, Switch } from '@sd/ui';
 import { Database } from 'phosphor-react';
 import tw from 'tailwind-styled-components';
 
 import Card from '../../../components/layout/Card';
-import { Toggle } from '../../../components/primitive';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
@@ -44,7 +43,7 @@ export default function GeneralSettings() {
 						</div>
 					</div>
 					<div className="flex items-center mt-5 space-x-3">
-						<Toggle size="sm" value />
+						<Switch size="sm" checked />
 						<span className="text-sm text-gray-200">Run daemon when app closed</span>
 					</div>
 					<div className="mt-3">

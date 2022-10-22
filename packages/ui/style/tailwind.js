@@ -50,22 +50,25 @@ module.exports = function (app, options) {
 					sidebar: {
 						DEFAULT: alpha('--color-sidebar'),
 						box: alpha('--color-sidebar-box'),
-						border: alpha('--color-sidebar-border'),
+						line: alpha('--color-sidebar-line'),
 						divider: alpha('--color-sidebar-divider'),
 						button: alpha('--color-sidebar-button'),
 						selected: alpha('--color-sidebar-selected'),
-						separator: alpha('--color-sidebar-separator')
+						separator: alpha('--color-sidebar-separator'),
+						shade: alpha('--color-sidebar-shade')
 					},
 					app: {
 						DEFAULT: alpha('--color-app'),
 						box: alpha('--color-app-box'),
+						overlay: alpha('--color-app-overlay'),
 						input: alpha('--color-app-input'),
-						border: alpha('--color-app-border'),
+						focus: alpha('--color-app-focus'),
+						line: alpha('--color-app-line'),
 						divider: alpha('--color-app-divider'),
 						button: alpha('--color-app-button'),
 						selected: alpha('--color-app-selected'),
-						separator: alpha('--color-app-separator'),
-						hover: alpha('--color-app-hover')
+						hover: alpha('--color-app-hover'),
+						shade: alpha('--color-app-shade')
 					}
 				},
 				extend: {

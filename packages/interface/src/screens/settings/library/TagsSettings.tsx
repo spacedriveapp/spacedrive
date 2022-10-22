@@ -1,15 +1,13 @@
 import { TrashIcon } from '@heroicons/react/24/outline';
 import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { TagUpdateArgs } from '@sd/client';
-import { Button, Input } from '@sd/ui';
-import { Dialog } from '@sd/ui';
+import { Button, Dialog, Input, Switch } from '@sd/ui';
 import clsx from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useDebounce } from 'rooks';
 
 import Card from '../../../components/layout/Card';
-import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { PopoverPicker } from '../../../components/primitive/PopoverPicker';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
@@ -85,7 +83,7 @@ export default function TagsSettings() {
 							loading={isLoading}
 							ctaLabel="Create"
 							trigger={
-								<Button variant="primary" size="sm">
+								<Button variant="accent" size="sm">
 									Create Tag
 								</Button>
 							}
@@ -174,7 +172,7 @@ export default function TagsSettings() {
 						title="Show in Spaces"
 						description="Show this tag on the spaces screen."
 					>
-						<Toggle value />
+						<Switch checked />
 					</InputContainer>
 				</form>
 			) : (

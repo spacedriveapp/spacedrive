@@ -1,5 +1,4 @@
-import { VariantProps, cva } from 'class-variance-authority';
-import clsx from 'clsx';
+import { VariantProps, cva, cx } from 'class-variance-authority';
 import { forwardRef } from 'react';
 import { Link, LinkProps } from 'react-router-dom';
 
@@ -36,40 +35,28 @@ const styles = cva(
 				thin: '!p-1',
 				sm: '!p-1.5'
 			},
-			noBorder: {
-				true: 'border-0'
-			},
 			size: {
 				md: 'py-1 px-3 text-md font-medium',
 				sm: 'py-1 px-2 text-sm font-medium'
 			},
-			justify: {
-				left: 'justify-left',
-				center: ''
-			},
 			variant: {
 				default: [
 					'bg-app-button bg-transparent active:bg-app-selected hover:bg-app-hover',
-					'border-transparent hover:border-app-border active:border-app-border'
+					'border-transparent hover:border-app-line active:border-app-line'
 				],
 				gray: [
-					'bg-gray-100 shadow-sm hover:bg-gray-200 active:bg-gray-100',
-					'border-gray-200 hover:border-app-border active:border-gray-200',
-					'text-gray-700 hover:text-gray-900 active:text-gray-600'
+					'bg-app-button shadow-sm active:bg-app-hover',
+					'border-app-line hover:border-app-line'
 				],
-				primary: [
-					'bg-primary-600 text-white shadow-sm active:bg-primary-600 hover:bg-primary border-primary-500 hover:border-primary-500 active:border-primary-700'
+				accent: [
+					'bg-accent text-white shadow-sm active:bg-accent hover:bg-accent/90 border-accent-deep hover:border-accent-deep active:border-accent-deep'
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
-				selected: [
-					'bg-gray-100 dark:bg-gray-500 text-black hover:text-black active:text-black dark:hover:text-white dark:text-white'
-				],
 				bare: ''
 			}
 		},
 		defaultVariants: {
 			size: 'md',
-			justify: 'center',
 			variant: 'default'
 		}
 	}
@@ -79,10 +66,10 @@ export const Button = forwardRef<
 	HTMLButtonElement | HTMLAnchorElement,
 	ButtonProps | LinkButtonProps
 >(({ className, ...props }, ref) => {
-	className = clsx(styles(props), className);
+	className = cx(styles(props), className);
 
 	return hasHref(props) ? (
-		<a {...props} ref={ref as any} className={clsx(className, 'no-underline inline-block')} />
+		<a {...props} ref={ref as any} className={cx(className, 'no-underline inline-block')} />
 	) : (
 		<button {...(props as ButtonProps)} ref={ref as any} className={className} />
 	);
@@ -92,7 +79,7 @@ export const ButtonLink = forwardRef<
 	HTMLLinkElement,
 	ButtonBaseProps & LinkProps & React.RefAttributes<HTMLAnchorElement>
 >(({ className, to, ...props }, ref) => {
-	className = clsx(
+	className = cx(
 		styles(props),
 		'no-underline disabled:opacity-50 disabled:cursor-not-allowed',
 		className

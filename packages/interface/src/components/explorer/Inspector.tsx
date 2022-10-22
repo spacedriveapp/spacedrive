@@ -67,7 +67,7 @@ export const Inspector = (props: Props) => {
 							data={props.data}
 						/>
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-app-box/50 rounded-lg shadow select-text shadow-black/40 border border-app-border/30">
+					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-app-box/50 rounded-lg shadow select-text shadow-app-shade/20 border border-app-line/60">
 						<h3 className="pt-2 pb-1 pl-3 text-base font-bold">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}

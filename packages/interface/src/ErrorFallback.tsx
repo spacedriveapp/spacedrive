@@ -18,7 +18,7 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 			<h1 className="text-2xl font-bold">We're past the event horizon...</h1>
 			<pre className="m-2">Error: {error.message}</pre>
 			<div className="flex flex-row space-x-2">
-				<Button variant="primary" className="mt-2" onClick={resetErrorBoundary}>
+				<Button variant="accent" className="mt-2" onClick={resetErrorBoundary}>
 					Reload
 				</Button>
 				<Button

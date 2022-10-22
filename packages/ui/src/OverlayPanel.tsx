@@ -12,12 +12,11 @@ interface Props extends DropdownMenu.MenuContentProps {
 const MENU_CLASSES = `
   flex flex-col
   min-w-[11rem] z-50 m-2 space-y-1
-  text-left text-sm dark:text-gray-100 text-gray-800
-  bg-gray-50 border-gray-200 dark:bg-gray-600
-  border border-gray-300 dark:border-gray-500
-  shadow-2xl shadow-gray-300 dark:shadow-gray-950 
   select-none cursor-default rounded-lg 
-	!bg-opacity-90 backdrop-blur
+  text-left text-sm text-ink
+  bg-app-overlay/90 backdrop-blur
+  border border-app-line
+  shadow-2xl shadow-black/40 
 `;
 
 export const OverlayPanel = ({
