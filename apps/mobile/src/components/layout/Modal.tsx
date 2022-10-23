@@ -7,7 +7,7 @@ import {
 	BottomSheetModalProps
 } from '@gorhom/bottom-sheet';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import tw from '~/lib/tailwind';
 
 const ModalBackdrop = (props: BottomSheetBackdropProps) => (

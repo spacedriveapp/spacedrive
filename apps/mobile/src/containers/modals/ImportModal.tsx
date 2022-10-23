@@ -51,7 +51,7 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 	}, []);
 
 	const testFN = useCallback(async () => {
-		RFS.readdir('/var/mobile/Media/DCIM/').then((files) => {
+		RFS.readdir(RFS.DocumentDirectoryPath).then((files) => {
 			files.forEach((file) => {
 				console.log(file);
 			});

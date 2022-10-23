@@ -5,6 +5,7 @@ import { Platform, PlatformProvider, queryClient, rspc, useInvalidateQuery } fro
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Linking, Platform as RNPlatform } from 'react-native';
+import { DocumentDirectoryPath } from 'react-native-fs';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
@@ -45,6 +46,7 @@ function AppContainer() {
 	// Runs when the app is launched
 	useEffect(() => {
 		if (currentLibrary) {
+			console.log('Switching to library', currentLibrary);
 			switchLibrary(currentLibrary.uuid);
 		} else {
 			// TODO: Handle this.
@@ -77,7 +79,8 @@ const client = createClient<Procedures>({
 
 const platform: Platform = {
 	platform: 'mobile',
-	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	getThumbnailUrlById: (casId) =>
+		`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}`,
 	getOs: () => Promise.resolve(RNPlatform.OS === 'ios' ? 'ios' : 'android'),
 	openLink: (url) => Linking.canOpenURL(url).then((canOpen) => canOpen && Linking.openURL(url))
 };

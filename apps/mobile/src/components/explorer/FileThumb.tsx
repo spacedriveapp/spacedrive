@@ -1,4 +1,5 @@
-import React, { Suspense, useMemo } from 'react';
+import { usePlatform } from '@sd/client';
+import { Suspense, useMemo } from 'react';
 import { Image, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useExplorerStore } from '~/stores/explorerStore';
@@ -21,6 +22,7 @@ type FileThumbProps = {
 
 export default function FileThumb({ data, size = 1 }: FileThumbProps) {
 	const explorerStore = useExplorerStore();
+	const platform = usePlatform();
 
 	const Icon = useMemo(() => {
 		const Icon = icons[data.extension];
@@ -44,7 +46,9 @@ export default function FileThumb({ data, size = 1 }: FileThumbProps) {
 		? data.object?.has_thumbnail
 		: !!explorerStore.newThumbnails[cas_id];
 
-	const url = ''; // TODO:
+	const url = platform.getThumbnailUrlById(cas_id);
+
+	console.log('url', url);
 
 	// Thumbnail
 	if (has_thumbnail && url) {

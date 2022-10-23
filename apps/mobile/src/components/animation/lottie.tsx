@@ -1,5 +1,4 @@
 import AnimatedLottieView from 'lottie-react-native';
-import React from 'react';
 import { StyleProp, View, ViewStyle } from 'react-native';
 
 type Props = {

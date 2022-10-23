@@ -2,7 +2,7 @@ import proxyWithPersist, { PersistStrategy } from 'valtio-persist';
 
 import { StorageEngine } from './utils';
 
-// Might wanna make this a `appStore` so we can add other stuff to it
+// Might wanna rename to `appStore` so we can add other stuff to it
 export const onboardingStore = proxyWithPersist({
 	initialState: {
 		showOnboarding: true,
