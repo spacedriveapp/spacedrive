@@ -13,6 +13,7 @@ use crate::{error::Error, primitives::BLOCK_SIZE, Protected};
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq)]
+#[allow(clippy::use_self)]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,
@@ -127,6 +128,8 @@ impl StreamEncryption {
 				})?;
 
 				// zeroize before writing, so any potential errors won't result in a potential data leak
+				// this specific zeroize technically isn't needed due to the boxed slice, but performance impact is
+				// negligible and it's good practice either way
 				read_buffer.zeroize();
 
 				// Using `write` instead of `write_all` so we can check the amount of bytes written
