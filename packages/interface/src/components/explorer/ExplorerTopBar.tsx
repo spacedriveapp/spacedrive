@@ -36,7 +36,7 @@ export interface TopBarButtonProps {
 // export const TopBarIcon = (icon: any) => tw(icon)`m-0.5 w-5 h-5 text-ink-dull`;
 
 const topBarButtonStyle = cva(
-	'border-none text-ink-dull hover:text-ink mr-[1px] flex py-0.5 px-0.5 text-md font-medium transition-colors duration-100 outline-none hover:bg-app-selected radix-state-open:bg-app-selected',
+	'border-none text-ink hover:text-ink mr-[1px] flex py-0.5 px-0.5 text-md font-medium transition-colors duration-100 outline-none hover:bg-app-selected radix-state-open:bg-app-selected',
 	{
 		variants: {
 			active: {
