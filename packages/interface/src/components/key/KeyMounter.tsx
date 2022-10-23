@@ -42,7 +42,7 @@ export function KeyMounter() {
 					/>
 					<Button
 						onClick={() => setShowKey(!showKey)}
-						padding="thin"
+						forIcon
 						className="border-none absolute right-[5px] top-[5px]"
 					>
 						<CurrentEyeIcon className="w-4 h-4" />

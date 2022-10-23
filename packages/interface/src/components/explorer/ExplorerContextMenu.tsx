@@ -55,6 +55,9 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 export default function ExplorerContextMenu(props: PropsWithChildren) {
 	const store = getExplorerStore();
+	const { mutate: generateThumbsForLocation } = useLibraryMutation(
+		'jobs.generateThumbsForLocation'
+	);
 
 	return (
 		<div className="relative">
@@ -102,6 +105,8 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 						<CM.Item label="PNG" />
 						<CM.Item label="WebP" />
 					</CM.SubMenu>
+					<CM.Item label="Rescan Directory" icon={Package} keybind="⌘B" />
+					<CM.Item label="Regen Thumbnails" icon={Package} keybind="⌘B" />
 					<CM.Item variant="danger" label="Secure delete" icon={TrashSimple} />
 				</CM.SubMenu>
 

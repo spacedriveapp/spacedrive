@@ -54,7 +54,6 @@ module.exports = function (app, options) {
 						divider: alpha('--color-sidebar-divider'),
 						button: alpha('--color-sidebar-button'),
 						selected: alpha('--color-sidebar-selected'),
-						separator: alpha('--color-sidebar-separator'),
 						shade: alpha('--color-sidebar-shade')
 					},
 					app: {

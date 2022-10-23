@@ -8,11 +8,12 @@ import {
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
 import { JobReport } from '@sd/client';
-import { Button, CategoryHeading } from '@sd/ui';
+import { Button, CategoryHeading, tw } from '@sd/ui';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { ArrowsClockwise } from 'phosphor-react';
 
+import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';
 
 interface JobNiceData {
@@ -54,64 +55,79 @@ function elapsed(seconds: number) {
 	return new Date(seconds * 1000).toUTCString().match(/(\d\d:\d\d:\d\d)/)?.[0];
 }
 
+const HeaderContainer = tw.div`z-20 flex items-center w-full h-10 px-4 border-b border-app-line rounded-t-md`;
+
 export function JobsManager() {
+	const runningJobs = useLibraryQuery(['jobs.getRunning']);
 	const jobs = useLibraryQuery(['jobs.getHistory']);
 	return (
 		<div className="h-full pb-10 overflow-hidden">
-			{/* <div className="z-10 flex flex-row w-full h-10 bg-gray-500 border-b border-gray-700 bg-opacity-30"></div> */}
-			<div className="z-20 flex items-center w-full h-10 px-4 border-b border-gray-500 rounded-t-md">
+			<HeaderContainer>
 				<CategoryHeading className="mt-1 ">Recent Jobs</CategoryHeading>
-			</div>
+			</HeaderContainer>
 			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
 				<div className="">
 					<div className="py-1">
-						{jobs.data?.map((job) => {
-							// const color = StatusColors[job.status];
-							const niceData = getNiceData(job)[job.name] || {
-								name: job.name,
-								icon: QuestionMarkCircleIcon
-							};
-
-							return (
-								<div
-									className="flex items-center px-2 py-2 pl-4 border-b border-gray-500 bg-opacity-60"
-									key={job.id}
-								>
-									<Tooltip label={job.status}>
-										<niceData.icon className={clsx('w-5 mr-3')} />
-									</Tooltip>
-									<div className="flex flex-col">
-										<span className="flex mt-0.5 items-center font-semibold truncate">
-											{niceData.name}
-										</span>
-										<div className="flex items-center">
-											<span className="text-xs opacity-60">
-												{job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
-												{job.seconds_elapsed
-													? dayjs.duration({ seconds: job.seconds_elapsed }).humanize()
-													: 'less than a second'}
-											</span>
-											<span className="mx-1 opacity-50">&#8226;</span>
-											<span className="text-xs">{dayjs(job.date_created).toNow(true)} ago</span>
-										</div>
-										<span className="text-xs">{job.data}</span>
-									</div>
-									<div className="flex-grow" />
-									<div className="flex flex-row space-x-2">
-										{job.status === 'Failed' && (
-											<Button className="!p-1">
-												<ArrowsClockwise className="w-4" />
-											</Button>
-										)}
-										<Button className="!p-1">
-											<XMarkIcon className="w-4" />
-										</Button>
-									</div>
-								</div>
-							);
-						})}
+						{runningJobs.data?.map((job) => (
+							<Job key={job.id} job={job} />
+						))}
+						{jobs.data?.map((job) => (
+							<Job key={job.id} job={job} />
+						))}
 					</div>
 				</div>
+			</div>
+		</div>
+	);
+}
+
+function Job({ job }: { job: JobReport }) {
+	const niceData = getNiceData(job)[job.name] || {
+		name: job.name,
+		icon: QuestionMarkCircleIcon
+	};
+	const isRunning = job.status === 'Running';
+	return (
+		<div className="flex items-center px-2 py-2 pl-4 border-b border-app-line bg-opacity-60">
+			<Tooltip label={job.status}>
+				<niceData.icon className={clsx('w-5 mr-3')} />
+			</Tooltip>
+			<div className="flex flex-col w-full ">
+				<span className="flex mt-0.5 items-center font-semibold truncate">
+					{isRunning ? job.message : niceData.name}
+				</span>
+
+				{isRunning && (
+					<div className="w-full my-1">
+						<ProgressBar value={job.completed_task_count} total={job.task_count} />
+					</div>
+				)}
+				<div className="flex items-center">
+					<span className="text-xs opacity-60">
+						{isRunning ? 'Elapsed' : job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
+						{job.seconds_elapsed
+							? dayjs.duration({ seconds: job.seconds_elapsed }).humanize()
+							: 'less than a second'}
+					</span>
+					<span className="mx-1 opacity-50">&#8226;</span>
+					{
+						<span className="text-xs">
+							{isRunning ? 'Unknown time remaining' : dayjs(job.date_created).toNow(true) + ' ago'}
+						</span>
+					}
+				</div>
+				<span className="text-xs">{job.data}</span>
+			</div>
+			<div className="flex-grow" />
+			<div className="flex flex-row space-x-2">
+				{job.status === 'Failed' && (
+					<Button className="!p-1">
+						<ArrowsClockwise className="w-4" />
+					</Button>
+				)}
+				<Button className="!p-1">
+					<XMarkIcon className="w-4" />
+				</Button>
 			</div>
 		</div>
 	);

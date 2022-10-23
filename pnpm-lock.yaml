@@ -427,6 +427,8 @@ importers:
       '@sd/client': workspace:*
       '@sd/config': workspace:*
       '@sd/ui': workspace:*
+      '@splinetool/react-spline': ^2.2.3
+      '@splinetool/runtime': ^0.9.128
       '@tailwindcss/forms': ^0.5.3
       '@tanstack/react-query': ^4.12.0
       '@tanstack/react-query-devtools': ^4.12.0
@@ -475,6 +477,8 @@ importers:
       '@sd/assets': link:../assets
       '@sd/client': link:../client
       '@sd/ui': link:../ui
+      '@splinetool/react-spline': 2.2.3_lzjdincs7igsg3b2ch4qc2di4m
+      '@splinetool/runtime': 0.9.128
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.1.8
       '@tanstack/react-query': 4.12.0_biqbaboplfbrettd7655fr4n2y
       '@tanstack/react-query-devtools': 4.12.0_pqnxmwujmmnpcx44ucekqkefny
@@ -4987,6 +4991,25 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
+  /@splinetool/react-spline/2.2.3_lzjdincs7igsg3b2ch4qc2di4m:
+    resolution: {integrity: sha512-KdvyP2cCLLG/PcHp0ObE147nhawY4R/iqI6733MSWBx4KSpeo4oD589rCPuXeGdgyr2lCtZqUQOkQj4QCnXxmw==}
+    peerDependencies:
+      '@splinetool/runtime': '*'
+      react: '>=17.0.0'
+      react-dom: '>=17.0.0'
+    dependencies:
+      '@splinetool/runtime': 0.9.128
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      react-merge-refs: 1.1.0
+    dev: false
+
+  /@splinetool/runtime/0.9.128:
+    resolution: {integrity: sha512-QYEmO3Yn03GENQah8a5/OKpjzZLidZLgHjhMcXN3fqsG4R5ahv51xuHH13vYi52MztSee2twMB1dlh1208aF7w==}
+    dependencies:
+      on-change: 4.0.1
+    dev: false
+
   /@storybook/addon-actions/6.5.12_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-yEbyKjBsSRUr61SlS+SOTqQwdumO8Wa3GoHO3AfmvoKfzdGrM7w8G5Zs9Iev16khWg/7bQvoH3KZsg/hQuKnNg==}
     peerDependencies:
@@ -7374,7 +7397,6 @@ packages:
     dependencies:
       tailwindcss: 3.1.8
     transitivePeerDependencies:
-      - postcss
       - ts-node
     dev: true
 
@@ -16465,6 +16487,11 @@ packages:
     resolution: {integrity: sha512-LMJTtvgc/nugXj0Vcrrs68Mn2D1r0zf630VNtqtpI1FEO7e+O9FP4gqs9AcnBaSEeoHIPm28u6qgPR0oyEpGSw==}
     dev: true
 
+  /on-change/4.0.1:
+    resolution: {integrity: sha512-Gxmr/8NsLTigoUUEPvnAIUGl7uxwfC3Mm1G+qTmODEZcT4ZGfeaFyQgfGCdbKVS2pICIFYB82RH6MUHToPcS4Q==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    dev: false
+
   /on-finished/2.3.0:
     resolution: {integrity: sha512-ikqdkGAAyf/X/gPhXGvfgAytDZtDbr+bkNUJ0N9h5MI/dmdgCs3l6hoHrcUv41sRKew3jIwrp4qQDXiK99Utww==}
     engines: {node: '>= 0.8'}
@@ -18016,7 +18043,6 @@ packages:
 
   /react-merge-refs/1.1.0:
     resolution: {integrity: sha512-alTKsjEL0dKH/ru1Iyn7vliS2QRcBp9zZPGoWxUOvRGWPUYgjo+V01is7p04It6KhgrzhJGnIj9GgX8W4bZoCQ==}
-    dev: true
 
   /react-native-codegen/0.69.2:
     resolution: {integrity: sha512-yPcgMHD4mqLbckqnWjFBaxomDnBREfRjDi2G/WxNyPBQLD+PXUEmZTkDx6QoOXN+Bl2SkpnNOSsLE2+/RUHoPw==}

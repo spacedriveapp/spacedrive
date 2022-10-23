@@ -1,13 +1,12 @@
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/client';
-import { Button, ButtonLink } from '@sd/ui';
+import { Button, ButtonLink, Card } from '@sd/ui';
 import { DotsSixVertical } from 'phosphor-react';
 import { useState } from 'react';
 
 import CreateLibraryDialog from '../../../components/dialog/CreateLibraryDialog';
 import DeleteLibraryDialog from '../../../components/dialog/DeleteLibraryDialog';
-import Card from '../../../components/layout/Card';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
@@ -25,14 +24,14 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 			<DotsSixVertical weight="bold" className="mt-[15px] mr-3 opacity-30" />
 			<div className="flex-1 my-0.5">
 				<h3 className="font-semibold">{props.library.config.name}</h3>
-				<p className="mt-0.5 text-xs text-gray-200">{props.library.uuid}</p>
+				<p className="mt-0.5 text-xs text-ink-dull">{props.library.uuid}</p>
 			</div>
-			<div className="flex flex-row space-x-2 items-center">
-				<ButtonLink to="/settings/library" variant="gray" padding="sm">
+			<div className="flex flex-row items-center space-x-2">
+				<ButtonLink forIcon to="/settings/library" variant="gray">
 					<PencilIcon className="w-4 h-4" />
 				</ButtonLink>
 				<DeleteLibraryDialog libraryUuid={props.library.uuid}>
-					<Button variant="gray" padding="sm">
+					<Button forIcon variant="gray">
 						<TrashIcon className="w-4 h-4" />
 					</Button>
 				</DeleteLibraryDialog>
