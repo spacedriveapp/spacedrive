@@ -15,7 +15,7 @@ const itemStyles = cva(
 	{
 		variants: {
 			selected: {
-				true: 'bg-accent hover:bg-accent text-white',
+				true: 'bg-accent hover:!bg-accent text-white',
 				undefined: 'hover:bg-menu-hover/50',
 				false: 'hover:bg-menu-hover/50'
 			},

@@ -1,13 +1,13 @@
 :root {
-  --dark-hue: 234; //300, 295
-  --light-hue: 230;
+  --dark-hue: 235; //300, 295
+  --light-hue: 235;
 
     // global
     --color-black: 0, 0%, 0%;
     --color-white: 0, 0%, 100%;
      // accent theme colors
     --color-accent: 208, 100%, 57%;
-    --color-accent-faint: 208, 100%, 67%;
+    --color-accent-faint: 208, 100%, 64%;
     --color-accent-deep: 208, 100%, 47%;
     // text
     --color-ink: var(--dark-hue), 0%, 100%;
@@ -22,7 +22,7 @@
     --color-sidebar-selected: var(--dark-hue), 15%, 24%;
     --color-sidebar-shade: var(--dark-hue), 15%, 23%;
     // main
-    --color-app: var(--dark-hue), 16%, 14%;
+    --color-app: var(--dark-hue), 16%, 13%;
     --color-app-box: var(--dark-hue), 15%, 18%;
     --color-app-overlay: var(--dark-hue), 15%, 14%;
     --color-app-input: var(--dark-hue), 15%, 20%;

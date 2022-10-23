@@ -1,5 +1,6 @@
-import { CogIcon, EllipsisHorizontalCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline';
-import { EllipsisHorizontalIcon, EllipsisVerticalIcon, PlusIcon } from '@heroicons/react/24/solid';
+import { CogIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import { PlusIcon } from '@heroicons/react/24/solid';
+import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import {
 	LocationCreateArgs,
 	useCurrentLibrary,
@@ -29,77 +30,75 @@ export function Sidebar() {
 	return (
 		<div
 			className={clsx(
-				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar',
+				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full   border-r border-sidebar-divider  bg-sidebar',
 				macOnly(os, 'bg-opacity-[0.80]')
 			)}
 		>
 			<WindowControls />
 
-			<Dropdown.Root
-				className="mt-2"
-				// usually this panel is styled with bg-menu, but as the dark theme sidebar is dark, we need to override it for dark:
-				itemsClassName="dark:bg-sidebar-box"
-				button={
-					<Dropdown.Button
-						variant="gray"
-						className={clsx(
-							`w-full mb-1 mt-1 -mr-0.5`,
-							` !bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line text-ink`,
-							(library === null || isLoadingLibraries) && '!text-ink-faint'
-							// macOnly(os, '!bg-opacity-80 !border-opacity-40')
-						)}
-					>
-						<span className="truncate">
-							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
-						</span>
-					</Dropdown.Button>
-				}
-			>
-				<Dropdown.Section>
-					{libraries?.map((lib) => (
-						<DropdownItem
-							selected={lib.uuid === library?.uuid}
-							key={lib.uuid}
-							onClick={() => switchLibrary(lib.uuid)}
+			<div className="flex flex-col px-2.5 flex-grow pt-1 pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out">
+				<Dropdown.Root
+					// usually this panel is styled with bg-menu, but as the dark theme sidebar is dark, we need to override it for dark:
+					itemsClassName="dark:bg-sidebar-box"
+					button={
+						<Dropdown.Button
+							variant="gray"
+							className={clsx(
+								`w-full mb-1 mt-1 -mr-0.5`,
+								` !bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line text-ink`,
+								(library === null || isLoadingLibraries) && '!text-ink-faint'
+								// macOnly(os, '!bg-opacity-80 !border-opacity-40')
+							)}
 						>
-							{lib.config.name}
+							<span className="truncate">
+								{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
+							</span>
+						</Dropdown.Button>
+					}
+				>
+					<Dropdown.Section>
+						{libraries?.map((lib) => (
+							<DropdownItem
+								selected={lib.uuid === library?.uuid}
+								key={lib.uuid}
+								onClick={() => switchLibrary(lib.uuid)}
+							>
+								{lib.config.name}
+							</DropdownItem>
+						))}
+					</Dropdown.Section>
+					<Dropdown.Section>
+						<DropdownItem icon={CogIcon} to="settings/library">
+							Library Settings
 						</DropdownItem>
-					))}
-				</Dropdown.Section>
-				<Dropdown.Section>
-					<DropdownItem icon={CogIcon} to="settings/library">
-						Library Settings
-					</DropdownItem>
-					<CreateLibraryDialog>
-						<DropdownItem icon={PlusIcon}>Add Library</DropdownItem>
-					</CreateLibraryDialog>
-					<DropdownItem icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
-						Lock
-					</DropdownItem>
-				</Dropdown.Section>
-			</Dropdown.Root>
-			<div className="pt-1">
-				<SidebarLink to="/overview">
-					<Icon component={Planet} />
-					Overview
-				</SidebarLink>
-				<SidebarLink to="photos">
-					<Icon component={ShareNetwork} />
-					Nodes
-				</SidebarLink>
-				<SidebarLink to="content">
-					<Icon component={CirclesFour} />
-					Spaces
-				</SidebarLink>
+						<CreateLibraryDialog>
+							<DropdownItem icon={PlusIcon}>Add Library</DropdownItem>
+						</CreateLibraryDialog>
+						<DropdownItem icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
+							Lock
+						</DropdownItem>
+					</Dropdown.Section>
+				</Dropdown.Root>
+				<div className="pt-1">
+					<SidebarLink to="/overview">
+						<Icon component={Planet} />
+						Overview
+					</SidebarLink>
+					<SidebarLink to="photos">
+						<Icon component={ShareNetwork} />
+						Nodes
+					</SidebarLink>
+					<SidebarLink to="content">
+						<Icon component={CirclesFour} />
+						Spaces
+					</SidebarLink>
+				</div>
+				{library && <LibraryScopedSection />}
+				<div className="flex-grow" />
 			</div>
-
-			{library && <LibraryScopedSection />}
-
-			<div className="flex-grow" />
-
 			{/* <div className="fixed w-[174px] bottom-[2px] left-[2px] h-20 rounded-[8px] bg-gradient-to-t from-sidebar-box/90 via-sidebar-box/50 to-transparent" /> */}
 
-			<div className="fixed bottom-0 flex flex-col mt-2 mb-3">
+			<div className="flex flex-col mb-3 px-2.5">
 				<div className="flex flex-row">
 					<NavLink to="/settings/general">
 						<Button forIcon className={clsx('hover:!bg-opacity-20')}>
@@ -169,15 +168,15 @@ export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => {
 
 const SidebarSection: React.FC<{
 	name: string;
-	link?: React.ReactNode;
+	actionArea?: React.ReactNode;
 	children: React.ReactNode;
 }> = (props) => {
 	return (
 		<div className="mt-5 group">
-			<div className="flex items-center justify-between mb-0.5">
+			<div className="flex items-center justify-between mb-1">
 				<CategoryHeading className="ml-1">{props.name}</CategoryHeading>
-				<div className="transition-all duration-300 opacity-0 text-ink-faint group-hover:opacity-100">
-					{props.link}
+				<div className="transition-all duration-300 opacity-0 text-ink-faint group-hover:opacity-30 hover:!opacity-100">
+					{props.actionArea}
 				</div>
 			</div>
 			{props.children}
@@ -185,13 +184,16 @@ const SidebarSection: React.FC<{
 	);
 };
 
-const SidebarHeadingOptionsButton: React.FC<{ to: string }> = (props) => (
-	<NavLink to={props.to}>
-		<Button className="!p-[3px]" variant="outline">
-			<EllipsisHorizontalIcon className="w-[13px]" />
-		</Button>
-	</NavLink>
-);
+const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (props) => {
+	const Icon = props.icon ?? Ellipsis;
+	return (
+		<NavLink to={props.to}>
+			<Button className="!p-[5px]" variant="outline">
+				<Icon className="w-3 h-3" />
+			</Button>
+		</NavLink>
+	);
+};
 
 function LibraryScopedSection() {
 	const platform = usePlatform();
@@ -204,7 +206,12 @@ function LibraryScopedSection() {
 			<div>
 				<SidebarSection
 					name="Locations"
-					link={<SidebarHeadingOptionsButton to="/settings/locations" />}
+					actionArea={
+						<>
+							{/* <SidebarHeadingOptionsButton to="/settings/locations" icon={CogIcon} /> */}
+							<SidebarHeadingOptionsButton to="/settings/locations" />
+						</>
+					}
 				>
 					{locations?.map((location) => {
 						return (
@@ -257,7 +264,10 @@ function LibraryScopedSection() {
 				</SidebarSection>
 			</div>
 			{!!tags?.length && (
-				<SidebarSection name="Tags" link={<SidebarHeadingOptionsButton to="/settings/tags" />}>
+				<SidebarSection
+					name="Tags"
+					actionArea={<SidebarHeadingOptionsButton to="/settings/tags" />}
+				>
 					<div className="mt-1 mb-2">
 						{tags?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
