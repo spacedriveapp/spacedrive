@@ -1,21 +1,7 @@
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
-import {
-	EllipsisVerticalIcon,
-	EyeIcon,
-	EyeSlashIcon,
-	KeyIcon,
-	LockClosedIcon,
-	LockOpenIcon,
-	PlusIcon,
-	TrashIcon,
-	XMarkIcon
-} from '@heroicons/react/24/solid';
-import { Button, Input, Select, SelectOption } from '@sd/ui';
+import { EllipsisVerticalIcon, EyeIcon, KeyIcon } from '@heroicons/react/24/solid';
+import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import { Eject, EjectSimple, Plus } from 'phosphor-react';
-import { useState } from 'react';
 
-import { Toggle } from '../primitive';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
 
@@ -36,13 +22,10 @@ export interface Key {
 }
 
 export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => {
-	const odd = (index || 0) % 2 === 0;
-
 	return (
 		<div
 			className={clsx(
-				'flex items-center justify-between px-2 py-1.5 shadow-gray-900/20 text-sm text-gray-300 bg-gray-500/30 shadow-lg border-gray-500 rounded-lg'
-				// !odd && 'bg-opacity-10'
+				'flex items-center justify-between px-2 py-1.5 shadow-app-shade/10 text-sm bg-app-box shadow-lg rounded-lg'
 			)}
 		>
 			<div className="flex items-center">
@@ -85,12 +68,12 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 			<div className="space-x-1">
 				{data.mounted && (
 					<Tooltip label="Browse files">
-						<Button padding="thin">
+						<Button forIcon>
 							<EyeIcon className="w-4 h-4 text-gray-400" />
 						</Button>
 					</Tooltip>
 				)}
-				<Button padding="thin">
+				<Button forIcon>
 					<EllipsisVerticalIcon className="w-4 h-4 text-gray-400" />
 				</Button>
 			</div>

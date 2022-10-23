@@ -1,7 +1,7 @@
 import { TrashIcon } from '@heroicons/react/24/solid';
 import { useLibraryMutation } from '@sd/client';
 import { Location, Node } from '@sd/client';
-import { Button, Dialog } from '@sd/ui';
+import { Button, Card, Dialog } from '@sd/ui';
 import clsx from 'clsx';
 import { Repeat } from 'phosphor-react';
 import { useState } from 'react';
@@ -29,12 +29,12 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 	if (hide) return <></>;
 
 	return (
-		<div className="flex w-full px-4 py-2 border border-gray-500 rounded-lg bg-gray-550">
+		<Card>
 			<Folder size={30} className="mr-3" />
-			<div className="flex flex-col">
+			<div className="grid grid-cols-1 min-w-[110px]">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
-				<p className="mt-0.5 text-sm select-text text-gray-250">
-					<span className="py-[1px] px-1 bg-gray-500 rounded mr-1">{location.node.name}</span>
+				<p className="mt-0.5 text-sm truncate  select-text text-gray-250">
+					<span className="py-[1px] px-1 bg-app-button rounded mr-1">{location.node.name}</span>
 					{location.local_path}
 				</p>
 			</div>
@@ -82,6 +82,6 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					<CogIcon className="w-4 h-4" />
 				</Button> */}
 			</div>
-		</div>
+		</Card>
 	);
 }

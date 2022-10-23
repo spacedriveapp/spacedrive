@@ -1,8 +1,7 @@
 import { useBridgeQuery, usePlatform } from '@sd/client';
-import { Input, Switch, tw } from '@sd/ui';
+import { Card, Input, Switch, tw } from '@sd/ui';
 import { Database } from 'phosphor-react';
 
-import Card from '../../../components/layout/Card';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 

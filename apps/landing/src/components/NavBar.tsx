@@ -89,7 +89,7 @@ export default function NavBar() {
 				<div className="flex-1 lg:hidden" />
 				<Dropdown.Root
 					button={
-						<Button className="ml-[140px] hover:!bg-transparent" padding="thin">
+						<Button className="ml-[140px] hover:!bg-transparent" forIcon>
 							<DotsThreeVertical weight="bold" className="w-6 h-6 " />
 						</Button>
 					}

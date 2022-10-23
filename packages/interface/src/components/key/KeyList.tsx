@@ -1,11 +1,6 @@
-import { Button, CategoryHeading, Input, Select, SelectOption } from '@sd/ui';
-import clsx from 'clsx';
-import { Eject, EjectSimple, Plus } from 'phosphor-react';
-import { useState } from 'react';
+import { Button } from '@sd/ui';
 
-import { Toggle } from '../primitive';
 import { DefaultProps } from '../primitive/types';
-import { Tooltip } from '../tooltip/Tooltip';
 import { Key } from './Key';
 
 export type KeyListProps = DefaultProps;
@@ -45,7 +40,7 @@ export function KeyList(props: KeyListProps) {
 					</div>
 				</div>
 			</div>
-			<div className="flex w-full p-2 bg-gray-600 border-t border-gray-500 rounded-b-md">
+			<div className="flex w-full p-2 border-t border-app-line rounded-b-md">
 				<Button size="sm" variant="gray">
 					Unmount All
 				</Button>

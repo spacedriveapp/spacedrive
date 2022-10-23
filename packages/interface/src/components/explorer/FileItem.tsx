@@ -65,8 +65,8 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				>
 					<FileThumb
 						className={clsx(
-							'border-4 border-app-line shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
-							isVid && 'border-black rounded border-x-0 border-y-[9px]'
+							'border-4 border-white shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
+							isVid && '!border-black rounded border-x-0 border-y-[9px]'
 						)}
 						data={data}
 						kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}

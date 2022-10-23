@@ -180,6 +180,7 @@ export function Sidebar() {
 
 			<Dropdown.Root
 				className="mt-2"
+				itemsClassName="dark:bg-sidebar-box"
 				button={
 					<Dropdown.Button
 						variant="gray"
@@ -239,8 +240,6 @@ export function Sidebar() {
 			{library && <LibraryScopedSection />}
 
 			<div className="flex-grow " />
-
-			{library && <RunningJobsWidget />}
 
 			{/* <div className="fixed w-[174px] bottom-[2px] left-[2px] h-20 rounded-[8px] bg-gradient-to-t from-sidebar-box/90 via-sidebar-box/50 to-transparent" /> */}
 
