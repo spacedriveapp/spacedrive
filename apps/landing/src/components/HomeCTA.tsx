@@ -88,7 +88,7 @@ export function HomeCTA() {
 						<Button
 							onClick={() => setShowWaitlistInput(true)}
 							className="z-30 border-0 cursor-pointer"
-							variant="accent"
+							variant="gray"
 						>
 							Join Waitlist
 						</Button>
