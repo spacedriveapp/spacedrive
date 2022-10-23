@@ -7,7 +7,7 @@ use sd_crypto::{
 		keyslot::{Keyslot, KeyslotVersion},
 	},
 	keys::hashing::{HashingAlgorithm, Params},
-	primitives::generate_master_key,
+	primitives::{generate_master_key, generate_salt},
 	Protected,
 };
 
@@ -24,6 +24,9 @@ pub fn encrypt() {
 	// This needs to be generated here, otherwise we won't have access to it for encryption
 	let master_key = generate_master_key();
 
+	// This ideally should be done by the KMS
+	let salt = generate_salt();
+
 	// Create a keyslot to be added to the header
 	let mut keyslots: Vec<Keyslot> = Vec::new();
 	keyslots.push(
@@ -31,6 +34,7 @@ pub fn encrypt() {
 			KeyslotVersion::V1,
 			ALGORITHM,
 			HASHING_ALGORITHM,
+			salt,
 			password,
 			&master_key,
 		)
@@ -38,7 +42,7 @@ pub fn encrypt() {
 	);
 
 	// Create the header for the encrypted file
-	let header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots, None, None);
+	let header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots);
 
 	// Write the header to the file
 	header.write(&mut writer).unwrap();
