@@ -20,11 +20,10 @@ export default function LibraryGeneralSettings() {
 			description: value.description
 		});
 	}, 500);
-	const { register, watch } = useForm({
+	const { register, watch, getValues } = useForm({
 		defaultValues: {
 			name: library?.config.name,
-			description: library?.config.description,
-			encryptLibrary: false // TODO: From backend
+			description: library?.config.description
 		}
 	});
 
@@ -58,7 +57,7 @@ export default function LibraryGeneralSettings() {
 				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
 			>
 				<div className="flex items-center ml-3">
-					<Toggle {...register('encryptLibrary')} />
+					<Toggle value={false} />
 				</div>
 			</InputContainer>
 			<InputContainer mini title="Export Library" description="Export this library to a file.">
