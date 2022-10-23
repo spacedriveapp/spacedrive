@@ -8,12 +8,12 @@ export default function PhotosScreen() {
 					<b>Note: </b>This is a pre-alpha build of Spacedrive, many features are yet to be
 					functional.
 				</p>
-				<Spline
+				{/* <Spline
 					style={{ height: 500 }}
 					height={500}
 					className="rounded-md shadow-sm pointer-events-auto"
 					scene="https://prod.spline.design/KUmO4nOh8IizEiCx/scene.splinecode"
-				/>
+				/> */}
 			</div>
 		</div>
 	);
