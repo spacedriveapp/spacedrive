@@ -15,7 +15,7 @@
 }
 
 .top-bar-blur {
-	@apply border-app-divider;
+	@apply border-app-line/50;
 	backdrop-filter: saturate(120%) blur(18px);
 }
 

@@ -48,19 +48,19 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 					{data.stats ? (
 						<div className="flex flex-row mt-[1px] space-x-3">
 							{data.stats.objectCount && (
-								<div className="text-[8pt] font-medium text-gray-200 opacity-30">
+								<div className="text-[8pt] font-medium text-ink-dull opacity-30">
 									{data.stats.objectCount} Objects
 								</div>
 							)}
 							{data.stats.containerCount && (
-								<div className="text-[8pt] font-medium text-gray-200 opacity-30">
+								<div className="text-[8pt] font-medium text-ink-dull opacity-30">
 									{data.stats.containerCount} Containers
 								</div>
 							)}
 						</div>
 					) : (
 						!data.mounted && (
-							<div className="text-[8pt] font-medium text-gray-200 opacity-30">Key not mounted</div>
+							<div className="text-[8pt] font-medium text-ink-dull opacity-30">Key not mounted</div>
 						)
 					)}
 				</div>
@@ -69,12 +69,12 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 				{data.mounted && (
 					<Tooltip label="Browse files">
 						<Button forIcon>
-							<EyeIcon className="w-4 h-4 text-gray-400" />
+							<EyeIcon className="w-4 h-4 text-ink-faint" />
 						</Button>
 					</Tooltip>
 				)}
 				<Button forIcon>
-					<EllipsisVerticalIcon className="w-4 h-4 text-gray-400" />
+					<EllipsisVerticalIcon className="w-4 h-4 text-ink-faint" />
 				</Button>
 			</div>
 		</div>

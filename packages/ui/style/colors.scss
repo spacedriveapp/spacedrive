@@ -1,3 +1,48 @@
+:root {
+  --dark-hue: 234; //300, 295
+  --light-hue: 230;
+
+    // global
+    --color-black: 0, 0%, 0%;
+    --color-white: 0, 0%, 100%;
+     // accent theme colors
+    --color-accent: 208, 100%, 57%;
+    --color-accent-faint: 208, 100%, 67%;
+    --color-accent-deep: 208, 100%, 47%;
+    // text
+    --color-ink: var(--dark-hue), 0%, 100%;
+    --color-ink-dull: var(--dark-hue), 10%, 70%;
+    --color-ink-faint: var(--dark-hue), 10%, 55%;
+    // sidebar
+    --color-sidebar: var(--dark-hue), 15%, 7%;
+    --color-sidebar-box: var(--dark-hue), 15%, 16%;
+    --color-sidebar-line: var(--dark-hue), 15%, 23%;
+    --color-sidebar-divider: var(--dark-hue), 15%, 17%;
+    --color-sidebar-button: var(--dark-hue), 15%, 18%;
+    --color-sidebar-selected: var(--dark-hue), 15%, 24%;
+    --color-sidebar-shade: var(--dark-hue), 15%, 23%;
+    // main
+    --color-app: var(--dark-hue), 16%, 14%;
+    --color-app-box: var(--dark-hue), 15%, 18%;
+    --color-app-overlay: var(--dark-hue), 15%, 14%;
+    --color-app-input: var(--dark-hue), 15%, 20%;
+    --color-app-focus: var(--dark-hue), 15%, 10%;
+    --color-app-line: var(--dark-hue), 15%, 26%;
+    --color-app-button: var(--dark-hue), 15%, 23%;
+    --color-app-divider: var(--dark-hue), 15%, 5%;
+    --color-app-selected: var(--dark-hue), 15%, 23%;
+    --color-app-hover: var(--dark-hue), 15%, 20%;
+    --color-app-shade: var(--dark-hue), 15%, 0%;
+    --color-app-frame: var(--dark-hue), 15%, 25%;
+    // menu
+    --color-menu: var(--dark-hue), 16%, 7%;
+    --color-menu-line: var(--dark-hue), 5%, 18%;
+    --color-menu-ink: var(--dark-hue), 5%, 100%;
+    --color-menu-faint: var(--dark-hue), 5%, 80%;
+    --color-menu-hover: var(--dark-hue), 5%, 30%;
+    --color-menu-selected: var(--dark-hue), 5%, 30%;
+    --color-menu-shade: var(--dark-hue), 5%, 0%;
+}
 
 @media (prefers-color-scheme: light) {
 .vanilla-theme {
@@ -9,85 +54,39 @@
    --color-accent-faint: 208, 100%, 67%;
    --color-accent-deep: 208, 100%, 47%;
   // text
-  --color-ink: 230, 5%, 20%;
-  --color-ink-dull: 230, 5%, 30%;
-  --color-ink-faint: 230, 5%, 60%;
+  --color-ink: var(--light-hue), 5%, 20%;
+  --color-ink-dull: var(--light-hue), 5%, 30%;
+  --color-ink-faint: var(--light-hue), 5%, 60%;
   // sidebar
-  --color-sidebar: 230, 5%, 97%;
-  --color-sidebar-box: 230, 5%, 100%;
-  --color-sidebar-line: 230, 10%, 85%;
-  --color-sidebar-divider: 230, 15%, 93%;
-  --color-sidebar-button: 230, 15%, 100%;
-  --color-sidebar-selected: 230, 10%, 80%;
-  --color-sidebar-shade: 230, 15%, 100%;
+  --color-sidebar: var(--light-hue), 5%, 97%;
+  --color-sidebar-box: var(--light-hue), 5%, 100%;
+  --color-sidebar-line: var(--light-hue), 10%, 85%;
+  --color-sidebar-divider: var(--light-hue), 15%, 93%;
+  --color-sidebar-button: var(--light-hue), 15%, 100%;
+  --color-sidebar-selected: var(--light-hue), 10%, 80%;
+  --color-sidebar-shade: var(--light-hue), 15%, 100%;
 
   // main
-  --color-app: 230, 5%, 100%;
-  --color-app-box: 230, 5%, 98%;
-  --color-app-overlay: 230, 5%, 100%;
-  --color-app-input: 230, 5%, 100%;
-  --color-app-focus: 230, 5%, 98%;
-  --color-app-line: 230, 5%, 89%;
-  --color-app-button: 230, 5%, 100%;
-  --color-app-divider: 230, 5%, 80%;
-  --color-app-selected: 230, 5%, 93%;
-  --color-app-hover: 230, 5%, 100%;
-  --color-app-shade: 230, 15%, 50%;
+  --color-app: var(--light-hue), 5%, 100%;
+  --color-app-box: var(--light-hue), 5%, 98%;
+  --color-app-overlay: var(--light-hue), 5%, 100%;
+  --color-app-input: var(--light-hue), 5%, 100%;
+  --color-app-focus: var(--light-hue), 5%, 98%;
+  --color-app-line: var(--light-hue), 5%, 89%;
+  --color-app-button: var(--light-hue), 5%, 100%;
+  --color-app-divider: var(--light-hue), 5%, 80%;
+  --color-app-selected: var(--light-hue), 5%, 93%;
+  --color-app-hover: var(--light-hue), 5%, 100%;
+  --color-app-shade: var(--light-hue), 15%, 50%;
   --color-app-frame: 0, 0%, 100%;
 
   // menu
-  --color-menu: 230, 16%, 14%;
-  --color-menu-line: 230, 5%, 18%;
-  --color-menu-ink: 230, 5%, 100%;
-  --color-menu-faint: 230, 5%, 80%;
-  --color-menu-hover: 230, 5%, 30%;
-  --color-menu-selected: 230, 5%, 30%;
-  --color-menu-shade: 230, 5%, 0%;
+  --color-menu: var(--light-hue), 16%, 14%;
+  --color-menu-line: var(--light-hue), 5%, 18%;
+  --color-menu-ink: var(--light-hue), 5%, 100%;
+  --color-menu-faint: var(--light-hue), 5%, 80%;
+  --color-menu-hover: var(--light-hue), 5%, 30%;
+  --color-menu-selected: var(--light-hue), 5%, 30%;
+  --color-menu-shade: var(--light-hue), 5%, 0%;
 }
 }
-
-@media (prefers-color-scheme: dark) {
-.vanilla-theme {
-  // global
-  --color-black: 0, 0%, 0%;
-  --color-white: 0, 0%, 100%;
-   // accent theme colors
-  --color-accent: 208, 100%, 57%;
-  --color-accent-faint: 208, 100%, 67%;
-  --color-accent-deep: 208, 100%, 47%;
-  // text
-  --color-ink: 230, 0%, 100%;
-  --color-ink-dull: 230, 10%, 70%;
-  --color-ink-faint: 230, 10%, 55%;
-  // sidebar
-  --color-sidebar: 230, 15%, 7%;
-  --color-sidebar-box: 230, 15%, 16%;
-  --color-sidebar-line: 230, 15%, 23%;
-  --color-sidebar-divider: 230, 15%, 17%;
-  --color-sidebar-button: 230, 15%, 18%;
-  --color-sidebar-selected: 230, 15%, 24%;
-  --color-sidebar-shade: 230, 15%, 23%;
-  // main
-  --color-app: 230, 16%, 14%;
-  --color-app-box: 230, 15%, 18%;
-  --color-app-overlay: 230, 15%, 14%;
-  --color-app-input: 230, 15%, 20%;
-  --color-app-focus: 230, 15%, 10%;
-  --color-app-line: 230, 15%, 26%;
-  --color-app-button: 230, 15%, 23%;
-  --color-app-divider: 230, 15%, 5%;
-  --color-app-selected: 230, 15%, 23%;
-  --color-app-hover: 230, 15%, 20%;
-  --color-app-shade: 230, 15%, 0%;
-  --color-app-frame: 230, 15%, 25%;
-  // menu
-  --color-menu: 230, 16%, 7%;
-  --color-menu-line: 230, 5%, 18%;
-  --color-menu-ink: 230, 5%, 100%;
-  --color-menu-faint: 230, 5%, 80%;
-  --color-menu-hover: 230, 5%, 30%;
-  --color-menu-selected: 230, 5%, 30%;
-  --color-menu-shade: 230, 5%, 0%;
-  }
-}
-// ruby: 295
