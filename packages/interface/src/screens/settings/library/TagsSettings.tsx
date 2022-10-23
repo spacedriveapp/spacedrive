@@ -52,7 +52,6 @@ export default function TagsSettings() {
 	);
 
 	const submitTagUpdate = handleSubmit((data) => updateTag.mutate(data));
-
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const autoUpdateTag = useCallback(useDebounce(submitTagUpdate, 500), []);
 

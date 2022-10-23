@@ -48,7 +48,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 								location.is_online ? 'bg-green-500' : 'bg-red-500'
 							)}
 						/>
-						<span className="ml-1.5 text-xs text-gray-350">
+						<span className="ml-1.5 text-xs text-ink-dull">
 							{location.is_online ? 'Online' : 'Offline'}
 						</span>
 					</>

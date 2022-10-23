@@ -12,7 +12,7 @@ import '@sd/ui/style';
 
 const isDev = import.meta.env.DEV;
 const client = hooks.createClient({
-	links: [...(isDev ? [loggerLink()] : []), tauriLink()]
+	links: [...(false ? [loggerLink()] : []), tauriLink()]
 });
 
 async function getOs(): Promise<OperatingSystem> {

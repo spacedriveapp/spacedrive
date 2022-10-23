@@ -43,6 +43,9 @@ const styles = cva(
 					'bg-app-button bg-transparent active:bg-app-selected hover:bg-app-hover',
 					'border-transparent hover:border-app-line active:border-app-line'
 				],
+				outline: [
+					'border-transparent hover:border-app-line/50 active:border-app-box active:bg-app-box/30'
+				],
 				gray: ['bg-app-button active:bg-app-hover', 'border-app-line hover:border-app-line'],
 				accent: [
 					'bg-accent text-white active:bg-accent hover:bg-accent/90 border-accent-deep hover:border-accent-deep active:border-accent-deep'
@@ -61,9 +64,10 @@ const styles = cva(
 export const Button = forwardRef<
 	HTMLButtonElement | HTMLAnchorElement,
 	ButtonProps | LinkButtonProps
->(({ className, ...props }, ref) => {
-	className = cx(styles(props), className);
-
+>(({ className, ..._props }, ref) => {
+	className = cx(styles(_props), className);
+	// React doesn't like camelCase props on DOM elements
+	let { forIcon: _forIcon, ...props } = _props;
 	return hasHref(props) ? (
 		<a {...props} ref={ref as any} className={cx(className, 'no-underline inline-block')} />
 	) : (

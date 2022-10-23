@@ -1,5 +1,5 @@
-import { CogIcon, LockClosedIcon } from '@heroicons/react/24/outline';
-import { PlusIcon } from '@heroicons/react/24/solid';
+import { CogIcon, EllipsisHorizontalCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import { EllipsisHorizontalIcon, EllipsisVerticalIcon, PlusIcon } from '@heroicons/react/24/solid';
 import {
 	LocationCreateArgs,
 	useCurrentLibrary,
@@ -10,15 +10,128 @@ import {
 import { Button, CategoryHeading, Dropdown, OverlayPanel, cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, ShareNetwork } from 'phosphor-react';
-import { PropsWithChildren } from 'react';
-import { NavLink, NavLinkProps, useNavigate } from 'react-router-dom';
+import React, { PropsWithChildren } from 'react';
+import { NavLink, NavLinkProps } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
-import RunningJobsWidget from '../jobs/RunningJobsWidget';
 import { MacTrafficLights } from '../os/TrafficLights';
+
+const DropdownItem = tw(Dropdown.Item)`hover:bg-sidebar-selected`;
+
+export function Sidebar() {
+	const os = useOperatingSystem();
+	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
+	// const itemStyles = macOnly(os, 'dark:hover:bg-sidebar-box dark:hover:bg-opacity-50');
+
+	return (
+		<div
+			className={clsx(
+				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar',
+				macOnly(os, 'bg-opacity-[0.80]')
+			)}
+		>
+			<WindowControls />
+
+			<Dropdown.Root
+				className="mt-2"
+				// usually this panel is styled with bg-menu, but as the dark theme sidebar is dark, we need to override it for dark:
+				itemsClassName="dark:bg-sidebar-box"
+				button={
+					<Dropdown.Button
+						variant="gray"
+						className={clsx(
+							`w-full mb-1 mt-1 -mr-0.5`,
+							` !bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line text-ink`,
+							(library === null || isLoadingLibraries) && '!text-ink-faint'
+							// macOnly(os, '!bg-opacity-80 !border-opacity-40')
+						)}
+					>
+						<span className="truncate">
+							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
+						</span>
+					</Dropdown.Button>
+				}
+			>
+				<Dropdown.Section>
+					{libraries?.map((lib) => (
+						<DropdownItem
+							selected={lib.uuid === library?.uuid}
+							key={lib.uuid}
+							onClick={() => switchLibrary(lib.uuid)}
+						>
+							{lib.config.name}
+						</DropdownItem>
+					))}
+				</Dropdown.Section>
+				<Dropdown.Section>
+					<DropdownItem icon={CogIcon} to="settings/library">
+						Library Settings
+					</DropdownItem>
+					<CreateLibraryDialog>
+						<DropdownItem icon={PlusIcon}>Add Library</DropdownItem>
+					</CreateLibraryDialog>
+					<DropdownItem icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
+						Lock
+					</DropdownItem>
+				</Dropdown.Section>
+			</Dropdown.Root>
+			<div className="pt-1">
+				<SidebarLink to="/overview">
+					<Icon component={Planet} />
+					Overview
+				</SidebarLink>
+				<SidebarLink to="photos">
+					<Icon component={ShareNetwork} />
+					Nodes
+				</SidebarLink>
+				<SidebarLink to="content">
+					<Icon component={CirclesFour} />
+					Spaces
+				</SidebarLink>
+			</div>
+
+			{library && <LibraryScopedSection />}
+
+			<div className="flex-grow" />
+
+			{/* <div className="fixed w-[174px] bottom-[2px] left-[2px] h-20 rounded-[8px] bg-gradient-to-t from-sidebar-box/90 via-sidebar-box/50 to-transparent" /> */}
+
+			<div className="fixed bottom-0 flex flex-col mt-2 mb-3">
+				<div className="flex flex-row">
+					<NavLink to="/settings/general">
+						<Button forIcon className={clsx('hover:!bg-opacity-20')}>
+							<CogIcon className="w-5 h-5 mt-[1px]" />
+						</Button>
+					</NavLink>
+					<OverlayPanel
+						className="focus:outline-none"
+						transformOrigin="bottom left"
+						disabled={!library}
+						trigger={
+							<Button
+								forIcon
+								className={clsx(
+									'!outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
+								)}
+							>
+								<CheckCircle className="w-5 h-5" />
+							</Button>
+						}
+					>
+						<div className="block w-[500px] h-96">
+							<JobsManager />
+						</div>
+					</OverlayPanel>
+				</div>
+				{/* Todo, dev check */}
+				<span className="w-full ml-1 mt-1 text-[7pt] text-ink-faint/50">Development Build</span>
+			</div>
+		</div>
+	);
+}
 
 const sidebarItemClass = cva(
 	'max-w mb-[2px] rounded px-2 py-1 gap-0.5 flex flex-row flex-grow items-center font-medium truncate text-sm',
@@ -54,6 +167,114 @@ export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => {
 	);
 };
 
+const SidebarSection: React.FC<{
+	name: string;
+	link?: React.ReactNode;
+	children: React.ReactNode;
+}> = (props) => {
+	return (
+		<div className="mt-5 group">
+			<div className="flex items-center justify-between mb-0.5">
+				<CategoryHeading className="ml-1">{props.name}</CategoryHeading>
+				<div className="transition-all duration-300 opacity-0 text-ink-faint group-hover:opacity-100">
+					{props.link}
+				</div>
+			</div>
+			{props.children}
+		</div>
+	);
+};
+
+const SidebarHeadingOptionsButton: React.FC<{ to: string }> = (props) => (
+	<NavLink to={props.to}>
+		<Button className="!p-[3px]" variant="outline">
+			<EllipsisHorizontalIcon className="w-[13px]" />
+		</Button>
+	</NavLink>
+);
+
+function LibraryScopedSection() {
+	const platform = usePlatform();
+	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const { mutate: createLocation } = useLibraryMutation('locations.create');
+
+	return (
+		<>
+			<div>
+				<SidebarSection
+					name="Locations"
+					link={<SidebarHeadingOptionsButton to="/settings/locations" />}
+				>
+					{locations?.map((location) => {
+						return (
+							<div key={location.id} className="flex flex-row items-center">
+								<NavLink
+									className="relative w-full group"
+									to={{
+										pathname: `location/${location.id}`
+									}}
+								>
+									{({ isActive }) => (
+										<span className={sidebarItemClass({ isActive })}>
+											<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
+												<Folder size={18} />
+											</div>
+
+											<span className="flex-grow flex-shrink-0">{location.name}</span>
+										</span>
+									)}
+								</NavLink>
+							</div>
+						);
+					})}
+					{(locations?.length || 0) < 4 && (
+						<button
+							onClick={() => {
+								if (!platform.openFilePickerDialog) {
+									// TODO: Support opening locations on web
+									alert('Opening a dialogue is not supported on this platform!');
+									return;
+								}
+								platform.openFilePickerDialog().then((result) => {
+									// TODO: Pass indexer rules ids to create location
+									if (result)
+										createLocation({
+											path: result as string,
+											indexer_rules_ids: []
+										} as LocationCreateArgs);
+								});
+							}}
+							className={clsx(
+								'w-full px-2 py-1 mt-1 text-xs font-medium text-center',
+								'rounded border border-dashed border-sidebar-line hover:border-sidebar-selected',
+								'cursor-normal transition text-ink-faint'
+							)}
+						>
+							Add Location
+						</button>
+					)}
+				</SidebarSection>
+			</div>
+			{!!tags?.length && (
+				<SidebarSection name="Tags" link={<SidebarHeadingOptionsButton to="/settings/tags" />}>
+					<div className="mt-1 mb-2">
+						{tags?.slice(0, 6).map((tag, index) => (
+							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
+								<div
+									className="w-[12px] h-[12px] rounded-full"
+									style={{ backgroundColor: tag.color || '#efefef' }}
+								/>
+								<span className="ml-1.5 text-sm">{tag.name}</span>
+							</SidebarLink>
+						))}
+					</div>
+				</SidebarSection>
+			)}
+		</>
+	);
+}
+
 const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />
 );
@@ -76,204 +297,4 @@ function WindowControls() {
 	}
 
 	return null;
-}
-
-const SidebarCategoryHeading = tw(CategoryHeading)`mt-5 mb-1 ml-1`;
-
-function LibraryScopedSection() {
-	const platform = usePlatform();
-	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
-	const { mutate: createLocation } = useLibraryMutation('locations.create');
-
-	return (
-		<>
-			<div>
-				<SidebarCategoryHeading>Locations</SidebarCategoryHeading>
-				{locations?.map((location) => {
-					return (
-						<div key={location.id} className="flex flex-row items-center">
-							<NavLink
-								className="relative w-full group"
-								to={{
-									pathname: `location/${location.id}`
-								}}
-							>
-								{({ isActive }) => (
-									<span className={sidebarItemClass({ isActive })}>
-										<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
-											<Folder size={18} />
-										</div>
-
-										<span className="flex-grow flex-shrink-0">{location.name}</span>
-									</span>
-								)}
-							</NavLink>
-						</div>
-					);
-				})}
-
-				{(locations?.length || 0) < 4 && (
-					<button
-						onClick={() => {
-							if (!platform.openFilePickerDialog) {
-								// TODO: Support opening locations on web
-								alert('Opening a dialogue is not supported on this platform!');
-								return;
-							}
-							platform.openFilePickerDialog().then((result) => {
-								// TODO: Pass indexer rules ids to create location
-								if (result)
-									createLocation({
-										path: result as string,
-										indexer_rules_ids: []
-									} as LocationCreateArgs);
-							});
-						}}
-						className={clsx(
-							'w-full px-2 py-1 mt-1 text-xs font-medium text-center',
-							'rounded border border-dashed border-sidebar-line hover:border-sidebar-selected',
-							'cursor-normal transition text-ink-faint'
-						)}
-					>
-						Add Location
-					</button>
-				)}
-			</div>
-			{tags?.length ? (
-				<div>
-					<SidebarCategoryHeading>Tags</SidebarCategoryHeading>
-					<div className="mt-1 mb-2">
-						{tags?.slice(0, 6).map((tag, index) => (
-							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
-								<div
-									className="w-[12px] h-[12px] rounded-full"
-									style={{ backgroundColor: tag.color || '#efefef' }}
-								/>
-								<span className="ml-1.5 text-sm">{tag.name}</span>
-							</SidebarLink>
-						))}
-					</div>
-				</div>
-			) : (
-				<></>
-			)}
-		</>
-	);
-}
-
-export function Sidebar() {
-	const navigate = useNavigate();
-	const os = useOperatingSystem();
-	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
-
-	// const itemStyles = macOnly(os, 'dark:hover:bg-gray-550 dark:hover:bg-opacity-50');
-
-	return (
-		<div
-			className={clsx(
-				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full px-2.5 overflow-x-hidden overflow-y-scroll border-r border-sidebar-divider no-scrollbar bg-sidebar',
-				macOnly(os, 'bg-opacity-[0.80]')
-			)}
-		>
-			<WindowControls />
-
-			<Dropdown.Root
-				className="mt-2"
-				itemsClassName="dark:bg-sidebar-box"
-				button={
-					<Dropdown.Button
-						variant="gray"
-						className={clsx(
-							`w-full mb-1 mt-1 -mr-0.5`,
-							`border-sidebar-line/70 bg-sidebar-button active:border-sidebar-line text-ink`,
-							(library === null || isLoadingLibraries) && '!text-ink-faint'
-							// macOnly(os, '!bg-opacity-80 !border-opacity-40')
-						)}
-					>
-						<span className="truncate">
-							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
-						</span>
-					</Dropdown.Button>
-				}
-				// to support the transparent sidebar on macOS we use slightly adjusted styles
-				// itemsClassName={macOnly(os, 'bg-app/60')}
-			>
-				<Dropdown.Section>
-					{libraries?.map((lib) => (
-						<Dropdown.Item
-							selected={lib.uuid === library?.uuid}
-							key={lib.uuid}
-							onClick={() => switchLibrary(lib.uuid)}
-						>
-							{lib.config.name}
-						</Dropdown.Item>
-					))}
-				</Dropdown.Section>
-				<Dropdown.Section>
-					<Dropdown.Item icon={CogIcon} to="settings/library">
-						Library Settings
-					</Dropdown.Item>
-					<CreateLibraryDialog>
-						<Dropdown.Item icon={PlusIcon}>Add Library</Dropdown.Item>
-					</CreateLibraryDialog>
-					<Dropdown.Item icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
-						Lock
-					</Dropdown.Item>
-				</Dropdown.Section>
-			</Dropdown.Root>
-			<div className="pt-1">
-				<SidebarLink to="/overview">
-					<Icon component={Planet} />
-					Overview
-				</SidebarLink>
-				<SidebarLink to="photos">
-					<Icon component={ShareNetwork} />
-					Nodes
-				</SidebarLink>
-				<SidebarLink to="content">
-					<Icon component={CirclesFour} />
-					Spaces
-				</SidebarLink>
-			</div>
-
-			{library && <LibraryScopedSection />}
-
-			<div className="flex-grow " />
-
-			{/* <div className="fixed w-[174px] bottom-[2px] left-[2px] h-20 rounded-[8px] bg-gradient-to-t from-sidebar-box/90 via-sidebar-box/50 to-transparent" /> */}
-
-			<div className="fixed bottom-0 flex flex-col mt-2 mb-3">
-				<div className="flex flex-row">
-					<NavLink to="/settings/general">
-						{({ isActive }) => (
-							<Button forIcon className={clsx('hover:!bg-opacity-20')}>
-								<CogIcon className="w-5 h-5 mt-[1px]" />
-							</Button>
-						)}
-					</NavLink>
-					<OverlayPanel
-						className="focus:outline-none"
-						transformOrigin="bottom left"
-						disabled={!library}
-						trigger={
-							<Button
-								forIcon
-								className={clsx(
-									'!outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
-								)}
-							>
-								<CheckCircle className="w-5 h-5" />
-							</Button>
-						}
-					>
-						<div className="block w-[500px] h-96">
-							<JobsManager />
-						</div>
-					</OverlayPanel>
-				</div>
-				<span className="w-full ml-1 mt-1 text-[7pt] text-ink-faint/50">Development Build</span>
-			</div>
-		</div>
-	);
 }
