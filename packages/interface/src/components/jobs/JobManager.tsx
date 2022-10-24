@@ -68,9 +68,7 @@ export function JobsManager() {
 			<HeaderContainer>
 				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
 				<div className="flex-grow" />
-				<Button size="icon">
-					<EllipsisHorizontalIcon className="w-5" />
-				</Button>
+
 				<Button size="icon">
 					<EllipsisHorizontalIcon className="w-5" />
 				</Button>

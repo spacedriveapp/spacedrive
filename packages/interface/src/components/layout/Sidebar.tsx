@@ -16,6 +16,7 @@ import {
 	ButtonLink,
 	CategoryHeading,
 	Dropdown,
+	Loader,
 	OverlayPanel,
 	Switch,
 	cva,
@@ -44,58 +45,54 @@ export function Sidebar() {
 	return (
 		<div
 			className={clsx(
-				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full   border-r border-sidebar-divider  bg-sidebar',
+				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider  bg-sidebar',
 				macOnly(os, 'bg-opacity-[0.80]')
 			)}
 		>
 			<WindowControls />
 
-			<div className="flex flex-col px-2.5 flex-grow pt-1 pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out">
-				<Dropdown.Root
-					// usually this panel is styled with bg-menu, but as the dark theme sidebar is dark, we need to override it for dark:
-					// itemsClassName="dark:bg-sidebar-box"
-					button={
-						<Dropdown.Button
-							variant="gray"
-							className={clsx(
-								`w-full mb-1 mt-1 -mr-0.5`,
-								` !bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line text-ink`,
-								(library === null || isLoadingLibraries) && '!text-ink-faint'
-								// macOnly(os, '!bg-opacity-80 !border-opacity-40')
-							)}
-						>
-							<span className="truncate">
-								{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
-							</span>
-						</Dropdown.Button>
-					}
-				>
-					<Dropdown.Section>
-						{libraries?.map((lib) => (
-							<Dropdown.Item
-								selected={lib.uuid === library?.uuid}
-								key={lib.uuid}
-								onClick={() => switchLibrary(lib.uuid)}
-							>
-								{lib.config.name}
-							</Dropdown.Item>
-						))}
-					</Dropdown.Section>
-					<Dropdown.Section>
-						<Dropdown.Item icon={CogIcon} to="settings/library">
-							Library Settings
-						</Dropdown.Item>
-						<CreateLibraryDialog>
-							<Dropdown.Item icon={PlusIcon}>Add Library</Dropdown.Item>
-						</CreateLibraryDialog>
+			<Dropdown.Root
+				className="mt-1 mx-2.5"
+				button={
+					<Dropdown.Button
+						variant="gray"
+						className={clsx(
+							`w-full text-ink !bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line`,
+							`active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line `,
+							(library === null || isLoadingLibraries) && '!text-ink-faint'
+							// macOnly(os, '!bg-opacity-80 !border-opacity-40')
+						)}
+					>
+						<span className="truncate">
+							{isLoadingLibraries ? 'Loading...' : library ? library.config.name : ' '}
+						</span>
+					</Dropdown.Button>
+				}
+			>
+				<Dropdown.Section>
+					{libraries?.map((lib) => (
 						<Dropdown.Item
-							icon={LockClosedIcon}
-							onClick={() => alert('TODO: Not implemented yet!')}
+							selected={lib.uuid === library?.uuid}
+							key={lib.uuid}
+							onClick={() => switchLibrary(lib.uuid)}
 						>
-							Lock
+							{lib.config.name}
 						</Dropdown.Item>
-					</Dropdown.Section>
-				</Dropdown.Root>
+					))}
+				</Dropdown.Section>
+				<Dropdown.Section>
+					<Dropdown.Item icon={CogIcon} to="settings/library">
+						Library Settings
+					</Dropdown.Item>
+					<CreateLibraryDialog>
+						<Dropdown.Item icon={PlusIcon}>Add Library</Dropdown.Item>
+					</CreateLibraryDialog>
+					<Dropdown.Item icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
+						Lock
+					</Dropdown.Item>
+				</Dropdown.Section>
+			</Dropdown.Root>
+			<div className="flex flex-col px-2.5 flex-grow pt-1 pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out">
 				<div className="pt-1">
 					<SidebarLink to="/overview">
 						<Icon component={Planet} />
