@@ -5150,11 +5150,11 @@ dependencies = [
  "itertools",
  "normi",
  "once_cell",
- "openssl-sys",
  "prisma-client-rust",
  "rmp",
  "rmp-serde",
  "rspc",
+ "sd-crypto",
  "sd-ffmpeg",
  "sd-file-ext",
  "serde",
@@ -5204,6 +5204,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "uuid 1.2.1",
  "zeroize",
 ]
 

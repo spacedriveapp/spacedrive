@@ -5,7 +5,7 @@ use sd_crypto::{
 	header::{
 		file::{FileHeader, FileHeaderVersion},
 		keyslot::{Keyslot, KeyslotVersion},
-		preview_media::{PreviewMedia, PreviewMediaVersion},
+		preview_media::PreviewMediaVersion,
 	},
 	keys::hashing::{HashingAlgorithm, Params},
 	primitives::{generate_master_key, generate_salt},
@@ -25,6 +25,9 @@ fn encrypt() {
 	// This needs to be generated here, otherwise we won't have access to it for encryption
 	let master_key = generate_master_key();
 
+	// This ideally should be done by the KMS
+	let salt = generate_salt();
+
 	// Create a keyslot to be added to the header
 	// The password is cloned as we also need to provide this for the preview media
 	let mut keyslots: Vec<Keyslot> = Vec::new();
@@ -33,29 +36,21 @@ fn encrypt() {
 			KeyslotVersion::V1,
 			ALGORITHM,
 			HASHING_ALGORITHM,
+			salt,
 			password.clone(),
 			&master_key,
 		)
 		.unwrap(),
 	);
 
-	// Ideally this will be generated via the key management system
-	let pvm_salt = generate_salt();
-
 	let pvm_media = b"a nice mountain".to_vec();
 
-	let pvm = PreviewMedia::new(
-		PreviewMediaVersion::V1,
-		ALGORITHM,
-		HASHING_ALGORITHM,
-		password,
-		&pvm_salt,
-		&pvm_media,
-	)
-	.unwrap();
-
 	// Create the header for the encrypted file (and include our preview media)
-	let header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots, None, Some(pvm));
+	let mut header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots);
+
+	header
+		.add_preview_media(PreviewMediaVersion::V1, ALGORITHM, &master_key, &pvm_media)
+		.unwrap();
 
 	// Write the header to the file
 	header.write(&mut writer).unwrap();
@@ -79,15 +74,8 @@ pub fn decrypt_preview_media() {
 	// Deserialize the header, keyslots, etc from the encrypted file
 	let (header, _) = FileHeader::deserialize(&mut reader).unwrap();
 
-	// Checks should be made to ensure the file actually contains any preview media
-	let pvm = header.preview_media.unwrap();
-
-	// Hash the user's password with the preview media salt
-	// This should be done by a key management system
-	let hashed_key = pvm.hashing_algorithm.hash(password, pvm.salt).unwrap();
-
 	// Decrypt the preview media
-	let media = pvm.decrypt_preview_media(hashed_key).unwrap();
+	let media = header.decrypt_preview_media(password).unwrap();
 
 	println!("{:?}", media.expose());
 }

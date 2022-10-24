@@ -82,8 +82,8 @@ impl FileHeader {
 		version: FileHeaderVersion,
 		algorithm: Algorithm,
 		keyslots: Vec<Keyslot>,
-		metadata: Option<Metadata>,
-		preview_media: Option<PreviewMedia>,
+		//metadata: Option<Metadata>,
+		//preview_media: Option<PreviewMedia>,
 	) -> Self {
 		let nonce = generate_nonce(algorithm);
 
@@ -92,12 +92,12 @@ impl FileHeader {
 			algorithm,
 			nonce,
 			keyslots,
-			metadata,
-			preview_media,
+			metadata: None,
+			preview_media: None,
 		}
 	}
 
-	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
+	/// This is a helper function to decrypt a master key from keyslots that are attached to a header, from a user-supplied password.
 	///
 	/// You receive an error if the password doesn't match or if there are no keyslots.
 	#[allow(clippy::needless_pass_by_value)]
@@ -124,12 +124,46 @@ impl FileHeader {
 		}
 	}
 
+	/// This is a helper function to serialize and write a header to a file.
 	pub fn write<W>(&self, writer: &mut W) -> Result<(), Error>
 	where
 		W: Write + Seek,
 	{
 		writer.write(&self.serialize()?).map_err(Error::Io)?;
 		Ok(())
+	}
+
+	/// This is a helper function to decrypt a master key from keyslots that are attached to a header.
+	///
+	/// It takes in a Vec of pre-hashed keys, which is what the key manager returns
+	///
+	/// You receive an error if the password doesn't match or if there are no keyslots.
+	#[allow(clippy::needless_pass_by_value)]
+	pub fn decrypt_master_key_from_prehashed(
+		&self,
+		hashed_keys: Vec<Protected<[u8; 32]>>,
+	) -> Result<Protected<[u8; MASTER_KEY_LEN]>, Error> {
+		let mut master_key = [0u8; MASTER_KEY_LEN];
+
+		if self.keyslots.is_empty() {
+			return Err(Error::NoKeyslots);
+		}
+
+		for key in hashed_keys {
+			for keyslot in &self.keyslots {
+				if let Ok(decrypted_master_key) =
+					keyslot.decrypt_master_key_from_prehashed(key.clone())
+				{
+					master_key.copy_from_slice(&decrypted_master_key);
+				}
+			}
+		}
+
+		if master_key == [0u8; MASTER_KEY_LEN] {
+			Err(Error::IncorrectPassword)
+		} else {
+			Ok(Protected::new(master_key))
+		}
 	}
 
 	/// This function should be used for generating AAD before encryption

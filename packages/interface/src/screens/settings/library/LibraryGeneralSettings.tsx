@@ -1,94 +1,36 @@
 import { useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
 import { Button, Input, Switch } from '@sd/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useDebounce } from 'rooks';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function LibraryGeneralSettings() {
-	const { library, libraries } = useCurrentLibrary();
+	const { library } = useCurrentLibrary();
+	const { mutate: editLibrary } = useBridgeMutation('library.edit');
 
-	const [encryptLibrary, setEncryptLibrary] = useState(false);
+	const debounced = useDebouncedCallback((value) => {
+		editLibrary({
+			id: library!.uuid,
+			name: value.name,
+			description: value.description
+		});
+	}, 500);
 
-	const editLibrary = useBridgeMutation('library.edit');
-
-	const { register, reset, handleSubmit, watch } = useForm({
+	const { register, watch } = useForm({
 		defaultValues: {
 			name: library?.config.name,
 			description: library?.config.description
 		}
 	});
 
-	// reset form when library changes
-	useEffect(() => {
-		reset({
-			name: library?.config.name,
-			description: library?.config.description
-		});
-		console.log('libraries changed, resetting form', library, libraries);
-	}, [libraries, library, reset]);
-
-	const handleEditLibrary = handleSubmit((data) => {
-		console.log("updating library's name and description", library?.uuid, data);
-		if (library?.uuid) {
-			console.log('library.uuid', library.uuid);
-			editLibrary.mutate({
-				id: library.uuid,
-				name: data.name || null,
-				description: data.description || null
-			});
-		}
-	});
-	// @ts-ignore
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	const update = useCallback(useDebounce(handleEditLibrary, 500), []);
-	useEffect(() => {
-		const subscription = watch(() => update());
-		return () => subscription.unsubscribe();
-	});
-
-	// const [name, setName] = useState('');
-	// const [description, setDescription] = useState('');
-	// const [nameDebounced] = useDebounce(name, 500);
-	// const [descriptionDebounced] = useDebounce(description, 500);
-	// prevent auto update when switching library
-
-	// useEffect(() => {
-	// 	if (library) {
-	// 		const { name, description } = library.config;
-	// 		// currentLibrary must be loaded, name must not be empty, and must be different from the current
-	// 		if (nameDebounced && (nameDebounced !== name || descriptionDebounced !== description)) {
-	// 			editLibrary({
-	// 				id: library.uuid!,
-	// 				name: nameDebounced,
-	// 				description: descriptionDebounced
-	// 			});
-	// 		}
-	// 	}
-	// }, [nameDebounced, descriptionDebounced, library, editLibrary]);
-
-	// useEffect(() => {
-	// 	if (library) {
-	// 		setName(library.config.name);
-	// 		setDescription(library.config.description);
-	// 	}
-	// }, [libraries, library]);
-
-	// useEffect(() => {
-	// 	if (library) {
-	// 		setBlockAutoUpdate(true);
-	// 		setName(library.config.name);
-	// 		setDescription(library.config.description);
-	// 	}
-	// }, [library]);
-
-	// useEffect(() => {
-	// 	if (blockAutoUpdate) setBlockAutoUpdate(false);
-	// }, [blockAutoUpdate]);
+	watch(debounced); // Listen for form changes
+	// This forces the debounce to run when the component is unmounted
+	useEffect(() => () => debounced.flush(), [debounced]);
 
 	return (
 		<SettingsContainer>
@@ -99,7 +41,7 @@ export default function LibraryGeneralSettings() {
 			<div className="flex flex-row pb-3 space-x-5">
 				<div className="flex flex-col flex-grow">
 					<span className="mb-1 text-sm font-medium">Name</span>
-					<Input {...register('name')} defaultValue="My Default Library" />
+					<Input {...register('name', { required: true })} defaultValue="My Default Library" />
 				</div>
 				<div className="flex flex-col flex-grow">
 					<span className="mb-1 text-sm font-medium">Description</span>
@@ -113,7 +55,7 @@ export default function LibraryGeneralSettings() {
 				description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves."
 			>
 				<div className="flex items-center ml-3">
-					<Switch checked={encryptLibrary} onCheckedChange={setEncryptLibrary} />
+					<Switch checked={false} />
 				</div>
 			</InputContainer>
 			<InputContainer mini title="Export Library" description="Export this library to a file.">
