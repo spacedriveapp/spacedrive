@@ -8,7 +8,16 @@ import {
 	useLibraryQuery,
 	usePlatform
 } from '@sd/client';
-import { Button, ButtonLink, CategoryHeading, Dropdown, OverlayPanel, cva, tw } from '@sd/ui';
+import {
+	Button,
+	ButtonLink,
+	CategoryHeading,
+	Dropdown,
+	Loader,
+	OverlayPanel,
+	cva,
+	tw
+} from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, ShareNetwork } from 'phosphor-react';
 import React, { PropsWithChildren } from 'react';
@@ -23,8 +32,10 @@ import { MacTrafficLights } from '../os/TrafficLights';
 export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
-	// const itemStyles = macOnly(os, 'dark:hover:bg-sidebar-box dark:hover:bg-opacity-50');
 
+	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
+
+	// const itemStyles = macOnly(os, 'dark:hover:bg-sidebar-box dark:hover:bg-opacity-50');
 	return (
 		<div
 			className={clsx(
@@ -37,7 +48,7 @@ export function Sidebar() {
 			<div className="flex flex-col px-2.5 flex-grow pt-1 pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out">
 				<Dropdown.Root
 					// usually this panel is styled with bg-menu, but as the dark theme sidebar is dark, we need to override it for dark:
-					itemsClassName="dark:bg-sidebar-box"
+					// itemsClassName="dark:bg-sidebar-box"
 					button={
 						<Dropdown.Button
 							variant="gray"
@@ -100,7 +111,7 @@ export function Sidebar() {
 			{/* <div className="fixed w-[174px] bottom-[2px] left-[2px] h-20 rounded-[8px] bg-gradient-to-t from-sidebar-box/90 via-sidebar-box/50 to-transparent" /> */}
 
 			<div className="flex flex-col mb-3 px-2.5">
-				<div className="flex flex-row">
+				<div className="flex">
 					<ButtonLink to="/settings/general" size="icon" variant="outline">
 						<CogIcon className="w-5 h-5" />
 					</ButtonLink>
@@ -114,7 +125,11 @@ export function Sidebar() {
 								variant="outline"
 								className="radix-state-open:bg-sidebar-selected/50"
 							>
-								<CheckCircle className="w-5 h-5" />
+								{isRunningJob ? (
+									<Loader className="w-[20px] h-[20px]" />
+								) : (
+									<CheckCircle className="w-5 h-5" />
+								)}
 							</Button>
 						}
 					>

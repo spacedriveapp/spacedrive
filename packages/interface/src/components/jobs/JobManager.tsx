@@ -57,7 +57,7 @@ function elapsed(seconds: number) {
 	return new Date(seconds * 1000).toUTCString().match(/(\d\d:\d\d:\d\d)/)?.[0];
 }
 
-const HeaderContainer = tw.div`z-20 flex items-center w-full h-10 px-2 border-b border-app-line rounded-t-md bg-app-selected`;
+const HeaderContainer = tw.div`z-20 flex items-center w-full h-10 px-2 border-b border-app-line/50 rounded-t-md `;
 
 export function JobsManager() {
 	const runningJobs = useLibraryQuery(['jobs.getRunning']);
@@ -68,6 +68,9 @@ export function JobsManager() {
 			<HeaderContainer>
 				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
 				<div className="flex-grow" />
+				<Button size="icon">
+					<EllipsisHorizontalIcon className="w-5" />
+				</Button>
 				<Button size="icon">
 					<EllipsisHorizontalIcon className="w-5" />
 				</Button>
@@ -108,7 +111,7 @@ function Job({ job }: { job: JobReport }) {
 						<ProgressBar value={job.completed_task_count} total={job.task_count} />
 					</div>
 				)}
-				<div className="flex items-center text-ink-dull">
+				<div className="flex items-center text-ink-faint">
 					<span className="text-xs">
 						{isRunning ? 'Elapsed' : job.status === 'Failed' ? 'Failed after' : 'Took'}{' '}
 						{job.seconds_elapsed
@@ -122,7 +125,7 @@ function Job({ job }: { job: JobReport }) {
 						</span>
 					}
 				</div>
-				<span className="mt-0.5 opacity-50 text-tiny text-ink-faint">{job.id}</span>
+				{/* <span className="mt-0.5 opacity-50 text-tiny text-ink-faint">{job.id}</span> */}
 			</div>
 			<div className="flex-grow" />
 			<div className="flex flex-row space-x-2 ml-7">

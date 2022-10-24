@@ -65,7 +65,7 @@
 				"title": "Spacedrive",
 				"width": 1400,
 				"height": 725,
-				"minWidth": 700,
+				"minWidth": 768,
 				"minHeight": 500,
 				"resizable": true,
 				"fullscreen": false,

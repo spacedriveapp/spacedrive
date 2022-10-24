@@ -20,6 +20,9 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("getRunning", |t| {
 			t(|ctx, _: (), _| async move { Ok(ctx.jobs.get_running().await) })
 		})
+		.library_query("isRunning", |t| {
+			t(|ctx, _: (), _| async move { Ok(ctx.jobs.get_running().await.len() > 0) })
+		})
 		.library_query("getHistory", |t| {
 			t(|_, _: (), library| async move { Ok(JobManager::get_history(&library).await?) })
 		})

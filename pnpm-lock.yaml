@@ -446,6 +446,8 @@ importers:
       byte-size: ^8.1.0
       clsx: ^1.2.1
       dayjs: ^1.11.5
+      iconoir: ^5.3.2
+      iconoir-react: ^5.3.2
       phosphor-react: ^1.4.1
       prettier: ^2.7.1
       react: ^18.2.0
@@ -462,7 +464,7 @@ importers:
       typescript: ^4.8.4
       use-count-up: ^3.0.1
       use-debounce: ^8.0.4
-      valtio: ^1.7.0
+      valtio: ^1.7.4
       vite: ^3.1.4
       vite-plugin-svgr: ^2.2.1
     dependencies:
@@ -488,6 +490,8 @@ importers:
       byte-size: 8.1.0
       clsx: 1.2.1
       dayjs: 1.11.5
+      iconoir: 5.3.2
+      iconoir-react: 5.3.2_react@18.2.0
       phosphor-react: 1.4.1_react@18.2.0
       react: 18.2.0
       react-colorful: 5.6.1_biqbaboplfbrettd7655fr4n2y
@@ -13696,6 +13700,18 @@ packages:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
     engines: {node: '>=10.17.0'}
     dev: true
+
+  /iconoir-react/5.3.2_react@18.2.0:
+    resolution: {integrity: sha512-5p5FQAkX6ZAuk1UE/4RmjI9BgI5FSqTbgyUT/m74bfHxl57YAuU7sRdnvrLe97I9IbbiC2uKnGl90xVcBD07rQ==}
+    peerDependencies:
+      react: ^16.8.6 || ^17 || ^18
+    dependencies:
+      react: 18.2.0
+    dev: false
+
+  /iconoir/5.3.2:
+    resolution: {integrity: sha512-om9zHIRaoRs4XUXq11+/RB7lucY8eiz2nX1+DV0VjefMDAlncKctygz6Z/11lQDkISuyaBcbYDpJQvFcaEGvdg==}
+    dev: false
 
   /iconv-lite/0.4.23:
     resolution: {integrity: sha512-neyTUVFtahjf0mB3dZT77u+8O0QB89jFdnBkd5P1JgYPbPaia3gXXOVL2fq8VyU2gMMD7SaN7QukTB/pmXYvDA==}
