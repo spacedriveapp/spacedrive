@@ -8,7 +8,8 @@
 		"vite": "vite",
 		"dev": "tauri dev",
 		"tauri": "tauri",
-		"build": "tauri build"
+		"build": "tauri build",
+		"dmg": "open ../../target/release/bundle/dmg/"
 	},
 	"dependencies": {
 		"@rspc/tauri": "^0.0.0-main-7c0a67c1",
