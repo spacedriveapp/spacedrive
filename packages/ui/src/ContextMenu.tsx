@@ -12,9 +12,8 @@ const MENU_CLASSES = `
   flex flex-col
   min-w-[8rem] px-1 py-0.5
   text-left text-sm text-menu-ink
-  bg-menu border-menu-border 
-	border border-transparent
-  shadow-md shadow-menu-shade/20 
+  bg-menu cool-shadow
+	border border-menu-line
   select-none cursor-default rounded-md
 `;
 
@@ -48,7 +47,7 @@ export const SubMenu = ({
 }: RadixCM.MenuSubContentProps & ItemProps) => {
 	return (
 		<RadixCM.Sub>
-			<RadixCM.SubTrigger className="[&[data-state='open']_div]:bg-primary focus:outline-none  py-0.5">
+			<RadixCM.SubTrigger className="[&[data-state='open']_div]:bg-accent [&[data-state='open']_div]:text-white focus:outline-none  text-menu-ink py-[3px]">
 				<DivItem rightArrow {...{ label, icon }} />
 			</RadixCM.SubTrigger>
 			<RadixCM.Portal>
@@ -63,14 +62,14 @@ export const SubMenu = ({
 const itemStyles = cva(
 	[
 		'flex flex-row items-center justify-start flex-1',
-		'px-2 py-1 space-x-2',
+		'px-2 py-[3px] space-x-2',
 		'cursor-default rounded',
 		'focus:outline-none'
 	],
 	{
 		variants: {
 			variant: {
-				default: 'hover:bg-accent focus:bg-accent',
+				default: 'hover:bg-accent focus:bg-accent hover:text-white',
 				danger: [
 					'text-red-600 dark:text-red-400',
 					'hover:text-white focus:text-white',
@@ -102,7 +101,7 @@ export const Item = ({
 }: ItemProps & RadixCM.MenuItemProps) => (
 	<RadixCM.Item
 		{...props}
-		className="!cursor-default select-none group focus:outline-none py-0.5 active:opacity-80"
+		className="!cursor-default select-none group  text-menu-ink focus:outline-none py-0.5 active:opacity-80"
 	>
 		<div className={itemStyles({ variant })}>
 			{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}

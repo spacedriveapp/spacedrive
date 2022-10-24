@@ -112,6 +112,7 @@ impl Worker {
 		}
 		drop(worker);
 
+		invalidate_query!(ctx, "jobs.isRunning");
 		// spawn task to handle receiving events from the worker
 		let library_ctx = ctx.clone();
 		tokio::spawn(Worker::track_progress(
@@ -234,6 +235,7 @@ impl Worker {
 						error!("failed to update job report: {:#?}", e);
 					}
 
+					invalidate_query!(library, "jobs.isRunning");
 					invalidate_query!(library, "jobs.getRunning");
 					invalidate_query!(library, "jobs.getHistory");
 

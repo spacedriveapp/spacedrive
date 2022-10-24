@@ -7,6 +7,7 @@ export type Procedures = {
         { key: "getNode", input: never, result: NodeState } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
+        { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
         { key: "locations.getById", input: LibraryArgs<number>, result: Location | null } | 

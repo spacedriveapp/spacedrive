@@ -35,14 +35,14 @@ export default function GeneralSettings() {
 							<NodeSettingLabel>Node Name</NodeSettingLabel>
 							<Input value={node?.name} />
 						</div>
-						<div className="flex flex-col ">
+						<div className="flex flex-col">
 							<NodeSettingLabel>Node Port</NodeSettingLabel>
 							<Input contentEditable={false} value={node?.p2p_port || 5795} />
 						</div>
 					</div>
 					<div className="flex items-center mt-5 space-x-3">
 						<Switch size="sm" checked />
-						<span className="text-sm text-ink-dull">Run daemon when app closed</span>
+						<span className="text-sm font-medium text-ink-dull">Run daemon when app closed</span>
 					</div>
 					<div className="mt-3">
 						<div
@@ -51,9 +51,9 @@ export default function GeneralSettings() {
 									platform.openLink(node.data_path);
 								}
 							}}
-							className="text-xs font-medium leading-relaxed text-ink-faint"
+							className="text-sm font-medium text-ink-faint"
 						>
-							<b className="inline mr-2 truncate ">
+							<b className="inline mr-2 truncate">
 								<Database className="inline w-4 h-4 mr-1 -mt-[2px]" /> Data Folder
 							</b>
 							<span className="select-text">{node?.data_path}</span>

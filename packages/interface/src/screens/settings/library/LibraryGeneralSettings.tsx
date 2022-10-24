@@ -1,4 +1,4 @@
-import { useBridgeMutation } from '@sd/client';
+import { onLibraryChange, useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
 import { Button, Input, Switch } from '@sd/ui';
 import { useEffect, useState } from 'react';
@@ -21,15 +21,20 @@ export default function LibraryGeneralSettings() {
 		});
 	}, 500);
 
-	const { register, watch } = useForm({
-		defaultValues: {
-			name: library?.config.name,
-			description: library?.config.description
-		}
+	const { register, watch, reset, getValues } = useForm({
+		defaultValues: { id: library?.uuid, ...library?.config }
 	});
 
-	watch(debounced); // Listen for form changes
-	// This forces the debounce to run when the component is unmounted
+	// ensure the form is updated when the library changes
+	useEffect(() => {
+		if (library?.uuid !== getValues('id')) {
+			reset({ id: library?.uuid, ...library?.config });
+		}
+	}, [library, getValues, reset]);
+
+	watch(debounced); // listen for form changes
+
+	// force the debounce to run when the component is unmounted
 	useEffect(() => () => debounced.flush(), [debounced]);
 
 	return (
