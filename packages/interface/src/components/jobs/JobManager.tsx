@@ -57,7 +57,7 @@ function elapsed(seconds: number) {
 	return new Date(seconds * 1000).toUTCString().match(/(\d\d:\d\d:\d\d)/)?.[0];
 }
 
-const HeaderContainer = tw.div`z-20 flex items-center w-full h-10 px-2 border-b border-app-line rounded-t-md bg-app-box`;
+const HeaderContainer = tw.div`z-20 flex items-center w-full h-10 px-2 border-b border-app-line rounded-t-md bg-app-selected`;
 
 export function JobsManager() {
 	const runningJobs = useLibraryQuery(['jobs.getRunning']);

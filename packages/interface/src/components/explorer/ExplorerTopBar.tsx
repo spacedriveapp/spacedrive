@@ -99,11 +99,7 @@ const SearchBar = forwardRef<HTMLInputElement, DefaultProps>((props, forwardedRe
 				{...searchField}
 			/>
 
-			<div
-				className={clsx(
-					'space-x-1 absolute top-[1px] right-1 peer-focus:invisible pointer-events-none'
-				)}
-			>
+			<div className={clsx('space-x-1 absolute right-1 peer-focus:invisible pointer-events-none')}>
 				{platform === 'browser' ? (
 					<Shortcut chars="⌘F" aria-label={'Press Command-F to focus search bar'} />
 				) : os === 'macOS' ? (

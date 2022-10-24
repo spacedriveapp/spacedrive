@@ -9,16 +9,6 @@ interface Props extends DropdownMenu.MenuContentProps {
 	disabled?: boolean;
 }
 
-const MENU_CLASSES = `
-  flex flex-col
-  min-w-[11rem] z-50 m-2 space-y-1
-  select-none cursor-default rounded-lg 
-  text-left text-sm text-ink
-  bg-app-overlay/90 backdrop-blur
-  border border-app-line
-  shadow-2xl shadow-black/40 
-`;
-
 export const OverlayPanel = ({
 	trigger,
 	children,
@@ -50,7 +40,19 @@ export const OverlayPanel = ({
 					show && (
 						<DropdownMenu.Portal forceMount>
 							<DropdownMenu.Content forceMount asChild>
-								<animated.div className={clsx(MENU_CLASSES, className)} style={styles}>
+								<animated.div
+									className={clsx(
+										'flex flex-col',
+										'min-w-[11rem] z-50 m-2 space-y-1',
+										'select-none cursor-default rounded-lg',
+										'text-left text-sm text-ink',
+										'bg-app-overlay/90 backdrop-blur',
+										// 'border border-app-overlay',
+										'shadow-2xl shadow-black/60 ',
+										className
+									)}
+									style={styles}
+								>
 									{children}
 								</animated.div>
 							</DropdownMenu.Content>
