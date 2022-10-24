@@ -42,11 +42,14 @@ const styles = cva(
 					'border-transparent hover:border-app-line active:border-app-line'
 				],
 				outline: [
-					'border-transparent hover:border-app-line/50 active:border-app-box active:bg-app-box/30'
+					'border-transparent hover:border-app-line/50 active:border-app-line active:bg-app-box/30'
 				],
-				gray: ['bg-app-button active:bg-app-hover', 'border-app-line hover:border-app-line'],
+				gray: [
+					'bg-app-button active:bg-app-selected hover:bg-app-hover',
+					'border-app-line hover:border-app-line active:border-app-active'
+				],
 				accent: [
-					'bg-accent text-white active:bg-accent hover:bg-accent-faint border-accent-faint hover:border-accent active:border-accent-deep shadow-md shadow-app-shade/10'
+					'bg-accent text-white active:bg-accent hover:bg-accent-faint border-accent-deep hover:border-accent active:border-accent-deep shadow-md shadow-app-shade/10'
 				],
 				colored: ['text-white shadow-sm hover:bg-opacity-90 active:bg-opacity-100'],
 				bare: ''

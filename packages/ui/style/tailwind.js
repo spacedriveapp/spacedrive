@@ -67,6 +67,7 @@ module.exports = function (app, options) {
 						button: alpha('--color-app-button'),
 						selected: alpha('--color-app-selected'),
 						hover: alpha('--color-app-hover'),
+						active: alpha('--color-app-active'),
 						shade: alpha('--color-app-shade'),
 						frame: alpha('--color-app-frame')
 					},

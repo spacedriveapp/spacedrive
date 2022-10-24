@@ -1,6 +1,7 @@
 import { useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, Input } from '@sd/ui';
+import { MagnifyingGlass } from 'phosphor-react';
 
 import LocationListItem from '../../../components/location/LocationListItem';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
@@ -18,7 +19,11 @@ export default function LocationSettings() {
 				title="Locations"
 				description="Manage your storage locations."
 				rightArea={
-					<div className="flex-row space-x-2">
+					<div className="flex flex-row items-center space-x-5">
+						<div className="relative hidden lg:block">
+							<MagnifyingGlass className="absolute w-[18px] h-auto top-[8px] left-[11px] text-gray-350" />
+							<Input className="!p-0.5 !pl-9" placeholder="Search locations" />
+						</div>
 						<Button
 							variant="accent"
 							size="sm"

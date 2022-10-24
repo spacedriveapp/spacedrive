@@ -1,5 +1,6 @@
 import { useCurrentLibrary } from '@sd/client';
 import clsx from 'clsx';
+import { IconoirProvider } from 'iconoir-react';
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 
@@ -32,9 +33,17 @@ export function AppLayout() {
 		>
 			<Sidebar />
 			<div className="relative flex w-full">
-				<Suspense fallback={<div className="w-screen h-screen bg-app" />}>
-					<Outlet />
-				</Suspense>
+				<IconoirProvider
+					iconProps={{
+						strokeWidth: 1.8,
+						width: '1em',
+						height: '1em'
+					}}
+				>
+					<Suspense fallback={<div className="w-screen h-screen bg-app" />}>
+						<Outlet />
+					</Suspense>
+				</IconoirProvider>
 			</div>
 			<Toasts />
 		</div>

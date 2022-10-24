@@ -33,25 +33,24 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 			<Folder size={30} className="mr-3" />
 			<div className="grid grid-cols-1 min-w-[110px]">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
-				<p className="mt-0.5 text-sm truncate  select-text text-gray-250">
-					<span className="py-[1px] px-1 bg-app-button rounded mr-1">{location.node.name}</span>
+				<p className="mt-0.5 text-sm truncate  select-text text-ink-dull">
+					<span className="py-[1px] px-1 bg-app-selected rounded mr-1">{location.node.name}</span>
 					{location.local_path}
 				</p>
 			</div>
 			<div className="flex flex-grow" />
 			<div className="flex h-[45px] p-2 space-x-2">
-				<Button disabled variant="gray" className="!py-1.5 !px-2 pointer-events-none flex">
-					<>
-						<div
-							className={clsx(
-								'w-2 h-2  rounded-full',
-								location.is_online ? 'bg-green-500' : 'bg-red-500'
-							)}
-						/>
-						<span className="ml-1.5 text-xs text-ink-dull">
-							{location.is_online ? 'Online' : 'Offline'}
-						</span>
-					</>
+				{/* This is a fake button, do not add disabled prop pls */}
+				<Button variant="gray" className="!py-1.5 !px-2 pointer-events-none flex">
+					<div
+						className={clsx(
+							'w-2 h-2  rounded-full',
+							location.is_online ? 'bg-green-500' : 'bg-red-500'
+						)}
+					/>
+					<span className="ml-1.5 text-xs text-ink-dull">
+						{location.is_online ? 'Online' : 'Offline'}
+					</span>
 				</Button>
 				<Dialog
 					title="Delete Location"
