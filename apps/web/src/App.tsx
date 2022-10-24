@@ -1,5 +1,5 @@
-import { createWSClient, loggerLink, wsLink } from '@rspc/client';
-import { PlatformProvider, hooks, queryClient } from '@sd/client';
+import { createWSClient, loggerLink, splitLink, wsLink } from '@rspc/client';
+import { PlatformProvider, getDebugState, hooks, queryClient } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
 import { useEffect } from 'react';
 
@@ -7,12 +7,16 @@ const wsClient = createWSClient({
 	url: import.meta.env.VITE_SDSERVER_BASE_URL || 'ws://localhost:8080/rspc/ws'
 });
 
-const isDev = import.meta.env.DEV && false; // TODO: Remove false
+const ws = wsLink({
+	client: wsClient
+});
+
 const client = hooks.createClient({
 	links: [
-		...(isDev ? [loggerLink()] : []),
-		wsLink({
-			client: wsClient
+		splitLink({
+			condition: () => getDebugState().rspcLogger,
+			true: [loggerLink(), ws],
+			false: [ws]
 		})
 	]
 });

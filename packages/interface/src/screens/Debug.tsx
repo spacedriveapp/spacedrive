@@ -5,7 +5,7 @@ import CodeBlock from '../components/primitive/Codeblock';
 // TODO: Bring this back with a button in the sidebar near settings at the bottom
 export default function DebugScreen() {
 	const platform = usePlatform();
-	const { data: nodeState } = useBridgeQuery(['getNode']);
+	const { data: nodeState } = useBridgeQuery(['nodeState']);
 	const { data: libraryState } = useBridgeQuery(['library.list']);
 	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
 	const { data: jobHistory } = useLibraryQuery(['jobs.getHistory']);

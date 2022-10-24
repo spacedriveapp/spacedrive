@@ -4,7 +4,7 @@
 export type Procedures = {
     queries: 
         { key: "files.readMetadata", input: LibraryArgs<number>, result: null } | 
-        { key: "getNode", input: never, result: NodeState } | 
+        { key: "nodeState", input: never, result: NodeState } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 

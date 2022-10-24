@@ -1,7 +1,8 @@
-import { useBridgeQuery, usePlatform } from '@sd/client';
+import { getDebugState, useBridgeQuery, useDebugState, usePlatform } from '@sd/client';
 import { Card, Input, Switch, tw } from '@sd/ui';
 import { Database } from 'phosphor-react';
 
+import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
@@ -9,9 +10,9 @@ const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selec
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
 export default function GeneralSettings() {
-	const { data: node } = useBridgeQuery(['getNode']);
-
+	const { data: node } = useBridgeQuery(['nodeState']);
 	const platform = usePlatform();
+	const debugState = useDebugState();
 
 	return (
 		<SettingsContainer>
@@ -61,6 +62,16 @@ export default function GeneralSettings() {
 					</div>
 				</div>
 			</Card>
+			<InputContainer
+				mini
+				title="Debug mode"
+				description="Enable extra debugging features within the app. Enabling this could have unintended consequences so be warned!"
+			>
+				<Switch
+					checked={debugState.enabled}
+					onClick={() => (getDebugState().enabled = !debugState.enabled)}
+				/>
+			</InputContainer>
 		</SettingsContainer>
 	);
 }
