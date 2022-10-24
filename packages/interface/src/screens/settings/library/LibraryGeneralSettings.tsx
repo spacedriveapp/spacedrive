@@ -1,36 +1,42 @@
 import { useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
 import { Button, Input } from '@sd/ui';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useDebouncedCallback } from 'use-debounce';
 
 import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { useDebounce } from '../../../hooks/useDebounce';
 
 export default function LibraryGeneralSettings() {
 	const { library } = useCurrentLibrary();
 	const { mutate: editLibrary } = useBridgeMutation('library.edit');
-	const debounced = useDebouncedCallback((value) => {
-		editLibrary({
-			id: library!.uuid,
-			name: value.name,
-			description: value.description
-		});
-	}, 500);
-	const { register, watch, getValues } = useForm({
+	const { register, watch, setValue } = useForm({
 		defaultValues: {
 			name: library?.config.name,
 			description: library?.config.description
-		}
-	});
+		},
+	})
+    const [name, description] = watch(['name', 'description'])
 
-	watch(debounced); // Listen for form changes
+    const debouncedName = useDebounce(name, 500)
+    const debouncedDescription = useDebounce(description, 500)
 
-	// This forces the debounce to run when the component is unmounted
-	useEffect(() => () => debounced.flush(), [debounced]);
+    useEffect(() => {
+		editLibrary({
+			id: library!.uuid,
+			name: debouncedName!,
+			description: debouncedDescription! 
+		});
+    }, [debouncedName, debouncedDescription])
+
+    useEffect(() => {
+        setValue("name", library?.config.name)
+        setValue("description", library?.config.description)
+    }, [library])
+
 
 	return (
 		<SettingsContainer>
