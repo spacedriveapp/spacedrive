@@ -9,11 +9,12 @@ export default function AppearanceSettings() {
 	const [syncWithLibrary, setSyncWithLibrary] = useState(true);
 	return (
 		<SettingsContainer>
-			<SettingsHeader title="Keybindings" description="Manage client keybindings" />
+			{/* I don't care what you think the "right" way to write "keybinds" is, I simply refuse to refer to it as "keybindings" */}
+			<SettingsHeader title="Keybinds" description="Manage client keybinds" />
 			<InputContainer
 				mini
 				title="Sync with Library"
-				description="If enabled your keybindings will be synced with library, otherwise they will apply only to this client."
+				description="If enabled your keybinds will be synced with library, otherwise they will apply only to this client."
 			>
 				<Switch
 					checked={syncWithLibrary}

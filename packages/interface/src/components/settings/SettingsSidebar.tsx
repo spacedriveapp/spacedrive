@@ -37,7 +37,7 @@ export const SettingsSidebar = () => {
 				</SidebarLink>
 				<SidebarLink to="/settings/keybindings">
 					<SettingsIcon component={KeyReturn} />
-					Keybindings
+					Keybinds
 				</SidebarLink>
 				<SidebarLink to="/settings/extensions">
 					<SettingsIcon component={PuzzlePiece} />
