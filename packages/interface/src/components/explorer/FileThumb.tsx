@@ -1,12 +1,10 @@
 import videoSvg from '@sd/assets/svgs/video.svg';
 import zipSvg from '@sd/assets/svgs/zip.svg';
-import { getExplorerStore, usePlatform } from '@sd/client';
+import { usePlatform } from '@sd/client';
 import { useExplorerStore } from '@sd/client';
 import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
-import { useState } from 'react';
 import { Suspense, lazy, useMemo } from 'react';
-import { useSnapshot } from 'valtio';
 
 import { Folder } from '../icons/Folder';
 import { isObject, isPath } from './utils';

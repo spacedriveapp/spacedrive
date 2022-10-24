@@ -1,4 +1,4 @@
-import { getExplorerStore, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { getExplorerStore, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
@@ -10,12 +10,13 @@ import {
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
+
+import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
 	const tagsForObject = useLibraryQuery(['tags.getForObject', props.objectId], { suspense: true });
-
 	const { mutate: assignTag } = useLibraryMutation('tags.assign');
 
 	return (
@@ -55,9 +56,19 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 export default function ExplorerContextMenu(props: PropsWithChildren) {
 	const store = getExplorerStore();
-	const { mutate: generateThumbsForLocation } = useLibraryMutation(
-		'jobs.generateThumbsForLocation'
-	);
+	// const { mutate: generateThumbsForLocation } = useLibraryMutation(
+	// 	'jobs.generateThumbsForLocation'
+	// );
+	const platform = usePlatform();
+	const os = useOperatingSystem();
+
+	const osFileBrowserName = useMemo(() => {
+		if (os === 'macOS') {
+			return 'Finder';
+		} else {
+			return 'Explorer';
+		}
+	}, [os]);
 
 	return (
 		<div className="relative">
@@ -68,7 +79,16 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 				<CM.Separator />
 
 				<CM.Item label="Quick view" keybind="␣" />
-				<CM.Item label="Open in Finder" keybind="⌘Y" />
+				{platform.openPath && (
+					<CM.Item
+						label={`Open in ${osFileBrowserName}`}
+						keybind="⌘Y"
+						onClick={() => {
+							console.log('TODO', store.contextMenuActiveObject);
+							platform.openPath!('/Users/oscar/Desktop'); // TODO: Work out the file path from the backend
+						}}
+					/>
+				)}
 
 				<CM.Separator />
 

@@ -8,8 +8,6 @@ import {
 	usePlatform
 } from '@sd/client';
 import { Statistics } from '@sd/client';
-import { Button, Input } from '@sd/ui';
-import { Dialog } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { useEffect } from 'react';

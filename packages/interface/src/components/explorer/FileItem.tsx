@@ -26,12 +26,6 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	// const store = useExplorerStore();
-
-	// store.layoutMode;
-
-	// props.index === store.selectedRowIndex
-
 	const isVid = isVideo(data.extension || '');
 
 	return (
@@ -42,6 +36,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 					getExplorerStore().contextMenuObjectId = objectId;
 					if (index != undefined) {
 						getExplorerStore().selectedRowIndex = index;
+						getExplorerStore().contextMenuActiveObject = isObject(data) ? data : data.object;
 					}
 				}
 			}}
