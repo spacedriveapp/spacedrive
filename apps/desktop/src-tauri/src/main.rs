@@ -83,7 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 			Ok(())
 		})
 		.on_menu_event(menu::handle_menu_event)
-		.invoke_handler(tauri::generate_handler![app_ready,])
+		.invoke_handler(tauri::generate_handler![app_ready])
 		.menu(menu::get_menu())
 		.build(tauri::generate_context!())?;
 

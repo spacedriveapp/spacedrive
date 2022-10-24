@@ -3,12 +3,24 @@ import { PlusIcon } from '@heroicons/react/24/solid';
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import {
 	LocationCreateArgs,
+	getDebugState,
+	useBridgeQuery,
 	useCurrentLibrary,
+	useDebugState,
 	useLibraryMutation,
 	useLibraryQuery,
 	usePlatform
 } from '@sd/client';
-import { Button, ButtonLink, CategoryHeading, Dropdown, OverlayPanel, cva, tw } from '@sd/ui';
+import {
+	Button,
+	ButtonLink,
+	CategoryHeading,
+	Dropdown,
+	OverlayPanel,
+	Switch,
+	cva,
+	tw
+} from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, ShareNetwork } from 'phosphor-react';
 import React, { PropsWithChildren } from 'react';
@@ -19,11 +31,12 @@ import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
 import { MacTrafficLights } from '../os/TrafficLights';
+import { InputContainer } from '../primitive/InputContainer';
 
 export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
-	// const itemStyles = macOnly(os, 'dark:hover:bg-sidebar-box dark:hover:bg-opacity-50');
+	const debugState = useDebugState();
 
 	return (
 		<div
@@ -123,10 +136,73 @@ export function Sidebar() {
 						</div>
 					</OverlayPanel>
 				</div>
-				{/* Todo, dev check */}
-				<span className="w-full ml-1 mt-1 text-[7pt] text-ink-faint/50">Development Build</span>
+				{debugState.enabled && <DebugPanel />}
 			</div>
 		</div>
+	);
+}
+
+function DebugPanel() {
+	const buildInfo = useBridgeQuery(['buildInfo']);
+	const nodeState = useBridgeQuery(['nodeState']);
+	const debugState = useDebugState();
+	const platform = usePlatform();
+
+	return (
+		<OverlayPanel
+			className="focus:outline-none p-4"
+			transformOrigin="bottom left"
+			trigger={
+				<h1 className="w-full ml-1 mt-1 text-[7pt] text-ink-faint/50">
+					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
+				</h1>
+			}
+		>
+			<div className="block w-[430px] h-96">
+				<InputContainer
+					mini
+					title="rspc Logger"
+					description="Enable the logger link so you can see what's going on in the browser logs."
+				>
+					<Switch
+						checked={debugState.rspcLogger}
+						onClick={() => (getDebugState().rspcLogger = !debugState.rspcLogger)}
+					/>
+				</InputContainer>
+				{platform.openPath && (
+					<InputContainer
+						mini
+						title="Open Data Directory"
+						description="Quickly get to your Spacedrive database"
+					>
+						<div className="mt-2">
+							<Button
+								size="sm"
+								variant="gray"
+								onClick={() => {
+									if (nodeState?.data?.data_path) platform.openPath!(nodeState?.data?.data_path);
+								}}
+							>
+								Open
+							</Button>
+						</div>
+					</InputContainer>
+				)}
+				{/* {platform.showDevtools && (
+					<InputContainer
+						mini
+						title="Devtools"
+						description="Allow opening browser devtools in a production build"
+					>
+						<div className="mt-2">
+							<Button size="sm" variant="gray" onClick={platform.showDevtools}>
+								Show
+							</Button>
+						</div>
+					</InputContainer>
+				)} */}
+			</div>
+		</OverlayPanel>
 	);
 }
 

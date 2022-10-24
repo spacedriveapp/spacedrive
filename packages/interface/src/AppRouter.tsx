@@ -1,6 +1,5 @@
 import { lazy } from '@loadable/component';
 import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
-import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
