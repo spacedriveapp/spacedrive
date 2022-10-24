@@ -22,19 +22,17 @@ type Button = {
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
 const styles = cva(
-	'border rounded-md items-center transition-colors duration-100 cursor-default disabled:opacity-50 disabled:cursor-not-allowed',
+	'border rounded-md items-center transition-colors duration-100 cursor-default disabled:opacity-50',
 	{
 		variants: {
 			pressEffect: {
 				true: 'active:translate-y-[1px]'
 			},
-			loading: {
-				true: 'opacity-70'
-			},
-			forIcon: {
-				true: '!px-1'
+			disabled: {
+				true: 'opacity-70 pointer-events-none cursor-not-allowed'
 			},
 			size: {
+				icon: '!p-1',
 				md: 'py-1 px-3 text-md font-medium',
 				sm: 'py-1 px-2 text-sm font-medium'
 			},
@@ -64,8 +62,8 @@ const styles = cva(
 export const Button = forwardRef<
 	HTMLButtonElement | HTMLAnchorElement,
 	ButtonProps | LinkButtonProps
->(({ className, ..._props }, ref) => {
-	className = cx(styles(_props), className);
+>(({ className, ...props }, ref) => {
+	className = cx(styles(props), className);
 	return hasHref(props) ? (
 		<a {...props} ref={ref as any} className={cx(className, 'no-underline inline-block')} />
 	) : (

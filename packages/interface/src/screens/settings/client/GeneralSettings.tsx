@@ -5,7 +5,7 @@ import { Database } from 'phosphor-react';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
-const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-button`;
+const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
 export default function GeneralSettings() {
@@ -23,9 +23,9 @@ export default function GeneralSettings() {
 				<div className="flex flex-col w-full my-2">
 					<div className="flex flex-row items-center justify-between">
 						<span className="font-semibold">Connected Node</span>
-						<div className="grid grid-cols-2 gap-1">
+						<div className="flex flex-row space-x-1">
 							<NodePill>0 Peers</NodePill>
-							<NodePill className="bg-accent">Running</NodePill>
+							<NodePill className="text-white !bg-accent">Running</NodePill>
 						</div>
 					</div>
 

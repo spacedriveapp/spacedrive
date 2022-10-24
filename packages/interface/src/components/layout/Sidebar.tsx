@@ -8,7 +8,7 @@ import {
 	useLibraryQuery,
 	usePlatform
 } from '@sd/client';
-import { Button, CategoryHeading, Dropdown, OverlayPanel, cva, tw } from '@sd/ui';
+import { Button, ButtonLink, CategoryHeading, Dropdown, OverlayPanel, cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, ShareNetwork } from 'phosphor-react';
 import React, { PropsWithChildren } from 'react';
@@ -19,8 +19,6 @@ import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
 import { MacTrafficLights } from '../os/TrafficLights';
-
-const DropdownItem = tw(Dropdown.Item)`hover:bg-sidebar-selected`;
 
 export function Sidebar() {
 	const os = useOperatingSystem();
@@ -58,25 +56,28 @@ export function Sidebar() {
 				>
 					<Dropdown.Section>
 						{libraries?.map((lib) => (
-							<DropdownItem
+							<Dropdown.Item
 								selected={lib.uuid === library?.uuid}
 								key={lib.uuid}
 								onClick={() => switchLibrary(lib.uuid)}
 							>
 								{lib.config.name}
-							</DropdownItem>
+							</Dropdown.Item>
 						))}
 					</Dropdown.Section>
 					<Dropdown.Section>
-						<DropdownItem icon={CogIcon} to="settings/library">
+						<Dropdown.Item icon={CogIcon} to="settings/library">
 							Library Settings
-						</DropdownItem>
+						</Dropdown.Item>
 						<CreateLibraryDialog>
-							<DropdownItem icon={PlusIcon}>Add Library</DropdownItem>
+							<Dropdown.Item icon={PlusIcon}>Add Library</Dropdown.Item>
 						</CreateLibraryDialog>
-						<DropdownItem icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
+						<Dropdown.Item
+							icon={LockClosedIcon}
+							onClick={() => alert('TODO: Not implemented yet!')}
+						>
 							Lock
-						</DropdownItem>
+						</Dropdown.Item>
 					</Dropdown.Section>
 				</Dropdown.Root>
 				<div className="pt-1">
@@ -100,27 +101,24 @@ export function Sidebar() {
 
 			<div className="flex flex-col mb-3 px-2.5">
 				<div className="flex flex-row">
-					<NavLink to="/settings/general">
-						<Button forIcon className={clsx('hover:!bg-opacity-20')}>
-							<CogIcon className="w-5 h-5 mt-[1px]" />
-						</Button>
-					</NavLink>
+					<ButtonLink to="/settings/general" size="icon" variant="outline">
+						<CogIcon className="w-5 h-5" />
+					</ButtonLink>
 					<OverlayPanel
 						className="focus:outline-none"
 						transformOrigin="bottom left"
 						disabled={!library}
 						trigger={
 							<Button
-								forIcon
-								className={clsx(
-									'!outline-none hover:!bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed'
-								)}
+								size="icon"
+								variant="outline"
+								className="radix-state-open:bg-sidebar-selected/50"
 							>
 								<CheckCircle className="w-5 h-5" />
 							</Button>
 						}
 					>
-						<div className="block w-[500px] h-96">
+						<div className="block w-[430px] h-96">
 							<JobsManager />
 						</div>
 					</OverlayPanel>
