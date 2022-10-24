@@ -17,7 +17,8 @@ use argon2::Argon2;
 /// These parameters define the password-hashing level.
 ///
 /// The harder the parameter, the longer the password will take to hash.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::use_self)]
 pub enum Params {
 	Standard,
 	Hardened,
@@ -25,10 +26,19 @@ pub enum Params {
 }
 
 /// This defines all available password hashing algorithms.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 }
+
+/// This is so we can iterate over all hashing algorithms and parameters.
+///
+/// The main usage is for pre-hashing a key during mounting.
+pub const HASHING_ALGORITHM_LIST: [HashingAlgorithm; 3] = [
+	HashingAlgorithm::Argon2id(Params::Standard),
+	HashingAlgorithm::Argon2id(Params::Hardened),
+	HashingAlgorithm::Argon2id(Params::Paranoid),
+];
 
 impl HashingAlgorithm {
 	/// This function should be used to hash passwords
