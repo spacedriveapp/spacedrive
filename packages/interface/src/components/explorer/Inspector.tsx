@@ -58,7 +58,7 @@ export const Inspector = (props: Props) => {
 		>
 			{!!props.data && (
 				<>
-					<div className="flex bg-black items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
+					<div className="flex bg-sidebar items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
 						<FileThumb
 							iconClassNames="mx-10"
 							size={230}
@@ -67,7 +67,7 @@ export const Inspector = (props: Props) => {
 							data={props.data}
 						/>
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-app-box rounded-lg shadow select-text shadow-app-shade/10 border border-app-line">
+					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-app-box rounded-lg select-text shadow-app-shade/10 border border-app-line">
 						<h3 className="pt-2 pb-1 pl-3 text-base font-bold">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}
@@ -78,12 +78,12 @@ export const Inspector = (props: Props) => {
 									<FavoriteButton data={objectData} />
 								</Tooltip>
 								<Tooltip label="Share">
-									<Button size="sm" forIcon>
+									<Button size="icon">
 										<ShareIcon className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>
 								<Tooltip label="Link">
-									<Button size="sm" forIcon>
+									<Button size="icon">
 										<Link className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>

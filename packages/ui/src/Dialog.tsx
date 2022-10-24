@@ -65,12 +65,7 @@ export function Dialog(props: DialogProps) {
 													{props.loading && <Loader />}
 													<div className="flex-grow" />
 													<DialogPrimitive.Close asChild>
-														<Button
-															loading={props.loading}
-															disabled={props.loading}
-															size="sm"
-															variant="gray"
-														>
+														<Button disabled={props.loading} size="sm" variant="gray">
 															Close
 														</Button>
 													</DialogPrimitive.Close>
@@ -78,7 +73,6 @@ export function Dialog(props: DialogProps) {
 														onClick={props.ctaAction}
 														type="submit"
 														size="sm"
-														loading={props.loading}
 														disabled={props.loading || props.submitDisabled}
 														variant={props.ctaDanger ? 'colored' : 'accent'}
 														className={clsx(props.ctaDanger && 'bg-red-500 border-red-500')}

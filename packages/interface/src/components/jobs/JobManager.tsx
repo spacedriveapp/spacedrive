@@ -68,7 +68,7 @@ export function JobsManager() {
 			<HeaderContainer>
 				<CategoryHeading className="ml-2">Recent Jobs</CategoryHeading>
 				<div className="flex-grow" />
-				<Button forIcon>
+				<Button size="icon">
 					<EllipsisHorizontalIcon className="w-5" />
 				</Button>
 			</HeaderContainer>
@@ -127,16 +127,16 @@ function Job({ job }: { job: JobReport }) {
 			<div className="flex-grow" />
 			<div className="flex flex-row space-x-2 ml-7">
 				{job.status === 'Running' && (
-					<Button forIcon>
+					<Button size="icon">
 						<Pause className="w-4" />
 					</Button>
 				)}
 				{job.status === 'Failed' && (
-					<Button forIcon>
+					<Button size="icon">
 						<ArrowsClockwise className="w-4" />
 					</Button>
 				)}
-				<Button forIcon>
+				<Button size="icon">
 					<XMarkIcon className="w-4" />
 				</Button>
 			</div>

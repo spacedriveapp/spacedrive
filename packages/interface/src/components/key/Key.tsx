@@ -68,12 +68,12 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 			<div className="space-x-1">
 				{data.mounted && (
 					<Tooltip label="Browse files">
-						<Button forIcon>
+						<Button size="icon">
 							<EyeIcon className="w-4 h-4 text-ink-faint" />
 						</Button>
 					</Tooltip>
 				)}
-				<Button forIcon>
+				<Button size="icon">
 					<EllipsisVerticalIcon className="w-4 h-4 text-ink-faint" />
 				</Button>
 			</div>

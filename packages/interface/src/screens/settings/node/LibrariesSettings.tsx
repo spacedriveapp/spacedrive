@@ -27,11 +27,11 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 				<p className="mt-0.5 text-xs text-ink-dull">{props.library.uuid}</p>
 			</div>
 			<div className="flex flex-row items-center space-x-2">
-				<ButtonLink forIcon to="/settings/library" variant="gray">
+				<ButtonLink size="icon" to="/settings/library" variant="gray">
 					<PencilIcon className="w-4 h-4" />
 				</ButtonLink>
 				<DeleteLibraryDialog libraryUuid={props.library.uuid}>
-					<Button forIcon variant="gray">
+					<Button size="icon" variant="gray">
 						<TrashIcon className="w-4 h-4" />
 					</Button>
 				</DeleteLibraryDialog>
