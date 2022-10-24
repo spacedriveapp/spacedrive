@@ -31,6 +31,12 @@
   mask-image: linear-gradient(to top, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 100px);
 }
 
+
 .cool-shadow {
 	box-shadow: rgb(0 0 0 / 9%) 0px 3px 12px;
+}
+
+// Without this Tauri displays button differently to web
+[type="button"] {
+	-webkit-appearance: none;
 }

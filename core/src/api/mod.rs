@@ -60,8 +60,19 @@ pub(crate) fn mount() -> Arc<Router> {
 
 	let r = <Router>::new()
 		.config(config)
-		.query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
-		.query("getNode", |t| {
+		.query("buildInfo", |t| {
+			#[derive(Serialize, Type)]
+			pub struct BuildInfo {
+				version: &'static str,
+				commit: &'static str,
+			}
+
+			t(|_, _: ()| BuildInfo {
+				version: env!("CARGO_PKG_VERSION"),
+				commit: env!("GIT_HASH"),
+			})
+		})
+		.query("nodeState", |t| {
 			t(|ctx, _: ()| async move {
 				Ok(NodeState {
 					config: ctx.config.get().await,
