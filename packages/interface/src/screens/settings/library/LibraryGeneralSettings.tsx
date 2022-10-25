@@ -1,41 +1,26 @@
-import { onLibraryChange, useBridgeMutation } from '@sd/client';
+import { useBridgeMutation } from '@sd/client';
 import { useCurrentLibrary } from '@sd/client';
 import { Button, Input, Switch } from '@sd/ui';
-import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useDebouncedCallback } from 'use-debounce';
 
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { useDebouncedForm } from '../../../hooks/useDebouncedForm';
 
 export default function LibraryGeneralSettings() {
 	const { library } = useCurrentLibrary();
 	const { mutate: editLibrary } = useBridgeMutation('library.edit');
-
-	const debounced = useDebouncedCallback((value) => {
+	const form = useForm({
+		defaultValues: { id: library!.uuid, ...library?.config }
+	});
+	useDebouncedForm(form, (value) =>
 		editLibrary({
 			id: library!.uuid,
 			name: value.name,
 			description: value.description
-		});
-	}, 500);
-
-	const { register, watch, reset, getValues } = useForm({
-		defaultValues: { id: library?.uuid, ...library?.config }
-	});
-
-	// ensure the form is updated when the library changes
-	useEffect(() => {
-		if (library?.uuid !== getValues('id')) {
-			reset({ id: library?.uuid, ...library?.config });
-		}
-	}, [library, getValues, reset]);
-
-	watch(debounced); // listen for form changes
-
-	// force the debounce to run when the component is unmounted
-	useEffect(() => () => debounced.flush(), [debounced]);
+		})
+	);
 
 	return (
 		<SettingsContainer>
@@ -46,11 +31,11 @@ export default function LibraryGeneralSettings() {
 			<div className="flex flex-row pb-3 space-x-5">
 				<div className="flex flex-col flex-grow">
 					<span className="mb-1 text-sm font-medium">Name</span>
-					<Input {...register('name', { required: true })} defaultValue="My Default Library" />
+					<Input {...form.register('name', { required: true })} defaultValue="My Default Library" />
 				</div>
 				<div className="flex flex-col flex-grow">
 					<span className="mb-1 text-sm font-medium">Description</span>
-					<Input {...register('description')} placeholder="" />
+					<Input {...form.register('description')} placeholder="" />
 				</div>
 			</div>
 
