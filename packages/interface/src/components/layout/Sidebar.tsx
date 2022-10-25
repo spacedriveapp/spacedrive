@@ -24,7 +24,7 @@ import {
 } from '@sd/ui';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Planet, ShareNetwork } from 'phosphor-react';
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
@@ -38,6 +38,7 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
+	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
 	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
 
@@ -84,9 +85,9 @@ export function Sidebar() {
 					<Dropdown.Item icon={CogIcon} to="settings/library">
 						Library Settings
 					</Dropdown.Item>
-					<CreateLibraryDialog>
-						<Dropdown.Item icon={PlusIcon}>Add Library</Dropdown.Item>
-					</CreateLibraryDialog>
+					<Dropdown.Item icon={PlusIcon} onClick={() => setIsCreateDialogOpen(true)}>
+						Add Library
+					</Dropdown.Item>
 					<Dropdown.Item icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
 						Lock
 					</Dropdown.Item>
@@ -142,6 +143,8 @@ export function Sidebar() {
 				</div>
 				{debugState.enabled && <DebugPanel />}
 			</div>
+			{/* Putting this within the dropdown will break the enter click handling in the modal. */}
+			<CreateLibraryDialog open={isCreateDialogOpen} setOpen={setIsCreateDialogOpen} />
 		</div>
 	);
 }
