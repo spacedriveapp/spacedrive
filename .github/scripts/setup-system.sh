@@ -120,7 +120,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 	fi
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 		if ! command -v brew >/dev/null; then
-			log_err "Homebrew was not found. Please install it using the instrctions at https://brew.sh and try again."
+			log_err "Homebrew was not found. Please install it using the instructions at https://brew.sh and try again."
 			exit 1
 		fi
 
