@@ -29,6 +29,7 @@ const Explorer = ({ locationId, path }: Props) => {
 					data={data.items}
 					keyExtractor={(item) => item.id.toString()}
 					renderItem={({ item }) => <FileItem data={item} />}
+					// estimatedItemSize={}
 				/>
 			)}
 		</View>

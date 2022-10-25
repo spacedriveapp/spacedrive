@@ -29,7 +29,10 @@ const FileItem = ({ data }: FileItemProps) => {
 	return (
 		<Pressable onPress={handlePress}>
 			<View style={tw`w-[90px] h-[80px] items-center`}>
-				<FileThumb data={data} />
+				<FileThumb
+					data={data}
+					kind={data.extension === 'zip' ? 'zip' : isVideo(data.extension) ? 'video' : 'other'}
+				/>
 				<View style={tw`px-1.5 py-[1px] mt-1`}>
 					<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-gray-300`}>
 						{data?.name}
@@ -41,3 +44,36 @@ const FileItem = ({ data }: FileItemProps) => {
 };
 
 export default FileItem;
+
+// Copied from FileItem.tsx (interface/src/components/explorer/FileItem.tsx)
+function isVideo(extension: string) {
+	return [
+		'avi',
+		'asf',
+		'mpeg',
+		'mts',
+		'mpe',
+		'vob',
+		'qt',
+		'mov',
+		'asf',
+		'asx',
+		'mjpeg',
+		'ts',
+		'mxf',
+		'm2ts',
+		'f4v',
+		'wm',
+		'3gp',
+		'm4v',
+		'wmv',
+		'mp4',
+		'webm',
+		'flv',
+		'mpg',
+		'hevc',
+		'ogv',
+		'swf',
+		'wtv'
+	].includes(extension);
+}

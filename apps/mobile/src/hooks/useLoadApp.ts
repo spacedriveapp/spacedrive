@@ -33,8 +33,8 @@ export default function useLoadApp() {
 				currentLibrary && syncWithClient(currentLibrary.uuid);
 
 				if (isLoadingComplete) return;
-				SplashScreen.hideAsync();
 				setLoadingComplete(true);
+				await SplashScreen.hideAsync();
 			} catch (e) {
 				console.warn(e);
 			}

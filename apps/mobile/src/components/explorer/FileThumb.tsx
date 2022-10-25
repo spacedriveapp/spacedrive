@@ -1,3 +1,5 @@
+import VideoSvg from '@sd/assets/svgs/video.svg';
+import ZipSvg from '@sd/assets/svgs/zip.svg';
 import { usePlatform } from '@sd/client';
 import { Suspense, useMemo } from 'react';
 import { Image, Text, View } from 'react-native';
@@ -20,7 +22,7 @@ type FileThumbProps = {
 	kind?: 'video' | 'image' | 'audio' | 'zip' | 'other';
 };
 
-export default function FileThumb({ data, size = 1 }: FileThumbProps) {
+export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	const explorerStore = useExplorerStore();
 	const platform = usePlatform();
 
@@ -48,17 +50,32 @@ export default function FileThumb({ data, size = 1 }: FileThumbProps) {
 
 	const url = platform.getThumbnailUrlById(cas_id);
 
-	console.log('url', url);
-
 	// Thumbnail
 	if (has_thumbnail && url) {
-		console.log('Thumbnail URL:', url);
-		return <Image source={{ uri: url }} style={tw`w-12 h-12`} />;
+		// TODO: Thumbnail job doesn't work?
+		// not styled yet
+		return <Image source={{ uri: url }} style={tw`w-[50px] h-[50px]`} />;
 	}
 
 	// Video
-	// Zip
+	if (kind === 'video') {
+		return (
+			<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
+				<VideoSvg width={50 * size} height={50 * size} />
+			</View>
+		);
+	}
 
+	// Zip
+	if (kind === 'zip') {
+		return (
+			<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
+				<ZipSvg width={50 * size} height={50 * size} />
+			</View>
+		);
+	}
+
+	// Default file icon
 	return (
 		<View style={[tw`justify-center`, { width: 60 * size, height: 60 * size }]}>
 			<View style={[tw`m-auto relative`, { width: 45 * size, height: 60 * size }]}>

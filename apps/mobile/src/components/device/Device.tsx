@@ -38,7 +38,7 @@ const placeholderFileItems: ExplorerItem[] = [
 			important: false,
 			integrity_checksum: '',
 			ipfs_id: '',
-			kind: 5,
+			kind: 2,
 			note: '',
 			size_in_bytes: '0'
 		}
@@ -62,7 +62,7 @@ const placeholderFileItems: ExplorerItem[] = [
 		important: false,
 		integrity_checksum: '',
 		ipfs_id: '',
-		kind: 5,
+		kind: 4,
 		note: '',
 		size_in_bytes: '0'
 	},

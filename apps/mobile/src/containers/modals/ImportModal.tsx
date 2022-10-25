@@ -22,17 +22,13 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 			const response = await DocumentPicker.pickDirectory({
 				presentationStyle: 'pageSheet'
 			});
-			RFS.readdir(response.uri.replace('file://', '').replaceAll('%20', ' ')).then((files) => {
-				files.forEach((file) => {
-					console.log(file);
-				});
-			});
+
 			createLocation({
-				path: response.uri.replace('file://', '').replaceAll('%20', ' '), //TODO: Parse path better...
+				path: decodeURIComponent(response.uri.replace('file://', '')),
 				indexer_rules_ids: []
 			});
 		} catch (err) {
-			// console.warn(err);
+			console.warn(err);
 		}
 	}, [createLocation]);
 
@@ -51,7 +47,8 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 	}, []);
 
 	const testFN = useCallback(async () => {
-		RFS.readdir(RFS.DocumentDirectoryPath).then((files) => {
+		const URL = decodeURIComponent(RFS.DocumentDirectoryPath + '/libraries');
+		RFS.readdir(URL).then((files) => {
 			files.forEach((file) => {
 				console.log(file);
 			});
