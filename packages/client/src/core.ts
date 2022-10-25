@@ -9,10 +9,12 @@ export type Procedures = {
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
+        { key: "keys.getDefault", input: LibraryArgs<null>, result: Key | null } | 
         { key: "keys.list", input: LibraryArgs<null>, result: Array<Key> } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setMasterPassword", input: LibraryArgs<string>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 

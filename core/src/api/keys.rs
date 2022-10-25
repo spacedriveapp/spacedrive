@@ -2,6 +2,8 @@ use sd_crypto::{Protected, crypto::stream::Algorithm, keys::hashing::{HashingAlg
 use serde::Deserialize;
 use specta::Type;
 
+use crate::prisma::key;
+
 use super::{utils::LibraryRequest, RouterBuilder};
 
 #[derive(Type, Deserialize)]
@@ -40,12 +42,38 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
+		.library_query("setMasterPassword", |t| {
+			t(|_, password: String, library| async move {
+				// need to add master password checks to make sure it's correct
+				// this can either unwrap&fail, or we can return the error. either way, the user will have to correct this
+				// by entering the correct password
+				library.key_manager.lock().await.set_master_password(Protected::new(password.as_bytes().to_vec())).unwrap();
+
+				Ok(())
+			})
+		})
 		.library_query("setDefault", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library.key_manager.lock().await.set_default(key_uuid).unwrap();
-				// we should also update the default key within prisma
+
+				// if an old default is set, unset it as the default
+				let old_default = library.db.key().find_first(vec![key::default::equals(true)]).exec().await?;
+				if let Some(key) = old_default {
+					library.db.key().update(key::uuid::equals(key.uuid), vec![key::SetParam::SetDefault(false)]).exec().await?;
+				}
+
+				// we allow this to error as the new default **SHOULD** exist
+				let new_default = library.db.key().find_unique(key::uuid::equals(key_uuid.to_string())).exec().await?.unwrap();
+				library.db.key().update(key::uuid::equals(new_default.uuid), vec![key::SetParam::SetDefault(true)]).exec().await?;
 
 				Ok(())
+			})
+		})
+		.library_query("getDefault", |t| {
+			t(|_, _: (), library| async move {
+				// `find_first` should be okay here as only one default key should ever be set
+				// this is also stored in the keymanager but it's probably easier to get it from the DB				
+				Ok(library.db.key().find_first(vec![key::default::equals(true)]).exec().await?)
 			})
 		})
 		.library_query("add", |t| {
@@ -69,6 +97,8 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				// mount the key
 				library.key_manager.lock().await.mount(uuid).unwrap();
+
+				// need to add the key to prisma too
 
 				Ok(())
 			})
