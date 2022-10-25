@@ -20,9 +20,9 @@ pub enum ThumbnailerError {
 	Io(#[from] std::io::Error),
 	#[error("Path conversion error: Path: {0:#?}")]
 	PathConversion(PathBuf),
-	#[error("FFMPEG internal error: {0}")]
+	#[error("FFmpeg internal error: {0}")]
 	Ffmpeg(#[from] FfmpegError),
-	#[error("FFMPEG internal error: {0}; Reason: {1}")]
+	#[error("FFmpeg internal error: {0}; Reason: {1}")]
 	FfmpegWithReason(FfmpegError, String),
 	#[error("Failed to decode video frame")]
 	FrameDecodeError,
@@ -38,7 +38,7 @@ pub enum ThumbnailerError {
 	BackgroundTaskFailed(#[from] JoinError),
 }
 
-/// Enum to represent possible errors from FFMPEG library
+/// Enum to represent possible errors from FFmpeg library
 ///
 /// Extracted from https://ffmpeg.org/doxygen/trunk/group__lavu__error.html
 #[derive(Error, Debug)]
