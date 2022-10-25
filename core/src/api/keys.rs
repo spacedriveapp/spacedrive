@@ -1,4 +1,15 @@
+use sd_crypto::{Protected, crypto::stream::Algorithm, keys::hashing::{HashingAlgorithm, Params}};
+use serde::Deserialize;
+use specta::Type;
+
 use super::{utils::LibraryRequest, RouterBuilder};
+
+#[derive(Type, Deserialize)]
+pub struct KeyAddArgs {
+	algorithm: String,
+	hashing_algorithm: String,
+	key: String,
+}
 
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
@@ -7,6 +18,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				|_, _: (), library| async move { Ok(library.db.key().find_many(vec![]).exec().await?) },
 			)
 		})
+		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
 			t(
 				|_, _: (), library| async move { Ok(library.key_manager.lock().await.get_mounted_uuids()) },
@@ -16,6 +28,47 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library.key_manager.lock().await.mount(key_uuid).unwrap();
 				// we also need to dispatch jobs that automatically decrypt preview media and metadata here
+
+				Ok(())
+			})
+		})
+		.library_query("unmount", |t| {
+			t(|_, key_uuid: uuid::Uuid, library| async move {
+				library.key_manager.lock().await.unmount(key_uuid).unwrap();
+				// we also need to delete all in-memory decrypted data associated with this key
+
+				Ok(())
+			})
+		})
+		.library_query("setDefault", |t| {
+			t(|_, key_uuid: uuid::Uuid, library| async move {
+				library.key_manager.lock().await.set_default(key_uuid).unwrap();
+				// we should also update the default key within prisma
+
+				Ok(())
+			})
+		})
+		.library_query("add", |t| {
+			t(|_, args: KeyAddArgs, library| async move {
+				let algorithm = match &args.algorithm as &str {
+					"XChaCha20Poly1305" => Algorithm::XChaCha20Poly1305,
+					"Aes256Gcm" => Algorithm::Aes256Gcm,
+					_ => unreachable!()
+				};
+
+				// we need to get parameters from somewhere, possibly a global config setting - they're just set to standard for now
+				// we're just mapping bcrypt to argon2id temporarily as i'm unsure whether or not we're actually adding bcrypt
+				let hashing_algorithm = match &args.hashing_algorithm as &str {
+					"Argon2id" => HashingAlgorithm::Argon2id(Params::Standard),
+					"Bcrypt" => HashingAlgorithm::Argon2id(Params::Standard),
+					_ => unreachable!()
+				};
+
+				// register the key with the keymanager
+				let uuid = library.key_manager.lock().await.add_to_keystore(Protected::new(args.key.as_bytes().to_vec()), algorithm, hashing_algorithm).unwrap();
+
+				// mount the key
+				library.key_manager.lock().await.mount(uuid).unwrap();
 
 				Ok(())
 			})

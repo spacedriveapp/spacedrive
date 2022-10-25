@@ -8,6 +8,12 @@ export type Procedures = {
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
+        { key: "keys.list", input: LibraryArgs<null>, result: Array<Key> } | 
+        { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
+        { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
         { key: "locations.getById", input: LibraryArgs<number>, result: Location | null } | 
@@ -79,6 +85,10 @@ export interface InvalidateOperationEvent { key: string, arg: any }
 export interface JobReport { id: string, name: string, data: Array<number> | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
+
+export interface Key { id: number, uuid: string, name: string, default: boolean, date_created: string | null, algorithm: Array<number>, hashing_algorithm: Array<number>, salt: Array<number>, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number> }
+
+export interface KeyAddArgs { algorithm: string, hashing_algorithm: string, key: string }
 
 export interface LibraryArgs<T> { library_id: string, arg: T }
 
