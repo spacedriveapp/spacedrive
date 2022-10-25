@@ -37,12 +37,11 @@ import { MacTrafficLights } from '../os/TrafficLights';
 import { InputContainer } from '../primitive/InputContainer';
 
 export function Sidebar() {
+	// DO NOT DO LIBRARY QUERIES OR MUTATIONS HERE. This is rendered before a library is set.
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-
-	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
 
 	// const itemStyles = macOnly(os, 'dark:hover:bg-sidebar-box dark:hover:bg-opacity-50');
 	return (
@@ -130,11 +129,7 @@ export function Sidebar() {
 								variant="outline"
 								className="radix-state-open:bg-sidebar-selected/50"
 							>
-								{isRunningJob ? (
-									<Loader className="w-[20px] h-[20px]" />
-								) : (
-									<CheckCircle className="w-5 h-5" />
-								)}
+								{library && <IsRunningJob />}
 							</Button>
 						}
 					>
@@ -148,6 +143,16 @@ export function Sidebar() {
 			{/* Putting this within the dropdown will break the enter click handling in the modal. */}
 			<CreateLibraryDialog open={isCreateDialogOpen} setOpen={setIsCreateDialogOpen} />
 		</div>
+	);
+}
+
+function IsRunningJob() {
+	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
+
+	return isRunningJob ? (
+		<Loader className="w-[20px] h-[20px]" />
+	) : (
+		<CheckCircle className="w-5 h-5" />
 	);
 }
 
