@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::hashing::{HashingAlgorithm, Params},
@@ -51,7 +53,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.key()
 					.update(
 						key::uuid::equals(args.uuid.to_string()),
-						vec![key::SetParam::SetName(args.name)],
+						vec![key::SetParam::SetName(Some(args.name))],
 					)
 					.exec()
 					.await?;
@@ -72,12 +74,20 @@ pub(crate) fn mount() -> RouterBuilder {
 				// need to add master password checks in the keymanager itself to make sure it's correct
 				// this can either unwrap&fail, or we can return the error. either way, the user will have to correct this
 				// by entering the correct password
+				// for now, automounting might have to serve as the master password checks
+
 				library
 					.key_manager
 					.lock()
 					.await
 					.set_master_password(Protected::new(password.as_bytes().to_vec()))
 					.unwrap();
+
+				let automount = library.db.key().find_many(vec![key::automount::equals(true)]).exec().await?;
+
+				for key in automount {
+					library.key_manager.lock().await.mount(uuid::Uuid::from_str(&key.uuid).unwrap()).unwrap();
+				}
 
 				Ok(())
 			})
@@ -183,7 +193,6 @@ pub(crate) fn mount() -> RouterBuilder {
 					.key()
 					.create(
 						uuid.to_string(),
-						"Key".to_string(),
 						false,
 						algorithm.serialize().to_vec(),
 						hashing_algorithm.serialize().to_vec(),
@@ -193,6 +202,7 @@ pub(crate) fn mount() -> RouterBuilder {
 						stored_key.master_key_nonce.to_vec(),
 						stored_key.key_nonce.to_vec(),
 						stored_key.key.to_vec(),
+						false,
 						vec![],
 					)
 					.exec()

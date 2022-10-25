@@ -214,6 +214,8 @@ model Key {
   // the *encrypted* key
   key Bytes
 
+  automount Boolean
+
   objects    Object[]
   file_paths FilePath[]
 
