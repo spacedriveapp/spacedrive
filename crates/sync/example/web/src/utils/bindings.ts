@@ -3,9 +3,10 @@
 export type Procedures = {
     queries: 
         { key: "db.tags", input: string, result: Record<string, Tag> } | 
-        { key: "dbs", input: never, result: Array<string> } | 
+        { key: "dbs", input: string, result: Array<string> } | 
         { key: "file_path.list", input: string, result: Array<FilePath> } | 
-        { key: "message.list", input: string, result: Array<CRDTOperation> },
+        { key: "message.list", input: string, result: Array<CRDTOperation> } | 
+        { key: "operations", input: string, result: Array<CRDTOperation> },
     mutations: 
         { key: "createDatabase", input: string, result: string } | 
         { key: "file_path.create", input: string, result: FilePath } | 

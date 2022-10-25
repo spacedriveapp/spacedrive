@@ -5,10 +5,10 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
 import './index.css';
-import { client, queryClient, rspc } from './utils/rspc';
+import { queryClient, rspc, rspcClient } from './utils/rspc';
 
 const root = createRoot(document.getElementById('root') as HTMLElement).render(
-	<rspc.Provider client={client} queryClient={queryClient}>
+	<rspc.Provider client={rspcClient} queryClient={queryClient}>
 		<Suspense fallback={null}>
 			<App />
 		</Suspense>

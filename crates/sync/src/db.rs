@@ -78,16 +78,12 @@ impl Db {
 	pub fn create_crdt_operation(&mut self, typ: CRDTOperationType) -> CRDTOperation {
 		let hlc_timestamp = self._clock.new_timestamp();
 
-		let op = CRDTOperation {
+		CRDTOperation {
 			node: self._node,
 			timestamp: *hlc_timestamp.get_time(),
 			id: Uuid::new_v4(),
 			typ,
-		};
-
-		self._operations.push(op.clone());
-
-		op
+		}
 	}
 
 	fn compare_messages(&self, operations: Vec<CRDTOperation>) -> Vec<(CRDTOperation, bool)> {
@@ -96,8 +92,8 @@ impl Db {
 			.map(|op| (op.id.clone(), op))
 			.collect::<HashMap<_, _>>()
 			.into_iter()
-			.map(|(_, op)| {
-				let old = match &op.typ {
+			.filter_map(|(_, op)| {
+				match &op.typ {
 					CRDTOperationType::Owned(_) => {
 						self._operations.iter().find(|find_op| match &find_op.typ {
 							CRDTOperationType::Owned(_) => {
@@ -117,10 +113,9 @@ impl Db {
 						})
 					}
 				}
-				.map(|similar_op| similar_op.timestamp == op.timestamp)
-				.unwrap_or(false);
-
-				(op, old)
+				.map(|old_op| (old_op.timestamp != op.timestamp).then_some(true))
+				.unwrap_or(Some(false))
+				.map(|old| (op, old))
 			})
 			.collect()
 	}
@@ -131,7 +126,7 @@ impl Db {
 				.update_with_timestamp(&Timestamp::new(op.timestamp, op.node.into()))
 				.ok();
 
-			self._clocks.insert(self._node.clone(), op.timestamp);
+			self._clocks.insert(op.node, op.timestamp);
 		}
 
 		for (op, old) in self.compare_messages(ops) {
@@ -198,6 +193,127 @@ impl Db {
 
 				self._operations.push(push_op)
 			}
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::sync::atomic::{AtomicI32, Ordering};
+
+	use super::*;
+
+	static ID: AtomicI32 = AtomicI32::new(0);
+
+	fn to_map(v: &impl serde::Serialize) -> serde_json::Map<String, Value> {
+		match to_value(&v).unwrap() {
+			Value::Object(m) => m,
+			_ => unreachable!(),
+		}
+	}
+
+	#[test]
+	fn test() {
+		let mut dbs = vec![];
+
+		for _ in 0..3 {
+			let id = Uuid::new_v4();
+
+			dbs.push(Db::new(id.clone()));
+
+			let ids = dbs.iter().map(|db| db._node.clone()).collect::<Vec<_>>();
+
+			for db in &mut dbs {
+				for id in &ids {
+					db.register_node(id.clone());
+				}
+			}
+		}
+
+		for db in &mut dbs {
+			let id = ID.fetch_add(1, Ordering::SeqCst);
+
+			let file_path = FilePath {
+				id,
+				path: String::new(),
+				file: None,
+			};
+
+			let op = db.create_crdt_operation(CRDTOperationType::Owned(OwnedOperation {
+				model: "FilePath".to_string(),
+				items: vec![OwnedOperationItem {
+					id: serde_json::to_value(id).unwrap(),
+					data: OwnedOperationData::Create(to_map(&file_path)),
+				}],
+			}));
+
+			db.receive_crdt_operations(vec![op]);
+		}
+
+		for db in &dbs {
+			assert_eq!(db._operations.len(), 1);
+		}
+
+		let ops = dbs
+			.iter()
+			.flat_map(|db| db._operations.clone())
+			.collect::<Vec<_>>();
+
+		for db in &mut dbs {
+			db.receive_crdt_operations(ops.clone())
+		}
+
+		for db in &dbs {
+			assert_eq!(db.file_paths.len(), 3);
+			assert_eq!(db._operations.len(), 3);
+		}
+
+		for _ in 0..2 {
+			let db = &mut dbs[0];
+			let id = ID.fetch_add(1, Ordering::SeqCst);
+
+			let file_path = FilePath {
+				id,
+				path: String::new(),
+				file: None,
+			};
+
+			let op = db.create_crdt_operation(CRDTOperationType::Owned(OwnedOperation {
+				model: "FilePath".to_string(),
+				items: vec![OwnedOperationItem {
+					id: serde_json::to_value(id).unwrap(),
+					data: OwnedOperationData::Create(to_map(&file_path)),
+				}],
+			}));
+
+			db.receive_crdt_operations(vec![op]);
+		}
+
+		let ops = dbs
+			.iter()
+			.flat_map(|db| db._operations.clone())
+			.collect::<Vec<_>>();
+
+		for db in &mut dbs {
+			db.receive_crdt_operations(ops.clone());
+		}
+
+		for db in &dbs {
+			assert_eq!(db.file_paths.len(), 5);
+			assert_eq!(db._operations.len(), 5);
+		}
+
+		for _ in 0..4 {
+			let ops = dbs
+				.iter()
+				.flat_map(|db| db._operations.clone())
+				.collect::<Vec<_>>();
+			dbs[0].receive_crdt_operations(ops);
+		}
+
+		for db in &dbs {
+			assert_eq!(db.file_paths.len(), 5);
+			assert_eq!(db._operations.len(), 5);
 		}
 	}
 }

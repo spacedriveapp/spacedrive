@@ -61,7 +61,7 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 			})
 		})
 		.query("dbs", |r| {
-			r(|ctx, _: ()| async move {
+			r(|ctx, _: String| async move {
 				let dbs = &mut ctx.lock().await.dbs;
 
 				Ok(dbs.iter().map(|(id, _)| *id).collect::<Vec<_>>())
@@ -101,15 +101,15 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 					file: None,
 				};
 
-				db.file_paths.insert(id, file_path.clone());
-
-				db.create_crdt_operation(CRDTOperationType::Owned(OwnedOperation {
+				let op = db.create_crdt_operation(CRDTOperationType::Owned(OwnedOperation {
 					model: "FilePath".to_string(),
 					items: vec![OwnedOperationItem {
 						id: serde_json::to_value(id).unwrap(),
 						data: OwnedOperationData::Create(to_map(&file_path)),
 					}],
 				}));
+
+				db.receive_crdt_operations(vec![op]);
 
 				file_path
 			})
@@ -129,19 +129,9 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 
 				let db_id = db_id.parse().unwrap();
 
-				let db = dbs.get(&db_id).unwrap();
-
-				let db_clocks = db._clocks.clone();
-
 				let ops = dbs
 					.iter()
-					.filter(|(id, _)| *id != &db_id)
-					.map(|(id, db)| {
-						db._operations
-							.iter()
-							.filter(|op| &op.timestamp >= db_clocks.get(id).unwrap())
-							.map(Clone::clone)
-					})
+					.map(|(_, db)| db._operations.clone())
 					.flatten()
 					.collect();
 
@@ -150,6 +140,25 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 				db.receive_crdt_operations(ops);
 
 				Ok(())
+			})
+		})
+		.query("operations", |r| {
+			r(|ctx, _: String| async move {
+				let dbs = &mut ctx.lock().await.dbs;
+
+				let mut hashmap = HashMap::new();
+
+				for (_, db) in dbs {
+					for op in &db._operations {
+						hashmap.insert(op.id.clone(), op.clone());
+					}
+				}
+
+				let mut array = hashmap.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
+
+				array.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
+
+				Ok(array)
 			})
 		})
 }
