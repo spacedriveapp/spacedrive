@@ -10,7 +10,6 @@ import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';
 
-const isDev = import.meta.env.DEV;
 const client = hooks.createClient({
 	links: [
 		splitLink({

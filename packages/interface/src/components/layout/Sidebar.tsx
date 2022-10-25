@@ -18,6 +18,8 @@ import {
 	Dropdown,
 	Loader,
 	OverlayPanel,
+	Select,
+	SelectOption,
 	Switch,
 	cva,
 	tw
@@ -195,6 +197,22 @@ function DebugPanel() {
 						</div>
 					</InputContainer>
 				)}
+				<InputContainer
+					mini
+					title="React Query Devtools"
+					description="Configure the React Query devtools."
+				>
+					<Select
+						value={debugState.reactQueryDevtools}
+						size="sm"
+						onChange={(value) => (getDebugState().reactQueryDevtools = value as any)}
+					>
+						<SelectOption value="disabled">Disabled</SelectOption>
+						<SelectOption value="invisible">Invisble</SelectOption>
+						<SelectOption value="enabled">Enabled</SelectOption>
+					</Select>
+				</InputContainer>
+
 				{/* {platform.showDevtools && (
 					<InputContainer
 						mini

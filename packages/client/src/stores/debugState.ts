@@ -6,7 +6,12 @@ import { valtioPersist } from '.';
 export const debugState = valtioPersist('sd-debugState', {
 	// @ts-ignore
 	enabled: import.meta.env.DEV,
-	rspcLogger: false
+	rspcLogger: false,
+	// @ts-ignore
+	reactQueryDevtools: (import.meta.env.DEV ? 'invisible' : 'enabled') as
+		| 'enabled'
+		| 'disabled'
+		| 'invisible'
 });
 
 export function useDebugState() {
