@@ -2,6 +2,7 @@ import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/solid';
 import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
 import { useEffect, useRef, useState } from 'react';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 
 import { Tooltip } from '../tooltip/Tooltip';
 
@@ -16,6 +17,8 @@ export function KeyMounter() {
 	const [key, setKey] = useState('');
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id');
+
+	const { mutate: createKey } = useLibraryMutation('keys.add');
 
 	const CurrentEyeIcon = showKey ? EyeSlashIcon : EyeIcon;
 
@@ -84,7 +87,11 @@ export function KeyMounter() {
 			<p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-ink-faint w-[90%]">
 				Files encrypted with this key will be revealed and decrypted on the fly.
 			</p>
-			<Button className="w-full mt-2" variant="accent">
+			<Button className="w-full mt-2" variant="accent" onClick={() => {
+				createKey({algorithm: encryptionAlgo, hashing_algorithm: hashingAlgo, key: key });
+				setKey("");
+			}
+			}>
 				Mount Key
 			</Button>
 		</div>

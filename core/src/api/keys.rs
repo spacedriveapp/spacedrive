@@ -153,8 +153,12 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?)
 			})
 		})
-		.library_query("add", |t| {
+		.library_mutation("add", |t| {
 			t(|_, args: KeyAddArgs, library| async move {
+				// TODO(jake): remove this once we are able to get the master password from the UI
+				// use the designated route for setting it
+				library.key_manager.lock().await.set_master_password(Protected::new(b"password".to_vec())).unwrap();
+
 				let algorithm = match &args.algorithm as &str {
 					"XChaCha20Poly1305" => Algorithm::XChaCha20Poly1305,
 					"Aes256Gcm" => Algorithm::Aes256Gcm,
