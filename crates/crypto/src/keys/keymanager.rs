@@ -159,12 +159,14 @@ impl KeyManager {
 	/// This function returns a Vec of `StoredKey`s, so you can write them somewhere/update the database with them/etc
 	///
 	/// The database and keystore should be in sync at ALL times
+	#[must_use]
 	pub fn dump_keystore(&self) -> Vec<StoredKey> {
 		self.keystore.iter().map(|key| key.1.clone()).collect()
 	}
 
+	#[must_use]
 	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {
-		self.keymount.iter().map(|key| key.0.clone()).collect()
+		self.keymount.iter().map(|key| *key.0).collect()
 	}
 
 	/// This function does not return a value by design.

@@ -17,6 +17,12 @@ pub struct KeyAddArgs {
 	key: String,
 }
 
+#[derive(Type, Deserialize)]
+pub struct KeyNameUpdateArgs {
+	uuid: uuid::Uuid,
+	name: String,
+}
+
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_query("list", |t| {
@@ -38,6 +44,21 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
+		.library_query("updateKeyName", |t| {
+			t(|_, args: KeyNameUpdateArgs, library| async move {
+				library
+					.db
+					.key()
+					.update(
+						key::uuid::equals(args.uuid.to_string()),
+						vec![key::SetParam::SetName(args.name)],
+					)
+					.exec()
+					.await?;
+
+				Ok(())
+			})
+		})
 		.library_query("unmount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library.key_manager.lock().await.unmount(key_uuid).unwrap();
@@ -48,7 +69,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("setMasterPassword", |t| {
 			t(|_, password: String, library| async move {
-				// need to add master password checks to make sure it's correct
+				// need to add master password checks in the keymanager itself to make sure it's correct
 				// this can either unwrap&fail, or we can return the error. either way, the user will have to correct this
 				// by entering the correct password
 				library
