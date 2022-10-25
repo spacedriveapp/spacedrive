@@ -5,15 +5,20 @@ import proxyWithPersist, { PersistStrategy } from 'valtio-persist';
 
 import { StorageEngine } from './utils';
 
+export function syncWithClient(libraryUuid: string) {
+	// Sync with @sd/client to make rspc work
+	mobileSync.id = libraryUuid;
+	return;
+}
+
 const libraryStore = proxyWithPersist({
 	initialState: {
 		currentLibraryUuid: null as string | null,
 		switchLibrary: (libraryUuid: string) => {
 			libraryStore.currentLibraryUuid = libraryUuid;
-			// Reset any other stores connected to library
+			syncWithClient(libraryUuid);
 
-			// Sync with @sd/client
-			mobileSync.id = libraryUuid;
+			// Reset any other stores connected to library
 		}
 	},
 	persistStrategies: PersistStrategy.SingleFile,
@@ -36,6 +41,7 @@ export function useLibraryStore() {
 		const current = libraries?.find((l: any) => l.uuid === store.currentLibraryUuid);
 		// switch to first library if none set
 		if (Array.isArray(libraries) && !current && libraries[0]?.uuid) {
+			console.log('Switching to first library');
 			store.switchLibrary(libraries[0]?.uuid);
 		}
 		return current;

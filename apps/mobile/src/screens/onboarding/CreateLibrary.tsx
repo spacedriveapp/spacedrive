@@ -4,10 +4,10 @@ import { AnimatedButton } from '~/components/primitive/Button';
 import CreateLibraryDialog from '~/containers/dialog/CreateLibraryDialog';
 import tw from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
-import { onboardingStore } from '~/stores/onboardingStore';
+import { useOnboardingStore } from '~/stores/onboardingStore';
 
 const CreateLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'CreateLibrary'>) => {
-	const { hideOnboarding } = useSnapshot(onboardingStore);
+	const { hideOnboarding } = useOnboardingStore();
 
 	return (
 		<View style={tw`flex-1 items-center justify-center bg-gray-650 p-4`}>

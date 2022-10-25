@@ -1,6 +1,7 @@
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import { syncWithClient, useLibraryStore } from '~/stores/libraryStore';
 
 /* 
 	https://github.com/facebook/hermes/issues/23
@@ -16,27 +17,31 @@ if (Platform.OS === 'ios') {
 	require('intl/locale-data/jsonp/en');
 }
 
-export default function useCachedResources() {
+SplashScreen.preventAutoHideAsync();
+
+// Loads any resources or data that we need prior to rendering the app
+// Like library store, onboarding, etc.
+export default function useLoadApp() {
 	const [isLoadingComplete, setLoadingComplete] = useState(false);
 
-	// Load any resources or data that we need prior to rendering the app
+	const { currentLibrary, isLoaded: isLibraryLoaded } = useLibraryStore();
+
 	useEffect(() => {
 		async function loadResourcesAndDataAsync() {
 			try {
-				SplashScreen.preventAutoHideAsync();
+				if (!isLibraryLoaded) return;
+				currentLibrary && syncWithClient(currentLibrary.uuid);
 
-				// Load fonts, icons etc.
-			} catch (e) {
-				// We might want to provide this error information to an error reporting service
-				console.warn(e);
-			} finally {
-				setLoadingComplete(true);
+				if (isLoadingComplete) return;
 				SplashScreen.hideAsync();
+				setLoadingComplete(true);
+			} catch (e) {
+				console.warn(e);
 			}
 		}
 
 		loadResourcesAndDataAsync();
-	}, []);
+	}, [currentLibrary, isLibraryLoaded, isLoadingComplete]);
 
-	return isLoadingComplete;
+	return { isLoadingComplete };
 }

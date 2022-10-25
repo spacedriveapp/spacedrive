@@ -1,9 +1,10 @@
+import { useSnapshot } from 'valtio';
 import proxyWithPersist, { PersistStrategy } from 'valtio-persist';
 
 import { StorageEngine } from './utils';
 
 // Might wanna rename to `appStore` so we can add other stuff to it
-export const onboardingStore = proxyWithPersist({
+const onboardingStore = proxyWithPersist({
 	initialState: {
 		showOnboarding: true,
 		hideOnboarding: () => {
@@ -16,3 +17,12 @@ export const onboardingStore = proxyWithPersist({
 	migrations: {},
 	getStorage: () => StorageEngine
 });
+
+export function useOnboardingStore() {
+	const store = useSnapshot(onboardingStore);
+	return {
+		showOnboarding: store.showOnboarding,
+		hideOnboarding: store.hideOnboarding,
+		isLoaded: store._persist.loaded
+	};
+}

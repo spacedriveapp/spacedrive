@@ -3,22 +3,19 @@ import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/nati
 import { createClient } from '@rspc/client';
 import { Platform, PlatformProvider, queryClient, rspc, useInvalidateQuery } from '@sd/client';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
 import { Linking, Platform as RNPlatform } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
-import { useSnapshot } from 'valtio';
 
 import { GlobalModals } from './containers/modals/GlobalModals';
-import useCachedResources from './hooks/useCachedResources';
+import useLoadApp from './hooks/useLoadApp';
 import { reactNativeLink } from './lib/rspcReactNativeTransport';
 import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
-import { useLibraryStore } from './stores/libraryStore';
-import { onboardingStore } from './stores/onboardingStore';
+import { useOnboardingStore } from './stores/onboardingStore';
 import type { Procedures } from './types/bindings';
 
 const NavigatorTheme: Theme = {
@@ -35,26 +32,11 @@ function AppContainer() {
 
 	useInvalidateQuery();
 
-	const isLoadingComplete = useCachedResources();
+	const { isLoadingComplete } = useLoadApp();
 
-	const { showOnboarding } = useSnapshot(onboardingStore);
+	const { showOnboarding } = useOnboardingStore();
 
-	const { switchLibrary, currentLibrary, isLoaded } = useLibraryStore();
-
-	console.log('persisted?', isLoaded);
-
-	// Runs when the app is launched
-	useEffect(() => {
-		if (currentLibrary) {
-			console.log('Switching to library', currentLibrary);
-			switchLibrary(currentLibrary.uuid);
-		} else {
-			// TODO: Handle this.
-		}
-	}, [currentLibrary, switchLibrary]);
-
-	// Might need to move _persist.loaded to useCacheResources hook.
-	if (!isLoadingComplete || !isLoaded) {
+	if (!isLoadingComplete) {
 		return null;
 	} else {
 		return (
