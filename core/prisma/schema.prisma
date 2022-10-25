@@ -192,7 +192,7 @@ model Key {
   // uuid to identify the key
   uuid         String    @unique
   // the name that the user sets
-  name         String
+  name         String?
   // is this key the default for encryption?
   default      Boolean
   // nullable if concealed for security
