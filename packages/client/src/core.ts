@@ -3,10 +3,11 @@
 
 export type Procedures = {
     queries: 
+        { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "files.readMetadata", input: LibraryArgs<number>, result: null } | 
-        { key: "getNode", input: never, result: NodeState } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
+        { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
         { key: "locations.getById", input: LibraryArgs<number>, result: Location | null } | 
@@ -14,6 +15,7 @@ export type Procedures = {
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node }> } | 
+        { key: "nodeState", input: never, result: NodeState } | 
         { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
         { key: "normi.org", input: never, result: NormalisedOrganisation } | 
         { key: "normi.user", input: never, result: NormalisedUser } | 
@@ -23,7 +25,6 @@ export type Procedures = {
         { key: "tags.getExplorerData", input: LibraryArgs<number>, result: ExplorerData } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Array<Tag> } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Array<Tag> } | 
-        { key: "version", input: never, result: string } | 
         { key: "volumes.list", input: never, result: Array<Volume> },
     mutations: 
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
@@ -50,6 +51,8 @@ export type Procedures = {
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string }
 };
+
+export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 

@@ -16,7 +16,7 @@ function FileRow({ data, index, selected, ...props }: Props) {
 			{...props}
 			className={clsx(
 				'table-body-row mr-2 flex w-full flex-row rounded-lg border-2',
-				selected ? 'border-primary-500' : 'border-transparent',
+				selected ? 'border-accent' : 'border-transparent',
 				index % 2 == 0 && 'bg-[#00000006] dark:bg-[#00000030]'
 			)}
 		>

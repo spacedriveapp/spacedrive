@@ -20,7 +20,8 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 		>
 			<SelectPrimitive.Trigger
 				className={clsx(
-					'inline-flex items-center pl-2 py-0.5 bg-gray-500 border rounded-md shadow outline-none border-gray-450/30 shadow-gray-900/10',
+					'inline-flex items-center pl-2 py-0.5 bg-app-box border',
+					'rounded-md shadow outline-none border-app-line shadow-app-shade/10',
 					props.className
 				)}
 			>
@@ -29,17 +30,17 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 				</span>
 
 				<SelectPrimitive.Icon>
-					<ChevronDouble className="w-3 h-3 mr-0.5 text-gray-300" />
+					<ChevronDouble className="w-3 h-3 mr-0.5 text-ink-dull" />
 				</SelectPrimitive.Icon>
 			</SelectPrimitive.Trigger>
 
 			<SelectPrimitive.Portal className="relative">
-				<SelectPrimitive.Content className="absolute z-50 w-full p-1 border border-gray-200 rounded-md shadow-2xl bg-gray-50 dark:bg-black/50 backdrop-blur dark:border-gray-500 shadow-gray-300 dark:shadow-gray-950">
-					<SelectPrimitive.ScrollUpButton className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+				<SelectPrimitive.Content className="absolute z-50 w-full p-1 border rounded-md shadow-2xl bg-app-box border-app-line shadow-app-shade/20 ">
+					<SelectPrimitive.ScrollUpButton className="hidden ">
 						<ChevronDownIcon />
 					</SelectPrimitive.ScrollUpButton>
 					<SelectPrimitive.Viewport>{props.children}</SelectPrimitive.Viewport>
-					<SelectPrimitive.ScrollDownButton className="flex items-center justify-center text-gray-700 dark:text-gray-300"></SelectPrimitive.ScrollDownButton>
+					<SelectPrimitive.ScrollDownButton className="hidden "></SelectPrimitive.ScrollDownButton>
 				</SelectPrimitive.Content>
 			</SelectPrimitive.Portal>
 		</SelectPrimitive.Root>
@@ -50,9 +51,9 @@ export function SelectOption(props: PropsWithChildren<{ value: string }>) {
 	return (
 		<SelectPrimitive.Item
 			className={clsx(
-				'relative flex items-center pl-6 px-1 py-0.5 dark:text-white pr-4 text-xs rounded font-sm cursor-pointer focus:bg-gray-100 dark:focus:bg-primary-500',
-				'radix-disabled:opacity-50',
-				'focus:outline-none select-none'
+				'relative flex items-center pl-6 px-1 py-0.5 pr-4 text-xs',
+				'rounded font-sm cursor-pointer select-none text-ink',
+				'focus:outline-none hover:text-white radix-disabled:opacity-50 hover:bg-accent '
 			)}
 			value={props.value}
 		>
