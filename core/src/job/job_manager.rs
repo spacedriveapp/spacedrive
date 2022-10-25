@@ -32,8 +32,8 @@ pub enum JobManagerEvent {
 	IngestJob(LibraryContext, Box<dyn DynJob>),
 }
 
-/// JobManager is responsible for managing the job queue and workers.
-/// It is also responsible for persisting jobs to the database.
+/// JobManager handles queueing and executing jobs using the `DynJob`
+/// Handling persisting JobReports to the database, pause/resuming, and
 ///
 pub struct JobManager {
 	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
