@@ -42,6 +42,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 
 export default function LibrarySettings() {
 	const { data: libraries } = useBridgeQuery(['library.list']);
+	const [open, setOpen] = useState(false);
 
 	return (
 		<SettingsContainer>
@@ -50,7 +51,7 @@ export default function LibrarySettings() {
 				description="The database contains all library data and file metadata."
 				rightArea={
 					<div className="flex-row space-x-2">
-						<CreateLibraryDialog>
+						<CreateLibraryDialog open={open} setOpen={setOpen}>
 							<Button variant="accent" size="sm">
 								Add Library
 							</Button>

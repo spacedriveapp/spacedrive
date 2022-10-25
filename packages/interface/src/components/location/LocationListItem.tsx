@@ -14,6 +14,7 @@ interface LocationListItemProps {
 
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const [hide, setHide] = useState(false);
+	const [open, setOpen] = useState(false);
 
 	const { mutate: locRescan } = useLibraryMutation('locations.fullRescan');
 
@@ -53,6 +54,8 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					</span>
 				</Button>
 				<Dialog
+					open={open}
+					setOpen={setOpen}
 					title="Delete Location"
 					description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
 					ctaAction={() => {

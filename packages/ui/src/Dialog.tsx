@@ -1,11 +1,13 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import { ReactNode, useState } from 'react';
-import { animated, config, useTransition } from 'react-spring';
+import { animated, useTransition } from 'react-spring';
 
 import { Button, Loader } from '../';
 
 export interface DialogProps extends DialogPrimitive.DialogProps {
+	open: boolean;
+	setOpen: (open: boolean) => void;
 	trigger: ReactNode;
 	ctaLabel?: string;
 	ctaDanger?: boolean;
@@ -18,9 +20,7 @@ export interface DialogProps extends DialogPrimitive.DialogProps {
 	submitDisabled?: boolean;
 }
 
-export function Dialog(props: DialogProps) {
-	const [open, setOpen] = useState(false);
-
+export function Dialog({ open, setOpen: onOpenChange, ...props }: DialogProps) {
 	const transitions = useTransition(open, {
 		from: {
 			opacity: 0,
@@ -33,7 +33,7 @@ export function Dialog(props: DialogProps) {
 	});
 
 	return (
-		<DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+		<DialogPrimitive.Root open={open} setOpen={onOpenChange}>
 			<DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>
 			{transitions(
 				(styles, show) =>
@@ -51,7 +51,12 @@ export function Dialog(props: DialogProps) {
 											style={styles}
 											className="min-w-[300px] max-w-[400px] rounded-md bg-app-box border border-app-line text-ink shadow-app-shade"
 										>
-											<form onSubmit={(e) => e.preventDefault()}>
+											<form
+												onSubmit={(e) => {
+													e.preventDefault();
+													if (props.ctaAction) props.ctaAction();
+												}}
+											>
 												<div className="p-5">
 													<DialogPrimitive.Title className="mb-2 font-bold">
 														{props.title}
@@ -70,7 +75,6 @@ export function Dialog(props: DialogProps) {
 														</Button>
 													</DialogPrimitive.Close>
 													<Button
-														onClick={props.ctaAction}
 														type="submit"
 														size="sm"
 														disabled={props.loading || props.submitDisabled}

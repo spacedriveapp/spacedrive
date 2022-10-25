@@ -14,6 +14,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function TagsSettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
+	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 	// creating new tag state
 	const [newColor, setNewColor] = useState('#A717D9');
 	const [newName, setNewName] = useState('');
@@ -69,7 +70,7 @@ export default function TagsSettings() {
 					<div className="flex-row space-x-2">
 						<Dialog
 							open={openCreateModal}
-							onOpenChange={setOpenCreateModal}
+							setOpen={setOpenCreateModal}
 							title="Create New Tag"
 							description="Choose a name and color."
 							ctaAction={() => {
@@ -150,6 +151,8 @@ export default function TagsSettings() {
 						</div>
 						<div className="flex flex-grow" />
 						<Dialog
+							open={openDeleteModal}
+							setOpen={setOpenDeleteModal}
 							title="Delete Tag"
 							description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 							ctaAction={() => {

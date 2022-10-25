@@ -6,9 +6,10 @@ import { PropsWithChildren, useState } from 'react';
 
 export default function CreateLibraryDialog({
 	children,
-	onSubmit
-}: PropsWithChildren<{ onSubmit?: () => void }>) {
-	const [openCreateModal, setOpenCreateModal] = useState(false);
+	onSubmit,
+	open,
+	setOpen
+}: PropsWithChildren<{ onSubmit?: () => void; open: boolean; setOpen: (state: boolean) => void }>) {
 	const [newLibName, setNewLibName] = useState('');
 
 	const queryClient = useQueryClient();
@@ -16,7 +17,7 @@ export default function CreateLibraryDialog({
 		'library.create',
 		{
 			onSuccess: (library: any) => {
-				setOpenCreateModal(false);
+				setOpen(false);
 
 				queryClient.setQueryData(['library.list'], (libraries: any) => [
 					...(libraries || []),
@@ -33,8 +34,8 @@ export default function CreateLibraryDialog({
 
 	return (
 		<Dialog
-			open={openCreateModal}
-			onOpenChange={setOpenCreateModal}
+			open={open}
+			setOpen={setOpen}
 			title="Create New Library"
 			description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
 			ctaAction={() => createLibrary(newLibName)}
@@ -48,6 +49,7 @@ export default function CreateLibraryDialog({
 				value={newLibName}
 				placeholder="My Cool Library"
 				onChange={(e) => setNewLibName(e.target.value)}
+				required
 			/>
 		</Dialog>
 	);

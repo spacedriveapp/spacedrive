@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button } from '../../../../ui/src';
@@ -9,6 +10,7 @@ import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 export default function OnboardingPage() {
 	const os = useOperatingSystem();
 	const navigate = useNavigate();
+	const [open, setOpen] = useState(false);
 
 	return (
 		<div
@@ -19,7 +21,7 @@ export default function OnboardingPage() {
 		>
 			<h1 className="text-red-500">Welcome to Spacedrive</h1>
 
-			<CreateLibraryDialog onSubmit={() => navigate('/overview')}>
+			<CreateLibraryDialog open={open} setOpen={setOpen} onSubmit={() => navigate('/overview')}>
 				<Button variant="accent" size="sm">
 					Create your library
 				</Button>
