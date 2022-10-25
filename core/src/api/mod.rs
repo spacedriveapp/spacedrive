@@ -35,6 +35,7 @@ pub struct Ctx {
 }
 
 mod files;
+mod keys;
 mod jobs;
 mod libraries;
 mod locations;
@@ -85,6 +86,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
+		.merge("keys.", tags::mount())
 		.merge("locations.", locations::mount())
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
