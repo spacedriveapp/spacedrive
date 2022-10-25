@@ -89,7 +89,7 @@ export interface JobReport { id: string, name: string, data: Array<number> | nul
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 
-export interface Key { id: number, uuid: string, name: string, default: boolean, date_created: string | null, algorithm: Array<number>, hashing_algorithm: Array<number>, salt: Array<number>, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number> }
+export interface Key { id: number, uuid: string, name: string | null, default: boolean, date_created: string | null, algorithm: Array<number>, hashing_algorithm: Array<number>, salt: Array<number>, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, automount: boolean }
 
 export interface KeyAddArgs { algorithm: string, hashing_algorithm: string, key: string }
 
