@@ -33,7 +33,7 @@ export function Dialog({ open, setOpen: onOpenChange, ...props }: DialogProps) {
 	});
 
 	return (
-		<DialogPrimitive.Root open={open} setOpen={onOpenChange}>
+		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
 			<DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>
 			{transitions(
 				(styles, show) =>
