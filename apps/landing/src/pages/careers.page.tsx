@@ -110,7 +110,7 @@ function Page() {
 					<Button
 						onClick={scrollToPositions}
 						className="z-30 border-0 cursor-pointer"
-						variant="primary"
+						variant="accent"
 					>
 						See Open Positions
 					</Button>

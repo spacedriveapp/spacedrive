@@ -1,5 +1,6 @@
 import { PlusIcon } from '@heroicons/react/24/solid';
 import {
+	getExplorerStore,
 	onLibraryChange,
 	queryClient,
 	useCurrentLibrary,
@@ -7,8 +8,6 @@ import {
 	usePlatform
 } from '@sd/client';
 import { Statistics } from '@sd/client';
-import { Button, Input } from '@sd/ui';
-import { Dialog } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
 import { useEffect } from 'react';
@@ -92,7 +91,7 @@ const StatItem: React.FC<StatItemProps> = (props) => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default hover:bg-gray-50 hover:dark:bg-gray-600',
+				'flex flex-col flex-shrink-0 w-32 px-4 py-3 duration-75 transform rounded-md cursor-default ',
 				!+bytes && 'hidden'
 			)}
 		>
@@ -136,10 +135,8 @@ export default function OverviewScreen() {
 		}
 	);
 
-	console.log(overviewStats);
-
 	return (
-		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll">
+		<div className="flex flex-col w-full h-screen overflow-x-hidden custom-scroll page-scroll app-background">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
 			{/* PAGE */}
 
@@ -165,17 +162,14 @@ export default function OverviewScreen() {
 					<div className="flex-grow" />
 					<div className="flex items-center h-full space-x-2">
 						<div>
-							<Dialog
+							{/* <Dialog
 								title="Add Device"
 								description="Connect a new device to your library. Either enter another device's code or copy this one."
 								// ctaAction={() => {}}
 								ctaLabel="Connect"
 								trigger={
-									<Button
-										size="sm"
-										icon={<PlusIcon className="inline w-4 h-4 -mt-0.5 xl:mr-1" />}
-										variant="gray"
-									>
+									<Button size="sm" variant="gray">
+										<PlusIcon className="inline w-4 h-4 -mt-0.5 xl:mr-1" />
 										<span className="hidden xl:inline-block">Add Device</span>
 									</Button>
 								}
@@ -194,7 +188,7 @@ export default function OverviewScreen() {
 										<Input value="" />
 									</div>
 								</div>
-							</Dialog>
+							</Dialog>*/}
 						</div>
 					</div>
 				</div>

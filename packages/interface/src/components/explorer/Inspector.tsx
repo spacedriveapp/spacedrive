@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import { Link } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
+import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
 import FileThumb from './FileThumb';
 import { Divider } from './inspector/Divider';
@@ -17,12 +18,14 @@ import { MetaItem } from './inspector/MetaItem';
 import Note from './inspector/Note';
 import { isObject } from './utils';
 
-interface Props {
+interface Props extends DefaultProps<HTMLDivElement> {
 	context?: ExplorerContext;
 	data?: ExplorerItem;
 }
 
 export const Inspector = (props: Props) => {
+	const { context, data, ...elementProps } = props;
+
 	const { data: types } = useQuery(
 		['_file-types'],
 		() => import('../../constants/file-types.json')
@@ -49,10 +52,13 @@ export const Inspector = (props: Props) => {
 	const isVid = isVideo(props.data?.extension || '');
 
 	return (
-		<div className="-mt-[50px] pt-[55px] pl-1.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-[55px]">
+		<div
+			{...elementProps}
+			className="-mt-[50px] pt-[55px] pl-1.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-[55px]"
+		>
 			{!!props.data && (
 				<>
-					<div className="flex bg-black items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
+					<div className="flex bg-sidebar items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
 						<FileThumb
 							iconClassNames="mx-10"
 							size={230}
@@ -61,7 +67,7 @@ export const Inspector = (props: Props) => {
 							data={props.data}
 						/>
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-white rounded-lg shadow select-text dark:shadow-gray-800/40 dark:bg-gray-550 dark:bg-opacity-40 border border-gray-550/70">
+					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-app-box rounded-lg select-text shadow-app-shade/10 border border-app-line">
 						<h3 className="pt-2 pb-1 pl-3 text-base font-bold">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}
@@ -72,12 +78,12 @@ export const Inspector = (props: Props) => {
 									<FavoriteButton data={objectData} />
 								</Tooltip>
 								<Tooltip label="Share">
-									<Button size="sm" padding="sm">
+									<Button size="icon">
 										<ShareIcon className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>
 								<Tooltip label="Link">
-									<Button size="sm" padding="sm">
+									<Button size="icon">
 										<Link className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>

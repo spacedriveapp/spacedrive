@@ -12,7 +12,7 @@
 		"desktop": "pnpm --filter @sd/desktop --",
 		"web": "pnpm --filter @sd/web -- ",
 		"mobile": "pnpm --filter @sd/mobile --",
-		"server": "pnpm --filter @sd/server -- ",
+		"core": "pnpm --filter @sd/server -- ",
 		"landing": "pnpm --filter @sd/landing -- ",
 		"ui": "pnpm --filter @sd/ui -- ",
 		"interface": "pnpm --filter @sd/interface -- ",
