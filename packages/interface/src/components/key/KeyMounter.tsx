@@ -69,8 +69,8 @@ export function KeyMounter() {
 				<div className="flex flex-col">
 					<span className="text-xs font-bold">Encryption</span>
 					<Select className="mt-2" onChange={setEncryptionAlgo} value={encryptionAlgo}>
-						<SelectOption value="XChaCha20Poly1305">XChaCha20Poly1305</SelectOption>
-						<SelectOption value="Aes256Gcm">Aes256Gcm</SelectOption>
+						<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
+						<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
 					</Select>
 				</div>
 				<div className="flex flex-col">
