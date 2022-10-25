@@ -164,7 +164,7 @@ impl KeyManager {
 	}
 
 	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {
-		self.keymount.iter().map(|key| key.0.clone() ).collect()
+		self.keymount.iter().map(|key| key.0.clone()).collect()
 	}
 
 	/// This function does not return a value by design.
