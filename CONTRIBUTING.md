@@ -40,9 +40,9 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
 - `git clone https://github.com/spacedriveapp/spacedrive`
 - `cd spacedrive`
 - For Linux or MacOS users run: `./.github/scripts/setup-system.sh`
-  - This will install FFMPEG and any other required dependencies for Spacedrive to build.
+  - This will install FFmpeg and any other required dependencies for Spacedrive to build.
 - For Windows users run using PowerShell: `.\.github\scripts\setup-system.ps1`
-  - This will install pnpm, LLVM, FFMPEG and any other required dependencies for Spacedrive to build.
+  - This will install pnpm, LLVM, FFmpeg and any other required dependencies for Spacedrive to build.
   - Ensure you run it like documented above as it expects it is executed from the root of the repository.
 - `pnpm i`
 - `pnpm prep` - Runs all necessary codegen & builds required dependencies.
