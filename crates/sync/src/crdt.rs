@@ -7,6 +7,21 @@ use uhlc::NTP64;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
+pub enum RelationOperationData {
+	Create,
+	Update { field: String, value: Value },
+	Delete,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Type)]
+pub struct RelationOperation {
+	pub relation_item: Uuid,
+	pub relation_group: Uuid,
+	pub relation: String,
+	pub data: RelationOperationData,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub enum SharedOperationCreateData {
 	Unique(Map<String, Value>),
 	Atomic,
@@ -21,7 +36,7 @@ pub enum SharedOperationData {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub struct SharedOperation {
-	pub record_id: Value, // Uuid,
+	pub record_id: Uuid,
 	pub model: String,
 	pub data: SharedOperationData,
 }
@@ -49,7 +64,7 @@ pub struct OwnedOperation {
 #[serde(untagged)]
 pub enum CRDTOperationType {
 	Shared(SharedOperation),
-	// Relation(RelationOperation),
+	Relation(RelationOperation),
 	Owned(OwnedOperation),
 }
 

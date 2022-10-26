@@ -23,24 +23,32 @@ pub struct Tag {
 	pub name: String,
 }
 
+#[derive(Default, Debug, Serialize, Type, Clone)]
+pub struct TagOnObject {
+	pub tag_id: Uuid,
+	pub object_id: Uuid,
+}
+
 // Atomic Shared
 #[derive(Default, Debug, Serialize, Type, Clone)]
 pub struct Object {
+	pub id: Uuid,
 	pub name: String,
 }
 
 // Owned
 #[derive(Serialize, Deserialize, Debug, Type, Clone)]
 pub struct FilePath {
-	pub id: i32,
+	pub id: Uuid,
 	pub path: String,
-	pub file: Option<i32>,
+	pub file: Option<Uuid>,
 }
 
 pub struct Db {
-	pub files: HashMap<i32, Object>,
-	pub file_paths: HashMap<i32, FilePath>,
+	pub objects: HashMap<Uuid, Object>,
+	pub file_paths: HashMap<Uuid, FilePath>,
 	pub tags: HashMap<Uuid, Tag>,
+	pub tags_on_objects: HashMap<(Uuid, Uuid), TagOnObject>,
 	pub _operations: Vec<CRDTOperation>,
 	pub _clocks: HashMap<Uuid, NTP64>,
 	_clock: HLC,
@@ -50,7 +58,7 @@ pub struct Db {
 impl std::fmt::Debug for Db {
 	fn fmt(&self, f: &mut __private::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Db")
-			.field("files", &self.files)
+			.field("files", &self.objects)
 			.field("file_paths", &self.file_paths)
 			.finish()
 	}
@@ -59,9 +67,10 @@ impl std::fmt::Debug for Db {
 impl Db {
 	pub fn new(node: Uuid) -> Self {
 		Self {
-			files: Default::default(),
+			objects: Default::default(),
 			file_paths: Default::default(),
 			tags: Default::default(),
+			tags_on_objects: Default::default(),
 			_clocks: Default::default(),
 			_node: node,
 			_clock: HLCBuilder::new().with_id(node.into()).build(),
@@ -112,6 +121,16 @@ impl Db {
 							_ => false,
 						})
 					}
+					CRDTOperationType::Relation(relation_op) => {
+						self._operations.iter().find(|find_op| match &find_op.typ {
+							CRDTOperationType::Relation(find_relation_op) => {
+								relation_op.relation == find_relation_op.relation
+									&& relation_op.relation_item == find_relation_op.relation_item
+									&& relation_op.relation_group == find_relation_op.relation_group
+							}
+							_ => false,
+						})
+					}
 				}
 				.map(|old_op| (old_op.timestamp != op.timestamp).then_some(true))
 				.unwrap_or(Some(false))
@@ -135,15 +154,21 @@ impl Db {
 			if !old {
 				match op.typ {
 					CRDTOperationType::Shared(shared_op) => match shared_op.model.as_str() {
-						"File" => {
-							let id = from_value(shared_op.record_id).unwrap();
+						"Object" => {
+							let id = shared_op.record_id;
 
 							match shared_op.data {
 								SharedOperationData::Create(SharedOperationCreateData::Atomic) => {
-									self.files.insert(id, Default::default());
+									self.objects.insert(
+										id,
+										Object {
+											id,
+											..Default::default()
+										},
+									);
 								}
 								SharedOperationData::Update { field, value } => {
-									let mut file = self.files.get_mut(&id).unwrap();
+									let mut file = self.objects.get_mut(&id).unwrap();
 
 									match field.as_str() {
 										"name" => {
@@ -153,7 +178,7 @@ impl Db {
 									}
 								}
 								SharedOperationData::Delete => {
-									self.files.remove(&id).unwrap();
+									self.objects.remove(&id).unwrap();
 								}
 								_ => {}
 							}
@@ -189,6 +214,34 @@ impl Db {
 						}
 						_ => unreachable!(),
 					},
+					CRDTOperationType::Relation(relation_op) => match relation_op.relation.as_str()
+					{
+						"TagOnObject" => match relation_op.data {
+							RelationOperationData::Create => {
+								self.tags_on_objects.insert(
+									(relation_op.relation_item, relation_op.relation_group),
+									TagOnObject {
+										object_id: relation_op.relation_item,
+										tag_id: relation_op.relation_group,
+									},
+								);
+							}
+							RelationOperationData::Update { field, value: _ } => {
+								match field.as_str() {
+									_ => unreachable!(),
+								}
+							}
+							RelationOperationData::Delete => {
+								self.tags_on_objects
+									.remove(&(
+										relation_op.relation_item,
+										relation_op.relation_group,
+									))
+									.unwrap();
+							}
+						},
+						_ => unreachable!(),
+					},
 				}
 
 				self._operations.push(push_op)
@@ -199,11 +252,7 @@ impl Db {
 
 #[cfg(test)]
 mod tests {
-	use std::sync::atomic::{AtomicI32, Ordering};
-
 	use super::*;
-
-	static ID: AtomicI32 = AtomicI32::new(0);
 
 	fn to_map(v: &impl serde::Serialize) -> serde_json::Map<String, Value> {
 		match to_value(&v).unwrap() {
@@ -231,7 +280,7 @@ mod tests {
 		}
 
 		for db in &mut dbs {
-			let id = ID.fetch_add(1, Ordering::SeqCst);
+			let id = Uuid::new_v4();
 
 			let file_path = FilePath {
 				id,
@@ -270,7 +319,7 @@ mod tests {
 
 		for _ in 0..2 {
 			let db = &mut dbs[0];
-			let id = ID.fetch_add(1, Ordering::SeqCst);
+			let id = Uuid::new_v4();
 
 			let file_path = FilePath {
 				id,
