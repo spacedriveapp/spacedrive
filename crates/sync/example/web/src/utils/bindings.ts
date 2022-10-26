@@ -17,11 +17,11 @@ export type Procedures = {
 
 export interface CRDTOperation { node: string, timestamp: bigint, id: string, typ: CRDTOperationType }
 
-export type CRDTOperationType = SharedOperation | OwnedOperation
+export type CRDTOperationType = SharedOperation | RelationOperation | OwnedOperation
 
 export interface Color { red: number, green: number, blue: number }
 
-export interface FilePath { id: number, path: string, file: number | null }
+export interface FilePath { id: string, path: string, file: string | null }
 
 export interface OwnedOperation { model: string, items: Array<OwnedOperationItem> }
 
@@ -29,7 +29,11 @@ export type OwnedOperationData = { Create: Record<string, any> } | { Update: Rec
 
 export interface OwnedOperationItem { id: any, data: OwnedOperationData }
 
-export interface SharedOperation { record_id: any, model: string, data: SharedOperationData }
+export interface RelationOperation { relation_item: string, relation_group: string, relation: string, data: RelationOperationData }
+
+export type RelationOperationData = "Create" | { Update: { field: string, value: any } } | "Delete"
+
+export interface SharedOperation { record_id: string, model: string, data: SharedOperationData }
 
 export type SharedOperationCreateData = { Unique: Record<string, any> } | "Atomic"
 

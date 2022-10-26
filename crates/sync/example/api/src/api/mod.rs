@@ -1,10 +1,6 @@
 use std::collections::HashMap;
-use std::sync::{
-	atomic::{AtomicI32, Ordering},
-	Arc,
-};
+use std::sync::Arc;
 
-// use crate::prisma;
 use rspc::*;
 use sd_sync::*;
 use serde_json::*;
@@ -18,8 +14,6 @@ pub struct Ctx {
 }
 
 type Router = rspc::Router<Arc<Mutex<Ctx>>>;
-
-static ID: AtomicI32 = AtomicI32::new(0);
 
 fn to_map(v: &impl serde::Serialize) -> serde_json::Map<String, Value> {
 	match to_value(&v).unwrap() {
@@ -93,7 +87,7 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 
 				let db = dbs.get_mut(&db.parse().unwrap()).unwrap();
 
-				let id = ID.fetch_add(1, Ordering::SeqCst);
+				let id = Uuid::new_v4();
 
 				let file_path = FilePath {
 					id,
