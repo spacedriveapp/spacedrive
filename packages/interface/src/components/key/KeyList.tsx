@@ -1,9 +1,31 @@
+import { useLibraryQuery  } from '@sd/client';
 import { Button } from '@sd/ui';
 
 import { DefaultProps } from '../primitive/types';
 import { Key } from './Key';
 
 export type KeyListProps = DefaultProps;
+
+const ListKeys = () => {
+	const keys = useLibraryQuery(['keys.list']);
+	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
+
+	return (
+		<>
+		{keys.data?.map((key, index) => {
+			const active = !!keys.data?.find((t) => t.id === key.id);
+
+			return (
+				<Key index={index} data={{
+					id: key.uuid,
+					name: `Key ${index + 1}`,
+					mounted: mounted_uuids.data?.includes(key.uuid)
+				}} />
+			)
+		})}
+		</>
+	)
+};
 
 export function KeyList(props: KeyListProps) {
 	return (
@@ -12,7 +34,8 @@ export function KeyList(props: KeyListProps) {
 				<div className="">
 					{/* <CategoryHeading>Mounted keys</CategoryHeading> */}
 					<div className="space-y-1.5">
-						<Key
+						<ListKeys></ListKeys>
+						{/* <Key
 							index={0}
 							data={{
 								id: 'af5570f5a1810b7a',
@@ -36,7 +59,7 @@ export function KeyList(props: KeyListProps) {
 						<Key index={2} data={{ id: '7324695a52da67b1', name: 'Spacedrive Company' }} />
 						<Key index={3} data={{ id: 'b02303d68d05a562', name: 'Key 4' }} />
 						<Key index={3} data={{ id: 'b02303d68d05a562', name: 'Key 5' }} />
-						<Key index={3} data={{ id: 'b02303d68d05a562', name: 'Key 6' }} />
+						<Key index={3} data={{ id: 'b02303d68d05a562', name: 'Key 6' }} /> */}
 					</div>
 				</div>
 			</div>
