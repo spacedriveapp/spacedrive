@@ -167,11 +167,11 @@ function Page() {
 										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>
 										<div className="mt-3 sm:mt-0.5">
 											<span className="text-sm font-semibold text-gray-300 sm:ml-4">
-												<CurrencyDollarIcon className="inline w-4 mr-1 -mt-1" />
+												<CurrencyDollar className="inline w-4 mr-1 -mt-1" />
 												{value.salary}
 											</span>
 											<span className="ml-4 text-sm font-semibold text-gray-300">
-												<ClockIcon className="inline w-4 mr-1 -mt-1" />
+												<Clock className="inline w-4 mr-1 -mt-1" />
 												{value.type}
 											</span>
 										</div>
