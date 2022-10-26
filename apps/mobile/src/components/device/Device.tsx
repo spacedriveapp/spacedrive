@@ -1,7 +1,6 @@
 import { ExplorerItem } from '@sd/client';
-import { Cloud, Desktop, DeviceMobileCamera, Laptop } from 'phosphor-react-native';
+import { Cloud, Desktop, DeviceMobileCamera, Laptop, Lock } from 'phosphor-react-native';
 import { FlatList, Text, View } from 'react-native';
-import { LockClosedIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';
 
 import FileItem from '../explorer/FileItem';
@@ -115,7 +114,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 					<Text style={tw`text-base font-semibold text-white`}>{name || 'Unnamed Device'}</Text>
 					{/* P2P Lock */}
 					<View style={tw`flex flex-row rounded items-center ml-2 bg-gray-500 py-[1px] px-[4px]`}>
-						<LockClosedIcon size={12} color={tw.color('gray-400')} />
+						<Lock weight="bold" size={12} color={tw.color('gray-400')} />
 						<Text style={tw`text-gray-400 font-semibold ml-0.5 text-xs`}>P2P</Text>
 					</View>
 				</View>

@@ -210,7 +210,6 @@ importers:
       react-native-document-picker: ^8.1.1
       react-native-fs: ^2.20.0
       react-native-gesture-handler: ~2.5.0
-      react-native-heroicons: ^3.2.0
       react-native-reanimated: ~2.10.0
       react-native-safe-area-context: 4.3.1
       react-native-screens: ~3.15.0
@@ -252,7 +251,6 @@ importers:
       react-native-document-picker: 8.1.2_gtltrjvtlgj7ga36qzsxajwqwe
       react-native-fs: 2.20.0_react-native@0.69.6
       react-native-gesture-handler: 2.5.0_gtltrjvtlgj7ga36qzsxajwqwe
-      react-native-heroicons: 3.2.0_wxlif5cfng7xfd3uerlw46xcs4
       react-native-reanimated: 2.10.0_gtltrjvtlgj7ga36qzsxajwqwe
       react-native-safe-area-context: 4.3.1_gtltrjvtlgj7ga36qzsxajwqwe
       react-native-screens: 3.15.0_gtltrjvtlgj7ga36qzsxajwqwe
@@ -17444,16 +17442,6 @@ packages:
 
   /react-native-gradle-plugin/0.0.7:
     resolution: {integrity: sha512-+4JpbIx42zGTONhBTIXSyfyHICHC29VTvhkkoUOJAh/XHPEixpuBduYgf6Y4y9wsN1ARlQhBBoptTvXvAFQf5g==}
-
-  /react-native-heroicons/3.2.0_wxlif5cfng7xfd3uerlw46xcs4:
-    resolution: {integrity: sha512-M5jlhReLBALrmeKIjH1qgF3OCNphfw8xKpRlHpX8OH4zgsC3L6+Lt+c4/hNxSbxUIN2+s8XC0eK/NZLku14IzA==}
-    peerDependencies:
-      react: '>=16.8'
-      react-native-svg: '>=9'
-    dependencies:
-      react: 18.0.0
-      react-native-svg: 13.0.0_gtltrjvtlgj7ga36qzsxajwqwe
-    dev: false
 
   /react-native-reanimated/2.10.0_gtltrjvtlgj7ga36qzsxajwqwe:
     resolution: {integrity: sha512-jKm3xz5nX7ABtHzzuuLmawP0pFWP77lXNdIC6AWOceBs23OHUaJ29p4prxr/7Sb588GwTbkPsYkDqVFaE3ezNQ==}

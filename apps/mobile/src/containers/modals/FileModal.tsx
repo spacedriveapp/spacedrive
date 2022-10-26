@@ -1,8 +1,8 @@
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import dayjs from 'dayjs';
+import { CaretLeft } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Button, Pressable, Text, View } from 'react-native';
-import { ChevronLeftIcon } from 'react-native-heroicons/outline';
 
 import { default as FileIcon, default as FileThumb } from '../../components/explorer/FileThumb';
 import { Modal } from '../../components/layout/Modal';
@@ -73,7 +73,7 @@ export const FileModal = () => {
 					<BottomSheetScrollView style={tw`flex-1 p-4 bg-gray-600`}>
 						{/* Back Button */}
 						<Pressable style={tw`w-full ml-4`} onPress={() => fileDetailsRef.current.close()}>
-							<ChevronLeftIcon color={tw.color('primary-500')} width={20} height={20} />
+							<CaretLeft color={tw.color('primary-500')} size={20} />
 						</Pressable>
 						{/* File Icon / Name */}
 						<View style={tw`items-center`}>

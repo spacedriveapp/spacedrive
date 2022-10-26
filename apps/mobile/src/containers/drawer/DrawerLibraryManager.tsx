@@ -1,9 +1,8 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { MotiView } from 'moti';
+import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { LockClosedIcon } from 'react-native-heroicons/outline';
-import { ChevronRightIcon, CogIcon, PlusIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';
 import { useLibraryStore } from '~/stores/libraryStore';
 
@@ -38,7 +37,7 @@ const DrawerLibraryManager = () => {
 						}}
 						transition={{ type: 'timing' }}
 					>
-						<ChevronRightIcon size={18} style={tw`text-gray-200 ml-2`} />
+						<CaretRight color={tw.color('text-gray-200')} size={16} style={tw`ml-2`} />
 					</MotiView>
 				</View>
 			</Pressable>
@@ -63,20 +62,20 @@ const DrawerLibraryManager = () => {
 					{/* Menu */}
 					<Pressable onPress={() => console.log('settings')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<CogIcon size={18} style={tw`text-gray-100 mr-2`} />
+							<Gear size={16} color={tw.color('gray-100')} style={tw`mr-2`} />
 							<Text style={tw`text-sm text-gray-200 font-semibold`}>Library Settings</Text>
 						</View>
 					</Pressable>
 					{/* Create Library */}
 					<CreateLibraryDialog>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<PlusIcon size={18} style={tw`text-gray-100 mr-2`} />
+							<Plus size={16} weight="bold" color={tw.color('gray-100')} style={tw`mr-2`} />
 							<Text style={tw`text-sm text-gray-200 font-semibold`}>Add Library</Text>
 						</View>
 					</CreateLibraryDialog>
 					<Pressable onPress={() => console.log('lock')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<LockClosedIcon size={18} style={tw`text-gray-100 mr-2`} />
+							<Lock size={16} weight="bold" color={tw.color('gray-100')} style={tw`mr-2`} />
 							<Text style={tw`text-sm text-gray-200 font-semibold`}>Lock</Text>
 						</View>
 					</Pressable>

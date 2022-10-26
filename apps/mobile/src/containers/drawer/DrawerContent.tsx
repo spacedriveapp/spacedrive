@@ -1,7 +1,7 @@
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
+import { Gear } from 'phosphor-react-native';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
-import { CogIcon } from 'react-native-heroicons/solid';
 import Layout from '~/constants/Layout';
 import tw from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
@@ -37,7 +37,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 				</View>
 				{/* Settings */}
 				<Pressable onPress={() => navigation.navigate('Settings')}>
-					<CogIcon color="white" size={24} />
+					<Gear color="white" size={24} />
 				</Pressable>
 			</View>
 		</DrawerContentScrollView>

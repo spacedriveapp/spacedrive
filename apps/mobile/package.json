@@ -44,7 +44,6 @@
 		"react-native-document-picker": "^8.1.1",
 		"react-native-fs": "^2.20.0",
 		"react-native-gesture-handler": "~2.5.0",
-		"react-native-heroicons": "^3.2.0",
 		"react-native-reanimated": "~2.10.0",
 		"react-native-safe-area-context": "4.3.1",
 		"react-native-screens": "~3.15.0",
