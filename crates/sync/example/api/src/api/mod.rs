@@ -34,11 +34,11 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 
 				dbs.insert(uuid, Db::new(uuid));
 
-				let ids = dbs.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>();
+				let ids = dbs.keys().copied().collect::<Vec<_>>();
 
-				for (_, db) in dbs {
+				for db in dbs.values_mut() {
 					for id in &ids {
-						db.register_node(id.clone());
+						db.register_node(*id);
 					}
 				}
 
@@ -123,11 +123,7 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 
 				let db_id = db_id.parse().unwrap();
 
-				let ops = dbs
-					.iter()
-					.map(|(_, db)| db._operations.clone())
-					.flatten()
-					.collect();
+				let ops = dbs.values().flat_map(|db| db._operations.clone()).collect();
 
 				let db = dbs.get_mut(&db_id).unwrap();
 
@@ -142,9 +138,9 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 
 				let mut hashmap = HashMap::new();
 
-				for (_, db) in dbs {
+				for db in dbs.values_mut() {
 					for op in &db._operations {
-						hashmap.insert(op.id.clone(), op.clone());
+						hashmap.insert(op.id, op.clone());
 					}
 				}
 

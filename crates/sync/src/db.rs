@@ -79,9 +79,9 @@ impl Db {
 	}
 
 	pub fn register_node(&mut self, id: Uuid) {
-		if !self._clocks.contains_key(&id) {
-			self._clocks.insert(id, Duration::from_millis(0).into());
-		}
+		self._clocks
+			.entry(id)
+			.or_insert_with(|| Duration::from_millis(0).into());
 	}
 
 	pub fn create_crdt_operation(&mut self, typ: CRDTOperationType) -> CRDTOperation {
@@ -98,7 +98,7 @@ impl Db {
 	fn compare_messages(&self, operations: Vec<CRDTOperation>) -> Vec<(CRDTOperation, bool)> {
 		operations
 			.into_iter()
-			.map(|op| (op.id.clone(), op))
+			.map(|op| (op.id, op))
 			.collect::<HashMap<_, _>>()
 			.into_iter()
 			.filter_map(|(_, op)| {
@@ -226,10 +226,10 @@ impl Db {
 									},
 								);
 							}
-							RelationOperationData::Update { field, value: _ } => {
-								match field.as_str() {
-									_ => unreachable!(),
-								}
+							RelationOperationData::Update { field: _, value: _ } => {
+								// match field.as_str() {
+								// 	_ => unreachable!(),
+								// }
 							}
 							RelationOperationData::Delete => {
 								self.tags_on_objects
