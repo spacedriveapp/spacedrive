@@ -1,12 +1,11 @@
 // import types from '../../constants/file-types.json';
-import { ShareIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
 import { ExplorerContext, ExplorerItem } from '@sd/client';
 import { Button } from '@sd/ui';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { Link } from 'phosphor-react';
+import { Link, Share } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
 import { DefaultProps } from '../primitive/types';
@@ -79,7 +78,7 @@ export const Inspector = (props: Props) => {
 								</Tooltip>
 								<Tooltip label="Share">
 									<Button size="icon">
-										<ShareIcon className="w-[18px] h-[18px]" />
+										<Share className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>
 								<Tooltip label="Link">

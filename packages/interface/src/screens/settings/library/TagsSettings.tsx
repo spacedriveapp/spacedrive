@@ -1,8 +1,8 @@
-import { TrashIcon } from '@heroicons/react/24/outline';
 import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { TagUpdateArgs } from '@sd/client';
 import { Button, Card, Dialog, Input, Switch } from '@sd/ui';
 import clsx from 'clsx';
+import { Trash } from 'phosphor-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useDebounce } from 'rooks';
@@ -163,7 +163,7 @@ export default function TagsSettings() {
 							ctaLabel="Delete"
 							trigger={
 								<Button variant="gray" className="h-[38px] mt-[22px]">
-									<TrashIcon className="w-4 h-4" />
+									<Trash className="w-4 h-4" />
 								</Button>
 							}
 						/>

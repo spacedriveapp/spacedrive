@@ -11,7 +11,6 @@
 	},
 	"dependencies": {
 		"@headlessui/react": "^1.7.3",
-		"@heroicons/react": "^2.0.12",
 		"@icons-pack/react-simple-icons": "^5.8.0",
 		"@sd/assets": "workspace:*",
 		"@sd/docs": "workspace:*",

@@ -1,6 +1,6 @@
 import { Listbox as ListboxPrimitive } from '@headlessui/react';
-import { CheckIcon, SunIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
+import { Check, Sun } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
 interface ListboxOption {
@@ -38,7 +38,7 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 						)}
 
 						<span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-							<SunIcon className="w-5 h-5 text-gray-400" aria-hidden="true" />
+							<Sun className="w-5 h-5 text-gray-400" aria-hidden="true" />
 						</span>
 					</ListboxPrimitive.Button>
 
@@ -79,7 +79,7 @@ export default function Listbox(props: { options: ListboxOption[]; className?: s
 
 										{selected ? (
 											<span className="absolute inset-y-0 left-0 flex items-center pl-2 text-white">
-												<CheckIcon className="w-5 h-5" aria-hidden="true" />
+												<Check className="w-5 h-5" aria-hidden="true" />
 											</span>
 										) : null}
 									</>

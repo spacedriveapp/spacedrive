@@ -1,15 +1,8 @@
-import {
-	AcademicCapIcon,
-	BookOpenIcon,
-	ChatBubbleOvalLeftIcon,
-	MapIcon,
-	UsersIcon
-} from '@heroicons/react/24/solid';
-import { Discord, Github } from '@icons-pack/react-simple-icons';
+import { Academia, Discord, Github } from '@icons-pack/react-simple-icons';
 import AppLogo from '@sd/assets/images/logo.png';
 import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-import { DotsThreeVertical } from 'phosphor-react';
+import { Book, Chat, DotsThreeVertical, MapPin, User } from 'phosphor-react';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import * as router from 'vite-plugin-ssr/client/router';
 
@@ -108,22 +101,19 @@ export default function NavBar() {
 						</Dropdown.Item>
 					</Dropdown.Section>
 					<Dropdown.Section>
-						<Dropdown.Item icon={MapIcon} {...link('/roadmap')}>
+						<Dropdown.Item icon={MapPin} {...link('/roadmap')}>
 							Roadmap
 						</Dropdown.Item>
-						<Dropdown.Item
-							icon={BookOpenIcon}
-							{...link('/docs/product/getting-started/introduction')}
-						>
+						<Dropdown.Item icon={Book} {...link('/docs/product/getting-started/introduction')}>
 							Docs
 						</Dropdown.Item>
-						<Dropdown.Item icon={UsersIcon} {...link('/team')}>
+						<Dropdown.Item icon={User} {...link('/team')}>
 							Team
 						</Dropdown.Item>
-						<Dropdown.Item icon={ChatBubbleOvalLeftIcon} {...link('/blog')}>
+						<Dropdown.Item icon={Chat} {...link('/blog')}>
 							Blog
 						</Dropdown.Item>
-						<Dropdown.Item icon={AcademicCapIcon} {...link('/careers')}>
+						<Dropdown.Item icon={Academia} {...link('/careers')}>
 							Careers
 						</Dropdown.Item>
 					</Dropdown.Section>

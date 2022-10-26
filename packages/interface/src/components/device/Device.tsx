@@ -1,8 +1,15 @@
-import { KeyIcon } from '@heroicons/react/24/outline';
-import { CogIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
 import { Loader } from '@sd/ui';
-import { Cloud, Desktop, DeviceMobileCamera, DotsSixVertical, Laptop } from 'phosphor-react';
+import {
+	Cloud,
+	Desktop,
+	DeviceMobileCamera,
+	DotsSixVertical,
+	Gear,
+	Key,
+	Laptop,
+	Lock
+} from 'phosphor-react';
 import { useState } from 'react';
 
 import FileItem from '../explorer/FileItem';
@@ -36,7 +43,7 @@ export function Device(props: DeviceProps) {
 				<h3 className="font-semibold text-md">{props.name || 'Unnamed Device'}</h3>
 				<div className="flex flex-row space-x-1.5 mt-0.5">
 					<span className="font-semibold flex flex-row h-[19px] -mt-0.5 ml-3 py-0.5 px-1.5 text-[10px] rounded text-type-faint">
-						<LockClosedIcon className="w-3 h-3 mr-1 -ml-0.5 m-[1px]" />
+						<Lock weight="bold" className="w-3 h-3 mr-1 -ml-0.5 m-[1px]" />
 						P2P
 					</span>
 				</div>
@@ -54,12 +61,12 @@ export function Device(props: DeviceProps) {
 				<div className="flex flex-row ml-3 space-x-1">
 					<Tooltip label="Encrypt">
 						<Button className="!p-1 ">
-							<KeyIcon className="w-5 h-5" />
+							<Key weight="bold" className="w-5 h-5" />
 						</Button>
 					</Tooltip>
 					<Tooltip label="Settings">
 						<Button className="!p-1 ">
-							<CogIcon className="w-5 h-5" />
+							<Gear weight="bold" className="w-5 h-5" />
 						</Button>
 					</Tooltip>
 				</div>
