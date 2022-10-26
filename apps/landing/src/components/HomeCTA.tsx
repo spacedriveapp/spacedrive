@@ -88,7 +88,7 @@ export function HomeCTA() {
 						<Button
 							onClick={() => setShowWaitlistInput(true)}
 							className="z-30 border-0 cursor-pointer"
-							variant="primary"
+							variant="gray"
 						>
 							Join Waitlist
 						</Button>
@@ -96,7 +96,7 @@ export function HomeCTA() {
 							href="https://github.com/spacedriveapp/spacedrive"
 							target="_blank"
 							className="z-30 cursor-pointer"
-							variant="gray"
+							variant="accent"
 						>
 							<Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
 							Star on GitHub
@@ -115,9 +115,9 @@ export function HomeCTA() {
 									})}
 								>
 									{waitlistError ? (
-										<Alert className="fill-red-500 w-5 mr-1" />
+										<Alert className="w-5 mr-1 fill-red-500" />
 									) : (
-										<Info className="fill-green-500 w-5 mr-1" />
+										<Info className="w-5 mr-1 fill-green-500" />
 									)}
 									<p
 										className={clsx({
@@ -150,7 +150,7 @@ export function HomeCTA() {
 											'opacity-50 cursor-default': loading
 										})}
 										disabled={loading}
-										variant="primary"
+										variant="accent"
 										type="submit"
 									>
 										{loading ? (

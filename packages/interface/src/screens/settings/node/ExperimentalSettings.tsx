@@ -1,5 +1,6 @@
+import { Switch } from '@sd/ui';
+
 import { useNodeStore } from '../../../components/device/Stores';
-import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
@@ -17,9 +18,9 @@ export default function ExperimentalSettings() {
 				description="Shows data about Spacedrive such as Jobs, Job History and Client State."
 			>
 				<div className="flex items-center h-full pl-10">
-					<Toggle
-						value={isExperimental}
-						size={'sm'}
+					<Switch
+						checked={isExperimental}
+						size="sm"
 						onChange={(newValue) => {
 							setIsExperimental(!isExperimental);
 						}}

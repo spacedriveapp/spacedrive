@@ -1,3 +1,3 @@
-import tw from 'tailwind-styled-components';
+import { tw } from './utils';
 
-export const CategoryHeading = tw.h3`mt-1 mb-1 text-xs font-semibold text-gray-300`;
+export const CategoryHeading = tw.h3`text-xs font-semibold text-ink-dull`;

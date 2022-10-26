@@ -1,6 +1,6 @@
-import { loggerLink } from '@rspc/client';
+import { loggerLink, splitLink } from '@rspc/client';
 import { tauriLink } from '@rspc/tauri';
-import { OperatingSystem, PlatformProvider, hooks, queryClient } from '@sd/client';
+import { OperatingSystem, PlatformProvider, getDebugState, hooks, queryClient } from '@sd/client';
 import SpacedriveInterface, { Platform } from '@sd/interface';
 import { KeybindEvent } from '@sd/interface';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
@@ -10,9 +10,14 @@ import { createRoot } from 'react-dom/client';
 
 import '@sd/ui/style';
 
-const isDev = import.meta.env.DEV;
 const client = hooks.createClient({
-	links: [...(isDev ? [loggerLink()] : []), tauriLink()]
+	links: [
+		splitLink({
+			condition: () => getDebugState().rspcLogger,
+			true: [loggerLink(), tauriLink()],
+			false: [tauriLink()]
+		})
+	]
 });
 
 async function getOs(): Promise<OperatingSystem> {
@@ -33,7 +38,9 @@ const platform: Platform = {
 	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
 	openLink: shell.open,
 	getOs,
-	openFilePickerDialog: () => dialog.open({ directory: true })
+	openFilePickerDialog: () => dialog.open({ directory: true }),
+	showDevtools: () => invoke('show_devtools'),
+	openPath: (path) => shell.open(path)
 };
 
 function App() {

@@ -24,9 +24,11 @@ prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-
   "migrations",
   "sqlite",
 ], default-features = false }
+
 rspc = { version = "0.1.2" }
 normi = { version = "0.0.1" }
 specta = { version = "0.0.4" }
+
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1

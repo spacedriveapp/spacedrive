@@ -1,5 +1,5 @@
 import '@fontsource/inter/variable.css';
-import { LibraryContextProvider, queryClient } from '@sd/client';
+import { LibraryContextProvider, queryClient, useDebugState } from '@sd/client';
 import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
@@ -21,16 +21,28 @@ export default function SpacedriveInterface() {
 	return (
 		<ErrorBoundary FallbackComponent={ErrorFallback}>
 			<QueryClientProvider client={queryClient} contextSharing={true}>
-				{/* The `context={defaultContext}` part is required for this to work on Windows. Why, idk, don't question it */}
-				{import.meta.env.DEV && (
-					<ReactQueryDevtools position="bottom-right" context={defaultContext} />
-				)}
+				<Devtools />
 				<MemoryRouter>
 					<AppRouterWrapper />
 				</MemoryRouter>
 			</QueryClientProvider>
 		</ErrorBoundary>
 	);
+}
+
+function Devtools() {
+	const debugState = useDebugState();
+
+	// The `context={defaultContext}` part is required for this to work on Windows. Why, idk, don't question it
+	return debugState.reactQueryDevtools !== 'disabled' ? (
+		<ReactQueryDevtools
+			position="bottom-right"
+			context={defaultContext}
+			toggleButtonProps={{
+				className: debugState.reactQueryDevtools === 'invisible' ? 'opacity-0' : ''
+			}}
+		/>
+	) : null;
 }
 
 // This can't go in `<SpacedriveInterface />` cause it needs the router context but it can't go in `<AppRouter />` because that requires this context

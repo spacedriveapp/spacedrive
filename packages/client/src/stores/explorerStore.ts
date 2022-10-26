@@ -16,9 +16,11 @@ const state = {
 	gridItemSize: 100,
 	listItemSize: 40,
 	selectedRowIndex: 1,
+	tagAssignMode: false,
 	showInspector: true,
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,
+	contextMenuActiveObject: null as Object | null,
 	newThumbnails: {} as Record<string, boolean>
 };
 

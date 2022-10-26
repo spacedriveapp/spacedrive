@@ -22,7 +22,7 @@ export default function DeleteLibraryDialog(
 	return (
 		<Dialog
 			open={openDeleteModal}
-			onOpenChange={setOpenDeleteModal}
+			setOpen={setOpenDeleteModal}
 			title="Delete Library"
 			description="Deleting a library will permanently the database, the files themselves will not be deleted."
 			ctaAction={() => {

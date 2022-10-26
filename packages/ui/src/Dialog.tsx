@@ -1,11 +1,13 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import { ReactNode, useState } from 'react';
-import { animated, config, useTransition } from 'react-spring';
+import { animated, useTransition } from 'react-spring';
 
 import { Button, Loader } from '../';
 
 export interface DialogProps extends DialogPrimitive.DialogProps {
+	open: boolean;
+	setOpen: (open: boolean) => void;
 	trigger: ReactNode;
 	ctaLabel?: string;
 	ctaDanger?: boolean;
@@ -18,9 +20,7 @@ export interface DialogProps extends DialogPrimitive.DialogProps {
 	submitDisabled?: boolean;
 }
 
-export function Dialog(props: DialogProps) {
-	const [open, setOpen] = useState(false);
-
+export function Dialog({ open, setOpen: onOpenChange, ...props }: DialogProps) {
 	const transitions = useTransition(open, {
 		from: {
 			opacity: 0,
@@ -33,7 +33,7 @@ export function Dialog(props: DialogProps) {
 	});
 
 	return (
-		<DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
 			<DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>
 			{transitions(
 				(styles, show) =>
@@ -41,7 +41,7 @@ export function Dialog(props: DialogProps) {
 						<DialogPrimitive.Portal forceMount>
 							<DialogPrimitive.Overlay asChild>
 								<animated.div
-									className="fixed top-0 bottom-0 left-0 right-0 z-50 grid overflow-y-auto bg-black bg-opacity-50 rounded-xl place-items-center m-[1px]"
+									className="fixed top-0 bottom-0 left-0 right-0 z-50 grid overflow-y-auto bg-app bg-opacity-50 rounded-xl place-items-center m-[1px]"
 									style={{
 										opacity: styles.opacity
 									}}
@@ -49,38 +49,36 @@ export function Dialog(props: DialogProps) {
 									<DialogPrimitive.Content forceMount asChild>
 										<animated.div
 											style={styles}
-											className="min-w-[300px] max-w-[400px] rounded-md bg-gray-650 text-white border border-gray-550 shadow-deep"
+											className="min-w-[300px] max-w-[400px] rounded-md bg-app-box border border-app-line text-ink shadow-app-shade"
 										>
-											<form onSubmit={(e) => e.preventDefault()}>
+											<form
+												onSubmit={(e) => {
+													e.preventDefault();
+													if (props.ctaAction) props.ctaAction();
+												}}
+											>
 												<div className="p-5">
 													<DialogPrimitive.Title className="mb-2 font-bold">
 														{props.title}
 													</DialogPrimitive.Title>
-													<DialogPrimitive.Description className="text-sm text-gray-300">
+													<DialogPrimitive.Description className="text-sm text-ink-dull">
 														{props.description}
 													</DialogPrimitive.Description>
 													{props.children}
 												</div>
-												<div className="flex flex-row justify-end px-3 py-3 space-x-2 bg-gray-600 border-t border-gray-550">
+												<div className="flex flex-row justify-end px-3 py-3 space-x-2 border-t bg-app-selected border-app-line">
 													{props.loading && <Loader />}
 													<div className="flex-grow" />
 													<DialogPrimitive.Close asChild>
-														<Button
-															loading={props.loading}
-															disabled={props.loading}
-															size="sm"
-															variant="gray"
-														>
+														<Button disabled={props.loading} size="sm" variant="gray">
 															Close
 														</Button>
 													</DialogPrimitive.Close>
 													<Button
-														onClick={props.ctaAction}
 														type="submit"
 														size="sm"
-														loading={props.loading}
 														disabled={props.loading || props.submitDisabled}
-														variant={props.ctaDanger ? 'colored' : 'primary'}
+														variant={props.ctaDanger ? 'colored' : 'accent'}
 														className={clsx(props.ctaDanger && 'bg-red-500 border-red-500')}
 													>
 														{props.ctaLabel}

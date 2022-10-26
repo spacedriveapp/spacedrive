@@ -32,10 +32,11 @@ pub enum JobManagerEvent {
 	IngestJob(LibraryContext, Box<dyn DynJob>),
 }
 
-// jobs struct is maintained by the core
+/// JobManager handles queueing and executing jobs using the `DynJob`
+/// Handling persisting JobReports to the database, pause/resuming, and
+///
 pub struct JobManager {
 	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
-	// workers are spawned when jobs are picked off the queue
 	running_workers: RwLock<HashMap<Uuid, Arc<Mutex<Worker>>>>,
 	internal_sender: mpsc::UnboundedSender<JobManagerEvent>,
 	shutdown_tx: Arc<broadcast::Sender<()>>,
