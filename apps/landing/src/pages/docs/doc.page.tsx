@@ -1,5 +1,5 @@
-import { ChevronRightIcon } from '@heroicons/react/24/solid';
 import { Github } from '@icons-pack/react-simple-icons';
+import { CaretRight } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 import { Helmet } from 'react-helmet';
 
@@ -51,7 +51,7 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 						{nextDoc && (
 							<a href={`/docs/${nextDoc.url}`} className="w-full">
 								<BottomCard>
-									<ChevronRightIcon className="w-5 mr-3" />
+									<CaretRight className="w-5 mr-3" />
 									Next article: {nextDoc?.title}
 								</BottomCard>
 							</a>

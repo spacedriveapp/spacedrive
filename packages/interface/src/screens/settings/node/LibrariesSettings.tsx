@@ -1,8 +1,7 @@
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/client';
 import { Button, ButtonLink, Card } from '@sd/ui';
-import { DotsSixVertical } from 'phosphor-react';
+import { DotsSixVertical, Pen, Trash } from 'phosphor-react';
 import { useState } from 'react';
 
 import CreateLibraryDialog from '../../../components/dialog/CreateLibraryDialog';
@@ -28,11 +27,11 @@ function LibraryListItem(props: { library: LibraryConfigWrapped }) {
 			</div>
 			<div className="flex flex-row items-center space-x-2">
 				<ButtonLink size="icon" to="/settings/library" variant="gray">
-					<PencilIcon className="w-4 h-4" />
+					<Pen className="w-4 h-4" />
 				</ButtonLink>
 				<DeleteLibraryDialog libraryUuid={props.library.uuid}>
 					<Button size="icon" variant="gray">
-						<TrashIcon className="w-4 h-4" />
+						<Trash className="w-4 h-4" />
 					</Button>
 				</DeleteLibraryDialog>
 			</div>

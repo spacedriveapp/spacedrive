@@ -1,6 +1,5 @@
-import { ChevronRightIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
-import { List, X } from 'phosphor-react';
+import { CaretRight, List, X } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import pkg from 'react-burger-menu';
 
@@ -53,7 +52,7 @@ export default function DocsLayout(props: Props) {
 						return (
 							<div key={index} className="flex flex-row items-center ml-2">
 								<a className="px-1 text-sm">{toTitleCase(item)}</a>
-								{index < 1 && <ChevronRightIcon className="w-4 h-4 ml-1 -mr-2" />}
+								{index < 1 && <CaretRight className="w-4 h-4 ml-1 -mr-2" />}
 							</div>
 						);
 					})}

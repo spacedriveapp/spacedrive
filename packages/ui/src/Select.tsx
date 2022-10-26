@@ -1,7 +1,7 @@
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
 import clsx from 'clsx';
+import { CaretDown, Check } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 
 interface SelectProps {
@@ -37,7 +37,7 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 			<SelectPrimitive.Portal className="relative">
 				<SelectPrimitive.Content className="absolute z-50 w-full p-1 border rounded-md shadow-2xl bg-app-box border-app-line shadow-app-shade/20 ">
 					<SelectPrimitive.ScrollUpButton className="hidden ">
-						<ChevronDownIcon />
+						<CaretDown />
 					</SelectPrimitive.ScrollUpButton>
 					<SelectPrimitive.Viewport>{props.children}</SelectPrimitive.Viewport>
 					<SelectPrimitive.ScrollDownButton className="hidden "></SelectPrimitive.ScrollDownButton>
@@ -59,7 +59,7 @@ export function SelectOption(props: PropsWithChildren<{ value: string }>) {
 		>
 			<SelectPrimitive.ItemText>{props.children}</SelectPrimitive.ItemText>
 			<SelectPrimitive.ItemIndicator className="absolute inline-flex items-center left-1">
-				<CheckIcon className="w-4 h-4" />
+				<Check className="w-4 h-4" />
 			</SelectPrimitive.ItemIndicator>
 		</SelectPrimitive.Item>
 	);

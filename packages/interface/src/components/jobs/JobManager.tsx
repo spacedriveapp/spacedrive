@@ -1,26 +1,27 @@
-import {
-	EllipsisHorizontalIcon,
-	EllipsisVerticalIcon,
-	EyeIcon,
-	FingerPrintIcon,
-	FolderIcon,
-	PhotoIcon,
-	XMarkIcon
-} from '@heroicons/react/24/solid';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/solid';
 import { useLibraryQuery } from '@sd/client';
 import { JobReport } from '@sd/client';
 import { Button, CategoryHeading, tw } from '@sd/ui';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { ArrowsClockwise, Pause } from 'phosphor-react';
+import {
+	ArrowsClockwise,
+	Camera,
+	DotsThree,
+	Eye,
+	Fingerprint,
+	Folder,
+	IconProps,
+	Pause,
+	Question,
+	X
+} from 'phosphor-react';
 
 import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';
 
 interface JobNiceData {
 	name: string;
-	icon: React.FC<React.ComponentProps<'svg'>>;
+	icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
 }
 
 const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
@@ -28,19 +29,19 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 		name: `Indexed ${numberWithCommas(job.metadata?.data?.total_paths || 0)} paths at "${
 			job.metadata?.data?.location_path || '?'
 		}"`,
-		icon: FolderIcon
+		icon: Folder
 	},
 	thumbnailer: {
 		name: `Generated ${numberWithCommas(job.task_count)} thumbnails`,
-		icon: PhotoIcon
+		icon: Camera
 	},
 	file_identifier: {
 		name: `Extracted metadata for ${numberWithCommas(job.task_count)} files`,
-		icon: EyeIcon
+		icon: Eye
 	},
 	object_validator: {
 		name: `Generated ${numberWithCommas(job.task_count)} full object hashes`,
-		icon: FingerPrintIcon
+		icon: Fingerprint
 	}
 });
 
@@ -70,7 +71,7 @@ export function JobsManager() {
 				<div className="flex-grow" />
 
 				<Button size="icon">
-					<EllipsisHorizontalIcon className="w-5" />
+					<DotsThree className="w-5" />
 				</Button>
 			</HeaderContainer>
 			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
@@ -92,7 +93,7 @@ export function JobsManager() {
 function Job({ job }: { job: JobReport }) {
 	const niceData = getNiceData(job)[job.name] || {
 		name: job.name,
-		icon: QuestionMarkCircleIcon
+		icon: Question
 	};
 	const isRunning = job.status === 'Running';
 	return (
@@ -138,7 +139,7 @@ function Job({ job }: { job: JobReport }) {
 					</Button>
 				)}
 				<Button size="icon">
-					<XMarkIcon className="w-4" />
+					<X className="w-4" />
 				</Button>
 			</div>
 		</div>
