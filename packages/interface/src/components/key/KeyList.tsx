@@ -37,31 +37,6 @@ export function KeyList(props: KeyListProps) {
 					{/* <CategoryHeading>Mounted keys</CategoryHeading> */}
 					<div className="space-y-1.5">
 						<ListKeys></ListKeys>
-						{/* <Key
-							index={0}
-							data={{
-								id: 'af5570f5a1810b7a',
-								name: 'OBS Recordings',
-								mounted: true,
-
-								nodes: ['node1', 'node2'],
-								stats: { objectCount: 235, containerCount: 2 }
-							}}
-						/>
-						<Key
-							index={1}
-							data={{
-								id: 'af5570f5a1810b7a',
-								name: 'Unknown Key',
-								locked: true,
-								mounted: true,
-								stats: { objectCount: 45 }
-							}}
-						/>
-						<Key index={2} data={{ id: '7324695a52da67b1', name: 'Spacedrive Company' }} />
-						<Key index={3} data={{ id: 'b02303d68d05a562', name: 'Key 4' }} />
-						<Key index={3} data={{ id: 'b02303d68d05a562', name: 'Key 5' }} />
-						<Key index={3} data={{ id: 'b02303d68d05a562', name: 'Key 6' }} /> */}
 					</div>
 				</div>
 			</div>
