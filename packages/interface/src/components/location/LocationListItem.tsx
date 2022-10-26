@@ -1,9 +1,8 @@
-import { TrashIcon } from '@heroicons/react/24/solid';
 import { useLibraryMutation } from '@sd/client';
 import { Location, Node } from '@sd/client';
 import { Button, Card, Dialog } from '@sd/ui';
 import clsx from 'clsx';
-import { Repeat } from 'phosphor-react';
+import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 
 import { Folder } from '../icons/Folder';
@@ -66,7 +65,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					ctaLabel="Delete"
 					trigger={
 						<Button variant="gray" className="!p-1.5">
-							<TrashIcon className="w-4 h-4" />
+							<Trash className="w-4 h-4" />
 						</Button>
 					}
 				/>

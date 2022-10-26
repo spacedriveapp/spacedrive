@@ -96,7 +96,7 @@ export const Root = (props: PropsWithChildren<DropdownRootProps>) => {
 				>
 					<Menu.Items
 						className={clsx(
-							'absolute z-50   min-w-fit w-full border divide-y divide-menu-line rounded-md shadow-xl shadow-menu-shade/30 top-full focus:outline-none bg-menu border-menu-line text-menu-ink',
+							'absolute z-50 min-w-fit w-full border divide-y divide-menu-line rounded-md shadow-xl shadow-menu-shade/30 top-full focus:outline-none bg-menu border-menu-line text-menu-ink',
 							props.itemsClassName,
 							{ 'left-0': props.align === 'left' },
 							{ 'right-0': props.align === 'right' }

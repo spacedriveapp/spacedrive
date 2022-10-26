@@ -1,6 +1,6 @@
-import { EllipsisVerticalIcon, EyeIcon, KeyIcon } from '@heroicons/react/24/solid';
 import { Button } from '@sd/ui';
 import clsx from 'clsx';
+import { DotsThree, Eye, Key as KeyIcon } from 'phosphor-react';
 
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -69,12 +69,12 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 				{data.mounted && (
 					<Tooltip label="Browse files">
 						<Button size="icon">
-							<EyeIcon className="w-4 h-4 text-ink-faint" />
+							<Eye className="w-4 h-4 text-ink-faint" />
 						</Button>
 					</Tooltip>
 				)}
 				<Button size="icon">
-					<EllipsisVerticalIcon className="w-4 h-4 text-ink-faint" />
+					<DotsThree className="w-4 h-4 text-ink-faint" />
 				</Button>
 			</div>
 		</div>
