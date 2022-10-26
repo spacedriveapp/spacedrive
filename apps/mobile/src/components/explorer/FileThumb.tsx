@@ -1,6 +1,6 @@
 import VideoSvg from '@sd/assets/svgs/video.svg';
 import ZipSvg from '@sd/assets/svgs/zip.svg';
-import { usePlatform } from '@sd/client';
+import { ExplorerItem, usePlatform } from '@sd/client';
 import { Suspense, useMemo } from 'react';
 import { Image, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -9,7 +9,6 @@ import { isObject, isPath } from '~/types/helper';
 
 import icons from '../../assets/icons/file';
 import tw from '../../lib/tailwind';
-import { ExplorerItem } from '../../types/bindings';
 import FolderIcon from '../icons/FolderIcon';
 
 type FileThumbProps = {

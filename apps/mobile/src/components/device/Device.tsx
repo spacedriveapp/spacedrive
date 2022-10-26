@@ -1,8 +1,8 @@
+import { ExplorerItem } from '@sd/client';
 import { Cloud, Desktop, DeviceMobileCamera, Laptop } from 'phosphor-react-native';
 import { FlatList, Text, View } from 'react-native';
 import { LockClosedIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';
-import { ExplorerItem } from '~/types/bindings';
 
 import FileItem from '../explorer/FileItem';
 

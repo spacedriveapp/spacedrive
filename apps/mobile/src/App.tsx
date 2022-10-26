@@ -1,6 +1,7 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { createClient } from '@rspc/client';
+import type { Procedures } from '@sd/client';
 import { Platform, PlatformProvider, queryClient, rspc, useInvalidateQuery } from '@sd/client';
 import { StatusBar } from 'expo-status-bar';
 import { Linking, Platform as RNPlatform } from 'react-native';
@@ -16,7 +17,6 @@ import tw from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { useOnboardingStore } from './stores/onboardingStore';
-import type { Procedures } from './types/bindings';
 
 const NavigatorTheme: Theme = {
 	...DefaultTheme,

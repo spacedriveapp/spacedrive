@@ -1,4 +1,4 @@
-import { ExplorerItem } from './bindings';
+import { ExplorerItem } from '@sd/client';
 
 export type valueof<T> = T[keyof T];
 

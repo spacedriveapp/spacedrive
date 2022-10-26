@@ -1,10 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
+import { ExplorerItem } from '@sd/client';
 import { Pressable, Text, View } from 'react-native';
 
 import tw from '../../lib/tailwind';
 import { SharedScreenProps } from '../../navigation/SharedScreens';
 import { useFileModalStore } from '../../stores/modalStore';
-import { ExplorerItem } from '../../types/bindings';
 import FileThumb from './FileThumb';
 
 type FileItemProps = {
