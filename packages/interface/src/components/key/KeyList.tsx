@@ -3,6 +3,7 @@ import { Button } from '@sd/ui';
 
 import { DefaultProps } from '../primitive/types';
 import { Key } from './Key';
+import type { Key as QueryKey } from '@sd/client';
 
 export type KeyListProps = DefaultProps;
 
@@ -10,16 +11,17 @@ const ListKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
 
+	const mountedKeys: QueryKey[] = keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? []
+	const unmountedKeys: QueryKey[] = keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? []
+
 	return (
 		<>
-		{keys.data?.map((key, index) => {
-			const active = !!keys.data?.find((t) => t.id === key.id);
-
+		{[...mountedKeys, ...unmountedKeys]?.map((key, index) => {
 			return (
 				<Key index={index} data={{
 					id: key.uuid,
 					name: `Key ${index + 1}`,
-					mounted: mounted_uuids.data?.includes(key.uuid)
+					mounted: mountedKeys.includes(key)
 				}} />
 			)
 		})}
