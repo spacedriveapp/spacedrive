@@ -105,7 +105,7 @@ function FilePathList(props: { db: string }) {
     <div >
       {filePaths.data && (
         <ul className="font-mono">
-          {filePaths.data.sort((a, b) => a.id - b.id).map((path) => (
+          {filePaths.data.sort((a, b) => a.id.localeCompare(b.id)).map((path) => (
             <li key={path.id}>{JSON.stringify(path)}</li>
           ))}
         </ul>
