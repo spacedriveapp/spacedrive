@@ -1501,6 +1501,9 @@
 	"CEL": {
 		"descriptions": ["Animation CEL", "Graphics", "Celestia Script"]
 	},
+	"CELL": {
+	    "descriptions": ["Hancom Office Cell spreadsheet"]
+    }, 
 	"CELX": {
 		"descriptions": ["Celestia Script"]
 	},
@@ -2295,14 +2298,16 @@
 	},
 	"DOC": {
 		"descriptions": [
-			"A Document, or an ASCII text file with text formatting codes in with the text; used by many word processors"
+			"Microsoft Word document before Word 2007"
 		]
 	},
 	"DOCM": {
 		"descriptions": ["Microsoft Word 2007 Master document"]
 	},
 	"DOCX": {
-		"descriptions": ["Office Open XML Text document"]
+		"descriptions": [
+		    "MS Office Open XML Text document for Word 2007"
+		    ]
 	},
 	"DOF": {
 		"descriptions": ["Delphi project options file"]
@@ -3729,6 +3734,9 @@
 	"HC": {
 		"descriptions": ["Header file"]
 	},
+	"HCDT": {
+	    "descriptions": ["Hancom Office Cell template"]
+	},
 	"HCG": {
 		"descriptions": ["Document"]
 	},
@@ -3887,6 +3895,9 @@
 	"HSC": {
 		"descriptions": ["2-op FM music"]
 	},
+	"HSDT": {
+	    "descriptions": ["Hancom Office Show template"]
+	}
 	"HSH": {
 		"descriptions": ["Disk image hash file"]
 	},
@@ -3898,6 +3909,9 @@
 	},
 	"HTA": {
 		"descriptions": ["HTML Application"]
+	},
+	"HTHEME": {
+	    "descriptions": ["Hancom Office Show theme"]
 	},
 	"HTM": {
 		"descriptions": ["see HTML"]
@@ -3921,7 +3935,7 @@
 		"descriptions": ["Presentation"]
 	},
 	"HWP": {
-		"descriptions": ["Hangul Word Processor Document"]
+		"descriptions": ["Hancom Office Hangul Word Processor Document"]
 	},
 	"HWS": {
 		"descriptions": ["Hollywood script"]
@@ -4515,7 +4529,7 @@
 			"Keyboard macros",
 			"OS/2 archive .key-file (i.e. OS2.KEY)",
 			"Security file e.g. Shareware Registration info",
-			"Keynote"
+			"iWork Keynote presentation"
 		]
 	},
 	"KFDK": {
@@ -5749,7 +5763,7 @@
 		"descriptions": ["Video Nugget"]
 	},
 	"NUMBERS": {
-		"descriptions": ["Numbers spreadsheet file"]
+		"descriptions": ["iWork Numbers spreadsheet file"]
 	},
 	"NV": {
 		"descriptions": ["NewViews DOS accounting database"]
@@ -6114,7 +6128,7 @@
 		"descriptions": ["For Personal Ancestral File data files"]
 	},
 	"PAGES": {
-		"descriptions": ["Pages document file"]
+		"descriptions": ["iWork Pages document file"]
 	},
 	"PAK": {
 		"descriptions": ["Archive"]
@@ -6706,11 +6720,19 @@
 		"descriptions": ["MS Office Open-XML Auto-Play Presentation"]
 	},
 	"PPT": {
-		"descriptions": ["Microsoft PowerPoint Presentation"]
+		"descriptions": ["Microsoft PowerPoint Presentation before PowerPoint 2007"]
+	},
+    "PPTB": {
+		"descriptions": ["Microsoft PowerPoint 2007 Binary Workbook (BIFF12)(Presentations)"]
+	},
+	"PPTM": {
+		"descriptions": ["Microsoft Excel 2007 Macro-Enabled Workbook (Presentations)"]
 	},
 	"PPTX": {
-		"descriptions": ["MS Office Open-XML Presentation"]
-	},
+		"descriptions": [
+		    "MS Office Open-XML Presentation for PowerPoint 2007",
+		    ]
+	},	
 	"PR1": {
 		"descriptions": ["Packrat 4.0 data file"]
 	},
@@ -7896,6 +7918,9 @@
 	},
 	"SHM": {
 		"descriptions": ["Shell macro"]
+	},
+	"SHOW": {
+	    "descriptions": ["Hancom Office Show presentation"]
 	},
 	"SHP": {
 		"descriptions": [
@@ -10007,7 +10032,7 @@
 		"descriptions": ["Microsoft Works"]
 	},
 	"XLS": {
-		"descriptions": ["Microsoft Excel Spreadsheet"]
+		"descriptions": ["Microsoft Excel Spreadsheet before Excel 2007"]
 	},
 	"XLSB": {
 		"descriptions": ["Microsoft Excel 2007 Binary Workbook (BIFF12)(Spreadsheets)"]
@@ -10016,7 +10041,7 @@
 		"descriptions": ["Microsoft Excel 2007 Macro-Enabled Workbook (Spreadsheets)"]
 	},
 	"XLSX": {
-		"descriptions": ["Office Open XML Workbook (Spreadsheets)"]
+		"descriptions": ["Office Open XML Workbook (Spreadsheets) for Excel 2007"]
 	},
 	"XLT": {
 		"descriptions": ["Microsoft Excel Template", "Translation table"]
