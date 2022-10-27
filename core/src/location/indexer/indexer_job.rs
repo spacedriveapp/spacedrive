@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 use std::{collections::HashMap, ffi::OsStr, path::PathBuf, time::Duration};
 use tokio::time::Instant;
 use tracing::info;
@@ -35,6 +36,7 @@ pub struct IndexerJob;
 location::include!(indexer_job_location {
 	indexer_rules: select { indexer_rule }
 });
+file_path::select!(file_path_id_only { id });
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 #[derive(Serialize, Deserialize)]
@@ -42,6 +44,11 @@ pub struct IndexerJobInit {
 	pub location: indexer_job_location::Data,
 }
 
+impl Hash for IndexerJobInit {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.location.id.hash(state);
+	}
+}
 /// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
 /// is cached and casted on `PathBuf` from `local_path` column in the `location` table. It also
 /// contains some metadata for logging purposes.
@@ -94,11 +101,7 @@ impl StatefulJob for IndexerJob {
 	}
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
-	async fn init(
-		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let location_path = state
 			.init
 			.location
@@ -107,13 +110,6 @@ impl StatefulJob for IndexerJob {
 			.map(PathBuf::from)
 			.unwrap();
 
-		// query db to highers id, so we can increment it for the new files indexed
-		#[derive(Deserialize, Serialize, Debug)]
-		struct QueryRes {
-			id: Option<i32>,
-		}
-
-		// TODO: use a select to fetch only the id instead of entire record when prisma supports it
 		// grab the next id so we can increment in memory for batch inserting
 		let first_file_id = ctx
 			.library_ctx()
@@ -121,6 +117,7 @@ impl StatefulJob for IndexerJob {
 			.file_path()
 			.find_first(vec![])
 			.order_by(file_path::id::order(Direction::Desc))
+			.select(file_path_id_only::select())
 			.exec()
 			.await?
 			.map(|r| r.id)
@@ -152,8 +149,6 @@ impl StatefulJob for IndexerJob {
 			},
 		)
 		.await?;
-
-		// TODO eliminate repeated paths already on DB
 
 		let total_paths = paths.len();
 		let mut dirs_ids = HashMap::new();
@@ -226,7 +221,7 @@ impl StatefulJob for IndexerJob {
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let data = &state
 			.data
@@ -279,6 +274,7 @@ impl StatefulJob for IndexerJob {
 					})
 					.collect(),
 			)
+			.skip_duplicates()
 			.exec()
 			.await?;
 
@@ -288,11 +284,7 @@ impl StatefulJob for IndexerJob {
 	}
 
 	/// Logs some metadata about the indexer job
-	async fn finalize(
-		&self,
-		_ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

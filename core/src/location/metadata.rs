@@ -199,10 +199,6 @@ impl SpacedriveLocationMetadataFile {
 			.map(|m| m.pub_id)
 	}
 
-	pub(super) fn root_path(&self) -> &Path {
-		self.path.as_path()
-	}
-
 	async fn write_metadata(&self) -> Result<(), LocationMetadataError> {
 		fs::write(
 			&self.path,

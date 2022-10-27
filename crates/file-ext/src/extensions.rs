@@ -44,6 +44,7 @@ extension_category_enum! {
 		Flv = [0x46, 0x4C, 0x56],
 		Wm = [],
 		#[serde(rename = "3gp")]
+		#[strum(serialize = "3gp")]
 		_3gp = [],
 		M4v = [0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x56] + 4,
 		Wmv = [0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C],
@@ -116,6 +117,7 @@ extension_category_enum! {
 		Gz = [0x1F, 0x8B, 0x08],
 		Bz2 = [0x42, 0x5A, 0x68],
 		#[serde(rename = "7z")]
+		#[strum(serialize = "7z")]
 		_7z = [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C],
 		Xz = [0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00],
 	}
@@ -258,7 +260,8 @@ extension_category_enum! {
 
 #[cfg(test)]
 mod test {
-	use std::{fs::File, path::PathBuf};
+	use std::path::PathBuf;
+	use tokio::fs::File;
 
 	use super::*;
 
@@ -283,9 +286,9 @@ mod test {
 		assert_eq!(Extension::from_str("jeff"), None);
 	}
 
-	#[test]
-	fn magic_bytes() {
-		fn test_path(subpath: &str) -> Option<Extension> {
+	#[tokio::test]
+	async fn magic_bytes() {
+		async fn test_path(subpath: &str) -> Option<Extension> {
 			println!("testing {}...", subpath);
 			let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 				.parent()
@@ -295,175 +298,176 @@ mod test {
 				.join("packages/test-files/files")
 				.join(subpath);
 
-			let mut file = File::open(path).unwrap();
+			let mut file = File::open(path).await.unwrap();
 
 			Extension::resolve_conflicting(&subpath.split(".").last().unwrap(), &mut file, true)
+				.await
 		}
 		// Video extension tests
 		assert_eq!(
-			dbg!(test_path("video/video.ts")),
+			dbg!(test_path("video/video.ts").await),
 			Some(Extension::Video(VideoExtension::Ts))
 		);
 		assert_eq!(
-			dbg!(test_path("code/typescript.ts")),
+			dbg!(test_path("code/typescript.ts").await),
 			Some(Extension::Code(CodeExtension::Ts))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.3gp")),
+			dbg!(test_path("video/video.3gp").await),
 			Some(Extension::Video(VideoExtension::_3gp))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.mov")),
+			dbg!(test_path("video/video.mov").await),
 			Some(Extension::Video(VideoExtension::Mov))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.asf")),
+			dbg!(test_path("video/video.asf").await),
 			Some(Extension::Video(VideoExtension::Asf))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.avi")),
+			dbg!(test_path("video/video.avi").await),
 			Some(Extension::Video(VideoExtension::Avi))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.flv")),
+			dbg!(test_path("video/video.flv").await),
 			Some(Extension::Video(VideoExtension::Flv))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.m4v")),
+			dbg!(test_path("video/video.m4v").await),
 			Some(Extension::Video(VideoExtension::M4v))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.mkv")),
+			dbg!(test_path("video/video.mkv").await),
 			Some(Extension::Video(VideoExtension::Mkv))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.mpg")),
+			dbg!(test_path("video/video.mpg").await),
 			Some(Extension::Video(VideoExtension::Mpg))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.mpeg")),
+			dbg!(test_path("video/video.mpeg").await),
 			Some(Extension::Video(VideoExtension::Mpeg))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.mts")),
+			dbg!(test_path("video/video.mts").await),
 			Some(Extension::Video(VideoExtension::Mts))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.mxf")),
+			dbg!(test_path("video/video.mxf").await),
 			Some(Extension::Video(VideoExtension::Mxf))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.ogv")),
+			dbg!(test_path("video/video.ogv").await),
 			Some(Extension::Video(VideoExtension::Ogv))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.swf")),
+			dbg!(test_path("video/video.swf").await),
 			Some(Extension::Video(VideoExtension::Swf))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.ts")),
+			dbg!(test_path("video/video.ts").await),
 			Some(Extension::Video(VideoExtension::Ts))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.vob")),
+			dbg!(test_path("video/video.vob").await),
 			Some(Extension::Video(VideoExtension::Vob))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.ogv")),
+			dbg!(test_path("video/video.ogv").await),
 			Some(Extension::Video(VideoExtension::Ogv))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.wmv")),
+			dbg!(test_path("video/video.wmv").await),
 			Some(Extension::Video(VideoExtension::Wmv))
 		);
 		assert_eq!(
-			dbg!(test_path("video/video.wtv")),
+			dbg!(test_path("video/video.wtv").await),
 			Some(Extension::Video(VideoExtension::Wtv))
 		);
 
 		// Audio extension tests
 		assert_eq!(
-			dbg!(test_path("audio/audio.aac")),
+			dbg!(test_path("audio/audio.aac").await),
 			Some(Extension::Audio(AudioExtension::Aac))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.adts")),
+			dbg!(test_path("audio/audio.adts").await),
 			Some(Extension::Audio(AudioExtension::Adts))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.aif")),
+			dbg!(test_path("audio/audio.aif").await),
 			Some(Extension::Audio(AudioExtension::Aif))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.aiff")),
+			dbg!(test_path("audio/audio.aiff").await),
 			Some(Extension::Audio(AudioExtension::Aiff))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.aptx")),
+			dbg!(test_path("audio/audio.aptx").await),
 			Some(Extension::Audio(AudioExtension::Aptx))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.ast")),
+			dbg!(test_path("audio/audio.ast").await),
 			Some(Extension::Audio(AudioExtension::Ast))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.caf")),
+			dbg!(test_path("audio/audio.caf").await),
 			Some(Extension::Audio(AudioExtension::Caf))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.flac")),
+			dbg!(test_path("audio/audio.flac").await),
 			Some(Extension::Audio(AudioExtension::Flac))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.loas")),
+			dbg!(test_path("audio/audio.loas").await),
 			Some(Extension::Audio(AudioExtension::Loas))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.m4a")),
+			dbg!(test_path("audio/audio.m4a").await),
 			Some(Extension::Audio(AudioExtension::M4a))
 		);
 		// assert_eq!(
-		// 	dbg!(test_path("audio/audio.m4b")),
+		// 	dbg!(test_path("audio/audio.m4b").await),
 		// 	Some(Extension::Audio(AudioExtension::M4b))
 		// );
 		assert_eq!(
-			dbg!(test_path("audio/audio.mp2")),
+			dbg!(test_path("audio/audio.mp2").await),
 			Some(Extension::Audio(AudioExtension::Mp2))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.mp3")),
+			dbg!(test_path("audio/audio.mp3").await),
 			Some(Extension::Audio(AudioExtension::Mp3))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.oga")),
+			dbg!(test_path("audio/audio.oga").await),
 			Some(Extension::Audio(AudioExtension::Oga))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.ogg")),
+			dbg!(test_path("audio/audio.ogg").await),
 			Some(Extension::Audio(AudioExtension::Ogg))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.opus")),
+			dbg!(test_path("audio/audio.opus").await),
 			Some(Extension::Audio(AudioExtension::Opus))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.tta")),
+			dbg!(test_path("audio/audio.tta").await),
 			Some(Extension::Audio(AudioExtension::Tta))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.voc")),
+			dbg!(test_path("audio/audio.voc").await),
 			Some(Extension::Audio(AudioExtension::Voc))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.wav")),
+			dbg!(test_path("audio/audio.wav").await),
 			Some(Extension::Audio(AudioExtension::Wav))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.wma")),
+			dbg!(test_path("audio/audio.wma").await),
 			Some(Extension::Audio(AudioExtension::Wma))
 		);
 		assert_eq!(
-			dbg!(test_path("audio/audio.wv")),
+			dbg!(test_path("audio/audio.wv").await),
 			Some(Extension::Audio(AudioExtension::Wv))
 		);
 	}

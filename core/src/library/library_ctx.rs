@@ -50,15 +50,12 @@ impl LibraryContext {
 	}
 
 	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.ingest_queue(self, job).await;
+		self.node_context.jobs.ingest_queue(job).await;
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		match self.node_context.event_bus_tx.send(event) {
-			Ok(_) => (),
-			Err(err) => {
-				warn!("Error sending event to event bus: {:?}", err);
-			}
+		if let Err(e) = self.node_context.event_bus_tx.send(event) {
+			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 

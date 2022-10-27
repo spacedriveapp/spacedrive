@@ -3,8 +3,7 @@ use crate::{
 	job::Job,
 	library::LibraryContext,
 	object::{
-		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
-		preview::{ThumbnailJob, ThumbnailJobInit},
+		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node},
@@ -255,34 +254,23 @@ pub async fn scan_location(
 
 	let location_id = location.id;
 	ctx.queue_job(Job::new(
-		FileIdentifierJobInit {
+		FullFileIdentifierJobInit {
 			location_id: location.id,
 			sub_path: None,
 		},
-		Box::new(FileIdentifierJob {}),
+		FullFileIdentifierJob {},
 	))
 	.await;
-	ctx.spawn_job(Job::new(
-		IndexerJobInit { location },
-		Box::new(IndexerJob {}),
-	))
-	.await;
-	ctx.queue_job(Job::new(
-		ThumbnailJobInit {
-			location_id,
-			path: PathBuf::new(),
-			background: true,
-		},
-		Box::new(ThumbnailJob {}),
-	))
-	.await;
+	ctx.spawn_job(Job::new(IndexerJobInit { location }, IndexerJob {}))
+		.await;
+
 	ctx.queue_job(Job::new(
 		ObjectValidatorJobInit {
 			location_id,
 			path: PathBuf::new(),
 			background: true,
 		},
-		Box::new(ObjectValidatorJob {}),
+		ObjectValidatorJob {},
 	))
 	.await;
 

@@ -2,7 +2,7 @@ use crate::{
 	job::{Job, JobManager},
 	location::{fetch_location, LocationError},
 	object::{
-		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
+		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
 		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
@@ -21,7 +21,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|ctx, _: (), _| async move { Ok(ctx.jobs.get_running().await) })
 		})
 		.library_query("isRunning", |t| {
-			t(|ctx, _: (), _| async move { Ok(ctx.jobs.get_running().await.len() > 0) })
+			t(|ctx, _: (), _| async move { Ok(!ctx.jobs.get_running().await.is_empty()) })
 		})
 		.library_query("getHistory", |t| {
 			t(|_, _: (), library| async move { Ok(JobManager::get_history(&library).await?) })
@@ -49,10 +49,10 @@ pub(crate) fn mount() -> RouterBuilder {
 						.spawn_job(Job::new(
 							ThumbnailJobInit {
 								location_id: args.id,
-								path: PathBuf::new(),
+								root_path: PathBuf::new(),
 								background: true,
 							},
-							Box::new(ThumbnailJob {}),
+							ThumbnailJob {},
 						))
 						.await;
 
@@ -82,7 +82,7 @@ pub(crate) fn mount() -> RouterBuilder {
 							path: args.path,
 							background: true,
 						},
-						Box::new(ObjectValidatorJob {}),
+						ObjectValidatorJob {},
 					))
 					.await;
 
@@ -106,11 +106,11 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				library
 					.spawn_job(Job::new(
-						FileIdentifierJobInit {
+						FullFileIdentifierJobInit {
 							location_id: args.id,
 							sub_path: Some(args.path),
 						},
-						Box::new(FileIdentifierJob {}),
+						FullFileIdentifierJob {},
 					))
 					.await;
 

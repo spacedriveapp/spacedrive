@@ -5,16 +5,18 @@ use crate::{
 	library::LibraryContext,
 	prisma::{file_path, location},
 };
-use sd_file_ext::extensions::{Extension, ImageExtension, VideoExtension};
 
-use image::{self, imageops, DynamicImage, GenericImageView};
-use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
 use std::{
+	collections::VecDeque,
 	error::Error,
 	ops::Deref,
 	path::{Path, PathBuf},
 };
+
+use image::{self, imageops, DynamicImage, GenericImageView};
+use sd_file_ext::extensions::{Extension, ImageExtension, VideoExtension};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tokio::{fs, task::block_in_place};
 use tracing::{error, info, trace, warn};
 use webp::Encoder;
@@ -24,12 +26,20 @@ static THUMBNAIL_QUALITY: f32 = 30.0;
 pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 pub const THUMBNAIL_JOB_NAME: &str = "thumbnailer";
 
+static IMAGE_EXTENSIONS: &[Extension] = &[
+	Extension::Image(ImageExtension::Png),
+	Extension::Image(ImageExtension::Jpeg),
+	Extension::Image(ImageExtension::Jpg),
+	Extension::Image(ImageExtension::Gif),
+	Extension::Image(ImageExtension::Webp),
+];
+
 pub struct ThumbnailJob {}
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Hash)]
 pub struct ThumbnailJobInit {
 	pub location_id: i32,
-	pub path: PathBuf,
+	pub root_path: PathBuf,
 	pub background: bool,
 }
 
@@ -39,7 +49,18 @@ pub struct ThumbnailJobState {
 	root_path: PathBuf,
 }
 
+#[derive(Error, Debug)]
+pub enum ThumbnailError {
+	#[error("Location not found: <id = '{0}'>")]
+	MissingLocation(i32),
+	#[error("Root file path not found: <path = '{0}'>")]
+	MissingRootFilePath(PathBuf),
+	#[error("Location without local path: <id = '{0}'>")]
+	LocationLocalPath(i32),
+}
+
 file_path::include!(file_path_with_object { object });
+file_path::select!(file_path_id_only { id });
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum ThumbnailJobStepKind {
@@ -64,11 +85,7 @@ impl StatefulJob for ThumbnailJob {
 		THUMBNAIL_JOB_NAME
 	}
 
-	async fn init(
-		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let library_ctx = ctx.library_ctx();
 		let thumbnail_dir = library_ctx
 			.config()
@@ -81,33 +98,43 @@ impl StatefulJob for ThumbnailJob {
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
-			.unwrap();
+			.ok_or(ThumbnailError::MissingLocation(state.init.location_id))?;
+
+		let parent_directory_id = library_ctx
+			.db
+			.file_path()
+			.find_first(vec![
+				file_path::location_id::equals(state.init.location_id),
+				file_path::materialized_path::equals(
+					state.init.root_path.to_string_lossy().to_string(),
+				),
+				file_path::is_dir::equals(true),
+			])
+			.select(file_path_id_only::select())
+			.exec()
+			.await?
+			.ok_or_else(|| ThumbnailError::MissingRootFilePath(state.init.root_path.clone()))?
+			.id;
 
 		info!(
 			"Searching for images in location {} at path {}",
 			location.id,
-			state.init.path.display()
+			state.init.root_path.display()
 		);
 
 		// create all necessary directories if they don't exist
 		fs::create_dir_all(&thumbnail_dir).await?;
-		let root_path = location.local_path.map(PathBuf::from).unwrap();
+		let root_path = location
+			.local_path
+			.map(PathBuf::from)
+			.ok_or(ThumbnailError::LocationLocalPath(location.id))?;
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(
 			&library_ctx,
 			state.init.location_id,
-			&state.init.path,
-			[
-				ImageExtension::Png,
-				ImageExtension::Jpeg,
-				ImageExtension::Jpg,
-				ImageExtension::Gif,
-				ImageExtension::Webp,
-			]
-			.into_iter()
-			.map(Extension::Image)
-			.collect(),
+			parent_directory_id,
+			IMAGE_EXTENSIONS,
 			ThumbnailJobStepKind::Image,
 		)
 		.await?;
@@ -119,13 +146,13 @@ impl StatefulJob for ThumbnailJob {
 			let video_files = get_files_by_extensions(
 				&library_ctx,
 				state.init.location_id,
-				&state.init.path,
-				sd_file_ext::extensions::ALL_VIDEO_EXTENSIONS
+				parent_directory_id,
+				&sd_file_ext::extensions::ALL_VIDEO_EXTENSIONS
 					.iter()
 					.map(Clone::clone)
 					.filter(can_generate_thumbnail_for_video)
 					.map(Extension::Video)
-					.collect(),
+					.collect::<Vec<_>>(),
 				ThumbnailJobStepKind::Video,
 			)
 			.await?;
@@ -156,7 +183,7 @@ impl StatefulJob for ThumbnailJob {
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		ctx.progress(vec![JobReportUpdate::Message(format!(
@@ -209,13 +236,13 @@ impl StatefulJob for ThumbnailJob {
 			if !state.init.background {
 				ctx.library_ctx().emit(CoreEvent::NewThumbnail { cas_id });
 			};
+
+			// With this invalidate query, we update the user interface to show each new thumbnail
+			let library_ctx = ctx.library_ctx();
+			invalidate_query!(library_ctx, "locations.getExplorerData");
 		} else {
 			info!("Thumb exists, skipping... {}", output_path.display());
 		}
-
-		// With this invalidate query, we update the user interface to show each new thumbnail
-		let library_ctx = ctx.library_ctx();
-		invalidate_query!(library_ctx, "locations.getExplorerData");
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
@@ -224,11 +251,7 @@ impl StatefulJob for ThumbnailJob {
 		Ok(())
 	}
 
-	async fn finalize(
-		&self,
-		_ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()
@@ -290,25 +313,18 @@ async fn generate_video_thumbnail<P: AsRef<Path>>(
 async fn get_files_by_extensions(
 	ctx: &LibraryContext,
 	location_id: i32,
-	path: impl AsRef<Path>,
-	extensions: Vec<Extension>,
+	parent_file_path_id: i32,
+	extensions: &[Extension],
 	kind: ThumbnailJobStepKind,
 ) -> Result<Vec<ThumbnailJobStep>, JobError> {
-	let mut params = vec![
-		file_path::location_id::equals(location_id),
-		file_path::extension::in_vec(extensions.iter().map(|e| e.to_string()).collect()),
-	];
-
-	let path_str = path.as_ref().to_string_lossy().to_string();
-
-	if !path_str.is_empty() {
-		params.push(file_path::materialized_path::starts_with(path_str));
-	}
-
 	Ok(ctx
 		.db
 		.file_path()
-		.find_many(params)
+		.find_many(vec![
+			file_path::location_id::equals(location_id),
+			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
+			file_path::parent_id::equals(Some(parent_file_path_id)),
+		])
 		.include(file_path_with_object::include())
 		.exec()
 		.await?

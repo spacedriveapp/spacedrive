@@ -1,10 +1,11 @@
 use crate::{
+	job::Job,
 	location::{
 		delete_location, fetch_location,
 		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
 		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	object::preview::THUMBNAIL_CACHE_DIR_NAME,
+	object::preview::{ThumbnailJob, ThumbnailJobInit, THUMBNAIL_CACHE_DIR_NAME},
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 
@@ -12,6 +13,7 @@ use std::path::PathBuf;
 
 use rspc::{self, internal::MiddlewareBuilderLike, ErrorCode, Type};
 use serde::{Deserialize, Serialize};
+use tokio::{fs, io};
 
 use super::{utils::LibraryRequest, Ctx, RouterBuilder};
 
@@ -112,25 +114,41 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.exec()
 					.await?;
 
+				library
+					.queue_job(Job::new(
+						ThumbnailJobInit {
+							location_id: location.id,
+							root_path: PathBuf::from(&directory.materialized_path),
+							background: true,
+						},
+						ThumbnailJob {},
+					))
+					.await;
+
+				let mut items = Vec::with_capacity(file_paths.len());
+				for mut file_path in file_paths {
+					if let Some(object) = &mut file_path.object.as_mut() {
+						// TODO: Use helper function to build this url as as the Rust file loading layer
+						let thumb_path = library
+							.config()
+							.data_directory()
+							.join(THUMBNAIL_CACHE_DIR_NAME)
+							.join(&object.cas_id)
+							.with_extension("webp");
+
+						object.has_thumbnail = (match fs::metadata(thumb_path).await {
+							Ok(_) => Ok(true),
+							Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+							Err(e) => Err(e),
+						})
+						.map_err(LocationError::IOError)?;
+					}
+					items.push(ExplorerItem::Path(Box::new(file_path)));
+				}
+
 				Ok(ExplorerData {
 					context: ExplorerContext::Location(location),
-					items: file_paths
-						.into_iter()
-						.map(|mut file_path| {
-							if let Some(object) = &mut file_path.object.as_mut() {
-								// TODO: Use helper function to build this url as as the Rust file loading layer
-								let thumb_path = library
-									.config()
-									.data_directory()
-									.join(THUMBNAIL_CACHE_DIR_NAME)
-									.join(&object.cas_id)
-									.with_extension("webp");
-
-								object.has_thumbnail = thumb_path.try_exists().unwrap();
-							}
-							ExplorerItem::Path(Box::new(file_path))
-						})
-						.collect(),
+					items,
 				})
 			})
 		})

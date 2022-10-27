@@ -104,11 +104,14 @@ impl Worker {
 			.take()
 			.expect("critical error: missing job on worker");
 
+		let job_hash = job.hash();
 		let job_id = worker.report.id;
 		let old_status = worker.report.status;
 		worker.report.status = JobStatus::Running;
 		if matches!(old_status, JobStatus::Queued) {
 			worker.report.create(&ctx).await?;
+		} else {
+			worker.report.update(&ctx).await?;
 		}
 		drop(worker);
 
@@ -178,7 +181,7 @@ impl Worker {
 			if let Err(e) = done_rx.await {
 				error!("failed to wait for worker completion: {:#?}", e);
 			}
-			job_manager.complete(&ctx, job_id).await;
+			job_manager.complete(&ctx, job_id, job_hash).await;
 		});
 
 		Ok(())

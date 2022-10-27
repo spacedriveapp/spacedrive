@@ -4,12 +4,14 @@ use std::{collections::VecDeque, path::PathBuf};
 
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	prisma::{self, file_path, location, object},
+	prisma::{file_path, location, object},
 };
 
 use tracing::info;
 
 use super::hash::file_checksum;
+
+pub const VALIDATOR_JOB_NAME: &str = "object_validator";
 
 // The Validator is able to:
 // - generate a full byte checksum for Objects in a Location
@@ -24,7 +26,7 @@ pub struct ObjectValidatorJobState {
 }
 
 // The validator can
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Hash)]
 pub struct ObjectValidatorJobInit {
 	pub location_id: i32,
 	pub path: PathBuf,
@@ -38,19 +40,15 @@ pub struct ObjectValidatorJobStep {
 
 #[async_trait::async_trait]
 impl StatefulJob for ObjectValidatorJob {
-	type Data = ObjectValidatorJobState;
 	type Init = ObjectValidatorJobInit;
+	type Data = ObjectValidatorJobState;
 	type Step = ObjectValidatorJobStep;
 
 	fn name(&self) -> &'static str {
-		"object_validator"
+		VALIDATOR_JOB_NAME
 	}
 
-	async fn init(
-		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let library_ctx = ctx.library_ctx();
 
 		state.steps = library_ctx
@@ -84,7 +82,7 @@ impl StatefulJob for ObjectValidatorJob {
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		let library_ctx = ctx.library_ctx();
@@ -120,7 +118,7 @@ impl StatefulJob for ObjectValidatorJob {
 				.object()
 				.update(
 					object::id::equals(object_id),
-					vec![prisma::object::SetParam::SetIntegrityChecksum(Some(hash))],
+					vec![object::SetParam::SetIntegrityChecksum(Some(hash))],
 				)
 				.exec()
 				.await?;
@@ -133,11 +131,7 @@ impl StatefulJob for ObjectValidatorJob {
 		Ok(())
 	}
 
-	async fn finalize(
-		&self,
-		_ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()
