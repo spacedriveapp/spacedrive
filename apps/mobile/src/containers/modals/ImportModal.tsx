@@ -4,7 +4,7 @@ import * as ML from 'expo-media-library';
 import { forwardRef, useCallback } from 'react';
 import { Alert, Platform, Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
-import RFS from 'react-native-fs';
+// import RFS from 'react-native-fs';
 import { Modal } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
@@ -69,11 +69,30 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 			return;
 		}
 
+		// If android return error for now...
+		if (Platform.OS !== 'ios') {
+			Alert.alert('Not supported', 'Not supported for now...');
+			return;
+		}
+
+		// And for IOS we are assuming every asset is under the same path (which is not the case)
+
+		// file:///Users/xxxx/Library/Developer/CoreSimulator/Devices/F99C471F-C9F9-458D-8B87-BCC4B46C644C/data/Media/DCIM/100APPLE/IMG_0004.JPG
+		// file:///var/mobile/Media/DCIM/108APPLE/IMG_8332.JPG‘
+
+		const firstAsset = (await ML.getAssetsAsync({ first: 1 })).assets[0];
+
+		if (!firstAsset) return;
+
+		// Gets asset uri: ph://CC95F08C-88C3-4012-9D6D-64A413D254B3
+		const assetId = firstAsset.id;
+		// Gets Actual Path
+		const path = (await ML.getAssetInfoAsync(assetId)).localUri;
+
 		// Permission Granted
-		// TODO: Find the paths??
 		const libraryPath = Platform.select({
 			android: '',
-			ios: RFS.MainBundlePath + '/Media/DCIM'
+			ios: path.replace('file://', '').split('Media/DCIM/')[0] + 'Media/DCIM/'
 		});
 
 		createLocation({
@@ -81,15 +100,24 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 			indexer_rules_ids: []
 		});
 
-		// const assets = await ML.getAssetsAsync({ mediaType: ML.MediaType.photo });
-		// assets.assets.map(async (i) => {
-		// 	console.log((await ML.getAssetInfoAsync(i)).localUri);
-		// });
+		const assets = await ML.getAssetsAsync({ mediaType: ML.MediaType.photo });
+		assets.assets.map(async (i) => {
+			console.log((await ML.getAssetInfoAsync(i)).localUri);
+		});
 	}, [createLocation]);
 
 	// const testFN = useCallback(async () => {
-	// 	const URL = decodeURIComponent(RFS.DocumentDirectoryPath + '/libraries');
-	// 	RFS.readdir(URL).then((files) => {
+	// 	console.log(RFS.PicturesDirectoryPath);
+
+	// 	const firstAsset = (await ML.getAssetsAsync({ first: 1 })).assets[0];
+	// 	console.log(firstAsset);
+	// 	const assetUri = firstAsset.id;
+	// 	const assetDetails = await ML.getAssetInfoAsync(assetUri);
+	// 	console.log(assetDetails);
+	// 	const path = assetDetails.localUri;
+	// 	console.log(path.replace('file://', '').split('Media/DCIM/')[0] + 'Media/DCIM/');
+	// 	// const URL = decodeURIComponent(RFS.DocumentDirectoryPath + '/libraries');
+	// 	RFS.readdir('/storage/emulated/0/Download/').then((files) => {
 	// 		files.forEach((file) => {
 	// 			console.log(file);
 	// 		});
@@ -97,7 +125,7 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 	// }, []);
 
 	return (
-		<Modal ref={ref} snapPoints={['20%']}>
+		<Modal ref={modalRef} snapPoints={['20%']}>
 			<View style={tw`flex-1 px-6 pt-1 pb-2 bg-gray-600`}>
 				{/* <Button size="md" variant="primary" style={tw`my-2`} onPress={testFN}>
 					<Text>TEST</Text>

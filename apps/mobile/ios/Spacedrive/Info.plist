@@ -47,6 +47,10 @@
 				</dict>
 			</dict>
 		</dict>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Give Spacedrive permission to save photos</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Give Spacedrive permission to access your photos</string>
 		<key>UIBackgroundModes</key>
 		<array>
 			<string>remote-notification</string>
@@ -79,9 +83,5 @@
 		<string>Automatic</string>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false />
-		<key>NSPhotoLibraryUsageDescription</key>
-		<string>Give Spacedrive permission to access your photos</string>
-		<key>NSPhotoLibraryAddUsageDescription</key>
-		<string>Give Spacedrive permission to save photos</string>
 	</dict>
 </plist>
