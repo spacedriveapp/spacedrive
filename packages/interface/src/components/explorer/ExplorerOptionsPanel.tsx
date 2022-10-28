@@ -4,11 +4,11 @@ import { PropsWithChildren, useState } from 'react';
 import Slider from '../primitive/Slider';
 
 function Heading({ children }: PropsWithChildren) {
-	return <div className="text-xs font-semibold text-gray-300">{children}</div>;
+	return <div className="text-xs font-semibold text-ink-dull">{children}</div>;
 }
 
 function SubHeading({ children }: PropsWithChildren) {
-	return <div className="mb-1 text-xs font-medium text-gray-300">{children}</div>;
+	return <div className="mb-1 text-xs font-medium text-ink-dull">{children}</div>;
 }
 
 export function ExplorerOptionsPanel() {

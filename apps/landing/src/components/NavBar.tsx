@@ -1,18 +1,10 @@
-import {
-	AcademicCapIcon,
-	BookOpenIcon,
-	ChatBubbleOvalLeftIcon,
-	MapIcon,
-	UsersIcon
-} from '@heroicons/react/24/solid';
-import { Discord, Github } from '@icons-pack/react-simple-icons';
+import { Academia, Discord, Github } from '@icons-pack/react-simple-icons';
 import AppLogo from '@sd/assets/images/logo.png';
-import { Dropdown, DropdownItem } from '@sd/ui';
+import { Button, Dropdown } from '@sd/ui';
 import clsx from 'clsx';
-
-import { DotsThreeVertical } from 'phosphor-react';
+import { Book, Chat, DotsThreeVertical, MapPin, User } from 'phosphor-react';
 import { PropsWithChildren, useEffect, useState } from 'react';
-
+import * as router from 'vite-plugin-ssr/client/router';
 
 import { positions } from '../pages/careers.page';
 import { getWindow } from '../utils';
@@ -30,23 +22,15 @@ function NavLink(props: PropsWithChildren<{ link?: string }>) {
 	);
 }
 
-function dropdownItem(
-	props: { name: string; icon: any } & ({ href: string } | { path: string })
-): DropdownItem[number] {
-	if ('href' in props) {
-		return {
-			name: props.name,
-			icon: props.icon,
-			onPress: () => (window.location.href = props.href)
-		};
-	} else {
-		return {
-			name: props.name,
-			icon: props.icon,
-			onPress: () => (window.location.href = props.path),
-			selected: getWindow()?.location.href.includes(props.path)
-		};
-	}
+function link(path: string) {
+	return {
+		selected: getWindow()?.location.href.includes(path),
+		onClick: () => router.navigate(path)
+	};
+}
+
+function redirect(href: string) {
+	return () => (window.location.href = href);
 }
 
 export default function NavBar() {
@@ -90,60 +74,50 @@ export default function NavBar() {
 						<NavLink link="/careers">Careers</NavLink>
 						{positions.length > 0 ? (
 							<span className="absolute bg-opacity-80 px-[5px] text-xs rounded-md bg-primary -top-1 -right-2">
-								{' '}
-								{positions.length}{' '}
+								{` ${positions.length} `}
 							</span>
 						) : null}
 					</div>
 				</div>
-				<Dropdown
-					className="absolute block h-6 text-white w-44 top-2 right-4 lg:hidden"
-					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500"
-					itemButtonClassName="!py-1 !rounded-md text-[15px]"
-					items={[
-						[
-							dropdownItem({
-								name: 'Repository',
-								icon: Github,
-								href: 'https://github.com/spacedriveapp/spacedrive'
-							}),
-							dropdownItem({
-								name: 'Join Discord',
-								icon: Discord,
-								href: 'https://discord.gg/gTaF2Z44f5'
-							})
-						],
-						[
-							dropdownItem({
-								name: 'Roadmap',
-								icon: MapIcon,
-								path: '/roadmap'
-							}),
-							dropdownItem({
-								name: 'Docs',
-								icon: BookOpenIcon,
-								path: '/docs/product/getting-started/introduction'
-							}),
-							dropdownItem({
-								name: 'Team',
-								icon: UsersIcon,
-								path: '/team'
-							}),
-							dropdownItem({
-								name: 'Blog',
-								icon: ChatBubbleOvalLeftIcon,
-								path: '/blog'
-							}),
-							dropdownItem({
-								name: 'Careers',
-								icon: AcademicCapIcon,
-								path: '/careers'
-							})
-						]
-					]}
-					buttonIcon={<DotsThreeVertical weight="bold" className="w-6 h-6 " />}
-					buttonProps={{ className: '!p-1 ml-[140px] hover:!bg-transparent' }}
-				/>
+				<div className="flex-1 lg:hidden" />
+				<Dropdown.Root
+					button={
+						<Button className="ml-[140px] hover:!bg-transparent" size="icon">
+							<DotsThreeVertical weight="bold" className="w-6 h-6 " />
+						</Button>
+					}
+					className="block h-6 text-white w-44 top-2 right-4 lg:hidden"
+					itemsClassName="!rounded-2xl shadow-2xl shadow-black p-2 !bg-gray-850 mt-2 !border-gray-500 text-[15px]"
+				>
+					<Dropdown.Section>
+						<Dropdown.Item
+							icon={Github}
+							onClick={redirect('https://github.com/spacedriveapp/spacedrive')}
+						>
+							Repository
+						</Dropdown.Item>
+						<Dropdown.Item icon={Discord} onClick={redirect('https://discord.gg/gTaF2Z44f5')}>
+							Join Discord
+						</Dropdown.Item>
+					</Dropdown.Section>
+					<Dropdown.Section>
+						<Dropdown.Item icon={MapPin} {...link('/roadmap')}>
+							Roadmap
+						</Dropdown.Item>
+						<Dropdown.Item icon={Book} {...link('/docs/product/getting-started/introduction')}>
+							Docs
+						</Dropdown.Item>
+						<Dropdown.Item icon={User} {...link('/team')}>
+							Team
+						</Dropdown.Item>
+						<Dropdown.Item icon={Chat} {...link('/blog')}>
+							Blog
+						</Dropdown.Item>
+						<Dropdown.Item icon={Academia} {...link('/careers')}>
+							Careers
+						</Dropdown.Item>
+					</Dropdown.Section>
+				</Dropdown.Root>
 
 				<div className="absolute flex-row hidden space-x-5 right-3 lg:flex">
 					<a href="https://discord.gg/gTaF2Z44f5" target="_blank" rel="noreferrer">

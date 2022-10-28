@@ -3,7 +3,6 @@ import config from './docs';
 
 export async function onBeforeRender() {
 	const navigation = getDocsNavigation(config);
-
 	return {
 		pageContext: {
 			pageProps: {

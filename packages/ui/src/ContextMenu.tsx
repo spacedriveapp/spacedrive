@@ -10,12 +10,11 @@ interface Props extends RadixCM.MenuContentProps {
 
 const MENU_CLASSES = `
   flex flex-col
-  min-w-[11rem] p-2 space-y-1
-  text-left text-sm dark:text-gray-100 text-gray-800
-  bg-gray-50 border-gray-200 dark:bg-gray-750 dark:bg-opacity-70 backdrop-blur
-	border border-transparent dark:border-gray-550
-  shadow-md shadow-gray-300 dark:shadow-gray-750 
-  select-none cursor-default rounded-lg 
+  min-w-[8rem] px-1 py-0.5
+  text-left text-sm text-menu-ink
+  bg-menu cool-shadow
+	border border-menu-line
+  select-none cursor-default rounded-md
 `;
 
 export const ContextMenu = ({
@@ -37,7 +36,7 @@ export const ContextMenu = ({
 };
 
 export const Separator = () => (
-	<RadixCM.Separator className="mx-2 border-0 border-b pointer-events-none border-b-gray-300 dark:border-b-gray-500" />
+	<RadixCM.Separator className="mx-2 border-0 border-b pointer-events-none border-b-menu-line" />
 );
 
 export const SubMenu = ({
@@ -48,7 +47,7 @@ export const SubMenu = ({
 }: RadixCM.MenuSubContentProps & ItemProps) => {
 	return (
 		<RadixCM.Sub>
-			<RadixCM.SubTrigger className="[&[data-state='open']_div]:bg-primary focus:outline-none">
+			<RadixCM.SubTrigger className="[&[data-state='open']_div]:bg-accent [&[data-state='open']_div]:text-white focus:outline-none  text-menu-ink py-[3px]">
 				<DivItem rightArrow {...{ label, icon }} />
 			</RadixCM.SubTrigger>
 			<RadixCM.Portal>
@@ -60,33 +59,35 @@ export const SubMenu = ({
 	);
 };
 
-const ITEM_CLASSES = `
-  flex flex-row items-center justify-start flex-1 
-  px-2 py-1 space-x-2
-  cursor-default rounded
-  focus:outline-none
-`;
-
-const itemStyles = cva([ITEM_CLASSES], {
-	variants: {
-		variant: {
-			default: 'hover:bg-primary focus:bg-primary',
-			danger: `
-        text-red-600 dark:text-red-400
-        hover:text-white focus:text-white
-        hover:bg-red-500 focus:bg-red-500
-      `
+const itemStyles = cva(
+	[
+		'flex flex-row items-center justify-start flex-1',
+		'px-2 py-[3px] space-x-2',
+		'cursor-default rounded',
+		'focus:outline-none'
+	],
+	{
+		variants: {
+			variant: {
+				default: 'hover:bg-accent focus:bg-accent hover:text-white',
+				danger: [
+					'text-red-600 dark:text-red-400',
+					'hover:text-white focus:text-white',
+					'hover:bg-red-500 focus:bg-red-500'
+				]
+			}
+		},
+		defaultVariants: {
+			variant: 'default'
 		}
-	},
-	defaultVariants: {
-		variant: 'default'
 	}
-});
+);
 
 interface ItemProps extends VariantProps<typeof itemStyles> {
 	icon?: Icon;
 	rightArrow?: boolean;
 	label?: string;
+	keybind?: string;
 }
 
 export const Item = ({
@@ -94,11 +95,17 @@ export const Item = ({
 	label,
 	rightArrow,
 	children,
+	keybind,
 	variant,
 	...props
 }: ItemProps & RadixCM.MenuItemProps) => (
-	<RadixCM.Item {...props} className={itemStyles({ variant })}>
-		{children ? children : <ItemInternals {...{ icon, label, rightArrow }} />}
+	<RadixCM.Item
+		{...props}
+		className="!cursor-default select-none group  text-menu-ink focus:outline-none py-0.5 active:opacity-80"
+	>
+		<div className={itemStyles({ variant })}>
+			{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}
+		</div>
 	</RadixCM.Item>
 );
 
@@ -108,17 +115,22 @@ const DivItem = ({ variant, ...props }: ItemProps) => (
 	</div>
 );
 
-const ItemInternals = ({ icon, label, rightArrow }: ItemProps) => {
+const ItemInternals = ({ icon, label, rightArrow, keybind }: ItemProps) => {
 	const ItemIcon = icon;
 	return (
 		<>
 			{ItemIcon && <ItemIcon size={18} />}
 			{label && <p>{label}</p>}
 
+			{keybind && (
+				<span className="absolute text-xs font-medium right-3 flex-end text-menu-faint group-hover:text-white">
+					{keybind}
+				</span>
+			)}
 			{rightArrow && (
 				<>
 					<div className="flex-1" />
-					<CaretRight weight="fill" size={12} alt="" />
+					<CaretRight weight="fill" size={12} alt="" className="text-menu-faint" />
 				</>
 			)}
 		</>

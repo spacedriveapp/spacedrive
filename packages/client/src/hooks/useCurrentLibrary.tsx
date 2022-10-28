@@ -6,10 +6,14 @@ import { getExplorerStore, useBridgeQuery } from '../index';
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
 
+const activeLibraryLocalStorageKey = 'sd-active-library';
+
 type OnNoLibraryFunc = () => void | Promise<void>;
 
 // Keep this private and use `useCurrentLibrary` hook to access or mutate it
-const currentLibraryUuidStore = proxy({ id: null as string | null });
+const currentLibraryUuidStore = proxy({
+	id: localStorage.getItem(activeLibraryLocalStorageKey) as string | null
+});
 
 const CringeContext = createContext<{
 	onNoLibrary: OnNoLibraryFunc;
@@ -56,7 +60,7 @@ export const useCurrentLibrary = () => {
 			localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data));
 
 			// Redirect to the onboarding flow if the user doesn't have any libraries
-			if (libraries?.length === 0) {
+			if (data?.length === 0) {
 				ctx.onNoLibrary();
 			}
 		}
@@ -64,6 +68,7 @@ export const useCurrentLibrary = () => {
 
 	const switchLibrary = useCallback((libraryUuid: string) => {
 		currentLibraryUuidStore.id = libraryUuid;
+		localStorage.setItem(activeLibraryLocalStorageKey, libraryUuid);
 		getExplorerStore().reset();
 	}, []);
 

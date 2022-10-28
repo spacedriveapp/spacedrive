@@ -1,0 +1,27 @@
+{
+  "name": "example-2",
+  "version": "0.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@rspc/client": "^0.0.0-main-7c0a67c1",
+    "@rspc/react": "^0.0.0-main-7c0a67c1",
+    "@tanstack/react-query": "^4.10.1",
+    "@vitejs/plugin-react": "^2.1.0",
+    "typescript": "^4.8.2",
+    "vite": "^3.0.9"
+  },
+  "dependencies": {
+    "clsx": "^1.2.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "solid-js": "^1.5.1",
+    "tailwindcss": "^3.1.8"
+  }
+}

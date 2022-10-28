@@ -71,7 +71,7 @@ function Page() {
 		{
 			title: 'Media encoder',
 			description:
-				'Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.'
+				'Encode video and audio into various formats, use Tags to automate. Built with FFmpeg.'
 		},
 		{
 			title: 'Cloud integration',
