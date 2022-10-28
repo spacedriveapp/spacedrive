@@ -20,10 +20,12 @@ async fn main() {
 			{
 				panic!("'$DATA_DIR' is not set ({})", _e)
 			}
-
-			std::env::current_dir()
-				.expect("Unable to get your current directory. Maybe try setting $DATA_DIR?")
-				.join("sdserver_data")
+			#[cfg(debug_assertions)]
+			{
+				std::env::current_dir()
+					.expect("Unable to get your current directory. Maybe try setting $DATA_DIR?")
+					.join("sdserver_data")
+			}
 		}
 	};
 
