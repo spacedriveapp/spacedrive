@@ -1407,6 +1407,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
+
+[[package]]
 name = "dtoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1475,16 +1481,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
-name = "example"
-version = "0.0.0"
+name = "example-2"
+version = "0.1.0"
 dependencies = [
+ "axum",
+ "dotenv",
+ "http",
  "rspc",
  "sd-sync",
  "serde",
  "serde_json",
- "tauri",
- "tauri-build",
  "tokio",
+ "tower-http",
  "uuid 1.2.1",
 ]
 
@@ -3331,7 +3339,7 @@ dependencies = [
 [[package]]
 name = "normi"
 version = "0.0.1"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
 dependencies = [
  "normi-macros",
  "rspc",
@@ -3343,7 +3351,7 @@ dependencies = [
 [[package]]
 name = "normi-macros"
 version = "0.0.1"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4909,7 +4917,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
 dependencies = [
  "async-stream",
  "futures",
@@ -5258,6 +5266,7 @@ dependencies = [
 name = "sd-sync"
 version = "0.1.0"
 dependencies = [
+ "rand 0.8.5",
  "rspc",
  "serde",
  "serde_json",
@@ -5696,12 +5705,13 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
 dependencies = [
  "chrono",
  "indexmap",
  "serde_json",
  "specta-macros 0.0.4",
+ "uhlc",
  "uuid 1.2.1",
 ]
 
@@ -5721,7 +5731,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=7c0a67c1176a8af33b604c68d8edcbf0d70b8429#7c0a67c1176a8af33b604c68d8edcbf0d70b8429"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -6432,6 +6442,7 @@ dependencies = [
  "memchr",
  "mio",
  "num_cpus",
+ "parking_lot 0.12.1",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
