@@ -161,7 +161,10 @@ impl PreviewMedia {
 				preview_media.extend_from_slice(&self.algorithm.serialize()); // 4
 				preview_media.extend_from_slice(&self.media_nonce); // 24 max
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 28 total bytes
-				preview_media.extend_from_slice(&self.media.len().to_le_bytes()); // 36 total bytes
+
+				let media_len = self.media.len() as u64;
+
+				preview_media.extend_from_slice(&media_len.to_le_bytes()); // 36 total bytes
 				preview_media.extend_from_slice(&self.media); // this can vary in length
 				preview_media
 			}
@@ -198,9 +201,10 @@ impl PreviewMedia {
 				let mut media_length = [0u8; 8];
 				reader.read(&mut media_length).map_err(Error::Io)?;
 
-				let media_length: usize = usize::from_le_bytes(media_length);
+				let media_length = u64::from_le_bytes(media_length);
 
-				let mut media = vec![0u8; media_length];
+				#[allow(clippy::cast_possible_truncation)]
+				let mut media = vec![0u8; media_length as usize];
 				reader.read(&mut media).map_err(Error::Io)?;
 
 				let preview_media = Self {
