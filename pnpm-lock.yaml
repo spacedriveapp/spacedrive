@@ -416,6 +416,7 @@ importers:
       '@sd/client': workspace:*
       '@sd/config': workspace:*
       '@sd/ui': workspace:*
+      '@sentry/browser': ^7.16.0
       '@splinetool/react-spline': ^2.2.3
       '@splinetool/runtime': ^0.9.128
       '@tailwindcss/forms': ^0.5.3
@@ -465,6 +466,7 @@ importers:
       '@sd/assets': link:../assets
       '@sd/client': link:../client
       '@sd/ui': link:../ui
+      '@sentry/browser': 7.16.0
       '@splinetool/react-spline': 2.2.3_lzjdincs7igsg3b2ch4qc2di4m
       '@splinetool/runtime': 0.9.128
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.1.8
@@ -2133,8 +2135,8 @@ packages:
       '@cspell/dict-docker': 1.1.1
       '@cspell/dict-dotnet': 2.0.1
       '@cspell/dict-elixir': 2.0.1
-      '@cspell/dict-en-gb': 1.1.33
       '@cspell/dict-en_us': 2.3.3
+      '@cspell/dict-en-gb': 1.1.33
       '@cspell/dict-filetypes': 2.1.1
       '@cspell/dict-fonts': 2.1.0
       '@cspell/dict-fullstack': 2.0.6
@@ -4919,6 +4921,38 @@ packages:
     dependencies:
       component-type: 1.2.1
       join-component: 1.1.0
+    dev: false
+
+  /@sentry/browser/7.16.0:
+    resolution: {integrity: sha512-tJ063zvoF8Raw7mzQEXupOFPSN6v36WIbsDVGeFdToPCwViaBuATaxvWCrudGzsnBkMyItmTLJkzn9SEIXUOiw==}
+    engines: {node: '>=8'}
+    dependencies:
+      '@sentry/core': 7.16.0
+      '@sentry/types': 7.16.0
+      '@sentry/utils': 7.16.0
+      tslib: 1.14.1
+    dev: false
+
+  /@sentry/core/7.16.0:
+    resolution: {integrity: sha512-vq6H1b/IPTvzDD9coQ3wIudvSjkAYuUlXb1dv69dRlq4v3st9dcKBps1Zf0lQ1i4TVlDLoe1iGMmNFglMF1Q5w==}
+    engines: {node: '>=8'}
+    dependencies:
+      '@sentry/types': 7.16.0
+      '@sentry/utils': 7.16.0
+      tslib: 1.14.1
+    dev: false
+
+  /@sentry/types/7.16.0:
+    resolution: {integrity: sha512-i6D+OK6d0l/k+VQvRp/Pt21WkDEgVBUIZq+sOkEZJczbcfexVdXKeXXoYTD2vYuFq8Yy28fzlsZaKI+NoH94yQ==}
+    engines: {node: '>=8'}
+    dev: false
+
+  /@sentry/utils/7.16.0:
+    resolution: {integrity: sha512-3Zh1txg7IRp4kZAdG27YF7K6lD1IZyuAo9KjoPg1Xzqa4DOZyASJuEkbf+rK2a9T4HrtVHHXJUsNbKg8WM3VHg==}
+    engines: {node: '>=8'}
+    dependencies:
+      '@sentry/types': 7.16.0
+      tslib: 1.14.1
     dev: false
 
   /@sideway/address/4.1.4:
