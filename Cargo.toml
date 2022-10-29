@@ -5,20 +5,20 @@ members = [
   "crates/*",
   # "crates/p2p/tunnel",
   # "crates/p2p/tunnel/utils",
-  "crates/sync/example/src-tauri",
+  "crates/sync/example/api",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
   "apps/server",
 ]
 
 [workspace.dependencies]
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.3", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", tag = "0.6.3", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
@@ -34,6 +34,6 @@ specta = { version = "0.0.4" }
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "7c0a67c1176a8af33b604c68d8edcbf0d70b8429" }   # TODO: Move back to crates.io when new jsonrpc executor is released
-normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "7c0a67c1176a8af33b604c68d8edcbf0d70b8429" }  # TODO: When normi is released on crates.io
-specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "7c0a67c1176a8af33b604c68d8edcbf0d70b8429" } # TODO: When normi is released on crates.io
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" }   # TODO: Move back to crates.io when new jsonrpc executor is released
+normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" }  # TODO: When normi is released on crates.io
+specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" } # TODO: When normi is released on crates.io
