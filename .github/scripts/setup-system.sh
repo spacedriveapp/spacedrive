@@ -66,14 +66,29 @@ KNOWN_DISTRO="(Debian|Ubuntu|RedHat|CentOS|openSUSE|Arch|Fedora)"
 DISTRO=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release 2>/dev/null | grep -Eo $KNOWN_DISTRO  || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s | grep -Eo $KNOWN_DISTRO  || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s)
 
 if [ $DISTRO = "Darwin" ]; then
-      if ! brew tap | grep spacedriveapp/deps > /dev/null; then
-        brew tap-new spacedriveapp/deps > /dev/null
-      fi
-      brew extract --force --version 5.0.1 ffmpeg spacedriveapp/deps > /dev/null
-      brew unlink ffmpeg &> /dev/null || true
-      brew install spacedriveapp/deps/ffmpeg@5.0.1 &> /dev/null
+		if ! command -v brew >/dev/null; then
+			log_err "Homebrew was not found. Please install it using the instructions at https://brew.sh and try again."
+			exit 1
+		fi
 
-      echo "ffmpeg v5.0.1 has been installed and is now being used on your system."
+		echo "Installing Homebrew dependencies..."
+
+		if ! brew tap -q | grep -qx "spacedriveapp/deps" >/dev/null; then
+			echo "Creating Homebrew tap \`spacedriveapp/deps\`..."
+			brew tap-new spacedriveapp/deps
+		fi
+
+		FFMPEG_VERSION="5.0.1"
+
+		if ! brew list --full-name -1 | grep -x "spacedriveapp/deps/ffmpeg@$FFMPEG_VERSION" >/dev/null; then
+			echo "Extracting FFmpeg version $FFMPEG_VERSION..."
+
+			brew extract -q --force --version $FFMPEG_VERSION ffmpeg spacedriveapp/deps
+			brew unlink -q ffmpeg || true
+			brew install -q "spacedriveapp/deps/ffmpeg@$FFMPEG_VERSION"
+
+			echo "FFmpeg version $FFMPEG_VERSION has been installed and is now being used on your system."
+		fi
 
 elif [ -f /etc/debian_version -o "$DISTRO" == "Debian" -o "$DISTRO" == "Ubuntu" ]; then
         echo "Detected $DISTRO based distro!"
