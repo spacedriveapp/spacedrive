@@ -1,5 +1,3 @@
-import { CogIcon, LockClosedIcon } from '@heroicons/react/24/outline';
-import { PlusIcon } from '@heroicons/react/24/solid';
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import {
 	LocationCreateArgs,
@@ -25,7 +23,16 @@ import {
 	tw
 } from '@sd/ui';
 import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Planet, ShareNetwork } from 'phosphor-react';
+import {
+	CheckCircle,
+	CirclesFour,
+	Gear,
+	GearSix,
+	Lock,
+	Planet,
+	Plus,
+	ShareNetwork
+} from 'phosphor-react';
 import React, { PropsWithChildren, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
@@ -36,34 +43,36 @@ import { JobsManager } from '../jobs/JobManager';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { InputContainer } from '../primitive/InputContainer';
 
+const SidebarBody = tw.div`flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider bg-sidebar`;
+
+const SidebarContents = tw.div`flex flex-col px-2.5 flex-grow pt-1 pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out`;
+
+const SidebarFooter = tw.div`flex flex-col mb-3 px-2.5`;
+
 export function Sidebar() {
+	// DO NOT DO LIBRARY QUERIES OR MUTATIONS HERE. This is rendered before a library is set.
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
-
-	// const itemStyles = macOnly(os, 'dark:hover:bg-sidebar-box dark:hover:bg-opacity-50');
 	return (
-		<div
-			className={clsx(
-				'flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider  bg-sidebar',
-				macOnly(os, 'bg-opacity-[0.80]')
-			)}
-		>
+		<SidebarBody className={macOnly(os, 'bg-opacity-[0.80]')}>
 			<WindowControls />
-
 			<Dropdown.Root
-				className="mt-1 mx-2.5"
+				className="mt-2 mx-2.5"
+				// we override the sidebar dropdown item's hover styles
+				// because the dark style clashes with the sidebar
+				itemsClassName="dark:bg-sidebar-box mt-1 dark:divide-menu-selected/30"
 				button={
 					<Dropdown.Button
 						variant="gray"
 						className={clsx(
-							`w-full text-ink !bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line`,
-							`active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line `,
+							`w-full text-ink `,
+							// these classname overrides are messy
+							// but they work
+							`!bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line`,
 							(library === null || isLoadingLibraries) && '!text-ink-faint'
-							// macOnly(os, '!bg-opacity-80 !border-opacity-40')
 						)}
 					>
 						<span className="truncate">
@@ -84,18 +93,18 @@ export function Sidebar() {
 					))}
 				</Dropdown.Section>
 				<Dropdown.Section>
-					<Dropdown.Item icon={CogIcon} to="settings/library">
+					<Dropdown.Item icon={GearSix} to="settings/library">
 						Library Settings
 					</Dropdown.Item>
-					<Dropdown.Item icon={PlusIcon} onClick={() => setIsCreateDialogOpen(true)}>
+					<Dropdown.Item icon={Plus} onClick={() => setIsCreateDialogOpen(true)}>
 						Add Library
 					</Dropdown.Item>
-					<Dropdown.Item icon={LockClosedIcon} onClick={() => alert('TODO: Not implemented yet!')}>
+					<Dropdown.Item icon={Lock} onClick={() => alert('TODO: Not implemented yet!')}>
 						Lock
 					</Dropdown.Item>
 				</Dropdown.Section>
 			</Dropdown.Root>
-			<div className="flex flex-col px-2.5 flex-grow pt-1 pb-10 overflow-x-hidden overflow-y-scroll no-scrollbar mask-fade-out">
+			<SidebarContents>
 				<div className="pt-1">
 					<SidebarLink to="/overview">
 						<Icon component={Planet} />
@@ -112,13 +121,17 @@ export function Sidebar() {
 				</div>
 				{library && <LibraryScopedSection />}
 				<div className="flex-grow" />
-			</div>
-			{/* <div className="fixed w-[174px] bottom-[2px] left-[2px] h-20 rounded-[8px] bg-gradient-to-t from-sidebar-box/90 via-sidebar-box/50 to-transparent" /> */}
+			</SidebarContents>
 
-			<div className="flex flex-col mb-3 px-2.5">
+			<SidebarFooter>
 				<div className="flex">
-					<ButtonLink to="/settings/general" size="icon" variant="outline">
-						<CogIcon className="w-5 h-5" />
+					<ButtonLink
+						to="/settings/general"
+						size="icon"
+						variant="outline"
+						className="text-ink-faint"
+					>
+						<Gear className="w-5 h-5" />
 					</ButtonLink>
 					<OverlayPanel
 						className="focus:outline-none"
@@ -128,13 +141,9 @@ export function Sidebar() {
 							<Button
 								size="icon"
 								variant="outline"
-								className="radix-state-open:bg-sidebar-selected/50"
+								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint"
 							>
-								{isRunningJob ? (
-									<Loader className="w-[20px] h-[20px]" />
-								) : (
-									<CheckCircle className="w-5 h-5" />
-								)}
+								{library && <IsRunningJob />}
 							</Button>
 						}
 					>
@@ -144,10 +153,20 @@ export function Sidebar() {
 					</OverlayPanel>
 				</div>
 				{debugState.enabled && <DebugPanel />}
-			</div>
+			</SidebarFooter>
 			{/* Putting this within the dropdown will break the enter click handling in the modal. */}
 			<CreateLibraryDialog open={isCreateDialogOpen} setOpen={setIsCreateDialogOpen} />
-		</div>
+		</SidebarBody>
+	);
+}
+
+function IsRunningJob() {
+	const { data: isRunningJob } = useLibraryQuery(['jobs.isRunning']);
+
+	return isRunningJob ? (
+		<Loader className="w-[20px] h-[20px]" />
+	) : (
+		<CheckCircle className="w-5 h-5" />
 	);
 }
 
@@ -208,7 +227,7 @@ function DebugPanel() {
 						onChange={(value) => (getDebugState().reactQueryDevtools = value as any)}
 					>
 						<SelectOption value="disabled">Disabled</SelectOption>
-						<SelectOption value="invisible">Invisble</SelectOption>
+						<SelectOption value="invisible">Invisible</SelectOption>
 						<SelectOption value="enabled">Enabled</SelectOption>
 					</Select>
 				</InputContainer>

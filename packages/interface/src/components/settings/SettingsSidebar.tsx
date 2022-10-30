@@ -1,34 +1,40 @@
-import { CogIcon, HeartIcon, KeyIcon, ShieldCheckIcon, TagIcon } from '@heroicons/react/24/outline';
-import { BuildingLibraryIcon } from '@heroicons/react/24/solid';
 import {
+	Books,
 	FlyingSaucer,
+	GearSix,
 	HardDrive,
+	Heart,
+	Key,
 	KeyReturn,
 	PaintBrush,
 	PuzzlePiece,
 	Receipt,
-	ShareNetwork
+	ShareNetwork,
+	ShieldCheck,
+	TagSimple
 } from 'phosphor-react';
 
+import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { SidebarLink } from '../layout/Sidebar';
 import { SettingsHeading, SettingsIcon } from './SettingsHeader';
 
 export const SettingsSidebar = () => {
+	const os = useOperatingSystem();
 	return (
 		<div className="h-full border-r max-w-[180px] flex-shrink-0 border-app-line/50 w-60 custom-scroll no-scrollbar pb-5">
-			<div data-tauri-drag-region className="w-full h-7" />
+			{os !== 'browser' && <div data-tauri-drag-region className="w-full h-5" />}
 			<div className="px-4 py-2.5">
-				<SettingsHeading className="!mt-0">Client</SettingsHeading>
+				<SettingsHeading className="!mt-2">Client</SettingsHeading>
 				<SidebarLink to="/settings/general">
-					<SettingsIcon component={CogIcon} />
+					<SettingsIcon component={GearSix} />
 					General
 				</SidebarLink>
 				<SidebarLink to="/settings/libraries">
-					<SettingsIcon component={BuildingLibraryIcon} />
+					<SettingsIcon component={Books} />
 					Libraries
 				</SidebarLink>
 				<SidebarLink to="/settings/privacy">
-					<SettingsIcon component={ShieldCheckIcon} />
+					<SettingsIcon component={ShieldCheck} />
 					Privacy
 				</SidebarLink>
 				<SidebarLink to="/settings/appearance">
@@ -46,7 +52,7 @@ export const SettingsSidebar = () => {
 
 				<SettingsHeading>Library</SettingsHeading>
 				<SidebarLink to="/settings/library">
-					<SettingsIcon component={CogIcon} />
+					<SettingsIcon component={GearSix} />
 					General
 				</SidebarLink>
 				<SidebarLink to="/settings/nodes">
@@ -58,11 +64,11 @@ export const SettingsSidebar = () => {
 					Locations
 				</SidebarLink>
 				<SidebarLink to="/settings/tags">
-					<SettingsIcon component={TagIcon} />
+					<SettingsIcon component={TagSimple} />
 					Tags
 				</SidebarLink>
 				<SidebarLink to="/settings/keys">
-					<SettingsIcon component={KeyIcon} />
+					<SettingsIcon component={Key} />
 					Keys
 				</SidebarLink>
 				<SettingsHeading>Resources</SettingsHeading>
@@ -75,7 +81,7 @@ export const SettingsSidebar = () => {
 					Changelog
 				</SidebarLink>
 				<SidebarLink to="/settings/support">
-					<SettingsIcon component={HeartIcon} />
+					<SettingsIcon component={Heart} />
 					Support
 				</SidebarLink>
 			</div>

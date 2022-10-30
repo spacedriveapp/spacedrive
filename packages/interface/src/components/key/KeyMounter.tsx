@@ -1,6 +1,5 @@
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/solid';
 import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
+import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 
@@ -19,8 +18,7 @@ export function KeyMounter() {
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id');
 
 	const { mutate: createKey } = useLibraryMutation('keys.add');
-
-	const CurrentEyeIcon = showKey ? EyeSlashIcon : EyeIcon;
+	const CurrentEyeIcon = showKey ? EyeSlash : Eye;
 
 	// this keeps the input focused when switching tabs
 	// feel free to replace with something cleaner
@@ -64,7 +62,7 @@ export function KeyMounter() {
 				</div>
 				<span className="ml-3 text-xs font-medium">Sync with Library</span>
 				<Tooltip label="This key will be mounted on all devices running your Library">
-					<InformationCircleIcon className="w-4 h-4 ml-1.5 text-ink-faint" />
+					<Info className="w-4 h-4 ml-1.5 text-ink-faint" />
 				</Tooltip>
 			</div>
 

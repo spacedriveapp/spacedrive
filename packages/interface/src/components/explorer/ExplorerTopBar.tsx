@@ -1,17 +1,18 @@
-import { ChevronLeftIcon, ChevronRightIcon, TagIcon } from '@heroicons/react/24/outline';
-import { TagIcon as TagIconSolid } from '@heroicons/react/24/solid';
 import { getExplorerStore, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Button, Input, OverlayPanel, cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import {
 	ArrowsClockwise,
+	CaretLeft,
+	CaretRight,
 	IconProps,
 	Key,
 	List,
 	MonitorPlay,
 	Rows,
 	SidebarSimple,
-	SquaresFour
+	SquaresFour,
+	Tag
 } from 'phosphor-react';
 import { forwardRef, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
@@ -199,12 +200,12 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 				<div className="flex">
 					<Tooltip label="Navigate back">
 						<TopBarButton onClick={() => navigate(-1)}>
-							<ChevronLeftIcon className={TOP_BAR_ICON_STYLE} />
+							<CaretLeft weight="bold" className={TOP_BAR_ICON_STYLE} />
 						</TopBarButton>
 					</Tooltip>
 					<Tooltip label="Navigate forward">
 						<TopBarButton onClick={() => navigate(1)}>
-							<ChevronRightIcon className={TOP_BAR_ICON_STYLE} />
+							<CaretRight weight="bold" className={TOP_BAR_ICON_STYLE} />
 						</TopBarButton>
 					</Tooltip>
 				</div>
@@ -269,11 +270,10 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								onClick={() => (getExplorerStore().tagAssignMode = !store.tagAssignMode)}
 								active={store.tagAssignMode}
 							>
-								{store.tagAssignMode ? (
-									<TagIconSolid className={TOP_BAR_ICON_STYLE} />
-								) : (
-									<TagIcon className={TOP_BAR_ICON_STYLE} />
-								)}
+								<Tag
+									weight={store.tagAssignMode ? 'fill' : 'bold'}
+									className={TOP_BAR_ICON_STYLE}
+								/>
 							</TopBarButton>
 						</Tooltip>
 						<Tooltip label="Refresh">
