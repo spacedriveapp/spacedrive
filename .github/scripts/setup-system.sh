@@ -82,7 +82,7 @@ if [ $DISTRO = "Darwin" ]; then
     brew tap-new spacedriveapp/deps
   fi
 
-  FFMPEG_VERSION="5.0.1"
+  FFMPEG_VERSION="5.1.2"
 
   if ! brew list --full-name -1 | grep -x "spacedriveapp/deps/ffmpeg@$FFMPEG_VERSION" >/dev/null; then
     echo "Extracting FFmpeg version $FFMPEG_VERSION..."
