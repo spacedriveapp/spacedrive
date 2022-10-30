@@ -1,3 +1,40 @@
+//! This module contains Spacedrive's key manager implementation.
+//!
+//! The key manager is used for keeping track of keys within memory, and mounting them on demand.
+//!
+//! The key manager is initialised, and added to a global state so it is accessible everywhere.
+//! It is also populated with all keys from the Prisma database.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use sd_crypto::keys::keymanager::KeyManager;
+//! use sd_crypto::Protected;
+//! use sd_crypto::crypto::stream::Algorithm;
+//! use sd_crypto::keys::hashing::{HashingAlgorithm, Params};
+//!
+//! let master_password = Protected::new(b"password".to_vec());
+//!
+//! // Initialise a `Keymanager` with no stored keys and no master password
+//! let mut key_manager = KeyManager::new(vec![], None);
+//!
+//! // Set the master password
+//! key_manager.set_master_password(master_password);
+//!
+//! let new_password = Protected::new(b"super secure".to_vec());
+//!
+//! // Register the new key with the key manager
+//! let added_key = key_manager.add_to_keystore(new_password, Algorithm::XChaCha20Poly1305, HashingAlgorithm::Argon2id(Params::Standard)).unwrap();
+//!
+//! // Write the stored key to the database here (with `KeyManager::access_keystore()`)
+//!
+//! // Mount the key we just added (with the returned UUID)
+//! key_manager.mount(added_key);
+//!
+//! // Retrieve all currently mounted, hashed keys to pass to a decryption function.
+//! let keys = key_manager.enumerate_hashed_keys();
+//! ```
+
 use std::collections::HashMap;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
@@ -13,7 +50,7 @@ use crate::{
 
 use uuid::Uuid;
 
-use super::hashing::{HashingAlgorithm, HASHING_ALGORITHM_LIST};
+use super::hashing::HashingAlgorithm;
 
 // The terminology in this file is very confusing.
 // The `master_key` is specific to the `StoredKey`, and is just used internally for encryption.
@@ -92,7 +129,7 @@ impl KeyManager {
 		}
 	}
 
-	/// This should ONLY be used within the key manager
+	/// This should ONLY be used internally.
 	fn get_master_password(&self) -> Result<Protected<Vec<u8>>, Error> {
 		match &self.master_password {
 			Some(k) => Ok(k.clone()),
@@ -147,6 +184,9 @@ impl KeyManager {
 		Ok(())
 	}
 
+	/// This function is for unmounting a key from the key manager
+	///
+	/// This does not remove the key from the key store
 	pub fn unmount(&mut self, uuid: Uuid) -> Result<(), Error> {
 		if self.keymount.contains_key(&uuid) {
 			self.keymount.remove(&uuid);
@@ -158,7 +198,7 @@ impl KeyManager {
 
 	/// This function returns a Vec of `StoredKey`s, so you can write them somewhere/update the database with them/etc
 	///
-	/// The database and keystore should be in sync at ALL times
+	/// The database and keystore should be in sync at ALL times (unless the user chose an in-memory only key)
 	#[must_use]
 	pub fn dump_keystore(&self) -> Vec<StoredKey> {
 		self.keystore.iter().map(|key| key.1.clone()).collect()
@@ -170,8 +210,11 @@ impl KeyManager {
 	}
 
 	/// This function does not return a value by design.
+	///
 	/// Once a key is mounted, access it with `KeyManager::access()`
+	///
 	/// This is to ensure that only functions which require access to the mounted key receive it.
+	///
 	/// We could add a log to this, so that the user can view mounts
 	pub fn mount(&mut self, uuid: Uuid) -> Result<(), Error> {
 		match self.keystore.get(&uuid) {
@@ -207,20 +250,17 @@ impl KeyManager {
 					&[],
 				)?;
 
-				let mut hashed_keys = Vec::<Protected<[u8; 32]>>::new();
-
-				// Hash the StoredKey using each available password hashing parameter, so all content is accessible no matter the settings.
-				// It makes key mounting more expensive, but it allows for greater UX and customizability.
-				for hashing_algorithm in HASHING_ALGORITHM_LIST {
-					hashed_keys.push(hashing_algorithm.hash(key.clone(), stored_key.content_salt)?);
-				}
+				// Hash the key once with the parameters/algorithm the user selected during first mount
+				let hashed_key = stored_key
+					.hashing_algorithm
+					.hash(key.clone(), stored_key.content_salt)?;
 
 				// Construct the MountedKey and insert it into the Keymount
 				let mounted_key = MountedKey {
 					uuid: stored_key.uuid,
 					key,
 					content_salt: stored_key.content_salt,
-					hashed_keys,
+					hashed_key,
 				};
 
 				self.keymount.insert(uuid, mounted_key);
@@ -241,12 +281,25 @@ impl KeyManager {
 		}
 	}
 
-	/// This function is for accessing a `StoredKey` from an ID.
+	/// This function is for accessing a `StoredKey`.
 	pub fn access_keystore(&self, uuid: Uuid) -> Result<StoredKey, Error> {
 		match self.keystore.get(&uuid) {
 			Some(key) => Ok(key.clone()),
 			None => Err(Error::KeyNotFound),
 		}
+	}
+
+	/// This function is for getting an entire collection of hashed keys.
+	///
+	/// These are ideal for passing over to decryption functions, as each decryption attempt is negligible, performance wise.
+	///
+	/// This means we don't need to keep super specific track of which key goes to which file, and we can just throw all of them at it.
+	#[must_use]
+	pub fn enumerate_hashed_keys(&self) -> Vec<Protected<[u8; 32]>> {
+		self.keymount
+			.iter()
+			.map(|(_, mounted_key)| mounted_key.hashed_key.clone())
+			.collect::<Vec<Protected<[u8; 32]>>>()
 	}
 
 	/// This function is used to add a new key/password to the keystore.
@@ -313,11 +366,13 @@ impl KeyManager {
 	}
 }
 
-// derive explicit CLONES only
+/// This is a mounted key, and needs to be kept somewhat hidden.
+///
+/// This contains the plaintext key, and the same key hashed with the content salt.
 #[derive(Clone)]
 pub struct MountedKey {
 	pub uuid: Uuid,                   // used for identification. shared with stored keys
 	pub key: Protected<Vec<u8>>, // the actual key itself, text format encodable (so it can be viewed with an UI)
 	pub content_salt: [u8; SALT_LEN], // the salt used for file data
-	pub hashed_keys: Vec<Protected<[u8; 32]>>, // this is hashed with the content salt, for instant access
+	pub hashed_key: Protected<[u8; 32]>, // this is hashed with the content salt, for instant access
 }

@@ -83,10 +83,20 @@ pub(crate) fn mount() -> RouterBuilder {
 					.set_master_password(Protected::new(password.as_bytes().to_vec()))
 					.unwrap();
 
-				let automount = library.db.key().find_many(vec![key::automount::equals(true)]).exec().await?;
+				let automount = library
+					.db
+					.key()
+					.find_many(vec![key::automount::equals(true)])
+					.exec()
+					.await?;
 
 				for key in automount {
-					library.key_manager.lock().await.mount(uuid::Uuid::from_str(&key.uuid).unwrap()).unwrap();
+					library
+						.key_manager
+						.lock()
+						.await
+						.mount(uuid::Uuid::from_str(&key.uuid).unwrap())
+						.unwrap();
 				}
 
 				Ok(())
@@ -157,7 +167,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, args: KeyAddArgs, library| async move {
 				// TODO(jake): remove this once we are able to get the master password from the UI
 				// use the designated route for setting it
-				library.key_manager.lock().await.set_master_password(Protected::new(b"password".to_vec())).unwrap();
+				library
+					.key_manager
+					.lock()
+					.await
+					.set_master_password(Protected::new(b"password".to_vec()))
+					.unwrap();
 
 				let algorithm = match &args.algorithm as &str {
 					"XChaCha20Poly1305" => Algorithm::XChaCha20Poly1305,
