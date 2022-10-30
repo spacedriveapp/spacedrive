@@ -8,7 +8,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="698ca07e-54de-48f8-b2a7-3db59bf5d121" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.github/scripts/setup-system.sh" beforeDir="false" afterPath="$PROJECT_DIR$/.github/scripts/setup-system.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.github/actions/publish-artifacts/action.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/actions/publish-artifacts/action.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -130,7 +131,7 @@
       <workItem from="1666724668516" duration="1154000" />
       <workItem from="1666753994220" duration="137000" />
       <workItem from="1667048632661" duration="923000" />
-      <workItem from="1667148229081" duration="2209000" />
+      <workItem from="1667148229081" duration="2689000" />
     </task>
     <servers />
   </component>
@@ -146,6 +147,17 @@
         <option value="Default.Subject" />
         <option value="Space.CommitStatus" />
       </list>
+    </option>
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
     </option>
   </component>
 </project>
