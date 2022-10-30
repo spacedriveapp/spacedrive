@@ -194,6 +194,8 @@ model Key {
   // the name that the user sets
   name         String?
   // is this key the default for encryption?
+  // was not tagged as unique as i'm not too sure if PCR will handle it
+  // can always be tagged as unique, the keys API will need updating to use `find_unique()`
   default      Boolean
   // nullable if concealed for security
   date_created DateTime? @default(now())

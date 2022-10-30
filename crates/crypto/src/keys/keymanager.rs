@@ -146,6 +146,11 @@ impl KeyManager {
 		Ok(())
 	}
 
+	/// This function is for removing a previously-added master password
+	pub fn clear_master_password(&mut self) {
+		self.master_password = None;
+	}
+
 	#[must_use]
 	pub const fn has_master_password(&self) -> bool {
 		self.master_password.is_some()
