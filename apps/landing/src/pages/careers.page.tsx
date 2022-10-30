@@ -1,15 +1,15 @@
-import {
-	ArrowTrendingUpIcon,
-	BoltIcon,
-	ClockIcon,
-	ComputerDesktopIcon,
-	CurrencyDollarIcon,
-	FaceSmileIcon,
-	HeartIcon,
-	HomeIcon,
-	StarIcon
-} from '@heroicons/react/24/outline';
 import { Button } from '@sd/ui';
+import {
+	Clock,
+	CurrencyDollar,
+	Desktop,
+	Heart,
+	House,
+	LightningSlash,
+	Smiley,
+	Star,
+	TrendUp
+} from 'phosphor-react';
 import { useRef } from 'react';
 import { Helmet } from 'react-helmet';
 
@@ -25,22 +25,22 @@ const values = [
 	{
 		title: 'Async',
 		desc: 'To accommodate our international team and community, we work and communicate asynchronously.',
-		icon: ClockIcon
+		icon: Clock
 	},
 	{
 		title: 'Quality',
 		desc: 'From our interface design to our code, we strive to build software that will last.',
-		icon: StarIcon
+		icon: Star
 	},
 	{
 		title: 'Speed',
 		desc: 'We get things done quickly, through small iteration cycles and frequent updates.',
-		icon: BoltIcon
+		icon: LightningSlash
 	},
 	{
 		title: 'Transparency',
 		desc: 'We are human beings that make mistakes, but through total transparency we can solve them faster.',
-		icon: HeartIcon
+		icon: Heart
 	}
 ];
 
@@ -48,37 +48,37 @@ const perks = [
 	{
 		title: 'Competitive Salary',
 		desc: `We want the best, and will pay for the best. If you shine through we'll make sure you're paid what you're worth.`,
-		icon: CurrencyDollarIcon,
+		icon: CurrencyDollar,
 		color: '#0DD153'
 	},
 	{
 		title: 'Stock Options',
 		desc: `As an early employee, you deserve to own a piece of our company. Stock options will be offered as part of your onboarding process.`,
-		icon: ArrowTrendingUpIcon,
+		icon: TrendUp,
 		color: '#BD0DD1'
 	},
 	{
 		title: 'Paid Time Off',
 		desc: `Rest is important, you deliver your best work when you've had your downtime. We offer 4 weeks paid time off per year, and if you need more, we'll give you more.`,
-		icon: FaceSmileIcon,
+		icon: Smiley,
 		color: '#9210FF'
 	},
 	{
 		title: 'Work From Home',
 		desc: `As an open source project, we're remote first and intend to keep it that way. Sorry Elon.`,
-		icon: HomeIcon,
+		icon: House,
 		color: '#D1A20D'
 	},
 	{
 		title: 'Desk Budget',
 		desc: `Need an M1 MacBook Pro? We've got you covered. (You'll probably need one with Rust compile times)`,
-		icon: ComputerDesktopIcon,
+		icon: Desktop,
 		color: '#0DC5D1'
 	},
 	{
 		title: 'Health Care',
 		desc: `We use Deel for hiring and payroll, all your health care needs are covered.`,
-		icon: HeartIcon,
+		icon: Heart,
 		color: '#D10D7F'
 	}
 ];
@@ -110,7 +110,7 @@ function Page() {
 					<Button
 						onClick={scrollToPositions}
 						className="z-30 border-0 cursor-pointer"
-						variant="primary"
+						variant="accent"
 					>
 						See Open Positions
 					</Button>
@@ -167,11 +167,11 @@ function Page() {
 										<h3 className="m-0 text-2xl leading-tight">{value.name}</h3>
 										<div className="mt-3 sm:mt-0.5">
 											<span className="text-sm font-semibold text-gray-300 sm:ml-4">
-												<CurrencyDollarIcon className="inline w-4 mr-1 -mt-1" />
+												<CurrencyDollar className="inline w-4 mr-1 -mt-1" />
 												{value.salary}
 											</span>
 											<span className="ml-4 text-sm font-semibold text-gray-300">
-												<ClockIcon className="inline w-4 mr-1 -mt-1" />
+												<Clock className="inline w-4 mr-1 -mt-1" />
 												{value.type}
 											</span>
 										</div>

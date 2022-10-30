@@ -16,8 +16,10 @@ type FolderProps = {
 
 const FolderIcon: React.FC<FolderProps> = ({ size = 24, isWhite, ...svgProps }) => {
 	return isWhite ? (
+		// @ts-expect-error
 		<FolderWhite width={size} height={size} {...svgProps} />
 	) : (
+		// @ts-expect-error
 		<Folder width={size} height={size} {...svgProps} />
 	);
 };

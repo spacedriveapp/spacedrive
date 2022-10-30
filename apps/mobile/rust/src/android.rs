@@ -154,10 +154,8 @@ pub extern "system" fn Java_com_spacedrive_app_SDCore_handleCoreMsg(
 				"(Ljava/lang/Object;)V",
 				&[env
 					.new_string(
-						serde_json::to_string(
-							&resps.into_iter().filter_map(|v| v).collect::<Vec<_>>(),
-						)
-						.unwrap(),
+						serde_json::to_string(&resps.into_iter().flatten().collect::<Vec<_>>())
+							.unwrap(),
 					)
 					.expect("Couldn't create java string!")
 					.into()],

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="WEB_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/apps/desktop/src-tauri/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/mobile/rust/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crypto/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crypto/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/ffmpeg/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/file-ext/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/p2p/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/p2p/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/p2p/tunnel/utils/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/prisma-cli/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/sync/example/src-tauri/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/sync/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/sync/example/api/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/temp" />
+      <excludeFolder url="file://$MODULE_DIR$/.tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

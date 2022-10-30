@@ -1,21 +1,7 @@
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
-import {
-	EllipsisVerticalIcon,
-	EyeIcon,
-	EyeSlashIcon,
-	KeyIcon,
-	LockClosedIcon,
-	LockOpenIcon,
-	PlusIcon,
-	TrashIcon,
-	XMarkIcon
-} from '@heroicons/react/24/solid';
-import { Button, Input, Select, SelectOption } from '@sd/ui';
+import { Button } from '@sd/ui';
 import clsx from 'clsx';
-import { Eject, EjectSimple, Plus } from 'phosphor-react';
-import { useState } from 'react';
+import { DotsThree, Eye, Key as KeyIcon } from 'phosphor-react';
 
-import { Toggle } from '../primitive';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
 
@@ -36,24 +22,17 @@ export interface Key {
 }
 
 export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => {
-	const odd = (index || 0) % 2 === 0;
-
 	return (
 		<div
 			className={clsx(
-				'flex items-center justify-between px-2 py-1.5 shadow-gray-900/20 text-sm text-gray-300 bg-gray-500/30 shadow-lg border-gray-500 rounded-lg'
-				// !odd && 'bg-opacity-10'
+				'flex items-center justify-between px-2 py-1.5 shadow-app-shade/10 text-sm bg-app-box shadow-lg rounded-lg'
 			)}
 		>
 			<div className="flex items-center">
 				<KeyIcon
 					className={clsx(
 						'w-5 h-5 ml-1 mr-3',
-						data.mounted
-							? data.locked
-								? 'text-primary-600'
-								: 'text-primary-600'
-							: 'text-gray-400/80'
+						data.mounted ? (data.locked ? 'text-accent' : 'text-accent') : 'text-gray-400/80'
 					)}
 				/>
 				<div className="flex flex-col ">
@@ -69,19 +48,19 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 					{data.stats ? (
 						<div className="flex flex-row mt-[1px] space-x-3">
 							{data.stats.objectCount && (
-								<div className="text-[8pt] font-medium text-gray-200 opacity-30">
+								<div className="text-[8pt] font-medium text-ink-dull opacity-30">
 									{data.stats.objectCount} Objects
 								</div>
 							)}
 							{data.stats.containerCount && (
-								<div className="text-[8pt] font-medium text-gray-200 opacity-30">
+								<div className="text-[8pt] font-medium text-ink-dull opacity-30">
 									{data.stats.containerCount} Containers
 								</div>
 							)}
 						</div>
 					) : (
 						!data.mounted && (
-							<div className="text-[8pt] font-medium text-gray-200 opacity-30">Key not mounted</div>
+							<div className="text-[8pt] font-medium text-ink-dull opacity-30">Key not mounted</div>
 						)
 					)}
 				</div>
@@ -89,13 +68,13 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 			<div className="space-x-1">
 				{data.mounted && (
 					<Tooltip label="Browse files">
-						<Button noPadding>
-							<EyeIcon className="w-4 h-4 text-gray-400" />
+						<Button size="icon">
+							<Eye className="w-4 h-4 text-ink-faint" />
 						</Button>
 					</Tooltip>
 				)}
-				<Button noPadding>
-					<EllipsisVerticalIcon className="w-4 h-4 text-gray-400" />
+				<Button size="icon">
+					<DotsThree className="w-4 h-4 text-ink-faint" />
 				</Button>
 			</div>
 		</div>

@@ -6,6 +6,12 @@ import type { PageContext } from './types';
 
 export { render };
 
+// Enable Client Routing
+export const clientRouting = true;
+
+// See `Link prefetching` section below. Default value: `{ when: 'HOVER' }`.
+export const prefetchStaticAssets = { when: 'HOVER' };
+
 async function render(pageContext: PageContextBuiltInClient & PageContext) {
 	const { Page, pageProps } = pageContext;
 	hydrateRoot(
@@ -15,5 +21,3 @@ async function render(pageContext: PageContextBuiltInClient & PageContext) {
 		</App>
 	);
 }
-
-export const clientRouting = true;
