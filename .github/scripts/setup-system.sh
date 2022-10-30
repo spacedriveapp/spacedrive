@@ -16,6 +16,11 @@ if ! which cargo &>/dev/null; then
   exit 1
 fi
 
+if ! which node &>/dev/null; then
+  echo "Node was not detected on your system. Ensure the 'node' binary is in your \$PATH."
+  exit 1
+fi
+
 if [ "${SPACEDRIVE_SKIP_PNPM_CHECK:-}" != "true" ]; then
 
   if ! which pnpm &>/dev/null; then
@@ -91,18 +96,24 @@ if [ $DISTRO = "Darwin" ]; then
 
 elif [ -f /etc/debian_version -o "$DISTRO" == "Debian" -o "$DISTRO" == "Ubuntu" ]; then
   echo "Detected $DISTRO based distro!"
-  DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg" # FFMPEG dependencies
-  DEBIAN_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev"     # Tauri dependencies
-  DEBIAN_BINDGEN_DEPS="pkg-config clang"                                                                                                    # Bindgen dependencies - it's used by a dependency of Spacedrive
+  # FFMPEG dependencies
+  DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
+  # Tauri dependencies
+  DEBIAN_TAURI_DEPS="libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev"
+  # Bindgen dependencies - it's used by a dependency of Spacedrive
+  DEBIAN_BINDGEN_DEPS="pkg-config clang"
 
   sudo apt-get -y update
   sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
 
 elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
   echo "Detected $DISTRO based distro!"
-  SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel"                                                              # Tauri dependencies
-  SUSE_FFMPEG_DEPS="ffmpeg-4 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel" # FFMPEG dependencies
-  SUSE_BINDGEN_DEPS="clang"                                                                                                                                          # Bindgen dependencies - it's used by a dependency of Spacedrive
+  # Tauri dependencies
+  SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel"
+  # FFMPEG dependencies
+  SUSE_FFMPEG_DEPS="ffmpeg-4 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel"
+  # Bindgen dependencies - it's used by a dependency of Spacedrive
+  SUSE_BINDGEN_DEPS="clang"
 
   sudo zypper up
   sudo zypper in $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
@@ -110,18 +121,24 @@ elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
 
 elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
   echo "Detected $DISTRO based distro!"
-  ARCH_TAURI_DEPS="webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips" # Tauri deps https://tauri.studio/guides/getting-started/setup/linux#1-system-dependencies
-  ARCH_FFMPEG_DEPS="ffmpeg"                                                                                              # FFMPEG dependencies
-  ARCH_BINDGEN_DEPS="clang"                                                                                              # Bindgen dependencies - it's used by a dependency of Spacedrive
+  # Tauri deps https://tauri.studio/guides/getting-started/setup/linux#1-system-dependencies
+  ARCH_TAURI_DEPS="webkit2gtk base-devel curl wget openssl appmenu-gtk-module gtk3 libappindicator-gtk3 librsvg libvips"
+  # FFMPEG dependencies
+  ARCH_FFMPEG_DEPS="ffmpeg"
+  # Bindgen dependencies - it's used by a dependency of Spacedrive
+  ARCH_BINDGEN_DEPS="clang"
 
   sudo pacman -Syu
   sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS
 
 elif [ -f /etc/redhat-release -o "$DISTRO" == "RedHat" -o "$DISTRO" == "CentOS" -o "$DISTRO" == "Fedora" ]; then
   echo "Detected $DISTRO based distro!"
-  FEDORA_TAURI_DEPS="webkit2gtk3-devel.x86_64 openssl-devel curl wget libappindicator-gtk3 librsvg2-devel" # Tauri dependencies
-  FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"                                                                 # FFMPEG dependencies
-  FEDORA_BINDGEN_DEPS="clang"                                                                              # Bindgen dependencies - it's used by a dependency of Spacedrive
+  # Tauri dependencies
+  FEDORA_TAURI_DEPS="webkit2gtk3-devel.x86_64 openssl-devel curl wget libappindicator-gtk3 librsvg2-devel"
+  # FFMPEG dependencies
+  FEDORA_FFMPEG_DEPS="ffmpeg ffmpeg-devel"
+  # Bindgen dependencies - it's used by a dependency of Spacedrive
+  FEDORA_BINDGEN_DEPS="clang"
 
   sudo dnf check-update
   sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
