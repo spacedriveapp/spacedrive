@@ -163,6 +163,12 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?)
 			})
 		})
+		.library_mutation("unmountAll", |t| {
+			t(|_, _: (), library| async move {
+				library.key_manager.lock().await.empty_keymount();
+				Ok(())
+			})
+		})
 		.library_mutation("add", |t| {
 			t(|_, args: KeyAddArgs, library| async move {
 				// TODO(jake): remove this once we are able to get the master password from the UI

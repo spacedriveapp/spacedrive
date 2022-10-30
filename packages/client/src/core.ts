@@ -42,6 +42,7 @@ export type Procedures = {
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
+        { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
         { key: "library.create", input: string, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 

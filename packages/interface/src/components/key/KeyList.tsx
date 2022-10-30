@@ -1,4 +1,4 @@
-import { useLibraryQuery  } from '@sd/client';
+import { useLibraryQuery, useLibraryMutation  } from '@sd/client';
 import { Button } from '@sd/ui';
 
 import { DefaultProps } from '../primitive/types';
@@ -6,6 +6,8 @@ import { Key } from './Key';
 import type { Key as QueryKey } from '@sd/client';
 
 export type KeyListProps = DefaultProps;
+
+const { mutate: unmountAll } = useLibraryMutation('keys.unmountAll');
 
 const ListKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
@@ -41,7 +43,9 @@ export function KeyList(props: KeyListProps) {
 				</div>
 			</div>
 			<div className="flex w-full p-2 border-t border-app-line rounded-b-md">
-				<Button size="sm" variant="gray">
+				<Button size="sm" variant="gray" onClick={() => {
+					unmountAll(null);
+				}}>
 					Unmount All
 				</Button>
 				<div className="flex-grow" />
