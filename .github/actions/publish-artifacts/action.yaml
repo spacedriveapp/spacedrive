@@ -30,13 +30,6 @@ runs:
         name: Spacedrive-deb-${{ env.GITHUB_SHA_SHORT }}
         path: ./target/release/bundle/deb/spacedrive*.deb
 
-    -   name: Publish artifacts (opensuse)
-        if: matrix.platform == 'ubuntu-latest'
-        uses: actions/upload-artifact@v3
-        with:
-          name: Spacedrive-deb-${{ env.GITHUB_SHA_SHORT }}
-          path: ./target/release/bundle/deb/spacedrive*.rpm
-
     - name: Publish artifacts (server)
       if: matrix.platform == 'ubuntu-latest'
       uses: actions/upload-artifact@v3
