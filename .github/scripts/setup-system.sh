@@ -2,72 +2,88 @@
 
 set -e
 
-script_failure() {
-  echo "An error occurred while performing the task on line $1" >&2
-  echo "Setup for Spacedrive development failed" >&2
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+function log_err {
+  echo "$@" >&2
 }
 
+function script_failure {
+  log_err "An error occurred$([ -z "$1" ] && " on line $1" || " (unknown)")."
+  log_err "Setup failed."
+}
 
 trap 'script_failure $LINENO' ERR
 
-echo "Setting up your system for Spacedrive development!"
+echo "Setting up this system for Spacedrive development."
+echo
 
-if ! which cargo &>/dev/null; then
-  echo "Rust was not detected on your system. Ensure the 'rustc' and 'cargo' binaries are in your \$PATH."
+if ! command -v cargo >/dev/null; then
+  log_err "Rust was not found. Ensure the 'rustc' and 'cargo' binaries are in your \$PATH."
   exit 1
 fi
 
-if ! which node &>/dev/null; then
-  echo "Node was not detected on your system. Ensure the 'node' binary is in your \$PATH."
-  exit 1
-fi
+if [ "${SPACEDRIVE_SKIP_PNPM_CHECK:-'false'}" != "true" ]; then
+  echo "Checking for pnpm..."
 
-if [ "${SPACEDRIVE_SKIP_PNPM_CHECK:-}" != "true" ]; then
-
-  if ! which pnpm &>/dev/null; then
-    echo "PNPM was not detected on your system. Ensure the 'pnpm' command is in your \$PATH. You are not able to use Yarn or NPM."
+  if ! command -v pnpm >/dev/null; then
+    log_err "pnpm was not found. Ensure the 'pnpm' command is in your \$PATH."
+    log_err 'You MUST use pnpm for this project; yarn and npm are not allowed.'
     exit 1
+  else
+    echo "Found pnpm!"
   fi
 else
-  echo "Skipped PNPM check!"
+  echo "Skipping pnpm check."
 fi
 
+echo
+
 if [ "$1" == "mobile" ]; then
-  echo "Setting up for mobile development!"
+  echo "Setting up for mobile development."
 
-  # IOS targets
+  # iOS targets
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "Installing IOS Rust targets..."
-
-    if ! /usr/bin/xcodebuild -version; then
-      echo "Xcode is not installed! Ensure you have it installed!"
+    echo "Checking for Xcode..."
+    if ! /usr/bin/xcodebuild -version >/dev/null; then
+      log_err "Xcode was not detected."
+      log_err "Please ensure Xcode is installed and try again."
       exit 1
     fi
+
+    echo "Installing iOS targets for Rust..."
 
     rustup target add aarch64-apple-ios
     rustup target add aarch64-apple-ios-sim
   fi
 
   # Android requires python
-  if ! command -v python3 &>/dev/null; then
-    echo "Python3 could not be found. This is required for Android mobile development!"
+  if ! command -v python3 >/dev/null; then
+    log_err "python3 command could not be found. This is required for Android mobile development."
+    log_err "Ensure python3 is available in your \$PATH and try again."
     exit 1
   fi
 
   # Android targets
-  echo "Installing Android Rust targets..."
+  echo "Setting up Android targets for Rust..."
+
   rustup target add armv7-linux-androideabi  # for arm
-  rustup target add i686-linux-android       # for x86
   rustup target add aarch64-linux-android    # for arm64
+  rustup target add i686-linux-android       # for x86
   rustup target add x86_64-linux-android     # for x86_64
   rustup target add x86_64-unknown-linux-gnu # for linux-x86-64
-  rustup target add x86_64-apple-darwin      # for darwin x86_64 (if you have an Intel macOS)
-  rustup target add aarch64-apple-darwin     # for darwin arm64 (if you have a M1 macOS)
+  rustup target add aarch64-apple-darwin     # for darwin arm64 (if you have an M1 Mac)
+  rustup target add x86_64-apple-darwin      # for darwin x86_64 (if you have an Intel Mac)
   rustup target add x86_64-pc-windows-gnu    # for win32-x86-64-gnu
   rustup target add x86_64-pc-windows-msvc   # for win32-x86-64-msvc
+
+  echo "Done setting up mobile targets."
+  echo
 fi
 
+# We can always add in additional distros as needed
 KNOWN_DISTRO="(Debian|Ubuntu|RedHat|CentOS|opensuse-leap|Arch|Fedora|suse)"
+# This is used to identify the distro based off of the /etc/os-release file
 DISTRO=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release 2>/dev/null | grep -Eo $KNOWN_DISTRO || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s | grep -Eo $KNOWN_DISTRO || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s)
 
 # shellcheck disable=SC2166
@@ -97,7 +113,9 @@ if [ "$DISTRO" = "Darwin" ]; then
     echo "FFmpeg version $FFMPEG_VERSION has been installed and is now being used on your system."
   fi
 
-elif [ -f /etc/debian_version -o $DISTRO == "Debian" -o "$DISTRO" == "Ubuntu" ]; then
+elif
+  [ -f /etc/debian_version -o $DISTRO == "Debian" -o "$DISTRO" == "Ubuntu" ]
+then
   echo "Detected $DISTRO based distro!"
   # FFMPEG dependencies
   DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
