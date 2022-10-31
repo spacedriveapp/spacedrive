@@ -141,6 +141,9 @@ elif [ -f /etc/os-release -o $DISTRO == "opensuse" ]; then
   sudo zypper refresh
   sudo zypper in $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
   sudo zypper in -t pattern devel_basis
+#  This is needed due to when the build script is run again openSUSE errors out instead of continuing when the repo exist on the OS already
+  sudo zypper rr multimedia_libs
+
 
 elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
   echo "Detected $DISTRO based distro!"
