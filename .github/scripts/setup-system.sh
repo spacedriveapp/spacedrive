@@ -109,16 +109,18 @@ elif [ -f /etc/debian_version -o $DISTRO == "Debian" -o "$DISTRO" == "Ubuntu" ];
   sudo apt-get -y update
   sudo apt-get -y install "${SPACEDRIVE_CUSTOM_APT_FLAGS:-}" $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
 
-elif [ -f /etc/os-release -o $DISTRO == "openSUSE" ]; then
+elif [ -f /etc/os-release -o $DISTRO == "opensuse" ]; then
   echo "Detected $DISTRO based distro!"
   # Tauri dependencies
   SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel"
   # FFMPEG dependencies
-  SUSE_FFMPEG_DEPS="ffmpeg-4 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel"
+  SUSE_FFMPEG_DEPS="ffmpeg-5 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel"
   # Bindgen dependencies - it's used by a dependency of Spacedrive
   SUSE_BINDGEN_DEPS="clang"
 
   sudo zypper up -y
+  sudo zypper addrepo https://download.opensuse.org/repositories/multimedia:libs/15.4/multimedia:libs.repo
+  sudo zypper refresh
   sudo zypper in -y $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
   sudo zypper in -t pattern devel_basis
 
