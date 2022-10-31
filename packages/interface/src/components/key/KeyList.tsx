@@ -27,6 +27,7 @@ const ListKeys = () => {
 			return (
 				<Key index={index} data={{
 					id: key.uuid,
+					// could probably do with a better way to number these, maybe something that doesn't change
 					name: `Key ${index + 1}`,
 					mounted: mountedKeys.includes(key),
 					default: default_key.data === key.uuid,
