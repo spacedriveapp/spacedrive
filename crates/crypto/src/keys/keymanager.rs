@@ -35,7 +35,7 @@
 //! let keys = key_manager.enumerate_hashed_keys();
 //! ```
 
-use std::collections::HashMap;
+use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::error::Error;
@@ -48,6 +48,7 @@ use crate::{
 	Protected,
 };
 
+use dashmap::DashMap;
 use uuid::Uuid;
 
 use super::hashing::HashingAlgorithm;
@@ -73,10 +74,10 @@ pub struct StoredKey {
 }
 
 pub struct KeyManager {
-	master_password: Option<Protected<Vec<u8>>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
-	keystore: HashMap<Uuid, StoredKey>,
-	keymount: HashMap<Uuid, MountedKey>,
-	default: Option<Uuid>,
+	master_password: Mutex<Option<Protected<Vec<u8>>>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
+	keystore: DashMap<Uuid, StoredKey>,
+	keymount: DashMap<Uuid, MountedKey>,
+	default: Mutex<Option<Uuid>>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
@@ -84,25 +85,25 @@ impl KeyManager {
 	/// Initialize the Key Manager with the user's master password, and `StoredKeys` retrieved from Prisma
 	#[must_use]
 	pub fn new(stored_keys: Vec<StoredKey>, master_password: Option<Protected<Vec<u8>>>) -> Self {
-		let mut keystore = HashMap::new();
+		let keystore = DashMap::new();
 		for key in stored_keys {
 			keystore.insert(key.uuid, key);
 		}
 
-		let keymount: HashMap<Uuid, MountedKey> = HashMap::new();
+		let keymount: DashMap<Uuid, MountedKey> = DashMap::new();
 
 		Self {
-			master_password,
+			master_password: Mutex::new(master_password),
 			keystore,
 			keymount,
-			default: None,
+			default: Mutex::new(None),
 		}
 	}
 
 	/// This function should be used to populate the keystore with multiple stored keys at a time.
 	///
 	/// It's suitable for when you created the key manager without populating it.
-	pub fn populate_keystore(&mut self, stored_keys: Vec<StoredKey>) -> Result<(), Error> {
+	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<(), Error> {
 		for key in stored_keys {
 			self.keystore.insert(key.uuid, key);
 		}
@@ -111,9 +112,9 @@ impl KeyManager {
 	}
 
 	/// This allows you to set the default key
-	pub fn set_default(&mut self, uuid: Uuid) -> Result<(), Error> {
+	pub fn set_default(&self, uuid: Uuid) -> Result<(), Error> {
 		if self.keystore.contains_key(&uuid) {
-			self.default = Some(uuid);
+			*self.default.lock().unwrap() = Some(uuid);
 			Ok(())
 		} else {
 			Err(Error::KeyNotFound)
@@ -121,8 +122,8 @@ impl KeyManager {
 	}
 
 	/// This allows you to get the default key's ID
-	pub const fn get_default(&self) -> Result<Uuid, Error> {
-		if let Some(default) = self.default {
+	pub fn get_default(&self) -> Result<Uuid, Error> {
+		if let Some(default) = *self.default.lock().unwrap() {
 			Ok(default)
 		} else {
 			Err(Error::NoDefaultKeySet)
@@ -131,38 +132,38 @@ impl KeyManager {
 
 	/// This should ONLY be used internally.
 	fn get_master_password(&self) -> Result<Protected<Vec<u8>>, Error> {
-		match &self.master_password {
+		match &*self.master_password.lock().unwrap() {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}
 	}
 
 	pub fn set_master_password(
-		&mut self,
+		&self,
 		master_password: Protected<Vec<u8>>,
 	) -> Result<(), Error> {
 		// this returns a result, so we can potentially implement password checking functionality
-		self.master_password = Some(master_password);
+		*self.master_password.lock().unwrap() = Some(master_password);
 		Ok(())
 	}
 
 	/// This function is for removing a previously-added master password
-	pub fn clear_master_password(&mut self) {
-		self.master_password = None;
+	pub fn clear_master_password(&self) {
+		*self.master_password.lock().unwrap() = None;
 	}
 
 	#[must_use]
-	pub const fn has_master_password(&self) -> bool {
-		self.master_password.is_some()
+	pub fn has_master_password(&self) -> bool {
+		self.master_password.lock().unwrap().is_some()
 	}
 
 	/// This function is used for emptying the entire keystore.
-	pub fn empty_keystore(&mut self) {
+	pub fn empty_keystore(&self) {
 		self.keystore.clear();
 	}
 
 	/// This function is used for unmounting all keys at once.
-	pub fn empty_keymount(&mut self) {
+	pub fn empty_keymount(&self) {
 		// i'm unsure whether or not `.clear()` also calls drop
 		// if it doesn't, we're going to need to find another way to call drop on these values
 		// that way they will be zeroized and removed from memory fully
@@ -177,11 +178,11 @@ impl KeyManager {
 
 		for key in supplied_keys {
 			let keystore_key = match self.keystore.get(&key.uuid) {
-				Some(key) => key,
+				Some(key) => key.clone(),
 				None => return Err(Error::KeystoreMismatch),
 			};
 
-			if key != keystore_key {
+			if *key != keystore_key {
 				return Err(Error::KeystoreMismatch);
 			}
 		}
@@ -192,7 +193,7 @@ impl KeyManager {
 	/// This function is for unmounting a key from the key manager
 	///
 	/// This does not remove the key from the key store
-	pub fn unmount(&mut self, uuid: Uuid) -> Result<(), Error> {
+	pub fn unmount(&self, uuid: Uuid) -> Result<(), Error> {
 		if self.keymount.contains_key(&uuid) {
 			self.keymount.remove(&uuid);
 			Ok(())
@@ -206,12 +207,12 @@ impl KeyManager {
 	/// The database and keystore should be in sync at ALL times (unless the user chose an in-memory only key)
 	#[must_use]
 	pub fn dump_keystore(&self) -> Vec<StoredKey> {
-		self.keystore.iter().map(|key| key.1.clone()).collect()
+		self.keystore.iter().map(|key| key.clone()).collect()
 	}
 
 	#[must_use]
 	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {
-		self.keymount.iter().map(|key| *key.0).collect()
+		self.keymount.iter().map(|key| key.uuid).collect()
 	}
 
 	/// This function does not return a value by design.
@@ -221,7 +222,7 @@ impl KeyManager {
 	/// This is to ensure that only functions which require access to the mounted key receive it.
 	///
 	/// We could add a log to this, so that the user can view mounts
-	pub fn mount(&mut self, uuid: Uuid) -> Result<(), Error> {
+	pub fn mount(&self, uuid: Uuid) -> Result<(), Error> {
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
 				let master_password = self.get_master_password()?;
@@ -303,7 +304,7 @@ impl KeyManager {
 	pub fn enumerate_hashed_keys(&self) -> Vec<Protected<[u8; 32]>> {
 		self.keymount
 			.iter()
-			.map(|(_, mounted_key)| mounted_key.hashed_key.clone())
+			.map(|mounted_key| mounted_key.hashed_key.clone())
 			.collect::<Vec<Protected<[u8; 32]>>>()
 	}
 
@@ -318,7 +319,7 @@ impl KeyManager {
 	/// You may use the returned ID to identify this key.
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn add_to_keystore(
-		&mut self,
+		&self,
 		key: Protected<Vec<u8>>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,

@@ -35,12 +35,12 @@ pub(crate) fn mount() -> RouterBuilder {
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
 			t(|_, _: (), library| async move {
-				Ok(library.key_manager.lock().await.get_mounted_uuids())
+				Ok(library.key_manager.get_mounted_uuids())
 			})
 		})
 		.library_query("mount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library.key_manager.lock().await.mount(key_uuid).unwrap();
+				library.key_manager.mount(key_uuid).unwrap();
 				// we also need to dispatch jobs that automatically decrypt preview media and metadata here
 
 				Ok(())
@@ -63,7 +63,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("unmount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library.key_manager.lock().await.unmount(key_uuid).unwrap();
+				library.key_manager.unmount(key_uuid).unwrap();
 				// we also need to delete all in-memory decrypted data associated with this key
 
 				Ok(())
@@ -78,8 +78,6 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				library
 					.key_manager
-					.lock()
-					.await
 					.set_master_password(Protected::new(password.as_bytes().to_vec()))
 					.unwrap();
 
@@ -93,8 +91,6 @@ pub(crate) fn mount() -> RouterBuilder {
 				for key in automount {
 					library
 						.key_manager
-						.lock()
-						.await
 						.mount(uuid::Uuid::from_str(&key.uuid).unwrap())
 						.unwrap();
 				}
@@ -106,8 +102,6 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library
 					.key_manager
-					.lock()
-					.await
 					.set_default(key_uuid)
 					.unwrap();
 
@@ -165,7 +159,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("unmountAll", |t| {
 			t(|_, _: (), library| async move {
-				library.key_manager.lock().await.empty_keymount();
+				library.key_manager.empty_keymount();
 				Ok(())
 			})
 		})
@@ -175,8 +169,6 @@ pub(crate) fn mount() -> RouterBuilder {
 				// use the designated route for setting it
 				library
 					.key_manager
-					.lock()
-					.await
 					.set_master_password(Protected::new(b"password".to_vec()))
 					.unwrap();
 
@@ -197,8 +189,6 @@ pub(crate) fn mount() -> RouterBuilder {
 				// register the key with the keymanager
 				let uuid = library
 					.key_manager
-					.lock()
-					.await
 					.add_to_keystore(
 						Protected::new(args.key.as_bytes().to_vec()),
 						algorithm,
@@ -208,8 +198,6 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				let stored_key = library
 					.key_manager
-					.lock()
-					.await
 					.access_keystore(uuid)
 					.unwrap();
 
@@ -234,7 +222,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				// mount the key
-				library.key_manager.lock().await.mount(uuid).unwrap();
+				library.key_manager.mount(uuid).unwrap();
 
 				Ok(())
 			})

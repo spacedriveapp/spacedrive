@@ -24,7 +24,7 @@ use std::{
 	sync::Arc,
 };
 use thiserror::Error;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -41,7 +41,7 @@ pub struct LibraryManager {
 
 pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, SeederError> {
 	// retrieve all stored keys from the DB
-	let mut key_manager = KeyManager::new(vec![], None);
+	let key_manager = KeyManager::new(vec![], None);
 
 	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
 
@@ -318,7 +318,7 @@ impl LibraryManager {
 		// Run seeders
 		indexer_rules_seeder(&db).await?;
 
-		let key_manager = Arc::new(Mutex::new(create_keymanager(&db).await?));
+		let key_manager = Arc::new(create_keymanager(&db).await?);
 
 		Ok(LibraryContext {
 			id,
