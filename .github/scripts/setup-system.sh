@@ -114,7 +114,7 @@ elif [ -f /etc/os-release -o $DISTRO == "opensuse" ]; then
   # Tauri dependencies
   SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel"
   # FFMPEG dependencies
-  SUSE_FFMPEG_DEPS="ffmpeg-5 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel"
+  SUSE_FFMPEG_DEPS="ffmpeg-5"
   # Bindgen dependencies - it's used by a dependency of Spacedrive
   SUSE_BINDGEN_DEPS="clang"
 
