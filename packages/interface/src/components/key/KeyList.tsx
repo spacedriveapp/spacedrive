@@ -10,6 +10,7 @@ export type KeyListProps = DefaultProps;
 const ListKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
+	const default_key = useLibraryQuery(['keys.getDefault']);
 
 	const mountedKeys: QueryKey[] = keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? []
 	const unmountedKeys: QueryKey[] = keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? []
@@ -27,7 +28,8 @@ const ListKeys = () => {
 				<Key index={index} data={{
 					id: key.uuid,
 					name: `Key ${index + 1}`,
-					mounted: mountedKeys.includes(key)
+					mounted: mountedKeys.includes(key),
+					default: default_key.data === key.uuid,
 				}} />
 			)
 		})}

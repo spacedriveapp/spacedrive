@@ -8,14 +8,9 @@ export type Procedures = {
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
-        { key: "keys.getDefault", input: LibraryArgs<null>, result: Key | null } | 
+        { key: "keys.getDefault", input: LibraryArgs<null>, result: string } | 
         { key: "keys.list", input: LibraryArgs<null>, result: Array<Key> } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
-        { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.setMasterPassword", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.updateKeyName", input: LibraryArgs<KeyNameUpdateArgs>, result: null } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
         { key: "locations.getById", input: LibraryArgs<number>, result: Location | null } | 
@@ -42,7 +37,13 @@ export type Procedures = {
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
+        { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setMasterPassword", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
+        { key: "keys.updateKeyName", input: LibraryArgs<KeyNameUpdateArgs>, result: null } | 
         { key: "library.create", input: string, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 

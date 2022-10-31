@@ -167,7 +167,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.key()
 					.find_first(vec![key::default::equals(true)])
 					.exec()
-					.await?)
+					.await?.unwrap().uuid)
 			})
 		})
 		.library_mutation("unmountAll", |t| {
