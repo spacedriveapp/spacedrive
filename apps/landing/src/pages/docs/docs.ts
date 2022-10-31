@@ -1,4 +1,4 @@
-import { BuildingLibraryIcon, CubeIcon, SparklesIcon, StarIcon } from '@heroicons/react/24/solid';
+import { Circle, Cube, Sparkle, Star } from 'phosphor-react';
 
 import { DocsConfig } from './api';
 
@@ -14,22 +14,22 @@ const config: DocsConfig = {
 		{
 			title: 'Product',
 			slug: 'product',
-			icon: SparklesIcon
+			icon: Sparkle
 		},
 		{
 			title: 'Developers',
 			slug: 'developers',
-			icon: CubeIcon
+			icon: Cube
 		},
 		{
 			title: 'Company',
 			slug: 'company',
-			icon: BuildingLibraryIcon
+			icon: Circle
 		},
 		{
 			title: 'Changelog',
 			slug: 'changelog',
-			icon: StarIcon
+			icon: Star
 		}
 	]
 };

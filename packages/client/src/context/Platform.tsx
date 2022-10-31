@@ -18,6 +18,8 @@ export type Platform = {
 	demoMode?: boolean; // TODO: Remove this in favour of demo mode being handled at the React Query level
 	getOs?(): Promise<OperatingSystem>;
 	openFilePickerDialog?(): Promise<null | string | string[]>;
+	showDevtools?(): void;
+	openPath?(path: string): void;
 };
 
 // Keep this private and use through helpers below

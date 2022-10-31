@@ -1,4 +1,4 @@
-import { Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
+import { Dribbble, Github, Twitch, Twitter } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { PropsWithChildren } from 'react';
 
@@ -17,6 +17,7 @@ export interface TeamMemberProps {
 		twitter?: string;
 		twitch?: string;
 		github?: string;
+		dribbble?: string;
 	};
 
 	// Which round an investor joined at
@@ -81,6 +82,11 @@ export function TeamMember(props: TeamMemberProps) {
 				{props.socials?.twitch && (
 					<Link href={props.socials.twitch}>
 						<Twitch className="w-[20px] h-[20px]" />
+					</Link>
+				)}
+				{props.socials?.dribbble && (
+					<Link href={props.socials.dribbble}>
+						<Dribbble className="w-[20px] h-[20px]" />
 					</Link>
 				)}
 			</div>

@@ -2,6 +2,14 @@
 # disabled for now because we have some dead code that doesn't really need reviewed yet
 # * @spacedriveapp
 
+# crates
+/crates/crypto @brxken128
+/crates/ffmpeg @fogodev
+/crates/file-ext @jamiepine
+/crates/p2p @oscartbeaumont
+/crates/prisma-cli @brendonovich
+/crates/sync @brendonovich
+
 # documentation
 /apps/landing/src/pages/docs/ @jamiepine
 /docs/ @jamiepine

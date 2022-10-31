@@ -157,12 +157,10 @@ pub fn verify_magic_bytes<T: MagicBytes>(ext: T, file: &mut std::fs::File) -> Op
 	use std::io::{Read, Seek, SeekFrom};
 
 	for magic in ext.magic_bytes_meta() {
-		println!("magic: {:?}", magic);
 		let mut buf = vec![0; magic.length];
+
 		file.seek(SeekFrom::Start(magic.offset as u64)).ok()?;
 		file.read_exact(&mut buf).ok()?;
-
-		println!("buf: {:?}", buf);
 
 		if ext.has_magic_bytes(&buf) {
 			return Some(ext);

@@ -5,7 +5,7 @@ import CodeBlock from '../components/primitive/Codeblock';
 // TODO: Bring this back with a button in the sidebar near settings at the bottom
 export default function DebugScreen() {
 	const platform = usePlatform();
-	const { data: nodeState } = useBridgeQuery(['getNode']);
+	const { data: nodeState } = useBridgeQuery(['nodeState']);
 	const { data: libraryState } = useBridgeQuery(['library.list']);
 	const { data: jobs } = useLibraryQuery(['jobs.getRunning']);
 	const { data: jobHistory } = useLibraryQuery(['jobs.getHistory']);
@@ -16,7 +16,7 @@ export default function DebugScreen() {
 	// });
 	const { mutate: identifyFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
 	return (
-		<div className="flex flex-col w-full h-screen custom-scroll page-scroll">
+		<div className="flex flex-col w-full h-screen custom-scroll page-scroll app-background">
 			<div data-tauri-drag-region className="flex flex-shrink-0 w-full h-5" />
 			<div className="flex flex-col p-5 pt-2 space-y-5 pb-7">
 				<h1 className="text-lg font-bold ">Developer Debugger</h1>

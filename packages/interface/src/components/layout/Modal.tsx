@@ -1,7 +1,7 @@
 import { Transition } from '@headlessui/react';
-import { XMarkIcon } from '@heroicons/react/24/solid';
 import { ButtonLink } from '@sd/ui';
 import clsx from 'clsx';
+import { X } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 
 export function Model(
@@ -31,7 +31,7 @@ export function Model(
 					/>
 				</Transition>
 				<ButtonLink to="/" variant="gray" className="!px-1.5 absolute top-2 right-2">
-					<XMarkIcon className="w-4 h-4" />
+					<X className="w-4 h-4" />
 				</ButtonLink>
 				<Transition
 					show

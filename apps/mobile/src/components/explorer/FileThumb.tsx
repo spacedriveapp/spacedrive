@@ -60,6 +60,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	if (kind === 'video') {
 		return (
 			<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
+				{/* @ts-expect-error */}
 				<VideoSvg width={50 * size} height={50 * size} />
 			</View>
 		);
@@ -69,6 +70,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	if (kind === 'zip') {
 		return (
 			<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
+				{/* @ts-expect-error */}
 				<ZipSvg width={50 * size} height={50 * size} />
 			</View>
 		);
