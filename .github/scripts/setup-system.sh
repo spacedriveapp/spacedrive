@@ -2,6 +2,19 @@
 
 set -e
 
+declare -A osInfo;
+osInfo[/etc/debian_version]="apt-get"
+osInfo[/etc/alpine-release]="apk"
+osInfo[/etc/centos-release]="yum"
+osInfo[/etc/fedora-release]="dnf"
+
+for f in "${!osInfo[@]}"
+do
+    if [[ -f $f ]];then
+        package_manager=${osInfo[$f]}
+    fi
+done
+
 script_failure() {
   echo "An error occurred while performing the task on line $1" >&2
   echo "Setup for Spacedrive development failed" >&2
@@ -60,8 +73,8 @@ if [ "$1" == "mobile" ]; then
   rustup target add aarch64-linux-android    # for arm64
   rustup target add x86_64-linux-android     # for x86_64
   rustup target add x86_64-unknown-linux-gnu # for linux-x86-64
-  rustup target add x86_64-apple-darwin      # for darwin x86_64 (if you have an Intel MacOS)
-  rustup target add aarch64-apple-darwin     # for darwin arm64 (if you have a M1 MacOS)
+  rustup target add x86_64-apple-darwin      # for darwin x86_64 (if you have an Intel macOS)
+  rustup target add aarch64-apple-darwin     # for darwin arm64 (if you have a M1 macOS)
   rustup target add x86_64-pc-windows-gnu    # for win32-x86-64-gnu
   rustup target add x86_64-pc-windows-msvc   # for win32-x86-64-msvc
 fi
@@ -69,7 +82,7 @@ fi
 KNOWN_DISTRO="(Debian|Ubuntu|RedHat|CentOS|openSUSE|Arch|Fedora)"
 DISTRO=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release 2>/dev/null | grep -Eo $KNOWN_DISTRO || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s | grep -Eo $KNOWN_DISTRO || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s)
 
-if [ $DISTRO = "Darwin" ]; then
+if [ "$DISTRO" = "Darwin" ]; then
   if ! command -v brew >/dev/null; then
     log_err "Homebrew was not found. Please install it using the instructions at https://brew.sh and try again."
     exit 1
@@ -104,7 +117,7 @@ elif [ -f /etc/debian_version -o "$DISTRO" == "Debian" -o "$DISTRO" == "Ubuntu" 
   DEBIAN_BINDGEN_DEPS="pkg-config clang"
 
   sudo apt-get -y update
-  sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
+  sudo apt-get -y install "${SPACEDRIVE_CUSTOM_APT_FLAGS:-}" "$DEBIAN_TAURI_DEPS" "$DEBIAN_FFMPEG_DEPS" "$DEBIAN_BINDGEN_DEPS"
 
 elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
   echo "Detected $DISTRO based distro!"
@@ -116,7 +129,7 @@ elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
   SUSE_BINDGEN_DEPS="clang"
 
   sudo zypper up
-  sudo zypper in $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
+  sudo zypper in "$SUSE_TAURI_DEPS" "$SUSE_FFMPEG_DEPS" "$SUSE_BINDGEN_DEPS"
   sudo zypper in -t pattern devel_basis
 
 elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
@@ -129,7 +142,7 @@ elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
   ARCH_BINDGEN_DEPS="clang"
 
   sudo pacman -Syu
-  sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS
+  sudo pacman -S --needed "$ARCH_TAURI_DEPS" "$ARCH_FFMPEG_DEPS" "$ARCH_BINDGEN_DEPS"
 
 elif [ -f /etc/redhat-release -o "$DISTRO" == "RedHat" -o "$DISTRO" == "CentOS" -o "$DISTRO" == "Fedora" ]; then
   echo "Detected $DISTRO based distro!"
@@ -141,7 +154,7 @@ elif [ -f /etc/redhat-release -o "$DISTRO" == "RedHat" -o "$DISTRO" == "CentOS" 
   FEDORA_BINDGEN_DEPS="clang"
 
   sudo dnf check-update
-  sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
+  sudo dnf install "$FEDORA_TAURI_DEPS" "$FEDORA_FFMPEG_DEPS" "$FEDORA_BINDGEN_DEPS"
   sudo dnf group install "C Development Tools and Libraries"
 
 else
