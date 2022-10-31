@@ -3,7 +3,7 @@
     
   </a>
   <p align="center">
-   <img width="150" height="150" src="https://github.com/spacedriveapp/spacedrive/blob/main/packages/assets/images/logo.png" alt="Logo">
+   <img width="150" height="150" src="./packages/assets/images/logo.png" alt="Logo">
   </p>
   <h1 align="center"><b>Spacedrive</b></h1>
   <p align="center">
@@ -109,3 +109,13 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 - `ios`: A [Swift](https://developer.apple.com/swift/) Native binary (planned).
 - `windows`: A [C#](https://docs.microsoft.com/en-us/dotnet/csharp/) Native binary (planned).
 - `android`: A [Kotlin](https://kotlinlang.org/) Native binary (planned).
+
+# Sponsors
+
+Our CI builds are powered by GitHub Actions, which does not natively have macOS runners with Apple silicon chips. MacStadium has generously provided Spacedrive with resources to power our M1-based CI runs.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/images/sponsors/macstadium-light.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./.github/images/sponsors/macstadium-dark.svg">
+  <img alt="Powered by MacStadium" src="./.github/images/sponsors/macstadium-dark.svg" width="200" height="81">
+</picture>
