@@ -114,14 +114,13 @@ elif [ -f /etc/os-release -o $DISTRO == "opensuse" ]; then
   # Tauri dependencies
   SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel"
   # FFMPEG dependencies
-  SUSE_FFMPEG_DEPS="ffmpeg-5"
+  SUSE_FFMPEG_DEPS="ffmpeg-5 ffmpeg-5-libavutil-devel ffmpeg-5-libavformat-devel ffmpeg-5-libswresample-devel ffmpeg-5-libavfilter-devel ffmpeg-5-libavdevice-devel"
   # Bindgen dependencies - it's used by a dependency of Spacedrive
   SUSE_BINDGEN_DEPS="clang"
 
   sudo zypper up -y
-  sudo zypper addrepo https://download.opensuse.org/repositories/multimedia:libs/15.4/multimedia:libs.repo
-  sudo zypper refresh
-  sudo zypper in -y $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
+  curl https://download.opensuse.org/repositories/multimedia:/libs/15.4/x86_64/ffmpeg-5-5.1.2-lp154.35.1.x86_64.rpm || sudo rpm -i ffmpeg-5-5.1.2-lp154.35.1.x86_64.rpm
+  sudo zypper in -t pattern $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
   sudo zypper in -t pattern devel_basis
 
 elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
