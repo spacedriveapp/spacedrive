@@ -97,7 +97,7 @@ if [ "$DISTRO" = "Darwin" ]; then
     echo "FFmpeg version $FFMPEG_VERSION has been installed and is now being used on your system."
   fi
 
-elif [ -f /etc/debian_version -o "$DISTRO" == "Debian" -o "$DISTRO" == "Ubuntu" ]; then
+elif [ -f /etc/debian_version -o $DISTRO == "Debian" -o "$DISTRO" == "Ubuntu" ]; then
   echo "Detected $DISTRO based distro!"
   # FFMPEG dependencies
   DEBIAN_FFMPEG_DEPS="libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev ffmpeg"
@@ -107,20 +107,20 @@ elif [ -f /etc/debian_version -o "$DISTRO" == "Debian" -o "$DISTRO" == "Ubuntu" 
   DEBIAN_BINDGEN_DEPS="pkg-config clang"
 
   sudo apt-get -y update
-  sudo apt-get -y install "${SPACEDRIVE_CUSTOM_APT_FLAGS:-}" "$DEBIAN_TAURI_DEPS" "$DEBIAN_FFMPEG_DEPS" "$DEBIAN_BINDGEN_DEPS"
+  sudo apt-get -y install "${SPACEDRIVE_CUSTOM_APT_FLAGS:-}" $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
 
-elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
+elif [ -f /etc/os-release -o $DISTRO == "openSUSE" ]; then
   echo "Detected $DISTRO based distro!"
   # Tauri dependencies
   SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel"
   # FFMPEG dependencies
-  SUSE_FFMPEG_DEPS="ffmpeg-4"
+  SUSE_FFMPEG_DEPS="ffmpeg-4 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel"
   # Bindgen dependencies - it's used by a dependency of Spacedrive
   SUSE_BINDGEN_DEPS="clang"
 
   sudo zypper up -y
-  sudo zypper in -y "$SUSE_TAURI_DEPS" "$SUSE_FFMPEG_DEPS" "$SUSE_BINDGEN_DEPS"
-  sudo zypper in -t -y pattern devel_basis
+  sudo zypper in -y $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
+  sudo zypper in -t pattern devel_basis
 
 elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
   echo "Detected $DISTRO based distro!"
@@ -132,7 +132,7 @@ elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
   ARCH_BINDGEN_DEPS="clang"
 
   sudo pacman -Syu
-  sudo pacman -S --needed "$ARCH_TAURI_DEPS" "$ARCH_FFMPEG_DEPS" "$ARCH_BINDGEN_DEPS"
+  sudo pacman -S --needed $ARCH_TAURI_DEPS $ARCH_FFMPEG_DEPS $ARCH_BINDGEN_DEPS
 
 elif [ -f /etc/redhat-release -o "$DISTRO" == "RedHat" -o "$DISTRO" == "CentOS" -o "$DISTRO" == "Fedora" ]; then
   echo "Detected $DISTRO based distro!"
@@ -144,7 +144,7 @@ elif [ -f /etc/redhat-release -o "$DISTRO" == "RedHat" -o "$DISTRO" == "CentOS" 
   FEDORA_BINDGEN_DEPS="clang"
 
   sudo dnf check-update
-  sudo dnf install "$FEDORA_TAURI_DEPS" "$FEDORA_FFMPEG_DEPS" "$FEDORA_BINDGEN_DEPS"
+  sudo dnf install $FEDORA_TAURI_DEPS $FEDORA_FFMPEG_DEPS $FEDORA_BINDGEN_DEPS
   sudo dnf group install "C Development Tools and Libraries"
 
 else
