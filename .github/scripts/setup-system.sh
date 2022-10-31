@@ -139,7 +139,7 @@ elif [ -f /etc/os-release -o $DISTRO == "opensuse" ]; then
   sudo zypper up
   sudo zypper addrepo https://download.opensuse.org/repositories/multimedia:libs/15.4/multimedia:libs.repo
   sudo zypper refresh
-  sudo zypper in -t pattern $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
+  sudo zypper in $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
   sudo zypper in -t pattern devel_basis
 
 elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
