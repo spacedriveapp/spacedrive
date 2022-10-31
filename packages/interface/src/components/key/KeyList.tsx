@@ -30,6 +30,7 @@ const ListKeys = () => {
 					name: `Key ${index + 1}`,
 					mounted: mountedKeys.includes(key),
 					default: default_key.data === key.uuid,
+					// key stats need including here at some point
 				}} />
 			)
 		})}
