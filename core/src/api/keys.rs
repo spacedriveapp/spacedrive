@@ -38,15 +38,15 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(library.key_manager.get_mounted_uuids())
 			})
 		})
-		.library_query("mount", |t| {
+		.library_mutation("mount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library.key_manager.mount(key_uuid).unwrap();
 				// we also need to dispatch jobs that automatically decrypt preview media and metadata here
-
+				invalidate_query!(library, "keys.listMounted");
 				Ok(())
 			})
 		})
-		.library_query("updateKeyName", |t| {
+		.library_mutation("updateKeyName", |t| {
 			t(|_, args: KeyNameUpdateArgs, library| async move {
 				library
 					.db
@@ -61,15 +61,27 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		.library_query("unmount", |t| {
+		.library_mutation("unmount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library.key_manager.unmount(key_uuid).unwrap();
 				// we also need to delete all in-memory decrypted data associated with this key
-
+				invalidate_query!(library, "keys.listMounted");
 				Ok(())
 			})
 		})
-		.library_query("setMasterPassword", |t| {
+		.library_mutation("deleteFromLibrary", |t| {
+			t(|_, key_uuid: uuid::Uuid, library| async move {
+				library.key_manager.remove_key(key_uuid).unwrap();
+
+				library.db.key().delete(key::uuid::equals(key_uuid.to_string())).exec().await?;
+
+				// we also need to delete all in-memory decrypted data associated with this key
+				invalidate_query!(library, "keys.list");
+				invalidate_query!(library, "keys.listMounted");
+				Ok(())
+			})
+		})
+		.library_mutation("setMasterPassword", |t| {
 			t(|_, password: String, library| async move {
 				// need to add master password checks in the keymanager itself to make sure it's correct
 				// this can either unwrap&fail, or we can return the error. either way, the user will have to correct this
@@ -98,7 +110,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		.library_query("setDefault", |t| {
+		.library_mutation("setDefault", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library
 					.key_manager
@@ -142,6 +154,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.exec()
 					.await?;
 
+				invalidate_query!(library, "keys.getDefault");
 				Ok(())
 			})
 		})
@@ -160,26 +173,20 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("unmountAll", |t| {
 			t(|_, _: (), library| async move {
 				library.key_manager.empty_keymount();
-				invalidate_query!(library, "keys.list");
+				invalidate_query!(library, "keys.listMounted");
 				Ok(())
 			})
 		})
+		// this also mounts the key
 		.library_mutation("add", |t| {
 			t(|_, args: KeyAddArgs, library| async move {
-				// TODO(jake): remove this once we are able to get the master password from the UI
-				// use the designated route for setting it
-				library
-					.key_manager
-					.set_master_password(Protected::new(b"password".to_vec()))
-					.unwrap();
-
 				let algorithm = match &args.algorithm as &str {
 					"XChaCha20Poly1305" => Algorithm::XChaCha20Poly1305,
 					"Aes256Gcm" => Algorithm::Aes256Gcm,
 					_ => unreachable!(),
 				};
 
-				// we need to get parameters from somewhere, possibly a global config setting - they're just set to standard for now
+				// we need to get parameters from somewhere, possibly tie them to the hashing algorithm the user selects
 				// we're just mapping bcrypt to argon2id temporarily as i'm unsure whether or not we're actually adding bcrypt
 				let hashing_algorithm = match &args.hashing_algorithm as &str {
 					"Argon2id" => HashingAlgorithm::Argon2id(Params::Standard),
@@ -224,7 +231,8 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				// mount the key
 				library.key_manager.mount(uuid).unwrap();
-
+				invalidate_query!(library, "keys.list");
+				invalidate_query!(library, "keys.listMounted");
 				Ok(())
 			})
 		})
