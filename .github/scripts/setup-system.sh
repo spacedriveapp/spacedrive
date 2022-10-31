@@ -136,8 +136,9 @@ elif [ -f /etc/os-release -o $DISTRO == "opensuse" ]; then
   # Bindgen dependencies - it's used by a dependency of Spacedrive
   SUSE_BINDGEN_DEPS="clang"
 
-  sudo zypper up -y
-  curl https://download.opensuse.org/repositories/multimedia:/libs/15.4/x86_64/ffmpeg-5-5.1.2-lp154.35.1.x86_64.rpm || sudo rpm -i ffmpeg-5-5.1.2-lp154.35.1.x86_64.rpm
+  sudo zypper up
+  sudo zypper addrepo https://download.opensuse.org/repositories/multimedia:libs/15.4/multimedia:libs.repo
+  sudo zypper refresh
   sudo zypper in -t pattern $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
   sudo zypper in -t pattern devel_basis
 
@@ -167,7 +168,8 @@ elif [ -f /etc/redhat-release -o "$DISTRO" == "RedHat" -o "$DISTRO" == "CentOS" 
   sudo dnf group install "C Development Tools and Libraries"
 
 else
-  echo "Your Linux distro '$(lsb_release -s -d)' is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
+#  Updated to be more precise as lsb_release is not installed by default on all distros and also less specific.
+  echo "Your Linux distro $(awk -F= '$1=="PRETTY_NAME" { print $2 }' /etc/os-release) is not supported by this script. We would welcome a PR or some help adding your OS to this script. https://github.com/spacedriveapp/spacedrive/issues"
   exit 1
 fi
 
