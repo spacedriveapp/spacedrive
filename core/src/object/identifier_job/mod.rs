@@ -63,14 +63,15 @@ async fn assemble_object_metadata(
 
 	let size = metadata.len();
 
+	assert!(
+		!file_path.is_dir,
+		"We can't generate cas_id for directories"
+	);
+
 	let cas_id = {
-		if !file_path.is_dir {
-			let mut ret = generate_cas_id(path, size).await?;
-			ret.truncate(16);
-			ret
-		} else {
-			"".to_string()
-		}
+		let mut ret = generate_cas_id(path, size).await?;
+		ret.truncate(16);
+		ret
 	};
 
 	Ok(object::create_unchecked(

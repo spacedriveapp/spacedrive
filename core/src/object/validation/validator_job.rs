@@ -33,16 +33,19 @@ pub struct ObjectValidatorJobInit {
 	pub background: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ObjectValidatorJobStep {
-	pub path: file_path::Data,
-}
+file_path::select!(file_path_and_object {
+	materialized_path
+	object: select {
+		id
+		integrity_checksum
+	}
+});
 
 #[async_trait::async_trait]
 impl StatefulJob for ObjectValidatorJob {
 	type Init = ObjectValidatorJobInit;
 	type Data = ObjectValidatorJobState;
-	type Step = ObjectValidatorJobStep;
+	type Step = file_path_and_object::Data;
 
 	fn name(&self) -> &'static str {
 		VALIDATOR_JOB_NAME
@@ -54,11 +57,15 @@ impl StatefulJob for ObjectValidatorJob {
 		state.steps = library_ctx
 			.db
 			.file_path()
-			.find_many(vec![file_path::location_id::equals(state.init.location_id)])
+			.find_many(vec![
+				file_path::location_id::equals(state.init.location_id),
+				file_path::is_dir::equals(false),
+				file_path::object::is(vec![object::integrity_checksum::equals(None)]),
+			])
+			.select(file_path_and_object::select())
 			.exec()
 			.await?
 			.into_iter()
-			.map(|path| ObjectValidatorJobStep { path })
 			.collect::<VecDeque<_>>();
 
 		let location = library_ctx
@@ -89,39 +96,24 @@ impl StatefulJob for ObjectValidatorJob {
 
 		let data = state.data.as_ref().expect("fatal: missing job state");
 
-		let path = data.root_path.join(&step.path.materialized_path);
-
-		// skip directories
-		if path.is_dir() {
-			return Ok(());
-		}
-
-		if let Some(object_id) = step.path.object_id {
-			// this is to skip files that already have checksums
-			// i'm unsure what the desired behaviour is in this case
-			// we can also compare old and new checksums here
-			let object = library_ctx
-				.db
-				.object()
-				.find_unique(object::id::equals(object_id))
-				.exec()
-				.await?
-				.unwrap();
-			if object.integrity_checksum.is_some() {
-				return Ok(());
+		// this is to skip files that already have checksums
+		// i'm unsure what the desired behaviour is in this case
+		// we can also compare old and new checksums here
+		if let Some(ref object) = step.object {
+			// This if is just to make sure, we already queried objects where integrity_checksum is null
+			if object.integrity_checksum.is_none() {
+				library_ctx
+					.db
+					.object()
+					.update(
+						object::id::equals(object.id),
+						vec![object::SetParam::SetIntegrityChecksum(Some(
+							file_checksum(data.root_path.join(&step.materialized_path)).await?,
+						))],
+					)
+					.exec()
+					.await?;
 			}
-
-			let hash = file_checksum(path).await?;
-
-			library_ctx
-				.db
-				.object()
-				.update(
-					object::id::equals(object_id),
-					vec![object::SetParam::SetIntegrityChecksum(Some(hash))],
-				)
-				.exec()
-				.await?;
 		}
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
