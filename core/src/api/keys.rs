@@ -8,7 +8,7 @@ use sd_crypto::{
 use serde::Deserialize;
 use specta::Type;
 
-use crate::prisma::key;
+use crate::{prisma::key, invalidate_query};
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
@@ -160,6 +160,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("unmountAll", |t| {
 			t(|_, _: (), library| async move {
 				library.key_manager.empty_keymount();
+				invalidate_query!(library, "keys.list");
 				Ok(())
 			})
 		})
@@ -201,7 +202,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.access_keystore(uuid)
 					.unwrap();
 
-				library
+			library
 					.db
 					.key()
 					.create(

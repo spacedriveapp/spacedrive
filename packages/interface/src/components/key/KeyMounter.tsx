@@ -10,6 +10,12 @@ const KeyHeading = tw(CategoryHeading)`mb-1`;
 export function KeyMounter() {
 	const ref = useRef<HTMLInputElement>(null);
 
+	// we need to call these at least once somewhere
+	// if we don't, if a user mounts a key before first viewing the key list, no key will show in the list
+	// either call it in here or in the keymanager itself
+	const keys = useLibraryQuery(['keys.list']);
+	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
+
 	const [showKey, setShowKey] = useState(false);
 	const [toggle, setToggle] = useState(true);
 
