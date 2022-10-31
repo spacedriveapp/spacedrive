@@ -72,6 +72,7 @@ DISTRO=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release 2>/dev/null | grep -Eo
 
 # shellcheck disable=SC2166
 if [ "$DISTRO" = "Darwin" ]; then
+  echo "Detected $DISTRO based distro!"
   if ! command -v brew >/dev/null; then
     log_err "Homebrew was not found. Please install it using the instructions at https://brew.sh and try again."
     exit 1
@@ -113,7 +114,7 @@ elif [ -f /etc/os-release -o "$DISTRO" == "openSUSE" ]; then
   # Tauri dependencies
   SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel"
   # FFMPEG dependencies
-  SUSE_FFMPEG_DEPS="ffmpeg-4 ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel ffmpeg-4-libswresample-devel ffmpeg-4-libavfilter-devel ffmpeg-4-libavdevice-devel"
+  SUSE_FFMPEG_DEPS="ffmpeg-4"
   # Bindgen dependencies - it's used by a dependency of Spacedrive
   SUSE_BINDGEN_DEPS="clang"
 
