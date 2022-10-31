@@ -1,5 +1,5 @@
 import { useLibraryQuery, useLibraryMutation  } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, CategoryHeading } from '@sd/ui';
 
 import { DefaultProps } from '../primitive/types';
 import { Key } from './Key';
@@ -7,14 +7,18 @@ import type { Key as QueryKey } from '@sd/client';
 
 export type KeyListProps = DefaultProps;
 
-const { mutate: unmountAll } = useLibraryMutation('keys.unmountAll');
-
 const ListKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
 
 	const mountedKeys: QueryKey[] = keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? []
 	const unmountedKeys: QueryKey[] = keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? []
+
+	if(keys.data?.length === 0) {
+		return (
+			<CategoryHeading>No keys available.</CategoryHeading>
+		)
+	}
 
 	return (
 		<>
@@ -44,7 +48,9 @@ export function KeyList(props: KeyListProps) {
 			</div>
 			<div className="flex w-full p-2 border-t border-app-line rounded-b-md">
 				<Button size="sm" variant="gray" onClick={() => {
-					unmountAll(null);
+					//const { mutate: unmountAll } = useLibraryMutation('keys.unmountAll');
+
+					//unmountAll(null);
 				}}>
 					Unmount All
 				</Button>
