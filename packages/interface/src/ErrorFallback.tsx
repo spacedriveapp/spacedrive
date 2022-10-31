@@ -8,7 +8,6 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 	const version = 'unknown'; // TODO: Embed the version into the frontend via ENV var when compiled so we can use it here.
 
 	const onClick = () => {
-		console.log('TODO', error);
 		captureException(error);
 		// platform.openLink(
 		// 	`https://github.com/spacedriveapp/spacedrive/issues/new?assignees=&labels=kind%2Fbug%2Cstatus%2Fneeds-triage&template=bug_report.yml&logs=${encodeURIComponent(
