@@ -67,7 +67,7 @@ if [ "$1" == "mobile" ]; then
   rustup target add x86_64-pc-windows-msvc   # for win32-x86-64-msvc
 fi
 
-KNOWN_DISTRO="(Debian|Ubuntu|RedHat|CentOS|opensuse-leap|Arch|Fedora)"
+KNOWN_DISTRO="(Debian|Ubuntu|RedHat|CentOS|opensuse-leap|Arch|Fedora|suse)"
 DISTRO=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release 2>/dev/null | grep -Eo $KNOWN_DISTRO || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s | grep -Eo $KNOWN_DISTRO || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s)
 
 # shellcheck disable=SC2166
