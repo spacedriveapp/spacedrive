@@ -8,7 +8,7 @@ use sd_crypto::{
 use serde::Deserialize;
 use specta::Type;
 
-use crate::{prisma::key, invalidate_query};
+use crate::{invalidate_query, prisma::key};
 
 use super::{utils::LibraryRequest, RouterBuilder};
 
@@ -34,9 +34,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
-			t(|_, _: (), library| async move {
-				Ok(library.key_manager.get_mounted_uuids())
-			})
+			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids()) })
 		})
 		.library_mutation("mount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
@@ -73,7 +71,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library.key_manager.remove_key(key_uuid).unwrap();
 
-				library.db.key().delete(key::uuid::equals(key_uuid.to_string())).exec().await?;
+				library
+					.db
+					.key()
+					.delete(key::uuid::equals(key_uuid.to_string()))
+					.exec()
+					.await?;
 
 				// we also need to delete all in-memory decrypted data associated with this key
 				invalidate_query!(library, "keys.list");
@@ -112,10 +115,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("setDefault", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library
-					.key_manager
-					.set_default(key_uuid)
-					.unwrap();
+				library.key_manager.set_default(key_uuid).unwrap();
 
 				// if an old default is set, unset it as the default
 				let old_default = library
@@ -167,7 +167,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					.key()
 					.find_first(vec![key::default::equals(true)])
 					.exec()
-					.await?.unwrap().uuid)
+					.await?
+					.unwrap()
+					.uuid)
 			})
 		})
 		.library_mutation("unmountAll", |t| {
@@ -204,12 +206,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					)
 					.unwrap();
 
-				let stored_key = library
-					.key_manager
-					.access_keystore(uuid)
-					.unwrap();
+				let stored_key = library.key_manager.access_keystore(uuid).unwrap();
 
-			library
+				library
 					.db
 					.key()
 					.create(

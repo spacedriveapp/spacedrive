@@ -15,7 +15,8 @@ use sd_crypto::{
 		hashing::HashingAlgorithm,
 		keymanager::{KeyManager, StoredKey},
 	},
-	primitives::to_array, Protected,
+	primitives::to_array,
+	Protected,
 };
 use std::{
 	env, fs, io,
@@ -84,7 +85,9 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Seed
 	}
 
 	////!!!! THIS IS FOR TESTING ONLY, REMOVE IT ONCE WE HAVE THE UI IN PLACE
-	key_manager.set_master_password(Protected::new(b"password".to_vec())).unwrap();
+	key_manager
+		.set_master_password(Protected::new(b"password".to_vec()))
+		.unwrap();
 
 	Ok(key_manager)
 }

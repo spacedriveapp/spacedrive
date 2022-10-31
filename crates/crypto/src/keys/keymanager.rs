@@ -158,10 +158,7 @@ impl KeyManager {
 		}
 	}
 
-	pub fn set_master_password(
-		&self,
-		master_password: Protected<Vec<u8>>,
-	) -> Result<(), Error> {
+	pub fn set_master_password(&self, master_password: Protected<Vec<u8>>) -> Result<(), Error> {
 		// this returns a result, so we can potentially implement password checking functionality
 		*self.master_password.lock().unwrap() = Some(master_password);
 		Ok(())
