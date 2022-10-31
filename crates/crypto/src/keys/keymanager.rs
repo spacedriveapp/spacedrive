@@ -110,6 +110,26 @@ impl KeyManager {
 
 		Ok(())
 	}
+	pub fn remove_key(&self, uuid: Uuid) -> Result<(), Error> {
+		if self.keystore.contains_key(&uuid) {
+			// unmount if mounted
+			if self.keymount.contains_key(&uuid) {
+				self.unmount(uuid).unwrap();
+			}
+
+			// remove from keystore
+			self.keystore.remove(&uuid);
+
+			// unset as default (if it is the default)
+			if let Some(default) = *self.default.lock().unwrap() {
+				if default == uuid {
+					*self.default.lock().unwrap() = None;
+				}
+			}
+		}
+
+		Ok(())
+	}
 
 	/// This allows you to set the default key
 	pub fn set_default(&self, uuid: Uuid) -> Result<(), Error> {
