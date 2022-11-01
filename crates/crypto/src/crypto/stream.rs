@@ -9,7 +9,7 @@ use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use zeroize::Zeroize;
 
-use crate::{Error, Result, primitives::BLOCK_SIZE, Protected};
+use crate::{primitives::BLOCK_SIZE, Error, Protected, Result};
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -45,11 +45,7 @@ impl StreamEncryption {
 	///
 	/// The master key, a suitable nonce, and a specific algorithm should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(
-		key: Protected<[u8; 32]>,
-		nonce: &[u8],
-		algorithm: Algorithm,
-	) -> Result<Self> {
+	pub fn new(key: Protected<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -103,12 +99,7 @@ impl StreamEncryption {
 	/// It requires a reader, a writer, and any AAD to go with it.
 	///
 	/// The AAD will be authenticated with each block of data.
-	pub fn encrypt_streams<R, W>(
-		mut self,
-		mut reader: R,
-		mut writer: W,
-		aad: &[u8],
-	) -> Result<()>
+	pub fn encrypt_streams<R, W>(mut self, mut reader: R, mut writer: W, aad: &[u8]) -> Result<()>
 	where
 		R: Read + Seek,
 		W: Write + Seek,
@@ -199,11 +190,7 @@ impl StreamDecryption {
 	///
 	/// The master key, nonce and algorithm that were used for encryption should be provided.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn new(
-		key: Protected<[u8; 32]>,
-		nonce: &[u8],
-		algorithm: Algorithm,
-	) -> Result<Self> {
+	pub fn new(key: Protected<[u8; 32]>, nonce: &[u8], algorithm: Algorithm) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -257,12 +244,7 @@ impl StreamDecryption {
 	/// It requires a reader, a writer, and any AAD that was used.
 	///
 	/// The AAD will be authenticated with each block of data - if the AAD doesn't match what was used during encryption, an error will be returned.
-	pub fn decrypt_streams<R, W>(
-		mut self,
-		mut reader: R,
-		mut writer: W,
-		aad: &[u8],
-	) -> Result<()>
+	pub fn decrypt_streams<R, W>(mut self, mut reader: R, mut writer: W, aad: &[u8]) -> Result<()>
 	where
 		R: Read + Seek,
 		W: Write + Seek,

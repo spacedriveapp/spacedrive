@@ -33,10 +33,8 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
 	crypto::stream::Algorithm,
-	Error,
-	Result,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
-	Protected,
+	Error, Protected, Result,
 };
 
 use super::{keyslot::Keyslot, metadata::Metadata, preview_media::PreviewMedia};

@@ -38,7 +38,6 @@
 use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
-use crate::{Error, Result};
 use crate::primitives::{
 	generate_master_key, generate_nonce, generate_salt, to_array, MASTER_KEY_LEN,
 };
@@ -47,6 +46,7 @@ use crate::{
 	primitives::{ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
 	Protected,
 };
+use crate::{Error, Result};
 
 use dashmap::DashMap;
 use uuid::Uuid;
@@ -172,7 +172,11 @@ impl KeyManager {
 
 	#[must_use]
 	pub fn has_master_password(&self) -> Result<bool> {
-		Ok(self.master_password.lock().map_err(|_| Error::MutexLock)?.is_some())
+		Ok(self
+			.master_password
+			.lock()
+			.map_err(|_| Error::MutexLock)?
+			.is_some())
 	}
 
 	/// This function is used for emptying the entire keystore.

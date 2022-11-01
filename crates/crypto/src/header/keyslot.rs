@@ -25,11 +25,9 @@ use std::io::{Read, Seek};
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	Error,
-	Result,
 	keys::hashing::HashingAlgorithm,
 	primitives::{generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
-	Protected,
+	Error, Protected, Result,
 };
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
@@ -94,10 +92,7 @@ impl Keyslot {
 	/// This attempts to decrypt the master key for a single keyslot
 	///
 	/// An error will be returned on failure.
-	pub fn decrypt_master_key(
-		&self,
-		password: &Protected<Vec<u8>>,
-	) -> Result<Protected<Vec<u8>>> {
+	pub fn decrypt_master_key(&self, password: &Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
 			.hash(password.clone(), self.salt)

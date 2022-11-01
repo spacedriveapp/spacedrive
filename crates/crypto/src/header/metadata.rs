@@ -31,10 +31,8 @@ use std::io::{Read, Seek};
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	Error,
-	Result,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
-	Protected,
+	Error, Protected, Result,
 };
 
 use super::file::FileHeader;
