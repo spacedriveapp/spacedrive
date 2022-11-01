@@ -151,16 +151,15 @@ pub(crate) fn mount() -> RouterBuilder {
 				// if the new default key is stored in the library, update it as the default
 				if let Some(default) = new_default {
 					library
-					.db
-					.key()
-					.update(
-						key::uuid::equals(default.uuid),
-						vec![key::SetParam::SetDefault(true)],
-					)
-					.exec()
-					.await?;
+						.db
+						.key()
+						.update(
+							key::uuid::equals(default.uuid),
+							vec![key::SetParam::SetDefault(true)],
+						)
+						.exec()
+						.await?;
 				}
-
 
 				invalidate_query!(library, "keys.getDefault");
 				Ok(())

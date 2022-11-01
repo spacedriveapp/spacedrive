@@ -115,6 +115,7 @@ impl KeyManager {
 	pub fn remove_key(&self, uuid: Uuid) -> Result<()> {
 		if self.keystore.contains_key(&uuid) {
 			// if key is default, clear it
+			// do this manually to prevent deadlocks
 			let mut default = self.default.lock()?;
 			if *default == Some(uuid) {
 				*default = None;
@@ -154,8 +155,10 @@ impl KeyManager {
 	}
 
 	pub fn clear_default(&self) -> Result<()> {
-		if let Some(_) = *self.default.lock()? {
-			*self.default.lock()? = None;
+		let mut default = self.default.lock()?;
+
+		if default.is_some() {
+			*default = None;
 			Ok(())
 		} else {
 			Err(Error::NoDefaultKeySet)
@@ -164,7 +167,8 @@ impl KeyManager {
 
 	/// This should ONLY be used internally.
 	fn get_master_password(&self) -> Result<Protected<Vec<u8>>> {
-		match self.master_password.lock()?.as_ref() {
+		let master_password = self.master_password.lock()?;
+		match &*master_password {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}

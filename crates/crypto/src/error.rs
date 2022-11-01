@@ -5,10 +5,7 @@ use thiserror::Error;
 #[cfg(feature = "rspc")]
 impl From<Error> for rspc::Error {
 	fn from(err: Error) -> Self {
-		rspc::Error::new(
-			rspc::ErrorCode::InternalServerError,
-			err.to_string(),
-		)
+		Self::new(rspc::ErrorCode::InternalServerError, err.to_string())
 	}
 }
 
@@ -61,7 +58,7 @@ pub enum Error {
 	MutexLock,
 }
 
-impl <T> From<std::sync::PoisonError<T>> for Error {
+impl<T> From<std::sync::PoisonError<T>> for Error {
 	fn from(_: std::sync::PoisonError<T>) -> Self {
 		Self::MutexLock
 	}

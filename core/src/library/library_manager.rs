@@ -59,7 +59,7 @@ pub enum LibraryManagerError {
 	#[error("Failed to run seeder: {0}")]
 	Seeder(#[from] SeederError),
 	#[error("failed to initialise the key manager")]
-	KeyManager(#[from] sd_crypto::Error)
+	KeyManager(#[from] sd_crypto::Error),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -119,12 +119,10 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 	}
 
 	////!!!! THIS IS FOR TESTING ONLY, REMOVE IT ONCE WE HAVE THE UI IN PLACE
-	key_manager
-		.set_master_password(Protected::new(b"password".to_vec()))?;
-	
+	key_manager.set_master_password(Protected::new(b"password".to_vec()))?;
+
 	Ok(key_manager)
 }
-
 
 impl LibraryManager {
 	pub(crate) async fn new(
