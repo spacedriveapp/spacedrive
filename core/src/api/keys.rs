@@ -81,6 +81,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				// we also need to delete all in-memory decrypted data associated with this key
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
+				invalidate_query!(library, "keys.getDefault");
 				Ok(())
 			})
 		})

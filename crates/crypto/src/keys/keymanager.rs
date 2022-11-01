@@ -110,26 +110,25 @@ impl KeyManager {
 
 		Ok(())
 	}
+
+	/// This function removes a key from the keystore, the keymount and it's unset as the default.
 	pub fn remove_key(&self, uuid: Uuid) -> Result<()> {
 		if self.keystore.contains_key(&uuid) {
+			// if key is default, clear it
+			let mut default = self.default.lock()?;
+			if *default == Some(uuid) {
+				*default = None;
+			}
+			drop(default);
+
 			// unmount if mounted
 			if self.keymount.contains_key(&uuid) {
-				self.unmount(uuid)?;
+				// use remove as unmount calls the checks that we just did
+				self.keymount.remove(&uuid);
 			}
 
 			// remove from keystore
 			self.keystore.remove(&uuid);
-
-			// // unset as default (if it is the default)
-			// if let Some(default) = *self.default.lock()? {
-			// 	if default == uuid {
-			// 		*self.default.lock()? = None;
-			// 	}
-			// }
-
-			if self.get_default()? == uuid {
-				self.clear_default()?;
-			}
 		}
 
 		Ok(())
