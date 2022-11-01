@@ -93,7 +93,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				library
 					.key_manager
-					.set_master_password(Protected::new(password.as_bytes().to_vec()));
+					.set_master_password(Protected::new(password.as_bytes().to_vec()))?;
 
 				let automount = library
 					.db
@@ -127,6 +127,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.find_first(vec![key::default::equals(true)])
 					.exec()
 					.await?;
+
 				if let Some(key) = old_default {
 					library
 						.db
@@ -139,27 +140,26 @@ pub(crate) fn mount() -> RouterBuilder {
 						.await?;
 				}
 
-				// we allow this to error as the new default **SHOULD** exist
 				let new_default = library
 					.db
 					.key()
 					.find_unique(key::uuid::equals(key_uuid.to_string()))
 					.exec()
-					.await?
-					.ok_or(rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"New default key does not exist".into(),
-					))?;
+					.await?;
 
-				library
+				// if the new default key is stored in the library, update it as the default
+				if let Some(default) = new_default {
+					library
 					.db
 					.key()
 					.update(
-						key::uuid::equals(new_default.uuid),
+						key::uuid::equals(default.uuid),
 						vec![key::SetParam::SetDefault(true)],
 					)
 					.exec()
 					.await?;
+				}
+
 
 				invalidate_query!(library, "keys.getDefault");
 				Ok(())
@@ -238,6 +238,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				// mount the key
 				library.key_manager.mount(uuid)?;
+
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
 				Ok(())
