@@ -19,7 +19,7 @@ const DrawerLibraryManager = () => {
 		if (!isDrawerOpen) setDropdownClosed(true);
 	}, [isDrawerOpen]);
 
-	const { library, libraries, switchLibrary } = useCurrentLibrary();
+	const { library: currentLibrary, libraries, switchLibrary } = useCurrentLibrary();
 
 	return (
 		<View>
@@ -30,7 +30,7 @@ const DrawerLibraryManager = () => {
 						dropdownClosed ? 'rounded' : 'rounded-t border-b-gray-550'
 					)}
 				>
-					<Text style={tw`text-gray-200 text-sm font-semibold`}>{library?.config.name}</Text>
+					<Text style={tw`text-gray-200 text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
 					<MotiView
 						animate={{
 							rotateZ: dropdownClosed ? '0deg' : '90deg'
@@ -51,7 +51,7 @@ const DrawerLibraryManager = () => {
 							<View
 								style={tw.style(
 									'p-2',
-									library.uuid === library.uuid && 'bg-gray-500 bg-opacity-70 rounded'
+									currentLibrary.uuid === library.uuid && 'bg-gray-500 bg-opacity-70 rounded'
 								)}
 							>
 								<Text style={tw`text-sm text-gray-200 font-semibold`}>{library.config.name}</Text>
