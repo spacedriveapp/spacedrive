@@ -170,7 +170,6 @@ impl KeyManager {
 		Ok(())
 	}
 
-	#[must_use]
 	pub fn has_master_password(&self) -> Result<bool> {
 		Ok(self
 			.master_password
