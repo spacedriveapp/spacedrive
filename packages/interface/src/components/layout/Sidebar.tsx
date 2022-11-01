@@ -37,6 +37,7 @@ import React, { PropsWithChildren, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
+import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
@@ -71,7 +72,7 @@ export function Sidebar() {
 							`w-full text-ink `,
 							// these classname overrides are messy
 							// but they work
-							`!bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line`,
+							`!bg-sidebar-box !border-sidebar-line/50 active:!border-sidebar-line active:!bg-sidebar-button ui-open:!bg-sidebar-button ui-open:!border-sidebar-line ring-offset-sidebar`,
 							(library === null || isLoadingLibraries) && '!text-ink-faint'
 						)}
 					>
@@ -129,19 +130,18 @@ export function Sidebar() {
 						to="/settings/general"
 						size="icon"
 						variant="outline"
-						className="text-ink-faint"
+						className="text-ink-faint ring-offset-sidebar"
 					>
 						<Gear className="w-5 h-5" />
 					</ButtonLink>
 					<OverlayPanel
-						className="focus:outline-none"
 						transformOrigin="bottom left"
 						disabled={!library}
 						trigger={
 							<Button
 								size="icon"
 								variant="outline"
-								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint"
+								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
 							>
 								{library && <IsRunningJob />}
 							</Button>
@@ -251,7 +251,7 @@ function DebugPanel() {
 }
 
 const sidebarItemClass = cva(
-	'max-w mb-[2px] rounded px-2 py-1 gap-0.5 flex flex-row flex-grow items-center font-medium truncate text-sm',
+	'max-w mb-[2px] rounded px-2 py-1 gap-0.5 flex flex-row flex-grow items-center font-medium truncate text-sm outline-none ring-offset-sidebar focus:ring-2 focus:ring-accent focus:ring-offset-2',
 	{
 		variants: {
 			isActive: {
@@ -269,17 +269,13 @@ const sidebarItemClass = cva(
 export const SidebarLink = (props: PropsWithChildren<NavLinkProps>) => {
 	const os = useOperatingSystem();
 	return (
-		<NavLink {...props}>
-			{({ isActive }) => (
-				<span
-					className={clsx(
-						sidebarItemClass({ isActive, isTransparent: os === 'macOS' }),
-						props.className
-					)}
-				>
-					{props.children}
-				</span>
-			)}
+		<NavLink
+			{...props}
+			className={({ isActive }) =>
+				clsx(sidebarItemClass({ isActive, isTransparent: os === 'macOS' }), props.className)
+			}
+		>
+			{props.children}
 		</NavLink>
 	);
 };
@@ -318,6 +314,7 @@ function LibraryScopedSection() {
 	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
+	const [textLocationDialogOpen, setTextLocationDialogOpen] = useState(false);
 
 	return (
 		<>
@@ -334,41 +331,40 @@ function LibraryScopedSection() {
 					{locations?.map((location) => {
 						return (
 							<div key={location.id} className="flex flex-row items-center">
-								<NavLink
+								<SidebarLink
 									className="relative w-full group"
 									to={{
 										pathname: `location/${location.id}`
 									}}
 								>
-									{({ isActive }) => (
-										<span className={sidebarItemClass({ isActive })}>
-											<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
-												<Folder size={18} />
-											</div>
+									<div className="-mt-0.5 mr-1 flex-grow-0 flex-shrink-0">
+										<Folder size={18} />
+									</div>
 
-											<span className="flex-grow flex-shrink-0">{location.name}</span>
-										</span>
-									)}
-								</NavLink>
+									<span className="flex-grow flex-shrink-0">{location.name}</span>
+								</SidebarLink>
 							</div>
 						);
 					})}
 					{(locations?.length || 0) < 4 && (
 						<button
 							onClick={() => {
-								if (!platform.openFilePickerDialog) {
-									// TODO: Support opening locations on web
-									alert('Opening a dialogue is not supported on this platform!');
-									return;
+								if (platform.platform === 'web') {
+									setTextLocationDialogOpen(true);
+								} else {
+									if (!platform.openFilePickerDialog) {
+										alert('Opening a dialogue is not supported on this platform!');
+										return;
+									}
+									platform.openFilePickerDialog().then((result) => {
+										// TODO: Pass indexer rules ids to create location
+										if (result)
+											createLocation({
+												path: result as string,
+												indexer_rules_ids: []
+											} as LocationCreateArgs);
+									});
 								}
-								platform.openFilePickerDialog().then((result) => {
-									// TODO: Pass indexer rules ids to create location
-									if (result)
-										createLocation({
-											path: result as string,
-											indexer_rules_ids: []
-										} as LocationCreateArgs);
-								});
 							}}
 							className={clsx(
 								'w-full px-2 py-1 mt-1 text-xs font-medium text-center',
@@ -380,6 +376,7 @@ function LibraryScopedSection() {
 						</button>
 					)}
 				</SidebarSection>
+				<AddLocationDialog open={textLocationDialogOpen} setOpen={setTextLocationDialogOpen} />
 			</div>
 			{!!tags?.length && (
 				<SidebarSection

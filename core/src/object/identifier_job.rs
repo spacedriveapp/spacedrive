@@ -221,6 +221,8 @@ impl StatefulJob for FileIdentifierJob {
 			for object in &new_objects {
 				values.extend([
 					PrismaValue::String(object.cas_id.clone()),
+					PrismaValue::String(object.name.clone()),
+					PrismaValue::String(object.extension.clone().unwrap_or(String::new())),
 					PrismaValue::Int(object.size_in_bytes),
 					PrismaValue::DateTime(object.date_created),
 					PrismaValue::Int(object.kind.int_value() as i64),
@@ -232,9 +234,9 @@ impl StatefulJob for FileIdentifierJob {
 			let created_files: Vec<FileCreated> = db
 				._query_raw(Raw::new(
 					&format!(
-						"INSERT INTO object (cas_id, size_in_bytes, date_created, kind) VALUES {}
+						"INSERT INTO object (cas_id, name, extension, size_in_bytes, date_created, kind) VALUES {}
 						ON CONFLICT (cas_id) DO NOTHING RETURNING id, cas_id",
-						vec!["({}, {}, {}, {})"; new_objects.len()].join(",")
+						vec!["({}, {}, {}, {}, {}, {})"; new_objects.len()].join(",")
 					),
 					values,
 				))
@@ -301,7 +303,7 @@ impl StatefulJob for FileIdentifierJob {
 			data.task_count
 		);
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		Ok(Some(serde_json::to_value(&state.data)?))
 	}
 }
 
@@ -330,11 +332,7 @@ async fn count_orphan_file_paths(
 	let files_count = ctx
 		.db
 		.file_path()
-		.count(vec![
-			file_path::object_id::equals(None),
-			file_path::is_dir::equals(false),
-			file_path::location_id::equals(location_id),
-		])
+		.count(orphan_path_filters(location_id, None))
 		.exec()
 		.await?;
 	// Is this
@@ -356,7 +354,6 @@ async fn get_orphan_file_paths(
 		.order_by(file_path::id::order(Direction::Asc))
 		// .cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)
-		.skip(1)
 		.exec()
 		.await
 }
@@ -364,6 +361,8 @@ async fn get_orphan_file_paths(
 #[derive(Deserialize, Serialize, Debug)]
 struct CreateObject {
 	pub cas_id: String,
+	pub name: String,
+	pub extension: Option<String>,
 	pub size_in_bytes: i64,
 	pub date_created: DateTime<FixedOffset>,
 	pub kind: ObjectKind,
@@ -383,7 +382,7 @@ async fn assemble_object_metadata(
 		.as_ref()
 		.join(file_path.materialized_path.as_str());
 
-	info!("Reading path: {:?}", path);
+	info!("Analyzing Object: {:?}", path);
 
 	let metadata = fs::metadata(&path).await?;
 
@@ -392,10 +391,16 @@ async fn assemble_object_metadata(
 		Some(ext) => match ext.to_str() {
 			Some(ext) => {
 				let mut file = std::fs::File::open(&path).unwrap();
-				let resolved_ext = Extension::resolve_conflicting(ext, &mut file, true);
+				let resolved_ext = Extension::resolve_conflicting(ext, &mut file, false);
 
 				resolved_ext.map(Into::into).unwrap_or(ObjectKind::Unknown)
 			}
+			// Some(ext) => {
+			// 	let mut file = std::fs::File::open(&path).unwrap();
+			// 	let resolved_ext = Extension::resolve_conflicting(ext, &mut file, true);
+
+			// 	resolved_ext.map(Into::into).unwrap_or(ObjectKind::Unknown)
+			// }
 			None => ObjectKind::Unknown,
 		},
 		None => ObjectKind::Unknown,
@@ -415,8 +420,10 @@ async fn assemble_object_metadata(
 
 	Ok(CreateObject {
 		cas_id,
+		name: file_path.name.clone(),
+		extension: file_path.extension.clone(),
 		size_in_bytes: size as i64,
 		date_created: file_path.date_created,
-		kind: object_kind,
+		kind: dbg!(object_kind),
 	})
 }

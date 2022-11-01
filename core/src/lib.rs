@@ -136,6 +136,7 @@ impl Node {
 			event_bus,
 		};
 
+		info!("Spacedrive online.");
 		Ok((Arc::new(node), router))
 	}
 

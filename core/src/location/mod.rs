@@ -265,15 +265,15 @@ pub async fn scan_location(
 		Box::new(ThumbnailJob {}),
 	))
 	.await;
-	ctx.queue_job(Job::new(
-		ObjectValidatorJobInit {
-			location_id,
-			path: PathBuf::new(),
-			background: true,
-		},
-		Box::new(ObjectValidatorJob {}),
-	))
-	.await;
+	// ctx.queue_job(Job::new(
+	// 	ObjectValidatorJobInit {
+	// 		location_id,
+	// 		path: PathBuf::new(),
+	// 		background: true,
+	// 	},
+	// 	Box::new(ObjectValidatorJob {}),
+	// ))
+	// .await;
 
 	Ok(())
 }

@@ -296,7 +296,7 @@ async fn get_files_by_extensions(
 ) -> Result<Vec<ThumbnailJobStep>, JobError> {
 	let mut params = vec![
 		file_path::location_id::equals(location_id),
-		file_path::extension::in_vec(extensions.iter().map(|e| e.to_string()).collect()),
+		file_path::extension::in_vec(dbg!(extensions.iter().map(|e| e.to_string()).collect())),
 	];
 
 	let path_str = path.as_ref().to_string_lossy().to_string();
