@@ -1645,22 +1645,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
-name = "example-2"
-version = "0.1.0"
-dependencies = [
- "axum",
- "dotenv",
- "http",
- "rspc",
- "sd-sync",
- "serde",
- "serde_json",
- "tokio",
- "tower-http",
- "uuid 1.2.1",
-]
-
-[[package]]
 name = "exr"
 version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5601,6 +5585,26 @@ dependencies = [
  "uhlc",
  "uuid 1.2.1",
 ]
+
+[[package]]
+name = "sd-sync-example"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "dotenv",
+ "http",
+ "rspc",
+ "sd-sync",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower-http",
+ "uuid 1.2.1",
+]
+
+[[package]]
+name = "sd-sync-generator"
+version = "0.1.0"
 
 [[package]]
 name = "sd-tunnel-utils"

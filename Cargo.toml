@@ -3,9 +3,9 @@ resolver = "2"
 members = [
   "core",
   "crates/*",
+  "crates/sync/example",
   # "crates/p2p/tunnel",
   # "crates/p2p/tunnel/utils",
-  "crates/sync/example/api",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
   "apps/server",

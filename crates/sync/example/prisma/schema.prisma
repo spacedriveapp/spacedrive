@@ -11,8 +11,17 @@ generator client {
   output   = "../api/src/prisma.rs"
 }
 
-model User {
-  id    Int    @id @default(autoincrement())
-  name  String
-  email String @unique
+model FilePath {
+  id   Bytes  @id
+  path String
+
+  object    Object? @relation(fields: [object_id], references: [id])
+  object_id Bytes?
+}
+
+model Object {
+  id   Bytes  @id
+  name String
+
+  paths FilePath[] @relation()
 }
