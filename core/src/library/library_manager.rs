@@ -120,7 +120,7 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 
 	////!!!! THIS IS FOR TESTING ONLY, REMOVE IT ONCE WE HAVE THE UI IN PLACE
 	key_manager
-		.set_master_password(Protected::new(b"password".to_vec()));
+		.set_master_password(Protected::new(b"password".to_vec()))?;
 	
 	Ok(key_manager)
 }
