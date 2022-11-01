@@ -93,8 +93,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				library
 					.key_manager
-					.set_master_password(Protected::new(password.as_bytes().to_vec()))
-					?;
+					.set_master_password(Protected::new(password.as_bytes().to_vec()))?;
 
 				let automount = library
 					.db
@@ -106,7 +105,12 @@ pub(crate) fn mount() -> RouterBuilder {
 				for key in automount {
 					library
 						.key_manager
-						.mount(uuid::Uuid::from_str(&key.uuid)?)?;
+						.mount(uuid::Uuid::from_str(&key.uuid).map_err(|_| {
+							rspc::Error::new(
+								rspc::ErrorCode::InternalServerError,
+								"Error deserializing UUID from string".into(),
+							)
+						})?)?;
 				}
 
 				Ok(())
@@ -142,7 +146,10 @@ pub(crate) fn mount() -> RouterBuilder {
 					.find_unique(key::uuid::equals(key_uuid.to_string()))
 					.exec()
 					.await?
-					?;
+					.ok_or(rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"New default key does not exist".into(),
+					))?;
 
 				library
 					.db
@@ -201,14 +208,11 @@ pub(crate) fn mount() -> RouterBuilder {
 				};
 
 				// register the key with the keymanager
-				let uuid = library
-					.key_manager
-					.add_to_keystore(
-						Protected::new(args.key.as_bytes().to_vec()),
-						algorithm,
-						hashing_algorithm,
-					)
-					?;
+				let uuid = library.key_manager.add_to_keystore(
+					Protected::new(args.key.as_bytes().to_vec()),
+					algorithm,
+					hashing_algorithm,
+				)?;
 
 				let stored_key = library.key_manager.access_keystore(uuid)?;
 
