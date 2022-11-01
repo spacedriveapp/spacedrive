@@ -1,81 +1,92 @@
-import { Cloud, Desktop, DeviceMobileCamera, Laptop } from 'phosphor-react-native';
+import { ExplorerItem } from '@sd/client';
+import { Cloud, Desktop, DeviceMobileCamera, Laptop, Lock } from 'phosphor-react-native';
 import { FlatList, Text, View } from 'react-native';
-import { LockClosedIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';
-import { FilePath } from '~/types/bindings';
 
-import FileItem from '../file/FileItem';
+import FileItem from '../explorer/FileItem';
 
-const placeholderFileItems: FilePath[] = [
+const placeholderFileItems: ExplorerItem[] = [
 	{
-		is_dir: true,
 		date_created: '2020-01-01T00:00:00.000Z',
 		date_indexed: '2020-01-01T00:00:00.000Z',
 		date_modified: '2020-01-01T00:00:00.000Z',
 		extension: '',
-		object_id: 1,
-		id: 1,
-		location_id: 1,
-		materialized_path: '',
-		name: 'Minecraft',
-		parent_id: 0,
-		key_id: null
-	},
-	{
-		is_dir: true,
-		date_created: '2020-01-01T00:00:00.000Z',
-		date_indexed: '2020-01-01T00:00:00.000Z',
-		date_modified: '2020-01-01T00:00:00.000Z',
-		extension: '',
-		object_id: 2,
 		id: 2,
-		location_id: 2,
-		materialized_path: '',
 		name: 'Documents',
-		parent_id: 0,
-		key_id: null
-	},
-	{
-		is_dir: false,
-		date_created: '2020-01-01T00:00:00.000Z',
-		date_indexed: '2020-01-01T00:00:00.000Z',
-		date_modified: '2020-01-01T00:00:00.000Z',
-		extension: 'tsx',
-		object_id: 3,
-		id: 3,
-		location_id: 3,
-		materialized_path: '',
-		name: 'App.tsx',
-		parent_id: 0,
-		key_id: null
-	},
-	{
-		is_dir: false,
-		date_created: '2020-01-01T00:00:00.000Z',
-		date_indexed: '2020-01-01T00:00:00.000Z',
-		date_modified: '2020-01-01T00:00:00.000Z',
-		extension: 'vite',
-		object_id: 4,
-		id: 4,
-		location_id: 4,
-		materialized_path: '',
-		name: 'vite.config.js',
-		parent_id: 0,
-		key_id: null
-	},
-	{
-		is_dir: false,
-		date_created: '2020-01-01T00:00:00.000Z',
-		date_indexed: '2020-01-01T00:00:00.000Z',
-		date_modified: '2020-01-01T00:00:00.000Z',
-		extension: 'docker',
+		key_id: null,
+		type: 'Path',
+		is_dir: true,
+		location_id: 1,
+		materialized_path: '/Documents',
 		object_id: 5,
+		parent_id: 1,
+		object: {
+			extension: 'tsx',
+			cas_id: '3',
+			id: 3,
+			name: 'App.tsx',
+			key_id: null,
+			date_created: '2020-01-01T00:00:00.000Z',
+			date_indexed: '2020-01-01T00:00:00.000Z',
+			date_modified: '2020-01-01T00:00:00.000Z',
+			favorite: false,
+			has_thumbnail: false,
+			has_thumbstrip: false,
+			has_video_preview: false,
+			hidden: false,
+			important: false,
+			integrity_checksum: '',
+			ipfs_id: '',
+			kind: 2,
+			note: '',
+			size_in_bytes: '0'
+		}
+	},
+	{
+		date_created: '2020-01-01T00:00:00.000Z',
+		date_indexed: '2020-01-01T00:00:00.000Z',
+		date_modified: '2020-01-01T00:00:00.000Z',
+		extension: '',
+		id: 1,
+		name: 'Minecraft',
+		key_id: null,
+		type: 'Object',
+		cas_id: '555',
+		favorite: false,
+		file_paths: [],
+		has_thumbnail: false,
+		has_thumbstrip: false,
+		has_video_preview: false,
+		hidden: false,
+		important: false,
+		integrity_checksum: '',
+		ipfs_id: '',
+		kind: 4,
+		note: '',
+		size_in_bytes: '0'
+	},
+	{
+		date_created: '2020-01-01T00:00:00.000Z',
+		date_indexed: '2020-01-01T00:00:00.000Z',
+		date_modified: '2020-01-01T00:00:00.000Z',
+		extension: '',
 		id: 5,
-		location_id: 5,
-		materialized_path: '',
-		name: 'Dockerfile',
-		parent_id: 0,
-		key_id: null
+		name: 'Minecraft',
+		key_id: null,
+		type: 'Object',
+		cas_id: '555',
+		favorite: false,
+		file_paths: [],
+		has_thumbnail: false,
+		has_thumbstrip: false,
+		has_video_preview: false,
+		hidden: false,
+		important: false,
+		integrity_checksum: '',
+		ipfs_id: '',
+		kind: 5,
+		note: '',
+		size_in_bytes: '0'
 	}
 ];
 
@@ -103,7 +114,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 					<Text style={tw`text-base font-semibold text-white`}>{name || 'Unnamed Device'}</Text>
 					{/* P2P Lock */}
 					<View style={tw`flex flex-row rounded items-center ml-2 bg-gray-500 py-[1px] px-[4px]`}>
-						<LockClosedIcon size={12} color={tw.color('gray-400')} />
+						<Lock weight="bold" size={12} color={tw.color('gray-400')} />
 						<Text style={tw`text-gray-400 font-semibold ml-0.5 text-xs`}>P2P</Text>
 					</View>
 				</View>
@@ -113,7 +124,7 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 			{/* Locations/Files TODO: Maybe use FlashList? */}
 			<FlatList
 				data={placeholderFileItems}
-				renderItem={({ item }) => <FileItem file={item} />}
+				renderItem={({ item }) => <FileItem data={item} />}
 				keyExtractor={(item) => item.id.toString()}
 				horizontal
 				contentContainerStyle={tw`mt-3 mb-5`}

@@ -1,6 +1,10 @@
 import '@fontsource/inter/variable.css';
 import { LibraryContextProvider, queryClient, useDebugState } from '@sd/client';
-import { init } from '@sentry/browser';
+import {
+	Dedupe as DedupeIntegration,
+	HttpContext as HttpContextIntegration,
+	init
+} from '@sentry/browser';
 import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
@@ -19,7 +23,10 @@ dayjs.extend(relativeTime);
 dayjs.extend(duration);
 
 init({
-	dsn: 'https://2fb2450aabb9401b92f379b111402dbc@o1261130.ingest.sentry.io/4504053670412288'
+	dsn: 'https://2fb2450aabb9401b92f379b111402dbc@o1261130.ingest.sentry.io/4504053670412288',
+	environment: import.meta.env.MODE,
+	defaultIntegrations: false,
+	integrations: [new HttpContextIntegration(), new DedupeIntegration()]
 });
 
 export default function SpacedriveInterface() {

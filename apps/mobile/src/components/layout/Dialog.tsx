@@ -3,6 +3,7 @@ import { ReactNode, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
+import { PulseAnimation } from '../animation/lottie';
 import { Button } from '../primitive/Button';
 
 type DialogProps = {
@@ -23,14 +24,26 @@ type DialogProps = {
 	ctaAction?: () => void;
 	ctaLabel?: string;
 	ctaDanger?: boolean;
+	ctaDisabled?: boolean;
+	loading?: boolean;
 	/**
 	 * Disables backdrop press to close the modal.
 	 */
 	disableBackdropClose?: boolean;
+	/**
+	 * Triggered when the dialog is closed (either by backdrop or the close button)
+	 */
+	onClose?: () => void;
 };
 
 const Dialog = (props: DialogProps) => {
 	const [visible, setVisible] = useState(props.isVisible ?? false);
+
+	function handleCloseDialog() {
+		props.setIsVisible ? props.setIsVisible(false) : setVisible(false);
+		// Cool undefined check
+		props.onClose?.();
+	}
 
 	return (
 		<View>
@@ -45,8 +58,8 @@ const Dialog = (props: DialogProps) => {
 				{/* Backdrop */}
 				<Pressable
 					style={tw`bg-black bg-opacity-50 absolute inset-0`}
-					onPress={() => (props.setIsVisible ? props.setIsVisible(false) : setVisible(false))}
-					disabled={props.disableBackdropClose}
+					onPress={handleCloseDialog}
+					disabled={props.disableBackdropClose || props.loading}
 				/>
 				{/* Content */}
 				<KeyboardAvoidingView
@@ -77,14 +90,15 @@ const Dialog = (props: DialogProps) => {
 							</View>
 							{/* Actions */}
 							<View
-								style={tw`flex flex-row justify-end px-3 py-3 bg-gray-600 border-t border-gray-550`}
+								style={tw`flex flex-row items-center px-3 py-3 bg-gray-600 border-t border-gray-550`}
 							>
+								{props.loading && <PulseAnimation style={tw`h-7`} />}
+								<View style={tw`flex-grow`} />
 								<Button
 									variant="dark_gray"
 									size="md"
-									onPress={() =>
-										props.setIsVisible ? props.setIsVisible(false) : setVisible(false)
-									}
+									disabled={props.loading} // Disables Close button if loading
+									onPress={handleCloseDialog}
 								>
 									<Text style={tw`text-white text-sm`}>Close</Text>
 								</Button>
@@ -94,6 +108,7 @@ const Dialog = (props: DialogProps) => {
 										variant={props.ctaDanger ? 'danger' : 'primary'}
 										size="md"
 										onPress={props.ctaAction}
+										disabled={props.ctaDisabled || props.loading}
 									>
 										<Text style={tw`text-white text-sm`}>{props.ctaLabel}</Text>
 									</Button>

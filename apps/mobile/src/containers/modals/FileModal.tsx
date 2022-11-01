@@ -1,16 +1,14 @@
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import dayjs from 'dayjs';
+import { CaretLeft } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Button, Pressable, Text, View } from 'react-native';
-import { ChevronLeftIcon } from 'react-native-heroicons/outline';
-import { useSnapshot } from 'valtio';
 
+import { default as FileIcon, default as FileThumb } from '../../components/explorer/FileThumb';
+import { Modal } from '../../components/layout/Modal';
+import Divider from '../../components/primitive/Divider';
 import tw from '../../lib/tailwind';
-import { fileModalStore } from '../../stores/modalStore';
-import FileIcon from '../file/FileIcon';
-import Divider from '../primitive/Divider';
-import ModalBackdrop from './layout/ModalBackdrop';
-import ModalHandle from './layout/ModalHandle';
+import { useFileModalStore } from '../../stores/modalStore';
 
 interface MetaItemProps {
 	title: string;
@@ -27,23 +25,18 @@ function MetaItem({ title, value }: MetaItemProps) {
 }
 
 export const FileModal = () => {
-	const { fileRef, data } = useSnapshot(fileModalStore);
+	const { fileRef, data } = useFileModalStore();
 
 	const fileDetailsRef = useRef<BottomSheetModal>(null);
 
 	return (
 		<>
-			<BottomSheetModal
-				ref={fileRef}
-				snapPoints={['60%', '90%']}
-				backdropComponent={ModalBackdrop}
-				handleComponent={ModalHandle}
-			>
+			<Modal ref={fileRef} snapPoints={['60%', '90%']}>
 				{data && (
 					<View style={tw`flex-1 p-4 bg-gray-600`}>
 						{/* File Icon / Name */}
 						<View style={tw`flex flex-row items-center`}>
-							<FileIcon file={data} size={1.6} />
+							<FileIcon data={data} size={1.6} />
 							{/* File Name, Details etc. */}
 							<View style={tw`ml-2`}>
 								<Text style={tw`text-base font-bold text-gray-200`}>{data?.name}</Text>
@@ -68,25 +61,23 @@ export const FileModal = () => {
 						<Button onPress={() => fileRef.current.close()} title="Delete" color="white" />
 					</View>
 				)}
-			</BottomSheetModal>
+			</Modal>
 			{/* Details Modal */}
-			<BottomSheetModal
+			<Modal
 				ref={fileDetailsRef}
 				enableContentPanningGesture={false}
 				enablePanDownToClose={false}
 				snapPoints={['70%']}
-				backdropComponent={ModalBackdrop}
-				handleComponent={ModalHandle}
 			>
 				{data && (
 					<BottomSheetScrollView style={tw`flex-1 p-4 bg-gray-600`}>
 						{/* Back Button */}
 						<Pressable style={tw`w-full ml-4`} onPress={() => fileDetailsRef.current.close()}>
-							<ChevronLeftIcon color={tw.color('primary-500')} width={20} height={20} />
+							<CaretLeft color={tw.color('primary-500')} size={20} />
 						</Pressable>
 						{/* File Icon / Name */}
 						<View style={tw`items-center`}>
-							<FileIcon file={data} size={1.8} />
+							<FileThumb data={data} size={1.8} />
 							<Text style={tw`text-base font-bold text-gray-200 mt-3`}>{data.name}</Text>
 						</View>
 						{/* Details */}
@@ -94,6 +85,7 @@ export const FileModal = () => {
 						<>
 							{/* Temp, we need cas id */}
 							{data?.id && <MetaItem title="Unique Content ID" value={'555555555'} />}
+							<Divider style={tw`my-4`} />
 							<MetaItem title="URI" value={`/Users/utku/Somewhere/vite.config.js`} />
 							<Divider style={tw`my-4`} />
 							<MetaItem
@@ -108,7 +100,7 @@ export const FileModal = () => {
 						</>
 					</BottomSheetScrollView>
 				)}
-			</BottomSheetModal>
+			</Modal>
 		</>
 	);
 };

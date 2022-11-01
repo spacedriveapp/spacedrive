@@ -5,7 +5,6 @@ import { QueryClient } from '@tanstack/react-query';
 import { LibraryArgs, Procedures } from './core';
 import { getLibraryIdRaw } from './index';
 import { normiCustomHooks } from './normi';
-import { Normalized } from './normi/types';
 
 type NonLibraryProcedure<T extends keyof Procedures> =
 	| Exclude<Procedures[T], { input: LibraryArgs<any> }>

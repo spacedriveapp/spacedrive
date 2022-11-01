@@ -20,6 +20,8 @@ pub enum LocationError {
 	NotDirectory(PathBuf),
 	#[error("Missing local_path (id: {0})")]
 	MissingLocalPath(i32),
+	#[error("Location already exists (path: {0:?})")]
+	LocationAlreadyExists(PathBuf),
 
 	// Internal Errors
 	#[error("Failed to create location (uuid {uuid:?})")]

@@ -1,6 +1,7 @@
-import { ExplorerData, rspc, useCurrentLibrary, useExplorerStore } from '@sd/client';
+import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
 
+import { useExplorerStore } from '../../util/explorerStore';
 import { Inspector } from '../explorer/Inspector';
 import ExplorerContextMenu from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';

@@ -1,7 +1,8 @@
+import { Statistics, useLibraryQuery } from '@sd/client';
 import byteSize from 'byte-size';
-import { FC } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { Statistics } from '~/types/bindings';
+import RNFS from 'react-native-fs';
 
 import useCounter from '../hooks/useCounter';
 import tw from '../lib/tailwind';
@@ -11,10 +12,6 @@ const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 	preview_media_bytes: 'Preview media',
 	library_db_size: 'Index size',
 	total_bytes_free: 'Free space'
-};
-
-type OverviewStatsProps = {
-	stats: Statistics | undefined;
 };
 
 const StatItem: FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
@@ -33,18 +30,43 @@ const StatItem: FC<{ title: string; bytes: number }> = ({ title, bytes }) => {
 	);
 };
 
-const OverviewStats = ({ stats }: OverviewStatsProps) => {
-	// TODO: Show missing library warning if stats is undefined
+const OverviewStats = () => {
+	// TODO: Add loading state
+
+	const { data: libraryStatistics } = useLibraryQuery(['library.getStatistics']);
+
 	const displayableStatItems = Object.keys(StatItemNames) as unknown as keyof typeof StatItemNames;
 
-	return stats ? (
+	// For Demo purposes as we probably wanna save this to database
+	// Sets Total Capacity and Free Space of the device
+	const [sizeInfo, setSizeInfo] = useState<RNFS.FSInfoResult>({ freeSpace: 0, totalSpace: 0 });
+
+	useEffect(() => {
+		const getFSInfo = async () => {
+			return await RNFS.getFSInfo();
+		};
+		getFSInfo().then((size) => {
+			setSizeInfo(size);
+		});
+	}, []);
+
+	return libraryStatistics ? (
 		<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-			{Object.entries(stats).map(([key, bytes]) => {
+			{Object.entries(libraryStatistics).map(([key, bytes]) => {
 				if (!displayableStatItems.includes(key)) return null;
+				if (key === 'total_bytes_free') {
+					bytes = sizeInfo.freeSpace;
+				} else if (key === 'total_bytes_capacity') {
+					bytes = sizeInfo.totalSpace;
+				}
 				return <StatItem key={key} title={StatItemNames[key as keyof Statistics]!} bytes={bytes} />;
 			})}
 		</ScrollView>
-	) : null;
+	) : (
+		<View>
+			<Text style={tw`text-red-600 text-center font-bold`}>No library found...</Text>
+		</View>
+	);
 };
 
 export default OverviewStats;

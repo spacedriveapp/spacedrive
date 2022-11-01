@@ -6,8 +6,7 @@ import {
 	useCurrentLibrary,
 	useDebugState,
 	useLibraryMutation,
-	useLibraryQuery,
-	usePlatform
+	useLibraryQuery
 } from '@sd/client';
 import {
 	Button,
@@ -37,6 +36,7 @@ import React, { PropsWithChildren, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
+import { usePlatform } from '../../util/Platform';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';

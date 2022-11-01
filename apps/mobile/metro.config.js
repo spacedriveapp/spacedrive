@@ -1,10 +1,4 @@
 const { makeMetroConfig, resolveUniqueModule, exclusionList } = require('@rnx-kit/metro-config');
-const MetroSymlinksResolver = require('@rnx-kit/metro-resolver-symlinks');
-
-// Might not need these anymore.
-const [SDAssetsPath, SDAssetsPathExclude] = resolveUniqueModule('@sd/assets', '.');
-const [babelRuntimePath, babelRuntimeExclude] = resolveUniqueModule('@babel/runtime');
-const [reactPath, reactExclude] = resolveUniqueModule('react');
 
 const path = require('path');
 
@@ -22,19 +16,10 @@ const metroConfig = makeMetroConfig({
 	watchFolders: [workspaceRoot],
 	resolver: {
 		...expoDefaultConfig.resolver,
-		// resolveRequest: MetroSymlinksResolver(),
 		extraNodeModules: {
-			'@babel/runtime': babelRuntimePath,
-			'@sd/assets': SDAssetsPath,
-			'react': reactPath,
 			'react-native-svg': reactSVGPath
 		},
-		blockList: exclusionList([
-			babelRuntimeExclude,
-			SDAssetsPathExclude,
-			reactExclude,
-			reactSVGExclude
-		]),
+		blockList: exclusionList([reactSVGExclude]),
 		sourceExts: [...expoDefaultConfig.resolver.sourceExts, 'svg'],
 		assetExts: expoDefaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
 		disableHierarchicalLookup: true,
