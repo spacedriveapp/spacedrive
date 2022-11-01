@@ -61,6 +61,21 @@ impl LocationCreateArgs {
 			return Err(LocationError::NotDirectory(self.path));
 		}
 
+		// check if the location already exists
+		let _location_exists = ctx
+			.db
+			.location()
+			.find_first(vec![location::local_path::equals(Some(
+				self.path.to_string_lossy().to_string(),
+			))])
+			.exec()
+			.await?
+			.is_some();
+
+		if _location_exists {
+			return Err(LocationError::LocationAlreadyExists(self.path));
+		}
+
 		debug!(
 			"Trying to create new location for '{}'",
 			self.path.display()
@@ -99,7 +114,7 @@ impl LocationCreateArgs {
 			.ok_or(LocationError::IdNotFound(location.id))?;
 
 		// write a file called .spacedrive to path containing the location id in JSON format
-		let mut dotfile = File::create(self.path.with_file_name(DOTFILE_NAME))
+		let mut dotfile = File::create(self.path.join(DOTFILE_NAME))
 			.await
 			.map_err(|e| LocationError::DotfileWriteFailure(e, self.path.clone()))?;
 

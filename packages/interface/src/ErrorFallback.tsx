@@ -1,22 +1,10 @@
-import { usePlatform } from '@sd/client';
 import { Button } from '@sd/ui';
 import { captureException } from '@sentry/browser';
 import { FallbackProps } from 'react-error-boundary';
 
 export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
-	const platform = usePlatform();
-	const version = 'unknown'; // TODO: Embed the version into the frontend via ENV var when compiled so we can use it here.
-
 	const onClick = () => {
-		console.log('TODO', error);
 		captureException(error);
-		// platform.openLink(
-		// 	`https://github.com/spacedriveapp/spacedrive/issues/new?assignees=&labels=kind%2Fbug%2Cstatus%2Fneeds-triage&template=bug_report.yml&logs=${encodeURIComponent(
-		// 		error.toString()
-		// 	)}&info=${encodeURIComponent(
-		// 		`App version ${version} running on ${guessOperatingSystem() || 'unknown'}`
-		// 	)}`
-		// );
 		resetErrorBoundary();
 	};
 

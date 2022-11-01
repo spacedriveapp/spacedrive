@@ -1,4 +1,4 @@
-import { getExplorerStore, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
@@ -13,6 +13,8 @@ import {
 import { PropsWithChildren, useMemo } from 'react';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
+import { usePlatform } from '../../util/Platform';
+import { getExplorerStore } from '../../util/explorerStore';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });

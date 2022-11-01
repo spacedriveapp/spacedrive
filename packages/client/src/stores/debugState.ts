@@ -1,14 +1,11 @@
-/// <reference types="vite/client" />
 import { useSnapshot } from 'valtio';
 
-import { valtioPersist } from '.';
+import { valtioPersist } from './util';
 
 export const debugState = valtioPersist('sd-debugState', {
-	// @ts-ignore
-	enabled: import.meta.env.DEV,
+	enabled: globalThis.isDev,
 	rspcLogger: false,
-	// @ts-ignore
-	reactQueryDevtools: (import.meta.env.DEV ? 'invisible' : 'enabled') as
+	reactQueryDevtools: (globalThis.isDev ? 'invisible' : 'enabled') as
 		| 'enabled'
 		| 'disabled'
 		| 'invisible'

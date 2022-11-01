@@ -1,5 +1,6 @@
-import { OperatingSystem, usePlatform } from '@sd/client';
 import { useQuery } from '@tanstack/react-query';
+
+import { OperatingSystem, usePlatform } from '../util/Platform';
 
 export function guessOperatingSystem(): OperatingSystem {
 	let os: OperatingSystem = 'unknown';

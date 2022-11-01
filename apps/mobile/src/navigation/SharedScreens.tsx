@@ -25,7 +25,7 @@ export function SharedScreens(
 }
 
 export type SharedScreensParamList = {
-	Location: { id: number };
+	Location: { id: number; path?: string };
 	Tag: { id: number };
 };
 
