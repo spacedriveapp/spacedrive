@@ -67,7 +67,7 @@ To run mobile app
 
 - Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for IOS development
 - `./.github/scripts/setup-system.sh mobile`
-  - The should setup most of the dependencies for the mobile app to build.
+  - This will setup most of the dependencies for the mobile app to build.
 - You must also ensure [you must have NDK 24.0.8215888 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
 - `cd apps/mobile && pnpm i` - This is a separate workspace, you need to do this!
 - `pnpm android` - runs on Android Emulator
