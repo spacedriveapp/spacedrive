@@ -57,6 +57,4 @@ pub enum Error {
 	NoMasterPassword,
 	#[error("mismatch between supplied keys and the keystore")]
 	KeystoreMismatch,
-	#[error("error getting lock on the key manager's internal mutex")]
-	MutexLock,
 }

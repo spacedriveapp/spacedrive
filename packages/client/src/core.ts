@@ -8,7 +8,7 @@ export type Procedures = {
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
-        { key: "keys.getDefault", input: LibraryArgs<null>, result: string } | 
+        { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.list", input: LibraryArgs<null>, result: Array<Key> } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 

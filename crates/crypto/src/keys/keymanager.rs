@@ -121,9 +121,9 @@ impl KeyManager {
 			self.keystore.remove(&uuid);
 
 			// unset as default (if it is the default)
-			if let Some(default) = *self.default.lock().map_err(|_| Error::MutexLock)? {
+			if let Some(default) = *self.default.lock().unwrap() {
 				if default == uuid {
-					*self.default.lock().map_err(|_| Error::MutexLock)? = None;
+					*self.default.lock().unwrap() = None;
 				}
 			}
 		}
@@ -134,7 +134,7 @@ impl KeyManager {
 	/// This allows you to set the default key
 	pub fn set_default(&self, uuid: Uuid) -> Result<()> {
 		if self.keystore.contains_key(&uuid) {
-			*self.default.lock().map_err(|_| Error::MutexLock)? = Some(uuid);
+			*self.default.lock().unwrap() = Some(uuid);
 			Ok(())
 		} else {
 			Err(Error::KeyNotFound)
@@ -143,7 +143,7 @@ impl KeyManager {
 
 	/// This allows you to get the default key's ID
 	pub fn get_default(&self) -> Result<Uuid> {
-		if let Some(default) = *self.default.lock().map_err(|_| Error::MutexLock)? {
+		if let Some(default) = *self.default.lock().unwrap() {
 			Ok(default)
 		} else {
 			Err(Error::NoDefaultKeySet)
@@ -152,30 +152,24 @@ impl KeyManager {
 
 	/// This should ONLY be used internally.
 	fn get_master_password(&self) -> Result<Protected<Vec<u8>>> {
-		match &*self.master_password.lock().map_err(|_| Error::MutexLock)? {
+		match &*self.master_password.lock().unwrap() {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}
 	}
 
-	pub fn set_master_password(&self, master_password: Protected<Vec<u8>>) -> Result<()> {
+	pub fn set_master_password(&self, master_password: Protected<Vec<u8>>) {
 		// this returns a result, so we can potentially implement password checking functionality
-		*self.master_password.lock().map_err(|_| Error::MutexLock)? = Some(master_password);
-		Ok(())
+		*self.master_password.lock().unwrap() = Some(master_password);
 	}
 
 	/// This function is for removing a previously-added master password
-	pub fn clear_master_password(&self) -> Result<()> {
-		*self.master_password.lock().map_err(|_| Error::MutexLock)? = None;
-		Ok(())
+	pub fn clear_master_password(&self) {
+		*self.master_password.lock().unwrap() = None;
 	}
 
-	pub fn has_master_password(&self) -> Result<bool> {
-		Ok(self
-			.master_password
-			.lock()
-			.map_err(|_| Error::MutexLock)?
-			.is_some())
+	pub fn has_master_password(&self) -> bool {
+		self.master_password.lock().unwrap().is_some()
 	}
 
 	/// This function is used for emptying the entire keystore.

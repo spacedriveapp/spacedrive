@@ -93,7 +93,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				library
 					.key_manager
-					.set_master_password(Protected::new(password.as_bytes().to_vec()))?;
+					.set_master_password(Protected::new(password.as_bytes().to_vec()));
 
 				let automount = library
 					.db
