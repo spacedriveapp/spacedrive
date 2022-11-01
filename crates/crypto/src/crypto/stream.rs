@@ -9,7 +9,7 @@ use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use zeroize::Zeroize;
 
-use crate::{Error, primitives::BLOCK_SIZE, Protected};
+use crate::{Error, Result, primitives::BLOCK_SIZE, Protected};
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -49,7 +49,7 @@ impl StreamEncryption {
 		key: Protected<[u8; 32]>,
 		nonce: &[u8],
 		algorithm: Algorithm,
-	) -> Result<Self, Error> {
+	) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -108,7 +108,7 @@ impl StreamEncryption {
 		mut reader: R,
 		mut writer: W,
 		aad: &[u8],
-	) -> Result<(), Error>
+	) -> Result<()>
 	where
 		R: Read + Seek,
 		W: Write + Seek,
@@ -181,7 +181,7 @@ impl StreamEncryption {
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
-	) -> Result<Vec<u8>, Error> {
+	) -> Result<Vec<u8>> {
 		let mut reader = Cursor::new(bytes);
 		let mut writer = Cursor::new(Vec::<u8>::new());
 
@@ -203,7 +203,7 @@ impl StreamDecryption {
 		key: Protected<[u8; 32]>,
 		nonce: &[u8],
 		algorithm: Algorithm,
-	) -> Result<Self, Error> {
+	) -> Result<Self> {
 		if nonce.len() != algorithm.nonce_len() {
 			return Err(Error::NonceLengthMismatch);
 		}
@@ -262,7 +262,7 @@ impl StreamDecryption {
 		mut reader: R,
 		mut writer: W,
 		aad: &[u8],
-	) -> Result<(), Error>
+	) -> Result<()>
 	where
 		R: Read + Seek,
 		W: Write + Seek,
@@ -332,7 +332,7 @@ impl StreamDecryption {
 		algorithm: Algorithm,
 		bytes: &[u8],
 		aad: &[u8],
-	) -> Result<Protected<Vec<u8>>, Error> {
+	) -> Result<Protected<Vec<u8>>> {
 		let mut reader = Cursor::new(bytes);
 		let mut writer = Cursor::new(Vec::<u8>::new());
 

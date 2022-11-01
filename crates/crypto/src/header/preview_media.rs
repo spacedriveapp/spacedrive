@@ -25,6 +25,7 @@ use std::io::{Read, Seek};
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	Error,
+	Result,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
 	Protected,
 };
@@ -63,7 +64,7 @@ impl FileHeader {
 		algorithm: Algorithm,
 		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
 		media: &[u8],
-	) -> Result<(), Error> {
+	) -> Result<()> {
 		let media_nonce = generate_nonce(algorithm);
 
 		let encrypted_media = StreamEncryption::encrypt_bytes(
@@ -94,7 +95,7 @@ impl FileHeader {
 	pub fn decrypt_preview_media_from_prehashed(
 		&self,
 		hashed_keys: Vec<Protected<[u8; 32]>>,
-	) -> Result<Protected<Vec<u8>>, Error> {
+	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
 
 		// could be an expensive clone (a few MiB at most)
@@ -121,7 +122,7 @@ impl FileHeader {
 	pub fn decrypt_preview_media(
 		&self,
 		password: Protected<Vec<u8>>,
-	) -> Result<Protected<Vec<u8>>, Error> {
+	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key(password)?;
 
 		// could be an expensive clone (a few MiB at most)
@@ -173,7 +174,7 @@ impl PreviewMedia {
 	/// The cursor will be left at the end of the preview media item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
+	pub fn deserialize<R>(reader: &mut R) -> Result<Self>
 	where
 		R: Read + Seek,
 	{

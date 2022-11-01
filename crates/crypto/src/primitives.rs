@@ -5,7 +5,7 @@
 use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 
-use crate::{crypto::stream::Algorithm, Error, Protected};
+use crate::{crypto::stream::Algorithm, Error, Result, Protected};
 
 /// This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
@@ -62,7 +62,7 @@ pub fn generate_master_key() -> Protected<[u8; MASTER_KEY_LEN]> {
 /// As the master key is encrypted at this point, it does not need to be `Protected<>`
 ///
 /// This function still `zeroize`s any data it can
-pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I], Error> {
+pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I]> {
 	bytes.try_into().map_err(|mut b: Vec<u8>| {
 		b.zeroize();
 		Error::VecArrSizeMismatch

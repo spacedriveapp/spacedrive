@@ -34,6 +34,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use crate::{
 	crypto::stream::Algorithm,
 	Error,
+	Result,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
 	Protected,
 };
@@ -104,7 +105,7 @@ impl FileHeader {
 	pub fn decrypt_master_key(
 		&self,
 		password: Protected<Vec<u8>>,
-	) -> Result<Protected<[u8; MASTER_KEY_LEN]>, Error> {
+	) -> Result<Protected<[u8; MASTER_KEY_LEN]>> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
 		if self.keyslots.is_empty() {
@@ -125,7 +126,7 @@ impl FileHeader {
 	}
 
 	/// This is a helper function to serialize and write a header to a file.
-	pub fn write<W>(&self, writer: &mut W) -> Result<(), Error>
+	pub fn write<W>(&self, writer: &mut W) -> Result<()>
 	where
 		W: Write + Seek,
 	{
@@ -142,7 +143,7 @@ impl FileHeader {
 	pub fn decrypt_master_key_from_prehashed(
 		&self,
 		hashed_keys: Vec<Protected<[u8; 32]>>,
-	) -> Result<Protected<[u8; MASTER_KEY_LEN]>, Error> {
+	) -> Result<Protected<[u8; MASTER_KEY_LEN]>> {
 		let mut master_key = [0u8; MASTER_KEY_LEN];
 
 		if self.keyslots.is_empty() {
@@ -189,7 +190,7 @@ impl FileHeader {
 	/// This will include keyslots, metadata and preview media (if provided)
 	///
 	/// An error will be returned if there are no keyslots/more than two keyslots attached.
-	pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+	pub fn serialize(&self) -> Result<Vec<u8>> {
 		match self.version {
 			FileHeaderVersion::V1 => {
 				if self.keyslots.len() > 2 {
@@ -231,7 +232,7 @@ impl FileHeader {
 	/// On error, the cursor will not be rewound.
 	///
 	/// It returns both the header, and the AAD that should be used for decryption.
-	pub fn deserialize<R>(reader: &mut R) -> Result<(Self, Vec<u8>), Error>
+	pub fn deserialize<R>(reader: &mut R) -> Result<(Self, Vec<u8>)>
 	where
 		R: Read + Seek,
 	{
