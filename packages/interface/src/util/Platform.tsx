@@ -1,13 +1,6 @@
 import { PropsWithChildren, createContext, useContext } from 'react';
 
-export type OperatingSystem =
-	| 'browser'
-	| 'linux'
-	| 'macOS'
-	| 'windows'
-	| 'ios'
-	| 'android'
-	| 'unknown';
+export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
 // Platform represents the underlying native layer the app is running on.
 // This could be Tauri, mobile or web.

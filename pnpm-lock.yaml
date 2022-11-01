@@ -361,14 +361,12 @@ importers:
       tsconfig: '*'
       typescript: ^4.8.4
       valtio: ^1.7.4
-      valtio-persist: ^1.0.2
     dependencies:
       '@rspc/client': 0.0.0-main-7c0a67c1
       '@rspc/react': 0.0.0-main-7c0a67c1_drd77wjzdtjhkwvbq4fmcrf7wi
       '@sd/config': link:../config
       '@tanstack/react-query': 4.12.0
       valtio: 1.7.4
-      valtio-persist: 1.0.2_valtio@1.7.4
     devDependencies:
       '@types/react': 18.0.21
       scripts: 0.1.0
@@ -22556,7 +22554,7 @@ packages:
       valtio: ^1.2.5
     dependencies:
       lodash: 4.17.21
-      valtio: 1.7.4
+      valtio: 1.7.4_react@18.0.0
     dev: false
 
   /valtio/1.7.4:

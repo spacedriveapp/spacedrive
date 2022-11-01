@@ -1,8 +1,9 @@
 import VideoSvg from '@sd/assets/svgs/video.svg';
 import ZipSvg from '@sd/assets/svgs/zip.svg';
-import { ExplorerItem, usePlatform } from '@sd/client';
+import { ExplorerItem } from '@sd/client';
 import { Suspense, useMemo } from 'react';
 import { Image, Text, View } from 'react-native';
+import { DocumentDirectoryPath } from 'react-native-fs';
 import Svg, { Path } from 'react-native-svg';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { isObject, isPath } from '~/types/helper';
@@ -21,9 +22,11 @@ type FileThumbProps = {
 	kind?: 'video' | 'image' | 'audio' | 'zip' | 'other';
 };
 
+export const getThumbnailUrlById = (casId: string) =>
+	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}`;
+
 export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	const explorerStore = useExplorerStore();
-	const platform = usePlatform();
 
 	const Icon = useMemo(() => {
 		const Icon = icons[data.extension];
@@ -47,7 +50,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 		? data.object?.has_thumbnail
 		: !!explorerStore.newThumbnails[cas_id];
 
-	const url = platform.getThumbnailUrlById(cas_id);
+	const url = getThumbnailUrlById(cas_id);
 
 	// Thumbnail
 	if (has_thumbnail && url) {
@@ -60,7 +63,6 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	if (kind === 'video') {
 		return (
 			<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
-				{/* @ts-expect-error */}
 				<VideoSvg width={50 * size} height={50 * size} />
 			</View>
 		);
@@ -70,7 +72,6 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	if (kind === 'zip') {
 		return (
 			<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
-				{/* @ts-expect-error */}
 				<ZipSvg width={50 * size} height={50 * size} />
 			</View>
 		);

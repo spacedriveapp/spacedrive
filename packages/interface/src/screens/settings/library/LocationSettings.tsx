@@ -1,4 +1,4 @@
-import { useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import { MagnifyingGlass } from 'phosphor-react';
@@ -6,6 +6,7 @@ import { MagnifyingGlass } from 'phosphor-react';
 import LocationListItem from '../../../components/location/LocationListItem';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { usePlatform } from '../../../util/Platform';
 
 export default function LocationSettings() {
 	const platform = usePlatform();

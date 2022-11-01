@@ -1,8 +1,7 @@
-import { queryClient, useBridgeMutation } from '@sd/client';
+import { queryClient, useBridgeMutation, useCurrentLibrary } from '@sd/client';
 import { useState } from 'react';
 import Dialog from '~/components/layout/Dialog';
 import { TextInput } from '~/components/primitive/Input';
-import { useLibraryStore } from '~/stores/libraryStore';
 
 type Props = {
 	onSubmit?: () => void;
@@ -14,7 +13,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 	const [libName, setLibName] = useState('');
 	const [createLibOpen, setCreateLibOpen] = useState(false);
 
-	const { switchLibrary } = useLibraryStore();
+	const { switchLibrary } = useCurrentLibrary();
 
 	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
 		'library.create',

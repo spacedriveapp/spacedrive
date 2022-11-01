@@ -1,6 +1,7 @@
-import { useBridgeQuery, useLibraryMutation, useLibraryQuery, usePlatform } from '@sd/client';
+import { useBridgeQuery, useLibraryMutation, useLibraryQuery } from '@sd/client';
 
 import CodeBlock from '../components/primitive/Codeblock';
+import { usePlatform } from '../util/Platform';
 
 // TODO: Bring this back with a button in the sidebar near settings at the bottom
 export default function DebugScreen() {

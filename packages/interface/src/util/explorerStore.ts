@@ -1,6 +1,7 @@
+import { onLibraryChange } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 
-import { resetStore } from './util';
+import { resetStore } from '@sd/client/src/stores/util';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'media';
 
@@ -20,13 +21,14 @@ const state = {
 	showInspector: true,
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,
-	contextMenuActiveObject: null as Object | null,
+	contextMenuActiveObject: null as object | null,
 	newThumbnails: {} as Record<string, boolean>
 };
 
+onLibraryChange(() => getExplorerStore().reset());
+
 // Keep the private and use `useExplorerState` or `getExplorerStore` or you will get production build issues.
-export const explorerStore = proxy({
-	// TODO: @oscar make private
+const explorerStore = proxy({
 	...state,
 	reset: () => resetStore(explorerStore, state),
 	addNewThumbnail: (cas_id: string) => {

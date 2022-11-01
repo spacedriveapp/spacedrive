@@ -1,7 +1,7 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
 import { proxy, subscribe, useSnapshot } from 'valtio';
 
-import { getExplorerStore, useBridgeQuery } from '../index';
+import { useBridgeQuery } from '../rspc';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
@@ -72,7 +72,6 @@ export const useCurrentLibrary = () => {
 	const switchLibrary = useCallback((libraryUuid: string) => {
 		currentLibraryUuidStore.id = libraryUuid;
 		localStorage.setItem(activeLibraryLocalStorageKey, libraryUuid);
-		getExplorerStore().reset();
 	}, []);
 
 	// memorize library to avoid re-running find function
