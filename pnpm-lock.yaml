@@ -219,7 +219,6 @@ importers:
       typescript: ^4.8.4
       use-count-up: ^3.0.1
       valtio: ^1.7.1
-      valtio-persist: ^1.0.2
     dependencies:
       '@gorhom/bottom-sheet': 4.4.5_pfg2u7h2lo3iox3coxomxplg5y
       '@react-native-async-storage/async-storage': 1.17.10_react-native@0.69.6
@@ -258,7 +257,6 @@ importers:
       twrnc: 3.4.1_react-native@0.69.6
       use-count-up: 3.0.1_react@18.0.0
       valtio: 1.7.4_react@18.0.0
-      valtio-persist: 1.0.2_valtio@1.7.4
     devDependencies:
       '@rnx-kit/metro-config': 1.3.2_gtltrjvtlgj7ga36qzsxajwqwe
       '@types/react': 18.0.21
@@ -22546,15 +22544,6 @@ packages:
     resolution: {integrity: sha512-M6w37eVCMMouJ9V/sdPGnC5H4uDr73/+xdq0FBLO3TFFX1+7wiUY6Es328NN+y43tmY+doUdN9g9J21vqB7iLw==}
     dependencies:
       builtins: 1.0.3
-    dev: false
-
-  /valtio-persist/1.0.2_valtio@1.7.4:
-    resolution: {integrity: sha512-OBVEUZTS1heiA5R3j8CPDuXIMmmjIvq/4CiO+pElXd7f7b7nR3vIH5qql35hXw/AkLdftqTUcVCNVf6yAJ1ypA==}
-    peerDependencies:
-      valtio: ^1.2.5
-    dependencies:
-      lodash: 4.17.21
-      valtio: 1.7.4_react@18.0.0
     dev: false
 
   /valtio/1.7.4:
