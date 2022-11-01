@@ -38,7 +38,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("mount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library.key_manager.mount(key_uuid).map_err(rspc::Error)?;
+				library.key_manager.mount(key_uuid)?;
 				// we also need to dispatch jobs that automatically decrypt preview media and metadata here
 				invalidate_query!(library, "keys.listMounted");
 				Ok(())
@@ -61,7 +61,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("unmount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library.key_manager.unmount(key_uuid).map_err(rspc::Error)?;
+				library.key_manager.unmount(key_uuid)?;
 				// we also need to delete all in-memory decrypted data associated with this key
 				invalidate_query!(library, "keys.listMounted");
 				Ok(())
@@ -69,7 +69,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("deleteFromLibrary", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library.key_manager.remove_key(key_uuid).map_err(rspc::Error)?;
+				library.key_manager.remove_key(key_uuid)?;
 
 				library
 					.db
@@ -94,7 +94,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.key_manager
 					.set_master_password(Protected::new(password.as_bytes().to_vec()))
-					.map_err(rspc::Error)?;
+					?;
 
 				let automount = library
 					.db
@@ -106,7 +106,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				for key in automount {
 					library
 						.key_manager
-						.mount(uuid::Uuid::from_str(&key.uuid).map_err(rspc::Error)?).map_err(rspc::Error)?;
+						.mount(uuid::Uuid::from_str(&key.uuid)?)?;
 				}
 
 				Ok(())
@@ -114,7 +114,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("setDefault", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library.key_manager.set_default(key_uuid).map_err(rspc::Error)?;
+				library.key_manager.set_default(key_uuid)?;
 
 				// if an old default is set, unset it as the default
 				let old_default = library
@@ -142,7 +142,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.find_unique(key::uuid::equals(key_uuid.to_string()))
 					.exec()
 					.await?
-					.map_err(rspc::Error)?;
+					?;
 
 				library
 					.db
@@ -208,9 +208,9 @@ pub(crate) fn mount() -> RouterBuilder {
 						algorithm,
 						hashing_algorithm,
 					)
-					.map_err(rspc::Error)?;
+					?;
 
-				let stored_key = library.key_manager.access_keystore(uuid).map_err(rspc::Error)?;
+				let stored_key = library.key_manager.access_keystore(uuid)?;
 
 				library
 					.db
@@ -233,7 +233,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				// mount the key
-				library.key_manager.mount(uuid).map_err(rspc::Error)?;
+				library.key_manager.mount(uuid)?;
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
 				Ok(())
