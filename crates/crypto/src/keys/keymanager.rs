@@ -38,7 +38,7 @@
 use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
-use crate::error::Error;
+use crate::{Error, Result};
 use crate::primitives::{
 	generate_master_key, generate_nonce, generate_salt, to_array, MASTER_KEY_LEN,
 };
@@ -103,27 +103,27 @@ impl KeyManager {
 	/// This function should be used to populate the keystore with multiple stored keys at a time.
 	///
 	/// It's suitable for when you created the key manager without populating it.
-	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<(), Error> {
+	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
 		for key in stored_keys {
 			self.keystore.insert(key.uuid, key);
 		}
 
 		Ok(())
 	}
-	pub fn remove_key(&self, uuid: Uuid) -> Result<(), Error> {
+	pub fn remove_key(&self, uuid: Uuid) -> Result<()> {
 		if self.keystore.contains_key(&uuid) {
 			// unmount if mounted
 			if self.keymount.contains_key(&uuid) {
-				self.unmount(uuid).unwrap();
+				self.unmount(uuid)?;
 			}
 
 			// remove from keystore
 			self.keystore.remove(&uuid);
 
 			// unset as default (if it is the default)
-			if let Some(default) = *self.default.lock().unwrap() {
+			if let Some(default) = *self.default.lock().map_err(|_| Error::MutexLock)? {
 				if default == uuid {
-					*self.default.lock().unwrap() = None;
+					*self.default.lock().map_err(|_| Error::MutexLock)? = None;
 				}
 			}
 		}
@@ -132,9 +132,9 @@ impl KeyManager {
 	}
 
 	/// This allows you to set the default key
-	pub fn set_default(&self, uuid: Uuid) -> Result<(), Error> {
+	pub fn set_default(&self, uuid: Uuid) -> Result<()> {
 		if self.keystore.contains_key(&uuid) {
-			*self.default.lock().unwrap() = Some(uuid);
+			*self.default.lock().map_err(|_| Error::MutexLock)? = Some(uuid);
 			Ok(())
 		} else {
 			Err(Error::KeyNotFound)
@@ -142,8 +142,8 @@ impl KeyManager {
 	}
 
 	/// This allows you to get the default key's ID
-	pub fn get_default(&self) -> Result<Uuid, Error> {
-		if let Some(default) = *self.default.lock().unwrap() {
+	pub fn get_default(&self) -> Result<Uuid> {
+		if let Some(default) = *self.default.lock().map_err(|_| Error::MutexLock)? {
 			Ok(default)
 		} else {
 			Err(Error::NoDefaultKeySet)
@@ -151,27 +151,28 @@ impl KeyManager {
 	}
 
 	/// This should ONLY be used internally.
-	fn get_master_password(&self) -> Result<Protected<Vec<u8>>, Error> {
-		match &*self.master_password.lock().unwrap() {
+	fn get_master_password(&self) -> Result<Protected<Vec<u8>>> {
+		match &*self.master_password.lock().map_err(|_| Error::MutexLock)? {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}
 	}
 
-	pub fn set_master_password(&self, master_password: Protected<Vec<u8>>) -> Result<(), Error> {
+	pub fn set_master_password(&self, master_password: Protected<Vec<u8>>) -> Result<()> {
 		// this returns a result, so we can potentially implement password checking functionality
-		*self.master_password.lock().unwrap() = Some(master_password);
+		*self.master_password.lock().map_err(|_| Error::MutexLock)? = Some(master_password);
 		Ok(())
 	}
 
 	/// This function is for removing a previously-added master password
-	pub fn clear_master_password(&self) {
-		*self.master_password.lock().unwrap() = None;
+	pub fn clear_master_password(&self) -> Result<()> {
+		*self.master_password.lock().map_err(|_| Error::MutexLock)? = None;
+		Ok(())
 	}
 
 	#[must_use]
-	pub fn has_master_password(&self) -> bool {
-		self.master_password.lock().unwrap().is_some()
+	pub fn has_master_password(&self) -> Result<bool> {
+		Ok(self.master_password.lock().map_err(|_| Error::MutexLock)?.is_some())
 	}
 
 	/// This function is used for emptying the entire keystore.
@@ -188,7 +189,7 @@ impl KeyManager {
 	}
 
 	/// This function can be used for comparing an array of `StoredKeys` to the currently loaded keystore.
-	pub fn compare_keystore(&self, supplied_keys: &[StoredKey]) -> Result<(), Error> {
+	pub fn compare_keystore(&self, supplied_keys: &[StoredKey]) -> Result<()> {
 		if supplied_keys.len() != self.keystore.len() {
 			return Err(Error::KeystoreMismatch);
 		}
@@ -210,7 +211,7 @@ impl KeyManager {
 	/// This function is for unmounting a key from the key manager
 	///
 	/// This does not remove the key from the key store
-	pub fn unmount(&self, uuid: Uuid) -> Result<(), Error> {
+	pub fn unmount(&self, uuid: Uuid) -> Result<()> {
 		if self.keymount.contains_key(&uuid) {
 			self.keymount.remove(&uuid);
 			Ok(())
@@ -239,7 +240,7 @@ impl KeyManager {
 	/// This is to ensure that only functions which require access to the mounted key receive it.
 	///
 	/// We could add a log to this, so that the user can view mounts
-	pub fn mount(&self, uuid: Uuid) -> Result<(), Error> {
+	pub fn mount(&self, uuid: Uuid) -> Result<()> {
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
 				let master_password = self.get_master_password()?;
@@ -297,7 +298,7 @@ impl KeyManager {
 	/// This function is for accessing the internal keymount.
 	///
 	/// We could add a log to this, so that the user can view accesses
-	pub fn access_keymount(&self, uuid: Uuid) -> Result<MountedKey, Error> {
+	pub fn access_keymount(&self, uuid: Uuid) -> Result<MountedKey> {
 		match self.keymount.get(&uuid) {
 			Some(key) => Ok(key.clone()),
 			None => Err(Error::KeyNotFound),
@@ -305,7 +306,7 @@ impl KeyManager {
 	}
 
 	/// This function is for accessing a `StoredKey`.
-	pub fn access_keystore(&self, uuid: Uuid) -> Result<StoredKey, Error> {
+	pub fn access_keystore(&self, uuid: Uuid) -> Result<StoredKey> {
 		match self.keystore.get(&uuid) {
 			Some(key) => Ok(key.clone()),
 			None => Err(Error::KeyNotFound),
@@ -340,7 +341,7 @@ impl KeyManager {
 		key: Protected<Vec<u8>>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-	) -> Result<Uuid, Error> {
+	) -> Result<Uuid> {
 		let master_password = self.get_master_password()?;
 
 		let uuid = uuid::Uuid::new_v4();

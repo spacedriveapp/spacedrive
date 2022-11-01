@@ -5,7 +5,7 @@
 use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 
-use crate::{crypto::stream::Algorithm, error::Error, Protected};
+use crate::{crypto::stream::Algorithm, Error, Protected};
 
 /// This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;

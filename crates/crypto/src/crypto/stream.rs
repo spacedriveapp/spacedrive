@@ -9,7 +9,7 @@ use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use zeroize::Zeroize;
 
-use crate::{error::Error, primitives::BLOCK_SIZE, Protected};
+use crate::{Error, primitives::BLOCK_SIZE, Protected};
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq)]

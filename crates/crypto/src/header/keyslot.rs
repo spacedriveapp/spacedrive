@@ -25,7 +25,7 @@ use std::io::{Read, Seek};
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	error::Error,
+	Error,
 	keys::hashing::HashingAlgorithm,
 	primitives::{generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
 	Protected,

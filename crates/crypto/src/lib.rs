@@ -27,3 +27,5 @@ pub use protected::Protected;
 
 // Re-export zeroize so it can be used elsewhere
 pub use zeroize::Zeroize;
+
+pub use self::error::{Error, Result};

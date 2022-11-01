@@ -33,7 +33,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
 	crypto::stream::Algorithm,
-	error::Error,
+	Error,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
 	Protected,
 };

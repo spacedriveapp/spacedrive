@@ -12,6 +12,8 @@ impl From<Error> for rspc::Error {
 	}
 }
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// This enum defines all possible errors that this crate can give
 #[derive(Error, Debug)]
 pub enum Error {

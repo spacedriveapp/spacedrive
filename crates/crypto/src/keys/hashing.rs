@@ -11,7 +11,7 @@
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
 use crate::Protected;
-use crate::{error::Error, primitives::SALT_LEN};
+use crate::{Error, primitives::SALT_LEN};
 use argon2::Argon2;
 
 /// These parameters define the password-hashing level.
