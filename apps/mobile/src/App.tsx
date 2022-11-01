@@ -9,7 +9,9 @@ import {
 	useCurrentLibrary,
 	useInvalidateQuery
 } from '@sd/client';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
@@ -60,6 +62,10 @@ const client = rspc.createClient({
 });
 
 export default function App() {
+	useEffect(() => {
+		SplashScreen.hideAsync();
+	}, []);
+
 	return (
 		<rspc.Provider client={client} queryClient={queryClient}>
 			<LibraryContextProvider

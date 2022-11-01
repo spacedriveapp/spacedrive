@@ -4,6 +4,9 @@ import { lazy, useEffect } from 'react';
 import { Suspense } from 'react';
 import { Platform } from 'react-native';
 
+// Enable the splash screen
+SplashScreen.preventAutoHideAsync();
+
 const _localStorage = new Map<string, string>();
 
 // We patch stuff onto `globalThis` so that `@sd/client` can use it. This is super hacky but as far as I can tell, there's no better way to do this.
@@ -51,9 +54,6 @@ if (Platform.OS === 'ios') {
 	require('intl/locale-data/jsonp/en');
 }
 
-// Enable the splash screen
-SplashScreen.preventAutoHideAsync();
-
 // This is insane. We load all data from `AsyncStorage` into the `_localStorage` global and then once complete we import the app.
 // This way the polyfilled `localStorage` implementation has its data populated before the global stores within `@sd/client` are initialised (as they are initialised on import).
 const App = lazy(async () => {
@@ -68,15 +68,6 @@ export function AppWrapper() {
 	return (
 		<Suspense>
 			<App />
-			<ShowSplashScreen />
 		</Suspense>
 	);
-}
-
-function ShowSplashScreen() {
-	useEffect(() => {
-		SplashScreen.hideAsync();
-	}, []);
-
-	return null;
 }
