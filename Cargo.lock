@@ -5202,6 +5202,7 @@ dependencies = [
  "dashmap",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "rspc",
  "serde",
  "serde_json",
  "thiserror",

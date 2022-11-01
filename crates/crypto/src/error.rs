@@ -1,6 +1,17 @@
 //! This module contains all possible errors that this crate can return.
 use thiserror::Error;
 
+#[cfg(feature = "rspc")]
+impl From<Error> for rspc::Error {
+	fn from(err: Error) -> Self {
+		rspc::Error::with_cause(
+			rspc::ErrorCode::InternalServerError,
+			"Internal cryptographic error occured".into(),
+			err,
+		)
+	}
+}
+
 /// This enum defines all possible errors that this crate can give
 #[derive(Error, Debug)]
 pub enum Error {
@@ -44,4 +55,6 @@ pub enum Error {
 	NoMasterPassword,
 	#[error("mismatch between supplied keys and the keystore")]
 	KeystoreMismatch,
+	#[error("error getting lock on the key manager's internal mutex")]
+	MutexLock,
 }
