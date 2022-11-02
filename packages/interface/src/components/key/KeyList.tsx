@@ -13,13 +13,8 @@ const ListKeys = () => {
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
 	const default_key = useLibraryQuery(['keys.getDefault']);
 
-	const mountedKeys = useMemo(
-		() => keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? [],
-		[keys, mounted_uuids]
-	);
-
-	const unmountedKeys = useMemo(
-		() => 	keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? [],
+	const [mountedKeys, unmountedKeys] = useMemo(
+		() => [keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? [], keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? []],
 		[keys, mounted_uuids]
 	);
 
