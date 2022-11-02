@@ -49,8 +49,6 @@ export const Inspector = (props: Props) => {
 		enabled: readyToFetch
 	});
 
-	const isVid = objectData?.kind === 7;
-
 	return (
 		<div
 			{...elementProps}
@@ -62,7 +60,7 @@ export const Inspector = (props: Props) => {
 						<FileThumb
 							iconClassNames="mx-10"
 							size={230}
-							kind={props.data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
+							kind={ObjectKind[objectData?.kind || 0]}
 							className="!m-0 flex bg-green-500 flex-shrink flex-grow-0"
 							data={props.data}
 						/>
