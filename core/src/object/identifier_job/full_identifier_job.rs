@@ -39,11 +39,19 @@ impl From<&FilePathIdAndLocationIdCursor> for file_path::UniqueWhereParam {
 
 #[derive(Serialize, Deserialize)]
 pub struct FullFileIdentifierJobState {
-	total_count: usize,
-	task_count: usize,
 	location: location::Data,
 	location_path: PathBuf,
 	cursor: FilePathIdAndLocationIdCursor,
+	report: FileIdentifierReport,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct FileIdentifierReport {
+	location_path: String,
+	total_orphan_paths: usize,
+	total_objects_created: usize,
+	total_objects_linked: usize,
+	total_objects_ignored: usize,
 }
 
 #[async_trait::async_trait]
@@ -57,7 +65,7 @@ impl StatefulJob for FullFileIdentifierJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		info!("Identifying orphan Paths...");
+		info!("Identifying orphan File Paths...");
 
 		let library = ctx.library_ctx();
 
@@ -77,11 +85,11 @@ impl StatefulJob for FullFileIdentifierJob {
 			.map(PathBuf::from)
 			.ok_or(IdentifierJobError::LocationLocalPath(location_id))?;
 
-		let total_count = count_orphan_file_paths(&library, location_id).await?;
-		info!("Found {} orphan file paths", total_count);
+		let orphan_count = count_orphan_file_paths(&library, location_id).await?;
+		info!("Found {} orphan file paths", orphan_count);
 
 		// if no file paths found, abort entire job early
-		if total_count == 0 {
+		if orphan_count == 0 {
 			return Err(JobError::EarlyFinish {
 				name: self.name().to_string(),
 				reason: "Expected orphan Paths not returned from database query for this chunk"
@@ -89,10 +97,10 @@ impl StatefulJob for FullFileIdentifierJob {
 			});
 		}
 
-		let task_count = (total_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
+		let task_count = (orphan_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
 		info!(
 			"Found {} orphan Paths. Will execute {} tasks...",
-			total_count, task_count
+			orphan_count, task_count
 		);
 
 		// update job with total task count based on orphan file_paths count
@@ -108,8 +116,11 @@ impl StatefulJob for FullFileIdentifierJob {
 			.unwrap_or(1);
 
 		state.data = Some(FullFileIdentifierJobState {
-			total_count,
-			task_count,
+			report: FileIdentifierReport {
+				location_path: location_path.to_str().unwrap_or(&String::new()).to_string(),
+				total_orphan_paths: orphan_count,
+				..Default::default()
+			},
 			location,
 			location_path,
 			cursor: FilePathIdAndLocationIdCursor {
@@ -147,16 +158,18 @@ impl StatefulJob for FullFileIdentifierJob {
 			"Processing {:?} orphan Paths. ({} completed of {})",
 			file_paths.len(),
 			state.step_number,
-			data.task_count
+			data.report.total_orphan_paths
 		);
 
-		identifier_job_step(
+		let (total_objects_created, total_objects_linked) = identifier_job_step(
 			&library,
 			state.init.location_id,
 			&data.location_path,
 			&file_paths,
 		)
 		.await?;
+		data.report.total_objects_created += total_objects_created;
+		data.report.total_objects_linked += total_objects_linked;
 
 		// set the step data cursor to the last row of this chunk
 		if let Some(last_row) = file_paths.last() {
@@ -168,7 +181,7 @@ impl StatefulJob for FullFileIdentifierJob {
 			JobReportUpdate::Message(format!(
 				"Processed {} of {} orphan Paths",
 				state.step_number * CHUNK_SIZE,
-				data.total_count
+				data.report.total_orphan_paths
 			)),
 		]);
 
@@ -181,13 +194,10 @@ impl StatefulJob for FullFileIdentifierJob {
 			.data
 			.as_ref()
 			.expect("critical error: missing data on job state");
-		info!(
-			"Finalizing identifier job at {}, total of {} tasks",
-			data.location_path.display(),
-			data.task_count
-		);
 
-		Ok(Some(serde_json::to_value(&state.init)?))
+		info!("Finalizing identifier job: {:#?}", data.report);
+
+		Ok(Some(serde_json::to_value(&data.report)?))
 	}
 }
 
@@ -235,7 +245,7 @@ async fn get_orphan_file_paths(
 		.order_by(file_path::id::order(Direction::Asc))
 		// .cursor(cursor.into())
 		.take(CHUNK_SIZE as i64)
-		.skip(1)
+		// .skip(1)
 		.exec()
 		.await
 }

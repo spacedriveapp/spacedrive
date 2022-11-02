@@ -269,10 +269,10 @@ fn watch_location(
 ) {
 	let local_path = local_path.as_ref();
 	if let Err(e) = watcher.watch(local_path, RecursiveMode::Recursive) {
-		error!(
-			"Unable to watch location: (path: {}, error: {e:#?})",
-			local_path.display()
-		);
+		// error!(
+		// 	"Unable to watch location: (path: {}, error: {e:#?})",
+		// 	local_path.display()
+		// );
 	} else {
 		debug!("Now watching location: (path: {})", local_path.display());
 		watched_locations.insert(location_id);

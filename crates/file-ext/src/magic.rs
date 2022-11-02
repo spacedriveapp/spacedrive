@@ -176,7 +176,7 @@ impl Extension {
 		file: &mut File,
 		always_check_magic_bytes: bool,
 	) -> Option<Extension> {
-		let ext = match Extension::from_str(dbg!(ext_str)) {
+		let ext = match Extension::from_str(ext_str) {
 			Some(e) => e,
 			None => return None,
 		};
