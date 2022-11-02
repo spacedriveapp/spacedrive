@@ -4,6 +4,9 @@ import {
 	ArrowsClockwise,
 	CaretLeft,
 	CaretRight,
+	ClockCounterClockwise,
+	Columns,
+	HourglassSimple,
 	IconProps,
 	Key,
 	List,
@@ -236,6 +239,24 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								<Rows className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>
 						</Tooltip>
+						<Tooltip label="Columns view">
+							<TopBarButton
+								rounding="none"
+								active={store.layoutMode === 'columns'}
+								onClick={() => (getExplorerStore().layoutMode = 'columns')}
+							>
+								<Columns className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
+						</Tooltip>
+						<Tooltip label="Timeline view">
+							<TopBarButton
+								rounding="none"
+								active={store.layoutMode === 'timeline'}
+								onClick={() => (getExplorerStore().layoutMode = 'timeline')}
+							>
+								<ClockCounterClockwise className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
+						</Tooltip>
 
 						<Tooltip label="Media view">
 							<TopBarButton
@@ -271,7 +292,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								active={store.tagAssignMode}
 							>
 								<Tag
-									weight={store.tagAssignMode ? 'fill' : 'bold'}
+									weight={store.tagAssignMode ? 'fill' : 'regular'}
 									className={TOP_BAR_ICON_STYLE}
 								/>
 							</TopBarButton>

@@ -261,6 +261,7 @@ pub async fn scan_location(
 		FullFileIdentifierJob {},
 	))
 	.await;
+
 	ctx.queue_job(Job::new(
 		ThumbnailJobInit {
 			location_id: location.id,

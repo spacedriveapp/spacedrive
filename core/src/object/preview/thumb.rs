@@ -113,9 +113,8 @@ impl StatefulJob for ThumbnailJob {
 			.id;
 
 		info!(
-			"Searching for images in location {} at path {}",
-			location.id,
-			state.init.root_path.display()
+			"Searching for images in location {} at directory {}",
+			location.id, parent_directory_id
 		);
 
 		// create all necessary directories if they don't exist
@@ -324,7 +323,7 @@ async fn get_files_by_extensions(
 		.find_many(vec![
 			file_path::location_id::equals(location_id),
 			file_path::extension::in_vec(extensions.iter().map(ToString::to_string).collect()),
-			file_path::parent_id::equals(Some(parent_file_path_id)),
+			// file_path::parent_id::equals(Some(parent_file_path_id)),
 		])
 		.include(file_path_with_object::include())
 		.exec()

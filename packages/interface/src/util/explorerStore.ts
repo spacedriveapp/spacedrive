@@ -3,7 +3,7 @@ import { proxy, useSnapshot } from 'valtio';
 
 import { resetStore } from '@sd/client/src/stores/util';
 
-export type ExplorerLayoutMode = 'list' | 'grid' | 'media';
+export type ExplorerLayoutMode = 'list' | 'grid' | 'media' | 'columns' | 'timeline';
 
 export enum ExplorerKind {
 	Location,

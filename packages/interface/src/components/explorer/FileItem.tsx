@@ -64,14 +64,20 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 					<FileThumb
 						className={clsx(
 							'border-4 border-white shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
-							isVid && '!border-black rounded border-x-0 border-y-[9px]'
+							isVid && '!border-black rounded border-x-0 border-y-[7px]'
 						)}
 						data={data}
 						kind={ObjectKind[objectData?.kind || 0]}
 						size={getExplorerStore().gridItemSize}
 					/>
 					{data?.extension && isVid && (
-						<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-black/60 rounded">
+						<div
+							className={clsx(
+								'absolute text-white bottom-[19px] font-semibold opacity-70 right-2 py-0.5 px-1 text-[8px] uppercase bg-black/90 rounded',
+								!objectData.has_thumbnail &&
+									'left-auto right-auto !bg-transparent !text-[12px] !bottom-3.5'
+							)}
+						>
 							{data.extension}
 						</div>
 					)}
@@ -88,35 +94,3 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 }
 
 export default FileItem;
-
-function isVideo(extension: string) {
-	return [
-		'avi',
-		'asf',
-		'mpeg',
-		'mts',
-		'mpe',
-		'vob',
-		'qt',
-		'mov',
-		'asf',
-		'asx',
-		'mjpeg',
-		'ts',
-		'mxf',
-		'm2ts',
-		'f4v',
-		'wm',
-		'3gp',
-		'm4v',
-		'wmv',
-		'mp4',
-		'webm',
-		'flv',
-		'mpg',
-		'hevc',
-		'ogv',
-		'swf',
-		'wtv'
-	].includes(extension);
-}

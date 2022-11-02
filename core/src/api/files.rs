@@ -32,6 +32,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				invalidate_query!(library, "locations.getExplorerData");
+				invalidate_query!(library, "tags.getExplorerData");
 
 				Ok(())
 			})
@@ -55,6 +56,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				invalidate_query!(library, "locations.getExplorerData");
+				invalidate_query!(library, "tags.getExplorerData");
 
 				Ok(())
 			})

@@ -23,6 +23,8 @@ import {
 } from '@sd/ui';
 import clsx from 'clsx';
 import {
+	Book,
+	Books,
 	CheckCircle,
 	CirclesFour,
 	Gear,
@@ -64,7 +66,7 @@ export function Sidebar() {
 				className="mt-2 mx-2.5"
 				// we override the sidebar dropdown item's hover styles
 				// because the dark style clashes with the sidebar
-				itemsClassName="dark:bg-sidebar-box mt-1 dark:divide-menu-selected/30"
+				itemsClassName="dark:bg-sidebar-box dark:border-sidebar-line mt-1 dark:divide-menu-selected/30 shadow-none"
 				button={
 					<Dropdown.Button
 						variant="gray"
@@ -94,11 +96,11 @@ export function Sidebar() {
 					))}
 				</Dropdown.Section>
 				<Dropdown.Section>
-					<Dropdown.Item icon={GearSix} to="settings/library">
-						Library Settings
-					</Dropdown.Item>
 					<Dropdown.Item icon={Plus} onClick={() => setIsCreateDialogOpen(true)}>
-						Add Library
+						New Library
+					</Dropdown.Item>
+					<Dropdown.Item icon={Gear} to="settings/library">
+						Manage Library
 					</Dropdown.Item>
 					<Dropdown.Item icon={Lock} onClick={() => alert('TODO: Not implemented yet!')}>
 						Lock

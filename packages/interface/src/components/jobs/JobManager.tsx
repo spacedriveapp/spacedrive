@@ -109,8 +109,8 @@ function Job({ job }: { job: JobReport }) {
 			<Tooltip label={job.status}>
 				<niceData.icon className={clsx('w-5 h-5 mr-3')} />
 			</Tooltip>
-			<div className="flex flex-col w-full ">
-				<span className="flex mt-0.5 items-center font-semibold truncate">
+			<div className="flex flex-col truncate">
+				<span className="mt-0.5 font-semibold truncate">
 					{isRunning ? job.message : niceData.name}
 				</span>
 				{isRunning && (

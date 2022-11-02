@@ -47,7 +47,7 @@ export const OverlayPanel = ({
 										'select-none cursor-default rounded-lg',
 										'text-left text-sm text-ink',
 										'bg-app-overlay/80 backdrop-blur',
-										// 'border border-app-overlay',
+										'border border-app-line',
 										'shadow-2xl shadow-black/60 ',
 										className
 									)}
