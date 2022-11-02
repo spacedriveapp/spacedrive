@@ -193,20 +193,6 @@ pub(crate) fn mount() -> RouterBuilder {
 		// this also mounts the key
 		.library_mutation("add", |t| {
 			t(|_, args: KeyAddArgs, library| async move {
-				// let algorithm = match &args.algorithm as &str {
-				// 	"XChaCha20Poly1305" => Algorithm::XChaCha20Poly1305,
-				// 	"Aes256Gcm" => Algorithm::Aes256Gcm,
-				// 	_ => unreachable!(),
-				// };
-
-				// // we need to get parameters from somewhere, possibly tie them to the hashing algorithm the user selects
-				// // we're just mapping bcrypt to argon2id temporarily as i'm unsure whether or not we're actually adding bcrypt
-				// let hashing_algorithm = match &args.hashing_algorithm as &str {
-				// 	"Argon2id" => HashingAlgorithm::Argon2id(Params::Standard),
-				// 	"Bcrypt" => HashingAlgorithm::Argon2id(Params::Standard),
-				// 	_ => unreachable!(),
-				// };
-
 				// register the key with the keymanager
 				let uuid = library.key_manager.add_to_keystore(
 					Protected::new(args.key.as_bytes().to_vec()),
