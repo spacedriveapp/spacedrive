@@ -4,6 +4,7 @@ use crate::{
 	library::LibraryContext,
 	object::{
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
+		preview::{ThumbnailJob, ThumbnailJobInit},
 		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node},
@@ -252,7 +253,6 @@ pub async fn scan_location(
 		return Err(LocationError::MissingLocalPath(location.id));
 	};
 
-	let location_id = location.id;
 	ctx.queue_job(Job::new(
 		FullFileIdentifierJobInit {
 			location_id: location.id,
@@ -261,18 +261,18 @@ pub async fn scan_location(
 		FullFileIdentifierJob {},
 	))
 	.await;
+	ctx.queue_job(Job::new(
+		ThumbnailJobInit {
+			location_id: location.id,
+			root_path: PathBuf::new(),
+			background: true,
+		},
+		ThumbnailJob {},
+	))
+	.await;
+
 	ctx.spawn_job(Job::new(IndexerJobInit { location }, IndexerJob {}))
 		.await;
-
-	// ctx.queue_job(Job::new(
-	// 	ObjectValidatorJobInit {
-	// 		location_id,
-	// 		path: PathBuf::new(),
-	// 		background: true,
-	// 	},
-	// 	ObjectValidatorJob {},
-	// ))
-	// .await;
 
 	Ok(())
 }

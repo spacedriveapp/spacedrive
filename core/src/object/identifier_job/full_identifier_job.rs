@@ -88,15 +88,6 @@ impl StatefulJob for FullFileIdentifierJob {
 		let orphan_count = count_orphan_file_paths(&library, location_id).await?;
 		info!("Found {} orphan file paths", orphan_count);
 
-		// if no file paths found, abort entire job early
-		if orphan_count == 0 {
-			return Err(JobError::EarlyFinish {
-				name: self.name().to_string(),
-				reason: "Expected orphan Paths not returned from database query for this chunk"
-					.to_string(),
-			});
-		}
-
 		let task_count = (orphan_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
 		info!(
 			"Found {} orphan Paths. Will execute {} tasks...",
@@ -149,9 +140,14 @@ impl StatefulJob for FullFileIdentifierJob {
 		// get chunk of orphans to process
 		let file_paths = get_orphan_file_paths(&library, &data.cursor, data.location.id).await?;
 
+		// if no file paths found, abort entire job early, there is nothing to do
+		// if we hit this error, there is something wrong with the data/query
 		if file_paths.is_empty() {
-			debug!("Skipping empty chunk at step {}", state.step_number);
-			return Ok(()); // no orphan paths to process in this step, proceed to the next step
+			return Err(JobError::EarlyFinish {
+				name: self.name().to_string(),
+				reason: "Expected orphan Paths not returned from database query for this chunk"
+					.to_string(),
+			});
 		}
 
 		info!(

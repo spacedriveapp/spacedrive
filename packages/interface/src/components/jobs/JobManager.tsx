@@ -37,7 +37,7 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 		icon: Camera
 	},
 	file_identifier: {
-		name: `Extracted metadata for ${numberWithCommas(job.metadata?.total_count || 0)} files`,
+		name: `Extracted metadata for ${numberWithCommas(job.metadata?.total_orphan_paths || 0)} files`,
 		icon: Eye
 	},
 	object_validator: {

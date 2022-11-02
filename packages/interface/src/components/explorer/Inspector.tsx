@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import { Link, Share } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
+import { ObjectKind } from '../../util/kind';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
 import FileThumb from './FileThumb';
@@ -48,7 +49,7 @@ export const Inspector = (props: Props) => {
 		enabled: readyToFetch
 	});
 
-	const isVid = isVideo(props.data?.extension || '');
+	const isVid = objectData?.kind === 7;
 
 	return (
 		<div
@@ -122,6 +123,8 @@ export const Inspector = (props: Props) => {
 							</>
 						)}
 						<Divider />
+						<MetaItem title="Kind" value={ObjectKind[objectData?.kind || 0]} />
+						<Divider />
 						<MetaItem
 							title="Date Created"
 							value={dayjs(props.data?.date_created).format('MMMM Do YYYY, h:mm:ss a')}
@@ -164,35 +167,3 @@ export const Inspector = (props: Props) => {
 		</div>
 	);
 };
-
-function isVideo(extension: string) {
-	return [
-		'avi',
-		'asf',
-		'mpeg',
-		'mts',
-		'mpe',
-		'vob',
-		'qt',
-		'mov',
-		'asf',
-		'asx',
-		'mjpeg',
-		'ts',
-		'mxf',
-		'm2ts',
-		'f4v',
-		'wm',
-		'3gp',
-		'm4v',
-		'wmv',
-		'mp4',
-		'webm',
-		'flv',
-		'mpg',
-		'hevc',
-		'ogv',
-		'swf',
-		'wtv'
-	].includes(extension);
-}

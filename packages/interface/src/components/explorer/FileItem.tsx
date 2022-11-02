@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
 
 import { getExplorerStore } from '../../util/explorerStore';
+import { ObjectKind } from '../../util/kind';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
 
@@ -27,7 +28,8 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	const isVid = isVideo(data.extension || '');
+	const objectData = data ? (isObject(data) ? data : data.object) : null;
+	const isVid = objectData?.kind === 7;
 
 	return (
 		<div
@@ -65,7 +67,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 							isVid && '!border-black rounded border-x-0 border-y-[9px]'
 						)}
 						data={data}
-						kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
+						kind={ObjectKind[objectData?.kind || 0]}
 						size={getExplorerStore().gridItemSize}
 					/>
 					{data?.extension && isVid && (

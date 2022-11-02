@@ -14,7 +14,11 @@ use std::{
 };
 
 use image::{self, imageops, DynamicImage, GenericImageView};
-use sd_file_ext::extensions::{Extension, ImageExtension, VideoExtension};
+use int_enum::IntEnum;
+use sd_file_ext::{
+	extensions::{Extension, ImageExtension, VideoExtension},
+	kind::ObjectKind,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, task::block_in_place};
@@ -25,14 +29,6 @@ static THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
 static THUMBNAIL_QUALITY: f32 = 30.0;
 pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
 pub const THUMBNAIL_JOB_NAME: &str = "thumbnailer";
-
-static IMAGE_EXTENSIONS: &[Extension] = &[
-	Extension::Image(ImageExtension::Png),
-	Extension::Image(ImageExtension::Jpeg),
-	Extension::Image(ImageExtension::Jpg),
-	Extension::Image(ImageExtension::Gif),
-	Extension::Image(ImageExtension::Webp),
-];
 
 pub struct ThumbnailJob {}
 
@@ -134,7 +130,12 @@ impl StatefulJob for ThumbnailJob {
 			&library_ctx,
 			state.init.location_id,
 			parent_directory_id,
-			IMAGE_EXTENSIONS,
+			&sd_file_ext::extensions::ALL_IMAGE_EXTENSIONS
+				.iter()
+				.map(Clone::clone)
+				.filter(can_generate_thumbnail_for_image)
+				.map(Extension::Image)
+				.collect::<Vec<_>>(),
 			ThumbnailJobStepKind::Image,
 		)
 		.await?;
@@ -337,4 +338,9 @@ async fn get_files_by_extensions(
 pub fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) -> bool {
 	use VideoExtension::*;
 	!matches!(video_extension, Mpg | Swf | M2v)
+}
+#[allow(unused)]
+pub fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
+	use ImageExtension::*;
+	matches!(image_extension, Jpg | Jpeg | Png | Webp | Gif)
 }

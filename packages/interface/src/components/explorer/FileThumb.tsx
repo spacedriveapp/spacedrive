@@ -15,7 +15,7 @@ interface Props {
 	className?: string;
 	style?: React.CSSProperties;
 	iconClassNames?: string;
-	kind?: 'video' | 'image' | 'audio' | 'zip' | 'other';
+	kind?: string;
 }
 
 const icons = import.meta.glob('../../../../assets/icons/*.svg');
@@ -59,12 +59,12 @@ export default function FileThumb({ data, ...props }: Props) {
 		);
 
 	// Hacky (and temporary) way to integrate thumbnails
-	if (props.kind === 'video') {
+	if (props.kind === 'Video') {
 		return (
 			<img src={videoSvg} className={clsx('w-full overflow-hidden h-full', props.iconClassNames)} />
 		);
 	}
-	if (props.kind === 'zip') {
+	if (props.kind === 'Archive') {
 		return <img src={zipSvg} className={clsx('w-full overflow-hidden h-full')} />;
 	}
 

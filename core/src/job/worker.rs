@@ -107,7 +107,9 @@ impl Worker {
 		let job_hash = job.hash();
 		let job_id = worker.report.id;
 		let old_status = worker.report.status;
+
 		worker.report.status = JobStatus::Running;
+
 		if matches!(old_status, JobStatus::Queued) {
 			worker.report.create(&ctx).await?;
 		} else {
@@ -116,8 +118,9 @@ impl Worker {
 		drop(worker);
 
 		invalidate_query!(ctx, "jobs.isRunning");
-		// spawn task to handle receiving events from the worker
+
 		let library_ctx = ctx.clone();
+		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
 			Arc::clone(&worker_mutex),
 			worker_events_rx,
