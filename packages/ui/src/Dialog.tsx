@@ -41,7 +41,7 @@ export function Dialog({ open, setOpen: onOpenChange, ...props }: DialogProps) {
 						<DialogPrimitive.Portal forceMount>
 							<DialogPrimitive.Overlay asChild>
 								<animated.div
-									className="fixed top-0 bottom-0 left-0 right-0 z-50 grid overflow-y-auto bg-app bg-opacity-50 rounded-xl place-items-center m-[1px]"
+									className="fixed top-0 bottom-0 left-0 right-0 z-50 grid overflow-y-auto bg-app-divider bg-opacity-50 rounded-xl place-items-center m-[1px]"
 									style={{
 										opacity: styles.opacity
 									}}
@@ -49,7 +49,7 @@ export function Dialog({ open, setOpen: onOpenChange, ...props }: DialogProps) {
 									<DialogPrimitive.Content forceMount asChild>
 										<animated.div
 											style={styles}
-											className="min-w-[300px] max-w-[400px] rounded-md bg-app-box border border-app-line text-ink shadow-app-shade"
+											className="min-w-[300px] max-w-[400px] rounded-md bg-app-box border border-app-line text-ink shadow-2xl shadow-app-shade/230"
 										>
 											<form
 												onSubmit={(e) => {
@@ -66,7 +66,7 @@ export function Dialog({ open, setOpen: onOpenChange, ...props }: DialogProps) {
 													</DialogPrimitive.Description>
 													{props.children}
 												</div>
-												<div className="flex flex-row justify-end px-3 py-3 space-x-2 border-t bg-app-selected border-app-line">
+												<div className="flex flex-row justify-end px-3 py-3 space-x-2 border-t bg-app/20 border-app-line">
 													{props.loading && <Loader />}
 													<div className="flex-grow" />
 													<DialogPrimitive.Close asChild>

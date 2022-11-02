@@ -26,6 +26,12 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("getHistory", |t| {
 			t(|_, _: (), library| async move { Ok(JobManager::get_history(&library).await?) })
 		})
+		.library_mutation("clearAll", |t| {
+			t(|_, _: (), library| async move {
+				JobManager::clear_all_jobs(&library).await?;
+				Ok(())
+			})
+		})
 		.library_mutation("generateThumbsForLocation", |t| {
 			#[derive(Type, Deserialize)]
 			pub struct GenerateThumbsForLocationArgs {

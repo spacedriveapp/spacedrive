@@ -264,15 +264,15 @@ pub async fn scan_location(
 	ctx.spawn_job(Job::new(IndexerJobInit { location }, IndexerJob {}))
 		.await;
 
-	ctx.queue_job(Job::new(
-		ObjectValidatorJobInit {
-			location_id,
-			path: PathBuf::new(),
-			background: true,
-		},
-		ObjectValidatorJob {},
-	))
-	.await;
+	// ctx.queue_job(Job::new(
+	// 	ObjectValidatorJobInit {
+	// 		location_id,
+	// 		path: PathBuf::new(),
+	// 		background: true,
+	// 	},
+	// 	ObjectValidatorJob {},
+	// ))
+	// .await;
 
 	Ok(())
 }

@@ -43,6 +43,7 @@ pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Err
 	}
 
 	let hex = hasher.finalize().to_hex();
-
-	Ok(hex.to_string())
+	let mut id = hex.to_string();
+	id.truncate(16);
+	Ok(id)
 }

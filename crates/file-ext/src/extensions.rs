@@ -10,6 +10,7 @@ use crate::magic::{
 
 extension_enum! {
 	Extension {
+		Document(DocumentExtension),
 		Video(VideoExtension),
 		Image(ImageExtension),
 		Audio(AudioExtension),

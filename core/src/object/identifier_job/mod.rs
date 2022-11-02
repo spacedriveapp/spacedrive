@@ -51,7 +51,7 @@ async fn assemble_object_metadata(
 			Some(ext) => {
 				let mut file = fs::File::open(&path).await?;
 
-				Extension::resolve_conflicting(ext, &mut file, true)
+				Extension::resolve_conflicting(ext, &mut file, false)
 					.await
 					.map(Into::into)
 					.unwrap_or(ObjectKind::Unknown)
@@ -68,11 +68,7 @@ async fn assemble_object_metadata(
 		"We can't generate cas_id for directories"
 	);
 
-	let cas_id = {
-		let mut ret = generate_cas_id(path, size).await?;
-		ret.truncate(16);
-		ret
-	};
+	let cas_id = generate_cas_id(path, size).await?;
 
 	Ok(object::create_unchecked(
 		cas_id,

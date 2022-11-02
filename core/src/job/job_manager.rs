@@ -1,4 +1,5 @@
 use crate::{
+	invalidate_query,
 	job::{worker::Worker, DynJob, Job, JobError},
 	library::LibraryContext,
 	location::indexer::indexer_job::{IndexerJob, INDEXER_JOB_NAME},
@@ -150,6 +151,15 @@ impl JobManager {
 			.into_iter()
 			.map(Into::into)
 			.collect())
+	}
+
+	pub async fn clear_all_jobs(
+		ctx: &LibraryContext,
+	) -> Result<(), prisma_client_rust::QueryError> {
+		ctx.db.job().delete_many(vec![]).exec().await?;
+
+		invalidate_query!(ctx, "jobs.getHistory");
+		Ok(())
 	}
 
 	pub fn shutdown_tx(&self) -> Arc<broadcast::Sender<()>> {

@@ -176,7 +176,7 @@ impl Extension {
 		file: &mut File,
 		always_check_magic_bytes: bool,
 	) -> Option<Extension> {
-		let ext = match Extension::from_str(ext_str) {
+		let ext = match Extension::from_str(dbg!(ext_str)) {
 			Some(e) => e,
 			None => return None,
 		};
@@ -190,10 +190,17 @@ impl Extension {
 						Self::Image(x) => verify_magic_bytes(x, file).await.map(Self::Image),
 						Self::Audio(x) => verify_magic_bytes(x, file).await.map(Self::Audio),
 						Self::Video(x) => verify_magic_bytes(x, file).await.map(Self::Video),
+						Self::Archive(x) => verify_magic_bytes(x, file).await.map(Self::Archive),
 						Self::Executable(x) => {
 							verify_magic_bytes(x, file).await.map(Self::Executable)
 						}
-						_ => None,
+						Self::Font(x) => verify_magic_bytes(x, file).await.map(Self::Font),
+						Self::Encrypted(x) => {
+							verify_magic_bytes(x, file).await.map(Self::Encrypted)
+						}
+						Self::Mesh(x) => verify_magic_bytes(x, file).await.map(Self::Mesh),
+						Self::Database(x) => verify_magic_bytes(x, file).await.map(Self::Database),
+						_ => Some(e),
 					}
 				} else {
 					Some(e)
