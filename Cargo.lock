@@ -5205,6 +5205,7 @@ dependencies = [
  "rspc",
  "serde",
  "serde_json",
+ "specta 0.0.4",
  "thiserror",
  "uuid 1.2.1",
  "zeroize",

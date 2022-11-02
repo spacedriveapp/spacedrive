@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use sd_crypto::{
 	crypto::stream::Algorithm,
-	keys::hashing::{HashingAlgorithm, Params},
+	keys::hashing::HashingAlgorithm,
 	Protected,
 };
 use serde::Deserialize;
@@ -14,8 +14,8 @@ use super::{utils::LibraryRequest, RouterBuilder};
 
 #[derive(Type, Deserialize)]
 pub struct KeyAddArgs {
-	algorithm: String,
-	hashing_algorithm: String,
+	algorithm: Algorithm,
+	hashing_algorithm: HashingAlgorithm,
 	key: String,
 }
 
@@ -193,25 +193,25 @@ pub(crate) fn mount() -> RouterBuilder {
 		// this also mounts the key
 		.library_mutation("add", |t| {
 			t(|_, args: KeyAddArgs, library| async move {
-				let algorithm = match &args.algorithm as &str {
-					"XChaCha20Poly1305" => Algorithm::XChaCha20Poly1305,
-					"Aes256Gcm" => Algorithm::Aes256Gcm,
-					_ => unreachable!(),
-				};
+				// let algorithm = match &args.algorithm as &str {
+				// 	"XChaCha20Poly1305" => Algorithm::XChaCha20Poly1305,
+				// 	"Aes256Gcm" => Algorithm::Aes256Gcm,
+				// 	_ => unreachable!(),
+				// };
 
-				// we need to get parameters from somewhere, possibly tie them to the hashing algorithm the user selects
-				// we're just mapping bcrypt to argon2id temporarily as i'm unsure whether or not we're actually adding bcrypt
-				let hashing_algorithm = match &args.hashing_algorithm as &str {
-					"Argon2id" => HashingAlgorithm::Argon2id(Params::Standard),
-					"Bcrypt" => HashingAlgorithm::Argon2id(Params::Standard),
-					_ => unreachable!(),
-				};
+				// // we need to get parameters from somewhere, possibly tie them to the hashing algorithm the user selects
+				// // we're just mapping bcrypt to argon2id temporarily as i'm unsure whether or not we're actually adding bcrypt
+				// let hashing_algorithm = match &args.hashing_algorithm as &str {
+				// 	"Argon2id" => HashingAlgorithm::Argon2id(Params::Standard),
+				// 	"Bcrypt" => HashingAlgorithm::Argon2id(Params::Standard),
+				// 	_ => unreachable!(),
+				// };
 
 				// register the key with the keymanager
 				let uuid = library.key_manager.add_to_keystore(
 					Protected::new(args.key.as_bytes().to_vec()),
-					algorithm,
-					hashing_algorithm,
+					args.algorithm,
+					args.hashing_algorithm,
 				)?;
 
 				let stored_key = library.key_manager.access_keystore(uuid)?;
@@ -221,16 +221,14 @@ pub(crate) fn mount() -> RouterBuilder {
 					.key()
 					.create(
 						uuid.to_string(),
-						false,
-						algorithm.serialize().to_vec(),
-						hashing_algorithm.serialize().to_vec(),
+						args.algorithm.serialize().to_vec(),
+						args.hashing_algorithm.serialize().to_vec(),
 						stored_key.salt.to_vec(),
 						stored_key.content_salt.to_vec(),
 						stored_key.master_key.to_vec(),
 						stored_key.master_key_nonce.to_vec(),
 						stored_key.key_nonce.to_vec(),
 						stored_key.key.to_vec(),
-						false,
 						vec![],
 					)
 					.exec()

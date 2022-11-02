@@ -63,6 +63,8 @@ export type Procedures = {
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string }
 };
 
+export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
+
 export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
@@ -79,6 +81,8 @@ export interface FilePath { id: number, is_dir: boolean, location_id: number, ma
 
 export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
+export type HashingAlgorithm = { Argon2id: Params }
+
 export interface IdentifyUniqueFilesArgs { id: number, path: string }
 
 export interface IndexerRule { id: number, kind: number, name: string, parameters: Array<number>, date_created: string, date_modified: string }
@@ -93,7 +97,7 @@ export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Faile
 
 export interface Key { id: number, uuid: string, name: string | null, default: boolean, date_created: string | null, algorithm: Array<number>, hashing_algorithm: Array<number>, salt: Array<number>, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, automount: boolean }
 
-export interface KeyAddArgs { algorithm: string, hashing_algorithm: string, key: string }
+export interface KeyAddArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, key: string }
 
 export interface KeyNameUpdateArgs { uuid: string, name: string }
 
@@ -128,6 +132,8 @@ export interface NormalizedVec<T> { $type: string, edges: Array<T> }
 export interface Object { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
 
 export interface ObjectValidatorArgs { id: number, path: string }
+
+export type Params = "Standard" | "Hardened" | "Paranoid"
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
