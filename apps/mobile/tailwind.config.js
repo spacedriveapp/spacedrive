@@ -1,10 +1,13 @@
+// Extented colors are copied from packages/ui/style/colors.scss
+
 module.exports = {
 	content: ['./screens/**/*.{js,ts,jsx}', './components/**/*.{js,ts,jsx}', 'App.tsx'],
 	theme: {
+		// TODO: Needs some tweaking
 		fontSize: {
 			'tiny': '.65rem',
 			'xs': '.75rem',
-			'sm': '.84rem',
+			'sm': '.80rem',
 			'base': '1rem',
 			'lg': '1.125rem',
 			'xl': '1.25rem',
@@ -17,6 +20,50 @@ module.exports = {
 		},
 		extend: {
 			colors: {
+				accent: {
+					DEFAULT: 'hsla(208, 100%, 47%, 1)',
+					faint: 'hsla(208, 100%, 64%, 1)',
+					deep: 'hsla(208, 100%, 47%, 1)'
+				},
+				ink: {
+					DEFAULT: 'hsla(230, 0%, 100%, 1)',
+					dull: 'hsla(230, 10%, 70%, 1)',
+					faint: 'hsla(230, 10%, 55%, 1)'
+				},
+				sidebar: {
+					DEFAULT: 'hsla(230, 15%, 7%, 1)',
+					box: 'hsla(230, 15%, 16%, 1)',
+					line: 'hsla(230, 15%, 23%, 1)',
+					divider: 'hsla(230, 15%, 17%, 1)',
+					button: 'hsla(230, 15%, 18%, 1)',
+					selected: 'hsla(230, 15%, 24%, 1)',
+					shade: 'hsla(230, 15%, 23%, 1)'
+				},
+				app: {
+					DEFAULT: 'hsla(230, 15%, 14%, 1)',
+					box: 'hsla(230, 15%, 19%, 1)',
+					overlay: 'hsla(230, 17%, 18%, 1)',
+					input: 'hsla(230, 15%, 20%, 1)',
+					focus: 'hsla(230, 15%, 10%, 1)',
+					line: 'hsla(230, 15%, 26%, 1)',
+					divider: 'hsla(230, 15%, 5%, 1)',
+					button: 'hsla(230, 15%, 23%, 1)',
+					selected: 'hsla(230, 15%, 27%, 1)',
+					hover: 'hsla(230, 15%, 25%, 1)',
+					active: 'hsla(230, 15%, 30%, 1)',
+					shade: 'hsla(230, 15%, 0%, 1)',
+					frame: 'hsla(230, 15%, 25%, 1)'
+				},
+				menu: {
+					DEFAULT: 'hsla(230, 25%, 5%, 1)',
+					line: 'hsla(230, 15%, 7%, 1)',
+					hover: 'hsla(230, 15%, 30%, 1)',
+					selected: 'hsla(230, 5%, 30%, 1)',
+					shade: 'hsla(230, 5%, 0%, 1)',
+					ink: 'hsla(230, 5%, 100%, 1)',
+					faint: 'hsla(230, 5%, 80%, 1)'
+				},
+				// legacy support
 				primary: {
 					DEFAULT: '#2599FF',
 					50: '#FFFFFF',

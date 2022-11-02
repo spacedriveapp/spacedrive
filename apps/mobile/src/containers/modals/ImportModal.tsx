@@ -14,10 +14,10 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 
 	const { mutate: createLocation } = useLibraryMutation('locations.create', {
-		onError: (error, variables, context) => {
+		onError: (error) => {
 			console.error(error);
 		},
-		onSettled: (data, error, variables, context) => {
+		onSettled: () => {
 			// Close the modal
 			modalRef.current?.close();
 		}
@@ -89,7 +89,6 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 		// Gets Actual Path
 		const path = (await ML.getAssetInfoAsync(assetId)).localUri;
 
-		// Permission Granted
 		const libraryPath = Platform.select({
 			android: '',
 			ios: path.replace('file://', '').split('Media/DCIM/')[0] + 'Media/DCIM/'
@@ -100,10 +99,10 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 			indexer_rules_ids: []
 		});
 
-		const assets = await ML.getAssetsAsync({ mediaType: ML.MediaType.photo });
-		assets.assets.map(async (i) => {
-			console.log((await ML.getAssetInfoAsync(i)).localUri);
-		});
+		// const assets = await ML.getAssetsAsync({ mediaType: ML.MediaType.photo });
+		// assets.assets.map(async (i) => {
+		// 	console.log((await ML.getAssetInfoAsync(i)).localUri);
+		// });
 	}, [createLocation]);
 
 	// const testFN = useCallback(async () => {
