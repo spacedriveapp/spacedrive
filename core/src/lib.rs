@@ -12,7 +12,7 @@ use tokio::{
 	sync::broadcast,
 };
 use tracing::{error, info};
-use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub mod api;
 pub(crate) mod job;
@@ -39,11 +39,15 @@ pub struct Node {
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 }
 
-#[cfg(debug_assertions)]
-const CONSOLE_LOG_FILTER: LevelFilter = LevelFilter::DEBUG;
+#[cfg(not(feature = "android"))]
+const CONSOLE_LOG_FILTER: tracing_subscriber::filter::LevelFilter = {
+	use tracing_subscriber::filter::LevelFilter;
 
-#[cfg(not(debug_assertions))]
-const CONSOLE_LOG_FILTER: LevelFilter = LevelFilter::INFO;
+	match cfg!(debug_assertions) {
+		true => LevelFilter::DEBUG,
+		false => LevelFilter::INFO,
+	}
+};
 
 impl Node {
 	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
@@ -91,7 +95,7 @@ impl Node {
 			    // ),
 		);
 		#[cfg(not(feature = "android"))]
-		let subscriber = subscriber.with(fmt::layer().with_filter(CONSOLE_LOG_FILTER));
+		let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_filter(CONSOLE_LOG_FILTER));
 		#[cfg(feature = "android")]
 		let subscriber = subscriber.with(tracing_android::layer("com.spacedrive.app").unwrap()); // TODO: This is not working
 		subscriber

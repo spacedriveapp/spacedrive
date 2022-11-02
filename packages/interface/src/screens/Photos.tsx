@@ -1,5 +1,3 @@
-import Spline from '@splinetool/react-spline';
-
 export default function PhotosScreen() {
 	return (
 		<div className="flex flex-col w-full h-screen p-5 custom-scroll page-scroll app-background">

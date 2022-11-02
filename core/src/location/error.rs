@@ -32,6 +32,8 @@ pub enum LocationError {
 	AddLibraryToMetadata(PathBuf),
 	#[error("Location metadata file not found: (path: {0:?})")]
 	MetadataNotFound(PathBuf),
+	#[error("Location already exists (path: {0:?})")]
+	LocationAlreadyExists(PathBuf),
 
 	// Internal Errors
 	#[error("Location metadata error (error: {0:?})")]

@@ -1,19 +1,21 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
 import { proxy, subscribe, useSnapshot } from 'valtio';
 
-import { getExplorerStore, useBridgeQuery } from '../index';
+import { useBridgeQuery } from '../rspc';
+import { valtioPersist } from '../stores';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
 
-const activeLibraryLocalStorageKey = 'sd-active-library';
-
 type OnNoLibraryFunc = () => void | Promise<void>;
 
 // Keep this private and use `useCurrentLibrary` hook to access or mutate it
-const currentLibraryUuidStore = proxy({
-	id: localStorage.getItem(activeLibraryLocalStorageKey) as string | null
+const currentLibraryUuidStore = valtioPersist('sdActiveLibrary', {
+	id: null as string | null
 });
+
+// Cringe method to get rspc working on mobile.
+export const mobileSync = currentLibraryUuidStore;
 
 const CringeContext = createContext<{
 	onNoLibrary: OnNoLibraryFunc;
@@ -68,8 +70,6 @@ export const useCurrentLibrary = () => {
 
 	const switchLibrary = useCallback((libraryUuid: string) => {
 		currentLibraryUuidStore.id = libraryUuid;
-		localStorage.setItem(activeLibraryLocalStorageKey, libraryUuid);
-		getExplorerStore().reset();
 	}, []);
 
 	// memorize library to avoid re-running find function

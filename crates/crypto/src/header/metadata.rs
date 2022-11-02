@@ -174,7 +174,10 @@ impl Metadata {
 				metadata.extend_from_slice(&self.algorithm.serialize()); // 4
 				metadata.extend_from_slice(&self.metadata_nonce); // 24 max
 				metadata.extend_from_slice(&vec![0u8; 24 - self.metadata_nonce.len()]); // 28
-				metadata.extend_from_slice(&self.metadata.len().to_le_bytes()); // 36 total bytes
+
+				let metadata_len = self.metadata.len() as u64;
+
+				metadata.extend_from_slice(&metadata_len.to_le_bytes()); // 36 total bytes
 				metadata.extend_from_slice(&self.metadata); // this can vary in length
 				metadata
 			}
@@ -210,9 +213,10 @@ impl Metadata {
 				let mut metadata_length = [0u8; 8];
 				reader.read(&mut metadata_length).map_err(Error::Io)?;
 
-				let metadata_length: usize = usize::from_le_bytes(metadata_length);
+				let metadata_length = u64::from_le_bytes(metadata_length);
 
-				let mut metadata = vec![0u8; metadata_length];
+				#[allow(clippy::cast_possible_truncation)]
+				let mut metadata = vec![0u8; metadata_length as usize];
 				reader.read(&mut metadata).map_err(Error::Io)?;
 
 				let metadata = Self {
