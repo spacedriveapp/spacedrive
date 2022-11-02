@@ -4,11 +4,13 @@ Thank you for investing your time in contributing to our project!
 
 Read our [Code of Conduct](./CODE_OF_CONDUCT.md) to keep our community approachable and respectable.
 
-In this guide you will get an overview of the contribution workflow from opening an issue, creating a PR, reviewing, and merging the PR.
+In this guide you will get an overview of the contribution workflow from opening an issue, creating a PR, reviewing, and
+merging the PR.
 
 ## New contributor guide
 
-To get an overview of the project, read the [README](README.md). Here are some resources to help you get started with open source contributions:
+To get an overview of the project, read the [README](README.md). Here are some resources to help you get started with
+open source contributions:
 
 - [Finding ways to contribute to open source on GitHub](https://docs.github.com/en/get-started/exploring-projects-on-github/finding-ways-to-contribute-to-open-source-on-github)
 - [Set up Git](https://docs.github.com/en/get-started/quickstart/set-up-git)
@@ -23,27 +25,35 @@ To get an overview of the project, read the [README](README.md). Here are some r
 
 #### Create a new issue
 
-If you find an issue with the repository or have a feature request with Spacedrive, [search if an issue already exists](https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-issues-and-pull-requests#search-by-the-title-body-or-comments). If a related issue doesn't exist, you can open a new issue using a relevant [issue form](https://github.com/spacedriveapp/spacedrive/issues/new/choose).
+If you find an issue with the repository or have a feature request with
+Spacedrive, [search if an issue already exists](https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-issues-and-pull-requests#search-by-the-title-body-or-comments).
+If a related issue doesn't exist, you can open a new issue using a
+relevant [issue form](https://github.com/spacedriveapp/spacedrive/issues/new/choose).
 
 #### Solve an issue
 
-Scan through our [existing issues](https://github.com/spacedriveapp/spacedrive/issues) to find one that interests you. You can narrow down the search using `labels` as filters. See [Labels](https://github.com/spacedriveapp/spacedrive/labels) for more information. As a general rule. If you find an issue to work on, you are welcome to open a PR with a fix.
+Scan through our [existing issues](https://github.com/spacedriveapp/spacedrive/issues) to find one that interests you.
+You can narrow down the search using `labels` as filters.
+See [Labels](https://github.com/spacedriveapp/spacedrive/labels) for more information. As a general rule. If you find an
+issue to work on, you are welcome to open a PR with a fix.
 
 ### Make Changes
 
 #### Make changes locally
 
-This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
+This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+and [pnpm](https://pnpm.io/installation). Ensure you have them installed before continuing.
 
-> Note: MacOS M1 users should choose the customize option in the rustup init script and enter `x86_64-apple-darwin` as the default host triple instead of the default `aarch64-apple-darwin`
+> Note: MacOS M1 users should choose the customize option in the rustup init script and enter `x86_64-apple-darwin` as
+> the default host triple instead of the default `aarch64-apple-darwin`
 
 - `git clone https://github.com/spacedriveapp/spacedrive`
 - `cd spacedrive`
 - For Linux or MacOS users run: `./.github/scripts/setup-system.sh`
-  - This will install FFmpeg and any other required dependencies for Spacedrive to build.
+    - This will install FFmpeg and any other required dependencies for Spacedrive to build.
 - For Windows users run using PowerShell: `.\.github\scripts\setup-system.ps1`
-  - This will install pnpm, LLVM, FFmpeg and any other required dependencies for Spacedrive to build.
-  - Ensure you run it like documented above as it expects it is executed from the root of the repository.
+    - This will install pnpm, LLVM, FFmpeg and any other required dependencies for Spacedrive to build.
+    - Ensure you run it like documented above as it expects it is executed from the root of the repository.
 - `pnpm i`
 - `pnpm prep` - Runs all necessary codegen & builds required dependencies.
 
@@ -65,10 +75,13 @@ If you are having issues ensure you are using the following versions of Rust and
 
 To run mobile app
 
-- Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for IOS development
+- Install [Android Studio](https://developer.android.com/studio) for Android
+  and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for IOS development
 - `./.github/scripts/setup-system.sh mobile`
-  - The should setup most of the dependencies for the mobile app to build.
-- You must also ensure [you must have NDK 24.0.8215888 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) in Android Studio
+    - The should setup most of the dependencies for the mobile app to build.
+- You must also
+  ensure [you must have NDK 24.0.8215888 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version)
+  in Android Studio
 - `cd apps/mobile && pnpm i` - This is a separate workspace, you need to do this!
 - `pnpm android` - runs on Android Emulator
 - `pnpm ios` - runs on iOS Emulator
@@ -78,13 +91,25 @@ To run mobile app
 
 When you're finished with the changes, create a pull request, also known as a PR.
 
-- Fill the "Ready for review" template so that we can review your PR. This template helps reviewers understand your changes as well as the purpose of your pull request.
-- Don't forget to [link PR to issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue) if you are solving one.
-- Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so the branch can be updated for a merge.
-  Once you submit your PR, a team member will review your proposal. We may ask questions or request for additional information.
-- We may ask for changes to be made before a PR can be merged, either using [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request) or pull request comments. You can apply suggested changes directly through the UI. You can make any other changes in your fork, then commit them to your branch.
-- As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
-- If you run into any merge issues, checkout this [git tutorial](https://lab.github.com/githubtraining/managing-merge-conflicts) to help you resolve merge conflicts and other issues.
+- Fill the "Ready for review" template so that we can review your PR. This template helps reviewers understand your
+  changes as well as the purpose of your pull request.
+- Don't forget
+  to [link PR to issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)
+  if you are solving one.
+- Enable the checkbox
+  to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork)
+  so the branch can be updated for a merge.
+  Once you submit your PR, a team member will review your proposal. We may ask questions or request for additional
+  information.
+- We may ask for changes to be made before a PR can be merged, either
+  using [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request)
+  or pull request comments. You can apply suggested changes directly through the UI. You can make any other changes in
+  your fork, then commit them to your branch.
+- As you update your PR and apply changes, mark each conversation
+  as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
+- If you run into any merge issues, checkout
+  this [git tutorial](https://lab.github.com/githubtraining/managing-merge-conflicts) to help you resolve merge
+  conflicts and other issues.
 
 ### Your PR is merged!
 
@@ -104,4 +129,6 @@ You either don't have Xcode installed, or don't have the Xcode command line tool
 
 ### Credits
 
-This CONTRIBUTING.md file was modelled after the [github/docs CONTRIBUTING.md](https://github.com/github/docs/blob/main/CONTRIBUTING.md) file, and we thank the original author.
+This CONTRIBUTING.md file was modelled after
+the [github/docs CONTRIBUTING.md](https://github.com/github/docs/blob/main/CONTRIBUTING.md) file, and we thank the
+original author.
