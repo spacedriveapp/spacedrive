@@ -31,7 +31,7 @@ importers:
       '@rspc/client': ^0.0.0-main-7c0a67c1
       '@rspc/tauri': ^0.0.0-main-7c0a67c1
       '@sd/client': workspace:*
-      '@sd/config': workspace:^0.0.0
+      '@sd/config': workspace:*
       '@sd/interface': workspace:*
       '@sd/ui': workspace:*
       '@tauri-apps/api': 1.1.0
@@ -279,7 +279,7 @@ importers:
       '@fontsource/inter': ^4.5.13
       '@rspc/client': ^0.0.0-main-7c0a67c1
       '@sd/client': workspace:*
-      '@sd/config': workspace:^0.0.0
+      '@sd/config': workspace:*
       '@sd/interface': workspace:*
       '@sd/ui': workspace:*
       '@tanstack/react-query': ^4.12.0
