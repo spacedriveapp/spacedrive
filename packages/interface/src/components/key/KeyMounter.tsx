@@ -24,7 +24,7 @@ export function KeyMounter() {
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
 
-	const { mutate: createKey } = useLibraryMutation('keys.add');
+	const createKey = useLibraryMutation('keys.add');
 	const CurrentEyeIcon = showKey ? EyeSlash : Eye;
 
 	// this keeps the input focused when switching tabs
@@ -109,7 +109,7 @@ export function KeyMounter() {
 						break;
 				}
 
-				createKey({algorithm, hashing_algorithm, key });
+				createKey.mutate({algorithm, hashing_algorithm, key });
 				setKey("");
 			}
 			}>
