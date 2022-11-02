@@ -43,55 +43,54 @@ export const KeyDropdown = ({
 	const [open, setOpen] = useState(false);
 
 	const transitions = useTransition(open, {
-		from: {
-			opacity: 0,
-			transform: `scale(0.9)`,
-			transformOrigin: transformOrigin || 'top'
-		},
-		enter: { opacity: 1, transform: 'scale(1)' },
-		leave: { opacity: -0.5, transform: 'scale(0.95)' },
-		config: { mass: 0.4, tension: 200, friction: 10 }
+	  from: {
+		opacity: 0,
+		transform: `scale(0.9)`,
+		transformOrigin: transformOrigin || "top",
+	  },
+	  enter: { opacity: 1, transform: "scale(1)" },
+	  leave: { opacity: -0.5, transform: "scale(0.95)" },
+	  config: { mass: 0.4, tension: 200, friction: 10 },
 	});
-
+	
 	return (
-		<DropdownMenu.Root open={open} onOpenChange={setOpen}>
-		<DropdownMenu.Trigger>
-			{trigger}
-		</DropdownMenu.Trigger>
+	  <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+		<DropdownMenu.Trigger>{trigger}</DropdownMenu.Trigger>
 		{transitions(
-				(styles, show) =>
-					show && (
-		<DropdownMenu.Portal forceMount>
-			<DropdownMenu.Content forceMount asChild>
-				<animated.div
+		  (styles, show) =>
+			show && (
+			  <DropdownMenu.Portal forceMount>
+				<DropdownMenu.Content forceMount asChild>
+				  <animated.div
 					// most of this is copied over from the `OverlayPanel`
 					className={clsx(
-						'flex flex-col',
-						'pl-4 pr-4 pt-2 pb-2 z-50 m-2 space-y-1',
-						'select-none cursor-default rounded-lg',
-						'text-left text-sm text-ink',
-						'bg-app-overlay/80 backdrop-blur',
-						// 'border border-app-overlay',
-						'shadow-2xl shadow-black/60 ',
-						className
+					  "flex flex-col",
+					  "pl-4 pr-4 pt-2 pb-2 z-50 m-2 space-y-1",
+					  "select-none cursor-default rounded-lg",
+					  "text-left text-sm text-ink",
+					  "bg-app-overlay/80 backdrop-blur",
+					  // 'border border-app-overlay',
+					  "shadow-2xl shadow-black/60 ",
+					  className
 					)}
 					style={styles}
-				>
-				{children}
-				</animated.div>
-			</DropdownMenu.Content>
-		</DropdownMenu.Portal>
-		))}
-		</DropdownMenu.Root>
-	);
+				  >
+					{children}
+				  </animated.div>
+				</DropdownMenu.Content>
+			  </DropdownMenu.Portal>
+			)
+		)}
+	  </DropdownMenu.Root>
+	);	
 };
 
 
 export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => {
-	const { mutate: mountKey } = useLibraryMutation('keys.mount');
-	const { mutate: unmountKey } = useLibraryMutation('keys.unmount');
-	const { mutate: deleteKey } = useLibraryMutation('keys.deleteFromLibrary');
-	const { mutate: setDefaultKey } = useLibraryMutation('keys.setDefault');
+	const mountKey = useLibraryMutation('keys.mount');
+	const unmountKey = useLibraryMutation('keys.unmount');
+	const deleteKey = useLibraryMutation('keys.deleteFromLibrary');
+	const setDefaultKey = useLibraryMutation('keys.setDefault');
 
 	return (
 		<div
@@ -149,17 +148,17 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 						<DotsThree className="w-4 h-4 text-ink-faint" />
 					</Button> }>
 					{data.mounted && (
-						<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => { unmountKey(data.id) }}>Unmount</DropdownMenu.DropdownMenuItem>
+						<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => { unmountKey.mutate(data.id) }}>Unmount</DropdownMenu.DropdownMenuItem>
 					)}
 
 					{!data.mounted && (
-						<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => { mountKey(data.id) }}>Mount</DropdownMenu.DropdownMenuItem>
+						<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => { mountKey.mutate(data.id) }}>Mount</DropdownMenu.DropdownMenuItem>
 					)}
 
-					<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => { deleteKey(data.id) }}>Delete from Library</DropdownMenu.DropdownMenuItem>
+					<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => { deleteKey.mutate(data.id) }}>Delete from Library</DropdownMenu.DropdownMenuItem>
 
 					{!data.default && (
-						<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => { setDefaultKey(data.id) }}>Set as Default</DropdownMenu.DropdownMenuItem>
+						<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => { setDefaultKey.mutate(data.id) }}>Set as Default</DropdownMenu.DropdownMenuItem>
 					)}
 				</KeyDropdown>
 			</div>

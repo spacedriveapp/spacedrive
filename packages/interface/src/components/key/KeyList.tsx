@@ -4,6 +4,7 @@ import { Button, CategoryHeading } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { Key } from './Key';
 import type { Key as QueryKey } from '@sd/client';
+import { useMemo } from 'react';
 
 export type KeyListProps = DefaultProps;
 
@@ -12,8 +13,18 @@ const ListKeys = () => {
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
 	const default_key = useLibraryQuery(['keys.getDefault']);
 
-	const mountedKeys: QueryKey[] = keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? []
-	const unmountedKeys: QueryKey[] = keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? []
+	const mountedKeys = useMemo(
+		() => keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? [],
+		[keys, mounted_uuids]
+	);
+
+	const unmountedKeys = useMemo(
+		() => 	keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? [],
+		[keys, mounted_uuids]
+	);
+
+	//const mountedKeys: QueryKey[] = keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? []
+	//const unmountedKeys: QueryKey[] = keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? []
 
 	if(keys.data?.length === 0) {
 		return (
