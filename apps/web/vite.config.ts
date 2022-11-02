@@ -13,9 +13,9 @@ export default defineConfig({
 		port: 8002
 	},
 	plugins: [
+		tsconfigPaths(),
 		react(),
 		svg({ svgrOptions: { icon: true } }),
-		tsconfigPaths(),
 		createHtmlPlugin({
 			minify: true
 		}),
@@ -25,7 +25,6 @@ export default defineConfig({
 		})
 	],
 	root: 'src',
-	publicDir: '../../packages/interface/src/assets',
 	define: {
 		pkgJson: { name, version }
 	},

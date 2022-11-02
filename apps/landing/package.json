@@ -14,7 +14,6 @@
 		"@icons-pack/react-simple-icons": "^5.8.0",
 		"@sd/assets": "workspace:*",
 		"@sd/docs": "workspace:*",
-		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@tryghost/content-api": "^1.11.4",
 		"@vitejs/plugin-react": "^2.1.0",
@@ -59,6 +58,7 @@
 		"tailwind": "^4.0.0",
 		"vite-plugin-esmodule": "^1.4.4",
 		"vite-plugin-markdown": "^2.1.0",
-		"vite-plugin-svgr": "^2.2.1"
+		"vite-plugin-svgr": "^2.2.1",
+		"vite-tsconfig-paths": "^3.5.2"
 	}
 }

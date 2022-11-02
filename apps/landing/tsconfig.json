@@ -1,9 +1,6 @@
 {
-	"extends": "../../packages/config/interface.tsconfig.json",
+	"extends": "@sd/config/interface.tsconfig.json",
 	"include": ["src"],
-	"compilerOptions": {
-		"target": "es2020"
-	},
 	"ts-node": {
 		"transpileOnly": true,
 		"compilerOptions": {
