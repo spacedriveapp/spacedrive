@@ -44,12 +44,12 @@ const SearchScreen = ({ navigation }: RootStackScreenProps<'Search'>) => {
 				</View>
 				{/* Cancel Button */}
 				<Pressable onPress={() => navigation.goBack()}>
-					<Text style={tw`text-primary-500`}>Cancel</Text>
+					<Text style={tw`text-accent`}>Cancel</Text>
 				</Pressable>
 			</View>
 			{/* Content */}
 			<View style={tw`flex-1 items-center mt-8`}>
-				<Button variant="primary" onPress={() => setLoading((v) => !v)}>
+				<Button variant="accent" onPress={() => setLoading((v) => !v)}>
 					<Text>Toggle loading</Text>
 				</Button>
 			</View>

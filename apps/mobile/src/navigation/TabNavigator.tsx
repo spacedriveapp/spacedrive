@@ -1,12 +1,12 @@
 import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
-import { Camera, CirclesFour, Folder, Planet } from 'phosphor-react-native';
+import { CirclesFour, Planet, ShareNetwork } from 'phosphor-react-native';
+import React from 'react';
 import tw from '~/lib/tailwind';
 
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
-import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
+import NodesStack, { NodesStackParamList } from './tabs/NodesStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';
-import PhotosStack, { PhotosStackParamList } from './tabs/PhotosStack';
 import SpacesStack, { SpacesStackParamList } from './tabs/SpacesStack';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -18,10 +18,10 @@ export default function TabNavigator() {
 			screenOptions={{
 				headerShown: false,
 				tabBarActiveTintColor: tw.color('primary'),
-				tabBarInactiveTintColor: 'white',
+				tabBarInactiveTintColor: tw.color('ink'),
 				tabBarStyle: {
-					backgroundColor: tw.color('gray-650'),
-					borderTopColor: tw.color('gray-600')
+					backgroundColor: tw.color('menu'),
+					borderTopColor: tw.color('menu-shade')
 				}
 			}}
 		>
@@ -30,19 +30,19 @@ export default function TabNavigator() {
 				component={OverviewStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
-						<Planet size={22} weight="bold" color={focused ? tw.color('bg-primary') : 'white'} />
+						<Planet size={20} color={focused ? tw.color('accent') : tw.color('ink')} />
 					),
 					tabBarLabel: 'Overview'
 				}}
 			/>
 			<Tab.Screen
-				name="BrowseStack"
-				component={BrowseStack}
+				name="NodesStack"
+				component={NodesStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
-						<Folder size={22} weight="bold" color={focused ? tw.color('bg-primary') : 'white'} />
+						<ShareNetwork size={20} color={focused ? tw.color('accent') : tw.color('ink')} />
 					),
-					tabBarLabel: 'Browse'
+					tabBarLabel: 'Nodes'
 				}}
 			/>
 			<Tab.Screen
@@ -50,23 +50,9 @@ export default function TabNavigator() {
 				component={SpacesStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
-						<CirclesFour
-							size={22}
-							weight="bold"
-							color={focused ? tw.color('bg-primary') : 'white'}
-						/>
+						<CirclesFour size={20} color={focused ? tw.color('accent') : tw.color('ink')} />
 					),
 					tabBarLabel: 'Spaces'
-				}}
-			/>
-			<Tab.Screen
-				name="PhotosStack"
-				component={PhotosStack}
-				options={{
-					tabBarIcon: ({ focused }) => (
-						<Camera size={22} weight="bold" color={focused ? tw.color('bg-primary') : 'white'} />
-					),
-					tabBarLabel: 'Photos'
 				}}
 			/>
 		</Tab.Navigator>
@@ -75,9 +61,8 @@ export default function TabNavigator() {
 
 export type TabParamList = {
 	OverviewStack: NavigatorScreenParams<OverviewStackParamList>;
-	BrowseStack: NavigatorScreenParams<BrowseStackParamList>;
+	NodesStack: NavigatorScreenParams<NodesStackParamList>;
 	SpacesStack: NavigatorScreenParams<SpacesStackParamList>;
-	PhotosStack: NavigatorScreenParams<PhotosStackParamList>;
 };
 
 export type TabScreenProps<Screen extends keyof TabParamList> = CompositeScreenProps<

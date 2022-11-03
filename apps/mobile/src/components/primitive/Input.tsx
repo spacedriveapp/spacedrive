@@ -6,7 +6,7 @@ import tw from '~/lib/tailwind';
 const input = cva(['text-sm rounded-md border shadow-sm'], {
 	variants: {
 		variant: {
-			default: 'bg-gray-550 border-gray-500 text-white'
+			default: 'bg-app border-app-line text-ink'
 		},
 		size: {
 			default: ['py-2', 'px-3']
@@ -24,7 +24,7 @@ export const TextInput: FC<InputProps> = ({ variant, ...props }) => {
 	const { style, ...otherProps } = props;
 	return (
 		<RNTextInput
-			placeholderTextColor={tw.color('gray-300')}
+			placeholderTextColor={tw.color('ink-dull')}
 			style={tw.style(input({ variant }), style as string)}
 			{...otherProps}
 		/>

@@ -30,7 +30,8 @@ module.exports = {
 					dull: 'hsla(230, 10%, 70%, 1)',
 					faint: 'hsla(230, 10%, 55%, 1)'
 				},
-				sidebar: {
+				// 'sidebar' on desktop
+				drawer: {
 					DEFAULT: 'hsla(230, 15%, 7%, 1)',
 					box: 'hsla(230, 15%, 16%, 1)',
 					line: 'hsla(230, 15%, 23%, 1)',

@@ -2,17 +2,17 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
 import Header from '~/components/header/Header';
 import tw from '~/lib/tailwind';
-import BrowseScreen from '~/screens/Browse';
+import NodesScreen from '~/screens/Nodes';
 
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 
-const Stack = createStackNavigator<BrowseStackParamList>();
+const Stack = createStackNavigator<NodesStackParamList>();
 
-export default function BrowseStack() {
+export default function NodesStack() {
 	return (
 		<Stack.Navigator
-			initialRouteName="Browse"
+			initialRouteName="Nodes"
 			screenOptions={{
 				headerStyle: { backgroundColor: tw.color('gray-650') },
 				headerTintColor: tw.color('gray-200'),
@@ -20,18 +20,17 @@ export default function BrowseStack() {
 				headerBackTitleStyle: tw`text-base`
 			}}
 		>
-			<Stack.Screen name="Browse" component={BrowseScreen} options={{ header: Header }} />
+			<Stack.Screen name="Nodes" component={NodesScreen} options={{ header: Header }} />
 			{SharedScreens(Stack as any)}
 		</Stack.Navigator>
 	);
 }
 
-export type BrowseStackParamList = {
-	Browse: undefined;
+export type NodesStackParamList = {
+	Nodes: undefined;
 } & SharedScreensParamList;
 
-export type BrowseStackScreenProps<Screen extends keyof BrowseStackParamList> =
-	CompositeScreenProps<
-		StackScreenProps<BrowseStackParamList, Screen>,
-		TabScreenProps<'BrowseStack'>
-	>;
+export type NodesStackScreenProps<Screen extends keyof NodesStackParamList> = CompositeScreenProps<
+	StackScreenProps<NodesStackParamList, Screen>,
+	TabScreenProps<'NodesStack'>
+>;

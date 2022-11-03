@@ -26,7 +26,8 @@ const NavigatorTheme: Theme = {
 	...DefaultTheme,
 	colors: {
 		...DefaultTheme.colors,
-		background: tw.color('gray-650')
+		// Default screen background
+		background: tw.color('app')
 	}
 };
 
@@ -38,7 +39,7 @@ function AppContainer() {
 
 	const { library } = useCurrentLibrary();
 	return (
-		<SafeAreaProvider style={tw`flex-1 bg-gray-650`}>
+		<SafeAreaProvider style={tw`flex-1 bg-app`}>
 			<GestureHandlerRootView style={tw`flex-1`}>
 				<BottomSheetModalProvider>
 					<StatusBar style="light" />
