@@ -1,4 +1,3 @@
-import { getExplorerStore, useExplorerStore, useLibraryMutation } from '@sd/client';
 import { Button, Input, OverlayPanel, cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -19,6 +18,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
+import { getExplorerStore, useExplorerStore } from '../../util/explorerStore';
 import { KeybindEvent } from '../../util/keybind';
 import { KeyManager } from '../key/KeyManager';
 import { Shortcut } from '../primitive/Shortcut';

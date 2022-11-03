@@ -1,12 +1,15 @@
-import { Text, View } from 'react-native';
-import tw from '~/lib/tailwind';
+import { useEffect } from 'react';
+import Explorer from '~/components/explorer/Explorer';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
+import { getExplorerStore } from '~/stores/explorerStore';
 
 export default function LocationScreen({ navigation, route }: SharedScreenProps<'Location'>) {
-	const { id } = route.params;
-	return (
-		<View style={tw`items-center justify-center flex-1`}>
-			<Text style={tw`text-xl font-bold text-white`}>Location {id}</Text>
-		</View>
-	);
+	const { id, path } = route.params;
+
+	useEffect(() => {
+		// Not sure why we do this.
+		getExplorerStore().locationId = id;
+	}, [id]);
+
+	return <Explorer locationId={id} path={path} />;
 }

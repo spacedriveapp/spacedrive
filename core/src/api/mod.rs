@@ -113,6 +113,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
+
 	r
 }
 

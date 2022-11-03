@@ -1,8 +1,9 @@
-import { ExplorerItem, getExplorerStore } from '@sd/client';
+import { ExplorerItem } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
 
+import { getExplorerStore } from '../../util/explorerStore';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
 
