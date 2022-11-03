@@ -28,9 +28,7 @@ pub struct KeyNameUpdateArgs {
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_query("list", |t| {
-			t(
-				|_, _: (), library| async move { Ok(library.db.key().find_many(vec![]).exec().await?) },
-			)
+			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore()) },)
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {

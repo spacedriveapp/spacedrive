@@ -49,6 +49,9 @@ use crate::{
 use crate::{Error, Result};
 
 use dashmap::DashMap;
+use serde::Serialize;
+use serde_big_array::BigArray;
+use specta::Type;
 use uuid::Uuid;
 
 use super::hashing::HashingAlgorithm;
@@ -60,19 +63,37 @@ use super::hashing::HashingAlgorithm;
 // The `hashed_key` refers to the value you'd pass to PVM/MD decryption functions. It has been pre-hashed with the content salt.
 // The content salt refers to the semi-universal salt that's used for metadata/preview media (unique to each key in the manager)
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Type, Serialize)]
 pub struct StoredKey {
 	pub uuid: uuid::Uuid,     // uuid for identification. shared with mounted keys
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm to use for hashing everything related to this key. can't be changed once set.
 	pub salt: [u8; SALT_LEN],                // salt to hash the master password with
 	pub content_salt: [u8; SALT_LEN],        // salt used for file data
+	#[serde(with = "BigArray")]
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is for encrypting the `key`
 	pub master_key_nonce: Vec<u8>,           // nonce for encrypting the master key
 	pub key_nonce: Vec<u8>,                  // nonce used for encrypting the main key
 	pub key: Vec<u8>, // encrypted. the key stored in spacedrive (e.g. generated 64 char key)
 }
 
+/// This is a mounted key, and needs to be kept somewhat hidden.
+///
+/// This contains the plaintext key, and the same key hashed with the content salt.
+#[derive(Clone)]
+pub struct MountedKey {
+	pub uuid: Uuid,                   // used for identification. shared with stored keys
+	pub key: Protected<Vec<u8>>, // the actual key itself, text format encodable (so it can be viewed with an UI)
+	pub content_salt: [u8; SALT_LEN], // the salt used for file data
+	pub hashed_key: Protected<[u8; 32]>, // this is hashed with the content salt, for instant access
+}
+
+
+/// This is the key manager itself.
+/// 
+/// It contains the keystore, the keymount, the master password and the default key.
+/// 
+/// Use the associated functions to interact with it.
 pub struct KeyManager {
 	master_password: Mutex<Option<Protected<Vec<u8>>>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
 	keystore: DashMap<Uuid, StoredKey>,
@@ -405,15 +426,4 @@ impl KeyManager {
 		// Return the ID so it can be identified
 		Ok(uuid)
 	}
-}
-
-/// This is a mounted key, and needs to be kept somewhat hidden.
-///
-/// This contains the plaintext key, and the same key hashed with the content salt.
-#[derive(Clone)]
-pub struct MountedKey {
-	pub uuid: Uuid,                   // used for identification. shared with stored keys
-	pub key: Protected<Vec<u8>>, // the actual key itself, text format encodable (so it can be viewed with an UI)
-	pub content_salt: [u8; SALT_LEN], // the salt used for file data
-	pub hashed_key: Protected<[u8; 32]>, // this is hashed with the content salt, for instant access
 }
