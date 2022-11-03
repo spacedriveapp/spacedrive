@@ -125,7 +125,7 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 
 	return (
 		<Modal ref={modalRef} snapPoints={['20%']}>
-			<View style={tw`flex-1 px-6 pt-1 pb-2 bg-gray-600`}>
+			<View style={tw`flex-1 px-6 pt-1 pb-2 bg-app-box`}>
 				{/* <Button size="md" variant="accent" style={tw`my-2`} onPress={testFN}>
 					<Text>TEST</Text>
 				</Button> */}

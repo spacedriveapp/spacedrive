@@ -29,7 +29,7 @@ const CollapsibleView = ({ title, titleStyle, containerStyle, children }: Collap
 					}}
 					transition={{ type: 'timing' }}
 				>
-					<CaretRight color={tw.color('gray-200')} size={16} style={tw`mr-3`} />
+					<CaretRight color={tw.color('ink-dull')} size={16} style={tw`mr-3`} />
 				</MotiView>
 			</Pressable>
 			<AnimatedHeight hide={hide}>{children}</AnimatedHeight>

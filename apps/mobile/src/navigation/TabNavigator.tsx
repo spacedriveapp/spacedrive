@@ -30,9 +30,14 @@ export default function TabNavigator() {
 				component={OverviewStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
-						<Planet size={20} color={focused ? tw.color('accent') : tw.color('ink')} />
+						<Planet
+							size={22}
+							weight={focused ? 'bold' : 'regular'}
+							color={focused ? tw.color('accent') : tw.color('ink')}
+						/>
 					),
-					tabBarLabel: 'Overview'
+					tabBarLabel: 'Overview',
+					tabBarLabelStyle: tw`font-semibold text-tiny`
 				}}
 			/>
 			<Tab.Screen
@@ -40,9 +45,14 @@ export default function TabNavigator() {
 				component={NodesStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
-						<ShareNetwork size={20} color={focused ? tw.color('accent') : tw.color('ink')} />
+						<ShareNetwork
+							size={22}
+							weight={focused ? 'bold' : 'regular'}
+							color={focused ? tw.color('accent') : tw.color('ink')}
+						/>
 					),
-					tabBarLabel: 'Nodes'
+					tabBarLabel: 'Nodes',
+					tabBarLabelStyle: tw`font-semibold text-tiny`
 				}}
 			/>
 			<Tab.Screen
@@ -50,9 +60,14 @@ export default function TabNavigator() {
 				component={SpacesStack}
 				options={{
 					tabBarIcon: ({ focused }) => (
-						<CirclesFour size={20} color={focused ? tw.color('accent') : tw.color('ink')} />
+						<CirclesFour
+							size={22}
+							weight={focused ? 'bold' : 'regular'}
+							color={focused ? tw.color('accent') : tw.color('ink')}
+						/>
 					),
-					tabBarLabel: 'Spaces'
+					tabBarLabel: 'Spaces',
+					tabBarLabelStyle: tw`font-semibold text-tiny`
 				}}
 			/>
 		</Tab.Navigator>

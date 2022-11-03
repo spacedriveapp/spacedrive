@@ -37,9 +37,10 @@
 	"rust-analyzer.procMacro.enable": true,
 	"rust-analyzer.diagnostics.experimental.enable": false,
 	"tailwindCSS.experimental.classRegex": [
-    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+		["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
 		"tw`([^`]*)",
-    "tw\\.[^`]+`([^`]*)`",
-    "tw\\(.*?\\).*?`([^`]*)"
-  ],
+		"tw\\.[^`]+`([^`]*)`",
+		"tw\\(.*?\\).*?`([^`]*)",
+		"tw\\.style\\(([^)]*)\\)"
+	]
 }

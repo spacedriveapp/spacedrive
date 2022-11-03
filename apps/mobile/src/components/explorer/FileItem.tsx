@@ -34,7 +34,7 @@ const FileItem = ({ data }: FileItemProps) => {
 					kind={data.extension === 'zip' ? 'zip' : isVideo(data.extension) ? 'video' : 'other'}
 				/>
 				<View style={tw`px-1.5 py-[1px] mt-1`}>
-					<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-gray-300`}>
+					<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-ink-dull`}>
 						{data?.name}
 					</Text>
 				</View>

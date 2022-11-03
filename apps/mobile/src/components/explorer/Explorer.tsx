@@ -23,7 +23,7 @@ const Explorer = ({ locationId, path }: Props) => {
 
 	return (
 		<View style={tw`flex-1`}>
-			<Text style={tw`text-xl font-bold text-white mt-4`}>Location id:{locationId}</Text>
+			<Text style={tw`text-xl font-bold text-ink mt-4`}>Location id:{locationId}</Text>
 			{data && (
 				<FlashList
 					data={data.items}

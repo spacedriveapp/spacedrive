@@ -17,8 +17,8 @@ const ModalBackdrop = (props: BottomSheetBackdropProps) => (
 const ModalHandle = (props: BottomSheetHandleProps) => (
 	<BottomSheetHandle
 		{...props}
-		style={tw`bg-gray-600 rounded-t-xl`}
-		indicatorStyle={tw`bg-gray-550`}
+		style={tw`bg-app-box rounded-t-xl`}
+		indicatorStyle={tw`bg-app-active`}
 	/>
 );
 
@@ -27,7 +27,7 @@ export const Modal = forwardRef<BottomSheetModalMethods, BottomSheetModalProps>(
 		ref={ref}
 		backdropComponent={ModalBackdrop}
 		handleComponent={ModalHandle}
-		backgroundStyle={tw.style('bg-gray-600')}
+		backgroundStyle={tw`bg-app-box`}
 		{...props}
 	/>
 ));

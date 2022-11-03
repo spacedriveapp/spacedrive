@@ -26,8 +26,8 @@ export default function RootNavigator() {
 				screenOptions={{
 					presentation: 'modal',
 					headerBackTitleVisible: false,
-					headerStyle: tw`bg-gray-650`,
-					headerTintColor: tw.color('gray-200'),
+					headerStyle: tw`bg-app`,
+					headerTintColor: tw.color('ink'),
 					headerTitleStyle: tw`text-base`,
 					headerBackTitleStyle: tw`text-base`
 					// headerShadowVisible: false // will disable the white line under
