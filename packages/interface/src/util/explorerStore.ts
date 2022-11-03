@@ -1,4 +1,4 @@
-import { onLibraryChange } from '@sd/client';
+import { ExplorerItem, onLibraryChange } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 
 import { resetStore } from '@sd/client/src/stores/util';
@@ -20,8 +20,7 @@ const state = {
 	tagAssignMode: false,
 	showInspector: true,
 	multiSelectIndexes: [] as number[],
-	contextMenuObjectId: null as number | null,
-	contextMenuActiveObject: null as object | null,
+	contextMenuActiveItem: null as ExplorerItem | null,
 	newThumbnails: {} as Record<string, boolean>
 };
 

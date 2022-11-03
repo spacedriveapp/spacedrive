@@ -34,13 +34,9 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 	return (
 		<div
 			onContextMenu={(e) => {
-				const objectId = isObject(data) ? data.id : data.object?.id;
-				if (objectId != undefined) {
-					getExplorerStore().contextMenuObjectId = objectId;
-					if (index != undefined) {
-						getExplorerStore().selectedRowIndex = index;
-						getExplorerStore().contextMenuActiveObject = isObject(data) ? data : data.object;
-					}
+				if (index != undefined) {
+					getExplorerStore().selectedRowIndex = index;
+					getExplorerStore().contextMenuActiveItem = data;
 				}
 			}}
 			{...rest}

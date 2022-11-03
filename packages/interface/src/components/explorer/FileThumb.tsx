@@ -72,7 +72,7 @@ export default function FileThumb({ data, ...props }: Props) {
 	return (
 		<div
 			style={{ width: props.size * 0.8, height: props.size * 0.8 }}
-			className="relative m-auto transition duration-200 "
+			className={clsx('relative m-auto transition duration-200', props.iconClassNames)}
 		>
 			<svg
 				// BACKGROUND

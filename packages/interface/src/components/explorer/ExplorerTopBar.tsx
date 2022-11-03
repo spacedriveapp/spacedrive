@@ -1,3 +1,4 @@
+import { useLibraryMutation } from '@sd/client';
 import { Button, Input, OverlayPanel, cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import {
@@ -126,9 +127,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 	const store = useExplorerStore();
 
-	// const { mutate: generateThumbsForLocation } = useLibraryMutation(
-	// 	'jobs.generateThumbsForLocation'
-	// );
+	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	// const { mutate: identifyUniqueFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
 	// const { mutate: objectValidator } = useLibraryMutation('jobs.objectValidator');
 
@@ -297,8 +296,13 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								/>
 							</TopBarButton>
 						</Tooltip>
-						<Tooltip label="Refresh">
-							<TopBarButton>
+						<Tooltip label="Regenerate thumbs (temp)">
+							<TopBarButton
+								onClick={() =>
+									store.locationId &&
+									generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+								}
+							>
 								<ArrowsClockwise className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>
 						</Tooltip>

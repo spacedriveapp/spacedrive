@@ -1,11 +1,23 @@
 // import types from '../../constants/file-types.json';
 import { useLibraryQuery } from '@sd/client';
 import { ExplorerContext, ExplorerItem } from '@sd/client';
-import { Button } from '@sd/ui';
+import { Button, tw } from '@sd/ui';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { Link, Share } from 'phosphor-react';
+import {
+	Barcode,
+	Calendar,
+	CircleWavyCheck,
+	Clock,
+	Cube,
+	Disc,
+	Eye,
+	Link,
+	Lock,
+	Share,
+	Snowflake
+} from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
 import { ObjectKind } from '../../util/kind';
@@ -14,9 +26,24 @@ import { Tooltip } from '../tooltip/Tooltip';
 import FileThumb from './FileThumb';
 import { Divider } from './inspector/Divider';
 import FavoriteButton from './inspector/FavoriteButton';
-import { MetaItem } from './inspector/MetaItem';
 import Note from './inspector/Note';
 import { isObject } from './utils';
+
+export const InfoPill = tw.span`inline border border-transparent px-1 text-[11px] font-medium shadow shadow-app-shade/5 bg-app-selected rounded-md text-ink-dull`;
+
+export const PlaceholderPill = tw.span`inline border  px-1 text-[11px] shadow shadow-app-shade/10 rounded-md bg-transparent border-dashed border-app-active transition hover:text-ink-faint hover:border-ink-faint font-medium text-ink-faint/70`;
+
+export const MetaContainer = tw.div`flex flex-col px-4 py-1.5`;
+
+export const MetaTitle = tw.h5`text-xs font-bold`;
+
+export const MetaValue = tw.p`text-xs break-all text-ink truncate`;
+
+const MetaTextLine = tw.div`flex items-center my-0.5 text-xs text-ink-dull`;
+
+const InspectorIcon = ({ component: Icon, ...props }: any) => (
+	<Icon weight="bold" {...props} className={clsx('mr-2 flex-shrink-0', props.className)} />
+);
 
 interface Props extends DefaultProps<HTMLDivElement> {
 	context?: ExplorerContext;
@@ -26,14 +53,10 @@ interface Props extends DefaultProps<HTMLDivElement> {
 export const Inspector = (props: Props) => {
 	const { context, data, ...elementProps } = props;
 
-	const { data: types } = useQuery(
-		['_file-types'],
-		() => import('../../constants/file-types.json')
-	);
-
 	const is_dir = props.data?.type === 'Path' ? props.data.is_dir : false;
 
 	const objectData = props.data ? (isObject(props.data) ? props.data : props.data.object) : null;
+	const isDir = props.data?.type === 'Path' ? props.data.is_dir : false;
 
 	// this prevents the inspector from fetching data when the user is navigating quickly
 	const [readyToFetch, setReadyToFetch] = useState(false);
@@ -52,111 +75,121 @@ export const Inspector = (props: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="-mt-[50px] pt-[55px] pl-1.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-[55px]"
+			className="-mt-[50px] pt-[55px] pl-2.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-[55px]"
 		>
 			{!!props.data && (
 				<>
-					<div className="flex bg-sidebar items-center justify-center w-full h-64 mb-[10px] overflow-hidden rounded-lg ">
+					<div
+						className={clsx(
+							'flex h-52 items-center justify-center w-full mb-[10px] overflow-hidden rounded-lg',
+							objectData?.kind === 7 && objectData?.has_thumbnail && 'bg-black'
+						)}
+					>
 						<FileThumb
-							iconClassNames="mx-10"
+							iconClassNames="my-3 max-h-[150px]"
 							size={230}
 							kind={ObjectKind[objectData?.kind || 0]}
-							className="!m-0 flex bg-green-500 flex-shrink flex-grow-0"
+							className="flex flex-grow-0 flex-shrink bg-green-500"
 							data={props.data}
 						/>
 					</div>
-					<div className="flex flex-col w-full pt-0.5 pb-1 overflow-hidden bg-app-box rounded-lg select-text shadow-app-shade/10 border border-app-line">
+					<div className="flex flex-col w-full pt-0.5 pb-0.5 overflow-hidden bg-app-box rounded-lg select-text shadow-app-shade/10 border border-app-line">
 						<h3 className="pt-2 pb-1 pl-3 text-base font-bold">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}
 						</h3>
 						{objectData && (
-							<div className="flex flex-row mt-1 mx-3 space-x-0.5">
+							<div className="flex flex-row mt-1 mb-0.5 mx-3 space-x-0.5">
 								<Tooltip label="Favorite">
 									<FavoriteButton data={objectData} />
 								</Tooltip>
-								<Tooltip label="Share">
+
+								<Tooltip label="Encrypt">
 									<Button size="icon">
-										<Share className="w-[18px] h-[18px]" />
+										<Lock className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>
-								<Tooltip label="Link">
+								<Tooltip label="Share">
 									<Button size="icon">
 										<Link className="w-[18px] h-[18px]" />
 									</Button>
 								</Tooltip>
 							</div>
 						)}
-						{tags?.data && tags.data.length > 0 && (
-							<>
-								<Divider />
-								<MetaItem
-									value={
-										<div className="flex flex-wrap  gap-1.5">
-											{tags?.data?.map((tag) => (
-												<div
-													// onClick={() => setSelectedTag(tag.id === selectedTag ? null : tag.id)}
-													key={tag.id}
-													className={clsx(
-														'flex items-center rounded px-1.5 py-0.5'
-														// selectedTag === tag.id && 'ring'
-													)}
-													style={{ backgroundColor: tag.color + 'CC' }}
-												>
-													<span className="text-xs text-white drop-shadow-md">{tag.name}</span>
-												</div>
-											))}
-										</div>
-									}
-								/>
-							</>
-						)}
+
 						{props.context?.type == 'Location' && props.data?.type === 'Path' && (
-							<>
-								<Divider />
-								<MetaItem
-									title="URI"
-									value={`${props.context.local_path}/${props.data.materialized_path}`}
-								/>
-							</>
+							<MetaContainer>
+								<MetaTitle>URI</MetaTitle>
+								<MetaValue>{`${props.context.local_path}/${props.data.materialized_path}`}</MetaValue>
+							</MetaContainer>
 						)}
 						<Divider />
-						<MetaItem title="Kind" value={ObjectKind[objectData?.kind || 0]} />
-						<Divider />
-						<MetaItem
-							title="Date Created"
-							value={dayjs(props.data?.date_created).format('MMMM Do YYYY, h:mm:ss a')}
-						/>
-						<Divider />
-						<MetaItem
-							title="Date Indexed"
-							value={dayjs(props.data?.date_indexed).format('MMMM Do YYYY, h:mm:ss a')}
-						/>
-						{!is_dir && (
-							<>
-								<Divider />
-								<div className="flex flex-row items-center px-3 py-2 meta-item">
-									{props.data?.extension && (
-										<span className="inline px-1 mr-1 text-xs font-bold uppercase bg-gray-500 rounded-md text-gray-150">
-											{props.data?.extension}
-										</span>
-									)}
-									<p className="text-xs text-gray-600 break-all truncate dark:text-gray-300">
-										{props.data?.extension
-											? //@ts-ignore
-											  types[props.data.extension.toUpperCase()]?.descriptions.join(' / ')
-											: 'Unknown'}
-									</p>
+						{
+							<MetaContainer>
+								<div className="flex flex-wrap gap-1">
+									<InfoPill>{isDir ? 'Folder' : ObjectKind[objectData?.kind || 0]}</InfoPill>
+									{props.data.extension && <InfoPill>{props.data.extension}</InfoPill>}
+									{tags?.data?.map((tag) => (
+										<InfoPill
+											className="!text-white"
+											key={tag.id}
+											style={{ backgroundColor: tag.color + 'CC' }}
+										>
+											{tag.name}
+										</InfoPill>
+									))}
+									<PlaceholderPill>Add Tag</PlaceholderPill>
 								</div>
-								{objectData && (
-									<>
-										<Note data={objectData} />
-										<Divider />
-										{objectData.cas_id && (
-											<MetaItem title="Unique Content ID" value={objectData.cas_id} />
-										)}
-									</>
-								)}
+							</MetaContainer>
+						}
+						<Divider />
+						<MetaContainer className="!flex-row space-x-2">
+							<MetaTextLine>
+								<InspectorIcon component={Cube} />
+								<span className="mr-1.5">Size</span>
+								<MetaValue>{formatBytes(Number(objectData?.size_in_bytes || 0))}</MetaValue>
+							</MetaTextLine>
+						</MetaContainer>
+						<Divider />
+						<MetaContainer>
+							<Tooltip label={dayjs(props.data?.date_created).format('h:mm:ss a')}>
+								<MetaTextLine>
+									<InspectorIcon component={Clock} />
+									<span className="mr-1.5">Created</span>
+									<MetaValue>{dayjs(props.data?.date_created).format('MMM Do YYYY')}</MetaValue>
+								</MetaTextLine>
+							</Tooltip>
+							<Tooltip label={dayjs(props.data?.date_created).format('h:mm:ss a')}>
+								<MetaTextLine>
+									<InspectorIcon component={Barcode} />
+									<span className="mr-1.5">Indexed</span>
+									<MetaValue>{dayjs(props.data?.date_indexed).format('MMM Do YYYY')}</MetaValue>
+								</MetaTextLine>
+							</Tooltip>
+						</MetaContainer>
+
+						{!is_dir && objectData && (
+							<>
+								<Note data={objectData} />
+								<Divider />
+								<MetaContainer>
+									<Tooltip label={objectData?.cas_id || ''}>
+										<MetaTextLine>
+											<InspectorIcon component={Snowflake} />
+											<span className="mr-1.5">Content ID</span>
+											<MetaValue>{objectData?.cas_id || ''}</MetaValue>
+										</MetaTextLine>
+									</Tooltip>
+									{objectData?.integrity_checksum && (
+										<Tooltip label={objectData?.integrity_checksum || ''}>
+											<MetaTextLine>
+												<InspectorIcon component={CircleWavyCheck} />
+												<span className="mr-1.5">Checksum</span>
+												<MetaValue>{objectData.integrity_checksum}</MetaValue>
+											</MetaTextLine>
+										</Tooltip>
+									)}
+								</MetaContainer>
 							</>
 						)}
 					</div>
@@ -165,3 +198,15 @@ export const Inspector = (props: Props) => {
 		</div>
 	);
 };
+
+function formatBytes(bytes: number, decimals = 2) {
+	if (bytes === 0) return '0 Bytes';
+
+	const k = 1024;
+	const dm = decimals < 0 ? 0 : decimals;
+	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}

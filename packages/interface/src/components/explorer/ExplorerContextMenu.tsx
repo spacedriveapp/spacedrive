@@ -2,19 +2,24 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
+	Image,
 	LockSimple,
 	Package,
 	Plus,
+	Repeat,
 	Share,
+	Shield,
+	ShieldCheck,
 	TagSimple,
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { PropsWithChildren, useMemo } from 'react';
+import { PropsWithChildren, useEffect, useMemo } from 'react';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { usePlatform } from '../../util/Platform';
 import { getExplorerStore } from '../../util/explorerStore';
+import { isObject } from './utils';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
@@ -58,11 +63,12 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 export default function ExplorerContextMenu(props: PropsWithChildren) {
 	const store = getExplorerStore();
-	// const { mutate: generateThumbsForLocation } = useLibraryMutation(
-	// 	'jobs.generateThumbsForLocation'
-	// );
 	const platform = usePlatform();
 	const os = useOperatingSystem();
+
+	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
+	const identifyUniqueFiles = useLibraryMutation('jobs.identifyUniqueFiles');
+	const objectValidator = useLibraryMutation('jobs.objectValidator');
 
 	const osFileBrowserName = useMemo(() => {
 		if (os === 'macOS') {
@@ -71,6 +77,20 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 			return 'Explorer';
 		}
 	}, [os]);
+
+	useEffect(() => {
+		return () => {
+			getExplorerStore().contextMenuActiveItem = null;
+		};
+	}, []);
+
+	const objectData = store.contextMenuActiveItem
+		? isObject(store.contextMenuActiveItem)
+			? store.contextMenuActiveItem
+			: store.contextMenuActiveItem.object
+		: null;
+
+	const hasItem = store.contextMenuActiveItem !== null;
 
 	return (
 		<div className="relative">
@@ -86,7 +106,7 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 						label={`Open in ${osFileBrowserName}`}
 						keybind="⌘Y"
 						onClick={() => {
-							console.log('TODO', store.contextMenuActiveObject);
+							console.log('TODO', store.contextMenuActiveItem);
 							platform.openPath!('/Users/oscar/Desktop'); // TODO: Work out the file path from the backend
 						}}
 					/>
@@ -115,26 +135,41 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 
 				<CM.Separator />
 
-				{store.contextMenuObjectId && (
+				{hasItem && (
 					<CM.SubMenu label="Assign tag" icon={TagSimple}>
-						<AssignTagMenuItems objectId={store.contextMenuObjectId} />
+						<AssignTagMenuItems objectId={objectData?.id || 0} />
 					</CM.SubMenu>
 				)}
+
 				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item label="Encrypt" icon={LockSimple} keybind="⌘E" />
-					<CM.Item label="Compress" icon={Package} keybind="⌘B" />
-					<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-						<CM.Item label="PNG" />
-						<CM.Item label="WebP" />
-					</CM.SubMenu>
-					<CM.Item label="Rescan Directory" icon={Package} />
-					<CM.Item label="Regen Thumbnails" icon={Package} />
-					<CM.Item variant="danger" label="Secure delete" icon={TrashSimple} />
+					{hasItem && (
+						<>
+							<CM.Item label="Encrypt" icon={LockSimple} keybind="⌘E" />
+							<CM.Item label="Compress" icon={Package} keybind="⌘B" />
+
+							<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
+								<CM.Item label="PNG" />
+								<CM.Item label="WebP" />
+							</CM.SubMenu>
+						</>
+					)}
+
+					<CM.Item label="Re-index" icon={Repeat} />
+					<CM.Item label="Regen Thumbnails" icon={Image} />
+					<CM.Item
+						onClick={() =>
+							store.locationId && objectValidator.mutate({ id: store.locationId, path: '' })
+						}
+						label="Generate Checksums"
+						icon={ShieldCheck}
+					/>
+
+					{hasItem && <CM.Item variant="danger" label="Secure delete" icon={TrashSimple} />}
 				</CM.SubMenu>
 
 				<CM.Separator />
 
-				<CM.Item icon={Trash} label="Delete" variant="danger" keybind="⌘DEL" />
+				{hasItem && <CM.Item icon={Trash} label="Delete" variant="danger" keybind="⌘DEL" />}
 			</CM.ContextMenu>
 		</div>
 	);

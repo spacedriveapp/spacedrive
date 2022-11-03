@@ -1,7 +1,7 @@
 use crate::{
 	job::JobError,
 	library::LibraryContext,
-	object::cas::generate_cas_id,
+	object::{cas::generate_cas_id, preview::get_video_metadata},
 	prisma::{file_path, object},
 };
 use std::{
@@ -69,6 +69,10 @@ async fn assemble_object_metadata(
 	let cas_id = generate_cas_id(path.clone(), size).await?;
 
 	info!("Analyzed file: {:?} {:?} {:?}", path, cas_id, object_kind);
+
+	if object_kind == ObjectKind::Video {
+		dbg!(get_video_metadata(&path));
+	}
 
 	Ok(object::create_unchecked(
 		cas_id,

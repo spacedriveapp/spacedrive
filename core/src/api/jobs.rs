@@ -56,7 +56,7 @@ pub(crate) fn mount() -> RouterBuilder {
 							ThumbnailJobInit {
 								location_id: args.id,
 								root_path: PathBuf::new(),
-								background: true,
+								background: false,
 							},
 							ThumbnailJob {},
 						))

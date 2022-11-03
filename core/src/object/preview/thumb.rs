@@ -336,7 +336,8 @@ async fn get_files_by_extensions(
 #[allow(unused)]
 pub fn can_generate_thumbnail_for_video(video_extension: &VideoExtension) -> bool {
 	use VideoExtension::*;
-	!matches!(video_extension, Mpg | Swf | M2v)
+	// File extensions that are specifically not supported by the thumbnailer
+	!matches!(video_extension, Mpg | Swf | M2v | Hevc)
 }
 #[allow(unused)]
 pub fn can_generate_thumbnail_for_image(image_extension: &ImageExtension) -> bool {
