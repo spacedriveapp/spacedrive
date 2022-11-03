@@ -114,16 +114,17 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.exec()
 					.await?;
 
-				library
-					.queue_job(Job::new(
-						ThumbnailJobInit {
-							location_id: location.id,
-							root_path: PathBuf::from(&directory.materialized_path),
-							background: true,
-						},
-						ThumbnailJob {},
-					))
-					.await;
+				// library
+				// 	.queue_job(Job::new(
+				// 		ThumbnailJobInit {
+				// 			location_id: location.id,
+				// 			// recursive: false, // TODO: do this
+				// 			root_path: PathBuf::from(&directory.materialized_path),
+				// 			background: true,
+				// 		},
+				// 		ThumbnailJob {},
+				// 	))
+				// 	.await;
 
 				let mut items = Vec::with_capacity(file_paths.len());
 				for mut file_path in file_paths {
@@ -187,6 +188,14 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 		})
 		.library_mutation("fullRescan", |t| {
 			t(|_, location_id: i32, library| async move {
+				// remove existing paths
+				library
+					.db
+					.file_path()
+					.delete_many(vec![file_path::location_id::equals(location_id)])
+					.exec()
+					.await?;
+				// rescan location
 				scan_location(
 					&library,
 					fetch_location(&library, location_id)

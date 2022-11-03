@@ -1,7 +1,9 @@
+#[cfg(feature = "ffmpeg")]
+use crate::object::preview::get_video_metadata;
 use crate::{
 	job::JobError,
 	library::LibraryContext,
-	object::{cas::generate_cas_id, preview::get_video_metadata},
+	object::cas::generate_cas_id,
 	prisma::{file_path, object},
 };
 use std::{
@@ -70,6 +72,7 @@ async fn assemble_object_metadata(
 
 	info!("Analyzed file: {:?} {:?} {:?}", path, cas_id, object_kind);
 
+	#[cfg(feature = "ffmpeg")]
 	if object_kind == ObjectKind::Video {
 		dbg!(get_video_metadata(&path));
 	}

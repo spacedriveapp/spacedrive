@@ -7,10 +7,19 @@ use super::{utils::LibraryRequest, RouterBuilder};
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.library_query("readMetadata", |t| {
-			t(|_, _id: i32, _| async move {
-				#[allow(unreachable_code)]
-				Ok(todo!())
+		.library_query("get", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct GetArgs {
+				pub id: i32,
+			}
+			t(|_, args: GetArgs, library| async move {
+				Ok(library
+					.db
+					.object()
+					.find_unique(object::id::equals(args.id))
+					.include(object::include!({ file_paths }))
+					.exec()
+					.await?)
 			})
 		})
 		.library_mutation("setNote", |t| {

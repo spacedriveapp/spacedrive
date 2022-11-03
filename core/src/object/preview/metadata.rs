@@ -5,7 +5,7 @@ use std::{
 
 use chrono::NaiveDateTime;
 #[cfg(feature = "ffmpeg")]
-use ffmpeg_next::format;
+use ffmpeg_next::{codec::context::Context, format, media::Type};
 use tracing::{error, info};
 
 #[derive(Default, Debug)]
@@ -54,10 +54,12 @@ pub struct AudioStream {
 	pub rate: u32,
 }
 
+#[cfg(feature = "ffmpeg")]
 fn extract(iter: &mut ffmpeg_next::dictionary::Iter, key: &str) -> Option<String> {
 	iter.find(|k| k.0.contains(key)).map(|k| k.1.to_string())
 }
 
+#[cfg(feature = "ffmpeg")]
 pub fn get_video_metadata(path: &PathBuf) -> Result<(), ffmpeg_next::Error> {
 	ffmpeg_next::init().unwrap();
 
@@ -72,7 +74,7 @@ pub fn get_video_metadata(path: &PathBuf) -> Result<(), ffmpeg_next::Error> {
 	// specifically OBS uses this format for time, other checks could be added
 	let potential_date = NaiveDateTime::parse_from_str(&name, "%Y-%m-%d %H-%M-%S");
 
-	match ffmpeg_next::format::input(&path) {
+	match format::input(&path) {
 		Ok(context) => {
 			let mut media_item = MediaItem::default();
 			let metadata = context.metadata();
@@ -91,21 +93,20 @@ pub fn get_video_metadata(path: &PathBuf) -> Result<(), ffmpeg_next::Error> {
 			media_item.brand = extract(&mut iter, "make");
 			media_item.model = extract(&mut iter, "model");
 
-			if let Some(stream) = context.streams().best(ffmpeg_next::media::Type::Video) {
+			if let Some(stream) = context.streams().best(Type::Video) {
 				media_item.best_video_stream_index = stream.index();
 			}
-			if let Some(stream) = context.streams().best(ffmpeg_next::media::Type::Audio) {
+			if let Some(stream) = context.streams().best(Type::Audio) {
 				media_item.best_audio_stream_index = stream.index();
 			}
-			if let Some(stream) = context.streams().best(ffmpeg_next::media::Type::Subtitle) {
+			if let Some(stream) = context.streams().best(Type::Subtitle) {
 				media_item.best_subtitle_stream_index = stream.index();
 			}
 			media_item.duration_seconds =
 				context.duration() as f64 / f64::from(ffmpeg_next::ffi::AV_TIME_BASE);
 
 			for stream in context.streams() {
-				let codec =
-					ffmpeg_next::codec::context::Context::from_parameters(stream.parameters())?;
+				let codec = Context::from_parameters(stream.parameters())?;
 
 				let mut stream_item = Stream {
 					codec: codec.id().name().to_string(),

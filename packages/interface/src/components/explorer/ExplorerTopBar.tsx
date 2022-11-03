@@ -127,10 +127,6 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 	const store = useExplorerStore();
 
-	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
-	// const { mutate: identifyUniqueFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
-	// const { mutate: objectValidator } = useLibraryMutation('jobs.objectValidator');
-
 	const navigate = useNavigate();
 
 	//create function to focus on search box when cmd+k is pressed
@@ -298,10 +294,10 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 						</Tooltip>
 						<Tooltip label="Regenerate thumbs (temp)">
 							<TopBarButton
-								onClick={() =>
-									store.locationId &&
-									generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
-								}
+							// onClick={() =>
+							// 	store.locationId &&
+							// 	generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+							// }
 							>
 								<ArrowsClockwise className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>

@@ -67,8 +67,8 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 	const os = useOperatingSystem();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
-	const identifyUniqueFiles = useLibraryMutation('jobs.identifyUniqueFiles');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
+	const rescanLocation = useLibraryMutation('locations.fullRescan');
 
 	const osFileBrowserName = useMemo(() => {
 		if (os === 'macOS') {
@@ -154,8 +154,19 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 						</>
 					)}
 
-					<CM.Item label="Re-index" icon={Repeat} />
-					<CM.Item label="Regen Thumbnails" icon={Image} />
+					<CM.Item
+						onClick={() => store.locationId && rescanLocation.mutate(store.locationId)}
+						label="Re-index"
+						icon={Repeat}
+					/>
+					<CM.Item
+						onClick={() =>
+							store.locationId &&
+							generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+						}
+						label="Regen Thumbnails"
+						icon={Image}
+					/>
 					<CM.Item
 						onClick={() =>
 							store.locationId && objectValidator.mutate({ id: store.locationId, path: '' })
