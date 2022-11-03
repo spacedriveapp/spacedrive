@@ -6,9 +6,9 @@ index: 10
 
 The key manager handles all keys used for encrypting and decrypting files/containers, and is essentially an entire password manager built into Spacedrive.
 
-To function, it requires a master key (which is provided during library creation). Do **not** lose this key, as it is not recoverable.
+To function, it requires a master password (which is provided during library creation). Do **not** lose this key, as it is not recoverable.
 
-The `keymount` and `keystore` refer to the area in memory where each type of keys are stored.
+The `keymount` and `keystore` refer to the area in memory where each key types are stored.
 
 ## Audits
 
@@ -20,7 +20,15 @@ During library creation, the user will be provided with a master password.
 
 Each time Spacedrive is started, this master password is required. It is subsequently used to decrypt a randomly generated key, to ensure the password is correct. This verification process is not perfect.
 
-Support for changing a master key will be added at a later date, but for now it is not a priority.
+Support for changing a master password will be added at a later date, but for now it is not a priority.
+
+## Performance
+
+Designing the key manager, and our key system as a whole, was a difficult task. It needs to be three things: secure, performant, and not annoying for the user. The main way to do this is to implement a hierarchical system, similar to what we have done.
+
+The master password is the heart of the operation, which is why it's generated for you. In the event of a master password compromise, it's safe to assume that all underlying data is decryptable. Over time, we will refine the system and minimize this risk as much as possible (possibly by making the user store their master password's salt separately).
+
+If a key from the keystore is compromised, the damage is limited to the data encrypted with that specific key. In this event, it's probably best to decrypt all data with that key, and re-encrypt it with a new one. We eventually plan to make this extremely simple within Spacedrive.
 
 ## Cryptographic Hygiene
 
@@ -37,6 +45,20 @@ Many functions within the key manager don't return values. This is by design, an
 We chose `DashMap` for the key manager, as opposed to the standard `HashMap`. `DashMap` provides us with much better performance than alternatives, while also offering concurrency. It aims to be a direct replacement for `RwLock<HashMap<K, V, S>>`, and it fits our needs perfectly.
 
 The key manager also stores the UUID for the default key, and the *hashed* master password. This allows us to near-instantly decrypt stored keys (although mounting still takes a while, depending on the parameters chosen).
+
+## RNGs
+
+Throughout every cryptographic function within Spacedrive that requires cryptographically-secure random values, we use the system's entropy along with `ChaCha20Rng`. More information on this RNG can be found [here](https://rust-random.github.io/rand/rand_chacha/struct.ChaCha20Rng.html).
+
+This is used for nonce, salt and master key generation to ensure none of these values are predictable to an attacker.
+
+## Key Encryption
+
+Key encryption makes use of an LE31 STREAM construction. This means that the last 4 bytes of the nonce consist of a 31 bit little-endian counter, and a 1 bit "last block" flag, totalling 4 bytes. The nonce (n) is still the correct size for the AEAD, but we only have to generate (n - 4) due to the counter.
+
+Each key has two completely randomly generated nonces, which are used to encrypt both the master key (different from the master password) and the key itself.
+
+The hashed master password (the one provided by the user), is used to encrypt a master key (32-bytes generated with a CSPRNG). This master key is used to encrypt your plaintext key. We took this approach so keys themselves are encrypted with the highest possible entropy, and we can add support for changing the master password in the future.
 
 ## Available Configuration
 
