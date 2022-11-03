@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { useExplorerStore } from '../../util/explorerStore';
 import { Inspector } from '../explorer/Inspector';
-import ExplorerContextMenu from './ExplorerContextMenu';
+import { ExplorerContextMenu } from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';
 import { VirtualizedList } from './VirtualizedList';
 
@@ -35,12 +35,15 @@ export default function Explorer(props: Props) {
 
 	return (
 		<div className="relative">
-			<ExplorerContextMenu>
-				<div className="relative flex flex-col w-full">
-					<TopBar showSeparator={separateTopBar} />
+			<div className="relative flex flex-col w-full">
+				<TopBar showSeparator={separateTopBar} />
 
-					<div className="relative flex flex-row w-full max-h-full app-background">
-						{props.data && (
+				<div className="relative flex flex-row w-full max-h-full app-background">
+					{props.data && (
+						<>
+							<ExplorerContextMenu>
+								<div className="fixed w-full h-full" />
+							</ExplorerContextMenu>
 							<VirtualizedList
 								data={props.data.items || []}
 								context={props.data.context}
@@ -53,28 +56,28 @@ export default function Explorer(props: Props) {
 									});
 								}}
 							/>
-						)}
-						{expStore.showInspector && (
-							<div className="flex min-w-[260px] max-w-[260px]">
-								<Inspector
-									onScroll={(e) => {
-										const y = (e.target as HTMLElement).scrollTop;
+						</>
+					)}
+					{expStore.showInspector && (
+						<div className="flex min-w-[260px] max-w-[260px]">
+							<Inspector
+								onScroll={(e) => {
+									const y = (e.target as HTMLElement).scrollTop;
 
-										setScrollSegments((old) => {
-											return {
-												...old,
-												inspector: y
-											};
-										});
-									}}
-									key={props.data?.items[expStore.selectedRowIndex]?.id}
-									data={props.data?.items[expStore.selectedRowIndex]}
-								/>
-							</div>
-						)}
-					</div>
+									setScrollSegments((old) => {
+										return {
+											...old,
+											inspector: y
+										};
+									});
+								}}
+								key={props.data?.items[expStore.selectedRowIndex]?.id}
+								data={props.data?.items[expStore.selectedRowIndex]}
+							/>
+						</div>
+					)}
 				</div>
-			</ExplorerContextMenu>
+			</div>
 		</div>
 	);
 }

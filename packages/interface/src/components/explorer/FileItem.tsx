@@ -5,6 +5,7 @@ import { HTMLAttributes } from 'react';
 
 import { getExplorerStore } from '../../util/explorerStore';
 import { ObjectKind } from '../../util/kind';
+import { FileItemContextMenu } from './ExplorerContextMenu';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
 
@@ -32,60 +33,64 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 	const isVid = objectData?.kind === 7;
 
 	return (
-		<div
-			onContextMenu={(e) => {
-				if (index != undefined) {
-					getExplorerStore().selectedRowIndex = index;
-					getExplorerStore().contextMenuActiveItem = data;
-				}
-			}}
-			{...rest}
-			draggable
-			className={clsx('inline-block w-[100px] mb-3', rest.className)}
-		>
+		<FileItemContextMenu item={data}>
 			<div
-				style={{ width: getExplorerStore().gridItemSize, height: getExplorerStore().gridItemSize }}
-				className={clsx(
-					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
-					{
-						'bg-app-selected/30': selected
+				onContextMenu={(e) => {
+					if (index != undefined) {
+						getExplorerStore().selectedRowIndex = index;
 					}
-				)}
+				}}
+				{...rest}
+				draggable
+				className={clsx('inline-block w-[100px] mb-3', rest.className)}
 			>
 				<div
+					style={{
+						width: getExplorerStore().gridItemSize,
+						height: getExplorerStore().gridItemSize
+					}}
 					className={clsx(
-						'flex relative items-center justify-center h-full  p-1 rounded border-transparent border-2 shrink-0'
+						'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
+						{
+							'bg-app-selected/30': selected
+						}
 					)}
 				>
-					<FileThumb
+					<div
 						className={clsx(
-							'border-4 border-white shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
-							isVid && '!border-black rounded border-x-0 border-y-[7px]'
+							'flex relative items-center justify-center h-full  p-1 rounded border-transparent border-2 shrink-0'
 						)}
-						data={data}
-						kind={ObjectKind[objectData?.kind || 0]}
-						size={getExplorerStore().gridItemSize}
-					/>
-					{data?.extension && isVid && (
-						<div
+					>
+						<FileThumb
 							className={clsx(
-								'absolute text-white bottom-[19px] font-semibold opacity-70 right-2 py-0.5 px-1 text-[8px] uppercase bg-black/90 rounded',
-								!objectData.has_thumbnail &&
-									'left-auto right-auto !bg-transparent !text-[12px] !bottom-3.5'
+								'border-4 border-white shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
+								isVid && '!border-black rounded border-x-0 border-y-[7px]'
 							)}
-						>
-							{data.extension}
-						</div>
-					)}
+							data={data}
+							kind={ObjectKind[objectData?.kind || 0]}
+							size={getExplorerStore().gridItemSize}
+						/>
+						{data?.extension && isVid && (
+							<div
+								className={clsx(
+									'absolute text-white bottom-[19px] font-semibold opacity-70 right-2 py-0.5 px-1 text-[8px] uppercase bg-black/90 rounded',
+									!objectData.has_thumbnail &&
+										'left-auto right-auto !bg-transparent !text-[12px] !bottom-3.5'
+								)}
+							>
+								{data.extension}
+							</div>
+						)}
+					</div>
 				</div>
+				<NameArea>
+					<span className={nameContainerStyles({ selected })}>
+						{data?.name}
+						{data?.extension && `.${data.extension}`}
+					</span>
+				</NameArea>
 			</div>
-			<NameArea>
-				<span className={nameContainerStyles({ selected })}>
-					{data?.name}
-					{data?.extension && `.${data.extension}`}
-				</span>
-			</NameArea>
-		</div>
+		</FileItemContextMenu>
 	);
 }
 

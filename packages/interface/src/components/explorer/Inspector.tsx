@@ -75,7 +75,7 @@ export const Inspector = (props: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="-mt-[50px] pt-[55px] pl-2.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-[55px]"
+			className="-mt-[50px] pt-[55px] z-10 pl-2.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-[55px]"
 		>
 			{!!props.data && (
 				<>

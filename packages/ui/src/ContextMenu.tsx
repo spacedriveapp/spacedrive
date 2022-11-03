@@ -9,7 +9,7 @@ interface Props extends RadixCM.MenuContentProps {
 }
 
 const MENU_CLASSES = `
-  flex flex-col
+  flex flex-col z-50
   min-w-[8rem] px-1 py-0.5
   text-left text-sm text-menu-ink
   bg-menu cool-shadow
