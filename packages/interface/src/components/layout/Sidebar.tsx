@@ -22,18 +22,7 @@ import {
 	tw
 } from '@sd/ui';
 import clsx from 'clsx';
-import {
-	Book,
-	Books,
-	CheckCircle,
-	CirclesFour,
-	Gear,
-	GearSix,
-	Lock,
-	Planet,
-	Plus,
-	ShareNetwork
-} from 'phosphor-react';
+import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus, ShareNetwork } from 'phosphor-react';
 import React, { PropsWithChildren, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
@@ -60,7 +49,7 @@ export function Sidebar() {
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
 	return (
-		<SidebarBody className={macOnly(os, 'bg-opacity-[0.80]')}>
+		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
 			<WindowControls />
 			<Dropdown.Root
 				className="mt-2 mx-2.5"

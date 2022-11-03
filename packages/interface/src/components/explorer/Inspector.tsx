@@ -75,7 +75,7 @@ export const Inspector = (props: Props) => {
 	return (
 		<div
 			{...elementProps}
-			className="-mt-[50px] pt-[55px] z-10 pl-2.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-[55px]"
+			className="-mt-[50px] pt-[55px] z-10 pl-1.5 pr-1 w-full h-screen overflow-x-hidden custom-scroll inspector-scroll pb-4"
 		>
 			{!!props.data && (
 				<>
@@ -94,7 +94,7 @@ export const Inspector = (props: Props) => {
 						/>
 					</div>
 					<div className="flex flex-col w-full pt-0.5 pb-0.5 overflow-hidden bg-app-box rounded-lg select-text shadow-app-shade/10 border border-app-line">
-						<h3 className="pt-2 pb-1 pl-3 text-base font-bold">
+						<h3 className="px-3 pt-2 pb-1 text-base font-bold truncate">
 							{props.data?.name}
 							{props.data?.extension && `.${props.data.extension}`}
 						</h3>

@@ -191,7 +191,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			<div
 				data-tauri-drag-region
 				className={clsx(
-					'flex h-[46px] max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b bg-app overflow-hidden transition-[background-color] transition-[border-color] duration-250 ease-out',
+					'flex h-[46px] max-w z-20 pl-3 flex-shrink-0 items-center border-transparent border-b bg-app overflow-hidden transition-[background-color] transition-[border-color] duration-250 ease-out',
 					props.showSeparator && 'top-bar-blur !bg-app/90'
 				)}
 			>
