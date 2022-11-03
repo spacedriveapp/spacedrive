@@ -113,6 +113,11 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 								{data.nodes?.length || 0 > 0 ? `${data.nodes?.length || 0} nodes` : 'This node'}
 							</div>
 						)}
+						{data.default && (
+							<div className="inline ml-2 px-1 text-[8pt] font-medium text-gray-300 bg-gray-500 rounded">
+								Default
+							</div>
+						)}
 					</div>
 					{/* <div className="text-xs text-gray-300 opacity-30">#{data.id}</div> */}
 					{data.stats ? (

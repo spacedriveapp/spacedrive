@@ -3,7 +3,6 @@ import { Button, CategoryHeading } from '@sd/ui';
 
 import { DefaultProps } from '../primitive/types';
 import { Key } from './Key';
-import type { Key as QueryKey } from '@sd/client';
 import { useMemo } from 'react';
 
 export type KeyListProps = DefaultProps;
@@ -11,6 +10,9 @@ export type KeyListProps = DefaultProps;
 const ListKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
+
+	// use a separate route so we get the default key from the key manager, not the database
+	// sometimes the key won't be stored in the database
 	const default_key = useLibraryQuery(['keys.getDefault']);
 
 	const [mountedKeys, unmountedKeys] = useMemo(

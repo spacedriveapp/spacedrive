@@ -9,7 +9,7 @@ export type Procedures = {
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
-        { key: "keys.list", input: LibraryArgs<null>, result: Array<Key> } | 
+        { key: "keys.list", input: LibraryArgs<null>, result: Array<StoredKey> } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
@@ -95,8 +95,6 @@ export interface JobReport { id: string, name: string, data: Array<number> | nul
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 
-export interface Key { id: number, uuid: string, name: string | null, default: boolean, date_created: string | null, algorithm: Array<number>, hashing_algorithm: Array<number>, salt: Array<number>, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, automount: boolean }
-
 export interface KeyAddArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, key: string }
 
 export interface KeyNameUpdateArgs { uuid: string, name: string }
@@ -142,6 +140,8 @@ export interface SetFavoriteArgs { id: number, favorite: boolean }
 export interface SetNoteArgs { id: number, note: string | null }
 
 export interface Statistics { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
+
+export interface StoredKey { uuid: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, salt: Array<number>, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number> }
 
 export interface Tag { id: number, pub_id: Array<number>, name: string | null, color: string | null, total_objects: number | null, redundancy_goal: number | null, date_created: string, date_modified: string }
 
