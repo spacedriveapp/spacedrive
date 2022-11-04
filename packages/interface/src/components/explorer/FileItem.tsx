@@ -58,7 +58,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				>
 					<div
 						className={clsx(
-							'flex relative items-center justify-center h-full  p-1 rounded border-transparent border-2 shrink-0'
+							'flex relative items-center justify-center h-full p-1 rounded border-transparent border-2 shrink-0'
 						)}
 					>
 						<FileThumb

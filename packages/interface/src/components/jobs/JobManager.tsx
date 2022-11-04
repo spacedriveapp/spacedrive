@@ -59,7 +59,7 @@ function elapsed(seconds: number) {
 	return new Date(seconds * 1000).toUTCString().match(/(\d\d:\d\d:\d\d)/)?.[0];
 }
 
-const HeaderContainer = tw.div`z-20 flex items-center w-full h-10 px-2 border-b border-app-line/50 rounded-t-md `;
+const HeaderContainer = tw.div`z-20 flex items-center w-full h-10 px-2 border-b border-app-line/50 rounded-t-md bg-app-button/70`;
 
 export function JobsManager() {
 	const runningJobs = useLibraryQuery(['jobs.getRunning']);
@@ -76,7 +76,7 @@ export function JobsManager() {
 					<Trash className="w-5 h-5" />
 				</Button>
 				<Button size="icon">
-					<DotsThree className="w-5 h-5" />
+					<X className="w-5 h-5" />
 				</Button>
 			</HeaderContainer>
 			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
