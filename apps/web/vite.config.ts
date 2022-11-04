@@ -25,7 +25,7 @@ export default defineConfig({
 		})
 	],
 	root: 'src',
-	publicDir: '../../packages/interface/src/assets',
+	publicDir: '../public',
 	define: {
 		pkgJson: { name, version }
 	},

@@ -1,7 +1,8 @@
-import { ExplorerItem, onLibraryChange } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 
-import { resetStore } from '@sd/client/src/stores/util';
+import { ExplorerItem } from '../core';
+import { onLibraryChange } from '../hooks';
+import { resetStore } from './util';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'media' | 'columns' | 'timeline';
 

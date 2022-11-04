@@ -18,8 +18,9 @@ import { PropsWithChildren, useEffect, useMemo } from 'react';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { usePlatform } from '../../util/Platform';
-import { getExplorerStore } from '../../util/explorerStore';
 import { isObject } from './utils';
+
+import { getExplorerStore } from '@sd/client/src/stores/explorerStore';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });

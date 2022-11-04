@@ -22,13 +22,14 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
-import { getExplorerStore, useExplorerStore } from '../../util/explorerStore';
 import { KeybindEvent } from '../../util/keybind';
 import { KeyManager } from '../key/KeyManager';
 import { Shortcut } from '../primitive/Shortcut';
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
 import { ExplorerOptionsPanel } from './ExplorerOptionsPanel';
+
+import { getExplorerStore, useExplorerStore } from '@sd/client/src/stores/explorerStore';
 
 export interface TopBarButtonProps {
 	children: React.ReactNode;

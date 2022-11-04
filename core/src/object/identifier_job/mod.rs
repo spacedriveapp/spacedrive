@@ -72,11 +72,6 @@ async fn assemble_object_metadata(
 
 	info!("Analyzed file: {:?} {:?} {:?}", path, cas_id, object_kind);
 
-	#[cfg(feature = "ffmpeg")]
-	if object_kind == ObjectKind::Video {
-		dbg!(get_video_metadata(&path));
-	}
-
 	Ok(object::create_unchecked(
 		cas_id,
 		size.to_string(),

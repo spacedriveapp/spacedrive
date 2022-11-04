@@ -4,5 +4,5 @@
 		"target": "es2020",
 		"outDir": "./dist"
 	},
-	"include": ["src", "../ui/src/Dialog.tsx", "../ui/src/Loader.tsx"]
+	"include": ["src", "../ui/src/Dialog.tsx", "../ui/src/Loader.tsx", "../client/src/stores/explorerStore.ts"]
 }

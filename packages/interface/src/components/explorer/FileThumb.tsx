@@ -8,9 +8,10 @@ import clsx from 'clsx';
 import { Suspense, lazy, useMemo } from 'react';
 
 import { usePlatform } from '../../util/Platform';
-import { useExplorerStore } from '../../util/explorerStore';
 import { Folder } from '../icons/Folder';
 import { isObject, isPath } from './utils';
+
+import { useExplorerStore } from '@sd/client/src/stores/explorerStore';
 
 interface Props {
 	data: ExplorerItem;

@@ -4,10 +4,15 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
 
-import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '../../util/explorerStore';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import { isPath } from './utils';
+
+import {
+	ExplorerLayoutMode,
+	getExplorerStore,
+	useExplorerStore
+} from '@sd/client/src/stores/explorerStore';
 
 const TOP_BAR_HEIGHT = 46;
 const GRID_TEXT_AREA_HEIGHT = 25;

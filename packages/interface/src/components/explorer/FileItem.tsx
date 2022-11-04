@@ -3,11 +3,12 @@ import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
 
-import { getExplorerStore } from '../../util/explorerStore';
 import { ObjectKind } from '../../util/kind';
 import { FileItemContextMenu } from './ExplorerContextMenu';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
+
+import { getExplorerStore } from '@sd/client/src/stores/explorerStore';
 
 const NameArea = tw.div`flex justify-center`;
 

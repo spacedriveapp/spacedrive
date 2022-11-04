@@ -4,6 +4,7 @@
 	"main": "index.js",
 	"license": "GPL-3.0-only",
 	"scripts": {
-		"dev": "RUST_LOG=\"sd_core=info\" cargo watch -x 'run -p server'"
+		"dev": "RUST_LOG=\"sd_core=info\" cargo watch -x 'run -p server'",
+		"build": "DATA_DIR=/Users/jamie/Projects/spacedrive/apps/server/sdserver_data cargo run -p server --release"
 	}
 }
