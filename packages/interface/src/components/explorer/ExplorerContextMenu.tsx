@@ -1,5 +1,5 @@
 import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { ContextMenu as CM } from '@sd/ui';
+import { ContextMenu as CM, Input } from '@sd/ui';
 import {
 	ArrowBendUpRight,
 	Image,

@@ -72,6 +72,10 @@ export const Inspector = (props: Props) => {
 		enabled: readyToFetch
 	});
 
+	const fullObjectData = useLibraryQuery(['files.get', { id: objectData?.id || -1 }], {
+		enabled: readyToFetch && objectData?.id !== undefined
+	});
+
 	return (
 		<div
 			{...elementProps}
@@ -148,6 +152,11 @@ export const Inspector = (props: Props) => {
 								<InspectorIcon component={Cube} />
 								<span className="mr-1.5">Size</span>
 								<MetaValue>{formatBytes(Number(objectData?.size_in_bytes || 0))}</MetaValue>
+							</MetaTextLine>
+							<MetaTextLine>
+								<InspectorIcon component={Clock} />
+								<span className="mr-1.5">Duration</span>
+								<MetaValue>{fullObjectData.data?.media_data?.duration_seconds}</MetaValue>
 							</MetaTextLine>
 						</MetaContainer>
 						<Divider />

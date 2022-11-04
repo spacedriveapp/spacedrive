@@ -1,5 +1,4 @@
 #[cfg(feature = "ffmpeg")]
-use crate::object::preview::get_video_metadata;
 use crate::{
 	job::JobError,
 	library::LibraryContext,

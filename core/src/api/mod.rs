@@ -99,7 +99,7 @@ pub(crate) fn mount() -> Arc<Router> {
 							CoreEvent::InvalidateOperation(op) => yield op,
 							CoreEvent::InvalidateOperationDebounced(op) => {
 								let current = Instant::now();
-								if current.duration_since(last) > Duration::from_millis(1000 / 60) {
+								if current.duration_since(last) > Duration::from_millis(1000 / 10) {
 									last = current;
 									yield op;
 								}

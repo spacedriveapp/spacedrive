@@ -3,7 +3,8 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	prisma::{file_path, location},
+	object::preview::{extract_media_data, StreamKind},
+	prisma::{file_path, location, media_data},
 };
 
 use std::{
@@ -68,6 +69,7 @@ enum ThumbnailJobStepKind {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThumbnailJobStep {
 	file_path: file_path_with_object::Data,
+	object_id: i32,
 	kind: ThumbnailJobStepKind,
 }
 
@@ -230,6 +232,36 @@ impl StatefulJob for ThumbnailJob {
 					if let Err(e) = generate_video_thumbnail(&path, &output_path).await {
 						error!("Error generating thumb for video: {:?} {:#?}", &path, e);
 					}
+					// extract MediaData from video and put in the database
+					// TODO: this is bad here, maybe give it its own job?
+					if let Ok(media_data) = extract_media_data(&path) {
+						info!(
+							"Extracted media data for object {}: {:?}",
+							step.object_id, media_data
+						);
+
+						// let primary_video_stream = media_data
+						// 	.steams
+						// 	.iter()
+						// 	.find(|s| s.kind == Some(StreamKind::Video(_)));
+
+						let params = vec![
+							media_data::duration_seconds::set(Some(media_data.duration_seconds)),
+							// media_data::pixel_width::set(Some(media_data.width)),
+							// media_data::pixel_height::set(Some(media_data.height)),
+						];
+						let _ = ctx
+							.library_ctx()
+							.db
+							.media_data()
+							.upsert(
+								media_data::id::equals(step.object_id),
+								params.clone(),
+								params,
+							)
+							.exec()
+							.await?;
+					}
 				}
 			}
 
@@ -329,7 +361,11 @@ async fn get_files_by_extensions(
 		.exec()
 		.await?
 		.into_iter()
-		.map(|file_path| ThumbnailJobStep { file_path, kind })
+		.map(|file_path| ThumbnailJobStep {
+			object_id: file_path.object.as_ref().unwrap().id.clone(),
+			file_path,
+			kind,
+		})
 		.collect())
 }
 

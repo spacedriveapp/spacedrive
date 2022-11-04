@@ -17,7 +17,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.db
 					.object()
 					.find_unique(object::id::equals(args.id))
-					.include(object::include!({ file_paths }))
+					.include(object::include!({ file_paths media_data }))
 					.exec()
 					.await?)
 			})
