@@ -22,7 +22,8 @@ const client = hooks.createClient({
 
 const platform: Platform = {
 	platform: 'web',
-	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
+	getThumbnailUrlById: (casId) =>
+	`${window.location.origin}/spacedrive/thumbnail/${encodeURIComponent(casId)}`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
 	demoMode: true
 };
