@@ -436,8 +436,8 @@ impl MovieDecoder {
 				(*self.video_codec_context).width,
 				(*self.video_codec_context).height,
 				(*self.video_codec_context).pix_fmt as i32,
-				(*timebase).num,
-				(*timebase).den,
+				timebase.num,
+				timebase.den,
 				(*self.video_codec_context).sample_aspect_ratio.num,
 				i32::max((*self.video_codec_context).sample_aspect_ratio.den, 1)
 			)

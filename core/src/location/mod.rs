@@ -5,7 +5,6 @@ use crate::{
 	object::{
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
-		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node},
 };
@@ -328,10 +327,7 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.exec()
 		.await?;
 
-	if let Err(e) = LocationManager::global()
-		.remove(location_id, location.local_path.clone())
-		.await
-	{
+	if let Err(e) = LocationManager::global().remove(location_id).await {
 		error!("Failed to remove location from manager: {e:#?}");
 	}
 

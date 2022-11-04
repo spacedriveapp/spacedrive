@@ -1,11 +1,10 @@
 use crate::{
-	job::Job,
 	location::{
 		delete_location, fetch_location,
 		indexer::{indexer_job::indexer_job_location, rules::IndexerRuleCreateArgs},
 		relink_location, scan_location, LocationCreateArgs, LocationError, LocationUpdateArgs,
 	},
-	object::preview::{ThumbnailJob, ThumbnailJobInit, THUMBNAIL_CACHE_DIR_NAME},
+	object::preview::THUMBNAIL_CACHE_DIR_NAME,
 	prisma::{file_path, indexer_rule, indexer_rules_in_location, location, object, tag},
 };
 

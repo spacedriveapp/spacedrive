@@ -16,7 +16,7 @@ pub struct Ctx {
 type Router = rspc::Router<Arc<Mutex<Ctx>>>;
 
 fn to_map(v: &impl serde::Serialize) -> serde_json::Map<String, Value> {
-	match to_value(&v).unwrap() {
+	match to_value(v).unwrap() {
 		Value::Object(m) => m,
 		_ => unreachable!(),
 	}

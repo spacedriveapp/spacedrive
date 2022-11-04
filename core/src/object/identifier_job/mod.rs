@@ -16,7 +16,7 @@ use prisma_client_rust::QueryError;
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use thiserror::Error;
 use tokio::{fs, io};
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 pub mod current_dir_identifier_job;
 pub mod full_identifier_job;
@@ -189,14 +189,14 @@ async fn identifier_job_step(
 		existing_objects.len()
 	);
 
-	let mut existing_objects_linked: usize = 0;
-	if existing_objects.len() > 0 {
-		existing_objects_linked =
+	let existing_objects_linked = if !existing_objects.is_empty() {
 		// link file_path.object_id to existing objects
 		batch_update_file_paths(library, location_id, &existing_objects, &cas_id_lookup)
-				.await?
-				.len()
-	}
+			.await?
+			.len()
+	} else {
+		0
+	};
 
 	let existing_object_cas_ids = existing_objects
 		.iter()

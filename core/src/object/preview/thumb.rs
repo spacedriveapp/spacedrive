@@ -15,10 +15,8 @@ use std::{
 };
 
 use image::{self, imageops, DynamicImage, GenericImageView};
-use int_enum::IntEnum;
 use sd_file_ext::{
 	extensions::{Extension, ImageExtension, VideoExtension},
-	kind::ObjectKind,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -345,7 +343,7 @@ async fn generate_video_thumbnail<P: AsRef<Path>>(
 async fn get_files_by_extensions(
 	ctx: &LibraryContext,
 	location_id: i32,
-	parent_file_path_id: i32,
+	_parent_file_path_id: i32,
 	extensions: &[Extension],
 	kind: ThumbnailJobStepKind,
 ) -> Result<Vec<ThumbnailJobStep>, JobError> {

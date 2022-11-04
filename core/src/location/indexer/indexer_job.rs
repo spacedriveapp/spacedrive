@@ -3,6 +3,7 @@ use crate::{
 	prisma::{file_path, location},
 };
 
+use crate::location::indexer::rules::RuleKind;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use prisma_client_rust::Direction;
@@ -123,13 +124,14 @@ impl StatefulJob for IndexerJob {
 			.map(|r| r.id)
 			.unwrap_or(0);
 
-		let mut indexer_rules_by_kind = HashMap::new();
+		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
+			HashMap::with_capacity(state.init.location.indexer_rules.len());
 		for location_rule in &state.init.location.indexer_rules {
 			let indexer_rule = IndexerRule::try_from(&location_rule.indexer_rule)?;
 
 			indexer_rules_by_kind
 				.entry(indexer_rule.kind)
-				.or_insert(vec![])
+				.or_default()
 				.push(indexer_rule);
 		}
 

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use tracing::info;
 
 use super::{identifier_job_step, IdentifierJobError, CHUNK_SIZE};
 
@@ -108,7 +108,7 @@ impl StatefulJob for FullFileIdentifierJob {
 
 		state.data = Some(FullFileIdentifierJobState {
 			report: FileIdentifierReport {
-				location_path: location_path.to_str().unwrap_or(&String::new()).to_string(),
+				location_path: location_path.to_str().unwrap_or("").to_string(),
 				total_orphan_paths: orphan_count,
 				..Default::default()
 			},
