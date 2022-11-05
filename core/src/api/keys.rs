@@ -1,10 +1,6 @@
 use std::str::FromStr;
 
-use sd_crypto::{
-	crypto::stream::Algorithm,
-	keys::hashing::HashingAlgorithm,
-	Protected,
-};
+use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
 use serde::Deserialize;
 use specta::Type;
 
@@ -28,7 +24,7 @@ pub struct KeyNameUpdateArgs {
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_query("list", |t| {
-			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore()) },)
+			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore()) })
 		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {

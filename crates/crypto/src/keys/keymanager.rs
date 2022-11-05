@@ -88,11 +88,10 @@ pub struct MountedKey {
 	pub hashed_key: Protected<[u8; 32]>, // this is hashed with the content salt, for instant access
 }
 
-
 /// This is the key manager itself.
-/// 
+///
 /// It contains the keystore, the keymount, the master password and the default key.
-/// 
+///
 /// Use the associated functions to interact with it.
 pub struct KeyManager {
 	master_password: Mutex<Option<Protected<Vec<u8>>>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us

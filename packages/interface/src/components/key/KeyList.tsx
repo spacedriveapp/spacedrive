@@ -48,7 +48,7 @@ const ListKeys = () => {
 };
 
 export function KeyList(props: KeyListProps) {
-	const { mutate: unmountAll } = useLibraryMutation(['keys.unmountAll']);
+	const unmountAll = useLibraryMutation(['keys.unmountAll']);
 
 	return (
 		<div className="flex flex-col h-full max-h-[360px]">
@@ -62,7 +62,7 @@ export function KeyList(props: KeyListProps) {
 			</div>
 			<div className="flex w-full p-2 border-t border-app-line rounded-b-md">
 				<Button size="sm" variant="gray" onClick={() => {
-					unmountAll(null);
+					unmountAll.mutate(null);
 				}}>
 					Unmount All
 				</Button>
