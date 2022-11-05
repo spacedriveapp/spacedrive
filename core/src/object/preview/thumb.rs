@@ -15,9 +15,7 @@ use std::{
 };
 
 use image::{self, imageops, DynamicImage, GenericImageView};
-use sd_file_ext::{
-	extensions::{Extension, ImageExtension, VideoExtension},
-};
+use sd_file_ext::extensions::{Extension, ImageExtension, VideoExtension};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, task::block_in_place};
@@ -232,34 +230,34 @@ impl StatefulJob for ThumbnailJob {
 					}
 					// extract MediaData from video and put in the database
 					// TODO: this is bad here, maybe give it its own job?
-					if let Ok(media_data) = extract_media_data(&path) {
-						info!(
-							"Extracted media data for object {}: {:?}",
-							step.object_id, media_data
-						);
+					// if let Ok(media_data) = extract_media_data(&path) {
+					// 	info!(
+					// 		"Extracted media data for object {}: {:?}",
+					// 		step.object_id, media_data
+					// 	);
 
-						// let primary_video_stream = media_data
-						// 	.steams
-						// 	.iter()
-						// 	.find(|s| s.kind == Some(StreamKind::Video(_)));
+					// 	// let primary_video_stream = media_data
+					// 	// 	.steams
+					// 	// 	.iter()
+					// 	// 	.find(|s| s.kind == Some(StreamKind::Video(_)));
 
-						let params = vec![
-							media_data::duration_seconds::set(Some(media_data.duration_seconds)),
-							// media_data::pixel_width::set(Some(media_data.width)),
-							// media_data::pixel_height::set(Some(media_data.height)),
-						];
-						let _ = ctx
-							.library_ctx()
-							.db
-							.media_data()
-							.upsert(
-								media_data::id::equals(step.object_id),
-								params.clone(),
-								params,
-							)
-							.exec()
-							.await?;
-					}
+					// 	let params = vec![
+					// 		media_data::duration_seconds::set(Some(media_data.duration_seconds)),
+					// 		// media_data::pixel_width::set(Some(media_data.width)),
+					// 		// media_data::pixel_height::set(Some(media_data.height)),
+					// 	];
+					// 	let _ = ctx
+					// 		.library_ctx()
+					// 		.db
+					// 		.media_data()
+					// 		.upsert(
+					// 			media_data::id::equals(step.object_id),
+					// 			params.clone(),
+					// 			params,
+					// 		)
+					// 		.exec()
+					// 		.await?;
+					// }
 				}
 			}
 

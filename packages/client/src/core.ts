@@ -84,11 +84,9 @@ export interface FilePath { id: number, is_dir: boolean, location_id: number, ma
 
 export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
-<<<<<<< HEAD
 export interface GetArgs { id: number }
-=======
+
 export type HashingAlgorithm = { Argon2id: Params }
->>>>>>> main
 
 export interface IdentifyUniqueFilesArgs { id: number, path: string }
 
