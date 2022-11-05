@@ -296,7 +296,7 @@ importers:
       vite: ^3.1.4
       vite-plugin-html: ^3.2.0
       vite-plugin-svgr: ^2.2.1
-      vite-plugin-tsconfig-paths: ^1.2.0
+      vite-tsconfig-paths: ^3.5.2
     dependencies:
       '@fontsource/inter': 4.5.14
       '@rspc/client': 0.0.0-main-7c0a67c1
@@ -319,7 +319,7 @@ importers:
       vite: 3.1.8
       vite-plugin-html: 3.2.0_vite@3.1.8
       vite-plugin-svgr: 2.2.2_vite@3.1.8
-      vite-plugin-tsconfig-paths: 1.2.0_o3sppntgta7qijzxyjjxfsiapy
+      vite-tsconfig-paths: 3.5.2_vite@3.1.8
 
   crates/sync/example/web:
     specifiers:
@@ -21986,14 +21986,6 @@ packages:
     resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
     dev: true
 
-  /typescript-paths/1.4.0_typescript@4.8.4:
-    resolution: {integrity: sha512-olt3yKj5d4ON5MpQgxvqpiN24ApsrdlRnIQFwqlbzuTjRZFQNoTOzzTJ13vyDRt7VW0cuO+g8HA+eoYfBLWWMA==}
-    peerDependencies:
-      typescript: ^4.7.2
-    dependencies:
-      typescript: 4.8.4
-    dev: true
-
   /typescript/4.8.4:
     resolution: {integrity: sha512-QCh+85mCy+h0IGff8r5XWzOVSbBO+KfeYrMQh7NJ58QujwcE22u+NUSmUxqF+un70P9GXKxa2HCNiTTMJknyjQ==}
     engines: {node: '>=4.2.0'}
@@ -22742,17 +22734,6 @@ packages:
     transitivePeerDependencies:
       - rollup
       - supports-color
-    dev: true
-
-  /vite-plugin-tsconfig-paths/1.2.0_o3sppntgta7qijzxyjjxfsiapy:
-    resolution: {integrity: sha512-DpYiubYbrT3MzuJJ/DEavnbACiApoNM5RsH9HQHG5vDlTG4aRmKkwlw9gUFEeymCjvLTwmlScwtj0m02t3sgRQ==}
-    peerDependencies:
-      vite: '*'
-    dependencies:
-      typescript-paths: 1.4.0_typescript@4.8.4
-      vite: 3.1.8
-    transitivePeerDependencies:
-      - typescript
     dev: true
 
   /vite-tsconfig-paths/3.5.2_vite@3.1.8:

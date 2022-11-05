@@ -3,7 +3,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import svg from 'vite-plugin-svgr';
-import tsconfigPaths from 'vite-plugin-tsconfig-paths';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 import { name, version } from './package.json';
 
