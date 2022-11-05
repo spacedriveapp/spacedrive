@@ -11,13 +11,15 @@
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
 use crate::Protected;
-use crate::{error::Error, primitives::SALT_LEN};
+use crate::{primitives::SALT_LEN, Error, Result};
 use argon2::Argon2;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// These parameters define the password-hashing level.
 ///
 /// The harder the parameter, the longer the password will take to hash.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Type, Serialize, Deserialize)]
 #[allow(clippy::use_self)]
 pub enum Params {
 	Standard,
@@ -26,19 +28,10 @@ pub enum Params {
 }
 
 /// This defines all available password hashing algorithms.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Type, Serialize, Deserialize)]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 }
-
-/// This is so we can iterate over all hashing algorithms and parameters.
-///
-/// The main usage is for pre-hashing a key during mounting.
-pub const HASHING_ALGORITHM_LIST: [HashingAlgorithm; 3] = [
-	HashingAlgorithm::Argon2id(Params::Standard),
-	HashingAlgorithm::Argon2id(Params::Hardened),
-	HashingAlgorithm::Argon2id(Params::Paranoid),
-];
 
 impl HashingAlgorithm {
 	/// This function should be used to hash passwords
@@ -48,7 +41,7 @@ impl HashingAlgorithm {
 		&self,
 		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
-	) -> Result<Protected<[u8; 32]>, Error> {
+	) -> Result<Protected<[u8; 32]>> {
 		match self {
 			Self::Argon2id(params) => password_hash_argon2id(password, salt, *params),
 		}
@@ -91,7 +84,7 @@ pub fn password_hash_argon2id(
 	password: Protected<Vec<u8>>,
 	salt: [u8; SALT_LEN],
 	params: Params,
-) -> Result<Protected<[u8; 32]>, Error> {
+) -> Result<Protected<[u8; 32]>> {
 	let mut key = [0u8; 32];
 
 	let argon2 = Argon2::new(

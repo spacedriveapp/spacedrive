@@ -1,5 +1,15 @@
 //! This module contains all possible errors that this crate can return.
+
 use thiserror::Error;
+
+#[cfg(feature = "rspc")]
+impl From<Error> for rspc::Error {
+	fn from(err: Error) -> Self {
+		Self::new(rspc::ErrorCode::InternalServerError, err.to_string())
+	}
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// This enum defines all possible errors that this crate can give
 #[derive(Error, Debug)]
@@ -44,4 +54,12 @@ pub enum Error {
 	NoMasterPassword,
 	#[error("mismatch between supplied keys and the keystore")]
 	KeystoreMismatch,
+	#[error("mutex lock error")]
+	MutexLock,
+}
+
+impl<T> From<std::sync::PoisonError<T>> for Error {
+	fn from(_: std::sync::PoisonError<T>) -> Self {
+		Self::MutexLock
+	}
 }

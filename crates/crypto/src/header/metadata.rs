@@ -31,9 +31,8 @@ use std::io::{Read, Seek};
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	error::Error,
 	primitives::{generate_nonce, MASTER_KEY_LEN},
-	Protected,
+	Error, Protected, Result,
 };
 
 use super::file::FileHeader;
@@ -70,7 +69,7 @@ impl FileHeader {
 		algorithm: Algorithm,
 		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
 		metadata: &T,
-	) -> Result<(), Error>
+	) -> Result<()>
 	where
 		T: ?Sized + serde::Serialize,
 	{
@@ -104,7 +103,7 @@ impl FileHeader {
 	pub fn decrypt_metadata_from_prehashed<T>(
 		&self,
 		hashed_keys: Vec<Protected<[u8; 32]>>,
-	) -> Result<T, Error>
+	) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
 	{
@@ -131,7 +130,7 @@ impl FileHeader {
 	/// All it requires is a password. Hashing is handled for you.
 	///
 	/// A deserialized data type will be returned from this function
-	pub fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T, Error>
+	pub fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
 	{
@@ -189,7 +188,7 @@ impl Metadata {
 	/// The cursor will be left at the end of the metadata item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
+	pub fn deserialize<R>(reader: &mut R) -> Result<Self>
 	where
 		R: Read + Seek,
 	{

@@ -3,8 +3,8 @@
 //! It contains `byte -> enum` and `enum -> byte` conversions for everything that could be written to a header (except headers, keyslots, and other header items)
 use crate::{
 	crypto::stream::Algorithm,
-	error::Error,
 	keys::hashing::{HashingAlgorithm, Params},
+	Error, Result,
 };
 
 use super::{
@@ -20,7 +20,7 @@ impl FileHeaderVersion {
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0A, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
@@ -36,7 +36,7 @@ impl KeyslotVersion {
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0D, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
@@ -52,7 +52,7 @@ impl PreviewMediaVersion {
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0E, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
@@ -68,7 +68,7 @@ impl MetadataVersion {
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x1F, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
@@ -88,7 +88,7 @@ impl HashingAlgorithm {
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0F, 0x01] => Ok(Self::Argon2id(Params::Standard)),
 			[0x0F, 0x02] => Ok(Self::Argon2id(Params::Hardened)),
@@ -107,7 +107,7 @@ impl Algorithm {
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self, Error> {
+	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0B, 0x01] => Ok(Self::XChaCha20Poly1305),
 			[0x0B, 0x02] => Ok(Self::Aes256Gcm),
