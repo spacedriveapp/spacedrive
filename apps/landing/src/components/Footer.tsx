@@ -96,11 +96,11 @@ export function Footer() {
 					<FooterLink blank link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE">
 						License
 					</FooterLink>
-					<div className="opacity-50 pointer-events-none">
-						<FooterLink link="#">Privacy</FooterLink>
+					<div>
+						<FooterLink link="/docs/company/legal/privacy">Privacy</FooterLink>
 					</div>
-					<div className="opacity-50 pointer-events-none">
-						<FooterLink link="#">Terms</FooterLink>
+					<div>
+						<FooterLink link="/docs/company/legal/terms">Terms</FooterLink>
 					</div>
 				</div>
 			</div>

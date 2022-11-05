@@ -1,7 +1,17 @@
 ---
-index: 10
+index: 4
 ---
 
 # Explorer
 
-using the interface, features
+
+### Grid view
+
+### List View
+
+### Columns View
+### Media View
+
+### Timeline View
+
+### Configuration
