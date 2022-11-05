@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { ExplorerItem } from '@sd/client';
 import { Pressable, Text, View } from 'react-native';
+import { isPath } from '~/types/helper';
 
 import tw from '../../lib/tailwind';
 import { SharedScreenProps } from '../../navigation/SharedScreens';
@@ -17,13 +18,12 @@ const FileItem = ({ data }: FileItemProps) => {
 	const navigation = useNavigation<SharedScreenProps<'Location'>['navigation']>();
 
 	function handlePress() {
-		// 	if (!data) return;
-		// 	if (data.is_dir) {
-		// 		navigation.navigate('Location', { id: data.location_id });
-		// 	} else {
-		// 		setData(data);
-		// 		fileRef.current.present();
-		// 	}
+		if (isPath(data) && data.is_dir) {
+			navigation.navigate('Location', { id: data.location_id });
+		} else {
+			setData(data);
+			fileRef.current.present();
+		}
 	}
 
 	return (

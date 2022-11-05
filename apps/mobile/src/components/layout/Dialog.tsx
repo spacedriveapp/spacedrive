@@ -57,7 +57,7 @@ const Dialog = (props: DialogProps) => {
 			<Modal renderToHardwareTextureAndroid transparent visible={props.isVisible ?? visible}>
 				{/* Backdrop */}
 				<Pressable
-					style={tw`bg-app-overlay/40 absolute inset-0`}
+					style={tw`bg-app-box/40 absolute inset-0`}
 					onPress={handleCloseDialog}
 					disabled={props.disableBackdropClose || props.loading}
 				/>
@@ -91,7 +91,7 @@ const Dialog = (props: DialogProps) => {
 							</View>
 							{/* Actions */}
 							<View
-								style={tw`flex flex-row items-center px-3 py-3 bg-app-selected border-t border-app-line`}
+								style={tw`flex flex-row items-center px-3 py-3 bg-app-highlight border-t border-app-line`}
 							>
 								{props.loading && <PulseAnimation style={tw`h-7`} />}
 								<View style={tw`flex-grow`} />

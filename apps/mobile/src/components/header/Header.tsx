@@ -16,7 +16,7 @@ const Header = () => {
 
 	return (
 		<View
-			style={tw.style('mx-4 bg-app-box border border-app-line bg-opacity-40 rounded', {
+			style={tw.style('mx-4 bg-app-overlay border border-app-line rounded', {
 				marginTop: top + 10
 			})}
 		>

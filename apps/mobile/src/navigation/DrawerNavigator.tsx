@@ -17,7 +17,7 @@ export default function DrawerNavigator() {
 			screenOptions={{
 				headerShown: false,
 				drawerStyle: {
-					backgroundColor: tw.color('drawer'),
+					backgroundColor: tw.color('app-darkBox'),
 					width: '75%'
 				},
 				overlayColor: 'transparent',

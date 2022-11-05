@@ -26,24 +26,24 @@ const DrawerLibraryManager = () => {
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={tw.style(
-						'flex flex-row justify-between items-center px-3 h-10 w-full bg-drawer-box border border-menu-line shadow-sm',
-						dropdownClosed ? 'rounded' : 'rounded-t border-b-app-line'
+						'flex flex-row justify-between items-center px-3 h-10 w-full bg-app-box border border-app-darkLine shadow-sm',
+						dropdownClosed ? 'rounded' : 'rounded-t border-b-app-box'
 					)}
 				>
-					<Text style={tw`text-menu-ink text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
+					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
 					<MotiView
 						animate={{
 							rotateZ: dropdownClosed ? '0deg' : '90deg'
 						}}
 						transition={{ type: 'timing' }}
 					>
-						<CaretRight color={tw.color('text-menu-ink')} size={16} style={tw`ml-2`} />
+						<CaretRight color={tw.color('text-ink')} size={16} style={tw`ml-2`} />
 					</MotiView>
 				</View>
 			</Pressable>
 			<AnimatedHeight hide={dropdownClosed}>
 				<View
-					style={tw`py-2 px-2 bg-drawer-box border-l border-b border-r border-menu-line rounded-b`}
+					style={tw`py-2 px-2 bg-app-box border-l border-b border-r border-app-darkLine rounded-b`}
 				>
 					{/* Libraries */}
 					{libraries?.map((library) => (
@@ -56,7 +56,7 @@ const DrawerLibraryManager = () => {
 							>
 								<Text
 									style={tw.style(
-										'text-sm text-menu-ink font-semibold',
+										'text-sm text-ink font-semibold',
 										currentLibrary.uuid === library.uuid && 'text-white'
 									)}
 								>
@@ -69,21 +69,21 @@ const DrawerLibraryManager = () => {
 					{/* Menu */}
 					<Pressable onPress={() => console.log('settings')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Gear size={16} color={tw.color('menu-faint')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-menu-ink font-semibold`}>Library Settings</Text>
+							<Gear size={16} color={tw.color('ink-dull')} style={tw`mr-2`} />
+							<Text style={tw`text-sm text-ink font-semibold`}>Library Settings</Text>
 						</View>
 					</Pressable>
 					{/* Create Library */}
 					<CreateLibraryDialog>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Plus size={16} weight="bold" color={tw.color('menu-faint')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-menu-ink font-semibold`}>Add Library</Text>
+							<Plus size={16} weight="bold" color={tw.color('ink-dull')} style={tw`mr-2`} />
+							<Text style={tw`text-sm text-ink font-semibold`}>Add Library</Text>
 						</View>
 					</CreateLibraryDialog>
 					<Pressable onPress={() => console.log('lock')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Lock size={16} weight="bold" color={tw.color('menu-faint')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-menu-ink font-semibold`}>Lock</Text>
+							<Lock size={16} weight="bold" color={tw.color('ink-dull')} style={tw`mr-2`} />
+							<Text style={tw`text-sm text-ink font-semibold`}>Lock</Text>
 						</View>
 					</Pressable>
 				</View>

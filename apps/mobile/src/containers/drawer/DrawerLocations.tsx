@@ -64,7 +64,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 				</View>
 				{/* Add Location */}
 				<Pressable onPress={() => importModalRef.current.present()}>
-					<View style={tw`border border-dashed rounded border-gray-450 border-opacity-60 mt-1`}>
+					<View style={tw`border border-dashed rounded border-app-line border-opacity-80 mt-1`}>
 						<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>
 							Add Location
 						</Text>

@@ -20,6 +20,7 @@ module.exports = {
 		},
 		extend: {
 			colors: {
+				// Brand blue
 				accent: {
 					DEFAULT: 'hsla(208, 100%, 47%, 1)',
 					faint: 'hsla(208, 100%, 64%, 1)',
@@ -30,53 +31,40 @@ module.exports = {
 					dull: 'hsla(230, 10%, 70%, 1)',
 					faint: 'hsla(230, 10%, 55%, 1)'
 				},
-				// 'sidebar' on desktop
-				drawer: {
-					DEFAULT: 'hsla(230, 15%, 7%, 1)',
-					box: 'hsla(230, 15%, 16%, 1)',
-					line: 'hsla(230, 15%, 23%, 1)',
-					divider: 'hsla(230, 15%, 17%, 1)',
-					button: 'hsla(230, 15%, 18%, 1)',
-					selected: 'hsla(230, 15%, 24%, 1)',
-					shade: 'hsla(230, 15%, 23%, 1)'
-				},
+				// Brand gray
 				app: {
-					DEFAULT: 'hsla(230, 15%, 14%, 1)',
-					box: 'hsla(230, 15%, 19%, 1)',
-					overlay: 'hsla(230, 17%, 18%, 1)',
-					input: 'hsla(230, 15%, 20%, 1)',
-					focus: 'hsla(230, 15%, 10%, 1)',
-					line: 'hsla(230, 15%, 26%, 1)',
-					divider: 'hsla(230, 15%, 5%, 1)',
-					button: 'hsla(230, 15%, 23%, 1)',
-					selected: 'hsla(230, 15%, 27%, 1)',
-					hover: 'hsla(230, 15%, 25%, 1)',
-					active: 'hsla(230, 15%, 30%, 1)',
+					DEFAULT: 'hsla(230, 15%, 13%, 1)',
+					// background (dark)
+					box: 'hsla(230, 15%, 17%, 1)',
+					darkBox: 'hsla(230, 15%, 7%, 1)',
+					// foreground (light)
+					overlay: 'hsla(230, 15%, 19%, 1)',
+					// border
+					line: 'hsla(230, 15%, 25%, 1)',
+					darkLine: 'hsla(230, 15%, 7%, 1)',
+					// 'selected' on desktop
+					highlight: 'hsla(230, 15%, 27%, 1)',
+					// shadow
 					shade: 'hsla(230, 15%, 0%, 1)',
-					frame: 'hsla(230, 15%, 25%, 1)'
-				},
-				menu: {
-					DEFAULT: 'hsla(230, 25%, 5%, 1)',
-					line: 'hsla(230, 15%, 7%, 1)',
-					hover: 'hsla(230, 15%, 30%, 1)',
-					selected: 'hsla(230, 5%, 30%, 1)',
-					shade: 'hsla(230, 5%, 0%, 1)',
-					ink: 'hsla(230, 5%, 100%, 1)',
-					faint: 'hsla(230, 5%, 80%, 1)'
-				},
-				// legacy support
-				primary: {
-					DEFAULT: '#2599FF',
-					50: '#FFFFFF',
-					100: '#F1F8FF',
-					200: '#BEE1FF',
-					300: '#8BC9FF',
-					400: '#58B1FF',
-					500: '#2599FF',
-					600: '#0081F1',
-					700: '#0065BE',
-					800: '#004A8B',
-					900: '#002F58'
+					50: 'hsla(230, 15%, 5%, 1)',
+					100: 'hsla(230, 15%, 10%, 1)',
+					150: 'hsla(230, 15%, 15%, 1)',
+					200: 'hsla(230, 15%, 20%, 1)',
+					250: 'hsla(230, 15%, 30%, 1)',
+					300: 'hsla(230, 15%, 35%, 1)',
+					350: 'hsla(230, 15%, 40%, 1)',
+					450: 'hsla(230, 15%, 45%, 1)',
+					500: 'hsla(230, 15%, 50%, 1)',
+					550: 'hsla(230, 15%, 55%, 1)',
+					600: 'hsla(230, 15%, 60%, 1)',
+					650: 'hsla(230, 15%, 65%, 1)',
+					700: 'hsla(230, 15%, 70%, 1)',
+					750: 'hsla(230, 15%, 75%, 1)',
+					800: 'hsla(230, 15%, 80%, 1)',
+					850: 'hsla(230, 15%, 85%, 1)',
+					900: 'hsla(230, 15%, 90%, 1)',
+					950: 'hsla(230, 15%, 95%, 1)',
+					1000: 'hsla(230, 15%, 100%, 1)'
 				},
 				gray: {
 					DEFAULT: '#505468',
