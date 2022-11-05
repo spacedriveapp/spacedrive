@@ -82,7 +82,7 @@ if [ "$1" == "mobile" ]; then
 fi
 
 # We can always add in additional distros as needed
-KNOWN_DISTRO="(Debian|Ubuntu|RedHat|CentOS|opensuse-leap|Arch|Fedora|suse)"
+KNOWN_DISTRO="(Debian|Ubuntu|RedHat|CentOS|Arch|Fedora)"
 # This is used to identify the distro based off of the /etc/os-release file
 DISTRO=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release 2>/dev/null | grep -Eo $KNOWN_DISTRO || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s | grep -Eo $KNOWN_DISTRO || grep -Eo $KNOWN_DISTRO /etc/issue 2>/dev/null || uname -s)
 
@@ -126,24 +126,6 @@ then
 
   sudo apt-get -y update
   sudo apt-get -y install "${SPACEDRIVE_CUSTOM_APT_FLAGS:-}" $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
-
-elif [ -f /etc/os-release -o $DISTRO == "opensuse" ]; then
-  echo "Detected $DISTRO based distro!"
-  # Tauri dependencies
-  SUSE_TAURI_DEPS="webkit2gtk3-soup2-devel libopenssl-devel curl wget libappindicator3-1 librsvg-devel"
-  # FFMPEG dependencies
-  SUSE_FFMPEG_DEPS="ffmpeg-5 ffmpeg-5-libavutil-devel ffmpeg-5-libavformat-devel ffmpeg-5-libswresample-devel ffmpeg-5-libavfilter-devel ffmpeg-5-libavdevice-devel"
-  # Bindgen dependencies - it's used by a dependency of Spacedrive
-  SUSE_BINDGEN_DEPS="clang"
-
-  sudo zypper up
-  sudo zypper addrepo https://download.opensuse.org/repositories/multimedia:libs/15.4/multimedia:libs.repo
-  sudo zypper refresh
-  sudo zypper in $SUSE_TAURI_DEPS $SUSE_FFMPEG_DEPS $SUSE_BINDGEN_DEPS
-  sudo zypper in -t pattern devel_basis
-#  This is needed due to when the build script is run again openSUSE errors out instead of continuing when the repo exist on the OS already
-  sudo zypper rr multimedia_libs
-
 
 elif [ -f /usr/lib/os-release -o "$DISTRO" == "Arch" ]; then
   echo "Detected $DISTRO based distro!"
