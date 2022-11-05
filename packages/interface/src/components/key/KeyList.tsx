@@ -20,9 +20,6 @@ const ListKeys = () => {
 		[keys, mounted_uuids]
 	);
 
-	//const mountedKeys: QueryKey[] = keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? []
-	//const unmountedKeys: QueryKey[] = keys.data?.filter(key => !mounted_uuids.data?.includes(key.uuid)) ?? []
-
 	if(keys.data?.length === 0) {
 		return (
 			<CategoryHeading>No keys available.</CategoryHeading>
