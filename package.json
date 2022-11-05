@@ -39,7 +39,7 @@
 		"@types/node": "^16.0.0"
 	},
 	"engines": {
-		"pnpm": ">=7.0.0",
+		"pnpm": ">=7.14.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
 		"node": ">=17.0.0"
