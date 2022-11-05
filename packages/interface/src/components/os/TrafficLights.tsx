@@ -14,15 +14,17 @@ export interface TrafficLightsProps extends DefaultProps {
 }
 
 export function MacTrafficLights(props: TrafficLightsProps) {
+	const {onClose, onMinimize, onFullscreen, className} = props;
 	const [focused] = useFocusState();
+
 	return (
 		<div
 			data-tauri-drag-region
-			className={clsx('flex flex-row space-x-[7.5px] group', props.className)}
+			className={clsx('flex flex-row space-x-[7.5px] group', className)}
 		>
-			<TrafficLight type="close" onClick={props.onClose} colorful={focused} />
-			<TrafficLight type="minimize" onClick={props.onMinimize} colorful={focused} />
-			<TrafficLight type="fullscreen" onClick={props.onFullscreen} colorful={focused} />
+			<TrafficLight type="close" onClick={onClose} colorful={focused} />
+			<TrafficLight type="minimize" onClick={onMinimize} colorful={focused} />
+			<TrafficLight type="fullscreen" onClick={onFullscreen} colorful={focused} />
 		</div>
 	);
 }

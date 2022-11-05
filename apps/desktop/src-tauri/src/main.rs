@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					use macos::*;
 
 					let window = window.ns_window().unwrap();
-					set_titlebar_style(window, true, true);
+					set_titlebar_style(window, true, false);
 					blur_window_background(window);
 				}
 			});
