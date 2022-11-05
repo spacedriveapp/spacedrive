@@ -194,7 +194,9 @@ model Key {
   // the name that the user sets
   name              String?
   // is this key the default for encryption?
-  default           Boolean
+  // was not tagged as unique as i'm not too sure if PCR will handle it
+  // can always be tagged as unique, the keys API will need updating to use `find_unique()`
+  default           Boolean   @default(false)
   // nullable if concealed for security
   date_created      DateTime? @default(now())
   // encryption algorithm used to encrypt the key
@@ -213,6 +215,8 @@ model Key {
   key_nonce         Bytes
   // the *encrypted* key
   key               Bytes
+
+  automount Boolean @default(false)
 
   objects    Object[]
   file_paths FilePath[]
