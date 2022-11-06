@@ -39,8 +39,9 @@ export type Procedures = {
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
         { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.setMasterPassword", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
         { key: "keys.updateKeyName", input: LibraryArgs<KeyNameUpdateArgs>, result: null } | 
@@ -131,11 +132,17 @@ export interface Object { id: number, cas_id: string, integrity_checksum: string
 
 export interface ObjectValidatorArgs { id: number, path: string }
 
+export interface OnboardingArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+
+export interface OnboardingKeys { passphrase: string, secret_key: string }
+
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export interface SetFavoriteArgs { id: number, favorite: boolean }
+
+export interface SetMasterPasswordArgs { password: string, secret_key: string }
 
 export interface SetNoteArgs { id: number, note: string | null }
 
