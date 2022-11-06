@@ -2,7 +2,7 @@
 //!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the streaming block size.
-use rand::{RngCore, SeedableRng};
+use rand::{RngCore, SeedableRng, seq::SliceRandom};
 use zeroize::Zeroize;
 
 use crate::{crypto::stream::Algorithm, Error, Protected, Result};
@@ -20,6 +20,8 @@ pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
 
 /// The length of the (unencrypted) master key
 pub const MASTER_KEY_LEN: usize = 32;
+
+pub const PASSPHRASE_LEN: usize = 7;
 
 /// This should be used for generating nonces for encryption.
 ///
@@ -67,4 +69,19 @@ pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I]> {
 		b.zeroize();
 		Error::VecArrSizeMismatch
 	})
+}
+
+/// This generates a 7 word diceware passphrase, separated with `-`
+pub fn generate_passphrase() -> Protected<String> {
+	let wordlist = include_str!("../assets/eff_large_wordlist.txt").lines().collect::<Vec<&str>>();
+	let words: Vec<String> = wordlist.choose_multiple(&mut rand_chacha::ChaCha20Rng::from_entropy(), PASSPHRASE_LEN).map(|w| w.to_string()).collect();
+	let passphrase = words.iter().enumerate().map(|(i, word)| {
+		if i < PASSPHRASE_LEN - 1 {
+			word.to_owned() + "-"
+		} else {
+			word.to_owned()
+		}
+	}).into_iter().collect();
+
+	Protected::new(passphrase)
 }
