@@ -46,7 +46,7 @@
 		"@types/compression": "^1.7.2",
 		"@types/express": "^4.17.14",
 		"@types/marked": "^4.0.7",
-		"@types/node": "^18.8.2",
+		"@types/node": "^16.0.0",
 		"@types/prismjs": "^1.26.0",
 		"@types/react": "^18.0.21",
 		"@types/react-burger-menu": "^2.8.3",
