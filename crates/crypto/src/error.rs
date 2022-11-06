@@ -56,6 +56,8 @@ pub enum Error {
 	KeystoreMismatch,
 	#[error("mutex lock error")]
 	MutexLock,
+	#[error("no master password verification key")]
+	NoVerificationKey,
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {

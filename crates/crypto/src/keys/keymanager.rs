@@ -51,7 +51,6 @@ use crate::{Error, Result};
 use dashmap::DashMap;
 use serde::Serialize;
 use serde_big_array::BigArray;
-use specta::Type;
 use uuid::Uuid;
 
 use super::hashing::HashingAlgorithm;
@@ -63,7 +62,8 @@ use super::hashing::HashingAlgorithm;
 // The `hashed_key` refers to the value you'd pass to PVM/MD decryption functions. It has been pre-hashed with the content salt.
 // The content salt refers to the semi-universal salt that's used for metadata/preview media (unique to each key in the manager)
 
-#[derive(Clone, PartialEq, Eq, Type, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct StoredKey {
 	pub uuid: uuid::Uuid,     // uuid for identification. shared with mounted keys
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
@@ -94,26 +94,87 @@ pub struct MountedKey {
 ///
 /// Use the associated functions to interact with it.
 pub struct KeyManager {
-	master_password: Mutex<Option<Protected<Vec<u8>>>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
+	master_password: Mutex<Option<Protected<[u8; 32]>>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
+	verification_key: Mutex<Option<StoredKey>>,
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
 	default: Mutex<Option<Uuid>>,
+}
+
+
+// bundle returned during onboarding
+// nil key should be stored within prisma
+// secret key should be written down by the user (along with the master password)
+pub struct OnboardingBundle {
+	pub nil_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
+	pub secret_key: Protected<String>, // base64 encoded string that is required along with the master password
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// Initialize the Key Manager with the user's master password, and `StoredKeys` retrieved from Prisma
 	#[must_use]
-	pub fn new(stored_keys: Vec<StoredKey>, master_password: Option<Protected<Vec<u8>>>) -> Self {
+	pub fn onboarding(master_password: Protected<Vec<u8>>, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm) -> Result<OnboardingBundle> {
+		let salt = generate_salt();
+
+		// Hash the master password
+		let hashed_password = hashing_algorithm.hash(master_password, salt)?;
+
+		let uuid = uuid::Uuid::nil();
+
+
+		// Generate items we'll need for encryption
+		let master_key = generate_master_key();
+		let master_key_nonce = generate_nonce(algorithm);
+		
+		// Encrypt the master key with the hashed master password
+		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+			hashed_password,
+			&master_key_nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
+
+
+		let nil_key = StoredKey {
+			uuid,
+			algorithm,
+			hashing_algorithm,
+			salt: [0u8; 16],
+			content_salt: [0u8; 16],
+			master_key: encrypted_master_key,
+			master_key_nonce,
+			key_nonce: Vec::new(),
+			key: Vec::new(),
+		};
+
+		let secret_key = Protected::new(base64::encode(salt));
+
+		let onboarding_bundle = OnboardingBundle { nil_key, secret_key };
+		
+		Ok(onboarding_bundle)
+	}
+
+	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
+	#[must_use]
+	pub fn new(stored_keys: Vec<StoredKey>) -> Self {
 		let keystore = DashMap::new();
+		let mut verification_key = None;
+
 		for key in stored_keys {
-			keystore.insert(key.uuid, key);
+			if key.uuid.is_nil() {
+				verification_key = Some(key);
+			} else {
+				keystore.insert(key.uuid, key);
+			}
 		}
 
 		let keymount: DashMap<Uuid, MountedKey> = DashMap::new();
 
 		Self {
-			master_password: Mutex::new(master_password),
+			master_password: Mutex::new(None),
+			verification_key: Mutex::new(verification_key),
 			keystore,
 			keymount,
 			default: Mutex::new(None),
@@ -125,7 +186,11 @@ impl KeyManager {
 	/// It's suitable for when you created the key manager without populating it.
 	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
 		for key in stored_keys {
-			self.keystore.insert(key.uuid, key);
+			if key.uuid.is_nil() {
+				*self.verification_key.lock()? = Some(key);
+			} else {
+				self.keystore.insert(key.uuid, key);
+			}
 		}
 
 		Ok(())
@@ -186,19 +251,38 @@ impl KeyManager {
 	}
 
 	/// This should ONLY be used internally.
-	fn get_master_password(&self) -> Result<Protected<Vec<u8>>> {
-		let master_password = self.master_password.lock()?;
-		match &*master_password {
+	fn get_master_password(&self) -> Result<Protected<[u8; 32]>> {
+		match &*self.master_password.lock()? {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}
 	}
 
-	pub fn set_master_password(&self, master_password: Protected<Vec<u8>>) -> Result<()> {
+	// requires master password and the secret key
+	pub fn set_master_password(&self, master_password: Protected<Vec<u8>>, secret_key: Protected<Vec<u8>>) -> Result<()> {
 		// this returns a result, so we can potentially implement password checking functionality
-		*self.master_password.lock()? = Some(master_password);
+		let verification_key = match &*self.verification_key.lock()? {
+			Some(k) => Ok(k.clone()),
+			None => Err(Error::NoVerificationKey),
+		}?;
 
-		Ok(())
+		let hashed_master_password = verification_key.hashing_algorithm.hash(master_password, to_array(secret_key.expose().clone())?)?;
+
+		// Decrypt the StoredKey's master key using the user's hashed password
+		let decryption_result = StreamDecryption::decrypt_bytes(
+			hashed_master_password.clone(),
+			&verification_key.master_key_nonce,
+			verification_key.algorithm,
+			&verification_key.master_key,
+			&[],
+		);
+
+		if decryption_result.is_ok() {
+			*self.master_password.lock()? = Some(hashed_master_password);
+			Ok(())
+		} else {
+			Err(Error::IncorrectPassword)
+		}
 	}
 
 	/// This function is for removing a previously-added master password
@@ -280,17 +364,11 @@ impl KeyManager {
 	pub fn mount(&self, uuid: Uuid) -> Result<()> {
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
-				let master_password = self.get_master_password()?;
-
-				let hashed_password = stored_key
-					.hashing_algorithm
-					.hash(master_password, stored_key.salt)?;
-
 				let mut master_key = [0u8; MASTER_KEY_LEN];
 
 				// Decrypt the StoredKey's master key using the user's hashed password
 				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-					hashed_password,
+					self.get_master_password()?,
 					&stored_key.master_key_nonce,
 					stored_key.algorithm,
 					&stored_key.master_key,
@@ -379,8 +457,6 @@ impl KeyManager {
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 	) -> Result<Uuid> {
-		let master_password = self.get_master_password()?;
-
 		let uuid = uuid::Uuid::new_v4();
 
 		// Generate items we'll need for encryption
@@ -390,18 +466,15 @@ impl KeyManager {
 		let salt = generate_salt();
 		let content_salt = generate_salt(); // for PVM/MD
 
-		// Hash the user's master password
-		let hashed_password = hashing_algorithm.hash(master_password, salt)?;
-
-		// Encrypted the master key with the user's hashed password
+		// Encrypt the master key with the user's hashed password
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-			hashed_password,
+			self.get_master_password()?,
 			&master_key_nonce,
 			algorithm,
 			master_key.expose(),
 			&[],
 		)?)?;
-
+		
 		// Encrypt the actual key (e.g. user-added/autogenerated, text-encodable)
 		let encrypted_key =
 			StreamEncryption::encrypt_bytes(master_key, &key_nonce, algorithm, &key, &[])?;
