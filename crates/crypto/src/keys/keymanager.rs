@@ -106,7 +106,7 @@ pub struct KeyManager {
 // nil key should be stored within prisma
 // secret key should be written down by the user (along with the master password)
 pub struct OnboardingBundle {
-	pub nil_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
+	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
 	pub secret_key: Protected<String>, // base64 encoded string that is required along with the master password
 }
 
@@ -137,7 +137,7 @@ impl KeyManager {
 		)?)?;
 
 
-		let nil_key = StoredKey {
+		let verification_key = StoredKey {
 			uuid,
 			algorithm,
 			hashing_algorithm,
@@ -151,7 +151,7 @@ impl KeyManager {
 
 		let secret_key = Protected::new(base64::encode(salt));
 
-		let onboarding_bundle = OnboardingBundle { nil_key, secret_key };
+		let onboarding_bundle = OnboardingBundle { verification_key, secret_key };
 		
 		Ok(onboarding_bundle)
 	}

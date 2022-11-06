@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
-use serde::Deserialize;
+use sd_crypto::{crypto::stream::Algorithm, keys::{hashing::HashingAlgorithm, keymanager::KeyManager}, Protected, primitives::generate_passphrase};
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::{invalidate_query, prisma::key};
@@ -20,6 +20,24 @@ pub struct KeyAddArgs {
 pub struct KeyNameUpdateArgs {
 	uuid: uuid::Uuid,
 	name: String,
+}
+
+#[derive(Type, Deserialize)]
+pub struct SetMasterPasswordArgs {
+	password: String,
+	secret_key: String,
+}
+
+#[derive(Type, Deserialize)]
+pub struct OnboardingArgs {
+	algorithm: Algorithm,
+	hashing_algorithm: HashingAlgorithm,
+}
+
+#[derive(Type, Serialize)]
+pub struct OnboardingKeys {
+	passphrase: String,
+	secret_key: String,
 }
 
 pub(crate) fn mount() -> RouterBuilder {
@@ -80,16 +98,52 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		.library_mutation("setMasterPassword", |t| {
-			t(|_, password: String, library| async move {
-				// need to add master password checks in the keymanager itself to make sure it's correct
-				// this can either unwrap&fail, or we can return the error. either way, the user will have to correct this
-				// by entering the correct password
-				// for now, automounting might have to serve as the master password checks
+		.library_mutation("onboarding", |t| {
+			t(|_, args: OnboardingArgs, library| async move {
+				// if this returns an error, the user MUST re-enter the correct password
+				let passphrase = generate_passphrase();
+				let bundle = KeyManager::onboarding(Protected::new(passphrase.expose().as_bytes().to_vec()), args.algorithm, args.hashing_algorithm)?;
+				
+				let verification_key = bundle.verification_key;
 
 				library
+					.db
+					.key()
+					.delete(key::uuid::equals(uuid::Uuid::nil().to_string()))
+					.exec()
+					.await?;
+
+				library
+					.db
+					.key()
+					.create(
+						verification_key.uuid.to_string(),
+						verification_key.algorithm.serialize().to_vec(),
+						verification_key.hashing_algorithm.serialize().to_vec(),
+						verification_key.salt.to_vec(),
+						verification_key.content_salt.to_vec(),
+						verification_key.master_key.to_vec(),
+						verification_key.master_key_nonce.to_vec(),
+						verification_key.key_nonce.to_vec(),
+						verification_key.key.to_vec(),
+						vec![],
+					)
+					.exec()
+					.await?;
+				
+				let secret_key = base64::encode(bundle.secret_key.expose());
+
+				let keys = OnboardingKeys { passphrase: passphrase.expose().clone(), secret_key };
+
+				Ok(keys)
+			})
+		})
+		.library_mutation("setMasterPassword", |t| {
+			t(|_, args: SetMasterPasswordArgs, library| async move {
+				// if this returns an error, the user MUST re-enter the correct password
+				library
 					.key_manager
-					.set_master_password(Protected::new(password.as_bytes().to_vec()))?;
+					.set_master_password(Protected::new(args.password.as_bytes().to_vec()), Protected::new(base64::decode(args.secret_key).unwrap()))?;
 
 				let automount = library
 					.db
