@@ -18,7 +18,7 @@ export function KeyMounter() {
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
 
 	const [showKey, setShowKey] = useState(false);
-	const [toggle, setToggle] = useState(true);
+	const [librarySync, setLibrarySync] = useState(true);
 
 	const [key, setKey] = useState('');
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
@@ -63,12 +63,12 @@ export function KeyMounter() {
 					<Switch
 						className="bg-app-selected"
 						size="sm"
-						checked={toggle}
-						onCheckedChange={setToggle}
+						checked={librarySync}
+						onCheckedChange={setLibrarySync}
 					/>
 				</div>
 				<span className="ml-3 text-xs font-medium">Sync with Library</span>
-				<Tooltip label="This key will be mounted on all devices running your Library">
+				<Tooltip label="This key will be registered with all devices running your Library">
 					<Info className="w-4 h-4 ml-1.5 text-ink-faint" />
 				</Tooltip>
 			</div>
@@ -109,7 +109,7 @@ export function KeyMounter() {
 						break;
 				}
 
-				createKey.mutate({algorithm, hashing_algorithm, key });
+				createKey.mutate({algorithm, hashing_algorithm, key, library_sync: librarySync });
 				setKey("");
 			}
 			}>

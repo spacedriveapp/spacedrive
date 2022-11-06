@@ -13,6 +13,7 @@ pub struct KeyAddArgs {
 	algorithm: Algorithm,
 	hashing_algorithm: HashingAlgorithm,
 	key: String,
+	library_sync: bool,
 }
 
 #[derive(Type, Deserialize)]
@@ -161,17 +162,18 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("getDefault", |t| {
 			t(|_, _: (), library| async move {
-				// `find_first` should be okay here as only one default key should ever be set
-				// this is also stored in the keymanager but it's probably easier to get it from the DB
-				let default = library
-					.db
-					.key()
-					.find_first(vec![key::default::equals(true)])
-					.exec()
-					.await?;
+				// // `find_first` should be okay here as only one default key should ever be set
+				// // this is also stored in the keymanager but it's probably easier to get it from the DB
+				// let default = library
+				// 	.db
+				// 	.key()
+				// 	.find_first(vec![key::default::equals(true)])
+				// 	.exec()
+				// 	.await?;
+				let default = library.key_manager.get_default();
 
-				if let Some(default_key) = default {
-					Ok(Some(default_key.uuid))
+				if let Ok(default_key) = default {
+					Ok(Some(default_key))
 				} else {
 					Ok(None)
 				}
@@ -196,7 +198,8 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				let stored_key = library.key_manager.access_keystore(uuid)?;
 
-				library
+				if args.library_sync {
+					library
 					.db
 					.key()
 					.create(
@@ -213,6 +216,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					)
 					.exec()
 					.await?;
+				}
 
 				// mount the key
 				library.key_manager.mount(uuid)?;

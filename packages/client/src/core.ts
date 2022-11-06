@@ -95,7 +95,7 @@ export interface JobReport { id: string, name: string, data: Array<number> | nul
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
 
-export interface KeyAddArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, key: string }
+export interface KeyAddArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, key: string, library_sync: boolean }
 
 export interface KeyNameUpdateArgs { uuid: string, name: string }
 
