@@ -45,6 +45,10 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("list", |t| {
 			t(|_, _: (), library| async move { Ok(library.key_manager.dump_keystore()) })
 		})
+		// do not unlock the key manager until this route returns true
+		.library_query("hasMasterPassword", |t| {
+			t(|_, _: (), library| async move { Ok(library.key_manager.has_master_password()?) })
+		})
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
 			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids()) })
@@ -106,10 +110,12 @@ pub(crate) fn mount() -> RouterBuilder {
 				
 				let verification_key = bundle.verification_key;
 
+				// remove old nil-id keys if they were set
+				// they possibly won't be, it depends on how we handle this during onboarding
 				library
 					.db
 					.key()
-					.delete(key::uuid::equals(uuid::Uuid::nil().to_string()))
+					.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
 					.exec()
 					.await?;
 
@@ -163,6 +169,8 @@ pub(crate) fn mount() -> RouterBuilder {
 						})?)?;
 				}
 
+				invalidate_query!(library, "keys.hasMasterPassword");
+						
 				Ok(())
 			})
 		})
