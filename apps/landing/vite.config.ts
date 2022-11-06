@@ -17,11 +17,14 @@ export default defineConfig({
 		md({ mode: [Mode.REACT] }),
 		visualizer()
 	],
-	// resolve: {
-	// 	alias: {
-	// 		'@sd/*': '../../packages/$1'
-	// 	}
-	// },
+	resolve: {
+		alias: [
+			{
+				find: '@sd/',
+				replacement: path.join(__dirname, '../../packages/')
+			}
+		]
+	},
 	server: {
 		port: 8003
 	},

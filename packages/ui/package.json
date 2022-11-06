@@ -12,7 +12,6 @@
 		"./package.json": "./package.json"
 	},
 	"scripts": {
-		"build": "tsc",
 		"storybook": "start-storybook -p 6006",
 		"storybook:build": "build-storybook"
 	},
