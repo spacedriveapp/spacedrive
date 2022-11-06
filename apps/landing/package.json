@@ -56,7 +56,6 @@
 		"postcss": "^8.4.17",
 		"rollup-plugin-visualizer": "^5.8.2",
 		"sass": "^1.55.0",
-		"tailwind": "^4.0.0",
 		"vite-plugin-esmodule": "^1.4.4",
 		"vite-plugin-markdown": "^2.1.0",
 		"vite-plugin-svgr": "^2.2.1"
