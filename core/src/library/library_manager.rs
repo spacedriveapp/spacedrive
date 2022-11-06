@@ -16,7 +16,6 @@ use sd_crypto::{
 		keymanager::{KeyManager, StoredKey},
 	},
 	primitives::to_array,
-	Protected,
 };
 use std::{
 	env, fs, io,
@@ -74,7 +73,7 @@ impl From<LibraryManagerError> for rspc::Error {
 
 pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, LibraryManagerError> {
 	// retrieve all stored keys from the DB
-	let key_manager = KeyManager::new(vec![], None);
+	let key_manager = KeyManager::new	(vec![]);
 
 	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
 
@@ -117,9 +116,6 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 	if !default.is_nil() {
 		key_manager.set_default(default)?;
 	}
-
-	////!!!! THIS IS FOR TESTING ONLY, REMOVE IT ONCE WE HAVE THE UI IN PLACE
-	key_manager.set_master_password(Protected::new(b"password".to_vec()))?;
 
 	Ok(key_manager)
 }
