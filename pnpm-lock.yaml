@@ -281,7 +281,6 @@ importers:
       '@sd/client': workspace:*
       '@sd/config': workspace:*
       '@sd/interface': workspace:*
-      '@sd/ui': workspace:*
       '@tanstack/react-query': ^4.12.0
       '@types/react': ^18.0.21
       '@types/react-dom': ^18.0.6
@@ -302,7 +301,6 @@ importers:
       '@rspc/client': 0.0.0-main-7c0a67c1
       '@sd/client': link:../../packages/client
       '@sd/interface': link:../../packages/interface
-      '@sd/ui': link:../../packages/ui
       '@tanstack/react-query': 4.12.0_biqbaboplfbrettd7655fr4n2y
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0

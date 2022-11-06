@@ -10,13 +10,18 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
 	plugins: [
-		tsconfigPaths(),
+		// tsconfigPaths(),
 		react(),
 		ssr({ prerender: true }),
 		svg(),
 		md({ mode: [Mode.REACT] }),
 		visualizer()
 	],
+	// resolve: {
+	// 	alias: {
+	// 		'@sd/*': '../../packages/$1'
+	// 	}
+	// },
 	server: {
 		port: 8003
 	},
