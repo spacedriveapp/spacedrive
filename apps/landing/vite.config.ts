@@ -10,21 +10,22 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
 	plugins: [
-		// tsconfigPaths(),
+		tsconfigPaths(),
 		react(),
 		ssr({ prerender: true }),
 		svg(),
 		md({ mode: [Mode.REACT] }),
 		visualizer()
 	],
-	resolve: {
-		alias: [
-			{
-				find: '@sd/',
-				replacement: path.join(__dirname, '../../packages/')
-			}
-		]
-	},
+	// resolve: {
+	// 	alias: [
+	// 		{
+	// 			find: '@sd/',
+	// 			replacement: path.join(__dirname, '../../packages/')
+	// 		}
+	// 	]
+	// },
+	root: 'src',
 	server: {
 		port: 8003
 	},
