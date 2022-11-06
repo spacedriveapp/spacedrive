@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::Platform,
-	prisma::{node, PrismaClient},
+	prisma::{node, PrismaClient, key},
 	util::{
 		db::load_and_migrate,
 		seeder::{indexer_rules_seeder, SeederError},
@@ -12,10 +12,10 @@ use crate::{
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{
-		hashing::HashingAlgorithm,
+		hashing::{HashingAlgorithm, Params},
 		keymanager::{KeyManager, StoredKey},
 	},
-	primitives::to_array,
+	primitives::to_array, Protected,
 };
 use std::{
 	env, fs, io,
@@ -77,7 +77,7 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 
 	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
 
-	let mut default = Uuid::default();
+	let mut default = Uuid::nil();
 
 	// collect and serialize the stored keys
 	// shouldn't call unwrap so much here
@@ -116,6 +116,32 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 	if !default.is_nil() {
 		key_manager.set_default(default)?;
 	}
+
+	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+	client
+		.key()
+		.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
+		.exec()
+		.await?;
+	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+	let verification_key = KeyManager::onboarding(Protected::new(Vec::new()), Algorithm::XChaCha20Poly1305, HashingAlgorithm::Argon2id(Params::Standard))?.verification_key;
+	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+	client
+		.key()
+		.create(
+			verification_key.uuid.to_string(),
+			verification_key.algorithm.serialize().to_vec(),
+			verification_key.hashing_algorithm.serialize().to_vec(),
+			verification_key.salt.to_vec(),
+			verification_key.content_salt.to_vec(),
+			verification_key.master_key.to_vec(),
+			verification_key.master_key_nonce.to_vec(),
+			verification_key.key_nonce.to_vec(),
+			verification_key.key.to_vec(),
+			vec![],
+		)
+		.exec()
+		.await?;
 
 	Ok(key_manager)
 }

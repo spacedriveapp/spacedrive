@@ -114,8 +114,12 @@ pub struct OnboardingBundle {
 impl KeyManager {
 	/// Initialize the Key Manager with the user's master password, and `StoredKeys` retrieved from Prisma
 	#[must_use]
-	pub fn onboarding(master_password: Protected<Vec<u8>>, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm) -> Result<OnboardingBundle> {
-		let salt = generate_salt();
+	pub fn onboarding(_master_password: Protected<Vec<u8>>, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm) -> Result<OnboardingBundle> {
+		let _salt = generate_salt();
+
+		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+		let master_password = Protected::new(b"password".to_vec());
+		let salt = *b"0000000000000000";
 
 		// Hash the master password
 		let hashed_password = hashing_algorithm.hash(master_password, salt)?;
