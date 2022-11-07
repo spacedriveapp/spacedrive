@@ -94,23 +94,26 @@ export function KeyMounter() {
 				Files encrypted with this key will be revealed and decrypted on the fly.
 			</p>
 			<Button className="w-full mt-2" variant="accent" onClick={() => {
-				let algorithm = encryptionAlgo as Algorithm;
-				let hashing_algorithm: HashingAlgorithm = { Argon2id: "Standard" };
-
-				switch(hashingAlgo) {
-					case "Argon2id-s":
-						hashing_algorithm = { Argon2id: "Standard" as Params };
-						break;
-					case "Argon2id-h":
-						hashing_algorithm = { Argon2id: "Hardened" as Params };
-						break;
-					case "Argon2id-p":
-						hashing_algorithm = { Argon2id: "Paranoid" as Params };
-						break;
+				if(key !== "") {
+					setKey('');
+				
+					let algorithm = encryptionAlgo as Algorithm;
+					let hashing_algorithm: HashingAlgorithm = { Argon2id: "Standard" };
+	
+					switch(hashingAlgo) {
+						case "Argon2id-s":
+							hashing_algorithm = { Argon2id: "Standard" as Params };
+							break;
+						case "Argon2id-h":
+							hashing_algorithm = { Argon2id: "Hardened" as Params };
+							break;
+						case "Argon2id-p":
+							hashing_algorithm = { Argon2id: "Paranoid" as Params };
+							break;
+					}
+	
+					createKey.mutate({algorithm, hashing_algorithm, key, library_sync: librarySync });
 				}
-
-				createKey.mutate({algorithm, hashing_algorithm, key, library_sync: librarySync });
-				setKey("");
 			}
 			}>
 				Mount Key

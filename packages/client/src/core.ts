@@ -38,6 +38,7 @@ export type Procedures = {
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
+        { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } | 
         { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } | 

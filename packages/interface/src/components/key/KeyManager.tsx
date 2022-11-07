@@ -12,15 +12,16 @@ export type KeyManagerProps = DefaultProps;
 
 export function KeyManager(props: KeyManagerProps) {
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
+	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
+	const unmountAll = useLibraryMutation('keys.unmountAll');
+	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 
-	if(!hasMasterPw?.data) {
-		const [showMasterPassword, setShowMasterPassword] = useState(false);
-		const [showSecretKey, setShowSecretKey] = useState(false);
-		const [masterPassword, setMasterPassword] = useState('');
-		const [secretKey, setSecretKey] = useState('');
-	
-		const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
-	
+	const [showMasterPassword, setShowMasterPassword] = useState(false);
+	const [showSecretKey, setShowSecretKey] = useState(false);
+	const [masterPassword, setMasterPassword] = useState('');
+	const [secretKey, setSecretKey] = useState('');
+
+	if(!hasMasterPw?.data) {	
 		const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 		const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 		
@@ -63,7 +64,15 @@ export function KeyManager(props: KeyManagerProps) {
 				</div>
 	
 				<Button className="w-full" variant="accent" onClick={() => {
-					setMasterPasswordMutation.mutate({password: masterPassword, secret_key: secretKey});
+					if(masterPassword !== "" && secretKey !== "") {
+						setMasterPassword('');
+						setSecretKey('');
+						setMasterPasswordMutation.mutate({password: masterPassword, secret_key: secretKey}, {
+							onError: () => {
+								alert('Incorrect information provided.');
+							}
+						});
+					} 
 				}
 				}>
 					Unlock
@@ -74,14 +83,24 @@ export function KeyManager(props: KeyManagerProps) {
 		return (
 			<div>
 				<Tabs.Root defaultValue="mount">
-					<Tabs.List>
-						<Tabs.Trigger className="text-sm font-medium" value="mount">
-							Mount
-						</Tabs.Trigger>
-						<Tabs.Trigger className="text-sm font-medium" value="keys">
-							Keys
-						</Tabs.Trigger>
-					</Tabs.List>
+					<div className="flex flex-col">
+						<Tabs.List>
+							<Tabs.Trigger className="text-sm font-medium" value="mount">
+								Mount
+							</Tabs.Trigger>
+							<Tabs.Trigger className="text-sm font-medium" value="keys">
+								Keys
+							</Tabs.Trigger>
+							<div className="flex-grow" />
+							<Button size="sm" className="" variant="gray" onClick={() => {
+								unmountAll.mutate(null);
+								clearMasterPassword.mutate(null);
+							}}>
+								Unmount & Lock
+							</Button>
+						</Tabs.List>
+					</div>
+
 					<Tabs.Content value="keys">
 						<KeyList />
 					</Tabs.Content>
