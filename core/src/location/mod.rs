@@ -454,7 +454,7 @@ pub async fn delete_directory(
 	Ok(())
 }
 
-fn strip_location_root_path(
+fn subtract_location_path(
 	location_path: impl AsRef<Path>,
 	current_path: impl AsRef<Path>,
 ) -> Option<PathBuf> {
