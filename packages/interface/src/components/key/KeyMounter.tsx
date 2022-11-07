@@ -97,7 +97,7 @@ export function KeyMounter() {
 				if(key !== "") {
 					setKey('');
 				
-					let algorithm = encryptionAlgo as Algorithm;
+					const algorithm = encryptionAlgo as Algorithm;
 					let hashing_algorithm: HashingAlgorithm = { Argon2id: "Standard" };
 	
 					switch(hashingAlgo) {
