@@ -84,6 +84,14 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
+		.library_mutation("clearMasterPassword", |t| {
+			t(|_, _: (), library| async move {
+				library.key_manager.clear_master_password()?;
+				// we also need to delete all in-memory decrypted data associated with this key
+				invalidate_query!(library, "keys.hasMasterPassword");
+				Ok(())
+			})
+		})
 		.library_mutation("deleteFromLibrary", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library.key_manager.remove_key(key_uuid)?;
@@ -149,7 +157,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				// if this returns an error, the user MUST re-enter the correct password
 				library
 					.key_manager
-					.set_master_password(Protected::new(args.password.as_bytes().to_vec()), Protected::new(base64::decode(args.secret_key).unwrap()))?;
+					.set_master_password(Protected::new(args.password), Protected::new(args.secret_key))?;
 
 				let automount = library
 					.db
@@ -224,14 +232,6 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("getDefault", |t| {
 			t(|_, _: (), library| async move {
-				// // `find_first` should be okay here as only one default key should ever be set
-				// // this is also stored in the keymanager but it's probably easier to get it from the DB
-				// let default = library
-				// 	.db
-				// 	.key()
-				// 	.find_first(vec![key::default::equals(true)])
-				// 	.exec()
-				// 	.await?;
 				let default = library.key_manager.get_default();
 
 				if let Ok(default_key) = default {
