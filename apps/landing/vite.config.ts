@@ -6,17 +6,9 @@ import esm from 'vite-plugin-esmodule';
 import md, { Mode } from 'vite-plugin-markdown';
 import ssr from 'vite-plugin-ssr/plugin';
 import svg from 'vite-plugin-svgr';
-import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
-	plugins: [
-		// tsconfigPaths(),
-		react(),
-		ssr({ prerender: true }),
-		svg(),
-		md({ mode: [Mode.REACT] }),
-		visualizer()
-	],
+	plugins: [react(), ssr({ prerender: true }), svg(), md({ mode: [Mode.REACT] }), visualizer()],
 	resolve: {
 		alias: [
 			{

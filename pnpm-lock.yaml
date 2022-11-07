@@ -124,7 +124,6 @@ importers:
       vite-plugin-markdown: ^2.1.0
       vite-plugin-ssr: ^0.4.39
       vite-plugin-svgr: ^2.2.1
-      vite-tsconfig-paths: ^3.5.2
     dependencies:
       '@headlessui/react': 1.7.3_biqbaboplfbrettd7655fr4n2y
       '@icons-pack/react-simple-icons': 5.10.0_react@18.2.0
@@ -174,7 +173,6 @@ importers:
       vite-plugin-esmodule: 1.4.4
       vite-plugin-markdown: 2.1.0_vite@3.1.8
       vite-plugin-svgr: 2.2.2_vite@3.1.8
-      vite-tsconfig-paths: 3.5.2_vite@3.1.8
 
   apps/mobile:
     specifiers:
