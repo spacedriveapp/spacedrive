@@ -83,8 +83,6 @@ pub struct StoredKey {
 #[derive(Clone)]
 pub struct MountedKey {
 	pub uuid: Uuid,                   // used for identification. shared with stored keys
-	pub key: Protected<Vec<u8>>, // the actual key itself, text format encodable (so it can be viewed with an UI)
-	pub content_salt: [u8; SALT_LEN], // the salt used for file data
 	pub hashed_key: Protected<[u8; 32]>, // this is hashed with the content salt, for instant access
 }
 
@@ -427,14 +425,46 @@ impl KeyManager {
 				// Construct the MountedKey and insert it into the Keymount
 				let mounted_key = MountedKey {
 					uuid: stored_key.uuid,
-					key,
-					content_salt: stored_key.content_salt,
 					hashed_key,
 				};
 
 				self.keymount.insert(uuid, mounted_key);
 
 				Ok(())
+			}
+			None => Err(Error::KeyNotFound),
+		}
+	}
+
+	pub fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
+		match self.keystore.get(&uuid) {
+			Some(stored_key) => {
+				let mut master_key = [0u8; MASTER_KEY_LEN];
+
+				// Decrypt the StoredKey's master key using the user's hashed password
+				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+					self.get_master_password()?,
+					&stored_key.master_key_nonce,
+					stored_key.algorithm,
+					&stored_key.master_key,
+					&[],
+				) {
+					master_key.copy_from_slice(&decrypted_master_key);
+					Ok(Protected::new(master_key))
+				} else {
+					Err(Error::IncorrectPassword)
+				}?;
+
+				// Decrypt the StoredKey using the decrypted master key
+				let key = StreamDecryption::decrypt_bytes(
+					master_key,
+					&stored_key.key_nonce,
+					stored_key.algorithm,
+					&stored_key.key,
+					&[],
+				)?;
+
+				Ok(key)
 			}
 			None => Err(Error::KeyNotFound),
 		}
