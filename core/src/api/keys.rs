@@ -58,6 +58,18 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("listMounted", |t| {
 			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids()) })
 		})
+		.library_query("getKey", |t| {
+			t(|_, key_uuid: uuid::Uuid, library| async move {
+				let key = library.key_manager.get_key(key_uuid)?;
+				
+				let key_string = String::from_utf8(key.expose().clone()).map_err(|_| rspc::Error::new(
+					rspc::ErrorCode::InternalServerError,
+					"Error serializing bytes to String".into(),
+				))?;
+
+				Ok(key_string)
+			})
+		})
 		.library_mutation("mount", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				library.key_manager.mount(key_uuid)?;
