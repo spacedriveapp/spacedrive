@@ -263,14 +263,30 @@ impl KeyManager {
 	}
 
 	// requires master password and the secret key
-	pub fn set_master_password(&self, master_password: Protected<Vec<u8>>, secret_key: Protected<Vec<u8>>) -> Result<()> {
-		// this returns a result, so we can potentially implement password checking functionality
+	pub fn set_master_password(&self, master_password: Protected<String>, secret_key: Protected<String>) -> Result<()> {
+		// this could possibly take the master password and base64 secret key in and handle everything too
 		let verification_key = match &*self.verification_key.lock()? {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoVerificationKey),
 		}?;
 
-		let hashed_master_password = verification_key.hashing_algorithm.hash(master_password, to_array(secret_key.expose().clone())?)?;
+		let master_password = Protected::new(master_password.expose().as_bytes().to_vec());
+
+		let secret_key = if let Ok(secret_key) = base64::decode(secret_key.expose()) {
+			secret_key
+		} else {
+			Vec::new()
+		};
+
+		// we shouldn't be letting on to *what* failed so we use a random secret key here if it's still invalid
+		// could maybe do this better (and make use of the subtle crate)
+		let secret_key: Protected<[u8; 16]> = if let Ok(secret_key) = to_array(secret_key) {
+			Protected::new(secret_key)
+		} else {
+			Protected::new(generate_salt())
+		};
+
+		let hashed_master_password = verification_key.hashing_algorithm.hash(master_password, secret_key.expose().clone())?;
 
 		// Decrypt the StoredKey's master key using the user's hashed password
 		let decryption_result = StreamDecryption::decrypt_bytes(
@@ -285,7 +301,7 @@ impl KeyManager {
 			*self.master_password.lock()? = Some(hashed_master_password);
 			Ok(())
 		} else {
-			Err(Error::IncorrectPassword)
+			Err(Error::IncorrectKeymanagerDetails)
 		}
 	}
 

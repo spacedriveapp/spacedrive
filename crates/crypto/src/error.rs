@@ -58,6 +58,8 @@ pub enum Error {
 	MutexLock,
 	#[error("no master password verification key")]
 	NoVerificationKey,
+	#[error("wrong information provided to the key manager")]
+	IncorrectKeymanagerDetails,
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {
