@@ -2,7 +2,7 @@ declare global {
 	var isDev: boolean;
 }
 
-if (!globalThis.localStorage || !globalThis.isDev)
+if (globalThis.localStorage === undefined || globalThis.isDev === undefined)
 	throw new Error('Please ensure you have patched `globalThis` before importing `@sd/client`!');
 
 export * from './hooks';

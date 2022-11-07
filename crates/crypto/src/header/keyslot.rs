@@ -25,10 +25,9 @@ use std::io::{Read, Seek};
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	error::Error,
 	keys::hashing::HashingAlgorithm,
 	primitives::{generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
-	Protected,
+	Error, Protected, Result,
 };
 
 /// A keyslot - 96 bytes (as of V1), and contains all the information for future-proofing while keeping the size reasonable
@@ -65,7 +64,7 @@ impl Keyslot {
 		salt: [u8; SALT_LEN],
 		password: Protected<Vec<u8>>,
 		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
-	) -> Result<Self, Error> {
+	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
 		let hashed_password = hashing_algorithm.hash(password, salt)?;
@@ -93,10 +92,7 @@ impl Keyslot {
 	/// This attempts to decrypt the master key for a single keyslot
 	///
 	/// An error will be returned on failure.
-	pub fn decrypt_master_key(
-		&self,
-		password: &Protected<Vec<u8>>,
-	) -> Result<Protected<Vec<u8>>, Error> {
+	pub fn decrypt_master_key(&self, password: &Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
 			.hash(password.clone(), self.salt)
@@ -115,7 +111,7 @@ impl Keyslot {
 	pub fn decrypt_master_key_from_prehashed(
 		&self,
 		key: Protected<[u8; 32]>,
-	) -> Result<Protected<Vec<u8>>, Error> {
+	) -> Result<Protected<Vec<u8>>> {
 		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
 	}
 
@@ -142,7 +138,7 @@ impl Keyslot {
 	/// It will leave the cursor at the end of the keyslot on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self, Error>
+	pub fn deserialize<R>(reader: &mut R) -> Result<Self>
 	where
 		R: Read + Seek,
 	{

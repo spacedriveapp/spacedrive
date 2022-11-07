@@ -5,6 +5,7 @@
 
 use std::error::Error;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use sd_core::Node;
 use tauri::async_runtime::block_on;
@@ -14,6 +15,7 @@ use tauri::{
 	Manager, RunEvent,
 };
 use tokio::task::block_in_place;
+use tokio::time::sleep;
 use tracing::{debug, error};
 #[cfg(target_os = "macos")]
 mod macos;
@@ -56,16 +58,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		})
 		.setup(|app| {
 			let app = app.handle();
-
-			#[cfg(target_os = "macos")]
-			{
-				// use macos::{lock_app_theme, AppThemeType};
-
-				// lock_app_theme(AppThemeType::Dark as _);
-			}
-
 			app.windows().iter().for_each(|(_, window)| {
 				window.hide().unwrap();
+
+				tokio::spawn({
+					let window = window.clone();
+					async move {
+						sleep(Duration::from_secs(3)).await;
+						if window.is_visible().unwrap_or(true) == false {
+							println!("Window did not emit `app_ready` event fast enough. Showing window...");
+							let _ = window.show();
+						}
+					}
+				});
 
 				#[cfg(target_os = "windows")]
 				window.set_decorations(true).unwrap();
@@ -75,7 +80,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					use macos::*;
 
 					let window = window.ns_window().unwrap();
-					set_titlebar_style(window, true, true);
+					set_titlebar_style(window, true, false);
 					blur_window_background(window);
 				}
 			});
