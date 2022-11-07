@@ -87,7 +87,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("clearMasterPassword", |t| {
 			t(|_, _: (), library| async move {
 				library.key_manager.clear_master_password()?;
-				// we also need to delete all in-memory decrypted data associated with this key
+				
 				invalidate_query!(library, "keys.hasMasterPassword");
 				Ok(())
 			})
