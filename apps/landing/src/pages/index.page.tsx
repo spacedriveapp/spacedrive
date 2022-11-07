@@ -1,3 +1,4 @@
+import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
@@ -9,8 +10,6 @@ import HomeCTA from '../components/HomeCTA';
 import NewBanner from '../components/NewBanner';
 import { usePageContext } from '../renderer/usePageContext';
 import { getWindow } from '../utils';
-
-import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
 
 interface SectionProps {
 	orientation: 'left' | 'right';

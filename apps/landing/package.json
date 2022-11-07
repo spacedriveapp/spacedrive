@@ -14,7 +14,6 @@
 		"@icons-pack/react-simple-icons": "^5.8.0",
 		"@sd/assets": "workspace:*",
 		"@sd/docs": "workspace:*",
-		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@tryghost/content-api": "^1.11.4",
 		"@vitejs/plugin-react": "^2.1.0",

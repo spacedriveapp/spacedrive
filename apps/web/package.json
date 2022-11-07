@@ -12,12 +12,12 @@
 		"@rspc/client": "^0.0.0-main-7c0a67c1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
-		"@sd/ui": "workspace:*",
 		"@tanstack/react-query": "^4.12.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
+		"@sd/config": "workspace:*",
 		"@types/react": "^18.0.21",
 		"@types/react-dom": "^18.0.6",
 		"@vitejs/plugin-react": "^2.1.0",
@@ -28,6 +28,6 @@
 		"vite": "^3.1.4",
 		"vite-plugin-html": "^3.2.0",
 		"vite-plugin-svgr": "^2.2.1",
-		"vite-plugin-tsconfig-paths": "^1.2.0"
+		"vite-tsconfig-paths": "^3.5.2"
 	}
 }
