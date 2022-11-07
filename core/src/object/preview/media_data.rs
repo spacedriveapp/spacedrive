@@ -1,6 +1,6 @@
+#[cfg(feature = "ffmpeg")]
 use std::{ffi::OsStr, path::PathBuf};
 
-use chrono::NaiveDateTime;
 #[cfg(feature = "ffmpeg")]
 use ffmpeg_next::{codec::context::Context, format, media::Type};
 
@@ -21,9 +21,11 @@ pub struct Stream {
 	pub codec: String,
 	pub frames: f64,
 	pub duration_seconds: f64,
+	#[cfg(feature = "ffmpeg")]
 	pub kind: Option<StreamKind>,
 }
 
+#[cfg(feature = "ffmpeg")]
 #[derive(Debug, PartialEq)]
 pub enum StreamKind {
 	Video(VideoStream),
@@ -56,6 +58,8 @@ fn extract(iter: &mut ffmpeg_next::dictionary::Iter, key: &str) -> Option<String
 
 #[cfg(feature = "ffmpeg")]
 pub fn extract_media_data(path: &PathBuf) -> Result<MediaItem, ffmpeg_next::Error> {
+	use chrono::NaiveDateTime;
+
 	ffmpeg_next::init().unwrap();
 
 	let mut name = path

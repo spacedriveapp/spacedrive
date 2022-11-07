@@ -3,8 +3,7 @@ use crate::{
 	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
-	object::preview::{extract_media_data, StreamKind},
-	prisma::{file_path, location, media_data},
+	prisma::{file_path, location},
 };
 
 use std::{
@@ -225,6 +224,12 @@ impl StatefulJob for ThumbnailJob {
 				}
 				#[cfg(feature = "ffmpeg")]
 				ThumbnailJobStepKind::Video => {
+					// use crate::{
+					// 	object::preview::{extract_media_data, StreamKind},
+					// 	prisma::media_data,
+					// };
+
+					// use
 					if let Err(e) = generate_video_thumbnail(&path, &output_path).await {
 						error!("Error generating thumb for video: {:?} {:#?}", &path, e);
 					}

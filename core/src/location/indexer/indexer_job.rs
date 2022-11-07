@@ -7,7 +7,6 @@ use crate::{
 use crate::location::indexer::rules::RuleKind;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
-use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::{collections::HashMap, ffi::OsStr, path::PathBuf, time::Duration};

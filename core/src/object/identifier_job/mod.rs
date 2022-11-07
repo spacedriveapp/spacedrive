@@ -1,4 +1,3 @@
-#[cfg(feature = "ffmpeg")]
 use crate::{
 	job::JobError,
 	library::LibraryContext,

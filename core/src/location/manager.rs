@@ -384,13 +384,14 @@ impl LocationWatcher {
 				Some(event) = events_rx.recv() => {
 					match event {
 						Ok(event) => {
-							Self::handle_event(location_id, &library_ctx, event).await.map_err(|err| {
-								error!(
-									"Failed to handle location file system event: <id='{}', error='{}'>",
-									location_id,
-									err
-								);
-							}).ok();
+							if Self::check_event(&event) {
+								if let Err(e) = Self::handle_event(location_id, &library_ctx, event).await {
+									error!(
+										"Failed to handle location file system event: \
+										<id='{location_id}', error='{e:#?}'>",
+									);
+								}
+							}
 						}
 						Err(e) => {
 							error!("watch error: {:#?}", e);
@@ -405,20 +406,24 @@ impl LocationWatcher {
 		}
 	}
 
-	async fn handle_event(
-		location_id: i32,
-		library_ctx: &LibraryContext,
-		event: Event,
-	) -> Result<(), LocationManagerError> {
+	fn check_event(event: &Event) -> bool {
 		// if first path includes .DS_Store, ignore
 		if event
 			.paths
 			.iter()
 			.any(|p| p.to_string_lossy().contains(".DS_Store"))
 		{
-			return Ok(());
+			return false;
 		}
 
+		true
+	}
+
+	async fn handle_event(
+		location_id: i32,
+		library_ctx: &LibraryContext,
+		event: Event,
+	) -> Result<(), LocationManagerError> {
 		debug!("Received event: {:#?}", event);
 		if let Some(location) = fetch_location(library_ctx, location_id)
 			.include(indexer_job_location::include())
@@ -427,7 +432,7 @@ impl LocationWatcher {
 		{
 			// if location is offline return early
 			// this prevents ....
-			if location.is_online == false {
+			if !location.is_online {
 				info!(
 					"Location is offline, skipping event: <id='{}'>",
 					location.id
@@ -462,7 +467,7 @@ impl LocationWatcher {
 								// FIXME: getting the max id every time we need to create a file is not ideal
 								// it is this way due to the indexer creating in batches, wonder if its still needed
 								let first_file_id =
-									get_max_file_path_id(&library_ctx).await.unwrap();
+									get_max_file_path_id(library_ctx).await.unwrap();
 
 								let created_path = library_ctx
 									.db
@@ -606,15 +611,15 @@ impl LocationWatcher {
 						// if is doesn't, we can remove it safely from our db
 						if let Some(fp) = existing_file_path {
 							if fp.is_dir {
-								delete_directory(
+								if let Err(e) = delete_directory(
 									&library_ctx,
 									location_id,
 									Some(fp.materialized_path),
 								)
 								.await
-								.unwrap_or((|| {
-									error!("Failed to delete directory");
-								})());
+								{
+									error!("Failed to delete directory: {e:#?}")
+								}
 							} else {
 								library_ctx
 									.db

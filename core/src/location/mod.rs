@@ -6,7 +6,7 @@ use crate::{
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, node, object},
+	prisma::{file_path, indexer_rules_in_location, location, node},
 };
 
 use prisma_client_rust::Direction;

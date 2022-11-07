@@ -8,7 +8,6 @@ use std::{
 };
 
 use sd_crypto::keys::keymanager::KeyManager;
-use tokio::sync::Mutex;
 use tracing::warn;
 use uuid::Uuid;
 
