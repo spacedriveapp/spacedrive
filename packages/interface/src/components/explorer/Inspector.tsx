@@ -1,23 +1,9 @@
 // import types from '../../constants/file-types.json';
-import { useLibraryQuery } from '@sd/client';
-import { ExplorerContext, ExplorerItem } from '@sd/client';
+import { ExplorerContext, ExplorerItem, useLibraryQuery } from '@sd/client';
 import { Button, tw } from '@sd/ui';
-import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import {
-	Barcode,
-	Calendar,
-	CircleWavyCheck,
-	Clock,
-	Cube,
-	Disc,
-	Eye,
-	Link,
-	Lock,
-	Share,
-	Snowflake
-} from 'phosphor-react';
+import { Barcode, CircleWavyCheck, Clock, Cube, Link, Lock, Snowflake } from 'phosphor-react';
 import { useEffect, useState } from 'react';
 
 import { ObjectKind } from '../../util/kind';
@@ -153,11 +139,13 @@ export const Inspector = (props: Props) => {
 								<span className="mr-1.5">Size</span>
 								<MetaValue>{formatBytes(Number(objectData?.size_in_bytes || 0))}</MetaValue>
 							</MetaTextLine>
-							<MetaTextLine>
-								<InspectorIcon component={Clock} />
-								<span className="mr-1.5">Duration</span>
-								<MetaValue>{fullObjectData.data?.media_data?.duration_seconds}</MetaValue>
-							</MetaTextLine>
+							{fullObjectData.data?.media_data?.duration_seconds && (
+								<MetaTextLine>
+									<InspectorIcon component={Clock} />
+									<span className="mr-1.5">Duration</span>
+									<MetaValue>{fullObjectData.data.media_data.duration_seconds}</MetaValue>
+								</MetaTextLine>
+							)}
 						</MetaContainer>
 						<Divider />
 						<MetaContainer>

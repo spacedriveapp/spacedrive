@@ -102,10 +102,10 @@ export function Sidebar() {
 						<Icon component={Planet} />
 						Overview
 					</SidebarLink>
-					<SidebarLink to="photos">
+					{/* <SidebarLink to="photos">
 						<Icon component={ShareNetwork} />
 						Nodes
-					</SidebarLink>
+					</SidebarLink> */}
 					<SidebarLink to="content">
 						<Icon component={CirclesFour} />
 						Spaces

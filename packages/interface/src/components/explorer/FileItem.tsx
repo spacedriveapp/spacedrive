@@ -64,7 +64,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 					>
 						<FileThumb
 							className={clsx(
-								'border-4 border-white shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
+								'border-2 border-app-line rounded-sm shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
 								isVid && '!border-black rounded border-x-0 border-y-[7px]'
 							)}
 							data={data}

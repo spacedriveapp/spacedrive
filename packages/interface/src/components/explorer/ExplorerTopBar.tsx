@@ -244,7 +244,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								<Columns className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>
 						</Tooltip>
-						<Tooltip label="Timeline view">
+						{/* <Tooltip label="Timeline view">
 							<TopBarButton
 								rounding="none"
 								active={store.layoutMode === 'timeline'}
@@ -252,7 +252,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							>
 								<ClockCounterClockwise className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>
-						</Tooltip>
+						</Tooltip> */}
 
 						<Tooltip label="Media view">
 							<TopBarButton

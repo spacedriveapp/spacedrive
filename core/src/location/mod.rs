@@ -6,9 +6,10 @@ use crate::{
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, node},
+	prisma::{file_path, indexer_rules_in_location, location, node, object},
 };
 
+use prisma_client_rust::Direction;
 use rspc::Type;
 use serde::Deserialize;
 use std::{
@@ -220,6 +221,19 @@ impl LocationUpdateArgs {
 	}
 }
 
+async fn get_location(location_id: i32, library_ctx: &LibraryContext) -> Option<location::Data> {
+	library_ctx
+		.db
+		.location()
+		.find_unique(location::id::equals(location_id))
+		.exec()
+		.await
+		.unwrap_or_else(|err| {
+			error!("Failed to get location data from location_id: {:#?}", err);
+			None
+		})
+}
+
 pub fn fetch_location(ctx: &LibraryContext, location_id: i32) -> location::FindUnique {
 	ctx.db
 		.location()
@@ -305,45 +319,6 @@ pub async fn relink_location(
 	Ok(())
 }
 
-pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
-	ctx.db
-		.file_path()
-		.delete_many(vec![file_path::location_id::equals(location_id)])
-		.exec()
-		.await?;
-
-	ctx.db
-		.indexer_rules_in_location()
-		.delete_many(vec![indexer_rules_in_location::location_id::equals(
-			location_id,
-		)])
-		.exec()
-		.await?;
-
-	let location = ctx
-		.db
-		.location()
-		.delete(location::id::equals(location_id))
-		.exec()
-		.await?;
-
-	if let Err(e) = LocationManager::global().remove(location_id).await {
-		error!("Failed to remove location from manager: {e:#?}");
-	}
-
-	if let Some(local_path) = location.local_path {
-		if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(&local_path).await
-		{
-			metadata.remove_library(ctx.id).await?;
-		}
-	}
-
-	info!("Location {} deleted", location_id);
-	invalidate_query!(ctx, "locations.list");
-
-	Ok(())
-}
-
 async fn create_location(
 	ctx: &LibraryContext,
 	location_pub_id: Uuid,
@@ -394,4 +369,143 @@ async fn create_location(
 		.await?;
 
 	Ok(location)
+}
+
+pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
+	delete_directory(ctx, location_id, None).await?;
+
+	ctx.db
+		.indexer_rules_in_location()
+		.delete_many(vec![indexer_rules_in_location::location_id::equals(
+			location_id,
+		)])
+		.exec()
+		.await?;
+
+	let location = ctx
+		.db
+		.location()
+		.delete(location::id::equals(location_id))
+		.exec()
+		.await?;
+
+	if let Err(e) = LocationManager::global().remove(location_id).await {
+		error!("Failed to remove location from manager: {e:#?}");
+	}
+
+	if let Some(local_path) = location.local_path {
+		if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(&local_path).await
+		{
+			metadata.remove_library(ctx.id).await?;
+		}
+	}
+
+	info!("Location {} deleted", location_id);
+	invalidate_query!(ctx, "locations.list");
+
+	Ok(())
+}
+
+/// Will delete a directory recursively with Objects if left as orphans
+/// this function is used to delete a location and when ingesting directory deletion events
+///
+/// TODO: find a way to delete orphaned objects
+pub async fn delete_directory(
+	ctx: &LibraryContext,
+	location_id: i32,
+	directory_path: Option<String>,
+) -> Result<(), LocationError> {
+	// get directory
+	let mut params = vec![file_path::location_id::equals(location_id)];
+	if let Some(directory_path) = directory_path {
+		params.push(file_path::materialized_path::equals(directory_path.clone()));
+	}
+	let directory = ctx.db.file_path().find_first(params).exec().await?;
+
+	if let Some(directory) = directory {
+		// get all file_paths starting with the directory path
+		let file_paths = ctx
+			.db
+			.file_path()
+			.find_many(vec![
+				file_path::location_id::equals(location_id),
+				file_path::materialized_path::starts_with(directory.materialized_path),
+			])
+			.exec()
+			.await?;
+
+		// let object_ids: Vec<i32> = file_paths
+		// 	.iter()
+		// 	.filter_map(|file_path| file_path.object_id)
+		// 	.collect();
+
+		// map file paths into array of ids
+		let file_path_ids: Vec<i32> = file_paths.iter().map(|f| f.id).collect();
+
+		// delete all file paths
+		ctx.db
+			.file_path()
+			.delete_many(vec![file_path::id::in_vec(file_path_ids)])
+			.exec()
+			.await?;
+	} else {
+		return Err(LocationError::DirectoryNotFound("idk".to_string()));
+	}
+	Ok(())
+}
+
+fn strip_location_root_path(
+	location_path: impl AsRef<Path>,
+	current_path: impl AsRef<Path>,
+) -> Option<PathBuf> {
+	let location_path = location_path.as_ref();
+	let current_path = current_path.as_ref();
+
+	if let Ok(stripped) = current_path.strip_prefix(location_path) {
+		Some(stripped.to_path_buf())
+	} else {
+		error!(
+			"Failed to strip location root path ({}) from current path ({})",
+			location_path.display(),
+			current_path.display()
+		);
+		None
+	}
+}
+
+// not sure if needed
+fn strip_location_root_path_and_filename(
+	location_path: impl AsRef<Path>,
+	current_path: impl AsRef<Path>,
+) -> Option<PathBuf> {
+	let location_path = location_path.as_ref();
+	let current_path = current_path.as_ref();
+
+	if let Ok(stripped) = current_path.strip_prefix(location_path) {
+		if let Some(parent) = stripped.parent() {
+			return Some(parent.to_path_buf());
+		}
+	}
+	error!(
+		"Failed to strip location root path ({}) and filename from current path ({})",
+		location_path.display(),
+		current_path.display()
+	);
+
+	None
+}
+
+file_path::select!(file_path_id_only { id });
+
+pub async fn get_max_file_path_id(ctx: &LibraryContext) -> Result<i32, LocationError> {
+	Ok(ctx
+		.db
+		.file_path()
+		.find_first(vec![])
+		.order_by(file_path::id::order(Direction::Desc))
+		.select(file_path_id_only::select())
+		.exec()
+		.await?
+		.map(|r| r.id)
+		.unwrap_or(0))
 }

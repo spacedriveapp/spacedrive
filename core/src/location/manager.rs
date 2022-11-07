@@ -1,10 +1,11 @@
 use crate::{
-	job::Job,
+	invalidate_query,
 	library::LibraryContext,
 	location::{
-		fetch_location,
-		indexer::indexer_job::{indexer_job_location, IndexerJob, IndexerJobInit},
+		delete_directory, fetch_location, get_location, get_max_file_path_id,
+		indexer::indexer_job::indexer_job_location, subtract_location_path,
 	},
+	object::identifier_job::assemble_object_metadata,
 	prisma::location,
 };
 
@@ -14,12 +15,10 @@ use std::{
 	time::Duration,
 };
 
-use crate::object::identifier_job::current_dir_identifier_job::{
-	CurrentDirFileIdentifierJob, CurrentDirFileIdentifierJobInit,
-};
 use crate::prisma::{file_path, object};
+use chrono::{FixedOffset, Utc};
 use futures::{stream::FuturesUnordered, StreamExt};
-use notify::event::CreateKind;
+use notify::event::{CreateKind, ModifyKind};
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use once_cell::sync::OnceCell;
 use thiserror::Error;
@@ -50,7 +49,13 @@ pub enum LocationManagerError {
 	WatcherError(#[from] notify::Error),
 	#[error("Location missing local path: <id='{0}'>")]
 	LocationMissingLocalPath(LocationId),
+	#[error("Database error: {0}")]
+	DatabaseError(#[from] prisma_client_rust::QueryError),
+	#[error("I/O error: {0}")]
+	IOError(#[from] io::Error),
 }
+
+file_path::include!(file_path_with_object { object });
 
 #[derive(Debug)]
 pub struct LocationManager {
@@ -209,19 +214,6 @@ impl LocationManager {
 	}
 }
 
-async fn get_location(location_id: i32, library_ctx: &LibraryContext) -> Option<location::Data> {
-	library_ctx
-		.db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.exec()
-		.await
-		.unwrap_or_else(|err| {
-			error!("Failed to get location data from location_id: {:#?}", err);
-			None
-		})
-}
-
 async fn check_online(location: &location::Data, library_ctx: &LibraryContext) -> bool {
 	if let Some(ref local_path) = location.local_path {
 		match fs::metadata(local_path).await {
@@ -313,46 +305,6 @@ fn unwatch_location(
 	}
 }
 
-fn strip_location_root_path(
-	location_path: impl AsRef<Path>,
-	current_path: impl AsRef<Path>,
-) -> Option<PathBuf> {
-	let location_path = location_path.as_ref();
-	let current_path = current_path.as_ref();
-
-	if let Ok(stripped) = current_path.strip_prefix(location_path) {
-		Some(stripped.to_path_buf())
-	} else {
-		error!(
-			"Failed to strip location root path ({}) from current path ({})",
-			location_path.display(),
-			current_path.display()
-		);
-		None
-	}
-}
-
-fn strip_location_root_path_and_filename(
-	location_path: impl AsRef<Path>,
-	current_path: impl AsRef<Path>,
-) -> Option<PathBuf> {
-	let location_path = location_path.as_ref();
-	let current_path = current_path.as_ref();
-
-	if let Ok(stripped) = current_path.strip_prefix(location_path) {
-		if let Some(parent) = stripped.parent() {
-			return Some(parent.to_path_buf());
-		}
-	}
-	error!(
-		"Failed to strip location root path ({}) and filename from current path ({})",
-		location_path.display(),
-		current_path.display()
-	);
-
-	None
-}
-
 impl Drop for LocationManager {
 	fn drop(&mut self) {
 		if let Some(stop_tx) = self.stop_tx.take() {
@@ -432,14 +384,19 @@ impl LocationWatcher {
 				Some(event) = events_rx.recv() => {
 					match event {
 						Ok(event) => {
-							Self::handle_event(location_id, &library_ctx, event).await;
+							Self::handle_event(location_id, &library_ctx, event).await.map_err(|err| {
+								error!(
+									"Failed to handle location file system event: <id='{}', error='{}'>",
+									location_id,
+									err
+								);
+							}).ok();
 						}
 						Err(e) => {
 							error!("watch error: {:#?}", e);
 						}
 					}
 				}
-
 				_ = &mut stop_rx => {
 					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
@@ -448,113 +405,237 @@ impl LocationWatcher {
 		}
 	}
 
-	async fn handle_event(location_id: i32, library_ctx: &LibraryContext, event: Event) {
+	async fn handle_event(
+		location_id: i32,
+		library_ctx: &LibraryContext,
+		event: Event,
+	) -> Result<(), LocationManagerError> {
+		// if first path includes .DS_Store, ignore
+		if event
+			.paths
+			.iter()
+			.any(|p| p.to_string_lossy().contains(".DS_Store"))
+		{
+			return Ok(());
+		}
+
 		debug!("Received event: {:#?}", event);
-		match event.kind {
-			EventKind::Create(create_kind) => {
-				debug!("created {create_kind:#?}");
-				if let Some(location) = fetch_location(library_ctx, location_id)
-					.include(indexer_job_location::include())
-					.exec()
-					.await
-					.unwrap_or_else(|err| {
-						error!("Failed to get location data from location_id: {:#?}", err);
-						None
-					}) {
-					if let Some(local_path) = location.local_path.clone() {
-						library_ctx
-							.queue_job(Job::new(IndexerJobInit { location }, IndexerJob {}))
-							.await;
-
-						let maybe_root_path = match create_kind {
-							CreateKind::File => {
-								strip_location_root_path_and_filename(&local_path, &event.paths[0])
-							}
-							CreateKind::Folder => {
-								strip_location_root_path(&local_path, &event.paths[0])
-							}
-							_ => None,
-						};
-
-						if let Some(root_path) = maybe_root_path {
-							library_ctx
-								.queue_job(Job::new(
-									CurrentDirFileIdentifierJobInit {
-										location_id,
-										root_path,
-									},
-									CurrentDirFileIdentifierJob {},
-								))
-								.await;
-						}
-					} else {
-						error!(
-							"Missing local_path at location in watcher: <id='{}'>",
-							location_id
+		if let Some(location) = fetch_location(library_ctx, location_id)
+			.include(indexer_job_location::include())
+			.exec()
+			.await?
+		{
+			// if location is offline return early
+			// this prevents ....
+			if location.is_online == false {
+				info!(
+					"Location is offline, skipping event: <id='{}'>",
+					location.id
+				);
+				return Ok(());
+			}
+			match event.kind {
+				EventKind::Create(create_kind) => {
+					if let Some(location_local_path) = location.local_path.clone() {
+						debug!(
+							"Location: <root_path ='{}'> created: {:#?}",
+							location_local_path, event.paths
 						);
-					}
-				}
-			}
-			EventKind::Modify(modify_kind) => {
-				// TODO: Handle file modifications, to recompute object metadata and handle file renames
-				debug!("modified {modify_kind:#?}");
-			}
-			EventKind::Remove(remove_kind) => {
-				debug!("removed {remove_kind:#?}");
-				if let Some(location) = get_location(location_id, library_ctx).await {
-					if let Some(ref local_path) = location.local_path {
-						let file_paths = event
-							.paths
-							.iter()
-							.filter_map(|path| strip_location_root_path(local_path, path))
-							.map(|path| path.to_string_lossy().to_string())
-							.collect();
+						let subpath = subtract_location_path(&location_local_path, &event.paths[0]);
 
-						if let Ok(file_paths) = library_ctx
-							.db
-							.file_path()
-							.find_many(vec![file_path::materialized_path::in_vec(file_paths)])
-							.exec()
-							.await
-						{
-							let file_paths_ids =
-								file_paths.iter().map(|file_path| file_path.id).collect();
-							let object_ids = file_paths
-								.iter()
-								.filter_map(|file_path| file_path.object_id)
-								.collect();
+						debug!("subpath: {:?}", subpath);
 
-							if let Err(e) = library_ctx
+						if let Some(subpath) = subpath {
+							let subpath_str = subpath.to_str().unwrap().to_string();
+							let parent_directory = library_ctx
 								.db
 								.file_path()
-								.delete_many(vec![file_path::id::in_vec(file_paths_ids)])
+								.find_first(vec![file_path::materialized_path::equals(
+									subpath.parent().unwrap().to_str().unwrap().to_string(),
+								)])
 								.exec()
-								.await
-							{
-								error!(
-									"Failed to delete file_paths from location: <id='{}'>; {e:#?}",
-									location_id
-								);
-							} else if let Err(e) = library_ctx
-								.db
-								.object()
-								.delete_many(vec![object::id::in_vec(object_ids)])
-								.exec()
-								.await
-							{
-								error!(
-									"Failed to delete file_paths from location: <id='{}'>; {e:#?}",
-									location_id
-								);
+								.await?;
+
+							debug!("parent_directory: {:?}", parent_directory);
+
+							if let Some(parent_directory) = parent_directory {
+								// FIXME: getting the max id every time we need to create a file is not ideal
+								// it is this way due to the indexer creating in batches, wonder if its still needed
+								let first_file_id =
+									get_max_file_path_id(&library_ctx).await.unwrap();
+
+								let created_path = library_ctx
+									.db
+									.file_path()
+									.create(
+										first_file_id + 1,
+										location::id::equals(location_id),
+										subpath_str,
+										subpath.file_name().unwrap().to_str().unwrap().to_owned(),
+										vec![
+											file_path::parent_id::set(Some(parent_directory.id)),
+											file_path::is_dir::set(
+												create_kind == CreateKind::Folder,
+											),
+										],
+									)
+									.exec()
+									.await?;
+
+								invalidate_query!(library_ctx, "locations.getExplorerData");
+
+								info!("Created path: {:#?}", created_path);
+
+								match create_kind {
+									CreateKind::Folder => {}
+									CreateKind::File => {
+										// generate provisional object
+										let provisional_object = assemble_object_metadata(
+											location_local_path,
+											&created_path,
+										)
+										.await?;
+
+										let size = provisional_object.1.clone();
+										let cas_id = provisional_object.0.clone();
+
+										// upsert object
+										let object = library_ctx
+											.db
+											.object()
+											.upsert(
+												object::cas_id::equals(cas_id),
+												provisional_object,
+												vec![
+													object::size_in_bytes::set(size),
+													object::date_indexed::set(
+														Utc::now()
+															.with_timezone(&FixedOffset::east(0)),
+													),
+												],
+											)
+											.exec()
+											.await?;
+
+										debug!("object: {:#?}", object);
+										if !object.has_thumbnail {
+											// generate single thumbnail for object if it doesn't exist
+										}
+									}
+									CreateKind::Any => todo!(),
+									CreateKind::Other => todo!(),
+								}
 							}
 						}
 					}
 				}
-			}
-			other_event_kind => {
-				debug!("Other event that we don't handle for now: {other_event_kind:#?}");
+				EventKind::Modify(modify_kind) => {
+					debug!("modified {modify_kind:#?}");
+
+					// check if path exists in our db
+					let existing_file_path = library_ctx
+						.db
+						.file_path()
+						.find_first(vec![file_path::materialized_path::equals(
+							event.paths[0].to_str().unwrap().to_string(),
+						)])
+						// include object for orphan check
+						.include(file_path_with_object::include())
+						.exec()
+						.await?;
+
+					// check file still exists on disk
+					let local_file = PathBuf::from(&event.paths[0]);
+					if !local_file.exists() {
+						// if is doesn't, we can remove it safely from our db
+						if let Some(fp) = existing_file_path {
+							if fp.is_dir {
+								delete_directory(
+									&library_ctx,
+									location_id,
+									Some(fp.materialized_path),
+								)
+								.await
+								.unwrap_or((|| {
+									error!("Failed to delete directory");
+								})());
+							} else {
+								library_ctx
+									.db
+									.file_path()
+									.delete(file_path::location_id_id(location_id, fp.id))
+									.exec()
+									.await?;
+							}
+						}
+					// run object orphan check
+					// TODO: ^ that as a function :D
+					} else {
+						if let Some(fp) = existing_file_path {
+							if fp.is_dir {
+								// run a shallow directory scan
+							} else {
+								// handle individual file modifications
+								match modify_kind {
+									ModifyKind::Any => todo!(),
+									ModifyKind::Metadata(_metadata) => todo!(),
+									ModifyKind::Name(_name) => todo!(),
+									ModifyKind::Other => todo!(),
+									ModifyKind::Data(_data) => todo!(),
+								}
+							}
+						}
+					}
+				}
+				EventKind::Remove(remove_kind) => {
+					// check if path exists in our db
+					let existing_file_path = library_ctx
+						.db
+						.file_path()
+						.find_first(vec![file_path::materialized_path::equals(
+							event.paths[0].to_str().unwrap().to_string(),
+						)])
+						// include object for orphan check
+						.include(file_path_with_object::include())
+						.exec()
+						.await?;
+
+					// check file still exists on disk
+					let local_file = PathBuf::from(&event.paths[0]);
+					if !local_file.exists() {
+						// if is doesn't, we can remove it safely from our db
+						if let Some(fp) = existing_file_path {
+							if fp.is_dir {
+								delete_directory(
+									&library_ctx,
+									location_id,
+									Some(fp.materialized_path),
+								)
+								.await
+								.unwrap_or((|| {
+									error!("Failed to delete directory");
+								})());
+							} else {
+								library_ctx
+									.db
+									.file_path()
+									.delete(file_path::location_id_id(location_id, fp.id))
+									.exec()
+									.await?;
+							}
+						}
+					// run object orphan check
+					// TODO: ^ that as a function :D
+					} else {
+						// file has changed in some way, re-identify it
+					}
+				}
+				other_event_kind => {
+					debug!("Other event that we don't handle for now: {other_event_kind:#?}");
+				}
 			}
 		}
+		Ok(())
 	}
 
 	fn check_path(&self, path: impl AsRef<Path>) -> bool {

@@ -1,5 +1,6 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	location::get_max_file_path_id,
 	prisma::{file_path, location},
 };
 
@@ -112,17 +113,7 @@ impl StatefulJob for IndexerJob {
 			.unwrap();
 
 		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = ctx
-			.library_ctx()
-			.db
-			.file_path()
-			.find_first(vec![])
-			.order_by(file_path::id::order(Direction::Desc))
-			.select(file_path_id_only::select())
-			.exec()
-			.await?
-			.map(|r| r.id)
-			.unwrap_or(0);
+		let first_file_id = get_max_file_path_id(&ctx.library_ctx()).await?;
 
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
@@ -251,7 +242,7 @@ impl StatefulJob for IndexerJob {
 							name = extract_name(entry.path.file_name());
 						} else {
 							// if the 'entry.path' is not a directory, then get the extension and name.
-							extension = extract_name(entry.path.extension());
+							extension = extract_name(entry.path.extension()).to_lowercase();
 							name = extract_name(entry.path.file_stem());
 						}
 						let materialized_path = entry

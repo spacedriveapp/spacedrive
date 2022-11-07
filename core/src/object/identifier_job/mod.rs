@@ -34,7 +34,7 @@ pub enum IdentifierJobError {
 	LocationLocalPath(i32),
 }
 
-async fn assemble_object_metadata(
+pub async fn assemble_object_metadata(
 	location_path: impl AsRef<Path>,
 	file_path: &file_path::Data,
 ) -> Result<(String, String, Vec<object::SetParam>), io::Error> {
@@ -55,7 +55,7 @@ async fn assemble_object_metadata(
 			Some(ext) => {
 				let mut file = fs::File::open(&path).await?;
 
-				Extension::resolve_conflicting(ext, &mut file, false)
+				Extension::resolve_conflicting(&ext.to_lowercase(), &mut file, false)
 					.await
 					.map(Into::into)
 					.unwrap_or(ObjectKind::Unknown)
@@ -154,7 +154,6 @@ async fn identifier_job_step(
 
 	// generate objects for all file paths
 	let provisional_objects = generate_provisional_objects(location_path, file_paths).await;
-	dbg!(provisional_objects.len());
 
 	let unique_cas_ids = provisional_objects
 		.values()
