@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::Platform,
-	prisma::{node, PrismaClient, key},
+	prisma::{key, node, PrismaClient},
 	util::{
 		db::load_and_migrate,
 		seeder::{indexer_rules_seeder, SeederError},
@@ -15,7 +15,8 @@ use sd_crypto::{
 		hashing::{HashingAlgorithm, Params},
 		keymanager::{KeyManager, StoredKey},
 	},
-	primitives::to_array, Protected,
+	primitives::to_array,
+	Protected,
 };
 use std::{
 	env, fs, io,
@@ -73,7 +74,7 @@ impl From<LibraryManagerError> for rspc::Error {
 
 pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, LibraryManagerError> {
 	// retrieve all stored keys from the DB
-	let key_manager = KeyManager::new	(vec![]);
+	let key_manager = KeyManager::new(vec![]);
 
 	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
 
@@ -124,7 +125,12 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 		.exec()
 		.await?;
 	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-	let verification_key = KeyManager::onboarding(Protected::new(Vec::new()), Algorithm::XChaCha20Poly1305, HashingAlgorithm::Argon2id(Params::Standard))?.verification_key;
+	let verification_key = KeyManager::onboarding(
+		Protected::new(Vec::new()),
+		Algorithm::XChaCha20Poly1305,
+		HashingAlgorithm::Argon2id(Params::Standard),
+	)?
+	.verification_key;
 	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
 	client
 		.key()

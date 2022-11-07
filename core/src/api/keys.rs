@@ -1,6 +1,11 @@
 use std::str::FromStr;
 
-use sd_crypto::{crypto::stream::Algorithm, keys::{hashing::HashingAlgorithm, keymanager::KeyManager}, Protected, primitives::generate_passphrase};
+use sd_crypto::{
+	crypto::stream::Algorithm,
+	keys::{hashing::HashingAlgorithm, keymanager::KeyManager},
+	primitives::generate_passphrase,
+	Protected,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -87,7 +92,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("clearMasterPassword", |t| {
 			t(|_, _: (), library| async move {
 				library.key_manager.clear_master_password()?;
-				
+
 				invalidate_query!(library, "keys.hasMasterPassword");
 				Ok(())
 			})
@@ -114,8 +119,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, args: OnboardingArgs, library| async move {
 				// if this returns an error, the user MUST re-enter the correct password
 				let passphrase = generate_passphrase();
-				let bundle = KeyManager::onboarding(Protected::new(passphrase.expose().as_bytes().to_vec()), args.algorithm, args.hashing_algorithm)?;
-				
+				let bundle = KeyManager::onboarding(
+					Protected::new(passphrase.expose().as_bytes().to_vec()),
+					args.algorithm,
+					args.hashing_algorithm,
+				)?;
+
 				let verification_key = bundle.verification_key;
 
 				// remove old nil-id keys if they were set
@@ -144,10 +153,13 @@ pub(crate) fn mount() -> RouterBuilder {
 					)
 					.exec()
 					.await?;
-				
+
 				let secret_key = base64::encode(bundle.secret_key.expose());
 
-				let keys = OnboardingKeys { passphrase: passphrase.expose().clone(), secret_key };
+				let keys = OnboardingKeys {
+					passphrase: passphrase.expose().clone(),
+					secret_key,
+				};
 
 				Ok(keys)
 			})
@@ -155,9 +167,10 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("setMasterPassword", |t| {
 			t(|_, args: SetMasterPasswordArgs, library| async move {
 				// if this returns an error, the user MUST re-enter the correct password
-				library
-					.key_manager
-					.set_master_password(Protected::new(args.password), Protected::new(args.secret_key))?;
+				library.key_manager.set_master_password(
+					Protected::new(args.password),
+					Protected::new(args.secret_key),
+				)?;
 
 				let automount = library
 					.db
@@ -178,7 +191,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 
 				invalidate_query!(library, "keys.hasMasterPassword");
-						
+
 				Ok(())
 			})
 		})
@@ -262,22 +275,22 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				if args.library_sync {
 					library
-					.db
-					.key()
-					.create(
-						uuid.to_string(),
-						args.algorithm.serialize().to_vec(),
-						args.hashing_algorithm.serialize().to_vec(),
-						stored_key.salt.to_vec(),
-						stored_key.content_salt.to_vec(),
-						stored_key.master_key.to_vec(),
-						stored_key.master_key_nonce.to_vec(),
-						stored_key.key_nonce.to_vec(),
-						stored_key.key.to_vec(),
-						vec![],
-					)
-					.exec()
-					.await?;
+						.db
+						.key()
+						.create(
+							uuid.to_string(),
+							args.algorithm.serialize().to_vec(),
+							args.hashing_algorithm.serialize().to_vec(),
+							stored_key.salt.to_vec(),
+							stored_key.content_salt.to_vec(),
+							stored_key.master_key.to_vec(),
+							stored_key.master_key_nonce.to_vec(),
+							stored_key.key_nonce.to_vec(),
+							stored_key.key.to_vec(),
+							vec![],
+						)
+						.exec()
+						.await?;
 				}
 
 				// mount the key
