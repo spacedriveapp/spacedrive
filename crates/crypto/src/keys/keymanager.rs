@@ -112,7 +112,7 @@ pub struct OnboardingBundle {
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// Initialize the Key Manager with the user's master password, and `StoredKeys` retrieved from Prisma
-	#[must_use]
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn onboarding(
 		_master_password: Protected<Vec<u8>>,
 		algorithm: Algorithm,
@@ -267,6 +267,7 @@ impl KeyManager {
 	}
 
 	// requires master password and the secret key
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn set_master_password(
 		&self,
 		master_password: Protected<String>,
@@ -295,7 +296,7 @@ impl KeyManager {
 
 		let hashed_master_password = verification_key
 			.hashing_algorithm
-			.hash(master_password, secret_key.expose().clone())?;
+			.hash(master_password, *secret_key.expose())?;
 
 		// Decrypt the StoredKey's master key using the user's hashed password
 		let decryption_result = StreamDecryption::decrypt_bytes(

@@ -72,25 +72,28 @@ pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I]> {
 }
 
 /// This generates a 7 word diceware passphrase, separated with `-`
+#[must_use]
 pub fn generate_passphrase() -> Protected<String> {
 	let wordlist = include_str!("../assets/eff_large_wordlist.txt")
 		.lines()
 		.collect::<Vec<&str>>();
+	
 	let words: Vec<String> = wordlist
 		.choose_multiple(
 			&mut rand_chacha::ChaCha20Rng::from_entropy(),
 			PASSPHRASE_LEN,
 		)
-		.map(|w| w.to_string())
+		.map(ToString::to_string)
 		.collect();
+
 	let passphrase = words
 		.iter()
 		.enumerate()
 		.map(|(i, word)| {
 			if i < PASSPHRASE_LEN - 1 {
-				word.to_owned() + "-"
+				word.clone() + "-"
 			} else {
-				word.to_owned()
+				word.clone()
 			}
 		})
 		.into_iter()
