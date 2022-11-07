@@ -76,6 +76,37 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 	// retrieve all stored keys from the DB
 	let key_manager = KeyManager::new(vec![]);
 
+	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+	client
+		.key()
+		.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
+		.exec()
+		.await?;
+	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+	let verification_key = KeyManager::onboarding(
+		Protected::new(Vec::new()),
+		Algorithm::XChaCha20Poly1305,
+		HashingAlgorithm::Argon2id(Params::Standard),
+	)?
+	.verification_key;
+	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+	client
+		.key()
+		.create(
+			verification_key.uuid.to_string(),
+			verification_key.algorithm.serialize().to_vec(),
+			verification_key.hashing_algorithm.serialize().to_vec(),
+			verification_key.salt.to_vec(),
+			verification_key.content_salt.to_vec(),
+			verification_key.master_key.to_vec(),
+			verification_key.master_key_nonce.to_vec(),
+			verification_key.key_nonce.to_vec(),
+			verification_key.key.to_vec(),
+			vec![],
+		)
+		.exec()
+		.await?;
+
 	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
 
 	let mut default = Uuid::nil();
@@ -117,37 +148,6 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 	if !default.is_nil() {
 		key_manager.set_default(default)?;
 	}
-
-	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-	client
-		.key()
-		.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
-		.exec()
-		.await?;
-	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-	let verification_key = KeyManager::onboarding(
-		Protected::new(Vec::new()),
-		Algorithm::XChaCha20Poly1305,
-		HashingAlgorithm::Argon2id(Params::Standard),
-	)?
-	.verification_key;
-	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-	client
-		.key()
-		.create(
-			verification_key.uuid.to_string(),
-			verification_key.algorithm.serialize().to_vec(),
-			verification_key.hashing_algorithm.serialize().to_vec(),
-			verification_key.salt.to_vec(),
-			verification_key.content_salt.to_vec(),
-			verification_key.master_key.to_vec(),
-			verification_key.master_key_nonce.to_vec(),
-			verification_key.key_nonce.to_vec(),
-			verification_key.key.to_vec(),
-			vec![],
-		)
-		.exec()
-		.await?;
 
 	Ok(key_manager)
 }
