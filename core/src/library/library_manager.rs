@@ -16,7 +16,6 @@ use sd_crypto::{
 		keymanager::{KeyManager, StoredKey},
 	},
 	primitives::to_array,
-	Protected,
 };
 use std::{
 	env, fs, io,
@@ -84,7 +83,6 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 		.await?;
 	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
 	let verification_key = KeyManager::onboarding(
-		Protected::new(Vec::new()),
 		Algorithm::XChaCha20Poly1305,
 		HashingAlgorithm::Argon2id(Params::Standard),
 	)?
@@ -96,7 +94,6 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 			verification_key.uuid.to_string(),
 			verification_key.algorithm.serialize().to_vec(),
 			verification_key.hashing_algorithm.serialize().to_vec(),
-			verification_key.salt.to_vec(),
 			verification_key.content_salt.to_vec(),
 			verification_key.master_key.to_vec(),
 			verification_key.master_key_nonce.to_vec(),
@@ -126,7 +123,6 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 
 			StoredKey {
 				uuid,
-				salt: to_array(key.salt).unwrap(),
 				algorithm: Algorithm::deserialize(to_array(key.algorithm).unwrap()).unwrap(),
 				content_salt: to_array(key.content_salt).unwrap(),
 				master_key: to_array(key.master_key).unwrap(),

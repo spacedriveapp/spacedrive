@@ -3,7 +3,6 @@ use std::str::FromStr;
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{hashing::HashingAlgorithm, keymanager::KeyManager},
-	primitives::generate_passphrase,
 	Protected,
 };
 use serde::{Deserialize, Serialize};
@@ -41,7 +40,7 @@ pub struct OnboardingArgs {
 
 #[derive(Type, Serialize)]
 pub struct OnboardingKeys {
-	passphrase: String,
+	master_password: String,
 	secret_key: String,
 }
 
@@ -130,9 +129,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("onboarding", |t| {
 			t(|_, args: OnboardingArgs, library| async move {
 				// if this returns an error, the user MUST re-enter the correct password
-				let passphrase = generate_passphrase();
 				let bundle = KeyManager::onboarding(
-					Protected::new(passphrase.expose().as_bytes().to_vec()),
 					args.algorithm,
 					args.hashing_algorithm,
 				)?;
@@ -155,7 +152,6 @@ pub(crate) fn mount() -> RouterBuilder {
 						verification_key.uuid.to_string(),
 						verification_key.algorithm.serialize().to_vec(),
 						verification_key.hashing_algorithm.serialize().to_vec(),
-						verification_key.salt.to_vec(),
 						verification_key.content_salt.to_vec(),
 						verification_key.master_key.to_vec(),
 						verification_key.master_key_nonce.to_vec(),
@@ -166,11 +162,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					.exec()
 					.await?;
 
-				let secret_key = base64::encode(bundle.secret_key.expose());
-
 				let keys = OnboardingKeys {
-					passphrase: passphrase.expose().clone(),
-					secret_key,
+					master_password: bundle.master_password.expose().clone(),
+					secret_key: base64::encode(bundle.secret_key.expose()),
 				};
 
 				Ok(keys)
@@ -293,7 +287,6 @@ pub(crate) fn mount() -> RouterBuilder {
 							uuid.to_string(),
 							args.algorithm.serialize().to_vec(),
 							args.hashing_algorithm.serialize().to_vec(),
-							stored_key.salt.to_vec(),
 							stored_key.content_salt.to_vec(),
 							stored_key.master_key.to_vec(),
 							stored_key.master_key_nonce.to_vec(),
