@@ -1,5 +1,7 @@
 //! This module contains all possible errors that this crate can return.
 
+use std::string::FromUtf8Error;
+
 use thiserror::Error;
 
 #[cfg(feature = "rspc")]
@@ -60,6 +62,8 @@ pub enum Error {
 	NoVerificationKey,
 	#[error("wrong information provided to the key manager")]
 	IncorrectKeymanagerDetails,
+	#[error("string parse error")]
+	StringParse(#[from] FromUtf8Error)
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {
