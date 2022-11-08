@@ -21,16 +21,20 @@ export default function SettingsNavigator() {
 		<SettingsStack.Navigator
 			initialRouteName="Home"
 			screenOptions={{
-				presentation: 'modal',
 				headerBackTitleVisible: false,
 				headerStyle: tw`bg-app`,
 				headerTintColor: tw.color('ink'),
 				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`
+				headerBackTitleStyle: tw`text-base`,
+				headerTitle: ''
 				// headerShadowVisible: false // will disable the white line under
 			}}
 		>
-			<SettingsStack.Screen name="Home" component={SettingsScreen} />
+			<SettingsStack.Screen
+				name="Home"
+				component={SettingsScreen}
+				options={{ headerTitle: 'Settings' }}
+			/>
 			{/* Client */}
 			<SettingsStack.Screen name="GeneralSettings" component={GeneralSettingsScreen} />
 			<SettingsStack.Screen name="LibrarySettings" component={LibrarySettingsScreen} />
@@ -46,7 +50,7 @@ export default function SettingsNavigator() {
 			<SettingsStack.Screen name="NodesSettings" component={NodesSettingsScreen} />
 			<SettingsStack.Screen name="TagsSettings" component={TagsSettingsScreen} />
 			<SettingsStack.Screen name="KeysSettings" component={KeysSettingsScreen} />
-			{/* Resources (Info) */}
+			{/* Info */}
 			<SettingsStack.Screen name="About" component={AboutScreen} />
 			<SettingsStack.Screen name="Support" component={SupportScreen} />
 		</SettingsStack.Navigator>
@@ -68,7 +72,7 @@ export type SettingsStackParamList = {
 	NodesSettings: undefined;
 	TagsSettings: undefined;
 	KeysSettings: undefined;
-	// Resources (Info)
+	// Info
 	About: undefined;
 	Support: undefined;
 };

@@ -7,7 +7,8 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import tw from '~/lib/tailwind';
 
-const Header = () => {
+// Default header with search bar and button to open drawer
+export default function Header() {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 
 	const { top } = useSafeAreaInsets();
@@ -38,6 +39,4 @@ const Header = () => {
 			</View>
 		</View>
 	);
-};
-
-export default Header;
+}

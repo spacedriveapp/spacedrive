@@ -5,12 +5,12 @@ import tw from '~/lib/tailwind';
 
 import FileItem from './FileItem';
 
-type Props = {
+type ExplorerProps = {
 	locationId: number;
 	path?: string;
 };
 
-const Explorer = ({ locationId, path }: Props) => {
+const Explorer = ({ locationId, path }: ExplorerProps) => {
 	const { data } = useLibraryQuery([
 		'locations.getExplorerData',
 		{

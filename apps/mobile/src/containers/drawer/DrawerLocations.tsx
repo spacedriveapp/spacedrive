@@ -10,10 +10,10 @@ import FolderIcon from '../../components/icons/FolderIcon';
 import CollapsibleView from '../../components/layout/CollapsibleView';
 import ImportModal from '../modals/ImportModal';
 
-interface DrawerLocationItemProps {
+type DrawerLocationItemProps = {
 	folderName: string;
 	onPress: () => void;
-}
+};
 
 const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 	const { folderName, onPress } = props;
@@ -30,9 +30,9 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = (props) => {
 	);
 };
 
-interface DrawerLocationsProp {
+type DrawerLocationsProp = {
 	stackName: string;
-}
+};
 
 const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();

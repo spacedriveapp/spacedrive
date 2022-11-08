@@ -10,10 +10,10 @@ import Divider from '../../components/primitive/Divider';
 import tw from '../../lib/tailwind';
 import { useFileModalStore } from '../../stores/modalStore';
 
-interface MetaItemProps {
+type MetaItemProps = {
 	title: string;
 	value: string;
-}
+};
 
 function MetaItem({ title, value }: MetaItemProps) {
 	return (

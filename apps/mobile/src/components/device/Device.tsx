@@ -90,13 +90,13 @@ const placeholderFileItems: ExplorerItem[] = [
 	}
 ];
 
-export interface DeviceProps {
+type DeviceProps = {
 	name: string;
 	size: string;
 	type: keyof typeof DeviceIcon;
 	locations: { name: string; folder?: boolean; format?: string; icon?: string }[];
 	runningJob?: { amount: number; task: string };
-}
+};
 
 const DeviceIcon = {
 	phone: <DeviceMobileCamera color="white" weight="fill" size={18} style={tw`mr-2`} />,
