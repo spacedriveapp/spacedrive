@@ -5,6 +5,7 @@ import {
 	GearSix,
 	HardDrive,
 	Heart,
+	Icon,
 	Key,
 	PaintBrush,
 	PuzzlePiece,
@@ -19,7 +20,7 @@ import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/S
 
 interface SettingsItemType {
 	title: string;
-	icon: JSX.Element;
+	icon: Icon;
 	navigateTo: keyof SettingsStackParamList;
 }
 
@@ -33,27 +34,27 @@ const sections: SectionType[] = [
 		title: 'Client',
 		data: [
 			{
-				icon: <GearSix weight="bold" color={tw.color('ink')} size={18} />,
+				icon: GearSix,
 				navigateTo: 'GeneralSettings',
 				title: 'General'
 			},
 			{
-				icon: <Books weight="bold" color={tw.color('ink')} size={18} />,
+				icon: Books,
 				navigateTo: 'LibrarySettings',
 				title: 'Libraries'
 			},
 			{
-				icon: <PaintBrush weight="bold" color={tw.color('ink')} size={18} />,
+				icon: PaintBrush,
 				navigateTo: 'AppearanceSettings',
 				title: 'Appearance'
 			},
 			{
-				icon: <ShieldCheck weight="bold" color={tw.color('ink')} size={18} />,
+				icon: ShieldCheck,
 				navigateTo: 'PrivacySettings',
 				title: 'Privacy'
 			},
 			{
-				icon: <PuzzlePiece weight="bold" color={tw.color('ink')} size={18} />,
+				icon: PuzzlePiece,
 				navigateTo: 'ExtensionsSettings',
 				title: 'Extensions'
 			}
@@ -63,27 +64,27 @@ const sections: SectionType[] = [
 		title: 'Library',
 		data: [
 			{
-				icon: <GearSix weight="bold" color={tw.color('ink')} size={18} />,
+				icon: GearSix,
 				navigateTo: 'LibraryGeneralSettings',
 				title: 'General'
 			},
 			{
-				icon: <HardDrive weight="bold" color={tw.color('ink')} size={18} />,
+				icon: HardDrive,
 				navigateTo: 'LocationSettings',
 				title: 'Locations'
 			},
 			{
-				icon: <ShareNetwork weight="bold" color={tw.color('ink')} size={18} />,
+				icon: ShareNetwork,
 				navigateTo: 'NodesSettings',
 				title: 'Nodes'
 			},
 			{
-				icon: <TagSimple weight="bold" color={tw.color('ink')} size={18} />,
+				icon: TagSimple,
 				navigateTo: 'TagsSettings',
 				title: 'Tags'
 			},
 			{
-				icon: <Key weight="bold" color={tw.color('ink')} size={18} />,
+				icon: Key,
 				navigateTo: 'KeysSettings',
 				title: 'Keys'
 			}
@@ -93,12 +94,12 @@ const sections: SectionType[] = [
 		title: 'Resources',
 		data: [
 			{
-				icon: <FlyingSaucer weight="bold" color={tw.color('ink')} size={18} />,
+				icon: FlyingSaucer,
 				navigateTo: 'About',
 				title: 'About'
 			},
 			{
-				icon: <Heart weight="bold" color={tw.color('ink')} size={18} />,
+				icon: Heart,
 				navigateTo: 'Support',
 				title: 'Support'
 			}
@@ -109,11 +110,15 @@ const sections: SectionType[] = [
 function SettingsItem(props: SettingsItemType) {
 	const navigation = useNavigation<SettingsStackScreenProps<'Home'>['navigation']>();
 
+	const Icon = props.icon;
+
 	return (
 		<Pressable onPress={() => navigation.navigate(props.navigateTo)}>
-			<View style={tw`flex flex-row items-center px-2 py-3 bg-app-highlight/40 rounded mb-1.5`}>
-				{props.icon}
-				<Text style={tw`text-ink text-sm ml-2`}>{props.title}</Text>
+			<View
+				style={tw`flex flex-row items-center px-2 py-[10px] bg-app-highlight/35 rounded mb-1.5`}
+			>
+				<Icon weight="bold" color={tw.color('ink')} size={18} style={tw`ml-1 mr-2`} />
+				<Text style={tw`text-ink text-sm`}>{props.title}</Text>
 			</View>
 		</Pressable>
 	);
