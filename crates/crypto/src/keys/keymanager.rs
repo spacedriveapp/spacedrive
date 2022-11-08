@@ -39,7 +39,7 @@ use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
-	generate_master_key, generate_nonce, generate_salt, to_array, MASTER_KEY_LEN,
+	generate_master_key, generate_nonce, generate_salt, to_array,
 };
 use crate::{
 	crypto::stream::Algorithm,
@@ -62,6 +62,7 @@ use super::hashing::HashingAlgorithm;
 // The `hashed_key` refers to the value you'd pass to PVM/MD decryption functions. It has been pre-hashed with the content salt.
 // The content salt refers to the semi-universal salt that's used for metadata/preview media (unique to each key in the manager)
 
+/// This is a stored key, and can be freely written to Prisma/another database.
 #[derive(Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct StoredKey {
@@ -92,7 +93,7 @@ pub struct MountedKey {
 ///
 /// Use the associated functions to interact with it.
 pub struct KeyManager {
-	master_password: Mutex<Option<Protected<[u8; 32]>>>, // the user's. we take ownership here to prevent other functions attempting to manage/pass it to us
+	master_password: Mutex<Option<Protected<[u8; 32]>>>, // the *hashed* master password+secret key combo
 	verification_key: Mutex<Option<StoredKey>>,
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
@@ -102,6 +103,11 @@ pub struct KeyManager {
 // bundle returned during onboarding
 // nil key should be stored within prisma
 // secret key should be written down by the user (along with the master password)
+/// This bundle is returned during onboarding.
+/// 
+/// The verification key should be written to the database, and only one nil-UUID key should exist at any given point for a library.
+/// 
+/// The secret key needs to be given to the user, and should be written down.
 pub struct OnboardingBundle {
 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
 	pub secret_key: Protected<String>, // base64 encoded string that is required along with the master password
@@ -245,6 +251,7 @@ impl KeyManager {
 		}
 	}
 
+	/// This allows you to clear the default key
 	pub fn clear_default(&self) -> Result<()> {
 		let mut default = self.default.lock()?;
 
@@ -265,6 +272,12 @@ impl KeyManager {
 	}
 
 	// requires master password and the secret key
+	/// This requires both the master password and the secret key
+	///
+	/// The master password and secret key are hashed together.
+	/// This minimises the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
+	/// 
+	/// Both values need to be correct, otherwise this function will return a generic error.
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn set_master_password(
 		&self,
@@ -320,6 +333,7 @@ impl KeyManager {
 		Ok(())
 	}
 
+	/// This function is used for seeing if the key manager has a master password.
 	pub fn has_master_password(&self) -> Result<bool> {
 		Ok(self.master_password.lock()?.is_some())
 	}
@@ -392,8 +406,6 @@ impl KeyManager {
 	pub fn mount(&self, uuid: Uuid) -> Result<()> {
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
-				let mut master_key = [0u8; MASTER_KEY_LEN];
-
 				// Decrypt the StoredKey's master key using the user's hashed password
 				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
 					self.get_master_password()?,
@@ -402,8 +414,7 @@ impl KeyManager {
 					&stored_key.master_key,
 					&[],
 				) {
-					master_key.copy_from_slice(&decrypted_master_key);
-					Ok(Protected::new(master_key))
+					Ok(Protected::new(to_array(decrypted_master_key.expose().clone())?))
 				} else {
 					Err(Error::IncorrectPassword)
 				}?;
@@ -420,7 +431,7 @@ impl KeyManager {
 				// Hash the key once with the parameters/algorithm the user selected during first mount
 				let hashed_key = stored_key
 					.hashing_algorithm
-					.hash(key.clone(), stored_key.content_salt)?;
+					.hash(key, stored_key.content_salt)?;
 
 				// Construct the MountedKey and insert it into the Keymount
 				let mounted_key = MountedKey {
@@ -436,11 +447,12 @@ impl KeyManager {
 		}
 	}
 
+	/// This function is used for getting the key itself, from a given UUID.
+	/// 
+	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
 	pub fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
-				let mut master_key = [0u8; MASTER_KEY_LEN];
-
 				// Decrypt the StoredKey's master key using the user's hashed password
 				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
 					self.get_master_password()?,
@@ -449,8 +461,7 @@ impl KeyManager {
 					&stored_key.master_key,
 					&[],
 				) {
-					master_key.copy_from_slice(&decrypted_master_key);
-					Ok(Protected::new(master_key))
+					Ok(Protected::new(to_array(decrypted_master_key.expose().clone())?))
 				} else {
 					Err(Error::IncorrectPassword)
 				}?;
