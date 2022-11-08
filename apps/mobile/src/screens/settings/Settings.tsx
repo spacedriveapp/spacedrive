@@ -113,7 +113,7 @@ function SettingsItem(props: SettingsItemType) {
 		<Pressable onPress={() => navigation.navigate(props.navigateTo)}>
 			<View style={tw`flex flex-row items-center px-2 py-3 bg-app-highlight/40 rounded mb-1.5`}>
 				{props.icon}
-				<Text style={tw`text-ink ml-2`}>{props.title}</Text>
+				<Text style={tw`text-ink text-sm ml-2`}>{props.title}</Text>
 			</View>
 		</Pressable>
 	);
@@ -123,7 +123,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 	return (
 		<Text
 			style={tw.style(
-				'mb-2 ml-1 text-base font-semibold text-ink-dull',
+				'mb-2 ml-1 text-sm font-semibold text-ink-dull',
 				section.title === 'Client' ? 'mt-2' : 'mt-5'
 			)}
 		>

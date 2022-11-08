@@ -25,8 +25,7 @@ export default function SettingsNavigator() {
 				headerStyle: tw`bg-app`,
 				headerTintColor: tw.color('ink'),
 				headerTitleStyle: tw`text-base`,
-				headerBackTitleStyle: tw`text-base`,
-				headerTitle: ''
+				headerBackTitleStyle: tw`text-base`
 				// headerShadowVisible: false // will disable the white line under
 			}}
 		>
@@ -36,23 +35,68 @@ export default function SettingsNavigator() {
 				options={{ headerTitle: 'Settings' }}
 			/>
 			{/* Client */}
-			<SettingsStack.Screen name="GeneralSettings" component={GeneralSettingsScreen} />
-			<SettingsStack.Screen name="LibrarySettings" component={LibrarySettingsScreen} />
-			<SettingsStack.Screen name="AppearanceSettings" component={AppearanceSettingsScreen} />
-			<SettingsStack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
-			<SettingsStack.Screen name="ExtensionsSettings" component={ExtensionsSettingsScreen} />
+			<SettingsStack.Screen
+				name="GeneralSettings"
+				component={GeneralSettingsScreen}
+				options={{ headerTitle: 'General Settings' }}
+			/>
+			<SettingsStack.Screen
+				name="LibrarySettings"
+				component={LibrarySettingsScreen}
+				options={{ headerTitle: 'Libraries' }}
+			/>
+			<SettingsStack.Screen
+				name="AppearanceSettings"
+				component={AppearanceSettingsScreen}
+				options={{ headerTitle: 'Appearance' }}
+			/>
+			<SettingsStack.Screen
+				name="PrivacySettings"
+				component={PrivacySettingsScreen}
+				options={{ headerTitle: 'Privacy' }}
+			/>
+			<SettingsStack.Screen
+				name="ExtensionsSettings"
+				component={ExtensionsSettingsScreen}
+				options={{ headerTitle: 'Extensions' }}
+			/>
 			{/* Library */}
 			<SettingsStack.Screen
 				name="LibraryGeneralSettings"
 				component={LibraryGeneralSettingsScreen}
+				options={{ headerTitle: 'Library Settings' }}
 			/>
-			<SettingsStack.Screen name="LocationSettings" component={LocationSettingsScreen} />
-			<SettingsStack.Screen name="NodesSettings" component={NodesSettingsScreen} />
-			<SettingsStack.Screen name="TagsSettings" component={TagsSettingsScreen} />
-			<SettingsStack.Screen name="KeysSettings" component={KeysSettingsScreen} />
+			<SettingsStack.Screen
+				name="LocationSettings"
+				component={LocationSettingsScreen}
+				options={{ headerTitle: 'Locations' }}
+			/>
+			<SettingsStack.Screen
+				name="NodesSettings"
+				component={NodesSettingsScreen}
+				options={{ headerTitle: 'Nodes' }}
+			/>
+			<SettingsStack.Screen
+				name="TagsSettings"
+				component={TagsSettingsScreen}
+				options={{ headerTitle: 'Tags' }}
+			/>
+			<SettingsStack.Screen
+				name="KeysSettings"
+				component={KeysSettingsScreen}
+				options={{ headerTitle: 'Keys' }}
+			/>
 			{/* Info */}
-			<SettingsStack.Screen name="About" component={AboutScreen} />
-			<SettingsStack.Screen name="Support" component={SupportScreen} />
+			<SettingsStack.Screen
+				name="About"
+				component={AboutScreen}
+				options={{ headerTitle: 'About' }}
+			/>
+			<SettingsStack.Screen
+				name="Support"
+				component={SupportScreen}
+				options={{ headerTitle: 'Support' }}
+			/>
 		</SettingsStack.Navigator>
 	);
 }
