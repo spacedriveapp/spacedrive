@@ -1,8 +1,4 @@
 {
-	"extends": "../config/interface.tsconfig.json",
-	"compilerOptions": {
-		"target": "es2020",
-		"outDir": "./dist"
-	},
-	"include": ["src", "../ui/src/Dialog.tsx", "../ui/src/Loader.tsx"]
+	"extends": "@sd/config/interface.tsconfig.json",
+	"include": ["src"]
 }

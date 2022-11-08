@@ -23,7 +23,8 @@
 		"paths": {
 			"@sd/interface": ["../../packages/interface"],
 			"@sd/ui": ["../../packages/ui"],
-			"@sd/client": ["../../packages/client"]
+			"@sd/client": ["../../packages/client"],
+			"@sd/assets": ["../../packages/assets"]
 		}
 	},
 	"exclude": ["node_modules"]
