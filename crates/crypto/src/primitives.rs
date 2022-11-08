@@ -77,7 +77,7 @@ pub fn generate_passphrase() -> Protected<String> {
 	let wordlist = include_str!("../assets/eff_large_wordlist.txt")
 		.lines()
 		.collect::<Vec<&str>>();
-	
+
 	let words: Vec<String> = wordlist
 		.choose_multiple(
 			&mut rand_chacha::ChaCha20Rng::from_entropy(),

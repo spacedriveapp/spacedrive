@@ -18,7 +18,11 @@ use argon2::Argon2;
 ///
 /// The harder the parameter, the longer the password will take to hash.
 #[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize), derive(serde::Deserialize))]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 #[allow(clippy::use_self)]
 pub enum Params {
@@ -29,7 +33,11 @@ pub enum Params {
 
 /// This defines all available password hashing algorithms.
 #[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize), derive(serde::Deserialize))]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),

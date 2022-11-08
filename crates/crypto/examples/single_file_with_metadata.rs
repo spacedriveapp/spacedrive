@@ -1,6 +1,5 @@
 #![cfg(feature = "serde")]
 
-use std::fs::File;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{
@@ -12,6 +11,7 @@ use sd_crypto::{
 	primitives::{generate_master_key, generate_salt},
 	Protected,
 };
+use std::fs::File;
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 

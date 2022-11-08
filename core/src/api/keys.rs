@@ -60,11 +60,13 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("getKey", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
 				let key = library.key_manager.get_key(key_uuid)?;
-				
-				let key_string = String::from_utf8(key.expose().clone()).map_err(|_| rspc::Error::new(
-					rspc::ErrorCode::InternalServerError,
-					"Error serializing bytes to String".into(),
-				))?;
+
+				let key_string = String::from_utf8(key.expose().clone()).map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Error serializing bytes to String".into(),
+					)
+				})?;
 
 				Ok(key_string)
 			})
@@ -129,10 +131,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("onboarding", |t| {
 			t(|_, args: OnboardingArgs, library| async move {
 				// if this returns an error, the user MUST re-enter the correct password
-				let bundle = KeyManager::onboarding(
-					args.algorithm,
-					args.hashing_algorithm,
-				)?;
+				let bundle = KeyManager::onboarding(args.algorithm, args.hashing_algorithm)?;
 
 				let verification_key = bundle.verification_key;
 

@@ -39,7 +39,7 @@ use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
-	generate_master_key, generate_nonce, generate_salt, to_array, generate_passphrase,
+	generate_master_key, generate_nonce, generate_passphrase, generate_salt, to_array,
 };
 use crate::{
 	crypto::stream::Algorithm,
@@ -71,11 +71,11 @@ pub struct StoredKey {
 	pub uuid: uuid::Uuid,     // uuid for identification. shared with mounted keys
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm used for hashing the key with the content salt
-	pub content_salt: [u8; SALT_LEN],  
-	#[cfg_attr(feature = "serde", serde(with = "BigArray"))]      // salt used for file data
+	pub content_salt: [u8; SALT_LEN],
+	#[cfg_attr(feature = "serde", serde(with = "BigArray"))] // salt used for file data
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is for encrypting the `key`
-	pub master_key_nonce: Vec<u8>,           // nonce for encrypting the master key
-	pub key_nonce: Vec<u8>,                  // nonce used for encrypting the main key
+	pub master_key_nonce: Vec<u8>, // nonce for encrypting the master key
+	pub key_nonce: Vec<u8>,        // nonce used for encrypting the main key
 	pub key: Vec<u8>, // encrypted. the key stored in spacedrive (e.g. generated 64 char key)
 }
 
@@ -84,7 +84,7 @@ pub struct StoredKey {
 /// This contains the plaintext key, and the same key hashed with the content salt.
 #[derive(Clone)]
 pub struct MountedKey {
-	pub uuid: Uuid,                   // used for identification. shared with stored keys
+	pub uuid: Uuid, // used for identification. shared with stored keys
 	pub hashed_key: Protected<[u8; 32]>, // this is hashed with the content salt, for instant access
 }
 
@@ -105,9 +105,9 @@ pub struct KeyManager {
 // nil key should be stored within prisma
 // secret key should be written down by the user (along with the master password)
 /// This bundle is returned during onboarding.
-/// 
+///
 /// The verification key should be written to the database, and only one nil-UUID key should exist at any given point for a library.
-/// 
+///
 /// The secret key needs to be given to the user, and should be written down.
 pub struct OnboardingBundle {
 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
@@ -118,9 +118,9 @@ pub struct OnboardingBundle {
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// This should be used to generate everything for the user during onboarding.
-	/// 
+	///
 	/// This will create a master password (a 7-word diceware passphrase), and a secret key (16 bytes, encoded in base64)
-	/// 
+	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn onboarding(
@@ -202,7 +202,7 @@ impl KeyManager {
 	/// This function should be used to populate the keystore with multiple stored keys at a time.
 	///
 	/// It's suitable for when you created the key manager without populating it.
-	/// 
+	///
 	/// This also detects the nil-UUID master passphrase verification key
 	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
 		for key in stored_keys {
@@ -284,7 +284,7 @@ impl KeyManager {
 	///
 	/// The master password and secret key are hashed together.
 	/// This minimises the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
-	/// 
+	///
 	/// Both values need to be correct, otherwise this function will return a generic error.
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn set_master_password(
@@ -422,7 +422,9 @@ impl KeyManager {
 					&stored_key.master_key,
 					&[],
 				) {
-					Ok(Protected::new(to_array(decrypted_master_key.expose().clone())?))
+					Ok(Protected::new(to_array(
+						decrypted_master_key.expose().clone(),
+					)?))
 				} else {
 					Err(Error::IncorrectPassword)
 				}?;
@@ -456,7 +458,7 @@ impl KeyManager {
 	}
 
 	/// This function is used for getting the key itself, from a given UUID.
-	/// 
+	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
 	pub fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
 		match self.keystore.get(&uuid) {
@@ -469,7 +471,9 @@ impl KeyManager {
 					&stored_key.master_key,
 					&[],
 				) {
-					Ok(Protected::new(to_array(decrypted_master_key.expose().clone())?))
+					Ok(Protected::new(to_array(
+						decrypted_master_key.expose().clone(),
+					)?))
 				} else {
 					Err(Error::IncorrectPassword)
 				}?;

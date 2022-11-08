@@ -63,7 +63,7 @@ pub enum Error {
 	#[error("wrong information provided to the key manager")]
 	IncorrectKeymanagerDetails,
 	#[error("string parse error")]
-	StringParse(#[from] FromUtf8Error)
+	StringParse(#[from] FromUtf8Error),
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {

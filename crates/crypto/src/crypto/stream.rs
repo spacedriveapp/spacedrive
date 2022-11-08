@@ -13,7 +13,11 @@ use crate::{primitives::BLOCK_SIZE, Error, Protected, Result};
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize), derive(serde::Deserialize))]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 #[allow(clippy::use_self)]
 pub enum Algorithm {
