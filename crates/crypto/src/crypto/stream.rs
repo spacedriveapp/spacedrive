@@ -7,13 +7,13 @@ use aead::{
 };
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
-use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
 use crate::{primitives::BLOCK_SIZE, Error, Protected, Result};
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize), derive(serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 #[allow(clippy::use_self)]
 pub enum Algorithm {

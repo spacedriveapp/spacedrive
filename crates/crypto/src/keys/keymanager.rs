@@ -49,9 +49,10 @@ use crate::{
 use crate::{Error, Result};
 
 use dashmap::DashMap;
-use serde::Serialize;
-use serde_big_array::BigArray;
 use uuid::Uuid;
+
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
 
 use super::hashing::HashingAlgorithm;
 
@@ -63,14 +64,15 @@ use super::hashing::HashingAlgorithm;
 // The content salt refers to the semi-universal salt that's used for metadata/preview media (unique to each key in the manager)
 
 /// This is a stored key, and can be freely written to Prisma/another database.
-#[derive(Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct StoredKey {
 	pub uuid: uuid::Uuid,     // uuid for identification. shared with mounted keys
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm used for hashing the key with the content salt
-	pub content_salt: [u8; SALT_LEN],        // salt used for file data
-	#[serde(with = "BigArray")]
+	pub content_salt: [u8; SALT_LEN],  
+	#[cfg_attr(feature = "serde", serde(with = "BigArray"))]      // salt used for file data
 	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is for encrypting the `key`
 	pub master_key_nonce: Vec<u8>,           // nonce for encrypting the master key
 	pub key_nonce: Vec<u8>,                  // nonce used for encrypting the main key
