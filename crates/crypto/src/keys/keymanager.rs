@@ -387,7 +387,7 @@ impl KeyManager {
 			self.keymount.remove(&uuid);
 			Ok(())
 		} else {
-			Err(Error::KeyNotFound)
+			Err(Error::KeyNotMounted)
 		}
 	}
 
@@ -412,6 +412,10 @@ impl KeyManager {
 	///
 	/// We could add a log to this, so that the user can view mounts
 	pub fn mount(&self, uuid: Uuid) -> Result<()> {
+		if self.keymount.get(&uuid).is_some() {
+			return Err(Error::KeyAlreadyMounted)
+		}
+
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
 				// Decrypt the StoredKey's master key using the user's hashed password

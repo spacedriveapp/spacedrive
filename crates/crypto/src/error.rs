@@ -50,6 +50,10 @@ pub enum Error {
 	TooManyKeyslots,
 	#[error("requested key wasn't found in the key manager")]
 	KeyNotFound,
+	#[error("key is already mounted")]
+	KeyAlreadyMounted,
+	#[error("key not mounted")]
+	KeyNotMounted,
 	#[error("no default key has been set")]
 	NoDefaultKeySet,
 	#[error("no master password has been provided to the keymanager")]
