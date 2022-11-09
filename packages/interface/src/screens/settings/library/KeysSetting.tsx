@@ -152,7 +152,7 @@ export default function KeysSettings() {
 					</Button>
 					<KeyMounterDropdown
 					trigger={
-						<Button variant="accent" size="sm" onClick={() => {}}>
+						<Button variant="accent" size="sm">
 						Add Key
 						</Button>
 					}
