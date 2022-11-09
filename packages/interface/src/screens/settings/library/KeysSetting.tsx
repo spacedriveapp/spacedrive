@@ -1,5 +1,5 @@
 import { Button, Input } from "@sd/ui";
-import { ListKeys } from "../../../components/key/KeyList";
+import { ListOfKeys } from "../../../components/key/KeyList";
 import { KeyMounter } from "../../../components/key/KeyMounter";
 import { SettingsContainer } from "../../../components/settings/SettingsContainer";
 import { SettingsHeader } from "../../../components/settings/SettingsHeader";
@@ -162,7 +162,11 @@ export default function KeysSettings() {
 				</div>
 				}
 			/>
-			<div className="grid space-y-2">{ListKeys(false)}</div>
+				{hasMasterPw.data ? (
+					<div className="grid space-y-2">
+						<ListOfKeys noKeysMessage={false} />
+					</div>
+				) : null}
 			</SettingsContainer>
 		);
 	}
