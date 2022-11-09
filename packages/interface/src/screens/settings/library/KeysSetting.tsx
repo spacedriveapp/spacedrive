@@ -1,4 +1,4 @@
-import { Button } from "@sd/ui";
+import { Button, Input } from "@sd/ui";
 import { ListKeys } from "../../../components/key/KeyList";
 import { KeyMounter } from "../../../components/key/KeyMounter";
 import { SettingsContainer } from "../../../components/settings/SettingsContainer";
@@ -7,6 +7,8 @@ import clsx from 'clsx';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
+import { useLibraryMutation, useLibraryQuery } from "@sd/client";
+import { Eye, EyeSlash } from 'phosphor-react';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
@@ -68,26 +70,100 @@ export const KeyMounterDropdown = ({
 };
 
 export default function KeysSettings() {
-  return (
-    <SettingsContainer>
-      <SettingsHeader
-        title="Keys"
-        description="Manage your keys."
-        rightArea={
-          <div className="flex flex-row items-center space-x-5">
-            <KeyMounterDropdown
-              trigger={
-                <Button variant="accent" size="sm" onClick={() => {}}>
-                  Add Key
-                </Button>
-              }
-            >
-              <KeyMounter />
-            </KeyMounterDropdown>
-          </div>
-        }
-      />
-      <div className="grid space-y-2">{ListKeys(false)}</div>
-    </SettingsContainer>
-  );
+	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
+	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
+	const unmountAll = useLibraryMutation('keys.unmountAll');
+	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
+
+	const [showMasterPassword, setShowMasterPassword] = useState(false);
+	const [showSecretKey, setShowSecretKey] = useState(false);
+	const [masterPassword, setMasterPassword] = useState('');
+	const [secretKey, setSecretKey] = useState('');
+	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
+	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
+	
+	if(!hasMasterPw?.data) {
+		return (
+			<div className="p-2 mr-20 ml-20 mt-10">
+				<div className="relative flex flex-grow mb-2">
+						<Input
+							value={masterPassword}
+							onChange={(e) => setMasterPassword(e.target.value)}
+							autoFocus
+							type={showMasterPassword ? 'text' : 'password'}
+							className="flex-grow !py-0.5"
+							placeholder='Master Password'
+						/>
+					<Button
+						onClick={() => setShowMasterPassword(!showMasterPassword)}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+					>
+						<MPCurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
+	
+				<div className="relative flex flex-grow mb-2">
+						<Input
+							value={secretKey}
+							onChange={(e) => setSecretKey(e.target.value)}
+							type={showSecretKey ? 'text' : 'password'}
+							className="flex-grow !py-0.5"
+							placeholder='Secret Key'
+						/>
+					<Button
+						onClick={() => setShowSecretKey(!showSecretKey)}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+					>
+						<SKCurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
+	
+				<Button className="w-full" variant="accent" onClick={() => {
+					if(masterPassword !== "" && secretKey !== "") {
+						setMasterPassword('');
+						setSecretKey('');
+						setMasterPasswordMutation.mutate({password: masterPassword, secret_key: secretKey}, {
+							onError: () => {
+								alert('Incorrect information provided.');
+							}
+						});
+					}
+				}
+				}>
+					Unlock
+				</Button>
+			</div>
+		);
+	} else {
+		return (
+			<SettingsContainer>
+			<SettingsHeader
+				title="Keys"
+				description="Manage your keys."
+				rightArea={
+				<div className="flex flex-row items-center space-x-5">
+					<Button size="sm" className="" variant="accent" onClick={() => {
+						unmountAll.mutate(null);
+						clearMasterPassword.mutate(null);
+					}}>
+						Unmount & Lock
+					</Button>
+					<KeyMounterDropdown
+					trigger={
+						<Button variant="accent" size="sm" onClick={() => {}}>
+						Add Key
+						</Button>
+					}
+					>
+					<KeyMounter />
+					</KeyMounterDropdown>
+				</div>
+				}
+			/>
+			<div className="grid space-y-2">{ListKeys(false)}</div>
+			</SettingsContainer>
+		);
+	}
 }

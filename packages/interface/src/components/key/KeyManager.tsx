@@ -1,6 +1,6 @@
 import { Button, Input, Tabs } from '@sd/ui';
 import { useState } from 'react';
-import { Eye, EyeSlash, Info } from 'phosphor-react';
+import { Eye, EyeSlash } from 'phosphor-react';
 
 import { DefaultProps } from '../primitive/types';
 import { KeyList } from './KeyList';
@@ -24,7 +24,6 @@ export function KeyManager(props: KeyManagerProps) {
 	if(!hasMasterPw?.data) {	
 		const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 		const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
-		
 		
 		return (
 			<div className="p-2">
