@@ -22,7 +22,7 @@ The file size gain with this `BLOCK_SIZE` is 16 bytes per 1MiB of data, which is
 
 Throughout every cryptographic function within Spacedrive that requires cryptographically-secure random values, we use the system's entropy along with `ChaCha20Rng`. More information on this RNG can be found [here](https://rust-random.github.io/rand/rand_chacha/struct.ChaCha20Rng.html).
 
-This is used for nonce, salt and master key generation to ensure none of these values are predictable to an attacker.
+This is used for nonce, salt, master key and master passphrase generation to ensure none of these values are predictable to an attacker.
 
 ### Encryption and Hashing Algorithms
 
@@ -47,7 +47,7 @@ NCC Group have audited the encryption libraries that we use, and those audits ca
 
 We make use of AEADs for encryption, which means we are able to provide associated data while encrypting. This can be anything really, but the file will NOT decrypt without this information present.
 
-The associated data is not encrypted, it is just authenticated during encryption and is required to be present during decryption.
+The associated data is not encrypted, it is just authenticated during encryption and is required to be present during decryption. This allows us to implement specific checks, so we can ensure nothing has been tampered with.
 
 We authenticate the associated data with *every* block of data, and this comes at no impactful performance cost.
 
@@ -64,6 +64,8 @@ Headers store information that is critical to the decryption of the data. Most c
 The headers have support for lots of associated information. We can optionally store metadata and preview media within the header, and allow them to be accessible instantly.
 
 Using multiple keyslots also allows us to support more than one key for decrypting a file, and you can change them too!
+
+These structures will likely change multiple times before we officially set them in stone. Things like metadata/preview media length encryption are planned, as well as other header objects entirely.
 
 The current header structure is as follows:
 
@@ -118,4 +120,4 @@ Additional header objects, such as metadata and preview media, inherit the keysl
 
 Metadata can be anything that implements `serde::Serialize`, and the size does not matter.
 
-Preview media is intended to be a video thumbnail, or even a portion of a video. Raw bytes are the most suitable for this type, but storing something else here is not strictly forbidden.
+Preview media is intended to be a video thumbnail, or even a portion of a video. Raw bytes are the most suitable for this type, but storing something else here is not strictly forbidden (it is advised against, though).
