@@ -363,7 +363,7 @@ async fn get_files_by_extensions(
 		.await?
 		.into_iter()
 		.map(|file_path| ThumbnailJobStep {
-			object_id: file_path.object.as_ref().unwrap().id.clone(),
+			object_id: file_path.object.as_ref().unwrap().id,
 			file_path,
 			kind,
 		})

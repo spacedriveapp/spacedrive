@@ -1,20 +1,28 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	location::get_max_file_path_id,
 	prisma::{file_path, location},
 };
 
-use crate::location::indexer::rules::RuleKind;
+use std::{
+	collections::HashMap,
+	ffi::OsStr,
+	hash::{Hash, Hasher},
+	path::PathBuf,
+	time::Duration,
+};
+
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::hash::{Hash, Hasher};
-use std::{collections::HashMap, ffi::OsStr, path::PathBuf, time::Duration};
 use tokio::time::Instant;
 use tracing::info;
 
 use super::{
-	rules::IndexerRule,
+	super::file_path_helper::{
+		create_many_file_paths, get_max_file_path_id, set_max_file_path_id,
+		FilePathBatchCreateEntry,
+	},
+	rules::{IndexerRule, RuleKind},
 	walk::{walk, WalkEntry},
 };
 
@@ -143,10 +151,15 @@ impl StatefulJob for IndexerJob {
 		.await?;
 
 		let total_paths = paths.len();
+		let last_file_id = first_file_id + total_paths as i32;
+
+		// Setting our global state for file_path ids
+		set_max_file_path_id(last_file_id);
+
 		let mut dirs_ids = HashMap::new();
 		let paths_entries = paths
 			.into_iter()
-			.zip(first_file_id..(first_file_id + total_paths as i32))
+			.zip(first_file_id..last_file_id)
 			.map(
 				|(
 					WalkEntry {
@@ -223,52 +236,43 @@ impl StatefulJob for IndexerJob {
 		let location_path = &data.location_path;
 		let location_id = state.init.location.id;
 
-		let count = ctx
-			.library_ctx()
-			.db
-			.file_path()
-			.create_many(
-				state.steps[0]
-					.iter()
-					.map(|entry| {
-						let name;
-						let extension;
+		let entries = state.steps[0]
+			.iter()
+			.map(|entry| {
+				let name;
+				let extension;
 
-						// if 'entry.path' is a directory, set extension to an empty string to
-						// avoid periods in folder names being interpreted as file extensions
-						if entry.is_dir {
-							extension = "".to_string();
-							name = extract_name(entry.path.file_name());
-						} else {
-							// if the 'entry.path' is not a directory, then get the extension and name.
-							extension = extract_name(entry.path.extension()).to_lowercase();
-							name = extract_name(entry.path.file_stem());
-						}
-						let materialized_path = entry
-							.path
-							.strip_prefix(location_path)
-							.unwrap()
-							.to_string_lossy()
-							.to_string();
+				// if 'entry.path' is a directory, set extension to an empty string to
+				// avoid periods in folder names being interpreted as file extensions
+				if entry.is_dir {
+					extension = "".to_string();
+					name = extract_name(entry.path.file_name());
+				} else {
+					// if the 'entry.path' is not a directory, then get the extension and name.
+					extension = extract_name(entry.path.extension()).to_lowercase();
+					name = extract_name(entry.path.file_stem());
+				}
+				let materialized_path = entry
+					.path
+					.strip_prefix(location_path)
+					.unwrap()
+					.to_string_lossy()
+					.to_string();
 
-						file_path::create_unchecked(
-							entry.file_id,
-							location_id,
-							materialized_path,
-							name,
-							vec![
-								file_path::is_dir::set(entry.is_dir),
-								file_path::extension::set(Some(extension)),
-								file_path::parent_id::set(entry.parent_id),
-								file_path::date_created::set(entry.created_at.into()),
-							],
-						)
-					})
-					.collect(),
-			)
-			.skip_duplicates()
-			.exec()
-			.await?;
+				FilePathBatchCreateEntry {
+					id: entry.file_id,
+					location_id,
+					materialized_path,
+					name,
+					extension,
+					parent_id: entry.parent_id,
+					is_dir: entry.is_dir,
+					created_at: entry.created_at,
+				}
+			})
+			.collect();
+
+		let count = create_many_file_paths(&ctx.library_ctx(), entries).await?;
 
 		info!("Inserted {count} records");
 

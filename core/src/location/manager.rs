@@ -1,12 +1,8 @@
 use crate::{
 	invalidate_query,
 	library::LibraryContext,
-	location::{
-		delete_directory, fetch_location, get_location, get_max_file_path_id,
-		indexer::indexer_job::indexer_job_location, subtract_location_path,
-	},
 	object::identifier_job::assemble_object_metadata,
-	prisma::location,
+	prisma::{file_path, location, object},
 };
 
 use std::{
@@ -15,11 +11,12 @@ use std::{
 	time::Duration,
 };
 
-use crate::prisma::{file_path, object};
 use chrono::{FixedOffset, Utc};
 use futures::{stream::FuturesUnordered, StreamExt};
-use notify::event::{CreateKind, ModifyKind};
-use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{
+	event::{CreateKind, ModifyKind},
+	Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+};
 use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tokio::{
@@ -31,6 +28,11 @@ use tokio::{
 	time::sleep,
 };
 use tracing::{debug, error, info, warn};
+
+use super::{
+	delete_directory, fetch_location, file_path_helper::create_file_path, get_location,
+	indexer::indexer_job::indexer_job_location, subtract_location_path,
+};
 
 static LOCATION_MANAGER: OnceCell<LocationManager> = OnceCell::new();
 const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
@@ -441,98 +443,7 @@ impl LocationWatcher {
 			}
 			match event.kind {
 				EventKind::Create(create_kind) => {
-					if let Some(location_local_path) = location.local_path.clone() {
-						debug!(
-							"Location: <root_path ='{}'> created: {:#?}",
-							location_local_path, event.paths
-						);
-						let subpath = subtract_location_path(&location_local_path, &event.paths[0]);
-
-						debug!("subpath: {:?}", subpath);
-
-						if let Some(subpath) = subpath {
-							let subpath_str = subpath.to_str().unwrap().to_string();
-							let parent_directory = library_ctx
-								.db
-								.file_path()
-								.find_first(vec![file_path::materialized_path::equals(
-									subpath.parent().unwrap().to_str().unwrap().to_string(),
-								)])
-								.exec()
-								.await?;
-
-							debug!("parent_directory: {:?}", parent_directory);
-
-							if let Some(parent_directory) = parent_directory {
-								// FIXME: getting the max id every time we need to create a file is not ideal
-								// it is this way due to the indexer creating in batches, wonder if its still needed
-								let first_file_id =
-									get_max_file_path_id(library_ctx).await.unwrap();
-
-								let created_path = library_ctx
-									.db
-									.file_path()
-									.create(
-										first_file_id + 1,
-										location::id::equals(location_id),
-										subpath_str,
-										subpath.file_name().unwrap().to_str().unwrap().to_owned(),
-										vec![
-											file_path::parent_id::set(Some(parent_directory.id)),
-											file_path::is_dir::set(
-												create_kind == CreateKind::Folder,
-											),
-										],
-									)
-									.exec()
-									.await?;
-
-								invalidate_query!(library_ctx, "locations.getExplorerData");
-
-								info!("Created path: {:#?}", created_path);
-
-								match create_kind {
-									CreateKind::Folder => {}
-									CreateKind::File => {
-										// generate provisional object
-										let provisional_object = assemble_object_metadata(
-											location_local_path,
-											&created_path,
-										)
-										.await?;
-
-										let size = provisional_object.1.clone();
-										let cas_id = provisional_object.0.clone();
-
-										// upsert object
-										let object = library_ctx
-											.db
-											.object()
-											.upsert(
-												object::cas_id::equals(cas_id),
-												provisional_object,
-												vec![
-													object::size_in_bytes::set(size),
-													object::date_indexed::set(
-														Utc::now()
-															.with_timezone(&FixedOffset::east(0)),
-													),
-												],
-											)
-											.exec()
-											.await?;
-
-										debug!("object: {:#?}", object);
-										if !object.has_thumbnail {
-											// generate single thumbnail for object if it doesn't exist
-										}
-									}
-									CreateKind::Any => todo!(),
-									CreateKind::Other => todo!(),
-								}
-							}
-						}
-					}
+					Self::handle_create_event(location, event, create_kind, library_ctx).await?;
 				}
 				EventKind::Modify(modify_kind) => {
 					debug!("modified {modify_kind:#?}");
@@ -555,15 +466,15 @@ impl LocationWatcher {
 						// if is doesn't, we can remove it safely from our db
 						if let Some(fp) = existing_file_path {
 							if fp.is_dir {
-								delete_directory(
-									&library_ctx,
+								if let Err(e) = delete_directory(
+									library_ctx,
 									location_id,
 									Some(fp.materialized_path),
 								)
 								.await
-								.unwrap_or((|| {
-									error!("Failed to delete directory");
-								})());
+								{
+									error!("Failed to delete directory: {e:#?}");
+								}
 							} else {
 								library_ctx
 									.db
@@ -575,24 +486,22 @@ impl LocationWatcher {
 						}
 					// run object orphan check
 					// TODO: ^ that as a function :D
-					} else {
-						if let Some(fp) = existing_file_path {
-							if fp.is_dir {
-								// run a shallow directory scan
-							} else {
-								// handle individual file modifications
-								match modify_kind {
-									ModifyKind::Any => todo!(),
-									ModifyKind::Metadata(_metadata) => todo!(),
-									ModifyKind::Name(_name) => todo!(),
-									ModifyKind::Other => todo!(),
-									ModifyKind::Data(_data) => todo!(),
-								}
+					} else if let Some(fp) = existing_file_path {
+						if fp.is_dir {
+							// run a shallow directory scan
+						} else {
+							// handle individual file modifications
+							match modify_kind {
+								ModifyKind::Any => todo!(),
+								ModifyKind::Metadata(_metadata) => todo!(),
+								ModifyKind::Name(_name) => todo!(),
+								ModifyKind::Other => todo!(),
+								ModifyKind::Data(_data) => todo!(),
 							}
 						}
 					}
 				}
-				EventKind::Remove(remove_kind) => {
+				EventKind::Remove(_remove_kind) => {
 					// check if path exists in our db
 					let existing_file_path = library_ctx
 						.db
@@ -612,7 +521,7 @@ impl LocationWatcher {
 						if let Some(fp) = existing_file_path {
 							if fp.is_dir {
 								if let Err(e) = delete_directory(
-									&library_ctx,
+									library_ctx,
 									location_id,
 									Some(fp.materialized_path),
 								)
@@ -640,6 +549,92 @@ impl LocationWatcher {
 				}
 			}
 		}
+		Ok(())
+	}
+
+	async fn handle_create_event(
+		location: indexer_job_location::Data,
+		event: Event,
+		create_kind: CreateKind,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		if let Some(location_local_path) = location.local_path.clone() {
+			debug!(
+				"Location: <root_path ='{location_local_path}'> created: {:#?}",
+				event.paths
+			);
+			let subpath = subtract_location_path(&location_local_path, &event.paths[0]);
+
+			debug!("subpath: {:?}", subpath);
+
+			if let Some(subpath) = subpath {
+				let subpath_str = subpath.to_str().unwrap().to_string();
+				let parent_directory = library_ctx
+					.db
+					.file_path()
+					.find_first(vec![file_path::materialized_path::equals(
+						subpath.parent().unwrap().to_str().unwrap().to_string(),
+					)])
+					.exec()
+					.await?;
+
+				debug!("parent_directory: {:?}", parent_directory);
+
+				if let Some(parent_directory) = parent_directory {
+					let created_path = create_file_path(
+						library_ctx,
+						location.id,
+						subpath_str,
+						subpath.file_name().unwrap().to_string_lossy().to_string(),
+						Some(parent_directory.id),
+						create_kind == CreateKind::Folder,
+					)
+					.await?;
+
+					invalidate_query!(library_ctx, "locations.getExplorerData");
+
+					info!("Created path: {:#?}", created_path);
+
+					match create_kind {
+						CreateKind::Folder => {}
+						CreateKind::File => {
+							// generate provisional object
+							let provisional_object =
+								assemble_object_metadata(location_local_path, &created_path)
+									.await?;
+
+							let size = provisional_object.1.clone();
+							let cas_id = provisional_object.0.clone();
+
+							// upsert object
+							let object = library_ctx
+								.db
+								.object()
+								.upsert(
+									object::cas_id::equals(cas_id),
+									provisional_object,
+									vec![
+										object::size_in_bytes::set(size),
+										object::date_indexed::set(
+											Utc::now().with_timezone(&FixedOffset::east(0)),
+										),
+									],
+								)
+								.exec()
+								.await?;
+
+							debug!("object: {:#?}", object);
+							if !object.has_thumbnail {
+								// generate single thumbnail for object if it doesn't exist
+							}
+						}
+						CreateKind::Any => todo!(),
+						CreateKind::Other => todo!(),
+					}
+				}
+			}
+		}
+
 		Ok(())
 	}
 
@@ -701,6 +696,8 @@ impl Drop for LocationWatcher {
 					self.location.id
 				);
 			}
+
+			// FIXME: change this Drop to async drop in the future
 			if let Some(handle) = self.handle.take() {
 				if let Err(e) =
 					block_in_place(move || Handle::current().block_on(async move { handle.await }))

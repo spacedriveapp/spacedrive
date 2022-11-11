@@ -9,18 +9,19 @@ use crate::{
 	prisma::{file_path, indexer_rules_in_location, location, node},
 };
 
-use prisma_client_rust::Direction;
-use rspc::Type;
-use serde::Deserialize;
 use std::{
 	collections::HashSet,
 	path::{Path, PathBuf},
 };
+
+use rspc::Type;
+use serde::Deserialize;
 use tokio::{fs, io};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
 mod error;
+pub mod file_path_helper;
 pub mod indexer;
 mod manager;
 mod metadata;
@@ -418,7 +419,7 @@ pub async fn delete_directory(
 	// get directory
 	let mut params = vec![file_path::location_id::equals(location_id)];
 	if let Some(directory_path) = directory_path {
-		params.push(file_path::materialized_path::equals(directory_path.clone()));
+		params.push(file_path::materialized_path::equals(directory_path));
 	}
 	let directory = ctx.db.file_path().find_first(params).exec().await?;
 
@@ -493,19 +494,4 @@ fn strip_location_root_path_and_filename(
 	);
 
 	None
-}
-
-file_path::select!(file_path_id_only { id });
-
-pub async fn get_max_file_path_id(ctx: &LibraryContext) -> Result<i32, LocationError> {
-	Ok(ctx
-		.db
-		.file_path()
-		.find_first(vec![])
-		.order_by(file_path::id::order(Direction::Desc))
-		.select(file_path_id_only::select())
-		.exec()
-		.await?
-		.map(|r| r.id)
-		.unwrap_or(0))
 }
