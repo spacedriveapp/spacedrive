@@ -53,6 +53,7 @@
 		"valtio": "^1.7.1"
 	},
 	"devDependencies": {
+		"@sd/config": "workspace:*",
 		"@rnx-kit/metro-config": "^1.3.2",
 		"@types/react": "~18.0.0",
 		"@types/react-native": "~0.69.5",
