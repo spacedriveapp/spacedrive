@@ -31,7 +31,24 @@ module.exports = {
 		'@typescript-eslint/no-non-null-assertion': 'off',
 		'@typescript-eslint/explicit-module-boundary-types': 'off',
 		'no-control-regex': 'off',
-		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs']
+		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs'],
+		'no-restricted-imports': [
+			'error',
+			{
+				paths: [
+					{
+						name: 'react-native',
+						importNames: ['SafeAreaView'],
+						message: 'Import SafeAreaView from react-native-safe-area-context instead'
+					},
+					{
+						name: 'react-native',
+						importNames: ['Button'],
+						message: 'Import Button from ~/components instead.'
+					}
+				]
+			}
+		]
 	},
 	ignorePatterns: ['**/*.js', '**/*.json', 'node_modules', 'android', 'ios', '.expo'],
 	settings: {
