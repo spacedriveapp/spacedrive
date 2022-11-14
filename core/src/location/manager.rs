@@ -20,14 +20,15 @@ use std::{
 use chrono::{FixedOffset, Utc};
 use futures::{stream::FuturesUnordered, StreamExt};
 use notify::{
-	event::{CreateKind, ModifyKind},
+	event::{CreateKind, ModifyKind, RemoveKind},
 	Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use once_cell::sync::OnceCell;
 use sd_file_ext::extensions::{ImageExtension, VideoExtension};
 use thiserror::Error;
 use tokio::{
-	fs, io,
+	fs,
+	io::{self, ErrorKind},
 	runtime::Handle,
 	select,
 	sync::{mpsc, oneshot},
@@ -452,104 +453,12 @@ impl LocationWatcher {
 				EventKind::Create(create_kind) => {
 					Self::handle_create_event(location, event, create_kind, library_ctx).await?;
 				}
-				EventKind::Modify(modify_kind) => {
-					debug!("modified {modify_kind:#?}");
-
-					// check if path exists in our db
-					let existing_file_path = library_ctx
-						.db
-						.file_path()
-						.find_first(vec![file_path::materialized_path::equals(
-							event.paths[0].to_str().unwrap().to_string(),
-						)])
-						// include object for orphan check
-						.include(file_path_with_object::include())
-						.exec()
-						.await?;
-
-					// check file still exists on disk
-					let local_file = PathBuf::from(&event.paths[0]);
-					if !local_file.exists() {
-						// if is doesn't, we can remove it safely from our db
-						if let Some(fp) = existing_file_path {
-							if fp.is_dir {
-								if let Err(e) = delete_directory(
-									library_ctx,
-									location_id,
-									Some(fp.materialized_path),
-								)
-								.await
-								{
-									error!("Failed to delete directory: {e:#?}");
-								}
-							} else {
-								library_ctx
-									.db
-									.file_path()
-									.delete(file_path::location_id_id(location_id, fp.id))
-									.exec()
-									.await?;
-							}
-						}
-					// run object orphan check
-					// TODO: ^ that as a function :D
-					} else if let Some(fp) = existing_file_path {
-						if fp.is_dir {
-							// run a shallow directory scan
-						} else {
-							// handle individual file modifications
-							match modify_kind {
-								ModifyKind::Any => todo!(),
-								ModifyKind::Metadata(_metadata) => todo!(),
-								ModifyKind::Name(_name) => todo!(),
-								ModifyKind::Other => todo!(),
-								ModifyKind::Data(_data) => todo!(),
-							}
-						}
-					}
+				EventKind::Modify(ref modify_kind) => {
+					let modify_kind = modify_kind.clone();
+					Self::handle_modify_event(location, event, modify_kind, library_ctx).await?;
 				}
-				EventKind::Remove(_remove_kind) => {
-					// check if path exists in our db
-					let existing_file_path = library_ctx
-						.db
-						.file_path()
-						.find_first(vec![file_path::materialized_path::equals(
-							event.paths[0].to_str().unwrap().to_string(),
-						)])
-						// include object for orphan check
-						.include(file_path_with_object::include())
-						.exec()
-						.await?;
-
-					// check file still exists on disk
-					let local_file = PathBuf::from(&event.paths[0]);
-					if !local_file.exists() {
-						// if is doesn't, we can remove it safely from our db
-						if let Some(fp) = existing_file_path {
-							if fp.is_dir {
-								if let Err(e) = delete_directory(
-									library_ctx,
-									location_id,
-									Some(fp.materialized_path),
-								)
-								.await
-								{
-									error!("Failed to delete directory: {e:#?}")
-								}
-							} else {
-								library_ctx
-									.db
-									.file_path()
-									.delete(file_path::location_id_id(location_id, fp.id))
-									.exec()
-									.await?;
-							}
-						}
-					// run object orphan check
-					// TODO: ^ that as a function :D
-					} else {
-						// file has changed in some way, re-identify it
-					}
+				EventKind::Remove(remove_kind) => {
+					Self::handle_remove_event(location, event, remove_kind, library_ctx).await?;
 				}
 				other_event_kind => {
 					debug!("Other event that we don't handle for now: {other_event_kind:#?}");
@@ -672,6 +581,124 @@ impl LocationWatcher {
 				} else {
 					warn!("Watcher found a path without parent");
 				}
+			}
+		}
+
+		Ok(())
+	}
+
+	async fn handle_modify_event(
+		location: indexer_job_location::Data,
+		event: Event,
+		modify_kind: ModifyKind,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		debug!("modified {modify_kind:#?}");
+
+		// check if path exists in our db
+		let existing_file_path = library_ctx
+			.db
+			.file_path()
+			.find_first(vec![file_path::materialized_path::equals(
+				event.paths[0].to_str().unwrap().to_string(),
+			)])
+			// include object for orphan check
+			.include(file_path_with_object::include())
+			.exec()
+			.await?;
+
+		// check file still exists on disk
+		if fs::metadata(&event.paths[0]).await.is_err() {
+			// if is doesn't, we can remove it safely from our db
+			if let Some(fp) = existing_file_path {
+				if fp.is_dir {
+					if let Err(e) =
+						delete_directory(library_ctx, location.id, Some(fp.materialized_path)).await
+					{
+						error!("Failed to delete directory: {e:#?}");
+					}
+				} else {
+					library_ctx
+						.db
+						.file_path()
+						.delete(file_path::location_id_id(location.id, fp.id))
+						.exec()
+						.await?;
+				}
+			}
+		// run object orphan check
+		// TODO: ^ that as a function :D
+		} else if let Some(fp) = existing_file_path {
+			if fp.is_dir {
+				// run a shallow directory scan
+			} else {
+				// handle individual file modifications
+				match modify_kind {
+					ModifyKind::Any => todo!(),
+					ModifyKind::Metadata(_metadata) => todo!(),
+					ModifyKind::Name(_name) => todo!(),
+					ModifyKind::Other => todo!(),
+					ModifyKind::Data(_data) => todo!(),
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	async fn handle_remove_event(
+		location: indexer_job_location::Data,
+		event: Event,
+		remove_kind: RemoveKind,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		debug!("removed {remove_kind:#?}");
+
+		// check if path exists in our db, if it doesn't, then we don't care
+		if let Some(file_path) = library_ctx
+			.db
+			.file_path()
+			.find_first(vec![file_path::materialized_path::equals(
+				event.paths[0].to_string_lossy().to_string(),
+			)])
+			// include object for orphan check
+			.include(file_path_with_object::include())
+			.exec()
+			.await?
+		{
+			// check file still exists on disk
+			match fs::metadata(&event.paths[0]).await {
+				Ok(_) => {
+					todo!("file has changed in some way, re-identify it")
+				}
+				Err(e) if e.kind() == ErrorKind::NotFound => {
+					// if is doesn't, we can remove it safely from our db
+					if file_path.is_dir {
+						delete_directory(
+							library_ctx,
+							location.id,
+							Some(file_path.materialized_path),
+						)
+						.await?;
+					} else {
+						library_ctx
+							.db
+							.file_path()
+							.delete(file_path::location_id_id(location.id, file_path.id))
+							.exec()
+							.await?;
+
+						if let Some(object_id) = file_path.object_id {
+							library_ctx
+								.db
+								.object()
+								.delete(object::id::equals(object_id))
+								.exec()
+								.await?;
+						}
+					}
+				}
+				Err(e) => return Err(e.into()),
 			}
 		}
 

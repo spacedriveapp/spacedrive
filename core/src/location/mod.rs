@@ -6,7 +6,7 @@ use crate::{
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
 	},
-	prisma::{file_path, indexer_rules_in_location, location, node},
+	prisma::{file_path, indexer_rules_in_location, location, node, object},
 };
 
 use std::{
@@ -14,6 +14,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+use prisma_client_rust::QueryError;
 use rspc::Type;
 use serde::Deserialize;
 use tokio::{fs, io};
@@ -407,51 +408,49 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 	Ok(())
 }
 
+file_path::select!(file_path_object_id_only { object_id });
+
 /// Will delete a directory recursively with Objects if left as orphans
 /// this function is used to delete a location and when ingesting directory deletion events
-///
-/// TODO: find a way to delete orphaned objects
 pub async fn delete_directory(
 	ctx: &LibraryContext,
 	location_id: i32,
-	directory_path: Option<String>,
-) -> Result<(), LocationError> {
-	// get directory
-	let mut params = vec![file_path::location_id::equals(location_id)];
-	if let Some(directory_path) = directory_path {
-		params.push(file_path::materialized_path::equals(directory_path));
-	}
-	let directory = ctx.db.file_path().find_first(params).exec().await?;
-
-	if let Some(directory) = directory {
-		// get all file_paths starting with the directory path
-		let file_paths = ctx
-			.db
-			.file_path()
-			.find_many(vec![
-				file_path::location_id::equals(location_id),
-				file_path::materialized_path::starts_with(directory.materialized_path),
-			])
-			.exec()
-			.await?;
-
-		// let object_ids: Vec<i32> = file_paths
-		// 	.iter()
-		// 	.filter_map(|file_path| file_path.object_id)
-		// 	.collect();
-
-		// map file paths into array of ids
-		let file_path_ids: Vec<i32> = file_paths.iter().map(|f| f.id).collect();
-
-		// delete all file paths
-		ctx.db
-			.file_path()
-			.delete_many(vec![file_path::id::in_vec(file_path_ids)])
-			.exec()
-			.await?;
+	parent_materialized_path: Option<String>,
+) -> Result<(), QueryError> {
+	let children_params = if parent_materialized_path.is_some() {
+		vec![
+			file_path::location_id::equals(location_id),
+			file_path::materialized_path::starts_with(parent_materialized_path.unwrap()),
+		]
 	} else {
-		return Err(LocationError::DirectoryNotFound("idk".to_string()));
-	}
+		vec![file_path::location_id::equals(location_id)]
+	};
+
+	// delete all children objects
+	ctx.db
+		.object()
+		.delete_many(vec![object::id::in_vec(
+			// Fetching all object_ids from all children file_paths
+			ctx.db
+				.file_path()
+				.find_many(children_params.clone())
+				.select(file_path_object_id_only::select())
+				.exec()
+				.await?
+				.into_iter()
+				.filter_map(|file_path| file_path.object_id)
+				.collect(),
+		)])
+		.exec()
+		.await?;
+
+	// delete all children file_paths
+	ctx.db
+		.file_path()
+		.delete_many(children_params)
+		.exec()
+		.await?;
+
 	Ok(())
 }
 
