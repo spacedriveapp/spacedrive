@@ -7,6 +7,7 @@ import { KeyList } from './KeyList';
 import { KeyMounter } from './KeyMounter';
 import { useLibraryQuery, useLibraryMutation } from '@sd/client';
 import { KeyDropdown } from './Key';
+import { save } from '@tauri-apps/api/dialog';
 
 
 export type KeyManagerProps = DefaultProps;
@@ -16,6 +17,7 @@ export function KeyManager(props: KeyManagerProps) {
 	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
+	const backupKeystore = useLibraryMutation('keys.backupKeystore');
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
@@ -99,13 +101,20 @@ export function KeyManager(props: KeyManagerProps) {
 								<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => {
 									unmountAll.mutate(null);
 									clearMasterPassword.mutate(null);
-								}}>Unmount & Lock</DropdownMenu.DropdownMenuItem>
+								}}>Lock</DropdownMenu.DropdownMenuItem>
 								<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => {
-									
+									// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
+									save()?.then((result) => {
+										if (result)
+											backupKeystore.mutate(result as string);
+									});
 								}}>Backup Keys</DropdownMenu.DropdownMenuItem>
 								<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => {
 									
 								}}>Restore Keys</DropdownMenu.DropdownMenuItem>
+								<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => {
+									
+								}}>Change master password</DropdownMenu.DropdownMenuItem>
 							</KeyDropdown>
 						</Tabs.List>
 					</div>

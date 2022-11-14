@@ -1,4 +1,5 @@
-use std::str::FromStr;
+use std::{str::FromStr, path::PathBuf};
+use std::io::Write;
 
 use sd_crypto::{
 	crypto::stream::Algorithm,
@@ -302,6 +303,24 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
+				Ok(())
+			})
+		})
+		.library_mutation("backupKeystore", |t| {
+			t(|_, path: PathBuf, library| async move {
+				let stored_keys = library.key_manager.dump_keystore();
+				let mut output_file = std::fs::File::create(path).unwrap();
+				output_file.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Error serializing keystore".into(),
+					)
+				})?).map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Error writing key backup to file".into(),
+					)
+				})?;
 				Ok(())
 			})
 		})
