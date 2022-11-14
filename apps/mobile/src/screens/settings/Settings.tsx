@@ -114,9 +114,7 @@ function SettingsItem(props: SettingsItemType) {
 
 	return (
 		<Pressable onPress={() => navigation.navigate(props.navigateTo)}>
-			<View
-				style={tw`flex flex-row items-center px-2 py-[10px] bg-app-highlight/35 rounded mb-1.5`}
-			>
+			<View style={tw`flex flex-row items-center px-2 py-[10px] bg-app-overlay rounded mb-1.5`}>
 				<Icon weight="bold" color={tw.color('ink')} size={18} style={tw`ml-1 mr-2`} />
 				<Text style={tw`text-ink text-sm`}>{props.title}</Text>
 			</View>

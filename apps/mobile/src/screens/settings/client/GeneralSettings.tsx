@@ -1,11 +1,49 @@
+import { useBridgeQuery } from '@sd/client';
 import React from 'react';
 import { Text, View } from 'react-native';
+import Card from '~/components/layout/Card';
+import Divider from '~/components/primitive/Divider';
+import { Input } from '~/components/primitive/Input';
+import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'GeneralSettings'>) => {
+	const { data: node } = useBridgeQuery(['nodeState']);
+
+	if (!node) return null;
+
 	return (
-		<View>
-			<Text>GeneralSettingsScreen</Text>
+		<View style={tw`flex-1 p-4`}>
+			<Card>
+				{/* Card Header */}
+				<View style={tw`flex flex-row justify-between`}>
+					<Text style={tw`font-semibold text-ink`}>Connected Node</Text>
+					<View style={tw`flex flex-row`}>
+						{/* Peers */}
+						<View style={tw`rounded bg-app-highlight self-start px-1.5 py-[2px] mr-2`}>
+							<Text style={tw`text-xs font-semibold text-ink`}>0 Peers</Text>
+						</View>
+						{/* Status */}
+						<View style={tw`px-1.5 py-[2px] rounded bg-accent`}>
+							<Text style={tw`text-xs font-semibold text-ink`}>Running</Text>
+						</View>
+					</View>
+				</View>
+				{/* Divider */}
+				<Divider style={tw`mt-2 mb-4`} />
+				{/* Node Name and Port */}
+				<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-[1.5px]`}>Node Name</Text>
+				<Input
+					value={node.name}
+					// onChangeText={(text) => setLibName(text)}
+				/>
+				<Text style={tw`mt-2 mb-1 text-xs font-medium text-ink-dull ml-[1.5px]`}>Node Port</Text>
+				<Input
+					value={node.p2p_port?.toString() ?? '5795'}
+					keyboardType="numeric"
+					// onChangeText={(text) => setLibName(text)}
+				/>
+			</Card>
 		</View>
 	);
 };
