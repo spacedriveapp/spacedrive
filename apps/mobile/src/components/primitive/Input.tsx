@@ -20,7 +20,7 @@ const input = cva(['text-sm rounded-md border shadow-sm'], {
 
 type InputProps = VariantProps<typeof input> & RNTextInputProps;
 
-export const TextInput: FC<InputProps> = ({ variant, ...props }) => {
+export const Input: FC<InputProps> = ({ variant, ...props }) => {
 	const { style, ...otherProps } = props;
 	return (
 		<RNTextInput

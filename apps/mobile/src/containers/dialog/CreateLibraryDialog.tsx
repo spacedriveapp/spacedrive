@@ -1,7 +1,7 @@
 import { queryClient, useBridgeMutation, useCurrentLibrary } from '@sd/client';
 import { useState } from 'react';
 import Dialog from '~/components/layout/Dialog';
-import { TextInput } from '~/components/primitive/Input';
+import { Input } from '~/components/primitive/Input';
 
 type Props = {
 	onSubmit?: () => void;
@@ -49,7 +49,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 			disableBackdropClose={disableBackdropClose}
 			onClose={() => setLibName('')} // Reset form onClose
 		>
-			<TextInput
+			<Input
 				value={libName}
 				onChangeText={(text) => setLibName(text)}
 				placeholder="My Cool Library"
