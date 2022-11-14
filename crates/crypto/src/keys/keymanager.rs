@@ -115,6 +115,11 @@ pub struct OnboardingBundle {
 	pub secret_key: Protected<String>, // base64 encoded string that is required along with the master password
 }
 
+pub struct MasterPasswordChangeBundle {
+	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
+	pub secret_key: Protected<String>, // base64 encoded string that is required along with the master password
+}
+
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// This should be used to generate everything for the user during onboarding.
@@ -131,11 +136,11 @@ impl KeyManager {
 		let _salt = generate_salt();
 
 		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-		let master_password = Protected::new(b"password".to_vec());
+		let master_password = Protected::new("password".to_string());
 		let salt = *b"0000000000000000";
 
 		// Hash the master password
-		let hashed_password = hashing_algorithm.hash(master_password.clone(), salt)?;
+		let hashed_password = hashing_algorithm.hash(Protected::new(master_password.expose().as_bytes().to_vec()), salt)?;
 
 		let uuid = uuid::Uuid::nil();
 
@@ -167,7 +172,7 @@ impl KeyManager {
 
 		let onboarding_bundle = OnboardingBundle {
 			verification_key,
-			master_password: Protected::new(String::from_utf8(master_password.expose().clone())?),
+			master_password,
 			secret_key,
 		};
 
@@ -277,6 +282,99 @@ impl KeyManager {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}
+	}
+
+	/// This is used to change a master password.
+	/// 
+	/// The entire keystore is re-encrypted with the new master password, and will require dumping and syncing with Prisma.
+	pub fn change_master_password(&self, master_password: Protected<String>, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm) -> Result<MasterPasswordChangeBundle> {
+		// Generate a new secret key
+		let salt = generate_salt();
+
+		// Hash the master password
+		let hashed_password = hashing_algorithm.hash(Protected::new(master_password.expose().as_bytes().to_vec()), salt)?;
+
+		// Iterate over the keystore - decrypt each master key, re-encrypt it with the same algorithm, and collect them into a vec
+		let updated_keystore: Result<Vec<StoredKey>> = self.dump_keystore().iter().map(|stored_key| {
+			let mut stored_key = stored_key.clone();
+
+			let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+				self.get_master_password()?,
+				&stored_key.master_key_nonce,
+				stored_key.algorithm,
+				&stored_key.master_key,
+				&[],
+			) {
+				Ok(Protected::new(to_array::<32>(
+					decrypted_master_key.expose().clone(),
+				)?))
+			} else {
+				Err(Error::IncorrectPassword)
+			}?;
+
+			let master_key_nonce = generate_nonce(algorithm);
+
+			// Encrypt the master key with the user's hashed password
+			let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+				hashed_password.clone(),
+				&master_key_nonce,
+				stored_key.algorithm,
+				master_key.expose(),
+				&[],
+			)?)?;
+
+			stored_key.master_key = encrypted_master_key;
+			stored_key.master_key_nonce = master_key_nonce;
+
+			Ok(stored_key)
+
+		}).collect();
+
+		// should use ? above
+		let updated_keystore = updated_keystore?;
+
+		// Clear the current keystore and update it with our re-encrypted keystore
+		self.empty_keystore();
+		self.populate_keystore(updated_keystore)?;
+
+		// Create a new verification key for the master password/secret key combination
+		let uuid = uuid::Uuid::nil();
+		let master_key = generate_master_key();
+		let master_key_nonce = generate_nonce(algorithm);
+
+		// Encrypt the master key with the hashed master password
+		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+			hashed_password,
+			&master_key_nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
+
+		let verification_key = StoredKey {
+			uuid,
+			algorithm,
+			hashing_algorithm,
+			content_salt: [0u8; 16],
+			master_key: encrypted_master_key,
+			master_key_nonce,
+			key_nonce: Vec::new(),
+			key: Vec::new(),
+		};
+
+		let secret_key = Protected::new(base64::encode(salt));
+
+		let mpc_bundle = MasterPasswordChangeBundle {
+			verification_key,
+			secret_key,
+		};
+
+		// Update the internal verification key, and then set the master password
+		*self.verification_key.lock()? = Some(mpc_bundle.verification_key.clone());
+		self.set_master_password(master_password, mpc_bundle.secret_key.clone())?;
+
+		// Return the verification key so it can be written to Prisma and return the secret key so it can be shown to the user
+		Ok(mpc_bundle)
 	}
 
 	// requires master password and the secret key

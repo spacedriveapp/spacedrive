@@ -39,6 +39,13 @@ pub struct OnboardingArgs {
 	hashing_algorithm: HashingAlgorithm,
 }
 
+#[derive(Type, Deserialize)]
+pub struct MasterPasswordChangeArgs {
+	password: String,
+	algorithm: Algorithm,
+	hashing_algorithm: HashingAlgorithm,
+}
+
 #[derive(Type, Serialize)]
 pub struct OnboardingKeys {
 	master_password: String,
@@ -131,13 +138,12 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("onboarding", |t| {
 			t(|_, args: OnboardingArgs, library| async move {
-				// if this returns an error, the user MUST re-enter the correct password
 				let bundle = KeyManager::onboarding(args.algorithm, args.hashing_algorithm)?;
 
 				let verification_key = bundle.verification_key;
 
 				// remove old nil-id keys if they were set
-				// they possibly won't be, it depends on how we handle this during onboarding
+				// they possibly won't be, but we CANNOT have multiple
 				library
 					.db
 					.key()
@@ -309,7 +315,12 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("backupKeystore", |t| {
 			t(|_, path: PathBuf, library| async move {
 				let stored_keys = library.key_manager.dump_keystore();
-				let mut output_file = std::fs::File::create(path).unwrap();
+				let mut output_file = std::fs::File::create(path).map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Error creating file".into(),
+					)
+				})?;
 				output_file.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| {
 					rspc::Error::new(
 						rspc::ErrorCode::InternalServerError,
@@ -324,4 +335,40 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
+		.library_mutation("changeMasterPassword", |t| {
+			t(|_, args: MasterPasswordChangeArgs, library| async move {
+				let bundle = library.key_manager.change_master_password(Protected::new(args.password), args.algorithm, args.hashing_algorithm)?;
+
+				let verification_key = bundle.verification_key;
+
+				// remove old nil-id keys if they were set
+				// they possibly won't be, but we CANNOT have multiple
+				library
+					.db
+					.key()
+					.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
+					.exec()
+					.await?;
+
+				library
+					.db
+					.key()
+					.create(
+						verification_key.uuid.to_string(),
+						verification_key.algorithm.serialize().to_vec(),
+						verification_key.hashing_algorithm.serialize().to_vec(),
+						verification_key.content_salt.to_vec(),
+						verification_key.master_key.to_vec(),
+						verification_key.master_key_nonce.to_vec(),
+						verification_key.key_nonce.to_vec(),
+						verification_key.key.to_vec(),
+						vec![],
+					)
+					.exec()
+					.await?;
+				
+				Ok(base64::encode(bundle.secret_key.expose()))
+			})
+		})
+		
 }
