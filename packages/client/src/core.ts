@@ -40,6 +40,7 @@ export type Procedures = {
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
         { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: string } | 
         { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } | 
         { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
@@ -117,6 +118,8 @@ export interface LocationCreateArgs { path: string, indexer_rules_ids: Array<num
 export interface LocationExplorerArgs { location_id: number, path: string, limit: number, cursor: string | null }
 
 export interface LocationUpdateArgs { id: number, name: string | null, indexer_rules_ids: Array<number> }
+
+export interface MasterPasswordChangeArgs { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface Node { id: number, pub_id: Array<number>, name: string, platform: number, version: string | null, last_seen: string, timezone: string | null, date_created: string }
 
