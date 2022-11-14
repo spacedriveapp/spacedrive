@@ -1,5 +1,5 @@
 use blake3::Hasher;
-use std::path::PathBuf;
+use std::path::Path;
 use tokio::{
 	fs::File,
 	io::{self, AsyncReadExt, AsyncSeekExt, SeekFrom},
@@ -17,7 +17,7 @@ async fn read_at(file: &mut File, offset: u64, size: u64) -> Result<Vec<u8>, io:
 	Ok(buf)
 }
 
-pub async fn generate_cas_id(path: PathBuf, size: u64) -> Result<String, io::Error> {
+pub async fn generate_cas_id(path: impl AsRef<Path>, size: u64) -> Result<String, io::Error> {
 	// open file reference
 	let mut file = File::open(path).await?;
 

@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					let window = window.clone();
 					async move {
 						sleep(Duration::from_secs(3)).await;
-						if window.is_visible().unwrap_or(true) == false {
+						if !window.is_visible().unwrap_or(true) {
 							println!("Window did not emit `app_ready` event fast enough. Showing window...");
 							let _ = window.show();
 						}

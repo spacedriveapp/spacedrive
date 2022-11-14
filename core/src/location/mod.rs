@@ -473,25 +473,3 @@ fn subtract_location_path(
 		None
 	}
 }
-
-// not sure if needed
-fn strip_location_root_path_and_filename(
-	location_path: impl AsRef<Path>,
-	current_path: impl AsRef<Path>,
-) -> Option<PathBuf> {
-	let location_path = location_path.as_ref();
-	let current_path = current_path.as_ref();
-
-	if let Ok(stripped) = current_path.strip_prefix(location_path) {
-		if let Some(parent) = stripped.parent() {
-			return Some(parent.to_path_buf());
-		}
-	}
-	error!(
-		"Failed to strip location root path ({}) and filename from current path ({})",
-		location_path.display(),
-		current_path.display()
-	);
-
-	None
-}

@@ -1,13 +1,19 @@
 use crate::{
 	invalidate_query,
 	library::LibraryContext,
-	object::identifier_job::assemble_object_metadata,
+	object::{
+		identifier_job::assemble_object_metadata,
+		preview::{
+			can_generate_thumbnail_for_image, generate_image_thumbnail, THUMBNAIL_CACHE_DIR_NAME,
+		},
+	},
 	prisma::{file_path, location, object},
 };
 
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
+	str::FromStr,
 	time::Duration,
 };
 
@@ -18,6 +24,7 @@ use notify::{
 	Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use once_cell::sync::OnceCell;
+use sd_file_ext::extensions::{ImageExtension, VideoExtension};
 use thiserror::Error;
 use tokio::{
 	fs, io,
@@ -563,12 +570,12 @@ impl LocationWatcher {
 				"Location: <root_path ='{location_local_path}'> created: {:#?}",
 				event.paths
 			);
-			let subpath = subtract_location_path(&location_local_path, &event.paths[0]);
+			let maybe_subpath = subtract_location_path(&location_local_path, &event.paths[0]);
 
-			debug!("subpath: {:?}", subpath);
+			debug!("subpath: {:?}", maybe_subpath);
 
-			if let Some(subpath) = subpath {
-				let subpath_str = subpath.to_str().unwrap().to_string();
+			if let Some(subpath) = maybe_subpath {
+				let subpath_str = subpath.to_string_lossy().to_string();
 				let parent_directory = library_ctx
 					.db
 					.file_path()
@@ -591,46 +598,79 @@ impl LocationWatcher {
 					)
 					.await?;
 
-					invalidate_query!(library_ctx, "locations.getExplorerData");
-
 					info!("Created path: {:#?}", created_path);
 
-					match create_kind {
-						CreateKind::Folder => {}
-						CreateKind::File => {
-							// generate provisional object
-							let provisional_object =
-								assemble_object_metadata(location_local_path, &created_path)
-									.await?;
+					if matches!(create_kind, CreateKind::File) {
+						// generate provisional object
+						let (cas_id, size_in_bytes, params) =
+							assemble_object_metadata(location_local_path, &created_path).await?;
 
-							let size = provisional_object.1.clone();
-							let cas_id = provisional_object.0.clone();
+						let to_update = vec![
+							object::size_in_bytes::set(size_in_bytes.clone()),
+							object::date_indexed::set(
+								Utc::now().with_timezone(&FixedOffset::east(0)),
+							),
+						];
 
-							// upsert object
-							let object = library_ctx
-								.db
-								.object()
-								.upsert(
-									object::cas_id::equals(cas_id),
-									provisional_object,
-									vec![
-										object::size_in_bytes::set(size),
-										object::date_indexed::set(
-											Utc::now().with_timezone(&FixedOffset::east(0)),
-										),
-									],
-								)
-								.exec()
-								.await?;
+						// upsert object
+						let object = library_ctx
+							.db
+							.object()
+							.upsert(
+								object::cas_id::equals(cas_id.clone()),
+								(cas_id.clone(), size_in_bytes, params),
+								to_update,
+							)
+							.exec()
+							.await?;
 
-							debug!("object: {:#?}", object);
-							if !object.has_thumbnail {
-								// generate single thumbnail for object if it doesn't exist
+						debug!("object: {:#?}", object);
+						if !object.has_thumbnail {
+							if let Some(ref extension_str) = created_path.extension {
+								let output_path = library_ctx
+									.config()
+									.data_directory()
+									.join(THUMBNAIL_CACHE_DIR_NAME)
+									.join(&cas_id)
+									.with_extension("webp");
+
+								if let Ok(extension) = ImageExtension::from_str(extension_str) {
+									if can_generate_thumbnail_for_image(&extension) {
+										if let Err(e) =
+											generate_image_thumbnail(&event.paths[0], &output_path)
+												.await
+										{
+											error!("Failed to image thumbnail on location manager: {e:#?}");
+										}
+									}
+								}
+
+								#[cfg(feature = "ffmpeg")]
+								{
+									use crate::object::preview::{
+										can_generate_thumbnail_for_video, generate_video_thumbnail,
+									};
+
+									if let Ok(extension) = VideoExtension::from_str(extension_str) {
+										if can_generate_thumbnail_for_video(&extension) {
+											if let Err(e) = generate_video_thumbnail(
+												&event.paths[0],
+												&output_path,
+											)
+											.await
+											{
+												error!("Failed to video thumbnail on location manager: {e:#?}");
+											}
+										}
+									}
+								}
 							}
 						}
-						CreateKind::Any => todo!(),
-						CreateKind::Other => todo!(),
 					}
+
+					invalidate_query!(library_ctx, "locations.getExplorerData");
+				} else {
+					warn!("Watcher found a path without parent");
 				}
 			}
 		}

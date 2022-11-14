@@ -198,15 +198,14 @@ impl StatefulJob for ThumbnailJob {
 		trace!("image_file {:?}", step);
 
 		// get cas_id, if none found skip
-		let cas_id = match &step.file_path.object {
-			Some(f) => f.cas_id.clone(),
-			_ => {
-				warn!(
-					"skipping thumbnail generation for {}",
-					step.file_path.materialized_path
-				);
-				return Ok(());
-			}
+		let cas_id = if let Some(ref object) = step.file_path.object {
+			object.cas_id.clone()
+		} else {
+			warn!(
+				"skipping thumbnail generation for {}",
+				step.file_path.materialized_path
+			);
+			return Ok(());
 		};
 
 		// Define and write the WebP-encoded file to a given path
@@ -300,7 +299,7 @@ impl StatefulJob for ThumbnailJob {
 	}
 }
 
-async fn generate_image_thumbnail<P: AsRef<Path>>(
+pub async fn generate_image_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {
@@ -332,7 +331,7 @@ async fn generate_image_thumbnail<P: AsRef<Path>>(
 }
 
 #[cfg(feature = "ffmpeg")]
-async fn generate_video_thumbnail<P: AsRef<Path>>(
+pub async fn generate_video_thumbnail<P: AsRef<Path>>(
 	file_path: P,
 	output_path: P,
 ) -> Result<(), Box<dyn Error>> {

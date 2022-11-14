@@ -66,7 +66,7 @@ pub async fn assemble_object_metadata(
 
 	let size = metadata.len();
 
-	let cas_id = generate_cas_id(path.clone(), size).await?;
+	let cas_id = generate_cas_id(&path, size).await?;
 
 	info!("Analyzed file: {:?} {:?} {:?}", path, cas_id, object_kind);
 
