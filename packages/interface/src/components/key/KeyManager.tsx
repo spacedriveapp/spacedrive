@@ -1,11 +1,12 @@
 import { Button, Input, Tabs } from '@sd/ui';
 import { useState } from 'react';
-import { Eye, EyeSlash } from 'phosphor-react';
-
+import { DotsThree, Eye, EyeSlash } from 'phosphor-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { DefaultProps } from '../primitive/types';
 import { KeyList } from './KeyList';
 import { KeyMounter } from './KeyMounter';
 import { useLibraryQuery, useLibraryMutation } from '@sd/client';
+import { KeyDropdown } from './Key';
 
 
 export type KeyManagerProps = DefaultProps;
@@ -91,12 +92,21 @@ export function KeyManager(props: KeyManagerProps) {
 								Keys
 							</Tabs.Trigger>
 							<div className="flex-grow" />
-							<Button size="sm" className="" variant="gray" onClick={() => {
-								unmountAll.mutate(null);
-								clearMasterPassword.mutate(null);
-							}}>
-								Unmount & Lock
-							</Button>
+							<KeyDropdown trigger={
+								<Button size="icon">
+									<DotsThree className="w-4 h-4 text-ink-faint" />
+								</Button> }>
+								<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => {
+									unmountAll.mutate(null);
+									clearMasterPassword.mutate(null);
+								}}>Unmount & Lock</DropdownMenu.DropdownMenuItem>
+								<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => {
+									
+								}}>Backup Keys</DropdownMenu.DropdownMenuItem>
+								<DropdownMenu.DropdownMenuItem className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80" onClick={(e) => {
+									
+								}}>Restore Keys</DropdownMenu.DropdownMenuItem>
+							</KeyDropdown>
 						</Tabs.List>
 					</div>
 
