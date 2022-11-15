@@ -4,6 +4,7 @@ import Dialog from '~/components/layout/Dialog';
 import { Input } from '~/components/primitive/Input';
 
 type Props = {
+	// Fires when library is created
 	onSubmit?: () => void;
 	disableBackdropClose?: boolean;
 	children: React.ReactNode;
@@ -11,7 +12,7 @@ type Props = {
 
 const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props) => {
 	const [libName, setLibName] = useState('');
-	const [createLibOpen, setCreateLibOpen] = useState(false);
+	const [isOpen, setIsOpen] = useState(false);
 
 	const { switchLibrary } = useCurrentLibrary();
 
@@ -22,6 +23,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 				// Reset form
 				setLibName('');
 
+				// We do this instead of invalidating the query because it triggers a full app re-render??
 				queryClient.setQueryData(['library.list'], (libraries: any) => [...(libraries || []), lib]);
 
 				// Switch to the new library
@@ -31,14 +33,14 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 			},
 			onSettled: () => {
 				// Close create lib dialog
-				setCreateLibOpen(false);
+				setIsOpen(false);
 			}
 		}
 	);
 	return (
 		<Dialog
-			isVisible={createLibOpen}
-			setIsVisible={setCreateLibOpen}
+			isVisible={isOpen}
+			setIsVisible={setIsOpen}
 			title="Create New Library"
 			description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
 			ctaLabel="Create"
@@ -47,7 +49,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 			ctaDisabled={libName.length === 0}
 			trigger={children}
 			disableBackdropClose={disableBackdropClose}
-			onClose={() => setLibName('')} // Reset form onClose
+			onClose={() => setLibName('')} // Resets form onClose
 		>
 			<Input
 				value={libName}

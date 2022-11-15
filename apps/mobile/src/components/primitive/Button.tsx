@@ -7,8 +7,8 @@ import tw from '~/lib/tailwind';
 const button = cva(['border rounded-md items-center justify-center shadow-sm'], {
 	variants: {
 		variant: {
-			danger: ['bg-red-600'],
-			gray: ['bg-app-button border-app-line'],
+			danger: ['bg-red-600 border-red-800'],
+			gray: ['bg-app-box border-app-line'],
 			dark_gray: ['bg-app border-app-box'],
 			accent: ['bg-accent border-accent-deep shadow-md shadow-app-shade/10']
 		},
