@@ -1,5 +1,5 @@
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Input, Tabs } from '@sd/ui';
+import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
 import { Eye, EyeSlash, Gear, Lock } from 'phosphor-react';
 import { useState } from 'react';
 
@@ -103,9 +103,14 @@ export function KeyManager(props: KeyManagerProps) {
 							}}>
 								<Lock className="w-4 h-4 text-ink-faint" />
 							</Button>
-							<Button size="icon">
+							<ButtonLink
+								to="/settings/keys"
+								size="icon"
+								variant="outline"
+								className="text-ink-faint"
+							>
 								<Gear className="w-4 h-4 text-ink-faint" />
-							</Button>
+							</ButtonLink>
 						</Tabs.List>
 					</div>
 					<Tabs.Content value="keys">
