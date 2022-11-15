@@ -12,8 +12,8 @@
 		"dmg": "open ../../target/release/bundle/dmg/"
 	},
 	"dependencies": {
-		"@rspc/tauri": "^0.0.0-main-7c0a67c1",
 		"@rspc/client": "^0.0.0-main-7c0a67c1",
+		"@rspc/tauri": "^0.0.0-main-7c0a67c1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
@@ -22,6 +22,7 @@
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
+		"@sd/config": "workspace:*",
 		"@tauri-apps/cli": "1.1.1",
 		"@tauri-apps/tauricon": "github:tauri-apps/tauricon",
 		"@types/babel-core": "^6.25.7",
@@ -33,6 +34,7 @@
 		"sass": "^1.55.0",
 		"typescript": "^4.8.4",
 		"vite": "^3.1.4",
-		"vite-plugin-svgr": "^2.2.1"
+		"vite-plugin-svgr": "^2.2.1",
+		"vite-tsconfig-paths": "^3.5.2"
 	}
 }
