@@ -1,15 +1,18 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Input } from '@sd/ui';
+import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
+import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
+import { save } from '@tauri-apps/api/dialog';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, ReactNode, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
 
 import { ListOfKeys } from '../../../components/key/KeyList';
 import { KeyMounter } from '../../../components/key/KeyMounter';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { SettingsSubHeader } from '../../../components/settings/SettingsSubHeader';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
@@ -75,6 +78,7 @@ export default function KeysSettings() {
 	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
+	const backupKeystore = useLibraryMutation('keys.backupKeystore');
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
@@ -179,7 +183,154 @@ export default function KeysSettings() {
 						<ListOfKeys noKeysMessage={false} />
 					</div>
 				) : null}
+
+				<SettingsSubHeader title="Password Options" />
+				<div className="flex flex-row">
+					<MasterPasswordChangeDialog
+						trigger={
+							<Button size="sm" variant="gray" className="mr-2">
+								Change Master Password
+							</Button>
+						}
+					/>
+				</div>
+
+				<SettingsSubHeader title="Data Recovery" />
+				<div className="flex flex-row">
+					<Button
+						size="sm"
+						variant="gray"
+						className="mr-2"
+						onClick={() => {
+							// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
+							save()?.then((result) => {
+								if (result) backupKeystore.mutate(result as string);
+							});
+						}}
+					>
+						Backup
+					</Button>
+					<Button size="sm" variant="gray" className="mr-2">
+						Restore
+					</Button>
+				</div>
 			</SettingsContainer>
 		);
 	}
 }
+
+export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
+	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
+	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
+	const [secretKey, setSecretKey] = useState('');
+	const [masterPasswordChange1, setMasterPasswordChange1] = useState('');
+	const [masterPasswordChange2, setMasterPasswordChange2] = useState('');
+	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
+	const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
+	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
+	const { trigger } = props;
+
+	return (
+		<>
+			<Dialog
+				open={showMasterPasswordDialog}
+				setOpen={setShowMasterPasswordDialog}
+				title="Change Master Password"
+				description="Select a new master password for your key manager."
+				ctaDanger={true}
+				loading={changeMasterPassword.isLoading}
+				ctaAction={() => {
+					if (masterPasswordChange1 !== '' && masterPasswordChange2 !== '') {
+						if (masterPasswordChange1 !== masterPasswordChange2) {
+							alert('Passwords are not the same.');
+						} else {
+							setMasterPasswordChange1('');
+							setMasterPasswordChange2('');
+
+							const algorithm = encryptionAlgo as Algorithm;
+							let hashing_algorithm: HashingAlgorithm = { Argon2id: 'Standard' };
+
+							switch (hashingAlgo) {
+								case 'Argon2id-s':
+									hashing_algorithm = { Argon2id: 'Standard' as Params };
+									break;
+								case 'Argon2id-h':
+									hashing_algorithm = { Argon2id: 'Hardened' as Params };
+									break;
+								case 'Argon2id-p':
+									hashing_algorithm = { Argon2id: 'Paranoid' as Params };
+									break;
+							}
+
+							changeMasterPassword.mutate(
+								{ algorithm, hashing_algorithm, password: masterPasswordChange1 },
+								{
+									onSuccess: (sk) => {
+										setSecretKey(sk);
+										setShowSecretKeyDialog(true);
+										setShowMasterPasswordDialog(false);
+									}
+								}
+							);
+						}
+					}
+				}}
+				ctaLabel="Change"
+				trigger={trigger}
+			>
+				<Input
+					className="flex-grow w-full mt-3"
+					value={masterPasswordChange1}
+					placeholder="Password"
+					onChange={(e) => setMasterPasswordChange1(e.target.value)}
+					required
+					type={'password'}
+				/>
+				<Input
+					className="flex-grow w-full mt-3"
+					value={masterPasswordChange2}
+					placeholder="Password (again)"
+					onChange={(e) => setMasterPasswordChange2(e.target.value)}
+					required
+					type={'password'}
+				/>
+
+				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+					<div className="flex flex-col">
+						<span className="text-xs font-bold">Encryption</span>
+						<Select className="mt-2" onChange={setEncryptionAlgo} value={encryptionAlgo}>
+							<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
+							<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
+						</Select>
+					</div>
+					<div className="flex flex-col">
+						<span className="text-xs font-bold">Hashing</span>
+						<Select className="mt-2" onChange={setHashingAlgo} value={hashingAlgo}>
+							<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
+							<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
+							<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
+						</Select>
+					</div>
+				</div>
+			</Dialog>
+			<Dialog
+				open={showSecretKeyDialog}
+				setOpen={setShowSecretKeyDialog}
+				title="Secret Key"
+				description="Please store this secret key securely as it is needed to access your key manager."
+				ctaAction={() => {
+					setShowSecretKeyDialog(false);
+				}}
+				ctaLabel="Done"
+				trigger={<></>}
+			>
+				<Input
+					className="flex-grow w-full mt-3"
+					value={secretKey}
+					placeholder="Secret Key"
+					disabled={true}
+				/>
+			</Dialog>
+		</>
+	);
+};
