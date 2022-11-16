@@ -128,6 +128,7 @@ export default function KeysSettings() {
 				<Button
 					className="w-full"
 					variant="accent"
+					disabled={setMasterPasswordMutation.isLoading}
 					onClick={() => {
 						if (masterPassword !== '' && secretKey !== '') {
 							setMasterPassword('');
@@ -219,6 +220,30 @@ export default function KeysSettings() {
 	}
 }
 
+// not sure of a suitable place for this function
+export const getCryptoSettings = (
+	encryptionAlgorithm: string,
+	hashingAlgorithm: string
+): [Algorithm, HashingAlgorithm] => {
+	const algorithm = encryptionAlgorithm as Algorithm;
+	let hashing_algorithm: HashingAlgorithm = { Argon2id: 'Standard' };
+
+	switch (hashingAlgorithm) {
+		case 'Argon2id-s':
+			hashing_algorithm = { Argon2id: 'Standard' as Params };
+			break;
+		case 'Argon2id-h':
+			hashing_algorithm = { Argon2id: 'Hardened' as Params };
+			break;
+		case 'Argon2id-p':
+			hashing_algorithm = { Argon2id: 'Paranoid' as Params };
+			break;
+	}
+
+	return [algorithm, hashing_algorithm];
+};
+
+// not too sure where this should go either
 export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
@@ -228,6 +253,10 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
 	const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
+	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
+	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
+	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
+	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
 	const { trigger } = props;
 
 	return (
@@ -247,20 +276,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 							setMasterPasswordChange1('');
 							setMasterPasswordChange2('');
 
-							const algorithm = encryptionAlgo as Algorithm;
-							let hashing_algorithm: HashingAlgorithm = { Argon2id: 'Standard' };
-
-							switch (hashingAlgo) {
-								case 'Argon2id-s':
-									hashing_algorithm = { Argon2id: 'Standard' as Params };
-									break;
-								case 'Argon2id-h':
-									hashing_algorithm = { Argon2id: 'Hardened' as Params };
-									break;
-								case 'Argon2id-p':
-									hashing_algorithm = { Argon2id: 'Paranoid' as Params };
-									break;
-							}
+							const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
 
 							changeMasterPassword.mutate(
 								{ algorithm, hashing_algorithm, password: masterPasswordChange1 },
@@ -278,22 +294,40 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 				ctaLabel="Change"
 				trigger={trigger}
 			>
-				<Input
-					className="flex-grow w-full mt-3"
-					value={masterPasswordChange1}
-					placeholder="Password"
-					onChange={(e) => setMasterPasswordChange1(e.target.value)}
-					required
-					type={'password'}
-				/>
-				<Input
-					className="flex-grow w-full mt-3"
-					value={masterPasswordChange2}
-					placeholder="Password (again)"
-					onChange={(e) => setMasterPasswordChange2(e.target.value)}
-					required
-					type={'password'}
-				/>
+				<div className="relative flex flex-grow mt-3 mb-2">
+					<Input
+						className="flex-grow !py-0.5"
+						value={masterPasswordChange1}
+						placeholder="Password"
+						onChange={(e) => setMasterPasswordChange1(e.target.value)}
+						required
+						type={showMasterPassword1 ? 'text' : 'password'}
+					/>
+					<Button
+						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+					>
+						<MP1CurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
+				<div className="relative flex flex-grow mb-2">
+					<Input
+						className="flex-grow !py-0.5"
+						value={masterPasswordChange2}
+						placeholder="Password (again)"
+						onChange={(e) => setMasterPasswordChange2(e.target.value)}
+						required
+						type={showMasterPassword2 ? 'text' : 'password'}
+					/>
+					<Button
+						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+					>
+						<MP2CurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
 
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
 					<div className="flex flex-col">

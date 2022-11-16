@@ -65,6 +65,7 @@ export function KeyManager(props: KeyManagerProps) {
 				<Button
 					className="w-full"
 					variant="accent"
+					disabled={setMasterPasswordMutation.isLoading}
 					onClick={() => {
 						if (masterPassword !== '' && secretKey !== '') {
 							setMasterPassword('');

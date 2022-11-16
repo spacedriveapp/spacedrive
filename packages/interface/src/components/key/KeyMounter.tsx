@@ -1,9 +1,10 @@
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
 import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
 
+import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
 import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
@@ -93,29 +94,19 @@ export function KeyMounter() {
 			<p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-ink-faint w-[90%]">
 				Files encrypted with this key will be revealed and decrypted on the fly.
 			</p>
-			<Button className="w-full mt-2" variant="accent" onClick={() => {
-				if(key !== "") {
-					setKey('');
-				
-					const algorithm = encryptionAlgo as Algorithm;
-					let hashing_algorithm: HashingAlgorithm = { Argon2id: "Standard" };
-	
-					switch(hashingAlgo) {
-						case "Argon2id-s":
-							hashing_algorithm = { Argon2id: "Standard" as Params };
-							break;
-						case "Argon2id-h":
-							hashing_algorithm = { Argon2id: "Hardened" as Params };
-							break;
-						case "Argon2id-p":
-							hashing_algorithm = { Argon2id: "Paranoid" as Params };
-							break;
+			<Button
+				className="w-full mt-2"
+				variant="accent"
+				onClick={() => {
+					if (key !== '') {
+						setKey('');
+
+						const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
+
+						createKey.mutate({ algorithm, hashing_algorithm, key, library_sync: librarySync });
 					}
-	
-					createKey.mutate({algorithm, hashing_algorithm, key, library_sync: librarySync });
-				}
-			}
-			}>
+				}}
+			>
 				Mount Key
 			</Button>
 		</div>
