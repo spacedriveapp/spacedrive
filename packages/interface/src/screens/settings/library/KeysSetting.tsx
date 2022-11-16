@@ -2,7 +2,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
-import { save } from '@tauri-apps/api/dialog';
+import { open, save } from '@tauri-apps/api/dialog';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, ReactNode, useState } from 'react';
@@ -211,9 +211,13 @@ export default function KeysSettings() {
 					>
 						Backup
 					</Button>
-					<Button size="sm" variant="gray" className="mr-2">
-						Restore
-					</Button>
+					<BackupRestorationDialog
+						trigger={
+							<Button size="sm" variant="gray" className="mr-2">
+								Restore
+							</Button>
+						}
+					/>
 				</div>
 			</SettingsContainer>
 		);
@@ -364,6 +368,83 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 					placeholder="Secret Key"
 					disabled={true}
 				/>
+			</Dialog>
+		</>
+	);
+};
+
+// not too sure where this should go either
+export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
+	const [secretKey, setSecretKey] = useState('');
+	const [masterPassword, setMasterPassword] = useState('');
+	const [filePath, setFilePath] = useState('');
+	const [showBackupRestorationDialog, setShowBackupRestorationDialog] = useState(false);
+	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
+	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
+	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
+	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
+	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
+	const { trigger } = props;
+
+	return (
+		<>
+			<Dialog
+				open={showBackupRestorationDialog}
+				setOpen={setShowBackupRestorationDialog}
+				title="Restore Keys"
+				description="Restore keys from a backup. Only keys that aren't currently in the key manager will be restored."
+				loading={changeMasterPassword.isLoading}
+				ctaAction={() => {}}
+				ctaLabel="Resore"
+				trigger={trigger}
+			>
+				<div className="relative flex flex-grow mt-3 mb-2">
+					<Input
+						className="flex-grow !py-0.5"
+						value={masterPassword}
+						placeholder="Master Password"
+						onChange={(e) => setMasterPassword(e.target.value)}
+						required
+						type={showMasterPassword1 ? 'text' : 'password'}
+					/>
+					<Button
+						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+					>
+						<MP1CurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
+				<div className="relative flex flex-grow mb-3">
+					<Input
+						className="flex-grow !py-0.5"
+						value={secretKey}
+						placeholder="Secret Key"
+						onChange={(e) => setSecretKey(e.target.value)}
+						required
+						type={showMasterPassword2 ? 'text' : 'password'}
+					/>
+					<Button
+						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+					>
+						<MP2CurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
+				<div className="relative flex flex-grow mb-2">
+					<Button
+						size="sm"
+						variant={filePath !== '' ? 'accent' : 'gray'}
+						onClick={() => {
+							open()?.then((result) => {
+								if (result) setFilePath(result as string);
+							});
+						}}
+					>
+						Select File
+					</Button>
+				</div>
 			</Dialog>
 		</>
 	);
