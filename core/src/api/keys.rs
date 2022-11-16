@@ -1,5 +1,5 @@
-use std::{str::FromStr, path::PathBuf};
 use std::io::Write;
+use std::{path::PathBuf, str::FromStr};
 
 use sd_crypto::{
 	crypto::stream::Algorithm,
@@ -321,23 +321,29 @@ pub(crate) fn mount() -> RouterBuilder {
 						"Error creating file".into(),
 					)
 				})?;
-				output_file.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error serializing keystore".into(),
-					)
-				})?).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error writing key backup to file".into(),
-					)
-				})?;
+				output_file
+					.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| {
+						rspc::Error::new(
+							rspc::ErrorCode::InternalServerError,
+							"Error serializing keystore".into(),
+						)
+					})?)
+					.map_err(|_| {
+						rspc::Error::new(
+							rspc::ErrorCode::InternalServerError,
+							"Error writing key backup to file".into(),
+						)
+					})?;
 				Ok(())
 			})
 		})
 		.library_mutation("changeMasterPassword", |t| {
 			t(|_, args: MasterPasswordChangeArgs, library| async move {
-				let bundle = library.key_manager.change_master_password(Protected::new(args.password), args.algorithm, args.hashing_algorithm)?;
+				let bundle = library.key_manager.change_master_password(
+					Protected::new(args.password),
+					args.algorithm,
+					args.hashing_algorithm,
+				)?;
 
 				let verification_key = bundle.verification_key;
 
@@ -366,9 +372,8 @@ pub(crate) fn mount() -> RouterBuilder {
 					)
 					.exec()
 					.await?;
-				
-				Ok(base64::encode(bundle.secret_key.expose()))
+
+				Ok(bundle.secret_key.expose().clone())
 			})
 		})
-		
 }
