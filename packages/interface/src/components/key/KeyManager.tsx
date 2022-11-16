@@ -17,7 +17,7 @@ export function KeyManager(props: KeyManagerProps) {
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
-	
+
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState('');
 
@@ -97,10 +97,15 @@ export function KeyManager(props: KeyManagerProps) {
 								Keys
 							</Tabs.Trigger>
 							<div className="flex-grow" />
-							<Button size="icon" onClick={() => {
-								unmountAll.mutate(null);
-								clearMasterPassword.mutate(null);
-							}}>
+							<Button
+								size="icon"
+								onClick={() => {
+									unmountAll.mutate(null);
+									clearMasterPassword.mutate(null);
+								}}
+								variant="outline"
+								className="text-ink-faint"
+							>
 								<Lock className="w-4 h-4 text-ink-faint" />
 							</Button>
 							<ButtonLink
