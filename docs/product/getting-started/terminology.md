@@ -11,7 +11,7 @@ A Library is the database that powers Spacedrive, all metadata and directory str
 
 
 ### `Object`
-Objects are a fancy name for files, we call them Objects because we think them uniquely based on a cryptographic hash of the contents. Objects in Spacedrive can come in a wide variety of kinds to provide a broad range of understanding. [Learn more →](/docs/developers/architecture/objects)
+Objects are a fancy name for files, we call them Objects because we identify them uniquely based on a cryptographic hash of the contents. Objects in Spacedrive can come in a wide variety of kinds to provide a broad range of context. [Learn more →](/docs/developers/architecture/objects)
 
 ### `Location`
 Locations are places Spacedrive will look for files, usually a directory on a mounted volume, but could also be a cloud service.  [Learn more →](/docs/developers/architecture/locations)

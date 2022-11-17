@@ -59,7 +59,7 @@ export function Footer() {
 					<FooterLink link="/team">Team</FooterLink>
 					<FooterLink link="/docs/product/resources/faq">FAQ</FooterLink>
 					<FooterLink link="/careers">Careers</FooterLink>
-					<FooterLink link="/changelog">Changelog</FooterLink>
+					<FooterLink link="/docs/changelog/beta/0.1.0">Changelog</FooterLink>
 					<FooterLink link="/blog">Blog</FooterLink>
 				</div>
 				<div className="flex flex-col col-span-1 space-y-2 pointer-events-none">
