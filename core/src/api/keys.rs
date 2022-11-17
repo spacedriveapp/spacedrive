@@ -360,9 +360,20 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				let mut backup = Vec::new();
 
-				input_file.read_to_end(&mut backup).unwrap();
+				input_file.read_to_end(&mut backup).map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Error reading backup file".into(),
+					)
+				})?;
 
-				let stored_keys: Vec<StoredKey> = serde_json::from_slice(&backup).unwrap();
+				let stored_keys: Vec<StoredKey> =
+					serde_json::from_slice(&backup).map_err(|_| {
+						rspc::Error::new(
+							rspc::ErrorCode::InternalServerError,
+							"Error deserializing backup".into(),
+						)
+					})?;
 
 				let updated_keys = library.key_manager.import_keystore_backup(
 					Protected::new(args.password),
@@ -390,8 +401,6 @@ pub(crate) fn mount() -> RouterBuilder {
 						.exec()
 						.await?;
 				}
-
-				// and need to handle errors instead of calling unwrap
 
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");

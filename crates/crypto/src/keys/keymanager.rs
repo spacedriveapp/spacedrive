@@ -441,7 +441,7 @@ impl KeyManager {
 		let master_password = self.convert_master_password_string(master_password);
 		let secret_key = self.convert_secret_key_string(secret_key);
 
-		let mut verification_key: Option<StoredKey> = None;
+		let mut verification_key = None;
 
 		let keys: Vec<StoredKey> = stored_keys
 			.iter()
@@ -463,7 +463,7 @@ impl KeyManager {
 			Err(Error::NoVerificationKey)
 		}?;
 
-		let mut reencrypted_keys: Vec<StoredKey> = Vec::new();
+		let mut reencrypted_keys = Vec::new();
 
 		for key in keys {
 			if !self.keystore.contains_key(&key.uuid) {
