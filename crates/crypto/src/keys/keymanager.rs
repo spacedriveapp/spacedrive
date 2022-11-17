@@ -35,6 +35,7 @@
 //! let keys = key_manager.enumerate_hashed_keys();
 //! ```
 
+use std::ops::Deref;
 use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
@@ -140,7 +141,10 @@ impl KeyManager {
 		let salt = *b"0000000000000000";
 
 		// Hash the master password
-		let hashed_password = hashing_algorithm.hash(Protected::new(master_password.expose().as_bytes().to_vec()), salt)?;
+		let hashed_password = hashing_algorithm.hash(
+			Protected::new(master_password.expose().as_bytes().to_vec()),
+			salt,
+		)?;
 
 		let uuid = uuid::Uuid::nil();
 
@@ -285,50 +289,61 @@ impl KeyManager {
 	}
 
 	/// This is used to change a master password.
-	/// 
+	///
 	/// The entire keystore is re-encrypted with the new master password, and will require dumping and syncing with Prisma.
-	pub fn change_master_password(&self, master_password: Protected<String>, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm) -> Result<MasterPasswordChangeBundle> {
+	pub fn change_master_password(
+		&self,
+		master_password: Protected<String>,
+		algorithm: Algorithm,
+		hashing_algorithm: HashingAlgorithm,
+	) -> Result<MasterPasswordChangeBundle> {
 		// Generate a new secret key
 		let salt = generate_salt();
 
 		// Hash the master password
-		let hashed_password = hashing_algorithm.hash(Protected::new(master_password.expose().as_bytes().to_vec()), salt)?;
+		let hashed_password = hashing_algorithm.hash(
+			Protected::new(master_password.expose().as_bytes().to_vec()),
+			salt,
+		)?;
 
 		// Iterate over the keystore - decrypt each master key, re-encrypt it with the same algorithm, and collect them into a vec
-		let updated_keystore: Result<Vec<StoredKey>> = self.dump_keystore().iter().map(|stored_key| {
-			let mut stored_key = stored_key.clone();
+		let updated_keystore: Result<Vec<StoredKey>> = self
+			.dump_keystore()
+			.iter()
+			.map(|stored_key| {
+				let mut stored_key = stored_key.clone();
 
-			let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-				self.get_master_password()?,
-				&stored_key.master_key_nonce,
-				stored_key.algorithm,
-				&stored_key.master_key,
-				&[],
-			) {
-				Ok(Protected::new(to_array::<32>(
-					decrypted_master_key.expose().clone(),
-				)?))
-			} else {
-				Err(Error::IncorrectPassword)
-			}?;
+				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+					self.get_master_password()?,
+					&stored_key.master_key_nonce,
+					stored_key.algorithm,
+					&stored_key.master_key,
+					&[],
+				) {
+					Ok(Protected::new(to_array::<32>(
+						decrypted_master_key.expose().clone(),
+					)?))
+				} else {
+					Err(Error::IncorrectPassword)
+				}?;
 
-			let master_key_nonce = generate_nonce(algorithm);
+				let master_key_nonce = generate_nonce(algorithm);
 
-			// Encrypt the master key with the user's hashed password
-			let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-				hashed_password.clone(),
-				&master_key_nonce,
-				stored_key.algorithm,
-				master_key.expose(),
-				&[],
-			)?)?;
+				// Encrypt the master key with the user's hashed password
+				let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+					hashed_password.clone(),
+					&master_key_nonce,
+					stored_key.algorithm,
+					master_key.expose(),
+					&[],
+				)?)?;
 
-			stored_key.master_key = encrypted_master_key;
-			stored_key.master_key_nonce = master_key_nonce;
+				stored_key.master_key = encrypted_master_key;
+				stored_key.master_key_nonce = master_key_nonce;
 
-			Ok(stored_key)
-
-		}).collect();
+				Ok(stored_key)
+			})
+			.collect();
 
 		// should use ? above
 		let updated_keystore = updated_keystore?;
@@ -377,6 +392,75 @@ impl KeyManager {
 		Ok(mpc_bundle)
 	}
 
+	fn convert_master_password_string(
+		&self,
+		master_password: Protected<String>,
+	) -> Protected<Vec<u8>> {
+		Protected::new(master_password.expose().as_bytes().to_vec())
+	}
+
+	fn convert_secret_key_string(
+		&self,
+		secret_key: Protected<String>,
+	) -> Protected<[u8; SALT_LEN]> {
+		let secret_key = if let Ok(secret_key) = base64::decode(secret_key.expose()) {
+			secret_key
+		} else {
+			Vec::new()
+		};
+
+		// we shouldn't be letting on to *what* failed so we use a random secret key here if it's still invalid
+		// could maybe do this better (and make use of the subtle crate)
+		if let Ok(secret_key) = to_array(secret_key) {
+			Protected::new(secret_key)
+		} else {
+			Protected::new(generate_salt())
+		}
+	}
+
+	pub fn import_keystore_backup(
+		&self,
+		master_password: Protected<String>, // at the time of the backup
+		secret_key: Protected<String>,      // at the time of the backup
+		stored_keys: Vec<StoredKey>,        // from the backup
+	) -> Result<()> {
+		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
+		let master_password = self.convert_master_password_string(master_password);
+		let secret_key = self.convert_secret_key_string(secret_key);
+
+		let mut verification_key: Option<StoredKey> = None;
+
+		let keys: Vec<StoredKey> = stored_keys
+			.iter()
+			.filter_map(|key| {
+				if key.uuid.is_nil() {
+					verification_key = Some(key.clone().clone()); // not the cleanest
+					None
+				} else {
+					Some(key.clone())
+				}
+			})
+			.collect();
+
+		let hashed_master_password = if let Some(verification_key) = verification_key {
+			verification_key
+				.hashing_algorithm
+				.hash(master_password, *secret_key.expose())
+		} else {
+			Err(Error::NoVerificationKey)
+		}?;
+
+		keys.iter().for_each(|key| {
+			if self.keystore.contains_key(&key.uuid) {
+				// ?
+			}
+
+			// could check the key material itself? if they match, attach the content salt
+		});
+
+		todo!()
+	}
+
 	// requires master password and the secret key
 	/// This requires both the master password and the secret key
 	///
@@ -394,22 +478,8 @@ impl KeyManager {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoVerificationKey),
 		}?;
-
-		let master_password = Protected::new(master_password.expose().as_bytes().to_vec());
-
-		let secret_key = if let Ok(secret_key) = base64::decode(secret_key.expose()) {
-			secret_key
-		} else {
-			Vec::new()
-		};
-
-		// we shouldn't be letting on to *what* failed so we use a random secret key here if it's still invalid
-		// could maybe do this better (and make use of the subtle crate)
-		let secret_key: Protected<[u8; 16]> = if let Ok(secret_key) = to_array(secret_key) {
-			Protected::new(secret_key)
-		} else {
-			Protected::new(generate_salt())
-		};
+		let master_password = self.convert_master_password_string(master_password);
+		let secret_key = self.convert_secret_key_string(secret_key);
 
 		let hashed_master_password = verification_key
 			.hashing_algorithm
