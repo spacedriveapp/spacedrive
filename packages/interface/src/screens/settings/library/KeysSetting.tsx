@@ -379,11 +379,11 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 	const [masterPassword, setMasterPassword] = useState('');
 	const [filePath, setFilePath] = useState('');
 	const [showBackupRestorationDialog, setShowBackupRestorationDialog] = useState(false);
-	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
-	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
-	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
-	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
-	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
+	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore');
+	const [showMasterPassword, setShowMasterPassword] = useState(false);
+	const [showSecretKey, setShowSecretKey] = useState(false);
+	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
+	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 	const { trigger } = props;
 
 	return (
@@ -393,9 +393,25 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 				setOpen={setShowBackupRestorationDialog}
 				title="Restore Keys"
 				description="Restore keys from a backup."
-				loading={changeMasterPassword.isLoading}
-				ctaAction={() => {}}
-				ctaLabel="Resore"
+				loading={restoreKeystoreMutation.isLoading}
+				ctaAction={() => {
+					if (masterPassword !== '' && secretKey !== '' && filePath !== '') {
+						restoreKeystoreMutation.mutate(
+							{
+								password: masterPassword,
+								secret_key: secretKey,
+								path: filePath
+							},
+							{
+								onSuccess: () => {
+									setShowBackupRestorationDialog(false);
+								}
+							}
+						);
+						// on success, show another dialog saying x keys were imported
+					}
+				}}
+				ctaLabel="Restore"
 				trigger={trigger}
 			>
 				<div className="relative flex flex-grow mt-3 mb-2">
@@ -405,14 +421,14 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 						placeholder="Master Password"
 						onChange={(e) => setMasterPassword(e.target.value)}
 						required
-						type={showMasterPassword1 ? 'text' : 'password'}
+						type={showMasterPassword ? 'text' : 'password'}
 					/>
 					<Button
-						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
+						onClick={() => setShowMasterPassword(!showMasterPassword)}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
 					>
-						<MP1CurrentEyeIcon className="w-4 h-4" />
+						<MPCurrentEyeIcon className="w-4 h-4" />
 					</Button>
 				</div>
 				<div className="relative flex flex-grow mb-3">
@@ -422,14 +438,14 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 						placeholder="Secret Key"
 						onChange={(e) => setSecretKey(e.target.value)}
 						required
-						type={showMasterPassword2 ? 'text' : 'password'}
+						type={showSecretKey ? 'text' : 'password'}
 					/>
 					<Button
-						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
+						onClick={() => setShowSecretKey(!showSecretKey)}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
 					>
-						<MP2CurrentEyeIcon className="w-4 h-4" />
+						<SKCurrentEyeIcon className="w-4 h-4" />
 					</Button>
 				</div>
 				<div className="relative flex flex-grow mb-2">

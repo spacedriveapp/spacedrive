@@ -45,6 +45,7 @@ export type Procedures = {
         { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } | 
+        { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: null } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
         { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
@@ -144,6 +145,8 @@ export interface OnboardingArgs { algorithm: Algorithm, hashing_algorithm: Hashi
 export interface OnboardingKeys { master_password: string, secret_key: string }
 
 export type Params = "Standard" | "Hardened" | "Paranoid"
+
+export interface RestoreBackupArgs { password: string, secret_key: string, path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 

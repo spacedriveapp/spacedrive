@@ -1,6 +1,7 @@
-use std::io::Write;
+use std::io::{Read, Write};
 use std::{path::PathBuf, str::FromStr};
 
+use sd_crypto::keys::keymanager::StoredKey;
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{hashing::HashingAlgorithm, keymanager::KeyManager},
@@ -31,6 +32,13 @@ pub struct KeyNameUpdateArgs {
 pub struct SetMasterPasswordArgs {
 	password: String,
 	secret_key: String,
+}
+
+#[derive(Type, Deserialize)]
+pub struct RestoreBackupArgs {
+	password: String,
+	secret_key: String,
+	path: PathBuf,
 }
 
 #[derive(Type, Deserialize)]
@@ -314,7 +322,11 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("backupKeystore", |t| {
 			t(|_, path: PathBuf, library| async move {
-				let stored_keys = library.key_manager.dump_keystore();
+				// dump all stored keys that are in the key manager (maybe these should be taken from prisma as this will include even "non-sync with library" keys)
+				let mut stored_keys = library.key_manager.dump_keystore();
+				// include the verification key at the time of backup
+				stored_keys.push(library.key_manager.get_verification_key()?);
+
 				let mut output_file = std::fs::File::create(path).map_err(|_| {
 					rspc::Error::new(
 						rspc::ErrorCode::InternalServerError,
@@ -337,6 +349,56 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
+		.library_mutation("restoreKeystore", |t| {
+			t(|_, args: RestoreBackupArgs, library| async move {
+				let mut input_file = std::fs::File::open(args.path).map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Error opening backup file".into(),
+					)
+				})?;
+
+				let mut backup = Vec::new();
+
+				input_file.read_to_end(&mut backup).unwrap();
+
+				let stored_keys: Vec<StoredKey> = serde_json::from_slice(&backup).unwrap();
+
+				let updated_keys = library.key_manager.import_keystore_backup(
+					Protected::new(args.password),
+					Protected::new(args.secret_key),
+					stored_keys,
+				)?;
+
+				dbg!(updated_keys.len());
+
+				for key in updated_keys {
+					library
+						.db
+						.key()
+						.create(
+							key.uuid.to_string(),
+							key.algorithm.serialize().to_vec(),
+							key.hashing_algorithm.serialize().to_vec(),
+							key.content_salt.to_vec(),
+							key.master_key.to_vec(),
+							key.master_key_nonce.to_vec(),
+							key.key_nonce.to_vec(),
+							key.key.to_vec(),
+							vec![],
+						)
+						.exec()
+						.await?;
+				}
+
+				// and need to handle errors instead of calling unwrap
+
+				invalidate_query!(library, "keys.list");
+				invalidate_query!(library, "keys.listMounted");
+
+				Ok(())
+			})
+		})
 		.library_mutation("changeMasterPassword", |t| {
 			t(|_, args: MasterPasswordChangeArgs, library| async move {
 				let bundle = library.key_manager.change_master_password(
@@ -349,12 +411,7 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				// remove old nil-id keys if they were set
 				// they possibly won't be, but we CANNOT have multiple
-				library
-					.db
-					.key()
-					.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
-					.exec()
-					.await?;
+				library.db.key().delete_many(vec![]).exec().await?;
 
 				library
 					.db
@@ -372,6 +429,28 @@ pub(crate) fn mount() -> RouterBuilder {
 					)
 					.exec()
 					.await?;
+
+				// sync new changes with prisma
+				// note, this will write keys that were potentially marked as "don't sync to db"
+				// i think the way around this will be to include a marker in the `StoredKey` struct, as that means we can exclude them from `dump_keystore()` commands
+				for key in bundle.updated_keystore {
+					library
+						.db
+						.key()
+						.create(
+							key.uuid.to_string(),
+							key.algorithm.serialize().to_vec(),
+							key.hashing_algorithm.serialize().to_vec(),
+							key.content_salt.to_vec(),
+							key.master_key.to_vec(),
+							key.master_key_nonce.to_vec(),
+							key.key_nonce.to_vec(),
+							key.key.to_vec(),
+							vec![],
+						)
+						.exec()
+						.await?;
+				}
 
 				Ok(bundle.secret_key.expose().clone())
 			})

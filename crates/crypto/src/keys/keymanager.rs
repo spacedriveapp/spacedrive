@@ -118,6 +118,7 @@ pub struct OnboardingBundle {
 pub struct MasterPasswordChangeBundle {
 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
 	pub secret_key: Protected<String>, // base64 encoded string that is required along with the master password
+	pub updated_keystore: Vec<StoredKey>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
@@ -287,6 +288,14 @@ impl KeyManager {
 		}
 	}
 
+	/// This should ONLY be used internally.
+	pub fn get_verification_key(&self) -> Result<StoredKey> {
+		match &*self.verification_key.lock()? {
+			Some(k) => Ok(k.clone()),
+			None => Err(Error::NoMasterPassword),
+		}
+	}
+
 	/// This is used to change a master password.
 	///
 	/// The entire keystore is re-encrypted with the new master password, and will require dumping and syncing with Prisma.
@@ -349,7 +358,7 @@ impl KeyManager {
 
 		// Clear the current keystore and update it with our re-encrypted keystore
 		self.empty_keystore();
-		self.populate_keystore(updated_keystore)?;
+		self.populate_keystore(updated_keystore.clone())?;
 
 		// Create a new verification key for the master password/secret key combination
 		let uuid = uuid::Uuid::nil();
@@ -381,6 +390,7 @@ impl KeyManager {
 		let mpc_bundle = MasterPasswordChangeBundle {
 			verification_key,
 			secret_key,
+			updated_keystore,
 		};
 
 		// Update the internal verification key, and then set the master password
@@ -487,7 +497,8 @@ impl KeyManager {
 				updated_key.master_key_nonce = master_key_nonce;
 				updated_key.master_key = encrypted_master_key;
 
-				reencrypted_keys.push(updated_key);
+				reencrypted_keys.push(updated_key.clone());
+				self.keystore.insert(updated_key.uuid, updated_key);
 			}
 		}
 
