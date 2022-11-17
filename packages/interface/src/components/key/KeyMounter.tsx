@@ -97,6 +97,7 @@ export function KeyMounter() {
 			<Button
 				className="w-full mt-2"
 				variant="accent"
+				disabled={key === ''}
 				onClick={() => {
 					if (key !== '') {
 						setKey('');
