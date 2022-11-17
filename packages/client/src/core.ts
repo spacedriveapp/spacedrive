@@ -45,7 +45,7 @@ export type Procedures = {
         { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } | 
-        { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: null } | 
+        { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
         { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 

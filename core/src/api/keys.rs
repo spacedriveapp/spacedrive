@@ -381,9 +381,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					stored_keys,
 				)?;
 
-				dbg!(updated_keys.len());
-
-				for key in updated_keys {
+				for key in &updated_keys {
 					library
 						.db
 						.key()
@@ -405,7 +403,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				invalidate_query!(library, "keys.list");
 				invalidate_query!(library, "keys.listMounted");
 
-				Ok(())
+				Ok(updated_keys.len())
 			})
 		})
 		.library_mutation("changeMasterPassword", |t| {

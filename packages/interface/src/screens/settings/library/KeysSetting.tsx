@@ -379,9 +379,11 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 	const [masterPassword, setMasterPassword] = useState('');
 	const [filePath, setFilePath] = useState('');
 	const [showBackupRestorationDialog, setShowBackupRestorationDialog] = useState(false);
+	const [showRestorationFinalizationDialog, setShowRestorationFinalizationDialog] = useState(false);
 	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore');
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
+	const [totalKeysImported, setTotalKeysImported] = useState(0);
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 	const { trigger } = props;
@@ -403,12 +405,13 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 								path: filePath
 							},
 							{
-								onSuccess: () => {
+								onSuccess: (total) => {
+									setTotalKeysImported(total);
 									setShowBackupRestorationDialog(false);
+									setShowRestorationFinalizationDialog(true);
 								}
 							}
 						);
-						// on success, show another dialog saying x keys were imported
 					}
 				}}
 				ctaLabel="Restore"
@@ -460,6 +463,22 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 					>
 						Select File
 					</Button>
+				</div>
+			</Dialog>
+			<Dialog
+				open={showRestorationFinalizationDialog}
+				setOpen={setShowRestorationFinalizationDialog}
+				title="Import Successful"
+				description=""
+				ctaAction={() => {
+					setShowRestorationFinalizationDialog(false);
+				}}
+				ctaLabel="Done"
+				trigger={<></>}
+			>
+				<div className="text-sm">
+					{totalKeysImported}{' '}
+					{totalKeysImported !== 1 ? 'keys were imported.' : 'key was imported.'}
 				</div>
 			</Dialog>
 		</>
