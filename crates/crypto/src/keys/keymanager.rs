@@ -35,7 +35,6 @@
 //! let keys = key_manager.enumerate_hashed_keys();
 //! ```
 
-use std::ops::Deref;
 use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
@@ -418,12 +417,16 @@ impl KeyManager {
 		}
 	}
 
+	// Opting to leave ser/de to external functions - the key manager isn't the right place to handle this.
+	/// This re-encrypts keys so they can be restored from one key manager to another.
+	///
+	/// It returns a `Vec<StoredKey>` so they can be written to Prisma
 	pub fn import_keystore_backup(
 		&self,
 		master_password: Protected<String>, // at the time of the backup
 		secret_key: Protected<String>,      // at the time of the backup
 		stored_keys: Vec<StoredKey>,        // from the backup
-	) -> Result<()> {
+	) -> Result<Vec<StoredKey>> {
 		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
 		let master_password = self.convert_master_password_string(master_password);
 		let secret_key = self.convert_secret_key_string(secret_key);
@@ -450,15 +453,45 @@ impl KeyManager {
 			Err(Error::NoVerificationKey)
 		}?;
 
-		keys.iter().for_each(|key| {
-			if self.keystore.contains_key(&key.uuid) {
-				// ?
+		let mut reencrypted_keys: Vec<StoredKey> = Vec::new();
+
+		for key in keys {
+			if !self.keystore.contains_key(&key.uuid) {
+				// could check the key material itself? if they match, attach the content salt
+				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+					hashed_master_password.clone(),
+					&key.master_key_nonce,
+					key.algorithm,
+					&key.master_key,
+					&[],
+				) {
+					Ok(Protected::new(to_array::<32>(
+						decrypted_master_key.expose().clone(),
+					)?))
+				} else {
+					Err(Error::IncorrectPassword)
+				}?;
+
+				let master_key_nonce = generate_nonce(key.algorithm);
+
+				// Encrypt the master key with the user's hashed password
+				let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+					self.get_master_password()?,
+					&master_key_nonce,
+					key.algorithm,
+					master_key.expose(),
+					&[],
+				)?)?;
+
+				let mut updated_key = key.clone();
+				updated_key.master_key_nonce = master_key_nonce;
+				updated_key.master_key = encrypted_master_key;
+
+				reencrypted_keys.push(updated_key);
 			}
+		}
 
-			// could check the key material itself? if they match, attach the content salt
-		});
-
-		todo!()
+		Ok(reencrypted_keys)
 	}
 
 	// requires master password and the secret key
