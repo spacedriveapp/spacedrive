@@ -302,7 +302,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 					<Input
 						className="flex-grow !py-0.5"
 						value={masterPasswordChange1}
-						placeholder="Password"
+						placeholder="New Password"
 						onChange={(e) => setMasterPasswordChange1(e.target.value)}
 						required
 						type={showMasterPassword1 ? 'text' : 'password'}
@@ -319,7 +319,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 					<Input
 						className="flex-grow !py-0.5"
 						value={masterPasswordChange2}
-						placeholder="Password (again)"
+						placeholder="New Password (again)"
 						onChange={(e) => setMasterPasswordChange2(e.target.value)}
 						required
 						type={showMasterPassword2 ? 'text' : 'password'}
