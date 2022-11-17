@@ -392,7 +392,7 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 				open={showBackupRestorationDialog}
 				setOpen={setShowBackupRestorationDialog}
 				title="Restore Keys"
-				description="Restore keys from a backup. Only keys that aren't currently in the key manager will be restored."
+				description="Restore keys from a backup."
 				loading={changeMasterPassword.isLoading}
 				ctaAction={() => {}}
 				ctaLabel="Resore"
