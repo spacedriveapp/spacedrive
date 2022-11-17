@@ -3,6 +3,9 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { open, save } from '@tauri-apps/api/dialog';
+import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
+import zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
+import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, ReactNode, useState } from 'react';
@@ -300,12 +303,13 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 			>
 				<div className="relative flex flex-grow mt-3 mb-2">
 					<Input
-						className="flex-grow !py-0.5"
+						className={`flex-grow !py-0.5 ${passwordScoreColour(masterPasswordChange1)}`}
 						value={masterPasswordChange1}
 						placeholder="New Password"
 						onChange={(e) => setMasterPasswordChange1(e.target.value)}
 						required
 						type={showMasterPassword1 ? 'text' : 'password'}
+						//style={passwordScoreColour(masterPasswordChange1)}
 					/>
 					<Button
 						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
@@ -317,7 +321,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 				</div>
 				<div className="relative flex flex-grow mb-2">
 					<Input
-						className="flex-grow !py-0.5"
+						className={`flex-grow !py-0.5 ${passwordScoreColour(masterPasswordChange2)}`}
 						value={masterPasswordChange2}
 						placeholder="New Password (again)"
 						onChange={(e) => setMasterPasswordChange2(e.target.value)}
@@ -371,6 +375,28 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 			</Dialog>
 		</>
 	);
+};
+
+export const passwordScoreColour = (password: string) => {
+	const colors = [
+		'focus:border-red-700',
+		'focus:border-red-500',
+		'focus:border-yellow-300',
+		'focus:border-lime-500',
+		'focus:border-accent'
+	];
+
+	const options = {
+		dictionary: {
+			...zxcvbnCommonPackage.dictionary,
+			...zxcvbnEnPackage.dictionary
+		},
+		graps: zxcvbnCommonPackage.adjacencyGraphs,
+		translations: zxcvbnEnPackage.translations
+	};
+	zxcvbnOptions.setOptions(options);
+
+	return colors[zxcvbn(password).score];
 };
 
 // not too sure where this should go either
