@@ -378,7 +378,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let updated_keys = library.key_manager.import_keystore_backup(
 					Protected::new(args.password),
 					Protected::new(args.secret_key),
-					stored_keys,
+					&stored_keys,
 				)?;
 
 				for key in &updated_keys {

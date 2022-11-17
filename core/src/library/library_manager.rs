@@ -83,7 +83,7 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 		.find_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
 		.exec()
 		.await?
-		.len() == 0
+		.is_empty()
 	{
 		client
 			.key()

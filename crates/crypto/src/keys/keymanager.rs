@@ -401,6 +401,9 @@ impl KeyManager {
 		Ok(mpc_bundle)
 	}
 
+	/// Used internally to convert a `Protected<String>` to a `Protected<Vec<u8>>`
+	#[allow(clippy::unused_self)]
+	#[allow(clippy::needless_pass_by_value)]
 	fn convert_master_password_string(
 		&self,
 		master_password: Protected<String>,
@@ -408,6 +411,11 @@ impl KeyManager {
 		Protected::new(master_password.expose().as_bytes().to_vec())
 	}
 
+	/// Used internally to convert from a base64-encoded `Protected<String>` to a `Protected<[u8; SALT_LEN]>` in a secretive manner.
+	///
+	/// If the secret key is wrong (not base64 or not the correct length), a filler secret key will be inserted secretly.
+	#[allow(clippy::unused_self)]
+	#[allow(clippy::needless_pass_by_value)]
 	fn convert_secret_key_string(
 		&self,
 		secret_key: Protected<String>,
@@ -428,14 +436,14 @@ impl KeyManager {
 	}
 
 	// Opting to leave ser/de to external functions - the key manager isn't the right place to handle this.
-	/// This re-encrypts keys so they can be restored from one key manager to another.
+	/// This re-encrypts master keys so they can be imported from a key backup into the current key manager.
 	///
 	/// It returns a `Vec<StoredKey>` so they can be written to Prisma
 	pub fn import_keystore_backup(
 		&self,
 		master_password: Protected<String>, // at the time of the backup
 		secret_key: Protected<String>,      // at the time of the backup
-		stored_keys: Vec<StoredKey>,        // from the backup
+		stored_keys: &[StoredKey],          // from the backup
 	) -> Result<Vec<StoredKey>> {
 		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
 		let master_password = self.convert_master_password_string(master_password);
@@ -447,7 +455,7 @@ impl KeyManager {
 			.iter()
 			.filter_map(|key| {
 				if key.uuid.is_nil() {
-					verification_key = Some(key.clone().clone()); // not the cleanest
+					verification_key = Some(key.clone());
 					None
 				} else {
 					Some(key.clone())
