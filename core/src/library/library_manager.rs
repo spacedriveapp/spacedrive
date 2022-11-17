@@ -76,33 +76,44 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 	let key_manager = KeyManager::new(vec![]);
 
 	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-	client
+	// this is so if there's no verification key set, we set one so users can use the key manager
+	// it will be done during onboarding, but for now things are statically set (unless they were changed)
+	if client
 		.key()
-		.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
+		.find_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
 		.exec()
-		.await?;
-	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-	let verification_key = KeyManager::onboarding(
-		Algorithm::XChaCha20Poly1305,
-		HashingAlgorithm::Argon2id(Params::Standard),
-	)?
-	.verification_key;
-	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-	client
-		.key()
-		.create(
-			verification_key.uuid.to_string(),
-			verification_key.algorithm.serialize().to_vec(),
-			verification_key.hashing_algorithm.serialize().to_vec(),
-			verification_key.content_salt.to_vec(),
-			verification_key.master_key.to_vec(),
-			verification_key.master_key_nonce.to_vec(),
-			verification_key.key_nonce.to_vec(),
-			verification_key.key.to_vec(),
-			vec![],
-		)
-		.exec()
-		.await?;
+		.await?
+		.len() != 0
+	{
+		client
+			.key()
+			.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
+			.exec()
+			.await?;
+		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+		let verification_key = KeyManager::onboarding(
+			Algorithm::XChaCha20Poly1305,
+			HashingAlgorithm::Argon2id(Params::Standard),
+		)?
+		.verification_key;
+
+		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
+		client
+			.key()
+			.create(
+				verification_key.uuid.to_string(),
+				verification_key.algorithm.serialize().to_vec(),
+				verification_key.hashing_algorithm.serialize().to_vec(),
+				verification_key.content_salt.to_vec(),
+				verification_key.master_key.to_vec(),
+				verification_key.master_key_nonce.to_vec(),
+				verification_key.key_nonce.to_vec(),
+				verification_key.key.to_vec(),
+				vec![],
+			)
+			.exec()
+			.await?;
+	}
 
 	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
 
