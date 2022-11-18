@@ -303,13 +303,12 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 			>
 				<div className="relative flex flex-grow mt-3 mb-2">
 					<Input
-						className={`flex-grow !py-0.5 ${passwordScoreColour(masterPasswordChange1)}`}
+						className={`flex-grow w-max !py-0.5`}
 						value={masterPasswordChange1}
 						placeholder="New Password"
 						onChange={(e) => setMasterPasswordChange1(e.target.value)}
 						required
 						type={showMasterPassword1 ? 'text' : 'password'}
-						//style={passwordScoreColour(masterPasswordChange1)}
 					/>
 					<Button
 						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
@@ -321,7 +320,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 				</div>
 				<div className="relative flex flex-grow mb-2">
 					<Input
-						className={`flex-grow !py-0.5 ${passwordScoreColour(masterPasswordChange2)}`}
+						className={`flex-grow !py-0.5}`}
 						value={masterPasswordChange2}
 						placeholder="New Password (again)"
 						onChange={(e) => setMasterPasswordChange2(e.target.value)}
@@ -336,6 +335,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 						<MP2CurrentEyeIcon className="w-4 h-4" />
 					</Button>
 				</div>
+				<PasswordMeter password={masterPasswordChange1} />
 
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
 					<div className="flex flex-col">
@@ -377,14 +377,10 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 	);
 };
 
-export const passwordScoreColour = (password: string) => {
-	const colors = [
-		'focus:border-red-700',
-		'focus:border-red-500',
-		'focus:border-yellow-300',
-		'focus:border-lime-500',
-		'focus:border-accent'
-	];
+export const PasswordMeter = (props: { password: string }) => {
+	const ratingColors = ['red-700', 'red-500', 'yellow-300', 'lime-500', 'accent'];
+
+	const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
 
 	const options = {
 		dictionary: {
@@ -395,8 +391,39 @@ export const passwordScoreColour = (password: string) => {
 		translations: zxcvbnEnPackage.translations
 	};
 	zxcvbnOptions.setOptions(options);
+	const zx = zxcvbn(props.password);
 
-	return colors[zxcvbn(password).score];
+	const outerDiv = {
+		width: '80%',
+		height: '5px',
+		borderRadius: 80
+	};
+
+	const innerDiv = {
+		width: `${zx.score !== 0 ? zx.score * 25 : 12.5}%`,
+		height: '5px',
+		borderRadius: 80
+	};
+
+	const text = {
+		fontWeight: 750
+	};
+
+	return (
+		<div className="mt-4 mb-5 relative flex flex-grow">
+			<div style={outerDiv} className="mt-2">
+				<div style={innerDiv} className={`bg-${ratingColors[zx.score]}`}>
+					&nbsp;
+				</div>
+			</div>
+			<span
+				style={text}
+				className={`absolute right-[5px] text-sm pr-1 pl-1 text-${ratingColors[zx.score]}`}
+			>
+				{ratings[zx.score]}
+			</span>
+		</div>
+	);
 };
 
 // not too sure where this should go either
