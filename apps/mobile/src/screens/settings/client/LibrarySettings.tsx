@@ -9,7 +9,7 @@ import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 // https://docs.swmansion.com/react-native-gesture-handler/docs/api/components/swipeable/
-// ^ Might feel better here
+// ^ Might look better?
 
 function LibraryItem({
 	library,
@@ -32,7 +32,7 @@ function LibraryItem({
 						<Pen size={18} color={tw.color('ink')} />
 					</AnimatedButton>
 					<DeleteLibraryDialog libraryUuid={library.uuid}>
-						<AnimatedButton size="sm" style={tw`ml-1`}>
+						<AnimatedButton size="sm" style={tw`ml-1.5`}>
 							<Trash size={18} color={tw.color('ink')} />
 						</AnimatedButton>
 					</DeleteLibraryDialog>

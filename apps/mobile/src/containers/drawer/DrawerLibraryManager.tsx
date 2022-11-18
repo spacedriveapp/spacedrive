@@ -1,4 +1,5 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
+import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
@@ -20,6 +21,8 @@ const DrawerLibraryManager = () => {
 	}, [isDrawerOpen]);
 
 	const { library: currentLibrary, libraries, switchLibrary } = useCurrentLibrary();
+
+	const navigation = useNavigation();
 
 	return (
 		<View>
@@ -67,7 +70,9 @@ const DrawerLibraryManager = () => {
 					))}
 					<Divider style={tw`mt-2 mb-2`} />
 					{/* Menu */}
-					<Pressable onPress={() => console.log('settings')}>
+					<Pressable
+						onPress={() => navigation.navigate('Settings', { screen: 'LibraryGeneralSettings' })}
+					>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Gear size={16} color={tw.color('ink-dull')} style={tw`mr-2`} />
 							<Text style={tw`text-sm text-ink font-semibold`}>Library Settings</Text>
@@ -80,7 +85,7 @@ const DrawerLibraryManager = () => {
 							<Text style={tw`text-sm text-ink font-semibold`}>Add Library</Text>
 						</View>
 					</CreateLibraryDialog>
-					<Pressable onPress={() => console.log('lock')}>
+					<Pressable onPress={() => console.log('TODO: lock')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
 							<Lock size={16} weight="bold" color={tw.color('ink-dull')} style={tw`mr-2`} />
 							<Text style={tw`text-sm text-ink font-semibold`}>Lock</Text>

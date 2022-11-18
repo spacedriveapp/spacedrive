@@ -40,6 +40,7 @@
 		"moti": "^0.20.0",
 		"phosphor-react-native": "^1.1.2",
 		"react": "18.0.0",
+		"react-hook-form": "^7.36.1",
 		"react-native": "0.69.6",
 		"react-native-document-picker": "^8.1.1",
 		"react-native-fs": "^2.20.0",
@@ -50,11 +51,12 @@
 		"react-native-svg": "13.0.0",
 		"twrnc": "^3.4.1",
 		"use-count-up": "^3.0.1",
+		"use-debounce": "^8.0.4",
 		"valtio": "^1.7.1"
 	},
 	"devDependencies": {
-		"@sd/config": "workspace:*",
 		"@rnx-kit/metro-config": "^1.3.2",
+		"@sd/config": "workspace:*",
 		"@types/react": "~18.0.0",
 		"@types/react-native": "~0.69.5",
 		"babel-plugin-module-resolver": "^4.1.0",

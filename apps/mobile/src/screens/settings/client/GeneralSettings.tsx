@@ -33,16 +33,9 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 				<Divider style={tw`mt-2 mb-4`} />
 				{/* Node Name and Port */}
 				<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-[1.5px]`}>Node Name</Text>
-				<Input
-					value={node.name}
-					// onChangeText={(text) => setLibName(text)}
-				/>
+				<Input value={node.name} />
 				<Text style={tw`mt-2 mb-1 text-xs font-medium text-ink-dull ml-[1.5px]`}>Node Port</Text>
-				<Input
-					value={node.p2p_port?.toString() ?? '5795'}
-					keyboardType="numeric"
-					// onChangeText={(text) => setLibName(text)}
-				/>
+				<Input value={node.p2p_port?.toString() ?? '5795'} keyboardType="numeric" />
 			</Card>
 		</View>
 	);

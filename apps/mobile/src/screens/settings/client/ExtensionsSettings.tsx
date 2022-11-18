@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
+import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 const ExtensionsSettingsScreen = ({
@@ -7,7 +8,7 @@ const ExtensionsSettingsScreen = ({
 }: SettingsStackScreenProps<'ExtensionsSettings'>) => {
 	return (
 		<View>
-			<Text>ExtensionsSettingsScreen</Text>
+			<Text style={tw`text-ink`}>TODO</Text>
 		</View>
 	);
 };
