@@ -314,6 +314,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
+						type="button"
 					>
 						<MP1CurrentEyeIcon className="w-4 h-4" />
 					</Button>
@@ -331,6 +332,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
+						type="button"
 					>
 						<MP2CurrentEyeIcon className="w-4 h-4" />
 					</Button>
@@ -481,6 +483,7 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 						onClick={() => setShowMasterPassword(!showMasterPassword)}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
+						type="button"
 					>
 						<MPCurrentEyeIcon className="w-4 h-4" />
 					</Button>
@@ -498,6 +501,7 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 						onClick={() => setShowSecretKey(!showSecretKey)}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
+						type="button"
 					>
 						<SKCurrentEyeIcon className="w-4 h-4" />
 					</Button>
@@ -506,6 +510,7 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 					<Button
 						size="sm"
 						variant={filePath !== '' ? 'accent' : 'gray'}
+						type="button"
 						onClick={() => {
 							open()?.then((result) => {
 								if (result) setFilePath(result as string);
