@@ -412,9 +412,7 @@ export const PasswordMeter = (props: { password: string }) => {
 	return (
 		<div className="mt-4 mb-5 relative flex flex-grow">
 			<div style={outerDiv} className="mt-2">
-				<div style={innerDiv} className={`bg-${ratingColors[zx.score]}`}>
-					&nbsp;
-				</div>
+				<div style={innerDiv} className={`bg-${ratingColors[zx.score]}`} />
 			</div>
 			<span
 				style={text}
