@@ -245,11 +245,11 @@ impl StatefulJob for IndexerJob {
 				// if 'entry.path' is a directory, set extension to an empty string to
 				// avoid periods in folder names being interpreted as file extensions
 				if entry.is_dir {
-					extension = "".to_string();
+					extension = None;
 					name = extract_name(entry.path.file_name());
 				} else {
 					// if the 'entry.path' is not a directory, then get the extension and name.
-					extension = extract_name(entry.path.extension()).to_lowercase();
+					extension = Some(extract_name(entry.path.extension()).to_lowercase());
 					name = extract_name(entry.path.file_stem());
 				}
 				let materialized_path = entry

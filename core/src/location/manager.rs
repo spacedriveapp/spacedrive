@@ -19,12 +19,14 @@ use std::{
 
 use chrono::{FixedOffset, Utc};
 use futures::{stream::FuturesUnordered, StreamExt};
+use notify::event::RenameMode;
 use notify::{
 	event::{CreateKind, ModifyKind, RemoveKind},
 	Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use once_cell::sync::OnceCell;
-use sd_file_ext::extensions::{ImageExtension, VideoExtension};
+use prisma_client_rust::{raw, PrismaValue};
+use sd_file_ext::extensions::ImageExtension;
 use thiserror::Error;
 use tokio::{
 	fs,
@@ -59,6 +61,8 @@ pub enum LocationManagerError {
 	WatcherError(#[from] notify::Error),
 	#[error("Location missing local path: <id='{0}'>")]
 	LocationMissingLocalPath(LocationId),
+	#[error("Unable to extract materialized path from location: <id='{0}', path='{1:?}'>")]
+	UnableToExtractMaterializedPath(LocationId, PathBuf),
 	#[error("Database error: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("I/O error: {0}")]
@@ -474,6 +478,8 @@ impl LocationWatcher {
 		create_kind: CreateKind,
 		library_ctx: &LibraryContext,
 	) -> Result<(), LocationManagerError> {
+		debug!("created {create_kind:#?}");
+
 		if let Some(location_local_path) = location.local_path.clone() {
 			debug!(
 				"Location: <root_path ='{location_local_path}'> created: {:#?}",
@@ -501,7 +507,18 @@ impl LocationWatcher {
 						library_ctx,
 						location.id,
 						subpath_str,
-						subpath.file_name().unwrap().to_string_lossy().to_string(),
+						subpath.file_stem().unwrap().to_string_lossy().to_string(),
+						if create_kind == CreateKind::Folder {
+							None
+						} else {
+							Some(
+								subpath
+									.extension()
+									.unwrap_or_default()
+									.to_string_lossy()
+									.to_string(),
+							)
+						},
 						Some(parent_directory.id),
 						create_kind == CreateKind::Folder,
 					)
@@ -559,6 +576,7 @@ impl LocationWatcher {
 									use crate::object::preview::{
 										can_generate_thumbnail_for_video, generate_video_thumbnail,
 									};
+									use sd_file_ext::extensions::VideoExtension;
 
 									if let Ok(extension) = VideoExtension::from_str(extension_str) {
 										if can_generate_thumbnail_for_video(&extension) {
@@ -595,51 +613,67 @@ impl LocationWatcher {
 	) -> Result<(), LocationManagerError> {
 		debug!("modified {modify_kind:#?}");
 
-		// check if path exists in our db
-		let existing_file_path = library_ctx
-			.db
-			.file_path()
-			.find_first(vec![file_path::materialized_path::equals(
-				event.paths[0].to_str().unwrap().to_string(),
-			)])
-			// include object for orphan check
-			.include(file_path_with_object::include())
-			.exec()
-			.await?;
+		match modify_kind {
+			ModifyKind::Data(_) => {
+				todo!("handle modify data");
+			}
+			ModifyKind::Metadata(_) => {
+				todo!("handle modify metadata");
+			}
+			ModifyKind::Name(modify_name) => {
+				// There are 3 kinds of rename events, To, From and Both.
+				// But we can only update our data in the Both kind...
+				if matches!(modify_name, RenameMode::Both) {
+					let old_path = extract_materialized_path(&location, &event.paths[0])?
+						.to_string_lossy()
+						.to_string();
+					let new_path = extract_materialized_path(&location, &event.paths[1])?;
 
-		// check file still exists on disk
-		if fs::metadata(&event.paths[0]).await.is_err() {
-			// if is doesn't, we can remove it safely from our db
-			if let Some(fp) = existing_file_path {
-				if fp.is_dir {
-					if let Err(e) =
-						delete_directory(library_ctx, location.id, Some(fp.materialized_path)).await
+					if let Some(file_path) =
+						get_existing_file_path(&location, &event.paths[0], library_ctx).await?
 					{
-						error!("Failed to delete directory: {e:#?}");
+						// If the renamed path is a directory, we have to update every successor
+						if file_path.is_dir {
+							let updated = library_ctx
+								.db
+								._execute_raw(raw!(
+								"UPDATE file_path SET materialized_path = REPLACE(materialized_path, {}, {}) WHERE location_id = {}",
+									PrismaValue::String(old_path),
+									PrismaValue::String(
+										new_path
+											.to_string_lossy()
+											.to_string()
+									),
+									PrismaValue::Int(location.id as i64)
+								))
+								.exec()
+								.await?;
+							debug!("Updated {updated} file_paths");
+						}
+
+						// TODO check extension change on file name
+
+						library_ctx
+							.db
+							.file_path()
+							.update(
+								file_path::location_id_id(file_path.location_id, file_path.id),
+								vec![
+									file_path::materialized_path::set(
+										new_path.to_string_lossy().to_string(),
+									),
+									file_path::name::set(
+										new_path.file_stem().unwrap().to_string_lossy().to_string(),
+									),
+								],
+							)
+							.exec()
+							.await?;
 					}
-				} else {
-					library_ctx
-						.db
-						.file_path()
-						.delete(file_path::location_id_id(location.id, fp.id))
-						.exec()
-						.await?;
 				}
 			}
-		// run object orphan check
-		// TODO: ^ that as a function :D
-		} else if let Some(fp) = existing_file_path {
-			if fp.is_dir {
-				// run a shallow directory scan
-			} else {
-				// handle individual file modifications
-				match modify_kind {
-					ModifyKind::Any => todo!(),
-					ModifyKind::Metadata(_metadata) => todo!(),
-					ModifyKind::Name(_name) => todo!(),
-					ModifyKind::Other => todo!(),
-					ModifyKind::Data(_data) => todo!(),
-				}
+			ModifyKind::Other | ModifyKind::Any => {
+				debug!("Ignoring modify events of Other and Any kinds for now");
 			}
 		}
 
@@ -655,16 +689,8 @@ impl LocationWatcher {
 		debug!("removed {remove_kind:#?}");
 
 		// check if path exists in our db, if it doesn't, then we don't care
-		if let Some(file_path) = library_ctx
-			.db
-			.file_path()
-			.find_first(vec![file_path::materialized_path::equals(
-				event.paths[0].to_string_lossy().to_string(),
-			)])
-			// include object for orphan check
-			.include(file_path_with_object::include())
-			.exec()
-			.await?
+		if let Some(file_path) =
+			get_existing_file_path(&location, &event.paths[0], library_ctx).await?
 		{
 			// check file still exists on disk
 			match fs::metadata(&event.paths[0]).await {
@@ -774,4 +800,43 @@ impl Drop for LocationWatcher {
 			}
 		}
 	}
+}
+
+fn extract_materialized_path(
+	location: &indexer_job_location::Data,
+	path: impl AsRef<Path>,
+) -> Result<PathBuf, LocationManagerError> {
+	subtract_location_path(
+		location
+			.local_path
+			.as_ref()
+			.ok_or(LocationManagerError::LocationMissingLocalPath(location.id))?,
+		&path,
+	)
+	.ok_or_else(|| {
+		LocationManagerError::UnableToExtractMaterializedPath(
+			location.id,
+			path.as_ref().to_path_buf(),
+		)
+	})
+}
+
+async fn get_existing_file_path(
+	location: &indexer_job_location::Data,
+	path: impl AsRef<Path>,
+	library_ctx: &LibraryContext,
+) -> Result<Option<file_path_with_object::Data>, LocationManagerError> {
+	library_ctx
+		.db
+		.file_path()
+		.find_first(vec![file_path::materialized_path::equals(
+			extract_materialized_path(location, path)?
+				.to_string_lossy()
+				.to_string(),
+		)])
+		// include object for orphan check
+		.include(file_path_with_object::include())
+		.exec()
+		.await
+		.map_err(Into::into)
 }
