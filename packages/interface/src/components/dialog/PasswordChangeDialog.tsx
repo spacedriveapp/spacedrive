@@ -1,10 +1,14 @@
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
+import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
+import zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
+import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
+import clsx from 'clsx';
 import { Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
-import { PasswordMeter, getCryptoSettings } from '../../screens/settings/library/KeysSetting';
+import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
 
 export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 	type FormValues = {
@@ -160,5 +164,55 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 				/>
 			</Dialog>
 		</>
+	);
+};
+
+const PasswordMeter = (props: { password: string }) => {
+	const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
+
+	const options = {
+		dictionary: {
+			...zxcvbnCommonPackage.dictionary,
+			...zxcvbnEnPackage.dictionary
+		},
+		graps: zxcvbnCommonPackage.adjacencyGraphs,
+		translations: zxcvbnEnPackage.translations
+	};
+	zxcvbnOptions.setOptions(options);
+	const zx = zxcvbn(props.password);
+
+	const innerDiv = {
+		width: `${zx.score !== 0 ? zx.score * 25 : 12.5}%`,
+		height: '5px',
+		borderRadius: 80
+	};
+
+	return (
+		<div className="mt-4 mb-5 relative flex flex-grow">
+			<div className="mt-2 w-4/5 h-[5px] rounded-[80px]">
+				<div
+					style={innerDiv}
+					className={clsx(
+						zx.score === 0 && 'bg-red-700',
+						zx.score === 1 && 'bg-red-500',
+						zx.score === 2 && 'bg-yellow-300',
+						zx.score === 3 && 'bg-lime-500',
+						zx.score === 4 && 'bg-accent'
+					)}
+				/>
+			</div>
+			<span
+				className={clsx(
+					'absolute font-[750] right-[5px] text-sm pr-1 pl-1',
+					zx.score === 0 && 'text-red-700',
+					zx.score === 1 && 'text-red-500',
+					zx.score === 2 && 'text-yellow-300',
+					zx.score === 3 && 'text-lime-500',
+					zx.score === 4 && 'text-accent'
+				)}
+			>
+				{ratings[zx.score]}
+			</span>
+		</div>
 	);
 };

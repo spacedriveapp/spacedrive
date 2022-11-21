@@ -8,9 +8,6 @@ import {
 } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import { save } from '@tauri-apps/api/dialog';
-import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
-import zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
-import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
@@ -255,43 +252,4 @@ export const getCryptoSettings = (
 	}
 
 	return [algorithm, hashing_algorithm];
-};
-
-export const PasswordMeter = (props: { password: string }) => {
-	const ratingColors = ['red-700', 'red-500', 'yellow-300', 'lime-500', 'accent'];
-
-	const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
-
-	const options = {
-		dictionary: {
-			...zxcvbnCommonPackage.dictionary,
-			...zxcvbnEnPackage.dictionary
-		},
-		graps: zxcvbnCommonPackage.adjacencyGraphs,
-		translations: zxcvbnEnPackage.translations
-	};
-	zxcvbnOptions.setOptions(options);
-	const zx = zxcvbn(props.password);
-
-	const innerDiv = {
-		width: `${zx.score !== 0 ? zx.score * 25 : 12.5}%`,
-		height: '5px',
-		borderRadius: 80
-	};
-
-	return (
-		<div className="mt-4 mb-5 relative flex flex-grow">
-			<div className="mt-2 w-4/5 h-[5px] rounded-[80px]">
-				<div style={innerDiv} className={`bg-${ratingColors[zx.score]}`} />
-			</div>
-			<span
-				className={clsx(
-					'absolute font-[750] right-[5px] text-sm pr-1 pl-1',
-					`text-${ratingColors[zx.score]}`
-				)}
-			>
-				{ratings[zx.score]}
-			</span>
-		</div>
-	);
 };
