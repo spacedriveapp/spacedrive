@@ -195,7 +195,7 @@ const PasswordMeter = (props: { password: string }) => {
 					className={clsx(
 						zx.score === 0 && 'bg-red-700',
 						zx.score === 1 && 'bg-red-500',
-						zx.score === 2 && 'bg-yellow-300',
+						zx.score === 2 && 'bg-amber-400',
 						zx.score === 3 && 'bg-lime-500',
 						zx.score === 4 && 'bg-accent'
 					)}
@@ -206,7 +206,7 @@ const PasswordMeter = (props: { password: string }) => {
 					'absolute font-[750] right-[5px] text-sm pr-1 pl-1',
 					zx.score === 0 && 'text-red-700',
 					zx.score === 1 && 'text-red-500',
-					zx.score === 2 && 'text-yellow-300',
+					zx.score === 2 && 'text-amber-400',
 					zx.score === 3 && 'text-lime-500',
 					zx.score === 4 && 'text-accent'
 				)}
