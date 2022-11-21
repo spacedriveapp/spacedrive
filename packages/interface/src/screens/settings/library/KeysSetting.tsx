@@ -9,6 +9,7 @@ import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, ReactNode, useState } from 'react';
+import { SubmitHandler, useForm } from 'react-hook-form';
 import { animated, useTransition } from 'react-spring';
 
 import { ListOfKeys } from '../../../components/key/KeyList';
@@ -428,99 +429,112 @@ export const PasswordMeter = (props: { password: string }) => {
 
 // not too sure where this should go either
 export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
-	const [secretKey, setSecretKey] = useState('');
-	const [masterPassword, setMasterPassword] = useState('');
-	const [filePath, setFilePath] = useState('');
+	type FormValues = {
+		masterPassword: string;
+		secretKey: string;
+		filePath: string;
+	};
+
+	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>();
+	const onSubmit: SubmitHandler<FormValues> = (data) => {
+		if (data.filePath !== '') {
+			restoreKeystoreMutation.mutate(
+				{
+					password: data.masterPassword,
+					secret_key: data.secretKey,
+					path: data.filePath
+				},
+				{
+					onSuccess: (total) => {
+						setTotalKeysImported(total);
+						setShowBackupRestorationDialog(false);
+						setShowRestorationFinalizationDialog(true);
+					}
+				}
+			);
+		}
+	};
+
 	const [showBackupRestorationDialog, setShowBackupRestorationDialog] = useState(false);
 	const [showRestorationFinalizationDialog, setShowRestorationFinalizationDialog] = useState(false);
 	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore');
+
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
+
 	const [totalKeysImported, setTotalKeysImported] = useState(0);
+
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 	const { trigger } = props;
 
 	return (
 		<>
-			<Dialog
-				open={showBackupRestorationDialog}
-				setOpen={setShowBackupRestorationDialog}
-				title="Restore Keys"
-				description="Restore keys from a backup."
-				loading={restoreKeystoreMutation.isLoading}
-				ctaAction={() => {
-					if (masterPassword !== '' && secretKey !== '' && filePath !== '') {
-						restoreKeystoreMutation.mutate(
-							{
-								password: masterPassword,
-								secret_key: secretKey,
-								path: filePath
-							},
-							{
-								onSuccess: (total) => {
-									setTotalKeysImported(total);
-									setShowBackupRestorationDialog(false);
-									setShowRestorationFinalizationDialog(true);
-								}
-							}
-						);
-					}
-				}}
-				ctaLabel="Restore"
-				trigger={trigger}
-			>
-				<div className="relative flex flex-grow mt-3 mb-2">
-					<Input
-						className="flex-grow !py-0.5"
-						value={masterPassword}
-						placeholder="Master Password"
-						onChange={(e) => setMasterPassword(e.target.value)}
-						required
-						type={showMasterPassword ? 'text' : 'password'}
-					/>
-					<Button
-						onClick={() => setShowMasterPassword(!showMasterPassword)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-						type="button"
-					>
-						<MPCurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
-				<div className="relative flex flex-grow mb-3">
-					<Input
-						className="flex-grow !py-0.5"
-						value={secretKey}
-						placeholder="Secret Key"
-						onChange={(e) => setSecretKey(e.target.value)}
-						required
-						type={showSecretKey ? 'text' : 'password'}
-					/>
-					<Button
-						onClick={() => setShowSecretKey(!showSecretKey)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-						type="button"
-					>
-						<SKCurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
-				<div className="relative flex flex-grow mb-2">
-					<Button
-						size="sm"
-						variant={filePath !== '' ? 'accent' : 'gray'}
-						type="button"
-						onClick={() => {
-							open()?.then((result) => {
-								if (result) setFilePath(result as string);
-							});
-						}}
-					>
-						Select File
-					</Button>
-				</div>
-			</Dialog>
+			<form onSubmit={handleSubmit(onSubmit)}>
+				<Dialog
+					open={showBackupRestorationDialog}
+					setOpen={setShowBackupRestorationDialog}
+					title="Restore Keys"
+					description="Restore keys from a backup."
+					loading={restoreKeystoreMutation.isLoading}
+					ctaLabel="Restore"
+					trigger={trigger}
+				>
+					<div className="relative flex flex-grow mt-3 mb-2">
+						<Input
+							className="flex-grow !py-0.5"
+							// value={masterPassword}
+							placeholder="Master Password"
+							// onChange={(e) => setMasterPassword(e.target.value)}
+							required
+							type={showMasterPassword ? 'text' : 'password'}
+							{...register('masterPassword', { required: true })}
+						/>
+						<Button
+							onClick={() => setShowMasterPassword(!showMasterPassword)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+							type="button"
+						>
+							<MPCurrentEyeIcon className="w-4 h-4" />
+						</Button>
+					</div>
+					<div className="relative flex flex-grow mb-3">
+						<Input
+							className="flex-grow !py-0.5"
+							// value={secretKey}
+							placeholder="Secret Key"
+							// onChange={(e) => setSecretKey(e.target.value)}
+							{...register('secretKey', { required: true })}
+							required
+							type={showSecretKey ? 'text' : 'password'}
+						/>
+						<Button
+							onClick={() => setShowSecretKey(!showSecretKey)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+							type="button"
+						>
+							<SKCurrentEyeIcon className="w-4 h-4" />
+						</Button>
+					</div>
+					<div className="relative flex flex-grow mb-2">
+						<Button
+							size="sm"
+							variant={getValues('filePath') !== '' ? 'accent' : 'gray'}
+							type="button"
+							onClick={() => {
+								open()?.then((result) => {
+									if (result) setValue('filePath', result as string);
+								});
+							}}
+						>
+							Select File
+						</Button>
+					</div>
+				</Dialog>
+			</form>
+
 			<Dialog
 				open={showRestorationFinalizationDialog}
 				setOpen={setShowRestorationFinalizationDialog}
