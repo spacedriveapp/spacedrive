@@ -272,33 +272,33 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 	});
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
-		if (data.masterPassword !== '' && data.masterPassword2 !== '') {
-			if (data.masterPassword !== data.masterPassword2) {
-				alert('Passwords are not the same.');
-			} else {
-				const [algorithm, hashing_algorithm] = getCryptoSettings(
-					data.encryptionAlgo,
-					data.hashingAlgo
-				);
+		if (data.masterPassword !== data.masterPassword2) {
+			alert('Passwords are not the same.');
+		} else {
+			const [algorithm, hashing_algorithm] = getCryptoSettings(
+				data.encryptionAlgo,
+				data.hashingAlgo
+			);
 
-				changeMasterPassword.mutate(
-					{ algorithm, hashing_algorithm, password: data.masterPassword },
-					{
-						onSuccess: (sk) => {
-							setSecretKey(sk);
+			changeMasterPassword.mutate(
+				{ algorithm, hashing_algorithm, password: data.masterPassword },
+				{
+					onSuccess: (sk) => {
+						setSecretKey(sk);
 
-							setShowSecretKeyDialog(true);
-							setShowMasterPasswordDialog(false);
-						},
-						onError: () => {
-							alert('There was an error while changing your master password.');
-						}
+						setShowSecretKeyDialog(true);
+						setShowMasterPasswordDialog(false);
+					},
+					onError: () => {
+						// this should never really happen
+						alert('There was an error while changing your master password.');
 					}
-				);
-			}
+				}
+			);
 		}
 	};
 
+	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-for
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
 	const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
@@ -327,6 +327,8 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 							placeholder="New Password"
 							required
 							{...register('masterPassword', { required: true })}
+							onChange={(e) => setPasswordMeterMasterPw(e.target.value)}
+							value={passwordMeterMasterPw}
 							type={showMasterPassword1 ? 'text' : 'password'}
 						/>
 						<Button
@@ -356,7 +358,7 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 						</Button>
 					</div>
 
-					<PasswordMeter password={getValues('masterPassword')} />
+					<PasswordMeter password={passwordMeterMasterPw} />
 
 					<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
 						<div className="flex flex-col">
