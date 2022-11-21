@@ -253,11 +253,52 @@ export const getCryptoSettings = (
 
 // not too sure where this should go either
 export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
-	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
-	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
+	type FormValues = {
+		masterPassword: string;
+		masterPassword2: string;
+		encryptionAlgo: string;
+		hashingAlgo: string;
+	};
+
 	const [secretKey, setSecretKey] = useState('');
-	const [masterPasswordChange1, setMasterPasswordChange1] = useState('');
-	const [masterPasswordChange2, setMasterPasswordChange2] = useState('');
+
+	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
+		defaultValues: {
+			masterPassword: '',
+			masterPassword2: '',
+			encryptionAlgo: 'XChaCha20Poly1305',
+			hashingAlgo: 'Argon2id-s'
+		}
+	});
+
+	const onSubmit: SubmitHandler<FormValues> = (data) => {
+		if (data.masterPassword !== '' && data.masterPassword2 !== '') {
+			if (data.masterPassword !== data.masterPassword2) {
+				alert('Passwords are not the same.');
+			} else {
+				const [algorithm, hashing_algorithm] = getCryptoSettings(
+					data.encryptionAlgo,
+					data.hashingAlgo
+				);
+
+				changeMasterPassword.mutate(
+					{ algorithm, hashing_algorithm, password: data.masterPassword },
+					{
+						onSuccess: (sk) => {
+							setSecretKey(sk);
+
+							setShowSecretKeyDialog(true);
+							setShowMasterPasswordDialog(false);
+						},
+						onError: () => {
+							alert('There was an error while changing your master password.');
+						}
+					}
+				);
+			}
+		}
+	};
+
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
 	const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
@@ -269,95 +310,81 @@ export const MasterPasswordChangeDialog = (props: { trigger: ReactNode }) => {
 
 	return (
 		<>
-			<Dialog
-				open={showMasterPasswordDialog}
-				setOpen={setShowMasterPasswordDialog}
-				title="Change Master Password"
-				description="Select a new master password for your key manager."
-				ctaDanger={true}
-				loading={changeMasterPassword.isLoading}
-				ctaAction={() => {
-					if (masterPasswordChange1 !== '' && masterPasswordChange2 !== '') {
-						if (masterPasswordChange1 !== masterPasswordChange2) {
-							alert('Passwords are not the same.');
-						} else {
-							setMasterPasswordChange1('');
-							setMasterPasswordChange2('');
-
-							const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
-
-							changeMasterPassword.mutate(
-								{ algorithm, hashing_algorithm, password: masterPasswordChange1 },
-								{
-									onSuccess: (sk) => {
-										setSecretKey(sk);
-										setShowSecretKeyDialog(true);
-										setShowMasterPasswordDialog(false);
-									}
-								}
-							);
-						}
-					}
-				}}
-				ctaLabel="Change"
-				trigger={trigger}
-			>
-				<div className="relative flex flex-grow mt-3 mb-2">
-					<Input
-						className={`flex-grow w-max !py-0.5`}
-						value={masterPasswordChange1}
-						placeholder="New Password"
-						onChange={(e) => setMasterPasswordChange1(e.target.value)}
-						required
-						type={showMasterPassword1 ? 'text' : 'password'}
-					/>
-					<Button
-						onClick={() => setShowMasterPassword1(!showMasterPassword1)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-						type="button"
-					>
-						<MP1CurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
-				<div className="relative flex flex-grow mb-2">
-					<Input
-						className={`flex-grow !py-0.5}`}
-						value={masterPasswordChange2}
-						placeholder="New Password (again)"
-						onChange={(e) => setMasterPasswordChange2(e.target.value)}
-						required
-						type={showMasterPassword2 ? 'text' : 'password'}
-					/>
-					<Button
-						onClick={() => setShowMasterPassword2(!showMasterPassword2)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-						type="button"
-					>
-						<MP2CurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
-				<PasswordMeter password={masterPasswordChange1} />
-
-				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
-					<div className="flex flex-col">
-						<span className="text-xs font-bold">Encryption</span>
-						<Select className="mt-2" onChange={setEncryptionAlgo} value={encryptionAlgo}>
-							<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
-							<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
-						</Select>
+			<form onSubmit={handleSubmit(onSubmit)}>
+				<Dialog
+					open={showMasterPasswordDialog}
+					setOpen={setShowMasterPasswordDialog}
+					title="Change Master Password"
+					description="Select a new master password for your key manager."
+					ctaDanger={true}
+					loading={changeMasterPassword.isLoading}
+					ctaLabel="Change"
+					trigger={trigger}
+				>
+					<div className="relative flex flex-grow mt-3 mb-2">
+						<Input
+							className={`flex-grow w-max !py-0.5`}
+							placeholder="New Password"
+							required
+							{...register('masterPassword', { required: true })}
+							type={showMasterPassword1 ? 'text' : 'password'}
+						/>
+						<Button
+							onClick={() => setShowMasterPassword1(!showMasterPassword1)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+							type="button"
+						>
+							<MP1CurrentEyeIcon className="w-4 h-4" />
+						</Button>
 					</div>
-					<div className="flex flex-col">
-						<span className="text-xs font-bold">Hashing</span>
-						<Select className="mt-2" onChange={setHashingAlgo} value={hashingAlgo}>
-							<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
-							<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
-							<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						</Select>
+					<div className="relative flex flex-grow mb-2">
+						<Input
+							className={`flex-grow !py-0.5}`}
+							placeholder="New Password (again)"
+							required
+							{...register('masterPassword2', { required: true })}
+							type={showMasterPassword2 ? 'text' : 'password'}
+						/>
+						<Button
+							onClick={() => setShowMasterPassword2(!showMasterPassword2)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+							type="button"
+						>
+							<MP2CurrentEyeIcon className="w-4 h-4" />
+						</Button>
 					</div>
-				</div>
-			</Dialog>
+
+					<PasswordMeter password={getValues('masterPassword')} />
+
+					<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
+						<div className="flex flex-col">
+							<span className="text-xs font-bold">Encryption</span>
+							<Select
+								className="mt-2"
+								value={getValues('encryptionAlgo')}
+								onChange={(e) => setValue('encryptionAlgo', e)}
+							>
+								<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
+								<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
+							</Select>
+						</div>
+						<div className="flex flex-col">
+							<span className="text-xs font-bold">Hashing</span>
+							<Select
+								className="mt-2"
+								value={getValues('hashingAlgo')}
+								onChange={(e) => setValue('hashingAlgo', e)}
+							>
+								<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
+								<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
+								<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
+							</Select>
+						</div>
+					</div>
+				</Dialog>
+			</form>
 			<Dialog
 				open={showSecretKeyDialog}
 				setOpen={setShowSecretKeyDialog}
@@ -435,9 +462,19 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 		filePath: string;
 	};
 
-	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>();
+	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
+		defaultValues: {
+			masterPassword: '',
+			secretKey: '',
+			filePath: ''
+		}
+	});
+
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
 		if (data.filePath !== '') {
+			setValue('masterPassword', '');
+			setValue('secretKey', '');
+			setValue('filePath', '');
 			restoreKeystoreMutation.mutate(
 				{
 					password: data.masterPassword,
@@ -449,6 +486,9 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 						setTotalKeysImported(total);
 						setShowBackupRestorationDialog(false);
 						setShowRestorationFinalizationDialog(true);
+					},
+					onError: () => {
+						alert('There was an error while restoring your backup.');
 					}
 				}
 			);
@@ -483,9 +523,7 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 					<div className="relative flex flex-grow mt-3 mb-2">
 						<Input
 							className="flex-grow !py-0.5"
-							// value={masterPassword}
 							placeholder="Master Password"
-							// onChange={(e) => setMasterPassword(e.target.value)}
 							required
 							type={showMasterPassword ? 'text' : 'password'}
 							{...register('masterPassword', { required: true })}
@@ -502,9 +540,7 @@ export const BackupRestorationDialog = (props: { trigger: ReactNode }) => {
 					<div className="relative flex flex-grow mb-3">
 						<Input
 							className="flex-grow !py-0.5"
-							// value={secretKey}
 							placeholder="Secret Key"
-							// onChange={(e) => setSecretKey(e.target.value)}
 							{...register('secretKey', { required: true })}
 							required
 							type={showSecretKey ? 'text' : 'password'}
