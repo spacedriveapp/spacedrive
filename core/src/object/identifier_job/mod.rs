@@ -4,6 +4,7 @@ use crate::{
 	object::cas::generate_cas_id,
 	prisma::{file_path, object},
 };
+use chrono::{DateTime, FixedOffset};
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
@@ -33,10 +34,18 @@ pub enum IdentifierJobError {
 	LocationLocalPath(i32),
 }
 
+#[derive(Debug, Clone)]
+pub struct ObjectCreationMetadata {
+	pub cas_id: String,
+	pub size_str: String,
+	pub kind: ObjectKind,
+	pub date_created: DateTime<FixedOffset>,
+}
+
 pub async fn assemble_object_metadata(
 	location_path: impl AsRef<Path>,
 	file_path: &file_path::Data,
-) -> Result<(String, String, Vec<object::SetParam>), io::Error> {
+) -> Result<ObjectCreationMetadata, io::Error> {
 	assert!(
 		!file_path.is_dir,
 		"We can't generate cas_id for directories"
@@ -70,14 +79,12 @@ pub async fn assemble_object_metadata(
 
 	info!("Analyzed file: {:?} {:?} {:?}", path, cas_id, object_kind);
 
-	Ok(object::create_unchecked(
+	Ok(ObjectCreationMetadata {
 		cas_id,
-		size.to_string(),
-		vec![
-			object::date_created::set(file_path.date_created),
-			object::kind::set(object_kind.int_value()),
-		],
-	))
+		size_str: size.to_string(),
+		kind: object_kind,
+		date_created: file_path.date_created,
+	})
 }
 
 async fn batch_update_file_paths(
@@ -130,9 +137,24 @@ async fn generate_provisional_objects(
 	{
 		// get the cas_id and extract metadata
 		match objects_result {
-			Ok((cas_id, size, params)) => {
+			Ok(ObjectCreationMetadata {
+				cas_id,
+				size_str,
+				kind,
+				date_created,
+			}) => {
 				// create entry into chunks for created file data
-				provisional_objects.insert(file_path_id, (cas_id.clone(), size, params));
+				provisional_objects.insert(
+					file_path_id,
+					object::create_unchecked(
+						cas_id,
+						size_str,
+						vec![
+							object::date_created::set(date_created),
+							object::kind::set(kind.int_value()),
+						],
+					),
+				);
 			}
 			Err(e) => {
 				error!("Error assembling Object metadata: {:#?}", e);

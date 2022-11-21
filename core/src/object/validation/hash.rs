@@ -1,5 +1,5 @@
 use blake3::Hasher;
-use std::path::PathBuf;
+use std::path::Path;
 use tokio::{
 	fs::File,
 	io::{self, AsyncReadExt},
@@ -7,7 +7,7 @@ use tokio::{
 
 const BLOCK_SIZE: usize = 1048576;
 
-pub async fn file_checksum(path: PathBuf) -> Result<String, io::Error> {
+pub async fn file_checksum(path: impl AsRef<Path>) -> Result<String, io::Error> {
 	let mut reader = File::open(path).await?;
 	let mut context = Hasher::new();
 	let mut buffer = vec![0; BLOCK_SIZE].into_boxed_slice();

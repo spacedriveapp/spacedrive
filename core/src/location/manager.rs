@@ -17,11 +17,14 @@ use std::{
 	time::Duration,
 };
 
+use crate::object::identifier_job::ObjectCreationMetadata;
+use crate::object::validation::hash::file_checksum;
 use chrono::{FixedOffset, Utc};
 use futures::{stream::FuturesUnordered, StreamExt};
-use notify::event::RenameMode;
+use int_enum::IntEnum;
+use notify::event::AccessKind;
 use notify::{
-	event::{CreateKind, ModifyKind, RemoveKind},
+	event::{AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
 	Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use once_cell::sync::OnceCell;
@@ -454,6 +457,14 @@ impl LocationWatcher {
 				return Ok(());
 			}
 			match event.kind {
+				EventKind::Access(access_kind) => {
+					if let AccessKind::Close(mode) = access_kind {
+						if matches!(mode, AccessMode::Write) {
+							// If a file was closed with write mode, then it was updated
+							Self::handle_file_update(location, event, library_ctx).await?;
+						}
+					}
+				}
 				EventKind::Create(create_kind) => {
 					Self::handle_create_event(location, event, create_kind, library_ctx).await?;
 				}
@@ -480,7 +491,7 @@ impl LocationWatcher {
 	) -> Result<(), LocationManagerError> {
 		debug!("created {create_kind:#?}");
 
-		if let Some(location_local_path) = location.local_path.clone() {
+		if let Some(ref location_local_path) = location.local_path {
 			debug!(
 				"Location: <root_path ='{location_local_path}'> created: {:#?}",
 				event.paths
@@ -528,11 +539,15 @@ impl LocationWatcher {
 
 					if matches!(create_kind, CreateKind::File) {
 						// generate provisional object
-						let (cas_id, size_in_bytes, params) =
-							assemble_object_metadata(location_local_path, &created_path).await?;
+						let ObjectCreationMetadata {
+							cas_id,
+							size_str,
+							kind,
+							date_created,
+						} = assemble_object_metadata(location_local_path, &created_path).await?;
 
 						let to_update = vec![
-							object::size_in_bytes::set(size_in_bytes.clone()),
+							object::size_in_bytes::set(size_str.clone()),
 							object::date_indexed::set(
 								Utc::now().with_timezone(&FixedOffset::east(0)),
 							),
@@ -544,7 +559,14 @@ impl LocationWatcher {
 							.object()
 							.upsert(
 								object::cas_id::equals(cas_id.clone()),
-								(cas_id.clone(), size_in_bytes, params),
+								(
+									cas_id.clone(),
+									size_str,
+									vec![
+										object::date_created::set(date_created),
+										object::kind::set(kind.int_value()),
+									],
+								),
 								to_update,
 							)
 							.exec()
@@ -552,45 +574,14 @@ impl LocationWatcher {
 
 						debug!("object: {:#?}", object);
 						if !object.has_thumbnail {
-							if let Some(ref extension_str) = created_path.extension {
-								let output_path = library_ctx
-									.config()
-									.data_directory()
-									.join(THUMBNAIL_CACHE_DIR_NAME)
-									.join(&cas_id)
-									.with_extension("webp");
-
-								if let Ok(extension) = ImageExtension::from_str(extension_str) {
-									if can_generate_thumbnail_for_image(&extension) {
-										if let Err(e) =
-											generate_image_thumbnail(&event.paths[0], &output_path)
-												.await
-										{
-											error!("Failed to image thumbnail on location manager: {e:#?}");
-										}
-									}
-								}
-
-								#[cfg(feature = "ffmpeg")]
-								{
-									use crate::object::preview::{
-										can_generate_thumbnail_for_video, generate_video_thumbnail,
-									};
-									use sd_file_ext::extensions::VideoExtension;
-
-									if let Ok(extension) = VideoExtension::from_str(extension_str) {
-										if can_generate_thumbnail_for_video(&extension) {
-											if let Err(e) = generate_video_thumbnail(
-												&event.paths[0],
-												&output_path,
-											)
-											.await
-											{
-												error!("Failed to video thumbnail on location manager: {e:#?}");
-											}
-										}
-									}
-								}
+							if let Some(ref extension) = created_path.extension {
+								generate_thumbnail(
+									extension,
+									&cas_id,
+									&event.paths[0],
+									library_ctx,
+								)
+								.await;
 							}
 						}
 					}
@@ -598,6 +589,93 @@ impl LocationWatcher {
 					invalidate_query!(library_ctx, "locations.getExplorerData");
 				} else {
 					warn!("Watcher found a path without parent");
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	async fn handle_file_update(
+		location: indexer_job_location::Data,
+		event: Event,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		if let Some(ref location_local_path) = location.local_path {
+			if let Some(file_path) =
+				get_existing_file_path(&location, &event.paths[0], library_ctx).await?
+			{
+				// After a file creation, a Close(Write) event is also triggered, but we can ignore
+				// as we just created the file entry in the DB
+				if Utc::now().with_timezone(&FixedOffset::east(0)) - file_path.date_created
+					> chrono::Duration::seconds(1)
+					&& !file_path.is_dir
+				{
+					debug!("updating file: {:#?}", file_path);
+					// We have to separate this object, as the `assemble_object_metadata` doesn't
+					// accept `file_path_with_object::Data`
+					let file_path_only = file_path::Data {
+						id: file_path.id,
+						is_dir: file_path.is_dir,
+						location_id: file_path.location_id,
+						location: None,
+						materialized_path: file_path.materialized_path,
+						name: file_path.name,
+						extension: file_path.extension,
+						object_id: file_path.object_id,
+						object: None,
+						parent_id: file_path.parent_id,
+						key_id: file_path.key_id,
+						date_created: file_path.date_created,
+						date_modified: file_path.date_modified,
+						date_indexed: file_path.date_indexed,
+						key: None,
+					};
+					let ObjectCreationMetadata {
+						cas_id,
+						size_str,
+						kind,
+						date_created,
+					} = assemble_object_metadata(location_local_path, &file_path_only).await?;
+
+					if let Some(ref object) = file_path.object {
+						if object.cas_id != cas_id {
+							// file content changed
+							let mut to_update = vec![
+								object::cas_id::set(cas_id.clone()),
+								object::size_in_bytes::set(size_str),
+								object::kind::set(kind.int_value()),
+								object::date_modified::set(date_created),
+							];
+
+							if object.integrity_checksum.is_some() {
+								// If a checksum was already computed, we need to recompute it
+								to_update.push(object::integrity_checksum::set(Some(
+									file_checksum(&event.paths[0]).await?,
+								)));
+							}
+
+							library_ctx
+								.db
+								.object()
+								.update(object::id::equals(object.id), to_update)
+								.exec()
+								.await?;
+
+							if object.has_thumbnail {
+								// if this file had a thumbnail previously, we update it to match the new content
+								if let Some(ref extension) = file_path_only.extension {
+									generate_thumbnail(
+										extension,
+										&cas_id,
+										&event.paths[0],
+										library_ctx,
+									)
+									.await;
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -615,10 +693,12 @@ impl LocationWatcher {
 
 		match modify_kind {
 			ModifyKind::Data(_) => {
-				todo!("handle modify data");
+				// We ignore data changes here, because AccessKind::Close(Write) is a more generic
+				// event for data changes
 			}
 			ModifyKind::Metadata(_) => {
-				todo!("handle modify metadata");
+				// Metadata modifications are ignored as we already update `date_modified` on every
+				// file modification, at EventKind::Access
 			}
 			ModifyKind::Name(modify_name) => {
 				// There are 3 kinds of rename events, To, From and Both.
@@ -651,8 +731,6 @@ impl LocationWatcher {
 							debug!("Updated {updated} file_paths");
 						}
 
-						// TODO check extension change on file name
-
 						library_ctx
 							.db
 							.file_path()
@@ -664,6 +742,11 @@ impl LocationWatcher {
 									),
 									file_path::name::set(
 										new_path.file_stem().unwrap().to_string_lossy().to_string(),
+									),
+									file_path::extension::set(
+										new_path
+											.extension()
+											.map(|s| s.to_string_lossy().to_string()),
 									),
 								],
 							)
@@ -839,4 +922,41 @@ async fn get_existing_file_path(
 		.exec()
 		.await
 		.map_err(Into::into)
+}
+
+async fn generate_thumbnail(
+	extension: &str,
+	cas_id: &str,
+	file_path: impl AsRef<Path>,
+	library_ctx: &LibraryContext,
+) {
+	let file_path = file_path.as_ref();
+	let output_path = library_ctx
+		.config()
+		.data_directory()
+		.join(THUMBNAIL_CACHE_DIR_NAME)
+		.join(cas_id)
+		.with_extension("webp");
+
+	if let Ok(extension) = ImageExtension::from_str(extension) {
+		if can_generate_thumbnail_for_image(&extension) {
+			if let Err(e) = generate_image_thumbnail(file_path, &output_path).await {
+				error!("Failed to image thumbnail on location manager: {e:#?}");
+			}
+		}
+	}
+
+	#[cfg(feature = "ffmpeg")]
+	{
+		use crate::object::preview::{can_generate_thumbnail_for_video, generate_video_thumbnail};
+		use sd_file_ext::extensions::VideoExtension;
+
+		if let Ok(extension) = VideoExtension::from_str(extension) {
+			if can_generate_thumbnail_for_video(&extension) {
+				if let Err(e) = generate_video_thumbnail(file_path, &output_path).await {
+					error!("Failed to video thumbnail on location manager: {e:#?}");
+				}
+			}
+		}
+	}
 }
