@@ -38,5 +38,23 @@ dashmap = "5.4.0"
 rspc = { workspace = true, optional = true }
 specta = { workspace = true }
 
+[dev-dependencies]
+criterion = "0.4.0"
+
 [features]
 rpsc = ["rspc"]
+
+[[bench]]
+name = "aes-256-gcm"
+path = "benches/aes-256-gcm.rs"
+harness = false
+
+[[bench]]
+name = "xchacha20-poly1305"
+path = "benches/xchacha20-poly1305.rs"
+harness = false
+
+[[bench]]
+name = "argon2id"
+path = "benches/argon2id.rs"
+harness = false
