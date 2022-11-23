@@ -86,15 +86,14 @@ impl LocationCreateArgs {
 
 		let location = create_location(ctx, uuid, &self.path, &self.indexer_rules_ids).await?;
 
-		// // Write a location metadata on a .spacedrive file
-		// SpacedriveLocationMetadataFile::create_and_save(
-		// 	ctx.id,
-		// 	uuid,
-		// 	&self.path,
-		// 	location.name.as_ref().unwrap().clone(),
-		// )
-		// .await?;
-		// Jamie: turning this off because it is hell until it works properly
+		// Write a location metadata on a .spacedrive file
+		SpacedriveLocationMetadataFile::create_and_save(
+			ctx.id,
+			uuid,
+			&self.path,
+			location.name.as_ref().unwrap().clone(),
+		)
+		.await?;
 
 		info!("Created location: {location:?}");
 
