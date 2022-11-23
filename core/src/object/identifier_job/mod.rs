@@ -51,9 +51,7 @@ pub async fn assemble_object_metadata(
 		"We can't generate cas_id for directories"
 	);
 
-	let path = location_path
-		.as_ref()
-		.join(file_path.materialized_path.as_str());
+	let path = location_path.as_ref().join(&file_path.materialized_path);
 
 	let metadata = fs::metadata(&path).await?;
 

@@ -40,7 +40,7 @@ use tokio::{
 	task::{block_in_place, JoinHandle},
 	time::sleep,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use super::{
 	delete_directory, fetch_location, file_path_helper::create_file_path, get_location,
@@ -240,7 +240,7 @@ async fn check_online(location: &location::Data, library_ctx: &LibraryContext) -
 				}
 				true
 			}
-			Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			Err(e) if e.kind() == ErrorKind::NotFound => {
 				if location.is_online {
 					set_location_online(location.id, library_ctx, false).await;
 				}
@@ -458,15 +458,20 @@ impl LocationWatcher {
 			}
 			match event.kind {
 				EventKind::Access(access_kind) => {
-					if let AccessKind::Close(mode) = access_kind {
-						if matches!(mode, AccessMode::Write) {
-							// If a file was closed with write mode, then it was updated
-							Self::handle_file_update(location, event, library_ctx).await?;
-						}
+					// This
+					if access_kind == AccessKind::Close(AccessMode::Write) {
+						// If a file was closed with write mode, then it was updated
+						Self::handle_file_creation_or_update(location, event, library_ctx).await?;
+					} else {
+						trace!("Ignoring access event: {:#?}", event);
 					}
 				}
 				EventKind::Create(create_kind) => {
-					Self::handle_create_event(location, event, create_kind, library_ctx).await?;
+					if create_kind == CreateKind::Folder {
+						Self::handle_create_dir_event(location, event, library_ctx).await?;
+					} else {
+						trace!("Ignored create event: {:#?}", event);
+					}
 				}
 				EventKind::Modify(ref modify_kind) => {
 					let modify_kind = modify_kind.clone();
@@ -483,31 +488,33 @@ impl LocationWatcher {
 		Ok(())
 	}
 
-	async fn handle_create_event(
+	async fn handle_create_dir_event(
 		location: indexer_job_location::Data,
 		event: Event,
-		create_kind: CreateKind,
 		library_ctx: &LibraryContext,
 	) -> Result<(), LocationManagerError> {
-		debug!("created {create_kind:#?}");
-
 		if let Some(ref location_local_path) = location.local_path {
 			debug!(
-				"Location: <root_path ='{location_local_path}'> created: {:#?}",
-				event.paths
+				"Location: <root_path ='{location_local_path}'> creating directory: {}",
+				event.paths[0].display()
 			);
-			let maybe_subpath = subtract_location_path(&location_local_path, &event.paths[0]);
 
-			debug!("subpath: {:?}", maybe_subpath);
-
-			if let Some(subpath) = maybe_subpath {
+			if let Some(subpath) = subtract_location_path(&location_local_path, &event.paths[0]) {
 				let subpath_str = subpath.to_string_lossy().to_string();
 				let parent_directory = library_ctx
 					.db
 					.file_path()
-					.find_first(vec![file_path::materialized_path::equals(
-						subpath.parent().unwrap().to_str().unwrap().to_string(),
-					)])
+					.find_first(vec![
+						// We have an empty `materialized_path` for each location_id
+						file_path::location_id::equals(location.id),
+						file_path::materialized_path::equals(
+							subpath
+								.parent()
+								.unwrap_or_else(|| Path::new(""))
+								.to_string_lossy()
+								.to_string(),
+						),
+					])
 					.exec()
 					.await?;
 
@@ -519,72 +526,13 @@ impl LocationWatcher {
 						location.id,
 						subpath_str,
 						subpath.file_stem().unwrap().to_string_lossy().to_string(),
-						if create_kind == CreateKind::Folder {
-							None
-						} else {
-							Some(
-								subpath
-									.extension()
-									.unwrap_or_default()
-									.to_string_lossy()
-									.to_string(),
-							)
-						},
+						None,
 						Some(parent_directory.id),
-						create_kind == CreateKind::Folder,
+						true,
 					)
 					.await?;
 
-					info!("Created path: {:#?}", created_path);
-
-					if matches!(create_kind, CreateKind::File) {
-						// generate provisional object
-						let ObjectCreationMetadata {
-							cas_id,
-							size_str,
-							kind,
-							date_created,
-						} = assemble_object_metadata(location_local_path, &created_path).await?;
-
-						let to_update = vec![
-							object::size_in_bytes::set(size_str.clone()),
-							object::date_indexed::set(
-								Utc::now().with_timezone(&FixedOffset::east(0)),
-							),
-						];
-
-						// upsert object
-						let object = library_ctx
-							.db
-							.object()
-							.upsert(
-								object::cas_id::equals(cas_id.clone()),
-								(
-									cas_id.clone(),
-									size_str,
-									vec![
-										object::date_created::set(date_created),
-										object::kind::set(kind.int_value()),
-									],
-								),
-								to_update,
-							)
-							.exec()
-							.await?;
-
-						debug!("object: {:#?}", object);
-						if !object.has_thumbnail {
-							if let Some(ref extension) = created_path.extension {
-								generate_thumbnail(
-									extension,
-									&cas_id,
-									&event.paths[0],
-									library_ctx,
-								)
-								.await;
-							}
-						}
-					}
+					info!("Created path: {}", created_path.materialized_path);
 
 					invalidate_query!(library_ctx, "locations.getExplorerData");
 				} else {
@@ -596,7 +544,7 @@ impl LocationWatcher {
 		Ok(())
 	}
 
-	async fn handle_file_update(
+	async fn handle_file_creation_or_update(
 		location: indexer_job_location::Data,
 		event: Event,
 		library_ctx: &LibraryContext,
@@ -605,78 +553,181 @@ impl LocationWatcher {
 			if let Some(file_path) =
 				get_existing_file_path(&location, &event.paths[0], library_ctx).await?
 			{
-				// After a file creation, a Close(Write) event is also triggered, but we can ignore
-				// as we just created the file entry in the DB
-				if Utc::now().with_timezone(&FixedOffset::east(0)) - file_path.date_created
-					> chrono::Duration::seconds(1)
-					&& !file_path.is_dir
-				{
-					debug!("updating file: {:#?}", file_path);
-					// We have to separate this object, as the `assemble_object_metadata` doesn't
-					// accept `file_path_with_object::Data`
-					let file_path_only = file_path::Data {
-						id: file_path.id,
-						is_dir: file_path.is_dir,
-						location_id: file_path.location_id,
-						location: None,
-						materialized_path: file_path.materialized_path,
-						name: file_path.name,
-						extension: file_path.extension,
-						object_id: file_path.object_id,
-						object: None,
-						parent_id: file_path.parent_id,
-						key_id: file_path.key_id,
-						date_created: file_path.date_created,
-						date_modified: file_path.date_modified,
-						date_indexed: file_path.date_indexed,
-						key: None,
-					};
-					let ObjectCreationMetadata {
-						cas_id,
-						size_str,
-						kind,
-						date_created,
-					} = assemble_object_metadata(location_local_path, &file_path_only).await?;
+				Self::update_file(location_local_path, file_path, event, library_ctx).await
+			} else {
+				// We received None because it is a new file
+				Self::create_file(location.id, location_local_path, event, library_ctx).await
+			}
+		} else {
+			Err(LocationManagerError::LocationMissingLocalPath(location.id))
+		}
+	}
 
-					if let Some(ref object) = file_path.object {
-						if object.cas_id != cas_id {
-							// file content changed
-							let mut to_update = vec![
-								object::cas_id::set(cas_id.clone()),
-								object::size_in_bytes::set(size_str),
-								object::kind::set(kind.int_value()),
-								object::date_modified::set(date_created),
-							];
+	async fn update_file(
+		location_local_path: &str,
+		file_path: file_path_with_object::Data,
+		event: Event,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		debug!(
+			"Location: <root_path ='{location_local_path}'> updating file: {}",
+			event.paths[0].display()
+		);
+		// We have to separate this object, as the `assemble_object_metadata` doesn't
+		// accept `file_path_with_object::Data`
+		let file_path_only = file_path::Data {
+			id: file_path.id,
+			is_dir: file_path.is_dir,
+			location_id: file_path.location_id,
+			location: None,
+			materialized_path: file_path.materialized_path,
+			name: file_path.name,
+			extension: file_path.extension,
+			object_id: file_path.object_id,
+			object: None,
+			parent_id: file_path.parent_id,
+			key_id: file_path.key_id,
+			date_created: file_path.date_created,
+			date_modified: file_path.date_modified,
+			date_indexed: file_path.date_indexed,
+			key: None,
+		};
+		let ObjectCreationMetadata {
+			cas_id,
+			size_str,
+			kind,
+			date_created,
+		} = assemble_object_metadata(location_local_path, &file_path_only).await?;
 
-							if object.integrity_checksum.is_some() {
-								// If a checksum was already computed, we need to recompute it
-								to_update.push(object::integrity_checksum::set(Some(
-									file_checksum(&event.paths[0]).await?,
-								)));
-							}
+		if let Some(ref object) = file_path.object {
+			if object.cas_id != cas_id {
+				// file content changed
+				library_ctx
+					.db
+					.object()
+					.update(
+						object::id::equals(object.id),
+						vec![
+							object::cas_id::set(cas_id.clone()),
+							object::size_in_bytes::set(size_str),
+							object::kind::set(kind.int_value()),
+							object::date_modified::set(date_created),
+							object::integrity_checksum::set(
+								if object.integrity_checksum.is_some() {
+									// If a checksum was already computed, we need to recompute it
+									Some(file_checksum(&event.paths[0]).await?)
+								} else {
+									None
+								},
+							),
+						],
+					)
+					.exec()
+					.await?;
 
-							library_ctx
-								.db
-								.object()
-								.update(object::id::equals(object.id), to_update)
-								.exec()
-								.await?;
-
-							if object.has_thumbnail {
-								// if this file had a thumbnail previously, we update it to match the new content
-								if let Some(ref extension) = file_path_only.extension {
-									generate_thumbnail(
-										extension,
-										&cas_id,
-										&event.paths[0],
-										library_ctx,
-									)
-									.await;
-								}
-							}
-						}
+				if object.has_thumbnail {
+					// if this file had a thumbnail previously, we update it to match the new content
+					if let Some(ref extension) = file_path_only.extension {
+						generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
 					}
 				}
+			}
+		}
+
+		Ok(())
+	}
+
+	async fn create_file(
+		location_id: i32,
+		location_local_path: &str,
+		event: Event,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		debug!(
+			"Location: <root_path ='{location_local_path}'> creating file: {}",
+			event.paths[0].display()
+		);
+		if let Some(materialized_path) =
+			subtract_location_path(&location_local_path, &event.paths[0])
+		{
+			if let Some(parent_directory) =
+				get_parent_dir(location_id, &materialized_path, library_ctx).await?
+			{
+				let created_file = create_file_path(
+					library_ctx,
+					location_id,
+					materialized_path.to_string_lossy().to_string(),
+					materialized_path
+						.file_stem()
+						.unwrap_or_default()
+						.to_string_lossy()
+						.to_string(),
+					materialized_path.extension().and_then(|ext| {
+						if ext.is_empty() {
+							None
+						} else {
+							Some(ext.to_string_lossy().to_string())
+						}
+					}),
+					Some(parent_directory.id),
+					false,
+				)
+				.await?;
+
+				info!("Created path: {}", created_file.materialized_path);
+
+				// generate provisional object
+				let ObjectCreationMetadata {
+					cas_id,
+					size_str,
+					kind,
+					date_created,
+				} = assemble_object_metadata(location_local_path, &created_file).await?;
+
+				// upsert object because in can be from a file that previously existed and was moved
+				let object = library_ctx
+					.db
+					.object()
+					.upsert(
+						object::cas_id::equals(cas_id.clone()),
+						(
+							cas_id.clone(),
+							size_str.clone(),
+							vec![
+								object::date_created::set(date_created),
+								object::kind::set(kind.int_value()),
+							],
+						),
+						vec![
+							object::size_in_bytes::set(size_str),
+							object::date_indexed::set(
+								Utc::now().with_timezone(&FixedOffset::east(0)),
+							),
+						],
+					)
+					.exec()
+					.await?;
+
+				library_ctx
+					.db
+					.file_path()
+					.update(
+						file_path::location_id_id(location_id, created_file.id),
+						vec![file_path::object_id::set(Some(object.id))],
+					)
+					.exec()
+					.await?;
+
+				debug!("object: {:#?}", object);
+				if !object.has_thumbnail {
+					if let Some(ref extension) = created_file.extension {
+						generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
+					}
+				}
+
+				invalidate_query!(library_ctx, "locations.getExplorerData");
+			} else {
+				warn!("Watcher found a path without parent");
 			}
 		}
 
@@ -831,6 +882,11 @@ impl LocationWatcher {
 
 	fn unwatch(&mut self) {
 		if let Err(e) = self.watcher.unwatch(&self.path) {
+			/**************************************** TODO: ****************************************
+			 * According to an unit test, this error may occur when a subdirectory is removed	   *
+			 * and we try to unwatch the parent directory then we have to check the implications   *
+			 * of unwatch error for this case.   												   *
+			 **************************************************************************************/
 			error!(
 				"Unable to unwatch location: (path: {}, error: {e:#?})",
 				self.path.display()
@@ -924,6 +980,30 @@ async fn get_existing_file_path(
 		.map_err(Into::into)
 }
 
+async fn get_parent_dir(
+	location_id: i32,
+	path: impl AsRef<Path>,
+	library_ctx: &LibraryContext,
+) -> Result<Option<file_path::Data>, LocationManagerError> {
+	library_ctx
+		.db
+		.file_path()
+		.find_first(vec![
+			// We have an empty `materialized_path` for each location_id
+			file_path::location_id::equals(location_id),
+			file_path::materialized_path::equals(
+				path.as_ref()
+					.parent()
+					.unwrap_or_else(|| Path::new(""))
+					.to_string_lossy()
+					.to_string(),
+			),
+		])
+		.exec()
+		.await
+		.map_err(Into::into)
+}
+
 async fn generate_thumbnail(
 	extension: &str,
 	cas_id: &str,
@@ -958,5 +1038,284 @@ async fn generate_thumbnail(
 				}
 			}
 		}
+	}
+}
+
+/***************************************************************************************************
+ * Some tests to validate our assumptions of events through different file systems                 *
+ ***************************************************************************************************
+ * Events dispatched on Linux:								    						           *
+ * 		Create File:																			   *
+ *			1) EventKind::Create(CreateKind::File)												   *
+ *			2) EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any))						   *
+ *				or EventKind::Modify(ModifyKind::Data(DataChange::Any))							   *
+ *          3) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
+ *		Create Directory:																		   *
+ *			1) EventKind::Create(CreateKind::Folder)											   *
+ *      Update File:										   									   *
+ *			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
+ *			2) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
+ *		Update File (rename):																	   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
+ *		Update Directory (rename):																   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
+ *	 	Delete File:																			   *
+ *			1) EventKind::Remove(RemoveKind::File)												   *
+ *		Delete Directory:																		   *
+ *			1) EventKind::Remove(RemoveKind::Folder)											   *
+ *																								   *
+ * Events dispatched on MacOS:																	   *
+ * TODO																							   *
+ *																								   *
+ * Events dispatched on Windows:																   *
+ * TODO																							   *
+ *																								   *
+ * Events dispatched on Android:																   *
+ * TODO																							   *
+ *																								   *
+ * Events dispatched on iOS:																	   *
+ * TODO																							   *
+ *																								   *
+ **************************************************************************************************/
+#[cfg(test)]
+mod tests {
+	use notify::{
+		event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
+		Config, Event, EventKind, RecommendedWatcher, Watcher,
+	};
+	use std::{path::Path, time::Duration};
+	use tempfile::{tempdir, TempDir};
+	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
+	use tracing::debug;
+	use tracing_test::traced_test;
+
+	async fn setup_watcher() -> (
+		TempDir,
+		RecommendedWatcher,
+		mpsc::UnboundedReceiver<notify::Result<Event>>,
+	) {
+		let (events_tx, events_rx) = mpsc::unbounded_channel();
+
+		let watcher = RecommendedWatcher::new(
+			move |result| {
+				events_tx
+					.send(result)
+					.expect("Unable to send watcher event");
+			},
+			Config::default(),
+		)
+		.expect("Failed to create watcher");
+
+		(tempdir().unwrap(), watcher, events_rx)
+	}
+
+	async fn expect_event(
+		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
+		path: impl AsRef<Path>,
+		expected_event: EventKind,
+	) {
+		let path = path.as_ref();
+		let mut tries = 0;
+		loop {
+			match events_rx.try_recv() {
+				Ok(maybe_event) => {
+					let event = maybe_event.expect("Failed to receive event");
+					debug!("Received event: {event:#?}");
+					// In case of file creation, we expect to see an close event on write mode
+					if event.paths[0] == path && event.kind == expected_event {
+						debug!("Received expected event: {expected_event:#?}");
+						break;
+					}
+				}
+				Err(e) => {
+					debug!("No event yet: {e:#?}");
+					tries += 1;
+					sleep(Duration::from_millis(100)).await;
+				}
+			}
+
+			if tries == 10 {
+				panic!("No expected event received after 10 tries");
+			}
+		}
+	}
+
+	#[tokio::test]
+	#[traced_test]
+	async fn create_file_event() {
+		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
+
+		watcher
+			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
+			.expect("Failed to watch root directory");
+		debug!("Now watching {}", root_dir.path().display());
+
+		let file_path = root_dir.path().join("test.txt");
+		fs::write(&file_path, "test").await.unwrap();
+
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Access(AccessKind::Close(AccessMode::Write)),
+		)
+		.await;
+
+		watcher
+			.unwatch(root_dir.path())
+			.expect("Failed to unwatch root directory");
+	}
+
+	#[tokio::test]
+	#[traced_test]
+	async fn create_dir_event() {
+		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
+
+		watcher
+			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
+			.expect("Failed to watch root directory");
+		debug!("Now watching {}", root_dir.path().display());
+
+		let dir_path = root_dir.path().join("inner");
+		fs::create_dir(&dir_path)
+			.await
+			.expect("Failed to create directory");
+
+		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
+
+		watcher
+			.unwatch(root_dir.path())
+			.expect("Failed to unwatch root directory");
+	}
+
+	#[tokio::test]
+	#[traced_test]
+	async fn update_file_event() {
+		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
+
+		let file_path = root_dir.path().join("test.txt");
+		fs::write(&file_path, "test").await.unwrap();
+
+		watcher
+			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
+			.expect("Failed to watch root directory");
+		debug!("Now watching {}", root_dir.path().display());
+
+		let mut file = fs::OpenOptions::new()
+			.append(true)
+			.open(&file_path)
+			.await
+			.expect("Failed to open file");
+
+		// Writing then sync data before closing the file
+		file.write_all(b"\nanother test")
+			.await
+			.expect("Failed to write to file");
+		file.sync_all().await.expect("Failed to flush file");
+		drop(file);
+
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Access(AccessKind::Close(AccessMode::Write)),
+		)
+		.await;
+
+		watcher
+			.unwatch(root_dir.path())
+			.expect("Failed to unwatch root directory");
+	}
+
+	#[tokio::test]
+	#[traced_test]
+	async fn update_dir_event() {
+		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
+
+		let dir_path = root_dir.path().join("inner");
+		fs::create_dir(&dir_path)
+			.await
+			.expect("Failed to create directory");
+
+		watcher
+			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
+			.expect("Failed to watch root directory");
+		debug!("Now watching {}", root_dir.path().display());
+
+		let new_dir_name = root_dir.path().join("inner2");
+
+		fs::rename(&dir_path, &new_dir_name)
+			.await
+			.expect("Failed to rename directory");
+
+		expect_event(
+			events_rx,
+			&dir_path,
+			EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
+		)
+		.await;
+
+		debug!("Unwatching root directory: {}", root_dir.path().display());
+		watcher
+			.unwatch(root_dir.path())
+			.expect("Failed to unwatch root directory");
+	}
+
+	#[tokio::test]
+	#[traced_test]
+	async fn delete_file_event() {
+		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
+
+		let file_path = root_dir.path().join("test.txt");
+		fs::write(&file_path, "test").await.unwrap();
+
+		watcher
+			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
+			.expect("Failed to watch root directory");
+		debug!("Now watching {}", root_dir.path().display());
+
+		fs::remove_file(&file_path)
+			.await
+			.expect("Failed to remove file");
+
+		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
+
+		watcher
+			.unwatch(root_dir.path())
+			.expect("Failed to unwatch root directory");
+	}
+
+	#[tokio::test]
+	#[traced_test]
+	async fn delete_dir_event() {
+		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
+
+		let dir_path = root_dir.path().join("inner");
+		fs::create_dir(&dir_path)
+			.await
+			.expect("Failed to create directory");
+
+		watcher
+			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
+			.expect("Failed to watch root directory");
+		debug!("Now watching {}", root_dir.path().display());
+
+		debug!("First unwatching the inner directory before removing it");
+		watcher
+			.unwatch(&dir_path)
+			.expect("Failed to unwatch inner directory");
+
+		fs::remove_dir(&dir_path)
+			.await
+			.expect("Failed to remove directory");
+
+		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
+
+		debug!("Unwatching root directory: {}", root_dir.path().display());
+		watcher
+			.unwatch(root_dir.path())
+			.expect("Failed to unwatch root directory");
 	}
 }
