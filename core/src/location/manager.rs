@@ -1108,10 +1108,10 @@ async fn generate_thumbnail(
  *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
  *	 	Delete File:																			   *
  *			1) EventKind::Remove(RemoveKind::Any)												   *
- *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
+ *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any)) - On parent directory		   *
  *		Delete Directory:																		   *
  *			1) EventKind::Remove(RemoveKind::Any)											   	   *
- *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
+ *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any)) - On parent directory		   *
  *																								   *
  * Events dispatched on Windows:																   *
  * 		Create File:																			   *
@@ -1147,6 +1147,7 @@ mod tests {
 		event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
 		Config, Event, EventKind, RecommendedWatcher, Watcher,
 	};
+	use std::io::ErrorKind;
 	use std::{path::Path, time::Duration};
 	use tempfile::{tempdir, TempDir};
 	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
@@ -1178,6 +1179,7 @@ mod tests {
 		path: impl AsRef<Path>,
 		expected_event: EventKind,
 	) {
+		debug!("Expecting event: {expected_event:#?}");
 		let path = path.as_ref();
 		let mut tries = 0;
 		loop {
@@ -1441,7 +1443,7 @@ mod tests {
 		#[cfg(target_os = "macos")]
 		expect_event(
 			events_rx,
-			&file_path,
+			&root_dir.path(),
 			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
 		)
 		.await;
@@ -1465,6 +1467,14 @@ mod tests {
 			.await
 			.expect("Failed to create directory");
 
+		if let Err(e) = fs::metadata(&dir_path).await {
+			if e.kind() == ErrorKind::NotFound {
+				panic!("Directory not found");
+			} else {
+				panic!("{e}");
+			}
+		}
+
 		watcher
 			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
 			.expect("Failed to watch root directory");
@@ -1485,7 +1495,7 @@ mod tests {
 		#[cfg(target_os = "macos")]
 		expect_event(
 			events_rx,
-			&dir_path,
+			&root_dir.path(),
 			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
 		)
 		.await;
