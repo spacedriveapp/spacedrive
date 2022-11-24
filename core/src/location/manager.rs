@@ -1306,7 +1306,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(
 			events_rx,
-			&dir_path,
+			&new_dir_name,
 			EventKind::Modify(ModifyKind::Name(RenameMode::To)),
 		)
 		.await;
