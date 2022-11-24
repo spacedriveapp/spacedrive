@@ -158,6 +158,9 @@ jobs:
       - name: Cargo fetch
         run: cargo fetch
 
+      - name: Cargo test core
+        run: cargo test -p sd-core
+
       - name: Check core
         run: cargo check -p sd-core --release
 
