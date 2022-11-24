@@ -1230,7 +1230,7 @@ mod tests {
 			.expect("Failed to create directory");
 
 		#[cfg(target_os = "windows")]
-		expect_event(events_rx, &file_path, EventKind::Create(CreateKind::Any)).await;
+		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Any)).await;
 
 		#[cfg(not(target_os = "windows"))]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
