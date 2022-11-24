@@ -456,35 +456,60 @@ impl LocationWatcher {
 				);
 				return Ok(());
 			}
-			match event.kind {
-				EventKind::Access(access_kind) => {
-					// This
-					if access_kind == AccessKind::Close(AccessMode::Write) {
-						// If a file was closed with write mode, then it was updated
-						Self::handle_file_creation_or_update(location, event, library_ctx).await?;
-					} else {
-						trace!("Ignoring access event: {:#?}", event);
-					}
-				}
-				EventKind::Create(create_kind) => {
-					if create_kind == CreateKind::Folder {
-						Self::handle_create_dir_event(location, event, library_ctx).await?;
-					} else {
-						trace!("Ignored create event: {:#?}", event);
-					}
-				}
-				EventKind::Modify(ref modify_kind) => {
-					let modify_kind = modify_kind.clone();
-					Self::handle_modify_event(location, event, modify_kind, library_ctx).await?;
-				}
-				EventKind::Remove(remove_kind) => {
-					Self::handle_remove_event(location, event, remove_kind, library_ctx).await?;
-				}
-				other_event_kind => {
-					debug!("Other event that we don't handle for now: {other_event_kind:#?}");
+
+			#[cfg(target_os = "windows")]
+			Self::handle_event_windows(location, event, library_ctx).await?;
+
+			#[cfg(not(target_os = "windows"))]
+			Self::handle_event_linux(location, event, library_ctx).await?;
+		}
+		Ok(())
+	}
+
+	async fn handle_event_linux(
+		location: indexer_job_location::Data,
+		event: Event,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		match event.kind {
+			EventKind::Access(access_kind) => {
+				// This
+				if access_kind == AccessKind::Close(AccessMode::Write) {
+					// If a file was closed with write mode, then it was updated
+					Self::handle_file_creation_or_update(location, event, library_ctx).await?;
+				} else {
+					trace!("Ignoring access event: {:#?}", event);
 				}
 			}
+			EventKind::Create(create_kind) => {
+				if create_kind == CreateKind::Folder {
+					Self::handle_create_dir_event(location, event, library_ctx).await?;
+				} else {
+					trace!("Ignored create event: {:#?}", event);
+				}
+			}
+			EventKind::Modify(ref modify_kind) => {
+				let modify_kind = modify_kind.clone();
+				Self::handle_modify_event(location, event, modify_kind, library_ctx).await?;
+			}
+			EventKind::Remove(remove_kind) => {
+				Self::handle_remove_event(location, event, remove_kind, library_ctx).await?;
+			}
+			other_event_kind => {
+				debug!("Other event that we don't handle for now: {other_event_kind:#?}");
+			}
 		}
+
+		Ok(())
+	}
+
+	async fn handle_event_windows(
+		location: indexer_job_location::Data,
+		event: Event,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		todo!("validating unit tests first");
+
 		Ok(())
 	}
 
@@ -1072,7 +1097,23 @@ async fn generate_thumbnail(
  * TODO																							   *
  *																								   *
  * Events dispatched on Windows:																   *
- * TODO																							   *
+ * 		Create File:																			   *
+ *			1) EventKind::Create(CreateKind::Any)												   *
+ *			2) EventKind::Modify(ModifyKind::Any)												   *
+ *		Create Directory:																		   *
+ *			1) EventKind::Create(CreateKind::Any)												   *
+ *      Update File:										   									   *
+ *			1) EventKind::Modify(ModifyKind::Any)												   *
+ *		Update File (rename):																	   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+ *		Update Directory (rename):																   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+ *			1) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+ *	 	Delete File:																			   *
+ *			1) EventKind::Remove(RemoveKind::Any)												   *
+ *		Delete Directory:																		   *
+ *			1) EventKind::Remove(RemoveKind::Any)												   *
  *																								   *
  * Events dispatched on Android:																   *
  * TODO																							   *
@@ -1157,6 +1198,10 @@ mod tests {
 		let file_path = root_dir.path().join("test.txt");
 		fs::write(&file_path, "test").await.unwrap();
 
+		#[cfg(target_os = "windows")]
+		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
+
+		#[cfg(not(target_os = "windows"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -1184,6 +1229,10 @@ mod tests {
 			.await
 			.expect("Failed to create directory");
 
+		#[cfg(target_os = "windows")]
+		expect_event(events_rx, &file_path, EventKind::Create(CreateKind::Any)).await;
+
+		#[cfg(not(target_os = "windows"))]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
 
 		watcher
@@ -1217,6 +1266,10 @@ mod tests {
 		file.sync_all().await.expect("Failed to flush file");
 		drop(file);
 
+		#[cfg(target_os = "windows")]
+		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
+
+		#[cfg(not(target_os = "windows"))]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -1250,6 +1303,15 @@ mod tests {
 			.await
 			.expect("Failed to rename directory");
 
+		#[cfg(target_os = "windows")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Name(RenameMode::To)),
+		)
+		.await;
+
+		#[cfg(not(target_os = "windows"))]
 		expect_event(
 			events_rx,
 			&dir_path,
@@ -1280,6 +1342,10 @@ mod tests {
 			.await
 			.expect("Failed to remove file");
 
+		#[cfg(target_os = "windows")]
+		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::Any)).await;
+
+		#[cfg(not(target_os = "windows"))]
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
 
 		watcher
@@ -1311,6 +1377,10 @@ mod tests {
 			.await
 			.expect("Failed to remove directory");
 
+		#[cfg(target_os = "windows")]
+		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::Any)).await;
+
+		#[cfg(not(target_os = "windows"))]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
 
 		debug!("Unwatching root directory: {}", root_dir.path().display());
