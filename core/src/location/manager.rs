@@ -1082,19 +1082,36 @@ async fn generate_thumbnail(
  *			2) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
  *		Update File (rename):																	   *
  *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
+ *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+ *			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
  *		Update Directory (rename):																   *
  *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
+ *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+ *			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
  *	 	Delete File:																			   *
  *			1) EventKind::Remove(RemoveKind::File)												   *
  *		Delete Directory:																		   *
  *			1) EventKind::Remove(RemoveKind::Folder)											   *
  *																								   *
  * Events dispatched on MacOS:																	   *
- * TODO																							   *
+ * 		Create File:																			   *
+ *			1) EventKind::Create(CreateKind::File)												   *
+ *		Create Directory:																		   *
+ *			1) EventKind::Create(CreateKind::Folder)											   *
+ *      Update File:										   									   *
+ *			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
+ *		Update File (rename):																	   *
+ *			1) EventKind::Create(CreateKind::File)											       *
+ *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
+ *		Update Directory (rename):																   *
+ *			1) EventKind::Create(CreateKind::Folder)											   *
+ *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
+ *	 	Delete File:																			   *
+ *			1) EventKind::Remove(RemoveKind::Any)												   *
+ *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
+ *		Delete Directory:																		   *
+ *			1) EventKind::Remove(RemoveKind::Any)											   	   *
+ *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
  *																								   *
  * Events dispatched on Windows:																   *
  * 		Create File:																			   *
@@ -1106,10 +1123,10 @@ async fn generate_thumbnail(
  *			1) EventKind::Modify(ModifyKind::Any)												   *
  *		Update File (rename):																	   *
  *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+ *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
  *		Update Directory (rename):																   *
  *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+ *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
  *	 	Delete File:																			   *
  *			1) EventKind::Remove(RemoveKind::Any)												   *
  *		Delete Directory:																		   *
@@ -1124,6 +1141,8 @@ async fn generate_thumbnail(
  **************************************************************************************************/
 #[cfg(test)]
 mod tests {
+	use notify::event::DataChange;
+	use notify::event::ModifyKind::Data;
 	use notify::{
 		event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
 		Config, Event, EventKind, RecommendedWatcher, Watcher,
@@ -1131,7 +1150,7 @@ mod tests {
 	use std::{path::Path, time::Duration};
 	use tempfile::{tempdir, TempDir};
 	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
-	use tracing::debug;
+	use tracing::{debug, error};
 	use tracing_test::traced_test;
 
 	async fn setup_watcher() -> (
@@ -1201,7 +1220,10 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
-		#[cfg(not(target_os = "windows"))]
+		#[cfg(target_os = "macos")]
+		expect_event(events_rx, &file_path, EventKind::Create(CreateKind::File)).await;
+
+		#[cfg(target_os = "linux")]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -1209,9 +1231,10 @@ mod tests {
 		)
 		.await;
 
-		watcher
-			.unwatch(root_dir.path())
-			.expect("Failed to unwatch root directory");
+		debug!("Unwatching root directory: {}", root_dir.path().display());
+		if let Err(e) = watcher.unwatch(root_dir.path()) {
+			error!("Failed to unwatch root directory: {e:#?}");
+		}
 	}
 
 	#[tokio::test]
@@ -1232,12 +1255,16 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Any)).await;
 
-		#[cfg(not(target_os = "windows"))]
+		#[cfg(target_os = "macos")]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
 
-		watcher
-			.unwatch(root_dir.path())
-			.expect("Failed to unwatch root directory");
+		#[cfg(target_os = "linux")]
+		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
+
+		debug!("Unwatching root directory: {}", root_dir.path().display());
+		if let Err(e) = watcher.unwatch(root_dir.path()) {
+			error!("Failed to unwatch root directory: {e:#?}");
+		}
 	}
 
 	#[tokio::test]
@@ -1269,7 +1296,15 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
-		#[cfg(not(target_os = "windows"))]
+		#[cfg(target_os = "macos")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+		)
+		.await;
+
+		#[cfg(target_os = "linux")]
 		expect_event(
 			events_rx,
 			&file_path,
@@ -1277,9 +1312,59 @@ mod tests {
 		)
 		.await;
 
+		debug!("Unwatching root directory: {}", root_dir.path().display());
+		if let Err(e) = watcher.unwatch(root_dir.path()) {
+			error!("Failed to unwatch root directory: {e:#?}");
+		}
+	}
+
+	#[tokio::test]
+	#[traced_test]
+	async fn update_file_rename_event() {
+		let (root_dir, mut watcher, events_rx) = setup_watcher().await;
+
+		let file_path = root_dir.path().join("test.txt");
+		fs::write(&file_path, "test").await.unwrap();
+
 		watcher
-			.unwatch(root_dir.path())
-			.expect("Failed to unwatch root directory");
+			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
+			.expect("Failed to watch root directory");
+		debug!("Now watching {}", root_dir.path().display());
+
+		let new_file_name = root_dir.path().join("test2.txt");
+
+		fs::rename(&file_path, &new_file_name)
+			.await
+			.expect("Failed to rename file");
+
+		#[cfg(target_os = "windows")]
+		expect_event(
+			events_rx,
+			&new_file_name,
+			EventKind::Modify(ModifyKind::Name(RenameMode::To)),
+		)
+		.await;
+
+		#[cfg(target_os = "macos")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Name(RenameMode::Any)),
+		)
+		.await;
+
+		#[cfg(target_os = "linux")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
+		)
+		.await;
+
+		debug!("Unwatching root directory: {}", root_dir.path().display());
+		if let Err(e) = watcher.unwatch(root_dir.path()) {
+			error!("Failed to unwatch root directory: {e:#?}");
+		}
 	}
 
 	#[tokio::test]
@@ -1311,7 +1396,15 @@ mod tests {
 		)
 		.await;
 
-		#[cfg(not(target_os = "windows"))]
+		#[cfg(target_os = "macos")]
+		expect_event(
+			events_rx,
+			&dir_path,
+			EventKind::Modify(ModifyKind::Name(RenameMode::Any)),
+		)
+		.await;
+
+		#[cfg(target_os = "linux")]
 		expect_event(
 			events_rx,
 			&dir_path,
@@ -1320,9 +1413,9 @@ mod tests {
 		.await;
 
 		debug!("Unwatching root directory: {}", root_dir.path().display());
-		watcher
-			.unwatch(root_dir.path())
-			.expect("Failed to unwatch root directory");
+		if let Err(e) = watcher.unwatch(root_dir.path()) {
+			error!("Failed to unwatch root directory: {e:#?}");
+		}
 	}
 
 	#[tokio::test]
@@ -1345,12 +1438,21 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::Any)).await;
 
-		#[cfg(not(target_os = "windows"))]
+		#[cfg(target_os = "macos")]
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+		)
+		.await;
+
+		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
 
-		watcher
-			.unwatch(root_dir.path())
-			.expect("Failed to unwatch root directory");
+		debug!("Unwatching root directory: {}", root_dir.path().display());
+		if let Err(e) = watcher.unwatch(root_dir.path()) {
+			error!("Failed to unwatch root directory: {e:#?}");
+		}
 	}
 
 	#[tokio::test]
@@ -1369,9 +1471,9 @@ mod tests {
 		debug!("Now watching {}", root_dir.path().display());
 
 		debug!("First unwatching the inner directory before removing it");
-		watcher
-			.unwatch(&dir_path)
-			.expect("Failed to unwatch inner directory");
+		if let Err(e) = watcher.unwatch(&dir_path) {
+			error!("Failed to unwatch inner directory: {e:#?}");
+		}
 
 		fs::remove_dir(&dir_path)
 			.await
@@ -1380,12 +1482,20 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Any)).await;
 
-		#[cfg(not(target_os = "windows"))]
+		#[cfg(target_os = "macos")]
+		expect_event(
+			events_rx,
+			&dir_path,
+			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+		)
+		.await;
+
+		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
 
 		debug!("Unwatching root directory: {}", root_dir.path().display());
-		watcher
-			.unwatch(root_dir.path())
-			.expect("Failed to unwatch root directory");
+		if let Err(e) = watcher.unwatch(root_dir.path()) {
+			error!("Failed to unwatch root directory: {e:#?}");
+		}
 	}
 }
