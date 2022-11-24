@@ -1306,7 +1306,7 @@ mod tests {
 		#[cfg(target_os = "windows")]
 		expect_event(
 			events_rx,
-			&file_path,
+			&dir_path,
 			EventKind::Modify(ModifyKind::Name(RenameMode::To)),
 		)
 		.await;
@@ -1378,7 +1378,7 @@ mod tests {
 			.expect("Failed to remove directory");
 
 		#[cfg(target_os = "windows")]
-		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::Any)).await;
+		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Any)).await;
 
 		#[cfg(not(target_os = "windows"))]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
