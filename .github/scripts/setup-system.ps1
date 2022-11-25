@@ -35,12 +35,8 @@ function Install-Pnpm {
 	Invoke-WebRequest $scriptUri -useb | Invoke-Expression
 
 	# Working around issue in pnpm that dosen't set %PNPM_HOME% correctly
-	$environmentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
 	$pnpmHome = [System.Environment]::GetEnvironmentVariable("PNPM_HOME", [System.EnvironmentVariableTarget]::User)
-	
-	$environmentPath.replace($pnpmHome, "%PNPM_HOME%")
-	
-	[System.Environment]::SetEnvironmentVariable("Path", $environmentPath, [System.EnvironmentVariableTarget]::User)
+	[System.Environment]::SetEnvironmentVariable("PNPM_HOME", $pnpmHome, [System.EnvironmentVariableTarget]::User)
 }
 
 Install-Pnpm
