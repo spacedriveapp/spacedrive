@@ -1,9 +1,24 @@
-import { ExplorerItem, getExplorerStore } from '@sd/client';
+import { ExplorerItem } from '@sd/client';
+import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
 
+import { getExplorerStore } from '../../util/explorerStore';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
+
+const NameArea = tw.div`flex justify-center`;
+
+const nameContainerStyles = cva(
+	'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium cursor-default',
+	{
+		variants: {
+			selected: {
+				true: 'bg-accent text-white'
+			}
+		}
+	}
+);
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
@@ -12,12 +27,6 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	// const store = useExplorerStore();
-
-	// store.layoutMode;
-
-	// props.index === store.selectedRowIndex
-
 	const isVid = isVideo(data.extension || '');
 
 	return (
@@ -28,6 +37,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 					getExplorerStore().contextMenuObjectId = objectId;
 					if (index != undefined) {
 						getExplorerStore().selectedRowIndex = index;
+						getExplorerStore().contextMenuActiveObject = isObject(data) ? data : data.object;
 					}
 				}
 			}}
@@ -40,7 +50,7 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				className={clsx(
 					'border-2 border-transparent rounded-lg text-center mb-1 active:translate-y-[1px]',
 					{
-						'bg-gray-50 dark:bg-gray-750': selected
+						'bg-app-selected/30': selected
 					}
 				)}
 			>
@@ -51,33 +61,26 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 				>
 					<FileThumb
 						className={clsx(
-							'border-4 border-gray-250 rounded shadow-md shadow-gray-750 object-cover max-w-full max-h-full w-auto overflow-hidden',
-							isVid && 'border-gray-950 border-x-0 border-y-[9px]'
+							'border-4 border-white shadow shadow-black/40 object-cover max-w-full max-h-full w-auto overflow-hidden',
+							isVid && '!border-black rounded border-x-0 border-y-[9px]'
 						)}
 						data={data}
 						kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
 						size={getExplorerStore().gridItemSize}
 					/>
 					{data?.extension && isVid && (
-						<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-gray-800 rounded">
+						<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-black/60 rounded">
 							{data.extension}
 						</div>
 					)}
 				</div>
 			</div>
-			<div className="flex justify-center">
-				<span
-					className={clsx(
-						'px-1.5 py-[1px] truncate text-center rounded-md text-xs font-medium text-gray-550 dark:text-gray-300 cursor-default ',
-						{
-							'bg-primary !text-white': selected
-						}
-					)}
-				>
+			<NameArea>
+				<span className={nameContainerStyles({ selected })}>
 					{data?.name}
 					{data?.extension && `.${data.extension}`}
 				</span>
-			</div>
+			</NameArea>
 		</div>
 	);
 }

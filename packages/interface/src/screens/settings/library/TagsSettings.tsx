@@ -1,15 +1,12 @@
-import { TrashIcon } from '@heroicons/react/24/outline';
 import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { TagUpdateArgs } from '@sd/client';
-import { Button, Input } from '@sd/ui';
+import { Button, Card, Dialog, Input, Switch } from '@sd/ui';
 import clsx from 'clsx';
+import { Trash } from 'phosphor-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useDebounce } from 'rooks';
 
-import Card from '../../../components/layout/Card';
-import Dialog from '../../../components/layout/Dialog';
-import { Toggle } from '../../../components/primitive';
 import { InputContainer } from '../../../components/primitive/InputContainer';
 import { PopoverPicker } from '../../../components/primitive/PopoverPicker';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
@@ -17,6 +14,7 @@ import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 
 export default function TagsSettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);
+	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 	// creating new tag state
 	const [newColor, setNewColor] = useState('#A717D9');
 	const [newName, setNewName] = useState('');
@@ -55,7 +53,6 @@ export default function TagsSettings() {
 	);
 
 	const submitTagUpdate = handleSubmit((data) => updateTag.mutate(data));
-
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const autoUpdateTag = useCallback(useDebounce(submitTagUpdate, 500), []);
 
@@ -73,7 +70,7 @@ export default function TagsSettings() {
 					<div className="flex-row space-x-2">
 						<Dialog
 							open={openCreateModal}
-							onOpenChange={setOpenCreateModal}
+							setOpen={setOpenCreateModal}
 							title="Create New Tag"
 							description="Choose a name and color."
 							ctaAction={() => {
@@ -85,7 +82,7 @@ export default function TagsSettings() {
 							loading={isLoading}
 							ctaLabel="Create"
 							trigger={
-								<Button variant="primary" size="sm">
+								<Button variant="accent" size="sm">
 									Create Tag
 								</Button>
 							}
@@ -107,7 +104,7 @@ export default function TagsSettings() {
 					</div>
 				}
 			/>
-			<Card className="!px-2 dark:bg-gray-800">
+			<Card className="!px-2">
 				<div className="flex flex-wrap gap-2 m-1">
 					{tags?.map((tag) => (
 						<div
@@ -154,6 +151,8 @@ export default function TagsSettings() {
 						</div>
 						<div className="flex flex-grow" />
 						<Dialog
+							open={openDeleteModal}
+							setOpen={setOpenDeleteModal}
 							title="Delete Tag"
 							description="Are you sure you want to delete this tag? This cannot be undone and tagged files will be unlinked."
 							ctaAction={() => {
@@ -164,7 +163,7 @@ export default function TagsSettings() {
 							ctaLabel="Delete"
 							trigger={
 								<Button variant="gray" className="h-[38px] mt-[22px]">
-									<TrashIcon className="w-4 h-4" />
+									<Trash className="w-4 h-4" />
 								</Button>
 							}
 						/>
@@ -174,7 +173,7 @@ export default function TagsSettings() {
 						title="Show in Spaces"
 						description="Show this tag on the spaces screen."
 					>
-						<Toggle value />
+						<Switch checked />
 					</InputContainer>
 				</form>
 			) : (

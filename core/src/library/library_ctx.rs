@@ -1,4 +1,5 @@
 use crate::job::DynJob;
+use sd_crypto::keys::keymanager::KeyManager;
 use std::sync::Arc;
 use tracing::warn;
 use uuid::Uuid;
@@ -16,6 +17,8 @@ pub struct LibraryContext {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
+	/// key manager that provides encryption keys to functions that require them
+	pub key_manager: Arc<KeyManager>,
 	/// node_local_id holds the local ID of the node which is running the library.
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.

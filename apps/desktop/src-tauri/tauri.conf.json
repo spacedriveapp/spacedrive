@@ -6,7 +6,7 @@
 	"build": {
 		"distDir": "../dist",
 		"devPath": "http://localhost:8001",
-		"beforeDevCommand": "pnpm exec vite --clearScreen=false",
+		"beforeDevCommand": "pnpm exec vite --clearScreen=false --mode development",
 		"beforeBuildCommand": "pnpm exec vite build"
 	},
 	"tauri": {
@@ -60,7 +60,7 @@
 				"title": "Spacedrive",
 				"width": 1400,
 				"height": 725,
-				"minWidth": 700,
+				"minWidth": 768,
 				"minHeight": 500,
 				"resizable": true,
 				"fullscreen": false,

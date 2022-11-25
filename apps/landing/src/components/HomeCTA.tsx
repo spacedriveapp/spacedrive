@@ -1,13 +1,11 @@
 import { Github } from '@icons-pack/react-simple-icons';
+import { ReactComponent as Alert } from '@sd/assets/svgs/alert.svg';
+import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
+import { ReactComponent as Spinner } from '@sd/assets/svgs/spinner.svg';
 import { Button, Input } from '@sd/ui';
 import clsx from 'clsx';
-import React, { FormEvent, useState } from 'react';
-// import ReactCanvasConfetti from 'react-canvas-confetti';
-import { SubmitHandler, useForm } from 'react-hook-form';
-
-import { ReactComponent as Alert } from '@sd/interface/assets/svg/alert.svg';
-import { ReactComponent as Info } from '@sd/interface/assets/svg/info.svg';
-import { ReactComponent as Spinner } from '@sd/interface/assets/svg/spinner.svg';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 interface WaitlistInputs {
 	email: string;
@@ -89,7 +87,7 @@ export function HomeCTA() {
 						<Button
 							onClick={() => setShowWaitlistInput(true)}
 							className="z-30 border-0 cursor-pointer"
-							variant="primary"
+							variant="gray"
 						>
 							Join Waitlist
 						</Button>
@@ -97,7 +95,7 @@ export function HomeCTA() {
 							href="https://github.com/spacedriveapp/spacedrive"
 							target="_blank"
 							className="z-30 cursor-pointer"
-							variant="gray"
+							variant="accent"
 						>
 							<Github className="inline w-5 h-5 -mt-[4px] -ml-1 mr-2" fill="white" />
 							Star on GitHub
@@ -116,9 +114,9 @@ export function HomeCTA() {
 									})}
 								>
 									{waitlistError ? (
-										<Alert className="fill-red-500 w-5 mr-1" />
+										<Alert className="w-5 mr-1 fill-red-500" />
 									) : (
-										<Info className="fill-green-500 w-5 mr-1" />
+										<Info className="w-5 mr-1 fill-green-500" />
 									)}
 									<p
 										className={clsx({
@@ -151,7 +149,7 @@ export function HomeCTA() {
 											'opacity-50 cursor-default': loading
 										})}
 										disabled={loading}
-										variant="primary"
+										variant="accent"
 										type="submit"
 									>
 										{loading ? (

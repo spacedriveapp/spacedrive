@@ -1,10 +1,9 @@
+import { ReactComponent as ArrowRight } from '@sd/assets/svgs/arrow-right.svg';
 import { Helmet } from 'react-helmet';
 
 import Markdown from '../components/Markdown';
 import { TeamMember, TeamMemberProps } from '../components/TeamMember';
 import { resolveFilesGlob } from '../utils';
-
-import { ReactComponent as ArrowRight } from '@sd/interface/assets/svg/arrow-right.svg';
 
 const teamImages = resolveFilesGlob(import.meta.globEager('../assets/images/team/*'));
 const investorImages = resolveFilesGlob(import.meta.globEager('../assets/images/investors/*'));
@@ -22,7 +21,7 @@ const teamMembers: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Brendan Allan',
-		role: 'Rust Backend Engineer',
+		role: 'Rust Engineer',
 		image: teamImages['brendan.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/brendonovichdev',
@@ -32,7 +31,7 @@ const teamMembers: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Oscar Beaumont',
-		role: 'Rust Backend Engineer',
+		role: 'Rust Engineer',
 		image: teamImages['oscar.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/oscartbeaumont',
@@ -42,7 +41,7 @@ const teamMembers: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Ericson Soares',
-		role: 'Rust Backend Engineer',
+		role: 'Rust Engineer',
 		image: teamImages['ericson.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/fogodev',
@@ -68,18 +67,25 @@ const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
-		name: 'Benjamin Akar',
-		role: 'Engineer & Designer',
-		image: teamImages['benja.jpg'],
+		name: 'Jake Robinson',
+		role: 'Rust Engineer',
+		image: teamImages['jake.jpg'],
 		socials: {
-			twitter: 'https://twitter.com/benjaminakar',
-			twitch: 'https://twitch.tv/akawr',
-			github: 'https://github.com/benja'
+			github: 'https://github.com/brxken128'
+		}
+	},
+	{
+		name: 'Mihail Dounaev',
+		role: 'Graphic Designer',
+		image: teamImages['mihail.jpg'],
+		socials: {
+			twitter: 'https://twitter.com/mmmintdesign',
+			dribbble: 'https://dribbble.com/mmmint'
 		}
 	},
 	{
 		name: 'Haris Mehrzad',
-		role: 'Engineer Intern',
+		role: 'Software Engineer',
 		image: teamImages['haris.jpg'],
 		socials: {
 			twitter: 'https://twitter.com/xPolarrr',

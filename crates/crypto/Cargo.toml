@@ -25,3 +25,18 @@ zeroize = "1.5.7"
 
 # error handling
 thiserror = "1.0.37"
+
+# metadata de/serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde-big-array = "0.4.1"
+
+uuid = { version = "1.1.2", features = ["v4", "serde"] }
+
+dashmap = "5.4.0"
+
+rspc = { workspace = true, optional = true }
+specta = { workspace = true }
+
+[features]
+rpsc = ["rspc"]

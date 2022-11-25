@@ -1,9 +1,6 @@
-import { Disclosure, Menu, Transition } from '@headlessui/react';
-import { ChevronRightIcon } from '@heroicons/react/24/solid';
 import { Github } from '@icons-pack/react-simple-icons';
-import { Button } from '@sd/ui';
-import { List } from 'phosphor-react';
-import React, { PropsWithChildren, useEffect } from 'react';
+import { CaretRight } from 'phosphor-react';
+import { PropsWithChildren } from 'react';
 import { Helmet } from 'react-helmet';
 
 import '../../atom-one.css';
@@ -54,7 +51,7 @@ function Page({ doc, navigation, nextDoc }: SingleDocResponse) {
 						{nextDoc && (
 							<a href={`/docs/${nextDoc.url}`} className="w-full">
 								<BottomCard>
-									<ChevronRightIcon className="w-5 mr-3" />
+									<CaretRight className="w-5 mr-3" />
 									Next article: {nextDoc?.title}
 								</BottomCard>
 							</a>

@@ -11,12 +11,13 @@
 		"format": "prettier --config .prettierrc.js --write \"**/*.{ts,tsx,html,scss,json,yml,md}\"",
 		"desktop": "pnpm --filter @sd/desktop --",
 		"web": "pnpm --filter @sd/web -- ",
+		"mobile": "pnpm --filter @sd/mobile --",
+		"core": "pnpm --filter @sd/server -- ",
 		"landing": "pnpm --filter @sd/landing -- ",
 		"ui": "pnpm --filter @sd/ui -- ",
 		"interface": "pnpm --filter @sd/interface -- ",
 		"docs": "pnpm --filter @sd/docs -- ",
 		"client": "pnpm --filter @sd/client -- ",
-		"server": "pnpm --filter @sd/server -- ",
 		"prisma": "cd core && cargo prisma",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r exec tsc"
@@ -38,9 +39,9 @@
 		"@types/node": "^16.0.0"
 	},
 	"engines": {
-		"pnpm": ">=6.0.0",
+		"pnpm": ">=7.14.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
-		"node": ">=14.0.0"
+		"node": ">=16.0.0"
 	}
 }

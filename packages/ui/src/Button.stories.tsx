@@ -25,11 +25,11 @@ Default.args = {
 
 export const Primary = Template.bind({});
 Primary.args = {
-	variant: 'primary'
+	variant: 'accent'
 };
 
 export const PrimarySmall = Template.bind({});
 PrimarySmall.args = {
-	variant: 'primary',
+	variant: 'accent',
 	size: 'sm'
 };

@@ -1,9 +1,6 @@
-import { Button } from '@sd/ui';
+import folderSvg from '@sd/assets/svgs/folder.svg';
 import clsx from 'clsx';
-import React from 'react';
 import { Helmet } from 'react-helmet';
-
-import { Folder } from '../../../../packages/interface/src/components/icons/Folder';
 
 function Page() {
 	const items = [
@@ -73,7 +70,7 @@ function Page() {
 		{
 			title: 'Media encoder',
 			description:
-				'Encode video and audio into various formats, use Tags to automate. Built with FFMPEG.'
+				'Encode video and audio into various formats, use Tags to automate. Built with FFmpeg.'
 		},
 		{
 			title: 'Cloud integration',
@@ -128,7 +125,7 @@ function Page() {
 			</Helmet>
 			<div className="container flex flex-col max-w-4xl gap-20 p-4 pt-32 m-auto mb-20 prose lg:prose-xs dark:prose-invert">
 				<section className="flex flex-col items-center">
-					<Folder className="w-24 pointer-events-none" />
+					<img className="w-24 pointer-events-none" />
 					<h1 className="mb-0 text-5xl leading-snug text-center fade-in-heading">
 						What's next for Spacedrive?
 					</h1>

@@ -1,10 +1,8 @@
-import { CogIcon } from '@heroicons/react/24/outline';
 import { Input } from '@sd/ui';
 import clsx from 'clsx';
 import { MagnifyingGlass } from 'phosphor-react';
-import React, { useCallback } from 'react';
 
-import { DocCategory, DocsNavigation } from '../pages/docs/api';
+import { DocsNavigation } from '../pages/docs/api';
 import config from '../pages/docs/docs';
 
 interface Props {
@@ -39,7 +37,7 @@ export default function DocsSidebar(props: Props) {
 							)}
 						>
 							<div className={clsx(`p-1 mr-4 bg-gray-500 border-t rounded-lg border-gray-400/20`)}>
-								<Icon className="w-4 h-4 text-white opacity-80" />
+								<Icon weight="bold" className="w-4 h-4 text-white opacity-80" />
 							</div>
 							{section.title}
 						</a>

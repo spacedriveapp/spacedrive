@@ -1,10 +1,7 @@
 #![allow(dead_code)]
-use crate::extensions::{
-	ArchiveExtension, AudioExtension, CodeExtension, DatabaseExtension, ExecutableExtension,
-	Extension, FontExtension, ImageExtension, MeshExtension, VideoExtension,
-};
+use crate::extensions::{CodeExtension, Extension, VideoExtension};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ExtensionPossibility {
 	Known(Extension),
 	Conflicts(Vec<Extension>),
@@ -30,7 +27,7 @@ macro_rules! magic_byte_value {
 		$val as u8
 	}};
 }
-pub(crate) use magic_byte_value;
+// pub(crate) use magic_byte_value;
 
 #[macro_export]
 macro_rules! magic_byte_offset {
@@ -41,7 +38,7 @@ macro_rules! magic_byte_offset {
 		$val
 	};
 }
-pub(crate) use magic_byte_offset;
+// pub(crate) use magic_byte_offset;
 
 macro_rules! extension_enum {
 	(
@@ -50,11 +47,12 @@ macro_rules! extension_enum {
 		}
 	) => {
 		// construct enum
-		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, PartialEq)]
+		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, PartialEq, Eq)]
 		pub enum Extension {
 			$( $variant($type), )*
 		}
 		impl Extension {
+			#[allow(clippy::should_implement_trait)]
 			pub fn from_str(s: &str) -> Option<ExtensionPossibility> {
 				use std::str::FromStr;
 				let mut exts = [$(
@@ -100,7 +98,7 @@ macro_rules! extension_category_enum {
 			$($(#[$variant_attr:meta])* $variant:ident $(= $( [$($magic_bytes:tt),*] $(+ $offset:literal)? )|+ )? ,)*
 		}
 	) => {
-		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, Clone, Copy, PartialEq)]
+		#[derive(Debug, ::serde::Serialize, ::serde::Deserialize, Clone, Copy, PartialEq, Eq)]
 		#[serde(rename_all = "snake_case")]
 		$(#[$enum_attr])*
 
@@ -159,12 +157,10 @@ pub fn verify_magic_bytes<T: MagicBytes>(ext: T, file: &mut std::fs::File) -> Op
 	use std::io::{Read, Seek, SeekFrom};
 
 	for magic in ext.magic_bytes_meta() {
-		println!("magic: {:?}", magic);
 		let mut buf = vec![0; magic.length];
+
 		file.seek(SeekFrom::Start(magic.offset as u64)).ok()?;
 		file.read_exact(&mut buf).ok()?;
-
-		println!("buf: {:?}", buf);
 
 		if ext.has_magic_bytes(&buf) {
 			return Some(ext);
@@ -195,10 +191,10 @@ impl Extension {
 						Self::Audio(x) => verify_magic_bytes(x, file).map(Self::Audio),
 						Self::Video(x) => verify_magic_bytes(x, file).map(Self::Video),
 						Self::Executable(x) => verify_magic_bytes(x, file).map(Self::Executable),
-						_ => return None,
+						_ => None,
 					}
 				} else {
-					Some(Extension::from(e))
+					Some(e)
 				}
 			}
 			ExtensionPossibility::Conflicts(ext) => match ext_str {

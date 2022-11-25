@@ -1,17 +1,16 @@
 import { MotiView } from 'moti';
-import React, { useReducer } from 'react';
+import { CaretRight } from 'phosphor-react-native';
+import { PropsWithChildren, useReducer } from 'react';
 import { Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
-import { ChevronRightIcon } from 'react-native-heroicons/solid';
 import tw from '~/lib/tailwind';
 
 import { AnimatedHeight } from '../animation/layout';
 
-type CollapsibleViewProps = {
+type CollapsibleViewProps = PropsWithChildren<{
 	title: string;
 	titleStyle?: StyleProp<TextStyle>;
-	children: React.ReactNode;
 	containerStyle?: StyleProp<ViewStyle>;
-};
+}>;
 
 const CollapsibleView = ({ title, titleStyle, containerStyle, children }: CollapsibleViewProps) => {
 	const [hide, toggle] = useReducer((hide) => !hide, false);
@@ -30,7 +29,7 @@ const CollapsibleView = ({ title, titleStyle, containerStyle, children }: Collap
 					}}
 					transition={{ type: 'timing' }}
 				>
-					<ChevronRightIcon size={18} style={tw`text-gray-200 mr-3`} />
+					<CaretRight color={tw.color('gray-200')} size={16} style={tw`mr-3`} />
 				</MotiView>
 			</Pressable>
 			<AnimatedHeight hide={hide}>{children}</AnimatedHeight>

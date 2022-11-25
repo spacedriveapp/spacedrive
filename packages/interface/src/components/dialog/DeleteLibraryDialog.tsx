@@ -1,15 +1,13 @@
 import { useBridgeMutation } from '@sd/client';
+import { Dialog } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 
-import Dialog from '../layout/Dialog';
-
-interface Props {
-	children: React.ReactNode;
-	libraryUuid: string;
-}
-
-export default function DeleteLibraryDialog(props: Props) {
+export default function DeleteLibraryDialog(
+	props: PropsWithChildren<{
+		libraryUuid: string;
+	}>
+) {
 	const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
 	const queryClient = useQueryClient();
@@ -24,7 +22,7 @@ export default function DeleteLibraryDialog(props: Props) {
 	return (
 		<Dialog
 			open={openDeleteModal}
-			onOpenChange={setOpenDeleteModal}
+			setOpen={setOpenDeleteModal}
 			title="Delete Library"
 			description="Deleting a library will permanently the database, the files themselves will not be deleted."
 			ctaAction={() => {

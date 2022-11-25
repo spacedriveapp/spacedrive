@@ -1,10 +1,11 @@
+import { lazy } from '@loadable/component';
 import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
-import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import { useKeybindHandler } from './hooks/useKeyboardHandler';
 
+// Using React.lazy breaks hot reload so we don't use it.
 const DebugScreen = lazy(() => import('./screens/Debug'));
 const SettingsScreen = lazy(() => import('./screens/settings/Settings'));
 const TagExplorer = lazy(() => import('./screens/TagExplorer'));
@@ -45,60 +46,56 @@ export function AppRouter() {
 	useInvalidateQuery();
 
 	return (
-		<Suspense fallback={<p>Loading...</p>}>
-			<Routes>
-				<Route path="onboarding" element={<OnboardingScreen />} />
-				<Route element={<AppLayout />}>
-					{/* As we are caching the libraries in localStore so this *shouldn't* result is visual problems unless something else is wrong */}
-					{library === undefined ? (
-						<Route
-							path="*"
-							element={
-								<h1 className="text-white p-4">
-									Please select or create a library in the sidebar.
-								</h1>
-							}
-						/>
-					) : (
-						<>
-							<Route index element={<Navigate to="/overview" />} />
-							<Route path="overview" element={<OverviewScreen />} />
-							<Route path="content" element={<ContentScreen />} />
-							<Route path="photos" element={<PhotosScreen />} />
-							<Route path="debug" element={<DebugScreen />} />
-							<Route path={'settings'} element={<SettingsScreen />}>
-								<Route index element={<GeneralSettings />} />
-								<Route path="general" element={<GeneralSettings />} />
-								<Route path="appearance" element={<AppearanceSettings />} />
-								<Route path="keybindings" element={<KeybindingSettings />} />
-								<Route path="extensions" element={<ExtensionSettings />} />
-								<Route path="p2p" element={<P2PSettings />} />
-								<Route path="contacts" element={<ContactsSettings />} />
-								<Route path="experimental" element={<ExperimentalSettings />} />
-								<Route path="keys" element={<KeysSettings />} />
-								<Route path="libraries" element={<LibrarySettings />} />
-								<Route path="security" element={<SecuritySettings />} />
-								<Route path="locations" element={<LocationSettings />} />
-								<Route path="sharing" element={<SharingSettings />} />
-								<Route path="sync" element={<SyncSettings />} />
-								<Route path="tags" element={<TagsSettings />} />
-								<Route path="library" element={<LibraryGeneralSettings />} />
-								<Route path="locations" element={<LocationSettings />} />
-								<Route path="tags" element={<TagsSettings />} />
-								<Route path="nodes" element={<NodesSettings />} />
-								<Route path="keys" element={<KeysSettings />} />
-								<Route path="privacy" element={<PrivacySettings />} />
-								<Route path="about" element={<AboutSpacedrive />} />
-								<Route path="changelog" element={<Changelog />} />
-								<Route path="support" element={<Support />} />
-							</Route>
-							<Route path="location/:id" element={<LocationExplorer />} />
-							<Route path="tag/:id" element={<TagExplorer />} />
-							<Route path="*" element={<NotFound />} />
-						</>
-					)}
-				</Route>
-			</Routes>
-		</Suspense>
+		<Routes>
+			<Route path="onboarding" element={<OnboardingScreen />} />
+			<Route element={<AppLayout />}>
+				{/* As we are caching the libraries in localStore so this *shouldn't* result is visual problems unless something else is wrong */}
+				{library === undefined ? (
+					<Route
+						path="*"
+						element={
+							<h1 className="p-4 text-white">Please select or create a library in the sidebar.</h1>
+						}
+					/>
+				) : (
+					<>
+						<Route index element={<Navigate to="/overview" />} />
+						<Route path="overview" element={<OverviewScreen />} />
+						<Route path="content" element={<ContentScreen />} />
+						<Route path="photos" element={<PhotosScreen />} />
+						<Route path="debug" element={<DebugScreen />} />
+						<Route path={'settings'} element={<SettingsScreen />}>
+							<Route index element={<GeneralSettings />} />
+							<Route path="general" element={<GeneralSettings />} />
+							<Route path="appearance" element={<AppearanceSettings />} />
+							<Route path="keybindings" element={<KeybindingSettings />} />
+							<Route path="extensions" element={<ExtensionSettings />} />
+							<Route path="p2p" element={<P2PSettings />} />
+							<Route path="contacts" element={<ContactsSettings />} />
+							<Route path="experimental" element={<ExperimentalSettings />} />
+							<Route path="keys" element={<KeysSettings />} />
+							<Route path="libraries" element={<LibrarySettings />} />
+							<Route path="security" element={<SecuritySettings />} />
+							<Route path="locations" element={<LocationSettings />} />
+							<Route path="sharing" element={<SharingSettings />} />
+							<Route path="sync" element={<SyncSettings />} />
+							<Route path="tags" element={<TagsSettings />} />
+							<Route path="library" element={<LibraryGeneralSettings />} />
+							<Route path="locations" element={<LocationSettings />} />
+							<Route path="tags" element={<TagsSettings />} />
+							<Route path="nodes" element={<NodesSettings />} />
+							<Route path="keys" element={<KeysSettings />} />
+							<Route path="privacy" element={<PrivacySettings />} />
+							<Route path="about" element={<AboutSpacedrive />} />
+							<Route path="changelog" element={<Changelog />} />
+							<Route path="support" element={<Support />} />
+						</Route>
+						<Route path="location/:id" element={<LocationExplorer />} />
+						<Route path="tag/:id" element={<TagExplorer />} />
+						<Route path="*" element={<NotFound />} />
+					</>
+				)}
+			</Route>
+		</Routes>
 	);
 }

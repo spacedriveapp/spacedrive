@@ -1,5 +1,4 @@
 {
-	"extends": "../../packages/config/interface.tsconfig.json",
-	"compilerOptions": {},
+	"extends": "@sd/config/interface.tsconfig.json",
 	"include": ["src"]
 }

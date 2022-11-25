@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::Platform,
-	prisma::node,
+	prisma::{node, PrismaClient},
 	util::{
 		db::load_and_migrate,
 		seeder::{indexer_rules_seeder, SeederError},
@@ -9,6 +9,15 @@ use crate::{
 	NodeContext,
 };
 
+use sd_crypto::{
+	crypto::stream::Algorithm,
+	keys::{
+		hashing::HashingAlgorithm,
+		keymanager::{KeyManager, StoredKey},
+	},
+	primitives::to_array,
+	Protected,
+};
 use std::{
 	env, fs, io,
 	path::{Path, PathBuf},
@@ -49,6 +58,8 @@ pub enum LibraryManagerError {
 	InvalidDatabasePath(PathBuf),
 	#[error("Failed to run seeder: {0}")]
 	Seeder(#[from] SeederError),
+	#[error("failed to initialise the key manager")]
+	KeyManager(#[from] sd_crypto::Error),
 }
 
 impl From<LibraryManagerError> for rspc::Error {
@@ -59,6 +70,58 @@ impl From<LibraryManagerError> for rspc::Error {
 			error,
 		)
 	}
+}
+
+pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, LibraryManagerError> {
+	// retrieve all stored keys from the DB
+	let key_manager = KeyManager::new(vec![], None);
+
+	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
+
+	let mut default = Uuid::default();
+
+	// collect and serialize the stored keys
+	// shouldn't call unwrap so much here
+	let stored_keys: Vec<StoredKey> = db_stored_keys
+		.iter()
+		.map(|key| {
+			let key = key.clone();
+
+			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
+
+			if key.default {
+				default = uuid;
+			}
+
+			StoredKey {
+				uuid,
+				salt: to_array(key.salt).unwrap(),
+				algorithm: Algorithm::deserialize(to_array(key.algorithm).unwrap()).unwrap(),
+				content_salt: to_array(key.content_salt).unwrap(),
+				master_key: to_array(key.master_key).unwrap(),
+				master_key_nonce: key.master_key_nonce,
+				key_nonce: key.key_nonce,
+				key: key.key,
+				hashing_algorithm: HashingAlgorithm::deserialize(
+					to_array(key.hashing_algorithm).unwrap(),
+				)
+				.unwrap(),
+			}
+		})
+		.collect();
+
+	// insert all keys from the DB into the keymanager's keystore
+	key_manager.populate_keystore(stored_keys)?;
+
+	// if any key had an associated default tag
+	if !default.is_nil() {
+		key_manager.set_default(default)?;
+	}
+
+	////!!!! THIS IS FOR TESTING ONLY, REMOVE IT ONCE WE HAVE THE UI IN PLACE
+	key_manager.set_master_password(Protected::new(b"password".to_vec()))?;
+
+	Ok(key_manager)
 }
 
 impl LibraryManager {
@@ -93,7 +156,7 @@ impl LibraryManager {
 			};
 
 			let db_path = config_path.clone().with_extension("db");
-			if !db_path.exists() {
+			if !db_path.try_exists().unwrap() {
 				println!(
 					"Found library '{}' but no matching database file was found. Skipping...",
 					config_path.display()
@@ -263,10 +326,13 @@ impl LibraryManager {
 		// Run seeders
 		indexer_rules_seeder(&db).await?;
 
+		let key_manager = Arc::new(create_keymanager(&db).await?);
+
 		Ok(LibraryContext {
 			id,
 			config,
 			db,
+			key_manager,
 			node_local_id: node_data.id,
 			node_context,
 		})

@@ -169,7 +169,7 @@ html {
 }
 
 .slot-block {
-	@apply bg-gray-550 py-3 px-4 border-l-4 border-gray-400 rounded mb-2;
+	@apply bg-app-box py-3 px-4 border-l-4 border-app-line rounded mb-2;
 }
 .slot-block.note {
 	@apply border-yellow-400 bg-yellow-300/20;
@@ -237,6 +237,6 @@ html {
 		@apply bg-[#00000006] dark:bg-[#00000030] my-[10px] rounded-[6px];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
+		@apply rounded-[6px] bg-app-selected
 	}
 }

@@ -46,7 +46,7 @@ The rest of the required tools can be installed by this script.
    ./.github/scripts/setup-system.sh
    ```
 
-   This will install any required dependencies for Spacedrive to build.
+   This will install FFmpeg and any other required dependencies for Spacedrive to build.
 
    **Windows users, run:**
 
@@ -54,7 +54,7 @@ The rest of the required tools can be installed by this script.
    .\.github\scripts\setup-system.ps1
    ```
 
-   This will install all required dependencies for Spacedrive to build. Ensure you run it as documented above, as it expects to be executed from the root of the repository.
+   This will install all required dependencies for Spacedrive to build. Ensure you run it as documented above; the script expects to be executed from the root of the repository.
 
 3. **Install dependencies**
 

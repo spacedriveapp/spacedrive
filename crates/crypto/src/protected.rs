@@ -17,7 +17,9 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust
+//! use sd_crypto::Protected;
+//!
 //! let secret_data = "this is classified information".to_string();
 //! let protected_data = Protected::new(secret_data);
 //!
@@ -26,7 +28,6 @@
 //! let value = protected_data.expose();
 //! ```
 //!
-
 use std::fmt::Debug;
 use zeroize::Zeroize;
 
@@ -59,6 +60,10 @@ where
 
 	pub const fn expose(&self) -> &T {
 		&self.data
+	}
+
+	pub fn zeroize(mut self) {
+		self.data.zeroize();
 	}
 }
 

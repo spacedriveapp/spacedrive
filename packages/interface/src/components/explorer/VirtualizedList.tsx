@@ -1,23 +1,24 @@
-import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '@sd/client';
 import { ExplorerContext, ExplorerItem } from '@sd/client';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
 
+import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '../../util/explorerStore';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import { isPath } from './utils';
 
-const TOP_BAR_HEIGHT = 50;
+const TOP_BAR_HEIGHT = 46;
 const GRID_TEXT_AREA_HEIGHT = 25;
 
 interface Props {
 	context: ExplorerContext;
 	data: ExplorerItem[];
+	onScroll?: (posY: number) => void;
 }
 
-export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
+export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) => {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const innerRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +45,19 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 			explorerStore.layoutMode === 'grid'
 				? explorerStore.gridItemSize + GRID_TEXT_AREA_HEIGHT
 				: explorerStore.listItemSize;
+
+	useEffect(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+
+		const onElementScroll = (event: Event) => {
+			onScroll?.((event.target as HTMLElement).scrollTop);
+		};
+
+		el.addEventListener('scroll', onElementScroll);
+
+		return () => el.removeEventListener('scroll', onElementScroll);
+	}, [scrollRef, onScroll]);
 
 	const rowVirtualizer = useVirtualizer({
 		count: amountOfRows,
@@ -135,7 +149,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context }) => {
 									const item = data[index];
 									const isSelected = explorerStore.selectedRowIndex === index;
 									return (
-										<div key={index} className="w-32 h-32">
+										<div key={index} className="">
 											<div className="flex">
 												{item && (
 													<WrappedItem

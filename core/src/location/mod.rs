@@ -5,6 +5,7 @@ use crate::{
 	object::{
 		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
+		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
 	prisma::{indexer_rules_in_location, location, node},
 };
@@ -44,7 +45,7 @@ impl LocationCreateArgs {
 		ctx: &LibraryContext,
 	) -> Result<indexer_job_location::Data, LocationError> {
 		// check if we have access to this location
-		if !self.path.exists() {
+		if !self.path.try_exists().unwrap() {
 			return Err(LocationError::PathNotFound(self.path));
 		}
 
@@ -58,6 +59,21 @@ impl LocationCreateArgs {
 
 		if !path_metadata.is_dir() {
 			return Err(LocationError::NotDirectory(self.path));
+		}
+
+		// check if the location already exists
+		let _location_exists = ctx
+			.db
+			.location()
+			.find_first(vec![location::local_path::equals(Some(
+				self.path.to_string_lossy().to_string(),
+			))])
+			.exec()
+			.await?
+			.is_some();
+
+		if _location_exists {
+			return Err(LocationError::LocationAlreadyExists(self.path));
 		}
 
 		debug!(
@@ -98,7 +114,7 @@ impl LocationCreateArgs {
 			.ok_or(LocationError::IdNotFound(location.id))?;
 
 		// write a file called .spacedrive to path containing the location id in JSON format
-		let mut dotfile = File::create(self.path.with_file_name(DOTFILE_NAME))
+		let mut dotfile = File::create(self.path.join(DOTFILE_NAME))
 			.await
 			.map_err(|e| LocationError::DotfileWriteFailure(e, self.path.clone()))?;
 
@@ -262,6 +278,15 @@ pub async fn scan_location(
 			background: true,
 		},
 		Box::new(ThumbnailJob {}),
+	))
+	.await;
+	ctx.queue_job(Job::new(
+		ObjectValidatorJobInit {
+			location_id,
+			path: PathBuf::new(),
+			background: true,
+		},
+		Box::new(ObjectValidatorJob {}),
 	))
 	.await;
 

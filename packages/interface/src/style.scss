@@ -4,7 +4,19 @@ button {
 }
 
 body {
-	font-family: 'InterVariable', sans-serif;
+	// font-family: 'InterVariable', sans-serif;
+}
+
+.app-background {
+	@apply bg-app;
+}
+
+.has-blur-effects {
+	.app-background {
+		// adjust macOS blur intensity here
+		// @apply bg-app/[0.88];
+		@apply bg-app;
+	}
 }
 
 .no-scrollbar {
@@ -29,10 +41,10 @@ body {
 		width: 8px;
 	}
 	&::-webkit-scrollbar-track {
-		@apply bg-[#00000006] dark:bg-[#00000030] mt-[53px] rounded-[6px];
+		@apply bg-[#00000000] mt-[53px] rounded-[6px];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
+		@apply rounded-[6px] bg-app-box;
 	}
 }
 .default-scroll {
@@ -44,7 +56,7 @@ body {
 		@apply bg-transparent rounded-[6px];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-gray-300 dark:bg-gray-550;
+		@apply rounded-[6px] bg-app-box;
 	}
 }
 .page-scroll {
@@ -56,7 +68,7 @@ body {
 		@apply bg-transparent rounded-[6px]  my-[10px];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-gray-300  dark:bg-gray-550;
+		@apply rounded-[6px] bg-app-box;
 	}
 }
 .inspector-scroll {
@@ -69,7 +81,26 @@ body {
 		@apply bg-transparent my-[8px];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] opacity-0 bg-gray-300 dark:bg-gray-950;
+		@apply rounded-[6px] opacity-0 bg-app/70;
+	}
+	&:hover {
+		&::-webkit-scrollbar-thumb {
+			@apply opacity-100;
+		}
+	}
+}
+
+.overlay-scroll {
+	// overflow: overlay;
+	&::-webkit-scrollbar {
+		height: 6px;
+		width: 5px;
+	}
+	&::-webkit-scrollbar-track {
+		@apply bg-transparent my-[5px];
+	}
+	&::-webkit-scrollbar-thumb {
+		@apply rounded-[6px] opacity-0 bg-black/70 w-[5px];
 	}
 	&:hover {
 		&::-webkit-scrollbar-thumb {

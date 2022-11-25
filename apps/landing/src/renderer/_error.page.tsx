@@ -27,7 +27,7 @@ function Page({ is404 }: { is404: boolean }) {
 						>
 							← Back
 						</Button>
-						<Button href="/" className="mt-2 cursor-pointer !text-white" variant="primary">
+						<Button href="/" className="mt-2 cursor-pointer !text-white" variant="accent">
 							Discover Spacedrive →
 						</Button>
 					</div>

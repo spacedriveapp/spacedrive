@@ -1,7 +1,8 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
-import { proxy, useSnapshot } from 'valtio';
+import { proxy, subscribe, useSnapshot } from 'valtio';
 
-import { getExplorerStore, useBridgeQuery, useExplorerStore } from '../index';
+import { useBridgeQuery } from '../rspc';
+import { valtioPersist } from '../stores';
 
 // The name of the localStorage key for caching library data
 const libraryCacheLocalStorageKey = 'sd-library-list';
@@ -9,7 +10,12 @@ const libraryCacheLocalStorageKey = 'sd-library-list';
 type OnNoLibraryFunc = () => void | Promise<void>;
 
 // Keep this private and use `useCurrentLibrary` hook to access or mutate it
-const currentLibraryUuidStore = proxy({ id: null as string | null });
+const currentLibraryUuidStore = valtioPersist('sdActiveLibrary', {
+	id: null as string | null
+});
+
+// Cringe method to get rspc working on mobile.
+export const mobileSync = currentLibraryUuidStore;
 
 const CringeContext = createContext<{
 	onNoLibrary: OnNoLibraryFunc;
@@ -24,6 +30,10 @@ export const LibraryContextProvider = ({
 
 export function getLibraryIdRaw(): string | null {
 	return currentLibraryUuidStore.id;
+}
+
+export function onLibraryChange(func: (newLibraryId: string | null) => void) {
+	subscribe(currentLibraryUuidStore, () => func(currentLibraryUuidStore.id));
 }
 
 // this is a hook to get the current library loaded into the UI. It takes care of a bunch of invariants under the hood.
@@ -52,7 +62,7 @@ export const useCurrentLibrary = () => {
 			localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data));
 
 			// Redirect to the onboarding flow if the user doesn't have any libraries
-			if (libraries?.length === 0) {
+			if (data?.length === 0) {
 				ctx.onNoLibrary();
 			}
 		}
@@ -60,7 +70,6 @@ export const useCurrentLibrary = () => {
 
 	const switchLibrary = useCallback((libraryUuid: string) => {
 		currentLibraryUuidStore.id = libraryUuid;
-		getExplorerStore().reset();
 	}, []);
 
 	// memorize library to avoid re-running find function

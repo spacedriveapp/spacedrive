@@ -1,72 +1,57 @@
+import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { forwardRef } from 'react';
+import { PropsWithChildren, forwardRef } from 'react';
 
-const variants = {
-	default: `
-    shadow-sm
-    bg-white
-    hover:bg-white
-    focus:hover:bg-white
-    focus:bg-white
-    dark:bg-gray-550
-    dark:hover:bg-gray-550
-    dark:focus:bg-gray-800
-    dark:focus:hover:bg-gray-800
+export interface InputBaseProps extends VariantProps<typeof inputStyles> {}
 
-    border-gray-100
-    hover:border-gray-200
-    focus:border-white
-    dark:border-gray-500
-    dark:hover:border-gray-500
-    dark:focus:border-gray-900
+export type InputProps = InputBaseProps & React.InputHTMLAttributes<HTMLInputElement>;
 
-    focus:ring-primary-100 
-    dark:focus:ring-gray-550
+export type TextareaProps = InputBaseProps & React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
-    dark:text-white 
-    placeholder-gray-300
-  `,
-	primary: ''
-};
-
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-	variant?: keyof typeof variants;
-}
-
-export const Input = forwardRef<HTMLInputElement, InputProps>(({ ...props }, ref) => {
-	return (
-		<input
-			ref={ref}
-			{...props}
-			className={clsx(
-				`px-3 py-1 text-sm rounded-md border leading-7 outline-none shadow-xs focus:ring-2 transition-all`,
-				variants[props.variant || 'default'],
-				props.className
-			)}
-		/>
-	);
-});
-
-interface TextAreaProps extends React.InputHTMLAttributes<HTMLTextAreaElement> {
-	variant?: keyof typeof variants;
-}
-
-export const TextArea = ({ size, ...props }: TextAreaProps) => {
-	return (
-		<textarea
-			{...props}
-			className={clsx(
-				`px-2 py-1 rounded-md border leading-5 outline-none shadow-xs focus:ring-2 transition-all`,
-				variants[props.variant || 'default'],
-				size && '',
-				props.className
-			)}
-		/>
-	);
-};
-
-export const Label: React.FC<{ slug?: string; children: string }> = (props) => (
-	<label className="text-sm font-bold" htmlFor={props.slug}>
-		{props.children}
-	</label>
+const inputStyles = cva(
+	[
+		'px-3 py-1 text-sm rounded-md border leading-7',
+		'outline-none shadow-sm focus:ring-2 transition-all'
+	],
+	{
+		variants: {
+			variant: {
+				default: [
+					'bg-app-input focus:bg-app-focus placeholder-ink-faint border-app-line',
+					'focus:ring-app-selected/30 focus:border-app-divider/80'
+				]
+			},
+			size: {
+				sm: 'text-sm',
+				md: 'text-base'
+			}
+		},
+		defaultVariants: {
+			variant: 'default'
+		}
+	}
 );
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+	({ size, variant, ...props }, ref) => {
+		return (
+			<input
+				ref={ref}
+				{...props}
+				className={clsx(inputStyles({ size, variant }), props.className)}
+			/>
+		);
+	}
+);
+
+export const TextArea = ({ size, variant, ...props }: TextareaProps) => {
+	return <textarea {...props} className={clsx(inputStyles({ size, variant }), props.className)} />;
+};
+
+export function Label(props: PropsWithChildren<{ slug?: string }>) {
+	return (
+		<label className="text-sm font-bold" htmlFor={props.slug}>
+			{props.children}
+		</label>
+	);
+}

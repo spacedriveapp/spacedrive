@@ -3,10 +3,14 @@
 
 export type Procedures = {
     queries: 
+        { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "files.readMetadata", input: LibraryArgs<number>, result: null } | 
-        { key: "getNode", input: never, result: NodeState } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
+        { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
+        { key: "keys.list", input: LibraryArgs<null>, result: Array<StoredKey> } | 
+        { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
         { key: "locations.getById", input: LibraryArgs<number>, result: Location | null } | 
@@ -14,11 +18,16 @@ export type Procedures = {
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
         { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node }> } | 
+        { key: "nodeState", input: never, result: NodeState } | 
+        { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
+        { key: "normi.org", input: never, result: NormalisedOrganisation } | 
+        { key: "normi.user", input: never, result: NormalisedUser } | 
+        { key: "normi.userSync", input: never, result: NormalisedUser } | 
+        { key: "normi.version", input: never, result: string } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getExplorerData", input: LibraryArgs<number>, result: ExplorerData } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Array<Tag> } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Array<Tag> } | 
-        { key: "version", input: never, result: string } | 
         { key: "volumes.list", input: never, result: Array<Volume> },
     mutations: 
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
@@ -26,6 +35,15 @@ export type Procedures = {
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
+        { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
+        { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
+        { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setMasterPassword", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
+        { key: "keys.updateKeyName", input: LibraryArgs<KeyNameUpdateArgs>, result: null } | 
         { key: "library.create", input: string, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
@@ -45,6 +63,10 @@ export type Procedures = {
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string }
 };
 
+export type Algorithm = "XChaCha20Poly1305" | "Aes256Gcm"
+
+export interface BuildInfo { version: string, commit: string }
+
 export interface ConfigMetadata { version: string | null }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
@@ -59,6 +81,8 @@ export interface FilePath { id: number, is_dir: boolean, location_id: number, ma
 
 export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
+export type HashingAlgorithm = { Argon2id: Params }
+
 export interface IdentifyUniqueFilesArgs { id: number, path: string }
 
 export interface IndexerRule { id: number, kind: number, name: string, parameters: Array<number>, date_created: string, date_modified: string }
@@ -70,6 +94,10 @@ export interface InvalidateOperationEvent { key: string, arg: any }
 export interface JobReport { id: string, name: string, data: Array<number> | null, metadata: any | null, date_created: string, date_modified: string, status: JobStatus, task_count: number, completed_task_count: number, message: string, seconds_elapsed: number }
 
 export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused"
+
+export interface KeyAddArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, key: string }
+
+export interface KeyNameUpdateArgs { uuid: string, name: string }
 
 export interface LibraryArgs<T> { library_id: string, arg: T }
 
@@ -91,7 +119,19 @@ export interface NodeConfig { version: string | null, id: string, name: string, 
 
 export interface NodeState { version: string | null, id: string, name: string, p2p_port: number | null, data_path: string }
 
+export interface NormalisedCompositeId { $type: string, $id: any, org_id: string, user_id: string }
+
+export interface NormalisedOrganisation { $type: string, $id: any, id: string, name: string, users: NormalizedVec<NormalisedUser>, owner: NormalisedUser, non_normalised_data: Array<null> }
+
+export interface NormalisedUser { $type: string, $id: any, id: string, name: string }
+
+export interface NormalizedVec<T> { $type: string, edges: Array<T> }
+
 export interface Object { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string }
+
+export interface ObjectValidatorArgs { id: number, path: string }
+
+export type Params = "Standard" | "Hardened" | "Paranoid"
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
@@ -100,6 +140,8 @@ export interface SetFavoriteArgs { id: number, favorite: boolean }
 export interface SetNoteArgs { id: number, note: string | null }
 
 export interface Statistics { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
+
+export interface StoredKey { uuid: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, salt: Array<number>, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number> }
 
 export interface Tag { id: number, pub_id: Array<number>, name: string | null, color: string | null, total_objects: number | null, redundancy_goal: number | null, date_created: string, date_modified: string }
 

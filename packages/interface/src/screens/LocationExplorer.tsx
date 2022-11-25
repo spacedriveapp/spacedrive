@@ -1,8 +1,9 @@
-import { getExplorerStore, useCurrentLibrary, useLibraryQuery } from '@sd/client';
+import { useCurrentLibrary, useLibraryQuery } from '@sd/client';
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 import Explorer from '../components/explorer/Explorer';
+import { getExplorerStore } from '../util/explorerStore';
 
 export function useExplorerParams() {
 	const { id } = useParams();

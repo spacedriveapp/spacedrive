@@ -1,5 +1,4 @@
 use std::{
-	path::PathBuf,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -37,16 +36,13 @@ pub struct Ctx {
 
 mod files;
 mod jobs;
+mod keys;
 mod libraries;
 mod locations;
+mod normi;
 mod tags;
 pub mod utils;
 pub mod volumes;
-
-pub use files::*;
-pub use jobs::*;
-pub use libraries::*;
-pub use tags::*;
 
 #[derive(Serialize, Deserialize, Debug, Type)]
 struct NodeState {
@@ -56,15 +52,28 @@ struct NodeState {
 }
 
 pub(crate) fn mount() -> Arc<Router> {
+	let config = Config::new().set_ts_bindings_header("/* eslint-disable */");
+
+	#[cfg(all(debug_assertions, not(feature = "mobile")))]
+	let config = config.export_ts_bindings(
+		std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"),
+	);
+
 	let r = <Router>::new()
-		.config(
-			Config::new()
-				// TODO: This messes with Tauri's hot reload so we can't use it until their is a solution upstream. https://github.com/tauri-apps/tauri/issues/4617
-				// .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./index.ts")),
-				.set_ts_bindings_header("/* eslint-disable */"),
-		)
-		.query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
-		.query("getNode", |t| {
+		.config(config)
+		.query("buildInfo", |t| {
+			#[derive(Serialize, Type)]
+			pub struct BuildInfo {
+				version: &'static str,
+				commit: &'static str,
+			}
+
+			t(|_, _: ()| BuildInfo {
+				version: env!("CARGO_PKG_VERSION"),
+				commit: env!("GIT_HASH"),
+			})
+		})
+		.query("nodeState", |t| {
 			t(|ctx, _: ()| async move {
 				Ok(NodeState {
 					config: ctx.config.get().await,
@@ -73,9 +82,11 @@ pub(crate) fn mount() -> Arc<Router> {
 				})
 			})
 		})
+		.merge("normi.", normi::mount())
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
+		.merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("files.", files::mount())
 		.merge("jobs.", jobs::mount())
@@ -104,17 +115,8 @@ pub(crate) fn mount() -> Arc<Router> {
 		.build()
 		.arced();
 	InvalidRequests::validate(r.clone()); // This validates all invalidation calls.
-	export_ts_bindings(&r);
-	r
-}
 
-pub fn export_ts_bindings(r: &Router) {
-	r.export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"))
-		.expect("Error exporting rspc Typescript bindings!");
-	r.export_ts(
-		PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../apps/mobile/src/types/bindings.ts"),
-	)
-	.expect("Error exporting rspc Typescript bindings!");
+	r
 }
 
 #[cfg(test)]
@@ -122,6 +124,6 @@ mod tests {
 	/// This test will ensure the rspc router and all calls to `invalidate_query` are valid and also export an updated version of the Typescript bindings.
 	#[test]
 	fn test_and_export_rspc_bindings() {
-		super::export_ts_bindings(&super::mount());
+		super::mount();
 	}
 }

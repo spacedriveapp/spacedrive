@@ -1,12 +1,10 @@
 import { ProcedureDef } from '@rspc/client';
-import { createReactQueryHooks } from '@rspc/react';
+import { internal_createReactHooksFactory } from '@rspc/react';
 import { QueryClient } from '@tanstack/react-query';
 
 import { LibraryArgs, Procedures } from './core';
 import { getLibraryIdRaw } from './index';
-
-export const queryClient = new QueryClient();
-export const rspc = createReactQueryHooks<Procedures>();
+import { normiCustomHooks } from './normi';
 
 type NonLibraryProcedure<T extends keyof Procedures> =
 	| Exclude<Procedures[T], { input: LibraryArgs<any> }>
@@ -17,7 +15,7 @@ type LibraryProcedures<T extends keyof Procedures> = Exclude<
 	{ input: never }
 >;
 
-type MoreConstrainedQueries<T extends ProcedureDef> = T extends any
+type StripLibraryArgsFromInput<T extends ProcedureDef> = T extends any
 	? T['input'] extends LibraryArgs<infer E>
 		? {
 				key: T['key'];
@@ -27,29 +25,55 @@ type MoreConstrainedQueries<T extends ProcedureDef> = T extends any
 		: never
 	: never;
 
-export const useBridgeQuery = rspc.customQuery<NonLibraryProcedure<'queries'>>(
-	(keyAndInput) => keyAndInput as any
-);
+export const hooks = internal_createReactHooksFactory();
 
-export const useBridgeMutation = rspc.customMutation<NonLibraryProcedure<'mutations'>>(
-	(keyAndInput) => keyAndInput
-);
-
-export const useLibraryQuery = rspc.customQuery<
-	MoreConstrainedQueries<LibraryProcedures<'queries'>>
->((keyAndInput) => {
-	const library_id = getLibraryIdRaw();
-	if (library_id === null) throw new Error('Attempted to do library query with no library set!');
-	return [keyAndInput[0], { library_id, arg: keyAndInput[1] || null }];
+const nonLibraryHooks = hooks.createHooks<
+	Procedures,
+	// Normalized<NonLibraryProcedure<'queries'>>,
+	// Normalized<NonLibraryProcedure<'mutations'>>
+	NonLibraryProcedure<'queries'>,
+	NonLibraryProcedure<'mutations'>
+>({
+	internal: {
+		customHooks: normiCustomHooks({ contextSharing: true })
+	}
 });
 
-export const useLibraryMutation = rspc.customMutation<
-	MoreConstrainedQueries<LibraryProcedures<'mutations'>>
->((keyAndInput) => {
-	const library_id = getLibraryIdRaw();
-	if (library_id === null) throw new Error('Attempted to do library query with no library set!');
-	return [keyAndInput[0], { library_id, arg: keyAndInput[1] || null }];
+const libraryHooks = hooks.createHooks<
+	Procedures,
+	// Normalized<StripLibraryArgsFromInput<LibraryProcedures<'queries'>>>,
+	// Normalized<StripLibraryArgsFromInput<LibraryProcedures<'mutations'>>>,
+	StripLibraryArgsFromInput<LibraryProcedures<'queries'>>,
+	StripLibraryArgsFromInput<LibraryProcedures<'mutations'>>,
+	never
+>({
+	internal: {
+		customHooks: normiCustomHooks({ contextSharing: true }, () => {
+			return {
+				mapQueryKey: (keyAndInput) => {
+					const library_id = getLibraryIdRaw();
+					if (library_id === null)
+						throw new Error('Attempted to do library operation with no library set!');
+					return [keyAndInput[0], { library_id, arg: keyAndInput[1] || null }];
+				},
+				doMutation: (keyAndInput, next) => {
+					const library_id = getLibraryIdRaw();
+					if (library_id === null)
+						throw new Error('Attempted to do library operation with no library set!');
+					return next([keyAndInput[0], { library_id, arg: keyAndInput[1] || null }]);
+				}
+			};
+		})
+	}
 });
+
+export const queryClient = new QueryClient();
+export const rspc = hooks.createHooks<Procedures>();
+
+export const useBridgeQuery = nonLibraryHooks.useQuery;
+export const useBridgeMutation = nonLibraryHooks.useMutation;
+export const useLibraryQuery = libraryHooks.useQuery;
+export const useLibraryMutation = libraryHooks.useMutation;
 
 export function useInvalidateQuery() {
 	const context = rspc.useContext();
