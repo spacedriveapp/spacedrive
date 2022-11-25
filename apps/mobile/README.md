@@ -1,3 +1,2 @@
-Make sure to run `pnpm i` in this folder after making changes to the `packages`.
-
-- Note: If you add/remove something from `packages/assets` folder, you need to delete node_modules and run `pnpm i` again to link it.
+- Make sure to run `pnpm i` if you make any change to the `package` mobile uses like `assets`.
+- If iOS build fails with `node not found` error, run `echo "export NODE_BINARY=$(command -v node)" >> .xcode.env.local` on `mobile/ios/` directory.

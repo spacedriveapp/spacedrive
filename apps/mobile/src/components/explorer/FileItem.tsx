@@ -46,6 +46,7 @@ const FileItem = ({ data }: FileItemProps) => {
 export default FileItem;
 
 // Copied from FileItem.tsx (interface/src/components/explorer/FileItem.tsx)
+// TODO: Move both to a shared package
 function isVideo(extension: string) {
 	return [
 		'avi',
