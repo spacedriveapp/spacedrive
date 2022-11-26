@@ -3,7 +3,7 @@ param (
 	[Switch] $ci
 )
 
-$tempFiles = @()
+$tempPath = "$([System.IO.Path]::GetTempPath())\$([System.Guid]::NewGuid())"
 
 # Check if shell can execute cmdlet
 function Test-CommandExists {
@@ -14,33 +14,18 @@ function Test-CommandExists {
 	return $(if (Get-Command $command -errorAction SilentlyContinue) { $true } else { $false })
 }
 
-function New-TempFile {
-	param (
-		[string] $Extension
-	)
-
-	$filePath = "$([System.IO.Path]::GetTempFilename()).$Extension"
-	$tempFiles += $filePath
-
-	return $filePath
-}
-
-function Remove-TempFiles {
-	foreach ($path in $tempFiles) {
-		Remove-Item -Force -Path $path
-	}
-}
-
 function Update-EnvironmentVariable {
 	param (
 		[string]$variableName
 	)
 
+	# Write-Host "Updating environment variable: $variableName"
+
 	$value = [System.Environment]::GetEnvironmentVariable($variableName, [System.EnvironmentVariableTarget]::User)
 
 	if ($variableName -ieq "Path") {
 		$systemPath = [System.Environment]::GetEnvironmentVariable($variableName, [System.EnvironmentVariableTarget]::Machine)
-		$value = "$systemPath$value"
+		$value = "$systemPath;$value"
 	}
 
 	[System.Environment]::SetEnvironmentVariable($variableName, $value, [System.EnvironmentVariableTarget]::Process)
@@ -49,7 +34,7 @@ function Update-EnvironmentVariable {
 # Required by Tauri: VS build tools + Windows SDK
 function Install-VSTools {
 	$downloadUri = "https://aka.ms/vs/17/release/vs_buildtools.exe"
-	$executablePath = New-TempFile -Extension "exe"
+	$executablePath = "$tempPath\vs_buildtools.exe"
 
 	Start-BitsTransfer -Source $downloadUri -Destination $executablePath
 	& $executablePath --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows10SDK.19041 --passive | Out-Null
@@ -57,7 +42,7 @@ function Install-VSTools {
 
 function Install-Rustup {
 	$downloadUri = "https://win.rustup.rs/"
-	$executablePath = New-TempFile -Extension "exe"
+	$executablePath = "$tempPath\rustup-init.exe"
 
 	Start-BitsTransfer -Source $downloadUri -Destination $executablePath
 	Start-Process -FilePath $executablePath -ArgumentList "-y" -PassThru -Wait -Verb RunAs
@@ -73,19 +58,24 @@ function Install-Pnpm {
 	$pnpmHome = [System.Environment]::GetEnvironmentVariable("PNPM_HOME", [System.EnvironmentVariableTarget]::User)
 	[System.Environment]::SetEnvironmentVariable("PNPM_HOME", $pnpmHome, [System.EnvironmentVariableTarget]::User)
 	Update-EnvironmentVariable "PNPM_HOME"
+	Update-EnvironmentVariable "Path"
 }
 
+New-Item -ItemType Directory -Path $tempPath | Out-Null
+
 try {
+	Update-EnvironmentVariable "Path"
+
 	# greeting
 	Write-Host "Spacedrive Development Environment Setup" -ForegroundColor Magenta
 	Write-Host @"
 
 To set up your machine for Spacedrive development, this script will check for the following and install if necessary:
 
-	- Visual Studio build tools
-	- Cargo
-	- pnpm
-	- FFmpeg
+- Visual Studio build tools
+- Cargo
+- pnpm
+- FFmpeg
 
 "@
 
@@ -118,14 +108,13 @@ To set up your machine for Spacedrive development, this script will check for th
 	Write-Host "pnpm is installed."
 
 	Write-Host "Using pnpm to install the latest version of Node..."
-	Start-Process -FilePath "pnpm" -ArgumentList "env", "use", "--global", "latest" -Wait -PassThru -Verb RunAs
+	Start-Process -FilePath "pnpm" -ArgumentList "env", "use", "--global", "latest" -Wait -PassThru | Out-Null
 
 	# fin
 	Write-Host
-	Write-Host "Your machine has been set up for Spacedrive development! (You may need to restart your shell)"
-	Read-Host "Press ENTER to exit"
+	Write-Host "Your machine has been set up for Spacedrive development!"
 } finally {
-	Remove-TempFiles
+	Remove-Item -Recurse -Force -Path $tempPath
 }
 
 # Toolchain (Spacedrive):
