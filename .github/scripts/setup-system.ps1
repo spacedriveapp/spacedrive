@@ -108,12 +108,13 @@ To set up your machine for Spacedrive development, this script will check for th
 	Write-Host "pnpm is installed."
 
 	Write-Host "Using pnpm to install the latest version of Node..."
-	Start-Process -FilePath "pnpm" -ArgumentList "env", "use", "--global", "latest" -Wait -PassThru | Out-Null
+	Start-Process -FilePath "pnpm" -ArgumentList "env", "use", "--global", "latest" -Wait -PassThru -Verb RunAs | Out-Null
 
 	# fin
 	Write-Host
 	Write-Host "Your machine has been set up for Spacedrive development!"
-} finally {
+}
+finally {
 	Remove-Item -Recurse -Force -Path $tempPath
 }
 
