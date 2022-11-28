@@ -8,7 +8,16 @@ const ALGORITHM: Algorithm = Algorithm::Aes256Gcm;
 
 const KB: usize = 1024;
 
-const SIZES: [usize; 6] = [KB * 16, KB * 32, KB * 64, KB * 128, KB * 512, KB * 1024];
+const SIZES: [usize; 8] = [
+	KB * 16,
+	KB * 32,
+	KB * 64,
+	KB * 128,
+	KB * 512,
+	KB * 1024,
+	KB * 2048,
+	KB * 4096,
+];
 
 fn bench(c: &mut Criterion) {
 	let mut group = c.benchmark_group("aes-256-gcm");
