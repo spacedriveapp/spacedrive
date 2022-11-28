@@ -1,9 +1,9 @@
 //! This module contains the crate's STREAM implementation, and wrappers that allow us to support multiple AEADs.
-use std::io::{Cursor, Read, Seek, Write};
+use std::io::{Cursor, Read, Write};
 
 use aead::{
 	stream::{DecryptorLE31, EncryptorLE31},
-	KeyInit, Payload,
+	Buffer, KeyInit, Payload,
 };
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
@@ -103,8 +103,8 @@ impl StreamEncryption {
 	/// The AAD will be authenticated with each block of data.
 	pub fn encrypt_streams<R, W>(mut self, mut reader: R, mut writer: W, aad: &[u8]) -> Result<()>
 	where
-		R: Read + Seek,
-		W: Write + Seek,
+		R: Read,
+		W: Write,
 	{
 		let mut read_buffer = vec![0u8; BLOCK_SIZE].into_boxed_slice();
 		loop {
@@ -123,15 +123,8 @@ impl StreamEncryption {
 				// zeroize before writing, so any potential errors won't result in a potential data leak
 				// this specific zeroize technically isn't needed due to the boxed slice, but performance impact is
 				// negligible and it's good practice either way
-				read_buffer.zeroize();
 
-				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
-
-				if read_count != write_count - 16 {
-					// -16 to account for the AEAD tag
-					return Err(Error::WriteMismatch);
-				}
+				writer.write_all(&encrypted_data)?;
 			} else {
 				// we use `..read_count` in order to only use the read data, and not zeroes also
 				let payload = Payload {
@@ -147,13 +140,7 @@ impl StreamEncryption {
 				// zeroize before writing, so any potential errors won't result in a potential data leak
 				read_buffer.zeroize();
 
-				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				let write_count = writer.write(&encrypted_data).map_err(Error::Io)?;
-
-				if read_count != write_count - 16 {
-					// -16 to account for the AEAD tag
-					return Err(Error::WriteMismatch);
-				}
+				writer.write_all(&encrypted_data)?;
 
 				break;
 			}
@@ -175,12 +162,10 @@ impl StreamEncryption {
 		bytes: &[u8],
 		aad: &[u8],
 	) -> Result<Vec<u8>> {
-		let mut reader = Cursor::new(bytes);
 		let mut writer = Cursor::new(Vec::<u8>::new());
-
 		let encryptor = Self::new(key, nonce, algorithm)?;
 
-		match encryptor.encrypt_streams(&mut reader, &mut writer, aad) {
+		match encryptor.encrypt_streams(bytes, &mut writer, aad) {
 			Ok(_) => Ok(writer.into_inner()),
 			Err(e) => Err(e),
 		}
@@ -248,10 +233,11 @@ impl StreamDecryption {
 	/// The AAD will be authenticated with each block of data - if the AAD doesn't match what was used during encryption, an error will be returned.
 	pub fn decrypt_streams<R, W>(mut self, mut reader: R, mut writer: W, aad: &[u8]) -> Result<()>
 	where
-		R: Read + Seek,
-		W: Write + Seek,
+		R: Read,
+		W: Write,
 	{
 		let mut read_buffer = vec![0u8; BLOCK_SIZE + 16].into_boxed_slice();
+
 		loop {
 			let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
 			if read_count == (BLOCK_SIZE + 16) {
@@ -264,17 +250,12 @@ impl StreamDecryption {
 
 				// Using `write` instead of `write_all` so we can check the amount of bytes written
 				// Zeroize buffer on write error
-				let write_count = writer.write(&decrypted_data).map_err(|e| {
+				writer.write_all(&decrypted_data).map_err(|e| {
 					decrypted_data.zeroize();
 					Error::Io(e)
 				})?;
 
-				decrypted_data.zeroize();
-
-				if read_count - 16 != write_count {
-					// -16 to account for the AEAD tag
-					return Err(Error::WriteMismatch);
-				}
+			// decrypted_data.zeroize();
 			} else {
 				let payload = Payload {
 					aad,
@@ -283,19 +264,13 @@ impl StreamDecryption {
 
 				let mut decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
 
-				// Using `write` instead of `write_all` so we can check the amount of bytes written
 				// Zeroize buffer on write error
-				let write_count = writer.write(&decrypted_data).map_err(|e| {
+				writer.write_all(&decrypted_data).map_err(|e| {
 					decrypted_data.zeroize();
 					Error::Io(e)
 				})?;
 
-				decrypted_data.zeroize();
-
-				if read_count - 16 != write_count {
-					// -16 to account for the AEAD tag
-					return Err(Error::WriteMismatch);
-				}
+				// decrypted_data.zeroize();
 
 				break;
 			}
@@ -317,12 +292,11 @@ impl StreamDecryption {
 		bytes: &[u8],
 		aad: &[u8],
 	) -> Result<Protected<Vec<u8>>> {
-		let mut reader = Cursor::new(bytes);
 		let mut writer = Cursor::new(Vec::<u8>::new());
 
 		let decryptor = Self::new(key, nonce, algorithm)?;
 
-		match decryptor.decrypt_streams(&mut reader, &mut writer, aad) {
+		match decryptor.decrypt_streams(bytes, &mut writer, aad) {
 			Ok(_) => Ok(Protected::new(writer.into_inner())),
 			Err(e) => Err(e),
 		}
