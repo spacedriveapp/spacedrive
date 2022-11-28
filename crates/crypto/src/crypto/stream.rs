@@ -1,17 +1,15 @@
 //! This module contains the crate's STREAM implementation, and wrappers that allow us to support multiple AEADs.
 use std::io::{Cursor, Read, Write};
 
+use crate::{primitives::BLOCK_SIZE, Error, Protected, Result};
 use aead::{
 	stream::{DecryptorLE31, EncryptorLE31},
-	Buffer, KeyInit, Payload,
+	KeyInit, Payload,
 };
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use zeroize::Zeroize;
-
-use crate::{primitives::BLOCK_SIZE, Error, Protected, Result};
 
 /// These are all possible algorithms that can be used for encryption and decryption
 #[derive(Clone, Copy, Eq, PartialEq, Type, Serialize, Deserialize)]
@@ -96,8 +94,6 @@ impl StreamEncryption {
 	///
 	/// The streaming implementation reads blocks of data in `BLOCK_SIZE`, encrypts, and writes to the writer.
 	///
-	/// Measures are in place to zeroize any buffers that may contain sensitive information.
-	///
 	/// It requires a reader, a writer, and any AAD to go with it.
 	///
 	/// The AAD will be authenticated with each block of data.
@@ -115,14 +111,7 @@ impl StreamEncryption {
 					msg: &read_buffer,
 				};
 
-				let encrypted_data = self.encrypt_next(payload).map_err(|_| {
-					read_buffer.zeroize();
-					Error::Encrypt
-				})?;
-
-				// zeroize before writing, so any potential errors won't result in a potential data leak
-				// this specific zeroize technically isn't needed due to the boxed slice, but performance impact is
-				// negligible and it's good practice either way
+				let encrypted_data = self.encrypt_next(payload).map_err(|_| Error::Encrypt)?;
 
 				writer.write_all(&encrypted_data)?;
 			} else {
@@ -132,14 +121,7 @@ impl StreamEncryption {
 					msg: &read_buffer[..read_count],
 				};
 
-				let encrypted_data = self.encrypt_last(payload).map_err(|_| {
-					read_buffer.zeroize();
-					Error::Encrypt
-				})?;
-
-				// zeroize before writing, so any potential errors won't result in a potential data leak
-				read_buffer.zeroize();
-
+				let encrypted_data = self.encrypt_last(payload).map_err(|_| Error::Encrypt)?;
 				writer.write_all(&encrypted_data)?;
 
 				break;
@@ -226,8 +208,6 @@ impl StreamDecryption {
 	///
 	/// The streaming implementation reads blocks of data in `BLOCK_SIZE`, decrypts, and writes to the writer.
 	///
-	/// Measures are in place to zeroize any buffers that may contain sensitive information.
-	///
 	/// It requires a reader, a writer, and any AAD that was used.
 	///
 	/// The AAD will be authenticated with each block of data - if the AAD doesn't match what was used during encryption, an error will be returned.
@@ -246,31 +226,17 @@ impl StreamDecryption {
 					msg: &read_buffer,
 				};
 
-				let mut decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
+				let decrypted_data = self.decrypt_next(payload).map_err(|_| Error::Decrypt)?;
 
-				// Using `write` instead of `write_all` so we can check the amount of bytes written
-				// Zeroize buffer on write error
-				writer.write_all(&decrypted_data).map_err(|e| {
-					decrypted_data.zeroize();
-					Error::Io(e)
-				})?;
-
-			// decrypted_data.zeroize();
+				writer.write_all(&decrypted_data)?;
 			} else {
 				let payload = Payload {
 					aad,
 					msg: &read_buffer[..read_count],
 				};
 
-				let mut decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
-
-				// Zeroize buffer on write error
-				writer.write_all(&decrypted_data).map_err(|e| {
-					decrypted_data.zeroize();
-					Error::Io(e)
-				})?;
-
-				// decrypted_data.zeroize();
+				let decrypted_data = self.decrypt_last(payload).map_err(|_| Error::Decrypt)?;
+				writer.write_all(&decrypted_data)?;
 
 				break;
 			}
