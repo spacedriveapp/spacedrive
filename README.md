@@ -48,6 +48,7 @@ For independent creatives, hoarders and those that want to own their digital foo
   <a href="https://twitter.com/spacedriveapp">
     <img src="https://img.shields.io/badge/Twitter-00acee?logo=twitter&logoColor=white" />
   </a>
+<a href="https://app.fossa.com/projects/git%2Bgithub.com%2Fspacedriveapp%2Fspacedrive?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2Fspacedriveapp%2Fspacedrive.svg?type=shield"/></a>
   <a href="https://instagram.com/spacedriveapp">
     <img src="https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white" />
   </a>
@@ -58,6 +59,9 @@ For independent creatives, hoarders and those that want to own their digital foo
   <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB" />
   <br />
 </p>
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fspacedriveapp%2Fspacedrive.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fspacedriveapp%2Fspacedrive?ref=badge_large)
 
 # What is a VDFS?
 
