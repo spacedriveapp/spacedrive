@@ -1,10 +1,9 @@
 import { useBridgeMutation, useCurrentLibrary } from '@sd/client';
+import { Trash } from 'phosphor-react-native';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
-import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
-import Divider from '~/components/primitive/Divider';
 import { Input } from '~/components/primitive/Input';
 import { Switch } from '~/components/primitive/Switch';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
@@ -37,9 +36,7 @@ const LibraryGeneralSettingsScreen = ({
 
 	return (
 		<View>
-			<Card style={tw`m-4`}>
-				<Text style={tw`font-semibold text-ink`}>Current Library</Text>
-				<Divider style={tw`my-2`} />
+			<View style={tw`mt-4 px-2 py-4 bg-app-overlay`}>
 				<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-1`}>Name</Text>
 				<Controller
 					name="name"
@@ -57,7 +54,7 @@ const LibraryGeneralSettingsScreen = ({
 						<Input onBlur={onBlur} onChangeText={onChange} value={value} />
 					)}
 				/>
-			</Card>
+			</View>
 			{/* Encrypt */}
 			<View style={tw`mt-6`} />
 			<SettingsContainer description="Enable encryption for this library, this will only encrypt the Spacedrive database, not the files themselves.">
@@ -69,14 +66,13 @@ const LibraryGeneralSettingsScreen = ({
 			<View style={tw`mt-4`} />
 			{/* Delete Library
 			TODO: Open delete library dialog here, but do handle library switching
-			And what happens if there is no library set ?
-			*/}
+			And what happens if there is no library set ? */}
 			<SettingsContainer description="This is permanent, your files will not be deleted, only the Spacedrive library.">
 				<SettingsItem
 					title="Delete Library"
 					rightArea={
-						<Button size="md" variant="danger" onPress={() => Alert.alert('TODO')}>
-							<Text style={tw`text-ink text-sm font-medium`}>Delete</Text>
+						<Button size="sm" variant="danger" onPress={() => Alert.alert('TODO')}>
+							<Trash color={tw.color('ink')} size={20} />
 						</Button>
 					}
 				/>
