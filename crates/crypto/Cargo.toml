@@ -1,7 +1,7 @@
 [package]
 name = "sd-crypto"
 version = "0.0.0"
-authors = ["Jake <brxken128@tutanota.com>"]
+authors = ["Jake Robinson <jake@spacedrive.com>"]
 readme = "README.md"
 description = "A library to handle cryptographic functions within Spacedrive"
 edition = "2021"
