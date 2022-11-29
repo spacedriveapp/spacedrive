@@ -1,20 +1,42 @@
+use std::{collections::VecDeque, path::PathBuf};
+
+use sd_crypto::{
+	crypto::stream::StreamEncryption,
+	header::{file::FileHeader, keyslot::Keyslot},
+	primitives::{generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT},
+};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
-use crate::job::{JobError, JobResult, JobState, StatefulJob, WorkerContext};
+use crate::{
+	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	prisma::{file_path, location},
+};
 
-pub struct FileEncryptorJob {}
+pub struct FileEncryptorJob;
+
+#[derive(Serialize, Deserialize, Debug)]
+enum ObjectType {
+	File,
+	Directory,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobState {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobInit {
-	location_id: Option<i32>,
+	location_id: i32,
+	object_id: i32,
 	key_uuid: uuid::Uuid,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct FileEncryptorJobStep {}
+pub struct FileEncryptorJobStep {
+	obj_name: String,
+	obj_path: PathBuf,
+	obj_type: ObjectType,
+}
 
 const JOB_NAME: &str = "file_encryptor";
 
@@ -30,22 +52,125 @@ impl StatefulJob for FileEncryptorJob {
 
 	async fn init(
 		&self,
-		_ctx: WorkerContext,
-		_state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+		ctx: WorkerContext,
+		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
 	) -> Result<(), JobError> {
 		// enumerate files to encrypt
 		// populate the steps with them (local file paths)
+		let library = ctx.library_ctx();
+
+		let location = library
+			.db
+			.location()
+			.find_unique(location::id::equals(state.init.location_id))
+			.exec()
+			.await?
+			.unwrap();
+
+		let root_path = location
+			.local_path
+			.as_ref()
+			.map(PathBuf::from)
+			.unwrap_or_default();
+
+		let item = library
+			.db
+			.file_path()
+			.find_first(vec![file_path::object_id::equals(Some(
+				state.init.object_id,
+			))])
+			.exec()
+			.await?
+			.unwrap();
+
+		let obj_name = item.materialized_path;
+
+		let mut obj_path = root_path.clone();
+		obj_path.push(obj_name.clone());
+
+		// i don't know if this covers symlinks
+		let obj_type = if item.is_dir {
+			ObjectType::Directory
+		} else {
+			ObjectType::File
+		};
+
+		state.steps = VecDeque::new();
+		state.steps.push_back(FileEncryptorJobStep {
+			obj_name,
+			obj_path,
+			obj_type,
+		});
 
 		Ok(())
 	}
 
 	async fn execute_step(
 		&self,
-		_ctx: WorkerContext,
-		_state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+		ctx: WorkerContext,
+		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
 	) -> Result<(), JobError> {
 		// get the key from the key manager
 		// encrypt the file
+
+		let step = &state.steps[0];
+
+		match step.obj_type {
+			ObjectType::File => {
+				// handle overwriting checks, and making sure there's enough available space
+				// convert crypto errors into job errors somewhere
+				let mut output_path = step.obj_path.clone();
+				output_path.push(".sd");
+
+				let mut reader = std::fs::File::open(step.obj_path.clone()).unwrap();
+				let mut writer = std::fs::File::create(output_path).unwrap();
+
+				let user_key = ctx
+					.library_ctx()
+					.key_manager
+					.access_keymount(state.init.key_uuid)
+					.unwrap()
+					.hashed_key;
+
+				let user_key_details = ctx
+					.library_ctx()
+					.key_manager
+					.access_keystore(state.init.key_uuid)
+					.unwrap();
+
+				let master_key = generate_master_key();
+
+				let keyslots = vec![Keyslot::new(
+					LATEST_KEYSLOT,
+					user_key_details.algorithm,
+					user_key_details.hashing_algorithm,
+					user_key_details.content_salt,
+					user_key,
+					&master_key,
+				)
+				.unwrap()];
+
+				let header =
+					FileHeader::new(LATEST_FILE_HEADER, user_key_details.algorithm, keyslots);
+
+				header.write(&mut writer).unwrap();
+
+				let encryptor =
+					StreamEncryption::new(master_key, &header.nonce, header.algorithm).unwrap();
+
+				encryptor
+					.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())
+					.unwrap();
+			}
+			_ => warn!(
+				"encryption is skipping {} as it isn't a file",
+				step.obj_name
+			),
+		}
+
+		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
+			state.step_number + 1,
+		)]);
 
 		Ok(())
 	}
