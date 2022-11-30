@@ -132,9 +132,9 @@ impl StatefulJob for FileEncryptorJob {
 
 				let mut output_path = step.obj_path.clone();
 				let extension = if let Some(ext) = output_path.extension() {
-					ext.to_str().unwrap().to_string() + ".sd"
+					ext.to_str().unwrap().to_string() + ".sdx"
 				} else {
-					".sd".to_string()
+					"sdx".to_string()
 				};
 
 				output_path.set_extension(extension);

@@ -32,6 +32,7 @@ export type Procedures = {
         { key: "tags.list", input: LibraryArgs<null>, result: Array<Tag> } | 
         { key: "volumes.list", input: never, result: Array<Volume> },
     mutations: 
+        { key: "files.decryptFiles", input: LibraryArgs<FileDecryptorJobArgs>, result: null } | 
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
@@ -84,6 +85,8 @@ export type ExplorerContext = { type: "Location" } & Location | { type: "Tag" } 
 export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerItem> }
 
 export type ExplorerItem = { type: "Path" } & { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null } | { type: "Object" } & { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath> }
+
+export interface FileDecryptorJobArgs { id: number, object_id: number }
 
 export interface FileEncryptorJobArgs { id: number, object_id: number, key_uuid: string }
 

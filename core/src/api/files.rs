@@ -2,7 +2,10 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	location::fetch_location,
-	object::fs::encrypt::{FileEncryptorJob, FileEncryptorJobInit},
+	object::fs::{
+		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
+		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
+	},
 	prisma::object,
 };
 
@@ -102,6 +105,35 @@ pub(crate) fn mount() -> RouterBuilder {
 							key_uuid: args.key_uuid,
 						},
 						Box::new(FileEncryptorJob {}),
+					))
+					.await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("decryptFiles", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct FileDecryptorJobArgs {
+				pub id: i32,
+				pub object_id: i32,
+			}
+
+			t(|_, args: FileDecryptorJobArgs, library| async move {
+				if fetch_location(&library, args.id).exec().await?.is_none() {
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Location not found".into(),
+					));
+				}
+
+				library
+					.spawn_job(Job::new(
+						FileDecryptorJobInit {
+							location_id: args.id,
+							object_id: args.object_id,
+						},
+						Box::new(FileDecryptorJob {}),
 					))
 					.await;
 				invalidate_query!(library, "locations.getExplorerData");

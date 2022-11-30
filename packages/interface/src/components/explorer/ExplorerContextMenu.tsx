@@ -3,6 +3,7 @@ import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
 	LockSimple,
+	LockSimpleOpen,
 	Package,
 	Plus,
 	Share,
@@ -73,6 +74,7 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 	}, [os]);
 
 	const encryptFiles = useLibraryMutation('files.encryptFiles');
+	const decryptFiles = useLibraryMutation('files.decryptFiles');
 	const defaultKey = useLibraryQuery(['keys.getDefault']);
 	const hasMasterPassword = useLibraryQuery(['keys.hasMasterPassword']);
 
@@ -140,6 +142,23 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 									id: store.locationId,
 									object_id: store.contextMenuObjectId,
 									key_uuid: defaultKey.data
+								});
+						}}
+					/>
+					{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
+					<CM.Item
+						label="Decrypt"
+						icon={LockSimpleOpen}
+						keybind="⌘E"
+						onClick={() => {
+							if (!hasMasterPassword?.data) {
+								// open the key manager panel
+							}
+							store.locationId &&
+								store.contextMenuObjectId &&
+								decryptFiles.mutate({
+									id: store.locationId,
+									object_id: store.contextMenuObjectId
 								});
 						}}
 					/>
