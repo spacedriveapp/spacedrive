@@ -72,6 +72,10 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 		}
 	}, [os]);
 
+	const encryptFiles = useLibraryMutation('files.encryptFiles');
+	const defaultKey = useLibraryQuery(['keys.getDefault']);
+	const hasMasterPassword = useLibraryQuery(['keys.hasMasterPassword']);
+
 	return (
 		<div className="relative">
 			<CM.ContextMenu trigger={props.children}>
@@ -121,7 +125,24 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 					</CM.SubMenu>
 				)}
 				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item label="Encrypt" icon={LockSimple} keybind="⌘E" />
+					<CM.Item
+						label="Encrypt"
+						icon={LockSimple}
+						keybind="⌘E"
+						onClick={() => {
+							if (!hasMasterPassword?.data) {
+								// open the key manager panel
+							}
+							store.locationId &&
+								store.contextMenuObjectId &&
+								defaultKey.data &&
+								encryptFiles.mutate({
+									id: store.locationId,
+									object_id: store.contextMenuObjectId,
+									key_uuid: defaultKey.data
+								});
+						}}
+					/>
 					<CM.Item label="Compress" icon={Package} keybind="⌘B" />
 					<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 						<CM.Item label="PNG" />

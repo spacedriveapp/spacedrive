@@ -26,9 +26,9 @@ pub struct FileEncryptorJobState {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobInit {
-	location_id: i32,
-	object_id: i32,
-	key_uuid: uuid::Uuid,
+	pub location_id: i32,
+	pub object_id: i32,
+	pub key_uuid: uuid::Uuid,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -65,7 +65,7 @@ impl StatefulJob for FileEncryptorJob {
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
-			.unwrap();
+			.expect("critical error: can't find location");
 
 		let root_path = location
 			.local_path
@@ -81,7 +81,7 @@ impl StatefulJob for FileEncryptorJob {
 			))])
 			.exec()
 			.await?
-			.unwrap();
+			.expect("critical error: can't find object");
 
 		let obj_name = item.materialized_path;
 
@@ -118,25 +118,29 @@ impl StatefulJob for FileEncryptorJob {
 		match step.obj_type {
 			ObjectType::File => {
 				// handle overwriting checks, and making sure there's enough available space
-				// convert crypto errors into job errors somewhere
-				let mut output_path = step.obj_path.clone();
-				output_path.push(".sd");
-
-				let mut reader = std::fs::File::open(step.obj_path.clone()).unwrap();
-				let mut writer = std::fs::File::create(output_path).unwrap();
 
 				let user_key = ctx
 					.library_ctx()
 					.key_manager
-					.access_keymount(state.init.key_uuid)
-					.unwrap()
+					.access_keymount(state.init.key_uuid)?
 					.hashed_key;
 
 				let user_key_details = ctx
 					.library_ctx()
 					.key_manager
-					.access_keystore(state.init.key_uuid)
-					.unwrap();
+					.access_keystore(state.init.key_uuid)?;
+
+				let mut output_path = step.obj_path.clone();
+				let extension = if let Some(ext) = output_path.extension() {
+					ext.to_str().unwrap().to_string() + ".sd"
+				} else {
+					".sd".to_string()
+				};
+
+				output_path.set_extension(extension);
+
+				let mut reader = std::fs::File::open(step.obj_path.clone())?;
+				let mut writer = std::fs::File::create(output_path)?;
 
 				let master_key = generate_master_key();
 
@@ -147,20 +151,16 @@ impl StatefulJob for FileEncryptorJob {
 					user_key_details.content_salt,
 					user_key,
 					&master_key,
-				)
-				.unwrap()];
+				)?];
 
 				let header =
 					FileHeader::new(LATEST_FILE_HEADER, user_key_details.algorithm, keyslots);
 
-				header.write(&mut writer).unwrap();
+				header.write(&mut writer)?;
 
-				let encryptor =
-					StreamEncryption::new(master_key, &header.nonce, header.algorithm).unwrap();
+				let encryptor = StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
 
-				encryptor
-					.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())
-					.unwrap();
+				encryptor.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())?;
 			}
 			_ => warn!(
 				"encryption is skipping {} as it isn't a file",
