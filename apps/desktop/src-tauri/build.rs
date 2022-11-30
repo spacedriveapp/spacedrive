@@ -7,51 +7,42 @@ fn main() {
 		link_swift_package("sd-desktop-macos", "./native/macos/");
 	}
 
-	// #[cfg(target_os = "windows")]
-	// {
-	// 	use std::{env, ffi::OsStr, fs, path::PathBuf};
+	#[cfg(target_env = "msvc")]
+	{
+		use std::{env, ffi::OsStr, fs};
 
-	// 	let cwd: PathBuf = env::current_dir().unwrap();
+		env::set_var("VCPKGRS_DYNAMIC", "1");
 
-	// 	let vcpkg_root = env::var("VCPKG_ROOT").unwrap();
-	// 	let mut ffmpeg_root: PathBuf = PathBuf::from(vcpkg_root);
-	// 	ffmpeg_root.extend(&["packages", "ffmpeg_x64-windows", "bin"]);
+		#[cfg(target_arch = "x86_64")]
+		env::set_var("VCPKGRS_TRIPLET", "x64-windows");
 
-	// 	for path in fs::read_dir(ffmpeg_root).unwrap() {
-	// 		let path = path.unwrap().path().to_owned();
+		// we need the dlls to be IN THIS SOURCE FOLDER for tauri to bundle them.
 
-	// 		println!("{}", path.as_os_str().to_str().unwrap());
+		let dlls = vcpkg::Config::new()
+			.cargo_metadata(false)
+			.copy_dlls(false)
+			.find_package("ffmpeg")
+			.map_err(|e| {
+				println!("Could not find ffmpeg with vcpkg: {}", e);
+			})
+			.map(|lib| lib.found_dlls)
+			.ok()
+			.unwrap();
 
-	// 		if let Some("dll") = path.extension().and_then(OsStr::to_str) {
-	// 			let mut destination_path: PathBuf = PathBuf::from(cwd.to_str().unwrap());
-	// 			destination_path.extend(&[
-	// 				"apps",
-	// 				"desktop",
-	// 				"src-tauri",
-	// 				"lib",
-	// 				path.file_name().and_then(OsStr::to_str).unwrap(),
-	// 			]);
+		for dll in dlls {
+			let mut dest_path = env::current_dir().unwrap();
+			dest_path.push(dll.file_name().unwrap());
 
-	// 			println!("{}", destination_path.as_os_str().to_str().unwrap());
+			let copy_result = fs::copy(dll, &dest_path);
 
-	// 			let _source_lock = fs::OpenOptions::new().read(true).open(path.clone());
-	// 			let _destination_lock = fs::OpenOptions::new()
-	// 				.create(true)
-	// 				.open(destination_path.clone());
-
-	// 			let copy_result = fs::copy(path.clone(), destination_path);
-
-	// 			assert!(
-	// 				copy_result.is_ok(),
-	// 				"Could not copy required DLL: \"{}\"\n{:#?}",
-	// 				path.file_name().and_then(OsStr::to_str).unwrap(),
-	// 				copy_result.err()
-	// 			);
-	// 		} else {
-	// 			break;
-	// 		}
-	// 	}
-	// }
+			assert!(
+				copy_result.is_ok(),
+				"Could not copy required DLL: \"{}\"\n{:#?}",
+				dest_path.file_name().and_then(OsStr::to_str).unwrap(),
+				copy_result.err()
+			);
+		}
+	}
 
 	tauri_build::build();
 }

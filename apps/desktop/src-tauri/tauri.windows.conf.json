@@ -22,7 +22,9 @@
 				"icons/icon.icns",
 				"icons/icon.ico"
 			],
-			"resources": ["*.dll"],
+			"resources": [
+				"*.dll"
+			],
 			"externalBin": [],
 			"copyright": "Spacedrive Technology Inc.",
 			"shortDescription": "The universal file manager.",
@@ -39,7 +41,9 @@
 		"allowlist": {
 			"all": true,
 			"protocol": {
-				"assetScope": ["*"]
+				"assetScope": [
+					"*"
+				]
 			},
 			"os": {
 				"all": true

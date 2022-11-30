@@ -70,33 +70,45 @@ try {
 	Write-Host "Spacedrive Development Environment Setup" -ForegroundColor Magenta
 	Write-Host @"
 
-To set up your machine for Spacedrive development, this script will check for the following and install if necessary:
+To set up your machine for Spacedrive development, this script will do the following if necessary:
 
-- Visual Studio build tools
-- Cargo
-- pnpm
-- FFmpeg
+- Install Visual Studio build tools
+- Install Cargo through Rustup
+- Install cargo-vcpkg
+- Install pnpm
+- Install Node.js
+- Build vcpkg dependencies
 
 "@
+
+	# we aren't actually checking much of this lol
 
 	# vs step
 	Write-Host "Checking for VS build tools..." -ForegroundColor Yellow
 	$vswherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 	$hasVSwhere = Test-Path -Path $vswherePath
+
 	if ($hasVSwhere -eq $false) {
 		Write-Host "VS build tools not found. Installing."
 		Install-VSTools
 	}
-	Write-Host "VS build tools are installed."
+	Write-Host "VS build tools are installed." -ForegroundColor Green
+	Write-Host
 
-	# rustup step
+	# cargo step
 	Write-Host "Checking for Cargo..." -ForegroundColor Yellow
 	$hasCargo = Test-CommandExists cargo
 	if ($hasCargo -eq $false) {
 		Write-Host "Cargo not found. Installing."
 		Install-Rustup
 	}
-	Write-Host "Cargo is installed."
+	Write-Host "Cargo is installed." -ForegroundColor Green
+	Write-Host
+
+	Write-Host "Setting up cargo-vcpkg..."
+	& cargo install cargo-vcpkg
+	Write-Host "cargo-vcpkg is installed." -ForegroundColor Green
+	Write-Host
 
 	# pnpm step
 	Write-Host "Checking for pnpm..." -ForegroundColor Yellow
@@ -105,14 +117,22 @@ To set up your machine for Spacedrive development, this script will check for th
 		Write-Host "pnpm not found. Installing."
 		Install-Pnpm
 	}
-	Write-Host "pnpm is installed."
+	Write-Host "pnpm is installed." -ForegroundColor Green
+	Write-Host
 
-	Write-Host "Using pnpm to install the latest version of Node..."
-	Start-Process -FilePath "pnpm" -ArgumentList "env", "use", "--global", "latest" -Wait -PassThru -Verb RunAs | Out-Null
+	if ((Test-CommandExists "node") -eq $false) {
+		Write-Host "Using pnpm to install the latest version of Node..." -ForegroundColor Yellow
+		Start-Process -FilePath "pnpm" -ArgumentList "env", "use", "--global", "latest" -Wait -PassThru -Verb RunAs | Out-Null
+		Write-Host
+	}
+
+	# vcpkg build
+	Write-Host "Building vcpkg dependencies... (This may take a long time!)" -ForegroundColor Yellow
+	Start-Process -WorkingDirectory "${pwd}\apps\desktop\src-tauri\" -FilePath "cargo" -ArgumentList "vcpkg", "build" -NoNewWindow -Wait -PassThru | Out-Null
 
 	# fin
 	Write-Host
-	Write-Host "Your machine has been set up for Spacedrive development!"
+	Write-Host "Your machine has been set up for Spacedrive development!" -ForegroundColor Magenta
 }
 finally {
 	Remove-Item -Recurse -Force -Path $tempPath
@@ -127,4 +147,4 @@ finally {
 #	Windows 10 SDK
 
 # Dependencies (Spacedrive):
-#	FFmpeg
+#	defined by vcpkg
