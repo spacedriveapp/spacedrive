@@ -38,7 +38,7 @@ rev = "eaf5e90"
 
 [package.metadata.vcpkg.target.'x86_64-pc-windows-msvc']
 triplet = "x64-windows"
-dependencies = ["ffmpeg"]
+dependencies = ["ffmpeg[avcodec,avfilter,avformat,avutil,swresample,swscale]"]
 
 [features]
 default = ["custom-protocol"]
