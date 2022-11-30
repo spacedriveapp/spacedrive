@@ -45,7 +45,7 @@ function Install-Rustup {
 	$executablePath = "$tempPath\rustup-init.exe"
 
 	Start-BitsTransfer -Source $downloadUri -Destination $executablePath
-	Start-Process -FilePath $executablePath -ArgumentList "-y" -PassThru -Wait -Verb RunAs
+	Start-Process -FilePath $executablePath -ArgumentList "-y" -NoNewWindow -PassThru -Wait -Verb RunAs | Out-Null
 	Update-EnvironmentVariable "Path"
 }
 
@@ -122,7 +122,7 @@ To set up your machine for Spacedrive development, this script will do the follo
 
 	if ((Test-CommandExists "node") -eq $false) {
 		Write-Host "Using pnpm to install the latest version of Node..." -ForegroundColor Yellow
-		Start-Process -FilePath "pnpm" -ArgumentList "env", "use", "--global", "latest" -Wait -PassThru -Verb RunAs | Out-Null
+		Start-Process -FilePath "pnpm" -ArgumentList "env", "use", "--global", "latest" -NoNewWindow -Wait -PassThru -Verb RunAs | Out-Null
 		Write-Host
 	}
 
