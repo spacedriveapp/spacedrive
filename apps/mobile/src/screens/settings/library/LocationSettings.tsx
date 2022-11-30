@@ -30,7 +30,7 @@ function LocationListItem({
 					{/* Online/Offline Indicator */}
 					<View
 						style={tw.style(
-							'absolute w-2 h-2 -right-0.5 bottom-0 rounded-full',
+							'absolute w-2 h-2 right-0 bottom-0.5 rounded-full',
 							location.is_online ? 'bg-green-500' : 'bg-red-500'
 						)}
 					/>
@@ -50,19 +50,21 @@ function LocationListItem({
 				</View>
 				<View style={tw`flex flex-row`}>
 					<DeleteLocationDialog locationId={location.id}>
-						<Button disabled size="sm">
-							<Trash size={18} color={tw.color('ink')} />
+						<Button disabled size="sm" style={tw`opacity-100`}>
+							<Trash size={18} color="white" />
 						</Button>
 					</DeleteLocationDialog>
 					{/* Full Re-scan IS too much here */}
 					<Button size="sm" style={tw`ml-1`} onPress={() => fullRescan(location.id)}>
-						<Repeat size={18} color={tw.color('ink')} />
+						<Repeat size={18} color="white" />
 					</Button>
 				</View>
 			</View>
 		</Card>
 	);
 }
+
+// TODO: Add new location from here (ImportModal)
 
 const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'LocationSettings'>) => {
 	const { data: locations } = useLibraryQuery(['locations.list']);

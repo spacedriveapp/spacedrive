@@ -7,6 +7,7 @@ import {
 import LocationScreen from '~/screens/Location';
 import TagScreen from '~/screens/Tag';
 
+// Mounted on all the tabs, so we can navigate to it from any tab
 export function SharedScreens(
 	Stack: TypedNavigator<
 		SharedScreensParamList,

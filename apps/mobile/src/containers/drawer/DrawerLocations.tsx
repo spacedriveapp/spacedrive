@@ -8,7 +8,7 @@ import tw from '~/lib/tailwind';
 
 import FolderIcon from '../../components/icons/FolderIcon';
 import CollapsibleView from '../../components/layout/CollapsibleView';
-import ImportModal from '../modals/ImportModal';
+import ImportModal from '../modal/ImportModal';
 
 type DrawerLocationItemProps = {
 	folderName: string;
