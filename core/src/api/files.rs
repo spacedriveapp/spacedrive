@@ -82,15 +82,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("encryptFiles", |t| {
-			#[derive(Type, Deserialize)]
-			pub struct FileEncryptorJobArgs {
-				pub id: i32,
-				pub object_id: i32,
-				pub key_uuid: uuid::Uuid,
-			}
-
-			t(|_, args: FileEncryptorJobArgs, library| async move {
-				if fetch_location(&library, args.id).exec().await?.is_none() {
+			t(|_, args: FileEncryptorJobInit, library| async move {
+				if fetch_location(&library, args.location_id)
+					.exec()
+					.await?
+					.is_none()
+				{
 					return Err(rspc::Error::new(
 						ErrorCode::NotFound,
 						"Location not found".into(),
@@ -98,14 +95,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 
 				library
-					.spawn_job(Job::new(
-						FileEncryptorJobInit {
-							location_id: args.id,
-							object_id: args.object_id,
-							key_uuid: args.key_uuid,
-						},
-						Box::new(FileEncryptorJob {}),
-					))
+					.spawn_job(Job::new(args, Box::new(FileEncryptorJob {})))
 					.await;
 				invalidate_query!(library, "locations.getExplorerData");
 

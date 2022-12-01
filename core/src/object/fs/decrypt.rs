@@ -102,7 +102,7 @@ impl StatefulJob for FileDecryptorJob {
 		// this would let the user choose
 		// we don't do any overwriting checks as of yet, maybe these should be front-end though
 		let extension = if let Some(ext) = output_path.extension() {
-			if ext == ".sdx" {
+			if ext == ".sdenc" {
 				"decrypted"
 			} else {
 				"decrypted"

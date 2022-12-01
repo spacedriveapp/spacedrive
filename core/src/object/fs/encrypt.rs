@@ -1,11 +1,13 @@
 use std::{collections::VecDeque, path::PathBuf};
 
 use sd_crypto::{
-	crypto::stream::StreamEncryption,
+	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT},
+	keys::hashing::HashingAlgorithm,
+	primitives::{generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA},
 };
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use tracing::warn;
 
 use crate::{
@@ -24,11 +26,15 @@ enum ObjectType {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobState {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Type)]
 pub struct FileEncryptorJobInit {
 	pub location_id: i32,
 	pub object_id: i32,
 	pub key_uuid: uuid::Uuid,
+	pub algorithm: Algorithm,
+	pub hashing_algorithm: HashingAlgorithm,
+	pub metadata: bool,
+	pub preview_media: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -36,6 +42,11 @@ pub struct FileEncryptorJobStep {
 	obj_name: String,
 	obj_path: PathBuf,
 	obj_type: ObjectType,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Metadata {
+	pub name: String,
 }
 
 const JOB_NAME: &str = "file_encryptor";
@@ -132,9 +143,9 @@ impl StatefulJob for FileEncryptorJob {
 
 				let mut output_path = step.obj_path.clone();
 				let extension = if let Some(ext) = output_path.extension() {
-					ext.to_str().unwrap().to_string() + ".sdx"
+					ext.to_str().unwrap().to_string() + ".sdenc"
 				} else {
-					"sdx".to_string()
+					"sdenc".to_string()
 				};
 
 				output_path.set_extension(extension);
@@ -153,8 +164,19 @@ impl StatefulJob for FileEncryptorJob {
 					&master_key,
 				)?];
 
-				let header =
+				let mut header =
 					FileHeader::new(LATEST_FILE_HEADER, user_key_details.algorithm, keyslots);
+
+				// this should only be done if the user selects it in the dialog
+				// we can also obfuscate the exterior name (possibly if selected too?)
+				header.add_metadata(
+					LATEST_METADATA,
+					user_key_details.algorithm,
+					&master_key,
+					&Metadata {
+						name: step.obj_name.clone(),
+					},
+				)?;
 
 				header.write(&mut writer)?;
 
