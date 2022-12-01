@@ -71,6 +71,7 @@ export const EncryptFileDialog = (props: { trigger: ReactNode }) => {
 	const { trigger } = props;
 
 	return (
+		// this also needs options for metadata/preview media inclusion
 		<>
 			<form onSubmit={handleSubmit(onSubmit)}>
 				<Dialog

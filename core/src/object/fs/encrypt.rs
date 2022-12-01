@@ -167,16 +167,18 @@ impl StatefulJob for FileEncryptorJob {
 				let mut header =
 					FileHeader::new(LATEST_FILE_HEADER, user_key_details.algorithm, keyslots);
 
-				// this should only be done if the user selects it in the dialog
-				// we can also obfuscate the exterior name (possibly if selected too?)
-				header.add_metadata(
-					LATEST_METADATA,
-					user_key_details.algorithm,
-					&master_key,
-					&Metadata {
-						name: step.obj_name.clone(),
-					},
-				)?;
+				if state.init.metadata {
+					header.add_metadata(
+						LATEST_METADATA,
+						user_key_details.algorithm,
+						&master_key,
+						&Metadata {
+							name: step.obj_name.clone(),
+						},
+					)?;
+
+					// we can also obfuscate the exterior name (possibly if selected too?)
+				}
 
 				header.write(&mut writer)?;
 
