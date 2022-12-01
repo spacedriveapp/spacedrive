@@ -29,7 +29,7 @@ swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "aut
   "build",
 ] }
 
-[target.'cfg(target_os = "windows")'.build-dependencies]
+[target.'cfg(target_env = "msvc")'.build-dependencies]
 vcpkg = "0.2.15"
 
 [package.metadata.vcpkg]
@@ -38,7 +38,7 @@ rev = "eaf5e90"
 
 [package.metadata.vcpkg.target.'x86_64-pc-windows-msvc']
 triplet = "x64-windows"
-dependencies = ["ffmpeg[avcodec,avfilter,avformat,avutil,swresample,swscale]"]
+dependencies = ["ffmpeg"]
 
 [features]
 default = ["custom-protocol"]

@@ -26,9 +26,6 @@ The following will be installed on Windows exclusively:
   - [Windows 10 SDK (19041)](https://learn.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools?view=vs-2022)
   - [C++ Clang Compiler for Windows](https://learn.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools?view=vs-2022)
   - [MSVC C++ x64/x86 build tools](https://learn.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools?view=vs-2022)
-- [Strawberry Perl](https://strawberryperl.com) (if no perl installation is found, **required for build because of OpenSSL**)
-
-<!-- - [Perl Strawberry](https://doc.rust-lang.org/cargo/getting-started/installation.html) -->
 
 The rest of the required tools can be installed by this script.
 

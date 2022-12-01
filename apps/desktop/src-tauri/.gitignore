@@ -3,7 +3,7 @@
 /target/
 WixTools
 
-# dynamic libraries are copied into this directory and packaged with build
+# dynamic libraries are copied into this directory and then bundled with build by tauri
 *.dll
 *.dylib
 *.so
