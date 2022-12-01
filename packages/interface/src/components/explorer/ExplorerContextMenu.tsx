@@ -16,6 +16,7 @@ import { PropsWithChildren, useMemo } from 'react';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { usePlatform } from '../../util/Platform';
 import { getExplorerStore } from '../../util/explorerStore';
+import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
@@ -127,23 +128,28 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 					</CM.SubMenu>
 				)}
 				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item
-						label="Encrypt"
-						icon={LockSimple}
-						keybind="⌘E"
-						onClick={() => {
-							if (!hasMasterPassword?.data) {
-								// open the key manager panel
-							}
-							store.locationId &&
-								store.contextMenuObjectId &&
-								defaultKey.data &&
-								encryptFiles.mutate({
-									id: store.locationId,
-									object_id: store.contextMenuObjectId,
-									key_uuid: defaultKey.data
-								});
-						}}
+					<EncryptFileDialog
+						trigger={
+							<CM.Item
+								label="Encrypt"
+								icon={LockSimple}
+								keybind="⌘E"
+								// onClick={() => {
+
+								// 	// if (!hasMasterPassword?.data) {
+								// 	// 	// open the key manager panel
+								// 	// }
+								// 	// store.locationId &&
+								// 	// 	store.contextMenuObjectId &&
+								// 	// 	defaultKey.data &&
+								// 	// 	encryptFiles.mutate({
+								// 	// 		id: store.locationId,
+								// 	// 		object_id: store.contextMenuObjectId,
+								// 	// 		key_uuid: defaultKey.data
+								// 	// 	});
+								// }}
+							/>
+						}
 					/>
 					{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
 					<CM.Item
