@@ -1,10 +1,9 @@
 import { Location, Node, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Repeat, Trash } from 'phosphor-react-native';
+import { CaretRight, Repeat, Trash } from 'phosphor-react-native';
 import React from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { Animated, FlatList, Pressable, Text, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import FolderIcon from '~/components/icons/FolderIcon';
-import Card from '~/components/layout/Card';
-import { Button } from '~/components/primitive/Button';
 import DeleteLocationDialog from '~/containers/dialog/DeleteLocationDialog';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
@@ -22,45 +21,73 @@ function LocationListItem({
 		}
 	});
 
-	return (
-		<Card style={tw.style(index !== 0 && 'mt-2')}>
-			<View style={tw`flex flex-row items-center`}>
-				<View style={tw`relative`}>
-					<FolderIcon size={32} />
-					{/* Online/Offline Indicator */}
+	const renderRightActions = (
+		progress: Animated.AnimatedInterpolation,
+		dragX: Animated.AnimatedInterpolation
+	) => {
+		const translate = progress.interpolate({
+			inputRange: [0, 1],
+			outputRange: [100, 0],
+			extrapolate: 'clamp'
+		});
+
+		return (
+			<Animated.View
+				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
+			>
+				<DeleteLocationDialog locationId={location.id}>
 					<View
-						style={tw.style(
-							'absolute w-2 h-2 right-0 bottom-0.5 rounded-full',
-							location.is_online ? 'bg-green-500' : 'bg-red-500'
-						)}
-					/>
-				</View>
-				<View style={tw`flex-1 ml-4`}>
-					<Text numberOfLines={1} style={tw`text-sm font-semibold text-ink`}>
-						{location.name}
-					</Text>
-					<View style={tw`self-start bg-app-highlight py-[1px] px-1 rounded mt-0.5`}>
-						<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
-							{location.node.name}
+						style={tw`py-1.5 px-3 bg-app-button border-app-line border rounded-md items-center justify-center shadow-sm`}
+					>
+						<Trash size={18} color="white" />
+					</View>
+				</DeleteLocationDialog>
+				{/* Full Re-scan IS too much here */}
+				<Pressable
+					style={tw`py-1.5 px-3 bg-app-button border-app-line border rounded-md items-center justify-center shadow-sm mx-2`}
+					onPress={() => fullRescan(location.id)}
+				>
+					<Repeat size={18} color="white" />
+				</Pressable>
+			</Animated.View>
+		);
+	};
+
+	return (
+		<Swipeable
+			containerStyle={tw`bg-app-overlay border border-app-line rounded-lg`}
+			enableTrackpadTwoFingerGesture
+			renderRightActions={renderRightActions}
+		>
+			<View style={tw.style('px-4 py-3', index !== 0 && 'mt-2')}>
+				<View style={tw`flex flex-row items-center`}>
+					<View style={tw`relative`}>
+						<FolderIcon size={32} />
+						{/* Online/Offline Indicator */}
+						<View
+							style={tw.style(
+								'absolute w-2 h-2 right-0 bottom-0.5 rounded-full',
+								location.is_online ? 'bg-green-500' : 'bg-red-500'
+							)}
+						/>
+					</View>
+					<View style={tw`flex-1 mx-4`}>
+						<Text numberOfLines={1} style={tw`text-sm font-semibold text-ink`}>
+							{location.name}
+						</Text>
+						<View style={tw`self-start bg-app-highlight py-[1px] px-1 rounded mt-0.5`}>
+							<Text numberOfLines={1} style={tw`text-xs font-semibold text-ink-dull`}>
+								{location.node.name}
+							</Text>
+						</View>
+						<Text numberOfLines={1} style={tw`mt-0.5 text-[10px] font-semibold text-ink-dull`}>
+							{location.local_path}
 						</Text>
 					</View>
-					<Text numberOfLines={1} style={tw`mt-0.5 text-[10px] font-semibold text-ink-dull`}>
-						{location.local_path}
-					</Text>
-				</View>
-				<View style={tw`flex flex-row`}>
-					<DeleteLocationDialog locationId={location.id}>
-						<Button disabled size="sm" style={tw`opacity-100`}>
-							<Trash size={18} color="white" />
-						</Button>
-					</DeleteLocationDialog>
-					{/* Full Re-scan IS too much here */}
-					<Button size="sm" style={tw`ml-1`} onPress={() => fullRescan(location.id)}>
-						<Repeat size={18} color="white" />
-					</Button>
+					<CaretRight color={tw.color('ink-dull')} size={18} />
 				</View>
 			</View>
-		</Card>
+		</Swipeable>
 	);
 }
 
@@ -70,7 +97,7 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 	const { data: locations } = useLibraryQuery(['locations.list']);
 
 	return (
-		<View style={tw`px-3 py-4`}>
+		<View style={tw`flex-1 px-3 py-4`}>
 			<FlatList
 				data={locations}
 				keyExtractor={(item) => item.id.toString()}

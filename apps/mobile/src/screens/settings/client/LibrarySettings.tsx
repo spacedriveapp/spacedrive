@@ -1,15 +1,12 @@
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
-import { Pen, Trash } from 'phosphor-react-native';
+import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import React from 'react';
-import { FlatList, Text, View } from 'react-native';
-import Card from '~/components/layout/Card';
+import { Animated, FlatList, Text, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { AnimatedButton } from '~/components/primitive/Button';
 import DeleteLibraryDialog from '~/containers/dialog/DeleteLibraryDialog';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
-
-// https://docs.swmansion.com/react-native-gesture-handler/docs/api/components/swipeable/
-// ^ Might look better?
 
 function LibraryItem({
 	library,
@@ -20,25 +17,49 @@ function LibraryItem({
 	index: number;
 	navigation: SettingsStackScreenProps<'LibrarySettings'>['navigation'];
 }) {
+	const renderRightActions = (
+		progress: Animated.AnimatedInterpolation,
+		dragX: Animated.AnimatedInterpolation
+	) => {
+		const translate = progress.interpolate({
+			inputRange: [0, 1],
+			outputRange: [100, 0],
+			extrapolate: 'clamp'
+		});
+
+		return (
+			<Animated.View
+				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
+			>
+				<AnimatedButton size="md" onPress={() => navigation.replace('LibraryGeneralSettings')}>
+					<Pen size={18} color="white" />
+				</AnimatedButton>
+				<DeleteLibraryDialog libraryUuid={library.uuid}>
+					<AnimatedButton size="md" style={tw`mx-2`}>
+						<Trash size={18} color="white" />
+					</AnimatedButton>
+				</DeleteLibraryDialog>
+			</Animated.View>
+		);
+	};
+
 	return (
-		<Card style={tw.style(index !== 0 && 'mt-2')}>
+		<Swipeable
+			containerStyle={tw.style(
+				index !== 0 && 'mt-2',
+				'bg-app-overlay border border-app-line rounded-lg px-4 py-3'
+			)}
+			enableTrackpadTwoFingerGesture
+			renderRightActions={renderRightActions}
+		>
 			<View style={tw`flex flex-row items-center justify-between`}>
 				<View>
 					<Text style={tw`font-semibold text-ink`}>{library.config.name}</Text>
 					<Text style={tw`mt-0.5 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
-				<View style={tw`flex flex-row`}>
-					<AnimatedButton size="sm" onPress={() => navigation.replace('LibraryGeneralSettings')}>
-						<Pen size={18} color={tw.color('ink')} />
-					</AnimatedButton>
-					<DeleteLibraryDialog libraryUuid={library.uuid}>
-						<AnimatedButton size="sm" style={tw`ml-1.5`}>
-							<Trash size={18} color={tw.color('ink')} />
-						</AnimatedButton>
-					</DeleteLibraryDialog>
-				</View>
+				<CaretRight color={tw.color('ink-dull')} size={18} />
 			</View>
-		</Card>
+		</Swipeable>
 	);
 }
 
