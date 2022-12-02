@@ -13,13 +13,17 @@
 use crate::Protected;
 use crate::{primitives::SALT_LEN, Error, Result};
 use argon2::Argon2;
-use serde::{Deserialize, Serialize};
-use specta::Type;
 
 /// These parameters define the password-hashing level.
 ///
 /// The harder the parameter, the longer the password will take to hash.
-#[derive(Clone, Copy, PartialEq, Eq, Type, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
 #[allow(clippy::use_self)]
 pub enum Params {
 	Standard,
@@ -28,7 +32,13 @@ pub enum Params {
 }
 
 /// This defines all available password hashing algorithms.
-#[derive(Clone, Copy, PartialEq, Eq, Type, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	derive(serde::Deserialize)
+)]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub enum HashingAlgorithm {
 	Argon2id(Params),
 }
