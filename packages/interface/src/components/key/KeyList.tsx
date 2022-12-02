@@ -7,7 +7,9 @@ import { useMemo } from 'react';
 
 export type KeyListProps = DefaultProps;
 
-const ListKeys = () => {
+export const ListOfKeys = (props: { noKeysMessage: boolean }) => {
+	const { noKeysMessage } = props;
+
 	const keys = useLibraryQuery(['keys.list']);
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
 
@@ -20,7 +22,7 @@ const ListKeys = () => {
 		[keys, mounted_uuids]
 	);
 
-	if(keys.data?.length === 0) {
+	if(keys.data?.length === 0 && noKeysMessage) {
 		return (
 			<CategoryHeading>No keys available.</CategoryHeading>
 		)
@@ -44,7 +46,7 @@ const ListKeys = () => {
 	)
 };
 
-export function KeyList(props: KeyListProps) {
+export const KeyList = (props: KeyListProps) => {
 	const unmountAll = useLibraryMutation(['keys.unmountAll']);
 
 	return (
@@ -53,7 +55,7 @@ export function KeyList(props: KeyListProps) {
 				<div className="">
 					{/* <CategoryHeading>Mounted keys</CategoryHeading> */}
 					<div className="space-y-1.5">
-						<ListKeys></ListKeys>
+						<ListOfKeys noKeysMessage />
 					</div>
 				</div>
 			</div>

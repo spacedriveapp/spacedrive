@@ -1,4 +1,4 @@
-use std::fs::File;
+#![cfg(feature = "serde")]
 
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
@@ -11,12 +11,11 @@ use sd_crypto::{
 	primitives::{generate_master_key, generate_salt},
 	Protected,
 };
-use serde::{Deserialize, Serialize};
-
+use std::fs::File;
 const ALGORITHM: Algorithm = Algorithm::XChaCha20Poly1305;
 const HASHING_ALGORITHM: HashingAlgorithm = HashingAlgorithm::Argon2id(Params::Standard);
 
-#[derive(Serialize, Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct FileInformation {
 	pub file_name: String,
 }
