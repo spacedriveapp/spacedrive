@@ -142,7 +142,7 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 					<CM.Item
 						label="Decrypt"
 						icon={LockSimpleOpen}
-						keybind="⌘E"
+						keybind="⌘D"
 						onClick={() => {
 							if (!hasMasterPassword?.data) {
 								// open the key manager panel

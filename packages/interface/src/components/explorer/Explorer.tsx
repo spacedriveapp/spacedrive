@@ -38,55 +38,54 @@ export default function Explorer(props: Props) {
 
 	return (
 		<>
-		<EncryptFileDialog
-			location_id={expStore.locationId}
-			object_id={expStore.contextMenuObjectId}
-			open={showEncryptDialog}
-			setOpen={setShowEncryptDialog}
-		/>
+			<div className="relative">
+				<ExplorerContextMenu setShowEncryptDialog={setShowEncryptDialog}>
+					<div className="relative flex flex-col w-full">
+						<TopBar showSeparator={separateTopBar} />
 
-		<div className="relative">
-			<ExplorerContextMenu setShowEncryptDialog={setShowEncryptDialog}>
-				<div className="relative flex flex-col w-full">
-					<TopBar showSeparator={separateTopBar} />
-
-					<div className="relative flex flex-row w-full max-h-full app-background ">
-						{props.data && (
-							<VirtualizedList
-								data={props.data.items || []}
-								context={props.data.context}
-								onScroll={(y) => {
-									setScrollSegments((old) => {
-										return {
-											...old,
-											mainList: y
-										};
-									});
-								}}
-							/>
-						)}
-						{expStore.showInspector && (
-							<div className="flex min-w-[260px] max-w-[260px]">
-								<Inspector
-									onScroll={(e) => {
-										const y = (e.target as HTMLElement).scrollTop;
-
+						<div className="relative flex flex-row w-full max-h-full app-background ">
+							{props.data && (
+								<VirtualizedList
+									data={props.data.items || []}
+									context={props.data.context}
+									onScroll={(y) => {
 										setScrollSegments((old) => {
 											return {
 												...old,
-												inspector: y
+												mainList: y
 											};
 										});
 									}}
-									key={props.data?.items[expStore.selectedRowIndex]?.id}
-									data={props.data?.items[expStore.selectedRowIndex]}
 								/>
-							</div>
-						)}
+							)}
+							{expStore.showInspector && (
+								<div className="flex min-w-[260px] max-w-[260px]">
+									<Inspector
+										onScroll={(e) => {
+											const y = (e.target as HTMLElement).scrollTop;
+
+											setScrollSegments((old) => {
+												return {
+													...old,
+													inspector: y
+												};
+											});
+										}}
+										key={props.data?.items[expStore.selectedRowIndex]?.id}
+										data={props.data?.items[expStore.selectedRowIndex]}
+									/>
+								</div>
+							)}
+						</div>
 					</div>
-				</div>
-			</ExplorerContextMenu>
-		</div>
+				</ExplorerContextMenu>
+			</div>
+			<EncryptFileDialog
+				location_id={expStore.locationId}
+				object_id={expStore.contextMenuObjectId}
+				open={showEncryptDialog}
+				setOpen={setShowEncryptDialog}
+			/>
 		</>
 	);
 }
