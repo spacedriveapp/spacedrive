@@ -11,12 +11,12 @@ export const ListOfMountedKeys = () => {
 	// enumerating keys this way allows us to have more information, so we can prioritise default keys/prompt the user to mount a key, etc
 	const keys = useLibraryQuery(['keys.list']);
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
-	const default_key = useLibraryQuery(['keys.getDefault']);
+	// const default_key = useLibraryQuery(['keys.getDefault']);
 
-	const [mountedKeys, unmountedKeys] = useMemo(
+	const [mountedKeys] = useMemo(
 		() => [
-			keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? [],
-			keys.data?.filter((key) => !mounted_uuids.data?.includes(key.uuid)) ?? []
+			keys.data?.filter((key) => mounted_uuids.data?.includes(key.uuid)) ?? []
+			// keys.data?.filter((key) => !mounted_uuids.data?.includes(key.uuid)) ?? []
 		],
 		[keys, mounted_uuids]
 	);
@@ -30,7 +30,12 @@ export const ListOfMountedKeys = () => {
 	);
 };
 
-export const EncryptFileDialog = (props: { trigger: ReactNode }) => {
+export const EncryptFileDialog = (props: {
+	open: boolean;
+	setOpen: (isShowing: boolean) => void;
+	location_id: number | null;
+	object_id: number | null;
+}) => {
 	type FormValues = {
 		outputPath: string;
 		key: string;
@@ -66,23 +71,19 @@ export const EncryptFileDialog = (props: { trigger: ReactNode }) => {
 		// );
 	};
 
-	const [showEncryptFileDialog, setShowEncryptFileDialog] = useState(false);
 	const encryptFile = useLibraryMutation('files.encryptFiles');
-	const { trigger } = props;
 
 	return (
 		// this also needs options for metadata/preview media inclusion
 		<>
 			<form onSubmit={handleSubmit(onSubmit)}>
 				<Dialog
-					open={showEncryptFileDialog}
-					setOpen={setShowEncryptFileDialog}
-					title="Change Master Password"
-					description="Select a new master password for your key manager."
-					ctaDanger={true}
+					open={props.open}
+					setOpen={props.setOpen}
+					title="Encrypt a file"
+					description="Configure your encryption settings."
 					loading={encryptFile.isLoading}
-					ctaLabel="Change"
-					trigger={trigger}
+					ctaLabel="Encrypt"
 				>
 					<Button
 						size="sm"

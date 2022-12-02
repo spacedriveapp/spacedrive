@@ -2,6 +2,7 @@ import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
 
 import { useExplorerStore } from '../../util/explorerStore';
+import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 import { Inspector } from '../explorer/Inspector';
 import ExplorerContextMenu from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';
@@ -17,6 +18,8 @@ export default function Explorer(props: Props) {
 
 	const [scrollSegments, setScrollSegments] = useState<{ [key: string]: number }>({});
 	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);
+
+	const [showEncryptDialog, setShowEncryptDialog] = useState(false);
 
 	useEffect(() => {
 		setSeparateTopBar((oldValue) => {
@@ -34,8 +37,16 @@ export default function Explorer(props: Props) {
 	});
 
 	return (
+		<>
+		<EncryptFileDialog
+			location_id={expStore.locationId}
+			object_id={expStore.contextMenuObjectId}
+			open={showEncryptDialog}
+			setOpen={setShowEncryptDialog}
+		/>
+
 		<div className="relative">
-			<ExplorerContextMenu>
+			<ExplorerContextMenu setShowEncryptDialog={setShowEncryptDialog}>
 				<div className="relative flex flex-col w-full">
 					<TopBar showSeparator={separateTopBar} />
 
@@ -76,5 +87,6 @@ export default function Explorer(props: Props) {
 				</div>
 			</ExplorerContextMenu>
 		</div>
+		</>
 	);
 }
