@@ -152,6 +152,9 @@ impl KeyManager {
 		let master_key = generate_master_key();
 		let master_key_nonce = generate_nonce(algorithm);
 
+		let root_key = generate_master_key();
+		let root_key_nonce = generate_nonce(algorithm);
+
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
 			hashed_password,
@@ -161,6 +164,14 @@ impl KeyManager {
 			&[],
 		)?)?;
 
+		let encrypted_root_key = StreamEncryption::encrypt_bytes(
+			master_key,
+			&root_key_nonce,
+			algorithm,
+			root_key.expose(),
+			&[],
+		)?;
+
 		let verification_key = StoredKey {
 			uuid,
 			algorithm,
@@ -168,8 +179,8 @@ impl KeyManager {
 			content_salt: [0u8; 16],
 			master_key: encrypted_master_key,
 			master_key_nonce,
-			key_nonce: Vec::new(),
-			key: Vec::new(),
+			key_nonce: root_key_nonce,
+			key: encrypted_root_key,
 		};
 
 		let secret_key = Protected::new(base64::encode(salt));
