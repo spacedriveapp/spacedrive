@@ -60,6 +60,13 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 export interface ExplorerContextMenuProps extends PropsWithChildren {
 	setShowEncryptDialog: (isShowing: boolean) => void;
+	setShowAlertDialog: (isShowing: boolean) => void;
+	setAlertDialogData: React.Dispatch<
+		React.SetStateAction<{
+			title: string;
+			text: string;
+		}>
+	>;
 }
 
 export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
@@ -79,7 +86,15 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 	}, [os]);
 
 	const decryptFiles = useLibraryMutation('files.decryptFiles');
-	const hasMasterPassword = useLibraryQuery(['keys.hasMasterPassword']);
+	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
+	const hasMasterPassword =
+		hasMasterPasswordQuery.data !== undefined && hasMasterPasswordQuery.data === true
+			? true
+			: false;
+
+	const mountedUuids = useLibraryQuery(['keys.listMounted']);
+	const hasMountedKeys =
+		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
 
 	return (
 		<div className="relative">
@@ -135,7 +150,22 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 						icon={LockSimple}
 						keybind="⌘E"
 						onClick={() => {
-							props.setShowEncryptDialog(true);
+							window.console.log(hasMasterPassword);
+							if (hasMasterPassword && hasMountedKeys) {
+								props.setShowEncryptDialog(true);
+							} else if (!hasMasterPassword) {
+								props.setAlertDialogData({
+									title: 'Key manager locked',
+									text: 'The key manager is currently locked. Please unlock it and try again.'
+								});
+								props.setShowAlertDialog(true);
+							} else if (!hasMountedKeys) {
+								props.setAlertDialogData({
+									title: 'No mounted keys',
+									text: 'No mounted keys were found. Please mount a key and try again.'
+								});
+								props.setShowAlertDialog(true);
+							}
 						}}
 					/>
 					{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
@@ -144,7 +174,7 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 						icon={LockSimpleOpen}
 						keybind="⌘D"
 						onClick={() => {
-							if (!hasMasterPassword?.data) {
+							if (!hasMasterPassword) {
 								// open the key manager panel
 							}
 							store.locationId &&

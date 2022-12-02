@@ -37,8 +37,7 @@ export const ListOfKeys = (props: { noKeysMessage: boolean }) => {
 						index={index}
 						data={{
 							id: key.uuid,
-							// could probably do with a better way to number these, maybe something that doesn't change
-							name: `Key ${index + 1}`,
+							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
 							mounted: mountedKeys.includes(key),
 							default: defaultKey.data === key.uuid
 							// key stats need including here at some point

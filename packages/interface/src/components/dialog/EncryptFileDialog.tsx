@@ -7,22 +7,19 @@ import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
 import { Checkbox } from '../primitive/Checkbox';
 
 export const ListOfMountedKeys = (props: { keys: StoredKey[]; mountedUuids: string[] }) => {
-	// enumerating keys this way allows us to have more information, so we can prioritise default keys/prompt the user to mount a key, etc
-
 	const { keys, mountedUuids } = props;
 
 	const [mountedKeys] = useMemo(
-		() => [
-			keys.filter((key) => mountedUuids.includes(key.uuid)) ?? []
-			// keys.data?.filter((key) => !mountedUuids.data?.includes(key.uuid)) ?? []
-		],
+		() => [keys.filter((key) => mountedUuids.includes(key.uuid)) ?? []],
 		[keys, mountedUuids]
 	);
 
 	return (
 		<>
 			{[...mountedKeys]?.map((key, index) => {
-				return <SelectOption value={key.uuid}>Key {index + 1}</SelectOption>;
+				return (
+					<SelectOption value={key.uuid}>Key {key.uuid.substring(0, 8).toUpperCase()}</SelectOption>
+				);
 			})}
 		</>
 	);
@@ -39,10 +36,10 @@ export const EncryptFileDialog = (props: {
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
 	const encryptFile = useLibraryMutation('files.encryptFiles');
 
-	// the default-selected key will be random, we should prioritise the default
+	// the selected key will be random, we should prioritise the default
 	const [key, setKey] = useState(mountedUuids.data !== undefined ? mountedUuids.data[0] : '');
 
-	// maybe include below in react-hook-form
+	// decided against react-hook-form, as it doesn't allow us to work with select boxes and such
 	const [metadata, setMetadata] = useState(false);
 	const [previewMedia, setPreviewMedia] = useState(false);
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
@@ -78,7 +75,7 @@ export const EncryptFileDialog = (props: {
 			>
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
 					<div className="flex flex-col">
-						<span className="text-xs font-bold">Keys</span>
+						<span className="text-xs font-bold">Mounted Keys</span>
 						<Select className="mt-2" value={key} onChange={(e) => setKey(e)}>
 							{/* this only returns MOUNTED keys. we could include unmounted keys, but then we'd have to prompt the user to mount them too */}
 							{keys.data && mountedUuids.data && (
