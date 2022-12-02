@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { useExplorerStore } from '../../util/explorerStore';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
+import { ExplorerAlertDialog } from '../dialog/ExplorerAlertDialog';
 import { Inspector } from '../explorer/Inspector';
 import ExplorerContextMenu from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';
@@ -20,6 +21,11 @@ export default function Explorer(props: Props) {
 	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);
 
 	const [showEncryptDialog, setShowEncryptDialog] = useState(false);
+	const [showAlertDialog, setShowAlertDialog] = useState(false);
+	const [alertDialogData, setAlertDialogData] = useState({
+		title: '',
+		text: ''
+	});
 
 	useEffect(() => {
 		setSeparateTopBar((oldValue) => {
@@ -39,7 +45,11 @@ export default function Explorer(props: Props) {
 	return (
 		<>
 			<div className="relative">
-				<ExplorerContextMenu setShowEncryptDialog={setShowEncryptDialog}>
+				<ExplorerContextMenu
+					setShowEncryptDialog={setShowEncryptDialog}
+					setShowAlertDialog={setShowAlertDialog}
+					setAlertDialogData={setAlertDialogData}
+				>
 					<div className="relative flex flex-col w-full">
 						<TopBar showSeparator={separateTopBar} />
 
@@ -80,6 +90,12 @@ export default function Explorer(props: Props) {
 					</div>
 				</ExplorerContextMenu>
 			</div>
+			<ExplorerAlertDialog
+				open={showAlertDialog}
+				setOpen={setShowAlertDialog}
+				title={alertDialogData.title}
+				text={alertDialogData.text}
+			/>
 			<EncryptFileDialog
 				location_id={expStore.locationId}
 				object_id={expStore.contextMenuObjectId}
