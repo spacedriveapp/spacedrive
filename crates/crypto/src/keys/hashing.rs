@@ -10,6 +10,8 @@
 //! let salt = generate_salt();
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
+#![allow(clippy::use_self)] // I think: https://github.com/rust-lang/rust-clippy/issues/3909
+
 use crate::Protected;
 use crate::{primitives::SALT_LEN, Error, Result};
 use argon2::Argon2;
@@ -20,7 +22,6 @@ use specta::Type;
 ///
 /// The harder the parameter, the longer the password will take to hash.
 #[derive(Clone, Copy, PartialEq, Eq, Type, Serialize, Deserialize)]
-#[allow(clippy::use_self)]
 pub enum Params {
 	Standard,
 	Hardened,

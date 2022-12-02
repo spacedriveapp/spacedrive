@@ -71,7 +71,7 @@ pub(super) async fn create_dir(
 			event.paths[0].display()
 		);
 
-		if let Some(subpath) = subtract_location_path(&location_local_path, &event.paths[0]) {
+		if let Some(subpath) = subtract_location_path(location_local_path, &event.paths[0]) {
 			let subpath_str = subpath.to_string_lossy().to_string();
 			let parent_directory = library_ctx
 				.db
@@ -138,7 +138,7 @@ async fn inner_create_file(
 		"Location: <root_path ='{location_local_path}'> creating file: {}",
 		event.paths[0].display()
 	);
-	if let Some(materialized_path) = subtract_location_path(&location_local_path, &event.paths[0]) {
+	if let Some(materialized_path) = subtract_location_path(location_local_path, &event.paths[0]) {
 		if let Some(parent_directory) =
 			get_parent_dir(location_id, &materialized_path, library_ctx).await?
 		{
@@ -189,7 +189,9 @@ async fn inner_create_file(
 					),
 					vec![
 						object::size_in_bytes::set(size_str),
-						object::date_indexed::set(Utc::now().with_timezone(&FixedOffset::east(0))),
+						object::date_indexed::set(
+							Utc::now().with_timezone(&FixedOffset::east_opt(0).unwrap()),
+						),
 					],
 				)
 				.exec()

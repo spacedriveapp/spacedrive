@@ -27,9 +27,12 @@ use utils::check_event;
 
 #[cfg(target_os = "linux")]
 type Handler = linux::LinuxEventHandler;
-// #[cfg(target_os = "macos")]
 
-// #[cfg(target_os = "windows")]
+#[cfg(target_os = "macos")]
+type Handler = macos::MacOsEventHandler;
+
+#[cfg(target_os = "windows")]
+compile_error!("Windows is not supported yet for the filesystem watcher!"); // TODO
 
 file_path::include!(file_path_with_object { object });
 
@@ -290,6 +293,7 @@ impl Drop for LocationWatcher {
  *																								   *
  **************************************************************************************************/
 #[cfg(test)]
+#[allow(unused)]
 mod tests {
 	#[cfg(target_os = "macos")]
 	use notify::event::DataChange;
