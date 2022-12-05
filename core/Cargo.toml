@@ -19,6 +19,9 @@ ffmpeg = [
   "dep:ffmpeg-next",
   "dep:sd-ffmpeg",
 ] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
+location-watcher = [
+  "dep:notify"
+]
 
 [dependencies]
 hostname = "0.3.1"
@@ -66,7 +69,7 @@ ctor = "0.1.23"
 globset = { version = "^0.4.9", features = ["serde1"] }
 itertools = "^0.10.5"
 enumflags2 = "0.7.5"
-notify = { version = "5.0.0", default-features = false, features = ["macos_kqueue"] }
+notify = { version = "5.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
 
 [dev-dependencies]
 tempfile = "^3.3.0"

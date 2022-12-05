@@ -73,6 +73,7 @@ impl LocationManager {
 		let (remove_locations_tx, remove_locations_rx) = mpsc::channel(128);
 		let (stop_tx, stop_rx) = oneshot::channel();
 
+		#[cfg(feature = "location-watcher")]
 		tokio::spawn(Self::run_locations_checker(
 			add_locations_rx,
 			remove_locations_rx,
@@ -97,6 +98,7 @@ impl LocationManager {
 		location_id: LocationId,
 		library_ctx: LibraryContext,
 	) -> Result<(), LocationManagerError> {
+		#[cfg(feature = "location-watcher")]
 		self.add_locations_tx
 			.send((location_id, library_ctx))
 			.await
@@ -104,6 +106,7 @@ impl LocationManager {
 	}
 
 	pub async fn remove(&self, location_id: LocationId) -> Result<(), LocationManagerError> {
+		#[cfg(feature = "location-watcher")]
 		self.remove_locations_tx
 			.send(location_id)
 			.await
