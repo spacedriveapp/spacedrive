@@ -1,5 +1,5 @@
 import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
+import { Button, Dialog, Select, SelectOption } from '@sd/ui';
 import { save } from '@tauri-apps/api/dialog';
 import { useMemo, useState } from 'react';
 
@@ -16,7 +16,7 @@ export const ListOfMountedKeys = (props: { keys: StoredKey[]; mountedUuids: stri
 
 	return (
 		<>
-			{[...mountedKeys]?.map((key, index) => {
+			{[...mountedKeys]?.map((key) => {
 				return (
 					<SelectOption value={key.uuid}>Key {key.uuid.substring(0, 8).toUpperCase()}</SelectOption>
 				);
@@ -37,7 +37,13 @@ interface EncryptDialogProps {
 export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	const { location_id, object_id } = props;
 	const keys = useLibraryQuery(['keys.list']);
-	const mountedUuids = useLibraryQuery(['keys.listMounted']);
+	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
+		onSuccess: (data) => {
+			if (key !== data[0]) {
+				setKey(data[0]);
+			}
+		}
+	});
 	const encryptFile = useLibraryMutation('files.encryptFiles');
 
 	// the selected key will be random, we should prioritise the default
