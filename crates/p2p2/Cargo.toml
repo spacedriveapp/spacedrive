@@ -1,0 +1,27 @@
+[package]
+name = "p2p2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futures-util = { version = "0.3.25", features = ["io"] } # TODO: This or `futures` crate itself????
+quinn = "0.8.5"
+rcgen = "0.10.0"
+ring = "0.16.20"
+rustls = { version = "0.20.7", default-features = false, features = ["quic", "dangerous_configuration"] } # 'dangerous_configuration' is required to implement custom certificate verifiers which we use due to the self-signed nature of the protocol.
+serde = { version = "1.0.147", features = ["derive"] }
+specta = "0.0.4"
+thiserror = "1.0.37"
+tokio = { version = "1.21.2", features = ["macros", "sync", "rt-multi-thread", "time"] } # TODO: Probs remove 'time' + prune features
+
+# Following taken from old system. Should be pruned.
+dashmap = "5.3.4"
+if-watch = "1.1.1"
+mdns-sd = "0.5.5"
+ts-rs = "6.2.0"
+bip39 = { version = "1.0.1", features = ["rand"] }
+rmp-serde = "1.1.0"
+spake2 = "0.3.1"
+ctrlc = { version = "3.2.2", features = ["termination"] }
+tracing = "0.1.35"
+async-trait = "0.1.58"

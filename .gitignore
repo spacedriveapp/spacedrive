@@ -61,6 +61,7 @@ yalc.lock
 todos.md
 examples/*/*.lock
 /target
+/crates/*/target
 /core/src/prisma.rs
 
 /sdserver_data
