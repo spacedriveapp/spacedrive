@@ -60,13 +60,9 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 export interface ExplorerContextMenuProps extends PropsWithChildren {
 	setShowEncryptDialog: (isShowing: boolean) => void;
+	setShowDecryptDialog: (isShowing: boolean) => void;
 	setShowAlertDialog: (isShowing: boolean) => void;
-	setAlertDialogData: React.Dispatch<
-		React.SetStateAction<{
-			title: string;
-			text: string;
-		}>
-	>;
+	setAlertDialogData: (data: { title: string; text: string }) => void;
 }
 
 export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
@@ -150,7 +146,6 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 						icon={LockSimple}
 						keybind="⌘E"
 						onClick={() => {
-							window.console.log(hasMasterPassword);
 							if (hasMasterPassword && hasMountedKeys) {
 								props.setShowEncryptDialog(true);
 							} else if (!hasMasterPassword) {
@@ -174,15 +169,22 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 						icon={LockSimpleOpen}
 						keybind="⌘D"
 						onClick={() => {
-							if (!hasMasterPassword) {
-								// open the key manager panel
-							}
-							store.locationId &&
-								store.contextMenuObjectId &&
-								decryptFiles.mutate({
-									id: store.locationId,
-									object_id: store.contextMenuObjectId
+							window.console.log(hasMasterPassword);
+							if (hasMasterPassword && hasMountedKeys) {
+								props.setShowDecryptDialog(true);
+							} else if (!hasMasterPassword) {
+								props.setAlertDialogData({
+									title: 'Key manager locked',
+									text: 'The key manager is currently locked. Please unlock it and try again.'
 								});
+								props.setShowAlertDialog(true);
+							} else if (!hasMountedKeys) {
+								props.setAlertDialogData({
+									title: 'No mounted keys',
+									text: 'No mounted keys were found. Please mount a key and try again.'
+								});
+								props.setShowAlertDialog(true);
+							}
 						}}
 					/>
 					<CM.Item label="Compress" icon={Package} keybind="⌘B" />

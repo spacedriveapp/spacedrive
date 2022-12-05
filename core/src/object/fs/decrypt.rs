@@ -2,6 +2,7 @@ use std::{collections::VecDeque, path::PathBuf};
 
 use sd_crypto::{crypto::stream::StreamDecryption, header::file::FileHeader};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
@@ -12,7 +13,7 @@ pub struct FileDecryptorJob;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileDecryptorJobState {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Type)]
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,
 	pub object_id: i32,
@@ -98,7 +99,7 @@ impl StatefulJob for FileDecryptorJob {
 		let mut output_path = step.obj_path.clone();
 
 		// i really can't decide on the functionality of this
-		// maybe we should open a dialog in JS, and have the default as the file name without the ".sdx",
+		// maybe we should open a dialog in JS, and have the default as the file name without the ".sdenc",
 		// this would let the user choose
 		// we don't do any overwriting checks as of yet, maybe these should be front-end though
 		let extension = if let Some(ext) = output_path.extension() {
@@ -116,15 +117,13 @@ impl StatefulJob for FileDecryptorJob {
 		let mut reader = std::fs::File::open(step.obj_path.clone())?;
 		let mut writer = std::fs::File::create(output_path)?;
 
-		let (header, aad) = FileHeader::deserialize(&mut reader).unwrap();
+		let (header, aad) = FileHeader::deserialize(&mut reader)?;
 
-		let master_key = header.decrypt_master_key_from_prehashed(keys).unwrap();
+		let master_key = header.decrypt_master_key_from_prehashed(keys)?;
 
-		let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm).unwrap();
+		let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
 
-		decryptor
-			.decrypt_streams(&mut reader, &mut writer, &aad)
-			.unwrap();
+		decryptor.decrypt_streams(&mut reader, &mut writer, &aad)?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,

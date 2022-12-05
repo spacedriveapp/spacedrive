@@ -2,6 +2,7 @@ import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
 
 import { useExplorerStore } from '../../util/explorerStore';
+import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 import { ExplorerAlertDialog } from '../dialog/ExplorerAlertDialog';
 import { Inspector } from '../explorer/Inspector';
@@ -21,6 +22,7 @@ export default function Explorer(props: Props) {
 	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);
 
 	const [showEncryptDialog, setShowEncryptDialog] = useState(false);
+	const [showDecryptDialog, setShowDecryptDialog] = useState(false);
 	const [showAlertDialog, setShowAlertDialog] = useState(false);
 	const [alertDialogData, setAlertDialogData] = useState({
 		title: '',
@@ -47,6 +49,7 @@ export default function Explorer(props: Props) {
 			<div className="relative">
 				<ExplorerContextMenu
 					setShowEncryptDialog={setShowEncryptDialog}
+					setShowDecryptDialog={setShowDecryptDialog}
 					setShowAlertDialog={setShowAlertDialog}
 					setAlertDialogData={setAlertDialogData}
 				>
@@ -101,6 +104,16 @@ export default function Explorer(props: Props) {
 				object_id={expStore.contextMenuObjectId}
 				open={showEncryptDialog}
 				setOpen={setShowEncryptDialog}
+				setShowAlertDialog={setShowAlertDialog}
+				setAlertDialogData={setAlertDialogData}
+			/>
+			<DecryptFileDialog
+				location_id={expStore.locationId}
+				object_id={expStore.contextMenuObjectId}
+				open={showDecryptDialog}
+				setOpen={setShowDecryptDialog}
+				setShowAlertDialog={setShowAlertDialog}
+				setAlertDialogData={setAlertDialogData}
 			/>
 		</>
 	);

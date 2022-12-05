@@ -103,14 +103,12 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("decryptFiles", |t| {
-			#[derive(Type, Deserialize)]
-			pub struct FileDecryptorJobArgs {
-				pub id: i32,
-				pub object_id: i32,
-			}
-
-			t(|_, args: FileDecryptorJobArgs, library| async move {
-				if fetch_location(&library, args.id).exec().await?.is_none() {
+			t(|_, args: FileDecryptorJobInit, library| async move {
+				if fetch_location(&library, args.location_id)
+					.exec()
+					.await?
+					.is_none()
+				{
 					return Err(rspc::Error::new(
 						ErrorCode::NotFound,
 						"Location not found".into(),
@@ -118,13 +116,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 
 				library
-					.spawn_job(Job::new(
-						FileDecryptorJobInit {
-							location_id: args.id,
-							object_id: args.object_id,
-						},
-						Box::new(FileDecryptorJob {}),
-					))
+					.spawn_job(Job::new(args, Box::new(FileDecryptorJob {})))
 					.await;
 				invalidate_query!(library, "locations.getExplorerData");
 

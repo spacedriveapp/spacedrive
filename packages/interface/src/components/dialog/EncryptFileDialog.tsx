@@ -25,12 +25,16 @@ export const ListOfMountedKeys = (props: { keys: StoredKey[]; mountedUuids: stri
 	);
 };
 
-export const EncryptFileDialog = (props: {
+interface EncryptDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
 	location_id: number | null;
 	object_id: number | null;
-}) => {
+	setShowAlertDialog: (isShowing: boolean) => void;
+	setAlertDialogData: (data: { title: string; text: string }) => void;
+}
+
+export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	const { location_id, object_id } = props;
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
@@ -58,10 +62,12 @@ export const EncryptFileDialog = (props: {
 				ctaAction={() => {
 					const [algorithm, hashingAlgorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
 					const output = outputPath !== '' ? outputPath : undefined; // need to add functionality for this in rust
-					{
-						location_id &&
-							object_id &&
-							encryptFile.mutate({
+					props.setOpen(false);
+
+					location_id &&
+						object_id &&
+						encryptFile.mutate(
+							{
 								algorithm,
 								hashing_algorithm: hashingAlgorithm,
 								key_uuid: key,
@@ -69,8 +75,24 @@ export const EncryptFileDialog = (props: {
 								object_id,
 								metadata,
 								preview_media: previewMedia
-							});
-					}
+							},
+							{
+								onSuccess: () => {
+									props.setAlertDialogData({
+										title: 'Success',
+										text: 'The encryption job has started successfully. You may track the progress in the job overview panel.'
+									});
+								},
+								onError: () => {
+									props.setAlertDialogData({
+										title: 'Error',
+										text: 'The encryption job failed to start.'
+									});
+								}
+							}
+						);
+
+					props.setShowAlertDialog(true);
 				}}
 			>
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
