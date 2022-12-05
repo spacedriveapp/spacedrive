@@ -94,7 +94,7 @@ pub struct MountedKey {
 ///
 /// Use the associated functions to interact with it.
 pub struct KeyManager {
-	master_password: Mutex<Option<Protected<[u8; 32]>>>, // the *hashed* master password+secret key combo
+	master_password: Mutex<Option<Protected<[u8; 32]>>>, // the root key for the vault
 	verification_key: Mutex<Option<StoredKey>>,
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
@@ -549,16 +549,25 @@ impl KeyManager {
 			.hash(master_password, *secret_key.expose())?;
 
 		// Decrypt the StoredKey's master key using the user's hashed password
-		let decryption_result = StreamDecryption::decrypt_bytes(
+		if let Ok(master_key) = StreamDecryption::decrypt_bytes(
 			hashed_master_password.clone(),
 			&verification_key.master_key_nonce,
 			verification_key.algorithm,
 			&verification_key.master_key,
 			&[],
-		);
-
-		if decryption_result.is_ok() {
-			*self.master_password.lock()? = Some(hashed_master_password);
+		) {
+			// decrypt the root key and set that as the master password
+			*self.master_password.lock()? = Some(Protected::new(to_array(
+				StreamDecryption::decrypt_bytes(
+					Protected::new(to_array(master_key.expose().clone())?),
+					&verification_key.key_nonce,
+					verification_key.algorithm,
+					&verification_key.key,
+					&[],
+				)?
+				.expose()
+				.clone(),
+			)?));
 			Ok(())
 		} else {
 			Err(Error::IncorrectKeymanagerDetails)
