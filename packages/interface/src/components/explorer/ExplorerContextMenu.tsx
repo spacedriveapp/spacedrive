@@ -169,7 +169,6 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 						icon={LockSimpleOpen}
 						keybind="⌘D"
 						onClick={() => {
-							window.console.log(hasMasterPassword);
 							if (hasMasterPassword && hasMountedKeys) {
 								props.setShowDecryptDialog(true);
 							} else if (!hasMasterPassword) {
