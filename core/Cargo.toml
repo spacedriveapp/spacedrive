@@ -57,7 +57,7 @@ image = "0.24.4"
 webp = "0.2.2"
 ffmpeg-next = { version = "5.1.1", optional = true, features = [] }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
-sd-crypto = { path = "../crates/crypto", features = ["rspc"] }
+sd-crypto = { path = "../crates/crypto", features = ["rspc", "serde"] }
 sd-file-ext = { path = "../crates/file-ext"}
 fs_extra = "1.2.0"
 tracing = "0.1.36"

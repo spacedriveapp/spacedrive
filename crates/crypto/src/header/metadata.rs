@@ -29,11 +29,14 @@
 //! ```
 use std::io::{Read, Seek};
 
+#[cfg(feature = "serde")]
 use crate::{
-	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
+	crypto::stream::{StreamDecryption, StreamEncryption},
 	primitives::{generate_nonce, MASTER_KEY_LEN},
-	Error, Protected, Result,
+	Protected,
 };
+
+use crate::{crypto::stream::Algorithm, Error, Result};
 
 use super::file::FileHeader;
 
@@ -63,6 +66,7 @@ impl FileHeader {
 	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
 	///
 	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
+	#[cfg(feature = "serde")]
 	pub fn add_metadata<T>(
 		&mut self,
 		version: MetadataVersion,
@@ -100,6 +104,7 @@ impl FileHeader {
 	/// All it requires is pre-hashed keys returned from the key manager
 	///
 	/// A deserialized data type will be returned from this function
+	#[cfg(feature = "serde")]
 	pub fn decrypt_metadata_from_prehashed<T>(
 		&self,
 		hashed_keys: Vec<Protected<[u8; 32]>>,
@@ -130,6 +135,7 @@ impl FileHeader {
 	/// All it requires is a password. Hashing is handled for you.
 	///
 	/// A deserialized data type will be returned from this function
+	#[cfg(feature = "serde")]
 	pub fn decrypt_metadata<T>(&self, password: Protected<Vec<u8>>) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,

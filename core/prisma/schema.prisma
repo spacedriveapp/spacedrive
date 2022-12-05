@@ -202,8 +202,6 @@ model Key {
   algorithm         Bytes
   // hashing algorithm used for hashing the master password
   hashing_algorithm Bytes
-  // salt to hash the master password with
-  salt              Bytes
   // salt used for encrypting data with this key
   content_salt      Bytes
   // the *encrypted* master key (48 bytes)
