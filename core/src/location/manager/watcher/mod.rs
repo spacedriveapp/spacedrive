@@ -13,9 +13,12 @@ use tokio::{
 	sync::{mpsc, oneshot},
 	task::{block_in_place, JoinHandle},
 };
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
-use super::{LocationId, LocationManagerError};
+use super::{
+	super::{fetch_location, indexer::indexer_job::indexer_job_location},
+	LocationId, LocationManagerError,
+};
 
 mod linux;
 mod macos;
@@ -23,7 +26,7 @@ mod windows;
 
 mod utils;
 
-use utils::check_event;
+use utils::{check_event, check_location_online};
 
 #[cfg(target_os = "linux")]
 type Handler = linux::LinuxEventHandler;
@@ -32,7 +35,7 @@ type Handler = linux::LinuxEventHandler;
 type Handler = macos::MacOsEventHandler;
 
 #[cfg(target_os = "windows")]
-compile_error!("Windows is not supported yet for the filesystem watcher!"); // TODO
+type Handler = windows::WindowsEventHandler;
 
 file_path::include!(file_path_with_object { object });
 
@@ -44,7 +47,7 @@ trait EventHandler {
 
 	async fn handle_event(
 		&mut self,
-		location_id: LocationId,
+		location: indexer_job_location::Data,
 		library_ctx: &LibraryContext,
 		event: Event,
 	) -> Result<(), LocationManagerError>;
@@ -121,13 +124,15 @@ impl LocationWatcher {
 				Some(event) = events_rx.recv() => {
 					match event {
 						Ok(event) => {
-							if check_event(&event) {
-								if let Err(e) = event_handler.handle_event(location_id, &library_ctx, event).await {
-									error!(
-										"Failed to handle location file system event: \
-										<id='{location_id}', error='{e:#?}'>",
-									);
-								}
+							if let Err(e) = Self::handle_single_event(
+								location_id,
+								event,
+								&mut event_handler,
+								&library_ctx
+							).await {
+								error!("Failed to handle location file system event: \
+									<id='{location_id}', error='{e:#?}'>",
+								);
 							}
 						}
 						Err(e) => {
@@ -141,6 +146,33 @@ impl LocationWatcher {
 				}
 			}
 		}
+	}
+
+	async fn handle_single_event(
+		location_id: LocationId,
+		event: Event,
+		event_handler: &mut impl EventHandler,
+		library_ctx: &LibraryContext,
+	) -> Result<(), LocationManagerError> {
+		if check_event(&event) {
+			if let Some(location) = fetch_location(library_ctx, location_id)
+				.include(indexer_job_location::include())
+				.exec()
+				.await?
+			{
+				if check_location_online(&location) {
+					return event_handler
+						.handle_event(location, library_ctx, event)
+						.await;
+				} else {
+					warn!("Tried to handle event for offline location: <id='{location_id}'>");
+				}
+			} else {
+				warn!("Tried to handle event for unknown location: <id='{location_id}'>");
+			}
+		}
+
+		Ok(())
 	}
 
 	pub(super) fn check_path(&self, path: impl AsRef<Path>) -> bool {
