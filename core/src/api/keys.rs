@@ -120,7 +120,8 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("clearMasterPassword", |t| {
 			t(|_, _: (), library| async move {
-				library.key_manager.clear_master_password()?;
+				// This technically clears the root key, but it means the same thing to the frontend
+				library.key_manager.clear_root_key()?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");
 				Ok(())
