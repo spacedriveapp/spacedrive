@@ -5,8 +5,7 @@ use crate::{
 		delete_directory,
 		file_path_helper::create_file_path,
 		indexer::indexer_job::indexer_job_location,
-		manager::{LocationId, LocationManagerError},
-		subtract_location_path,
+		manager::{helpers::subtract_location_path, LocationId, LocationManagerError},
 	},
 	object::{
 		identifier_job::{assemble_object_metadata, ObjectCreationMetadata},

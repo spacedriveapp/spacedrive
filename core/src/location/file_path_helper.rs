@@ -1,7 +1,4 @@
-use crate::{
-	library::LibraryContext,
-	prisma::{file_path, location},
-};
+use crate::{library::LibraryContext, prisma::file_path};
 
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -39,6 +36,7 @@ async fn fetch_max_file_path_id(library_ctx: &LibraryContext) -> Result<i32, Que
 		.unwrap_or(0))
 }
 
+#[cfg(feature = "location-watcher")]
 pub async fn create_file_path(
 	library_ctx: &LibraryContext,
 	location_id: i32,
@@ -48,6 +46,8 @@ pub async fn create_file_path(
 	parent_id: Option<i32>,
 	is_dir: bool,
 ) -> Result<file_path::Data, QueryError> {
+	use crate::prisma::location;
+
 	let mut last_id = LAST_FILE_PATH_ID.load(Ordering::Acquire);
 	if last_id == 0 {
 		last_id = fetch_max_file_path_id(library_ctx).await?;

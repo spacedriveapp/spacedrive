@@ -222,19 +222,6 @@ impl LocationUpdateArgs {
 	}
 }
 
-async fn get_location(location_id: i32, library_ctx: &LibraryContext) -> Option<location::Data> {
-	library_ctx
-		.db
-		.location()
-		.find_unique(location::id::equals(location_id))
-		.exec()
-		.await
-		.unwrap_or_else(|err| {
-			error!("Failed to get location data from location_id: {:#?}", err);
-			None
-		})
-}
-
 pub fn fetch_location(ctx: &LibraryContext, location_id: i32) -> location::FindUnique {
 	ctx.db
 		.location()
@@ -451,23 +438,4 @@ pub async fn delete_directory(
 		.await?;
 
 	Ok(())
-}
-
-fn subtract_location_path(
-	location_path: impl AsRef<Path>,
-	current_path: impl AsRef<Path>,
-) -> Option<PathBuf> {
-	let location_path = location_path.as_ref();
-	let current_path = current_path.as_ref();
-
-	if let Ok(stripped) = current_path.strip_prefix(location_path) {
-		Some(stripped.to_path_buf())
-	} else {
-		error!(
-			"Failed to strip location root path ({}) from current path ({})",
-			location_path.display(),
-			current_path.display()
-		);
-		None
-	}
 }

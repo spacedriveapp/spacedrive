@@ -1,30 +1,22 @@
-use crate::{library::LibraryContext, prisma::location};
+use crate::library::LibraryContext;
 
-use std::{
-	collections::{HashMap, HashSet},
-	path::{Path, PathBuf},
-	time::Duration,
-};
+use std::path::PathBuf;
 
-use futures::{stream::FuturesUnordered, StreamExt};
 use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tokio::{
-	fs,
-	io::{self, ErrorKind},
-	select,
+	io,
 	sync::{mpsc, oneshot},
-	time::sleep,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error};
 
-use super::get_location;
-
+#[cfg(feature = "location-watcher")]
 mod watcher;
-use watcher::LocationWatcher;
+
+#[cfg(feature = "location-watcher")]
+mod helpers;
 
 static LOCATION_MANAGER: OnceCell<LocationManager> = OnceCell::new();
-const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
 pub type LocationId = i32;
 
@@ -36,8 +28,11 @@ pub enum LocationManagerError {
 	ActorSendAddLocationError(#[from] mpsc::error::SendError<(LocationId, LibraryContext)>),
 	#[error("Unable to send location id to be removed from actor: (error: {0})")]
 	ActorSendRemoveLocationError(#[from] mpsc::error::SendError<LocationId>),
+
+	#[cfg(feature = "location-watcher")]
 	#[error("Watcher error: (error: {0})")]
 	WatcherError(#[from] notify::Error),
+
 	#[error("Location missing local path: <id='{0}'>")]
 	LocationMissingLocalPath(LocationId),
 	#[error("Tried to update a non-existing file: <path='{0}'>")]
@@ -73,7 +68,6 @@ impl LocationManager {
 		let (remove_locations_tx, remove_locations_rx) = mpsc::channel(128);
 		let (stop_tx, stop_rx) = oneshot::channel();
 
-		#[cfg(feature = "location-watcher")]
 		tokio::spawn(Self::run_locations_checker(
 			add_locations_rx,
 			remove_locations_rx,
@@ -98,26 +92,52 @@ impl LocationManager {
 		location_id: LocationId,
 		library_ctx: LibraryContext,
 	) -> Result<(), LocationManagerError> {
-		#[cfg(feature = "location-watcher")]
-		self.add_locations_tx
-			.send((location_id, library_ctx))
-			.await
-			.map_err(Into::into)
+		if cfg!(feature = "location-watcher") {
+			self.add_locations_tx
+				.send((location_id, library_ctx))
+				.await
+				.map_err(Into::into)
+		} else {
+			Ok(())
+		}
 	}
 
 	pub async fn remove(&self, location_id: LocationId) -> Result<(), LocationManagerError> {
-		#[cfg(feature = "location-watcher")]
-		self.remove_locations_tx
-			.send(location_id)
-			.await
-			.map_err(Into::into)
+		if cfg!(feature = "location-watcher") {
+			self.remove_locations_tx
+				.send(location_id)
+				.await
+				.map_err(Into::into)
+		} else {
+			Ok(())
+		}
 	}
 
+	#[cfg(not(feature = "location-watcher"))]
+	async fn run_locations_checker(
+		mut _add_locations_rx: mpsc::Receiver<(LocationId, LibraryContext)>,
+		mut _remove_locations_rx: mpsc::Receiver<LocationId>,
+		mut _stop_rx: oneshot::Receiver<()>,
+	) -> Result<(), LocationManagerError> {
+		Ok(())
+	}
+
+	#[cfg(feature = "location-watcher")]
 	async fn run_locations_checker(
 		mut add_locations_rx: mpsc::Receiver<(LocationId, LibraryContext)>,
 		mut remove_locations_rx: mpsc::Receiver<LocationId>,
 		mut stop_rx: oneshot::Receiver<()>,
 	) -> Result<(), LocationManagerError> {
+		use std::collections::{HashMap, HashSet};
+
+		use futures::stream::{FuturesUnordered, StreamExt};
+		use tokio::select;
+		use tracing::{info, warn};
+
+		use helpers::{
+			check_online, get_location, location_check_sleep, unwatch_location, watch_location,
+		};
+
 		let mut to_check_futures = FuturesUnordered::new();
 		let mut to_remove = HashSet::new();
 		let mut locations_watched = HashMap::new();
@@ -129,7 +149,7 @@ impl LocationManager {
 				Some((location_id, library_ctx)) = add_locations_rx.recv() => {
 					if let Some(location) = get_location(location_id, &library_ctx).await {
 						let is_online = check_online(&location, &library_ctx).await;
-						let mut watcher = LocationWatcher::new(location, library_ctx.clone()).await?;
+						let mut watcher = watcher::LocationWatcher::new(location, library_ctx.clone()).await?;
 						if is_online {
 							watcher.watch();
 							locations_watched.insert(location_id, watcher);
@@ -207,97 +227,6 @@ impl LocationManager {
 		}
 
 		Ok(())
-	}
-}
-
-async fn check_online(location: &location::Data, library_ctx: &LibraryContext) -> bool {
-	if let Some(ref local_path) = location.local_path {
-		match fs::metadata(local_path).await {
-			Ok(_) => {
-				if !location.is_online {
-					set_location_online(location.id, library_ctx, true).await;
-				}
-				true
-			}
-			Err(e) if e.kind() == ErrorKind::NotFound => {
-				if location.is_online {
-					set_location_online(location.id, library_ctx, false).await;
-				}
-				false
-			}
-			Err(e) => {
-				error!("Failed to check if location is online: {:#?}", e);
-				false
-			}
-		}
-	} else {
-		// In this case, we don't have a `local_path`, but this location was marked as online
-		if location.is_online {
-			set_location_online(location.id, library_ctx, false).await;
-		}
-		false
-	}
-}
-
-async fn set_location_online(location_id: LocationId, library_ctx: &LibraryContext, online: bool) {
-	if let Err(e) = library_ctx
-		.db
-		.location()
-		.update(
-			location::id::equals(location_id),
-			vec![location::is_online::set(online)],
-		)
-		.exec()
-		.await
-	{
-		error!(
-			"Failed to update location to online: (id: {}, error: {:#?})",
-			location_id, e
-		);
-	}
-}
-
-async fn location_check_sleep(
-	location_id: LocationId,
-	library_ctx: LibraryContext,
-) -> (LocationId, LibraryContext) {
-	sleep(LOCATION_CHECK_INTERVAL).await;
-	(location_id, library_ctx)
-}
-
-fn watch_location(
-	location: location::Data,
-	location_path: impl AsRef<Path>,
-	locations_watched: &mut HashMap<LocationId, LocationWatcher>,
-	locations_unwatched: &mut HashMap<LocationId, LocationWatcher>,
-) {
-	let location_id = location.id;
-	if let Some(mut watcher) = locations_unwatched.remove(&location_id) {
-		if watcher.check_path(location_path) {
-			watcher.watch();
-		} else {
-			watcher.update_data(location, true);
-		}
-
-		locations_watched.insert(location_id, watcher);
-	}
-}
-
-fn unwatch_location(
-	location: location::Data,
-	location_path: impl AsRef<Path>,
-	locations_watched: &mut HashMap<LocationId, LocationWatcher>,
-	locations_unwatched: &mut HashMap<LocationId, LocationWatcher>,
-) {
-	let location_id = location.id;
-	if let Some(mut watcher) = locations_watched.remove(&location_id) {
-		if watcher.check_path(location_path) {
-			watcher.unwatch();
-		} else {
-			watcher.update_data(location, false)
-		}
-
-		locations_unwatched.insert(location_id, watcher);
 	}
 }
 
