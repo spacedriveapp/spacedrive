@@ -119,6 +119,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							size="sm"
 							variant={outputPath !== '' ? 'accent' : 'gray'}
 							className="h-[23px] text-xs leading-3 mt-2"
+							type="button"
 							onClick={() => {
 								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
 								save()?.then((result) => {
