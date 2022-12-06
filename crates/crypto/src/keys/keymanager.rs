@@ -195,28 +195,22 @@ impl KeyManager {
 	}
 
 	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
-	#[must_use]
-	pub fn new(stored_keys: Vec<StoredKey>) -> Self {
+	pub fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
 		let keystore = DashMap::new();
-		let mut verification_key = None;
-
-		for key in stored_keys {
-			if key.uuid.is_nil() {
-				verification_key = Some(key);
-			} else {
-				keystore.insert(key.uuid, key);
-			}
-		}
 
 		let keymount: DashMap<Uuid, MountedKey> = DashMap::new();
 
-		Self {
+		let keymanager = Self {
 			root_key: Mutex::new(None),
-			verification_key: Mutex::new(verification_key),
+			verification_key: Mutex::new(None),
 			keystore,
 			keymount,
 			default: Mutex::new(None),
-		}
+		};
+
+		keymanager.populate_keystore(stored_keys)?;
+
+		Ok(keymanager)
 	}
 
 	/// This function should be used to populate the keystore with multiple stored keys at a time.
@@ -439,85 +433,83 @@ impl KeyManager {
 		}
 	}
 
-	// Opting to leave ser/de to external functions - the key manager isn't the right place to handle this.
 	/// This re-encrypts master keys so they can be imported from a key backup into the current key manager.
 	///
 	/// It returns a `Vec<StoredKey>` so they can be written to Prisma
-	pub fn import_keystore_backup(
-		&self,
-		master_password: Protected<String>, // at the time of the backup
-		secret_key: Protected<String>,      // at the time of the backup
-		stored_keys: &[StoredKey],          // from the backup
-	) -> Result<Vec<StoredKey>> {
-		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
-		let master_password = self.convert_master_password_string(master_password);
-		let secret_key = self.convert_secret_key_string(secret_key);
+	// pub fn import_keystore_backup(
+	// 	&self,
+	// 	master_password: Protected<String>, // at the time of the backup
+	// 	secret_key: Protected<String>,      // at the time of the backup
+	// 	stored_keys: &[StoredKey],          // from the backup
+	// ) -> Result<Vec<StoredKey>> {
+	// 	// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
+	// 	let master_password = self.convert_master_password_string(master_password);
+	// 	let secret_key = self.convert_secret_key_string(secret_key);
 
-		let mut verification_key = None;
+	// 	let mut verification_key = None;
 
-		let keys: Vec<StoredKey> = stored_keys
-			.iter()
-			.filter_map(|key| {
-				if key.uuid.is_nil() {
-					verification_key = Some(key.clone());
-					None
-				} else {
-					Some(key.clone())
-				}
-			})
-			.collect();
+	// 	let keys: Vec<StoredKey> = stored_keys
+	// 		.iter()
+	// 		.filter_map(|key| {
+	// 			if key.uuid.is_nil() {
+	// 				verification_key = Some(key.clone());
+	// 				None
+	// 			} else {
+	// 				Some(key.clone())
+	// 			}
+	// 		})
+	// 		.collect();
 
-		let hashed_master_password = if let Some(verification_key) = verification_key {
-			verification_key
-				.hashing_algorithm
-				.hash(master_password, *secret_key.expose())
-		} else {
-			Err(Error::NoVerificationKey)
-		}?;
+	// 	let hashed_master_password = if let Some(verification_key) = verification_key {
+	// 		verification_key
+	// 			.hashing_algorithm
+	// 			.hash(master_password, *secret_key.expose())
+	// 	} else {
+	// 		Err(Error::NoVerificationKey)
+	// 	}?;
 
-		let mut reencrypted_keys = Vec::new();
+	// 	let mut reencrypted_keys = Vec::new();
 
-		for key in keys {
-			if !self.keystore.contains_key(&key.uuid) {
-				// could check the key material itself? if they match, attach the content salt
-				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-					hashed_master_password.clone(),
-					&key.master_key_nonce,
-					key.algorithm,
-					&key.master_key,
-					&[],
-				) {
-					Ok(Protected::new(to_array::<32>(
-						decrypted_master_key.expose().clone(),
-					)?))
-				} else {
-					Err(Error::IncorrectPassword)
-				}?;
+	// 	for key in keys {
+	// 		if !self.keystore.contains_key(&key.uuid) {
+	// 			// could check the key material itself? if they match, attach the content salt
+	// 			let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+	// 				hashed_master_password.clone(),
+	// 				&key.master_key_nonce,
+	// 				key.algorithm,
+	// 				&key.master_key,
+	// 				&[],
+	// 			) {
+	// 				Ok(Protected::new(to_array::<32>(
+	// 					decrypted_master_key.expose().clone(),
+	// 				)?))
+	// 			} else {
+	// 				Err(Error::IncorrectPassword)
+	// 			}?;
 
-				let master_key_nonce = generate_nonce(key.algorithm);
+	// 			let master_key_nonce = generate_nonce(key.algorithm);
 
-				// Encrypt the master key with the current root key
-				let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-					self.get_root_key()?,
-					&master_key_nonce,
-					key.algorithm,
-					master_key.expose(),
-					&[],
-				)?)?;
+	// 			// Encrypt the master key with the current root key
+	// 			let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+	// 				self.get_root_key()?,
+	// 				&master_key_nonce,
+	// 				key.algorithm,
+	// 				master_key.expose(),
+	// 				&[],
+	// 			)?)?;
 
-				let mut updated_key = key.clone();
-				updated_key.master_key_nonce = master_key_nonce;
-				updated_key.master_key = encrypted_master_key;
+	// 			let mut updated_key = key.clone();
+	// 			updated_key.master_key_nonce = master_key_nonce;
+	// 			updated_key.master_key = encrypted_master_key;
 
-				reencrypted_keys.push(updated_key.clone());
-				self.keystore.insert(updated_key.uuid, updated_key);
-			}
-		}
+	// 			reencrypted_keys.push(updated_key.clone());
+	// 			self.keystore.insert(updated_key.uuid, updated_key);
+	// 		}
+	// 	}
 
-		Ok(reencrypted_keys)
-	}
+	// 	Ok(reencrypted_keys)
+	// }
 
-	// requires master password and the secret key
 	/// This requires both the master password and the secret key
 	///
 	/// The master password and secret key are hashed together.
@@ -543,7 +535,7 @@ impl KeyManager {
 
 		// Decrypt the StoredKey's master key using the user's hashed password
 		if let Ok(master_key) = StreamDecryption::decrypt_bytes(
-			hashed_master_password.clone(),
+			hashed_master_password,
 			&verification_key.master_key_nonce,
 			verification_key.algorithm,
 			&verification_key.master_key,
