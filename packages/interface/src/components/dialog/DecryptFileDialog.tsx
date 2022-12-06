@@ -63,7 +63,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 						<Button
 							size="sm"
 							variant={outputPath !== '' ? 'accent' : 'gray'}
-							className="h-[23px] mt-2"
+							className="h-[23px] text-xs leading-3 mt-2"
 							onClick={() => {
 								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
 								save()?.then((result) => {

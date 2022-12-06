@@ -117,7 +117,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 						<Button
 							size="sm"
 							variant={outputPath !== '' ? 'accent' : 'gray'}
-							className="h-[23px] mt-2"
+							className="h-[23px] text-xs leading-3 mt-2"
 							onClick={() => {
 								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
 								save()?.then((result) => {
@@ -149,12 +149,12 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 				</div>
 
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
-					<div className="flex flex-col">
-						<span className="text-xs font-bold">Metadata</span>
+					<div className="flex">
+						<span className="text-sm font-bold mr-3 ml-0.5 mt-0.5">Metadata</span>
 						<Checkbox checked={metadata} onChange={(e) => setMetadata(e.target.checked)} />
 					</div>
-					<div className="flex flex-col">
-						<span className="text-xs font-bold">Preview Media</span>
+					<div className="flex">
+						<span className="text-sm font-bold mr-3 ml-0.5 mt-0.5">Preview Media</span>
 						<Checkbox checked={previewMedia} onChange={(e) => setPreviewMedia(e.target.checked)} />
 					</div>
 				</div>
