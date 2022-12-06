@@ -17,6 +17,7 @@ pub struct FileDecryptorJobState {}
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,
 	pub object_id: i32,
+	pub output_path: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -88,31 +89,32 @@ impl StatefulJob for FileDecryptorJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
 	) -> Result<(), JobError> {
-		// get the key from the key manager
-		// decrypt the file
-
 		let step = &state.steps[0];
 		// handle overwriting checks, and making sure there's enough available space
 
 		let keys = ctx.library_ctx().key_manager.enumerate_hashed_keys();
 
-		let mut output_path = step.obj_path.clone();
+		let output_path = if let Some(path) = state.init.output_path.clone() {
+			path
+		} else {
+			let mut path = step.obj_path.clone();
 
-		// i really can't decide on the functionality of this
-		// maybe we should open a dialog in JS, and have the default as the file name without the ".sdenc",
-		// this would let the user choose
-		// we don't do any overwriting checks as of yet, maybe these should be front-end though
-		let extension = if let Some(ext) = output_path.extension() {
-			if ext == ".sdenc" {
-				"decrypted"
+			// i really can't decide on the functionality of this
+			// maybe we should open a dialog in JS, and have the default as the file name without the ".sdenc",
+			// this would let the user choose
+			// we don't do any overwriting checks as of yet, maybe these should be front-end though
+			let extension = if let Some(ext) = path.extension() {
+				if ext == ".sdenc" {
+					"decrypted"
+				} else {
+					"decrypted"
+				}
 			} else {
 				"decrypted"
-			}
-		} else {
-			"decrypted"
+			};
+			path.set_extension(extension);
+			path
 		};
-
-		output_path.set_extension(extension);
 
 		let mut reader = std::fs::File::open(step.obj_path.clone())?;
 		let mut writer = std::fs::File::create(output_path)?;

@@ -27,7 +27,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 				loading={decryptFile.isLoading}
 				ctaLabel="Decrypt"
 				ctaAction={() => {
-					const output = outputPath !== '' ? outputPath : undefined; // need to add functionality for this in rust
+					const output = outputPath !== '' ? outputPath : null;
 					props.setOpen(false);
 
 					location_id &&
@@ -35,7 +35,8 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 						decryptFile.mutate(
 							{
 								location_id,
-								object_id
+								object_id,
+								output_path: output
 							},
 							{
 								onSuccess: () => {

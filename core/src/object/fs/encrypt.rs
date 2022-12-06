@@ -35,6 +35,7 @@ pub struct FileEncryptorJobInit {
 	pub hashing_algorithm: HashingAlgorithm,
 	pub metadata: bool,
 	pub preview_media: bool,
+	pub output_path: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -121,9 +122,6 @@ impl StatefulJob for FileEncryptorJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
 	) -> Result<(), JobError> {
-		// get the key from the key manager
-		// encrypt the file
-
 		let step = &state.steps[0];
 
 		match step.obj_type {
@@ -141,14 +139,18 @@ impl StatefulJob for FileEncryptorJob {
 					.key_manager
 					.access_keystore(state.init.key_uuid)?;
 
-				let mut output_path = step.obj_path.clone();
-				let extension = if let Some(ext) = output_path.extension() {
-					ext.to_str().unwrap().to_string() + ".sdenc"
+				let output_path = if let Some(path) = state.init.output_path.clone() {
+					path
 				} else {
-					"sdenc".to_string()
+					let mut path = step.obj_path.clone();
+					let extension = if let Some(ext) = path.extension() {
+						ext.to_str().unwrap().to_string() + ".sdenc"
+					} else {
+						"sdenc".to_string()
+					};
+					path.set_extension(extension);
+					path
 				};
-
-				output_path.set_extension(extension);
 
 				let mut reader = std::fs::File::open(step.obj_path.clone())?;
 				let mut writer = std::fs::File::create(output_path)?;

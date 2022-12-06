@@ -67,7 +67,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 				ctaLabel="Encrypt"
 				ctaAction={() => {
 					const [algorithm, hashingAlgorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
-					const output = outputPath !== '' ? outputPath : undefined; // need to add functionality for this in rust
+					const output = outputPath !== '' ? outputPath : null;
 					props.setOpen(false);
 
 					location_id &&
@@ -80,7 +80,8 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 								location_id,
 								object_id,
 								metadata,
-								preview_media: previewMedia
+								preview_media: previewMedia,
+								output_path: output
 							},
 							{
 								onSuccess: () => {
