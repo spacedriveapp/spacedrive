@@ -114,6 +114,8 @@ impl StatefulJob for FileEncryptorJob {
 			obj_type,
 		});
 
+		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+
 		Ok(())
 	}
 

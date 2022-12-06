@@ -81,6 +81,8 @@ impl StatefulJob for FileDecryptorJob {
 			.steps
 			.push_back(FileDecryptorJobStep { obj_name, obj_path });
 
+		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+
 		Ok(())
 	}
 
