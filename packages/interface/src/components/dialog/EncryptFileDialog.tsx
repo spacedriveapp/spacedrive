@@ -39,7 +39,9 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
-			if (key !== data[0]) {
+			if (key === '' && data.length !== 0) {
+				// when this query updates and a key is officially mounted, update `key` (the user shouldn't be able to see this dialog before a key is mounted)
+				// only update if no key is currently set
 				setKey(data[0]);
 			}
 		}
@@ -47,7 +49,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	const encryptFile = useLibraryMutation('files.encryptFiles');
 
 	// the selected key will be random, we should prioritise the default
-	const [key, setKey] = useState(mountedUuids.data !== undefined ? mountedUuids.data[0] : '');
+	const [key, setKey] = useState('');
 
 	// decided against react-hook-form, as it doesn't allow us to work with select boxes and such
 	const [metadata, setMetadata] = useState(false);
