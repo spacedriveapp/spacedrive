@@ -38,7 +38,7 @@ dashmap = "5.4.0"
 rspc = { workspace = true, optional = true }
 specta = { workspace = true, optional = true }
 
-base64 = "0.13.1"
+hex = "0.4.3"
 
 [features]
 rspc = ["dep:rspc", "dep:specta"]
