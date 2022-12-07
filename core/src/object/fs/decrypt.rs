@@ -60,7 +60,7 @@ impl StatefulJob for FileDecryptorJob {
 			.local_path
 			.as_ref()
 			.map(PathBuf::from)
-			.unwrap_or_default();
+			.expect("critical error: issue getting local path as pathbuf");
 
 		let item = library
 			.db
@@ -106,6 +106,8 @@ impl StatefulJob for FileDecryptorJob {
 			// maybe we should open a dialog in JS, and have the default as the file name without the ".sdenc",
 			// we don't do any overwriting checks as of yet, maybe these should be front-end though
 			let extension = if let Some(ext) = path.extension() {
+				// allow this with clippy as this won't be the final behaviour
+				#[allow(clippy::if_same_then_else)]
 				if ext == ".sdenc" {
 					"decrypted"
 				} else {

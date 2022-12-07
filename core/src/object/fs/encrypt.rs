@@ -91,7 +91,7 @@ impl StatefulJob for FileEncryptorJob {
 			.local_path
 			.as_ref()
 			.map(PathBuf::from)
-			.unwrap_or_default();
+			.expect("critical error: issue getting local path as pathbuf");
 
 		let item = library
 			.db
@@ -154,7 +154,9 @@ impl StatefulJob for FileEncryptorJob {
 				} else {
 					let mut path = step.obj_path.clone();
 					let extension = if let Some(ext) = path.extension() {
-						ext.to_str().unwrap().to_string() + ".sdenc"
+						ext.to_str()
+							.expect("critical error: path is not valid utf-8")
+							.to_string() + ".sdenc"
 					} else {
 						"sdenc".to_string()
 					};
