@@ -49,6 +49,7 @@
 		"react-native-safe-area-context": "4.3.1",
 		"react-native-screens": "~3.15.0",
 		"react-native-svg": "13.0.0",
+		"react-native-wheel-color-picker": "^1.2.0",
 		"twrnc": "^3.4.1",
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^8.0.4",

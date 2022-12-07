@@ -8,13 +8,7 @@ import DeleteLocationDialog from '~/containers/dialog/DeleteLocationDialog';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
-function LocationListItem({
-	location,
-	index
-}: {
-	location: Location & { node: Node };
-	index: number;
-}) {
+function LocationItem({ location, index }: { location: Location & { node: Node }; index: number }) {
 	const { mutate: fullRescan } = useLibraryMutation('locations.fullRescan', {
 		onMutate: () => {
 			// TODO: Show Toast
@@ -101,7 +95,7 @@ const LocationSettingsScreen = ({ navigation }: SettingsStackScreenProps<'Locati
 			<FlatList
 				data={locations}
 				keyExtractor={(item) => item.id.toString()}
-				renderItem={({ item, index }) => <LocationListItem location={item} index={index} />}
+				renderItem={({ item, index }) => <LocationItem location={item} index={index} />}
 			/>
 		</View>
 	);
