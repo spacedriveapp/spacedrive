@@ -26,13 +26,17 @@ impl<T: Transport> LogTransport<T> {
 impl<T: Transport> Transport for LogTransport<T> {
     type State = T::State;
     type RawConn = T::RawConn;
+    type ListenError = T::ListenError;
     type EstablishError = T::EstablishError;
     type ListenStreamError = T::ListenStreamError;
     type ListenStreamItem = T::ListenStreamItem;
     type ListenStream = T::ListenStream;
     type Connection = LogConnection<T::Connection>;
 
-    fn listen(&mut self, state: Arc<State>) -> (Self::ListenStream, Self::State) {
+    fn listen(
+        &mut self,
+        state: Arc<State>,
+    ) -> Result<(Self::ListenStream, Self::State), Self::ListenError> {
         self.next.listen(state)
     }
 

@@ -1,6 +1,6 @@
 //! Transport: TODO
 
-use std::{future::Future, net::SocketAddr, sync::Arc};
+use std::{fmt::Display, future::Future, net::SocketAddr, sync::Arc};
 
 use crate::{PeerId, State};
 use futures_util::{AsyncRead, AsyncWrite, Stream};
@@ -16,13 +16,17 @@ pub use quic::*;
 pub trait Transport: Sized + Send + Sync + 'static {
     type State: Clone + Send + Sync;
     type RawConn;
-    type EstablishError: Debug;
-    type ListenStreamError: Debug;
+    type ListenError: Debug;
+    type EstablishError: Debug + Display;
+    type ListenStreamError: Debug + Display;
     type ListenStreamItem: Future<Output = Result<Self::RawConn, Self::ListenStreamError>> + Send;
     type ListenStream: Stream<Item = Self::ListenStreamItem> + Unpin + Send;
     type Connection: TransportConnection + Send + Sync;
 
-    fn listen(&mut self, state: Arc<State>) -> (Self::ListenStream, Self::State);
+    fn listen(
+        &mut self,
+        state: Arc<State>,
+    ) -> Result<(Self::ListenStream, Self::State), Self::ListenError>;
 
     fn listen_addr(&self, state: Self::State) -> SocketAddr;
 
@@ -42,7 +46,7 @@ impl<T: AsyncWrite + AsyncRead + Unpin> ConnectionStream for T {}
 
 /// TODO
 pub trait TransportConnection {
-    type Error: Debug;
+    type Error: Debug + Display;
     type RawStream;
     type ListenStream: Stream<Item = Result<Self::RawStream, Self::Error>> + Unpin + Send;
     type Stream: ConnectionStream + Send;

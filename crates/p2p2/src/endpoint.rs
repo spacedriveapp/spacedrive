@@ -3,7 +3,8 @@ use std::{future::Future, marker::PhantomData, net::SocketAddr, sync::Arc};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    Connection, ConnectionManager, Identity, PeerId, State, Stream, Transport, TransportConnection,
+    ConnectError, Connection, ConnectionManager, Identity, PeerId, State, Stream, Transport,
+    TransportConnection,
 };
 
 /// TODO
@@ -36,16 +37,20 @@ where
         + 'static,
     THandlerFut: Future<Output = ()> + Send + Sync + 'static,
 {
-    pub fn new(transport: T, identity: &Identity, handler_fn: THandlerFn) -> Self {
+    pub fn new(
+        transport: T,
+        identity: &Identity,
+        handler_fn: THandlerFn,
+    ) -> Result<Self, T::ListenError> {
         let state = State::new();
-        let (manager, listen_addr) = ConnectionManager::new(transport, state.clone(), handler_fn);
-        Self {
+        let (manager, listen_addr) = ConnectionManager::new(transport, state.clone(), handler_fn)?;
+        Ok(Self {
             peer_id: PeerId::from_cert(identity.cert()),
             listen_addr,
             manager,
             state,
             phantom: PhantomData,
-        }
+        })
     }
 
     /// returns the peer ID of the current peer. These are unique identifier derived from the peers public key.
@@ -68,7 +73,7 @@ where
     pub async fn connect(
         &self,
         socket_addr: SocketAddr,
-    ) -> Result<Connection<TPayload, T::Connection>, T::EstablishError> {
+    ) -> Result<Connection<TPayload, T::Connection>, ConnectError<T>> {
         self.manager.connect(socket_addr).await
     }
 

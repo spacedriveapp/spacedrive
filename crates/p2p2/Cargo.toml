@@ -12,7 +12,7 @@ rustls = { version = "0.20.7", default-features = false, features = ["quic", "da
 serde = { version = "1.0.147", features = ["derive"] }
 specta = "0.0.4"
 thiserror = "1.0.37"
-tokio = { version = "1.21.2", features = ["macros", "sync", "rt-multi-thread", "time"] } # TODO: Probs remove 'time' + prune features
+tokio = { version = "1.21.2", features = ["macros", "sync", "rt-multi-thread", "time"] }
 
 # Following taken from old system. Should be pruned.
 dashmap = "5.3.4"

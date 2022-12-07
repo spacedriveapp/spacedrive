@@ -50,7 +50,7 @@ impl TransportConnection for QuicConnection {
         {
             Some(Ok(certs)) if certs.len() == 1 => Ok(PeerId::from_cert(&certs[0])),
             Some(Ok(_)) => Err("client presented more than one valid TLS certificate. This is not supported. Rejecting connection.".into()),
-            Some(Err(err)) => Err(format!("error decoding TLS certificates from connection. error: {}", err.downcast::<rustls::Error>().unwrap())), // TODO: Is this error downcast correct??
+            Some(Err(err)) => Err(format!("error decoding TLS certificates from connection. error: {}", err.downcast::<rustls::Error>().expect("Error downcasting to rustls error"))), // TODO: Is this error downcast correct??
             None => unreachable!(),
         }
     }
