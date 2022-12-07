@@ -14,8 +14,6 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 	type FormValues = {
 		masterPassword: string;
 		masterPassword2: string;
-		encryptionAlgo: string;
-		hashingAlgo: string;
 	};
 
 	const [secretKey, setSecretKey] = useState('');
@@ -23,9 +21,7 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
-			masterPassword2: '',
-			encryptionAlgo: 'XChaCha20Poly1305',
-			hashingAlgo: 'Argon2id-s'
+			masterPassword2: ''
 		}
 	});
 
@@ -33,10 +29,7 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 		if (data.masterPassword !== data.masterPassword2) {
 			alert('Passwords are not the same.');
 		} else {
-			const [algorithm, hashing_algorithm] = getCryptoSettings(
-				data.encryptionAlgo,
-				data.hashingAlgo
-			);
+			const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
 
 			changeMasterPassword.mutate(
 				{ algorithm, hashing_algorithm, password: data.masterPassword },
@@ -56,6 +49,8 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 		}
 	};
 
+	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
+	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
 	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-for
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
 	const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
@@ -123,8 +118,8 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 							<span className="text-xs font-bold">Encryption</span>
 							<Select
 								className="mt-2"
-								value={getValues('encryptionAlgo')}
-								onChange={(e) => setValue('encryptionAlgo', e)}
+								value={encryptionAlgo}
+								onChange={(e) => setEncryptionAlgo(e)}
 							>
 								<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
 								<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
@@ -132,11 +127,7 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 						</div>
 						<div className="flex flex-col">
 							<span className="text-xs font-bold">Hashing</span>
-							<Select
-								className="mt-2"
-								value={getValues('hashingAlgo')}
-								onChange={(e) => setValue('hashingAlgo', e)}
-							>
+							<Select className="mt-2" value={hashingAlgo} onChange={(e) => setHashingAlgo(e)}>
 								<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 								<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 								<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
