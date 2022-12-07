@@ -13,6 +13,7 @@ pub struct FileDecryptorJob;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileDecryptorJobState {}
 
+// decrypt could have an option to restore metadata (and another specific option for file name? - would turn "output file" into "output path" in the UI)
 #[derive(Serialize, Deserialize, Debug, Type)]
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,

@@ -1,5 +1,6 @@
 use std::{collections::VecDeque, path::PathBuf};
 
+use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
@@ -12,7 +13,7 @@ use tracing::warn;
 
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	prisma::{file_path, location},
+	prisma::{file_path, location, object},
 };
 
 pub struct FileEncryptorJob;
@@ -47,7 +48,14 @@ pub struct FileEncryptorJobStep {
 
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
+	pub object_id: i32,
 	pub name: String,
+	pub hidden: bool,
+	pub favourite: bool,
+	pub important: bool,
+	pub note: Option<String>,
+	pub date_created: chrono::DateTime<FixedOffset>,
+	pub date_modified: chrono::DateTime<FixedOffset>,
 }
 
 const JOB_NAME: &str = "file_encryptor";
@@ -171,17 +179,44 @@ impl StatefulJob for FileEncryptorJob {
 				let mut header =
 					FileHeader::new(LATEST_FILE_HEADER, user_key_details.algorithm, keyslots);
 
-				if state.init.metadata {
-					header.add_metadata(
-						LATEST_METADATA,
-						user_key_details.algorithm,
-						&master_key,
-						&Metadata {
-							name: step.obj_name.clone(),
-						},
-					)?;
+				if state.init.metadata || state.init.preview_media {
+					// if any are requested, we can make the query as it'll be used at least once
+					let object = ctx
+						.library_ctx()
+						.db
+						.object()
+						.find_unique(object::id::equals(state.init.object_id))
+						.exec()
+						.await?
+						.expect("critical error: can't get object info");
 
-					// we can also obfuscate the exterior name (possibly if selected too?)
+					if state.init.metadata {
+						let metadata = Metadata {
+							object_id: state.init.object_id,
+							name: step.obj_name.clone(),
+							hidden: object.hidden,
+							favourite: object.favorite,
+							important: object.important,
+							note: object.note,
+							date_created: object.date_created,
+							date_modified: object.date_modified,
+						};
+
+						header.add_metadata(
+							LATEST_METADATA,
+							user_key_details.algorithm,
+							&master_key,
+							&metadata,
+						)?;
+					}
+
+					if state.init.preview_media
+						&& (object.has_thumbnail
+							|| object.has_video_preview || object.has_thumbstrip)
+					{
+						// need to find the preview media, read it and return it as Some()
+						// not currently able to do this as thumnails don't generate
+					}
 				}
 
 				header.write(&mut writer)?;

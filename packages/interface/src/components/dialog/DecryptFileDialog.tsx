@@ -67,6 +67,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 							className="h-[23px] text-xs leading-3 mt-2"
 							type="button"
 							onClick={() => {
+								// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
 								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
 								save()?.then((result) => {
 									if (result) setOutputpath(result as string);
