@@ -104,7 +104,6 @@ impl StatefulJob for FileDecryptorJob {
 
 			// i really can't decide on the functionality of this
 			// maybe we should open a dialog in JS, and have the default as the file name without the ".sdenc",
-			// this would let the user choose
 			// we don't do any overwriting checks as of yet, maybe these should be front-end though
 			let extension = if let Some(ext) = path.extension() {
 				if ext == ".sdenc" {
@@ -129,6 +128,9 @@ impl StatefulJob for FileDecryptorJob {
 		let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
 
 		decryptor.decrypt_streams(&mut reader, &mut writer, &aad)?;
+
+		// need to decrypt preview media/metadata, and maybe add an option in the UI so the user can chosoe to restore these values
+		// for now this can't easily be implemented, as we don't know what the new object id for the file will be (we know the old one, but it may differ)
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
