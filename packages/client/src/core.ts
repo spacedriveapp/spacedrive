@@ -4,14 +4,14 @@
 export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath>, media_data: MediaData | null } | null } |
+        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath>, media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
-        { key: "keys.getKey", input: LibraryArgs<string>, result: string } |
-        { key: "keys.hasMasterPassword", input: LibraryArgs<null>, result: boolean } |
-        { key: "keys.list", input: LibraryArgs<null>, result: Array<StoredKey> } |
+        { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
+        { key: "keys.hasMasterPassword", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.list", input: LibraryArgs<null>, result: Array<StoredKey> } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
         { key: "library.list", input: never, result: Array<LibraryConfigWrapped> } | 
@@ -35,35 +35,35 @@ export type Procedures = {
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
-        { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } |
-        { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } |
+        { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
+        { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
-        { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } |
-        { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: string } |
-        { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } |
-        { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } |
+        { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: string } | 
+        { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } | 
+        { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } |
-        { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } |
-        { key: "keys.setDefault", input: LibraryArgs<string>, result: null } |
-        { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } |
+        { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } | 
+        { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
+        { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
         { key: "keys.unmount", input: LibraryArgs<string>, result: null } | 
         { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
         { key: "keys.updateKeyName", input: LibraryArgs<KeyNameUpdateArgs>, result: null } | 
         { key: "library.create", input: string, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
-        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } |
-        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } |
+        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
+        { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.fullRescan", input: LibraryArgs<number>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: IndexerRule } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.quickRescan", input: LibraryArgs<null>, result: null } | 
-        { key: "locations.relink", input: LibraryArgs<string>, result: null } |
-        { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } |
+        { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
+        { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 

@@ -9,7 +9,7 @@ use notify::{
 	Event, EventKind,
 };
 use tokio::fs;
-use tracing::{debug, warn};
+use tracing::{trace, warn};
 
 use super::{
 	utils::{create_dir, create_file, remove_event, rename, update_file},
@@ -37,7 +37,7 @@ impl EventHandler for WindowsEventHandler {
 		library_ctx: &LibraryContext,
 		event: Event,
 	) -> Result<(), LocationManagerError> {
-		debug!("Received Windows event: {:#?}", event);
+		trace!("Received Windows event: {:#?}", event);
 
 		match event.kind {
 			EventKind::Create(CreateKind::Any) => {
@@ -75,7 +75,7 @@ impl EventHandler for WindowsEventHandler {
 			}
 
 			other_event_kind => {
-				debug!("Other Windows event that we don't handle for now: {other_event_kind:#?}");
+				trace!("Other Windows event that we don't handle for now: {other_event_kind:#?}");
 			}
 		}
 

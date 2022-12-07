@@ -28,7 +28,7 @@ use notify::{event::RemoveKind, Event};
 use prisma_client_rust::{raw, PrismaValue};
 use sd_file_ext::extensions::ImageExtension;
 use tokio::{fs, io::ErrorKind};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, trace, warn};
 
 use super::file_path_with_object;
 
@@ -65,7 +65,7 @@ pub(super) async fn create_dir(
 	library_ctx: LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	if let Some(ref location_local_path) = location.local_path {
-		debug!(
+		trace!(
 			"Location: <root_path ='{location_local_path}'> creating directory: {}",
 			event.paths[0].display()
 		);
@@ -89,7 +89,7 @@ pub(super) async fn create_dir(
 				.exec()
 				.await?;
 
-			debug!("parent_directory: {:?}", parent_directory);
+			trace!("parent_directory: {:?}", parent_directory);
 
 			if let Some(parent_directory) = parent_directory {
 				let created_path = create_file_path(
@@ -133,7 +133,7 @@ async fn inner_create_file(
 	event: Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	debug!(
+	trace!(
 		"Location: <root_path ='{location_local_path}'> creating file: {}",
 		event.paths[0].display()
 	);
@@ -206,7 +206,7 @@ async fn inner_create_file(
 				.exec()
 				.await?;
 
-			debug!("object: {:#?}", object);
+			trace!("object: {:#?}", object);
 			if !object.has_thumbnail {
 				if let Some(ref extension) = created_file.extension {
 					generate_thumbnail(extension, &cas_id, &event.paths[0], library_ctx).await;
@@ -267,7 +267,7 @@ async fn inner_update_file(
 	event: Event,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	debug!(
+	trace!(
 		"Location: <root_path ='{location_local_path}'> updating file: {}",
 		event.paths[0].display()
 	);
@@ -371,7 +371,7 @@ pub(super) async fn rename(
 				)
 				.exec()
 				.await?;
-			debug!("Updated {updated} file_paths");
+			trace!("Updated {updated} file_paths");
 		}
 
 		library_ctx
@@ -410,7 +410,7 @@ pub(super) async fn remove_event(
 	remove_kind: RemoveKind,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	debug!("removed {remove_kind:#?}");
+	trace!("removed {remove_kind:#?}");
 
 	// check if path exists in our db, if it doesn't, then we don't care
 	if let Some(file_path) = get_existing_file_path(&location, &event.paths[0], library_ctx).await?

@@ -11,7 +11,7 @@ use notify::{
 	Event, EventKind,
 };
 use tokio::{fs, select, spawn, sync::oneshot, time::sleep};
-use tracing::{debug, trace, warn};
+use tracing::{trace, warn};
 
 use super::{
 	utils::{create_dir, create_file, remove_event, rename, update_file},
@@ -38,7 +38,7 @@ impl EventHandler for MacOsEventHandler {
 		library_ctx: &LibraryContext,
 		event: Event,
 	) -> Result<(), LocationManagerError> {
-		debug!("Received MacOS event: {:#?}", event);
+		trace!("Received MacOS event: {:#?}", event);
 
 		match event.kind {
 			EventKind::Create(create_kind) => match create_kind {
@@ -97,7 +97,7 @@ impl EventHandler for MacOsEventHandler {
 				// is also emitted, but we can ignore it.
 			}
 			other_event_kind => {
-				debug!("Other MacOS event that we don't handle for now: {other_event_kind:#?}");
+				trace!("Other MacOS event that we don't handle for now: {other_event_kind:#?}");
 			}
 		}
 
@@ -123,7 +123,7 @@ where
 			create_fn(location, event, library_ctx).await
 		},
 		Ok(rename_event) = maybe_rename_rx => {
-			debug!("Renaming file or directory instead of creating a new one");
+			trace!("Renaming file or directory instead of creating a new one");
 			rename(&event.paths[0], &rename_event.paths[0], location, &library_ctx).await
 		}
 	}

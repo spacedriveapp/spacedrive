@@ -8,7 +8,7 @@ use notify::{
 	event::{AccessKind, AccessMode, CreateKind, ModifyKind, RenameMode},
 	Event, EventKind,
 };
-use tracing::{debug, trace};
+use tracing::trace;
 
 use super::{
 	utils::{create_dir, file_creation_or_update, remove_event, rename_both_event},
@@ -30,34 +30,24 @@ impl EventHandler for LinuxEventHandler {
 		library_ctx: &LibraryContext,
 		event: Event,
 	) -> Result<(), LocationManagerError> {
-		debug!("Received Linux event: {:#?}", event);
+		trace!("Received Linux event: {:#?}", event);
 
 		match event.kind {
-			EventKind::Access(access_kind) => {
-				if access_kind == AccessKind::Close(AccessMode::Write) {
-					// If a file was closed with write mode, then it was updated or created
-					file_creation_or_update(location, event, library_ctx).await?;
-				} else {
-					trace!("Ignoring access event: {:#?}", event);
-				}
+			EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
+				// If a file was closed with write mode, then it was updated or created
+				file_creation_or_update(location, event, library_ctx).await?;
 			}
-			EventKind::Create(create_kind) => {
-				if create_kind == CreateKind::Folder {
-					create_dir(location, event, library_ctx.clone()).await?;
-				} else {
-					trace!("Ignored create event: {:#?}", event);
-				}
+			EventKind::Create(CreateKind::Folder) => {
+				create_dir(location, event, library_ctx.clone()).await?;
 			}
-			EventKind::Modify(ref modify_kind) => {
-				if *modify_kind == ModifyKind::Name(RenameMode::Both) {
-					rename_both_event(location, event, library_ctx).await?;
-				}
+			EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+				rename_both_event(location, event, library_ctx).await?;
 			}
 			EventKind::Remove(remove_kind) => {
 				remove_event(location, event, remove_kind, library_ctx).await?;
 			}
 			other_event_kind => {
-				debug!("Other Linux event that we don't handle for now: {other_event_kind:#?}");
+				trace!("Other Linux event that we don't handle for now: {other_event_kind:#?}");
 			}
 		}
 
