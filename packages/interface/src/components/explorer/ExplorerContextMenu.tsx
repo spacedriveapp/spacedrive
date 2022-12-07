@@ -3,6 +3,7 @@ import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
 	LockSimple,
+	LockSimpleOpen,
 	Package,
 	Plus,
 	Share,
@@ -15,6 +16,7 @@ import { PropsWithChildren, useMemo } from 'react';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { usePlatform } from '../../util/Platform';
 import { getExplorerStore } from '../../util/explorerStore';
+import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
@@ -56,7 +58,14 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 	);
 };
 
-export default function ExplorerContextMenu(props: PropsWithChildren) {
+export interface ExplorerContextMenuProps extends PropsWithChildren {
+	setShowEncryptDialog: (isShowing: boolean) => void;
+	setShowDecryptDialog: (isShowing: boolean) => void;
+	setShowAlertDialog: (isShowing: boolean) => void;
+	setAlertDialogData: (data: { title: string; text: string }) => void;
+}
+
+export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 	const store = getExplorerStore();
 	// const { mutate: generateThumbsForLocation } = useLibraryMutation(
 	// 	'jobs.generateThumbsForLocation'
@@ -71,6 +80,17 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 			return 'Explorer';
 		}
 	}, [os]);
+
+	const decryptFiles = useLibraryMutation('files.decryptFiles');
+	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
+	const hasMasterPassword =
+		hasMasterPasswordQuery.data !== undefined && hasMasterPasswordQuery.data === true
+			? true
+			: false;
+
+	const mountedUuids = useLibraryQuery(['keys.listMounted']);
+	const hasMountedKeys =
+		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
 
 	return (
 		<div className="relative">
@@ -121,7 +141,51 @@ export default function ExplorerContextMenu(props: PropsWithChildren) {
 					</CM.SubMenu>
 				)}
 				<CM.SubMenu label="More actions..." icon={Plus}>
-					<CM.Item label="Encrypt" icon={LockSimple} keybind="⌘E" />
+					<CM.Item
+						label="Encrypt"
+						icon={LockSimple}
+						keybind="⌘E"
+						onClick={() => {
+							if (hasMasterPassword && hasMountedKeys) {
+								props.setShowEncryptDialog(true);
+							} else if (!hasMasterPassword) {
+								props.setAlertDialogData({
+									title: 'Key manager locked',
+									text: 'The key manager is currently locked. Please unlock it and try again.'
+								});
+								props.setShowAlertDialog(true);
+							} else if (!hasMountedKeys) {
+								props.setAlertDialogData({
+									title: 'No mounted keys',
+									text: 'No mounted keys were found. Please mount a key and try again.'
+								});
+								props.setShowAlertDialog(true);
+							}
+						}}
+					/>
+					{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
+					<CM.Item
+						label="Decrypt"
+						icon={LockSimpleOpen}
+						keybind="⌘D"
+						onClick={() => {
+							if (hasMasterPassword && hasMountedKeys) {
+								props.setShowDecryptDialog(true);
+							} else if (!hasMasterPassword) {
+								props.setAlertDialogData({
+									title: 'Key manager locked',
+									text: 'The key manager is currently locked. Please unlock it and try again.'
+								});
+								props.setShowAlertDialog(true);
+							} else if (!hasMountedKeys) {
+								props.setAlertDialogData({
+									title: 'No mounted keys',
+									text: 'No mounted keys were found. Please mount a key and try again.'
+								});
+								props.setShowAlertDialog(true);
+							}
+						}}
+					/>
 					<CM.Item label="Compress" icon={Package} keybind="⌘B" />
 					<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
 						<CM.Item label="PNG" />

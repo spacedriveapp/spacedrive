@@ -561,6 +561,14 @@ impl KeyManager {
 		Ok(())
 	}
 
+	pub fn keystore_contains(&self, uuid: Uuid) -> bool {
+		self.keystore.contains_key(&uuid)
+	}
+
+	pub fn keymount_contains(&self, uuid: Uuid) -> bool {
+		self.keymount.contains_key(&uuid)
+	}
+
 	/// This function is used for seeing if the key manager has a master password.
 	pub fn has_master_password(&self) -> Result<bool> {
 		Ok(self.master_password.lock()?.is_some())
