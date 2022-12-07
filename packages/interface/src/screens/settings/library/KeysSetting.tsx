@@ -186,11 +186,9 @@ export default function KeysSettings() {
 						</div>
 					}
 				/>
-				{hasMasterPw.data ? (
-					<div className="grid space-y-2">
-						<ListOfKeys noKeysMessage={false} />
-					</div>
-				) : null}
+				<div className="grid space-y-2">
+					<ListOfKeys />
+				</div>
 
 				<SettingsSubHeader title="Password Options" />
 				<div className="flex flex-row">
