@@ -44,8 +44,8 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 					onSuccess: (sk) => {
 						setSecretKey(sk);
 
-						setShowSecretKeyDialog(true);
 						setShowMasterPasswordDialog(false);
+						setShowSecretKeyDialog(true);
 					},
 					onError: () => {
 						// this should never really happen

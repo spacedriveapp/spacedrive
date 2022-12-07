@@ -1,4 +1,5 @@
 use crate::location::{indexer::IndexerError, LocationError};
+use sd_crypto::Error as CryptoError;
 
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -36,6 +37,8 @@ pub enum JobError {
 	MissingJobDataState(Uuid, String),
 	#[error("Indexer error: {0}")]
 	IndexerError(#[from] IndexerError),
+	#[error("Crypto error: {0}")]
+	CryptoError(#[from] CryptoError),
 	#[error("Data needed for job execution not found: job <name='{0}'>")]
 	JobDataNotFound(String),
 	#[error("Job paused")]

@@ -209,6 +209,7 @@ export default function KeysSettings() {
 						size="sm"
 						variant="gray"
 						className="mr-2"
+						type="button"
 						onClick={() => {
 							// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
 							save()?.then((result) => {
