@@ -14,29 +14,29 @@ pub use quic::*;
 
 /// TODO
 pub trait Transport: Sized + Send + Sync + 'static {
-    type State: Clone + Send + Sync;
-    type RawConn;
-    type ListenError: Debug;
-    type EstablishError: Debug + Display;
-    type ListenStreamError: Debug + Display;
-    type ListenStreamItem: Future<Output = Result<Self::RawConn, Self::ListenStreamError>> + Send;
-    type ListenStream: Stream<Item = Self::ListenStreamItem> + Unpin + Send;
-    type Connection: TransportConnection + Send + Sync;
+	type State: Clone + Send + Sync;
+	type RawConn;
+	type ListenError: Debug;
+	type EstablishError: Debug + Display;
+	type ListenStreamError: Debug + Display;
+	type ListenStreamItem: Future<Output = Result<Self::RawConn, Self::ListenStreamError>> + Send;
+	type ListenStream: Stream<Item = Self::ListenStreamItem> + Unpin + Send;
+	type Connection: TransportConnection + Send + Sync;
 
-    fn listen(
-        &mut self,
-        state: Arc<State>,
-    ) -> Result<(Self::ListenStream, Self::State), Self::ListenError>;
+	fn listen(
+		&mut self,
+		state: Arc<State>,
+	) -> Result<(Self::ListenStream, Self::State), Self::ListenError>;
 
-    fn listen_addr(&self, state: Self::State) -> SocketAddr;
+	fn listen_addr(&self, state: Self::State) -> SocketAddr;
 
-    fn establish(
-        &self,
-        state: Self::State,
-        addr: SocketAddr,
-    ) -> Result<Self::ListenStreamItem, Self::EstablishError>;
+	fn establish(
+		&self,
+		state: Self::State,
+		addr: SocketAddr,
+	) -> Result<Self::ListenStreamItem, Self::EstablishError>;
 
-    fn accept(&self, state: Self::State, conn: Self::RawConn) -> Self::Connection;
+	fn accept(&self, state: Self::State, conn: Self::RawConn) -> Self::Connection;
 }
 
 /// TODO
@@ -46,23 +46,23 @@ impl<T: AsyncWrite + AsyncRead + Unpin> ConnectionStream for T {}
 
 /// TODO
 pub trait TransportConnection {
-    type Error: Debug + Display;
-    type RawStream;
-    type ListenStream: Stream<Item = Result<Self::RawStream, Self::Error>> + Unpin + Send;
-    type Stream: ConnectionStream + Send;
-    type StreamFuture: Future<Output = Result<Self::RawStream, Self::Error>>;
+	type Error: Debug + Display;
+	type RawStream;
+	type ListenStream: Stream<Item = Result<Self::RawStream, Self::Error>> + Unpin + Send;
+	type Stream: ConnectionStream + Send;
+	type StreamFuture: Future<Output = Result<Self::RawStream, Self::Error>>;
 
-    fn listen(&mut self) -> Self::ListenStream;
+	fn listen(&mut self) -> Self::ListenStream;
 
-    fn stream(&self) -> Self::StreamFuture;
+	fn stream(&self) -> Self::StreamFuture;
 
-    fn accept_stream(&self, stream: Self::RawStream) -> Self::Stream;
+	fn accept_stream(&self, stream: Self::RawStream) -> Self::Stream;
 
-    fn peer_id(&self) -> Result<PeerId, String>;
+	fn peer_id(&self) -> Result<PeerId, String>;
 
-    fn remote_addr(&self) -> SocketAddr;
+	fn remote_addr(&self) -> SocketAddr;
 
-    fn close(self);
+	fn close(self);
 }
 
 // impl<T: Connection> Connection for Arc<T> {}

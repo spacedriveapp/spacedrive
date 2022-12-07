@@ -9,47 +9,47 @@ const CERTIFICATE_COMMON_NAME: &str = "sd-p2p-identity";
 /// The public key is safe to share while the private key must remain private to ensure the connections between peers are secure.
 #[derive(Clone)]
 pub struct Identity {
-    cert: rustls::Certificate,
-    key: rustls::PrivateKey,
+	cert: rustls::Certificate,
+	key: rustls::PrivateKey,
 }
 
 impl Identity {
-    /// Create a new Identity for the current peer.
-    pub fn new() -> Result<Self, RcgenError> {
-        let mut params: CertificateParams = Default::default();
-        params.distinguished_name = DistinguishedName::new();
-        params
-            .distinguished_name
-            .push(DnType::CommonName, CERTIFICATE_COMMON_NAME);
-        params.subject_alt_names = vec![SanType::IpAddress(Ipv4Addr::LOCALHOST.into())];
-        let cert = rcgen::Certificate::from_params(params)?;
+	/// Create a new Identity for the current peer.
+	pub fn new() -> Result<Self, RcgenError> {
+		let mut params: CertificateParams = Default::default();
+		params.distinguished_name = DistinguishedName::new();
+		params
+			.distinguished_name
+			.push(DnType::CommonName, CERTIFICATE_COMMON_NAME);
+		params.subject_alt_names = vec![SanType::IpAddress(Ipv4Addr::LOCALHOST.into())];
+		let cert = rcgen::Certificate::from_params(params)?;
 
-        Ok(Self {
-            cert: rustls::Certificate(cert.serialize_der()?),
-            key: rustls::PrivateKey(cert.serialize_private_key_der()),
-        })
-    }
+		Ok(Self {
+			cert: rustls::Certificate(cert.serialize_der()?),
+			key: rustls::PrivateKey(cert.serialize_private_key_der()),
+		})
+	}
 
-    /// Load the current identity from it's raw form.
-    pub fn from_raw(cert: Vec<u8>, key: Vec<u8>) -> Result<Self, RcgenError> {
-        Ok(Self {
-            cert: rustls::Certificate(cert),
-            key: rustls::PrivateKey(key),
-        })
-    }
+	/// Load the current identity from it's raw form.
+	pub fn from_raw(cert: Vec<u8>, key: Vec<u8>) -> Result<Self, RcgenError> {
+		Ok(Self {
+			cert: rustls::Certificate(cert),
+			key: rustls::PrivateKey(key),
+		})
+	}
 
-    // /// Convert this identity into it's raw form so it can be saved.
-    // pub fn to_raw(&self) -> (Vec<u8>, Vec<u8>) {
-    //     (self.cert.clone(), self.key.clone())
-    // }
+	// /// Convert this identity into it's raw form so it can be saved.
+	// pub fn to_raw(&self) -> (Vec<u8>, Vec<u8>) {
+	//     (self.cert.clone(), self.key.clone())
+	// }
 
-    /// TODO
-    pub fn cert(&self) -> &rustls::Certificate {
-        &self.cert
-    }
+	/// TODO
+	pub fn cert(&self) -> &rustls::Certificate {
+		&self.cert
+	}
 
-    /// Convert this identity into rustls compatible form so it can be used for the QUIC TLS handshake.
-    pub fn into_rustls(self) -> (rustls::Certificate, rustls::PrivateKey) {
-        (self.cert, self.key)
-    }
+	/// Convert this identity into rustls compatible form so it can be used for the QUIC TLS handshake.
+	pub fn into_rustls(self) -> (rustls::Certificate, rustls::PrivateKey) {
+		(self.cert, self.key)
+	}
 }
