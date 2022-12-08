@@ -10,7 +10,6 @@ import { GenericAlertDialogProps } from './AlertDialog';
 type FormValues = {
 	masterPassword: string;
 	secretKey: string;
-	filePath: string;
 };
 
 export interface BackupRestorationDialogProps {
@@ -23,18 +22,17 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
-			secretKey: '',
-			filePath: ''
+			secretKey: ''
 		}
 	});
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
-		if (data.filePath !== '') {
+		if (filePath !== '') {
 			restoreKeystoreMutation.mutate(
 				{
 					password: data.masterPassword,
 					secret_key: data.secretKey,
-					path: data.filePath
+					path: filePath
 				},
 				{
 					onSuccess: (total) => {
@@ -61,7 +59,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 			);
 			setValue('masterPassword', '');
 			setValue('secretKey', '');
-			setValue('filePath', '');
+			setFilePath('');
 		}
 	};
 
@@ -70,6 +68,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
+	const [filePath, setFilePath] = useState('');
 
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
@@ -123,11 +122,11 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					<div className="relative flex flex-grow mb-2">
 						<Button
 							size="sm"
-							variant={getValues('filePath') !== '' ? 'accent' : 'gray'}
+							variant={filePath !== '' ? 'accent' : 'gray'}
 							type="button"
 							onClick={() => {
 								open()?.then((result) => {
-									if (result) setValue('filePath', result as string);
+									if (result) setFilePath(result as string);
 								});
 							}}
 						>
