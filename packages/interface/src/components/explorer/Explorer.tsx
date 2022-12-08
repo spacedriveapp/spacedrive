@@ -2,9 +2,9 @@ import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
 
 import { useExplorerStore } from '../../util/explorerStore';
+import { AlertDialog } from '../dialog/AlertDialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
-import { ExplorerAlertDialog } from '../dialog/ExplorerAlertDialog';
 import { Inspector } from '../explorer/Inspector';
 import ExplorerContextMenu from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';
@@ -93,11 +93,12 @@ export default function Explorer(props: Props) {
 					</div>
 				</ExplorerContextMenu>
 			</div>
-			<ExplorerAlertDialog
+			<AlertDialog
 				open={showAlertDialog}
 				setOpen={setShowAlertDialog}
 				title={alertDialogData.title}
-				text={alertDialogData.text}
+				value={alertDialogData.text}
+				inputBox={false}
 			/>
 			<EncryptFileDialog
 				location_id={expStore.locationId}

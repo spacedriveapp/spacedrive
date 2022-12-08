@@ -13,7 +13,12 @@ import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
 export interface PasswordChangeDialogProps {
 	trigger: ReactNode;
 	setShowDialog: (isShowing: boolean) => void;
-	setDialogData: (data: { title: string; description: string; value: string }) => void;
+	setDialogData: (data: {
+		title: string;
+		description: string;
+		value: string;
+		inputBox: boolean;
+	}) => void;
 }
 export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 	type FormValues = {
@@ -42,7 +47,8 @@ export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 							title: 'Secret Key',
 							description:
 								'Please store this secret key securely as it is needed to access your key manager.',
-							value: sk
+							value: sk,
+							inputBox: true
 						});
 
 						setShowMasterPasswordDialog(false);

@@ -11,9 +11,18 @@ type FormValues = {
 	filePath: string;
 };
 
-export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
-	const { trigger } = props;
+export interface BackupRestorationDialogProps {
+	trigger: ReactNode;
+	setShowDialog: (isShowing: boolean) => void;
+	setDialogData: (data: {
+		title: string;
+		description: string;
+		value: string;
+		inputBox: boolean;
+	}) => void;
+}
 
+export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
@@ -35,9 +44,15 @@ export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
 				},
 				{
 					onSuccess: (total) => {
-						setTotalKeysImported(total);
+						props.setDialogData({
+							title: 'Import Successful',
+							description: '',
+							value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`,
+							inputBox: false
+						});
+
 						setShowBackupRestoreDialog(false);
-						setShowRestorationFinalizationDialog(true);
+						props.setShowDialog(true);
 					},
 					onError: () => {
 						alert('There was an error while restoring your backup.');
@@ -48,13 +63,10 @@ export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
 	};
 
 	const [showBackupRestoreDialog, setShowBackupRestoreDialog] = useState(false);
-	const [showRestorationFinalizationDialog, setShowRestorationFinalizationDialog] = useState(false);
 	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore');
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
-
-	const [totalKeysImported, setTotalKeysImported] = useState(0);
 
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
@@ -69,7 +81,7 @@ export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
 					description="Restore keys from a backup."
 					loading={restoreKeystoreMutation.isLoading}
 					ctaLabel="Restore"
-					trigger={trigger}
+					trigger={props.trigger}
 				>
 					<div className="relative flex flex-grow mt-3 mb-2">
 						<Input
@@ -121,23 +133,6 @@ export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
 					</div>
 				</Dialog>
 			</form>
-
-			<Dialog
-				open={showRestorationFinalizationDialog}
-				setOpen={setShowRestorationFinalizationDialog}
-				title="Import Successful"
-				description=""
-				ctaAction={() => {
-					setShowRestorationFinalizationDialog(false);
-				}}
-				ctaLabel="Done"
-				trigger={<></>}
-			>
-				<div className="text-sm">
-					{totalKeysImported}{' '}
-					{totalKeysImported !== 1 ? 'keys were imported.' : 'key was imported.'}
-				</div>
-			</Dialog>
 		</>
 	);
 };

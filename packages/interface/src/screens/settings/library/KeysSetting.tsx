@@ -13,8 +13,8 @@ import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
 
+import { AlertDialog } from '../../../components/dialog/AlertDialog';
 import { BackupRestoreDialog } from '../../../components/dialog/BackupRestoreDialog';
-import { InputAlertDialog } from '../../../components/dialog/InputAlertDialog';
 import { KeyViewerDialog } from '../../../components/dialog/KeyViewerDialog';
 import { PasswordChangeDialog } from '../../../components/dialog/PasswordChangeDialog';
 import { ListOfKeys } from '../../../components/key/KeyList';
@@ -98,7 +98,8 @@ export default function KeysSettings() {
 	const [alertDialogData, setShowAlertDialogData] = useState({
 		title: '',
 		description: '',
-		value: ''
+		value: '',
+		inputBox: false
 	});
 
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
@@ -238,6 +239,8 @@ export default function KeysSettings() {
 							Backup
 						</Button>
 						<BackupRestoreDialog
+							setShowDialog={setShowAlertDialog}
+							setDialogData={setShowAlertDialogData}
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">
 									Restore
@@ -246,12 +249,13 @@ export default function KeysSettings() {
 						/>
 					</div>
 				</SettingsContainer>
-				<InputAlertDialog
+				<AlertDialog
 					open={showAlertDialog}
 					setOpen={setShowAlertDialog}
 					title={alertDialogData.title}
 					description={alertDialogData.description}
 					value={alertDialogData.value}
+					inputBox={alertDialogData.inputBox}
 				/>
 			</>
 		);
