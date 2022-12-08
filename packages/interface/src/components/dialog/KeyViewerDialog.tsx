@@ -1,5 +1,7 @@
 import { useLibraryQuery } from '@sd/client';
-import { Dialog, Input, Select } from '@sd/ui';
+import { Button, Dialog, Input, Select } from '@sd/ui';
+import { writeText } from '@tauri-apps/api/clipboard';
+import { Clipboard } from 'phosphor-react';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { SelectOptionKeys } from '../key/KeyList';
@@ -17,7 +19,21 @@ export const KeyTextBox = (props: { uuid: string }) => {
 		kV.data && setKeyValue(kV.data);
 	}, [kV]);
 
-	return <Input className="flex-grow w-full mt-3" value={keyValue} disabled={true} />;
+	return (
+		<div className="relative flex flex-grow">
+			<Input value={keyValue} disabled className="flex-grow !py-0.5" />
+			<Button
+				type="button"
+				onClick={() => {
+					writeText(keyValue);
+				}}
+				size="icon"
+				className="border-none absolute right-[5px] top-[5px]"
+			>
+				<Clipboard className="w-4 h-4" />
+			</Button>
+		</div>
+	);
 };
 
 export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
