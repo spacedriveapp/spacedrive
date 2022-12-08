@@ -1,40 +1,36 @@
-import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Dialog, Input, Select, SelectOption } from '@sd/ui';
-import { ReactNode, useMemo, useState } from 'react';
+import { useLibraryQuery } from '@sd/client';
+import { Dialog, Input, Select } from '@sd/ui';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 
-import { SelectOptionMountedKeys } from '../key/KeyList';
+import { SelectOptionKeys } from '../key/KeyList';
 
 interface KeyViewerDialogProps {
 	trigger: ReactNode;
 }
 
 export const KeyTextBox = (props: { uuid: string }) => {
-	const keyValue = useMemo(() => useLibraryQuery(['keys.getKey', props.uuid]), [props.uuid]);
+	const kV = useLibraryQuery(['keys.getKey', props.uuid]);
 
-	return <Input className="flex-grow w-full mt-3" value={keyValue.data} disabled={true} />;
+	const [keyValue, setKeyValue] = useState('');
+
+	useEffect(() => {
+		kV.data && setKeyValue(kV.data);
+	}, [kV]);
+
+	return <Input className="flex-grow w-full mt-3" value={keyValue} disabled={true} />;
 };
 
 export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
-	const keys = useLibraryQuery(['keys.list']);
-	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
+	const keys = useLibraryQuery(['keys.list'], {
 		onSuccess: (data) => {
 			if (key === '' && data.length !== 0) {
-				setKey(data[0]);
+				setKey(data[0].uuid);
 			}
 		}
 	});
 
 	const [showKeyViewerDialog, setShowKeyViewerDialog] = useState(false);
 	const [key, setKey] = useState('');
-
-	// const UpdateKey = (uuid: string) => {
-	// 	setKey(uuid);
-	// 	const value = useLibraryQuery(['keys.getKey', uuid]);
-	// 	value.data && setKeyValue(value.data);
-	// };
-
-	// const value = useLibraryQuery(['keys.getKey', key]);
-	// value.data && setKeyValue(value.data);
 
 	return (
 		<>
@@ -46,7 +42,6 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 				description="Here you can view the values of your keys."
 				ctaLabel="Done"
 				ctaAction={() => {
-					// need to null things in here
 					setShowKeyViewerDialog(false);
 				}}
 			>
@@ -57,14 +52,10 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 							className="mt-2 flex-grow"
 							value={key}
 							onChange={(e) => {
-								// UpdateKey(e);
 								setKey(e);
 							}}
 						>
-							{/* this only returns MOUNTED keys. we could include unmounted keys, but then we'd have to prompt the user to mount them too */}
-							{keys.data && mountedUuids.data && (
-								<SelectOptionMountedKeys keys={keys.data} mountedUuids={mountedUuids.data} />
-							)}
+							{keys.data && <SelectOptionKeys keys={keys.data} />}
 						</Select>
 					</div>
 				</div>
