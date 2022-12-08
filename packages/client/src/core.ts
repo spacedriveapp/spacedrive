@@ -88,7 +88,7 @@ export type ExplorerItem = { type: "Path" } & { id: number, is_dir: boolean, loc
 
 export interface FileDecryptorJobInit { location_id: number, object_id: number, output_path: string | null }
 
-export interface FileEncryptorJobInit { location_id: number, object_id: number, key_uuid: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, metadata: boolean, preview_media: boolean, output_path: string | null }
+export interface FileEncryptorJobInit { location_id: number, object_id: number, key_uuid: string, algorithm: Algorithm, metadata: boolean, preview_media: boolean, output_path: string | null }
 
 export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
 
