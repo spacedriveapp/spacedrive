@@ -27,6 +27,29 @@ export const SelectOptionMountedKeys = (props: { keys: StoredKey[]; mountedUuids
 	);
 };
 
+// ideal for going within a select box
+export const SelectOptionKeys = (props: { keys: StoredKey[]; mountedUuids: string[] }) => {
+	const { keys, mountedUuids } = props;
+
+	const [mountedKeys, unmountedKeys] = useMemo(
+		() => [
+			keys.filter((key) => mountedUuids.includes(key.uuid)) ?? [],
+			keys.filter((key) => !mountedUuids.includes(key.uuid)) ?? []
+		],
+		[keys, mountedUuids]
+	);
+
+	return (
+		<>
+			{[...mountedKeys, ...unmountedKeys]?.map((key) => {
+				return (
+					<SelectOption value={key.uuid}>Key {key.uuid.substring(0, 8).toUpperCase()}</SelectOption>
+				);
+			})}
+		</>
+	);
+};
+
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);

@@ -1,7 +1,7 @@
-import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Select, SelectOption } from '@sd/ui';
 import { save } from '@tauri-apps/api/dialog';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import {
 	getCryptoSettings,
