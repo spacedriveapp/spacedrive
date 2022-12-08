@@ -2,7 +2,7 @@ import { useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Select } from '@sd/ui';
 import { writeText } from '@tauri-apps/api/clipboard';
 import { Clipboard } from 'phosphor-react';
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 
 import { SelectOptionKeyList } from '../key/KeyList';
 

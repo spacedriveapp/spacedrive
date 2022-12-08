@@ -30,9 +30,6 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
 		if (data.filePath !== '') {
-			setValue('masterPassword', '');
-			setValue('secretKey', '');
-			setValue('filePath', '');
 			restoreKeystoreMutation.mutate(
 				{
 					password: data.masterPassword,
@@ -62,6 +59,9 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					}
 				}
 			);
+			setValue('masterPassword', '');
+			setValue('secretKey', '');
+			setValue('filePath', '');
 		}
 	};
 

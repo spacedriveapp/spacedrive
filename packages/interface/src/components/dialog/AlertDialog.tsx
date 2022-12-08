@@ -1,4 +1,6 @@
-import { Dialog, Input } from '@sd/ui';
+import { Button, Dialog, Input } from '@sd/ui';
+import { writeText } from '@tauri-apps/api/clipboard';
+import { Clipboard } from 'phosphor-react';
 
 export const GenericAlertDialogState = {
 	open: false,
@@ -40,7 +42,19 @@ export const AlertDialog = (props: AlertDialogProps) => {
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
 		>
 			{props.inputBox && (
-				<Input className="flex-grow w-full mt-3" value={props.value} disabled={true} />
+				<div className="relative flex flex-grow mt-3">
+					<Input value={props.value} disabled className="flex-grow !py-0.5" />
+					<Button
+						type="button"
+						onClick={() => {
+							writeText(props.value);
+						}}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+					>
+						<Clipboard className="w-4 h-4" />
+					</Button>
+				</div>
 			)}
 
 			{!props.inputBox && <div className="text-sm">{props.value}</div>}
