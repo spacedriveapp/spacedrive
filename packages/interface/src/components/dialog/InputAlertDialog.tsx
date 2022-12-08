@@ -9,7 +9,7 @@ export interface GenericTextInputDialogProps {
 	label?: string;
 }
 
-export const GenericTextInputDialog = (props: GenericTextInputDialogProps) => {
+export const InputAlertDialog = (props: GenericTextInputDialogProps) => {
 	// maybe a copy-to-clipboard button would be beneficial too
 	return (
 		<Dialog

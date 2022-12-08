@@ -14,7 +14,7 @@ import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
 
 import { BackupRestoreDialog } from '../../../components/dialog/BackupRestoreDialog';
-import { GenericTextInputDialog } from '../../../components/dialog/GenericTextInputDialog';
+import { InputAlertDialog } from '../../../components/dialog/InputAlertDialog';
 import { PasswordChangeDialog } from '../../../components/dialog/PasswordChangeDialog';
 import { ListOfKeys } from '../../../components/key/KeyList';
 import { KeyMounter } from '../../../components/key/KeyMounter';
@@ -238,7 +238,7 @@ export default function KeysSettings() {
 						/>
 					</div>
 				</SettingsContainer>
-				<GenericTextInputDialog
+				<InputAlertDialog
 					open={showAlertDialog}
 					setOpen={setShowAlertDialog}
 					title={alertDialogData.title}
