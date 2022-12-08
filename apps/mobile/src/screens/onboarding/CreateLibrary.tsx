@@ -11,7 +11,7 @@ const CreateLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'CreateL
 				Onboarding screen for users to create their first library
 			</Text>
 			<CreateLibraryDialog disableBackdropClose>
-				<AnimatedButton disabled variant="accent">
+				<AnimatedButton variant="accent">
 					<Text style={tw`text-ink text-center px-6 py-2 text-base font-medium`}>
 						Create Library
 					</Text>
