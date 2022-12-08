@@ -7,9 +7,9 @@ use std::{
 };
 
 use tokio::{fs, io::ErrorKind, time::sleep};
-use tracing::error;
+use tracing::{error, warn};
 
-use super::{watcher::LocationWatcher, LocationId};
+use super::{watcher::LocationWatcher, LibraryId, LocationAndLibraryKey, LocationId};
 
 const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -74,37 +74,54 @@ pub(super) async fn location_check_sleep(
 
 pub(super) fn watch_location(
 	location: location::Data,
+	library_id: LibraryId,
 	location_path: impl AsRef<Path>,
-	locations_watched: &mut HashMap<LocationId, LocationWatcher>,
-	locations_unwatched: &mut HashMap<LocationId, LocationWatcher>,
+	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let location_id = location.id;
-	if let Some(mut watcher) = locations_unwatched.remove(&location_id) {
+	if let Some(mut watcher) = locations_unwatched.remove(&(location_id, library_id)) {
 		if watcher.check_path(location_path) {
 			watcher.watch();
 		} else {
 			watcher.update_data(location, true);
 		}
 
-		locations_watched.insert(location_id, watcher);
+		locations_watched.insert((location_id, library_id), watcher);
 	}
 }
 
 pub(super) fn unwatch_location(
 	location: location::Data,
+	library_id: LibraryId,
 	location_path: impl AsRef<Path>,
-	locations_watched: &mut HashMap<LocationId, LocationWatcher>,
-	locations_unwatched: &mut HashMap<LocationId, LocationWatcher>,
+	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let location_id = location.id;
-	if let Some(mut watcher) = locations_watched.remove(&location_id) {
+	if let Some(mut watcher) = locations_watched.remove(&(location_id, library_id)) {
 		if watcher.check_path(location_path) {
 			watcher.unwatch();
 		} else {
 			watcher.update_data(location, false)
 		}
 
-		locations_unwatched.insert(location_id, watcher);
+		locations_unwatched.insert((location_id, library_id), watcher);
+	}
+}
+
+pub(super) fn drop_location(
+	location_id: LocationId,
+	library_id: LibraryId,
+	message: &str,
+	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+) {
+	warn!("{message}: <id='{location_id}', library_id='{library_id}'>",);
+	if let Some(mut watcher) = locations_watched.remove(&(location_id, library_id)) {
+		watcher.unwatch();
+	} else {
+		locations_unwatched.remove(&(location_id, library_id));
 	}
 }
 

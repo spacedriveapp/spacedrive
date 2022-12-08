@@ -18,7 +18,7 @@ use prisma_client_rust::QueryError;
 use rspc::Type;
 use serde::Deserialize;
 use tokio::{fs, io};
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 use uuid::Uuid;
 
 mod error;
@@ -360,6 +360,10 @@ async fn create_location(
 }
 
 pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
+	LocationManager::global()
+		.remove(location_id, ctx.clone())
+		.await?;
+
 	delete_directory(ctx, location_id, None).await?;
 
 	ctx.db
@@ -376,10 +380,6 @@ pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(
 		.delete(location::id::equals(location_id))
 		.exec()
 		.await?;
-
-	if let Err(e) = LocationManager::global().remove(location_id).await {
-		error!("Failed to remove location from manager: {e:#?}");
-	}
 
 	if let Some(local_path) = location.local_path {
 		if let Ok(Some(mut metadata)) = SpacedriveLocationMetadataFile::try_load(&local_path).await
@@ -403,10 +403,10 @@ pub async fn delete_directory(
 	location_id: i32,
 	parent_materialized_path: Option<String>,
 ) -> Result<(), QueryError> {
-	let children_params = if parent_materialized_path.is_some() {
+	let children_params = if let Some(parent_materialized_path) = parent_materialized_path {
 		vec![
 			file_path::location_id::equals(location_id),
-			file_path::materialized_path::starts_with(parent_materialized_path.unwrap()),
+			file_path::materialized_path::starts_with(parent_materialized_path),
 		]
 	} else {
 		vec![file_path::location_id::equals(location_id)]

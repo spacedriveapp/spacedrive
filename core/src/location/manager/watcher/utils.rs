@@ -330,6 +330,8 @@ async fn inner_update_file(
 		}
 	}
 
+	invalidate_query!(library_ctx, "locations.getExplorerData");
+
 	Ok(())
 }
 
@@ -399,6 +401,7 @@ pub(super) async fn rename(
 			)
 			.exec()
 			.await?;
+		invalidate_query!(library_ctx, "locations.getExplorerData");
 	}
 
 	Ok(())
@@ -445,6 +448,8 @@ pub(super) async fn remove_event(
 			}
 			Err(e) => return Err(e.into()),
 		}
+
+		invalidate_query!(library_ctx, "locations.getExplorerData");
 	}
 
 	Ok(())

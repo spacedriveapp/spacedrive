@@ -252,17 +252,17 @@ impl Drop for LocationWatcher {
 }
 
 /***************************************************************************************************
- * Some tests to validate our assumptions of events through different file systems                 *
+ * Some tests to validate our assumptions of events through different file systems				   *
  ***************************************************************************************************
- * Events dispatched on Linux:								    						           *
- * 		Create File:																			   *
+ *	Events dispatched on Linux:																	   *
+ *		Create File:																			   *
  *			1) EventKind::Create(CreateKind::File)												   *
  *			2) EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any))						   *
  *				or EventKind::Modify(ModifyKind::Data(DataChange::Any))							   *
- *          3) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
+ *			3) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
  *		Create Directory:																		   *
  *			1) EventKind::Create(CreateKind::Folder)											   *
- *      Update File:										   									   *
+ *		Update File:																			   *
  *			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
  *			2) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
  *		Update File (rename):																	   *
@@ -273,38 +273,38 @@ impl Drop for LocationWatcher {
  *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
  *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
  *			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
- *	 	Delete File:																			   *
+ *		Delete File:																			   *
  *			1) EventKind::Remove(RemoveKind::File)												   *
  *		Delete Directory:																		   *
  *			1) EventKind::Remove(RemoveKind::Folder)											   *
  *																								   *
- * Events dispatched on MacOS:																	   *
- * 		Create File:																			   *
+ *	Events dispatched on MacOS:																	   *
+ *		Create File:																			   *
  *			1) EventKind::Create(CreateKind::File)												   *
  *		Create Directory:																		   *
  *			1) EventKind::Create(CreateKind::Folder)											   *
- *      Update File:										   									   *
+ *		Update File:																			   *
  *			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
  *		Update File (rename):																	   *
- *			1) EventKind::Create(CreateKind::File)											       *
+ *			1) EventKind::Create(CreateKind::File)												   *
  *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
  *		Update Directory (rename):																   *
  *			1) EventKind::Create(CreateKind::Folder)											   *
  *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
- *	 	Delete File:																			   *
+ *		Delete File:																			   *
  *			1) EventKind::Remove(RemoveKind::Any)												   *
  *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any)) - On parent directory		   *
  *		Delete Directory:																		   *
- *			1) EventKind::Remove(RemoveKind::Any)											   	   *
+ *			1) EventKind::Remove(RemoveKind::Any)												   *
  *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any)) - On parent directory		   *
  *																								   *
- * Events dispatched on Windows:																   *
- * 		Create File:																			   *
+ *	Events dispatched on Windows:																   *
+ *		Create File:																			   *
  *			1) EventKind::Create(CreateKind::Any)												   *
  *			2) EventKind::Modify(ModifyKind::Any)												   *
  *		Create Directory:																		   *
  *			1) EventKind::Create(CreateKind::Any)												   *
- *      Update File:										   									   *
+ *		Update File:																			   *
  *			1) EventKind::Modify(ModifyKind::Any)												   *
  *		Update File (rename):																	   *
  *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
@@ -312,16 +312,16 @@ impl Drop for LocationWatcher {
  *		Update Directory (rename):																   *
  *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
  *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *	 	Delete File:																			   *
+ *		Delete File:																			   *
  *			1) EventKind::Remove(RemoveKind::Any)												   *
  *		Delete Directory:																		   *
  *			1) EventKind::Remove(RemoveKind::Any)												   *
  *																								   *
- * Events dispatched on Android:																   *
- * TODO																							   *
+ *	Events dispatched on Android:																   *
+ *	TODO																						   *
  *																								   *
- * Events dispatched on iOS:																	   *
- * TODO																							   *
+ *	Events dispatched on iOS:																	   *
+ *	TODO																						   *
  *																								   *
  **************************************************************************************************/
 #[cfg(test)]
