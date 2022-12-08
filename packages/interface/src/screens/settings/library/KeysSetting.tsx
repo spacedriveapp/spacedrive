@@ -218,7 +218,6 @@ export default function KeysSettings() {
 					<SettingsSubHeader title="Password Options" />
 					<div className="flex flex-row">
 						<PasswordChangeDialog
-							setShowDialog={setShowAlertDialog}
 							setDialogData={setAlertDialogData}
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">
@@ -252,7 +251,6 @@ export default function KeysSettings() {
 							Backup
 						</Button>
 						<BackupRestoreDialog
-							setShowDialog={setShowAlertDialog}
 							setDialogData={setAlertDialogData}
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">

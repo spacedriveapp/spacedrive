@@ -14,7 +14,6 @@ type FormValues = {
 
 export interface BackupRestorationDialogProps {
 	trigger: ReactNode;
-	setShowDialog: (isShowing: boolean) => void;
 	setDialogData: (data: GenericAlertDialogProps) => void;
 }
 

@@ -50,7 +50,6 @@ export default function Explorer(props: Props) {
 				<ExplorerContextMenu
 					setShowEncryptDialog={setShowEncryptDialog}
 					setShowDecryptDialog={setShowDecryptDialog}
-					setShowAlertDialog={setShowAlertDialog}
 					setAlertDialogData={setAlertDialogData}
 				>
 					<div className="relative flex flex-col w-full">
@@ -105,7 +104,6 @@ export default function Explorer(props: Props) {
 				object_id={expStore.contextMenuObjectId}
 				open={showEncryptDialog}
 				setOpen={setShowEncryptDialog}
-				setShowAlertDialog={setShowAlertDialog}
 				setAlertDialogData={setAlertDialogData}
 			/>
 			<DecryptFileDialog
@@ -113,7 +111,6 @@ export default function Explorer(props: Props) {
 				object_id={expStore.contextMenuObjectId}
 				open={showDecryptDialog}
 				setOpen={setShowDecryptDialog}
-				setShowAlertDialog={setShowAlertDialog}
 				setAlertDialogData={setAlertDialogData}
 			/>
 		</>

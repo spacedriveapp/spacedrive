@@ -62,7 +62,6 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 export interface ExplorerContextMenuProps extends PropsWithChildren {
 	setShowEncryptDialog: (isShowing: boolean) => void;
 	setShowDecryptDialog: (isShowing: boolean) => void;
-	setShowAlertDialog: (isShowing: boolean) => void;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 

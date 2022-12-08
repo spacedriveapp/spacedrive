@@ -13,7 +13,6 @@ import { GenericAlertDialogProps } from './AlertDialog';
 
 export interface PasswordChangeDialogProps {
 	trigger: ReactNode;
-	setShowDialog: (isShowing: boolean) => void;
 	setDialogData: (data: GenericAlertDialogProps) => void;
 }
 export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {

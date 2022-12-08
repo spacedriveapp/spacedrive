@@ -16,7 +16,6 @@ interface EncryptDialogProps {
 	setOpen: (isShowing: boolean) => void;
 	location_id: number | null;
 	object_id: number | null;
-	setShowAlertDialog: (isShowing: boolean) => void;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
@@ -101,8 +100,6 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 								}
 							}
 						);
-
-					props.setShowAlertDialog(true);
 				}}
 			>
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
