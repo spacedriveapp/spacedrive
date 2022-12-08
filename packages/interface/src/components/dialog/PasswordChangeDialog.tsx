@@ -35,7 +35,14 @@ export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
 		if (data.masterPassword !== data.masterPassword2) {
-			alert('Passwords are not the same.');
+			props.setDialogData({
+				title: 'Alert',
+				description: '',
+				value: 'Passwords are not the same, please try again.',
+				inputBox: false
+			});
+
+			props.setShowDialog(true);
 		} else {
 			const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
 
@@ -56,7 +63,15 @@ export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 					},
 					onError: () => {
 						// this should never really happen
-						alert('There was an error while changing your master password.');
+						props.setDialogData({
+							title: 'Master Password Change Error',
+							description: '',
+							value: 'There was an error while changing your master password.',
+							inputBox: false
+						});
+
+						setShowMasterPasswordDialog(false);
+						props.setShowDialog(true);
 					}
 				}
 			);

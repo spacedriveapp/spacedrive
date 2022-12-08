@@ -95,7 +95,7 @@ export default function KeysSettings() {
 	const [secretKey, setSecretKey] = useState('');
 
 	const [showAlertDialog, setShowAlertDialog] = useState(false);
-	const [alertDialogData, setShowAlertDialogData] = useState({
+	const [alertDialogData, setAlertDialogData] = useState({
 		title: '',
 		description: '',
 		value: '',
@@ -107,64 +107,81 @@ export default function KeysSettings() {
 
 	if (!hasMasterPw?.data) {
 		return (
-			<div className="p-2 mr-20 ml-20 mt-10">
-				<div className="relative flex flex-grow mb-2">
-					<Input
-						value={masterPassword}
-						onChange={(e) => setMasterPassword(e.target.value)}
-						autoFocus
-						type={showMasterPassword ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
-						placeholder="Master Password"
-					/>
-					<Button
-						onClick={() => setShowMasterPassword(!showMasterPassword)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-					>
-						<MPCurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
+			<>
+				<div className="p-2 mr-20 ml-20 mt-10">
+					<div className="relative flex flex-grow mb-2">
+						<Input
+							value={masterPassword}
+							onChange={(e) => setMasterPassword(e.target.value)}
+							autoFocus
+							type={showMasterPassword ? 'text' : 'password'}
+							className="flex-grow !py-0.5"
+							placeholder="Master Password"
+						/>
+						<Button
+							onClick={() => setShowMasterPassword(!showMasterPassword)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+						>
+							<MPCurrentEyeIcon className="w-4 h-4" />
+						</Button>
+					</div>
 
-				<div className="relative flex flex-grow mb-2">
-					<Input
-						value={secretKey}
-						onChange={(e) => setSecretKey(e.target.value)}
-						type={showSecretKey ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
-						placeholder="Secret Key"
-					/>
-					<Button
-						onClick={() => setShowSecretKey(!showSecretKey)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-					>
-						<SKCurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
+					<div className="relative flex flex-grow mb-2">
+						<Input
+							value={secretKey}
+							onChange={(e) => setSecretKey(e.target.value)}
+							type={showSecretKey ? 'text' : 'password'}
+							className="flex-grow !py-0.5"
+							placeholder="Secret Key"
+						/>
+						<Button
+							onClick={() => setShowSecretKey(!showSecretKey)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+						>
+							<SKCurrentEyeIcon className="w-4 h-4" />
+						</Button>
+					</div>
 
-				<Button
-					className="w-full"
-					variant="accent"
-					disabled={setMasterPasswordMutation.isLoading}
-					onClick={() => {
-						if (masterPassword !== '' && secretKey !== '') {
-							setMasterPassword('');
-							setSecretKey('');
-							setMasterPasswordMutation.mutate(
-								{ password: masterPassword, secret_key: secretKey },
-								{
-									onError: () => {
-										alert('Incorrect information provided.');
+					<Button
+						className="w-full"
+						variant="accent"
+						disabled={setMasterPasswordMutation.isLoading}
+						onClick={() => {
+							if (masterPassword !== '' && secretKey !== '') {
+								setMasterPassword('');
+								setSecretKey('');
+								setMasterPasswordMutation.mutate(
+									{ password: masterPassword, secret_key: secretKey },
+									{
+										onError: () => {
+											setAlertDialogData({
+												title: 'Unlock Error',
+												description: '',
+												value: 'The information provided to the key manager was incorrect',
+												inputBox: false
+											});
+
+											setShowAlertDialog(true);
+										}
 									}
-								}
-							);
-						}
-					}}
-				>
-					Unlock
-				</Button>
-			</div>
+								);
+							}
+						}}
+					>
+						Unlock
+					</Button>
+				</div>
+				<AlertDialog
+					open={showAlertDialog}
+					setOpen={setShowAlertDialog}
+					title={alertDialogData.title}
+					description={alertDialogData.description}
+					value={alertDialogData.value}
+					inputBox={alertDialogData.inputBox}
+				/>
+			</>
 		);
 	} else {
 		return (
@@ -206,7 +223,7 @@ export default function KeysSettings() {
 					<div className="flex flex-row">
 						<PasswordChangeDialog
 							setShowDialog={setShowAlertDialog}
-							setDialogData={setShowAlertDialogData}
+							setDialogData={setAlertDialogData}
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">
 									Change Master Password
@@ -240,7 +257,7 @@ export default function KeysSettings() {
 						</Button>
 						<BackupRestoreDialog
 							setShowDialog={setShowAlertDialog}
-							setDialogData={setShowAlertDialogData}
+							setDialogData={setAlertDialogData}
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">
 									Restore

@@ -55,7 +55,15 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 						props.setShowDialog(true);
 					},
 					onError: () => {
-						alert('There was an error while restoring your backup.');
+						props.setDialogData({
+							title: 'Import Error',
+							description: '',
+							value: 'There was an error while restoring your backup.',
+							inputBox: false
+						});
+
+						setShowBackupRestoreDialog(false);
+						props.setShowDialog(true);
 					}
 				}
 			);
