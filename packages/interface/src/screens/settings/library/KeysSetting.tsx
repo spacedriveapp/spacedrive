@@ -197,7 +197,7 @@ export default function KeysSettings() {
 						}
 					/>
 					<div className="grid space-y-2">
-						<ListOfKeys setShowDialog={setShowAlertDialog} setDialogData={setShowAlertDialogData} />
+						<ListOfKeys />
 					</div>
 
 					<SettingsSubHeader title="Password Options" />
