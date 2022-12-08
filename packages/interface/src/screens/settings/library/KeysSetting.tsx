@@ -252,3 +252,22 @@ export const getCryptoSettings = (
 
 	return [algorithm, hashing_algorithm];
 };
+
+// not sure of a suitable place for this function
+export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
+	let hashing_algorithm = '';
+
+	switch (hashingAlgorithm.Argon2id) {
+		case 'Standard':
+			hashing_algorithm = 'Argon2id-s';
+			break;
+		case 'Hardened':
+			hashing_algorithm = 'Argon2id-h';
+			break;
+		case 'Paranoid':
+			hashing_algorithm = 'Argon2id-p';
+			break;
+	}
+
+	return hashing_algorithm;
+};
