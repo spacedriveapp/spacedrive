@@ -10,15 +10,18 @@ import { SubmitHandler, useForm } from 'react-hook-form';
 
 import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
 
-export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
+export interface PasswordChangeDialogProps {
+	trigger: ReactNode;
+	setShowDialog: (isShowing: boolean) => void;
+	setDialogData: (data: { title: string; description: string; value: string }) => void;
+}
+export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 	type FormValues = {
 		masterPassword: string;
 		masterPassword2: string;
 	};
 
-	const [secretKey, setSecretKey] = useState('');
-
-	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
+	const { register, handleSubmit } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
 			masterPassword2: ''
@@ -35,10 +38,15 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 				{ algorithm, hashing_algorithm, password: data.masterPassword },
 				{
 					onSuccess: (sk) => {
-						setSecretKey(sk);
+						props.setDialogData({
+							title: 'Secret Key',
+							description:
+								'Please store this secret key securely as it is needed to access your key manager.',
+							value: sk
+						});
 
 						setShowMasterPasswordDialog(false);
-						setShowSecretKeyDialog(true);
+						props.setShowDialog(true);
 					},
 					onError: () => {
 						// this should never really happen
@@ -53,7 +61,7 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
 	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-for
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
-	const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
+	// const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
 	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
 	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
@@ -136,24 +144,6 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 					</div>
 				</Dialog>
 			</form>
-			<Dialog
-				open={showSecretKeyDialog}
-				setOpen={setShowSecretKeyDialog}
-				title="Secret Key"
-				description="Please store this secret key securely as it is needed to access your key manager."
-				ctaAction={() => {
-					setShowSecretKeyDialog(false);
-				}}
-				ctaLabel="Done"
-				trigger={<></>}
-			>
-				<Input
-					className="flex-grow w-full mt-3"
-					value={secretKey}
-					placeholder="Secret Key"
-					disabled={true}
-				/>
-			</Dialog>
 		</>
 	);
 };

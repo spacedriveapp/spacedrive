@@ -14,6 +14,7 @@ import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
 
 import { BackupRestoreDialog } from '../../../components/dialog/BackupRestoreDialog';
+import { GenericTextInputDialog } from '../../../components/dialog/GenericTextInputDialog';
 import { PasswordChangeDialog } from '../../../components/dialog/PasswordChangeDialog';
 import { ListOfKeys } from '../../../components/key/KeyList';
 import { KeyMounter } from '../../../components/key/KeyMounter';
@@ -91,6 +92,14 @@ export default function KeysSettings() {
 	const [showSecretKey, setShowSecretKey] = useState(false);
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState('');
+
+	const [showAlertDialog, setShowAlertDialog] = useState(false);
+	const [alertDialogData, setShowAlertDialogData] = useState({
+		title: '',
+		description: '',
+		value: ''
+	});
+
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
@@ -157,75 +166,86 @@ export default function KeysSettings() {
 		);
 	} else {
 		return (
-			<SettingsContainer>
-				<SettingsHeader
-					title="Keys"
-					description="Manage your keys."
-					rightArea={
-						<div className="flex flex-row items-center">
-							<Button
-								size="icon"
-								onClick={() => {
-									unmountAll.mutate(null);
-									clearMasterPassword.mutate(null);
-								}}
-								variant="outline"
-								className="text-ink-faint"
-							>
-								<Lock className="w-4 h-4 text-ink-faint" />
-							</Button>
-							<KeyMounterDropdown
-								trigger={
-									<Button size="icon" variant="outline" className="text-ink-faint">
-										<Plus className="w-4 h-4 text-ink-faint" />
-									</Button>
-								}
-							>
-								<KeyMounter />
-							</KeyMounterDropdown>
-						</div>
-					}
+			<>
+				<SettingsContainer>
+					<SettingsHeader
+						title="Keys"
+						description="Manage your keys."
+						rightArea={
+							<div className="flex flex-row items-center">
+								<Button
+									size="icon"
+									onClick={() => {
+										unmountAll.mutate(null);
+										clearMasterPassword.mutate(null);
+									}}
+									variant="outline"
+									className="text-ink-faint"
+								>
+									<Lock className="w-4 h-4 text-ink-faint" />
+								</Button>
+								<KeyMounterDropdown
+									trigger={
+										<Button size="icon" variant="outline" className="text-ink-faint">
+											<Plus className="w-4 h-4 text-ink-faint" />
+										</Button>
+									}
+								>
+									<KeyMounter />
+								</KeyMounterDropdown>
+							</div>
+						}
+					/>
+					<div className="grid space-y-2">
+						<ListOfKeys setShowDialog={setShowAlertDialog} setDialogData={setShowAlertDialogData} />
+					</div>
+
+					<SettingsSubHeader title="Password Options" />
+					<div className="flex flex-row">
+						<PasswordChangeDialog
+							setShowDialog={setShowAlertDialog}
+							setDialogData={setShowAlertDialogData}
+							trigger={
+								<Button size="sm" variant="gray" className="mr-2">
+									Change Master Password
+								</Button>
+							}
+						/>
+					</div>
+
+					<SettingsSubHeader title="Data Recovery" />
+					<div className="flex flex-row">
+						<Button
+							size="sm"
+							variant="gray"
+							className="mr-2"
+							type="button"
+							onClick={() => {
+								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
+								save()?.then((result) => {
+									if (result) backupKeystore.mutate(result as string);
+								});
+							}}
+						>
+							Backup
+						</Button>
+						<BackupRestoreDialog
+							trigger={
+								<Button size="sm" variant="gray" className="mr-2">
+									Restore
+								</Button>
+							}
+						/>
+					</div>
+				</SettingsContainer>
+				<GenericTextInputDialog
+					open={showAlertDialog}
+					setOpen={setShowAlertDialog}
+					title={alertDialogData.title}
+					description={alertDialogData.description}
+					value={alertDialogData.value}
 				/>
-				<div className="grid space-y-2">
-					<ListOfKeys />
-				</div>
-
-				<SettingsSubHeader title="Password Options" />
-				<div className="flex flex-row">
-					<PasswordChangeDialog
-						trigger={
-							<Button size="sm" variant="gray" className="mr-2">
-								Change Master Password
-							</Button>
-						}
-					/>
-				</div>
-
-				<SettingsSubHeader title="Data Recovery" />
-				<div className="flex flex-row">
-					<Button
-						size="sm"
-						variant="gray"
-						className="mr-2"
-						type="button"
-						onClick={() => {
-							// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
-							save()?.then((result) => {
-								if (result) backupKeystore.mutate(result as string);
-							});
-						}}
-					>
-						Backup
-					</Button>
-					<BackupRestoreDialog
-						trigger={
-							<Button size="sm" variant="gray" className="mr-2">
-								Restore
-							</Button>
-						}
-					/>
-				</div>
-			</SettingsContainer>
+			</>
 		);
 	}
 }
