@@ -9,6 +9,7 @@ import {
 } from '../../screens/settings/library/KeysSetting';
 import { SelectOptionMountedKeys } from '../key/KeyList';
 import { Checkbox } from '../primitive/Checkbox';
+import { GenericAlertDialogProps } from './AlertDialog';
 
 interface EncryptDialogProps {
 	open: boolean;
@@ -16,7 +17,7 @@ interface EncryptDialogProps {
 	location_id: number | null;
 	object_id: number | null;
 	setShowAlertDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: { title: string; text: string }) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const EncryptFileDialog = (props: EncryptDialogProps) => {
@@ -81,14 +82,21 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							{
 								onSuccess: () => {
 									props.setAlertDialogData({
+										open: true,
 										title: 'Success',
-										text: 'The encryption job has started successfully. You may track the progress in the job overview panel.'
+										value:
+											'The encryption job has started successfully. You may track the progress in the job overview panel.',
+										inputBox: false,
+										description: ''
 									});
 								},
 								onError: () => {
 									props.setAlertDialogData({
+										open: true,
 										title: 'Error',
-										text: 'The encryption job failed to start.'
+										value: 'The encryption job failed to start.',
+										inputBox: false,
+										description: ''
 									});
 								}
 							}

@@ -5,6 +5,8 @@ import { Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
+import { GenericAlertDialogProps } from './AlertDialog';
+
 type FormValues = {
 	masterPassword: string;
 	secretKey: string;
@@ -14,12 +16,7 @@ type FormValues = {
 export interface BackupRestorationDialogProps {
 	trigger: ReactNode;
 	setShowDialog: (isShowing: boolean) => void;
-	setDialogData: (data: {
-		title: string;
-		description: string;
-		value: string;
-		inputBox: boolean;
-	}) => void;
+	setDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
@@ -44,26 +41,24 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 				},
 				{
 					onSuccess: (total) => {
+						setShowBackupRestoreDialog(false);
 						props.setDialogData({
+							open: true,
 							title: 'Import Successful',
 							description: '',
 							value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`,
 							inputBox: false
 						});
-
-						setShowBackupRestoreDialog(false);
-						props.setShowDialog(true);
 					},
 					onError: () => {
+						setShowBackupRestoreDialog(false);
 						props.setDialogData({
+							open: true,
 							title: 'Import Error',
 							description: '',
 							value: 'There was an error while restoring your backup.',
 							inputBox: false
 						});
-
-						setShowBackupRestoreDialog(false);
-						props.setShowDialog(true);
 					}
 				}
 			);

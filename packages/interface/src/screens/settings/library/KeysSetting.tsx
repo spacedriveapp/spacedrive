@@ -13,7 +13,7 @@ import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
 
-import { AlertDialog } from '../../../components/dialog/AlertDialog';
+import { AlertDialog, GenericAlertDialogState } from '../../../components/dialog/AlertDialog';
 import { BackupRestoreDialog } from '../../../components/dialog/BackupRestoreDialog';
 import { KeyViewerDialog } from '../../../components/dialog/KeyViewerDialog';
 import { PasswordChangeDialog } from '../../../components/dialog/PasswordChangeDialog';
@@ -94,13 +94,10 @@ export default function KeysSettings() {
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState('');
 
-	const [showAlertDialog, setShowAlertDialog] = useState(false);
-	const [alertDialogData, setAlertDialogData] = useState({
-		title: '',
-		description: '',
-		value: '',
-		inputBox: false
-	});
+	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
+	const setShowAlertDialog = (state: boolean) => {
+		setAlertDialogData({ ...alertDialogData, open: state });
+	};
 
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
@@ -157,13 +154,12 @@ export default function KeysSettings() {
 									{
 										onError: () => {
 											setAlertDialogData({
+												open: true,
 												title: 'Unlock Error',
 												description: '',
 												value: 'The information provided to the key manager was incorrect',
 												inputBox: false
 											});
-
-											setShowAlertDialog(true);
 										}
 									}
 								);
@@ -174,7 +170,7 @@ export default function KeysSettings() {
 					</Button>
 				</div>
 				<AlertDialog
-					open={showAlertDialog}
+					open={alertDialogData.open}
 					setOpen={setShowAlertDialog}
 					title={alertDialogData.title}
 					description={alertDialogData.description}
@@ -267,7 +263,7 @@ export default function KeysSettings() {
 					</div>
 				</SettingsContainer>
 				<AlertDialog
-					open={showAlertDialog}
+					open={alertDialogData.open}
 					setOpen={setShowAlertDialog}
 					title={alertDialogData.title}
 					description={alertDialogData.description}

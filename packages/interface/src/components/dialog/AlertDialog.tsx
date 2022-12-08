@@ -1,5 +1,21 @@
 import { Dialog, Input } from '@sd/ui';
 
+export const GenericAlertDialogState = {
+	open: false,
+	title: '',
+	description: '',
+	value: '',
+	inputBox: false
+};
+
+export interface GenericAlertDialogProps {
+	open: boolean;
+	title: string;
+	description: string;
+	value: string;
+	inputBox: boolean;
+}
+
 export interface AlertDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
@@ -23,11 +39,11 @@ export const AlertDialog = (props: AlertDialogProps) => {
 			}}
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
 		>
-			{props.inputBox === true && (
+			{props.inputBox && (
 				<Input className="flex-grow w-full mt-3" value={props.value} disabled={true} />
 			)}
 
-			{props.inputBox === false && <div className="text-sm">{props.value}</div>}
+			{!props.inputBox && <div className="text-sm">{props.value}</div>}
 		</Dialog>
 	);
 };

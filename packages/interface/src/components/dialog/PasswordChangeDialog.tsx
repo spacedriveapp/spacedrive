@@ -9,16 +9,12 @@ import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
 import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
+import { GenericAlertDialogProps } from './AlertDialog';
 
 export interface PasswordChangeDialogProps {
 	trigger: ReactNode;
 	setShowDialog: (isShowing: boolean) => void;
-	setDialogData: (data: {
-		title: string;
-		description: string;
-		value: string;
-		inputBox: boolean;
-	}) => void;
+	setDialogData: (data: GenericAlertDialogProps) => void;
 }
 export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 	type FormValues = {
@@ -36,13 +32,12 @@ export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
 		if (data.masterPassword !== data.masterPassword2) {
 			props.setDialogData({
-				title: 'Alert',
+				open: true,
+				title: 'Error',
 				description: '',
 				value: 'Passwords are not the same, please try again.',
 				inputBox: false
 			});
-
-			props.setShowDialog(true);
 		} else {
 			const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
 
@@ -50,28 +45,26 @@ export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 				{ algorithm, hashing_algorithm, password: data.masterPassword },
 				{
 					onSuccess: (sk) => {
+						setShowMasterPasswordDialog(false);
 						props.setDialogData({
+							open: true,
 							title: 'Secret Key',
 							description:
 								'Please store this secret key securely as it is needed to access your key manager.',
 							value: sk,
 							inputBox: true
 						});
-
-						setShowMasterPasswordDialog(false);
-						props.setShowDialog(true);
 					},
 					onError: () => {
 						// this should never really happen
+						setShowMasterPasswordDialog(false);
 						props.setDialogData({
+							open: true,
 							title: 'Master Password Change Error',
 							description: '',
 							value: 'There was an error while changing your master password.',
 							inputBox: false
 						});
-
-						setShowMasterPasswordDialog(false);
-						props.setShowDialog(true);
 					}
 				}
 			);

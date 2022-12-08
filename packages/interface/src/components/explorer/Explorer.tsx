@@ -2,7 +2,7 @@ import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
 
 import { useExplorerStore } from '../../util/explorerStore';
-import { AlertDialog } from '../dialog/AlertDialog';
+import { AlertDialog, GenericAlertDialogState } from '../dialog/AlertDialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 import { Inspector } from '../explorer/Inspector';
@@ -23,11 +23,11 @@ export default function Explorer(props: Props) {
 
 	const [showEncryptDialog, setShowEncryptDialog] = useState(false);
 	const [showDecryptDialog, setShowDecryptDialog] = useState(false);
-	const [showAlertDialog, setShowAlertDialog] = useState(false);
-	const [alertDialogData, setAlertDialogData] = useState({
-		title: '',
-		text: ''
-	});
+
+	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
+	const setShowAlertDialog = (state: boolean) => {
+		setAlertDialogData({ ...alertDialogData, open: state });
+	};
 
 	useEffect(() => {
 		setSeparateTopBar((oldValue) => {
@@ -94,11 +94,11 @@ export default function Explorer(props: Props) {
 				</ExplorerContextMenu>
 			</div>
 			<AlertDialog
-				open={showAlertDialog}
+				open={alertDialogData.open}
 				setOpen={setShowAlertDialog}
 				title={alertDialogData.title}
-				value={alertDialogData.text}
-				inputBox={false}
+				value={alertDialogData.value}
+				inputBox={alertDialogData.inputBox}
 			/>
 			<EncryptFileDialog
 				location_id={expStore.locationId}
