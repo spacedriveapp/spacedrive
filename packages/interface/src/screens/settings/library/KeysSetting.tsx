@@ -15,6 +15,7 @@ import { animated, useTransition } from 'react-spring';
 
 import { BackupRestoreDialog } from '../../../components/dialog/BackupRestoreDialog';
 import { InputAlertDialog } from '../../../components/dialog/InputAlertDialog';
+import { KeyViewerDialog } from '../../../components/dialog/KeyViewerDialog';
 import { PasswordChangeDialog } from '../../../components/dialog/PasswordChangeDialog';
 import { ListOfKeys } from '../../../components/key/KeyList';
 import { KeyMounter } from '../../../components/key/KeyMounter';
@@ -208,6 +209,13 @@ export default function KeysSettings() {
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">
 									Change Master Password
+								</Button>
+							}
+						/>
+						<KeyViewerDialog
+							trigger={
+								<Button size="sm" variant="gray" className="mr-2">
+									View Key Values
 								</Button>
 							}
 						/>
