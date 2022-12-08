@@ -1,11 +1,31 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading } from '@sd/ui';
+import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, SelectOption } from '@sd/ui';
 import { useMemo } from 'react';
 
 import { DefaultProps } from '../primitive/types';
 import { DummyKey, Key } from './Key';
 
 export type KeyListProps = DefaultProps;
+
+// ideal for going within a select box
+export const SelectOptionMountedKeys = (props: { keys: StoredKey[]; mountedUuids: string[] }) => {
+	const { keys, mountedUuids } = props;
+
+	const [mountedKeys] = useMemo(
+		() => [keys.filter((key) => mountedUuids.includes(key.uuid)) ?? []],
+		[keys, mountedUuids]
+	);
+
+	return (
+		<>
+			{[...mountedKeys]?.map((key) => {
+				return (
+					<SelectOption value={key.uuid}>Key {key.uuid.substring(0, 8).toUpperCase()}</SelectOption>
+				);
+			})}
+		</>
+	);
+};
 
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);

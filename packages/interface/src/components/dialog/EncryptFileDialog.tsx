@@ -7,26 +7,8 @@ import {
 	getCryptoSettings,
 	getHashingAlgorithmString
 } from '../../screens/settings/library/KeysSetting';
+import { SelectOptionMountedKeys } from '../key/KeyList';
 import { Checkbox } from '../primitive/Checkbox';
-
-export const ListOfMountedKeys = (props: { keys: StoredKey[]; mountedUuids: string[] }) => {
-	const { keys, mountedUuids } = props;
-
-	const [mountedKeys] = useMemo(
-		() => [keys.filter((key) => mountedUuids.includes(key.uuid)) ?? []],
-		[keys, mountedUuids]
-	);
-
-	return (
-		<>
-			{[...mountedKeys]?.map((key) => {
-				return (
-					<SelectOption value={key.uuid}>Key {key.uuid.substring(0, 8).toUpperCase()}</SelectOption>
-				);
-			})}
-		</>
-	);
-};
 
 interface EncryptDialogProps {
 	open: boolean;
@@ -127,7 +109,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 						>
 							{/* this only returns MOUNTED keys. we could include unmounted keys, but then we'd have to prompt the user to mount them too */}
 							{keys.data && mountedUuids.data && (
-								<ListOfMountedKeys keys={keys.data} mountedUuids={mountedUuids.data} />
+								<SelectOptionMountedKeys keys={keys.data} mountedUuids={mountedUuids.data} />
 							)}
 						</Select>
 					</div>
