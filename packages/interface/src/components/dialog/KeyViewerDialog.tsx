@@ -4,7 +4,7 @@ import { writeText } from '@tauri-apps/api/clipboard';
 import { Clipboard } from 'phosphor-react';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 
-import { SelectOptionKeys } from '../key/KeyList';
+import { SelectOptionKeyList } from '../key/KeyList';
 
 interface KeyViewerDialogProps {
 	trigger: ReactNode;
@@ -71,7 +71,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 								setKey(e);
 							}}
 						>
-							{keys.data && <SelectOptionKeys keys={keys.data} />}
+							{keys.data && <SelectOptionKeyList keys={keys.data.map((key) => key.uuid)} />}
 						</Select>
 					</div>
 				</div>

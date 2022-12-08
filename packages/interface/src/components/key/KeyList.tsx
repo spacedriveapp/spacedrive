@@ -8,33 +8,12 @@ import { DummyKey, Key } from './Key';
 export type KeyListProps = DefaultProps;
 
 // ideal for going within a select box
-export const SelectOptionMountedKeys = (props: { keys: StoredKey[]; mountedUuids: string[] }) => {
-	const { keys, mountedUuids } = props;
-
-	const [mountedKeys] = useMemo(
-		() => [keys.filter((key) => mountedUuids.includes(key.uuid)) ?? []],
-		[keys, mountedUuids]
-	);
-
-	return (
-		<>
-			{[...mountedKeys]?.map((key) => {
-				return (
-					<SelectOption value={key.uuid}>Key {key.uuid.substring(0, 8).toUpperCase()}</SelectOption>
-				);
-			})}
-		</>
-	);
-};
-
-// ideal for going within a select box
-export const SelectOptionKeys = (props: { keys: StoredKey[] }) => {
+// can use mounted or unmounted keys, just provide different inputs
+export const SelectOptionKeyList = (props: { keys: string[] }) => {
 	return (
 		<>
 			{props.keys.map((key) => {
-				return (
-					<SelectOption value={key.uuid}>Key {key.uuid.substring(0, 8).toUpperCase()}</SelectOption>
-				);
+				return <SelectOption value={key}>Key {key.substring(0, 8).toUpperCase()}</SelectOption>;
 			})}
 		</>
 	);

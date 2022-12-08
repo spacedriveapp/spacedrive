@@ -7,7 +7,7 @@ import {
 	getCryptoSettings,
 	getHashingAlgorithmString
 } from '../../screens/settings/library/KeysSetting';
-import { SelectOptionMountedKeys } from '../key/KeyList';
+import { SelectOptionKeyList } from '../key/KeyList';
 import { Checkbox } from '../primitive/Checkbox';
 import { GenericAlertDialogProps } from './AlertDialog';
 
@@ -116,9 +116,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							}}
 						>
 							{/* this only returns MOUNTED keys. we could include unmounted keys, but then we'd have to prompt the user to mount them too */}
-							{keys.data && mountedUuids.data && (
-								<SelectOptionMountedKeys keys={keys.data} mountedUuids={mountedUuids.data} />
-							)}
+							{mountedUuids.data && <SelectOptionKeyList keys={mountedUuids.data} />}
 						</Select>
 					</div>
 					<div className="flex flex-col">
