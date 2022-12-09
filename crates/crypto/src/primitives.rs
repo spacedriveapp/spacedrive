@@ -113,28 +113,3 @@ pub fn generate_passphrase() -> Protected<String> {
 
 	Protected::new(passphrase)
 }
-
-const PASSWORD_CHARS: [char; 94] = [
-	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-	't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
-	'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4',
-	'5', '6', '7', '8', '9', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '-', '=',
-	'{', '}', '[', ']', ':', '"', '\'', ';', '<', '>', '?', ',', '.', '/', '\\', '|', '`', '~',
-];
-
-#[must_use]
-pub fn generate_password(length: usize) -> Protected<String> {
-	let mut rng = rand_chacha::ChaCha20Rng::from_entropy();
-	let mut chars: Vec<String> = Vec::new();
-
-	for _ in 0..length / 4 {
-		chars.push(
-			PASSWORD_CHARS
-				.choose_multiple(&mut rng, 4)
-				.map(ToString::to_string)
-				.collect(),
-		);
-	}
-
-	Protected::new(chars.iter().map(ToString::to_string).collect())
-}

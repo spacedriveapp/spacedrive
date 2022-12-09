@@ -2,7 +2,6 @@ use std::io::{Read, Write};
 use std::{path::PathBuf, str::FromStr};
 
 use sd_crypto::keys::keymanager::StoredKey;
-use sd_crypto::primitives::generate_password;
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{hashing::HashingAlgorithm, keymanager::KeyManager},
@@ -73,13 +72,6 @@ pub(crate) fn mount() -> RouterBuilder {
 		// this is so we can show the key as mounted in the UI
 		.library_query("listMounted", |t| {
 			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids()) })
-		})
-		.library_query("generateRandomPassword", |t| {
-			t(
-				|_, length: usize, _library| async move {
-					Ok(generate_password(length).expose().clone())
-				},
-			)
 		})
 		.library_query("getKey", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {

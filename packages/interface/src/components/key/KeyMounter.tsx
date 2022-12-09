@@ -1,5 +1,6 @@
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
+import cryptoRandomString from 'crypto-random-string';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -9,14 +10,11 @@ import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
 
-const PasswordGenerator = (props: { length: number[]; setValue: (value: string) => void }) => {
-	const generatePassword = useLibraryQuery(['keys.generateRandomPassword', props.length[0]]);
+const GeneratePassword = (length: number) => {
+	const charset =
+		'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]:"\';<>?,./\\|`~';
 
-	useEffect(() => {
-		generatePassword.data && props.setValue(generatePassword.data);
-	}, [props.length]);
-
-	return <></>;
+	return cryptoRandomString({ length, characters: charset });
 };
 
 export function KeyMounter() {
@@ -73,11 +71,13 @@ export function KeyMounter() {
 						min={8}
 						step={4}
 						defaultValue={[64]}
-						onValueChange={(e) => setSliderValue(e)}
+						onValueChange={(e) => {
+							setSliderValue(e);
+							setKey(GeneratePassword(e[0]));
+						}}
 					/>
 				</div>
 				<span className="text-sm mt-2.5 font-medium">{sliderValue}</span>
-				<PasswordGenerator length={sliderValue} setValue={setKey} />
 			</div>
 
 			<div className="flex flex-row items-center mt-3 mb-1">
