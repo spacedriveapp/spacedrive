@@ -3,13 +3,11 @@ import { Button, CategoryHeading } from '@sd/ui';
 import { useMemo } from 'react';
 
 import { DefaultProps } from '../primitive/types';
-import { Key } from './Key';
+import { DummyKey, Key } from './Key';
 
 export type KeyListProps = DefaultProps;
 
-export const ListOfKeys = (props: { noKeysMessage: boolean }) => {
-	const { noKeysMessage } = props;
-
+export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
 
@@ -25,8 +23,8 @@ export const ListOfKeys = (props: { noKeysMessage: boolean }) => {
 		[keys, mountedUuids]
 	);
 
-	if (keys.data?.length === 0 && noKeysMessage) {
-		return <CategoryHeading>No keys available.</CategoryHeading>;
+	if (keys.data?.length === 0) {
+		return <DummyKey text="No keys available" />;
 	}
 
 	return (
@@ -58,7 +56,7 @@ export const KeyList = (props: KeyListProps) => {
 				<div className="">
 					{/* <CategoryHeading>Mounted keys</CategoryHeading> */}
 					<div className="space-y-1.5">
-						<ListOfKeys noKeysMessage />
+						<ListOfKeys />
 					</div>
 				</div>
 			</div>

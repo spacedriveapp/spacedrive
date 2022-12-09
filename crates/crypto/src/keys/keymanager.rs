@@ -352,7 +352,7 @@ impl KeyManager {
 					Err(Error::IncorrectPassword)
 				}?;
 
-				let master_key_nonce = generate_nonce(algorithm);
+				let master_key_nonce = generate_nonce(stored_key.algorithm);
 
 				// Encrypt the master key with the user's hashed password
 				let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(

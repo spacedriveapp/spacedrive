@@ -9,6 +9,7 @@ interface SelectProps {
 	size?: 'sm' | 'md' | 'lg';
 	className?: string;
 	onChange: (value: string) => void;
+	disabled?: boolean;
 }
 
 export function Select(props: PropsWithChildren<SelectProps>) {
@@ -17,6 +18,7 @@ export function Select(props: PropsWithChildren<SelectProps>) {
 			defaultValue={props.value}
 			value={props.value}
 			onValueChange={props.onChange}
+			disabled={props.disabled}
 		>
 			<SelectPrimitive.Trigger
 				className={clsx(

@@ -4,7 +4,6 @@ use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
-	keys::hashing::HashingAlgorithm,
 	primitives::{generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA},
 };
 use serde::{Deserialize, Serialize};
@@ -33,7 +32,6 @@ pub struct FileEncryptorJobInit {
 	pub object_id: i32,
 	pub key_uuid: uuid::Uuid,
 	pub algorithm: Algorithm,
-	pub hashing_algorithm: HashingAlgorithm,
 	pub metadata: bool,
 	pub preview_media: bool,
 	pub output_path: Option<PathBuf>,
@@ -169,9 +167,11 @@ impl StatefulJob for FileEncryptorJob {
 
 				let master_key = generate_master_key();
 
+				// i can't decide if the key's encryption should be inherited from the keymanager, or from the file's encryption type
+				// currently it's the file's encryption type
 				let keyslots = vec![Keyslot::new(
 					LATEST_KEYSLOT,
-					user_key_details.algorithm,
+					state.init.algorithm,
 					user_key_details.hashing_algorithm,
 					user_key_details.content_salt,
 					user_key,
@@ -179,7 +179,7 @@ impl StatefulJob for FileEncryptorJob {
 				)?];
 
 				let mut header =
-					FileHeader::new(LATEST_FILE_HEADER, user_key_details.algorithm, keyslots);
+					FileHeader::new(LATEST_FILE_HEADER, state.init.algorithm, keyslots);
 
 				if state.init.metadata || state.init.preview_media {
 					// if any are requested, we can make the query as it'll be used at least once
@@ -206,7 +206,7 @@ impl StatefulJob for FileEncryptorJob {
 
 						header.add_metadata(
 							LATEST_METADATA,
-							user_key_details.algorithm,
+							state.init.algorithm,
 							&master_key,
 							&metadata,
 						)?;

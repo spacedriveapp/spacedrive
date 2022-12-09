@@ -3,7 +3,10 @@ import { Button, Dialog, Select, SelectOption } from '@sd/ui';
 import { save } from '@tauri-apps/api/dialog';
 import { useMemo, useState } from 'react';
 
-import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
+import {
+	getCryptoSettings,
+	getHashingAlgorithmString
+} from '../../screens/settings/library/KeysSetting';
 import { Checkbox } from '../primitive/Checkbox';
 
 export const ListOfMountedKeys = (props: { keys: StoredKey[]; mountedUuids: string[] }) => {
@@ -42,10 +45,19 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 			if (key === '' && data.length !== 0) {
 				// when this query updates and a key is officially mounted, update `key` (the user shouldn't be able to see this dialog before a key is mounted)
 				// only update if no key is currently set
-				setKey(data[0]);
+				UpdateKey(data[0]);
 			}
 		}
 	});
+
+	const UpdateKey = (uuid: string) => {
+		setKey(uuid);
+		const hashAlg = keys.data?.find((key) => {
+			return key.uuid === uuid;
+		})?.hashing_algorithm;
+		hashAlg && setHashingAlgo(getHashingAlgorithmString(hashAlg));
+	};
+
 	const encryptFile = useLibraryMutation('files.encryptFiles');
 
 	// the selected key will be random, we should prioritise the default
@@ -55,7 +67,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	const [metadata, setMetadata] = useState(false);
 	const [previewMedia, setPreviewMedia] = useState(false);
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
-	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
+	const [hashingAlgo, setHashingAlgo] = useState('');
 	const [outputPath, setOutputpath] = useState('');
 
 	return (
@@ -68,7 +80,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 				loading={encryptFile.isLoading}
 				ctaLabel="Encrypt"
 				ctaAction={() => {
-					const [algorithm, hashingAlgorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
+					const algorithm = getCryptoSettings(encryptionAlgo, hashingAlgo)[0];
 					const output = outputPath !== '' ? outputPath : null;
 					props.setOpen(false);
 
@@ -77,7 +89,6 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 						encryptFile.mutate(
 							{
 								algorithm,
-								hashing_algorithm: hashingAlgorithm,
 								key_uuid: key,
 								location_id,
 								object_id,
@@ -106,8 +117,14 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 			>
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
 					<div className="flex flex-col">
-						<span className="text-xs font-bold">Mounted Keys</span>
-						<Select className="mt-2" value={key} onChange={(e) => setKey(e)}>
+						<span className="text-xs font-bold">Key</span>
+						<Select
+							className="mt-2"
+							value={key}
+							onChange={(e) => {
+								UpdateKey(e);
+							}}
+						>
 							{/* this only returns MOUNTED keys. we could include unmounted keys, but then we'd have to prompt the user to mount them too */}
 							{keys.data && mountedUuids.data && (
 								<ListOfMountedKeys keys={keys.data} mountedUuids={mountedUuids.data} />
@@ -145,7 +162,12 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 					</div>
 					<div className="flex flex-col">
 						<span className="text-xs font-bold">Hashing</span>
-						<Select className="mt-2" value={hashingAlgo} onChange={(e) => setHashingAlgo(e)}>
+						<Select
+							className="mt-2 text-gray-400/80"
+							disabled
+							value={hashingAlgo}
+							onChange={(e) => setHashingAlgo(e)}
+						>
 							<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 							<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 							<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
