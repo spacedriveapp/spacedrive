@@ -125,10 +125,15 @@ const PASSWORD_CHARS: [char; 94] = [
 #[must_use]
 pub fn generate_password(length: usize) -> Protected<String> {
 	let mut rng = rand_chacha::ChaCha20Rng::from_entropy();
-	let mut chars = Vec::new();
+	let mut chars: Vec<String> = Vec::new();
 
-	for _ in 0..length {
-		chars.push(PASSWORD_CHARS.choose(&mut rng).unwrap());
+	for _ in 0..length / 4 {
+		chars.push(
+			PASSWORD_CHARS
+				.choose_multiple(&mut rng, 4)
+				.map(ToString::to_string)
+				.collect(),
+		);
 	}
 
 	Protected::new(chars.iter().map(ToString::to_string).collect())
