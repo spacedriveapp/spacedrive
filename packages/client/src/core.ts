@@ -8,6 +8,7 @@ export type Procedures = {
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.generateRandomPassword", input: LibraryArgs<number>, result: string } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
         { key: "keys.hasMasterPassword", input: LibraryArgs<null>, result: boolean } | 

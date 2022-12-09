@@ -17,7 +17,7 @@ export const KeyTextBox = (props: { uuid: string }) => {
 
 	useEffect(() => {
 		kV.data && setKeyValue(kV.data);
-	}, [kV]);
+	}, [kV.data]);
 
 	return (
 		<div className="relative flex flex-grow">

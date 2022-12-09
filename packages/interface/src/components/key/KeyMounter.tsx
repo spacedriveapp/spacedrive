@@ -1,6 +1,4 @@
-import * as SliderPrimitive from '@radix-ui/react-slider';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
 import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
@@ -11,13 +9,23 @@ import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
 
+const PasswordGenerator = (props: { length: number[]; setValue: (value: string) => void }) => {
+	const generatePassword = useLibraryQuery(['keys.generateRandomPassword', props.length[0]]);
+
+	useEffect(() => {
+		generatePassword.data && props.setValue(generatePassword.data);
+	}, [props.length]);
+
+	return <></>;
+};
+
 export function KeyMounter() {
 	const ref = useRef<HTMLInputElement>(null);
 	const [showKey, setShowKey] = useState(false);
 	const [librarySync, setLibrarySync] = useState(true);
 	const [autoMount, setAutoMount] = useState(false);
 
-	const [sliderValue, setSliderValue] = useState([32]);
+	const [sliderValue, setSliderValue] = useState([64]);
 
 	const [key, setKey] = useState('');
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
@@ -63,11 +71,13 @@ export function KeyMounter() {
 						value={sliderValue}
 						max={128}
 						min={8}
-						defaultValue={[32]}
+						step={4}
+						defaultValue={[64]}
 						onValueChange={(e) => setSliderValue(e)}
 					/>
 				</div>
 				<span className="text-sm mt-2.5 font-medium">{sliderValue}</span>
+				<PasswordGenerator length={sliderValue} setValue={setKey} />
 			</div>
 
 			<div className="flex flex-row items-center mt-3 mb-1">

@@ -2,7 +2,7 @@
 //!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the streaming block size.
-use rand::{prelude::IteratorRandom, seq::SliceRandom, RngCore, SeedableRng};
+use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use zeroize::Zeroize;
 
 use crate::{
@@ -114,26 +114,22 @@ pub fn generate_passphrase() -> Protected<String> {
 	Protected::new(passphrase)
 }
 
-const PASSWORD_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]:\"';<>?,./\\|`~";
+const PASSWORD_CHARS: [char; 94] = [
+	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+	't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+	'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4',
+	'5', '6', '7', '8', '9', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '-', '=',
+	'{', '}', '[', ']', ':', '"', '\'', ';', '<', '>', '?', ',', '.', '/', '\\', '|', '`', '~',
+];
 
 #[must_use]
 pub fn generate_password(length: usize) -> Protected<String> {
-	let mut char_array = PASSWORD_CHARS
-		.chars()
-		.choose_multiple(&mut rand_chacha::ChaCha20Rng::from_entropy(), length);
-	char_array.shuffle(&mut rand_chacha::ChaCha20Rng::from_entropy());
+	let mut rng = rand_chacha::ChaCha20Rng::from_entropy();
+	let mut chars = Vec::new();
 
-	let string: String = char_array.iter().map(ToString::to_string).collect();
+	for _ in 0..length {
+		chars.push(PASSWORD_CHARS.choose(&mut rng).unwrap())
+	}
 
-	// .iter()
-	// .map(ToString::to_string)
-	// .collect();
-
-	// for _ in 0..length {
-	// 	PASSWORD_CHARS.chars().choo
-	// }
-
-	// let mut string = "".to_string();
-
-	Protected::new(string)
+	Protected::new(chars.iter().map(ToString::to_string).collect())
 }
