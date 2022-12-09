@@ -2,7 +2,7 @@
 //!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the streaming block size.
-use rand::{seq::SliceRandom, RngCore, SeedableRng};
+use rand::{prelude::IteratorRandom, seq::SliceRandom, RngCore, SeedableRng};
 use zeroize::Zeroize;
 
 use crate::{
@@ -112,4 +112,28 @@ pub fn generate_passphrase() -> Protected<String> {
 		.collect();
 
 	Protected::new(passphrase)
+}
+
+const PASSWORD_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]:\"';<>?,./\\|`~";
+
+#[must_use]
+pub fn generate_password(length: usize) -> Protected<String> {
+	let mut char_array = PASSWORD_CHARS
+		.chars()
+		.choose_multiple(&mut rand_chacha::ChaCha20Rng::from_entropy(), length);
+	char_array.shuffle(&mut rand_chacha::ChaCha20Rng::from_entropy());
+
+	let string: String = char_array.iter().map(ToString::to_string).collect();
+
+	// .iter()
+	// .map(ToString::to_string)
+	// .collect();
+
+	// for _ in 0..length {
+	// 	PASSWORD_CHARS.chars().choo
+	// }
+
+	// let mut string = "".to_string();
+
+	Protected::new(string)
 }
