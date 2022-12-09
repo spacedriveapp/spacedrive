@@ -128,7 +128,7 @@ pub fn generate_password(length: usize) -> Protected<String> {
 	let mut chars = Vec::new();
 
 	for _ in 0..length {
-		chars.push(PASSWORD_CHARS.choose(&mut rng).unwrap())
+		chars.push(PASSWORD_CHARS.choose(&mut rng).unwrap());
 	}
 
 	Protected::new(chars.iter().map(ToString::to_string).collect())
