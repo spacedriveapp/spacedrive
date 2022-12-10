@@ -1,5 +1,7 @@
 //! This module contains all possible errors that this crate can return.
 
+use std::string::FromUtf8Error;
+
 use thiserror::Error;
 
 #[cfg(feature = "rspc")]
@@ -48,6 +50,10 @@ pub enum Error {
 	TooManyKeyslots,
 	#[error("requested key wasn't found in the key manager")]
 	KeyNotFound,
+	#[error("key is already mounted")]
+	KeyAlreadyMounted,
+	#[error("key not mounted")]
+	KeyNotMounted,
 	#[error("no default key has been set")]
 	NoDefaultKeySet,
 	#[error("no master password has been provided to the keymanager")]
@@ -56,6 +62,12 @@ pub enum Error {
 	KeystoreMismatch,
 	#[error("mutex lock error")]
 	MutexLock,
+	#[error("no master password verification key")]
+	NoVerificationKey,
+	#[error("wrong information provided to the key manager")]
+	IncorrectKeymanagerDetails,
+	#[error("string parse error")]
+	StringParse(#[from] FromUtf8Error),
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {

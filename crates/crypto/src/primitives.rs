@@ -2,10 +2,17 @@
 //!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the streaming block size.
-use rand::{RngCore, SeedableRng};
+use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use zeroize::Zeroize;
 
-use crate::{crypto::stream::Algorithm, Error, Protected, Result};
+use crate::{
+	crypto::stream::Algorithm,
+	header::{
+		file::FileHeaderVersion, keyslot::KeyslotVersion, metadata::MetadataVersion,
+		preview_media::PreviewMediaVersion,
+	},
+	Error, Protected, Result,
+};
 
 /// This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
@@ -20,6 +27,13 @@ pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
 
 /// The length of the (unencrypted) master key
 pub const MASTER_KEY_LEN: usize = 32;
+
+pub const PASSPHRASE_LEN: usize = 7;
+
+pub const LATEST_FILE_HEADER: FileHeaderVersion = FileHeaderVersion::V1;
+pub const LATEST_KEYSLOT: KeyslotVersion = KeyslotVersion::V1;
+pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
+pub const LATEST_PREVIEW_MEDIA: PreviewMediaVersion = PreviewMediaVersion::V1;
 
 /// This should be used for generating nonces for encryption.
 ///
@@ -67,4 +81,35 @@ pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I]> {
 		b.zeroize();
 		Error::VecArrSizeMismatch
 	})
+}
+
+/// This generates a 7 word diceware passphrase, separated with `-`
+#[must_use]
+pub fn generate_passphrase() -> Protected<String> {
+	let wordlist = include_str!("../assets/eff_large_wordlist.txt")
+		.lines()
+		.collect::<Vec<&str>>();
+
+	let words: Vec<String> = wordlist
+		.choose_multiple(
+			&mut rand_chacha::ChaCha20Rng::from_entropy(),
+			PASSPHRASE_LEN,
+		)
+		.map(ToString::to_string)
+		.collect();
+
+	let passphrase = words
+		.iter()
+		.enumerate()
+		.map(|(i, word)| {
+			if i < PASSPHRASE_LEN - 1 {
+				word.clone() + "-"
+			} else {
+				word.clone()
+			}
+		})
+		.into_iter()
+		.collect();
+
+	Protected::new(passphrase)
 }

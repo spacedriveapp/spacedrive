@@ -1,9 +1,10 @@
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
 import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Algorithm, HashingAlgorithm, Params } from '@sd/client';
 
+import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
 import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
@@ -18,7 +19,7 @@ export function KeyMounter() {
 	const mounted_uuids = useLibraryQuery(['keys.listMounted']);
 
 	const [showKey, setShowKey] = useState(false);
-	const [toggle, setToggle] = useState(true);
+	const [librarySync, setLibrarySync] = useState(true);
 
 	const [key, setKey] = useState('');
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
@@ -63,12 +64,12 @@ export function KeyMounter() {
 					<Switch
 						className="bg-app-selected"
 						size="sm"
-						checked={toggle}
-						onCheckedChange={setToggle}
+						checked={librarySync}
+						onCheckedChange={setLibrarySync}
 					/>
 				</div>
 				<span className="ml-3 text-xs font-medium">Sync with Library</span>
-				<Tooltip label="This key will be mounted on all devices running your Library">
+				<Tooltip label="This key will be registered with all devices running your Library">
 					<Info className="w-4 h-4 ml-1.5 text-ink-faint" />
 				</Tooltip>
 			</div>
@@ -93,26 +94,20 @@ export function KeyMounter() {
 			<p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-ink-faint w-[90%]">
 				Files encrypted with this key will be revealed and decrypted on the fly.
 			</p>
-			<Button className="w-full mt-2" variant="accent" onClick={() => {
-				let algorithm = encryptionAlgo as Algorithm;
-				let hashing_algorithm: HashingAlgorithm = { Argon2id: "Standard" };
+			<Button
+				className="w-full mt-2"
+				variant="accent"
+				disabled={key === ''}
+				onClick={() => {
+					if (key !== '') {
+						setKey('');
 
-				switch(hashingAlgo) {
-					case "Argon2id-s":
-						hashing_algorithm = { Argon2id: "Standard" as Params };
-						break;
-					case "Argon2id-h":
-						hashing_algorithm = { Argon2id: "Hardened" as Params };
-						break;
-					case "Argon2id-p":
-						hashing_algorithm = { Argon2id: "Paranoid" as Params };
-						break;
-				}
+						const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
 
-				createKey.mutate({algorithm, hashing_algorithm, key });
-				setKey("");
-			}
-			}>
+						createKey.mutate({ algorithm, hashing_algorithm, key, library_sync: librarySync });
+					}
+				}}
+			>
 				Mount Key
 			</Button>
 		</div>
