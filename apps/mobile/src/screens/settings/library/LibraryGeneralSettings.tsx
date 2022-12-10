@@ -4,11 +4,10 @@ import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { Button } from '~/components/primitive/Button';
-import Divider from '~/components/primitive/Divider';
 import { Input } from '~/components/primitive/Input';
 import { Switch } from '~/components/primitive/Switch';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
-import { SettingsItem, SettingsItemDivider } from '~/components/settings/SettingsItem';
+import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useAutoForm } from '~/hooks/useAutoForm';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
@@ -37,6 +36,7 @@ const LibraryGeneralSettingsScreen = ({
 
 	return (
 		<View>
+			{/* This looks bad... */}
 			<View style={tw`mt-4 px-2 py-4 bg-app-overlay`}>
 				<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-1`}>Name</Text>
 				<Controller

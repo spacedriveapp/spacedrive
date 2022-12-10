@@ -4,7 +4,6 @@ import Dialog from '~/components/layout/Dialog';
 import { Input } from '~/components/primitive/Input';
 
 type Props = {
-	// Fires when library is created
 	onSubmit?: () => void;
 	disableBackdropClose?: boolean;
 	children: React.ReactNode;

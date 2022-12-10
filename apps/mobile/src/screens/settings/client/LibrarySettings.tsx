@@ -18,8 +18,8 @@ function LibraryItem({
 	navigation: SettingsStackScreenProps<'LibrarySettings'>['navigation'];
 }) {
 	const renderRightActions = (
-		progress: Animated.AnimatedInterpolation,
-		dragX: Animated.AnimatedInterpolation
+		progress: Animated.AnimatedInterpolation<number>,
+		dragX: Animated.AnimatedInterpolation<number>
 	) => {
 		const translate = progress.interpolate({
 			inputRange: [0, 1],

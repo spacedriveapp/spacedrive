@@ -121,7 +121,6 @@ const Device = ({ name, locations, size, type }: DeviceProps) => {
 				{/* Size */}
 				<Text style={tw`ml-2 text-sm font-semibold text-ink-dull`}>{size}</Text>
 			</View>
-			{/* Locations/Files TODO: Maybe use FlashList? */}
 			<FlatList
 				data={placeholderFileItems}
 				renderItem={({ item }) => <FileItem data={item} />}

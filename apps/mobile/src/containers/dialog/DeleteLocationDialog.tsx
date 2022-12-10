@@ -4,7 +4,6 @@ import Dialog from '~/components/layout/Dialog';
 
 type Props = {
 	locationId: number;
-	// Fires when location is deleted
 	onSubmit?: () => void;
 	children: React.ReactNode;
 };

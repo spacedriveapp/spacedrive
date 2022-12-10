@@ -5,7 +5,7 @@ import { ColorValue, Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
 import CollapsibleView from '../../components/layout/CollapsibleView';
-import CreateTagDialog from '../dialog/CreateTagDialog';
+import CreateTagDialog from '../dialog/tag/CreateTagDialog';
 
 type DrawerTagItemProps = {
 	tagName: string;

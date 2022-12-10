@@ -1,4 +1,4 @@
-import { queryClient, useLibraryMutation } from '@sd/client';
+import { Tag, queryClient, useLibraryMutation } from '@sd/client';
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
@@ -7,22 +7,19 @@ import { Input } from '~/components/primitive/Input';
 import tw from '~/lib/tailwind';
 
 type Props = {
-	// Fires when tag is created
+	tag: Tag;
 	onSubmit?: () => void;
-	disableBackdropClose?: boolean;
 	children: React.ReactNode;
 };
 
-const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) => {
-	const [tagName, setTagName] = useState('');
-	const [tagColor, setTagColor] = useState('#A717D9');
+const UpdateTagDialog = ({ children, onSubmit, tag }: Props) => {
+	const [tagName, setTagName] = useState(tag.name);
+	const [tagColor, setTagColor] = useState(tag.color);
 	const [isOpen, setIsOpen] = useState(false);
 
-	const { mutate: createTag, isLoading } = useLibraryMutation('tags.create', {
-		onSuccess: (lib) => {
+	const { mutate: updateTag, isLoading } = useLibraryMutation('tags.update', {
+		onSuccess: () => {
 			// Reset form
-			setTagName('');
-			setTagColor('#A717D9');
 			setShowPicker(false);
 
 			queryClient.invalidateQueries(['tags.list']);
@@ -41,32 +38,28 @@ const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) =>
 		<Dialog
 			isVisible={isOpen}
 			setIsVisible={setIsOpen}
-			title="Create New Tag"
-			description="Choose a name and color."
-			ctaLabel="Create"
-			ctaAction={() => createTag({ color: tagColor, name: tagName })}
+			title="Update Tag"
+			ctaLabel="Save"
+			ctaAction={() => updateTag({ id: tag.id, color: tagColor, name: tagName })}
 			loading={isLoading}
 			ctaDisabled={tagName.length === 0}
 			trigger={children}
-			disableBackdropClose={disableBackdropClose}
 			onClose={() => {
-				setTagName('');
-				setTagColor('#A717D9');
-				setShowPicker(false);
-			}} // Resets form onClose
+				setShowPicker(false); // Reset form
+			}}
 		>
-			<View style={tw`flex flex-row items-center`}>
+			<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-1 mt-3`}>Name</Text>
+			<Input value={tagName} onChangeText={(t) => setTagName(t)} />
+			<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-1 mt-3`}>Color</Text>
+			<View style={tw`flex flex-row items-center ml-2`}>
 				<Pressable
 					onPress={() => setShowPicker((v) => !v)}
 					style={tw.style({ backgroundColor: tagColor }, 'w-5 h-5 rounded-full')}
 				/>
-				<Input
-					style={tw`flex-1 ml-2`}
-					value={tagName}
-					onChangeText={(text) => setTagName(text)}
-					placeholder="Name"
-				/>
+				{/* TODO: Make this editable. Need to make sure color is a valid hexcode and update the color on picker etc. etc. */}
+				<Input editable={false} value={tagColor} style={tw`flex-1 ml-2`} />
 			</View>
+
 			{showPicker && (
 				<View style={tw`h-64 mt-4`}>
 					<ColorPicker
@@ -96,4 +89,4 @@ const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) =>
 	);
 };
 
-export default CreateTagDialog;
+export default UpdateTagDialog;

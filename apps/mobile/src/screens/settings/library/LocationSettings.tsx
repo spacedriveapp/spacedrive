@@ -1,6 +1,5 @@
 import { Location, Node, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { CaretRight, Repeat, Trash } from 'phosphor-react-native';
-import React from 'react';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import FolderIcon from '~/components/icons/FolderIcon';
@@ -15,10 +14,7 @@ function LocationItem({ location, index }: { location: Location & { node: Node }
 		}
 	});
 
-	const renderRightActions = (
-		progress: Animated.AnimatedInterpolation,
-		dragX: Animated.AnimatedInterpolation
-	) => {
+	const renderRightActions = (progress: Animated.AnimatedInterpolation<number>) => {
 		const translate = progress.interpolate({
 			inputRange: [0, 1],
 			outputRange: [100, 0],

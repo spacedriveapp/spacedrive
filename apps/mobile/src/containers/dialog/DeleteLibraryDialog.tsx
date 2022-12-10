@@ -4,7 +4,6 @@ import Dialog from '~/components/layout/Dialog';
 
 type Props = {
 	libraryUuid: string;
-	// Fires when library is deleted
 	onSubmit?: () => void;
 	children: React.ReactNode;
 };
@@ -15,7 +14,7 @@ const DeleteLibraryDialog = ({ children, onSubmit, libraryUuid }: Props) => {
 	const { mutate: deleteLibrary, isLoading: deleteLibLoading } = useBridgeMutation(
 		'library.delete',
 		{
-			onSuccess: (lib) => {
+			onSuccess: () => {
 				queryClient.invalidateQueries(['library.list']);
 				onSubmit?.();
 			},
