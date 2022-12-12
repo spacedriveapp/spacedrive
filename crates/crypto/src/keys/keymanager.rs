@@ -310,7 +310,6 @@ impl KeyManager {
 		}
 	}
 
-	/// This should ONLY be used internally.
 	pub fn get_verification_key(&self) -> Result<StoredKey> {
 		match &*self.verification_key.lock()? {
 			Some(k) => Ok(k.clone()),
@@ -367,6 +366,8 @@ impl KeyManager {
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
 		};
+
+		*self.verification_key.lock()? = Some(verification_key.clone());
 
 		let secret_key = Self::format_secret_key(&salt);
 
@@ -482,7 +483,7 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	fn convert_secret_key_string(secret_key: Protected<String>) -> Protected<[u8; SALT_LEN]> {
 		let mut secret_key_clean = secret_key.expose().clone();
-		secret_key_clean.retain(|c| c != '-');
+		secret_key_clean.retain(|c| c != '-' && !c.is_whitespace());
 
 		let secret_key = if let Ok(secret_key) = hex::decode(secret_key_clean) {
 			secret_key
