@@ -10,6 +10,7 @@ use sd_crypto::{
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::util::db::write_storedkey_to_db;
 use crate::{invalidate_query, prisma::key};
 
 use super::{utils::LibraryRequest, RouterBuilder};
@@ -120,7 +121,8 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("clearMasterPassword", |t| {
 			t(|_, _: (), library| async move {
-				library.key_manager.clear_master_password()?;
+				// This technically clears the root key, but it means the same thing to the frontend
+				library.key_manager.clear_root_key()?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");
 				Ok(())
@@ -128,14 +130,16 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("deleteFromLibrary", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library.key_manager.remove_key(key_uuid)?;
+				if !library.key_manager.is_memory_only(key_uuid)? {
+					library
+						.db
+						.key()
+						.delete(key::uuid::equals(key_uuid.to_string()))
+						.exec()
+						.await?;
+				}
 
-				library
-					.db
-					.key()
-					.delete(key::uuid::equals(key_uuid.to_string()))
-					.exec()
-					.await?;
+				library.key_manager.remove_key(key_uuid)?;
 
 				// we also need to delete all in-memory decrypted data associated with this key
 				invalidate_query!(library, "keys.list");
@@ -159,22 +163,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.exec()
 					.await?;
 
-				library
-					.db
-					.key()
-					.create(
-						verification_key.uuid.to_string(),
-						verification_key.algorithm.serialize().to_vec(),
-						verification_key.hashing_algorithm.serialize().to_vec(),
-						verification_key.content_salt.to_vec(),
-						verification_key.master_key.to_vec(),
-						verification_key.master_key_nonce.to_vec(),
-						verification_key.key_nonce.to_vec(),
-						verification_key.key.to_vec(),
-						vec![],
-					)
-					.exec()
-					.await?;
+				write_storedkey_to_db(library.db.clone(), &verification_key).await?;
 
 				let keys = OnboardingKeys {
 					master_password: bundle.master_password.expose().clone(),
@@ -289,28 +278,12 @@ pub(crate) fn mount() -> RouterBuilder {
 					Protected::new(args.key.as_bytes().to_vec()),
 					args.algorithm,
 					args.hashing_algorithm,
+					!args.library_sync,
 				)?;
 
 				let stored_key = library.key_manager.access_keystore(uuid)?;
 
-				if args.library_sync {
-					library
-						.db
-						.key()
-						.create(
-							uuid.to_string(),
-							args.algorithm.serialize().to_vec(),
-							args.hashing_algorithm.serialize().to_vec(),
-							stored_key.content_salt.to_vec(),
-							stored_key.master_key.to_vec(),
-							stored_key.master_key_nonce.to_vec(),
-							stored_key.key_nonce.to_vec(),
-							stored_key.key.to_vec(),
-							vec![],
-						)
-						.exec()
-						.await?;
-				}
+				write_storedkey_to_db(library.db.clone(), &stored_key).await?;
 
 				// mount the key
 				library.key_manager.mount(uuid)?;
@@ -326,6 +299,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let mut stored_keys = library.key_manager.dump_keystore();
 				// include the verification key at the time of backup
 				stored_keys.push(library.key_manager.get_verification_key()?);
+				stored_keys.retain(|k| !k.memory_only);
 
 				let mut output_file = std::fs::File::create(path).map_err(|_| {
 					rspc::Error::new(
@@ -382,22 +356,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				)?;
 
 				for key in &updated_keys {
-					library
-						.db
-						.key()
-						.create(
-							key.uuid.to_string(),
-							key.algorithm.serialize().to_vec(),
-							key.hashing_algorithm.serialize().to_vec(),
-							key.content_salt.to_vec(),
-							key.master_key.to_vec(),
-							key.master_key_nonce.to_vec(),
-							key.key_nonce.to_vec(),
-							key.key.to_vec(),
-							vec![],
-						)
-						.exec()
-						.await?;
+					write_storedkey_to_db(library.db.clone(), key).await?;
 				}
 
 				invalidate_query!(library, "keys.list");
@@ -414,50 +373,16 @@ pub(crate) fn mount() -> RouterBuilder {
 					args.hashing_algorithm,
 				)?;
 
-				let verification_key = bundle.verification_key;
-
 				// remove old nil-id keys if they were set
-				// they possibly won't be, but we CANNOT have multiple
-				library.db.key().delete_many(vec![]).exec().await?;
-
 				library
 					.db
 					.key()
-					.create(
-						verification_key.uuid.to_string(),
-						verification_key.algorithm.serialize().to_vec(),
-						verification_key.hashing_algorithm.serialize().to_vec(),
-						verification_key.content_salt.to_vec(),
-						verification_key.master_key.to_vec(),
-						verification_key.master_key_nonce.to_vec(),
-						verification_key.key_nonce.to_vec(),
-						verification_key.key.to_vec(),
-						vec![],
-					)
+					.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
 					.exec()
 					.await?;
 
-				// sync new changes with prisma
-				// note, this will write keys that were potentially marked as "don't sync to db"
-				// i think the way around this will be to include a marker in the `StoredKey` struct, as that means we can exclude them from `dump_keystore()` commands
-				for key in bundle.updated_keystore {
-					library
-						.db
-						.key()
-						.create(
-							key.uuid.to_string(),
-							key.algorithm.serialize().to_vec(),
-							key.hashing_algorithm.serialize().to_vec(),
-							key.content_salt.to_vec(),
-							key.master_key.to_vec(),
-							key.master_key_nonce.to_vec(),
-							key.key_nonce.to_vec(),
-							key.key.to_vec(),
-							vec![],
-						)
-						.exec()
-						.await?;
-				}
+				// write the new verification key
+				write_storedkey_to_db(library.db.clone(), &bundle.verification_key).await?;
 
 				Ok(bundle.secret_key.expose().clone())
 			})
