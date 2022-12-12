@@ -81,7 +81,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 										open: true,
 										title: 'Error',
 										description: '',
-										value: 'Opening system dialogs is not supported on this platform.',
+										value: "System dialogs aren't supported on this platform.",
 										inputBox: false
 									});
 									return;

@@ -130,7 +130,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 										open: true,
 										title: 'Error',
 										description: '',
-										value: 'Opening system dialogs is not supported on this platform.',
+										value: "System dialogs aren't supported on this platform.",
 										inputBox: false
 									});
 									return;
