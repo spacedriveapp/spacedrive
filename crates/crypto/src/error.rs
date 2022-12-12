@@ -62,8 +62,10 @@ pub enum Error {
 	KeystoreMismatch,
 	#[error("mutex lock error")]
 	MutexLock,
-	#[error("no master password verification key")]
+	#[error("no verification key")]
 	NoVerificationKey,
+	#[error("key isn't flagged as memory only")]
+	KeyNotMemoryOnly,
 	#[error("wrong information provided to the key manager")]
 	IncorrectKeymanagerDetails,
 	#[error("string parse error")]

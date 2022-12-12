@@ -136,6 +136,17 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
+		.library_mutation("syncKeyToLibrary", |t| {
+			t(|_, key_uuid: Uuid, library| async move {
+				let key = library.key_manager.save_to_database(key_uuid)?;
+
+				// does not check that the key doesn't exist before writing
+				write_storedkey_to_db(library.db.clone(), &key).await?;
+
+				invalidate_query!(library, "keys.list");
+				Ok(())
+			})
+		})
 		.library_mutation("updateAutomountStatus", |t| {
 			t(|_, args: AutomountUpdateArgs, library| async move {
 				if !library.key_manager.is_memory_only(args.uuid)? {
@@ -239,45 +250,24 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, key_uuid: Uuid, library| async move {
 				library.key_manager.set_default(key_uuid)?;
 
-				// if an old default is set, unset it as the default
-				let old_default = library
+				library
 					.db
 					.key()
-					.find_first(vec![key::default::equals(true)])
+					.update_many(
+						vec![key::default::equals(true)],
+						vec![key::SetParam::SetDefault(false)],
+					)
 					.exec()
 					.await?;
-
-				if let Some(key) = old_default {
-					library
-						.db
-						.key()
-						.update(
-							key::uuid::equals(key.uuid),
-							vec![key::SetParam::SetDefault(false)],
-						)
-						.exec()
-						.await?;
-				}
-
-				let new_default = library
+				library
 					.db
 					.key()
-					.find_unique(key::uuid::equals(key_uuid.to_string()))
+					.update(
+						key::uuid::equals(key_uuid.to_string()),
+						vec![key::SetParam::SetDefault(true)],
+					)
 					.exec()
 					.await?;
-
-				// if the new default key is stored in the library, update it as the default
-				if let Some(default) = new_default {
-					library
-						.db
-						.key()
-						.update(
-							key::uuid::equals(default.uuid),
-							vec![key::SetParam::SetDefault(true)],
-						)
-						.exec()
-						.await?;
-				}
 
 				invalidate_query!(library, "keys.getDefault");
 				Ok(())

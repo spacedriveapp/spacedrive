@@ -887,6 +887,29 @@ impl KeyManager {
 			.collect::<Vec<Protected<[u8; 32]>>>()
 	}
 
+	/// This function is for converting a memory-only key to a saved key which syncs to the library.
+	///
+	/// The returned value needs to be written to the database.
+	pub fn save_to_database(&self, uuid: Uuid) -> Result<StoredKey> {
+		if !self.is_memory_only(uuid)? {
+			return Err(Error::KeyNotMemoryOnly);
+		}
+
+		let updated_key = match self.keystore.get(&uuid) {
+			Some(key) => {
+				let mut updated_key = key.clone();
+				updated_key.memory_only = false;
+				Ok(updated_key)
+			}
+			None => Err(Error::KeyNotFound),
+		}?;
+
+		self.keystore.remove(&uuid);
+		self.keystore.insert(uuid, updated_key.clone());
+
+		Ok(updated_key)
+	}
+
 	/// This function is used to add a new key/password to the keystore.
 	///
 	/// You should use this when a new key is added, as it will generate salts/nonces/etc.

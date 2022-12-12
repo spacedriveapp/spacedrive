@@ -93,6 +93,7 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 	const deleteKey = useLibraryMutation('keys.deleteFromLibrary');
 	const setDefaultKey = useLibraryMutation('keys.setDefault');
 	const changeAutomountStatus = useLibraryMutation('keys.updateAutomountStatus');
+	const syncToLibrary = useLibraryMutation('keys.syncKeyToLibrary');
 
 	return (
 		<div
@@ -163,6 +164,13 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 						}}
 						hidden={!data.mounted}
 						value="Unmount"
+					/>
+					<KeyDropdownItem
+						onClick={() => {
+							syncToLibrary.mutate(data.id);
+						}}
+						hidden={!data.memoryOnly}
+						value="Sync to library"
 					/>
 					<KeyDropdownItem
 						onClick={() => {
