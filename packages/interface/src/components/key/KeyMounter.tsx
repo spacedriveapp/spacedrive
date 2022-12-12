@@ -103,7 +103,7 @@ export function KeyMounter() {
 					/>
 				</div>
 				<span className="ml-3 text-xs font-medium">Automount</span>
-				<Tooltip label="This key will be automatically mounted when you unlock the key manager">
+				<Tooltip label="This key will be automatically mounted every time you unlock the key manager">
 					<Info className="w-4 h-4 ml-1.5 text-ink-faint" />
 				</Tooltip>
 			</div>
@@ -133,13 +133,17 @@ export function KeyMounter() {
 				variant="accent"
 				disabled={key === ''}
 				onClick={() => {
-					if (key !== '') {
-						setKey('');
+					setKey('');
 
-						const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
+					const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
 
-						createKey.mutate({ algorithm, hashing_algorithm, key, library_sync: librarySync });
-					}
+					createKey.mutate({
+						algorithm,
+						hashing_algorithm,
+						key,
+						library_sync: librarySync,
+						automount: autoMount
+					});
 				}}
 			>
 				Mount Key

@@ -20,6 +20,7 @@ pub struct KeyAddArgs {
 	hashing_algorithm: HashingAlgorithm,
 	key: String,
 	library_sync: bool,
+	automount: bool,
 }
 
 #[derive(Type, Deserialize)]
@@ -310,6 +311,18 @@ pub(crate) fn mount() -> RouterBuilder {
 						)
 						.exec()
 						.await?;
+
+					if args.automount {
+						library
+							.db
+							.key()
+							.update(
+								key::uuid::equals(uuid.to_string()),
+								vec![key::SetParam::SetAutomount(true)],
+							)
+							.exec()
+							.await?;
+					}
 				}
 
 				// mount the key
