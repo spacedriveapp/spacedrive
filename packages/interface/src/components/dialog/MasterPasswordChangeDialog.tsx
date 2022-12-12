@@ -11,17 +11,17 @@ import { SubmitHandler, useForm } from 'react-hook-form';
 import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
 import { GenericAlertDialogProps } from './AlertDialog';
 
-export interface PasswordChangeDialogProps {
+export interface MasterPasswordChangeDialogProps {
 	trigger: ReactNode;
 	setDialogData: (data: GenericAlertDialogProps) => void;
 }
-export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
+export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
 	type FormValues = {
 		masterPassword: string;
 		masterPassword2: string;
 	};
 
-	const { register, handleSubmit } = useForm<FormValues>({
+	const { register, handleSubmit, reset } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
 			masterPassword2: ''
@@ -67,6 +67,8 @@ export const PasswordChangeDialog = (props: PasswordChangeDialogProps) => {
 					}
 				}
 			);
+
+			reset();
 		}
 	};
 

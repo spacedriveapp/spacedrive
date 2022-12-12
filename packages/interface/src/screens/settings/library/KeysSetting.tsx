@@ -16,7 +16,7 @@ import { animated, useTransition } from 'react-spring';
 import { AlertDialog, GenericAlertDialogState } from '../../../components/dialog/AlertDialog';
 import { BackupRestoreDialog } from '../../../components/dialog/BackupRestoreDialog';
 import { KeyViewerDialog } from '../../../components/dialog/KeyViewerDialog';
-import { PasswordChangeDialog } from '../../../components/dialog/PasswordChangeDialog';
+import { MasterPasswordChangeDialog } from '../../../components/dialog/MasterPasswordChangeDialog';
 import { ListOfKeys } from '../../../components/key/KeyList';
 import { KeyMounter } from '../../../components/key/KeyMounter';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
@@ -217,7 +217,7 @@ export default function KeysSettings() {
 
 					<SettingsSubHeader title="Password Options" />
 					<div className="flex flex-row">
-						<PasswordChangeDialog
+						<MasterPasswordChangeDialog
 							setDialogData={setAlertDialogData}
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">
