@@ -1,7 +1,6 @@
-use std::io::{Read, Write};
+use std::io::Write;
 use std::{path::PathBuf, str::FromStr};
 
-use sd_crypto::keys::keymanager::StoredKey;
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{hashing::HashingAlgorithm, keymanager::KeyManager},
@@ -10,6 +9,7 @@ use sd_crypto::{
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::util::db::write_storedkey_to_db;
 use crate::{invalidate_query, prisma::key};
 
 use super::{utils::LibraryRequest, RouterBuilder};
@@ -160,22 +160,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.exec()
 					.await?;
 
-				library
-					.db
-					.key()
-					.create(
-						verification_key.uuid.to_string(),
-						verification_key.algorithm.serialize().to_vec(),
-						verification_key.hashing_algorithm.serialize().to_vec(),
-						verification_key.content_salt.to_vec(),
-						verification_key.master_key.to_vec(),
-						verification_key.master_key_nonce.to_vec(),
-						verification_key.key_nonce.to_vec(),
-						verification_key.key.to_vec(),
-						vec![],
-					)
-					.exec()
-					.await?;
+				write_storedkey_to_db(library.db.clone(), &verification_key).await?;
 
 				let keys = OnboardingKeys {
 					master_password: bundle.master_password.expose().clone(),
@@ -295,22 +280,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let stored_key = library.key_manager.access_keystore(uuid)?;
 
 				if args.library_sync {
-					library
-						.db
-						.key()
-						.create(
-							uuid.to_string(),
-							args.algorithm.serialize().to_vec(),
-							args.hashing_algorithm.serialize().to_vec(),
-							stored_key.content_salt.to_vec(),
-							stored_key.master_key.to_vec(),
-							stored_key.master_key_nonce.to_vec(),
-							stored_key.key_nonce.to_vec(),
-							stored_key.key.to_vec(),
-							vec![],
-						)
-						.exec()
-						.await?;
+					write_storedkey_to_db(library.db.clone(), &stored_key).await?;
 				}
 
 				// mount the key
@@ -352,59 +322,59 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("restoreKeystore", |t| {
 			t(|_, args: RestoreBackupArgs, library| async move {
-				let mut input_file = std::fs::File::open(args.path).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error opening backup file".into(),
-					)
-				})?;
+				// let mut input_file = std::fs::File::open(args.path).map_err(|_| {
+				// 	rspc::Error::new(
+				// 		rspc::ErrorCode::InternalServerError,
+				// 		"Error opening backup file".into(),
+				// 	)
+				// })?;
 
-				let mut backup = Vec::new();
+				// let mut backup = Vec::new();
 
-				input_file.read_to_end(&mut backup).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error reading backup file".into(),
-					)
-				})?;
+				// input_file.read_to_end(&mut backup).map_err(|_| {
+				// 	rspc::Error::new(
+				// 		rspc::ErrorCode::InternalServerError,
+				// 		"Error reading backup file".into(),
+				// 	)
+				// })?;
 
-				let stored_keys: Vec<StoredKey> =
-					serde_json::from_slice(&backup).map_err(|_| {
-						rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Error deserializing backup".into(),
-						)
-					})?;
+				// let stored_keys: Vec<StoredKey> =
+				// 	serde_json::from_slice(&backup).map_err(|_| {
+				// 		rspc::Error::new(
+				// 			rspc::ErrorCode::InternalServerError,
+				// 			"Error deserializing backup".into(),
+				// 		)
+				// 	})?;
 
-				let updated_keys = library.key_manager.import_keystore_backup(
-					Protected::new(args.password),
-					Protected::new(args.secret_key),
-					&stored_keys,
-				)?;
+				// let updated_keys = library.key_manager.import_keystore_backup(
+				// 	Protected::new(args.password),
+				// 	Protected::new(args.secret_key),
+				// 	&stored_keys,
+				// )?;
 
-				for key in &updated_keys {
-					library
-						.db
-						.key()
-						.create(
-							key.uuid.to_string(),
-							key.algorithm.serialize().to_vec(),
-							key.hashing_algorithm.serialize().to_vec(),
-							key.content_salt.to_vec(),
-							key.master_key.to_vec(),
-							key.master_key_nonce.to_vec(),
-							key.key_nonce.to_vec(),
-							key.key.to_vec(),
-							vec![],
-						)
-						.exec()
-						.await?;
-				}
+				// for key in &updated_keys {
+				// 	library
+				// 		.db
+				// 		.key()
+				// 		.create(
+				// 			key.uuid.to_string(),
+				// 			key.algorithm.serialize().to_vec(),
+				// 			key.hashing_algorithm.serialize().to_vec(),
+				// 			key.content_salt.to_vec(),
+				// 			key.master_key.to_vec(),
+				// 			key.master_key_nonce.to_vec(),
+				// 			key.key_nonce.to_vec(),
+				// 			key.key.to_vec(),
+				// 			vec![],
+				// 		)
+				// 		.exec()
+				// 		.await?;
+				// }
 
-				invalidate_query!(library, "keys.list");
-				invalidate_query!(library, "keys.listMounted");
+				// invalidate_query!(library, "keys.list");
+				// invalidate_query!(library, "keys.listMounted");
 
-				Ok(updated_keys.len())
+				// Ok(updated_keys.len())
 			})
 		})
 		.library_mutation("changeMasterPassword", |t| {
@@ -415,50 +385,16 @@ pub(crate) fn mount() -> RouterBuilder {
 					args.hashing_algorithm,
 				)?;
 
-				let verification_key = bundle.verification_key;
-
 				// remove old nil-id keys if they were set
-				// they possibly won't be, but we CANNOT have multiple
-				library.db.key().delete_many(vec![]).exec().await?;
-
 				library
 					.db
 					.key()
-					.create(
-						verification_key.uuid.to_string(),
-						verification_key.algorithm.serialize().to_vec(),
-						verification_key.hashing_algorithm.serialize().to_vec(),
-						verification_key.content_salt.to_vec(),
-						verification_key.master_key.to_vec(),
-						verification_key.master_key_nonce.to_vec(),
-						verification_key.key_nonce.to_vec(),
-						verification_key.key.to_vec(),
-						vec![],
-					)
+					.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
 					.exec()
 					.await?;
 
-				// sync new changes with prisma
-				// note, this will write keys that were potentially marked as "don't sync to db"
-				// i think the way around this will be to include a marker in the `StoredKey` struct, as that means we can exclude them from `dump_keystore()` commands
-				for key in bundle.updated_keystore {
-					library
-						.db
-						.key()
-						.create(
-							key.uuid.to_string(),
-							key.algorithm.serialize().to_vec(),
-							key.hashing_algorithm.serialize().to_vec(),
-							key.content_salt.to_vec(),
-							key.master_key.to_vec(),
-							key.master_key_nonce.to_vec(),
-							key.key_nonce.to_vec(),
-							key.key.to_vec(),
-							vec![],
-						)
-						.exec()
-						.await?;
-				}
+				// write the new verification key
+				write_storedkey_to_db(library.db.clone(), &bundle.verification_key).await?;
 
 				Ok(bundle.secret_key.expose().clone())
 			})
