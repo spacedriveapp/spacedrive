@@ -143,10 +143,15 @@ pub(crate) fn mount() -> RouterBuilder {
 						.key_manager
 						.change_automount_status(args.uuid, args.status)?;
 
-					library.db.key().update(
-						key::uuid::equals(args.uuid.to_string()),
-						vec![key::SetParam::SetAutomount(args.status)],
-					);
+					library
+						.db
+						.key()
+						.update(
+							key::uuid::equals(args.uuid.to_string()),
+							vec![key::SetParam::SetAutomount(args.status)],
+						)
+						.exec()
+						.await?;
 
 					invalidate_query!(library, "keys.list");
 				}
