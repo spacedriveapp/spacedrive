@@ -77,6 +77,7 @@ pub struct StoredKey {
 	pub master_key_nonce: Vec<u8>, // nonce for encrypting the master key
 	pub key_nonce: Vec<u8>,        // nonce used for encrypting the main key
 	pub key: Vec<u8>, // encrypted. the key stored in spacedrive (e.g. generated 64 char key)
+	pub memory_only: bool,
 }
 
 /// This is a mounted key, and needs to be kept somewhat hidden.
@@ -94,7 +95,7 @@ pub struct MountedKey {
 ///
 /// Use the associated functions to interact with it.
 pub struct KeyManager {
-	master_password: Mutex<Option<Protected<[u8; 32]>>>, // the *hashed* master password+secret key combo
+	root_key: Mutex<Option<Protected<[u8; 32]>>>, // the root key for the vault
 	verification_key: Mutex<Option<StoredKey>>,
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
@@ -118,7 +119,7 @@ pub struct OnboardingBundle {
 pub struct MasterPasswordChangeBundle {
 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
 	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
-	pub updated_keystore: Vec<StoredKey>,
+	                                   // pub updated_keystore: Vec<StoredKey>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
@@ -169,6 +170,9 @@ impl KeyManager {
 		let master_key = generate_master_key();
 		let master_key_nonce = generate_nonce(algorithm);
 
+		let root_key = generate_master_key();
+		let root_key_nonce = generate_nonce(algorithm);
+
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
 			hashed_password,
@@ -178,6 +182,14 @@ impl KeyManager {
 			&[],
 		)?)?;
 
+		let encrypted_root_key = StreamEncryption::encrypt_bytes(
+			master_key,
+			&root_key_nonce,
+			algorithm,
+			root_key.expose(),
+			&[],
+		)?;
+
 		let verification_key = StoredKey {
 			uuid,
 			algorithm,
@@ -185,8 +197,9 @@ impl KeyManager {
 			content_salt: [0u8; 16],
 			master_key: encrypted_master_key,
 			master_key_nonce,
-			key_nonce: Vec::new(),
-			key: Vec::new(),
+			key_nonce: root_key_nonce,
+			key: encrypted_root_key,
+			memory_only: false,
 		};
 
 		let secret_key = Self::format_secret_key(&salt);
@@ -201,28 +214,22 @@ impl KeyManager {
 	}
 
 	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
-	#[must_use]
-	pub fn new(stored_keys: Vec<StoredKey>) -> Self {
+	pub fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
 		let keystore = DashMap::new();
-		let mut verification_key = None;
-
-		for key in stored_keys {
-			if key.uuid.is_nil() {
-				verification_key = Some(key);
-			} else {
-				keystore.insert(key.uuid, key);
-			}
-		}
 
 		let keymount: DashMap<Uuid, MountedKey> = DashMap::new();
 
-		Self {
-			master_password: Mutex::new(None),
-			verification_key: Mutex::new(verification_key),
+		let keymanager = Self {
+			root_key: Mutex::new(None),
+			verification_key: Mutex::new(None),
 			keystore,
 			keymount,
 			default: Mutex::new(None),
-		}
+		};
+
+		keymanager.populate_keystore(stored_keys)?;
+
+		Ok(keymanager)
 	}
 
 	/// This function should be used to populate the keystore with multiple stored keys at a time.
@@ -298,14 +305,13 @@ impl KeyManager {
 	}
 
 	/// This should ONLY be used internally.
-	fn get_master_password(&self) -> Result<Protected<[u8; 32]>> {
-		match &*self.master_password.lock()? {
+	fn get_root_key(&self) -> Result<Protected<[u8; 32]>> {
+		match &*self.root_key.lock()? {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}
 	}
 
-	/// This should ONLY be used internally.
 	pub fn get_verification_key(&self) -> Result<StoredKey> {
 		match &*self.verification_key.lock()? {
 			Some(k) => Ok(k.clone()),
@@ -313,74 +319,36 @@ impl KeyManager {
 		}
 	}
 
-	/// This is used to change a master password.
-	///
-	/// The entire keystore is re-encrypted with the new master password, and will require dumping and syncing with Prisma.
+	pub fn is_memory_only(&self, uuid: Uuid) -> Result<bool> {
+		if let Some(key) = self.keystore.get(&uuid) {
+			Ok(key.memory_only)
+		} else {
+			Err(Error::KeyNotFound)
+		}
+	}
+
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn change_master_password(
 		&self,
 		master_password: Protected<String>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 	) -> Result<MasterPasswordChangeBundle> {
-		// Generate a new secret key
 		let salt = generate_salt();
 
-		// Hash the master password
 		let hashed_password = hashing_algorithm.hash(
 			Protected::new(master_password.expose().as_bytes().to_vec()),
 			salt,
 		)?;
 
-		// Iterate over the keystore - decrypt each master key, re-encrypt it with the same algorithm, and collect them into a vec
-		let updated_keystore: Result<Vec<StoredKey>> = self
-			.dump_keystore()
-			.iter()
-			.map(|stored_key| {
-				let mut stored_key = stored_key.clone();
-
-				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-					self.get_master_password()?,
-					&stored_key.master_key_nonce,
-					stored_key.algorithm,
-					&stored_key.master_key,
-					&[],
-				) {
-					Ok(Protected::new(to_array::<32>(
-						decrypted_master_key.expose().clone(),
-					)?))
-				} else {
-					Err(Error::IncorrectPassword)
-				}?;
-
-				let master_key_nonce = generate_nonce(stored_key.algorithm);
-
-				// Encrypt the master key with the user's hashed password
-				let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-					hashed_password.clone(),
-					&master_key_nonce,
-					stored_key.algorithm,
-					master_key.expose(),
-					&[],
-				)?)?;
-
-				stored_key.master_key = encrypted_master_key;
-				stored_key.master_key_nonce = master_key_nonce;
-
-				Ok(stored_key)
-			})
-			.collect();
-
-		// should use ? above
-		let updated_keystore = updated_keystore?;
-
-		// Clear the current keystore and update it with our re-encrypted keystore
-		self.empty_keystore();
-		self.populate_keystore(updated_keystore.clone())?;
-
-		// Create a new verification key for the master password/secret key combination
 		let uuid = uuid::Uuid::nil();
+
+		// Generate items we'll need for encryption
 		let master_key = generate_master_key();
 		let master_key_nonce = generate_nonce(algorithm);
+
+		let root_key = self.get_root_key()?;
+		let root_key_nonce = generate_nonce(algorithm);
 
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
@@ -391,6 +359,14 @@ impl KeyManager {
 			&[],
 		)?)?;
 
+		let encrypted_root_key = StreamEncryption::encrypt_bytes(
+			master_key,
+			&root_key_nonce,
+			algorithm,
+			root_key.expose(),
+			&[],
+		)?;
+
 		let verification_key = StoredKey {
 			uuid,
 			algorithm,
@@ -398,25 +374,120 @@ impl KeyManager {
 			content_salt: [0u8; 16],
 			master_key: encrypted_master_key,
 			master_key_nonce,
-			key_nonce: Vec::new(),
-			key: Vec::new(),
+			key_nonce: root_key_nonce,
+			key: encrypted_root_key,
+			memory_only: false,
 		};
+
+		*self.verification_key.lock()? = Some(verification_key.clone());
 
 		let secret_key = Self::format_secret_key(&salt);
 
-		let mpc_bundle = MasterPasswordChangeBundle {
+		let mp_change_bundle = MasterPasswordChangeBundle {
 			verification_key,
 			secret_key,
-			updated_keystore,
 		};
 
-		// Update the internal verification key, and then set the master password
-		*self.verification_key.lock()? = Some(mpc_bundle.verification_key.clone());
-		self.set_master_password(master_password, mpc_bundle.secret_key.clone())?;
-
-		// Return the verification key so it can be written to Prisma and return the secret key so it can be shown to the user
-		Ok(mpc_bundle)
+		Ok(mp_change_bundle)
 	}
+
+	/// This is used to change a master password.
+	///
+	/// The entire keystore is re-encrypted with the new master password, and will require dumping and syncing with Prisma.
+	// pub fn rotate_root_key(
+	// 	&self,
+	// 	master_password: Protected<String>,
+	// 	algorithm: Algorithm,
+	// 	hashing_algorithm: HashingAlgorithm,
+	// ) -> Result<MasterPasswordChangeBundle> {
+	// 	let new_root_key = generate_master_key();
+
+	// 	// Iterate over the keystore - decrypt each master key, re-encrypt it with the same algorithm, and collect them into a vec
+	// 	let updated_keystore: Result<Vec<StoredKey>> = self
+	// 		.dump_keystore()
+	// 		.iter()
+	// 		.map(|stored_key| {
+	// 			let mut stored_key = stored_key.clone();
+
+	// 			let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+	// 				self.get_root_key()?,
+	// 				&stored_key.master_key_nonce,
+	// 				stored_key.algorithm,
+	// 				&stored_key.master_key,
+	// 				&[],
+	// 			) {
+	// 				Ok(Protected::new(to_array::<32>(
+	// 					decrypted_master_key.expose().clone(),
+	// 				)?))
+	// 			} else {
+	// 				Err(Error::IncorrectPassword)
+	// 			}?;
+
+	// 			let master_key_nonce = generate_nonce(stored_key.algorithm);
+
+	// 			// Encrypt the master key with the user's hashed password
+	// 			let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+	// 				new_root_key.clone(),
+	// 				&master_key_nonce,
+	// 				stored_key.algorithm,
+	// 				master_key.expose(),
+	// 				&[],
+	// 			)?)?;
+
+	// 			stored_key.master_key = encrypted_master_key;
+	// 			stored_key.master_key_nonce = master_key_nonce;
+
+	// 			Ok(stored_key)
+	// 		})
+	// 		.collect();
+
+	// 	// should use ? above
+	// 	let updated_keystore = updated_keystore?;
+
+	// 	// Clear the current keystore and update it with our re-encrypted keystore
+	// 	self.empty_keystore();
+	// 	self.populate_keystore(updated_keystore.clone())?;
+
+	// 	// Create a new verification key
+	// 	let uuid = uuid::Uuid::nil();
+	// 	let master_key = generate_master_key();
+	// 	let master_key_nonce = generate_nonce(algorithm);
+
+	// 	// Encrypt the master key with the hashed master password
+	// 	let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+	// 		hashed_password,
+	// 		&master_key_nonce,
+	// 		algorithm,
+	// 		master_key.expose(),
+	// 		&[],
+	// 	)?)?;
+
+	// 	let verification_key = StoredKey {
+	// 		uuid,
+	// 		algorithm,
+	// 		hashing_algorithm,
+	// 		content_salt: [0u8; 16],
+	// 		master_key: encrypted_master_key,
+	// 		master_key_nonce,
+	// 		key_nonce: Vec::new(),
+	// 		key: Vec::new(),
+	// 	};
+
+	// let secret_key = Self::format_secret_key(&salt);
+
+	// 	let mpc_bundle = MasterPasswordChangeBundle {
+	// 		verification_key,
+	// 		secret_key,
+	// 		updated_keystore,
+	// 	};
+
+	// 	// Update the internal verification key, and then set the master password
+	// 	*self.verification_key.lock()? = Some(mpc_bundle.verification_key.clone());
+	// 	self.set_master_password(master_password, mpc_bundle.secret_key.clone())?;
+
+	// 	// Return the verification key so it can be written to Prisma and return the secret key so it can be shown to the user
+	// 	Ok(mpc_bundle)
+	// }
 
 	/// Used internally to convert from a hex-encoded `Protected<String>` to a `Protected<[u8; SALT_LEN]>` in a secretive manner.
 	///
@@ -424,7 +495,7 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	fn convert_secret_key_string(secret_key: Protected<String>) -> Protected<[u8; SALT_LEN]> {
 		let mut secret_key_clean = secret_key.expose().clone();
-		secret_key_clean.retain(|c| c != '-');
+		secret_key_clean.retain(|c| c != '-' && !c.is_whitespace());
 
 		let secret_key = if let Ok(secret_key) = hex::decode(secret_key_clean) {
 			secret_key
@@ -441,7 +512,6 @@ impl KeyManager {
 		}
 	}
 
-	// Opting to leave ser/de to external functions - the key manager isn't the right place to handle this.
 	/// This re-encrypts master keys so they can be imported from a key backup into the current key manager.
 	///
 	/// It returns a `Vec<StoredKey>` so they can be written to Prisma
@@ -470,57 +540,83 @@ impl KeyManager {
 			})
 			.collect();
 
-		let hashed_master_password = if let Some(verification_key) = verification_key {
+		let verification_key = if let Some(verification_key) = verification_key {
 			verification_key
-				.hashing_algorithm
-				.hash(master_password, *secret_key.expose())
 		} else {
-			Err(Error::NoVerificationKey)
-		}?;
+			return Err(Error::NoVerificationKey);
+		};
+
+		let hashed_master_password = verification_key
+			.hashing_algorithm
+			.hash(master_password, *secret_key.expose())?;
+
+		// decrypt the root key's KEK
+		let master_key = StreamDecryption::decrypt_bytes(
+			hashed_master_password,
+			&verification_key.master_key_nonce,
+			verification_key.algorithm,
+			&verification_key.master_key,
+			&[],
+		)?;
+
+		// get the root key from the backup
+		let root_key = StreamDecryption::decrypt_bytes(
+			Protected::new(to_array(master_key.expose().clone())?),
+			&verification_key.key_nonce,
+			verification_key.algorithm,
+			&verification_key.key,
+			&[],
+		)?;
+
+		let root_key = Protected::new(to_array(root_key.expose().clone())?);
 
 		let mut reencrypted_keys = Vec::new();
 
 		for key in keys {
-			if !self.keystore.contains_key(&key.uuid) {
-				// could check the key material itself? if they match, attach the content salt
-				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-					hashed_master_password.clone(),
-					&key.master_key_nonce,
-					key.algorithm,
-					&key.master_key,
-					&[],
-				) {
-					Ok(Protected::new(to_array::<32>(
-						decrypted_master_key.expose().clone(),
-					)?))
-				} else {
-					Err(Error::IncorrectPassword)
-				}?;
-
-				let master_key_nonce = generate_nonce(key.algorithm);
-
-				// Encrypt the master key with the user's hashed password
-				let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-					self.get_master_password()?,
-					&master_key_nonce,
-					key.algorithm,
-					master_key.expose(),
-					&[],
-				)?)?;
-
-				let mut updated_key = key.clone();
-				updated_key.master_key_nonce = master_key_nonce;
-				updated_key.master_key = encrypted_master_key;
-
-				reencrypted_keys.push(updated_key.clone());
-				self.keystore.insert(updated_key.uuid, updated_key);
+			if self.keystore.contains_key(&key.uuid) {
+				continue;
 			}
+
+			// could check the key material itself? if they match, attach the content salt
+
+			// decrypt the key's master key
+			let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+				root_key.clone(),
+				&key.master_key_nonce,
+				key.algorithm,
+				&key.master_key,
+				&[],
+			) {
+				Ok(Protected::new(to_array::<32>(
+					decrypted_master_key.expose().clone(),
+				)?))
+			} else {
+				Err(Error::IncorrectPassword)
+			}?;
+
+			// generate a new nonce
+			let master_key_nonce = generate_nonce(key.algorithm);
+
+			// encrypt the master key with the current root key
+			let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+				self.get_root_key()?,
+				&master_key_nonce,
+				key.algorithm,
+				master_key.expose(),
+				&[],
+			)?)?;
+
+			let mut updated_key = key.clone();
+			updated_key.master_key_nonce = master_key_nonce;
+			updated_key.master_key = encrypted_master_key;
+
+			reencrypted_keys.push(updated_key.clone());
+			self.keystore.insert(updated_key.uuid, updated_key);
 		}
 
 		Ok(reencrypted_keys)
 	}
 
-	// requires master password and the secret key
 	/// This requires both the master password and the secret key
 	///
 	/// The master password and secret key are hashed together.
@@ -545,16 +641,25 @@ impl KeyManager {
 			.hash(master_password, *secret_key.expose())?;
 
 		// Decrypt the StoredKey's master key using the user's hashed password
-		let decryption_result = StreamDecryption::decrypt_bytes(
-			hashed_master_password.clone(),
+		if let Ok(master_key) = StreamDecryption::decrypt_bytes(
+			hashed_master_password,
 			&verification_key.master_key_nonce,
 			verification_key.algorithm,
 			&verification_key.master_key,
 			&[],
-		);
-
-		if decryption_result.is_ok() {
-			*self.master_password.lock()? = Some(hashed_master_password);
+		) {
+			// decrypt the root key and set that as the master password
+			*self.root_key.lock()? = Some(Protected::new(to_array(
+				StreamDecryption::decrypt_bytes(
+					Protected::new(to_array(master_key.expose().clone())?),
+					&verification_key.key_nonce,
+					verification_key.algorithm,
+					&verification_key.key,
+					&[],
+				)?
+				.expose()
+				.clone(),
+			)?));
 			Ok(())
 		} else {
 			Err(Error::IncorrectKeymanagerDetails)
@@ -562,8 +667,8 @@ impl KeyManager {
 	}
 
 	/// This function is for removing a previously-added master password
-	pub fn clear_master_password(&self) -> Result<()> {
-		*self.master_password.lock()? = None;
+	pub fn clear_root_key(&self) -> Result<()> {
+		*self.root_key.lock()? = None;
 
 		Ok(())
 	}
@@ -577,8 +682,10 @@ impl KeyManager {
 	}
 
 	/// This function is used for seeing if the key manager has a master password.
+	///
+	/// Technically this checks for the root key, but it makes no difference to the front end.
 	pub fn has_master_password(&self) -> Result<bool> {
-		Ok(self.master_password.lock()?.is_some())
+		Ok(self.root_key.lock()?.is_some())
 	}
 
 	/// This function is used for emptying the entire keystore.
@@ -653,9 +760,9 @@ impl KeyManager {
 
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
-				// Decrypt the StoredKey's master key using the user's hashed password
+				// Decrypt the StoredKey's master key using the root key
 				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-					self.get_master_password()?,
+					self.get_root_key()?,
 					&stored_key.master_key_nonce,
 					stored_key.algorithm,
 					&stored_key.master_key,
@@ -702,9 +809,9 @@ impl KeyManager {
 	pub fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
-				// Decrypt the StoredKey's master key using the user's hashed password
+				// Decrypt the StoredKey's master key using the root key
 				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
-					self.get_master_password()?,
+					self.get_root_key()?,
 					&stored_key.master_key_nonce,
 					stored_key.algorithm,
 					&stored_key.master_key,
@@ -778,6 +885,7 @@ impl KeyManager {
 		key: Protected<Vec<u8>>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
+		memory_only: bool,
 	) -> Result<Uuid> {
 		let uuid = uuid::Uuid::new_v4();
 
@@ -789,7 +897,7 @@ impl KeyManager {
 
 		// Encrypt the master key with the user's hashed password
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-			self.get_master_password()?,
+			self.get_root_key()?,
 			&master_key_nonce,
 			algorithm,
 			master_key.expose(),
@@ -810,6 +918,7 @@ impl KeyManager {
 			master_key_nonce,
 			key_nonce,
 			key: encrypted_key,
+			memory_only,
 		};
 
 		// Insert it into the Keystore
