@@ -10,11 +10,11 @@ import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
 
-const GeneratePassword = (length: number) => {
-	const charset =
-		'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]:"\';<>?,./\\|`~';
+const PasswordCharset =
+	'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]:"\';<>?,./\\|`~';
 
-	return cryptoRandomString({ length, characters: charset });
+const GeneratePassword = (length: number) => {
+	return cryptoRandomString({ length, characters: PasswordCharset });
 };
 
 export function KeyMounter() {

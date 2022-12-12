@@ -11,11 +11,11 @@ interface KeyViewerDialogProps {
 }
 
 export const KeyTextBox = (props: { uuid: string; setKey: (value: string) => void }) => {
-	const kV = useLibraryQuery(['keys.getKey', props.uuid]);
-
-	useEffect(() => {
-		kV.data && props.setKey(kV.data);
-	}, [kV.data]);
+	useLibraryQuery(['keys.getKey', props.uuid], {
+		onSuccess: (data) => {
+			props.setKey(data);
+		}
+	});
 
 	return <></>;
 };

@@ -94,6 +94,8 @@ export default function KeysSettings() {
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState('');
 
+	const keys = useLibraryQuery(['keys.list']);
+
 	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
 	const setShowAlertDialog = (state: boolean) => {
 		setAlertDialogData({ ...alertDialogData, open: state });
@@ -227,7 +229,7 @@ export default function KeysSettings() {
 						/>
 						<KeyViewerDialog
 							trigger={
-								<Button size="sm" variant="gray" className="mr-2">
+								<Button size="sm" variant="gray" className="mr-2" hidden={keys.data?.length === 0}>
 									View Key Values
 								</Button>
 							}
