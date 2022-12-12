@@ -118,7 +118,7 @@ pub struct OnboardingBundle {
 pub struct MasterPasswordChangeBundle {
 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
 	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
-	pub updated_keystore: Vec<StoredKey>,
+	                                   // pub updated_keystore: Vec<StoredKey>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
@@ -316,6 +316,66 @@ impl KeyManager {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
 		}
+	}
+
+	pub fn change_master_password(
+		&self,
+		master_password: Protected<String>,
+		algorithm: Algorithm,
+		hashing_algorithm: HashingAlgorithm,
+	) -> Result<MasterPasswordChangeBundle> {
+		let salt = generate_salt();
+
+		let hashed_password = hashing_algorithm.hash(
+			Protected::new(master_password.expose().as_bytes().to_vec()),
+			salt,
+		)?;
+
+		let uuid = uuid::Uuid::nil();
+
+		// Generate items we'll need for encryption
+		let master_key = generate_master_key();
+		let master_key_nonce = generate_nonce(algorithm);
+
+		let root_key = self.get_root_key()?;
+		let root_key_nonce = generate_nonce(algorithm);
+
+		// Encrypt the master key with the hashed master password
+		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+			hashed_password,
+			&master_key_nonce,
+			algorithm,
+			master_key.expose(),
+			&[],
+		)?)?;
+
+		let encrypted_root_key = StreamEncryption::encrypt_bytes(
+			master_key,
+			&root_key_nonce,
+			algorithm,
+			root_key.expose(),
+			&[],
+		)?;
+
+		let verification_key = StoredKey {
+			uuid,
+			algorithm,
+			hashing_algorithm,
+			content_salt: [0u8; 16],
+			master_key: encrypted_master_key,
+			master_key_nonce,
+			key_nonce: root_key_nonce,
+			key: encrypted_root_key,
+		};
+
+		let secret_key = Self::format_secret_key(&salt);
+
+		let mp_change_bundle = MasterPasswordChangeBundle {
+			verification_key,
+			secret_key,
+		};
+
+		Ok(mp_change_bundle)
 	}
 
 	/// This is used to change a master password.
