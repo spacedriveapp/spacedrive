@@ -10,30 +10,14 @@ interface KeyViewerDialogProps {
 	trigger: ReactNode;
 }
 
-export const KeyTextBox = (props: { uuid: string }) => {
+export const KeyTextBox = (props: { uuid: string; setKey: (value: string) => void }) => {
 	const kV = useLibraryQuery(['keys.getKey', props.uuid]);
 
-	const [keyValue, setKeyValue] = useState('');
-
 	useEffect(() => {
-		kV.data && setKeyValue(kV.data);
+		kV.data && props.setKey(kV.data);
 	}, [kV.data]);
 
-	return (
-		<div className="relative flex flex-grow">
-			<Input value={keyValue} disabled className="flex-grow !py-0.5" />
-			<Button
-				type="button"
-				onClick={() => {
-					writeText(keyValue);
-				}}
-				size="icon"
-				className="border-none absolute right-[5px] top-[5px]"
-			>
-				<Clipboard className="w-4 h-4" />
-			</Button>
-		</div>
-	);
+	return <></>;
 };
 
 export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
@@ -47,6 +31,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 
 	const [showKeyViewerDialog, setShowKeyViewerDialog] = useState(false);
 	const [key, setKey] = useState('');
+	const [keyValue, setKeyValue] = useState('');
 
 	return (
 		<>
@@ -78,7 +63,20 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 				<div className="grid w-full gap-4 mt-4 mb-3">
 					<div className="flex flex-col">
 						<span className="text-xs font-bold">Value</span>
-						<KeyTextBox uuid={key} />
+						<div className="relative flex flex-grow">
+							<Input value={keyValue} disabled className="flex-grow !py-0.5" />
+							<Button
+								type="button"
+								onClick={() => {
+									writeText(keyValue);
+								}}
+								size="icon"
+								className="border-none absolute right-[5px] top-[5px]"
+							>
+								<Clipboard className="w-4 h-4" />
+							</Button>
+						</div>
+						<KeyTextBox uuid={key} setKey={setKeyValue} />
 					</div>
 				</div>
 			</Dialog>
