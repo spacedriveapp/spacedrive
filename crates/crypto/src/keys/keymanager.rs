@@ -317,6 +317,7 @@ impl KeyManager {
 		}
 	}
 
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn change_master_password(
 		&self,
 		master_password: Protected<String>,
@@ -503,6 +504,7 @@ impl KeyManager {
 	/// This re-encrypts master keys so they can be imported from a key backup into the current key manager.
 	///
 	/// It returns a `Vec<StoredKey>` so they can be written to Prisma
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn import_keystore_backup(
 		&self,
 		master_password: Protected<String>, // at the time of the backup
