@@ -16,6 +16,7 @@ import { PropsWithChildren, useMemo } from 'react';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { usePlatform } from '../../util/Platform';
 import { getExplorerStore } from '../../util/explorerStore';
+import { GenericAlertDialogProps } from '../dialog/AlertDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
@@ -61,8 +62,7 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 export interface ExplorerContextMenuProps extends PropsWithChildren {
 	setShowEncryptDialog: (isShowing: boolean) => void;
 	setShowDecryptDialog: (isShowing: boolean) => void;
-	setShowAlertDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: { title: string; text: string }) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
@@ -150,16 +150,20 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 								props.setShowEncryptDialog(true);
 							} else if (!hasMasterPassword) {
 								props.setAlertDialogData({
+									open: true,
 									title: 'Key manager locked',
-									text: 'The key manager is currently locked. Please unlock it and try again.'
+									value: 'The key manager is currently locked. Please unlock it and try again.',
+									inputBox: false,
+									description: ''
 								});
-								props.setShowAlertDialog(true);
 							} else if (!hasMountedKeys) {
 								props.setAlertDialogData({
+									open: true,
 									title: 'No mounted keys',
-									text: 'No mounted keys were found. Please mount a key and try again.'
+									description: '',
+									value: 'No mounted keys were found. Please mount a key and try again.',
+									inputBox: false
 								});
-								props.setShowAlertDialog(true);
 							}
 						}}
 					/>
@@ -173,16 +177,20 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 								props.setShowDecryptDialog(true);
 							} else if (!hasMasterPassword) {
 								props.setAlertDialogData({
+									open: true,
 									title: 'Key manager locked',
-									text: 'The key manager is currently locked. Please unlock it and try again.'
+									value: 'The key manager is currently locked. Please unlock it and try again.',
+									inputBox: false,
+									description: ''
 								});
-								props.setShowAlertDialog(true);
 							} else if (!hasMountedKeys) {
 								props.setAlertDialogData({
+									open: true,
 									title: 'No mounted keys',
-									text: 'No mounted keys were found. Please mount a key and try again.'
+									value: 'No mounted keys were found. Please mount a key and try again.',
+									inputBox: false,
+									description: ''
 								});
-								props.setShowAlertDialog(true);
 							}
 						}}
 					/>

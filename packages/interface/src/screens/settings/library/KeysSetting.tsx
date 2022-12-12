@@ -13,8 +13,10 @@ import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
 
+import { AlertDialog, GenericAlertDialogState } from '../../../components/dialog/AlertDialog';
 import { BackupRestoreDialog } from '../../../components/dialog/BackupRestoreDialog';
-import { PasswordChangeDialog } from '../../../components/dialog/PasswordChangeDialog';
+import { KeyViewerDialog } from '../../../components/dialog/KeyViewerDialog';
+import { MasterPasswordChangeDialog } from '../../../components/dialog/MasterPasswordChangeDialog';
 import { ListOfKeys } from '../../../components/key/KeyList';
 import { KeyMounter } from '../../../components/key/KeyMounter';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
@@ -91,141 +93,184 @@ export default function KeysSettings() {
 	const [showSecretKey, setShowSecretKey] = useState(false);
 	const [masterPassword, setMasterPassword] = useState('');
 	const [secretKey, setSecretKey] = useState('');
+
+	const keys = useLibraryQuery(['keys.list']);
+
+	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
+	const setShowAlertDialog = (state: boolean) => {
+		setAlertDialogData({ ...alertDialogData, open: state });
+	};
+
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
 	if (!hasMasterPw?.data) {
 		return (
-			<div className="p-2 mr-20 ml-20 mt-10">
-				<div className="relative flex flex-grow mb-2">
-					<Input
-						value={masterPassword}
-						onChange={(e) => setMasterPassword(e.target.value)}
-						autoFocus
-						type={showMasterPassword ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
-						placeholder="Master Password"
-					/>
-					<Button
-						onClick={() => setShowMasterPassword(!showMasterPassword)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-					>
-						<MPCurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
+			<>
+				<div className="p-2 mr-20 ml-20 mt-10">
+					<div className="relative flex flex-grow mb-2">
+						<Input
+							value={masterPassword}
+							onChange={(e) => setMasterPassword(e.target.value)}
+							autoFocus
+							type={showMasterPassword ? 'text' : 'password'}
+							className="flex-grow !py-0.5"
+							placeholder="Master Password"
+						/>
+						<Button
+							onClick={() => setShowMasterPassword(!showMasterPassword)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+						>
+							<MPCurrentEyeIcon className="w-4 h-4" />
+						</Button>
+					</div>
 
-				<div className="relative flex flex-grow mb-2">
-					<Input
-						value={secretKey}
-						onChange={(e) => setSecretKey(e.target.value)}
-						type={showSecretKey ? 'text' : 'password'}
-						className="flex-grow !py-0.5"
-						placeholder="Secret Key"
-					/>
-					<Button
-						onClick={() => setShowSecretKey(!showSecretKey)}
-						size="icon"
-						className="border-none absolute right-[5px] top-[5px]"
-					>
-						<SKCurrentEyeIcon className="w-4 h-4" />
-					</Button>
-				</div>
+					<div className="relative flex flex-grow mb-2">
+						<Input
+							value={secretKey}
+							onChange={(e) => setSecretKey(e.target.value)}
+							type={showSecretKey ? 'text' : 'password'}
+							className="flex-grow !py-0.5"
+							placeholder="Secret Key"
+						/>
+						<Button
+							onClick={() => setShowSecretKey(!showSecretKey)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+						>
+							<SKCurrentEyeIcon className="w-4 h-4" />
+						</Button>
+					</div>
 
-				<Button
-					className="w-full"
-					variant="accent"
-					disabled={setMasterPasswordMutation.isLoading}
-					onClick={() => {
-						if (masterPassword !== '' && secretKey !== '') {
-							setMasterPassword('');
-							setSecretKey('');
-							setMasterPasswordMutation.mutate(
-								{ password: masterPassword, secret_key: secretKey },
-								{
-									onError: () => {
-										alert('Incorrect information provided.');
+					<Button
+						className="w-full"
+						variant="accent"
+						disabled={setMasterPasswordMutation.isLoading}
+						onClick={() => {
+							if (masterPassword !== '' && secretKey !== '') {
+								setMasterPassword('');
+								setSecretKey('');
+								setMasterPasswordMutation.mutate(
+									{ password: masterPassword, secret_key: secretKey },
+									{
+										onError: () => {
+											setAlertDialogData({
+												open: true,
+												title: 'Unlock Error',
+												description: '',
+												value: 'The information provided to the key manager was incorrect',
+												inputBox: false
+											});
+										}
 									}
-								}
-							);
-						}
-					}}
-				>
-					Unlock
-				</Button>
-			</div>
+								);
+							}
+						}}
+					>
+						Unlock
+					</Button>
+				</div>
+				<AlertDialog
+					open={alertDialogData.open}
+					setOpen={setShowAlertDialog}
+					title={alertDialogData.title}
+					description={alertDialogData.description}
+					value={alertDialogData.value}
+					inputBox={alertDialogData.inputBox}
+				/>
+			</>
 		);
 	} else {
 		return (
-			<SettingsContainer>
-				<SettingsHeader
-					title="Keys"
-					description="Manage your keys."
-					rightArea={
-						<div className="flex flex-row items-center">
-							<Button
-								size="icon"
-								onClick={() => {
-									unmountAll.mutate(null);
-									clearMasterPassword.mutate(null);
-								}}
-								variant="outline"
-								className="text-ink-faint"
-							>
-								<Lock className="w-4 h-4 text-ink-faint" />
-							</Button>
-							<KeyMounterDropdown
-								trigger={
-									<Button size="icon" variant="outline" className="text-ink-faint">
-										<Plus className="w-4 h-4 text-ink-faint" />
-									</Button>
-								}
-							>
-								<KeyMounter />
-							</KeyMounterDropdown>
-						</div>
-					}
+			<>
+				<SettingsContainer>
+					<SettingsHeader
+						title="Keys"
+						description="Manage your keys."
+						rightArea={
+							<div className="flex flex-row items-center">
+								<Button
+									size="icon"
+									onClick={() => {
+										unmountAll.mutate(null);
+										clearMasterPassword.mutate(null);
+									}}
+									variant="outline"
+									className="text-ink-faint"
+								>
+									<Lock className="w-4 h-4 text-ink-faint" />
+								</Button>
+								<KeyMounterDropdown
+									trigger={
+										<Button size="icon" variant="outline" className="text-ink-faint">
+											<Plus className="w-4 h-4 text-ink-faint" />
+										</Button>
+									}
+								>
+									<KeyMounter />
+								</KeyMounterDropdown>
+							</div>
+						}
+					/>
+					<div className="grid space-y-2">
+						<ListOfKeys />
+					</div>
+
+					<SettingsSubHeader title="Password Options" />
+					<div className="flex flex-row">
+						<MasterPasswordChangeDialog
+							setDialogData={setAlertDialogData}
+							trigger={
+								<Button size="sm" variant="gray" className="mr-2">
+									Change Master Password
+								</Button>
+							}
+						/>
+						<KeyViewerDialog
+							trigger={
+								<Button size="sm" variant="gray" className="mr-2" hidden={keys.data?.length === 0}>
+									View Key Values
+								</Button>
+							}
+						/>
+					</div>
+
+					<SettingsSubHeader title="Data Recovery" />
+					<div className="flex flex-row">
+						<Button
+							size="sm"
+							variant="gray"
+							className="mr-2"
+							type="button"
+							onClick={() => {
+								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
+								save()?.then((result) => {
+									if (result) backupKeystore.mutate(result as string);
+								});
+							}}
+						>
+							Backup
+						</Button>
+						<BackupRestoreDialog
+							setDialogData={setAlertDialogData}
+							trigger={
+								<Button size="sm" variant="gray" className="mr-2">
+									Restore
+								</Button>
+							}
+						/>
+					</div>
+				</SettingsContainer>
+				<AlertDialog
+					open={alertDialogData.open}
+					setOpen={setShowAlertDialog}
+					title={alertDialogData.title}
+					description={alertDialogData.description}
+					value={alertDialogData.value}
+					inputBox={alertDialogData.inputBox}
 				/>
-				<div className="grid space-y-2">
-					<ListOfKeys />
-				</div>
-
-				<SettingsSubHeader title="Password Options" />
-				<div className="flex flex-row">
-					<PasswordChangeDialog
-						trigger={
-							<Button size="sm" variant="gray" className="mr-2">
-								Change Master Password
-							</Button>
-						}
-					/>
-				</div>
-
-				<SettingsSubHeader title="Data Recovery" />
-				<div className="flex flex-row">
-					<Button
-						size="sm"
-						variant="gray"
-						className="mr-2"
-						type="button"
-						onClick={() => {
-							// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
-							save()?.then((result) => {
-								if (result) backupKeystore.mutate(result as string);
-							});
-						}}
-					>
-						Backup
-					</Button>
-					<BackupRestoreDialog
-						trigger={
-							<Button size="sm" variant="gray" className="mr-2">
-								Restore
-							</Button>
-						}
-					/>
-				</div>
-			</SettingsContainer>
+			</>
 		);
 	}
 }

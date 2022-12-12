@@ -423,6 +423,7 @@ importers:
       autoprefixer: ^10.4.12
       byte-size: ^8.1.0
       clsx: ^1.2.1
+      crypto-random-string: ^5.0.0
       dayjs: ^1.11.5
       phosphor-react: ^1.4.1
       prettier: ^2.7.1
@@ -468,6 +469,7 @@ importers:
       autoprefixer: 10.4.13
       byte-size: 8.1.0
       clsx: 1.2.1
+      crypto-random-string: 5.0.0
       dayjs: 1.11.6
       phosphor-react: 1.4.1_react@18.2.0
       react: 18.2.0
@@ -8474,7 +8476,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.5
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 3.2.4_sass@1.56.1
+      vite: 3.2.4_@types+node@16.18.4
     transitivePeerDependencies:
       - supports-color
 
@@ -11026,6 +11028,13 @@ packages:
   /crypto-random-string/2.0.0:
     resolution: {integrity: sha512-v1plID3y9r/lPhviJ1wrXpLeyUIGAZ2SHNYTEapm7/8A9nLPoyvVp3RK/EPFqn5kEznyWgYZNsRtYYIWbuG8KA==}
     engines: {node: '>=8'}
+
+  /crypto-random-string/5.0.0:
+    resolution: {integrity: sha512-KWjTXWwxFd6a94m5CdRGW/t82Tr8DoBc9dNnPCAbFI1EBweN6v1tv8y4Y1m7ndkp/nkIBRxUxAzpaBnR2k3bcQ==}
+    engines: {node: '>=14.16'}
+    dependencies:
+      type-fest: 2.19.0
+    dev: false
 
   /cspell-dictionary/6.15.1:
     resolution: {integrity: sha512-VCx8URiNgOCYZkG6ThQKYMJ6jXyv4RC7C5H8yD8r3tBU81snYV4KWNqEdQCU9ClM+uHjz8FEANrF9hggB+KzuA==}
@@ -21567,6 +21576,11 @@ packages:
     engines: {node: '>=8'}
     dev: true
 
+  /type-fest/2.19.0:
+    resolution: {integrity: sha512-RAH822pAdBgcNMAfWnCBU3CFZcfZ/i1eZjwFU/dsLKumyuuP3niueg2UAukXYF0E2AAoc82ZSSf9J0WQBinzHA==}
+    engines: {node: '>=12.20'}
+    dev: false
+
   /type-is/1.6.18:
     resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}
     engines: {node: '>= 0.6'}
@@ -22300,7 +22314,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 3.2.4_sass@1.56.1
+      vite: 3.2.4_@types+node@16.18.4
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -22452,6 +22466,7 @@ packages:
       sass: 1.56.1
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}

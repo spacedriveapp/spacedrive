@@ -21,7 +21,8 @@ export interface Key {
 		objectCount?: number;
 		containerCount?: number;
 	};
-	default?: boolean; // need to make use of this within the UI
+	default?: boolean;
+	memoryOnly?: boolean;
 	// Nodes this key is mounted on
 	nodes?: string[]; // will be node object
 }
