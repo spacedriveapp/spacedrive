@@ -74,9 +74,8 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
-	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-for
+	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-form
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
-	// const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
 	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
 	const [showMasterPassword2, setShowMasterPassword2] = useState(false);

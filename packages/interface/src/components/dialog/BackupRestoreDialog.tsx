@@ -19,7 +19,7 @@ export interface BackupRestorationDialogProps {
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const platform = usePlatform();
-	const { register, handleSubmit, setValue } = useForm<FormValues>({
+	const { register, handleSubmit, reset } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
 			secretKey: ''
@@ -57,8 +57,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					}
 				}
 			);
-			setValue('masterPassword', '');
-			setValue('secretKey', '');
+			reset();
 			setFilePath('');
 		}
 	};

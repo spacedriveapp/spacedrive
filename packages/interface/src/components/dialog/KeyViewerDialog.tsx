@@ -2,7 +2,7 @@ import { useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { writeText } from '@tauri-apps/api/clipboard';
 import { Clipboard } from 'phosphor-react';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState } from 'react';
 
 import { getHashingAlgorithmString } from '../../screens/settings/library/KeysSetting';
 import { SelectOptionKeyList } from '../key/KeyList';
@@ -105,7 +105,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 				</div>
 				<div className="grid w-full gap-4 mt-4 mb-3">
 					<div className="flex flex-col">
-						<span className="text-xs font-bold">Key Value</span>
+						<span className="text-xs font-bold mb-2">Key Value</span>
 						<div className="relative flex flex-grow">
 							<Input value={keyValue} disabled className="flex-grow !py-0.5" />
 							<Button
@@ -121,13 +121,6 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 						</div>
 					</div>
 				</div>
-				{/* <div className="grid w-full gap-4 mt-4 mb-3">
-					<div className="flex flex-col">
-						<span className="text-xs font-bold">Properties</span>
-
-						<Input value={keyValue} disabled className="flex-grow !py-0.5" />
-					</div>
-				</div> */}
 			</Dialog>
 		</>
 	);
