@@ -22,9 +22,6 @@ export const SelectOptionKeyList = (props: { keys: string[] }) => {
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
-
-	// use a separate route so we get the default key from the key manager, not the database
-	// sometimes the key won't be stored in the database
 	const defaultKey = useLibraryQuery(['keys.getDefault']);
 
 	const [mountedKeys, unmountedKeys] = useMemo(
@@ -49,7 +46,8 @@ export const ListOfKeys = () => {
 							id: key.uuid,
 							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
 							mounted: mountedKeys.includes(key),
-							default: defaultKey.data === key.uuid
+							default: defaultKey.data === key.uuid,
+							memoryOnly: key.memory_only
 							// key stats need including here at some point
 						}}
 					/>
