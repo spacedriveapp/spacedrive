@@ -1,5 +1,5 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading } from '@sd/ui';
+import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, SelectOption } from '@sd/ui';
 import { useMemo } from 'react';
 
 import { DefaultProps } from '../primitive/types';
@@ -7,12 +7,21 @@ import { DummyKey, Key } from './Key';
 
 export type KeyListProps = DefaultProps;
 
+// ideal for going within a select box
+// can use mounted or unmounted keys, just provide different inputs
+export const SelectOptionKeyList = (props: { keys: string[] }) => {
+	return (
+		<>
+			{props.keys.map((key) => {
+				return <SelectOption value={key}>Key {key.substring(0, 8).toUpperCase()}</SelectOption>;
+			})}
+		</>
+	);
+};
+
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
-
-	// use a separate route so we get the default key from the key manager, not the database
-	// sometimes the key won't be stored in the database
 	const defaultKey = useLibraryQuery(['keys.getDefault']);
 
 	const [mountedKeys, unmountedKeys] = useMemo(
@@ -37,7 +46,8 @@ export const ListOfKeys = () => {
 							id: key.uuid,
 							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
 							mounted: mountedKeys.includes(key),
-							default: defaultKey.data === key.uuid
+							default: defaultKey.data === key.uuid,
+							memoryOnly: key.memory_only
 							// key stats need including here at some point
 						}}
 					/>
