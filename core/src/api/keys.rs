@@ -1,6 +1,7 @@
-use std::io::Write;
+use std::io::{Read, Write};
 use std::{path::PathBuf, str::FromStr};
 
+use sd_crypto::keys::keymanager::StoredKey;
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{hashing::HashingAlgorithm, keymanager::KeyManager},
@@ -322,59 +323,44 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("restoreKeystore", |t| {
 			t(|_, args: RestoreBackupArgs, library| async move {
-				// let mut input_file = std::fs::File::open(args.path).map_err(|_| {
-				// 	rspc::Error::new(
-				// 		rspc::ErrorCode::InternalServerError,
-				// 		"Error opening backup file".into(),
-				// 	)
-				// })?;
+				let mut input_file = std::fs::File::open(args.path).map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Error opening backup file".into(),
+					)
+				})?;
 
-				// let mut backup = Vec::new();
+				let mut backup = Vec::new();
 
-				// input_file.read_to_end(&mut backup).map_err(|_| {
-				// 	rspc::Error::new(
-				// 		rspc::ErrorCode::InternalServerError,
-				// 		"Error reading backup file".into(),
-				// 	)
-				// })?;
+				input_file.read_to_end(&mut backup).map_err(|_| {
+					rspc::Error::new(
+						rspc::ErrorCode::InternalServerError,
+						"Error reading backup file".into(),
+					)
+				})?;
 
-				// let stored_keys: Vec<StoredKey> =
-				// 	serde_json::from_slice(&backup).map_err(|_| {
-				// 		rspc::Error::new(
-				// 			rspc::ErrorCode::InternalServerError,
-				// 			"Error deserializing backup".into(),
-				// 		)
-				// 	})?;
+				let stored_keys: Vec<StoredKey> =
+					serde_json::from_slice(&backup).map_err(|_| {
+						rspc::Error::new(
+							rspc::ErrorCode::InternalServerError,
+							"Error deserializing backup".into(),
+						)
+					})?;
 
-				// let updated_keys = library.key_manager.import_keystore_backup(
-				// 	Protected::new(args.password),
-				// 	Protected::new(args.secret_key),
-				// 	&stored_keys,
-				// )?;
+				let updated_keys = library.key_manager.import_keystore_backup(
+					Protected::new(args.password),
+					Protected::new(args.secret_key),
+					&stored_keys,
+				)?;
 
-				// for key in &updated_keys {
-				// 	library
-				// 		.db
-				// 		.key()
-				// 		.create(
-				// 			key.uuid.to_string(),
-				// 			key.algorithm.serialize().to_vec(),
-				// 			key.hashing_algorithm.serialize().to_vec(),
-				// 			key.content_salt.to_vec(),
-				// 			key.master_key.to_vec(),
-				// 			key.master_key_nonce.to_vec(),
-				// 			key.key_nonce.to_vec(),
-				// 			key.key.to_vec(),
-				// 			vec![],
-				// 		)
-				// 		.exec()
-				// 		.await?;
-				// }
+				for key in &updated_keys {
+					write_storedkey_to_db(library.db.clone(), key).await?;
+				}
 
-				// invalidate_query!(library, "keys.list");
-				// invalidate_query!(library, "keys.listMounted");
+				invalidate_query!(library, "keys.list");
+				invalidate_query!(library, "keys.listMounted");
 
-				// Ok(updated_keys.len())
+				Ok(updated_keys.len())
 			})
 		})
 		.library_mutation("changeMasterPassword", |t| {
