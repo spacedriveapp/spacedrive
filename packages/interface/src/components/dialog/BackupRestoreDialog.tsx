@@ -1,10 +1,10 @@
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input } from '@sd/ui';
-import { open } from '@tauri-apps/api/dialog';
 import { Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
+import { usePlatform } from '../../util/Platform';
 import { GenericAlertDialogProps } from './AlertDialog';
 
 type FormValues = {
@@ -18,7 +18,8 @@ export interface BackupRestorationDialogProps {
 }
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
-	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
+	const platform = usePlatform();
+	const { register, handleSubmit, setValue } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
 			secretKey: ''
@@ -124,7 +125,12 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 							variant={filePath !== '' ? 'accent' : 'gray'}
 							type="button"
 							onClick={() => {
-								open()?.then((result) => {
+								if (!platform.openFilePickerDialog) {
+									// TODO: Support opening locations on web
+									alert('Opening a dialogue is not supported on this platform!');
+									return;
+								}
+								platform.openFilePickerDialog().then((result) => {
 									if (result) setFilePath(result as string);
 								});
 							}}

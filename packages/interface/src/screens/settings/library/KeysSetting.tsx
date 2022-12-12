@@ -7,7 +7,6 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Input } from '@sd/ui';
-import { save } from '@tauri-apps/api/dialog';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
@@ -22,6 +21,7 @@ import { KeyMounter } from '../../../components/key/KeyMounter';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 import { SettingsSubHeader } from '../../../components/settings/SettingsSubHeader';
+import { usePlatform } from '../../../util/Platform';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
@@ -83,6 +83,7 @@ export const KeyMounterDropdown = ({
 };
 
 export default function KeysSettings() {
+	const platform = usePlatform();
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
 	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
 	const unmountAll = useLibraryMutation('keys.unmountAll');
@@ -244,8 +245,12 @@ export default function KeysSettings() {
 							className="mr-2"
 							type="button"
 							onClick={() => {
-								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
-								save()?.then((result) => {
+								if (!platform.saveFilePickerDialog) {
+									// TODO: Support opening locations on web
+									alert('Opening a dialogue is not supported on this platform!');
+									return;
+								}
+								platform.saveFilePickerDialog().then((result) => {
 									if (result) backupKeystore.mutate(result as string);
 								});
 							}}

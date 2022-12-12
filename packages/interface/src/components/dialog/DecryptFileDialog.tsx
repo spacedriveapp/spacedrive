@@ -1,8 +1,8 @@
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog } from '@sd/ui';
-import { save } from '@tauri-apps/api/dialog';
 import { useState } from 'react';
 
+import { usePlatform } from '../../util/Platform';
 import { GenericAlertDialogProps } from './AlertDialog';
 
 interface DecryptDialogProps {
@@ -14,6 +14,7 @@ interface DecryptDialogProps {
 }
 
 export const DecryptFileDialog = (props: DecryptDialogProps) => {
+	const platform = usePlatform();
 	const { location_id, object_id } = props;
 	const decryptFile = useLibraryMutation('files.decryptFiles');
 	const [outputPath, setOutputpath] = useState('');
@@ -74,8 +75,12 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 							type="button"
 							onClick={() => {
 								// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
-								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
-								save()?.then((result) => {
+								if (!platform.saveFilePickerDialog) {
+									// TODO: Support opening locations on web
+									alert('Opening a dialogue is not supported on this platform!');
+									return;
+								}
+								platform.saveFilePickerDialog().then((result) => {
 									if (result) setOutputpath(result as string);
 								});
 							}}

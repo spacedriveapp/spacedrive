@@ -1,12 +1,12 @@
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Select, SelectOption } from '@sd/ui';
-import { save } from '@tauri-apps/api/dialog';
 import { useState } from 'react';
 
 import {
 	getCryptoSettings,
 	getHashingAlgorithmString
 } from '../../screens/settings/library/KeysSetting';
+import { usePlatform } from '../../util/Platform';
 import { SelectOptionKeyList } from '../key/KeyList';
 import { Checkbox } from '../primitive/Checkbox';
 import { GenericAlertDialogProps } from './AlertDialog';
@@ -20,6 +20,7 @@ interface EncryptDialogProps {
 }
 
 export const EncryptFileDialog = (props: EncryptDialogProps) => {
+	const platform = usePlatform();
 	const { location_id, object_id } = props;
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
@@ -112,7 +113,6 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 								UpdateKey(e);
 							}}
 						>
-							{/* this only returns MOUNTED keys. we could include unmounted keys, but then we'd have to prompt the user to mount them too */}
 							{mountedUuids.data && <SelectOptionKeyList keys={mountedUuids.data} />}
 						</Select>
 					</div>
@@ -126,8 +126,12 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							type="button"
 							onClick={() => {
 								// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
-								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
-								save()?.then((result) => {
+								if (!platform.saveFilePickerDialog) {
+									// TODO: Support opening locations on web
+									alert('Opening a dialogue is not supported on this platform!');
+									return;
+								}
+								platform.saveFilePickerDialog().then((result) => {
 									if (result) setOutputpath(result as string);
 								});
 							}}
