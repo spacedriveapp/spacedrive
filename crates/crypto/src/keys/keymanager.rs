@@ -78,6 +78,7 @@ pub struct StoredKey {
 	pub key_nonce: Vec<u8>,        // nonce used for encrypting the main key
 	pub key: Vec<u8>, // encrypted. the key stored in spacedrive (e.g. generated 64 char key)
 	pub memory_only: bool,
+	pub automount: bool,
 }
 
 /// This is a mounted key, and needs to be kept somewhat hidden.
@@ -200,6 +201,7 @@ impl KeyManager {
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
 			memory_only: false,
+			automount: false,
 		};
 
 		let secret_key = Self::format_secret_key(&salt);
@@ -320,10 +322,9 @@ impl KeyManager {
 	}
 
 	pub fn is_memory_only(&self, uuid: Uuid) -> Result<bool> {
-		if let Some(key) = self.keystore.get(&uuid) {
-			Ok(key.memory_only)
-		} else {
-			Err(Error::KeyNotFound)
+		match self.keystore.get(&uuid) {
+			Some(key) => Ok(key.memory_only),
+			None => Err(Error::KeyNotFound),
 		}
 	}
 
@@ -377,6 +378,7 @@ impl KeyManager {
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
 			memory_only: false,
+			automount: false,
 		};
 
 		*self.verification_key.lock()? = Some(verification_key.clone());
@@ -857,6 +859,21 @@ impl KeyManager {
 		}
 	}
 
+	pub fn change_automount_status(&self, uuid: Uuid, status: bool) -> Result<()> {
+		let updated_key = match self.keystore.get(&uuid) {
+			Some(key) => {
+				let mut updated_key = key.clone();
+				updated_key.automount = status;
+				Ok(updated_key)
+			}
+			None => Err(Error::KeyNotFound),
+		}?;
+
+		self.keystore.remove(&uuid);
+		self.keystore.insert(uuid, updated_key);
+		Ok(())
+	}
+
 	/// This function is for getting an entire collection of hashed keys.
 	///
 	/// These are ideal for passing over to decryption functions, as each decryption attempt is negligible, performance wise.
@@ -886,6 +903,7 @@ impl KeyManager {
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		memory_only: bool,
+		automount: bool,
 	) -> Result<Uuid> {
 		let uuid = uuid::Uuid::new_v4();
 
@@ -919,6 +937,7 @@ impl KeyManager {
 			key_nonce,
 			key: encrypted_key,
 			memory_only,
+			automount,
 		};
 
 		// Insert it into the Keystore

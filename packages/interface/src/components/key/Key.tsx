@@ -3,7 +3,7 @@ import { useLibraryMutation } from '@sd/client';
 import { Button, ContextMenu } from '@sd/ui';
 import clsx from 'clsx';
 import { DotsThree, Eye, Key as KeyIcon } from 'phosphor-react';
-import { PropsWithChildren, useState } from 'react';
+import { MouseEventHandler, PropsWithChildren, ReactNode, useState } from 'react';
 import { animated, config, useTransition } from 'react-spring';
 
 import { DefaultProps } from '../primitive/types';
@@ -23,6 +23,7 @@ export interface Key {
 	};
 	default?: boolean;
 	memoryOnly?: boolean;
+	automount?: boolean;
 	// Nodes this key is mounted on
 	nodes?: string[]; // will be node object
 }
@@ -91,6 +92,7 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 	const unmountKey = useLibraryMutation('keys.unmount');
 	const deleteKey = useLibraryMutation('keys.deleteFromLibrary');
 	const setDefaultKey = useLibraryMutation('keys.setDefault');
+	const changeAutomountStatus = useLibraryMutation('keys.updateAutomountStatus');
 
 	return (
 		<div
@@ -155,50 +157,66 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 						</Button>
 					}
 				>
-					{data.mounted && (
-						<DropdownMenu.DropdownMenuItem
-							className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80"
-							onClick={(e) => {
-								unmountKey.mutate(data.id);
-							}}
-						>
-							Unmount
-						</DropdownMenu.DropdownMenuItem>
-					)}
-
-					{!data.mounted && (
-						<DropdownMenu.DropdownMenuItem
-							className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80"
-							onClick={(e) => {
-								mountKey.mutate(data.id);
-							}}
-						>
-							Mount
-						</DropdownMenu.DropdownMenuItem>
-					)}
-
-					<DropdownMenu.DropdownMenuItem
-						className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80"
-						onClick={(e) => {
+					<KeyDropdownItem
+						onClick={() => {
+							unmountKey.mutate(data.id);
+						}}
+						hidden={!data.mounted}
+						value="Unmount"
+					/>
+					<KeyDropdownItem
+						onClick={() => {
+							mountKey.mutate(data.id);
+						}}
+						hidden={data.mounted}
+						value="Mount"
+					/>
+					<KeyDropdownItem
+						onClick={() => {
 							deleteKey.mutate(data.id);
 						}}
-					>
-						Delete from Library
-					</DropdownMenu.DropdownMenuItem>
-
-					{!data.default && (
-						<DropdownMenu.DropdownMenuItem
-							className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80"
-							onClick={(e) => {
-								setDefaultKey.mutate(data.id);
-							}}
-						>
-							Set as Default
-						</DropdownMenu.DropdownMenuItem>
-					)}
+						value="Delete from Library"
+					/>
+					<KeyDropdownItem
+						onClick={() => {
+							setDefaultKey.mutate(data.id);
+						}}
+						hidden={data.default}
+						value="Set as Default"
+					/>
+					<KeyDropdownItem
+						onClick={() => {
+							changeAutomountStatus.mutate({ uuid: data.id, status: false });
+						}}
+						hidden={!data.automount || data.memoryOnly}
+						value="Disable Automount"
+					/>
+					<KeyDropdownItem
+						onClick={() => {
+							changeAutomountStatus.mutate({ uuid: data.id, status: true });
+						}}
+						hidden={data.automount || data.memoryOnly}
+						value="Enable Automount"
+					/>
 				</KeyDropdown>
 			</div>
 		</div>
+	);
+};
+
+export const KeyDropdownItem = (props: {
+	value: string;
+	hidden?: boolean | undefined;
+	onClick: () => void;
+}) => {
+	return (
+		<DropdownMenu.DropdownMenuItem
+			className="!cursor-default select-none text-menu-ink focus:outline-none py-0.5 active:opacity-80"
+			onClick={props.onClick}
+			hidden={props.hidden}
+		>
+			{props.value}
+		</DropdownMenu.DropdownMenuItem>
 	);
 };
 

@@ -145,6 +145,7 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 				)
 				.unwrap(),
 				memory_only: false,
+				automount: key.automount,
 			}
 		})
 		.collect();
