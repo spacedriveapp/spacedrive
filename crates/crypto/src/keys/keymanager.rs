@@ -112,20 +112,37 @@ pub struct KeyManager {
 pub struct OnboardingBundle {
 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
 	pub master_password: Protected<String>,
-	pub secret_key: Protected<String>, // base64 encoded string that is required along with the master password
+	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
 }
 
 pub struct MasterPasswordChangeBundle {
 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
-	pub secret_key: Protected<String>, // base64 encoded string that is required along with the master password
+	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
 	pub updated_keystore: Vec<StoredKey>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
+	fn format_secret_key(salt: &[u8; 16]) -> Protected<String> {
+		let hex_string: String = hex::encode_upper(salt)
+			.chars()
+			.enumerate()
+			.map(|(i, c)| {
+				if (i + 1) % 8 == 0 && i != 31 {
+					c.to_string() + "-"
+				} else {
+					c.to_string()
+				}
+			})
+			.into_iter()
+			.collect();
+
+		Protected::new(hex_string)
+	}
+
 	/// This should be used to generate everything for the user during onboarding.
 	///
-	/// This will create a master password (a 7-word diceware passphrase), and a secret key (16 bytes, encoded in base64)
+	/// This will create a master password (a 7-word diceware passphrase), and a secret key (16 bytes, hex encoded)
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
@@ -183,7 +200,7 @@ impl KeyManager {
 			key: encrypted_root_key,
 		};
 
-		let secret_key = Protected::new(base64::encode(salt));
+		let secret_key = Self::format_secret_key(&salt);
 
 		let onboarding_bundle = OnboardingBundle {
 			verification_key,
@@ -333,7 +350,7 @@ impl KeyManager {
 	// 				Err(Error::IncorrectPassword)
 	// 			}?;
 
-	// 			let master_key_nonce = generate_nonce(algorithm);
+	// 			let master_key_nonce = generate_nonce(stored_key.algorithm);
 
 	// 			// Encrypt the master key with the user's hashed password
 	// 			let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
@@ -383,7 +400,7 @@ impl KeyManager {
 	// 		key: Vec::new(),
 	// 	};
 
-	// 	let secret_key = Protected::new(base64::encode(salt));
+	// let secret_key = Self::format_secret_key(&salt);
 
 	// 	let mpc_bundle = MasterPasswordChangeBundle {
 	// 		verification_key,
@@ -399,26 +416,15 @@ impl KeyManager {
 	// 	Ok(mpc_bundle)
 	// }
 
-	/// Used internally to convert a `Protected<String>` to a `Protected<Vec<u8>>`
-	#[allow(clippy::unused_self)]
-	#[allow(clippy::needless_pass_by_value)]
-	fn convert_master_password_string(
-		&self,
-		master_password: Protected<String>,
-	) -> Protected<Vec<u8>> {
-		Protected::new(master_password.expose().as_bytes().to_vec())
-	}
-
-	/// Used internally to convert from a base64-encoded `Protected<String>` to a `Protected<[u8; SALT_LEN]>` in a secretive manner.
+	/// Used internally to convert from a hex-encoded `Protected<String>` to a `Protected<[u8; SALT_LEN]>` in a secretive manner.
 	///
 	/// If the secret key is wrong (not base64 or not the correct length), a filler secret key will be inserted secretly.
-	#[allow(clippy::unused_self)]
 	#[allow(clippy::needless_pass_by_value)]
-	fn convert_secret_key_string(
-		&self,
-		secret_key: Protected<String>,
-	) -> Protected<[u8; SALT_LEN]> {
-		let secret_key = if let Ok(secret_key) = base64::decode(secret_key.expose()) {
+	fn convert_secret_key_string(secret_key: Protected<String>) -> Protected<[u8; SALT_LEN]> {
+		let mut secret_key_clean = secret_key.expose().clone();
+		secret_key_clean.retain(|c| c != '-');
+
+		let secret_key = if let Ok(secret_key) = hex::decode(secret_key_clean) {
 			secret_key
 		} else {
 			Vec::new()
@@ -526,8 +532,8 @@ impl KeyManager {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoVerificationKey),
 		}?;
-		let master_password = self.convert_master_password_string(master_password);
-		let secret_key = self.convert_secret_key_string(secret_key);
+		let master_password = Protected::new(master_password.expose().as_bytes().to_vec());
+		let secret_key = Self::convert_secret_key_string(secret_key);
 
 		let hashed_master_password = verification_key
 			.hashing_algorithm
@@ -564,6 +570,14 @@ impl KeyManager {
 		*self.root_key.lock()? = None;
 
 		Ok(())
+	}
+
+	pub fn keystore_contains(&self, uuid: Uuid) -> bool {
+		self.keystore.contains_key(&uuid)
+	}
+
+	pub fn keymount_contains(&self, uuid: Uuid) -> bool {
+		self.keymount.contains_key(&uuid)
 	}
 
 	/// This function is used for seeing if the key manager has a master password.

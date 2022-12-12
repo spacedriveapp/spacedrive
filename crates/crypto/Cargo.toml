@@ -1,7 +1,7 @@
 [package]
 name = "sd-crypto"
 version = "0.0.0"
-authors = ["Jake <brxken128@tutanota.com>"]
+authors = ["Jake Robinson <jake@spacedrive.com>"]
 readme = "README.md"
 description = "A library to handle cryptographic functions within Spacedrive"
 edition = "2021"
@@ -38,8 +38,26 @@ dashmap = "5.4.0"
 rspc = { workspace = true, optional = true }
 specta = { workspace = true, optional = true }
 
-base64 = "0.13.1"
+hex = "0.4.3"
+
+[dev-dependencies]
+criterion = "0.4.0"
 
 [features]
 rspc = ["dep:rspc", "dep:specta"]
 serde = ["dep:serde", "dep:serde_json", "dep:serde-big-array", "uuid/serde"]
+
+[[bench]]
+name = "aes-256-gcm"
+path = "benches/aes-256-gcm.rs"
+harness = false
+
+[[bench]]
+name = "xchacha20-poly1305"
+path = "benches/xchacha20-poly1305.rs"
+harness = false
+
+[[bench]]
+name = "argon2id"
+path = "benches/argon2id.rs"
+harness = false

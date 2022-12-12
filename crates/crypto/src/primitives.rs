@@ -5,7 +5,14 @@
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use zeroize::Zeroize;
 
-use crate::{crypto::stream::Algorithm, Error, Protected, Result};
+use crate::{
+	crypto::stream::Algorithm,
+	header::{
+		file::FileHeaderVersion, keyslot::KeyslotVersion, metadata::MetadataVersion,
+		preview_media::PreviewMediaVersion,
+	},
+	Error, Protected, Result,
+};
 
 /// This is the default salt size, and the recommended size for argon2id.
 pub const SALT_LEN: usize = 16;
@@ -22,6 +29,11 @@ pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
 pub const MASTER_KEY_LEN: usize = 32;
 
 pub const PASSPHRASE_LEN: usize = 7;
+
+pub const LATEST_FILE_HEADER: FileHeaderVersion = FileHeaderVersion::V1;
+pub const LATEST_KEYSLOT: KeyslotVersion = KeyslotVersion::V1;
+pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
+pub const LATEST_PREVIEW_MEDIA: PreviewMediaVersion = PreviewMediaVersion::V1;
 
 /// This should be used for generating nonces for encryption.
 ///

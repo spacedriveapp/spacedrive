@@ -1,6 +1,15 @@
-use crate::{invalidate_query, prisma::object};
+use crate::{
+	invalidate_query,
+	job::Job,
+	location::fetch_location,
+	object::fs::{
+		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
+		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
+	},
+	prisma::object,
+};
 
-use rspc::Type;
+use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 
 use super::{utils::LibraryRequest, RouterBuilder};
@@ -69,6 +78,48 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				invalidate_query!(library, "locations.getExplorerData");
+				Ok(())
+			})
+		})
+		.library_mutation("encryptFiles", |t| {
+			t(|_, args: FileEncryptorJobInit, library| async move {
+				if fetch_location(&library, args.location_id)
+					.exec()
+					.await?
+					.is_none()
+				{
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Location not found".into(),
+					));
+				}
+
+				library
+					.spawn_job(Job::new(args, Box::new(FileEncryptorJob {})))
+					.await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("decryptFiles", |t| {
+			t(|_, args: FileDecryptorJobInit, library| async move {
+				if fetch_location(&library, args.location_id)
+					.exec()
+					.await?
+					.is_none()
+				{
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Location not found".into(),
+					));
+				}
+
+				library
+					.spawn_job(Job::new(args, Box::new(FileDecryptorJob {})))
+					.await;
+				invalidate_query!(library, "locations.getExplorerData");
+
 				Ok(())
 			})
 		})
