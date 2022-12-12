@@ -86,7 +86,10 @@ export function KeyMounter() {
 						className="bg-app-selected"
 						size="sm"
 						checked={librarySync}
-						onCheckedChange={setLibrarySync}
+						onCheckedChange={(e) => {
+							if (autoMount && e) setAutoMount(false);
+							setLibrarySync(e);
+						}}
 					/>
 				</div>
 				<span className="ml-3 text-xs font-medium">Sync with Library</span>
@@ -99,7 +102,10 @@ export function KeyMounter() {
 						className="bg-app-selected"
 						size="sm"
 						checked={autoMount}
-						onCheckedChange={setAutoMount}
+						onCheckedChange={(e) => {
+							if (librarySync && e) setLibrarySync(false);
+							setAutoMount(e);
+						}}
 					/>
 				</div>
 				<span className="ml-3 text-xs font-medium">Automount</span>
