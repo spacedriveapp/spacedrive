@@ -14,7 +14,7 @@ type FormValues = {
 
 export interface BackupRestorationDialogProps {
 	trigger: ReactNode;
-	setDialogData: (data: GenericAlertDialogProps) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
@@ -37,7 +37,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 				{
 					onSuccess: (total) => {
 						setShowBackupRestoreDialog(false);
-						props.setDialogData({
+						props.setAlertDialogData({
 							open: true,
 							title: 'Import Successful',
 							description: '',
@@ -47,7 +47,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					},
 					onError: () => {
 						setShowBackupRestoreDialog(false);
-						props.setDialogData({
+						props.setAlertDialogData({
 							open: true,
 							title: 'Import Error',
 							description: '',
@@ -126,7 +126,13 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 							onClick={() => {
 								if (!platform.openFilePickerDialog) {
 									// TODO: Support opening locations on web
-									alert('Opening a dialogue is not supported on this platform!');
+									props.setAlertDialogData({
+										open: true,
+										title: 'Error',
+										description: '',
+										value: 'Opening system dialogs is not supported on this platform.',
+										inputBox: false
+									});
 									return;
 								}
 								platform.openFilePickerDialog().then((result) => {

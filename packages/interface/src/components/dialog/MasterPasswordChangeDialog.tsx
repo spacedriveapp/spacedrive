@@ -13,7 +13,7 @@ import { GenericAlertDialogProps } from './AlertDialog';
 
 export interface MasterPasswordChangeDialogProps {
 	trigger: ReactNode;
-	setDialogData: (data: GenericAlertDialogProps) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
 	type FormValues = {
@@ -30,7 +30,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
 		if (data.masterPassword !== data.masterPassword2) {
-			props.setDialogData({
+			props.setAlertDialogData({
 				open: true,
 				title: 'Error',
 				description: '',
@@ -45,7 +45,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 				{
 					onSuccess: (sk) => {
 						setShowMasterPasswordDialog(false);
-						props.setDialogData({
+						props.setAlertDialogData({
 							open: true,
 							title: 'Secret Key',
 							description:
@@ -57,7 +57,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 					onError: () => {
 						// this should never really happen
 						setShowMasterPasswordDialog(false);
-						props.setDialogData({
+						props.setAlertDialogData({
 							open: true,
 							title: 'Master Password Change Error',
 							description: '',

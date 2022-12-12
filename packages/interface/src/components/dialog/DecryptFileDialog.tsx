@@ -77,7 +77,13 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 								// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
 								if (!platform.saveFilePickerDialog) {
 									// TODO: Support opening locations on web
-									alert('Opening a dialogue is not supported on this platform!');
+									props.setAlertDialogData({
+										open: true,
+										title: 'Error',
+										description: '',
+										value: 'Opening system dialogs is not supported on this platform.',
+										inputBox: false
+									});
 									return;
 								}
 								platform.saveFilePickerDialog().then((result) => {

@@ -221,7 +221,7 @@ export default function KeysSettings() {
 					<SettingsSubHeader title="Password Options" />
 					<div className="flex flex-row">
 						<MasterPasswordChangeDialog
-							setDialogData={setAlertDialogData}
+							setAlertDialogData={setAlertDialogData}
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">
 									Change Master Password
@@ -247,7 +247,13 @@ export default function KeysSettings() {
 							onClick={() => {
 								if (!platform.saveFilePickerDialog) {
 									// TODO: Support opening locations on web
-									alert('Opening a dialogue is not supported on this platform!');
+									setAlertDialogData({
+										open: true,
+										title: 'Error',
+										description: '',
+										value: 'Opening system dialogs is not supported on this platform.',
+										inputBox: false
+									});
 									return;
 								}
 								platform.saveFilePickerDialog().then((result) => {
@@ -258,7 +264,7 @@ export default function KeysSettings() {
 							Backup
 						</Button>
 						<BackupRestoreDialog
-							setDialogData={setAlertDialogData}
+							setAlertDialogData={setAlertDialogData}
 							trigger={
 								<Button size="sm" variant="gray" className="mr-2">
 									Restore
