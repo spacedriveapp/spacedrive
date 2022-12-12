@@ -130,14 +130,16 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("deleteFromLibrary", |t| {
 			t(|_, key_uuid: uuid::Uuid, library| async move {
-				library.key_manager.remove_key(key_uuid)?;
+				if !library.key_manager.is_memory_only(key_uuid)? {
+					library
+						.db
+						.key()
+						.delete(key::uuid::equals(key_uuid.to_string()))
+						.exec()
+						.await?;
+				}
 
-				library
-					.db
-					.key()
-					.delete(key::uuid::equals(key_uuid.to_string()))
-					.exec()
-					.await?;
+				library.key_manager.remove_key(key_uuid)?;
 
 				// we also need to delete all in-memory decrypted data associated with this key
 				invalidate_query!(library, "keys.list");
@@ -276,13 +278,12 @@ pub(crate) fn mount() -> RouterBuilder {
 					Protected::new(args.key.as_bytes().to_vec()),
 					args.algorithm,
 					args.hashing_algorithm,
+					!args.library_sync,
 				)?;
 
 				let stored_key = library.key_manager.access_keystore(uuid)?;
 
-				if args.library_sync {
-					write_storedkey_to_db(library.db.clone(), &stored_key).await?;
-				}
+				write_storedkey_to_db(library.db.clone(), &stored_key).await?;
 
 				// mount the key
 				library.key_manager.mount(uuid)?;
@@ -298,6 +299,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let mut stored_keys = library.key_manager.dump_keystore();
 				// include the verification key at the time of backup
 				stored_keys.push(library.key_manager.get_verification_key()?);
+				stored_keys.retain(|k| !k.memory_only);
 
 				let mut output_file = std::fs::File::create(path).map_err(|_| {
 					rspc::Error::new(

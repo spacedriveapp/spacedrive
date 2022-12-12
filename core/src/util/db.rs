@@ -44,24 +44,28 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 	Ok(client)
 }
 
+/// This writes a `StoredKey` to prisma
+/// If the key is marked as memory-only, it is skipped
 pub async fn write_storedkey_to_db(
 	db: Arc<PrismaClient>,
 	key: &StoredKey,
 ) -> Result<(), QueryError> {
-	db.key()
-		.create(
-			key.uuid.to_string(),
-			key.algorithm.serialize().to_vec(),
-			key.hashing_algorithm.serialize().to_vec(),
-			key.content_salt.to_vec(),
-			key.master_key.to_vec(),
-			key.master_key_nonce.to_vec(),
-			key.key_nonce.to_vec(),
-			key.key.to_vec(),
-			vec![],
-		)
-		.exec()
-		.await?;
+	if !key.memory_only {
+		db.key()
+			.create(
+				key.uuid.to_string(),
+				key.algorithm.serialize().to_vec(),
+				key.hashing_algorithm.serialize().to_vec(),
+				key.content_salt.to_vec(),
+				key.master_key.to_vec(),
+				key.master_key_nonce.to_vec(),
+				key.key_nonce.to_vec(),
+				key.key.to_vec(),
+				vec![],
+			)
+			.exec()
+			.await?;
+	}
 
 	Ok(())
 }

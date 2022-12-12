@@ -77,6 +77,7 @@ pub struct StoredKey {
 	pub master_key_nonce: Vec<u8>, // nonce for encrypting the master key
 	pub key_nonce: Vec<u8>,        // nonce used for encrypting the main key
 	pub key: Vec<u8>, // encrypted. the key stored in spacedrive (e.g. generated 64 char key)
+	pub memory_only: bool,
 }
 
 /// This is a mounted key, and needs to be kept somewhat hidden.
@@ -198,6 +199,7 @@ impl KeyManager {
 			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
+			memory_only: false,
 		};
 
 		let secret_key = Self::format_secret_key(&salt);
@@ -317,6 +319,14 @@ impl KeyManager {
 		}
 	}
 
+	pub fn is_memory_only(&self, uuid: Uuid) -> Result<bool> {
+		if let Some(key) = self.keystore.get(&uuid) {
+			Ok(key.memory_only)
+		} else {
+			Err(Error::KeyNotFound)
+		}
+	}
+
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn change_master_password(
 		&self,
@@ -366,6 +376,7 @@ impl KeyManager {
 			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
+			memory_only: false,
 		};
 
 		*self.verification_key.lock()? = Some(verification_key.clone());
@@ -874,6 +885,7 @@ impl KeyManager {
 		key: Protected<Vec<u8>>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
+		memory_only: bool,
 	) -> Result<Uuid> {
 		let uuid = uuid::Uuid::new_v4();
 
@@ -906,6 +918,7 @@ impl KeyManager {
 			master_key_nonce,
 			key_nonce,
 			key: encrypted_key,
+			memory_only,
 		};
 
 		// Insert it into the Keystore

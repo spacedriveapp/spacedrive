@@ -144,6 +144,7 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 					to_array(key.hashing_algorithm).unwrap(),
 				)
 				.unwrap(),
+				memory_only: false,
 			}
 		})
 		.collect();
