@@ -94,20 +94,24 @@ impl StatefulJob for ThumbnailJob {
 			.await?
 			.ok_or(ThumbnailError::MissingLocation(state.init.location_id))?;
 
+		let root_path_str = state
+			.init
+			.root_path
+			.to_str()
+			.expect("Found non-UTF-8 path")
+			.to_string();
+
 		let parent_directory_id = ctx
 			.library_ctx
 			.db
 			.file_path()
 			.find_first(vec![
 				file_path::location_id::equals(state.init.location_id),
-				file_path::materialized_path::equals(
-					state
-						.init
-						.root_path
-						.to_str()
-						.expect("Found non-UTF-8 path")
-						.to_string(),
-				),
+				file_path::materialized_path::equals(if !root_path_str.is_empty() {
+					root_path_str
+				} else {
+					"/".to_string()
+				}),
 				file_path::is_dir::equals(true),
 			])
 			.select(file_path_id_only::select())

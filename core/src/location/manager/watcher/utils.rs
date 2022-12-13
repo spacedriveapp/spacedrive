@@ -71,24 +71,7 @@ pub(super) async fn create_dir(
 		);
 
 		if let Some(subpath) = subtract_location_path(location_local_path, &event.paths[0]) {
-			let subpath_str = subpath.to_str().expect("Found non-UTF-8 path").to_string();
-			let parent_directory = library_ctx
-				.db
-				.file_path()
-				.find_first(vec![
-					// We have an empty `materialized_path` for each location_id
-					file_path::location_id::equals(location.id),
-					file_path::materialized_path::equals(
-						subpath
-							.parent()
-							.unwrap_or_else(|| Path::new(""))
-							.to_str()
-							.expect("Found non-UTF-8 path")
-							.to_string(),
-					),
-				])
-				.exec()
-				.await?;
+			let parent_directory = get_parent_dir(location.id, &subpath, &library_ctx).await?;
 
 			trace!("parent_directory: {:?}", parent_directory);
 
@@ -96,7 +79,7 @@ pub(super) async fn create_dir(
 				let created_path = create_file_path(
 					&library_ctx,
 					location.id,
-					subpath_str,
+					subpath.to_str().expect("Found non-UTF-8 path").to_string(),
 					subpath
 						.file_stem()
 						.unwrap()
@@ -239,7 +222,7 @@ pub(super) async fn file_creation_or_update(
 ) -> Result<(), LocationManagerError> {
 	if let Some(ref location_local_path) = location.local_path {
 		if let Some(file_path) =
-			get_existing_file_path(&location, &event.paths[0], library_ctx).await?
+			get_existing_file_path(&location, &event.paths[0], false, library_ctx).await?
 		{
 			inner_update_file(location_local_path, file_path, event, library_ctx).await
 		} else {
@@ -258,11 +241,11 @@ pub(super) async fn update_file(
 ) -> Result<(), LocationManagerError> {
 	if let Some(ref location_local_path) = location.local_path {
 		if let Some(file_path) =
-			get_existing_file_path(&location, &event.paths[0], library_ctx).await?
+			get_existing_file_path(&location, &event.paths[0], false, library_ctx).await?
 		{
 			let ret = inner_update_file(location_local_path, file_path, event, library_ctx).await;
 			invalidate_query!(library_ctx, "locations.getExplorerData");
-			return ret;
+			ret
 		} else {
 			Err(LocationManagerError::UpdateNonExistingFile(
 				event.paths[0].clone(),
@@ -361,27 +344,36 @@ pub(super) async fn rename(
 	location: indexer_job_location::Data,
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
-	let old_path_materialized = extract_materialized_path(&location, old_path.as_ref())?
+	let mut old_path_materialized = extract_materialized_path(&location, old_path.as_ref())?
 		.to_str()
 		.expect("Found non-UTF-8 path")
 		.to_string();
-	let new_path_materialized = extract_materialized_path(&location, new_path.as_ref())?;
 
-	if let Some(file_path) = get_existing_file_path(&location, old_path, library_ctx).await? {
+	let new_path_materialized = extract_materialized_path(&location, new_path.as_ref())?;
+	let mut new_path_materialized_str = new_path_materialized
+		.to_str()
+		.expect("Found non-UTF-8 path")
+		.to_string();
+
+	if let Some(file_path) =
+		get_existing_file_or_directory(&location, old_path, library_ctx).await?
+	{
 		// If the renamed path is a directory, we have to update every successor
 		if file_path.is_dir {
+			if !old_path_materialized.ends_with('/') {
+				old_path_materialized += "/";
+			}
+			if !new_path_materialized_str.ends_with('/') {
+				new_path_materialized_str += "/";
+			}
+
 			let updated = library_ctx
 				.db
 				._execute_raw(
 					raw!(
 						"UPDATE file_path SET materialized_path = REPLACE(materialized_path, {}, {}) WHERE location_id = {}",
 						PrismaValue::String(old_path_materialized),
-						PrismaValue::String(
-							new_path_materialized
-							.to_str()
-							.expect("Found non-UTF-8 path")
-								.to_string()
-						),
+						PrismaValue::String(new_path_materialized_str.clone()),
 						PrismaValue::Int(location.id as i64)
 					)
 				)
@@ -396,12 +388,7 @@ pub(super) async fn rename(
 			.update(
 				file_path::location_id_id(file_path.location_id, file_path.id),
 				vec![
-					file_path::materialized_path::set(
-						new_path_materialized
-							.to_str()
-							.expect("Found non-UTF-8 path")
-							.to_string(),
-					),
+					file_path::materialized_path::set(new_path_materialized_str),
 					file_path::name::set(
 						new_path_materialized
 							.file_stem()
@@ -433,8 +420,9 @@ pub(super) async fn remove_event(
 ) -> Result<(), LocationManagerError> {
 	trace!("removed {remove_kind:#?}");
 
-	// check if path exists in our db, if it doesn't, then we don't care
-	if let Some(file_path) = get_existing_file_path(&location, &event.paths[0], library_ctx).await?
+	// if it doesn't either way, then we don't care
+	if let Some(file_path) =
+		get_existing_file_or_directory(&location, &event.paths[0], library_ctx).await?
 	{
 		// check file still exists on disk
 		match fs::metadata(&event.paths[0]).await {
@@ -495,16 +483,22 @@ fn extract_materialized_path(
 async fn get_existing_file_path(
 	location: &indexer_job_location::Data,
 	path: impl AsRef<Path>,
+	is_dir: bool,
 	library_ctx: &LibraryContext,
 ) -> Result<Option<file_path_with_object::Data>, LocationManagerError> {
+	let mut materialized_path = extract_materialized_path(location, path)?
+		.to_str()
+		.expect("Found non-UTF-8 path")
+		.to_string();
+	if is_dir && !materialized_path.ends_with('/') {
+		materialized_path += "/";
+	}
+
 	library_ctx
 		.db
 		.file_path()
 		.find_first(vec![file_path::materialized_path::equals(
-			extract_materialized_path(location, path)?
-				.to_str()
-				.expect("Found non-UTF-8 path")
-				.to_string(),
+			materialized_path,
 		)])
 		// include object for orphan check
 		.include(file_path_with_object::include())
@@ -513,25 +507,47 @@ async fn get_existing_file_path(
 		.map_err(Into::into)
 }
 
+async fn get_existing_file_or_directory(
+	location: &indexer_job_location::Data,
+	path: impl AsRef<Path>,
+	library_ctx: &LibraryContext,
+) -> Result<Option<file_path_with_object::Data>, LocationManagerError> {
+	let mut maybe_file_path =
+		get_existing_file_path(location, path.as_ref(), false, library_ctx).await?;
+	// First we just check if this path was a file in our db, if it isn't then we check for a directory
+	if maybe_file_path.is_none() {
+		maybe_file_path =
+			get_existing_file_path(location, path.as_ref(), true, library_ctx).await?;
+	}
+
+	Ok(maybe_file_path)
+}
+
 async fn get_parent_dir(
 	location_id: LocationId,
 	path: impl AsRef<Path>,
 	library_ctx: &LibraryContext,
 ) -> Result<Option<file_path::Data>, LocationManagerError> {
+	let mut parent_path_str = path
+		.as_ref()
+		.parent()
+		// We have an "/" `materialized_path` for each location_id
+		.unwrap_or_else(|| Path::new("/"))
+		.to_str()
+		.expect("Found non-UTF-8 path")
+		.to_string();
+
+	// As we're looking specifically for a parent directory, it must end with '/'
+	if !parent_path_str.ends_with('/') {
+		parent_path_str += "/";
+	}
+
 	library_ctx
 		.db
 		.file_path()
 		.find_first(vec![
-			// We have an empty `materialized_path` for each location_id
 			file_path::location_id::equals(location_id),
-			file_path::materialized_path::equals(
-				path.as_ref()
-					.parent()
-					.unwrap_or_else(|| Path::new(""))
-					.to_str()
-					.expect("Found non-UTF-8 path")
-					.to_string(),
-			),
+			file_path::materialized_path::equals(parent_path_str),
 		])
 		.exec()
 		.await

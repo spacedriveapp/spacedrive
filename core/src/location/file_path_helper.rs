@@ -40,7 +40,7 @@ async fn fetch_max_file_path_id(library_ctx: &LibraryContext) -> Result<i32, Que
 pub async fn create_file_path(
 	library_ctx: &LibraryContext,
 	location_id: i32,
-	materialized_path: String,
+	mut materialized_path: String,
 	name: String,
 	extension: Option<String>,
 	parent_id: Option<i32>,
@@ -51,6 +51,11 @@ pub async fn create_file_path(
 	let mut last_id = LAST_FILE_PATH_ID.load(Ordering::Acquire);
 	if last_id == 0 {
 		last_id = fetch_max_file_path_id(library_ctx).await?;
+	}
+
+	// If this new file_path is a directory, materialized_path must end with "/"
+	if is_dir && !materialized_path.ends_with('/') {
+		materialized_path += "/";
 	}
 
 	let next_id = last_id + 1;
@@ -102,13 +107,18 @@ pub async fn create_many_file_paths(
 					|FilePathBatchCreateEntry {
 					     id,
 					     location_id,
-					     materialized_path,
+					     mut materialized_path,
 					     name,
 					     extension,
 					     parent_id,
 					     is_dir,
 					     created_at,
 					 }| {
+						// If this new file_path is a directory, materialized_path must end with "/"
+						if is_dir && !materialized_path.ends_with('/') {
+							materialized_path += "/";
+						}
+
 						file_path::create_unchecked(
 							id,
 							location_id,

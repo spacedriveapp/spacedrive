@@ -77,7 +77,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 				pub cursor: Option<String>,
 			}
 
-			t(|_, args: LocationExplorerArgs, library| async move {
+			t(|_, mut args: LocationExplorerArgs, library| async move {
 				let location = library
 					.db
 					.location()
@@ -87,6 +87,10 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.ok_or_else(|| {
 						rspc::Error::new(ErrorCode::NotFound, "Location not found".into())
 					})?;
+
+				if !args.path.ends_with('/') {
+					args.path += "/";
+				}
 
 				let directory = library
 					.db
