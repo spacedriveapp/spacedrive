@@ -1,60 +1,73 @@
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input } from '@sd/ui';
-import { open } from '@tauri-apps/api/dialog';
 import { Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
+import { usePlatform } from '../../util/Platform';
+import { GenericAlertDialogProps } from './AlertDialog';
+
 type FormValues = {
 	masterPassword: string;
 	secretKey: string;
-	filePath: string;
 };
 
-export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
-	const { trigger } = props;
+export interface BackupRestorationDialogProps {
+	trigger: ReactNode;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
+}
 
-	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
+export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
+	const platform = usePlatform();
+	const { register, handleSubmit, reset } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
-			secretKey: '',
-			filePath: ''
+			secretKey: ''
 		}
 	});
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
-		if (data.filePath !== '') {
-			setValue('masterPassword', '');
-			setValue('secretKey', '');
-			setValue('filePath', '');
+		if (filePath !== '') {
 			restoreKeystoreMutation.mutate(
 				{
 					password: data.masterPassword,
 					secret_key: data.secretKey,
-					path: data.filePath
+					path: filePath
 				},
 				{
 					onSuccess: (total) => {
-						setTotalKeysImported(total);
 						setShowBackupRestoreDialog(false);
-						setShowRestorationFinalizationDialog(true);
+						props.setAlertDialogData({
+							open: true,
+							title: 'Import Successful',
+							description: '',
+							value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`,
+							inputBox: false
+						});
 					},
 					onError: () => {
-						alert('There was an error while restoring your backup.');
+						setShowBackupRestoreDialog(false);
+						props.setAlertDialogData({
+							open: true,
+							title: 'Import Error',
+							description: '',
+							value: 'There was an error while restoring your backup.',
+							inputBox: false
+						});
 					}
 				}
 			);
+			reset();
+			setFilePath('');
 		}
 	};
 
 	const [showBackupRestoreDialog, setShowBackupRestoreDialog] = useState(false);
-	const [showRestorationFinalizationDialog, setShowRestorationFinalizationDialog] = useState(false);
 	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore');
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
-
-	const [totalKeysImported, setTotalKeysImported] = useState(0);
+	const [filePath, setFilePath] = useState('');
 
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
@@ -69,7 +82,7 @@ export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
 					description="Restore keys from a backup."
 					loading={restoreKeystoreMutation.isLoading}
 					ctaLabel="Restore"
-					trigger={trigger}
+					trigger={props.trigger}
 				>
 					<div className="relative flex flex-grow mt-3 mb-2">
 						<Input
@@ -108,11 +121,22 @@ export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
 					<div className="relative flex flex-grow mb-2">
 						<Button
 							size="sm"
-							variant={getValues('filePath') !== '' ? 'accent' : 'gray'}
+							variant={filePath !== '' ? 'accent' : 'gray'}
 							type="button"
 							onClick={() => {
-								open()?.then((result) => {
-									if (result) setValue('filePath', result as string);
+								if (!platform.openFilePickerDialog) {
+									// TODO: Support opening locations on web
+									props.setAlertDialogData({
+										open: true,
+										title: 'Error',
+										description: '',
+										value: "System dialogs aren't supported on this platform.",
+										inputBox: false
+									});
+									return;
+								}
+								platform.openFilePickerDialog().then((result) => {
+									if (result) setFilePath(result as string);
 								});
 							}}
 						>
@@ -121,23 +145,6 @@ export const BackupRestoreDialog = (props: { trigger: ReactNode }) => {
 					</div>
 				</Dialog>
 			</form>
-
-			<Dialog
-				open={showRestorationFinalizationDialog}
-				setOpen={setShowRestorationFinalizationDialog}
-				title="Import Successful"
-				description=""
-				ctaAction={() => {
-					setShowRestorationFinalizationDialog(false);
-				}}
-				ctaLabel="Done"
-				trigger={<></>}
-			>
-				<div className="text-sm">
-					{totalKeysImported}{' '}
-					{totalKeysImported !== 1 ? 'keys were imported.' : 'key was imported.'}
-				</div>
-			</Dialog>
 		</>
 	);
 };

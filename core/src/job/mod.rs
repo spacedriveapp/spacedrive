@@ -10,6 +10,7 @@ use std::{
 };
 
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
+use sd_crypto::Error as CryptoError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;
@@ -56,6 +57,10 @@ pub enum JobError {
 	// Not errors
 	#[error("Job had a early finish: <name='{name}', reason='{reason}'>")]
 	EarlyFinish { name: String, reason: String },
+	#[error("Crypto error: {0}")]
+	CryptoError(#[from] CryptoError),
+	#[error("Data needed for job execution not found: job <name='{0}'>")]
+	JobDataNotFound(String),
 	#[error("Job paused")]
 	Paused(Vec<u8>),
 }

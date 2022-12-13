@@ -11,6 +11,8 @@ import {
 	Fingerprint,
 	Folder,
 	IconProps,
+	LockSimple,
+	LockSimpleOpen,
 	Pause,
 	Question,
 	Trash,
@@ -43,6 +45,18 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 	object_validator: {
 		name: `Generated ${numberWithCommas(job.task_count)} full object hashes`,
 		icon: Fingerprint
+	},
+	file_encryptor: {
+		name: `Encrypted ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: LockSimple
+	},
+	file_decryptor: {
+		name: `Decrypted ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: LockSimpleOpen
 	}
 });
 

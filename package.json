@@ -22,6 +22,11 @@
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "pnpm -r exec tsc"
 	},
+	"pnpm": {
+		"overrides": {
+			"@radix-ui/react-dismissable-layer": "1.0.2"
+		}
+	},
 	"devDependencies": {
 		"@cspell/dict-rust": "^2.0.1",
 		"@cspell/dict-typescript": "^2.0.2",

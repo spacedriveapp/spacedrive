@@ -10,7 +10,9 @@ export type Platform = {
 	openLink: (url: string) => void;
 	demoMode?: boolean; // TODO: Remove this in favour of demo mode being handled at the React Query level
 	getOs?(): Promise<OperatingSystem>;
+	openDirectoryPickerDialog?(): Promise<null | string | string[]>;
 	openFilePickerDialog?(): Promise<null | string | string[]>;
+	saveFilePickerDialog?(): Promise<string | null>;
 	showDevtools?(): void;
 	openPath?(path: string): void;
 };

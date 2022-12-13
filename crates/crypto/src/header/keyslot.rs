@@ -62,15 +62,13 @@ impl Keyslot {
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		salt: [u8; SALT_LEN],
-		password: Protected<Vec<u8>>,
+		hashed_key: Protected<[u8; 32]>,
 		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
 	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
-		let hashed_password = hashing_algorithm.hash(password, salt)?;
-
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-			hashed_password,
+			hashed_key,
 			&nonce,
 			algorithm,
 			master_key.expose(),

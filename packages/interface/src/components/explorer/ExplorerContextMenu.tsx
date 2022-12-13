@@ -1,26 +1,26 @@
 import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { ContextMenu as CM, Input } from '@sd/ui';
+import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
 	Image,
 	LockSimple,
+	LockSimpleOpen,
 	Package,
 	Plus,
 	Repeat,
 	Share,
-	Shield,
 	ShieldCheck,
 	TagSimple,
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
-import { PropsWithChildren, useEffect, useMemo } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
 
+import { getExplorerStore } from '../../hooks/useExplorerStore';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { usePlatform } from '../../util/Platform';
+import { GenericAlertDialogProps } from '../dialog/AlertDialog';
 import { isObject } from './utils';
-
-import { getExplorerStore } from '@sd/client/src/stores/explorerStore';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
@@ -82,8 +82,9 @@ function OpenInNativeExplorer() {
 					label={`Open in ${osFileBrowserName}`}
 					keybind="⌘Y"
 					onClick={() => {
-						console.log('TODO', store.contextMenuActiveItem);
-						platform.openPath!('/Users/oscar/Desktop'); // TODO: Work out the file path from the backend
+						alert('TODO: Open in FS');
+						// console.log('TODO', store.contextMenuActiveItem);
+						// platform.openPath!('/Users/oscar/Desktop'); // TODO: Work out the file path from the backend
 					}}
 				/>
 			)}
@@ -93,7 +94,6 @@ function OpenInNativeExplorer() {
 
 export function ExplorerContextMenu(props: PropsWithChildren) {
 	const store = getExplorerStore();
-	const platform = usePlatform();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
@@ -152,11 +152,25 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 	);
 }
 
-export function FileItemContextMenu(props: { item: ExplorerItem } & PropsWithChildren) {
+export interface FileItemContextMenuProps extends PropsWithChildren {
+	item: ExplorerItem;
+	setShowEncryptDialog: (isShowing: boolean) => void;
+	setShowDecryptDialog: (isShowing: boolean) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
+}
+
+export function FileItemContextMenu(props: FileItemContextMenuProps) {
 	const objectData = props.item ? (isObject(props.item) ? props.item : props.item.object) : null;
 
-	const platform = usePlatform();
-	const os = useOperatingSystem();
+	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
+	const hasMasterPassword =
+		hasMasterPasswordQuery.data !== undefined && hasMasterPasswordQuery.data === true
+			? true
+			: false;
+
+	const mountedUuids = useLibraryQuery(['keys.listMounted']);
+	const hasMountedKeys =
+		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
 
 	return (
 		<div className="relative">
@@ -197,16 +211,66 @@ export function FileItemContextMenu(props: { item: ExplorerItem } & PropsWithChi
 				</CM.SubMenu>
 
 				<CM.SubMenu label="More actions..." icon={Plus}>
-					<>
-						<CM.Item label="Encrypt" icon={LockSimple} keybind="⌘E" />
-						<CM.Item label="Compress" icon={Package} keybind="⌘B" />
-
-						<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
-							<CM.Item label="PNG" />
-							<CM.Item label="WebP" />
-						</CM.SubMenu>
-					</>
-
+					<CM.Item
+						label="Encrypt"
+						icon={LockSimple}
+						keybind="⌘E"
+						onClick={() => {
+							if (hasMasterPassword && hasMountedKeys) {
+								props.setShowEncryptDialog(true);
+							} else if (!hasMasterPassword) {
+								props.setAlertDialogData({
+									open: true,
+									title: 'Key manager locked',
+									value: 'The key manager is currently locked. Please unlock it and try again.',
+									inputBox: false,
+									description: ''
+								});
+							} else if (!hasMountedKeys) {
+								props.setAlertDialogData({
+									open: true,
+									title: 'No mounted keys',
+									description: '',
+									value: 'No mounted keys were found. Please mount a key and try again.',
+									inputBox: false
+								});
+							}
+						}}
+					/>
+					{/* should only be shown if the file is a valid spacedrive-encrypted file (preferably going from the magic bytes) */}
+					<CM.Item
+						label="Decrypt"
+						icon={LockSimpleOpen}
+						keybind="⌘D"
+						onClick={() => {
+							if (hasMasterPassword && hasMountedKeys) {
+								props.setShowDecryptDialog(true);
+							} else if (!hasMasterPassword) {
+								props.setAlertDialogData({
+									open: true,
+									title: 'Key manager locked',
+									value: 'The key manager is currently locked. Please unlock it and try again.',
+									inputBox: false,
+									description: ''
+								});
+							} else if (!hasMountedKeys) {
+								props.setAlertDialogData({
+									open: true,
+									title: 'No mounted keys',
+									value: 'No mounted keys were found. Please mount a key and try again.',
+									inputBox: false,
+									description: ''
+								});
+							}
+						}}
+					/>
+					<CM.Item label="Compress" icon={Package} keybind="⌘B" />
+					<CM.SubMenu label="Convert to" icon={ArrowBendUpRight}>
+						<CM.Item label="PNG" />
+						<CM.Item label="WebP" />
+					</CM.SubMenu>
+					<CM.Item label="Rescan Directory" icon={Package} />
+					<CM.Item label="Regen Thumbnails" icon={Package} />
 					<CM.Item variant="danger" label="Secure delete" icon={TrashSimple} />
 				</CM.SubMenu>
 

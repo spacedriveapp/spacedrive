@@ -1,10 +1,9 @@
+import { onLibraryChange } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 
-import { ExplorerItem } from '../core';
-import { onLibraryChange } from '../hooks';
-import { resetStore } from './util';
+import { resetStore } from '@sd/client/src/stores/util';
 
-export type ExplorerLayoutMode = 'list' | 'grid' | 'media' | 'columns' | 'timeline';
+export type ExplorerLayoutMode = 'list' | 'grid' | 'media';
 
 export enum ExplorerKind {
 	Location,
@@ -21,7 +20,8 @@ const state = {
 	tagAssignMode: false,
 	showInspector: true,
 	multiSelectIndexes: [] as number[],
-	contextMenuActiveItem: null as ExplorerItem | null,
+	contextMenuObjectId: null as number | null,
+	contextMenuActiveObject: null as object | null,
 	newThumbnails: {} as Record<string, boolean>
 };
 

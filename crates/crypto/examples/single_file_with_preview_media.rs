@@ -2,13 +2,9 @@ use std::fs::File;
 
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
-	header::{
-		file::{FileHeader, FileHeaderVersion},
-		keyslot::{Keyslot, KeyslotVersion},
-		preview_media::PreviewMediaVersion,
-	},
+	header::{file::FileHeader, keyslot::Keyslot, preview_media::PreviewMediaVersion},
 	keys::hashing::{HashingAlgorithm, Params},
-	primitives::{generate_master_key, generate_salt},
+	primitives::{generate_master_key, generate_salt, LATEST_FILE_HEADER, LATEST_KEYSLOT},
 	Protected,
 };
 
@@ -25,28 +21,25 @@ fn encrypt() {
 	// This needs to be generated here, otherwise we won't have access to it for encryption
 	let master_key = generate_master_key();
 
-	// This ideally should be done by the KMS
+	// These should ideally be done by a key management system
 	let salt = generate_salt();
+	let hashed_password = HASHING_ALGORITHM.hash(password, salt).unwrap();
 
 	// Create a keyslot to be added to the header
-	// The password is cloned as we also need to provide this for the preview media
-	let mut keyslots: Vec<Keyslot> = Vec::new();
-	keyslots.push(
-		Keyslot::new(
-			KeyslotVersion::V1,
-			ALGORITHM,
-			HASHING_ALGORITHM,
-			salt,
-			password.clone(),
-			&master_key,
-		)
-		.unwrap(),
-	);
+	let keyslots = vec![Keyslot::new(
+		LATEST_KEYSLOT,
+		ALGORITHM,
+		HASHING_ALGORITHM,
+		salt,
+		hashed_password,
+		&master_key,
+	)
+	.unwrap()];
 
 	let pvm_media = b"a nice mountain".to_vec();
 
 	// Create the header for the encrypted file (and include our preview media)
-	let mut header = FileHeader::new(FileHeaderVersion::V1, ALGORITHM, keyslots);
+	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM, keyslots);
 
 	header
 		.add_preview_media(PreviewMediaVersion::V1, ALGORITHM, &master_key, &pvm_media)
