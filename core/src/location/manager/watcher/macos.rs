@@ -3,15 +3,15 @@ use crate::{
 	location::{indexer::indexer_job::indexer_job_location, manager::LocationManagerError},
 };
 
-use std::{future::Future, time::Duration};
+use std::{future::Future, io, time::Duration};
 
 use async_trait::async_trait;
 use notify::{
-	event::{CreateKind, DataChange, ModifyKind, RenameMode},
+	event::{CreateKind, DataChange, ModifyKind, RemoveKind, RenameMode},
 	Event, EventKind,
 };
 use tokio::{fs, select, spawn, sync::oneshot, time::sleep};
-use tracing::{trace, warn};
+use tracing::{error, trace, warn};
 
 use super::{
 	utils::{create_dir, create_file, remove_event, rename, update_file},
@@ -70,12 +70,12 @@ impl EventHandler for MacOsEventHandler {
 			},
 			EventKind::Modify(ref modify_kind) => match modify_kind {
 				ModifyKind::Data(DataChange::Any) => {
-					let metadata = fs::metadata(&event.paths[0]).await?;
-					if metadata.is_file() {
+					if fs::metadata(&event.paths[0]).await?.is_file() {
 						update_file(location, event, library_ctx).await?;
 					} else {
-						warn!("Unexpected MacOS modify event on a directory");
+						trace!("Unexpected MacOS modify event on a directory");
 					}
+
 					// We ignore EventKind::Modify(ModifyKind::Data(DataChange::Any)) for directories
 					// as they're also used for removing files and directories, being emitted
 					// on the parent directory in this case
@@ -120,11 +120,13 @@ where
 {
 	select! {
 		() = sleep(Duration::from_secs(1)) => {
-			create_fn(location, event, library_ctx).await
+			create_fn(location, event, library_ctx).await?;
 		},
 		Ok(rename_event) = maybe_rename_rx => {
 			trace!("Renaming file or directory instead of creating a new one");
-			rename(&event.paths[0], &rename_event.paths[0], location, &library_ctx).await
+			rename(&event.paths[0], &rename_event.paths[0], location, &library_ctx).await?;
 		}
 	}
+
+	Ok(())
 }

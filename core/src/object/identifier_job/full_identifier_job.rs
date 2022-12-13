@@ -1,4 +1,5 @@
 use crate::{
+	invalidate_query,
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	library::LibraryContext,
 	prisma::{file_path, location},
@@ -180,6 +181,8 @@ impl StatefulJob for FullFileIdentifierJob {
 				data.report.total_orphan_paths
 			)),
 		]);
+
+		invalidate_query!(ctx.library_ctx(), "locations.getExplorerData");
 
 		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location_id.into()).await?;
 		Ok(())

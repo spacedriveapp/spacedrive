@@ -443,5 +443,7 @@ pub async fn delete_directory(
 		.exec()
 		.await?;
 
+	invalidate_query!(ctx, "locations.getExplorerData");
+
 	Ok(())
 }

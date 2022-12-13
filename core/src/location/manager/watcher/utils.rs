@@ -260,7 +260,9 @@ pub(super) async fn update_file(
 		if let Some(file_path) =
 			get_existing_file_path(&location, &event.paths[0], library_ctx).await?
 		{
-			inner_update_file(location_local_path, file_path, event, library_ctx).await
+			let ret = inner_update_file(location_local_path, file_path, event, library_ctx).await;
+			invalidate_query!(library_ctx, "locations.getExplorerData");
+			return ret;
 		} else {
 			Err(LocationManagerError::UpdateNonExistingFile(
 				event.paths[0].clone(),
