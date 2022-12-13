@@ -135,12 +135,12 @@ impl FileHeader {
 		}
 
 		for (i, keyslot) in self.keyslots.clone().iter().enumerate() {
-			if let Ok(_) = keyslot.decrypt_master_key(&password) {
+			if keyslot.decrypt_master_key(&password).is_ok() {
 				return Ok(i);
 			}
 		}
 
-		return Err(Error::IncorrectPassword);
+		Err(Error::IncorrectPassword)
 	}
 
 	/// This is a helper function to serialize and write a header to a file.

@@ -143,7 +143,7 @@ impl StatefulJob for FileDecryptorJob {
 					)?;
 				}
 
-				header.decrypt_master_key(password.clone())?
+				header.decrypt_master_key(password)?
 			} else {
 				return Err(JobError::JobDataNotFound(String::from(
 					"Password decryption selected, but save to library boolean was not included",
