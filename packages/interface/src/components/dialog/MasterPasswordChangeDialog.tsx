@@ -13,7 +13,7 @@ import { GenericAlertDialogProps } from './AlertDialog';
 
 export interface MasterPasswordChangeDialogProps {
 	trigger: ReactNode;
-	setDialogData: (data: GenericAlertDialogProps) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
 	type FormValues = {
@@ -30,7 +30,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
 		if (data.masterPassword !== data.masterPassword2) {
-			props.setDialogData({
+			props.setAlertDialogData({
 				open: true,
 				title: 'Error',
 				description: '',
@@ -45,7 +45,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 				{
 					onSuccess: (sk) => {
 						setShowMasterPasswordDialog(false);
-						props.setDialogData({
+						props.setAlertDialogData({
 							open: true,
 							title: 'Secret Key',
 							description:
@@ -57,7 +57,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 					onError: () => {
 						// this should never really happen
 						setShowMasterPasswordDialog(false);
-						props.setDialogData({
+						props.setAlertDialogData({
 							open: true,
 							title: 'Master Password Change Error',
 							description: '',
@@ -74,9 +74,8 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
-	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-for
+	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-form
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
-	// const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
 	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
 	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
