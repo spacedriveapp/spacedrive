@@ -26,7 +26,7 @@ enum ObjectType {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobState {}
 
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Deserialize, Type, Hash)]
 pub struct FileEncryptorJobInit {
 	pub location_id: i32,
 	pub object_id: i32,
@@ -68,11 +68,7 @@ impl StatefulJob for FileEncryptorJob {
 		JOB_NAME
 	}
 
-	async fn init(
-		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// enumerate files to encrypt
 		// populate the steps with them (local file paths)
 		let library = ctx.library_ctx();
@@ -128,7 +124,7 @@ impl StatefulJob for FileEncryptorJob {
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 
@@ -240,11 +236,7 @@ impl StatefulJob for FileEncryptorJob {
 		Ok(())
 	}
 
-	async fn finalize(
-		&self,
-		_ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

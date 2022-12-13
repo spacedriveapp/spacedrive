@@ -105,9 +105,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					));
 				}
 
-				library
-					.spawn_job(Job::new(args, Box::new(FileEncryptorJob {})))
-					.await;
+				library.spawn_job(Job::new(args, FileEncryptorJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
@@ -126,9 +124,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					));
 				}
 
-				library
-					.spawn_job(Job::new(args, Box::new(FileDecryptorJob {})))
-					.await;
+				library.spawn_job(Job::new(args, FileDecryptorJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())

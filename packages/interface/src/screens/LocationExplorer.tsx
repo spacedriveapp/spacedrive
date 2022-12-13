@@ -3,8 +3,7 @@ import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 import Explorer from '../components/explorer/Explorer';
-
-import { getExplorerStore } from '@sd/client/src/stores/explorerStore';
+import { getExplorerStore } from '../hooks/useExplorerStore';
 
 export function useExplorerParams() {
 	const { id } = useParams();

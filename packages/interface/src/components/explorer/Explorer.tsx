@@ -1,7 +1,7 @@
 import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
 
-import { useExplorerStore } from '../../util/explorerStore';
+import { useExplorerStore } from '../../hooks/useExplorerStore';
 import { AlertDialog, GenericAlertDialogState } from '../dialog/AlertDialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
@@ -47,11 +47,7 @@ export default function Explorer(props: Props) {
 	return (
 		<>
 			<div className="relative">
-				<ExplorerContextMenu
-					setShowEncryptDialog={setShowEncryptDialog}
-					setShowDecryptDialog={setShowDecryptDialog}
-					setAlertDialogData={setAlertDialogData}
-				>
+				<ExplorerContextMenu>
 					<div className="relative flex flex-col w-full">
 						<TopBar showSeparator={separateTopBar} />
 
@@ -68,6 +64,9 @@ export default function Explorer(props: Props) {
 											};
 										});
 									}}
+									setShowEncryptDialog={setShowEncryptDialog}
+									setShowDecryptDialog={setShowDecryptDialog}
+									setAlertDialogData={setAlertDialogData}
 								/>
 							)}
 							{expStore.showInspector && (

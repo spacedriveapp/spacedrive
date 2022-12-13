@@ -14,7 +14,7 @@ pub struct FileDecryptorJob;
 pub struct FileDecryptorJobState {}
 
 // decrypt could have an option to restore metadata (and another specific option for file name? - would turn "output file" into "output path" in the UI)
-#[derive(Serialize, Deserialize, Debug, Type)]
+#[derive(Serialize, Deserialize, Debug, Type, Hash)]
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,
 	pub object_id: i32,
@@ -39,11 +39,7 @@ impl StatefulJob for FileDecryptorJob {
 		JOB_NAME
 	}
 
-	async fn init(
-		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// enumerate files to decrypt
 		// populate the steps with them (local file paths)
 		let library = ctx.library_ctx();
@@ -90,7 +86,7 @@ impl StatefulJob for FileDecryptorJob {
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
 		// handle overwriting checks, and making sure there's enough available space
@@ -141,11 +137,7 @@ impl StatefulJob for FileDecryptorJob {
 		Ok(())
 	}
 
-	async fn finalize(
-		&self,
-		_ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

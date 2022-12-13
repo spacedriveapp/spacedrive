@@ -4,15 +4,15 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
 
-import FileItem from './FileItem';
-import FileRow from './FileRow';
-import { isPath } from './utils';
-
 import {
 	ExplorerLayoutMode,
 	getExplorerStore,
 	useExplorerStore
-} from '@sd/client/src/stores/explorerStore';
+} from '../../hooks/useExplorerStore';
+import { GenericAlertDialogProps } from '../dialog/AlertDialog';
+import FileItem from './FileItem';
+import FileRow from './FileRow';
+import { isPath } from './utils';
 
 const TOP_BAR_HEIGHT = 46;
 const GRID_TEXT_AREA_HEIGHT = 25;
@@ -21,9 +21,19 @@ interface Props {
 	context: ExplorerContext;
 	data: ExplorerItem[];
 	onScroll?: (posY: number) => void;
+	setShowEncryptDialog: (isShowing: boolean) => void;
+	setShowDecryptDialog: (isShowing: boolean) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
-export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) => {
+export const VirtualizedList: React.FC<Props> = ({
+	data,
+	context,
+	onScroll,
+	setShowEncryptDialog,
+	setShowDecryptDialog,
+	setAlertDialogData
+}) => {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const innerRef = useRef<HTMLDivElement>(null);
 
@@ -147,6 +157,9 @@ export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) =>
 									isSelected={getExplorerStore().selectedRowIndex === virtualRow.index}
 									index={virtualRow.index}
 									item={data[virtualRow.index]}
+									setShowEncryptDialog={setShowEncryptDialog}
+									setShowDecryptDialog={setShowDecryptDialog}
+									setAlertDialogData={setAlertDialogData}
 								/>
 							) : (
 								[...Array(amountOfColumns)].map((_, i) => {
@@ -162,6 +175,9 @@ export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) =>
 														isSelected={isSelected}
 														index={index}
 														item={item}
+														setShowEncryptDialog={setShowEncryptDialog}
+														setShowDecryptDialog={setShowDecryptDialog}
+														setAlertDialogData={setAlertDialogData}
 													/>
 												)}
 											</div>
@@ -182,10 +198,21 @@ interface WrappedItemProps {
 	index: number;
 	isSelected: boolean;
 	kind: ExplorerLayoutMode;
+	setShowEncryptDialog: (isShowing: boolean) => void;
+	setShowDecryptDialog: (isShowing: boolean) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 // Wrap either list item or grid item with click logic as it is the same for both
-const WrappedItem: React.FC<WrappedItemProps> = ({ item, index, isSelected, kind }) => {
+const WrappedItem: React.FC<WrappedItemProps> = ({
+	item,
+	index,
+	isSelected,
+	kind,
+	setShowEncryptDialog,
+	setShowDecryptDialog,
+	setAlertDialogData
+}) => {
 	const [_, setSearchParams] = useSearchParams();
 
 	const onDoubleClick = useCallback(() => {
@@ -204,6 +231,9 @@ const WrappedItem: React.FC<WrappedItemProps> = ({ item, index, isSelected, kind
 			onClick={onClick}
 			onDoubleClick={onDoubleClick}
 			selected={isSelected}
+			setShowEncryptDialog={setShowEncryptDialog}
+			setShowDecryptDialog={setShowDecryptDialog}
+			setAlertDialogData={setAlertDialogData}
 		/>
 	);
 
