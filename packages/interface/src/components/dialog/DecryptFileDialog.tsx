@@ -1,18 +1,20 @@
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog } from '@sd/ui';
-import { save } from '@tauri-apps/api/dialog';
 import { useState } from 'react';
+
+import { usePlatform } from '../../util/Platform';
+import { GenericAlertDialogProps } from './AlertDialog';
 
 interface DecryptDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
 	location_id: number | null;
 	object_id: number | null;
-	setShowAlertDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: { title: string; text: string }) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const DecryptFileDialog = (props: DecryptDialogProps) => {
+	const platform = usePlatform();
 	const { location_id, object_id } = props;
 	const decryptFile = useLibraryMutation('files.decryptFiles');
 	const [outputPath, setOutputpath] = useState('');
@@ -41,20 +43,25 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 							{
 								onSuccess: () => {
 									props.setAlertDialogData({
+										open: true,
 										title: 'Info',
-										text: 'The decryption job has started successfully. You may track the progress in the job overview panel.'
+										value:
+											'The decryption job has started successfully. You may track the progress in the job overview panel.',
+										inputBox: false,
+										description: ''
 									});
 								},
 								onError: () => {
 									props.setAlertDialogData({
+										open: true,
 										title: 'Error',
-										text: 'The decryption job failed to start.'
+										value: 'The decryption job failed to start.',
+										inputBox: false,
+										description: ''
 									});
 								}
 							}
 						);
-
-					props.setShowAlertDialog(true);
 				}}
 			>
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
@@ -68,8 +75,18 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 							type="button"
 							onClick={() => {
 								// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
-								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
-								save()?.then((result) => {
+								if (!platform.saveFilePickerDialog) {
+									// TODO: Support opening locations on web
+									props.setAlertDialogData({
+										open: true,
+										title: 'Error',
+										description: '',
+										value: "System dialogs aren't supported on this platform.",
+										inputBox: false
+									});
+									return;
+								}
+								platform.saveFilePickerDialog().then((result) => {
 									if (result) setOutputpath(result as string);
 								});
 							}}

@@ -1,43 +1,26 @@
-import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Select, SelectOption } from '@sd/ui';
-import { save } from '@tauri-apps/api/dialog';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import {
 	getCryptoSettings,
 	getHashingAlgorithmString
 } from '../../screens/settings/library/KeysSetting';
+import { usePlatform } from '../../util/Platform';
+import { SelectOptionKeyList } from '../key/KeyList';
 import { Checkbox } from '../primitive/Checkbox';
-
-export const ListOfMountedKeys = (props: { keys: StoredKey[]; mountedUuids: string[] }) => {
-	const { keys, mountedUuids } = props;
-
-	const [mountedKeys] = useMemo(
-		() => [keys.filter((key) => mountedUuids.includes(key.uuid)) ?? []],
-		[keys, mountedUuids]
-	);
-
-	return (
-		<>
-			{[...mountedKeys]?.map((key) => {
-				return (
-					<SelectOption value={key.uuid}>Key {key.uuid.substring(0, 8).toUpperCase()}</SelectOption>
-				);
-			})}
-		</>
-	);
-};
+import { GenericAlertDialogProps } from './AlertDialog';
 
 interface EncryptDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
 	location_id: number | null;
 	object_id: number | null;
-	setShowAlertDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: { title: string; text: string }) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const EncryptFileDialog = (props: EncryptDialogProps) => {
+	const platform = usePlatform();
 	const { location_id, object_id } = props;
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
@@ -99,20 +82,25 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							{
 								onSuccess: () => {
 									props.setAlertDialogData({
+										open: true,
 										title: 'Success',
-										text: 'The encryption job has started successfully. You may track the progress in the job overview panel.'
+										value:
+											'The encryption job has started successfully. You may track the progress in the job overview panel.',
+										inputBox: false,
+										description: ''
 									});
 								},
 								onError: () => {
 									props.setAlertDialogData({
+										open: true,
 										title: 'Error',
-										text: 'The encryption job failed to start.'
+										value: 'The encryption job failed to start.',
+										inputBox: false,
+										description: ''
 									});
 								}
 							}
 						);
-
-					props.setShowAlertDialog(true);
 				}}
 			>
 				<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
@@ -125,10 +113,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 								UpdateKey(e);
 							}}
 						>
-							{/* this only returns MOUNTED keys. we could include unmounted keys, but then we'd have to prompt the user to mount them too */}
-							{keys.data && mountedUuids.data && (
-								<ListOfMountedKeys keys={keys.data} mountedUuids={mountedUuids.data} />
-							)}
+							{mountedUuids.data && <SelectOptionKeyList keys={mountedUuids.data} />}
 						</Select>
 					</div>
 					<div className="flex flex-col">
@@ -141,8 +126,18 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							type="button"
 							onClick={() => {
 								// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
-								// not platform-safe, probably will break on web but `platform` doesn't have a save dialog option
-								save()?.then((result) => {
+								if (!platform.saveFilePickerDialog) {
+									// TODO: Support opening locations on web
+									props.setAlertDialogData({
+										open: true,
+										title: 'Error',
+										description: '',
+										value: "System dialogs aren't supported on this platform.",
+										inputBox: false
+									});
+									return;
+								}
+								platform.saveFilePickerDialog().then((result) => {
 									if (result) setOutputpath(result as string);
 								});
 							}}

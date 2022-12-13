@@ -73,7 +73,7 @@ impl From<LibraryManagerError> for rspc::Error {
 
 pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, LibraryManagerError> {
 	// retrieve all stored keys from the DB
-	let key_manager = KeyManager::new(vec![]);
+	let key_manager = KeyManager::new(vec![])?;
 
 	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
 	// this is so if there's no verification key set, we set one so users can use the key manager
@@ -144,6 +144,8 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 					to_array(key.hashing_algorithm).unwrap(),
 				)
 				.unwrap(),
+				memory_only: false,
+				automount: key.automount,
 			}
 		})
 		.collect();

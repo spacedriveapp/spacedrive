@@ -9,16 +9,19 @@ import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
 import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
+import { GenericAlertDialogProps } from './AlertDialog';
 
-export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
+export interface MasterPasswordChangeDialogProps {
+	trigger: ReactNode;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
+}
+export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
 	type FormValues = {
 		masterPassword: string;
 		masterPassword2: string;
 	};
 
-	const [secretKey, setSecretKey] = useState('');
-
-	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
+	const { register, handleSubmit, reset } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
 			masterPassword2: ''
@@ -27,7 +30,13 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
 		if (data.masterPassword !== data.masterPassword2) {
-			alert('Passwords are not the same.');
+			props.setAlertDialogData({
+				open: true,
+				title: 'Error',
+				description: '',
+				value: 'Passwords are not the same, please try again.',
+				inputBox: false
+			});
 		} else {
 			const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
 
@@ -35,25 +44,38 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 				{ algorithm, hashing_algorithm, password: data.masterPassword },
 				{
 					onSuccess: (sk) => {
-						setSecretKey(sk);
-
 						setShowMasterPasswordDialog(false);
-						setShowSecretKeyDialog(true);
+						props.setAlertDialogData({
+							open: true,
+							title: 'Secret Key',
+							description:
+								'Please store this secret key securely as it is needed to access your key manager.',
+							value: sk,
+							inputBox: true
+						});
 					},
 					onError: () => {
 						// this should never really happen
-						alert('There was an error while changing your master password.');
+						setShowMasterPasswordDialog(false);
+						props.setAlertDialogData({
+							open: true,
+							title: 'Master Password Change Error',
+							description: '',
+							value: 'There was an error while changing your master password.',
+							inputBox: false
+						});
 					}
 				}
 			);
+
+			reset();
 		}
 	};
 
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
-	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-for
+	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-form
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
-	const [showSecretKeyDialog, setShowSecretKeyDialog] = useState(false);
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
 	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
 	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
@@ -136,24 +158,6 @@ export const PasswordChangeDialog = (props: { trigger: ReactNode }) => {
 					</div>
 				</Dialog>
 			</form>
-			<Dialog
-				open={showSecretKeyDialog}
-				setOpen={setShowSecretKeyDialog}
-				title="Secret Key"
-				description="Please store this secret key securely as it is needed to access your key manager."
-				ctaAction={() => {
-					setShowSecretKeyDialog(false);
-				}}
-				ctaLabel="Done"
-				trigger={<></>}
-			>
-				<Input
-					className="flex-grow w-full mt-3"
-					value={secretKey}
-					placeholder="Secret Key"
-					disabled={true}
-				/>
-			</Dialog>
 		</>
 	);
 };
