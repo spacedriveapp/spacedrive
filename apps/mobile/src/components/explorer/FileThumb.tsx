@@ -84,7 +84,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 				<Svg
 					// Background
 					style={tw`absolute top-0 left-0`}
-					fill={tw.color('gray-550')}
+					fill={tw.color('app-box')}
 					width={45 * size}
 					height={60 * size}
 					viewBox="0 0 65 81"
@@ -94,7 +94,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 				<Svg
 					// Peel
 					style={tw`absolute top-[2px] -right-[0.6px]`}
-					fill={tw.color('gray-500')}
+					fill={tw.color('app-highlight')}
 					width={15 * size}
 					height={15 * size}
 					viewBox="0 0 41 41"

@@ -1,0 +1,31 @@
+export function isVideoExt(extension: string) {
+	return [
+		'avi',
+		'asf',
+		'mpeg',
+		'mts',
+		'mpe',
+		'vob',
+		'qt',
+		'mov',
+		'asf',
+		'asx',
+		'mjpeg',
+		'ts',
+		'mxf',
+		'm2ts',
+		'f4v',
+		'wm',
+		'3gp',
+		'm4v',
+		'wmv',
+		'mp4',
+		'webm',
+		'flv',
+		'mpg',
+		'hevc',
+		'ogv',
+		'swf',
+		'wtv'
+	].includes(extension);
+}

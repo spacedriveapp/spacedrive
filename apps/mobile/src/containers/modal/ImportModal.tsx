@@ -10,14 +10,15 @@ import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import tw from '~/lib/tailwind';
 
+// WIP component
 const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 
 	const { mutate: createLocation } = useLibraryMutation('locations.create', {
-		onError: (error, variables, context) => {
+		onError: (error) => {
 			console.error(error);
 		},
-		onSettled: (data, error, variables, context) => {
+		onSettled: () => {
 			// Close the modal
 			modalRef.current?.close();
 		}
@@ -89,7 +90,6 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 		// Gets Actual Path
 		const path = (await ML.getAssetInfoAsync(assetId)).localUri;
 
-		// Permission Granted
 		const libraryPath = Platform.select({
 			android: '',
 			ios: path.replace('file://', '').split('Media/DCIM/')[0] + 'Media/DCIM/'
@@ -100,10 +100,10 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 			indexer_rules_ids: []
 		});
 
-		const assets = await ML.getAssetsAsync({ mediaType: ML.MediaType.photo });
-		assets.assets.map(async (i) => {
-			console.log((await ML.getAssetInfoAsync(i)).localUri);
-		});
+		// const assets = await ML.getAssetsAsync({ mediaType: ML.MediaType.photo });
+		// assets.assets.map(async (i) => {
+		// 	console.log((await ML.getAssetInfoAsync(i)).localUri);
+		// });
 	}, [createLocation]);
 
 	// const testFN = useCallback(async () => {
@@ -126,14 +126,14 @@ const ImportModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
 
 	return (
 		<Modal ref={modalRef} snapPoints={['20%']}>
-			<View style={tw`flex-1 px-6 pt-1 pb-2 bg-gray-600`}>
-				{/* <Button size="md" variant="primary" style={tw`my-2`} onPress={testFN}>
+			<View style={tw`flex-1 px-6 pt-1 pb-2 bg-app-box`}>
+				{/* <Button size="md" variant="accent" style={tw`my-2`} onPress={testFN}>
 					<Text>TEST</Text>
 				</Button> */}
-				<Button size="md" variant="primary" style={tw`my-2`} onPress={handleFilesButton}>
+				<Button size="md" variant="accent" style={tw`my-2`} onPress={handleFilesButton}>
 					<Text>Import from Files</Text>
 				</Button>
-				<Button size="md" variant="primary" onPress={handlePhotosButton}>
+				<Button size="md" variant="accent" onPress={handlePhotosButton}>
 					<Text>Import from Photos</Text>
 				</Button>
 			</View>
