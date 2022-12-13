@@ -173,21 +173,13 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 						icon={LockSimpleOpen}
 						keybind="⌘D"
 						onClick={() => {
-							if (hasMasterPassword && hasMountedKeys) {
+							if (hasMasterPassword) {
 								props.setShowDecryptDialog(true);
-							} else if (!hasMasterPassword) {
+							} else {
 								props.setAlertDialogData({
 									open: true,
 									title: 'Key manager locked',
 									value: 'The key manager is currently locked. Please unlock it and try again.',
-									inputBox: false,
-									description: ''
-								});
-							} else if (!hasMountedKeys) {
-								props.setAlertDialogData({
-									open: true,
-									title: 'No mounted keys',
-									value: 'No mounted keys were found. Please mount a key and try again.',
 									inputBox: false,
 									description: ''
 								});

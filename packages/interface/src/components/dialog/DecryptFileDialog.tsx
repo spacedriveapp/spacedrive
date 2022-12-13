@@ -38,6 +38,9 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 				ctaLabel="Decrypt"
 				ctaAction={() => {
 					const output = outputPath !== '' ? outputPath : null;
+					const pw = decryptType === 'password' ? password : null;
+					const save = decryptType === 'password' ? saveToKeyManager : null;
+
 					props.setOpen(false);
 
 					location_id &&
@@ -46,7 +49,9 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 							{
 								location_id,
 								object_id,
-								output_path: output
+								output_path: output,
+								password: pw,
+								save_to_library: save
 							},
 							{
 								onSuccess: () => {
@@ -101,6 +106,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 								onChange={(e) => setPassword(e.target.value)}
 								value={password}
 								type={showPassword ? 'text' : 'password'}
+								required
 							/>
 							<Button
 								onClick={() => setShowPassword(!showPassword)}
