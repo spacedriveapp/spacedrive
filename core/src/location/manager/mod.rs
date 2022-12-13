@@ -1,8 +1,7 @@
 use crate::library::LibraryContext;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
-use once_cell::sync::OnceCell;
 use thiserror::Error;
 use tokio::{
 	io,
@@ -15,8 +14,6 @@ mod watcher;
 
 #[cfg(feature = "location-watcher")]
 mod helpers;
-
-static LOCATION_MANAGER: OnceCell<LocationManager> = OnceCell::new();
 
 pub type LocationId = i32;
 
@@ -60,18 +57,8 @@ pub struct LocationManager {
 }
 
 impl LocationManager {
-	pub fn global() -> &'static Self {
-		LOCATION_MANAGER
-			.get()
-			.expect("Location manager not initialized")
-	}
-
 	#[allow(unused)]
-	pub async fn init() -> Result<&'static Self, LocationManagerError> {
-		if LOCATION_MANAGER.get().is_some() {
-			return Err(LocationManagerError::AlreadyInitialized);
-		}
-
+	pub async fn new() -> Result<Arc<Self>, LocationManagerError> {
 		let (add_locations_tx, add_locations_rx) = mpsc::channel(128);
 		let (remove_locations_tx, remove_locations_rx) = mpsc::channel(128);
 		let (stop_tx, stop_rx) = oneshot::channel();
@@ -86,17 +73,13 @@ impl LocationManager {
 		#[cfg(not(feature = "location-watcher"))]
 		tracing::warn!("Location watcher is disabled, locations will not be checked");
 
-		let manager = Self {
+		debug!("Location manager initialized");
+
+		Ok(Arc::new(Self {
 			add_locations_tx,
 			remove_locations_tx,
 			stop_tx: Some(stop_tx),
-		};
-
-		LOCATION_MANAGER.set(manager).unwrap(); // SAFETY: We checked that it's not set before
-
-		debug!("Location manager initialized");
-
-		Ok(Self::global())
+		}))
 	}
 
 	pub async fn add(

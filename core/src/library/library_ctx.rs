@@ -1,5 +1,6 @@
 use crate::{
-	api::CoreEvent, job::DynJob, node::NodeConfigManager, prisma::PrismaClient, NodeContext,
+	api::CoreEvent, job::DynJob, location::LocationManager, node::NodeConfigManager,
+	prisma::PrismaClient, NodeContext,
 };
 
 use std::{
@@ -60,5 +61,9 @@ impl LibraryContext {
 
 	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
 		self.node_context.config.clone()
+	}
+
+	pub(crate) fn location_manager(&self) -> &Arc<LocationManager> {
+		&self.node_context.location_manager
 	}
 }

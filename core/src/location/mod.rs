@@ -352,15 +352,13 @@ async fn create_location(
 
 	invalidate_query!(ctx, "locations.list");
 
-	LocationManager::global()
-		.add(location.id, ctx.clone())
-		.await?;
+	ctx.location_manager().add(location.id, ctx.clone()).await?;
 
 	Ok(location)
 }
 
 pub async fn delete_location(ctx: &LibraryContext, location_id: i32) -> Result<(), LocationError> {
-	LocationManager::global()
+	ctx.location_manager()
 		.remove(location_id, ctx.clone())
 		.await?;
 

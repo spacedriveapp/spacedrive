@@ -29,6 +29,7 @@ pub(crate) mod prisma;
 pub struct NodeContext {
 	pub config: Arc<NodeConfigManager>,
 	pub jobs: Arc<JobManager>,
+	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
 }
 
@@ -111,29 +112,19 @@ impl Node {
 		let config = NodeConfigManager::new(data_dir.to_path_buf()).await?;
 
 		let jobs = JobManager::new();
+		let location_manager = LocationManager::new().await?;
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
 				config: Arc::clone(&config),
 				jobs: Arc::clone(&jobs),
+				location_manager: Arc::clone(&location_manager),
 				event_bus_tx: event_bus.0.clone(),
 			},
 		)
 		.await?;
 
-		// Trying to resume possible paused jobs
-		let inner_library_manager = Arc::clone(&library_manager);
-		let inner_jobs = Arc::clone(&jobs);
-		tokio::spawn(async move {
-			for library_ctx in inner_library_manager.get_all_libraries_ctx().await {
-				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library_ctx).await {
-					error!("Failed to resume jobs for library. {:#?}", e);
-				}
-			}
-		});
-
 		// Adding already existing locations for location management
-		let location_manager = LocationManager::init().await?;
 		for library_ctx in library_manager.get_all_libraries_ctx().await {
 			for location in library_ctx
 				.db
@@ -153,6 +144,17 @@ impl Node {
 				}
 			}
 		}
+
+		// Trying to resume possible paused jobs
+		let inner_library_manager = Arc::clone(&library_manager);
+		let inner_jobs = Arc::clone(&jobs);
+		tokio::spawn(async move {
+			for library_ctx in inner_library_manager.get_all_libraries_ctx().await {
+				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library_ctx).await {
+					error!("Failed to resume jobs for library. {:#?}", e);
+				}
+			}
+		});
 
 		let router = api::mount();
 		let node = Node {
