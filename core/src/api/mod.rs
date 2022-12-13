@@ -78,7 +78,12 @@ pub(crate) fn mount() -> Arc<Router> {
 				Ok(NodeState {
 					config: ctx.config.get().await,
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
-					data_path: ctx.config.data_directory().to_string_lossy().into_owned(),
+					data_path: ctx
+						.config
+						.data_directory()
+						.to_str()
+						.expect("Found non-UTF-8 path")
+						.to_string(),
 				})
 			})
 		})

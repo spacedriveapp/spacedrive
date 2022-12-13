@@ -256,7 +256,8 @@ impl StatefulJob for IndexerJob {
 					.path
 					.strip_prefix(location_path)
 					.unwrap()
-					.to_string_lossy()
+					.to_str()
+					.expect("Found non-UTF-8 path")
 					.to_string();
 
 				FilePathBatchCreateEntry {

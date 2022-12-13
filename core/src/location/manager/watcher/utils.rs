@@ -48,11 +48,11 @@ pub(super) fn check_location_online(location: &indexer_job_location::Data) -> bo
 
 pub(super) fn check_event(event: &Event) -> bool {
 	// if first path includes .DS_Store, ignore
-	if event
-		.paths
-		.iter()
-		.any(|p| p.to_string_lossy().contains(".DS_Store"))
-	{
+	if event.paths.iter().any(|p| {
+		p.to_str()
+			.expect("Found non-UTF-8 path")
+			.contains(".DS_Store")
+	}) {
 		return false;
 	}
 
@@ -71,7 +71,7 @@ pub(super) async fn create_dir(
 		);
 
 		if let Some(subpath) = subtract_location_path(location_local_path, &event.paths[0]) {
-			let subpath_str = subpath.to_string_lossy().to_string();
+			let subpath_str = subpath.to_str().expect("Found non-UTF-8 path").to_string();
 			let parent_directory = library_ctx
 				.db
 				.file_path()
@@ -82,7 +82,8 @@ pub(super) async fn create_dir(
 						subpath
 							.parent()
 							.unwrap_or_else(|| Path::new(""))
-							.to_string_lossy()
+							.to_str()
+							.expect("Found non-UTF-8 path")
 							.to_string(),
 					),
 				])
@@ -96,7 +97,12 @@ pub(super) async fn create_dir(
 					&library_ctx,
 					location.id,
 					subpath_str,
-					subpath.file_stem().unwrap().to_string_lossy().to_string(),
+					subpath
+						.file_stem()
+						.unwrap()
+						.to_str()
+						.expect("Found non-UTF-8 path")
+						.to_string(),
 					None,
 					Some(parent_directory.id),
 					true,
@@ -144,17 +150,21 @@ async fn inner_create_file(
 			let created_file = create_file_path(
 				library_ctx,
 				location_id,
-				materialized_path.to_string_lossy().to_string(),
+				materialized_path
+					.to_str()
+					.expect("Found non-UTF-8 path")
+					.to_string(),
 				materialized_path
 					.file_stem()
 					.unwrap_or_default()
-					.to_string_lossy()
+					.to_str()
+					.expect("Found non-UTF-8 path")
 					.to_string(),
 				materialized_path.extension().and_then(|ext| {
 					if ext.is_empty() {
 						None
 					} else {
-						Some(ext.to_string_lossy().to_string())
+						Some(ext.to_str().expect("Found non-UTF-8 path").to_string())
 					}
 				}),
 				Some(parent_directory.id),
@@ -350,7 +360,8 @@ pub(super) async fn rename(
 	library_ctx: &LibraryContext,
 ) -> Result<(), LocationManagerError> {
 	let old_path_materialized = extract_materialized_path(&location, old_path.as_ref())?
-		.to_string_lossy()
+		.to_str()
+		.expect("Found non-UTF-8 path")
 		.to_string();
 	let new_path_materialized = extract_materialized_path(&location, new_path.as_ref())?;
 
@@ -365,7 +376,8 @@ pub(super) async fn rename(
 						PrismaValue::String(old_path_materialized),
 						PrismaValue::String(
 							new_path_materialized
-								.to_string_lossy()
+							.to_str()
+							.expect("Found non-UTF-8 path")
 								.to_string()
 						),
 						PrismaValue::Int(location.id as i64)
@@ -383,19 +395,23 @@ pub(super) async fn rename(
 				file_path::location_id_id(file_path.location_id, file_path.id),
 				vec![
 					file_path::materialized_path::set(
-						new_path_materialized.to_string_lossy().to_string(),
+						new_path_materialized
+							.to_str()
+							.expect("Found non-UTF-8 path")
+							.to_string(),
 					),
 					file_path::name::set(
 						new_path_materialized
 							.file_stem()
 							.unwrap()
-							.to_string_lossy()
+							.to_str()
+							.expect("Found non-UTF-8 path")
 							.to_string(),
 					),
 					file_path::extension::set(
 						new_path_materialized
 							.extension()
-							.map(|s| s.to_string_lossy().to_string()),
+							.map(|s| s.to_str().expect("Found non-UTF-8 path").to_string()),
 					),
 				],
 			)
@@ -484,7 +500,8 @@ async fn get_existing_file_path(
 		.file_path()
 		.find_first(vec![file_path::materialized_path::equals(
 			extract_materialized_path(location, path)?
-				.to_string_lossy()
+				.to_str()
+				.expect("Found non-UTF-8 path")
 				.to_string(),
 		)])
 		// include object for orphan check
@@ -509,7 +526,8 @@ async fn get_parent_dir(
 				path.as_ref()
 					.parent()
 					.unwrap_or_else(|| Path::new(""))
-					.to_string_lossy()
+					.to_str()
+					.expect("Found non-UTF-8 path")
 					.to_string(),
 			),
 		])

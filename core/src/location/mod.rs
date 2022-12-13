@@ -296,7 +296,11 @@ pub async fn relink_location(
 			location::pub_id::equals(metadata.location_pub_id(ctx.id)?.as_ref().to_vec()),
 			vec![
 				location::local_path::set(Some(
-					location_path.as_ref().to_string_lossy().to_string(),
+					location_path
+						.as_ref()
+						.to_str()
+						.expect("Found non-UTF-8 path")
+						.to_string(),
 				)),
 				location::is_online::set(true),
 			],
@@ -331,7 +335,11 @@ async fn create_location(
 				location::name::set(Some(location_name.clone())),
 				location::is_online::set(true),
 				location::local_path::set(Some(
-					location_path.as_ref().to_string_lossy().to_string(),
+					location_path
+						.as_ref()
+						.to_str()
+						.expect("Found non-UTF-8 path")
+						.to_string(),
 				)),
 			],
 		)

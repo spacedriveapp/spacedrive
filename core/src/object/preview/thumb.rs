@@ -99,7 +99,12 @@ impl StatefulJob for ThumbnailJob {
 			.find_first(vec![
 				file_path::location_id::equals(state.init.location_id),
 				file_path::materialized_path::equals(
-					state.init.root_path.to_string_lossy().to_string(),
+					state
+						.init
+						.root_path
+						.to_str()
+						.expect("Found non-UTF-8 path")
+						.to_string(),
 				),
 				file_path::is_dir::equals(true),
 			])
