@@ -14,8 +14,8 @@ export default function SpacesStack() {
 		<Stack.Navigator
 			initialRouteName="Spaces"
 			screenOptions={{
-				headerStyle: { backgroundColor: tw.color('gray-650') },
-				headerTintColor: tw.color('gray-200'),
+				headerStyle: { backgroundColor: tw.color('app-box') },
+				headerTintColor: tw.color('ink'),
 				headerTitleStyle: tw`text-base`,
 				headerBackTitleStyle: tw`text-base`
 			}}

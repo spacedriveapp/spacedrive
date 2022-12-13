@@ -1,4 +1,4 @@
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, isVideoExt } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
@@ -27,7 +27,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 function FileItem({ data, selected, index, ...rest }: Props) {
-	const isVid = isVideo(data.extension || '');
+	const isVid = isVideoExt(data.extension || '');
 
 	return (
 		<div
@@ -86,35 +86,3 @@ function FileItem({ data, selected, index, ...rest }: Props) {
 }
 
 export default FileItem;
-
-function isVideo(extension: string) {
-	return [
-		'avi',
-		'asf',
-		'mpeg',
-		'mts',
-		'mpe',
-		'vob',
-		'qt',
-		'mov',
-		'asf',
-		'asx',
-		'mjpeg',
-		'ts',
-		'mxf',
-		'm2ts',
-		'f4v',
-		'wm',
-		'3gp',
-		'm4v',
-		'wmv',
-		'mp4',
-		'webm',
-		'flv',
-		'mpg',
-		'hevc',
-		'ogv',
-		'swf',
-		'wtv'
-	].includes(extension);
-}
