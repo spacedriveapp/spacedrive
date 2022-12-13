@@ -9,7 +9,6 @@ use tokio::{
 	sync::{mpsc, oneshot},
 };
 use tracing::{debug, error};
-use uuid::Uuid;
 
 #[cfg(feature = "location-watcher")]
 mod watcher;
@@ -20,8 +19,6 @@ mod helpers;
 static LOCATION_MANAGER: OnceCell<LocationManager> = OnceCell::new();
 
 pub type LocationId = i32;
-type LibraryId = Uuid;
-type LocationAndLibraryKey = (LocationId, LibraryId);
 
 type ManagerMessage = (
 	LocationId,
@@ -69,6 +66,7 @@ impl LocationManager {
 			.expect("Location manager not initialized")
 	}
 
+	#[allow(unused)]
 	pub async fn init() -> Result<&'static Self, LocationManagerError> {
 		if LOCATION_MANAGER.get().is_some() {
 			return Err(LocationManagerError::AlreadyInitialized);
@@ -78,11 +76,15 @@ impl LocationManager {
 		let (remove_locations_tx, remove_locations_rx) = mpsc::channel(128);
 		let (stop_tx, stop_rx) = oneshot::channel();
 
+		#[cfg(feature = "location-watcher")]
 		tokio::spawn(Self::run_locations_checker(
 			add_locations_rx,
 			remove_locations_rx,
 			stop_rx,
 		));
+
+		#[cfg(not(feature = "location-watcher"))]
+		tracing::warn!("Location watcher is disabled, locations will not be checked");
 
 		let manager = Self {
 			add_locations_tx,
@@ -131,18 +133,6 @@ impl LocationManager {
 		} else {
 			Ok(())
 		}
-	}
-
-	#[cfg(not(feature = "location-watcher"))]
-	async fn run_locations_checker(
-		mut _add_locations_rx: mpsc::Receiver<(LocationId, LibraryContext)>,
-		mut _remove_locations_rx: mpsc::Receiver<LocationId>,
-		mut _stop_rx: oneshot::Receiver<()>,
-	) -> Result<(), LocationManagerError> {
-		use tracing::warn;
-
-		warn!("Location watcher is disabled, locations will not be checked");
-		Ok(())
 	}
 
 	#[cfg(feature = "location-watcher")]

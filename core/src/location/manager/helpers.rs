@@ -8,8 +8,12 @@ use std::{
 
 use tokio::{fs, io::ErrorKind, time::sleep};
 use tracing::{error, warn};
+use uuid::Uuid;
 
-use super::{watcher::LocationWatcher, LibraryId, LocationAndLibraryKey, LocationId};
+use super::{watcher::LocationWatcher, LocationId};
+
+type LibraryId = Uuid;
+type LocationAndLibraryKey = (LocationId, LibraryId);
 
 const LOCATION_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
