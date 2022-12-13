@@ -29,13 +29,13 @@ export default function LocationSettings() {
 							variant="accent"
 							size="sm"
 							onClick={() => {
-								if (!platform.openFilePickerDialog) {
+								if (!platform.openDirectoryPickerDialog) {
 									// TODO: Support opening locations on web
 									alert('Opening a dialogue is not supported on this platform!');
 									return;
 								}
 
-								platform.openFilePickerDialog().then((result) => {
+								platform.openDirectoryPickerDialog().then((result) => {
 									// TODO: Pass indexer rules ids to create location
 									if (result)
 										createLocation({

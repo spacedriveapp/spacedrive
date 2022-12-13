@@ -47,7 +47,8 @@ export const ListOfKeys = () => {
 							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
 							mounted: mountedKeys.includes(key),
 							default: defaultKey.data === key.uuid,
-							memoryOnly: key.memory_only
+							memoryOnly: key.memory_only,
+							automount: key.automount
 							// key stats need including here at some point
 						}}
 					/>

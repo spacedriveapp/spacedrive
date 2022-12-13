@@ -1,10 +1,10 @@
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input } from '@sd/ui';
-import { open } from '@tauri-apps/api/dialog';
 import { Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
+import { usePlatform } from '../../util/Platform';
 import { GenericAlertDialogProps } from './AlertDialog';
 
 type FormValues = {
@@ -14,11 +14,12 @@ type FormValues = {
 
 export interface BackupRestorationDialogProps {
 	trigger: ReactNode;
-	setDialogData: (data: GenericAlertDialogProps) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
-	const { register, handleSubmit, getValues, setValue } = useForm<FormValues>({
+	const platform = usePlatform();
+	const { register, handleSubmit, reset } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
 			secretKey: ''
@@ -36,7 +37,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 				{
 					onSuccess: (total) => {
 						setShowBackupRestoreDialog(false);
-						props.setDialogData({
+						props.setAlertDialogData({
 							open: true,
 							title: 'Import Successful',
 							description: '',
@@ -46,7 +47,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					},
 					onError: () => {
 						setShowBackupRestoreDialog(false);
-						props.setDialogData({
+						props.setAlertDialogData({
 							open: true,
 							title: 'Import Error',
 							description: '',
@@ -56,8 +57,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					}
 				}
 			);
-			setValue('masterPassword', '');
-			setValue('secretKey', '');
+			reset();
 			setFilePath('');
 		}
 	};
@@ -124,7 +124,18 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 							variant={filePath !== '' ? 'accent' : 'gray'}
 							type="button"
 							onClick={() => {
-								open()?.then((result) => {
+								if (!platform.openFilePickerDialog) {
+									// TODO: Support opening locations on web
+									props.setAlertDialogData({
+										open: true,
+										title: 'Error',
+										description: '',
+										value: "System dialogs aren't supported on this platform.",
+										inputBox: false
+									});
+									return;
+								}
+								platform.openFilePickerDialog().then((result) => {
 									if (result) setFilePath(result as string);
 								});
 							}}

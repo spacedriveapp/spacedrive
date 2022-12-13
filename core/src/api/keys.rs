@@ -9,6 +9,7 @@ use sd_crypto::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use uuid::Uuid;
 
 use crate::util::db::write_storedkey_to_db;
 use crate::{invalidate_query, prisma::key};
@@ -26,7 +27,7 @@ pub struct KeyAddArgs {
 
 #[derive(Type, Deserialize)]
 pub struct KeyNameUpdateArgs {
-	uuid: uuid::Uuid,
+	uuid: Uuid,
 	name: String,
 }
 
@@ -62,6 +63,12 @@ pub struct OnboardingKeys {
 	secret_key: String,
 }
 
+#[derive(Type, Deserialize)]
+pub struct AutomountUpdateArgs {
+	uuid: Uuid,
+	status: bool,
+}
+
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_query("list", |t| {
@@ -76,7 +83,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, _: (), library| async move { Ok(library.key_manager.get_mounted_uuids()) })
 		})
 		.library_query("getKey", |t| {
-			t(|_, key_uuid: uuid::Uuid, library| async move {
+			t(|_, key_uuid: Uuid, library| async move {
 				let key = library.key_manager.get_key(key_uuid)?;
 
 				let key_string = String::from_utf8(key.expose().clone()).map_err(|_| {
@@ -90,7 +97,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("mount", |t| {
-			t(|_, key_uuid: uuid::Uuid, library| async move {
+			t(|_, key_uuid: Uuid, library| async move {
 				library.key_manager.mount(key_uuid)?;
 				// we also need to dispatch jobs that automatically decrypt preview media and metadata here
 				invalidate_query!(library, "keys.listMounted");
@@ -113,7 +120,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("unmount", |t| {
-			t(|_, key_uuid: uuid::Uuid, library| async move {
+			t(|_, key_uuid: Uuid, library| async move {
 				library.key_manager.unmount(key_uuid)?;
 				// we also need to delete all in-memory decrypted data associated with this key
 				invalidate_query!(library, "keys.listMounted");
@@ -129,8 +136,42 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
+		.library_mutation("syncKeyToLibrary", |t| {
+			t(|_, key_uuid: Uuid, library| async move {
+				let key = library.key_manager.save_to_database(key_uuid)?;
+
+				// does not check that the key doesn't exist before writing
+				write_storedkey_to_db(library.db.clone(), &key).await?;
+
+				invalidate_query!(library, "keys.list");
+				Ok(())
+			})
+		})
+		.library_mutation("updateAutomountStatus", |t| {
+			t(|_, args: AutomountUpdateArgs, library| async move {
+				if !library.key_manager.is_memory_only(args.uuid)? {
+					library
+						.key_manager
+						.change_automount_status(args.uuid, args.status)?;
+
+					library
+						.db
+						.key()
+						.update(
+							key::uuid::equals(args.uuid.to_string()),
+							vec![key::SetParam::SetAutomount(args.status)],
+						)
+						.exec()
+						.await?;
+
+					invalidate_query!(library, "keys.list");
+				}
+
+				Ok(())
+			})
+		})
 		.library_mutation("deleteFromLibrary", |t| {
-			t(|_, key_uuid: uuid::Uuid, library| async move {
+			t(|_, key_uuid: Uuid, library| async move {
 				if !library.key_manager.is_memory_only(key_uuid)? {
 					library
 						.db
@@ -160,7 +201,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.db
 					.key()
-					.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
+					.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
 					.exec()
 					.await?;
 
@@ -192,7 +233,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				for key in automount {
 					library
 						.key_manager
-						.mount(uuid::Uuid::from_str(&key.uuid).map_err(|_| {
+						.mount(Uuid::from_str(&key.uuid).map_err(|_| {
 							rspc::Error::new(
 								rspc::ErrorCode::InternalServerError,
 								"Error deserializing UUID from string".into(),
@@ -206,48 +247,27 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("setDefault", |t| {
-			t(|_, key_uuid: uuid::Uuid, library| async move {
+			t(|_, key_uuid: Uuid, library| async move {
 				library.key_manager.set_default(key_uuid)?;
 
-				// if an old default is set, unset it as the default
-				let old_default = library
+				library
 					.db
 					.key()
-					.find_first(vec![key::default::equals(true)])
+					.update_many(
+						vec![key::default::equals(true)],
+						vec![key::SetParam::SetDefault(false)],
+					)
 					.exec()
 					.await?;
-
-				if let Some(key) = old_default {
-					library
-						.db
-						.key()
-						.update(
-							key::uuid::equals(key.uuid),
-							vec![key::SetParam::SetDefault(false)],
-						)
-						.exec()
-						.await?;
-				}
-
-				let new_default = library
+				library
 					.db
 					.key()
-					.find_unique(key::uuid::equals(key_uuid.to_string()))
+					.update(
+						key::uuid::equals(key_uuid.to_string()),
+						vec![key::SetParam::SetDefault(true)],
+					)
 					.exec()
 					.await?;
-
-				// if the new default key is stored in the library, update it as the default
-				if let Some(default) = new_default {
-					library
-						.db
-						.key()
-						.update(
-							key::uuid::equals(default.uuid),
-							vec![key::SetParam::SetDefault(true)],
-						)
-						.exec()
-						.await?;
-				}
 
 				invalidate_query!(library, "keys.getDefault");
 				Ok(())
@@ -280,6 +300,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					args.algorithm,
 					args.hashing_algorithm,
 					!args.library_sync,
+					args.automount,
 				)?;
 
 				let stored_key = library.key_manager.access_keystore(uuid)?;
@@ -392,7 +413,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.db
 					.key()
-					.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
+					.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
 					.exec()
 					.await?;
 

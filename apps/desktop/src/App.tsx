@@ -36,7 +36,9 @@ const platform: Platform = {
 	getThumbnailUrlById: (casId) => `spacedrive://thumbnail/${encodeURIComponent(casId)}`,
 	openLink: shell.open,
 	getOs,
-	openFilePickerDialog: () => dialog.open({ directory: true }),
+	openDirectoryPickerDialog: () => dialog.open({ directory: true }),
+	openFilePickerDialog: () => dialog.open(),
+	saveFilePickerDialog: () => dialog.save(),
 	showDevtools: () => invoke('show_devtools'),
 	openPath: (path) => shell.open(path)
 };
