@@ -1,5 +1,5 @@
 import { RadioGroup } from '@headlessui/react';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Switch } from '@sd/ui';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useState } from 'react';
@@ -21,11 +21,24 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 	const { location_id, object_id } = props;
 	const decryptFile = useLibraryMutation('files.decryptFiles');
 	const [outputPath, setOutputpath] = useState('');
-	const [decryptType, setDecryptType] = useState('key');
 	const [password, setPassword] = useState('');
 	const [saveToKeyManager, setSaveToKeyManager] = useState(true);
 	const [showPassword, setShowPassword] = useState(false);
 	const PasswordCurrentEyeIcon = showPassword ? EyeSlash : Eye;
+
+	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
+		onSuccess: (data) => {
+			hasMountedKeys = data.length > 0 ? true : false;
+			if (!hasMountedKeys) {
+				setDecryptType('password');
+			}
+		}
+	});
+
+	let hasMountedKeys =
+		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
+
+	const [decryptType, setDecryptType] = useState(hasMountedKeys ? 'key' : 'password');
 
 	return (
 		<>
@@ -80,9 +93,14 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 				<RadioGroup value={decryptType} onChange={setDecryptType} className="mt-2">
 					<span className="text-xs font-bold">Key Type</span>
 					<div className="flex flex-row gap-2 mt-2">
-						<RadioGroup.Option value="key">
+						<RadioGroup.Option disabled={!hasMountedKeys} value="key">
 							{({ checked }) => (
-								<Button type="button" size="sm" variant={checked ? 'accent' : 'gray'}>
+								<Button
+									type="button"
+									disabled={!hasMountedKeys}
+									size="sm"
+									variant={checked ? 'accent' : 'gray'}
+								>
 									Key Manager
 								</Button>
 							)}

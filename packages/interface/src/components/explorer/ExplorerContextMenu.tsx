@@ -81,7 +81,6 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 		}
 	}, [os]);
 
-	const decryptFiles = useLibraryMutation('files.decryptFiles');
 	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
 	const hasMasterPassword =
 		hasMasterPasswordQuery.data !== undefined && hasMasterPasswordQuery.data === true
