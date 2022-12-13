@@ -42,9 +42,8 @@ impl StatefulJob for FileDecryptorJob {
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// enumerate files to decrypt
 		// populate the steps with them (local file paths)
-		let library = ctx.library_ctx();
-
-		let location = library
+		let location = ctx
+			.library_ctx
 			.db
 			.location()
 			.find_unique(location::id::equals(state.init.location_id))
@@ -58,7 +57,8 @@ impl StatefulJob for FileDecryptorJob {
 			.map(PathBuf::from)
 			.expect("critical error: issue getting local path as pathbuf");
 
-		let item = library
+		let item = ctx
+			.library_ctx
 			.db
 			.file_path()
 			.find_first(vec![file_path::object_id::equals(Some(
@@ -91,7 +91,7 @@ impl StatefulJob for FileDecryptorJob {
 		let step = &state.steps[0];
 		// handle overwriting checks, and making sure there's enough available space
 
-		let keys = ctx.library_ctx().key_manager.enumerate_hashed_keys();
+		let keys = ctx.library_ctx.key_manager.enumerate_hashed_keys();
 
 		let output_path = if let Some(path) = state.init.output_path.clone() {
 			path

@@ -52,9 +52,8 @@ impl StatefulJob for ObjectValidatorJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let library_ctx = ctx.library_ctx();
-
-		state.steps = library_ctx
+		state.steps = ctx
+			.library_ctx
 			.db
 			.file_path()
 			.find_many(vec![
@@ -68,7 +67,8 @@ impl StatefulJob for ObjectValidatorJob {
 			.into_iter()
 			.collect::<VecDeque<_>>();
 
-		let location = library_ctx
+		let location = ctx
+			.library_ctx
 			.db
 			.location()
 			.find_unique(location::id::equals(state.init.location_id))
@@ -92,8 +92,6 @@ impl StatefulJob for ObjectValidatorJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
-		let library_ctx = ctx.library_ctx();
-
 		let data = state.data.as_ref().expect("fatal: missing job state");
 
 		// this is to skip files that already have checksums
@@ -102,7 +100,7 @@ impl StatefulJob for ObjectValidatorJob {
 		if let Some(ref object) = step.object {
 			// This if is just to make sure, we already queried objects where integrity_checksum is null
 			if object.integrity_checksum.is_none() {
-				library_ctx
+				ctx.library_ctx
 					.db
 					.object()
 					.update(

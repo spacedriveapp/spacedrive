@@ -68,11 +68,10 @@ impl StatefulJob for FullFileIdentifierJob {
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		info!("Identifying orphan File Paths...");
 
-		let library = ctx.library_ctx();
-
 		let location_id = state.init.location_id;
 
-		let location = library
+		let location = ctx
+			.library_ctx
 			.db
 			.location()
 			.find_unique(location::id::equals(location_id))
@@ -86,7 +85,7 @@ impl StatefulJob for FullFileIdentifierJob {
 			.map(PathBuf::from)
 			.ok_or(IdentifierJobError::LocationLocalPath(location_id))?;
 
-		let orphan_count = count_orphan_file_paths(&library, location_id).await?;
+		let orphan_count = count_orphan_file_paths(&ctx.library_ctx, location_id).await?;
 		info!("Found {} orphan file paths", orphan_count);
 
 		let task_count = (orphan_count as f64 / CHUNK_SIZE as f64).ceil() as usize;
@@ -98,7 +97,8 @@ impl StatefulJob for FullFileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let first_path_id = library
+		let first_path_id = ctx
+			.library_ctx
 			.db
 			.file_path()
 			.find_first(orphan_path_filters(location_id, None))
@@ -136,10 +136,9 @@ impl StatefulJob for FullFileIdentifierJob {
 			.as_mut()
 			.expect("Critical error: missing data on job state");
 
-		let library = ctx.library_ctx();
-
 		// get chunk of orphans to process
-		let file_paths = get_orphan_file_paths(&library, &data.cursor, data.location.id).await?;
+		let file_paths =
+			get_orphan_file_paths(&ctx.library_ctx, &data.cursor, data.location.id).await?;
 
 		// if no file paths found, abort entire job early, there is nothing to do
 		// if we hit this error, there is something wrong with the data/query
@@ -159,7 +158,7 @@ impl StatefulJob for FullFileIdentifierJob {
 		);
 
 		let (total_objects_created, total_objects_linked) = identifier_job_step(
-			&library,
+			&ctx.library_ctx,
 			state.init.location_id,
 			&data.location_path,
 			&file_paths,
@@ -182,7 +181,7 @@ impl StatefulJob for FullFileIdentifierJob {
 			)),
 		]);
 
-		invalidate_query!(ctx.library_ctx(), "locations.getExplorerData");
+		invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
 
 		// let _remaining = count_orphan_file_paths(&ctx.core_ctx, location_id.into()).await?;
 		Ok(())

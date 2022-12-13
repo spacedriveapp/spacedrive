@@ -71,9 +71,8 @@ impl StatefulJob for FileEncryptorJob {
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		// enumerate files to encrypt
 		// populate the steps with them (local file paths)
-		let library = ctx.library_ctx();
-
-		let location = library
+		let location = ctx
+			.library_ctx
 			.db
 			.location()
 			.find_unique(location::id::equals(state.init.location_id))
@@ -87,7 +86,8 @@ impl StatefulJob for FileEncryptorJob {
 			.map(PathBuf::from)
 			.expect("critical error: issue getting local path as pathbuf");
 
-		let item = library
+		let item = ctx
+			.library_ctx
 			.db
 			.file_path()
 			.find_first(vec![file_path::object_id::equals(Some(
@@ -133,13 +133,13 @@ impl StatefulJob for FileEncryptorJob {
 				// handle overwriting checks, and making sure there's enough available space
 
 				let user_key = ctx
-					.library_ctx()
+					.library_ctx
 					.key_manager
 					.access_keymount(state.init.key_uuid)?
 					.hashed_key;
 
 				let user_key_details = ctx
-					.library_ctx()
+					.library_ctx
 					.key_manager
 					.access_keystore(state.init.key_uuid)?;
 
@@ -180,7 +180,7 @@ impl StatefulJob for FileEncryptorJob {
 				if state.init.metadata || state.init.preview_media {
 					// if any are requested, we can make the query as it'll be used at least once
 					let object = ctx
-						.library_ctx()
+						.library_ctx
 						.db
 						.object()
 						.find_unique(object::id::equals(state.init.object_id))

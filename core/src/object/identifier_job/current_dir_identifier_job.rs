@@ -48,9 +48,8 @@ impl StatefulJob for CurrentDirFileIdentifierJob {
 			state.init.root_path.display()
 		);
 
-		let library = ctx.library_ctx();
-
-		let location = library
+		let location = ctx
+			.library_ctx
 			.db
 			.location()
 			.find_unique(location::id::equals(state.init.location_id))
@@ -58,7 +57,8 @@ impl StatefulJob for CurrentDirFileIdentifierJob {
 			.await?
 			.ok_or(IdentifierJobError::MissingLocation(state.init.location_id))?;
 
-		let parent_directory_id = library
+		let parent_directory_id = ctx
+			.library_ctx
 			.db
 			.file_path()
 			.find_first(vec![
@@ -85,7 +85,8 @@ impl StatefulJob for CurrentDirFileIdentifierJob {
 			.map(PathBuf::from)
 			.ok_or(IdentifierJobError::LocationLocalPath(location.id))?;
 
-		let orphan_paths = library
+		let orphan_paths = ctx
+			.library_ctx
 			.db
 			.file_path()
 			.find_many(orphan_path_filters(
@@ -153,7 +154,7 @@ impl StatefulJob for CurrentDirFileIdentifierJob {
 		);
 
 		identifier_job_step(
-			&ctx.library_ctx(),
+			&ctx.library_ctx,
 			state.init.location_id,
 			&data.location_path,
 			file_paths,

@@ -79,13 +79,14 @@ impl StatefulJob for ThumbnailJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		let library_ctx = ctx.library_ctx();
-		let thumbnail_dir = library_ctx
+		let thumbnail_dir = ctx
+			.library_ctx
 			.config()
 			.data_directory()
 			.join(THUMBNAIL_CACHE_DIR_NAME);
 
-		let location = library_ctx
+		let location = ctx
+			.library_ctx
 			.db
 			.location()
 			.find_unique(location::id::equals(state.init.location_id))
@@ -93,7 +94,8 @@ impl StatefulJob for ThumbnailJob {
 			.await?
 			.ok_or(ThumbnailError::MissingLocation(state.init.location_id))?;
 
-		let parent_directory_id = library_ctx
+		let parent_directory_id = ctx
+			.library_ctx
 			.db
 			.file_path()
 			.find_first(vec![
@@ -128,7 +130,7 @@ impl StatefulJob for ThumbnailJob {
 
 		// query database for all image files in this location that need thumbnails
 		let image_files = get_files_by_extensions(
-			&library_ctx,
+			&ctx.library_ctx,
 			state.init.location_id,
 			parent_directory_id,
 			&sd_file_ext::extensions::ALL_IMAGE_EXTENSIONS
@@ -146,7 +148,7 @@ impl StatefulJob for ThumbnailJob {
 		let all_files = {
 			// query database for all video files in this location that need thumbnails
 			let video_files = get_files_by_extensions(
-				&library_ctx,
+				&ctx.library_ctx,
 				state.init.location_id,
 				parent_directory_id,
 				&sd_file_ext::extensions::ALL_VIDEO_EXTENSIONS
@@ -271,12 +273,11 @@ impl StatefulJob for ThumbnailJob {
 			}
 
 			if !state.init.background {
-				ctx.library_ctx().emit(CoreEvent::NewThumbnail { cas_id });
+				ctx.library_ctx.emit(CoreEvent::NewThumbnail { cas_id });
 			};
 
 			// With this invalidate query, we update the user interface to show each new thumbnail
-			let library_ctx = ctx.library_ctx();
-			invalidate_query!(library_ctx, "locations.getExplorerData");
+			invalidate_query!(ctx.library_ctx, "locations.getExplorerData");
 		} else {
 			info!("Thumb exists, skipping... {}", output_path.display());
 		}

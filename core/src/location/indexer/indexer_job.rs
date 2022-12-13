@@ -120,7 +120,7 @@ impl StatefulJob for IndexerJob {
 			.unwrap();
 
 		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = get_max_file_path_id(&ctx.library_ctx()).await?;
+		let first_file_id = get_max_file_path_id(&ctx.library_ctx).await?;
 
 		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
 			HashMap::with_capacity(state.init.location.indexer_rules.len());
@@ -273,7 +273,7 @@ impl StatefulJob for IndexerJob {
 			})
 			.collect();
 
-		let count = create_many_file_paths(&ctx.library_ctx(), entries).await?;
+		let count = create_many_file_paths(&ctx.library_ctx, entries).await?;
 
 		info!("Inserted {count} records");
 

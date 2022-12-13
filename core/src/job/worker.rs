@@ -29,7 +29,7 @@ pub enum WorkerEvent {
 
 #[derive(Clone)]
 pub struct WorkerContext {
-	library_ctx: LibraryContext,
+	pub library_ctx: LibraryContext,
 	events_tx: UnboundedSender<WorkerEvent>,
 	shutdown_tx: Arc<broadcast::Sender<()>>,
 }
@@ -50,10 +50,6 @@ impl WorkerContext {
 				debounce: true,
 			})
 			.expect("critical error: failed to send worker worker progress event updates");
-	}
-
-	pub fn library_ctx(&self) -> LibraryContext {
-		self.library_ctx.clone()
 	}
 
 	pub fn shutdown_rx(&self) -> broadcast::Receiver<()> {

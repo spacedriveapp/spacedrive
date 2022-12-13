@@ -3,15 +3,15 @@ use crate::{
 	location::{indexer::indexer_job::indexer_job_location, manager::LocationManagerError},
 };
 
-use std::{future::Future, io, time::Duration};
+use std::{future::Future, time::Duration};
 
 use async_trait::async_trait;
 use notify::{
-	event::{CreateKind, DataChange, ModifyKind, RemoveKind, RenameMode},
+	event::{CreateKind, DataChange, ModifyKind, RenameMode},
 	Event, EventKind,
 };
 use tokio::{fs, select, spawn, sync::oneshot, time::sleep};
-use tracing::{error, trace, warn};
+use tracing::{trace, warn};
 
 use super::{
 	utils::{create_dir, create_file, remove_event, rename, update_file},
