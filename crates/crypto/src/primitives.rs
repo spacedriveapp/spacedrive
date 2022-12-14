@@ -37,6 +37,9 @@ pub const LATEST_KEYSLOT: KeyslotVersion = KeyslotVersion::V1;
 pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
 pub const LATEST_PREVIEW_MEDIA: PreviewMediaVersion = PreviewMediaVersion::V1;
 
+pub const ROOT_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:53:54 root key derivation";
+pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation";
+
 /// This should be used for generating nonces for encryption.
 ///
 /// An algorithm is required so this function can calculate the length of the nonce.
