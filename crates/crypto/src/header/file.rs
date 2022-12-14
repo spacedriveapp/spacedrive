@@ -388,7 +388,7 @@ mod test {
 				version: KeyslotVersion::V1,
 				algorithm: Algorithm::XChaCha20Poly1305,
 				hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-				salt: [
+				content_salt: [
 					104, 176, 135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235, 117,
 				],
 				master_key: [
@@ -428,7 +428,7 @@ mod test {
 					version: KeyslotVersion::V1,
 					algorithm: Algorithm::XChaCha20Poly1305,
 					hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-					salt: [
+					content_salt: [
 						104, 176, 135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235,
 						117,
 					],
@@ -447,7 +447,7 @@ mod test {
 					version: KeyslotVersion::V1,
 					algorithm: Algorithm::XChaCha20Poly1305,
 					hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-					salt: [
+					content_salt: [
 						104, 176, 135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235,
 						117,
 					],
@@ -466,7 +466,7 @@ mod test {
 					version: KeyslotVersion::V1,
 					algorithm: Algorithm::XChaCha20Poly1305,
 					hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-					salt: [
+					content_salt: [
 						104, 176, 135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235,
 						117,
 					],

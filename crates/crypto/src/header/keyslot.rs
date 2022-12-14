@@ -38,7 +38,7 @@ pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub salt: [u8; SALT_LEN],
+	pub content_salt: [u8; SALT_LEN],
 	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is encrypted so we can store it
 	pub nonce: Vec<u8>,
 }
@@ -54,14 +54,14 @@ pub enum KeyslotVersion {
 impl Keyslot {
 	/// This should be used for creating a keyslot.
 	///
-	/// This handles generating the nonce/salt, and encrypting the master key.
+	/// This handles generating the nonce and encrypting the master key.
 	///
 	/// You will need to provide the password, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
 	pub fn new(
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		salt: [u8; SALT_LEN],
+		content_salt: [u8; SALT_LEN],
 		hashed_key: Protected<[u8; KEY_LEN]>,
 		master_key: &Protected<[u8; KEY_LEN]>,
 	) -> Result<Self> {
@@ -79,7 +79,7 @@ impl Keyslot {
 			version,
 			algorithm,
 			hashing_algorithm,
-			salt,
+			content_salt,
 			master_key: encrypted_master_key,
 			nonce,
 		})
@@ -93,7 +93,7 @@ impl Keyslot {
 	pub fn decrypt_master_key(&self, password: &Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
-			.hash(password.clone(), self.salt)
+			.hash(password.clone(), self.content_salt)
 			.map_err(|_| Error::PasswordHash)?;
 
 		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
@@ -122,7 +122,7 @@ impl Keyslot {
 				keyslot.extend_from_slice(&self.version.serialize()); // 2
 				keyslot.extend_from_slice(&self.algorithm.serialize()); // 4
 				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
-				keyslot.extend_from_slice(&self.salt); // 22
+				keyslot.extend_from_slice(&self.content_salt); // 22
 				keyslot.extend_from_slice(&self.master_key); // 70
 				keyslot.extend_from_slice(&self.nonce); // 78 or 90
 				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 96 total bytes
@@ -154,8 +154,8 @@ impl Keyslot {
 				reader.read(&mut hashing_algorithm).map_err(Error::Io)?;
 				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
 
-				let mut salt = [0u8; SALT_LEN];
-				reader.read(&mut salt).map_err(Error::Io)?;
+				let mut content_salt = [0u8; SALT_LEN];
+				reader.read(&mut content_salt).map_err(Error::Io)?;
 
 				let mut master_key = [0u8; ENCRYPTED_KEY_LEN];
 				reader.read(&mut master_key).map_err(Error::Io)?;
@@ -171,7 +171,7 @@ impl Keyslot {
 					version,
 					algorithm,
 					hashing_algorithm,
-					salt,
+					content_salt,
 					master_key,
 					nonce,
 				};
