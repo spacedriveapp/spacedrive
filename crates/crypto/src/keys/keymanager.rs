@@ -393,10 +393,9 @@ impl KeyManager {
 				&key.master_key,
 				&[],
 			)
-			.map_or_else(
-				|_| Err(Error::IncorrectPassword),
-				|v| Ok(Protected::new(to_array::<KEY_LEN>(v.expose().clone())?)),
-			)?;
+			.map_or(Err(Error::IncorrectPassword), |v| {
+				Ok(Protected::new(to_array::<KEY_LEN>(v.expose().clone())?))
+			})?;
 
 			// generate a new nonce
 			let master_key_nonce = generate_nonce(key.algorithm);
@@ -490,10 +489,9 @@ impl KeyManager {
 					&stored_key.master_key,
 					&[],
 				)
-				.map_or_else(
-					|_| Err(Error::IncorrectPassword),
-					|v| Ok(Protected::new(to_array(v.expose().clone())?)),
-				)?;
+				.map_or(Err(Error::IncorrectPassword), |v| {
+					Ok(Protected::new(to_array(v.expose().clone())?))
+				})?;
 
 				// Decrypt the StoredKey using the decrypted master key
 				let key = StreamDecryption::decrypt_bytes(
