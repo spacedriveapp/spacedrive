@@ -109,6 +109,7 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 				verification_key.master_key_nonce.to_vec(),
 				verification_key.key_nonce.to_vec(),
 				verification_key.key.to_vec(),
+				verification_key.salt.to_vec(),
 				vec![],
 			)
 			.exec()
@@ -144,6 +145,7 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 					to_array(key.hashing_algorithm).unwrap(),
 				)
 				.unwrap(),
+				salt: to_array(key.salt).unwrap(),
 				memory_only: false,
 				automount: key.automount,
 			}

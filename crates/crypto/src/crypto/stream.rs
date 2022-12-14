@@ -154,10 +154,9 @@ impl StreamEncryption {
 		let mut writer = Cursor::new(Vec::<u8>::new());
 		let encryptor = Self::new(key, nonce, algorithm)?;
 
-		match encryptor.encrypt_streams(bytes, &mut writer, aad) {
-			Ok(_) => Ok(writer.into_inner()),
-			Err(e) => Err(e),
-		}
+		encryptor
+			.encrypt_streams(bytes, &mut writer, aad)
+			.map_or_else(|e| Err(e), |_| Ok(writer.into_inner()))
 	}
 }
 
@@ -266,12 +265,10 @@ impl StreamDecryption {
 		aad: &[u8],
 	) -> Result<Protected<Vec<u8>>> {
 		let mut writer = Cursor::new(Vec::<u8>::new());
-
 		let decryptor = Self::new(key, nonce, algorithm)?;
 
-		match decryptor.decrypt_streams(bytes, &mut writer, aad) {
-			Ok(_) => Ok(Protected::new(writer.into_inner())),
-			Err(e) => Err(e),
-		}
+		decryptor
+			.decrypt_streams(bytes, &mut writer, aad)
+			.map_or_else(|e| Err(e), |_| Ok(Protected::new(writer.into_inner())))
 	}
 }
