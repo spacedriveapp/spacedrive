@@ -41,12 +41,12 @@
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",
-		"@types/node": "^16.0.0"
+		"@types/node": "^18.0.0"
 	},
 	"engines": {
 		"pnpm": ">=7.14.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
-		"node": ">=16.0.0"
+		"node": ">=18.0.0"
 	}
 }
