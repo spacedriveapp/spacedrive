@@ -26,7 +26,10 @@ use std::io::{Read, Seek};
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
-	primitives::{generate_nonce, to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN},
+	primitives::{
+		derive_key, generate_nonce, generate_salt, to_array, ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT,
+		KEY_LEN, SALT_LEN,
+	},
 	Error, Protected, Result,
 };
 
@@ -64,15 +67,17 @@ impl Keyslot {
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		salt: [u8; SALT_LEN],
 		content_salt: [u8; SALT_LEN],
 		hashed_key: Protected<[u8; KEY_LEN]>,
 		master_key: &Protected<[u8; KEY_LEN]>,
 	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
+		let salt = generate_salt();
+		let derived_key = derive_key(hashed_key, salt, FILE_KEY_CONTEXT);
+
 		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			hashed_key,
+			derived_key,
 			&nonce,
 			algorithm,
 			master_key.expose(),
@@ -101,7 +106,15 @@ impl Keyslot {
 			.hash(password.clone(), self.content_salt)
 			.map_err(|_| Error::PasswordHash)?;
 
-		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
+		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
+
+		StreamDecryption::decrypt_bytes(
+			derived_key,
+			&self.nonce,
+			self.algorithm,
+			&self.master_key,
+			&[],
+		)
 	}
 
 	/// This function should not be used directly, use `header.decrypt_master_key()` instead
@@ -115,7 +128,15 @@ impl Keyslot {
 		&self,
 		key: Protected<[u8; KEY_LEN]>,
 	) -> Result<Protected<Vec<u8>>> {
-		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
+		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
+
+		StreamDecryption::decrypt_bytes(
+			derived_key,
+			&self.nonce,
+			self.algorithm,
+			&self.master_key,
+			&[],
+		)
 	}
 
 	/// This function is used to serialize a keyslot into bytes
