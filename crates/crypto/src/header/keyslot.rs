@@ -168,32 +168,32 @@ impl Keyslot {
 		R: Read + Seek,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version)?;
+		reader.read_exact(&mut version)?;
 		let version = KeyslotVersion::deserialize(version)?;
 
 		match version {
 			KeyslotVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm)?;
+				reader.read_exact(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut hashing_algorithm = [0u8; 2];
-				reader.read(&mut hashing_algorithm)?;
+				reader.read_exact(&mut hashing_algorithm)?;
 				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
 
 				let mut salt = [0u8; SALT_LEN];
-				reader.read(&mut salt)?;
+				reader.read_exact(&mut salt)?;
 
 				let mut content_salt = [0u8; SALT_LEN];
-				reader.read(&mut content_salt)?;
+				reader.read_exact(&mut content_salt)?;
 
 				let mut master_key = [0u8; ENCRYPTED_KEY_LEN];
-				reader.read(&mut master_key)?;
+				reader.read_exact(&mut master_key)?;
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut nonce)?;
+				reader.read_exact(&mut nonce)?;
 
-				reader.read(&mut vec![0u8; 26 - nonce.len()])?;
+				reader.read_exact(&mut vec![0u8; 26 - nonce.len()])?;
 
 				let keyslot = Self {
 					version,

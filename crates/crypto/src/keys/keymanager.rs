@@ -638,7 +638,7 @@ impl KeyManager {
 
 		to_array(secret_key)
 			.ok()
-			.map_or(Protected::new(generate_salt()), |v| Protected::new(v))
+			.map_or(Protected::new(generate_salt()), Protected::new)
 	}
 
 	fn format_secret_key(salt: &[u8; SALT_LEN]) -> Protected<String> {

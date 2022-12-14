@@ -178,29 +178,29 @@ impl PreviewMedia {
 		R: Read + Seek,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version)?;
+		reader.read_exact(&mut version)?;
 		let version =
 			PreviewMediaVersion::deserialize(version).map_err(|_| Error::NoPreviewMedia)?;
 
 		match version {
 			PreviewMediaVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm)?;
+				reader.read_exact(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut media_nonce)?;
+				reader.read_exact(&mut media_nonce)?;
 
-				reader.read(&mut vec![0u8; 24 - media_nonce.len()])?;
+				reader.read_exact(&mut vec![0u8; 24 - media_nonce.len()])?;
 
 				let mut media_length = [0u8; 8];
-				reader.read(&mut media_length)?;
+				reader.read_exact(&mut media_length)?;
 
 				let media_length = u64::from_le_bytes(media_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut media = vec![0u8; media_length as usize];
-				reader.read(&mut media)?;
+				reader.read_exact(&mut media)?;
 
 				let preview_media = Self {
 					version,

@@ -197,28 +197,28 @@ impl Metadata {
 		R: Read + Seek,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version)?;
+		reader.read_exact(&mut version)?;
 		let version = MetadataVersion::deserialize(version).map_err(|_| Error::NoMetadata)?;
 
 		match version {
 			MetadataVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm)?;
+				reader.read_exact(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut metadata_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut metadata_nonce)?;
+				reader.read_exact(&mut metadata_nonce)?;
 
-				reader.read(&mut vec![0u8; 24 - metadata_nonce.len()])?;
+				reader.read_exact(&mut vec![0u8; 24 - metadata_nonce.len()])?;
 
 				let mut metadata_length = [0u8; 8];
-				reader.read(&mut metadata_length)?;
+				reader.read_exact(&mut metadata_length)?;
 
 				let metadata_length = u64::from_le_bytes(metadata_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut metadata = vec![0u8; metadata_length as usize];
-				reader.read(&mut metadata)?;
+				reader.read_exact(&mut metadata)?;
 
 				let metadata = Self {
 					version,

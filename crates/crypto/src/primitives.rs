@@ -75,6 +75,7 @@ pub fn generate_master_key() -> Protected<[u8; KEY_LEN]> {
 }
 
 #[must_use]
+#[allow(clippy::needless_pass_by_value)]
 pub fn derive_key(
 	key: Protected<[u8; KEY_LEN]>,
 	salt: [u8; SALT_LEN],

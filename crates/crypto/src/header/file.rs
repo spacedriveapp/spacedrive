@@ -95,6 +95,7 @@ impl FileHeader {
 	/// This includes the magic bytes at the start of the file, and remainder of the header itself (excluding keyslots, metadata, and preview media as these can all change)
 	///
 	/// This can be used for getting the length of the AAD
+	#[must_use]
 	pub const fn size(version: FileHeaderVersion) -> usize {
 		match version {
 			FileHeaderVersion::V1 => 36,
@@ -150,7 +151,7 @@ impl FileHeader {
 	where
 		W: Write + Seek,
 	{
-		writer.write(&self.serialize()?)?;
+		writer.write_all(&self.serialize()?)?;
 		Ok(())
 	}
 
@@ -256,7 +257,7 @@ impl FileHeader {
 		R: Read + Seek,
 	{
 		let mut magic_bytes = [0u8; MAGIC_BYTES.len()];
-		reader.read(&mut magic_bytes)?;
+		reader.read_exact(&mut magic_bytes)?;
 
 		if magic_bytes != MAGIC_BYTES {
 			return Err(Error::FileHeader);
@@ -264,15 +265,15 @@ impl FileHeader {
 
 		let mut version = [0u8; 2];
 
-		reader.read(&mut version)?;
+		reader.read_exact(&mut version)?;
 		let version = FileHeaderVersion::deserialize(version)?;
 
 		// Rewind so we can get the AAD
 		reader.rewind()?;
 
 		// read the aad according to the size
-		let mut aad = vec![0u8; FileHeader::size(version)];
-		reader.read(&mut aad)?;
+		let mut aad = vec![0u8; Self::size(version)];
+		reader.read_exact(&mut aad)?;
 
 		// seek back to the start (plus magic bytes and the two version bytes)
 		reader.seek(SeekFrom::Start(MAGIC_BYTES.len() as u64 + 2))?;
@@ -281,19 +282,19 @@ impl FileHeader {
 		let header = match version {
 			FileHeaderVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm)?;
+				reader.read_exact(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut nonce)?;
+				reader.read_exact(&mut nonce)?;
 
 				// read and discard the padding
-				reader.read(&mut vec![0u8; 25 - nonce.len()])?;
+				reader.read_exact(&mut vec![0u8; 25 - nonce.len()])?;
 
 				let mut keyslot_bytes = [0u8; (KEYSLOT_SIZE * 2)]; // length of 2x keyslots
 				let mut keyslots: Vec<Keyslot> = Vec::new();
 
-				reader.read(&mut keyslot_bytes)?;
+				reader.read_exact(&mut keyslot_bytes)?;
 				let mut keyslot_reader = Cursor::new(keyslot_bytes);
 
 				for _ in 0..2 {
@@ -307,7 +308,7 @@ impl FileHeader {
 				} else {
 					// header/aad area, keyslot area
 					reader.seek(SeekFrom::Start(
-						FileHeader::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
+						Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
 					))?;
 					None
 				};
@@ -316,13 +317,13 @@ impl FileHeader {
 					Some(preview_media)
 				} else if let Some(metadata) = metadata.clone() {
 					reader.seek(SeekFrom::Start(
-						FileHeader::size(version) as u64
+						Self::size(version) as u64
 							+ (KEYSLOT_SIZE * 2) as u64 + metadata.size() as u64,
 					))?;
 					None
 				} else {
 					reader.seek(SeekFrom::Start(
-						FileHeader::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
+						Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
 					))?;
 					None
 				};
