@@ -38,10 +38,13 @@ pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
+	pub salt: [u8; SALT_LEN], // the salt used for deriving a KEK from a (key/content salt) hash
 	pub content_salt: [u8; SALT_LEN],
 	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is encrypted so we can store it
 	pub nonce: Vec<u8>,
 }
+
+pub const KEYSLOT_SIZE: usize = 112;
 
 /// This defines the keyslot version
 ///
@@ -61,6 +64,7 @@ impl Keyslot {
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
+		salt: [u8; SALT_LEN],
 		content_salt: [u8; SALT_LEN],
 		hashed_key: Protected<[u8; KEY_LEN]>,
 		master_key: &Protected<[u8; KEY_LEN]>,
@@ -79,6 +83,7 @@ impl Keyslot {
 			version,
 			algorithm,
 			hashing_algorithm,
+			salt,
 			content_salt,
 			master_key: encrypted_master_key,
 			nonce,
@@ -122,10 +127,11 @@ impl Keyslot {
 				keyslot.extend_from_slice(&self.version.serialize()); // 2
 				keyslot.extend_from_slice(&self.algorithm.serialize()); // 4
 				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
-				keyslot.extend_from_slice(&self.content_salt); // 22
-				keyslot.extend_from_slice(&self.master_key); // 70
-				keyslot.extend_from_slice(&self.nonce); // 78 or 90
-				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 96 total bytes
+				keyslot.extend_from_slice(&self.salt); // 22
+				keyslot.extend_from_slice(&self.content_salt); // 38
+				keyslot.extend_from_slice(&self.master_key); // 86
+				keyslot.extend_from_slice(&self.nonce); // 94 or 106
+				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 112 total bytes
 				keyslot
 			}
 		}
@@ -141,36 +147,38 @@ impl Keyslot {
 		R: Read + Seek,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version).map_err(Error::Io)?;
+		reader.read(&mut version)?;
 		let version = KeyslotVersion::deserialize(version)?;
 
 		match version {
 			KeyslotVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm).map_err(Error::Io)?;
+				reader.read(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut hashing_algorithm = [0u8; 2];
-				reader.read(&mut hashing_algorithm).map_err(Error::Io)?;
+				reader.read(&mut hashing_algorithm)?;
 				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
 
+				let mut salt = [0u8; SALT_LEN];
+				reader.read(&mut salt)?;
+
 				let mut content_salt = [0u8; SALT_LEN];
-				reader.read(&mut content_salt).map_err(Error::Io)?;
+				reader.read(&mut content_salt)?;
 
 				let mut master_key = [0u8; ENCRYPTED_KEY_LEN];
-				reader.read(&mut master_key).map_err(Error::Io)?;
+				reader.read(&mut master_key)?;
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut nonce).map_err(Error::Io)?;
+				reader.read(&mut nonce)?;
 
-				reader
-					.read(&mut vec![0u8; 26 - nonce.len()])
-					.map_err(Error::Io)?;
+				reader.read(&mut vec![0u8; 26 - nonce.len()])?;
 
 				let keyslot = Self {
 					version,
 					algorithm,
 					hashing_algorithm,
+					salt,
 					content_salt,
 					master_key,
 					nonce,

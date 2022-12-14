@@ -111,7 +111,7 @@ impl StreamEncryption {
 	{
 		let mut read_buffer = vec![0u8; BLOCK_SIZE].into_boxed_slice();
 		loop {
-			let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
+			let read_count = reader.read(&mut read_buffer)?;
 			if read_count == BLOCK_SIZE {
 				let payload = Payload {
 					aad,
@@ -135,7 +135,7 @@ impl StreamEncryption {
 			}
 		}
 
-		writer.flush().map_err(Error::Io)?;
+		writer.flush()?;
 
 		Ok(())
 	}
@@ -226,7 +226,7 @@ impl StreamDecryption {
 		let mut read_buffer = vec![0u8; BLOCK_SIZE + AEAD_TAG_SIZE].into_boxed_slice();
 
 		loop {
-			let read_count = reader.read(&mut read_buffer).map_err(Error::Io)?;
+			let read_count = reader.read(&mut read_buffer)?;
 			if read_count == (BLOCK_SIZE + AEAD_TAG_SIZE) {
 				let payload = Payload {
 					aad,
@@ -249,7 +249,7 @@ impl StreamDecryption {
 			}
 		}
 
-		writer.flush().map_err(Error::Io)?;
+		writer.flush()?;
 
 		Ok(())
 	}

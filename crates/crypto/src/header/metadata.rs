@@ -161,10 +161,8 @@ impl FileHeader {
 
 impl Metadata {
 	#[must_use]
-	pub fn get_length(&self) -> usize {
-		match self.version {
-			MetadataVersion::V1 => 36 + self.metadata.len(),
-		}
+	pub fn size(&self) -> usize {
+		self.serialize().len()
 	}
 
 	/// This function is used to serialize a metadata item into bytes
@@ -199,30 +197,28 @@ impl Metadata {
 		R: Read + Seek,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version).map_err(Error::Io)?;
+		reader.read(&mut version)?;
 		let version = MetadataVersion::deserialize(version).map_err(|_| Error::NoMetadata)?;
 
 		match version {
 			MetadataVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm).map_err(Error::Io)?;
+				reader.read(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut metadata_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut metadata_nonce).map_err(Error::Io)?;
+				reader.read(&mut metadata_nonce)?;
 
-				reader
-					.read(&mut vec![0u8; 24 - metadata_nonce.len()])
-					.map_err(Error::Io)?;
+				reader.read(&mut vec![0u8; 24 - metadata_nonce.len()])?;
 
 				let mut metadata_length = [0u8; 8];
-				reader.read(&mut metadata_length).map_err(Error::Io)?;
+				reader.read(&mut metadata_length)?;
 
 				let metadata_length = u64::from_le_bytes(metadata_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut metadata = vec![0u8; metadata_length as usize];
-				reader.read(&mut metadata).map_err(Error::Io)?;
+				reader.read(&mut metadata)?;
 
 				let metadata = Self {
 					version,

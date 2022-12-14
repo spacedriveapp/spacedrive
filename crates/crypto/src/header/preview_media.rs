@@ -142,10 +142,8 @@ impl FileHeader {
 
 impl PreviewMedia {
 	#[must_use]
-	pub fn get_length(&self) -> usize {
-		match self.version {
-			PreviewMediaVersion::V1 => 36 + self.media.len(),
-		}
+	pub fn size(&self) -> usize {
+		self.serialize().len()
 	}
 
 	/// This function is used to serialize a preview media header item into bytes
@@ -180,31 +178,29 @@ impl PreviewMedia {
 		R: Read + Seek,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version).map_err(Error::Io)?;
+		reader.read(&mut version)?;
 		let version =
 			PreviewMediaVersion::deserialize(version).map_err(|_| Error::NoPreviewMedia)?;
 
 		match version {
 			PreviewMediaVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm).map_err(Error::Io)?;
+				reader.read(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut media_nonce).map_err(Error::Io)?;
+				reader.read(&mut media_nonce)?;
 
-				reader
-					.read(&mut vec![0u8; 24 - media_nonce.len()])
-					.map_err(Error::Io)?;
+				reader.read(&mut vec![0u8; 24 - media_nonce.len()])?;
 
 				let mut media_length = [0u8; 8];
-				reader.read(&mut media_length).map_err(Error::Io)?;
+				reader.read(&mut media_length)?;
 
 				let media_length = u64::from_le_bytes(media_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut media = vec![0u8; media_length as usize];
-				reader.read(&mut media).map_err(Error::Io)?;
+				reader.read(&mut media)?;
 
 				let preview_media = Self {
 					version,
