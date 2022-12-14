@@ -133,24 +133,24 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 				default = uuid;
 			}
 
-			StoredKey {
+			let stored_key = StoredKey {
 				uuid,
-				algorithm: Algorithm::deserialize(to_array(key.algorithm).unwrap()).unwrap(),
-				content_salt: to_array(key.content_salt).unwrap(),
-				master_key: to_array(key.master_key).unwrap(),
+				algorithm: Algorithm::deserialize(to_array(key.algorithm)?)?,
+				content_salt: to_array(key.content_salt)?,
+				master_key: to_array(key.master_key)?,
 				master_key_nonce: key.master_key_nonce,
 				key_nonce: key.key_nonce,
 				key: key.key,
-				hashing_algorithm: HashingAlgorithm::deserialize(
-					to_array(key.hashing_algorithm).unwrap(),
-				)
-				.unwrap(),
-				salt: to_array(key.salt).unwrap(),
+				hashing_algorithm: HashingAlgorithm::deserialize(to_array(key.hashing_algorithm)?)?,
+				salt: to_array(key.salt)?,
 				memory_only: false,
 				automount: key.automount,
-			}
+			};
+
+			Ok(stored_key)
 		})
-		.collect();
+		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()
+		.unwrap();
 
 	// insert all keys from the DB into the keymanager's keystore
 	key_manager.populate_keystore(stored_keys)?;
