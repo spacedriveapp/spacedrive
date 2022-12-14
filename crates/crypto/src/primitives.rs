@@ -37,8 +37,10 @@ pub const LATEST_KEYSLOT: KeyslotVersion = KeyslotVersion::V1;
 pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
 pub const LATEST_PREVIEW_MEDIA: PreviewMediaVersion = PreviewMediaVersion::V1;
 
-pub const ROOT_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:53:54 root key derivation";
-pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation";
+pub const ROOT_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:53:54 root key derivation"; // used for deriving keys from the root key
+pub const MASTER_PASSWORD_CONTEXT: &str =
+	"spacedrive 2022-12-14 15:35:41 master password hash derivation"; // used for deriving keys from the master password hash
+pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation"; // used for deriving keys from user key/content salt hashes (for file encryption)
 
 /// This should be used for generating nonces for encryption.
 ///
