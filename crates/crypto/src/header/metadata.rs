@@ -32,7 +32,7 @@ use std::io::{Read, Seek};
 #[cfg(feature = "serde")]
 use crate::{
 	crypto::stream::{StreamDecryption, StreamEncryption},
-	primitives::{generate_nonce, MASTER_KEY_LEN},
+	primitives::{generate_nonce, KEY_LEN},
 	Protected,
 };
 
@@ -71,7 +71,7 @@ impl FileHeader {
 		&mut self,
 		version: MetadataVersion,
 		algorithm: Algorithm,
-		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
+		master_key: &Protected<[u8; KEY_LEN]>,
 		metadata: &T,
 	) -> Result<()>
 	where
@@ -107,7 +107,7 @@ impl FileHeader {
 	#[cfg(feature = "serde")]
 	pub fn decrypt_metadata_from_prehashed<T>(
 		&self,
-		hashed_keys: Vec<Protected<[u8; 32]>>,
+		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
 	) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
@@ -174,7 +174,7 @@ impl Metadata {
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
 			MetadataVersion::V1 => {
-				let mut metadata: Vec<u8> = Vec::new();
+				let mut metadata = Vec::new();
 				metadata.extend_from_slice(&self.version.serialize()); // 2
 				metadata.extend_from_slice(&self.algorithm.serialize()); // 4
 				metadata.extend_from_slice(&self.metadata_nonce); // 24 max

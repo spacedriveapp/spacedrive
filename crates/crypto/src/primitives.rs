@@ -19,14 +19,16 @@ pub const SALT_LEN: usize = 16;
 
 /// The size used for streaming encryption/decryption. This size seems to offer the best performance compared to alternatives.
 ///
-/// The file size gain is 16 bytes per 1048576 bytes (due to the AEAD tag)
+/// The file size gain is 16 bytes per 1048576 bytes (due to the AEAD tag). Plus the size of the header.
 pub const BLOCK_SIZE: usize = 1_048_576;
 
+pub const AEAD_TAG_SIZE: usize = 16;
+
 /// The length of the encrypted master key
-pub const ENCRYPTED_MASTER_KEY_LEN: usize = 48;
+pub const ENCRYPTED_KEY_LEN: usize = 48;
 
 /// The length of the (unencrypted) master key
-pub const MASTER_KEY_LEN: usize = 32;
+pub const KEY_LEN: usize = 32;
 
 pub const PASSPHRASE_LEN: usize = 7;
 
@@ -63,15 +65,31 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
 ///
 /// This function uses `ChaCha20Rng` for generating cryptographically-secure random data
 #[must_use]
-pub fn generate_master_key() -> Protected<[u8; MASTER_KEY_LEN]> {
-	let mut master_key = [0u8; MASTER_KEY_LEN];
+pub fn generate_master_key() -> Protected<[u8; KEY_LEN]> {
+	let mut master_key = [0u8; KEY_LEN];
 	rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut master_key);
 	Protected::new(master_key)
 }
 
+#[must_use]
+pub fn derive_key(
+	key: Protected<[u8; KEY_LEN]>,
+	salt: [u8; SALT_LEN],
+	context: &str,
+) -> Protected<[u8; KEY_LEN]> {
+	let mut input = key.expose().to_vec();
+	input.extend_from_slice(&salt);
+
+	let key = blake3::derive_key(context, &input);
+
+	input.zeroize();
+
+	Protected::new(key)
+}
+
 /// This is used for converting a `Vec<u8>` to an array of bytes
 ///
-/// It's main usage is for converting an encrypted master key from a `Vec<u8>` to `[u8; ENCRYPTED_MASTER_KEY_LEN]`
+/// It's main usage is for converting an encrypted master key from a `Vec<u8>` to `[u8; ENCRYPTED_KEY_LEN]`
 ///
 /// As the master key is encrypted at this point, it does not need to be `Protected<>`
 ///

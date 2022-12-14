@@ -33,7 +33,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
 	crypto::stream::Algorithm,
-	primitives::{generate_nonce, to_array, MASTER_KEY_LEN},
+	primitives::{generate_nonce, to_array, KEY_LEN},
 	Error, Protected, Result,
 };
 
@@ -103,8 +103,8 @@ impl FileHeader {
 	pub fn decrypt_master_key(
 		&self,
 		password: Protected<Vec<u8>>,
-	) -> Result<Protected<[u8; MASTER_KEY_LEN]>> {
-		let mut master_key: Option<Protected<[u8; MASTER_KEY_LEN]>> = None;
+	) -> Result<Protected<[u8; KEY_LEN]>> {
+		let mut master_key: Option<Protected<[u8; KEY_LEN]>> = None;
 
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
@@ -160,9 +160,9 @@ impl FileHeader {
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_master_key_from_prehashed(
 		&self,
-		hashed_keys: Vec<Protected<[u8; 32]>>,
-	) -> Result<Protected<[u8; MASTER_KEY_LEN]>> {
-		let mut master_key: Option<Protected<[u8; MASTER_KEY_LEN]>> = None;
+		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
+	) -> Result<Protected<[u8; KEY_LEN]>> {
+		let mut master_key: Option<Protected<[u8; KEY_LEN]>> = None;
 
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
@@ -194,7 +194,7 @@ impl FileHeader {
 	pub fn generate_aad(&self) -> Vec<u8> {
 		match self.version {
 			FileHeaderVersion::V1 => {
-				let mut aad: Vec<u8> = Vec::new();
+				let mut aad = Vec::new();
 				aad.extend_from_slice(&MAGIC_BYTES); // 7
 				aad.extend_from_slice(&self.version.serialize()); // 9
 				aad.extend_from_slice(&self.algorithm.serialize()); // 11
@@ -219,7 +219,7 @@ impl FileHeader {
 					return Err(Error::NoKeyslots);
 				}
 
-				let mut header: Vec<u8> = Vec::new();
+				let mut header = Vec::new();
 				header.extend_from_slice(&MAGIC_BYTES); // 7
 				header.extend_from_slice(&self.version.serialize()); // 9
 				header.extend_from_slice(&self.algorithm.serialize()); // 11

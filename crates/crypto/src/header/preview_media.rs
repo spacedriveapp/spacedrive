@@ -24,7 +24,7 @@ use std::io::{Read, Seek};
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
-	primitives::{generate_nonce, MASTER_KEY_LEN},
+	primitives::{generate_nonce, KEY_LEN},
 	Error, Protected, Result,
 };
 
@@ -60,7 +60,7 @@ impl FileHeader {
 		&mut self,
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
-		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
+		master_key: &Protected<[u8; KEY_LEN]>,
 		media: &[u8],
 	) -> Result<()> {
 		let media_nonce = generate_nonce(algorithm);
@@ -92,7 +92,7 @@ impl FileHeader {
 	/// Once provided, a `Vec<u8>` is returned that contains the preview media
 	pub fn decrypt_preview_media_from_prehashed(
 		&self,
-		hashed_keys: Vec<Protected<[u8; 32]>>,
+		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
 	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
 
@@ -155,7 +155,7 @@ impl PreviewMedia {
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
 			PreviewMediaVersion::V1 => {
-				let mut preview_media: Vec<u8> = Vec::new();
+				let mut preview_media = Vec::new();
 				preview_media.extend_from_slice(&self.version.serialize()); // 2
 				preview_media.extend_from_slice(&self.algorithm.serialize()); // 4
 				preview_media.extend_from_slice(&self.media_nonce); // 24 max

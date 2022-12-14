@@ -39,11 +39,11 @@ use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
-	generate_master_key, generate_nonce, generate_passphrase, generate_salt, to_array,
+	generate_master_key, generate_nonce, generate_passphrase, generate_salt, to_array, KEY_LEN,
 };
 use crate::{
 	crypto::stream::Algorithm,
-	primitives::{ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
+	primitives::{ENCRYPTED_KEY_LEN, SALT_LEN},
 	Protected,
 };
 use crate::{Error, Result};
@@ -73,7 +73,7 @@ pub struct StoredKey {
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm used for hashing the key with the content salt
 	pub content_salt: [u8; SALT_LEN],
 	#[cfg_attr(feature = "serde", serde(with = "BigArray"))] // salt used for file data
-	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is for encrypting the `key`
+	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is for encrypting the `key`
 	pub master_key_nonce: Vec<u8>, // nonce for encrypting the master key
 	pub key_nonce: Vec<u8>,        // nonce used for encrypting the main key
 	pub key: Vec<u8>, // encrypted. the key stored in spacedrive (e.g. generated 64 char key)
@@ -87,7 +87,7 @@ pub struct StoredKey {
 #[derive(Clone)]
 pub struct MountedKey {
 	pub uuid: Uuid, // used for identification. shared with stored keys
-	pub hashed_key: Protected<[u8; 32]>, // this is hashed with the content salt, for instant access
+	pub hashed_key: Protected<[u8; KEY_LEN]>, // this is hashed with the content salt, for instant access
 }
 
 /// This is the key manager itself.
@@ -96,7 +96,7 @@ pub struct MountedKey {
 ///
 /// Use the associated functions to interact with it.
 pub struct KeyManager {
-	root_key: Mutex<Option<Protected<[u8; 32]>>>, // the root key for the vault
+	root_key: Mutex<Option<Protected<[u8; KEY_LEN]>>>, // the root key for the vault
 	verification_key: Mutex<Option<StoredKey>>,
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
@@ -125,7 +125,7 @@ pub struct MasterPasswordChangeBundle {
 
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
-	fn format_secret_key(salt: &[u8; 16]) -> Protected<String> {
+	fn format_secret_key(salt: &[u8; SALT_LEN]) -> Protected<String> {
 		let hex_string: String = hex::encode_upper(salt)
 			.chars()
 			.enumerate()
@@ -144,7 +144,7 @@ impl KeyManager {
 
 	/// This should be used to generate everything for the user during onboarding.
 	///
-	/// This will create a master password (a 7-word diceware passphrase), and a secret key (16 bytes, hex encoded)
+	/// This will create a master password (a 7-word diceware passphrase), and a secret key (SALT_LEN bytes, hex encoded)
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
@@ -175,7 +175,7 @@ impl KeyManager {
 		let root_key_nonce = generate_nonce(algorithm);
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
 			hashed_password,
 			&master_key_nonce,
 			algorithm,
@@ -195,7 +195,7 @@ impl KeyManager {
 			uuid,
 			algorithm,
 			hashing_algorithm,
-			content_salt: [0u8; 16],
+			content_salt: [0u8; SALT_LEN],
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			key_nonce: root_key_nonce,
@@ -307,7 +307,7 @@ impl KeyManager {
 	}
 
 	/// This should ONLY be used internally.
-	fn get_root_key(&self) -> Result<Protected<[u8; 32]>> {
+	fn get_root_key(&self) -> Result<Protected<[u8; KEY_LEN]>> {
 		match &*self.root_key.lock()? {
 			Some(k) => Ok(k.clone()),
 			None => Err(Error::NoMasterPassword),
@@ -352,7 +352,7 @@ impl KeyManager {
 		let root_key_nonce = generate_nonce(algorithm);
 
 		// Encrypt the master key with the hashed master password
-		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
 			hashed_password,
 			&master_key_nonce,
 			algorithm,
@@ -372,7 +372,7 @@ impl KeyManager {
 			uuid,
 			algorithm,
 			hashing_algorithm,
-			content_salt: [0u8; 16],
+			content_salt: [0u8; SALT_LEN],
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			key_nonce: root_key_nonce,
@@ -418,7 +418,7 @@ impl KeyManager {
 	// 				&stored_key.master_key,
 	// 				&[],
 	// 			) {
-	// 				Ok(Protected::new(to_array::<32>(
+	// 				Ok(Protected::new(to_array::<KEY_LEN>(
 	// 					decrypted_master_key.expose().clone(),
 	// 				)?))
 	// 			} else {
@@ -427,8 +427,7 @@ impl KeyManager {
 
 	// 			let master_key_nonce = generate_nonce(stored_key.algorithm);
 
-	// 			// Encrypt the master key with the user's hashed password
-	// 			let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+	// 			// Encrypt the master key with the us			let encrypted_master_key: [u8; ENCRYPTED_KEY_LEN] = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
 	// 				new_root_key.clone(),
 	// 				&master_key_nonce,
 	// 				stored_key.algorithm,
@@ -455,8 +454,7 @@ impl KeyManager {
 	// 	let master_key = generate_master_key();
 	// 	let master_key_nonce = generate_nonce(algorithm);
 
-	// 	// Encrypt the master key with the hashed master password
-	// 	let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+	// 	// Encrypt the master key with the ha	let encrypted_master_key: [u8; ENCRYPTED_KEY_LEN] = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
 	// 		hashed_password,
 	// 		&master_key_nonce,
 	// 		algorithm,
@@ -468,7 +466,7 @@ impl KeyManager {
 	// 		uuid,
 	// 		algorithm,
 	// 		hashing_algorithm,
-	// 		content_salt: [0u8; 16],
+	// 		content_salt: [0u8; SALT_LEN],
 	// 		master_key: encrypted_master_key,
 	// 		master_key_nonce,
 	// 		key_nonce: Vec::new(),
@@ -589,7 +587,7 @@ impl KeyManager {
 				&key.master_key,
 				&[],
 			) {
-				Ok(Protected::new(to_array::<32>(
+				Ok(Protected::new(to_array::<KEY_LEN>(
 					decrypted_master_key.expose().clone(),
 				)?))
 			} else {
@@ -600,13 +598,14 @@ impl KeyManager {
 			let master_key_nonce = generate_nonce(key.algorithm);
 
 			// encrypt the master key with the current root key
-			let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-				self.get_root_key()?,
-				&master_key_nonce,
-				key.algorithm,
-				master_key.expose(),
-				&[],
-			)?)?;
+			let encrypted_master_key =
+				to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
+					self.get_root_key()?,
+					&master_key_nonce,
+					key.algorithm,
+					master_key.expose(),
+					&[],
+				)?)?;
 
 			let mut updated_key = key.clone();
 			updated_key.master_key_nonce = master_key_nonce;
@@ -880,11 +879,11 @@ impl KeyManager {
 	///
 	/// This means we don't need to keep super specific track of which key goes to which file, and we can just throw all of them at it.
 	#[must_use]
-	pub fn enumerate_hashed_keys(&self) -> Vec<Protected<[u8; 32]>> {
+	pub fn enumerate_hashed_keys(&self) -> Vec<Protected<[u8; KEY_LEN]>> {
 		self.keymount
 			.iter()
 			.map(|mounted_key| mounted_key.hashed_key.clone())
-			.collect::<Vec<Protected<[u8; 32]>>>()
+			.collect::<Vec<Protected<[u8; KEY_LEN]>>>()
 	}
 
 	/// This function is for converting a memory-only key to a saved key which syncs to the library.
@@ -945,7 +944,7 @@ impl KeyManager {
 		};
 
 		// Encrypt the master key with the user's hashed password
-		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
 			self.get_root_key()?,
 			&master_key_nonce,
 			algorithm,

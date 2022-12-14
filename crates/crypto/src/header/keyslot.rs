@@ -26,7 +26,7 @@ use std::io::{Read, Seek};
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
-	primitives::{generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
+	primitives::{generate_nonce, to_array, ENCRYPTED_KEY_LEN, KEY_LEN, SALT_LEN},
 	Error, Protected, Result,
 };
 
@@ -39,7 +39,7 @@ pub struct Keyslot {
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
 	pub salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is encrypted so we can store it
+	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is encrypted so we can store it
 	pub nonce: Vec<u8>,
 }
 
@@ -62,12 +62,12 @@ impl Keyslot {
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
 		salt: [u8; SALT_LEN],
-		hashed_key: Protected<[u8; 32]>,
-		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
+		hashed_key: Protected<[u8; KEY_LEN]>,
+		master_key: &Protected<[u8; KEY_LEN]>,
 	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
-		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
 			hashed_key,
 			&nonce,
 			algorithm,
@@ -108,7 +108,7 @@ impl Keyslot {
 	/// An error will be returned on failure.
 	pub fn decrypt_master_key_from_prehashed(
 		&self,
-		key: Protected<[u8; 32]>,
+		key: Protected<[u8; KEY_LEN]>,
 	) -> Result<Protected<Vec<u8>>> {
 		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
 	}
@@ -118,7 +118,7 @@ impl Keyslot {
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
 			KeyslotVersion::V1 => {
-				let mut keyslot: Vec<u8> = Vec::new();
+				let mut keyslot = Vec::new();
 				keyslot.extend_from_slice(&self.version.serialize()); // 2
 				keyslot.extend_from_slice(&self.algorithm.serialize()); // 4
 				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
@@ -157,7 +157,7 @@ impl Keyslot {
 				let mut salt = [0u8; SALT_LEN];
 				reader.read(&mut salt).map_err(Error::Io)?;
 
-				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
+				let mut master_key = [0u8; ENCRYPTED_KEY_LEN];
 				reader.read(&mut master_key).map_err(Error::Io)?;
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];

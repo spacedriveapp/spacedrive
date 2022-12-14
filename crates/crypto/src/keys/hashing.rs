@@ -10,6 +10,7 @@
 //! let salt = generate_salt();
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
+use crate::primitives::KEY_LEN;
 use crate::Protected;
 use crate::{primitives::SALT_LEN, Error, Result};
 use argon2::Argon2;
@@ -51,7 +52,7 @@ impl HashingAlgorithm {
 		&self,
 		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
-	) -> Result<Protected<[u8; 32]>> {
+	) -> Result<Protected<[u8; KEY_LEN]>> {
 		match self {
 			Self::Argon2id(params) => password_hash_argon2id(password, salt, *params),
 		}
@@ -94,8 +95,8 @@ pub fn password_hash_argon2id(
 	password: Protected<Vec<u8>>,
 	salt: [u8; SALT_LEN],
 	params: Params,
-) -> Result<Protected<[u8; 32]>> {
-	let mut key = [0u8; 32];
+) -> Result<Protected<[u8; KEY_LEN]>> {
+	let mut key = [0u8; KEY_LEN];
 
 	let argon2 = Argon2::new(
 		argon2::Algorithm::Argon2id,
