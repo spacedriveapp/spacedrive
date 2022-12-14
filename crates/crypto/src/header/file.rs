@@ -120,14 +120,11 @@ impl FileHeader {
 				master_key = Some(Protected::new(to_array(
 					decrypted_master_key.expose().clone(),
 				)?));
+				break;
 			}
 		}
 
-		if let Some(mk) = master_key {
-			Ok(mk)
-		} else {
-			Err(Error::IncorrectPassword)
-		}
+		master_key.ok_or(Error::IncorrectPassword)
 	}
 
 	/// This is a helper function to find which keyslot a key belongs to.
@@ -173,7 +170,7 @@ impl FileHeader {
 			return Err(Error::NoKeyslots);
 		}
 
-		for key in hashed_keys {
+		'full: for key in hashed_keys {
 			for keyslot in &self.keyslots {
 				if let Ok(decrypted_master_key) =
 					keyslot.decrypt_master_key_from_prehashed(key.clone())
@@ -181,15 +178,12 @@ impl FileHeader {
 					master_key = Some(Protected::new(to_array(
 						decrypted_master_key.expose().clone(),
 					)?));
+					break 'full;
 				}
 			}
 		}
 
-		if let Some(mk) = master_key {
-			Ok(mk)
-		} else {
-			Err(Error::IncorrectPassword)
-		}
+		master_key.ok_or(Error::IncorrectPassword)
 	}
 
 	/// This function should be used for generating AAD before encryption
@@ -332,24 +326,6 @@ impl FileHeader {
 					))?;
 					None
 				};
-
-				// let preview_media = if let Ok(preview_media) = PreviewMedia::deserialize(reader) {
-				// 	Some(preview_media)
-				// } else {
-				// 	// header/aad area, keyslot area, full metadata length
-				// 	if metadata.is_some() {
-				// 		reader.seek(SeekFrom::Start(
-				// 			FileHeader::size(version) as u64
-				// 				+ (KEYSLOT_SIZE * 2) as u64 + metadata.clone().unwrap().size() as u64,
-				// 		))?;
-				// 	} else {
-				// 		// header/aad area, keyslot area
-				// 		reader.seek(SeekFrom::Start(
-				// 			FileHeader::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
-				// 		))?;
-				// 	}
-				// 	None
-				// };
 
 				Self {
 					version,
