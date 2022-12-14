@@ -10,7 +10,7 @@ export function normiCustomHooks(
 	{ contextSharing }: NormiOptions,
 	nextHooks?: () => CustomHooks
 ): () => CustomHooks {
-	let normiCache = getNormiCache(contextSharing ?? false);
+	const normiCache = getNormiCache(contextSharing ?? false);
 	const next = nextHooks?.();
 
 	// TODO: Handle manual modifications to the query cache

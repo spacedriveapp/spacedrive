@@ -1,5 +1,5 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
-import { proxy, subscribe, useSnapshot } from 'valtio';
+import { subscribe, useSnapshot } from 'valtio';
 
 import { useBridgeQuery } from '../rspc';
 import { valtioPersist } from '../stores';
@@ -81,7 +81,7 @@ export const useCurrentLibrary = () => {
 		}
 
 		return current;
-	}, [libraries, currentLibraryUuid]); // TODO: This runs when the 'libraries' change causing the whole app to re-render which is cringe.
+	}, [libraries, currentLibraryUuid, switchLibrary]); // TODO: This runs when the 'libraries' change causing the whole app to re-render which is cringe.
 
 	return {
 		library,
