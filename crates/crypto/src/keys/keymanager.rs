@@ -144,7 +144,7 @@ impl KeyManager {
 
 	/// This should be used to generate everything for the user during onboarding.
 	///
-	/// This will create a master password (a 7-word diceware passphrase), and a secret key (SALT_LEN bytes, hex encoded)
+	/// This will create a master password (a 7-word diceware passphrase), and a secret key (16 bytes, hex encoded)
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
@@ -454,7 +454,8 @@ impl KeyManager {
 	// 	let master_key = generate_master_key();
 	// 	let master_key_nonce = generate_nonce(algorithm);
 
-	// 	// Encrypt the master key with the ha	let encrypted_master_key: [u8; ENCRYPTED_KEY_LEN] = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
+	// 	// Encrypt the master key with the hashed master password
+	// let encrypted_master_key: [u8; ENCRYPTED_KEY_LEN] = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
 	// 		hashed_password,
 	// 		&master_key_nonce,
 	// 		algorithm,
