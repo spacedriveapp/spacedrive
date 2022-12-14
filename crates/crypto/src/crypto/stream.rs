@@ -156,7 +156,7 @@ impl StreamEncryption {
 
 		encryptor
 			.encrypt_streams(bytes, &mut writer, aad)
-			.map_or_else(|e| Err(e), |_| Ok(writer.into_inner()))
+			.map_or_else(Err, |_| Ok(writer.into_inner()))
 	}
 }
 
@@ -269,6 +269,6 @@ impl StreamDecryption {
 
 		decryptor
 			.decrypt_streams(bytes, &mut writer, aad)
-			.map_or_else(|e| Err(e), |_| Ok(Protected::new(writer.into_inner())))
+			.map_or_else(Err, |_| Ok(Protected::new(writer.into_inner())))
 	}
 }
