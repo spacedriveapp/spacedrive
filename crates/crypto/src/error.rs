@@ -18,7 +18,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
 	#[error("not enough bytes were written to the output file")]
 	WriteMismatch,
-	#[error("there was an error hashing the password")]
+	#[error("there was an error while password hashing")]
 	PasswordHash,
 	#[error("I/O error: {0}")]
 	Io(#[from] std::io::Error),
