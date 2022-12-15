@@ -81,9 +81,14 @@ impl HashingAlgorithm {
 	pub const fn serialize(&self) -> [u8; 2] {
 		match self {
 			Self::Argon2id(p) => match p {
-				Params::Standard => [0x0F, 0x01],
-				Params::Hardened => [0x0F, 0x02],
-				Params::Paranoid => [0x0F, 0x03],
+				Params::Standard => [0xA2, 0x01],
+				Params::Hardened => [0xA2, 0x02],
+				Params::Paranoid => [0xA2, 0x03],
+			},
+			Self::BalloonBlake3(p) => match p {
+				Params::Standard => [0xB3, 0x01],
+				Params::Hardened => [0xB3, 0x02],
+				Params::Paranoid => [0xB3, 0x03],
 			},
 		}
 	}
