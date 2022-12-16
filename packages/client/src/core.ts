@@ -103,7 +103,7 @@ export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
 export interface GetArgs { id: number }
 
-export type HashingAlgorithm = { Argon2id: Params }
+export type HashingAlgorithm = { Argon2id: Params } | { BalloonBlake3: Params }
 
 export interface IdentifyUniqueFilesArgs { id: number, path: string }
 

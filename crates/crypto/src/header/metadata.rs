@@ -71,7 +71,7 @@ impl FileHeader {
 		&mut self,
 		version: MetadataVersion,
 		algorithm: Algorithm,
-		master_key: &Protected<[u8; KEY_LEN]>,
+		master_key: Protected<[u8; KEY_LEN]>,
 		metadata: &T,
 	) -> Result<()>
 	where

@@ -41,7 +41,7 @@ fn encrypt() {
 		HASHING_ALGORITHM,
 		content_salt,
 		hashed_password,
-		&master_key,
+		master_key.clone(),
 	)
 	.unwrap()];
 
@@ -52,7 +52,7 @@ fn encrypt() {
 		.add_metadata(
 			MetadataVersion::V1,
 			ALGORITHM,
-			&master_key,
+			master_key.clone(),
 			&embedded_metadata,
 		)
 		.unwrap();

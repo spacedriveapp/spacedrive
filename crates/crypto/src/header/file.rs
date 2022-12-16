@@ -117,7 +117,7 @@ impl FileHeader {
 		}
 
 		for keyslot in &self.keyslots {
-			if let Ok(decrypted_master_key) = keyslot.decrypt_master_key(&password) {
+			if let Ok(decrypted_master_key) = keyslot.decrypt_master_key(password.clone()) {
 				master_key = Some(Protected::new(to_array(
 					decrypted_master_key.expose().clone(),
 				)?));
@@ -138,7 +138,7 @@ impl FileHeader {
 		}
 
 		for (i, keyslot) in self.keyslots.clone().iter().enumerate() {
-			if keyslot.decrypt_master_key(&password).is_ok() {
+			if keyslot.decrypt_master_key(password.clone()).is_ok() {
 				return Ok(i);
 			}
 		}

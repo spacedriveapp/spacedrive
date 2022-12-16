@@ -32,7 +32,7 @@ pub fn encrypt() {
 		HASHING_ALGORITHM,
 		content_salt,
 		hashed_password,
-		&master_key,
+		master_key.clone(),
 	)
 	.unwrap()];
 

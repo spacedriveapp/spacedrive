@@ -69,7 +69,7 @@ impl Keyslot {
 		hashing_algorithm: HashingAlgorithm,
 		content_salt: [u8; SALT_LEN],
 		hashed_key: Protected<[u8; KEY_LEN]>,
-		master_key: &Protected<[u8; KEY_LEN]>,
+		master_key: Protected<[u8; KEY_LEN]>,
 	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
@@ -100,7 +100,7 @@ impl Keyslot {
 	/// This attempts to decrypt the master key for a single keyslot
 	///
 	/// An error will be returned on failure.
-	pub fn decrypt_master_key(&self, password: &Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
+	pub fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
 			.hash(password.clone(), self.content_salt)

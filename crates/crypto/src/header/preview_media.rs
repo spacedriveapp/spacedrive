@@ -60,7 +60,7 @@ impl FileHeader {
 		&mut self,
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
-		master_key: &Protected<[u8; KEY_LEN]>,
+		master_key: Protected<[u8; KEY_LEN]>,
 		media: &[u8],
 	) -> Result<()> {
 		let media_nonce = generate_nonce(algorithm);

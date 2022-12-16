@@ -32,7 +32,7 @@ fn encrypt() {
 		HASHING_ALGORITHM,
 		content_salt,
 		hashed_password,
-		&master_key,
+		master_key.clone(),
 	)
 	.unwrap()];
 
@@ -42,7 +42,12 @@ fn encrypt() {
 	let mut header = FileHeader::new(LATEST_FILE_HEADER, ALGORITHM, keyslots);
 
 	header
-		.add_preview_media(PreviewMediaVersion::V1, ALGORITHM, &master_key, &pvm_media)
+		.add_preview_media(
+			PreviewMediaVersion::V1,
+			ALGORITHM,
+			master_key.clone(),
+			&pvm_media,
+		)
 		.unwrap();
 
 	// Write the header to the file
