@@ -77,7 +77,7 @@ pub fn decrypt_metadata() {
 	let mut reader = File::open("test.encrypted").unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, _) = FileHeader::deserialize(&mut reader).unwrap();
+	let (header, _) = FileHeader::from_reader(&mut reader).unwrap();
 
 	// Decrypt the metadata
 	let file_info: FileInformation = header.decrypt_metadata(password).unwrap();

@@ -20,7 +20,7 @@
 //! )
 //! .unwrap();
 //! ```
-use std::io::{Read, Seek};
+use std::io::Read;
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
@@ -143,19 +143,19 @@ impl FileHeader {
 impl PreviewMedia {
 	#[must_use]
 	pub fn size(&self) -> usize {
-		self.serialize().len()
+		self.to_bytes().len()
 	}
 
 	/// This function is used to serialize a preview media header item into bytes
 	///
 	/// This also includes the encrypted preview media itself, so this may be sizeable
 	#[must_use]
-	pub fn serialize(&self) -> Vec<u8> {
+	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
 			PreviewMediaVersion::V1 => {
 				let mut preview_media = Vec::new();
-				preview_media.extend_from_slice(&self.version.serialize()); // 2
-				preview_media.extend_from_slice(&self.algorithm.serialize()); // 4
+				preview_media.extend_from_slice(&self.version.to_bytes()); // 2
+				preview_media.extend_from_slice(&self.algorithm.to_bytes()); // 4
 				preview_media.extend_from_slice(&self.media_nonce); // 24 max
 				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 28 total bytes
 
@@ -173,20 +173,20 @@ impl PreviewMedia {
 	/// The cursor will be left at the end of the preview media item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self>
+	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read + Seek,
+		R: Read,
 	{
 		let mut version = [0u8; 2];
 		reader.read_exact(&mut version)?;
 		let version =
-			PreviewMediaVersion::deserialize(version).map_err(|_| Error::NoPreviewMedia)?;
+			PreviewMediaVersion::from_bytes(version).map_err(|_| Error::NoPreviewMedia)?;
 
 		match version {
 			PreviewMediaVersion::V1 => {
 				let mut algorithm = [0u8; 2];
 				reader.read_exact(&mut algorithm)?;
-				let algorithm = Algorithm::deserialize(algorithm)?;
+				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut media_nonce)?;

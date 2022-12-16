@@ -65,7 +65,7 @@ pub fn decrypt_preview_media() {
 	let mut reader = File::open("test.encrypted").unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, _) = FileHeader::deserialize(&mut reader).unwrap();
+	let (header, _) = FileHeader::from_reader(&mut reader).unwrap();
 
 	// Decrypt the preview media
 	let media = header.decrypt_preview_media(password).unwrap();

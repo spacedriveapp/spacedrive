@@ -118,7 +118,7 @@ impl StatefulJob for FileDecryptorJob {
 		let mut reader = std::fs::File::open(step.obj_path.clone())?;
 		let mut writer = std::fs::File::create(output_path)?;
 
-		let (header, aad) = FileHeader::deserialize(&mut reader)?;
+		let (header, aad) = FileHeader::from_reader(&mut reader)?;
 
 		let master_key = if let Some(password) = state.init.password.clone() {
 			if let Some(save_to_library) = state.init.save_to_library {

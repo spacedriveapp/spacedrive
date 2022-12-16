@@ -14,13 +14,13 @@ use super::{
 
 impl FileHeaderVersion {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::V1 => [0x0A, 0x01],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0A, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
@@ -30,13 +30,13 @@ impl FileHeaderVersion {
 
 impl KeyslotVersion {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::V1 => [0x0D, 0x01],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0D, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
@@ -46,13 +46,13 @@ impl KeyslotVersion {
 
 impl PreviewMediaVersion {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::V1 => [0x0E, 0x01],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0E, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
@@ -62,13 +62,13 @@ impl PreviewMediaVersion {
 
 impl MetadataVersion {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::V1 => [0x1F, 0x01],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x1F, 0x01] => Ok(Self::V1),
 			_ => Err(Error::FileHeader),
@@ -78,7 +78,7 @@ impl MetadataVersion {
 
 impl HashingAlgorithm {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::Argon2id(p) => match p {
 				Params::Standard => [0xA2, 0x01],
@@ -93,7 +93,7 @@ impl HashingAlgorithm {
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0F, 0x01] => Ok(Self::Argon2id(Params::Standard)),
 			[0x0F, 0x02] => Ok(Self::Argon2id(Params::Hardened)),
@@ -105,14 +105,14 @@ impl HashingAlgorithm {
 
 impl Algorithm {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::XChaCha20Poly1305 => [0x0B, 0x01],
 			Self::Aes256Gcm => [0x0B, 0x02],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0B, 0x01] => Ok(Self::XChaCha20Poly1305),
 			[0x0B, 0x02] => Ok(Self::Aes256Gcm),

@@ -102,8 +102,8 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 			.key()
 			.create(
 				verification_key.uuid.to_string(),
-				verification_key.algorithm.serialize().to_vec(),
-				verification_key.hashing_algorithm.serialize().to_vec(),
+				verification_key.algorithm.to_bytes().to_vec(),
+				verification_key.hashing_algorithm.to_bytes().to_vec(),
 				verification_key.content_salt.to_vec(),
 				verification_key.master_key.to_vec(),
 				verification_key.master_key_nonce.to_vec(),
@@ -135,13 +135,13 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 
 			let stored_key = StoredKey {
 				uuid,
-				algorithm: Algorithm::deserialize(to_array(key.algorithm)?)?,
+				algorithm: Algorithm::from_bytes(to_array(key.algorithm)?)?,
 				content_salt: to_array(key.content_salt)?,
 				master_key: to_array(key.master_key)?,
 				master_key_nonce: key.master_key_nonce,
 				key_nonce: key.key_nonce,
 				key: key.key,
-				hashing_algorithm: HashingAlgorithm::deserialize(to_array(key.hashing_algorithm)?)?,
+				hashing_algorithm: HashingAlgorithm::from_bytes(to_array(key.hashing_algorithm)?)?,
 				salt: to_array(key.salt)?,
 				memory_only: false,
 				automount: key.automount,

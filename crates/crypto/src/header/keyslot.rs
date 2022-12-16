@@ -21,7 +21,7 @@
 //!
 //! let keyslot = Keyslot::new(KeyslotVersion::V1, Algorithm::XChaCha20Poly1305, HashingAlgorithm::Argon2id(Params::Standard), user_password, &master_key).unwrap();
 //! ```
-use std::io::{Read, Seek};
+use std::io::Read;
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
@@ -141,13 +141,13 @@ impl Keyslot {
 
 	/// This function is used to serialize a keyslot into bytes
 	#[must_use]
-	pub fn serialize(&self) -> Vec<u8> {
+	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
 			KeyslotVersion::V1 => {
 				let mut keyslot = Vec::new();
-				keyslot.extend_from_slice(&self.version.serialize()); // 2
-				keyslot.extend_from_slice(&self.algorithm.serialize()); // 4
-				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
+				keyslot.extend_from_slice(&self.version.to_bytes()); // 2
+				keyslot.extend_from_slice(&self.algorithm.to_bytes()); // 4
+				keyslot.extend_from_slice(&self.hashing_algorithm.to_bytes()); // 6
 				keyslot.extend_from_slice(&self.salt); // 22
 				keyslot.extend_from_slice(&self.content_salt); // 38
 				keyslot.extend_from_slice(&self.master_key); // 86
@@ -163,23 +163,23 @@ impl Keyslot {
 	/// It will leave the cursor at the end of the keyslot on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self>
+	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read + Seek,
+		R: Read,
 	{
 		let mut version = [0u8; 2];
 		reader.read_exact(&mut version)?;
-		let version = KeyslotVersion::deserialize(version)?;
+		let version = KeyslotVersion::from_bytes(version)?;
 
 		match version {
 			KeyslotVersion::V1 => {
 				let mut algorithm = [0u8; 2];
 				reader.read_exact(&mut algorithm)?;
-				let algorithm = Algorithm::deserialize(algorithm)?;
+				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut hashing_algorithm = [0u8; 2];
 				reader.read_exact(&mut hashing_algorithm)?;
-				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
+				let hashing_algorithm = HashingAlgorithm::from_bytes(hashing_algorithm)?;
 
 				let mut salt = [0u8; SALT_LEN];
 				reader.read_exact(&mut salt)?;

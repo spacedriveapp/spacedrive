@@ -60,7 +60,7 @@ pub fn decrypt() {
 	let mut writer = File::create("test.original").unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, aad) = FileHeader::deserialize(&mut reader).unwrap();
+	let (header, aad) = FileHeader::from_reader(&mut reader).unwrap();
 
 	// Decrypt the master key with the user's password
 	let master_key = header.decrypt_master_key(password).unwrap();
