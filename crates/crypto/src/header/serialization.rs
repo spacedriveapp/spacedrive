@@ -95,9 +95,12 @@ impl HashingAlgorithm {
 
 	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
-			[0x0F, 0x01] => Ok(Self::Argon2id(Params::Standard)),
-			[0x0F, 0x02] => Ok(Self::Argon2id(Params::Hardened)),
-			[0x0F, 0x03] => Ok(Self::Argon2id(Params::Paranoid)),
+			[0xA2, 0x01] => Ok(Self::Argon2id(Params::Standard)),
+			[0xA2, 0x02] => Ok(Self::Argon2id(Params::Hardened)),
+			[0xA2, 0x03] => Ok(Self::Argon2id(Params::Paranoid)),
+			[0xB3, 0x01] => Ok(Self::BalloonBlake3(Params::Standard)),
+			[0xB3, 0x02] => Ok(Self::BalloonBlake3(Params::Hardened)),
+			[0xB3, 0x03] => Ok(Self::BalloonBlake3(Params::Paranoid)),
 			_ => Err(Error::FileHeader),
 		}
 	}
