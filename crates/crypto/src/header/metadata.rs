@@ -174,10 +174,10 @@ impl Metadata {
 			MetadataVersion::V1 => vec![
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
-				self.metadata_nonce.as_ref(),
+				&self.metadata_nonce,
 				&vec![0u8; 24 - self.metadata_nonce.len()],
-				(self.metadata.len() as u64).to_le_bytes().as_ref(),
-				self.metadata.as_ref(),
+				&(self.metadata.len() as u64).to_le_bytes(),
+				&self.metadata,
 			]
 			.iter()
 			.flat_map(|&v| v)

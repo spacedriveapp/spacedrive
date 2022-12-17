@@ -155,10 +155,10 @@ impl PreviewMedia {
 			PreviewMediaVersion::V1 => vec![
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
-				self.media_nonce.as_ref(),
+				&self.media_nonce,
 				&vec![0u8; 24 - self.media_nonce.len()],
-				(self.media.len() as u64).to_le_bytes().as_ref(),
-				self.media.as_ref(),
+				&(self.media.len() as u64).to_le_bytes(),
+				&self.media,
 			]
 			.iter()
 			.flat_map(|&v| v)

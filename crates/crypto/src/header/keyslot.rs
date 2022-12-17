@@ -147,10 +147,10 @@ impl Keyslot {
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				self.hashing_algorithm.to_bytes().as_ref(),
-				self.salt.as_ref(),
-				self.content_salt.as_ref(),
-				self.master_key.as_ref(),
-				self.nonce.as_ref(),
+				&self.salt,
+				&self.content_salt,
+				&self.master_key,
+				&self.nonce,
 				&vec![0u8; 26 - self.nonce.len()],
 			]
 			.iter()

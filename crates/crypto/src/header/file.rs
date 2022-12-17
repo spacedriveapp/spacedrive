@@ -110,22 +110,15 @@ impl FileHeader {
 		&self,
 		password: Protected<Vec<u8>>,
 	) -> Result<Protected<[u8; KEY_LEN]>> {
-		let mut master_key: Option<Protected<[u8; KEY_LEN]>> = None;
-
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
-		for keyslot in &self.keyslots {
-			if let Ok(decrypted_master_key) = keyslot.decrypt_master_key(password.clone()) {
-				master_key = Some(Protected::new(to_array(
-					decrypted_master_key.expose().clone(),
-				)?));
-				break;
-			}
-		}
-
-		master_key.ok_or(Error::IncorrectPassword)
+		self.keyslots
+			.iter()
+			.find_map(|v| v.decrypt_master_key(password.clone()).ok())
+			.map(|v| Protected::new(to_array::<KEY_LEN>(v.expose().clone()).unwrap()))
+			.ok_or(Error::IncorrectPassword)
 	}
 
 	/// This is a helper function to find which keyslot a key belongs to.
@@ -137,13 +130,11 @@ impl FileHeader {
 			return Err(Error::NoKeyslots);
 		}
 
-		for (i, keyslot) in self.keyslots.clone().iter().enumerate() {
-			if keyslot.decrypt_master_key(password.clone()).is_ok() {
-				return Ok(i);
-			}
-		}
-
-		Err(Error::IncorrectPassword)
+		self.keyslots
+			.iter()
+			.enumerate()
+			.find_map(|(i, v)| v.decrypt_master_key(password.clone()).ok().map(|_| i))
+			.ok_or(Error::IncorrectPassword)
 	}
 
 	/// This is a helper function to serialize and write a header to a file.
@@ -165,26 +156,20 @@ impl FileHeader {
 		&self,
 		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
 	) -> Result<Protected<[u8; KEY_LEN]>> {
-		let mut master_key: Option<Protected<[u8; KEY_LEN]>> = None;
-
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
 		}
 
-		'full: for key in hashed_keys {
-			for keyslot in &self.keyslots {
-				if let Ok(decrypted_master_key) =
-					keyslot.decrypt_master_key_from_prehashed(key.clone())
-				{
-					master_key = Some(Protected::new(to_array(
-						decrypted_master_key.expose().clone(),
-					)?));
-					break 'full;
-				}
-			}
-		}
-
-		master_key.ok_or(Error::IncorrectPassword)
+		hashed_keys
+			.iter()
+			.find_map(|v| {
+				self.keyslots.iter().find_map(|z| {
+					z.decrypt_master_key_from_prehashed(v.clone())
+						.ok()
+						.map(|x| Protected::new(to_array::<KEY_LEN>(x.expose().clone()).unwrap()))
+				})
+			})
+			.ok_or(Error::IncorrectPassword)
 	}
 
 	/// This function should be used for generating AAD before encryption
@@ -221,28 +206,35 @@ impl FileHeader {
 					return Err(Error::NoKeyslots);
 				}
 
-				let mut header = Vec::new();
-				header.extend_from_slice(&MAGIC_BYTES); // 7
-				header.extend_from_slice(&self.version.to_bytes()); // 9
-				header.extend_from_slice(&self.algorithm.to_bytes()); // 11
-				header.extend_from_slice(&self.nonce); // 19 OR 31
-				header.extend_from_slice(&vec![0u8; 25 - self.nonce.len()]); // padded until 36 bytes
+				let mut keyslots: Vec<Vec<u8>> =
+					self.keyslots.iter().map(|k| k.to_bytes()).collect();
 
-				for keyslot in &self.keyslots {
-					header.extend_from_slice(&keyslot.to_bytes());
+				if keyslots.len() == 1 {
+					keyslots.push(vec![0u8; KEYSLOT_SIZE])
 				}
 
-				for _ in 0..(2 - self.keyslots.len()) {
-					header.extend_from_slice(&[0u8; KEYSLOT_SIZE]);
-				}
+				let metadata = self.metadata.clone().map_or(Vec::new(), |v| v.to_bytes());
 
-				if let Some(metadata) = self.metadata.clone() {
-					header.extend_from_slice(&metadata.to_bytes());
-				}
+				let preview_media = self
+					.preview_media
+					.clone()
+					.map_or(Vec::new(), |v| v.to_bytes());
 
-				if let Some(preview_media) = self.preview_media.clone() {
-					header.extend_from_slice(&preview_media.to_bytes());
-				}
+				let header = vec![
+					MAGIC_BYTES.as_ref(),
+					&self.version.to_bytes(),
+					&self.algorithm.to_bytes(),
+					&self.nonce,
+					&vec![0u8; 25 - self.nonce.len()],
+					&keyslots[0],
+					&keyslots[1],
+					&metadata,
+					&preview_media,
+				]
+				.iter()
+				.flat_map(|&v| v)
+				.copied()
+				.collect();
 
 				Ok(header)
 			}
