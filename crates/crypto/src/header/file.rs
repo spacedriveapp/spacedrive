@@ -193,15 +193,17 @@ impl FileHeader {
 	#[must_use]
 	pub fn generate_aad(&self) -> Vec<u8> {
 		match self.version {
-			FileHeaderVersion::V1 => {
-				let mut aad = Vec::new();
-				aad.extend_from_slice(&MAGIC_BYTES); // 7
-				aad.extend_from_slice(&self.version.to_bytes()); // 9
-				aad.extend_from_slice(&self.algorithm.to_bytes()); // 11
-				aad.extend_from_slice(&self.nonce); // 19 OR 31
-				aad.extend_from_slice(&vec![0u8; 25 - self.nonce.len()]); // padded until 36 bytes
-				aad
-			}
+			FileHeaderVersion::V1 => vec![
+				MAGIC_BYTES.as_ref(),
+				self.version.to_bytes().as_ref(),
+				self.algorithm.to_bytes().as_ref(),
+				self.nonce.as_ref(),
+				&vec![0u8; 25 - self.nonce.len()],
+			]
+			.iter()
+			.flat_map(|&v| v)
+			.copied()
+			.collect(),
 		}
 	}
 

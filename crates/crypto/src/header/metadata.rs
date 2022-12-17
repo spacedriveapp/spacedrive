@@ -171,19 +171,18 @@ impl Metadata {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			MetadataVersion::V1 => {
-				let mut metadata = Vec::new();
-				metadata.extend_from_slice(&self.version.to_bytes()); // 2
-				metadata.extend_from_slice(&self.algorithm.to_bytes()); // 4
-				metadata.extend_from_slice(&self.metadata_nonce); // 24 max
-				metadata.extend_from_slice(&vec![0u8; 24 - self.metadata_nonce.len()]); // 28
-
-				let metadata_len = self.metadata.len() as u64;
-
-				metadata.extend_from_slice(&metadata_len.to_le_bytes()); // 36 total bytes
-				metadata.extend_from_slice(&self.metadata); // this can vary in length
-				metadata
-			}
+			MetadataVersion::V1 => vec![
+				self.version.to_bytes().as_ref(),
+				self.algorithm.to_bytes().as_ref(),
+				self.metadata_nonce.as_ref(),
+				&vec![0u8; 24 - self.metadata_nonce.len()],
+				(self.metadata.len() as u64).to_le_bytes().as_ref(),
+				self.metadata.as_ref(),
+			]
+			.iter()
+			.flat_map(|&v| v)
+			.copied()
+			.collect(),
 		}
 	}
 

@@ -152,19 +152,18 @@ impl PreviewMedia {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			PreviewMediaVersion::V1 => {
-				let mut preview_media = Vec::new();
-				preview_media.extend_from_slice(&self.version.to_bytes()); // 2
-				preview_media.extend_from_slice(&self.algorithm.to_bytes()); // 4
-				preview_media.extend_from_slice(&self.media_nonce); // 24 max
-				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 28 total bytes
-
-				let media_len = self.media.len() as u64;
-
-				preview_media.extend_from_slice(&media_len.to_le_bytes()); // 36 total bytes
-				preview_media.extend_from_slice(&self.media); // this can vary in length
-				preview_media
-			}
+			PreviewMediaVersion::V1 => vec![
+				self.version.to_bytes().as_ref(),
+				self.algorithm.to_bytes().as_ref(),
+				self.media_nonce.as_ref(),
+				&vec![0u8; 24 - self.media_nonce.len()],
+				(self.media.len() as u64).to_le_bytes().as_ref(),
+				self.media.as_ref(),
+			]
+			.iter()
+			.flat_map(|&v| v)
+			.copied()
+			.collect(),
 		}
 	}
 

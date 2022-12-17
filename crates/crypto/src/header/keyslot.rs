@@ -143,18 +143,20 @@ impl Keyslot {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			KeyslotVersion::V1 => {
-				let mut keyslot = Vec::new();
-				keyslot.extend_from_slice(&self.version.to_bytes()); // 2
-				keyslot.extend_from_slice(&self.algorithm.to_bytes()); // 4
-				keyslot.extend_from_slice(&self.hashing_algorithm.to_bytes()); // 6
-				keyslot.extend_from_slice(&self.salt); // 22
-				keyslot.extend_from_slice(&self.content_salt); // 38
-				keyslot.extend_from_slice(&self.master_key); // 86
-				keyslot.extend_from_slice(&self.nonce); // 94 or 106
-				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 112 total bytes
-				keyslot
-			}
+			KeyslotVersion::V1 => vec![
+				self.version.to_bytes().as_ref(),
+				self.algorithm.to_bytes().as_ref(),
+				self.hashing_algorithm.to_bytes().as_ref(),
+				self.salt.as_ref(),
+				self.content_salt.as_ref(),
+				self.master_key.as_ref(),
+				self.nonce.as_ref(),
+				&vec![0u8; 26 - self.nonce.len()],
+			]
+			.iter()
+			.flat_map(|&v| v)
+			.copied()
+			.collect(),
 		}
 	}
 
