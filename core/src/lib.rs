@@ -112,7 +112,7 @@ impl Node {
 		let config = NodeConfigManager::new(data_dir.to_path_buf()).await?;
 
 		let jobs = JobManager::new();
-		let location_manager = LocationManager::new().await?;
+		let location_manager = LocationManager::new();
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {

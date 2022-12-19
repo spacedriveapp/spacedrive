@@ -36,11 +36,11 @@ export default function LocationSettings() {
 								if (platform.platform === 'web') {
 									setTextLocationDialogOpen(true);
 								} else {
-									if (!platform.openFilePickerDialog) {
+									if (!platform.openDirectoryPickerDialog) {
 										alert('Opening a dialogue is not supported on this platform!');
 										return;
 									}
-									platform.openFilePickerDialog().then((result) => {
+									platform.openDirectoryPickerDialog().then((result) => {
 										// TODO: Pass indexer rules ids to create location
 										if (result)
 											createLocation({

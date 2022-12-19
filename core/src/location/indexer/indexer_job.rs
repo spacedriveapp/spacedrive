@@ -207,7 +207,7 @@ impl StatefulJob for IndexerJob {
 				IndexerJobData::on_scan_progress(
 					ctx.clone(),
 					vec![
-						ScanProgress::SavedChunks(i as usize),
+						ScanProgress::SavedChunks(i),
 						ScanProgress::Message(format!(
 							"Writing {} of {} to db",
 							i * chunk_steps.len(),

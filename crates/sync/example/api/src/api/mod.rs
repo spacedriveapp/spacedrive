@@ -144,7 +144,7 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 					}
 				}
 
-				let mut array = hashmap.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
+				let mut array = hashmap.into_values().collect::<Vec<_>>();
 
 				array.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
 

@@ -418,28 +418,34 @@ pub async fn delete_directory(
 		vec![file_path::location_id::equals(location_id)]
 	};
 
-	// delete all children objects
-	ctx.db
-		.object()
-		.delete_many(vec![object::id::in_vec(
-			// Fetching all object_ids from all children file_paths
-			ctx.db
-				.file_path()
-				.find_many(children_params.clone())
-				.select(file_path_object_id_only::select())
-				.exec()
-				.await?
-				.into_iter()
-				.filter_map(|file_path| file_path.object_id)
-				.collect(),
-		)])
+	// Fetching all object_ids from all children file_paths
+	let object_ids = ctx
+		.db
+		.file_path()
+		.find_many(children_params.clone())
+		.select(file_path_object_id_only::select())
 		.exec()
-		.await?;
+		.await?
+		.into_iter()
+		.filter_map(|file_path| file_path.object_id)
+		.collect();
 
+	// WARNING: file_paths must be deleted before objects, as they reference objects through object_id
 	// delete all children file_paths
 	ctx.db
 		.file_path()
 		.delete_many(children_params)
+		.exec()
+		.await?;
+
+	// delete all children objects
+	ctx.db
+		.object()
+		.delete_many(vec![
+			object::id::in_vec(object_ids),
+			// https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#none
+			object::file_paths::none(vec![]),
+		])
 		.exec()
 		.await?;
 

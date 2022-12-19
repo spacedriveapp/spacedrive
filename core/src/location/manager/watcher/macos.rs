@@ -120,13 +120,11 @@ where
 {
 	select! {
 		() = sleep(Duration::from_secs(1)) => {
-			create_fn(location, event, library_ctx).await?;
+			create_fn(location, event, library_ctx).await
 		},
 		Ok(rename_event) = maybe_rename_rx => {
 			trace!("Renaming file or directory instead of creating a new one");
-			rename(&event.paths[0], &rename_event.paths[0], location, &library_ctx).await?;
+			rename(&event.paths[0], &rename_event.paths[0], location, &library_ctx).await
 		}
 	}
-
-	Ok(())
 }

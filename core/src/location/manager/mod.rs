@@ -25,9 +25,6 @@ type ManagerMessage = (
 
 #[derive(Error, Debug)]
 pub enum LocationManagerError {
-	#[error("Tried to call new method on an already initialized location manager")]
-	AlreadyInitialized,
-
 	#[error("Unable to send location id to be checked by actor: (error: {0})")]
 	ActorSendLocationError(#[from] mpsc::error::SendError<ManagerMessage>),
 	#[error("Unable to receive actor response: (error: {0})")]
@@ -58,7 +55,7 @@ pub struct LocationManager {
 
 impl LocationManager {
 	#[allow(unused)]
-	pub async fn new() -> Result<Arc<Self>, LocationManagerError> {
+	pub fn new() -> Arc<Self> {
 		let (add_locations_tx, add_locations_rx) = mpsc::channel(128);
 		let (remove_locations_tx, remove_locations_rx) = mpsc::channel(128);
 		let (stop_tx, stop_rx) = oneshot::channel();
@@ -75,11 +72,11 @@ impl LocationManager {
 
 		debug!("Location manager initialized");
 
-		Ok(Arc::new(Self {
+		Arc::new(Self {
 			add_locations_tx,
 			remove_locations_tx,
 			stop_tx: Some(stop_tx),
-		}))
+		})
 	}
 
 	pub async fn add(

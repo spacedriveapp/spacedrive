@@ -446,7 +446,11 @@ pub(super) async fn remove_event(
 						library_ctx
 							.db
 							.object()
-							.delete(object::id::equals(object_id))
+							.delete_many(vec![
+								object::id::equals(object_id),
+								// https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#none
+								object::file_paths::none(vec![]),
+							])
 							.exec()
 							.await?;
 					}

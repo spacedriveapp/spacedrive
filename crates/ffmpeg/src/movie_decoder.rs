@@ -134,9 +134,7 @@ impl MovieDecoder {
 			return Err(ThumbnailerError::SeekNotAllowed);
 		}
 
-		let timestamp = (AV_TIME_BASE as i64)
-			.checked_mul(seconds as i64)
-			.unwrap_or(0);
+		let timestamp = (AV_TIME_BASE as i64).checked_mul(seconds).unwrap_or(0);
 
 		check_error(
 			unsafe { av_seek_frame(self.format_context, -1, timestamp, 0) },

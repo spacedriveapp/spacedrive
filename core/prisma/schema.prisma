@@ -153,7 +153,7 @@ model FilePath {
   extension         String?
   // the unique Object for this file path
   object_id         Int?
-  object            Object?  @relation(fields: [object_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  object            Object?  @relation(fields: [object_id], references: [id], onDelete: Restrict)
   // the parent in the file tree
   parent_id         Int?
   key_id            Int? // replacement for encryption
