@@ -215,6 +215,7 @@ importers:
       react-native-document-picker: ^8.1.1
       react-native-fs: ^2.20.0
       react-native-gesture-handler: ~2.8.0
+      react-native-popup-menu: ^0.16.1
       react-native-reanimated: ~2.12.0
       react-native-safe-area-context: 4.4.1
       react-native-screens: ~3.18.0
@@ -258,6 +259,7 @@ importers:
       react-native-document-picker: 8.1.3_tj3nonr5gneraukzjkxpsiy7yu
       react-native-fs: 2.20.0_react-native@0.70.5
       react-native-gesture-handler: 2.8.0_tj3nonr5gneraukzjkxpsiy7yu
+      react-native-popup-menu: 0.16.1
       react-native-reanimated: 2.12.0_tj3nonr5gneraukzjkxpsiy7yu
       react-native-safe-area-context: 4.4.1_tj3nonr5gneraukzjkxpsiy7yu
       react-native-screens: 3.18.2_tj3nonr5gneraukzjkxpsiy7yu
@@ -18632,6 +18634,10 @@ packages:
 
   /react-native-gradle-plugin/0.70.3:
     resolution: {integrity: sha512-oOanj84fJEXUg9FoEAQomA8ISG+DVIrTZ3qF7m69VQUJyOGYyDZmPqKcjvRku4KXlEH6hWO9i4ACLzNBh8gC0A==}
+
+  /react-native-popup-menu/0.16.1:
+    resolution: {integrity: sha512-xRS7mRh0exwu7Iw8PPVHdM11d13A/KzYjy0/fZx3zVtxISxPkNaDGayau6oa7HqO3Nj0oS9ulFCYjcQfG6vahA==}
+    dev: false
 
   /react-native-reanimated/2.12.0_tj3nonr5gneraukzjkxpsiy7yu:
     resolution: {integrity: sha512-nrlPyw+Hx9u4iJhZk9PoTvDo/QmVAd+bo7OK9Tv3hveNEF9++5oig/g3Uv9V93shy9avTYGsUprUvAEt/xdzeQ==}
