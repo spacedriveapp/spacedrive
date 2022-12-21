@@ -59,7 +59,7 @@ To run the landing page
 If you are having issues ensure you are using the following versions of Rust and Node:
 
 - Rust version: **1.64.0**
-- Node version: **16**
+- Node version: **18**
 
 ##### Mobile app
 
