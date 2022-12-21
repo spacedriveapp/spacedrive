@@ -46,10 +46,7 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 
 /// This writes a `StoredKey` to prisma
 /// If the key is marked as memory-only, it is skipped
-pub async fn write_storedkey_to_db(
-	db: Arc<PrismaClient>,
-	key: &StoredKey,
-) -> Result<(), QueryError> {
+pub async fn write_storedkey_to_db(db: &PrismaClient, key: &StoredKey) -> Result<(), QueryError> {
 	if !key.memory_only {
 		db.key()
 			.create(

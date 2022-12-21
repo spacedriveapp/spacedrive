@@ -123,6 +123,13 @@ pub struct MasterPasswordChangeBundle {
 	                                   // pub updated_keystore: Vec<StoredKey>,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
+pub struct PasswordAndSecret {
+	password: Protected<String>,
+	secret: String,
+}
+
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	fn format_secret_key(salt: &[u8; 16]) -> Protected<String> {
@@ -151,17 +158,19 @@ impl KeyManager {
 	pub fn onboarding(
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
+		creds: PasswordAndSecret,
 	) -> Result<OnboardingBundle> {
-		let _master_password = generate_passphrase();
-		let _salt = generate_salt();
-
 		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-		let master_password = Protected::new("password".to_string());
-		let salt = *b"0000000000000000";
+		let salt = *b"0000000000000000"; // TODO: Should this come from the `creds.secret` var???
+
+		// if salt.len() > SALT_LEN {
+		// 	todo!();
+		// }
+		// let salt = *creds.secret.as_bytes();
 
 		// Hash the master password
 		let hashed_password = hashing_algorithm.hash(
-			Protected::new(master_password.expose().as_bytes().to_vec()),
+			Protected::new(creds.password.expose().as_bytes().to_vec()),
 			salt,
 		)?;
 
@@ -208,7 +217,7 @@ impl KeyManager {
 
 		let onboarding_bundle = OnboardingBundle {
 			verification_key,
-			master_password,
+			master_password: creds.password,
 			secret_key,
 		};
 

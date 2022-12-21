@@ -40,13 +40,13 @@ export type Procedures = {
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
+        { key: "jobs.prunePreviewMedia", input: LibraryArgs<null>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
         { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
         { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: string } | 
         { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } | 
         { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } | 
         { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
         { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
@@ -55,7 +55,7 @@ export type Procedures = {
         { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
         { key: "keys.updateAutomountStatus", input: LibraryArgs<AutomountUpdateArgs>, result: null } | 
         { key: "keys.updateKeyName", input: LibraryArgs<KeyNameUpdateArgs>, result: null } | 
-        { key: "library.create", input: string, result: LibraryConfigWrapped } | 
+        { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
@@ -81,6 +81,8 @@ export interface AutomountUpdateArgs { uuid: string, status: boolean }
 export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
+
+export interface CreateLibraryArgs { name: string, encrypted_cfg: PasswordAndSecret | null }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 
@@ -118,7 +120,7 @@ export interface KeyNameUpdateArgs { uuid: string, name: string }
 
 export interface LibraryArgs<T> { library_id: string, arg: T }
 
-export interface LibraryConfig { version: string | null, name: string, description: string }
+export interface LibraryConfig { version: string | null, name: string, description: string, is_encrypted: boolean }
 
 export interface LibraryConfigWrapped { uuid: string, config: LibraryConfig }
 
@@ -150,11 +152,9 @@ export interface Object { id: number, cas_id: string, integrity_checksum: string
 
 export interface ObjectValidatorArgs { id: number, path: string }
 
-export interface OnboardingArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
-
-export interface OnboardingKeys { master_password: string, secret_key: string }
-
 export type Params = "Standard" | "Hardened" | "Paranoid"
+
+export interface PasswordAndSecret { password: string, secret: string }
 
 export interface RestoreBackupArgs { password: string, secret_key: string, path: string }
 
