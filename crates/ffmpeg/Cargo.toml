@@ -10,7 +10,7 @@ rust-version = "1.64.0"
 resolver = "2"
 
 [dependencies]
-ffmpeg-sys-next = { version = "5.1.1", version = ["static"]
+ffmpeg-sys-next = { version = "5.1.1", features = ["static"]
 thiserror = "1.0.37"
 webp = "0.2.2"
 tokio = { workspace = true, features = ["fs", "rt"] }
