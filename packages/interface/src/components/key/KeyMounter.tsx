@@ -75,6 +75,9 @@ export function KeyMounter() {
 							setSliderValue(e);
 							setKey(GeneratePassword(e[0]));
 						}}
+						onClick={() => {
+							setKey(GeneratePassword(sliderValue[0]));
+						}}
 					/>
 				</div>
 				<span className="text-sm mt-2.5 font-medium">{sliderValue}</span>
