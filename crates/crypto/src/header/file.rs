@@ -33,7 +33,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
 	crypto::stream::Algorithm,
-	primitives::{generate_nonce, MASTER_KEY_LEN},
+	primitives::{generate_nonce, to_array, MASTER_KEY_LEN},
 	Error, Protected, Result,
 };
 
@@ -104,7 +104,7 @@ impl FileHeader {
 		&self,
 		password: Protected<Vec<u8>>,
 	) -> Result<Protected<[u8; MASTER_KEY_LEN]>> {
-		let mut master_key = [0u8; MASTER_KEY_LEN];
+		let mut master_key: Option<Protected<[u8; MASTER_KEY_LEN]>> = None;
 
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
@@ -112,15 +112,35 @@ impl FileHeader {
 
 		for keyslot in &self.keyslots {
 			if let Ok(decrypted_master_key) = keyslot.decrypt_master_key(&password) {
-				master_key.copy_from_slice(&decrypted_master_key);
+				master_key = Some(Protected::new(to_array(
+					decrypted_master_key.expose().clone(),
+				)?));
 			}
 		}
 
-		if master_key == [0u8; MASTER_KEY_LEN] {
-			Err(Error::IncorrectPassword)
+		if let Some(mk) = master_key {
+			Ok(mk)
 		} else {
-			Ok(Protected::new(master_key))
+			Err(Error::IncorrectPassword)
 		}
+	}
+
+	/// This is a helper function to find which keyslot a key belongs to.
+	///
+	/// You receive an error if the password doesn't match or if there are no keyslots.
+	#[allow(clippy::needless_pass_by_value)]
+	pub fn find_key_index(&self, password: Protected<Vec<u8>>) -> Result<usize> {
+		if self.keyslots.is_empty() {
+			return Err(Error::NoKeyslots);
+		}
+
+		for (i, keyslot) in self.keyslots.clone().iter().enumerate() {
+			if keyslot.decrypt_master_key(&password).is_ok() {
+				return Ok(i);
+			}
+		}
+
+		Err(Error::IncorrectPassword)
 	}
 
 	/// This is a helper function to serialize and write a header to a file.
@@ -142,7 +162,7 @@ impl FileHeader {
 		&self,
 		hashed_keys: Vec<Protected<[u8; 32]>>,
 	) -> Result<Protected<[u8; MASTER_KEY_LEN]>> {
-		let mut master_key = [0u8; MASTER_KEY_LEN];
+		let mut master_key: Option<Protected<[u8; MASTER_KEY_LEN]>> = None;
 
 		if self.keyslots.is_empty() {
 			return Err(Error::NoKeyslots);
@@ -153,15 +173,17 @@ impl FileHeader {
 				if let Ok(decrypted_master_key) =
 					keyslot.decrypt_master_key_from_prehashed(key.clone())
 				{
-					master_key.copy_from_slice(&decrypted_master_key);
+					master_key = Some(Protected::new(to_array(
+						decrypted_master_key.expose().clone(),
+					)?));
 				}
 			}
 		}
 
-		if master_key == [0u8; MASTER_KEY_LEN] {
-			Err(Error::IncorrectPassword)
+		if let Some(mk) = master_key {
+			Ok(mk)
 		} else {
-			Ok(Protected::new(master_key))
+			Err(Error::IncorrectPassword)
 		}
 	}
 
