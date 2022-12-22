@@ -11,6 +11,15 @@ function SubHeading({ children }: PropsWithChildren) {
 	return <div className="mb-1 text-xs font-medium text-ink-dull">{children}</div>;
 }
 
+const sortOptions = {
+	name: 'Name',
+	kind: 'Kind',
+	favorite: 'Favorite',
+	date_created: 'Date Created',
+	date_modified: 'Date Modified',
+	date_last_opened: 'Date Last Opened'
+};
+
 export function ExplorerOptionsPanel() {
 	const [sortBy, setSortBy] = useState('name');
 	const [stackBy, setStackBy] = useState('kind');
@@ -25,12 +34,11 @@ export function ExplorerOptionsPanel() {
 				<div className="flex flex-col">
 					<SubHeading>Sort by</SubHeading>
 					<Select value={sortBy} size="sm" onChange={setSortBy}>
-						<SelectOption value="name">Name</SelectOption>
-						<SelectOption value="kind">Kind</SelectOption>
-						<SelectOption value="favorite">Favorite</SelectOption>
-						<SelectOption value="date_created">Date Created</SelectOption>
-						<SelectOption value="date_modified">Date Modified</SelectOption>
-						<SelectOption value="date_last_opened">Date Last Opened</SelectOption>
+						{Object.entries(sortOptions).map(([value, text]) => (
+							<SelectOption key={value} value={value}>
+								{text}
+							</SelectOption>
+						))}
 					</Select>
 				</div>
 				<div className="flex flex-col">

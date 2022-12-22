@@ -1,6 +1,12 @@
 import { Icon } from 'phosphor-react-native';
-import { Text, View } from 'react-native';
-import { MenuOption, MenuOptions, MenuTrigger, Menu as PMenu } from 'react-native-popup-menu';
+import { View } from 'react-native';
+import {
+	MenuOption,
+	MenuOptionProps,
+	MenuOptions,
+	MenuTrigger,
+	Menu as PMenu
+} from 'react-native-popup-menu';
 import tw from '~/lib/tailwind';
 
 type MenuProps = {
@@ -12,24 +18,26 @@ export const Menu = (props: MenuProps) => (
 	<View>
 		<PMenu>
 			<MenuTrigger>{props.trigger}</MenuTrigger>
-			<MenuOptions>{props.children}</MenuOptions>
+			<MenuOptions optionsContainerStyle={tw`bg-app-menu`}>{props.children}</MenuOptions>
 		</PMenu>
 	</View>
 );
 
 type MenuItemProps = {
-	text: string;
 	icon?: Icon;
-	onSelect?: () => void;
-};
+} & MenuOptionProps;
 
-export const MenuItem = (props: MenuItemProps) => {
+export const MenuItem = ({ icon, ...props }: MenuItemProps) => {
+	const Icon = icon;
+
 	return (
-		<>
-			<MenuOption style={tw`flex flex-row items-center`} onSelect={props.onSelect}>
-				{props.icon && props.icon({ size: 18 })}
-				<Text style={tw`ml-2`}>{props.text}</Text>
-			</MenuOption>
-		</>
+		<View style={tw`flex flex-row items-center`}>
+			{Icon && <Icon size={20} color={tw.color('ink-dull')} />}
+			<MenuOption
+				{...props}
+				customStyles={{ optionText: tw`text-ink text-sm` }}
+				style={tw`flex flex-row items-center`}
+			/>
+		</View>
 	);
 };

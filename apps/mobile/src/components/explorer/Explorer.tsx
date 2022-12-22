@@ -1,12 +1,12 @@
 import { useNavigation } from '@react-navigation/native';
 import { ExplorerData } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
-import { CaretRight } from 'phosphor-react-native';
+import { Rows, SquaresFour } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import SortByMenu from '~/containers/menu/SortByMenu';
 import tw from '~/lib/tailwind';
 
-import { Menu, MenuItem } from '../primitive/Menu';
 import FileItem from './FileItem';
 
 type ExplorerProps = {
@@ -25,17 +25,22 @@ const Explorer = ({ data }: ExplorerProps) => {
 
 	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
 
-	// TODO: Grid/List
-	// TODO: Sort by (Name, Size, Date, Type)
-
 	return (
 		<View style={tw`flex-1`}>
-			<Menu trigger={<Text style={tw`text-lg text-red-500`}>MENU</Text>}>
-				<MenuItem icon={CaretRight} text="Name" />
-				<MenuItem icon={CaretRight} text="Date" />
-				<MenuItem icon={CaretRight} text="test" />
-				<MenuItem icon={CaretRight} text="test" />
-			</Menu>
+			<View style={tw`flex flex-row items-center`}>
+				{/* Sort By */}
+				<SortByMenu />
+				{/* Layout (Grid/List) */}
+				{layoutMode === 'grid' ? (
+					<Pressable onPress={() => setLayoutMode('list')}>
+						<SquaresFour color={tw.color('ink-dull')} size={24} />
+					</Pressable>
+				) : (
+					<Pressable onPress={() => setLayoutMode('grid')}>
+						<Rows color={tw.color('ink-dull')} size={24} />
+					</Pressable>
+				)}
+			</View>
 			{data && (
 				<FlashList
 					data={data.items}
