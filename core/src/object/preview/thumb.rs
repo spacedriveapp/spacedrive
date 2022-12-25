@@ -78,7 +78,11 @@ impl StatefulJob for ThumbnailJob {
 		THUMBNAIL_JOB_NAME
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let thumbnail_dir = ctx
 			.library_ctx
 			.config()
@@ -190,7 +194,7 @@ impl StatefulJob for ThumbnailJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
@@ -293,7 +297,7 @@ impl StatefulJob for ThumbnailJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&self, _ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

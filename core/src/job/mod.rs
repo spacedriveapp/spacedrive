@@ -75,22 +75,26 @@ pub trait StatefulJob: Send + Sync + Sized {
 	type Step: Serialize + DeserializeOwned + Send + Sync;
 
 	fn name(&self) -> &'static str;
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError>;
-
-	async fn execute_step(
+	async fn init(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError>;
 
-	async fn finalize(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult;
+	async fn execute_step(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError>;
+
+	async fn finalize(&self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult;
 }
 
 #[async_trait::async_trait]
 pub trait DynJob: Send + Sync {
 	fn report(&mut self) -> &mut Option<JobReport>;
 	fn name(&self) -> &'static str;
-	async fn run(&mut self, ctx: WorkerContext) -> JobResult;
+	async fn run(&mut self, ctx: &mut WorkerContext) -> JobResult;
 	fn hash(&self) -> u64;
 }
 
@@ -163,10 +167,10 @@ impl<State: StatefulJob> DynJob for Job<State> {
 		self.stateful_job.name()
 	}
 
-	async fn run(&mut self, ctx: WorkerContext) -> JobResult {
+	async fn run(&mut self, ctx: &mut WorkerContext) -> JobResult {
 		// Checking if we have a brand new job, or if we are resuming an old one.
 		if self.state.data.is_none() {
-			self.stateful_job.init(ctx.clone(), &mut self.state).await?;
+			self.stateful_job.init(ctx, &mut self.state).await?;
 		}
 
 		let mut shutdown_rx = ctx.shutdown_rx();
@@ -176,7 +180,7 @@ impl<State: StatefulJob> DynJob for Job<State> {
 		while !self.state.steps.is_empty() {
 			tokio::select! {
 				step_result = self.stateful_job.execute_step(
-					ctx.clone(),
+					ctx,
 					&mut self.state,
 				) => {
 					if matches!(step_result, Err(JobError::EarlyFinish { .. })) {
@@ -198,9 +202,7 @@ impl<State: StatefulJob> DynJob for Job<State> {
 			self.state.step_number += 1;
 		}
 
-		self.stateful_job
-			.finalize(ctx.clone(), &mut self.state)
-			.await
+		self.stateful_job.finalize(ctx, &mut self.state).await
 	}
 
 	fn hash(&self) -> u64 {

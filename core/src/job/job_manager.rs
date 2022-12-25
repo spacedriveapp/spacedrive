@@ -243,7 +243,7 @@ impl JobManager {
 
 			let job_id = job_report.id;
 
-			let worker = Worker::new(job, job_report);
+			let worker = Worker::new(job, job_report, ctx.clone(), self.shutdown_tx.clone());
 
 			let wrapped_worker = Arc::new(Mutex::new(worker));
 

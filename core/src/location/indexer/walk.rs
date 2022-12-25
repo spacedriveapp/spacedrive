@@ -54,7 +54,7 @@ impl Ord for WalkEntry {
 pub(super) async fn walk(
 	root: PathBuf,
 	rules_per_kind: &HashMap<RuleKind, Vec<IndexerRule>>,
-	update_notifier: impl Fn(&Path, usize),
+	mut update_notifier: impl FnMut(&Path, usize),
 ) -> Result<Vec<WalkEntry>, IndexerError> {
 	let mut to_walk = VecDeque::with_capacity(1);
 	to_walk.push_back((root.clone(), None));

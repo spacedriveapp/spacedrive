@@ -68,7 +68,11 @@ impl StatefulJob for FileEncryptorJob {
 		JOB_NAME
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		// enumerate files to encrypt
 		// populate the steps with them (local file paths)
 		let location = ctx
@@ -123,7 +127,7 @@ impl StatefulJob for FileEncryptorJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
@@ -236,7 +240,7 @@ impl StatefulJob for FileEncryptorJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&self, _ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		// mark job as successful
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}

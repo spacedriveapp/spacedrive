@@ -85,7 +85,7 @@ pub struct IndexerJobStepEntry {
 }
 
 impl IndexerJobData {
-	fn on_scan_progress(ctx: WorkerContext, progress: Vec<ScanProgress>) {
+	fn on_scan_progress(ctx: &mut WorkerContext, progress: Vec<ScanProgress>) {
 		ctx.progress_debounced(
 			progress
 				.iter()
@@ -110,7 +110,11 @@ impl StatefulJob for IndexerJob {
 	}
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		let location_path = state
 			.init
 			.location
@@ -134,13 +138,12 @@ impl StatefulJob for IndexerJob {
 		}
 
 		let scan_start = Instant::now();
-		let inner_ctx = ctx.clone();
 		let paths = walk(
 			location_path.clone(),
 			&indexer_rules_by_kind,
-			move |path, total_entries| {
+			|path, total_entries| {
 				IndexerJobData::on_scan_progress(
-					inner_ctx.clone(),
+					ctx,
 					vec![
 						ScanProgress::Message(format!("Scanning {}", path.display())),
 						ScanProgress::ChunkCount(total_entries / BATCH_SIZE),
@@ -205,7 +208,7 @@ impl StatefulJob for IndexerJob {
 			.map(|(i, chunk)| {
 				let chunk_steps = chunk.collect::<Vec<_>>();
 				IndexerJobData::on_scan_progress(
-					ctx.clone(),
+					ctx,
 					vec![
 						ScanProgress::SavedChunks(i),
 						ScanProgress::Message(format!(
@@ -225,7 +228,7 @@ impl StatefulJob for IndexerJob {
 	/// Process each chunk of entries in the indexer job, writing to the `file_path` table
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let data = &state
@@ -281,7 +284,7 @@ impl StatefulJob for IndexerJob {
 	}
 
 	/// Logs some metadata about the indexer job
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&self, _ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

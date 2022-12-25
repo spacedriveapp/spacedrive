@@ -65,7 +65,11 @@ impl StatefulJob for FullFileIdentifierJob {
 		FULL_IDENTIFIER_JOB_NAME
 	}
 
-	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
+	async fn init(
+		&self,
+		ctx: &mut WorkerContext,
+		state: &mut JobState<Self>,
+	) -> Result<(), JobError> {
 		info!("Identifying orphan File Paths...");
 
 		let location_id = state.init.location_id;
@@ -128,7 +132,7 @@ impl StatefulJob for FullFileIdentifierJob {
 
 	async fn execute_step(
 		&self,
-		ctx: WorkerContext,
+		ctx: &mut WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let data = state
@@ -187,7 +191,7 @@ impl StatefulJob for FullFileIdentifierJob {
 		Ok(())
 	}
 
-	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+	async fn finalize(&self, _ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()
