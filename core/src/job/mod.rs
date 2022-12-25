@@ -17,9 +17,11 @@ use tracing::warn;
 use uuid::Uuid;
 
 mod job_manager;
+mod job_report;
 mod worker;
 
 pub use job_manager::*;
+pub use job_report::*;
 pub use worker::*;
 
 #[derive(Error, Debug)]
