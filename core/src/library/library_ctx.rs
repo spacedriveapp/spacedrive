@@ -1,5 +1,5 @@
 use crate::{
-	api::CoreEvent, job::DynJob, location::LocationManager, node::NodeConfigManager,
+	api::CoreEvent, job::StatefulJob, location::LocationManager, node::NodeConfigManager,
 	prisma::PrismaClient, NodeContext,
 };
 
@@ -45,12 +45,12 @@ impl Debug for LibraryContext {
 }
 
 impl LibraryContext {
-	pub(crate) async fn spawn_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.clone().ingest(self, job).await;
-	}
-
-	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.ingest_queue(job).await;
+	pub(crate) async fn spawn_job<T: StatefulJob>(&self, init: T::Init, job: T) {
+		self.node_context
+			.jobs
+			.clone()
+			.ingest(self.clone(), init, job)
+			.await;
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {

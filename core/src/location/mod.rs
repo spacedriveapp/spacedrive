@@ -1,6 +1,5 @@
 use crate::{
 	invalidate_query,
-	job::Job,
 	library::LibraryContext,
 	object::{
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
@@ -255,27 +254,28 @@ pub async fn scan_location(
 		return Err(LocationError::MissingLocalPath(location.id));
 	};
 
-	ctx.queue_job(Job::new(
+	let location_id = location.id;
+
+	// TODO: This code makes the assumption that their is a single worker thread. This is true today but may not be true in the future refactor to not make that assumption.
+	ctx.spawn_job(IndexerJobInit { location }, IndexerJob {})
+		.await;
+	ctx.spawn_job(
 		FullFileIdentifierJobInit {
-			location_id: location.id,
+			location_id: location_id,
 			sub_path: None,
 		},
 		FullFileIdentifierJob {},
-	))
+	)
 	.await;
-
-	ctx.queue_job(Job::new(
+	ctx.spawn_job(
 		ThumbnailJobInit {
-			location_id: location.id,
+			location_id: location_id,
 			root_path: PathBuf::new(),
-			background: true,
+			background: false,
 		},
 		ThumbnailJob {},
-	))
+	)
 	.await;
-
-	ctx.spawn_job(Job::new(IndexerJobInit { location }, IndexerJob {}))
-		.await;
 
 	Ok(())
 }

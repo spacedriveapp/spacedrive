@@ -13,8 +13,6 @@ use tracing::info;
 
 use super::{identifier_job_step, IdentifierJobError, CHUNK_SIZE};
 
-pub const FULL_IDENTIFIER_JOB_NAME: &str = "file_identifier";
-
 pub struct FullFileIdentifierJob {}
 
 // FileIdentifierJobInit takes file_paths without a file_id and uniquely identifies them
@@ -61,9 +59,7 @@ impl StatefulJob for FullFileIdentifierJob {
 	type Data = FullFileIdentifierJobState;
 	type Step = ();
 
-	fn name(&self) -> &'static str {
-		FULL_IDENTIFIER_JOB_NAME
-	}
+	const NAME: &'static str = "file_identifier";
 
 	async fn init(
 		&self,
@@ -147,11 +143,9 @@ impl StatefulJob for FullFileIdentifierJob {
 		// if no file paths found, abort entire job early, there is nothing to do
 		// if we hit this error, there is something wrong with the data/query
 		if file_paths.is_empty() {
-			return Err(JobError::EarlyFinish {
-				name: self.name().to_string(),
-				reason: "Expected orphan Paths not returned from database query for this chunk"
-					.to_string(),
-			});
+			return Err(JobError::EarlyFinish(
+				"Expected orphan Paths not returned from database query for this chunk".to_string(),
+			));
 		}
 
 		info!(

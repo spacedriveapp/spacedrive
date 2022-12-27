@@ -118,7 +118,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 					.await?;
 
 				// library
-				// 	.queue_job(Job::new(
+				// 	.spawn_job(
 				// 		ThumbnailJobInit {
 				// 			location_id: location.id,
 				// 			// recursive: false, // TODO: do this
@@ -126,7 +126,7 @@ pub(crate) fn mount() -> rspc::RouterBuilder<
 				// 			background: true,
 				// 		},
 				// 		ThumbnailJob {},
-				// 	))
+				// 	)
 				// 	.await;
 
 				let mut items = Vec::with_capacity(file_paths.len());

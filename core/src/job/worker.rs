@@ -1,16 +1,16 @@
 use crate::invalidate_query;
-use crate::job::{DynJob, JobError, JobManager, JobReportUpdate, JobStatus};
+use crate::job::{JobReportUpdate, JobStatus};
 use crate::library::LibraryContext;
-use std::sync::Arc;
-use tokio::sync::{broadcast, Mutex};
-use tracing::{error, info, warn};
+use tokio::sync::broadcast;
+use tracing::warn;
 
 use super::JobReport;
 
+/// TODO
 pub struct WorkerContext {
-	report: JobReport,
+	pub(super) report: JobReport,
 	pub library_ctx: LibraryContext,
-	shutdown_tx: Arc<broadcast::Sender<()>>,
+	pub(super) shutdown_tx: broadcast::Sender<()>,
 }
 
 impl WorkerContext {
@@ -53,125 +53,5 @@ impl WorkerContext {
 
 	pub fn shutdown_rx(&self) -> broadcast::Receiver<()> {
 		self.shutdown_tx.subscribe()
-	}
-}
-
-// a worker is a dedicated thread that runs a single job
-// once the job is complete the worker will exit
-pub struct Worker {
-	job: Option<Box<dyn DynJob>>,
-	worker_ctx: WorkerContext,
-}
-
-impl Worker {
-	pub fn new(
-		job: Box<dyn DynJob>,
-		report: JobReport,
-		library_ctx: LibraryContext,
-		shutdown_tx: Arc<broadcast::Sender<()>>,
-	) -> Self {
-		Self {
-			job: Some(job),
-			worker_ctx: WorkerContext {
-				report,
-				library_ctx,
-				shutdown_tx,
-			},
-		}
-	}
-
-	pub fn report(&self) -> JobReport {
-		self.worker_ctx.report.clone()
-	}
-
-	// spawns a thread and extracts channel sender to communicate with it
-	pub async fn spawn(
-		job_manager: Arc<JobManager>,
-		worker_mutex: Arc<Mutex<Self>>,
-		library_ctx: LibraryContext,
-	) -> Result<(), JobError> {
-		let mut worker = worker_mutex.lock().await;
-		let mut job = worker
-			.job
-			.take()
-			.expect("critical error: missing job on worker");
-
-		let job_hash = job.hash();
-		let job_id = worker.worker_ctx.report.id;
-		let old_status = worker.worker_ctx.report.status;
-
-		worker.worker_ctx.report.status = JobStatus::Running;
-
-		if matches!(old_status, JobStatus::Queued) {
-			worker.worker_ctx.report.create(&library_ctx).await?;
-		} else {
-			worker.worker_ctx.report.update(&library_ctx).await?;
-		}
-		drop(worker);
-
-		invalidate_query!(library_ctx, "jobs.isRunning");
-
-		// spawn task to handle running the job
-		tokio::spawn(async move {
-			let mut worker = worker_mutex.lock().await; // TODO: Is holding this lock gonna cause problems???
-			match job.run(&mut worker.worker_ctx).await {
-				Ok(metadata) => {
-					// handle completion
-					worker.worker_ctx.report.status = JobStatus::Completed;
-					worker.worker_ctx.report.data = None;
-					worker.worker_ctx.report.metadata = metadata;
-					if let Err(e) = worker
-						.worker_ctx
-						.report
-						.update(&worker.worker_ctx.library_ctx)
-						.await
-					{
-						error!("failed to update job report: {:#?}", e);
-					}
-					info!("{}", worker.worker_ctx.report);
-
-					// TODO: Invalidate without `LibraryCtx`
-					invalidate_query!(worker.worker_ctx.library_ctx, "jobs.isRunning");
-					invalidate_query!(worker.worker_ctx.library_ctx, "jobs.getRunning");
-					invalidate_query!(worker.worker_ctx.library_ctx, "jobs.getHistory");
-				}
-				Err(JobError::Paused(state)) => {
-					worker.worker_ctx.report.status = JobStatus::Paused;
-					worker.worker_ctx.report.data = Some(state);
-					if let Err(e) = worker
-						.worker_ctx
-						.report
-						.update(&worker.worker_ctx.library_ctx)
-						.await
-					{
-						error!("failed to update job report: {:#?}", e);
-					}
-					info!("{}", worker.worker_ctx.report);
-
-					invalidate_query!(worker.worker_ctx.library_ctx, "jobs.getHistory");
-				}
-				Err(e) => {
-					error!("job '{}' failed with error: {:#?}", job_id, e);
-
-					worker.worker_ctx.report.status = JobStatus::Failed;
-					worker.worker_ctx.report.data = None;
-					if let Err(e) = worker
-						.worker_ctx
-						.report
-						.update(&worker.worker_ctx.library_ctx)
-						.await
-					{
-						error!("failed to update job report: {:#?}", e);
-					}
-					warn!("{}", worker.worker_ctx.report);
-
-					invalidate_query!(worker.worker_ctx.library_ctx, "library.list");
-				}
-			}
-
-			job_manager.complete(&library_ctx, job_id, job_hash).await;
-		});
-
-		Ok(())
 	}
 }

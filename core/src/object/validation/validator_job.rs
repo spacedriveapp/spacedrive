@@ -11,8 +11,6 @@ use tracing::info;
 
 use super::hash::file_checksum;
 
-pub const VALIDATOR_JOB_NAME: &str = "object_validator";
-
 // The Validator is able to:
 // - generate a full byte checksum for Objects in a Location
 // - generate checksums for all Objects missing without one
@@ -47,9 +45,7 @@ impl StatefulJob for ObjectValidatorJob {
 	type Data = ObjectValidatorJobState;
 	type Step = file_path_and_object::Data;
 
-	fn name(&self) -> &'static str {
-		VALIDATOR_JOB_NAME
-	}
+	const NAME: &'static str = "object_validator";
 
 	async fn init(
 		&self,

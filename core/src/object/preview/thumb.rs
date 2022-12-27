@@ -24,7 +24,6 @@ use webp::Encoder;
 static THUMBNAIL_SIZE_FACTOR: f32 = 0.2;
 static THUMBNAIL_QUALITY: f32 = 30.0;
 pub static THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
-pub const THUMBNAIL_JOB_NAME: &str = "thumbnailer";
 
 pub struct ThumbnailJob {}
 
@@ -74,9 +73,7 @@ impl StatefulJob for ThumbnailJob {
 	type Data = ThumbnailJobState;
 	type Step = ThumbnailJobStep;
 
-	fn name(&self) -> &'static str {
-		THUMBNAIL_JOB_NAME
-	}
+	const NAME: &'static str = "thumbnailer";
 
 	async fn init(
 		&self,

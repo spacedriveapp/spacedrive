@@ -1,14 +1,16 @@
 use crate::{
-	job::{Job, JobManager},
+	job::{JobManager, JobReport, JobStatus},
 	location::{fetch_location, LocationError},
 	object::{
 		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
 		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
-	prisma::location,
+	prisma::{job, location},
 };
 
+use int_enum::IntEnum;
+use prisma_client_rust::Direction;
 use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -24,7 +26,19 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|ctx, _: (), _| async move { Ok(!ctx.jobs.get_running().await.is_empty()) })
 		})
 		.library_query("getHistory", |t| {
-			t(|_, _: (), library| async move { Ok(JobManager::get_history(&library).await?) })
+			t(|_, _: (), library| async move {
+				Ok(library
+					.db
+					.job()
+					.find_many(vec![job::status::not(JobStatus::Running.int_value())])
+					.order_by(job::date_created::order(Direction::Desc))
+					.take(100) // TODO: What if we have more than 100 jobs in the history? -> We should Pagination here
+					.exec()
+					.await?
+					.into_iter()
+					.map(Into::into)
+					.collect::<Vec<JobReport>>())
+			})
 		})
 		.library_mutation("clearAll", |t| {
 			t(|_, _: (), library| async move {
@@ -52,14 +66,14 @@ pub(crate) fn mount() -> RouterBuilder {
 					}
 
 					library
-						.spawn_job(Job::new(
+						.spawn_job(
 							ThumbnailJobInit {
 								location_id: args.id,
 								root_path: PathBuf::new(),
 								background: false,
 							},
 							ThumbnailJob {},
-						))
+						)
 						.await;
 
 					Ok(())
@@ -82,14 +96,14 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 
 				library
-					.spawn_job(Job::new(
+					.spawn_job(
 						ObjectValidatorJobInit {
 							location_id: args.id,
 							path: args.path,
 							background: true,
 						},
 						ObjectValidatorJob {},
-					))
+					)
 					.await;
 
 				Ok(())
@@ -111,13 +125,13 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 
 				library
-					.spawn_job(Job::new(
+					.spawn_job(
 						FullFileIdentifierJobInit {
 							location_id: args.id,
 							sub_path: Some(args.path),
 						},
 						FullFileIdentifierJob {},
-					))
+					)
 					.await;
 
 				Ok(())

@@ -56,17 +56,13 @@ pub struct Metadata {
 	pub date_modified: chrono::DateTime<FixedOffset>,
 }
 
-const JOB_NAME: &str = "file_encryptor";
-
 #[async_trait::async_trait]
 impl StatefulJob for FileEncryptorJob {
 	type Data = FileEncryptorJobState;
 	type Init = FileEncryptorJobInit;
 	type Step = FileEncryptorJobStep;
 
-	fn name(&self) -> &'static str {
-		JOB_NAME
-	}
+	const NAME: &'static str = "file_encryptor";
 
 	async fn init(
 		&self,

@@ -28,17 +28,13 @@ pub struct FileDecryptorJobStep {
 	obj_path: PathBuf,
 }
 
-const JOB_NAME: &str = "file_decryptor";
-
 #[async_trait::async_trait]
 impl StatefulJob for FileDecryptorJob {
 	type Data = FileDecryptorJobState;
 	type Init = FileDecryptorJobInit;
 	type Step = FileDecryptorJobStep;
 
-	fn name(&self) -> &'static str {
-		JOB_NAME
-	}
+	const NAME: &'static str = "file_decryptor";
 
 	async fn init(
 		&self,

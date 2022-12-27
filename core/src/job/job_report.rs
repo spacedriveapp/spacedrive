@@ -3,16 +3,16 @@ use std::fmt::{Display, Formatter};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::error;
+use tracing::{error, warn};
 use uuid::Uuid;
 
 use crate::{
+	invalidate_query,
 	library::LibraryContext,
 	prisma::{job, node},
 };
 
-use super::JobError;
-
+/// TODO: Can I remove this?
 #[derive(Debug)]
 pub enum JobReportUpdate {
 	TaskCount(usize),
@@ -94,29 +94,35 @@ impl JobReport {
 		}
 	}
 
-	pub async fn create(&self, ctx: &LibraryContext) -> Result<(), JobError> {
-		ctx.db
+	pub async fn upsert(
+		&self,
+		library_ctx: &LibraryContext,
+	) -> Result<job::Data, prisma_client_rust::QueryError> {
+		library_ctx
+			.db
 			.job()
-			.create(
-				self.id.as_bytes().to_vec(),
-				self.name.clone(),
-				JobStatus::Running as i32,
-				node::id::equals(ctx.node_local_id),
-				vec![job::data::set(self.data.clone())],
-			)
-			.exec()
-			.await?;
-		Ok(())
-	}
-	pub async fn update(&self, ctx: &LibraryContext) -> Result<(), JobError> {
-		ctx.db
-			.job()
-			.update(
+			.upsert(
 				job::id::equals(self.id.as_bytes().to_vec()),
+				(
+					self.id.as_bytes().to_vec(),
+					self.name.clone(),
+					self.status.int_value(),
+					node::id::equals(library_ctx.node_local_id),
+					vec![job::data::set(self.data.clone())],
+				),
 				vec![
 					job::status::set(self.status.int_value()),
 					job::data::set(self.data.clone()),
-					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
+					job::metadata::set(match serde_json::to_vec(&self.metadata) {
+						Ok(v) => Some(v),
+						Err(err) => {
+							warn!(
+								"Failed to serialize metadata for job '{}' '{}': {}",
+								self.name, self.id, err
+							);
+							None
+						}
+					}),
 					job::task_count::set(self.task_count),
 					job::completed_task_count::set(self.completed_task_count),
 					job::date_modified::set(chrono::Utc::now().into()),
@@ -124,8 +130,13 @@ impl JobReport {
 				],
 			)
 			.exec()
-			.await?;
-		Ok(())
+			.await
+			.map(|v| {
+				invalidate_query!(library_ctx, "jobs.isRunning");
+				invalidate_query!(library_ctx, "jobs.getRunning");
+				invalidate_query!(library_ctx, "jobs.getHistory");
+				v
+			})
 	}
 }
 

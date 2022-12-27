@@ -145,17 +145,6 @@ impl Node {
 			}
 		}
 
-		// Trying to resume possible paused jobs
-		let inner_library_manager = Arc::clone(&library_manager);
-		let inner_jobs = Arc::clone(&jobs);
-		tokio::spawn(async move {
-			for library_ctx in inner_library_manager.get_all_libraries_ctx().await {
-				if let Err(e) = Arc::clone(&inner_jobs).resume_jobs(&library_ctx).await {
-					error!("Failed to resume jobs for library. {:#?}", e);
-				}
-			}
-		});
-
 		let router = api::mount();
 		let node = Node {
 			config,

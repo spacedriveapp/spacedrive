@@ -25,6 +25,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::RwLock;
+use tracing::error;
 use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -202,7 +203,18 @@ impl LibraryManager {
 			}
 
 			let config = LibraryConfig::read(config_path).await?;
-			libraries.push(Self::load(library_id, &db_path, config, node_context.clone()).await?);
+			let library_ctx =
+				Self::load(library_id, &db_path, config, node_context.clone()).await?;
+
+			// Resume running jobs
+			if let Err(err) = node_context.jobs.resume_jobs(&library_ctx).await {
+				error!(
+					"Failed to resume jobs for library '{}': {:#?}",
+					library_ctx.id, err
+				);
+			}
+
+			libraries.push(library_ctx);
 		}
 
 		let this = Arc::new(Self {

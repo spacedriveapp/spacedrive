@@ -28,7 +28,6 @@ use super::{
 
 /// BATCH_SIZE is the number of files to index at each step, writing the chunk of files metadata in the database.
 const BATCH_SIZE: usize = 1000;
-pub const INDEXER_JOB_NAME: &str = "indexer";
 
 #[derive(Clone)]
 pub enum ScanProgress {
@@ -105,9 +104,7 @@ impl StatefulJob for IndexerJob {
 	type Data = IndexerJobData;
 	type Step = IndexerJobStep;
 
-	fn name(&self) -> &'static str {
-		INDEXER_JOB_NAME
-	}
+	const NAME: &'static str = "indexer";
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(
