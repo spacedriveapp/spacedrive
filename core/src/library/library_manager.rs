@@ -264,10 +264,6 @@ impl LibraryManager {
 			.collect()
 	}
 
-	pub(crate) async fn get_all_libraries_ctx(&self) -> Vec<LibraryContext> {
-		self.libraries.read().await.clone()
-	}
-
 	pub(crate) async fn edit(
 		&self,
 		id: Uuid,
@@ -377,13 +373,38 @@ impl LibraryManager {
 
 		let key_manager = Arc::new(create_keymanager(&db).await?);
 
-		Ok(LibraryContext {
+		let this = LibraryContext {
 			id,
 			config,
 			db,
 			key_manager,
 			node_local_id: node_data.id,
 			node_context,
-		})
+		};
+
+		for location in this
+			.db
+			.location()
+			.find_many(vec![])
+			.exec()
+			.await
+			.unwrap_or_else(|e| {
+				error!(
+					"Failed to get locations from database for location manager: {:#?}",
+					e
+				);
+				vec![]
+			}) {
+			if let Err(e) = this
+				.node_context
+				.location_manager
+				.add(location.id, this.clone())
+				.await
+			{
+				error!("Failed to add location to location manager: {:#?}", e);
+			}
+		}
+
+		Ok(this)
 	}
 }

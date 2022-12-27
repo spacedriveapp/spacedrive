@@ -124,27 +124,6 @@ impl Node {
 		)
 		.await?;
 
-		// Adding already existing locations for location management
-		for library_ctx in library_manager.get_all_libraries_ctx().await {
-			for location in library_ctx
-				.db
-				.location()
-				.find_many(vec![])
-				.exec()
-				.await
-				.unwrap_or_else(|e| {
-					error!(
-						"Failed to get locations from database for location manager: {:#?}",
-						e
-					);
-					vec![]
-				}) {
-				if let Err(e) = location_manager.add(location.id, library_ctx.clone()).await {
-					error!("Failed to add location to location manager: {:#?}", e);
-				}
-			}
-		}
-
 		let router = api::mount();
 		let node = Node {
 			config,
