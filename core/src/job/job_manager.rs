@@ -22,6 +22,7 @@ use std::{
 };
 
 use int_enum::IntEnum;
+use once_cell::sync::Lazy;
 use prisma_client_rust::or;
 use tokio::{
 	sync::{broadcast, oneshot, RwLock},
@@ -30,7 +31,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{JobState, JobStatus, StatefulJob};
+use super::{JobRestorer, JobState, JobStatus, StatefulJob};
 
 // db is single threaded, nerd
 const MAX_WORKERS: usize = 1;
@@ -40,6 +41,41 @@ const MAX_WORKERS: usize = 1;
 ///   - Update `JobManager.running` with the latest `JobReport`.
 ///   - Write `JobReport` to the DB
 const STEPS_BETWEEN_PERSIST: usize = 10; // TODO: Tune this constant
+
+/// JOB_RESTORER is a map of job names to their restorer traits.
+/// This allows us to be sure when dispatching a job that it has the ability to be restored on restart because that was a common mistake with the old system.
+const JOB_RESTORER: Lazy<HashMap<&'static str, Box<dyn JobRestorer>>> = Lazy::new(|| {
+	HashMap::from([
+		(
+			<ThumbnailJob as StatefulJob>::NAME,
+			Box::new(ThumbnailJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<IndexerJob as StatefulJob>::NAME,
+			Box::new(IndexerJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<FullFileIdentifierJob as StatefulJob>::NAME,
+			Box::new(FullFileIdentifierJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<ObjectValidatorJob as StatefulJob>::NAME,
+			Box::new(ObjectValidatorJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<CurrentDirFileIdentifierJob as StatefulJob>::NAME,
+			Box::new(CurrentDirFileIdentifierJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<FileEncryptorJob as StatefulJob>::NAME,
+			Box::new(FileEncryptorJob {}) as Box<dyn JobRestorer>,
+		),
+		(
+			<FileDecryptorJob as StatefulJob>::NAME,
+			Box::new(FileDecryptorJob {}) as Box<dyn JobRestorer>,
+		),
+	])
+});
 
 /// TODO
 pub struct QueuedJob {
@@ -88,7 +124,12 @@ impl JobManager {
 		init: T::Init,
 		job: T,
 	) {
-		self.dispatch_job(
+		if !JOB_RESTORER.contains_key(T::NAME) {
+			error!("Job of type '{}' was ingested but does not have a restorer configured in the `JobManager`. Ignoring this as an invalid request!", T::NAME);
+			return;
+		}
+
+		self.internal_dispatch_job(
 			ctx,
 			JobReport::new(Uuid::new_v4(), T::NAME.to_string()), // `dispatch_job` will handle pushing this to the database
 			JobState {
@@ -163,89 +204,29 @@ impl JobManager {
 			};
 
 			info!("Resuming job: {}, id: {}", report.name, report.id);
-			match report.name.as_str() {
-				<ThumbnailJob as StatefulJob>::NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							ctx.clone(),
-							report,
-							rmp_serde::from_slice(&job_state_data)?,
-							ThumbnailJob {},
-						)
-						.await;
+
+			match JOB_RESTORER.get(report.name.as_str()) {
+				Some(restorer) => {
+					restorer
+						.restore(Arc::clone(self), ctx, report, job_state_data)
+						.await?;
 				}
-				<IndexerJob as StatefulJob>::NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							ctx.clone(),
-							report,
-							rmp_serde::from_slice(&job_state_data)?,
-							IndexerJob {},
-						)
-						.await;
-				}
-				<FullFileIdentifierJob as StatefulJob>::NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							ctx.clone(),
-							report,
-							rmp_serde::from_slice(&job_state_data)?,
-							FullFileIdentifierJob {},
-						)
-						.await;
-				}
-				<ObjectValidatorJob as StatefulJob>::NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							ctx.clone(),
-							report,
-							rmp_serde::from_slice(&job_state_data)?,
-							ObjectValidatorJob {},
-						)
-						.await;
-				}
-				<CurrentDirFileIdentifierJob as StatefulJob>::NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							ctx.clone(),
-							report,
-							rmp_serde::from_slice(&job_state_data)?,
-							CurrentDirFileIdentifierJob {},
-						)
-						.await;
-				}
-				<FileEncryptorJob as StatefulJob>::NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							ctx.clone(),
-							report,
-							rmp_serde::from_slice(&job_state_data)?,
-							FileEncryptorJob {},
-						)
-						.await;
-				}
-				<FileDecryptorJob as StatefulJob>::NAME => {
-					Arc::clone(&self)
-						.dispatch_job(
-							ctx.clone(),
-							report,
-							rmp_serde::from_slice(&job_state_data)?,
-							FileDecryptorJob {},
-						)
-						.await;
-				}
-				_ => {
-					error!("Unknown job type: {}, id: {}", report.name, report.id);
+				None => {
+					error!(
+						"Error restoring job of id '{}' due it being of an unknown type '{}'",
+						report.id, report.name
+					);
 					return Err(JobError::UnknownJobName(report.id, report.name));
 				}
-			};
+			}
 		}
 
 		Ok(())
 	}
 
 	/// TODO
-	async fn dispatch_job<T: StatefulJob>(
+	/// This should be treated as a private function but it is public because it is used within implementations of the `JobRestorer` trait.
+	pub async fn internal_dispatch_job<T: StatefulJob>(
 		self: Arc<Self>,
 		library_ctx: LibraryContext,
 		mut report: JobReport,

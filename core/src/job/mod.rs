@@ -1,9 +1,10 @@
 use crate::{
+	library::LibraryContext,
 	location::{indexer::IndexerError, LocationError},
 	object::{identifier_job::IdentifierJobError, preview::ThumbnailError},
 };
 
-use std::{collections::VecDeque, fmt::Debug, hash::Hash};
+use std::{collections::VecDeque, fmt::Debug, hash::Hash, sync::Arc};
 
 use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
 use sd_crypto::Error as CryptoError;
@@ -76,7 +77,7 @@ pub trait JobInitData {
 
 /// TODO
 #[async_trait::async_trait]
-pub trait StatefulJob: Send + Sync + Sized + 'static {
+pub trait StatefulJob: Send + Sync + Sized + JobRestorer + 'static {
 	/// TODO
 	type Init: Serialize + DeserializeOwned + Send + Sync + Hash + JobInitData<Job = Self>;
 	/// TODO
@@ -105,6 +106,39 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 
 	/// TODO
 	async fn finalize(&self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult;
+}
+
+/// TODO
+#[async_trait::async_trait]
+pub trait JobRestorer {
+	async fn restore(
+		&self,
+		job_manager: Arc<JobManager>,
+		ctx: &LibraryContext,
+		report: JobReport,
+		job_state_data: Vec<u8>,
+	) -> Result<(), JobError>;
+}
+
+#[async_trait::async_trait]
+impl<T: StatefulJob> JobRestorer for T {
+	async fn restore(
+		&self,
+		job_manager: Arc<JobManager>,
+		ctx: &LibraryContext,
+		report: JobReport,
+		job_state_data: Vec<u8>,
+	) -> Result<(), JobError> {
+		job_manager
+			.internal_dispatch_job(
+				ctx.clone(),
+				report,
+				rmp_serde::from_slice(&job_state_data)?,
+				Self::new(),
+			)
+			.await;
+		Ok(())
+	}
 }
 
 /// TODO
