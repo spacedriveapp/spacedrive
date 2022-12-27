@@ -1,7 +1,9 @@
 use crate::{
 	api::CoreEvent,
 	invalidate_query,
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::LibraryContext,
 	prisma::{file_path, location},
 };
@@ -32,6 +34,10 @@ pub struct ThumbnailJobInit {
 	pub location_id: i32,
 	pub root_path: PathBuf,
 	pub background: bool,
+}
+
+impl JobInitData for ThumbnailJobInit {
+	type Job = ThumbnailJob;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -74,6 +80,10 @@ impl StatefulJob for ThumbnailJob {
 	type Step = ThumbnailJobStep;
 
 	const NAME: &'static str = "thumbnailer";
+
+	fn new() -> Self {
+		Self {}
+	}
 
 	async fn init(
 		&self,

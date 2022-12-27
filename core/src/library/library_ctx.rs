@@ -1,6 +1,10 @@
 use crate::{
-	api::CoreEvent, job::StatefulJob, location::LocationManager, node::NodeConfigManager,
-	prisma::PrismaClient, NodeContext,
+	api::CoreEvent,
+	job::{JobInitData, StatefulJob},
+	location::LocationManager,
+	node::NodeConfigManager,
+	prisma::PrismaClient,
+	NodeContext,
 };
 
 use std::{
@@ -45,11 +49,17 @@ impl Debug for LibraryContext {
 }
 
 impl LibraryContext {
-	pub(crate) async fn spawn_job<T: StatefulJob>(&self, init: T::Init, job: T) {
+	pub(crate) async fn spawn_job<
+		TJob: StatefulJob<Init = TInitData>,
+		TInitData: JobInitData<Job = TJob>,
+	>(
+		&self,
+		init: TInitData,
+	) {
 		self.node_context
 			.jobs
 			.clone()
-			.ingest(self.clone(), init, job)
+			.ingest(self.clone(), init, TJob::new())
 			.await;
 	}
 

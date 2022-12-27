@@ -1,5 +1,7 @@
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	prisma::{file_path, location},
 };
 
@@ -50,6 +52,10 @@ file_path::select!(file_path_id_only { id });
 #[derive(Serialize, Deserialize)]
 pub struct IndexerJobInit {
 	pub location: indexer_job_location::Data,
+}
+
+impl JobInitData for IndexerJobInit {
+	type Job = IndexerJob;
 }
 
 impl Hash for IndexerJobInit {
@@ -105,6 +111,10 @@ impl StatefulJob for IndexerJob {
 	type Step = IndexerJobStep;
 
 	const NAME: &'static str = "indexer";
+
+	fn new() -> Self {
+		Self {}
+	}
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
 	async fn init(

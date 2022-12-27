@@ -1,6 +1,8 @@
 use crate::{
 	invalidate_query,
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	library::LibraryContext,
 	prisma::{file_path, location},
 };
@@ -22,6 +24,10 @@ pub struct FullFileIdentifierJob {}
 pub struct FullFileIdentifierJobInit {
 	pub location_id: i32,
 	pub sub_path: Option<PathBuf>, // subpath to start from
+}
+
+impl JobInitData for FullFileIdentifierJobInit {
+	type Job = FullFileIdentifierJob;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -60,6 +66,10 @@ impl StatefulJob for FullFileIdentifierJob {
 	type Step = ();
 
 	const NAME: &'static str = "file_identifier";
+
+	fn new() -> Self {
+		Self {}
+	}
 
 	async fn init(
 		&self,

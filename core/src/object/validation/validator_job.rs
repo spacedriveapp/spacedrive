@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::{collections::VecDeque, path::PathBuf};
 
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	prisma::{file_path, location, object},
 };
 
@@ -31,6 +33,10 @@ pub struct ObjectValidatorJobInit {
 	pub background: bool,
 }
 
+impl JobInitData for ObjectValidatorJobInit {
+	type Job = ObjectValidatorJob;
+}
+
 file_path::select!(file_path_and_object {
 	materialized_path
 	object: select {
@@ -46,6 +52,10 @@ impl StatefulJob for ObjectValidatorJob {
 	type Step = file_path_and_object::Data;
 
 	const NAME: &'static str = "object_validator";
+
+	fn new() -> Self {
+		Self {}
+	}
 
 	async fn init(
 		&self,

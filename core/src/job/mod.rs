@@ -19,6 +19,7 @@ pub use job_manager::*;
 pub use job_report::*;
 pub use worker::*;
 
+/// TODO
 #[derive(Error, Debug)]
 pub enum JobError {
 	// General errors
@@ -62,14 +63,22 @@ pub enum JobError {
 	Paused(Vec<u8>),
 }
 
+/// TODO
 pub type JobResult = Result<JobMetadata, JobError>;
+
+/// TODO
 pub type JobMetadata = Option<serde_json::Value>;
+
+/// TODO
+pub trait JobInitData {
+	type Job: StatefulJob;
+}
 
 /// TODO
 #[async_trait::async_trait]
 pub trait StatefulJob: Send + Sync + Sized + 'static {
 	/// TODO
-	type Init: Serialize + DeserializeOwned + Send + Sync + Hash;
+	type Init: Serialize + DeserializeOwned + Send + Sync + Hash + JobInitData<Job = Self>;
 	/// TODO
 	type Data: Serialize + DeserializeOwned + Send + Sync;
 	/// TODO
@@ -77,6 +86,8 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 
 	/// The name of the job is a unique human readable identifier for the job.
 	const NAME: &'static str;
+
+	fn new() -> Self;
 
 	/// TODO
 	async fn init(
@@ -96,6 +107,7 @@ pub trait StatefulJob: Send + Sync + Sized + 'static {
 	async fn finalize(&self, ctx: &mut WorkerContext, state: &mut JobState<Self>) -> JobResult;
 }
 
+/// TODO
 #[derive(Serialize, Deserialize)]
 pub struct JobState<Job: StatefulJob> {
 	pub init: Job::Init,

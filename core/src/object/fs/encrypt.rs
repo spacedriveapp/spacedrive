@@ -11,7 +11,9 @@ use specta::Type;
 use tracing::warn;
 
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	prisma::{file_path, location, object},
 };
 
@@ -35,6 +37,10 @@ pub struct FileEncryptorJobInit {
 	pub metadata: bool,
 	pub preview_media: bool,
 	pub output_path: Option<PathBuf>,
+}
+
+impl JobInitData for FileEncryptorJobInit {
+	type Job = FileEncryptorJob;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -63,6 +69,10 @@ impl StatefulJob for FileEncryptorJob {
 	type Step = FileEncryptorJobStep;
 
 	const NAME: &'static str = "file_encryptor";
+
+	fn new() -> Self {
+		Self {}
+	}
 
 	async fn init(
 		&self,

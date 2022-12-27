@@ -1,10 +1,7 @@
 use crate::{
 	invalidate_query,
 	location::fetch_location,
-	object::fs::{
-		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
-		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
-	},
+	object::fs::{decrypt::FileDecryptorJobInit, encrypt::FileEncryptorJobInit},
 	prisma::object,
 };
 
@@ -104,7 +101,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					));
 				}
 
-				library.spawn_job(args, FileEncryptorJob {}).await;
+				library.spawn_job(args).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
@@ -123,7 +120,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					));
 				}
 
-				library.spawn_job(args, FileDecryptorJob {}).await;
+				library.spawn_job(args).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())

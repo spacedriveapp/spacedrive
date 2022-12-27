@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::{
-	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	job::{
+		JobError, JobInitData, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext,
+	},
 	prisma::{file_path, location},
 };
 pub struct FileDecryptorJob;
@@ -22,6 +24,10 @@ pub struct FileDecryptorJobInit {
 	pub save_to_library: Option<bool>,
 }
 
+impl JobInitData for FileDecryptorJobInit {
+	type Job = FileDecryptorJob;
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileDecryptorJobStep {
 	obj_name: String,
@@ -35,6 +41,10 @@ impl StatefulJob for FileDecryptorJob {
 	type Step = FileDecryptorJobStep;
 
 	const NAME: &'static str = "file_decryptor";
+
+	fn new() -> Self {
+		Self {}
+	}
 
 	async fn init(
 		&self,

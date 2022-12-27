@@ -2,8 +2,7 @@ use crate::{
 	invalidate_query,
 	library::LibraryContext,
 	object::{
-		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
-		preview::{ThumbnailJob, ThumbnailJobInit},
+		identifier_job::full_identifier_job::FullFileIdentifierJobInit, preview::ThumbnailJobInit,
 	},
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
 };
@@ -27,7 +26,7 @@ mod manager;
 mod metadata;
 
 pub use error::LocationError;
-use indexer::indexer_job::{indexer_job_location, IndexerJob, IndexerJobInit};
+use indexer::indexer_job::{indexer_job_location, IndexerJobInit};
 pub use manager::{LocationManager, LocationManagerError};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -257,24 +256,17 @@ pub async fn scan_location(
 	let location_id = location.id;
 
 	// TODO: This code makes the assumption that their is a single worker thread. This is true today but may not be true in the future refactor to not make that assumption.
-	ctx.spawn_job(IndexerJobInit { location }, IndexerJob {})
-		.await;
-	ctx.spawn_job(
-		FullFileIdentifierJobInit {
-			location_id: location_id,
-			sub_path: None,
-		},
-		FullFileIdentifierJob {},
-	)
+	ctx.spawn_job(IndexerJobInit { location }).await;
+	ctx.spawn_job(FullFileIdentifierJobInit {
+		location_id: location_id,
+		sub_path: None,
+	})
 	.await;
-	ctx.spawn_job(
-		ThumbnailJobInit {
-			location_id: location_id,
-			root_path: PathBuf::new(),
-			background: false,
-		},
-		ThumbnailJob {},
-	)
+	ctx.spawn_job(ThumbnailJobInit {
+		location_id: location_id,
+		root_path: PathBuf::new(),
+		background: false,
+	})
 	.await;
 
 	Ok(())

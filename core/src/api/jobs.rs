@@ -2,9 +2,8 @@ use crate::{
 	job::{JobManager, JobReport, JobStatus},
 	location::{fetch_location, LocationError},
 	object::{
-		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
-		preview::{ThumbnailJob, ThumbnailJobInit},
-		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
+		identifier_job::full_identifier_job::FullFileIdentifierJobInit, preview::ThumbnailJobInit,
+		validation::validator_job::ObjectValidatorJobInit,
 	},
 	prisma::{job, location},
 };
@@ -66,14 +65,11 @@ pub(crate) fn mount() -> RouterBuilder {
 					}
 
 					library
-						.spawn_job(
-							ThumbnailJobInit {
-								location_id: args.id,
-								root_path: PathBuf::new(),
-								background: false,
-							},
-							ThumbnailJob {},
-						)
+						.spawn_job(ThumbnailJobInit {
+							location_id: args.id,
+							root_path: PathBuf::new(),
+							background: false,
+						})
 						.await;
 
 					Ok(())
@@ -96,14 +92,11 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 
 				library
-					.spawn_job(
-						ObjectValidatorJobInit {
-							location_id: args.id,
-							path: args.path,
-							background: true,
-						},
-						ObjectValidatorJob {},
-					)
+					.spawn_job(ObjectValidatorJobInit {
+						location_id: args.id,
+						path: args.path,
+						background: true,
+					})
 					.await;
 
 				Ok(())
@@ -125,13 +118,10 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 
 				library
-					.spawn_job(
-						FullFileIdentifierJobInit {
-							location_id: args.id,
-							sub_path: Some(args.path),
-						},
-						FullFileIdentifierJob {},
-					)
+					.spawn_job(FullFileIdentifierJobInit {
+						location_id: args.id,
+						sub_path: Some(args.path),
+					})
 					.await;
 
 				Ok(())
