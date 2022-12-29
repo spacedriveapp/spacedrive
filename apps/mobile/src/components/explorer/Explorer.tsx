@@ -27,7 +27,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 
 	return (
 		<View style={tw`flex-1`}>
-			<View style={tw`flex flex-row items-center`}>
+			<View style={tw`flex flex-row items-center justify-between px-4`}>
 				{/* Sort By */}
 				<SortByMenu />
 				{/* Layout (Grid/List) */}

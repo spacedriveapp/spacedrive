@@ -32,7 +32,7 @@ export const MenuItem = ({ icon, ...props }: MenuItemProps) => {
 
 	return (
 		<View style={tw`flex flex-row items-center`}>
-			{Icon && <Icon size={20} color={tw.color('ink-dull')} />}
+			{Icon && <Icon size={18} color={tw.color('ink-dull')} />}
 			<MenuOption
 				{...props}
 				customStyles={{ optionText: tw`text-ink text-sm` }}
