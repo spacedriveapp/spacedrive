@@ -142,9 +142,10 @@ model Object {
 
 model FilePath {
   id                Int
-  is_dir            Boolean @default(false)
+  is_dir            Boolean  @default(false)
   // location that owns this path
   location_id       Int
+  location          Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   // a path generated from local file_path ids eg: "34/45/67/890"
   materialized_path String
   // the name and extension
@@ -152,6 +153,7 @@ model FilePath {
   extension         String?
   // the unique Object for this file path
   object_id         Int?
+  object            Object?  @relation(fields: [object_id], references: [id], onDelete: Restrict)
   // the parent in the file tree
   parent_id         Int?
   key_id            Int? // replacement for encryption
@@ -161,9 +163,6 @@ model FilePath {
   date_created  DateTime @default(now())
   date_modified DateTime @default(now())
   date_indexed  DateTime @default(now())
-
-  object   Object?   @relation(fields: [object_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  location Location? @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
   // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -188,31 +187,31 @@ model FileConflict {
 // keys allow us to know exactly which files can be decrypted with a given key
 // they can be "mounted" to a client, and then used to decrypt files automatically
 model Key {
-  id           Int       @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
   // uuid to identify the key
-  uuid         String    @unique
+  uuid              String    @unique
   // the name that the user sets
-  name         String?
+  name              String?
   // is this key the default for encryption?
   // was not tagged as unique as i'm not too sure if PCR will handle it
   // can always be tagged as unique, the keys API will need updating to use `find_unique()`
-  default      Boolean @default(false)
+  default           Boolean   @default(false)
   // nullable if concealed for security
-  date_created DateTime? @default(now())
+  date_created      DateTime? @default(now())
   // encryption algorithm used to encrypt the key
-  algorithm    Bytes
+  algorithm         Bytes
   // hashing algorithm used for hashing the master password
   hashing_algorithm Bytes
   // salt used for encrypting data with this key
-  content_salt Bytes
+  content_salt      Bytes
   // the *encrypted* master key (48 bytes)
-  master_key Bytes
+  master_key        Bytes
   // the nonce used for encrypting the master key
-  master_key_nonce Bytes
+  master_key_nonce  Bytes
   // the nonce used for encrypting the key
-  key_nonce Bytes
+  key_nonce         Bytes
   // the *encrypted* key
-  key Bytes
+  key               Bytes
 
   automount Boolean @default(false)
 
@@ -236,8 +235,7 @@ model MediaData {
   codecs                  String? // eg: "h264,acc"
   streams                 Int?
 
-  // change this relation to Object after testing
-  objects Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  object Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("media_data")
 }

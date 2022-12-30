@@ -10,6 +10,8 @@
 //! let salt = generate_salt();
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
+#![allow(clippy::use_self)] // I think: https://github.com/rust-lang/rust-clippy/issues/3909
+
 use crate::Protected;
 use crate::{primitives::SALT_LEN, Error, Result};
 use argon2::Argon2;
@@ -24,7 +26,6 @@ use argon2::Argon2;
 	derive(serde::Deserialize)
 )]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
-#[allow(clippy::use_self)]
 pub enum Params {
 	Standard,
 	Hardened,

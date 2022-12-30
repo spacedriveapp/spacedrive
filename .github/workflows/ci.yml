@@ -158,6 +158,9 @@ jobs:
       - name: Cargo fetch
         run: cargo fetch
 
+      - name: Cargo test core
+        run: cargo test -p sd-core -F location-watcher
+
       - name: Check core
         run: cargo check -p sd-core --release
 

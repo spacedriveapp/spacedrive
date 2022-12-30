@@ -66,7 +66,7 @@ export default function GeneralSettings() {
 			<InputContainer
 				mini
 				title="Debug mode"
-				description="Enable extra debugging features within the app. Enabling this could have unintended consequences so be warned!"
+				description="Enable extra debugging features within the app."
 			>
 				<Switch
 					checked={debugState.enabled}
