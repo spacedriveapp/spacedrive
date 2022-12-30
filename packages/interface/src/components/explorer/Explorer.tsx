@@ -1,12 +1,12 @@
 import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
 
-import { useExplorerStore } from '../../util/explorerStore';
+import { useExplorerStore } from '../../hooks/useExplorerStore';
 import { AlertDialog, GenericAlertDialogState } from '../dialog/AlertDialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 import { Inspector } from '../explorer/Inspector';
-import ExplorerContextMenu from './ExplorerContextMenu';
+import { ExplorerContextMenu } from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';
 import { VirtualizedList } from './VirtualizedList';
 
@@ -47,15 +47,11 @@ export default function Explorer(props: Props) {
 	return (
 		<>
 			<div className="relative">
-				<ExplorerContextMenu
-					setShowEncryptDialog={setShowEncryptDialog}
-					setShowDecryptDialog={setShowDecryptDialog}
-					setAlertDialogData={setAlertDialogData}
-				>
+				<ExplorerContextMenu>
 					<div className="relative flex flex-col w-full">
 						<TopBar showSeparator={separateTopBar} />
 
-						<div className="relative flex flex-row w-full max-h-full app-background ">
+						<div className="relative flex flex-row w-full max-h-full app-background">
 							{props.data && (
 								<VirtualizedList
 									data={props.data.items || []}
@@ -68,6 +64,9 @@ export default function Explorer(props: Props) {
 											};
 										});
 									}}
+									setShowEncryptDialog={setShowEncryptDialog}
+									setShowDecryptDialog={setShowDecryptDialog}
+									setAlertDialogData={setAlertDialogData}
 								/>
 							)}
 							{expStore.showInspector && (

@@ -16,7 +16,7 @@ pub struct Ctx {
 type Router = rspc::Router<Arc<Mutex<Ctx>>>;
 
 fn to_map(v: &impl serde::Serialize) -> serde_json::Map<String, Value> {
-	match to_value(&v).unwrap() {
+	match to_value(v).unwrap() {
 		Value::Object(m) => m,
 		_ => unreachable!(),
 	}
@@ -144,7 +144,7 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 					}
 				}
 
-				let mut array = hashmap.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
+				let mut array = hashmap.into_values().collect::<Vec<_>>();
 
 				array.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
 

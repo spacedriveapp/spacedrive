@@ -78,7 +78,12 @@ pub(crate) fn mount() -> Arc<Router> {
 				Ok(NodeState {
 					config: ctx.config.get().await,
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
-					data_path: ctx.config.data_directory().to_string_lossy().into_owned(),
+					data_path: ctx
+						.config
+						.data_directory()
+						.to_str()
+						.expect("Found non-UTF-8 path")
+						.to_string(),
 				})
 			})
 		})
@@ -101,7 +106,7 @@ pub(crate) fn mount() -> Arc<Router> {
 							CoreEvent::InvalidateOperation(op) => yield op,
 							CoreEvent::InvalidateOperationDebounced(op) => {
 								let current = Instant::now();
-								if current.duration_since(last) > Duration::from_millis(1000 / 60) {
+								if current.duration_since(last) > Duration::from_millis(1000 / 10) {
 									last = current;
 									yield op;
 								}

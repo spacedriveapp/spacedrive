@@ -223,7 +223,7 @@ async fn accept_dir_for_its_children(
 	let mut read_dir = fs::read_dir(source).await?;
 	while let Some(entry) = read_dir.next_entry().await? {
 		if entry.metadata().await?.is_dir()
-			&& children.contains(entry.file_name().to_string_lossy().as_ref())
+			&& children.contains(entry.file_name().to_str().expect("Found non-UTF-8 path"))
 		{
 			return Ok(true);
 		}
@@ -240,7 +240,7 @@ async fn reject_dir_for_its_children(
 	let mut read_dir = fs::read_dir(source).await?;
 	while let Some(entry) = read_dir.next_entry().await? {
 		if entry.metadata().await?.is_dir()
-			&& children.contains(entry.file_name().to_string_lossy().as_ref())
+			&& children.contains(entry.file_name().to_str().expect("Found non-UTF-8 path"))
 		{
 			return Ok(false);
 		}

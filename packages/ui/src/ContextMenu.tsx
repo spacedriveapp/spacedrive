@@ -9,7 +9,7 @@ interface Props extends RadixCM.MenuContentProps {
 }
 
 const MENU_CLASSES = `
-  flex flex-col
+  flex flex-col z-50
   min-w-[8rem] px-1 py-0.5
   text-left text-sm text-menu-ink
   bg-menu cool-shadow
@@ -97,17 +97,20 @@ export const Item = ({
 	children,
 	keybind,
 	variant,
+
 	...props
-}: ItemProps & RadixCM.MenuItemProps) => (
-	<RadixCM.Item
-		{...props}
-		className="!cursor-default select-none group  text-menu-ink focus:outline-none py-0.5 active:opacity-80"
-	>
-		<div className={itemStyles({ variant })}>
-			{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}
-		</div>
-	</RadixCM.Item>
-);
+}: ItemProps & RadixCM.MenuItemProps) => {
+	return (
+		<RadixCM.Item
+			{...props}
+			className="!cursor-default select-none group  text-menu-ink focus:outline-none py-0.5 active:opacity-80"
+		>
+			<div className={itemStyles({ variant })}>
+				{children ? children : <ItemInternals {...{ icon, label, rightArrow, keybind }} />}
+			</div>
+		</RadixCM.Item>
+	);
+};
 
 const DivItem = ({ variant, ...props }: ItemProps) => (
 	<div className={itemStyles({ variant })}>

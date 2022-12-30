@@ -1,9 +1,13 @@
+import { useLibraryMutation } from '@sd/client';
 import { Button, Input, OverlayPanel, cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import {
 	ArrowsClockwise,
 	CaretLeft,
 	CaretRight,
+	ClockCounterClockwise,
+	Columns,
+	HourglassSimple,
 	IconProps,
 	Key,
 	List,
@@ -17,8 +21,8 @@ import { forwardRef, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 
+import { getExplorerStore, useExplorerStore } from '../../hooks/useExplorerStore';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
-import { getExplorerStore, useExplorerStore } from '../../util/explorerStore';
 import { KeybindEvent } from '../../util/keybind';
 import { KeyManager } from '../key/KeyManager';
 import { Shortcut } from '../primitive/Shortcut';
@@ -123,12 +127,6 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 
 	const store = useExplorerStore();
 
-	// const { mutate: generateThumbsForLocation } = useLibraryMutation(
-	// 	'jobs.generateThumbsForLocation'
-	// );
-	// const { mutate: identifyUniqueFiles } = useLibraryMutation('jobs.identifyUniqueFiles');
-	// const { mutate: objectValidator } = useLibraryMutation('jobs.objectValidator');
-
 	const navigate = useNavigate();
 
 	//create function to focus on search box when cmd+k is pressed
@@ -193,7 +191,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 			<div
 				data-tauri-drag-region
 				className={clsx(
-					'flex h-[2.95rem] -mt-0.5 max-w z-10 pl-3 flex-shrink-0 items-center border-transparent border-b bg-app overflow-hidden transition-[background-color] transition-[border-color] duration-250 ease-out',
+					'flex h-[46px] max-w z-20 pl-3 flex-shrink-0 items-center border-transparent border-b bg-app overflow-hidden transition-[background-color] transition-[border-color] duration-250 ease-out',
 					props.showSeparator && 'top-bar-blur !bg-app/90'
 				)}
 			>
@@ -236,6 +234,24 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								<Rows className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>
 						</Tooltip>
+						<Tooltip label="Columns view">
+							<TopBarButton
+								rounding="none"
+								active={store.layoutMode === 'columns'}
+								onClick={() => (getExplorerStore().layoutMode = 'columns')}
+							>
+								<Columns className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
+						</Tooltip>
+						{/* <Tooltip label="Timeline view">
+							<TopBarButton
+								rounding="none"
+								active={store.layoutMode === 'timeline'}
+								onClick={() => (getExplorerStore().layoutMode = 'timeline')}
+							>
+								<ClockCounterClockwise className={TOP_BAR_ICON_STYLE} />
+							</TopBarButton>
+						</Tooltip> */}
 
 						<Tooltip label="Media view">
 							<TopBarButton
@@ -271,13 +287,18 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 								active={store.tagAssignMode}
 							>
 								<Tag
-									weight={store.tagAssignMode ? 'fill' : 'bold'}
+									weight={store.tagAssignMode ? 'fill' : 'regular'}
 									className={TOP_BAR_ICON_STYLE}
 								/>
 							</TopBarButton>
 						</Tooltip>
-						<Tooltip label="Refresh">
-							<TopBarButton>
+						<Tooltip label="Regenerate thumbs (temp)">
+							<TopBarButton
+							// onClick={() =>
+							// 	store.locationId &&
+							// 	generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+							// }
+							>
 								<ArrowsClockwise className={TOP_BAR_ICON_STYLE} />
 							</TopBarButton>
 						</Tooltip>
