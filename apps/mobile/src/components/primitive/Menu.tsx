@@ -14,11 +14,14 @@ type MenuProps = {
 	children: React.ReactNode[] | React.ReactNode;
 };
 
+// TODO: Still looks a bit off...
 export const Menu = (props: MenuProps) => (
 	<View>
 		<PMenu>
 			<MenuTrigger>{props.trigger}</MenuTrigger>
-			<MenuOptions optionsContainerStyle={tw`bg-app-menu`}>{props.children}</MenuOptions>
+			<MenuOptions optionsContainerStyle={tw`bg-app-menu p-1 rounded`}>
+				{props.children}
+			</MenuOptions>
 		</PMenu>
 	</View>
 );
@@ -32,10 +35,16 @@ export const MenuItem = ({ icon, ...props }: MenuItemProps) => {
 
 	return (
 		<View style={tw`flex flex-row items-center`}>
-			{Icon && <Icon size={18} color={tw.color('ink-dull')} />}
+			{Icon && (
+				<View style={tw`ml-1`}>
+					<Icon />
+				</View>
+			)}
 			<MenuOption
 				{...props}
-				customStyles={{ optionText: tw`text-ink text-sm` }}
+				customStyles={{
+					optionText: tw`text-ink text-sm font-medium py-0.5`
+				}}
 				style={tw`flex flex-row items-center`}
 			/>
 		</View>

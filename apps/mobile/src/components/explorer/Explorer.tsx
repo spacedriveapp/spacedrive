@@ -21,23 +21,23 @@ const Explorer = ({ data }: ExplorerProps) => {
 		navigation.setOptions({
 			title: data?.context.name
 		});
-	}, [data]);
+	}, [data, navigation]);
 
 	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
 
 	return (
 		<View style={tw`flex-1`}>
-			<View style={tw`flex flex-row items-center justify-between px-4`}>
+			<View style={tw`flex flex-row items-center justify-between p-3`}>
 				{/* Sort By */}
 				<SortByMenu />
 				{/* Layout (Grid/List) */}
 				{layoutMode === 'grid' ? (
 					<Pressable onPress={() => setLayoutMode('list')}>
-						<SquaresFour color={tw.color('ink-dull')} size={24} />
+						<SquaresFour color={tw.color('ink')} size={23} />
 					</Pressable>
 				) : (
 					<Pressable onPress={() => setLayoutMode('grid')}>
-						<Rows color={tw.color('ink-dull')} size={24} />
+						<Rows color={tw.color('ink')} size={23} />
 					</Pressable>
 				)}
 			</View>

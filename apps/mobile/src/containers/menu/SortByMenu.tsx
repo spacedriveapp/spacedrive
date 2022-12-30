@@ -13,6 +13,9 @@ const sortOptions = {
 	date_last_opened: 'Date Last Opened'
 };
 
+const ArrowUpIcon = () => <ArrowUp weight="bold" size={16} color={tw.color('ink')} />;
+const ArrowDownIcon = () => <ArrowDown weight="bold" size={16} color={tw.color('ink')} />;
+
 const SortByMenu = () => {
 	const [sortBy, setSortBy] = useState('name');
 	const [sortDirection, setSortDirection] = useState('asc' as 'asc' | 'desc');
@@ -21,19 +24,15 @@ const SortByMenu = () => {
 		<Menu
 			trigger={
 				<View style={tw`flex flex-row items-center`}>
-					<Text style={tw`text-ink`}>{sortOptions[sortBy]}</Text>
-					{sortDirection === 'asc' ? (
-						<ArrowUp size={18} color={tw.color('ink-dull')} />
-					) : (
-						<ArrowDown size={18} color={tw.color('ink-dull')} />
-					)}
+					<Text style={tw`text-ink font-medium mr-0.5`}>{sortOptions[sortBy]}</Text>
+					{sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />}
 				</View>
 			}
 		>
 			{Object.entries(sortOptions).map(([value, text]) => (
 				<MenuItem
 					key={value}
-					icon={value === sortBy && (sortDirection === 'asc' ? ArrowUp : ArrowDown)}
+					icon={value === sortBy && (sortDirection === 'asc' ? ArrowUpIcon : ArrowDownIcon)}
 					text={text}
 					value={value}
 					onSelect={() => {
