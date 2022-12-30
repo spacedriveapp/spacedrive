@@ -22,7 +22,7 @@ type Button = {
 const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps => 'href' in props;
 
 const styles = cva(
-	'border rounded-md items-center transition-colors duration-100 cursor-default disabled:opacity-50',
+	'border rounded-md items-center transition-colors duration-100 cursor-default disabled:opacity-50 outline-none ring-offset-app-box focus:ring-2 focus:ring-accent focus:ring-offset-2',
 	{
 		variants: {
 			pressEffect: {
@@ -38,7 +38,7 @@ const styles = cva(
 			},
 			variant: {
 				default: [
-					'bg-app-button bg-transparent active:bg-app-selected hover:bg-app-hover',
+					'bg-transparent active:bg-app-selected hover:bg-app-hover',
 					'border-transparent hover:border-app-line active:border-app-line'
 				],
 				outline: [

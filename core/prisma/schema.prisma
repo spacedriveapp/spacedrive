@@ -142,9 +142,10 @@ model Object {
 
 model FilePath {
   id                Int
-  is_dir            Boolean @default(false)
+  is_dir            Boolean  @default(false)
   // location that owns this path
   location_id       Int
+  location          Location @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   // a path generated from local file_path ids eg: "34/45/67/890"
   materialized_path String
   // the name and extension
@@ -152,6 +153,7 @@ model FilePath {
   extension         String?
   // the unique Object for this file path
   object_id         Int?
+  object            Object?  @relation(fields: [object_id], references: [id], onDelete: Restrict)
   // the parent in the file tree
   parent_id         Int?
   key_id            Int? // replacement for encryption
@@ -161,9 +163,6 @@ model FilePath {
   date_created  DateTime @default(now())
   date_modified DateTime @default(now())
   date_indexed  DateTime @default(now())
-
-  object   Object?   @relation(fields: [object_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  location Location? @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   // NOTE: this self relation for the file tree was causing SQLite to go to forever bed, disabling until workaround
   // parent   FilePath?  @relation("directory_file_paths", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -238,8 +237,7 @@ model MediaData {
   codecs                  String? // eg: "h264,acc"
   streams                 Int?
 
-  // change this relation to Object after testing
-  objects Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  object Object? @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("media_data")
 }

@@ -29,7 +29,7 @@ pub enum WorkerEvent {
 
 #[derive(Clone)]
 pub struct WorkerContext {
-	library_ctx: LibraryContext,
+	pub library_ctx: LibraryContext,
 	events_tx: UnboundedSender<WorkerEvent>,
 	shutdown_tx: Arc<broadcast::Sender<()>>,
 }
@@ -50,10 +50,6 @@ impl WorkerContext {
 				debounce: true,
 			})
 			.expect("critical error: failed to send worker worker progress event updates");
-	}
-
-	pub fn library_ctx(&self) -> LibraryContext {
-		self.library_ctx.clone()
 	}
 
 	pub fn shutdown_rx(&self) -> broadcast::Receiver<()> {
@@ -104,17 +100,23 @@ impl Worker {
 			.take()
 			.expect("critical error: missing job on worker");
 
+		let job_hash = job.hash();
 		let job_id = worker.report.id;
 		let old_status = worker.report.status;
+
 		worker.report.status = JobStatus::Running;
+
 		if matches!(old_status, JobStatus::Queued) {
 			worker.report.create(&ctx).await?;
+		} else {
+			worker.report.update(&ctx).await?;
 		}
 		drop(worker);
 
 		invalidate_query!(ctx, "jobs.isRunning");
-		// spawn task to handle receiving events from the worker
+
 		let library_ctx = ctx.clone();
+		// spawn task to handle receiving events from the worker
 		tokio::spawn(Worker::track_progress(
 			Arc::clone(&worker_mutex),
 			worker_events_rx,
@@ -178,7 +180,7 @@ impl Worker {
 			if let Err(e) = done_rx.await {
 				error!("failed to wait for worker completion: {:#?}", e);
 			}
-			job_manager.complete(&ctx, job_id).await;
+			job_manager.complete(&ctx, job_id, job_hash).await;
 		});
 
 		Ok(())

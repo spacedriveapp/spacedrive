@@ -21,6 +21,7 @@ export function AppLayout() {
 			className={clsx(
 				// App level styles
 				'flex h-screen overflow-hidden text-ink select-none cursor-default',
+				os === 'browser' && 'bg-app border-t border-app-line/50',
 				os === 'macOS' && 'rounded-[10px] has-blur-effects',
 				os !== 'browser' && os !== 'windows' && 'border border-app-frame'
 			)}

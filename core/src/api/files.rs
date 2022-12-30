@@ -16,10 +16,19 @@ use super::{utils::LibraryRequest, RouterBuilder};
 
 pub(crate) fn mount() -> RouterBuilder {
 	<RouterBuilder>::new()
-		.library_query("readMetadata", |t| {
-			t(|_, _id: i32, _| async move {
-				#[allow(unreachable_code)]
-				Ok(todo!())
+		.library_query("get", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct GetArgs {
+				pub id: i32,
+			}
+			t(|_, args: GetArgs, library| async move {
+				Ok(library
+					.db
+					.object()
+					.find_unique(object::id::equals(args.id))
+					.include(object::include!({ file_paths media_data }))
+					.exec()
+					.await?)
 			})
 		})
 		.library_mutation("setNote", |t| {
@@ -41,6 +50,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				invalidate_query!(library, "locations.getExplorerData");
+				invalidate_query!(library, "tags.getExplorerData");
 
 				Ok(())
 			})
@@ -64,6 +74,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				invalidate_query!(library, "locations.getExplorerData");
+				invalidate_query!(library, "tags.getExplorerData");
 
 				Ok(())
 			})
@@ -94,9 +105,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					));
 				}
 
-				library
-					.spawn_job(Job::new(args, Box::new(FileEncryptorJob {})))
-					.await;
+				library.spawn_job(Job::new(args, FileEncryptorJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
@@ -115,9 +124,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					));
 				}
 
-				library
-					.spawn_job(Job::new(args, Box::new(FileDecryptorJob {})))
-					.await;
+				library.spawn_job(Job::new(args, FileDecryptorJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())

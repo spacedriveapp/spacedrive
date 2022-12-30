@@ -10,6 +10,7 @@
 //! let salt = generate_salt();
 //! let hashed_password = hashing_algorithm.hash(password, salt).unwrap();
 //! ```
+
 use crate::primitives::KEY_LEN;
 use crate::Protected;
 use crate::{primitives::SALT_LEN, Error, Result};
@@ -25,7 +26,6 @@ use argon2::Argon2;
 	derive(serde::Deserialize)
 )]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
-#[allow(clippy::use_self)]
 pub enum Params {
 	Standard,
 	Hardened,

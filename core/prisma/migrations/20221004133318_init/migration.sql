@@ -73,7 +73,7 @@ CREATE TABLE "object" (
     "cas_id" TEXT NOT NULL,
     "integrity_checksum" TEXT,
     "name" TEXT,
-    "extension" TEXT,
+    "extension" TEXT COLLATE NOCASE,
     "kind" INTEGER NOT NULL DEFAULT 0,
     "size_in_bytes" TEXT NOT NULL,
     "key_id" INTEGER,
@@ -98,7 +98,7 @@ CREATE TABLE "file_path" (
     "location_id" INTEGER NOT NULL,
     "materialized_path" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "extension" TEXT,
+    "extension" TEXT COLLATE NOCASE,
     "object_id" INTEGER,
     "parent_id" INTEGER,
     "key_id" INTEGER,
@@ -107,7 +107,7 @@ CREATE TABLE "file_path" (
     "date_indexed" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY ("location_id", "id"),
-    CONSTRAINT "file_path_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "file_path_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "file_path_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "location" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "file_path_key_id_fkey" FOREIGN KEY ("key_id") REFERENCES "key" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );

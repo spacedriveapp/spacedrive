@@ -1,4 +1,6 @@
 //! This module contains the crate's STREAM implementation, and wrappers that allow us to support multiple AEADs.
+#![allow(clippy::use_self)] // I think: https://github.com/rust-lang/rust-clippy/issues/3909
+
 use std::io::{Cursor, Read, Write};
 
 use crate::{
@@ -13,14 +15,13 @@ use aes_gcm::Aes256Gcm;
 use chacha20poly1305::XChaCha20Poly1305;
 
 /// These are all possible algorithms that can be used for encryption and decryption
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 #[cfg_attr(
 	feature = "serde",
 	derive(serde::Serialize),
 	derive(serde::Deserialize)
 )]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
-#[allow(clippy::use_self)]
 pub enum Algorithm {
 	XChaCha20Poly1305,
 	Aes256Gcm,
