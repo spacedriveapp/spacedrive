@@ -1,4 +1,4 @@
-import { ExplorerItem } from '@sd/client';
+import { ExplorerItem, isVideoExt } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
@@ -42,7 +42,7 @@ function FileItem({
 	...rest
 }: Props) {
 	const objectData = data ? (isObject(data) ? data : data.object) : null;
-	const isVid = objectData?.kind === 7;
+	const isVid = isVideoExt(data.extension || '');
 
 	return (
 		<FileItemContextMenu
@@ -84,17 +84,11 @@ function FileItem({
 								isVid && '!border-black rounded border-x-0 border-y-[7px]'
 							)}
 							data={data}
-							kind={ObjectKind[objectData?.kind || 0]}
+							kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
 							size={getExplorerStore().gridItemSize}
 						/>
 						{data?.extension && isVid && (
-							<div
-								className={clsx(
-									'absolute text-white bottom-[19px] font-semibold opacity-70 right-2 py-0.5 px-1 text-[8px] uppercase bg-black/90 rounded',
-									!objectData.has_thumbnail &&
-										'left-auto right-auto !bg-transparent !text-[12px] !bottom-3.5'
-								)}
-							>
+							<div className="absolute bottom-4 font-semibold opacity-70 right-2 py-0.5 px-1 text-[9px] uppercase bg-black/60 rounded">
 								{data.extension}
 							</div>
 						)}

@@ -919,6 +919,8 @@ impl KeyManager {
 	/// Once added, you will need to use `KeyManager::access_keystore()` to retrieve it and add it to Prisma.
 	///
 	/// You may use the returned ID to identify this key.
+	///
+	/// You may optionally provide a content salt, if not one will be generated.
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn add_to_keystore(
 		&self,
@@ -927,6 +929,7 @@ impl KeyManager {
 		hashing_algorithm: HashingAlgorithm,
 		memory_only: bool,
 		automount: bool,
+		content_salt: Option<[u8; SALT_LEN]>,
 	) -> Result<Uuid> {
 		let uuid = uuid::Uuid::new_v4();
 
@@ -934,7 +937,12 @@ impl KeyManager {
 		let key_nonce = generate_nonce(algorithm);
 		let master_key = generate_master_key();
 		let master_key_nonce = generate_nonce(algorithm);
-		let content_salt = generate_salt(); // for PVM/MD
+
+		let content_salt = if let Some(content_salt) = content_salt {
+			content_salt
+		} else {
+			generate_salt()
+		};
 
 		// Encrypt the master key with the user's hashed password
 		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(

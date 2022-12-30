@@ -2,11 +2,11 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import { StackScreenProps, createStackNavigator } from '@react-navigation/stack';
 import tw from '~/lib/tailwind';
 import NotFoundScreen from '~/screens/NotFound';
-import SearchScreen from '~/screens/modals/Search';
-import SettingsScreen from '~/screens/modals/settings/Settings';
+import SearchScreen from '~/screens/Search';
 
 import type { DrawerNavParamList } from './DrawerNavigator';
 import DrawerNavigator from './DrawerNavigator';
+import SettingsNavigator, { SettingsStackParamList } from './SettingsNavigator';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -24,16 +24,17 @@ export default function RootNavigator() {
 			{/* Modals */}
 			<Stack.Group
 				screenOptions={{
+					headerShown: false,
 					presentation: 'modal',
 					headerBackTitleVisible: false,
-					headerStyle: tw`bg-gray-650`,
-					headerTintColor: tw.color('gray-200'),
+					headerStyle: tw`bg-app`,
+					headerTintColor: tw.color('ink'),
 					headerTitleStyle: tw`text-base`,
 					headerBackTitleStyle: tw`text-base`
 					// headerShadowVisible: false // will disable the white line under
 				}}
 			>
-				<Stack.Screen name="Settings" component={SettingsScreen} />
+				<Stack.Screen name="Settings" component={SettingsNavigator} />
 			</Stack.Group>
 		</Stack.Navigator>
 	);
@@ -44,7 +45,7 @@ export type RootStackParamList = {
 	NotFound: undefined;
 	// Modals
 	Search: undefined;
-	Settings: undefined;
+	Settings: NavigatorScreenParams<SettingsStackParamList>;
 };
 
 export type RootStackScreenProps<Screen extends keyof RootStackParamList> = StackScreenProps<

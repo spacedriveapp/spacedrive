@@ -93,7 +93,7 @@ export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerI
 
 export type ExplorerItem = { type: "Path" } & { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null } | { type: "Object" } & { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath> }
 
-export interface FileDecryptorJobInit { location_id: number, object_id: number, output_path: string | null }
+export interface FileDecryptorJobInit { location_id: number, object_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
 
 export interface FileEncryptorJobInit { location_id: number, object_id: number, key_uuid: string, algorithm: Algorithm, metadata: boolean, preview_media: boolean, output_path: string | null }
 

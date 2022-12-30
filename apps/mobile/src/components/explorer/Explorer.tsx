@@ -5,12 +5,12 @@ import tw from '~/lib/tailwind';
 
 import FileItem from './FileItem';
 
-type Props = {
+type ExplorerProps = {
 	locationId: number;
 	path?: string;
 };
 
-const Explorer = ({ locationId, path }: Props) => {
+const Explorer = ({ locationId, path }: ExplorerProps) => {
 	const { data } = useLibraryQuery([
 		'locations.getExplorerData',
 		{
@@ -23,7 +23,7 @@ const Explorer = ({ locationId, path }: Props) => {
 
 	return (
 		<View style={tw`flex-1`}>
-			<Text style={tw`text-xl font-bold text-white mt-4`}>Location id:{locationId}</Text>
+			<Text style={tw`text-xl font-bold text-ink mt-4`}>Location id:{locationId}</Text>
 			{data && (
 				<FlashList
 					data={data.items}

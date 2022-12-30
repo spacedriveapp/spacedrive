@@ -7,11 +7,10 @@ import tw from '~/lib/tailwind';
 const button = cva(['border rounded-md items-center justify-center shadow-sm'], {
 	variants: {
 		variant: {
-			default: 'bg-gray-50 border-gray-100',
-			primary: ['bg-primary-600'],
-			danger: ['bg-red-600'],
-			gray: ['bg-gray-100 border-gray-200'],
-			dark_gray: ['bg-gray-500 border-gray-600']
+			danger: ['bg-red-600 border-red-800'],
+			gray: ['bg-app-button border-app-line'],
+			dark_gray: ['bg-app border-app-box'],
+			accent: ['bg-accent border-accent-deep shadow-md shadow-app-shade/10']
 		},
 		size: {
 			default: ['py-1', 'px-3'],
@@ -24,7 +23,7 @@ const button = cva(['border rounded-md items-center justify-center shadow-sm'], 
 		}
 	},
 	defaultVariants: {
-		variant: 'default',
+		variant: 'gray',
 		size: 'default'
 	}
 });

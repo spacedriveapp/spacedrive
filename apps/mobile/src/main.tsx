@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SplashScreen from 'expo-splash-screen';
-import { lazy, useEffect } from 'react';
-import { Suspense } from 'react';
+import { Suspense, lazy } from 'react';
 import { Platform } from 'react-native';
 
 // Enable the splash screen
