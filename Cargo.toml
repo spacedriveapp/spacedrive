@@ -37,3 +37,6 @@ openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" }   # TODO: Move back to crates.io when new jsonrpc executor is released
 normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" }  # TODO: When normi is released on crates.io
 specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" } # TODO: When normi is released on crates.io
+
+# For `./crates/notify2`
+fsevent-stream = { git = "https://github.com/oscartbeaumont/fsevent-stream.git", rev = "50fa6fd2e2df3098f37317deb6906ff1de31163d" } # TODO: PR upstream and move back to crates.io

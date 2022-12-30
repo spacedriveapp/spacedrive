@@ -1,0 +1,25 @@
+[package]
+name = "notify2"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.23.0", default-features = false, features = ["rt"] }
+
+[dev-dependencies]
+tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.9.3"
+fsevent-stream = "0.2.3"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+inotify = "0.10.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# TODO
+
+# This is defined on the workspace, left here for reference.
+# [patch.crates-io]
+# fsevent-stream = { git = "https://github.com/oscartbeaumont/fsevent-stream.git", rev = "50fa6fd2e2df3098f37317deb6906ff1de31163d" } # TODO: PR upstream and move back to crates.io
