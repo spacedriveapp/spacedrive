@@ -32,7 +32,7 @@ use std::io::{Read, Seek};
 #[cfg(feature = "serde")]
 use crate::{
 	crypto::stream::{StreamDecryption, StreamEncryption},
-	primitives::{generate_nonce, MASTER_KEY_LEN},
+	primitives::{generate_nonce, KEY_LEN},
 	Protected,
 };
 
@@ -71,7 +71,7 @@ impl FileHeader {
 		&mut self,
 		version: MetadataVersion,
 		algorithm: Algorithm,
-		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
+		master_key: &Protected<[u8; KEY_LEN]>,
 		metadata: &T,
 	) -> Result<()>
 	where
@@ -107,7 +107,7 @@ impl FileHeader {
 	#[cfg(feature = "serde")]
 	pub fn decrypt_metadata_from_prehashed<T>(
 		&self,
-		hashed_keys: Vec<Protected<[u8; 32]>>,
+		hashed_keys: Vec<Protected<[u8; KEY_LEN]>>,
 	) -> Result<T>
 	where
 		T: serde::de::DeserializeOwned,
@@ -161,10 +161,8 @@ impl FileHeader {
 
 impl Metadata {
 	#[must_use]
-	pub fn get_length(&self) -> usize {
-		match self.version {
-			MetadataVersion::V1 => 36 + self.metadata.len(),
-		}
+	pub fn size(&self) -> usize {
+		self.serialize().len()
 	}
 
 	/// This function is used to serialize a metadata item into bytes
@@ -174,7 +172,7 @@ impl Metadata {
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
 			MetadataVersion::V1 => {
-				let mut metadata: Vec<u8> = Vec::new();
+				let mut metadata = Vec::new();
 				metadata.extend_from_slice(&self.version.serialize()); // 2
 				metadata.extend_from_slice(&self.algorithm.serialize()); // 4
 				metadata.extend_from_slice(&self.metadata_nonce); // 24 max
@@ -199,30 +197,28 @@ impl Metadata {
 		R: Read + Seek,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version).map_err(Error::Io)?;
+		reader.read_exact(&mut version)?;
 		let version = MetadataVersion::deserialize(version).map_err(|_| Error::NoMetadata)?;
 
 		match version {
 			MetadataVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm).map_err(Error::Io)?;
+				reader.read_exact(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut metadata_nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut metadata_nonce).map_err(Error::Io)?;
+				reader.read_exact(&mut metadata_nonce)?;
 
-				reader
-					.read(&mut vec![0u8; 24 - metadata_nonce.len()])
-					.map_err(Error::Io)?;
+				reader.read_exact(&mut vec![0u8; 24 - metadata_nonce.len()])?;
 
 				let mut metadata_length = [0u8; 8];
-				reader.read(&mut metadata_length).map_err(Error::Io)?;
+				reader.read_exact(&mut metadata_length)?;
 
 				let metadata_length = u64::from_le_bytes(metadata_length);
 
 				#[allow(clippy::cast_possible_truncation)]
 				let mut metadata = vec![0u8; metadata_length as usize];
-				reader.read(&mut metadata).map_err(Error::Io)?;
+				reader.read_exact(&mut metadata)?;
 
 				let metadata = Self {
 					version,

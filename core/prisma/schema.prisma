@@ -200,7 +200,7 @@ model Key {
   date_created      DateTime? @default(now())
   // encryption algorithm used to encrypt the key
   algorithm         Bytes
-  // hashing algorithm used for hashing the master password
+  // hashing algorithm used for hashing the key with the content salt
   hashing_algorithm Bytes
   // salt used for encrypting data with this key
   content_salt      Bytes
@@ -212,6 +212,8 @@ model Key {
   key_nonce         Bytes
   // the *encrypted* key
   key               Bytes
+  // the salt used for deriving the KEK (used for encrypting the master key) from the root key
+  salt              Bytes
 
   automount Boolean @default(false)
 
