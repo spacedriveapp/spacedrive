@@ -18,7 +18,6 @@ use thiserror::Error;
 use tokio::{fs, io};
 use tracing::{error, info};
 
-pub mod current_dir_identifier_job;
 pub mod full_identifier_job;
 
 // we break these jobs into chunks of 100 to improve performance
