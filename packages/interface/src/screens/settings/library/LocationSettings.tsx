@@ -2,7 +2,9 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import { MagnifyingGlass } from 'phosphor-react';
+import { useState } from 'react';
 
+import AddLocationDialog from '../../../components/dialog/AddLocationDialog';
 import LocationListItem from '../../../components/location/LocationListItem';
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
@@ -12,6 +14,7 @@ export default function LocationSettings() {
 	const platform = usePlatform();
 	const { data: locations } = useLibraryQuery(['locations.list']);
 	const { mutate: createLocation } = useLibraryMutation('locations.create');
+	const [textLocationDialogOpen, setTextLocationDialogOpen] = useState(false);
 
 	return (
 		<SettingsContainer>
@@ -25,24 +28,27 @@ export default function LocationSettings() {
 							<MagnifyingGlass className="absolute w-[18px] h-auto top-[8px] left-[11px] text-gray-350" />
 							<Input className="!p-0.5 !pl-9" placeholder="Search locations" />
 						</div>
+						<AddLocationDialog open={textLocationDialogOpen} setOpen={setTextLocationDialogOpen} />
 						<Button
 							variant="accent"
 							size="sm"
 							onClick={() => {
-								if (!platform.openDirectoryPickerDialog) {
-									// TODO: Support opening locations on web
-									alert('Opening a dialogue is not supported on this platform!');
-									return;
+								if (platform.platform === 'web') {
+									setTextLocationDialogOpen(true);
+								} else {
+									if (!platform.openDirectoryPickerDialog) {
+										alert('Opening a dialogue is not supported on this platform!');
+										return;
+									}
+									platform.openDirectoryPickerDialog().then((result) => {
+										// TODO: Pass indexer rules ids to create location
+										if (result)
+											createLocation({
+												path: result as string,
+												indexer_rules_ids: []
+											} as LocationCreateArgs);
+									});
 								}
-
-								platform.openDirectoryPickerDialog().then((result) => {
-									// TODO: Pass indexer rules ids to create location
-									if (result)
-										createLocation({
-											path: result as string,
-											indexer_rules_ids: []
-										} as LocationCreateArgs);
-								});
 							}}
 						>
 							Add Location

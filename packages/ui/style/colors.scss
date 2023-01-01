@@ -1,5 +1,5 @@
 :root {
-  --dark-hue: 230; //300, 295
+  --dark-hue: 235; //300, 295
   --light-hue: 235;
 
     // global
@@ -22,16 +22,16 @@
     --color-sidebar-selected: var(--dark-hue), 15%, 24%;
     --color-sidebar-shade: var(--dark-hue), 15%, 23%;
     // main
-    --color-app: var(--dark-hue), 15%, 14%;
-    --color-app-box: var(--dark-hue), 15%, 19%;
-    --color-app-overlay: var(--dark-hue), 17%, 18%;
+    --color-app: var(--dark-hue), 15%, 13%;
+    --color-app-box: var(--dark-hue), 15%, 18%;
+    --color-app-overlay: var(--dark-hue), 15%, 17%;
     --color-app-input: var(--dark-hue), 15%, 20%;
     --color-app-focus: var(--dark-hue), 15%, 10%;
-    --color-app-line: var(--dark-hue), 15%, 26%;
+    --color-app-line: var(--dark-hue), 15%, 23%;
     --color-app-divider: var(--dark-hue), 15%, 5%;
     --color-app-button: var(--dark-hue), 15%, 23%;
     --color-app-hover: var(--dark-hue), 15%, 25%;
-    --color-app-selected: var(--dark-hue), 15%, 27%;
+    --color-app-selected: var(--dark-hue), 15%, 26%;
     --color-app-active: var(--dark-hue), 15%, 30%;
     --color-app-shade: var(--dark-hue), 15%, 0%;
     --color-app-frame: var(--dark-hue), 15%, 25%;

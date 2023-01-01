@@ -9,3 +9,9 @@ authors = ["Brendan Allen <brendan@spacedrive.com>", "Jamie Pine <jamie@spacedri
 int-enum = "0.5.0"
 serde = {version = "1.0.145", features = ["derive"]}
 serde_json = "1.0.85"
+strum = { version = "0.24", features = ["derive"]}
+strum_macros = "0.24"
+tokio = { version = "1.21.2", features = ["fs", "rt", "io-util"] }
+
+[dev-dependencies]
+tokio = { version = "1.21.2", features = ["fs", "rt", "macros"] }

@@ -1,6 +1,7 @@
 import { useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { writeText } from '@tauri-apps/api/clipboard';
+import { Buffer } from 'buffer';
 import { Clipboard } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
 
@@ -16,6 +17,7 @@ export const KeyUpdater = (props: {
 	setKey: (value: string) => void;
 	setEncryptionAlgo: (value: string) => void;
 	setHashingAlgo: (value: string) => void;
+	setContentSalt: (value: string) => void;
 }) => {
 	useLibraryQuery(['keys.getKey', props.uuid], {
 		onSuccess: (data) => {
@@ -28,6 +30,7 @@ export const KeyUpdater = (props: {
 	const key = keys.data?.find((key) => key.uuid == props.uuid);
 	key && props.setEncryptionAlgo(key?.algorithm);
 	key && props.setHashingAlgo(getHashingAlgorithmString(key?.hashing_algorithm));
+	key && props.setContentSalt(Buffer.from(key.content_salt).toString('hex'));
 
 	return <></>;
 };
@@ -44,6 +47,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 	const [showKeyViewerDialog, setShowKeyViewerDialog] = useState(false);
 	const [key, setKey] = useState('');
 	const [keyValue, setKeyValue] = useState('');
+	const [contentSalt, setContentSalt] = useState('');
 	const [encryptionAlgo, setEncryptionAlgo] = useState('');
 	const [hashingAlgo, setHashingAlgo] = useState('');
 
@@ -65,6 +69,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 					setKey={setKeyValue}
 					setEncryptionAlgo={setEncryptionAlgo}
 					setHashingAlgo={setHashingAlgo}
+					setContentSalt={setContentSalt}
 				/>
 
 				<div className="grid w-full gap-4 mt-4 mb-3">
@@ -101,6 +106,24 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 							<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 							<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
 						</Select>
+					</div>
+				</div>
+				<div className="grid w-full gap-4 mt-4 mb-3">
+					<div className="flex flex-col">
+						<span className="text-xs font-bold mb-2">Content Salt (hex)</span>
+						<div className="relative flex flex-grow">
+							<Input value={contentSalt} disabled className="flex-grow !py-0.5" />
+							<Button
+								type="button"
+								onClick={() => {
+									writeText(contentSalt);
+								}}
+								size="icon"
+								className="border-none absolute right-[5px] top-[5px]"
+							>
+								<Clipboard className="w-4 h-4" />
+							</Button>
+						</div>
 					</div>
 				</div>
 				<div className="grid w-full gap-4 mt-4 mb-3">

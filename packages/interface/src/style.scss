@@ -38,13 +38,19 @@ body {
 .explorer-scroll {
 	&::-webkit-scrollbar {
 		height: 6px;
-		width: 8px;
+		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
 		@apply bg-[#00000000] mt-[53px] rounded-[6px];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-app-box;
+		@apply rounded-[6px] bg-transparent;
+
+	}
+	&:hover {
+		&::-webkit-scrollbar-thumb {
+			@apply bg-app-divider/20;
+		}
 	}
 }
 .default-scroll {

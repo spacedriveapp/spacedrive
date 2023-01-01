@@ -301,6 +301,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					args.hashing_algorithm,
 					!args.library_sync,
 					args.automount,
+					None,
 				)?;
 
 				let stored_key = library.key_manager.access_keystore(uuid)?;

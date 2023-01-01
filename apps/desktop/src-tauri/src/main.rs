@@ -59,13 +59,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		.setup(|app| {
 			let app = app.handle();
 			app.windows().iter().for_each(|(_, window)| {
-				window.hide().unwrap();
+				// window.hide().unwrap();
 
 				tokio::spawn({
 					let window = window.clone();
 					async move {
 						sleep(Duration::from_secs(3)).await;
-						if window.is_visible().unwrap_or(true) == false {
+						if !window.is_visible().unwrap_or(true) {
 							println!("Window did not emit `app_ready` event fast enough. Showing window...");
 							let _ = window.show();
 						}

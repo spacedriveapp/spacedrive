@@ -1,23 +1,26 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
+	Image,
 	LockSimple,
 	LockSimpleOpen,
 	Package,
 	Plus,
+	Repeat,
 	Share,
+	ShieldCheck,
 	TagSimple,
 	Trash,
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
 
+import { getExplorerStore } from '../../hooks/useExplorerStore';
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { usePlatform } from '../../util/Platform';
-import { getExplorerStore } from '../../util/explorerStore';
 import { GenericAlertDialogProps } from '../dialog/AlertDialog';
-import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
+import { isObject } from './utils';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
 	const tags = useLibraryQuery(['tags.list'], { suspense: true });
@@ -59,18 +62,9 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 	);
 };
 
-export interface ExplorerContextMenuProps extends PropsWithChildren {
-	setShowEncryptDialog: (isShowing: boolean) => void;
-	setShowDecryptDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
-}
-
-export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
-	const store = getExplorerStore();
-	// const { mutate: generateThumbsForLocation } = useLibraryMutation(
-	// 	'jobs.generateThumbsForLocation'
-	// );
+function OpenInNativeExplorer() {
 	const platform = usePlatform();
+	const store = getExplorerStore();
 	const os = useOperatingSystem();
 
 	const osFileBrowserName = useMemo(() => {
@@ -81,7 +75,93 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 		}
 	}, [os]);
 
-	const decryptFiles = useLibraryMutation('files.decryptFiles');
+	return (
+		<>
+			{platform.openPath && (
+				<CM.Item
+					label={`Open in ${osFileBrowserName}`}
+					keybind="⌘Y"
+					onClick={() => {
+						alert('TODO: Open in FS');
+						// console.log('TODO', store.contextMenuActiveItem);
+						// platform.openPath!('/Users/oscar/Desktop'); // TODO: Work out the file path from the backend
+					}}
+				/>
+			)}
+		</>
+	);
+}
+
+export function ExplorerContextMenu(props: PropsWithChildren) {
+	const store = getExplorerStore();
+
+	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
+	const objectValidator = useLibraryMutation('jobs.objectValidator');
+	const rescanLocation = useLibraryMutation('locations.fullRescan');
+
+	return (
+		<div className="relative">
+			<CM.ContextMenu trigger={props.children}>
+				<OpenInNativeExplorer />
+
+				<CM.Separator />
+
+				<CM.Item
+					label="Share"
+					icon={Share}
+					onClick={(e) => {
+						e.preventDefault();
+
+						navigator.share?.({
+							title: 'Spacedrive',
+							text: 'Check out this cool app',
+							url: 'https://spacedrive.com'
+						});
+					}}
+				/>
+
+				<CM.Separator />
+
+				<CM.Item
+					onClick={() => store.locationId && rescanLocation.mutate(store.locationId)}
+					label="Re-index"
+					icon={Repeat}
+				/>
+
+				<CM.SubMenu label="More actions..." icon={Plus}>
+					<CM.Item
+						onClick={() =>
+							store.locationId &&
+							generateThumbsForLocation.mutate({ id: store.locationId, path: '' })
+						}
+						label="Regen Thumbnails"
+						icon={Image}
+					/>
+					<CM.Item
+						onClick={() =>
+							store.locationId && objectValidator.mutate({ id: store.locationId, path: '' })
+						}
+						label="Generate Checksums"
+						icon={ShieldCheck}
+					/>
+				</CM.SubMenu>
+
+				<CM.Separator />
+			</CM.ContextMenu>
+		</div>
+	);
+}
+
+export interface FileItemContextMenuProps extends PropsWithChildren {
+	item: ExplorerItem;
+	setShowEncryptDialog: (isShowing: boolean) => void;
+	setShowDecryptDialog: (isShowing: boolean) => void;
+	setAlertDialogData: (data: GenericAlertDialogProps) => void;
+}
+
+export function FileItemContextMenu(props: FileItemContextMenuProps) {
+	const objectData = props.item ? (isObject(props.item) ? props.item : props.item.object) : null;
+
 	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
 	const hasMasterPassword =
 		hasMasterPasswordQuery.data !== undefined && hasMasterPasswordQuery.data === true
@@ -101,16 +181,7 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 				<CM.Separator />
 
 				<CM.Item label="Quick view" keybind="␣" />
-				{platform.openPath && (
-					<CM.Item
-						label={`Open in ${osFileBrowserName}`}
-						keybind="⌘Y"
-						onClick={() => {
-							console.log('TODO', store.contextMenuActiveObject);
-							platform.openPath!('/Users/oscar/Desktop'); // TODO: Work out the file path from the backend
-						}}
-					/>
-				)}
+				<OpenInNativeExplorer />
 
 				<CM.Separator />
 
@@ -135,11 +206,10 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 
 				<CM.Separator />
 
-				{store.contextMenuObjectId && (
-					<CM.SubMenu label="Assign tag" icon={TagSimple}>
-						<AssignTagMenuItems objectId={store.contextMenuObjectId} />
-					</CM.SubMenu>
-				)}
+				<CM.SubMenu label="Assign tag" icon={TagSimple}>
+					<AssignTagMenuItems objectId={objectData?.id || 0} />
+				</CM.SubMenu>
+
 				<CM.SubMenu label="More actions..." icon={Plus}>
 					<CM.Item
 						label="Encrypt"
@@ -173,21 +243,13 @@ export default function ExplorerContextMenu(props: ExplorerContextMenuProps) {
 						icon={LockSimpleOpen}
 						keybind="⌘D"
 						onClick={() => {
-							if (hasMasterPassword && hasMountedKeys) {
+							if (hasMasterPassword) {
 								props.setShowDecryptDialog(true);
-							} else if (!hasMasterPassword) {
+							} else {
 								props.setAlertDialogData({
 									open: true,
 									title: 'Key manager locked',
 									value: 'The key manager is currently locked. Please unlock it and try again.',
-									inputBox: false,
-									description: ''
-								});
-							} else if (!hasMountedKeys) {
-								props.setAlertDialogData({
-									open: true,
-									title: 'No mounted keys',
-									value: 'No mounted keys were found. Please mount a key and try again.',
 									inputBox: false,
 									description: ''
 								});

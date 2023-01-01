@@ -4,7 +4,7 @@
 export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "files.readMetadata", input: LibraryArgs<number>, result: null } | 
+        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath>, media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
@@ -37,6 +37,7 @@ export type Procedures = {
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
+        { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
@@ -58,12 +59,14 @@ export type Procedures = {
         { key: "library.create", input: string, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
+        { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.fullRescan", input: LibraryArgs<number>, result: null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: IndexerRule } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.quickRescan", input: LibraryArgs<null>, result: null } | 
+        { key: "locations.relink", input: LibraryArgs<string>, result: null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
@@ -90,13 +93,15 @@ export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerI
 
 export type ExplorerItem = { type: "Path" } & { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null } | { type: "Object" } & { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath> }
 
-export interface FileDecryptorJobInit { location_id: number, object_id: number, output_path: string | null }
+export interface FileDecryptorJobInit { location_id: number, object_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
 
 export interface FileEncryptorJobInit { location_id: number, object_id: number, key_uuid: string, algorithm: Algorithm, metadata: boolean, preview_media: boolean, output_path: string | null }
 
 export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
 
 export interface GenerateThumbsForLocationArgs { id: number, path: string }
+
+export interface GetArgs { id: number }
 
 export type HashingAlgorithm = { Argon2id: Params }
 
@@ -131,6 +136,8 @@ export interface LocationExplorerArgs { location_id: number, path: string, limit
 export interface LocationUpdateArgs { id: number, name: string | null, indexer_rules_ids: Array<number> }
 
 export interface MasterPasswordChangeArgs { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+
+export interface MediaData { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null }
 
 export interface Node { id: number, pub_id: Array<number>, name: string, platform: number, version: string | null, last_seen: string, timezone: string | null, date_created: string }
 
@@ -168,7 +175,7 @@ export interface SetNoteArgs { id: number, note: string | null }
 
 export interface Statistics { id: number, date_captured: string, total_object_count: number, library_db_size: string, total_bytes_used: string, total_bytes_capacity: string, total_unique_bytes: string, total_bytes_free: string, preview_media_bytes: string }
 
-export interface StoredKey { uuid: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, memory_only: boolean, automount: boolean }
+export interface StoredKey { uuid: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, content_salt: Array<number>, master_key: Array<number>, master_key_nonce: Array<number>, key_nonce: Array<number>, key: Array<number>, salt: Array<number>, memory_only: boolean, automount: boolean }
 
 export interface Tag { id: number, pub_id: Array<number>, name: string | null, color: string | null, total_objects: number | null, redundancy_goal: number | null, date_created: string, date_modified: string }
 
