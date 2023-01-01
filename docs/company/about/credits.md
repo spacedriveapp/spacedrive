@@ -1,6 +1,6 @@
 # Spacedrive
 
-Copyright &copy; 2022-present Spacedrive Technology Inc.
+Copyright &copy; 2023-present Spacedrive Technology Inc.
 
 ## Business contact
 
