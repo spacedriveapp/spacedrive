@@ -1,5 +1,6 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	location::indexer::rules::RuleKind,
 	prisma::{file_path, location},
 };
 
@@ -22,7 +23,7 @@ use super::{
 		create_many_file_paths, get_max_file_path_id, set_max_file_path_id,
 		FilePathBatchCreateEntry,
 	},
-	rules::{IndexerRule, RuleKind},
+	rules::IndexerRule,
 	walk::{walk, WalkEntry},
 };
 
