@@ -120,6 +120,7 @@ impl PasswordHasher {
 			.map_or(Err(Error::PasswordHash), |_| Ok(Protected::new(key)))
 	}
 
+	#[allow(clippy::needless_pass_by_value)]
 	fn balloon_blake3(
 		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],

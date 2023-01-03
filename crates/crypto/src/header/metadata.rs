@@ -67,6 +67,7 @@ impl FileHeader {
 	///
 	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
 	#[cfg(feature = "serde")]
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn add_metadata<T>(
 		&mut self,
 		version: MetadataVersion,
@@ -80,7 +81,7 @@ impl FileHeader {
 		let metadata_nonce = generate_nonce(algorithm);
 
 		let encrypted_metadata = StreamEncryption::encrypt_bytes(
-			master_key.clone(),
+			master_key,
 			&metadata_nonce,
 			algorithm,
 			&serde_json::to_vec(metadata).map_err(|_| Error::MetadataDeSerialization)?,

@@ -63,6 +63,7 @@ impl Keyslot {
 	/// This handles generating the nonce and encrypting the master key.
 	///
 	/// You will need to provide the password, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn new(
 		version: KeyslotVersion,
 		algorithm: Algorithm,
@@ -100,10 +101,11 @@ impl Keyslot {
 	/// This attempts to decrypt the master key for a single keyslot
 	///
 	/// An error will be returned on failure.
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
-			.hash(password.clone(), self.content_salt)
+			.hash(password, self.content_salt)
 			.map_err(|_| Error::PasswordHash)?;
 
 		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);

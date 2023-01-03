@@ -207,10 +207,10 @@ impl FileHeader {
 				}
 
 				let mut keyslots: Vec<Vec<u8>> =
-					self.keyslots.iter().map(|k| k.to_bytes()).collect();
+					self.keyslots.iter().map(Keyslot::to_bytes).collect();
 
 				if keyslots.len() == 1 {
-					keyslots.push(vec![0u8; KEYSLOT_SIZE])
+					keyslots.push(vec![0u8; KEYSLOT_SIZE]);
 				}
 
 				let metadata = self.metadata.clone().map_or(Vec::new(), |v| v.to_bytes());

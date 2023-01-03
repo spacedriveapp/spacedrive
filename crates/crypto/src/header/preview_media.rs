@@ -56,6 +56,7 @@ impl FileHeader {
 	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
 	///
 	/// Preview media needs to be accessed switfly, so a key management system should handle the salt generation.
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn add_preview_media(
 		&mut self,
 		version: PreviewMediaVersion,
@@ -65,13 +66,8 @@ impl FileHeader {
 	) -> Result<()> {
 		let media_nonce = generate_nonce(algorithm);
 
-		let encrypted_media = StreamEncryption::encrypt_bytes(
-			master_key.clone(),
-			&media_nonce,
-			algorithm,
-			media,
-			&[],
-		)?;
+		let encrypted_media =
+			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])?;
 
 		let pvm = PreviewMedia {
 			version,
