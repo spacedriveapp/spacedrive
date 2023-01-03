@@ -76,7 +76,7 @@ pub async fn create_keymanager(
 	client: &PrismaClient,
 ) -> Result<Arc<KeyManager>, LibraryManagerError> {
 	let key_manager = KeyManager::new(vec![])?;
-	let mut default = Uuid::nil();
+	let mut default: Option<Uuid> = None;
 
 	// collect and serialize the stored keys
 	// shouldn't call unwrap so much here
@@ -92,7 +92,7 @@ pub async fn create_keymanager(
 			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
 
 			if key.default {
-				default = uuid;
+				default = Some(uuid);
 			}
 
 			let stored_key = StoredKey {
@@ -118,7 +118,7 @@ pub async fn create_keymanager(
 	key_manager.populate_keystore(stored_keys)?;
 
 	// if any key had an associated default tag
-	if !default.is_nil() {
+	if let Some(default) = default {
 		key_manager.set_default(default)?;
 	}
 
