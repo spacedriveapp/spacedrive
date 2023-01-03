@@ -93,6 +93,9 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
 		sudo apt-get -y update
 		sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
+
+		# TODO: Cleanup once working
+		sudo apt-get -y install libraw1394-dev
 	elif command -v pacman >/dev/null; then
 		echo "Detected pacman!"
 		echo "Installing dependencies with pacman..."
