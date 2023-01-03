@@ -33,20 +33,20 @@ fn print_details(header: &FileHeader, aad: &[u8]) -> Result<()> {
 		println!("	Master key nonce (hex): {}", hex::encode(k.nonce.clone()));
 	});
 
-	header.metadata.clone().map(|m| {
+	header.metadata.clone().iter().for_each(|m| {
 		println!("Metadata:");
 		println!("	Version: {}", m.version);
 		println!("	Algorithm: {}", m.algorithm);
 		println!("	Encrypted size: {}", m.metadata.len());
-		println!("	Nonce (hex): {}", hex::encode(m.metadata_nonce));
+		println!("	Nonce (hex): {}", hex::encode(m.metadata_nonce.clone()));
 	});
 
-	header.preview_media.clone().map(|p| {
+	header.preview_media.clone().iter().for_each(|p| {
 		println!("Preview Media:");
 		println!("	Version: {}", p.version);
 		println!("	Algorithm: {}", p.algorithm);
 		println!("	Encrypted size: {}", p.media.len());
-		println!("	Nonce (hex): {}", hex::encode(p.media_nonce))
+		println!("	Nonce (hex): {}", hex::encode(p.media_nonce.clone()))
 	});
 
 	Ok(())
