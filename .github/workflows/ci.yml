@@ -128,7 +128,7 @@ jobs:
     name: Build and Publish (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
     strategy:
-      fail-fast: true
+      fail-fast: false # TODO: Turn back to true
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
     steps:
