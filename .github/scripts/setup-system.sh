@@ -95,7 +95,38 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 		sudo apt-get -y install ${SPACEDRIVE_CUSTOM_APT_FLAGS:-} $DEBIAN_TAURI_DEPS $DEBIAN_FFMPEG_DEPS $DEBIAN_BINDGEN_DEPS
 
 		# TODO: Cleanup once working
-		sudo apt-get -y install libraw1394-dev
+		# sudo apt-get -y install libraw1394-dev libavc1394-dev librom1394-dev libiec61883-dev libjack-dev libopenal-dev libxcb-shape-dev
+
+		# https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu
+		sudo apt-get update -qq && sudo apt-get -y install \
+			autoconf \
+			automake \
+			build-essential \
+			cmake \
+			git-core \
+			libass-dev \
+			libfreetype6-dev \
+			libgnutls28-dev \
+			libmp3lame-dev \
+			libsdl2-dev \
+			libtool \
+			libva-dev \
+			libvdpau-dev \
+			libvorbis-dev \
+			libxcb1-dev \
+			libxcb-shm0-dev \
+			libxcb-xfixes0-dev \
+			meson \
+			ninja-build \
+			pkg-config \
+			texinfo \
+			wget \
+			yasm \
+			zlib1g-dev
+
+		sudo apt install libunistring-dev libaom-dev libdav1d-dev
+
+
 	elif command -v pacman >/dev/null; then
 		echo "Detected pacman!"
 		echo "Installing dependencies with pacman..."
