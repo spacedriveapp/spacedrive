@@ -25,11 +25,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
-			if (key === '' && data.length !== 0) {
-				// when this query updates and a key is officially mounted, update `key` (the user shouldn't be able to see this dialog before a key is mounted)
-				// only update if no key is currently set
-				UpdateKey(data[0]);
-			}
+			UpdateKey(data[0]);
 		}
 	});
 
