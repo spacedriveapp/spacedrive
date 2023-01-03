@@ -5,6 +5,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { PropsWithChildren } from 'react';
 import { useForm } from 'react-hook-form';
 
+interface FormShape {
+	name: string;
+	encrypted_cfg: {
+		password: string;
+		secret: string;
+	} | null;
+}
+
 export default function CreateLibraryDialog({
 	children,
 	onSubmit,
@@ -12,7 +20,7 @@ export default function CreateLibraryDialog({
 	setOpen
 }: PropsWithChildren<{ onSubmit?: () => void; open: boolean; setOpen: (state: boolean) => void }>) {
 	const queryClient = useQueryClient();
-	const form = useForm({
+	const form = useForm<FormShape>({
 		defaultValues: {
 			name: '',
 			encrypted_cfg: {
@@ -25,8 +33,6 @@ export default function CreateLibraryDialog({
 
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (library) => {
-			console.log('A');
-
 			queryClient.setQueryData(['library.list'], (libraries: any) => [
 				...(libraries || []),
 				library
@@ -34,12 +40,20 @@ export default function CreateLibraryDialog({
 
 			if (onSubmit) onSubmit();
 			setOpen(false);
+			form.reset();
 		},
 		onError: (err: any) => {
 			console.error(err);
 		}
 	});
-	const doSubmit = form.handleSubmit(async (data) => createLibrary.mutateAsync(data));
+	const doSubmit = form.handleSubmit((data) => {
+		// TODO: This is skechy, but will work for now.
+		if (data.encrypted_cfg?.password === '' || data.encrypted_cfg?.secret === '') {
+			data.encrypted_cfg = null;
+		}
+
+		return createLibrary.mutateAsync(data);
+	});
 
 	return (
 		<Dialog
@@ -64,7 +78,8 @@ export default function CreateLibraryDialog({
 					/>
 				</div>
 
-				{/* TODO: Checkbox for encrypted or not and then reveal these fields */}
+				{/* TODO: Proper UI for this. Maybe checkbox for encrypted or not and then reveal these fields. Select encrypted by default. */}
+				<span className="text-sm">Make password and secret fields empty to skip key setup.</span>
 
 				<div className="relative flex flex-col">
 					<p className="text-sm mt-2">Password:</p>
