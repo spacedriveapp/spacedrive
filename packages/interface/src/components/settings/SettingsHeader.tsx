@@ -1,15 +1,16 @@
 import clsx from 'clsx';
 import { PropsWithChildren, ReactNode } from 'react';
 
-interface SettingsHeaderProps {
+interface SettingsHeaderProps extends PropsWithChildren {
 	title: string;
-	description: string;
+	description: string | ReactNode;
 	rightArea?: ReactNode;
 }
 
 export const SettingsHeader: React.FC<SettingsHeaderProps> = (props) => {
 	return (
 		<div className="flex mb-3">
+			{props.children}
 			<div className="flex-grow">
 				<h1 className="text-2xl font-bold">{props.title}</h1>
 				<p className="mt-1 text-sm text-gray-400">{props.description}</p>

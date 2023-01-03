@@ -57,6 +57,7 @@ pub async fn write_storedkey_to_db(db: &PrismaClient, key: &StoredKey) -> Result
 				key.master_key_nonce.to_vec(),
 				key.key_nonce.to_vec(),
 				key.key.to_vec(),
+				key.salt.to_vec(),
 				vec![],
 			)
 			.exec()

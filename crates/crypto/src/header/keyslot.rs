@@ -26,7 +26,10 @@ use std::io::{Read, Seek};
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
 	keys::hashing::HashingAlgorithm,
-	primitives::{generate_nonce, to_array, ENCRYPTED_MASTER_KEY_LEN, MASTER_KEY_LEN, SALT_LEN},
+	primitives::{
+		derive_key, generate_nonce, generate_salt, to_array, ENCRYPTED_KEY_LEN, FILE_KEY_CONTEXT,
+		KEY_LEN, SALT_LEN,
+	},
 	Error, Protected, Result,
 };
 
@@ -38,10 +41,13 @@ pub struct Keyslot {
 	pub version: KeyslotVersion,
 	pub algorithm: Algorithm,                // encryption algorithm
 	pub hashing_algorithm: HashingAlgorithm, // password hashing algorithm
-	pub salt: [u8; SALT_LEN],
-	pub master_key: [u8; ENCRYPTED_MASTER_KEY_LEN], // this is encrypted so we can store it
+	pub salt: [u8; SALT_LEN], // the salt used for deriving a KEK from a (key/content salt) hash
+	pub content_salt: [u8; SALT_LEN],
+	pub master_key: [u8; ENCRYPTED_KEY_LEN], // this is encrypted so we can store it
 	pub nonce: Vec<u8>,
 }
+
+pub const KEYSLOT_SIZE: usize = 112;
 
 /// This defines the keyslot version
 ///
@@ -54,21 +60,24 @@ pub enum KeyslotVersion {
 impl Keyslot {
 	/// This should be used for creating a keyslot.
 	///
-	/// This handles generating the nonce/salt, and encrypting the master key.
+	/// This handles generating the nonce and encrypting the master key.
 	///
 	/// You will need to provide the password, and a generated master key (this can't generate it, otherwise it can't be used elsewhere)
 	pub fn new(
 		version: KeyslotVersion,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		salt: [u8; SALT_LEN],
-		hashed_key: Protected<[u8; 32]>,
-		master_key: &Protected<[u8; MASTER_KEY_LEN]>,
+		content_salt: [u8; SALT_LEN],
+		hashed_key: Protected<[u8; KEY_LEN]>,
+		master_key: &Protected<[u8; KEY_LEN]>,
 	) -> Result<Self> {
 		let nonce = generate_nonce(algorithm);
 
-		let encrypted_master_key: [u8; 48] = to_array(StreamEncryption::encrypt_bytes(
-			hashed_key,
+		let salt = generate_salt();
+		let derived_key = derive_key(hashed_key, salt, FILE_KEY_CONTEXT);
+
+		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
+			derived_key,
 			&nonce,
 			algorithm,
 			master_key.expose(),
@@ -80,6 +89,7 @@ impl Keyslot {
 			algorithm,
 			hashing_algorithm,
 			salt,
+			content_salt,
 			master_key: encrypted_master_key,
 			nonce,
 		})
@@ -93,10 +103,18 @@ impl Keyslot {
 	pub fn decrypt_master_key(&self, password: &Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
-			.hash(password.clone(), self.salt)
+			.hash(password.clone(), self.content_salt)
 			.map_err(|_| Error::PasswordHash)?;
 
-		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
+		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
+
+		StreamDecryption::decrypt_bytes(
+			derived_key,
+			&self.nonce,
+			self.algorithm,
+			&self.master_key,
+			&[],
+		)
 	}
 
 	/// This function should not be used directly, use `header.decrypt_master_key()` instead
@@ -108,9 +126,17 @@ impl Keyslot {
 	/// An error will be returned on failure.
 	pub fn decrypt_master_key_from_prehashed(
 		&self,
-		key: Protected<[u8; 32]>,
+		key: Protected<[u8; KEY_LEN]>,
 	) -> Result<Protected<Vec<u8>>> {
-		StreamDecryption::decrypt_bytes(key, &self.nonce, self.algorithm, &self.master_key, &[])
+		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
+
+		StreamDecryption::decrypt_bytes(
+			derived_key,
+			&self.nonce,
+			self.algorithm,
+			&self.master_key,
+			&[],
+		)
 	}
 
 	/// This function is used to serialize a keyslot into bytes
@@ -118,14 +144,15 @@ impl Keyslot {
 	pub fn serialize(&self) -> Vec<u8> {
 		match self.version {
 			KeyslotVersion::V1 => {
-				let mut keyslot: Vec<u8> = Vec::new();
+				let mut keyslot = Vec::new();
 				keyslot.extend_from_slice(&self.version.serialize()); // 2
 				keyslot.extend_from_slice(&self.algorithm.serialize()); // 4
 				keyslot.extend_from_slice(&self.hashing_algorithm.serialize()); // 6
 				keyslot.extend_from_slice(&self.salt); // 22
-				keyslot.extend_from_slice(&self.master_key); // 70
-				keyslot.extend_from_slice(&self.nonce); // 78 or 90
-				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 96 total bytes
+				keyslot.extend_from_slice(&self.content_salt); // 38
+				keyslot.extend_from_slice(&self.master_key); // 86
+				keyslot.extend_from_slice(&self.nonce); // 94 or 106
+				keyslot.extend_from_slice(&vec![0u8; 26 - self.nonce.len()]); // 112 total bytes
 				keyslot
 			}
 		}
@@ -141,37 +168,39 @@ impl Keyslot {
 		R: Read + Seek,
 	{
 		let mut version = [0u8; 2];
-		reader.read(&mut version).map_err(Error::Io)?;
+		reader.read_exact(&mut version)?;
 		let version = KeyslotVersion::deserialize(version)?;
 
 		match version {
 			KeyslotVersion::V1 => {
 				let mut algorithm = [0u8; 2];
-				reader.read(&mut algorithm).map_err(Error::Io)?;
+				reader.read_exact(&mut algorithm)?;
 				let algorithm = Algorithm::deserialize(algorithm)?;
 
 				let mut hashing_algorithm = [0u8; 2];
-				reader.read(&mut hashing_algorithm).map_err(Error::Io)?;
+				reader.read_exact(&mut hashing_algorithm)?;
 				let hashing_algorithm = HashingAlgorithm::deserialize(hashing_algorithm)?;
 
 				let mut salt = [0u8; SALT_LEN];
-				reader.read(&mut salt).map_err(Error::Io)?;
+				reader.read_exact(&mut salt)?;
 
-				let mut master_key = [0u8; ENCRYPTED_MASTER_KEY_LEN];
-				reader.read(&mut master_key).map_err(Error::Io)?;
+				let mut content_salt = [0u8; SALT_LEN];
+				reader.read_exact(&mut content_salt)?;
+
+				let mut master_key = [0u8; ENCRYPTED_KEY_LEN];
+				reader.read_exact(&mut master_key)?;
 
 				let mut nonce = vec![0u8; algorithm.nonce_len()];
-				reader.read(&mut nonce).map_err(Error::Io)?;
+				reader.read_exact(&mut nonce)?;
 
-				reader
-					.read(&mut vec![0u8; 26 - nonce.len()])
-					.map_err(Error::Io)?;
+				reader.read_exact(&mut vec![0u8; 26 - nonce.len()])?;
 
 				let keyslot = Self {
 					version,
 					algorithm,
 					hashing_algorithm,
 					salt,
+					content_salt,
 					master_key,
 					nonce,
 				};

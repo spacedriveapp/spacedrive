@@ -4,15 +4,25 @@ use crate::{
 	prisma::{file_path, location},
 };
 
+use std::{
+	collections::HashMap,
+	ffi::OsStr,
+	hash::{Hash, Hasher},
+	path::PathBuf,
+	time::Duration,
+};
+
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
-use prisma_client_rust::Direction;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ffi::OsStr, path::PathBuf, time::Duration};
 use tokio::time::Instant;
 use tracing::info;
 
 use super::{
+	super::file_path_helper::{
+		create_many_file_paths, get_max_file_path_id, set_max_file_path_id,
+		FilePathBatchCreateEntry,
+	},
 	rules::IndexerRule,
 	walk::{walk, WalkEntry},
 };
@@ -36,6 +46,7 @@ pub struct IndexerJob;
 location::include!(indexer_job_location {
 	indexer_rules: select { indexer_rule }
 });
+file_path::select!(file_path_id_only { id });
 
 /// `IndexerJobInit` receives a `location::Data` object to be indexed
 #[derive(Serialize, Deserialize)]
@@ -43,6 +54,11 @@ pub struct IndexerJobInit {
 	pub location: indexer_job_location::Data,
 }
 
+impl Hash for IndexerJobInit {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.location.id.hash(state);
+	}
+}
 /// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
 /// is cached and casted on `PathBuf` from `local_path` column in the `location` table. It also
 /// contains some metadata for logging purposes.
@@ -95,11 +111,7 @@ impl StatefulJob for IndexerJob {
 	}
 
 	/// Creates a vector of valid path buffers from a directory, chunked into batches of `BATCH_SIZE`.
-	async fn init(
-		&self,
-		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> Result<(), JobError> {
+	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 		let location_path = state
 			.init
 			.location
@@ -108,26 +120,11 @@ impl StatefulJob for IndexerJob {
 			.map(PathBuf::from)
 			.unwrap();
 
-		// query db to highers id, so we can increment it for the new files indexed
-		#[derive(Deserialize, Serialize, Debug)]
-		struct QueryRes {
-			id: Option<i32>,
-		}
-
-		// TODO: use a select to fetch only the id instead of entire record when prisma supports it
 		// grab the next id so we can increment in memory for batch inserting
-		let first_file_id = ctx
-			.library_ctx()
-			.db
-			.file_path()
-			.find_first(vec![])
-			.order_by(file_path::id::order(Direction::Desc))
-			.exec()
-			.await?
-			.map(|r| r.id)
-			.unwrap_or(0);
+		let first_file_id = get_max_file_path_id(&ctx.library_ctx).await?;
 
-		let mut indexer_rules_by_kind = HashMap::<RuleKind, Vec<IndexerRule>>::new();
+		let mut indexer_rules_by_kind: HashMap<RuleKind, Vec<IndexerRule>> =
+			HashMap::with_capacity(state.init.location.indexer_rules.len());
 		for location_rule in &state.init.location.indexer_rules {
 			let indexer_rule = IndexerRule::try_from(&location_rule.indexer_rule)?;
 
@@ -155,10 +152,15 @@ impl StatefulJob for IndexerJob {
 		.await?;
 
 		let total_paths = paths.len();
+		let last_file_id = first_file_id + total_paths as i32;
+
+		// Setting our global state for file_path ids
+		set_max_file_path_id(last_file_id);
+
 		let mut dirs_ids = HashMap::new();
 		let paths_entries = paths
 			.into_iter()
-			.zip(first_file_id..(first_file_id + total_paths as i32))
+			.zip(first_file_id..last_file_id)
 			.map(
 				|(
 					WalkEntry {
@@ -225,7 +227,7 @@ impl StatefulJob for IndexerJob {
 	async fn execute_step(
 		&self,
 		ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
+		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let data = &state
 			.data
@@ -235,51 +237,44 @@ impl StatefulJob for IndexerJob {
 		let location_path = &data.location_path;
 		let location_id = state.init.location.id;
 
-		let count = ctx
-			.library_ctx()
-			.db
-			.file_path()
-			.create_many(
-				state.steps[0]
-					.iter()
-					.map(|entry| {
-						let name;
-						let extension;
+		let entries = state.steps[0]
+			.iter()
+			.map(|entry| {
+				let name;
+				let extension;
 
-						// if 'entry.path' is a directory, set extension to an empty string to
-						// avoid periods in folder names being interpreted as file extensions
-						if entry.is_dir {
-							extension = "".to_string();
-							name = extract_name(entry.path.file_name());
-						} else {
-							// if the 'entry.path' is not a directory, then get the extension and name.
-							extension = extract_name(entry.path.extension());
-							name = extract_name(entry.path.file_stem());
-						}
-						let materialized_path = entry
-							.path
-							.strip_prefix(location_path)
-							.unwrap()
-							.to_string_lossy()
-							.to_string();
+				// if 'entry.path' is a directory, set extension to an empty string to
+				// avoid periods in folder names being interpreted as file extensions
+				if entry.is_dir {
+					extension = None;
+					name = extract_name(entry.path.file_name());
+				} else {
+					// if the 'entry.path' is not a directory, then get the extension and name.
+					extension = Some(extract_name(entry.path.extension()).to_lowercase());
+					name = extract_name(entry.path.file_stem());
+				}
+				let materialized_path = entry
+					.path
+					.strip_prefix(location_path)
+					.unwrap()
+					.to_str()
+					.expect("Found non-UTF-8 path")
+					.to_string();
 
-						file_path::create_unchecked(
-							entry.file_id,
-							location_id,
-							materialized_path,
-							name,
-							vec![
-								file_path::is_dir::set(entry.is_dir),
-								file_path::extension::set(Some(extension)),
-								file_path::parent_id::set(entry.parent_id),
-								file_path::date_created::set(entry.created_at.into()),
-							],
-						)
-					})
-					.collect(),
-			)
-			.exec()
-			.await?;
+				FilePathBatchCreateEntry {
+					id: entry.file_id,
+					location_id,
+					materialized_path,
+					name,
+					extension,
+					parent_id: entry.parent_id,
+					is_dir: entry.is_dir,
+					created_at: entry.created_at,
+				}
+			})
+			.collect();
+
+		let count = create_many_file_paths(&ctx.library_ctx, entries).await?;
 
 		info!("Inserted {count} records");
 
@@ -287,11 +282,7 @@ impl StatefulJob for IndexerJob {
 	}
 
 	/// Logs some metadata about the indexer job
-	async fn finalize(
-		&self,
-		_ctx: WorkerContext,
-		state: &mut JobState<Self::Init, Self::Data, Self::Step>,
-	) -> JobResult {
+	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
 		let data = state
 			.data
 			.as_ref()

@@ -1,10 +1,16 @@
-use crate::job::DynJob;
+use crate::{
+	api::CoreEvent, job::DynJob, location::LocationManager, node::NodeConfigManager,
+	prisma::PrismaClient, NodeContext,
+};
+
+use std::{
+	fmt::{Debug, Formatter},
+	sync::Arc,
+};
+
 use sd_crypto::keys::keymanager::KeyManager;
-use std::sync::Arc;
 use tracing::warn;
 use uuid::Uuid;
-
-use crate::{api::CoreEvent, node::NodeConfigManager, prisma::PrismaClient, NodeContext};
 
 use super::LibraryConfig;
 
@@ -27,25 +33,39 @@ pub struct LibraryContext {
 	pub(super) node_context: NodeContext,
 }
 
+impl Debug for LibraryContext {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		// Rolling out this implementation because `NodeContext` contains a DynJob which is
+		// troublesome to implement Debug trait
+		f.debug_struct("LibraryContext")
+			.field("id", &self.id)
+			.field("config", &self.config)
+			.field("db", &self.db)
+			.field("node_local_id", &self.node_local_id)
+			.finish()
+	}
+}
+
 impl LibraryContext {
 	pub(crate) async fn spawn_job(&self, job: Box<dyn DynJob>) {
 		self.node_context.jobs.clone().ingest(self, job).await;
 	}
 
 	pub(crate) async fn queue_job(&self, job: Box<dyn DynJob>) {
-		self.node_context.jobs.ingest_queue(self, job).await;
+		self.node_context.jobs.ingest_queue(job).await;
 	}
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
-		match self.node_context.event_bus_tx.send(event) {
-			Ok(_) => (),
-			Err(err) => {
-				warn!("Error sending event to event bus: {:?}", err);
-			}
+		if let Err(e) = self.node_context.event_bus_tx.send(event) {
+			warn!("Error sending event to event bus: {e:?}");
 		}
 	}
 
 	pub(crate) fn config(&self) -> Arc<NodeConfigManager> {
 		self.node_context.config.clone()
+	}
+
+	pub(crate) fn location_manager(&self) -> &Arc<LocationManager> {
+		&self.node_context.location_manager
 	}
 }

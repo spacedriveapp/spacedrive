@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		.setup(|app| {
 			let app = app.handle();
 			app.windows().iter().for_each(|(_, window)| {
-				window.hide().unwrap();
+				// window.hide().unwrap();
 
 				tokio::spawn({
 					let window = window.clone();

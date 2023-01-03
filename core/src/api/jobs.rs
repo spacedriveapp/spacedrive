@@ -2,7 +2,7 @@ use crate::{
 	job::{Job, JobManager},
 	location::{fetch_location, LocationError},
 	object::{
-		identifier_job::{FileIdentifierJob, FileIdentifierJobInit},
+		identifier_job::full_identifier_job::{FullFileIdentifierJob, FullFileIdentifierJobInit},
 		preview::{ThumbnailJob, ThumbnailJobInit},
 		validation::validator_job::{ObjectValidatorJob, ObjectValidatorJobInit},
 	},
@@ -25,6 +25,12 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_query("getHistory", |t| {
 			t(|_, _: (), library| async move { Ok(JobManager::get_history(&library).await?) })
+		})
+		.library_mutation("clearAll", |t| {
+			t(|_, _: (), library| async move {
+				JobManager::clear_all_jobs(&library).await?;
+				Ok(())
+			})
 		})
 		.library_mutation("generateThumbsForLocation", |t| {
 			#[derive(Type, Deserialize)]
@@ -49,10 +55,10 @@ pub(crate) fn mount() -> RouterBuilder {
 						.spawn_job(Job::new(
 							ThumbnailJobInit {
 								location_id: args.id,
-								path: PathBuf::new(),
-								background: true,
+								root_path: PathBuf::new(),
+								background: false,
 							},
-							Box::new(ThumbnailJob {}),
+							ThumbnailJob {},
 						))
 						.await;
 
@@ -82,7 +88,7 @@ pub(crate) fn mount() -> RouterBuilder {
 							path: args.path,
 							background: true,
 						},
-						Box::new(ObjectValidatorJob {}),
+						ObjectValidatorJob {},
 					))
 					.await;
 
@@ -106,11 +112,11 @@ pub(crate) fn mount() -> RouterBuilder {
 
 				library
 					.spawn_job(Job::new(
-						FileIdentifierJobInit {
+						FullFileIdentifierJobInit {
 							location_id: args.id,
 							sub_path: Some(args.path),
 						},
-						Box::new(FileIdentifierJob {}),
+						FullFileIdentifierJob {},
 					))
 					.await;
 

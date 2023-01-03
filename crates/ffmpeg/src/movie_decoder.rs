@@ -332,9 +332,12 @@ impl MovieDecoder {
 							break;
 						}
 						if unsafe {
-							CString::from_raw((*tag).key).to_string_lossy() == "filename"
+							CString::from_raw((*tag).key)
+								.to_str()
+								.expect("Found non-UTF-8 path") == "filename"
 								&& CString::from_raw((*tag).value)
-									.to_string_lossy()
+									.to_str()
+									.expect("Found non-UTF-8 path")
 									.starts_with("cover.")
 						} {
 							if embedded_data_streams.is_empty() {
