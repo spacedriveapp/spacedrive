@@ -1,5 +1,6 @@
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
+	location::indexer::rules::RuleKind,
 	prisma::{file_path, location},
 };
 
@@ -126,13 +127,13 @@ impl StatefulJob for IndexerJob {
 			.map(|r| r.id)
 			.unwrap_or(0);
 
-		let mut indexer_rules_by_kind = HashMap::new();
+		let mut indexer_rules_by_kind = HashMap::<RuleKind, Vec<IndexerRule>>::new();
 		for location_rule in &state.init.location.indexer_rules {
 			let indexer_rule = IndexerRule::try_from(&location_rule.indexer_rule)?;
 
 			indexer_rules_by_kind
 				.entry(indexer_rule.kind)
-				.or_insert(vec![])
+				.or_default()
 				.push(indexer_rule);
 		}
 
@@ -205,7 +206,7 @@ impl StatefulJob for IndexerJob {
 				IndexerJobData::on_scan_progress(
 					ctx.clone(),
 					vec![
-						ScanProgress::SavedChunks(i as usize),
+						ScanProgress::SavedChunks(i),
 						ScanProgress::Message(format!(
 							"Writing {} of {} to db",
 							i * chunk_steps.len(),

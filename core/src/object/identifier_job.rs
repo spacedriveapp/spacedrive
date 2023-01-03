@@ -210,8 +210,7 @@ impl StatefulJob for FileIdentifierJob {
 
 		// extract objects that don't already exist in the database
 		let new_objects = chunk
-			.iter()
-			.map(|(_id, create_file)| create_file)
+			.values()
 			.filter(|create_file| !existing_object_cas_ids.contains(&create_file.cas_id))
 			.collect::<Vec<_>>();
 
