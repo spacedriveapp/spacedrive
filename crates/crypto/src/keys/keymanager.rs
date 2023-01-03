@@ -128,7 +128,7 @@ pub struct MasterPasswordChangeBundle {
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct PasswordAndSecret {
 	password: Protected<String>,
-	secret: String,
+	secret: Protected<String>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
@@ -163,11 +163,7 @@ impl KeyManager {
 		hashing_algorithm: HashingAlgorithm,
 		creds: PasswordAndSecret,
 	) -> Result<OnboardingBundle> {
-		let content_salt: [u8; SALT_LEN] = creds
-			.secret
-			.as_bytes()
-			.try_into()
-			.map_err(|_| Error::InvalidKeyLength)?;
+		let content_salt = *Self::convert_secret_key_string(creds.secret).expose();
 		// Hash the master password
 		let hashed_password = hashing_algorithm.hash(
 			Protected::new(creds.password.expose().as_bytes().to_vec()),

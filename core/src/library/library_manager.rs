@@ -211,6 +211,9 @@ impl LibraryManager {
 			.verification_key;
 
 			write_storedkey_to_db(&library.db, &verification_key).await?;
+		} else {
+			// TODO: Make setting up keys optional with rest of system before removing this.
+			todo!();
 		}
 		invalidate_query!(library, "library.list");
 
