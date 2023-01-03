@@ -90,7 +90,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 					<div className="flex flex-col">
 						<span className="text-xs font-bold">Encryption</span>
 						<Select
-							className="mt-2 text-gray-300"
+							className="mt-2 w-[150px] text-gray-300"
 							value={encryptionAlgo}
 							disabled
 							onChange={() => {}}
