@@ -2,7 +2,6 @@ use crate::prisma::{self, PrismaClient};
 use prisma_client_rust::QueryError;
 use prisma_client_rust::{migrations::*, NewClientError};
 use sd_crypto::keys::keymanager::StoredKey;
-use std::sync::Arc;
 use thiserror::Error;
 
 /// MigrationError represents an error that occurring while opening a initialising and running migrations on the database.

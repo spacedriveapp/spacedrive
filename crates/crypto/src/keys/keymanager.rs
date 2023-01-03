@@ -38,9 +38,7 @@
 use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
-use crate::primitives::{
-	generate_master_key, generate_nonce, generate_passphrase, generate_salt, to_array,
-};
+use crate::primitives::{generate_master_key, generate_nonce, generate_salt, to_array};
 use crate::{
 	crypto::stream::Algorithm,
 	primitives::{ENCRYPTED_MASTER_KEY_LEN, SALT_LEN},
@@ -160,14 +158,11 @@ impl KeyManager {
 		hashing_algorithm: HashingAlgorithm,
 		creds: PasswordAndSecret,
 	) -> Result<OnboardingBundle> {
-		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-		let salt = *b"0000000000000000"; // TODO: Should this come from the `creds.secret` var???
-
-		// if salt.len() > SALT_LEN {
-		// 	todo!();
-		// }
-		// let salt = *creds.secret.as_bytes();
-
+		let salt: [u8; SALT_LEN] = creds
+			.secret
+			.as_bytes()
+			.try_into()
+			.map_err(|_| Error::InvalidKeyLength)?;
 		// Hash the master password
 		let hashed_password = hashing_algorithm.hash(
 			Protected::new(creds.password.expose().as_bytes().to_vec()),

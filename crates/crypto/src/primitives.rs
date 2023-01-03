@@ -2,7 +2,7 @@
 //!
 //! This includes things such as cryptographically-secure random salt/master key/nonce generation,
 //! lengths for master keys and even the streaming block size.
-use rand::{seq::SliceRandom, RngCore, SeedableRng};
+use rand::{RngCore, SeedableRng};
 use zeroize::Zeroize;
 
 use crate::{
@@ -83,33 +83,33 @@ pub fn to_array<const I: usize>(bytes: Vec<u8>) -> Result<[u8; I]> {
 	})
 }
 
-/// This generates a 7 word diceware passphrase, separated with `-`
-#[must_use]
-pub fn generate_passphrase() -> Protected<String> {
-	let wordlist = include_str!("../assets/eff_large_wordlist.txt")
-		.lines()
-		.collect::<Vec<&str>>();
+// /// This generates a 7 word diceware passphrase, separated with `-`
+// #[must_use]
+// pub fn generate_passphrase() -> Protected<String> {
+// 	let wordlist = include_str!("../assets/eff_large_wordlist.txt")
+// 		.lines()
+// 		.collect::<Vec<&str>>();
 
-	let words: Vec<String> = wordlist
-		.choose_multiple(
-			&mut rand_chacha::ChaCha20Rng::from_entropy(),
-			PASSPHRASE_LEN,
-		)
-		.map(ToString::to_string)
-		.collect();
+// 	let words: Vec<String> = wordlist
+// 		.choose_multiple(
+// 			&mut rand_chacha::ChaCha20Rng::from_entropy(),
+// 			PASSPHRASE_LEN,
+// 		)
+// 		.map(ToString::to_string)
+// 		.collect();
 
-	let passphrase = words
-		.iter()
-		.enumerate()
-		.map(|(i, word)| {
-			if i < PASSPHRASE_LEN - 1 {
-				word.clone() + "-"
-			} else {
-				word.clone()
-			}
-		})
-		.into_iter()
-		.collect();
+// 	let passphrase = words
+// 		.iter()
+// 		.enumerate()
+// 		.map(|(i, word)| {
+// 			if i < PASSPHRASE_LEN - 1 {
+// 				word.clone() + "-"
+// 			} else {
+// 				word.clone()
+// 			}
+// 		})
+// 		.into_iter()
+// 		.collect();
 
-	Protected::new(passphrase)
-}
+// 	Protected::new(passphrase)
+// }

@@ -40,7 +40,6 @@ export type Procedures = {
         { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
         { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
-        { key: "jobs.prunePreviewMedia", input: LibraryArgs<null>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
         { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
         { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: string } | 
@@ -120,7 +119,7 @@ export interface KeyNameUpdateArgs { uuid: string, name: string }
 
 export interface LibraryArgs<T> { library_id: string, arg: T }
 
-export interface LibraryConfig { version: string | null, name: string, description: string, is_encrypted: boolean }
+export interface LibraryConfig { version: string | null, name: string, description: string }
 
 export interface LibraryConfigWrapped { uuid: string, config: LibraryConfig }
 

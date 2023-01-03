@@ -34,6 +34,8 @@ pub enum Error {
 	StreamModeInit,
 	#[error("wrong password provided")]
 	IncorrectPassword,
+	#[error("the key provided is of an invalid length")]
+	InvalidKeyLength,
 	#[error("no keyslots available")]
 	NoKeyslots,
 	#[error("mismatched data length while converting vec to array")]
