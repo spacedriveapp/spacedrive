@@ -3481,7 +3481,7 @@ dependencies = [
 [[package]]
 name = "normi"
 version = "0.0.1"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=6243b5b6a1376940a40318340e5eaef22e4a2c22#6243b5b6a1376940a40318340e5eaef22e4a2c22"
 dependencies = [
  "normi-macros",
  "rspc",
@@ -3493,7 +3493,7 @@ dependencies = [
 [[package]]
 name = "normi-macros"
 version = "0.0.1"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=6243b5b6a1376940a40318340e5eaef22e4a2c22#6243b5b6a1376940a40318340e5eaef22e4a2c22"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5115,7 +5115,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.2"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=6243b5b6a1376940a40318340e5eaef22e4a2c22#6243b5b6a1376940a40318340e5eaef22e4a2c22"
 dependencies = [
  "async-stream",
  "futures",
@@ -5923,7 +5923,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=6243b5b6a1376940a40318340e5eaef22e4a2c22#6243b5b6a1376940a40318340e5eaef22e4a2c22"
 dependencies = [
  "chrono",
  "indexmap",
@@ -5949,7 +5949,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "0.0.4"
-source = "git+https://github.com/oscartbeaumont/rspc?rev=73d60f9cb901661f9f0f8e953477b3558f2715d1#73d60f9cb901661f9f0f8e953477b3558f2715d1"
+source = "git+https://github.com/oscartbeaumont/rspc?rev=6243b5b6a1376940a40318340e5eaef22e4a2c22#6243b5b6a1376940a40318340e5eaef22e4a2c22"
 dependencies = [
  "Inflector",
  "proc-macro2",

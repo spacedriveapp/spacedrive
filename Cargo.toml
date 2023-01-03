@@ -34,6 +34,6 @@ specta = { version = "0.0.4" }
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
 
-rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" }   # TODO: Move back to crates.io when new jsonrpc executor is released
-normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" }  # TODO: When normi is released on crates.io
-specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "73d60f9cb901661f9f0f8e953477b3558f2715d1" } # TODO: When normi is released on crates.io
+rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }   # TODO: Move back to crates.io when new jsonrpc executor is released
+normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }  # TODO: When normi is released on crates.io
+specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" } # TODO: When normi is released on crates.io
