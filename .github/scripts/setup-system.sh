@@ -126,7 +126,12 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
 		sudo apt install libunistring-dev libaom-dev libdav1d-dev
 
-
+		sudo apt-get install libx264-dev
+		sudo apt-get install libx265-dev libnuma-dev
+		sudo apt-get install libvpx-dev
+		sudo apt-get install libfdk-aac-dev
+		sudo apt-get install libopus-dev
+		sudo apt-get install libdav1d-dev
 	elif command -v pacman >/dev/null; then
 		echo "Detected pacman!"
 		echo "Installing dependencies with pacman..."
