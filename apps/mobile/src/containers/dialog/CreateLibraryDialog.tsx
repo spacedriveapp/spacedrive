@@ -47,7 +47,7 @@ const CreateLibraryDialog = ({ children, onSubmit, disableBackdropClose }: Props
 				createLibrary({
 					name: libName,
 					// TODO: Support password and secret on mobile
-					encrypted_cfg: undefined
+					password: undefined
 				})
 			}
 			loading={createLibLoading}

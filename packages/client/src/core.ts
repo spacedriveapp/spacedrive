@@ -47,6 +47,7 @@ export type Procedures = {
         { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } | 
         { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } | 
         { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
         { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
@@ -84,7 +85,7 @@ export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 
-export interface CreateLibraryArgs { name: string, encrypted_cfg: PasswordAndSecret | null }
+export interface CreateLibraryArgs { name: string, password: string | null }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 
@@ -158,9 +159,11 @@ export interface Object { id: number, cas_id: string, integrity_checksum: string
 
 export interface ObjectValidatorArgs { id: number, path: string }
 
-export type Params = "Standard" | "Hardened" | "Paranoid"
+export interface OnboardingArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, password: string }
 
-export interface PasswordAndSecret { password: string, secret: string }
+export interface OnboardingKeys { master_password: string, secret_key: string }
+
+export type Params = "Standard" | "Hardened" | "Paranoid"
 
 export interface RestoreBackupArgs { password: string, secret_key: string, path: string }
 

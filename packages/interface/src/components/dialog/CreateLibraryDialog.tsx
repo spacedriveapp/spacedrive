@@ -5,14 +5,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { PropsWithChildren } from 'react';
 import { useForm } from 'react-hook-form';
 
-interface FormShape {
-	name: string;
-	encrypted_cfg: {
-		password: string;
-		secret: string;
-	} | null;
-}
-
 export default function CreateLibraryDialog({
 	children,
 	onSubmit,
@@ -20,13 +12,11 @@ export default function CreateLibraryDialog({
 	setOpen
 }: PropsWithChildren<{ onSubmit?: () => void; open: boolean; setOpen: (state: boolean) => void }>) {
 	const queryClient = useQueryClient();
-	const form = useForm<FormShape>({
+	const form = useForm({
 		defaultValues: {
 			name: '',
-			encrypted_cfg: {
-				// TODO: Remove these default values once we go to prod
-				password: 'password'
-			}
+			// TODO: Remove these default values once we go to prod
+			password: 'password' as string | null
 		}
 	});
 
@@ -47,8 +37,8 @@ export default function CreateLibraryDialog({
 	});
 	const doSubmit = form.handleSubmit((data) => {
 		// TODO: This is skechy, but will work for now.
-		if (data.encrypted_cfg?.password === '') {
-			data.encrypted_cfg = null;
+		if (data.password === '') {
+			data.password = null;
 		}
 
 		return createLibrary.mutateAsync(data);
@@ -85,7 +75,7 @@ export default function CreateLibraryDialog({
 					<Input
 						className="flex-grow !py-0.5"
 						disabled={form.formState.isSubmitting}
-						{...form.register('encrypted_cfg.password')}
+						{...form.register('password')}
 						placeholder="password"
 					/>
 				</div>
