@@ -13,7 +13,7 @@ fn main() -> Result<()> {
 	let args = Args::parse();
 
 	let mut reader = File::open(args.path).context("unable to open file")?;
-	let (header, aad) = FileHeader::deserialize(&mut reader)?;
+	let (header, aad) = FileHeader::from_reader(&mut reader)?;
 	print_details(&header, &aad)?;
 
 	Ok(())
