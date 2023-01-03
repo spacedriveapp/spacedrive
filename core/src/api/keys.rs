@@ -1,12 +1,8 @@
 use std::io::{Read, Write};
 use std::{path::PathBuf, str::FromStr};
 
-use sd_crypto::keys::keymanager::StoredKey;
-use sd_crypto::{
-	crypto::stream::Algorithm,
-	keys::{hashing::HashingAlgorithm, keymanager::KeyManager},
-	Protected,
-};
+use sd_crypto::keys::keymanager::{KeyManager, StoredKey};
+use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
@@ -48,6 +44,7 @@ pub struct RestoreBackupArgs {
 pub struct OnboardingArgs {
 	algorithm: Algorithm,
 	hashing_algorithm: HashingAlgorithm,
+	password: Protected<String>,
 }
 
 #[derive(Type, Deserialize)]
@@ -141,7 +138,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let key = library.key_manager.save_to_database(key_uuid)?;
 
 				// does not check that the key doesn't exist before writing
-				write_storedkey_to_db(library.db.clone(), &key).await?;
+				write_storedkey_to_db(&library.db, &key).await?;
 
 				invalidate_query!(library, "keys.list");
 				Ok(())
@@ -192,7 +189,8 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("onboarding", |t| {
 			t(|_, args: OnboardingArgs, library| async move {
-				let bundle = KeyManager::onboarding(args.algorithm, args.hashing_algorithm)?;
+				let bundle =
+					KeyManager::onboarding(args.algorithm, args.hashing_algorithm, args.password)?;
 
 				let verification_key = bundle.verification_key;
 
@@ -205,7 +203,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.exec()
 					.await?;
 
-				write_storedkey_to_db(library.db.clone(), &verification_key).await?;
+				write_storedkey_to_db(&library.db, &verification_key).await?;
 
 				let keys = OnboardingKeys {
 					master_password: bundle.master_password.expose().clone(),
@@ -307,7 +305,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				let stored_key = library.key_manager.access_keystore(uuid)?;
 
 				if args.library_sync {
-					write_storedkey_to_db(library.db.clone(), &stored_key).await?;
+					write_storedkey_to_db(&library.db, &stored_key).await?;
 
 					if args.automount {
 						library
@@ -393,7 +391,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				)?;
 
 				for key in &updated_keys {
-					write_storedkey_to_db(library.db.clone(), key).await?;
+					write_storedkey_to_db(&library.db, key).await?;
 				}
 
 				invalidate_query!(library, "keys.list");
@@ -419,7 +417,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				// write the new verification key
-				write_storedkey_to_db(library.db.clone(), &bundle.verification_key).await?;
+				write_storedkey_to_db(&library.db, &bundle.verification_key).await?;
 
 				Ok(bundle.secret_key.expose().clone())
 			})

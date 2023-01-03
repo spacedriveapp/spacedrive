@@ -1,9 +1,9 @@
 use crate::{
 	invalidate_query,
 	node::Platform,
-	prisma::{key, node, PrismaClient},
+	prisma::{node, PrismaClient},
 	util::{
-		db::load_and_migrate,
+		db::{load_and_migrate, write_storedkey_to_db},
 		seeder::{indexer_rules_seeder, SeederError},
 	},
 	NodeContext,
@@ -16,6 +16,7 @@ use sd_crypto::{
 		keymanager::{KeyManager, StoredKey},
 	},
 	primitives::to_array,
+	Protected,
 };
 use std::{
 	env, fs, io,
@@ -71,58 +72,19 @@ impl From<LibraryManagerError> for rspc::Error {
 	}
 }
 
-pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, LibraryManagerError> {
-	// retrieve all stored keys from the DB
+pub async fn create_keymanager(
+	client: &PrismaClient,
+) -> Result<Arc<KeyManager>, LibraryManagerError> {
 	let key_manager = KeyManager::new(vec![])?;
-
-	// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-	// this is so if there's no verification key set, we set one so users can use the key manager
-	// it will be done during onboarding, but for now things are statically set (unless they were changed)
-	if client
-		.key()
-		.find_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
-		.exec()
-		.await?
-		.is_empty()
-	{
-		client
-			.key()
-			.delete_many(vec![key::uuid::equals(uuid::Uuid::nil().to_string())])
-			.exec()
-			.await?;
-		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-		let verification_key = KeyManager::onboarding(
-			Algorithm::XChaCha20Poly1305,
-			HashingAlgorithm::Argon2id(Params::Standard),
-		)?
-		.verification_key;
-
-		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-		client
-			.key()
-			.create(
-				verification_key.uuid.to_string(),
-				verification_key.algorithm.serialize().to_vec(),
-				verification_key.hashing_algorithm.serialize().to_vec(),
-				verification_key.content_salt.to_vec(),
-				verification_key.master_key.to_vec(),
-				verification_key.master_key_nonce.to_vec(),
-				verification_key.key_nonce.to_vec(),
-				verification_key.key.to_vec(),
-				verification_key.salt.to_vec(),
-				vec![],
-			)
-			.exec()
-			.await?;
-	}
-
-	let db_stored_keys = client.key().find_many(vec![]).exec().await?;
-
-	let mut default = Uuid::nil();
+	let mut default: Option<Uuid> = None;
 
 	// collect and serialize the stored keys
 	// shouldn't call unwrap so much here
-	let stored_keys: Vec<StoredKey> = db_stored_keys
+	let stored_keys: Vec<StoredKey> = client
+		.key()
+		.find_many(vec![])
+		.exec()
+		.await?
 		.iter()
 		.map(|key| {
 			let key = key.clone();
@@ -130,7 +92,7 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
 
 			if key.default {
-				default = uuid;
+				default = Some(uuid);
 			}
 
 			let stored_key = StoredKey {
@@ -156,11 +118,11 @@ pub async fn create_keymanager(client: &PrismaClient) -> Result<KeyManager, Libr
 	key_manager.populate_keystore(stored_keys)?;
 
 	// if any key had an associated default tag
-	if !default.is_nil() {
+	if let Some(default) = default {
 		key_manager.set_default(default)?;
 	}
 
-	Ok(key_manager)
+	Ok(Arc::new(key_manager))
 }
 
 impl LibraryManager {
@@ -220,6 +182,7 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
+		password: Option<Protected<String>>,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		let id = Uuid::new_v4();
 		LibraryConfig::save(
@@ -236,6 +199,23 @@ impl LibraryManager {
 		)
 		.await?;
 
+		// Run seeders
+		indexer_rules_seeder(&library.db).await?;
+
+		// Setup default key
+		if let Some(password) = password {
+			let verification_key = KeyManager::onboarding(
+				Algorithm::XChaCha20Poly1305,
+				HashingAlgorithm::Argon2id(Params::Standard),
+				password,
+			)?
+			.verification_key;
+
+			write_storedkey_to_db(&library.db, &verification_key).await?;
+		} else {
+			// TODO: Make setting up keys optional with rest of system before removing this.
+			todo!();
+		}
 		invalidate_query!(library, "library.list");
 
 		self.libraries.write().await.push(library);
@@ -347,7 +327,6 @@ impl LibraryManager {
 		};
 
 		let uuid_vec = id.as_bytes().to_vec();
-
 		let node_data = db
 			.node()
 			.upsert(
@@ -362,16 +341,12 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		// Run seeders
-		indexer_rules_seeder(&db).await?;
-
-		let key_manager = Arc::new(create_keymanager(&db).await?);
-
 		Ok(LibraryContext {
 			id,
+			local_id: node_data.id,
 			config,
+			key_manager: create_keymanager(&db).await?,
 			db,
-			key_manager,
 			node_local_id: node_data.id,
 			node_context,
 		})
