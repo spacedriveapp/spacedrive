@@ -8,7 +8,7 @@ use super::{utils::LibraryRequest, RouterBuilder};
 use chrono::Utc;
 use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
 use rspc::Type;
-use sd_crypto::keys::keymanager::PasswordAndSecret;
+use sd_crypto::Protected;
 use serde::Deserialize;
 use tokio::fs;
 use uuid::Uuid;
@@ -77,7 +77,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: String,
-				encrypted_cfg: Option<PasswordAndSecret>,
+				password: Option<Protected<String>>,
 			}
 
 			t(|ctx, args: CreateLibraryArgs| async move {
@@ -88,7 +88,7 @@ pub(crate) fn mount() -> RouterBuilder {
 							name: args.name.to_string(),
 							..Default::default()
 						},
-						args.encrypted_cfg,
+						args.password,
 					)
 					.await?)
 			})

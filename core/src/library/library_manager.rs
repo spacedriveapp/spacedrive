@@ -13,9 +13,10 @@ use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{
 		hashing::{HashingAlgorithm, Params},
-		keymanager::{self, KeyManager, StoredKey},
+		keymanager::{KeyManager, StoredKey},
 	},
 	primitives::to_array,
+	Protected,
 };
 use std::{
 	env, fs, io,
@@ -181,7 +182,7 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
-		creds: Option<keymanager::PasswordAndSecret>,
+		password: Option<Protected<String>>,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		let id = Uuid::new_v4();
 		LibraryConfig::save(
@@ -202,11 +203,11 @@ impl LibraryManager {
 		indexer_rules_seeder(&library.db).await?;
 
 		// Setup default key
-		if let Some(creds) = creds {
+		if let Some(password) = password {
 			let verification_key = KeyManager::onboarding(
 				Algorithm::XChaCha20Poly1305,
 				HashingAlgorithm::Argon2id(Params::Standard),
-				creds,
+				password,
 			)?
 			.verification_key;
 

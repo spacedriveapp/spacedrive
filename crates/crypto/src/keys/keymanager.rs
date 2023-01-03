@@ -124,13 +124,6 @@ pub struct MasterPasswordChangeBundle {
 	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(feature = "rspc", derive(specta::Type))]
-pub struct PasswordAndSecret {
-	password: Protected<String>,
-	secret: Protected<String>,
-}
-
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
@@ -161,12 +154,13 @@ impl KeyManager {
 	pub fn onboarding(
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-		creds: PasswordAndSecret,
+		password: Protected<String>,
 	) -> Result<OnboardingBundle> {
-		let content_salt = *Self::convert_secret_key_string(creds.secret).expose();
+		let content_salt = *b"0000000000000000"; // secret key // TODO: Don't hardcode this
+
 		// Hash the master password
 		let hashed_password = hashing_algorithm.hash(
-			Protected::new(creds.password.expose().as_bytes().to_vec()),
+			Protected::new(password.expose().as_bytes().to_vec()),
 			content_salt,
 		)?;
 
@@ -216,7 +210,7 @@ impl KeyManager {
 
 		let onboarding_bundle = OnboardingBundle {
 			verification_key,
-			master_password: creds.password,
+			master_password: password,
 			secret_key,
 		};
 

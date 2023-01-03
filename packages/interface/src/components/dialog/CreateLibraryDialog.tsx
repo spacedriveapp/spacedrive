@@ -25,8 +25,7 @@ export default function CreateLibraryDialog({
 			name: '',
 			encrypted_cfg: {
 				// TODO: Remove these default values once we go to prod
-				password: 'password',
-				secret: '30303030-30303030-30303030-30303030'
+				password: 'password'
 			}
 		}
 	});
@@ -48,7 +47,7 @@ export default function CreateLibraryDialog({
 	});
 	const doSubmit = form.handleSubmit((data) => {
 		// TODO: This is skechy, but will work for now.
-		if (data.encrypted_cfg?.password === '' || data.encrypted_cfg?.secret === '') {
+		if (data.encrypted_cfg?.password === '') {
 			data.encrypted_cfg = null;
 		}
 
@@ -79,7 +78,7 @@ export default function CreateLibraryDialog({
 				</div>
 
 				{/* TODO: Proper UI for this. Maybe checkbox for encrypted or not and then reveal these fields. Select encrypted by default. */}
-				<span className="text-sm">Make password and secret fields empty to skip key setup.</span>
+				<span className="text-sm">Make password field empty to skip key setup.</span>
 
 				<div className="relative flex flex-col">
 					<p className="text-sm mt-2">Password:</p>
@@ -94,9 +93,8 @@ export default function CreateLibraryDialog({
 					<p className="text-sm mt-2">Secret Key:</p>
 					<Input
 						className="flex-grow !py-0.5"
-						{...form.register('encrypted_cfg.secret')}
-						disabled={form.formState.isSubmitting}
-						placeholder="30303030-30303030-30303030-30303030"
+						placeholder="00000000-00000000-00000000-00000000"
+						readOnly
 					/>
 				</div>
 			</form>
