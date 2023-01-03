@@ -84,7 +84,7 @@ impl FileHeader {
 			master_key,
 			&metadata_nonce,
 			algorithm,
-			&serde_json::to_vec(metadata).map_err(|_| Error::MetadataDeSerialization)?,
+			&serde_json::to_vec(metadata).map_err(|_| Error::Serialization)?,
 			&[],
 		)?;
 
@@ -125,7 +125,7 @@ impl FileHeader {
 				&[],
 			)?;
 
-			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
 		} else {
 			Err(Error::NoMetadata)
 		}
@@ -153,7 +153,7 @@ impl FileHeader {
 				&[],
 			)?;
 
-			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
 		} else {
 			Err(Error::NoMetadata)
 		}

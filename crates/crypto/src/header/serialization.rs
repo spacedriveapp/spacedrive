@@ -23,7 +23,7 @@ impl FileHeaderVersion {
 	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0A, 0x01] => Ok(Self::V1),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -39,7 +39,7 @@ impl KeyslotVersion {
 	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0D, 0x01] => Ok(Self::V1),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -55,7 +55,7 @@ impl PreviewMediaVersion {
 	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0E, 0x01] => Ok(Self::V1),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -71,7 +71,7 @@ impl MetadataVersion {
 	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x1F, 0x01] => Ok(Self::V1),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -101,7 +101,7 @@ impl HashingAlgorithm {
 			[0xB3, 0x01] => Ok(Self::BalloonBlake3(Params::Standard)),
 			[0xB3, 0x02] => Ok(Self::BalloonBlake3(Params::Hardened)),
 			[0xB3, 0x03] => Ok(Self::BalloonBlake3(Params::Paranoid)),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -119,7 +119,7 @@ impl Algorithm {
 		match bytes {
 			[0x0B, 0x01] => Ok(Self::XChaCha20Poly1305),
 			[0x0B, 0x02] => Ok(Self::Aes256Gcm),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }

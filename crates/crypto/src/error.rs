@@ -42,8 +42,8 @@ pub enum Error {
 	MediaLengthParse,
 	#[error("no preview media found")]
 	NoPreviewMedia,
-	#[error("error while serializing/deserializing the metadata")]
-	MetadataDeSerialization,
+	#[error("error while serializing/deserializing an item")]
+	Serialization,
 	#[error("no metadata found")]
 	NoMetadata,
 	#[error("tried adding too many keyslots to a header")]
