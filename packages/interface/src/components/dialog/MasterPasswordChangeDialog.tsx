@@ -19,12 +19,14 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 	type FormValues = {
 		masterPassword: string;
 		masterPassword2: string;
+		secretKey: string | null;
 	};
 
 	const { register, handleSubmit, reset } = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
-			masterPassword2: ''
+			masterPassword2: '',
+			secretKey: ''
 		}
 	});
 
@@ -39,19 +41,19 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			});
 		} else {
 			const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
+			const sk = data.secretKey !== null ? data.secretKey : null;
 
 			changeMasterPassword.mutate(
-				{ algorithm, hashing_algorithm, password: data.masterPassword },
+				{ algorithm, hashing_algorithm, password: data.masterPassword, secret_key: sk },
 				{
-					onSuccess: (sk) => {
+					onSuccess: () => {
 						setShowMasterPasswordDialog(false);
 						props.setAlertDialogData({
 							open: true,
-							title: 'Secret Key',
-							description:
-								'Please store this secret key securely as it is needed to access your key manager.',
-							value: sk,
-							inputBox: true
+							title: 'Success',
+							description: '',
+							value: 'Your master password was changed successfully',
+							inputBox: false
 						});
 					},
 					onError: () => {
@@ -99,7 +101,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 					<div className="relative flex flex-grow mt-3 mb-2">
 						<Input
 							className={`flex-grow w-max !py-0.5`}
-							placeholder="New Password"
+							placeholder="New password"
 							required
 							{...register('masterPassword', { required: true })}
 							onChange={(e) => setPasswordMeterMasterPw(e.target.value)}
@@ -118,7 +120,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 					<div className="relative flex flex-grow mb-2">
 						<Input
 							className={`flex-grow !py-0.5}`}
-							placeholder="New Password (again)"
+							placeholder="New password (again)"
 							required
 							{...register('masterPassword2', { required: true })}
 							type={showMasterPassword2 ? 'text' : 'password'}
@@ -131,6 +133,15 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 						>
 							<MP2CurrentEyeIcon className="w-4 h-4" />
 						</Button>
+					</div>
+
+					<div className="relative flex flex-grow mb-2">
+						<Input
+							className={`flex-grow !py-0.5}`}
+							placeholder="Key secret"
+							{...register('secretKey', { required: false })}
+							// type={showMasterPassword ? 'text' : 'password'}
+						/>
 					</div>
 
 					<PasswordMeter password={passwordMeterMasterPw} />
@@ -153,6 +164,9 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 								<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 								<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 								<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
+								<SelectOption value="BalloonBlake3-s">Blake3-Balloon (standard)</SelectOption>
+								<SelectOption value="BalloonBlake3-h">Blake3-Balloon (hardened)</SelectOption>
+								<SelectOption value="BalloonBlake3-p">Blake3-Balloon (paranoid)</SelectOption>
 							</Select>
 						</div>
 					</div>
