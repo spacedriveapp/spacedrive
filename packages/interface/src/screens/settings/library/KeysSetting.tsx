@@ -149,11 +149,12 @@ export default function KeysSettings() {
 						variant="accent"
 						disabled={setMasterPasswordMutation.isLoading}
 						onClick={() => {
-							if (masterPassword !== '' && secretKey !== '') {
+							if (masterPassword !== '') {
+								const sk = secretKey !== null ? secretKey : null;
 								setMasterPassword('');
 								setSecretKey('');
 								setMasterPasswordMutation.mutate(
-									{ password: masterPassword, secret_key: secretKey },
+									{ password: masterPassword, secret_key: sk },
 									{
 										onError: () => {
 											setAlertDialogData({
