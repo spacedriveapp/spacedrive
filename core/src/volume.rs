@@ -1,4 +1,4 @@
-use crate::{library::LibraryContext, prisma::volume::*};
+use crate::{library::LibraryContext, prisma::object, prisma::volume::*};
 
 use rspc::Type;
 use serde::{Deserialize, Serialize};

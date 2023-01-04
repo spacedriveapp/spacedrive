@@ -8,9 +8,15 @@ datasource db {
 
 generator client {
   provider = "cargo prisma"
-  output   = "../api/src/prisma.rs"
+  output   = "../src/prisma.rs"
 }
 
+generator sync {
+  provider = "cargo run -p prisma-cli --bin sync --"
+  output   = "../src/prisma_sync.rs"
+}
+
+/// @owned
 model FilePath {
   id   Bytes  @id
   path String
@@ -19,6 +25,7 @@ model FilePath {
   object_id Bytes?
 }
 
+/// @shared
 model Object {
   id   Bytes  @id
   name String

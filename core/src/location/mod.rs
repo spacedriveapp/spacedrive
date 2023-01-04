@@ -9,14 +9,15 @@ use crate::{
 	prisma::{file_path, indexer_rules_in_location, location, node, object},
 };
 
+use rspc::Type;
+use serde::Deserialize;
+use serde_json::json;
 use std::{
 	collections::HashSet,
 	path::{Path, PathBuf},
 };
 
 use prisma_client_rust::QueryError;
-use rspc::Type;
-use serde::Deserialize;
 use tokio::{fs, io};
 use tracing::{debug, info};
 use uuid::Uuid;
@@ -83,6 +84,8 @@ impl LocationCreateArgs {
 			self.path.display()
 		);
 		let uuid = Uuid::new_v4();
+		let file_name = self.path.file_name().unwrap().to_str().unwrap().to_string();
+		let file_path = self.path.to_string_lossy().to_string();
 
 		let location = create_location(ctx, uuid, &self.path, &self.indexer_rules_ids).await?;
 
@@ -327,24 +330,47 @@ async fn create_location(
 
 	let mut location = ctx
 		.db
-		.location()
-		.create(
-			location_pub_id.as_bytes().to_vec(),
-			node::id::equals(ctx.node_local_id),
-			vec![
-				location::name::set(Some(location_name.clone())),
-				location::is_online::set(true),
-				location::local_path::set(Some(
-					location_path
-						.as_ref()
-						.to_str()
-						.expect("Found non-UTF-8 path")
-						.to_string(),
-				)),
-			],
-		)
-		.include(indexer_job_location::include())
-		.exec()
+		._transaction()
+		.run(|db| async move {
+			let local_path = location_path
+				.as_ref()
+				.to_str()
+				.expect("Found non-UTF-8 path")
+				.to_string();
+
+			ctx.sync
+				.write_op(
+					&db,
+					ctx.sync.owned_create(
+						"Location",
+						json!({ "id": location_pub_id.as_bytes() }),
+						[
+							("node", json!({ "pub_id": ctx.id.as_bytes() })),
+							("name", json!(location_name)),
+							("is_online", json!(true)),
+							("local_path", json!(&local_path)),
+						],
+					),
+				)
+				.await?;
+
+			let location = db
+				.location()
+				.create(
+					location_pub_id.as_bytes().to_vec(),
+					node::id::equals(ctx.node_local_id),
+					vec![
+						location::name::set(Some(location_name.clone())),
+						location::is_online::set(true),
+						location::local_path::set(Some(local_path)),
+					],
+				)
+				.include(indexer_job_location::include())
+				.exec()
+				.await;
+
+			dbg!(location)
+		})
 		.await?;
 
 	if !indexer_rules_ids.is_empty() {

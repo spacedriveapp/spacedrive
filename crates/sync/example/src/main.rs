@@ -1,3 +1,4 @@
+use api::Ctx;
 use axum::{
 	http::{HeaderValue, Method},
 	routing::get,
@@ -7,13 +8,17 @@ use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
 mod api;
-// mod prisma;
+mod prisma;
+mod prisma_sync;
 mod utils;
 
-fn router() -> axum::Router {
+async fn router() -> axum::Router {
 	let router = api::new().build().arced();
 
-	let ctx = Arc::new(Mutex::new(Default::default()));
+	let ctx = Arc::new(Mutex::new(Ctx {
+		dbs: Default::default(),
+		prisma: prisma::new_client().await.unwrap(),
+	}));
 
 	axum::Router::new()
 		.route("/", get(|| async { "Hello 'rspc'!" }))
@@ -33,7 +38,7 @@ async fn main() {
 	let addr = "[::]:9000".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
 	println!("{} listening on http://{}", env!("CARGO_CRATE_NAME"), addr);
 	axum::Server::bind(&addr)
-		.serve(router().into_make_service())
+		.serve(router().await.into_make_service())
 		.with_graceful_shutdown(utils::axum_shutdown_signal())
 		.await
 		.expect("Error with HTTP server!");
