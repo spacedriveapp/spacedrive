@@ -1,9 +1,9 @@
 use std::io::{Read, Write};
 use std::{path::PathBuf, str::FromStr};
 
-use sd_crypto::keys::keymanager::{KeyManager, StoredKey};
+use sd_crypto::keys::keymanager::StoredKey;
 use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use specta::Type;
 use uuid::Uuid;
 
@@ -30,13 +30,13 @@ pub struct KeyNameUpdateArgs {
 #[derive(Type, Deserialize)]
 pub struct SetMasterPasswordArgs {
 	password: String,
-	secret_key: String,
+	secret_key: Option<String>,
 }
 
 #[derive(Type, Deserialize)]
 pub struct RestoreBackupArgs {
 	password: String,
-	secret_key: String,
+	secret_key: Option<String>,
 	path: PathBuf,
 }
 
@@ -50,14 +50,9 @@ pub struct OnboardingArgs {
 #[derive(Type, Deserialize)]
 pub struct MasterPasswordChangeArgs {
 	password: String,
+	secret_key: Option<String>,
 	algorithm: Algorithm,
 	hashing_algorithm: HashingAlgorithm,
-}
-
-#[derive(Type, Serialize)]
-pub struct OnboardingKeys {
-	master_password: String,
-	secret_key: String,
 }
 
 #[derive(Type, Deserialize)]
@@ -187,39 +182,35 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		.library_mutation("onboarding", |t| {
-			t(|_, args: OnboardingArgs, library| async move {
-				let bundle =
-					KeyManager::onboarding(args.algorithm, args.hashing_algorithm, args.password)?;
-
-				let verification_key = bundle.verification_key;
-
-				// remove old nil-id keys if they were set
-				// they possibly won't be, but we CANNOT have multiple
-				library
-					.db
-					.key()
-					.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
-					.exec()
-					.await?;
-
-				write_storedkey_to_db(&library.db, &verification_key).await?;
-
-				let keys = OnboardingKeys {
-					master_password: bundle.master_password.expose().clone(),
-					secret_key: base64::encode(bundle.secret_key.expose()),
-				};
-
-				Ok(keys)
-			})
-		})
+		// .library_mutation("onboarding", |t| {
+		// 	t(|_, args: OnboardingArgs, library| async move {
+		// 		let bundle =
+		// 			KeyManager::onboarding(args.algorithm, args.hashing_algorithm, args.password)?;
+		// 		let verification_key = bundle.verification_key;
+		// 		// remove old nil-id keys if they were set
+		// 		// they possibly won't be, but we CANNOT have multiple
+		// 		library
+		// 			.db
+		// 			.key()
+		// 			.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
+		// 			.exec()
+		// 			.await?;
+		// 		write_storedkey_to_db(&library.db, &verification_key).await?;
+		// 		let keys = OnboardingKeys {
+		// 			master_password: bundle.master_password.expose().clone(),
+		// 			secret_key: base64::encode(bundle.secret_key.expose()),
+		// 		};
+		// 		Ok(keys)
+		// 	})
+		// })
 		.library_mutation("setMasterPassword", |t| {
 			t(|_, args: SetMasterPasswordArgs, library| async move {
+				let secret_key = args.secret_key.map(Protected::new);
+
 				// if this returns an error, the user MUST re-enter the correct password
-				library.key_manager.set_master_password(
-					Protected::new(args.password),
-					Protected::new(args.secret_key),
-				)?;
+				library
+					.key_manager
+					.set_master_password(Protected::new(args.password), secret_key)?;
 
 				let automount = library
 					.db
@@ -384,9 +375,11 @@ pub(crate) fn mount() -> RouterBuilder {
 						)
 					})?;
 
+				let secret_key = args.secret_key.map(Protected::new);
+
 				let updated_keys = library.key_manager.import_keystore_backup(
 					Protected::new(args.password),
-					Protected::new(args.secret_key),
+					secret_key,
 					&stored_keys,
 				)?;
 
@@ -402,10 +395,13 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("changeMasterPassword", |t| {
 			t(|_, args: MasterPasswordChangeArgs, library| async move {
-				let bundle = library.key_manager.change_master_password(
+				let secret_key = args.secret_key.map(Protected::new);
+
+				let verification_key = library.key_manager.change_master_password(
 					Protected::new(args.password),
 					args.algorithm,
 					args.hashing_algorithm,
+					secret_key,
 				)?;
 
 				// remove old nil-id keys if they were set
@@ -417,9 +413,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				// write the new verification key
-				write_storedkey_to_db(&library.db, &bundle.verification_key).await?;
+				write_storedkey_to_db(&library.db, &verification_key).await?;
 
-				Ok(bundle.secret_key.expose().clone())
+				Ok(())
 			})
 		})
 }

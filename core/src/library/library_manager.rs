@@ -183,7 +183,8 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
-		password: Option<Protected<String>>,
+		password: Protected<String>,
+		secret_key: Option<Protected<String>>,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		let id = Uuid::new_v4();
 		LibraryConfig::save(
@@ -204,19 +205,29 @@ impl LibraryManager {
 		indexer_rules_seeder(&library.db).await?;
 
 		// Setup default key
-		if let Some(password) = password {
-			let verification_key = KeyManager::onboarding(
-				Algorithm::XChaCha20Poly1305,
-				HashingAlgorithm::Argon2id(Params::Standard),
-				password,
-			)?
-			.verification_key;
+		// if let Some(password) = password {
+		// 	let verification_key = KeyManager::onboarding(
+		// 		Algorithm::XChaCha20Poly1305,
+		// 		HashingAlgorithm::Argon2id(Params::Standard),
+		// 		password,
+		// 	)?
+		// 	.verification_key;
 
-			write_storedkey_to_db(&library.db, &verification_key).await?;
-		} else {
-			// TODO: Make setting up keys optional with rest of system before removing this.
-			todo!();
-		}
+		// 	write_storedkey_to_db(&library.db, &verification_key).await?;
+		// } else {
+		// 	// TODO: Make setting up keys optional with rest of system before removing this.
+		// 	todo!();
+		// }
+
+		let verification_key = KeyManager::onboarding(
+			Algorithm::XChaCha20Poly1305,
+			HashingAlgorithm::Argon2id(Params::Standard),
+			password,
+			secret_key,
+		)?;
+
+		write_storedkey_to_db(&library.db, &verification_key).await?;
+
 		invalidate_query!(library, "library.list");
 
 		self.libraries.write().await.push(library);
