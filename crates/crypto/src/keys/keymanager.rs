@@ -322,7 +322,7 @@ impl KeyManager {
 			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
-			salt: [0u8; SALT_LEN],
+			salt,
 			memory_only: false,
 			automount: false,
 		};
