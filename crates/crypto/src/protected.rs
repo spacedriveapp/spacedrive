@@ -84,3 +84,36 @@ where
 		f.write_str("[REDACTED]")
 	}
 }
+
+#[cfg(feature = "serde")]
+impl<'de, T> serde::Deserialize<'de> for Protected<T>
+where
+	T: serde::Deserialize<'de> + Zeroize,
+{
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		Ok(Self::new(T::deserialize(deserializer)?))
+	}
+}
+
+#[cfg(feature = "rspc")]
+impl<T> specta::Type for Protected<T>
+where
+	T: specta::Type + Zeroize,
+{
+	const NAME: &'static str = T::NAME;
+
+	fn inline(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
+		T::inline(opts, generics)
+	}
+
+	fn reference(opts: specta::DefOpts, generics: &[specta::DataType]) -> specta::DataType {
+		T::reference(opts, generics)
+	}
+
+	fn definition(opts: specta::DefOpts) -> specta::DataType {
+		T::definition(opts)
+	}
+}

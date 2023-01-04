@@ -14,7 +14,8 @@ rand_chacha = "0.3.1"
 
 # hashing
 argon2 = "0.4.1"
-blake3 = "1.3.3"
+balloon-hash = "0.3.0"
+blake3 = { version = "1.3.3", features = ["traits-preview"] }
 
 # aeads
 aes-gcm = "0.10.1"
