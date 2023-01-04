@@ -36,6 +36,7 @@ const FileItem = ({ data }: FileItemProps) => {
 				<View style={tw`px-1.5 py-[1px] mt-1`}>
 					<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-ink-dull`}>
 						{data?.name}
+						{data?.extension && `.${data.extension}`}
 					</Text>
 				</View>
 			</View>

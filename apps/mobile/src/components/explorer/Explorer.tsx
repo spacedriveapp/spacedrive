@@ -27,6 +27,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 
 	return (
 		<View style={tw`flex-1`}>
+			{/* Header */}
 			<View style={tw`flex flex-row items-center justify-between p-3`}>
 				{/* Sort By */}
 				<SortByMenu />
@@ -41,6 +42,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 					</Pressable>
 				)}
 			</View>
+			{/* Items */}
 			{data && (
 				<FlashList
 					data={data.items}
