@@ -38,7 +38,8 @@ pub enum Params {
 #[cfg_attr(
 	feature = "serde",
 	derive(serde::Serialize),
-	derive(serde::Deserialize)
+	derive(serde::Deserialize),
+	serde(tag = "name", content = "params")
 )]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub enum HashingAlgorithm {

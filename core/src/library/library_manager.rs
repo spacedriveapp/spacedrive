@@ -12,11 +12,10 @@ use crate::{
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{
-		hashing::{HashingAlgorithm, Params},
+		hashing::HashingAlgorithm,
 		keymanager::{KeyManager, StoredKey},
 	},
 	primitives::to_array,
-	Protected,
 };
 use std::{
 	env, fs, io,
@@ -28,7 +27,7 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
+use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext, LibraryKeymanagerConfig};
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
@@ -182,8 +181,7 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
-		password: Protected<String>,
-		secret_key: Option<Protected<String>>,
+		km_config: LibraryKeymanagerConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		let id = Uuid::new_v4();
 		LibraryConfig::save(
@@ -219,10 +217,10 @@ impl LibraryManager {
 		// }
 
 		let verification_key = KeyManager::onboarding(
-			Algorithm::XChaCha20Poly1305,
-			HashingAlgorithm::Argon2id(Params::Standard),
-			password,
-			secret_key,
+			km_config.algorithm,
+			km_config.hashing_algorithm,
+			km_config.password,
+			km_config.secret_key,
 		)?;
 
 		write_storedkey_to_db(&library.db, &verification_key).await?;

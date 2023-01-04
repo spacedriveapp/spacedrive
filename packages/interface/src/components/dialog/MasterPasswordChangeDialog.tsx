@@ -1,4 +1,4 @@
-import { useLibraryMutation } from '@sd/client';
+import { Algorithm, useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { writeText } from '@tauri-apps/api/clipboard';
 import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
@@ -10,7 +10,7 @@ import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
-import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
+import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import { generatePassword } from '../key/KeyMounter';
 import { GenericAlertDialogProps } from './AlertDialog';
 
@@ -43,11 +43,16 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 				inputBox: false
 			});
 		} else {
-			const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
+			const hashing_algorithm = getHashingAlgorithmSettings(hashingAlgo);
 			const sk = data.secretKey !== null ? data.secretKey : null;
 
 			changeMasterPassword.mutate(
-				{ algorithm, hashing_algorithm, password: data.masterPassword, secret_key: sk },
+				{
+					algorithm: encryptionAlgo as Algorithm,
+					hashing_algorithm,
+					password: data.masterPassword,
+					secret_key: sk
+				},
 				{
 					onSuccess: () => {
 						setShowMasterPasswordDialog(false);

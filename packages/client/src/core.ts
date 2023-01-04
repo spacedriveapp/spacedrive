@@ -84,7 +84,7 @@ export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 
-export interface CreateLibraryArgs { name: string, password: string, secret_key: string | null }
+export interface CreateLibraryArgs { name: string, password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 
@@ -104,7 +104,7 @@ export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
 export interface GetArgs { id: number }
 
-export type HashingAlgorithm = { Argon2id: Params } | { BalloonBlake3: Params }
+export type HashingAlgorithm = { name: "Argon2id", params: Params } | { name: "BalloonBlake3", params: Params }
 
 export interface IdentifyUniqueFilesArgs { id: number, path: string }
 

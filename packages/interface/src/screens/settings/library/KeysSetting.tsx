@@ -288,60 +288,44 @@ export default function KeysSettings() {
 }
 
 // not sure of a suitable place for this function
-export const getCryptoSettings = (
-	encryptionAlgorithm: string,
-	hashingAlgorithm: string
-): [Algorithm, HashingAlgorithm] => {
-	const algorithm = encryptionAlgorithm as Algorithm;
-	let hashing_algorithm: HashingAlgorithm = { Argon2id: 'Standard' };
+export const getHashingAlgorithmSettings = (hashingAlgorithm: string): HashingAlgorithm => {
+	let hashing_algorithm: HashingAlgorithm = { name: 'Argon2id', params: 'Standard' };
 
 	switch (hashingAlgorithm) {
 		case 'Argon2id-s':
-			hashing_algorithm = { Argon2id: 'Standard' as Params };
+			hashing_algorithm = { name: 'Argon2id', params: 'Standard' };
 			break;
 		case 'Argon2id-h':
-			hashing_algorithm = { Argon2id: 'Hardened' as Params };
+			hashing_algorithm = { name: 'Argon2id', params: 'Hardened' };
 			break;
 		case 'Argon2id-p':
-			hashing_algorithm = { Argon2id: 'Paranoid' as Params };
+			hashing_algorithm = { name: 'Argon2id', params: 'Paranoid' };
 			break;
 		case 'BalloonBlake3-s':
-			hashing_algorithm = { BalloonBlake3: 'Standard' as Params };
+			hashing_algorithm = { name: 'BalloonBlake3', params: 'Standard' };
 			break;
 		case 'BalloonBlake3-h':
-			hashing_algorithm = { BalloonBlake3: 'Hardened' as Params };
+			hashing_algorithm = { name: 'BalloonBlake3', params: 'Hardened' };
 			break;
 		case 'BalloonBlake3-p':
-			hashing_algorithm = { BalloonBlake3: 'Paranoid' as Params };
+			hashing_algorithm = { name: 'BalloonBlake3', params: 'Paranoid' };
 			break;
 	}
 
-	return [algorithm, hashing_algorithm];
+	return hashing_algorithm;
 };
 
 // not sure of a suitable place for this function
 export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
 	let hashing_algorithm = '';
 
-	switch (hashingAlgorithm) {
-		case { Argon2id: 'Standard' }:
-			hashing_algorithm = 'Argon2id-s';
-			break;
-		case { Argon2id: 'Hardened' }:
-			hashing_algorithm = 'Argon2id-h';
-			break;
-		case { Argon2id: 'Paranoid' }:
-			hashing_algorithm = 'Argon2id-p';
-			break;
-		case { BalloonBlake3: 'Standard' }:
-			hashing_algorithm = 'BalloonBlake3-s';
-			break;
-		case { BalloonBlake3: 'Hardened' }:
-			hashing_algorithm = 'BalloonBlake3-h';
-			break;
-		case { BalloonBlake3: 'Paranoid' }:
-			hashing_algorithm = 'BalloonBlake3-p';
-			break;
+	hashing_algorithm = hashingAlgorithm.name as string;
+	if (hashingAlgorithm.params === 'Standard') {
+		hashing_algorithm += '-s';
+	} else if (hashingAlgorithm.params === 'Hardened') {
+		hashing_algorithm += '-h';
+	} else if (hashingAlgorithm.params === 'Paranoid') {
+		hashing_algorithm += '-p';
 	}
 
 	return hashing_algorithm;
