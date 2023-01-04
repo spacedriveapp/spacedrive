@@ -90,7 +90,7 @@ export function KeyMounter() {
 						size="sm"
 						checked={librarySync}
 						onCheckedChange={(e) => {
-							if (autoMount && e) setAutoMount(false);
+							if (autoMount && !e) setAutoMount(false);
 							setLibrarySync(e);
 						}}
 					/>
@@ -106,7 +106,7 @@ export function KeyMounter() {
 						size="sm"
 						checked={autoMount}
 						onCheckedChange={(e) => {
-							if (librarySync && e) setLibrarySync(false);
+							if (!librarySync && e) setLibrarySync(true);
 							setAutoMount(e);
 						}}
 					/>
@@ -131,6 +131,9 @@ export function KeyMounter() {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">Blake3-Balloon (standard)</SelectOption>
+						<SelectOption value="BalloonBlake3-h">Blake3-Balloon (hardened)</SelectOption>
+						<SelectOption value="BalloonBlake3-p">Blake3-Balloon (paranoid)</SelectOption>
 					</Select>
 				</div>
 			</div>

@@ -18,7 +18,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
 	#[error("not enough bytes were written to the output file")]
 	WriteMismatch,
-	#[error("there was an error hashing the password")]
+	#[error("there was an error while password hashing")]
 	PasswordHash,
 	#[error("I/O error: {0}")]
 	Io(#[from] std::io::Error),
@@ -42,8 +42,8 @@ pub enum Error {
 	MediaLengthParse,
 	#[error("no preview media found")]
 	NoPreviewMedia,
-	#[error("error while serializing/deserializing the metadata")]
-	MetadataDeSerialization,
+	#[error("error while serializing/deserializing an item")]
+	Serialization,
 	#[error("no metadata found")]
 	NoMetadata,
 	#[error("tried adding too many keyslots to a header")]

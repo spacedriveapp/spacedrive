@@ -39,8 +39,8 @@ use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
-	derive_key, generate_master_key, generate_nonce, generate_passphrase, generate_salt, to_array,
-	KEY_LEN, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, KEY_LEN,
+	MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 };
 use crate::{
 	crypto::stream::Algorithm,
@@ -154,23 +154,18 @@ impl KeyManager {
 	pub fn onboarding(
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
+		password: Protected<String>,
 	) -> Result<OnboardingBundle> {
-		let _master_password = generate_passphrase();
-		let _content_salt = generate_salt(); // secret key
-
-		// BRXKEN128: REMOVE THIS ONCE ONBOARDING HAS BEEN DONE
-		let master_password = Protected::new("password".to_string());
-		let content_salt = *b"0000000000000000"; // secret key
+		let content_salt = *b"0000000000000000"; // secret key // TODO: Don't hardcode this
 
 		// Hash the master password
 		let hashed_password = hashing_algorithm.hash(
-			Protected::new(master_password.expose().as_bytes().to_vec()),
+			Protected::new(password.expose().as_bytes().to_vec()),
 			content_salt,
 		)?;
 
 		let salt = generate_salt();
 		let derived_key = derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT);
-
 		let uuid = uuid::Uuid::nil();
 
 		// Generate items we'll need for encryption
@@ -215,7 +210,7 @@ impl KeyManager {
 
 		let onboarding_bundle = OnboardingBundle {
 			verification_key,
-			master_password,
+			master_password: password,
 			secret_key,
 		};
 

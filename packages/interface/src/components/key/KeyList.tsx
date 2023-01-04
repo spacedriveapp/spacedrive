@@ -42,6 +42,7 @@ export const ListOfKeys = () => {
 				return (
 					<Key
 						index={index}
+						key={key.uuid}
 						data={{
 							id: key.uuid,
 							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,

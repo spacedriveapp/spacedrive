@@ -12,17 +12,12 @@ import { useAutoForm } from '~/hooks/useAutoForm';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
-type LibraryFormData = {
-	name: string;
-	description: string;
-};
-
 const LibraryGeneralSettingsScreen = ({
 	navigation
 }: SettingsStackScreenProps<'LibraryGeneralSettings'>) => {
 	const { library } = useCurrentLibrary();
 
-	const form = useForm<LibraryFormData>({
+	const form = useForm({
 		defaultValues: { name: library.config.name, description: library.config.description }
 	});
 

@@ -304,6 +304,15 @@ export const getCryptoSettings = (
 		case 'Argon2id-p':
 			hashing_algorithm = { Argon2id: 'Paranoid' as Params };
 			break;
+		case 'BalloonBlake3-s':
+			hashing_algorithm = { BalloonBlake3: 'Standard' as Params };
+			break;
+		case 'BalloonBlake3-h':
+			hashing_algorithm = { BalloonBlake3: 'Hardened' as Params };
+			break;
+		case 'BalloonBlake3-p':
+			hashing_algorithm = { BalloonBlake3: 'Paranoid' as Params };
+			break;
 	}
 
 	return [algorithm, hashing_algorithm];
@@ -313,15 +322,24 @@ export const getCryptoSettings = (
 export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
 	let hashing_algorithm = '';
 
-	switch (hashingAlgorithm.Argon2id) {
-		case 'Standard':
+	switch (hashingAlgorithm) {
+		case { Argon2id: 'Standard' }:
 			hashing_algorithm = 'Argon2id-s';
 			break;
-		case 'Hardened':
+		case { Argon2id: 'Hardened' }:
 			hashing_algorithm = 'Argon2id-h';
 			break;
-		case 'Paranoid':
+		case { Argon2id: 'Paranoid' }:
 			hashing_algorithm = 'Argon2id-p';
+			break;
+		case { BalloonBlake3: 'Standard' }:
+			hashing_algorithm = 'BalloonBlake3-s';
+			break;
+		case { BalloonBlake3: 'Hardened' }:
+			hashing_algorithm = 'BalloonBlake3-h';
+			break;
+		case { BalloonBlake3: 'Paranoid' }:
+			hashing_algorithm = 'BalloonBlake3-p';
 			break;
 	}
 

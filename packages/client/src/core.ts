@@ -56,7 +56,7 @@ export type Procedures = {
         { key: "keys.unmountAll", input: LibraryArgs<null>, result: null } | 
         { key: "keys.updateAutomountStatus", input: LibraryArgs<AutomountUpdateArgs>, result: null } | 
         { key: "keys.updateKeyName", input: LibraryArgs<KeyNameUpdateArgs>, result: null } | 
-        { key: "library.create", input: string, result: LibraryConfigWrapped } | 
+        { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: null } | 
@@ -85,6 +85,8 @@ export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 
+export interface CreateLibraryArgs { name: string, password: string | null }
+
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 
 export type ExplorerContext = { type: "Location" } & Location | { type: "Tag" } & Tag
@@ -103,7 +105,7 @@ export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
 export interface GetArgs { id: number }
 
-export type HashingAlgorithm = { Argon2id: Params }
+export type HashingAlgorithm = { Argon2id: Params } | { BalloonBlake3: Params }
 
 export interface IdentifyUniqueFilesArgs { id: number, path: string }
 
@@ -157,7 +159,7 @@ export interface Object { id: number, cas_id: string, integrity_checksum: string
 
 export interface ObjectValidatorArgs { id: number, path: string }
 
-export interface OnboardingArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export interface OnboardingArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, password: string }
 
 export interface OnboardingKeys { master_password: string, secret_key: string }
 

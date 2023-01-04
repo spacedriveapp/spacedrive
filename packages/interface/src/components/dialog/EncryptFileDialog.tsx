@@ -155,13 +155,16 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 						<span className="text-xs font-bold">Hashing</span>
 						<Select
 							className="mt-2 text-gray-400/80"
+							onChange={() => {}}
 							disabled
 							value={hashingAlgo}
-							onChange={(e) => setHashingAlgo(e)}
 						>
 							<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 							<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 							<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
+							<SelectOption value="BalloonBlake3-s">Blake3-Balloon (standard)</SelectOption>
+							<SelectOption value="BalloonBlake3-h">Blake3-Balloon (hardened)</SelectOption>
+							<SelectOption value="BalloonBlake3-p">Blake3-Balloon (paranoid)</SelectOption>
 						</Select>
 					</div>
 				</div>
