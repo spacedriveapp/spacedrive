@@ -27,7 +27,7 @@
 //! )
 //! .unwrap();
 //! ```
-use std::io::{Read, Seek};
+use std::io::Read;
 
 #[cfg(feature = "serde")]
 use crate::{
@@ -67,11 +67,12 @@ impl FileHeader {
 	///
 	/// Metadata needs to be accessed switfly, so a key management system should handle the salt generation.
 	#[cfg(feature = "serde")]
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn add_metadata<T>(
 		&mut self,
 		version: MetadataVersion,
 		algorithm: Algorithm,
-		master_key: &Protected<[u8; KEY_LEN]>,
+		master_key: Protected<[u8; KEY_LEN]>,
 		metadata: &T,
 	) -> Result<()>
 	where
@@ -80,10 +81,10 @@ impl FileHeader {
 		let metadata_nonce = generate_nonce(algorithm);
 
 		let encrypted_metadata = StreamEncryption::encrypt_bytes(
-			master_key.clone(),
+			master_key,
 			&metadata_nonce,
 			algorithm,
-			&serde_json::to_vec(metadata).map_err(|_| Error::MetadataDeSerialization)?,
+			&serde_json::to_vec(metadata).map_err(|_| Error::Serialization)?,
 			&[],
 		)?;
 
@@ -124,7 +125,7 @@ impl FileHeader {
 				&[],
 			)?;
 
-			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
 		} else {
 			Err(Error::NoMetadata)
 		}
@@ -152,7 +153,7 @@ impl FileHeader {
 				&[],
 			)?;
 
-			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::MetadataDeSerialization)
+			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
 		} else {
 			Err(Error::NoMetadata)
 		}
@@ -162,28 +163,27 @@ impl FileHeader {
 impl Metadata {
 	#[must_use]
 	pub fn size(&self) -> usize {
-		self.serialize().len()
+		self.to_bytes().len()
 	}
 
 	/// This function is used to serialize a metadata item into bytes
 	///
 	/// This also includes the encrypted metadata itself, so this may be sizeable
 	#[must_use]
-	pub fn serialize(&self) -> Vec<u8> {
+	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			MetadataVersion::V1 => {
-				let mut metadata = Vec::new();
-				metadata.extend_from_slice(&self.version.serialize()); // 2
-				metadata.extend_from_slice(&self.algorithm.serialize()); // 4
-				metadata.extend_from_slice(&self.metadata_nonce); // 24 max
-				metadata.extend_from_slice(&vec![0u8; 24 - self.metadata_nonce.len()]); // 28
-
-				let metadata_len = self.metadata.len() as u64;
-
-				metadata.extend_from_slice(&metadata_len.to_le_bytes()); // 36 total bytes
-				metadata.extend_from_slice(&self.metadata); // this can vary in length
-				metadata
-			}
+			MetadataVersion::V1 => vec![
+				self.version.to_bytes().as_ref(),
+				self.algorithm.to_bytes().as_ref(),
+				&self.metadata_nonce,
+				&vec![0u8; 24 - self.metadata_nonce.len()],
+				&(self.metadata.len() as u64).to_le_bytes(),
+				&self.metadata,
+			]
+			.iter()
+			.flat_map(|&v| v)
+			.copied()
+			.collect(),
 		}
 	}
 
@@ -192,19 +192,19 @@ impl Metadata {
 	/// The cursor will be left at the end of the metadata item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self>
+	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read + Seek,
+		R: Read,
 	{
 		let mut version = [0u8; 2];
 		reader.read_exact(&mut version)?;
-		let version = MetadataVersion::deserialize(version).map_err(|_| Error::NoMetadata)?;
+		let version = MetadataVersion::from_bytes(version).map_err(|_| Error::NoMetadata)?;
 
 		match version {
 			MetadataVersion::V1 => {
 				let mut algorithm = [0u8; 2];
 				reader.read_exact(&mut algorithm)?;
-				let algorithm = Algorithm::deserialize(algorithm)?;
+				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut metadata_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut metadata_nonce)?;

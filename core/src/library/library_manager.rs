@@ -77,6 +77,7 @@ pub async fn create_keymanager(
 	client: &PrismaClient,
 ) -> Result<Arc<KeyManager>, LibraryManagerError> {
 	let key_manager = KeyManager::new(vec![])?;
+
 	let mut default: Option<Uuid> = None;
 
 	// collect and serialize the stored keys
@@ -98,13 +99,13 @@ pub async fn create_keymanager(
 
 			let stored_key = StoredKey {
 				uuid,
-				algorithm: Algorithm::deserialize(to_array(key.algorithm)?)?,
+				algorithm: Algorithm::from_bytes(to_array(key.algorithm)?)?,
 				content_salt: to_array(key.content_salt)?,
 				master_key: to_array(key.master_key)?,
 				master_key_nonce: key.master_key_nonce,
 				key_nonce: key.key_nonce,
 				key: key.key,
-				hashing_algorithm: HashingAlgorithm::deserialize(to_array(key.hashing_algorithm)?)?,
+				hashing_algorithm: HashingAlgorithm::from_bytes(to_array(key.hashing_algorithm)?)?,
 				salt: to_array(key.salt)?,
 				memory_only: false,
 				automount: key.automount,
