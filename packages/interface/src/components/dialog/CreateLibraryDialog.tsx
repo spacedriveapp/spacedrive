@@ -67,7 +67,7 @@ export default function CreateLibraryDialog({
 				</div>
 
 				{/* TODO: Proper UI for this. Maybe checkbox for encrypted or not and then reveal these fields. Select encrypted by default. */}
-				<span className="text-sm">Make password field empty to skip key setup.</span>
+				{/* <span className="text-sm">Make the secret key field empty to skip key setup.</span> */}
 
 				<div className="relative flex flex-col">
 					<p className="text-sm mt-2">Password:</p>
@@ -79,13 +79,12 @@ export default function CreateLibraryDialog({
 					/>
 				</div>
 				<div className="relative flex flex-col">
-					<p className="text-sm mt-2">Secret Key:</p>
+					<p className="text-sm mt-2">Key secret (optional):</p>
 					<Input
 						className="flex-grow !py-0.5"
-						placeholder="Key secret"
+						placeholder="0000-0000-0000-0000"
 						disabled={form.formState.isSubmitting}
 						{...form.register('secret_key')}
-						readOnly
 					/>
 				</div>
 			</form>
