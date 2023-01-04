@@ -72,11 +72,10 @@ impl From<LibraryManagerError> for rspc::Error {
 	}
 }
 
-pub async fn create_keymanager(
+pub async fn seed_keymanager(
 	client: &PrismaClient,
-) -> Result<Arc<KeyManager>, LibraryManagerError> {
-	let key_manager = KeyManager::new(vec![])?;
-
+	km: Arc<KeyManager>,
+) -> Result<(), LibraryManagerError> {
 	let mut default: Option<Uuid> = None;
 
 	// collect and serialize the stored keys
@@ -116,14 +115,14 @@ pub async fn create_keymanager(
 		.unwrap();
 
 	// insert all keys from the DB into the keymanager's keystore
-	key_manager.populate_keystore(stored_keys)?;
+	km.populate_keystore(stored_keys)?;
 
 	// if any key had an associated default tag
 	if let Some(default) = default {
-		key_manager.set_default(default)?;
+		km.set_default(default)?;
 	}
 
-	Ok(Arc::new(key_manager))
+	Ok(())
 }
 
 impl LibraryManager {
@@ -227,6 +226,8 @@ impl LibraryManager {
 		)?;
 
 		write_storedkey_to_db(&library.db, &verification_key).await?;
+
+		seed_keymanager(&library.db, library.key_manager.clone()).await?;
 
 		invalidate_query!(library, "library.list");
 
@@ -357,7 +358,7 @@ impl LibraryManager {
 			id,
 			local_id: node_data.id,
 			config,
-			key_manager: create_keymanager(&db).await?,
+			key_manager: Arc::new(KeyManager::new(vec![])?),
 			db,
 			node_local_id: node_data.id,
 			node_context,
