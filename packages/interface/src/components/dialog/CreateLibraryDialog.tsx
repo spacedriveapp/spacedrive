@@ -15,8 +15,8 @@ export default function CreateLibraryDialog({
 	const form = useForm({
 		defaultValues: {
 			name: '',
-			// TODO: Remove these default values once we go to prod
-			password: 'password' as string | null
+			password: '' as string,
+			secret_key: '' as string | null
 		}
 	});
 
@@ -36,9 +36,8 @@ export default function CreateLibraryDialog({
 		}
 	});
 	const doSubmit = form.handleSubmit((data) => {
-		// TODO: This is skechy, but will work for now.
-		if (data.password === '') {
-			data.password = null;
+		if (data.secret_key === '') {
+			data.secret_key = null;
 		}
 
 		return createLibrary.mutateAsync(data);
@@ -76,14 +75,16 @@ export default function CreateLibraryDialog({
 						className="flex-grow !py-0.5"
 						disabled={form.formState.isSubmitting}
 						{...form.register('password')}
-						placeholder="password"
+						placeholder="Password"
 					/>
 				</div>
 				<div className="relative flex flex-col">
 					<p className="text-sm mt-2">Secret Key:</p>
 					<Input
 						className="flex-grow !py-0.5"
-						placeholder="00000000-00000000-00000000-00000000"
+						placeholder="Key secret"
+						disabled={form.formState.isSubmitting}
+						{...form.register('secret_key')}
 						readOnly
 					/>
 				</div>

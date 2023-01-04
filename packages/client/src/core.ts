@@ -43,11 +43,10 @@ export type Procedures = {
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "keys.add", input: LibraryArgs<KeyAddArgs>, result: null } | 
         { key: "keys.backupKeystore", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: string } | 
+        { key: "keys.changeMasterPassword", input: LibraryArgs<MasterPasswordChangeArgs>, result: null } | 
         { key: "keys.clearMasterPassword", input: LibraryArgs<null>, result: null } | 
         { key: "keys.deleteFromLibrary", input: LibraryArgs<string>, result: null } | 
         { key: "keys.mount", input: LibraryArgs<string>, result: null } | 
-        { key: "keys.onboarding", input: LibraryArgs<OnboardingArgs>, result: OnboardingKeys } | 
         { key: "keys.restoreKeystore", input: LibraryArgs<RestoreBackupArgs>, result: number } | 
         { key: "keys.setDefault", input: LibraryArgs<string>, result: null } | 
         { key: "keys.setMasterPassword", input: LibraryArgs<SetMasterPasswordArgs>, result: null } | 
@@ -85,7 +84,7 @@ export interface BuildInfo { version: string, commit: string }
 
 export interface ConfigMetadata { version: string | null }
 
-export interface CreateLibraryArgs { name: string, password: string | null }
+export interface CreateLibraryArgs { name: string, password: string, secret_key: string | null }
 
 export interface EditLibraryArgs { id: string, name: string | null, description: string | null }
 
@@ -137,7 +136,7 @@ export interface LocationExplorerArgs { location_id: number, path: string, limit
 
 export interface LocationUpdateArgs { id: number, name: string | null, indexer_rules_ids: Array<number> }
 
-export interface MasterPasswordChangeArgs { password: string, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
+export interface MasterPasswordChangeArgs { password: string, secret_key: string | null, algorithm: Algorithm, hashing_algorithm: HashingAlgorithm }
 
 export interface MediaData { id: number, pixel_width: number | null, pixel_height: number | null, longitude: number | null, latitude: number | null, fps: number | null, capture_device_make: string | null, capture_device_model: string | null, capture_device_software: string | null, duration_seconds: number | null, codecs: string | null, streams: number | null }
 
@@ -159,19 +158,15 @@ export interface Object { id: number, cas_id: string, integrity_checksum: string
 
 export interface ObjectValidatorArgs { id: number, path: string }
 
-export interface OnboardingArgs { algorithm: Algorithm, hashing_algorithm: HashingAlgorithm, password: string }
-
-export interface OnboardingKeys { master_password: string, secret_key: string }
-
 export type Params = "Standard" | "Hardened" | "Paranoid"
 
-export interface RestoreBackupArgs { password: string, secret_key: string, path: string }
+export interface RestoreBackupArgs { password: string, secret_key: string | null, path: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent"
 
 export interface SetFavoriteArgs { id: number, favorite: boolean }
 
-export interface SetMasterPasswordArgs { password: string, secret_key: string }
+export interface SetMasterPasswordArgs { password: string, secret_key: string | null }
 
 export interface SetNoteArgs { id: number, note: string | null }
 

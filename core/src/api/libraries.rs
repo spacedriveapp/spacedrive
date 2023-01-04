@@ -77,7 +77,8 @@ pub(crate) fn mount() -> RouterBuilder {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: String,
-				password: Option<Protected<String>>,
+				password: Protected<String>,
+				secret_key: Option<Protected<String>>,
 			}
 
 			t(|ctx, args: CreateLibraryArgs| async move {
@@ -89,6 +90,7 @@ pub(crate) fn mount() -> RouterBuilder {
 							..Default::default()
 						},
 						args.password,
+						args.secret_key,
 					)
 					.await?)
 			})
