@@ -201,21 +201,7 @@ impl LibraryManager {
 		// Run seeders
 		indexer_rules_seeder(&library.db).await?;
 
-		// Setup default key
-		// if let Some(password) = password {
-		// 	let verification_key = KeyManager::onboarding(
-		// 		Algorithm::XChaCha20Poly1305,
-		// 		HashingAlgorithm::Argon2id(Params::Standard),
-		// 		password,
-		// 	)?
-		// 	.verification_key;
-
-		// 	write_storedkey_to_db(&library.db, &verification_key).await?;
-		// } else {
-		// 	// TODO: Make setting up keys optional with rest of system before removing this.
-		// 	todo!();
-		// }
-
+		// setup master password
 		let verification_key = KeyManager::onboarding(
 			km_config.algorithm,
 			km_config.hashing_algorithm,
@@ -225,6 +211,7 @@ impl LibraryManager {
 
 		write_storedkey_to_db(&library.db, &verification_key).await?;
 
+		// populate KM with the verification key
 		seed_keymanager(&library.db, library.key_manager.clone()).await?;
 
 		invalidate_query!(library, "library.list");
@@ -352,11 +339,15 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
+		let key_manager = Arc::new(KeyManager::new(vec![])?);
+
+		seed_keymanager(&db, key_manager.clone()).await?;
+
 		Ok(LibraryContext {
 			id,
 			local_id: node_data.id,
 			config,
-			key_manager: Arc::new(KeyManager::new(vec![])?),
+			key_manager,
 			db,
 			node_local_id: node_data.id,
 			node_context,

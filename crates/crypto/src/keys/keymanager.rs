@@ -226,6 +226,10 @@ impl KeyManager {
 	/// This also detects the nil-UUID master passphrase verification key
 	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
 		for key in stored_keys {
+			if self.keystore_contains(key.uuid) {
+				continue;
+			}
+
 			if key.uuid.is_nil() {
 				*self.verification_key.lock()? = Some(key);
 			} else {
