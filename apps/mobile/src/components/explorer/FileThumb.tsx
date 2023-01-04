@@ -21,6 +21,12 @@ type FileThumbProps = {
 export const getThumbnailUrlById = (casId: string) =>
 	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}.webp`;
 
+const FileThumbWrapper = ({ children, size = 1 }) => (
+	<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
+		{children}
+	</View>
+);
+
 export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	const explorerStore = useExplorerStore();
 
@@ -49,9 +55,9 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 
 	if (icon) {
 		return (
-			<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
+			<FileThumbWrapper size={size}>
 				<Image source={icon} style={{ width: 50 * size, height: 50 * size }} />
-			</View>
+			</FileThumbWrapper>
 		);
 	}
 
@@ -66,16 +72,20 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 
 	// TODO: Not styled yet
 	if (has_thumbnail && url) {
-		return <Image source={{ uri: url }} style={tw`w-[50px] h-[50px]`} />;
+		return (
+			<FileThumbWrapper size={size}>
+				<Image source={{ uri: url }} style={tw`w-[50px] h-[50px]`} />
+			</FileThumbWrapper>
+		);
 	}
 
 	return (
-		<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
+		<FileThumbWrapper size={size}>
 			<Image
 				source={require('@sd/assets/images/File.png')}
 				style={{ width: 50 * size, height: 50 * size }}
 			/>
-		</View>
+		</FileThumbWrapper>
 	);
 
 	// Default file icon
