@@ -5,6 +5,7 @@ members = [
   "crates/*",
   # "crates/p2p/tunnel",
   # "crates/p2p/tunnel/utils",
+  "apps/cli",
   "apps/desktop/src-tauri",
   "apps/mobile/rust",
   "apps/server",

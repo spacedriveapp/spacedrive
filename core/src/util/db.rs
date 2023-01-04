@@ -50,8 +50,8 @@ pub async fn write_storedkey_to_db(db: &PrismaClient, key: &StoredKey) -> Result
 		db.key()
 			.create(
 				key.uuid.to_string(),
-				key.algorithm.serialize().to_vec(),
-				key.hashing_algorithm.serialize().to_vec(),
+				key.algorithm.to_bytes().to_vec(),
+				key.hashing_algorithm.to_bytes().to_vec(),
 				key.content_salt.to_vec(),
 				key.master_key.to_vec(),
 				key.master_key_nonce.to_vec(),
