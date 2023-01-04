@@ -78,7 +78,6 @@ pub async fn seed_keymanager(
 	let mut default: Option<Uuid> = None;
 
 	// collect and serialize the stored keys
-	// shouldn't call unwrap so much here
 	let stored_keys: Vec<StoredKey> = client
 		.key()
 		.find_many(vec![])
