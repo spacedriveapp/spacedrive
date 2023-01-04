@@ -4,7 +4,7 @@
 export type Procedures = {
     queries: 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "files.get", input: LibraryArgs<GetArgs>, result: { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath>, media_data: MediaData | null } | null } | 
+        { key: "files.get", input: LibraryArgs<GetArgs>, result: { file_paths: Array<FilePath>, media_data: MediaData | null } | null } | 
         { key: "jobs.getHistory", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.getRunning", input: LibraryArgs<null>, result: Array<JobReport> } | 
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
@@ -19,7 +19,7 @@ export type Procedures = {
         { key: "locations.getExplorerData", input: LibraryArgs<LocationExplorerArgs>, result: ExplorerData } | 
         { key: "locations.indexer_rules.get", input: LibraryArgs<number>, result: IndexerRule } | 
         { key: "locations.indexer_rules.list", input: LibraryArgs<null>, result: Array<IndexerRule> } | 
-        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ id: number, pub_id: Array<number>, node_id: number, name: string | null, local_path: string | null, total_capacity: number | null, available_capacity: number | null, filesystem: string | null, disk_type: number | null, is_removable: boolean | null, is_online: boolean, is_archived: boolean, date_created: string, node: Node }> } | 
+        { key: "locations.list", input: LibraryArgs<null>, result: Array<{ node: Node }> } | 
         { key: "nodeState", input: never, result: NodeState } | 
         { key: "normi.composite", input: never, result: NormalisedCompositeId } | 
         { key: "normi.org", input: never, result: NormalisedOrganisation } | 
@@ -93,7 +93,7 @@ export type ExplorerContext = { type: "Location" } & Location | { type: "Tag" } 
 
 export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerItem> }
 
-export type ExplorerItem = { type: "Path" } & { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null } | { type: "Object" } & { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath> }
+export type ExplorerItem = { type: "Path" } & FilePathWithObject | { type: "Object" } & ObjectWithFilePaths
 
 export interface FileDecryptorJobInit { location_id: number, object_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
 
@@ -188,3 +188,7 @@ export interface TagCreateArgs { name: string, color: string }
 export interface TagUpdateArgs { id: number, name: string | null, color: string | null }
 
 export interface Volume { name: string, mount_point: string, total_capacity: bigint, available_capacity: bigint, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
+
+export interface FilePathWithObject { object: Object | null }
+
+export interface ObjectWithFilePaths { file_paths: Array<FilePath> }

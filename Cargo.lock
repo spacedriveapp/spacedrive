@@ -1537,12 +1537,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
-
-[[package]]
 name = "dtoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3990,9 +3984,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "1.0.9"
+version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1de2e551fb905ac83f73f7aedf2f0cb4a0da7e35efa24a202a936269f1f18e1"
+checksum = "d01a5bd0424d00070b0098dd17ebca6f961a959dead1dbcbbbc1d1cd8d3deeba"
 
 [[package]]
 name = "pathdiff"
@@ -4337,6 +4331,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust"
 version = "0.6.3"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=70288bbd60300a281443e88833de12ecb81b3671#70288bbd60300a281443e88833de12ecb81b3671"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -4349,6 +4344,7 @@ dependencies = [
  "include_dir",
  "indexmap",
  "migration-core",
+ "paste",
  "prisma-models",
  "psl",
  "query-connector",
@@ -4369,6 +4365,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-cli"
 version = "0.6.3"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=70288bbd60300a281443e88833de12ecb81b3671#70288bbd60300a281443e88833de12ecb81b3671"
 dependencies = [
  "directories",
  "flate2",
@@ -4388,6 +4385,7 @@ dependencies = [
 [[package]]
 name = "prisma-client-rust-sdk"
 version = "0.6.3"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=70288bbd60300a281443e88833de12ecb81b3671#70288bbd60300a281443e88833de12ecb81b3671"
 dependencies = [
  "convert_case 0.5.0",
  "dml",
@@ -5548,23 +5546,6 @@ dependencies = [
  "serde-value",
  "serde_json",
  "uhlc",
- "uuid 1.2.1",
-]
-
-[[package]]
-name = "sd-sync-example"
-version = "0.1.0"
-dependencies = [
- "axum",
- "dotenv",
- "http",
- "prisma-client-rust",
- "rspc",
- "sd-sync",
- "serde",
- "serde_json",
- "tokio",
- "tower-http",
  "uuid 1.2.1",
 ]
 

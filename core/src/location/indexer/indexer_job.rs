@@ -231,6 +231,7 @@ impl StatefulJob for IndexerJob {
 			.data
 			.as_ref()
 			.expect("critical error: missing data on job state");
+		let db = &ctx.library_ctx.db;
 
 		let location_path = &data.location_path;
 		let location_id = state.init.location.id;
@@ -298,16 +299,12 @@ impl StatefulJob for IndexerJob {
 
 		let sync = &ctx.library_ctx.sync;
 
-		let count = ctx
-			.library_ctx
-			.db
-			._transaction()
-			.run(|db| async move {
-				sync.write_op(&db, sync.owned_create_many("FilePath", sync_stuff))
-					.await?;
-
-				db.file_path().create_many(paths).exec().await
-			})
+		let count = sync
+			.write_op(
+				&db,
+				sync.owned_create_many("FilePath", sync_stuff),
+				db.file_path().create_many(paths),
+			)
 			.await?;
 
 		info!("Inserted {count} records");

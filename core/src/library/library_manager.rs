@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::Platform,
-	prisma::{key, node, PrismaClient},
+	prisma::{node, PrismaClient},
 	sync::SyncManager,
 	util::{
 		db::{load_and_migrate, write_storedkey_to_db},
@@ -341,9 +341,6 @@ impl LibraryManager {
 			)
 			.exec()
 			.await?;
-
-
-		let key_manager = Arc::new(create_keymanager(&db).await?);
 
 		let (sync_manager, mut sync_rx) = SyncManager::new(db.clone(), id);
 

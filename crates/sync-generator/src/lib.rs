@@ -1,6 +1,4 @@
-mod attribute;
-mod client;
-mod model;
+// mod model;
 mod prelude;
 
 use prelude::*;
@@ -18,26 +16,6 @@ impl PrismaGenerator for SDSyncGenerator {
 	type Error = Error;
 
 	fn generate(self, args: GenerateArgs) -> Result<String, Self::Error> {
-		// let new_fn = quote! {
-		// 	pub fn new(
-		// 		prisma_client: #PRISMA::PrismaClient,
-		// 		node_id: Vec<u8>,
-		// 	) -> (#CRDT_CLIENT, #MPSC::Receiver<#SYNC::CRDTOperation>) {
-		// 		let (tx, rx) = #MPSC::channel(64);
-
-		// 		let crdt_client = #CRDT_CLIENT::_new(prisma_client, node_id, tx);
-
-		// 		(crdt_client, rx)
-		// 	}
-		// };
-
-		// let client_struct = client::r#struct(&args.dml);
-
-		// let model_modules = args
-		// 	.dml
-		// 	.models()
-		// 	.map(|model| model::module(model, &args.dml));
-
 		let set_param_impls = args.dml.models().map(|model| {
 			let model_name_snake = snake_ident(&model.name);
 
@@ -74,16 +52,19 @@ impl PrismaGenerator for SDSyncGenerator {
                 }
 			});
 
-			quote! {
-				impl crate::prisma::#model_name_snake::SetParam {
-					pub fn deserialize(field: &str, val: ::serde_json::Value) -> Option<Self> {
-						Some(match field {
-							#(#field_matches)*
-							_ => return None
-						})
-					}
-				}
-			}
+            match field_matches.clone().count() { 
+                0 => quote!(),
+                _ => quote! {
+                    impl crate::prisma::#model_name_snake::SetParam {
+                        pub fn deserialize(field: &str, val: ::serde_json::Value) -> Option<Self> {
+                            Some(match field {
+                                #(#field_matches)*
+                                _ => return None
+                            })
+                        }
+                    }
+                }
+            }
 		});
 
 		let unique_where_param_impls = args.dml.models().map(|model| {
@@ -107,30 +88,25 @@ impl PrismaGenerator for SDSyncGenerator {
 				})
 				.collect::<Vec<_>>();
 
-			quote! {
-				impl crate::prisma::#model_name_snake::UniqueWhereParam {
-					pub fn deserialize(field: &str, val: ::serde_json::Value) -> Option<Self> {
-						Some(match field {
-							#(#field_matches)*
-							_ => return None
-						})
-					}
-				}
-			}
+            match field_matches.len() {
+                0 => quote!(),
+                _ => quote! {
+                    impl crate::prisma::#model_name_snake::UniqueWhereParam {
+                        pub fn deserialize(field: &str, val: ::serde_json::Value) -> Option<Self> {
+                            Some(match field {
+                                #(#field_matches)*
+                                _ => return None
+                            })
+                        }
+                    }
+                }
+            }
 		});
 
 		Ok(quote! {
-			// #new_fn
-
 			#(#set_param_impls)*
 
 			#(#unique_where_param_impls)*
-
-			// #(#model_modules)*
-
-			// pub mod _prisma {
-			// 	#client_struct
-			// }
 		}
 		.to_string())
 	}

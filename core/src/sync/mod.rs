@@ -34,14 +34,12 @@ impl SyncManager {
 		)
 	}
 
-	pub async fn write_ops<'a>(
+	pub async fn write_ops<'item, Q: prisma_client_rust::BatchItem<'item>>(
 		&self,
-		tx: &'a PrismaClient,
+		tx: &PrismaClient,
 		ops: Vec<CRDTOperation>,
-	) -> prisma_client_rust::Result<(
-		Vec<owned_operation::Create<'a>>,
-		Vec<shared_operation::Create<'a>>,
-	)> {
+		queries: Q,
+	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let owned = ops
 			.iter()
 			.filter_map(|op| match &op.typ {
@@ -55,7 +53,7 @@ impl SyncManager {
 				)),
 				_ => None,
 			})
-			.collect();
+			.collect::<Vec<_>>();
 
 		let shared = ops
 			.iter()
@@ -80,33 +78,38 @@ impl SyncManager {
 				}
 				_ => None,
 			})
-			.collect();
+			.collect::<Vec<_>>();
+
+		let (res, _) = tx._batch((queries, (owned, shared))).await?;
 
 		for op in ops {
 			self.tx.send(op).await.ok();
 		}
 
-		Ok((owned, shared))
+		Ok(res)
 	}
 
-	pub async fn write_op(
+	pub async fn write_op<'query, Q: prisma_client_rust::Query<'query>>(
 		&self,
 		tx: &PrismaClient,
 		op: CRDTOperation,
-	) -> prisma_client_rust::Result<()> {
-		match &op.typ {
+		query: Q,
+	) -> prisma_client_rust::Result<Q::ReturnValue> {
+		let ret = match &op.typ {
 			CRDTOperationType::Owned(owned_op) => {
-				tx.owned_operation()
-					.create(
+				tx._batch((
+					tx.owned_operation().create(
 						op.id.as_bytes().to_vec(),
 						op.timestamp.0 as i64,
 						to_vec(&owned_op.items).unwrap(),
 						owned_op.model.clone(),
 						node::pub_id::equals(op.node.as_bytes().to_vec()),
 						vec![],
-					)
-					.exec()
-					.await?;
+					),
+					query,
+				))
+				.await?
+				.1
 			}
 			CRDTOperationType::Shared(shared_op) => {
 				let kind = match &shared_op.data {
@@ -115,8 +118,8 @@ impl SyncManager {
 					SharedOperationData::Delete => "d",
 				};
 
-				tx.shared_operation()
-					.create(
+				tx._batch((
+					tx.shared_operation().create(
 						op.id.as_bytes().to_vec(),
 						op.timestamp.0 as i64,
 						shared_op.model.to_string(),
@@ -125,16 +128,18 @@ impl SyncManager {
 						to_vec(&shared_op.data).unwrap(),
 						node::pub_id::equals(op.node.as_bytes().to_vec()),
 						vec![],
-					)
-					.exec()
-					.await?;
+					),
+					query,
+				))
+				.await?
+				.1
 			}
-			_ => {}
-		}
+			_ => todo!(),
+		};
 
 		self.tx.send(op).await.ok();
 
-		Ok(())
+		Ok(ret)
 	}
 
 	pub async fn get_ops(&self) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
