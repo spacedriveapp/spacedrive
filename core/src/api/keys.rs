@@ -41,13 +41,6 @@ pub struct RestoreBackupArgs {
 }
 
 #[derive(Type, Deserialize)]
-pub struct OnboardingArgs {
-	algorithm: Algorithm,
-	hashing_algorithm: HashingAlgorithm,
-	password: Protected<String>,
-}
-
-#[derive(Type, Deserialize)]
 pub struct MasterPasswordChangeArgs {
 	password: String,
 	secret_key: Option<String>,
