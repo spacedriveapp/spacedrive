@@ -342,19 +342,7 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
-		let (sync_manager, mut sync_rx) = SyncManager::new(db.clone(), id);
-
-		let ops = sync_manager.get_ops().await.unwrap();
-
-		for op in ops {
-			sync_manager.ingest_op(op).await?;
-		}
-
-		tokio::spawn(async move {
-			while let Some(op) = sync_rx.recv().await {
-				dbg!(op);
-			}
-		});
+		let (sync_manager, _) = SyncManager::new(db.clone(), id);
 
 		Ok(LibraryContext {
 			id,
