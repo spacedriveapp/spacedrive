@@ -16,16 +16,16 @@ use super::{
 
 impl FileHeaderVersion {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::V1 => [0x0A, 0x01],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0A, 0x01] => Ok(Self::V1),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -40,16 +40,16 @@ impl Display for FileHeaderVersion {
 
 impl KeyslotVersion {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::V1 => [0x0D, 0x01],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0D, 0x01] => Ok(Self::V1),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -64,16 +64,16 @@ impl Display for KeyslotVersion {
 
 impl PreviewMediaVersion {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::V1 => [0x0E, 0x01],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0E, 0x01] => Ok(Self::V1),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -88,16 +88,16 @@ impl Display for PreviewMediaVersion {
 
 impl MetadataVersion {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::V1 => [0x1F, 0x01],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x1F, 0x01] => Ok(Self::V1),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -112,22 +112,30 @@ impl Display for MetadataVersion {
 
 impl HashingAlgorithm {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::Argon2id(p) => match p {
-				Params::Standard => [0x0F, 0x01],
-				Params::Hardened => [0x0F, 0x02],
-				Params::Paranoid => [0x0F, 0x03],
+				Params::Standard => [0xA2, 0x01],
+				Params::Hardened => [0xA2, 0x02],
+				Params::Paranoid => [0xA2, 0x03],
+			},
+			Self::BalloonBlake3(p) => match p {
+				Params::Standard => [0xB3, 0x01],
+				Params::Hardened => [0xB3, 0x02],
+				Params::Paranoid => [0xB3, 0x03],
 			},
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
-			[0x0F, 0x01] => Ok(Self::Argon2id(Params::Standard)),
-			[0x0F, 0x02] => Ok(Self::Argon2id(Params::Hardened)),
-			[0x0F, 0x03] => Ok(Self::Argon2id(Params::Paranoid)),
-			_ => Err(Error::FileHeader),
+			[0xA2, 0x01] => Ok(Self::Argon2id(Params::Standard)),
+			[0xA2, 0x02] => Ok(Self::Argon2id(Params::Hardened)),
+			[0xA2, 0x03] => Ok(Self::Argon2id(Params::Paranoid)),
+			[0xB3, 0x01] => Ok(Self::BalloonBlake3(Params::Standard)),
+			[0xB3, 0x02] => Ok(Self::BalloonBlake3(Params::Hardened)),
+			[0xB3, 0x03] => Ok(Self::BalloonBlake3(Params::Paranoid)),
+			_ => Err(Error::Serialization),
 		}
 	}
 }
@@ -136,6 +144,7 @@ impl Display for HashingAlgorithm {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match *self {
 			Self::Argon2id(p) => write!(f, "Argon2id ({})", p),
+			Self::BalloonBlake3(p) => write!(f, "BLAKE3-Balloon ({})", p),
 		}
 	}
 }
@@ -152,18 +161,18 @@ impl Display for Params {
 
 impl Algorithm {
 	#[must_use]
-	pub const fn serialize(&self) -> [u8; 2] {
+	pub const fn to_bytes(&self) -> [u8; 2] {
 		match self {
 			Self::XChaCha20Poly1305 => [0x0B, 0x01],
 			Self::Aes256Gcm => [0x0B, 0x02],
 		}
 	}
 
-	pub const fn deserialize(bytes: [u8; 2]) -> Result<Self> {
+	pub const fn from_bytes(bytes: [u8; 2]) -> Result<Self> {
 		match bytes {
 			[0x0B, 0x01] => Ok(Self::XChaCha20Poly1305),
 			[0x0B, 0x02] => Ok(Self::Aes256Gcm),
-			_ => Err(Error::FileHeader),
+			_ => Err(Error::Serialization),
 		}
 	}
 }

@@ -420,6 +420,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "balloon-hash"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fdbafd8c776e0a7c250b5dfaf4723477e0d92b42c5a91ce4e50bd9bb2dcc9a1"
+dependencies = [
+ "crypto-bigint",
+ "digest 0.10.5",
+ "password-hash",
+]
+
+[[package]]
 name = "base64"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -882,6 +893,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.0.32",
+ "hex",
+ "indoc",
+ "sd-crypto",
+]
+
+[[package]]
 name = "cloudabi"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1174,13 +1196,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
-name = "crypto-cli"
-version = "0.0.0"
+name = "crypto-bigint"
+version = "0.4.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef2b4b23cddf68b89b8f8069890e8c270d54e2d5fe1b143820234805e4cb17ef"
 dependencies = [
- "anyhow",
- "clap 4.0.32",
- "hex",
- "sd-crypto",
+ "generic-array",
+ "subtle",
 ]
 
 [[package]]
@@ -2682,9 +2704,9 @@ dependencies = [
 
 [[package]]
 name = "indoc"
-version = "1.0.7"
+version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adab1eaa3408fb7f0c777a73e7465fd5656136fc93b670eb6df3c88c2c1344e3"
+checksum = "da2d6f23ffea9d7e76c53eee25dfb67bcd8fde7f1198b0855350698c9f07c780"
 
 [[package]]
 name = "infer"
@@ -5526,6 +5548,7 @@ dependencies = [
  "aead",
  "aes-gcm",
  "argon2",
+ "balloon-hash",
  "blake3",
  "chacha20poly1305",
  "criterion",
