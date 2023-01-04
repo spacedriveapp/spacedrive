@@ -49,9 +49,9 @@ export default function CreateLibraryDialog({
 
 		if (data.password !== data.password_validate) {
 			alert('Passwords are not the same');
+		} else {
+			return createLibrary.mutateAsync(data);
 		}
-
-		return createLibrary.mutateAsync(data);
 	});
 
 	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
