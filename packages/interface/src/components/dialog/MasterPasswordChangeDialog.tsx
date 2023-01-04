@@ -1,14 +1,17 @@
 import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
+import { writeText } from '@tauri-apps/api/clipboard';
 import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
 import zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
 import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
-import { Eye, EyeSlash } from 'phosphor-react';
+import cryptoRandomString from 'crypto-random-string';
+import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 
 import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
+import { generatePassword } from '../key/KeyMounter';
 import { GenericAlertDialogProps } from './AlertDialog';
 
 export interface MasterPasswordChangeDialogProps {
@@ -80,8 +83,10 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
 	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
 	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
+	const [showSecretKey, setShowSecretKey] = useState(false);
 	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
 	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
+	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 	const { trigger } = props;
 
 	return (
@@ -91,7 +96,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 					open={showMasterPasswordDialog}
 					setOpen={setShowMasterPasswordDialog}
 					title="Change Master Password"
-					description="Select a new master password for your key manager."
+					description="Select a new master password for your key manager. Leave the key secret blank to disable it."
 					ctaDanger={true}
 					loading={changeMasterPassword.isLoading}
 					ctaLabel="Change"
@@ -105,6 +110,30 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							{...form.register('masterPassword', { required: true })}
 							type={showMasterPassword1 ? 'text' : 'password'}
 						/>
+						<Button
+							onClick={() => {
+								const password = generatePassword(32);
+								form.setValue('masterPassword', password);
+								form.setValue('masterPassword2', password);
+								setShowMasterPassword1(true);
+								setShowMasterPassword2(true);
+							}}
+							size="icon"
+							className="border-none absolute right-[65px] top-[5px]"
+							type="button"
+						>
+							<ArrowsClockwise className="w-4 h-4" />
+						</Button>
+						<Button
+							type="button"
+							onClick={() => {
+								writeText(form.watch('masterPassword') as string);
+							}}
+							size="icon"
+							className="border-none absolute right-[35px] top-[5px]"
+						>
+							<Clipboard className="w-4 h-4" />
+						</Button>
 						<Button
 							onClick={() => setShowMasterPassword1(!showMasterPassword1)}
 							size="icon"
@@ -137,8 +166,38 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							className={`flex-grow !py-0.5}`}
 							placeholder="Key secret"
 							{...form.register('secretKey', { required: false })}
-							// type={showMasterPassword ? 'text' : 'password'}
+							type={showSecretKey ? 'text' : 'password'}
 						/>
+						<Button
+							// onClick={() => setShowMasterPassword2(!showMasterPassword2)}
+							onClick={() => {
+								form.setValue('secretKey', cryptoRandomString({ length: 24 }));
+								setShowSecretKey(true);
+							}}
+							size="icon"
+							className="border-none absolute right-[65px] top-[5px]"
+							type="button"
+						>
+							<ArrowsClockwise className="w-4 h-4" />
+						</Button>
+						<Button
+							type="button"
+							onClick={() => {
+								writeText(form.watch('secretKey') as string);
+							}}
+							size="icon"
+							className="border-none absolute right-[35px] top-[5px]"
+						>
+							<Clipboard className="w-4 h-4" />
+						</Button>
+						<Button
+							onClick={() => setShowSecretKey(!showSecretKey)}
+							size="icon"
+							className="border-none absolute right-[5px] top-[5px]"
+							type="button"
+						>
+							<SKCurrentEyeIcon className="w-4 h-4" />
+						</Button>
 					</div>
 
 					<PasswordMeter password={form.watch('masterPassword')} />
