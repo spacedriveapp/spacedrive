@@ -75,7 +75,7 @@ export default function CreateLibraryDialog({
 		>
 			<form onSubmit={doSubmit}>
 				<div className="relative flex flex-col">
-					<p className="text-sm mt-3">Name:</p>
+					<p className="text-sm mt-2 mb-2">Library name:</p>
 					<Input
 						className="flex-grow w-full"
 						placeholder="My Cool Library"
@@ -88,6 +88,9 @@ export default function CreateLibraryDialog({
 				{/* <span className="text-sm">Make the secret key field empty to skip key setup.</span> */}
 
 				<div className="relative flex flex-col">
+					<p className="text-center mt-2 mb-1 text-[0.95rem]">Key Manager</p>
+					<div className="w-full my-1 h-[2px] bg-gray-500" />
+
 					<p className="text-sm mt-2 mb-2">Master password:</p>
 					<div className="relative flex flex-grow mb-2">
 						<Input
