@@ -41,7 +41,7 @@ fn encrypt() {
 		HASHING_ALGORITHM,
 		content_salt,
 		hashed_password,
-		&master_key,
+		master_key.clone(),
 	)
 	.unwrap()];
 
@@ -52,7 +52,7 @@ fn encrypt() {
 		.add_metadata(
 			MetadataVersion::V1,
 			ALGORITHM,
-			&master_key,
+			master_key.clone(),
 			&embedded_metadata,
 		)
 		.unwrap();
@@ -77,7 +77,7 @@ pub fn decrypt_metadata() {
 	let mut reader = File::open("test.encrypted").unwrap();
 
 	// Deserialize the header, keyslots, etc from the encrypted file
-	let (header, _) = FileHeader::deserialize(&mut reader).unwrap();
+	let (header, _) = FileHeader::from_reader(&mut reader).unwrap();
 
 	// Decrypt the metadata
 	let file_info: FileInformation = header.decrypt_metadata(password).unwrap();

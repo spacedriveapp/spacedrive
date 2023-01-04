@@ -15,16 +15,13 @@ fn bench(c: &mut Criterion) {
 		let salt = generate_salt();
 		let hashing_algorithm = HashingAlgorithm::Argon2id(param);
 
-		group.bench_function(
-			BenchmarkId::new("hash", param.get_argon2_params().m_cost()),
-			|b| {
-				b.iter_batched(
-					|| (key.clone(), salt.clone()),
-					|(key, salt)| hashing_algorithm.hash(key, salt),
-					BatchSize::SmallInput,
-				)
-			},
-		);
+		group.bench_function(BenchmarkId::new("hash", param.argon2id().m_cost()), |b| {
+			b.iter_batched(
+				|| (key.clone(), salt.clone()),
+				|(key, salt)| hashing_algorithm.hash(key, salt),
+				BatchSize::SmallInput,
+			)
+		});
 	}
 
 	group.finish();

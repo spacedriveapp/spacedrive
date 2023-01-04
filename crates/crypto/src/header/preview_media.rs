@@ -20,7 +20,7 @@
 //! )
 //! .unwrap();
 //! ```
-use std::io::{Read, Seek};
+use std::io::Read;
 
 use crate::{
 	crypto::stream::{Algorithm, StreamDecryption, StreamEncryption},
@@ -56,22 +56,18 @@ impl FileHeader {
 	/// You will need to provide the user's password, and a semi-universal salt for hashing the user's password. This allows for extremely fast decryption.
 	///
 	/// Preview media needs to be accessed switfly, so a key management system should handle the salt generation.
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn add_preview_media(
 		&mut self,
 		version: PreviewMediaVersion,
 		algorithm: Algorithm,
-		master_key: &Protected<[u8; KEY_LEN]>,
+		master_key: Protected<[u8; KEY_LEN]>,
 		media: &[u8],
 	) -> Result<()> {
 		let media_nonce = generate_nonce(algorithm);
 
-		let encrypted_media = StreamEncryption::encrypt_bytes(
-			master_key.clone(),
-			&media_nonce,
-			algorithm,
-			media,
-			&[],
-		)?;
+		let encrypted_media =
+			StreamEncryption::encrypt_bytes(master_key, &media_nonce, algorithm, media, &[])?;
 
 		let pvm = PreviewMedia {
 			version,
@@ -143,28 +139,27 @@ impl FileHeader {
 impl PreviewMedia {
 	#[must_use]
 	pub fn size(&self) -> usize {
-		self.serialize().len()
+		self.to_bytes().len()
 	}
 
 	/// This function is used to serialize a preview media header item into bytes
 	///
 	/// This also includes the encrypted preview media itself, so this may be sizeable
 	#[must_use]
-	pub fn serialize(&self) -> Vec<u8> {
+	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			PreviewMediaVersion::V1 => {
-				let mut preview_media = Vec::new();
-				preview_media.extend_from_slice(&self.version.serialize()); // 2
-				preview_media.extend_from_slice(&self.algorithm.serialize()); // 4
-				preview_media.extend_from_slice(&self.media_nonce); // 24 max
-				preview_media.extend_from_slice(&vec![0u8; 24 - self.media_nonce.len()]); // 28 total bytes
-
-				let media_len = self.media.len() as u64;
-
-				preview_media.extend_from_slice(&media_len.to_le_bytes()); // 36 total bytes
-				preview_media.extend_from_slice(&self.media); // this can vary in length
-				preview_media
-			}
+			PreviewMediaVersion::V1 => vec![
+				self.version.to_bytes().as_ref(),
+				self.algorithm.to_bytes().as_ref(),
+				&self.media_nonce,
+				&vec![0u8; 24 - self.media_nonce.len()],
+				&(self.media.len() as u64).to_le_bytes(),
+				&self.media,
+			]
+			.iter()
+			.flat_map(|&v| v)
+			.copied()
+			.collect(),
 		}
 	}
 
@@ -173,20 +168,20 @@ impl PreviewMedia {
 	/// The cursor will be left at the end of the preview media item on success
 	///
 	/// The cursor will not be rewound on error.
-	pub fn deserialize<R>(reader: &mut R) -> Result<Self>
+	pub fn from_reader<R>(reader: &mut R) -> Result<Self>
 	where
-		R: Read + Seek,
+		R: Read,
 	{
 		let mut version = [0u8; 2];
 		reader.read_exact(&mut version)?;
 		let version =
-			PreviewMediaVersion::deserialize(version).map_err(|_| Error::NoPreviewMedia)?;
+			PreviewMediaVersion::from_bytes(version).map_err(|_| Error::NoPreviewMedia)?;
 
 		match version {
 			PreviewMediaVersion::V1 => {
 				let mut algorithm = [0u8; 2];
 				reader.read_exact(&mut algorithm)?;
-				let algorithm = Algorithm::deserialize(algorithm)?;
+				let algorithm = Algorithm::from_bytes(algorithm)?;
 
 				let mut media_nonce = vec![0u8; algorithm.nonce_len()];
 				reader.read_exact(&mut media_nonce)?;
