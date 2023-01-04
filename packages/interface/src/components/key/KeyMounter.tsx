@@ -10,11 +10,8 @@ import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
 
-const PasswordCharset =
-	'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]:"\';<>?,./\\|`~';
-
-const GeneratePassword = (length: number) => {
-	return cryptoRandomString({ length, characters: PasswordCharset });
+export const generatePassword = (length: number) => {
+	return cryptoRandomString({ length, type: 'ascii-printable' });
 };
 
 export function KeyMounter() {
@@ -73,10 +70,10 @@ export function KeyMounter() {
 						defaultValue={[64]}
 						onValueChange={(e) => {
 							setSliderValue(e);
-							setKey(GeneratePassword(e[0]));
+							setKey(generatePassword(e[0]));
 						}}
 						onClick={() => {
-							setKey(GeneratePassword(sliderValue[0]));
+							setKey(generatePassword(sliderValue[0]));
 						}}
 					/>
 				</div>

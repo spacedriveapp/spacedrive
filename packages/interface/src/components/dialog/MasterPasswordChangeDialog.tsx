@@ -22,7 +22,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 		secretKey: string | null;
 	};
 
-	const { register, handleSubmit, reset } = useForm<FormValues>({
+	const form = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
 			masterPassword2: '',
@@ -70,13 +70,12 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 				}
 			);
 
-			reset();
+			form.reset();
 		}
 	};
 
 	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
 	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
-	const [passwordMeterMasterPw, setPasswordMeterMasterPw] = useState(''); // this is needed as the password meter won't update purely with react-hook-form
 	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
 	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
@@ -87,7 +86,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 
 	return (
 		<>
-			<form onSubmit={handleSubmit(onSubmit)}>
+			<form onSubmit={form.handleSubmit(onSubmit)}>
 				<Dialog
 					open={showMasterPasswordDialog}
 					setOpen={setShowMasterPasswordDialog}
@@ -103,9 +102,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							className={`flex-grow w-max !py-0.5`}
 							placeholder="New password"
 							required
-							{...register('masterPassword', { required: true })}
-							onChange={(e) => setPasswordMeterMasterPw(e.target.value)}
-							value={passwordMeterMasterPw}
+							{...form.register('masterPassword', { required: true })}
 							type={showMasterPassword1 ? 'text' : 'password'}
 						/>
 						<Button
@@ -122,7 +119,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							className={`flex-grow !py-0.5}`}
 							placeholder="New password (again)"
 							required
-							{...register('masterPassword2', { required: true })}
+							{...form.register('masterPassword2', { required: true })}
 							type={showMasterPassword2 ? 'text' : 'password'}
 						/>
 						<Button
@@ -139,12 +136,12 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 						<Input
 							className={`flex-grow !py-0.5}`}
 							placeholder="Key secret"
-							{...register('secretKey', { required: false })}
+							{...form.register('secretKey', { required: false })}
 							// type={showMasterPassword ? 'text' : 'password'}
 						/>
 					</div>
 
-					<PasswordMeter password={passwordMeterMasterPw} />
+					<PasswordMeter password={form.watch('masterPassword')} />
 
 					<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
 						<div className="flex flex-col">
@@ -176,7 +173,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 	);
 };
 
-const PasswordMeter = (props: { password: string }) => {
+export const PasswordMeter = (props: { password: string }) => {
 	const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
 
 	const options = {
