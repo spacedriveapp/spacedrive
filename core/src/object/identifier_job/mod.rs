@@ -127,11 +127,7 @@ async fn batch_update_file_paths(
 		objects.len()
 	);
 
-	let ret = library.sync.write_ops(&library.db, sync, updates).await?;
-
-	Ok(ret)
-	// library.sync.write_ops(&db, sync).await?;
-	// db._batch(updates).await
+	library.sync.write_ops(&library.db, sync, updates).await
 }
 
 async fn generate_provisional_objects(

@@ -297,13 +297,15 @@ impl StatefulJob for IndexerJob {
 			})
 			.unzip();
 
-		let sync = &ctx.library_ctx.sync;
-
-		let count = sync
+		let count = ctx
+			.library_ctx
+			.sync
 			.write_op(
 				&db,
-				sync.owned_create_many("FilePath", sync_stuff),
-				db.file_path().create_many(paths),
+				ctx.library_ctx
+					.sync
+					.owned_create_many("FilePath", sync_stuff),
+				db.file_path().create_many(paths).skip_duplicates(),
 			)
 			.await?;
 
