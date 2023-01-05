@@ -150,7 +150,7 @@ export default function KeysSettings() {
 						disabled={setMasterPasswordMutation.isLoading}
 						onClick={() => {
 							if (masterPassword !== '') {
-								const sk = secretKey !== null ? secretKey : null;
+								const sk = secretKey ?? null;
 								setMasterPassword('');
 								setSecretKey('');
 								setMasterPasswordMutation.mutate(
@@ -287,46 +287,21 @@ export default function KeysSettings() {
 	}
 }
 
+const table: Record<string, HashingAlgorithm> = {
+	'Argon2id-s': { name: 'Argon2id', params: 'Standard' },
+	'Argon2id-h': { name: 'Argon2id', params: 'Hardened' },
+	'Argon2id-p': { name: 'Argon2id', params: 'Paranoid' },
+	'BalloonBlake3-s': { name: 'BalloonBlake3', params: 'Standard' },
+	'BalloonBlake3-h': { name: 'BalloonBlake3', params: 'Hardened' },
+	'BalloonBlake3-p': { name: 'BalloonBlake3', params: 'Paranoid' }
+};
+
 // not sure of a suitable place for this function
 export const getHashingAlgorithmSettings = (hashingAlgorithm: string): HashingAlgorithm => {
-	let hashing_algorithm: HashingAlgorithm = { name: 'Argon2id', params: 'Standard' };
-
-	switch (hashingAlgorithm) {
-		case 'Argon2id-s':
-			hashing_algorithm = { name: 'Argon2id', params: 'Standard' };
-			break;
-		case 'Argon2id-h':
-			hashing_algorithm = { name: 'Argon2id', params: 'Hardened' };
-			break;
-		case 'Argon2id-p':
-			hashing_algorithm = { name: 'Argon2id', params: 'Paranoid' };
-			break;
-		case 'BalloonBlake3-s':
-			hashing_algorithm = { name: 'BalloonBlake3', params: 'Standard' };
-			break;
-		case 'BalloonBlake3-h':
-			hashing_algorithm = { name: 'BalloonBlake3', params: 'Hardened' };
-			break;
-		case 'BalloonBlake3-p':
-			hashing_algorithm = { name: 'BalloonBlake3', params: 'Paranoid' };
-			break;
-	}
-
-	return hashing_algorithm;
+	return table[hashingAlgorithm];
 };
 
 // not sure of a suitable place for this function
 export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
-	let hashing_algorithm = '';
-
-	hashing_algorithm = hashingAlgorithm.name as string;
-	if (hashingAlgorithm.params === 'Standard') {
-		hashing_algorithm += '-s';
-	} else if (hashingAlgorithm.params === 'Hardened') {
-		hashing_algorithm += '-h';
-	} else if (hashingAlgorithm.params === 'Paranoid') {
-		hashing_algorithm += '-p';
-	}
-
-	return hashing_algorithm;
+	return Object.entries(table).find((s, i) => table[i] === hashingAlgorithm)![0];
 };
