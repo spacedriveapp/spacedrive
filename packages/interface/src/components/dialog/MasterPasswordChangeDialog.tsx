@@ -1,27 +1,27 @@
 import { Algorithm, useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { writeText } from '@tauri-apps/api/clipboard';
-import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
-import zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
-import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
-import clsx from 'clsx';
 import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
-import { SubmitHandler, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 
 import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import { generatePassword } from '../key/KeyMounter';
+import { PasswordMeter } from '../key/PasswordMeter';
 import { GenericAlertDialogProps } from './AlertDialog';
 
 export interface MasterPasswordChangeDialogProps {
 	trigger: ReactNode;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
+
 type FormValues = {
 	masterPassword: string;
 	masterPassword2: string;
 	secretKey: string | null;
+	encryptionAlgo: string;
+	hashingAlgo: string;
 };
 
 export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
@@ -31,23 +31,48 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 		defaultValues: {
 			masterPassword: '',
 			masterPassword2: '',
-			secretKey: ''
+			secretKey: '',
+			encryptionAlgo: 'XChaCha20Poly1305',
+			hashingAlgo: 'Argon2id-s'
 		}
 	});
 
-	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
-	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
-	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
-	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
-	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
-	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
-	const [showSecretKey, setShowSecretKey] = useState(false);
+	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword', {
+		onSuccess: () => {
+			setShow((old) => ({ ...old, masterPasswordDialog: false }));
+			props.setAlertDialogData({
+				open: true,
+				title: 'Success',
+				description: '',
+				value: 'Your master password was changed successfully',
+				inputBox: false
+			});
+		},
+		onError: () => {
+			// this should never really happen
+			setShow((old) => ({ ...old, masterPasswordDialog: false }));
+			props.setAlertDialogData({
+				open: true,
+				title: 'Master Password Change Error',
+				description: '',
+				value: 'There was an error while changing your master password.',
+				inputBox: false
+			});
+		}
+	});
 
-	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
-	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
+	const [show, setShow] = useState({
+		masterPasswordDialog: false,
+		masterPassword: false,
+		masterPassword2: false,
+		secretKey: false
+	});
 
-	const onSubmit: SubmitHandler<FormValues> = (data) => {
+	const MP1CurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
+	const MP2CurrentEyeIcon = show.masterPassword2 ? EyeSlash : Eye;
+	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
+
+	const onSubmit = form.handleSubmit((data) => {
 		if (data.masterPassword !== data.masterPassword2) {
 			props.setAlertDialogData({
 				open: true,
@@ -57,51 +82,28 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 				inputBox: false
 			});
 		} else {
-			const hashing_algorithm = getHashingAlgorithmSettings(hashingAlgo);
-			const sk = data.secretKey !== null ? data.secretKey : null;
+			const hashing_algorithm = getHashingAlgorithmSettings(data.hashingAlgo);
+			const sk = data.secretKey ?? null;
 
-			changeMasterPassword.mutate(
-				{
-					algorithm: encryptionAlgo as Algorithm,
-					hashing_algorithm,
-					password: data.masterPassword,
-					secret_key: sk
-				},
-				{
-					onSuccess: () => {
-						setShowMasterPasswordDialog(false);
-						props.setAlertDialogData({
-							open: true,
-							title: 'Success',
-							description: '',
-							value: 'Your master password was changed successfully',
-							inputBox: false
-						});
-					},
-					onError: () => {
-						// this should never really happen
-						setShowMasterPasswordDialog(false);
-						props.setAlertDialogData({
-							open: true,
-							title: 'Master Password Change Error',
-							description: '',
-							value: 'There was an error while changing your master password.',
-							inputBox: false
-						});
-					}
-				}
-			);
+			changeMasterPassword.mutate({
+				algorithm: data.encryptionAlgo as Algorithm,
+				hashing_algorithm,
+				password: data.masterPassword,
+				secret_key: sk
+			});
 
 			form.reset();
 		}
-	};
+	});
 
 	return (
 		<>
-			<form onSubmit={form.handleSubmit(onSubmit)}>
+			<form onSubmit={onSubmit}>
 				<Dialog
-					open={showMasterPasswordDialog}
-					setOpen={setShowMasterPasswordDialog}
+					open={show.masterPasswordDialog}
+					setOpen={(e) => {
+						setShow((old) => ({ ...old, masterPasswordDialog: e }));
+					}}
 					title="Change Master Password"
 					description="Select a new master password for your key manager. Leave the key secret blank to disable it."
 					ctaDanger={true}
@@ -115,15 +117,18 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							placeholder="New password"
 							required
 							{...form.register('masterPassword', { required: true })}
-							type={showMasterPassword1 ? 'text' : 'password'}
+							type={show.masterPassword ? 'text' : 'password'}
 						/>
 						<Button
 							onClick={() => {
 								const password = generatePassword(32);
 								form.setValue('masterPassword', password);
 								form.setValue('masterPassword2', password);
-								setShowMasterPassword1(true);
-								setShowMasterPassword2(true);
+								setShow((old) => ({
+									...old,
+									masterPassword: true,
+									masterPassword2: true
+								}));
 							}}
 							size="icon"
 							className="border-none absolute right-[65px] top-[5px]"
@@ -142,7 +147,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							<Clipboard className="w-4 h-4" />
 						</Button>
 						<Button
-							onClick={() => setShowMasterPassword1(!showMasterPassword1)}
+							onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
 							size="icon"
 							className="border-none absolute right-[5px] top-[5px]"
 							type="button"
@@ -156,10 +161,10 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							placeholder="New password (again)"
 							required
 							{...form.register('masterPassword2', { required: true })}
-							type={showMasterPassword2 ? 'text' : 'password'}
+							type={show.masterPassword2 ? 'text' : 'password'}
 						/>
 						<Button
-							onClick={() => setShowMasterPassword2(!showMasterPassword2)}
+							onClick={() => setShow((old) => ({ ...old, masterPassword2: !old.masterPassword2 }))}
 							size="icon"
 							className="border-none absolute right-[5px] top-[5px]"
 							type="button"
@@ -173,13 +178,13 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							className={`flex-grow !py-0.5}`}
 							placeholder="Key secret"
 							{...form.register('secretKey', { required: false })}
-							type={showSecretKey ? 'text' : 'password'}
+							type={show.secretKey ? 'text' : 'password'}
 						/>
 						<Button
-							// onClick={() => setShowMasterPassword2(!showMasterPassword2)}
+							// onClick={() => setmasterPassword2(!masterPassword2)}
 							onClick={() => {
 								form.setValue('secretKey', cryptoRandomString({ length: 24 }));
-								setShowSecretKey(true);
+								setShow((old) => ({ ...old, secretKey: true }));
 							}}
 							size="icon"
 							className="border-none absolute right-[65px] top-[5px]"
@@ -198,7 +203,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							<Clipboard className="w-4 h-4" />
 						</Button>
 						<Button
-							onClick={() => setShowSecretKey(!showSecretKey)}
+							onClick={() => setShow((old) => ({ ...old, secretKey: !old.secretKey }))}
 							size="icon"
 							className="border-none absolute right-[5px] top-[5px]"
 							type="button"
@@ -214,8 +219,8 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 							<span className="text-xs font-bold">Encryption</span>
 							<Select
 								className="mt-2"
-								value={encryptionAlgo}
-								onChange={(e) => setEncryptionAlgo(e)}
+								value={form.watch('encryptionAlgo')}
+								onChange={(e) => form.setValue('encryptionAlgo', e)}
 							>
 								<SelectOption value="XChaCha20Poly1305">XChaCha20-Poly1305</SelectOption>
 								<SelectOption value="Aes256Gcm">AES-256-GCM</SelectOption>
@@ -223,7 +228,11 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 						</div>
 						<div className="flex flex-col">
 							<span className="text-xs font-bold">Hashing</span>
-							<Select className="mt-2" value={hashingAlgo} onChange={(e) => setHashingAlgo(e)}>
+							<Select
+								className="mt-2"
+								value={form.watch('hashingAlgo')}
+								onChange={(e) => form.setValue('hashingAlgo', e)}
+							>
 								<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 								<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 								<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
@@ -236,55 +245,5 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 				</Dialog>
 			</form>
 		</>
-	);
-};
-
-export const PasswordMeter = (props: { password: string }) => {
-	const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
-
-	const options = {
-		dictionary: {
-			...zxcvbnCommonPackage.dictionary,
-			...zxcvbnEnPackage.dictionary
-		},
-		graps: zxcvbnCommonPackage.adjacencyGraphs,
-		translations: zxcvbnEnPackage.translations
-	};
-	zxcvbnOptions.setOptions(options);
-	const zx = zxcvbn(props.password);
-
-	const innerDiv = {
-		width: `${zx.score !== 0 ? zx.score * 25 : 12.5}%`,
-		height: '5px',
-		borderRadius: 80
-	};
-
-	return (
-		<div className="mt-4 mb-5 relative flex flex-grow">
-			<div className="mt-2 w-4/5 h-[5px] rounded-[80px]">
-				<div
-					style={innerDiv}
-					className={clsx(
-						zx.score === 0 && 'bg-red-700',
-						zx.score === 1 && 'bg-red-500',
-						zx.score === 2 && 'bg-amber-400',
-						zx.score === 3 && 'bg-lime-500',
-						zx.score === 4 && 'bg-accent'
-					)}
-				/>
-			</div>
-			<span
-				className={clsx(
-					'absolute font-[750] right-[5px] text-sm pr-1 pl-1',
-					zx.score === 0 && 'text-red-700',
-					zx.score === 1 && 'text-red-500',
-					zx.score === 2 && 'text-amber-400',
-					zx.score === 3 && 'text-lime-500',
-					zx.score === 4 && 'text-accent'
-				)}
-			>
-				{ratings[zx.score]}
-			</span>
-		</div>
 	);
 };
