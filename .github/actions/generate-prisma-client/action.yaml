@@ -7,8 +7,8 @@ runs:
       id: cache-prisma
       uses: actions/cache@v3
       with:
-        path: ./core/src/prisma.rs
-        key: prisma-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './Cargo.toml') }}
+        path: ./core/src/prisma*.rs
+        key: prisma-0-${{ runner.os }}-${{ hashFiles('./core/prisma/*', './Cargo.toml') }}
 
     - name: Generate Prisma client
       working-directory: core
