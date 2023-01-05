@@ -39,6 +39,8 @@ tokio = { version = "1.25.0" }
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
 openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92c3dec225a9e984884d5b30a517e5d44a24d03b" }
+ffmpeg-sys-next = { git = "https://github.com/oscartbeaumont/rust-ffmpeg-sys.git", rev = "78015ff4175af29d5febec994297f98f812d0979" } # TODO: For better error messages in `build.rs`. Do PR upstream!
+
 
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }   # TODO: Move back to crates.io when new jsonrpc executor + `tokio::spawn` in the Tauri IPC plugin is released
 normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }  # TODO: When normi is released on crates.io
