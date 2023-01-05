@@ -9,7 +9,7 @@ import { useForm } from 'react-hook-form';
 
 import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import { generatePassword } from '../key/KeyMounter';
-import { PasswordMeter } from './MasterPasswordChangeDialog';
+import { PasswordMeter } from '../key/PasswordMeter';
 
 export default function CreateLibraryDialog({
 	children,
@@ -61,10 +61,8 @@ export default function CreateLibraryDialog({
 			alert('Passwords are not the same');
 		} else {
 			return createLibrary.mutateAsync({
-				name: data.name,
+				...data,
 				algorithm: data.algorithm as Algorithm,
-				password: data.password,
-				secret_key: data.secret_key,
 				hashing_algorithm: getHashingAlgorithmSettings(data.hashing_algorithm)
 			});
 		}
