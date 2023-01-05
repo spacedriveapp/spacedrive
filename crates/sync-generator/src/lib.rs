@@ -1,7 +1,4 @@
-// mod model;
-mod prelude;
-
-use prelude::*;
+pub use prisma_client_rust_sdk::prelude::*;
 
 #[derive(Debug, serde::Serialize, thiserror::Error)]
 enum Error {}
@@ -52,7 +49,7 @@ impl PrismaGenerator for SDSyncGenerator {
                 }
 			});
 
-            match field_matches.clone().count() { 
+            match field_matches.clone().count() {
                 0 => quote!(),
                 _ => quote! {
                     impl crate::prisma::#model_name_snake::SetParam {
@@ -76,7 +73,7 @@ impl PrismaGenerator for SDSyncGenerator {
 				.flat_map(|criteria| match &criteria.fields[..] {
 					[field] => {
 						let unique_field_name_str = &field.name;
-						let unique_field_name_snake = snake_ident(&unique_field_name_str);
+						let unique_field_name_snake = snake_ident(unique_field_name_str);
 
 						Some(quote!(#unique_field_name_str =>
 							crate::prisma::#model_name_snake::#unique_field_name_snake::equals(
@@ -88,19 +85,19 @@ impl PrismaGenerator for SDSyncGenerator {
 				})
 				.collect::<Vec<_>>();
 
-            match field_matches.len() {
-                0 => quote!(),
-                _ => quote! {
-                    impl crate::prisma::#model_name_snake::UniqueWhereParam {
-                        pub fn deserialize(field: &str, val: ::serde_json::Value) -> Option<Self> {
-                            Some(match field {
-                                #(#field_matches)*
-                                _ => return None
-                            })
-                        }
-                    }
-                }
-            }
+			match field_matches.len() {
+				0 => quote!(),
+				_ => quote! {
+					impl crate::prisma::#model_name_snake::UniqueWhereParam {
+						pub fn deserialize(field: &str, val: ::serde_json::Value) -> Option<Self> {
+							Some(match field {
+								#(#field_matches)*
+								_ => return None
+							})
+						}
+					}
+				},
+			}
 		});
 
 		Ok(quote! {

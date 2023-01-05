@@ -301,7 +301,7 @@ impl StatefulJob for IndexerJob {
 			.library_ctx
 			.sync
 			.write_op(
-				&db,
+				db,
 				ctx.library_ctx
 					.sync
 					.owned_create_many("FilePath", sync_stuff, true),

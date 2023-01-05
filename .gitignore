@@ -61,7 +61,7 @@ yalc.lock
 todos.md
 examples/*/*.lock
 /target
-/core/src/prisma*.rs
+prisma*.rs
 
 /sdserver_data
 .spacedrive

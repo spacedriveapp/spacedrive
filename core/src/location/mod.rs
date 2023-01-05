@@ -337,7 +337,7 @@ async fn create_location(
 	let location = ctx
 		.sync
 		.write_op(
-			&db,
+			db,
 			ctx.sync.owned_create(
 				"Location",
 				json!({ "id": location_pub_id.as_bytes() }),

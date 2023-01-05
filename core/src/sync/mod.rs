@@ -252,8 +252,9 @@ impl SyncManager {
 										serde_json::from_value(data.remove("name").unwrap())
 											.unwrap(),
 										data.into_iter()
-											.map(|(k, v)| file_path::SetParam::deserialize(&k, v))
-											.flatten()
+											.flat_map(|(k, v)| {
+												file_path::SetParam::deserialize(&k, v)
+											})
 											.collect(),
 									)
 									.exec()
@@ -305,10 +306,9 @@ impl SyncManager {
 												)
 												.unwrap(),
 												data.into_iter()
-													.map(|(k, v)| {
+													.flat_map(|(k, v)| {
 														file_path::SetParam::deserialize(&k, v)
 													})
-													.flatten()
 													.collect(),
 											)
 										})
@@ -327,8 +327,9 @@ impl SyncManager {
 									.update(
 										file_path::location_id_id(location.id, id.id),
 										data.into_iter()
-											.map(|(k, v)| file_path::SetParam::deserialize(&k, v))
-											.flatten()
+											.flat_map(|(k, v)| {
+												file_path::SetParam::deserialize(&k, v)
+											})
 											.collect(),
 									)
 									.exec()
@@ -362,8 +363,9 @@ impl SyncManager {
 												.unwrap()
 										},
 										data.into_iter()
-											.map(|(k, v)| location::SetParam::deserialize(&k, v))
-											.flatten()
+											.flat_map(|(k, v)| {
+												location::SetParam::deserialize(&k, v)
+											})
 											.collect(),
 									)
 									.exec()
