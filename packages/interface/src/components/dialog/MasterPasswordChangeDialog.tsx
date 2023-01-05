@@ -18,12 +18,14 @@ export interface MasterPasswordChangeDialogProps {
 	trigger: ReactNode;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
+type FormValues = {
+	masterPassword: string;
+	masterPassword2: string;
+	secretKey: string | null;
+};
+
 export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
-	type FormValues = {
-		masterPassword: string;
-		masterPassword2: string;
-		secretKey: string | null;
-	};
+	const { trigger } = props;
 
 	const form = useForm<FormValues>({
 		defaultValues: {
@@ -32,6 +34,18 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			secretKey: ''
 		}
 	});
+
+	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
+	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
+	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
+	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
+	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
+	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
+	const [showSecretKey, setShowSecretKey] = useState(false);
+
+	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
+	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
+	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
 		if (data.masterPassword !== data.masterPassword2) {
@@ -81,18 +95,6 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			form.reset();
 		}
 	};
-
-	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
-	const [hashingAlgo, setHashingAlgo] = useState('Argon2id-s');
-	const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false);
-	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword');
-	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
-	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
-	const [showSecretKey, setShowSecretKey] = useState(false);
-	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
-	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
-	const { trigger } = props;
 
 	return (
 		<>

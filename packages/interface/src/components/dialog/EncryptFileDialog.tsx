@@ -2,10 +2,7 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Select, SelectOption } from '@sd/ui';
 import { useState } from 'react';
 
-import {
-	getCryptoSettings,
-	getHashingAlgorithmString
-} from '../../screens/settings/library/KeysSetting';
+import { getHashingAlgorithmString } from '../../screens/settings/library/KeysSetting';
 import { usePlatform } from '../../util/Platform';
 import { SelectOptionKeyList } from '../key/KeyList';
 import { Checkbox } from '../primitive/Checkbox';
@@ -20,8 +17,19 @@ interface EncryptDialogProps {
 }
 
 export const EncryptFileDialog = (props: EncryptDialogProps) => {
-	const platform = usePlatform();
 	const { location_id, object_id } = props;
+	const platform = usePlatform();
+
+	// the selected key will be random, we should prioritise the default
+	const [key, setKey] = useState('');
+
+	// decided against react-hook-form, as it doesn't allow us to work with select boxes and such
+	const [metadata, setMetadata] = useState(false);
+	const [previewMedia, setPreviewMedia] = useState(false);
+	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
+	const [hashingAlgo, setHashingAlgo] = useState('');
+	const [outputPath, setOutputpath] = useState('');
+
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
@@ -42,16 +50,6 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	};
 
 	const encryptFile = useLibraryMutation('files.encryptFiles');
-
-	// the selected key will be random, we should prioritise the default
-	const [key, setKey] = useState('');
-
-	// decided against react-hook-form, as it doesn't allow us to work with select boxes and such
-	const [metadata, setMetadata] = useState(false);
-	const [previewMedia, setPreviewMedia] = useState(false);
-	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
-	const [hashingAlgo, setHashingAlgo] = useState('');
-	const [outputPath, setOutputpath] = useState('');
 
 	return (
 		<>

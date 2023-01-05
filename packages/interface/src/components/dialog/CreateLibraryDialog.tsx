@@ -1,6 +1,5 @@
-import { Algorithm, HashingAlgorithm, useBridgeMutation } from '@sd/client';
-import { Button, Input, Select, SelectOption } from '@sd/ui';
-import { Dialog } from '@sd/ui';
+import { Algorithm, useBridgeMutation } from '@sd/client';
+import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { writeText } from '@tauri-apps/api/clipboard';
 import cryptoRandomString from 'crypto-random-string';
@@ -8,10 +7,7 @@ import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import {
-	getHashingAlgorithmSettings,
-	getHashingAlgorithmString
-} from '../../screens/settings/library/KeysSetting';
+import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import { generatePassword } from '../key/KeyMounter';
 import { PasswordMeter } from './MasterPasswordChangeDialog';
 
@@ -22,6 +18,7 @@ export default function CreateLibraryDialog({
 	setOpen
 }: PropsWithChildren<{ onSubmit?: () => void; open: boolean; setOpen: (state: boolean) => void }>) {
 	const queryClient = useQueryClient();
+
 	const form = useForm({
 		defaultValues: {
 			name: '',
@@ -32,6 +29,13 @@ export default function CreateLibraryDialog({
 			hashing_algorithm: 'Argon2id-s'
 		}
 	});
+
+	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
+	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
+	const [showSecretKey, setShowSecretKey] = useState(false);
+	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
+	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
+	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (library) => {
@@ -65,13 +69,6 @@ export default function CreateLibraryDialog({
 			});
 		}
 	});
-
-	const [showMasterPassword1, setShowMasterPassword1] = useState(false);
-	const [showMasterPassword2, setShowMasterPassword2] = useState(false);
-	const [showSecretKey, setShowSecretKey] = useState(false);
-	const MP1CurrentEyeIcon = showMasterPassword1 ? EyeSlash : Eye;
-	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
 	return (
 		<Dialog
