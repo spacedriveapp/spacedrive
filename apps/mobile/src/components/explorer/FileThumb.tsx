@@ -22,7 +22,7 @@ export const getThumbnailUrlById = (casId: string) =>
 	`${DocumentDirectoryPath}/thumbnails/${encodeURIComponent(casId)}.webp`;
 
 const FileThumbWrapper = ({ children, size = 1 }) => (
-	<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
+	<View style={[tw`justify-center items-center`, { width: 80 * size, height: 80 * size }]}>
 		{children}
 	</View>
 );
@@ -37,9 +37,9 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 
 	if (isPath(data) && data.is_dir)
 		return (
-			<View style={[tw`justify-center items-center`, { width: 60 * size, height: 60 * size }]}>
-				<FolderIcon size={50 * size} />
-			</View>
+			<FileThumbWrapper size={size}>
+				<FolderIcon size={70 * size} />
+			</FileThumbWrapper>
 		);
 
 	const cas_id = isObject(data) ? data.cas_id : data.object?.cas_id;
@@ -56,7 +56,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	if (icon) {
 		return (
 			<FileThumbWrapper size={size}>
-				<Image source={icon} style={{ width: 50 * size, height: 50 * size }} />
+				<Image source={icon} style={{ width: 70 * size, height: 70 * size }} />
 			</FileThumbWrapper>
 		);
 	}
@@ -74,7 +74,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	if (has_thumbnail && url) {
 		return (
 			<FileThumbWrapper size={size}>
-				<Image source={{ uri: url }} style={tw`w-[50px] h-[50px]`} />
+				<Image source={{ uri: url }} style={tw`w-[70px] h-[70px]`} />
 			</FileThumbWrapper>
 		);
 	}
@@ -83,7 +83,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 		<FileThumbWrapper size={size}>
 			<Image
 				source={require('@sd/assets/images/File.png')}
-				style={{ width: 50 * size, height: 50 * size }}
+				style={{ width: 70 * size, height: 70 * size }}
 			/>
 		</FileThumbWrapper>
 	);
