@@ -1,7 +1,11 @@
+use futures::future::join_all;
 use sd_sync::*;
 use serde::Deserialize;
 use serde_json::{from_slice, from_value, to_vec, Value};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, HLC, NTP64};
 use uuid::Uuid;
@@ -255,6 +259,68 @@ impl SyncManager {
 									.exec()
 									.await?;
 							}
+							OwnedOperationData::CreateMany {
+								values,
+								skip_duplicates,
+							} => {
+								let location_ids = values
+									.iter()
+									.map(|(id, _)| {
+										serde_json::from_value::<FilePathId>(id.clone())
+											.unwrap()
+											.location_id
+									})
+									.collect::<HashSet<_>>();
+								let location_id_mappings =
+									join_all(location_ids.iter().map(|id| async move {
+										self.db
+											.location()
+											.find_unique(location::pub_id::equals(id.clone()))
+											.exec()
+											.await
+											.map(|o| o.map(|v| (id, v.id)))
+									}))
+									.await
+									.into_iter()
+									.flatten()
+									.flatten()
+									.collect::<HashMap<_, _>>();
+
+								let mut q = self.db.file_path().create_many(
+									values
+										.into_iter()
+										.map(|(id, mut data)| {
+											let id: FilePathId =
+												serde_json::from_value(id).unwrap();
+
+											file_path::create_unchecked(
+												id.id,
+												*location_id_mappings.get(&id.location_id).unwrap(),
+												serde_json::from_value(
+													data.remove("materialized_path").unwrap(),
+												)
+												.unwrap(),
+												serde_json::from_value(
+													data.remove("name").unwrap(),
+												)
+												.unwrap(),
+												data.into_iter()
+													.map(|(k, v)| {
+														file_path::SetParam::deserialize(&k, v)
+													})
+													.flatten()
+													.collect(),
+											)
+										})
+										.collect(),
+								);
+
+								if skip_duplicates {
+									q = q.skip_duplicates()
+								}
+
+								q.exec().await?;
+							}
 							OwnedOperationData::Update(data) => {
 								self.db
 									.file_path()
@@ -382,18 +448,25 @@ impl SyncManager {
 		&self,
 		model: &str,
 		data: impl IntoIterator<Item = (Value, [(&'static str, Value); SIZE])>,
+		skip_duplicates: bool,
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Owned(OwnedOperation {
 			model: model.to_string(),
-			items: data
-				.into_iter()
-				.map(|(id, data)| OwnedOperationItem {
-					id,
-					data: OwnedOperationData::Create(
-						data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
-					),
-				})
-				.collect(),
+			items: vec![OwnedOperationItem {
+				id: Value::Null,
+				data: OwnedOperationData::CreateMany {
+					values: data
+						.into_iter()
+						.map(|(id, data)| {
+							(
+								id,
+								data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
+							)
+						})
+						.collect(),
+					skip_duplicates,
+				},
+			}],
 		}))
 	}
 

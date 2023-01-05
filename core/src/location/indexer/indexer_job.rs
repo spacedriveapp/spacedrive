@@ -304,7 +304,7 @@ impl StatefulJob for IndexerJob {
 				&db,
 				ctx.library_ctx
 					.sync
-					.owned_create_many("FilePath", sync_stuff),
+					.owned_create_many("FilePath", sync_stuff, true),
 				db.file_path().create_many(paths).skip_duplicates(),
 			)
 			.await?;
