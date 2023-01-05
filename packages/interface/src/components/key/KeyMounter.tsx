@@ -64,7 +64,7 @@ export function KeyMounter() {
 			</div>
 
 			<div className="flex flex-row space-x-2">
-				<div className="relative flex flex-grow mt-2 mb-2">
+				<div className="relative flex flex-grow mt-2">
 					<Slider
 						value={sliderValue}
 						max={128}
@@ -137,9 +137,6 @@ export function KeyMounter() {
 					</Select>
 				</div>
 			</div>
-			<p className="pt-1.5 ml-0.5 text-[8pt] leading-snug text-ink-faint w-[90%]">
-				Files encrypted with this key will be revealed and decrypted on the fly.
-			</p>
 			<Button
 				className="w-full mt-2"
 				variant="accent"
