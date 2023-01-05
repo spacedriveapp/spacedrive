@@ -21,6 +21,12 @@
 		},
 		{
 			"path": "packages/ui"
+		},
+		{
+			"path": "packages/assets"
+		},
+		{
+			"path": "packages/config"
 		}
 	]
 }
