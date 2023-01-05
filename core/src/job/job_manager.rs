@@ -5,10 +5,7 @@ use crate::{
 	location::indexer::indexer_job::IndexerJob,
 	object::{
 		fs::{decrypt::FileDecryptorJob, encrypt::FileEncryptorJob},
-		identifier_job::{
-			current_dir_identifier_job::CurrentDirFileIdentifierJob,
-			full_identifier_job::FullFileIdentifierJob,
-		},
+		identifier_job::full_identifier_job::FullFileIdentifierJob,
 		preview::ThumbnailJob,
 		validation::validator_job::ObjectValidatorJob,
 	},
@@ -61,10 +58,6 @@ const JOB_RESTORER: Lazy<HashMap<&'static str, Box<dyn JobRestorer>>> = Lazy::ne
 		(
 			<ObjectValidatorJob as StatefulJob>::NAME,
 			Box::new(ObjectValidatorJob {}) as Box<dyn JobRestorer>,
-		),
-		(
-			<CurrentDirFileIdentifierJob as StatefulJob>::NAME,
-			Box::new(CurrentDirFileIdentifierJob {}) as Box<dyn JobRestorer>,
 		),
 		(
 			<FileEncryptorJob as StatefulJob>::NAME,
