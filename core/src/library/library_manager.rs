@@ -2,6 +2,7 @@ use crate::{
 	invalidate_query,
 	node::Platform,
 	prisma::{node, PrismaClient},
+	sync::SyncManager,
 	util::{
 		db::{load_and_migrate, write_storedkey_to_db},
 		seeder::{indexer_rules_seeder, SeederError},
@@ -342,11 +343,14 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
+		let (sync_manager, _) = SyncManager::new(db.clone(), id);
+
 		Ok(LibraryContext {
 			id,
 			local_id: node_data.id,
 			config,
 			key_manager: create_keymanager(&db).await?,
+			sync: Arc::new(sync_manager),
 			db,
 			node_local_id: node_data.id,
 			node_context,

@@ -8,6 +8,38 @@ generator client {
   output   = "../src/prisma.rs"
 }
 
+generator sync {
+  provider = "cargo prisma-sync"
+  output   = "../src/prisma_sync.rs"
+}
+
+model OwnedOperation {
+  id        Bytes  @id
+  timestamp BigInt
+  data      Bytes
+  model     String
+
+  node_id Int
+  node    Node @relation(fields: [node_id], references: [id])
+
+  @@map("owned_operation")
+}
+
+model SharedOperation {
+  id        Bytes  @id
+  timestamp BigInt
+  model     String
+
+  record_id Bytes
+  kind      String
+  data      Bytes
+
+  node_id Int
+  node    Node @relation(fields: [node_id], references: [id])
+
+  @@map("shared_operation")
+}
+
 model SyncEvent {
   id        Int     @id @default(autoincrement())
   node_id   Int
@@ -53,7 +85,9 @@ model Node {
   sync_events SyncEvent[]
   jobs        Job[]
 
-  Location Location[]
+  Location        Location[]
+  OwnedOperation  OwnedOperation[]
+  SharedOperation SharedOperation[]
 
   @@map("node")
 }
@@ -106,7 +140,7 @@ model Object {
   name               String?
   extension          String?
   kind               Int      @default(0)
-  size_in_bytes      String
+  size_in_bytes      String   @default("0")
   key_id             Int?
   // handy ways to mark an object
   hidden             Boolean  @default(false)

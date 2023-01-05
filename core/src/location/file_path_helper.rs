@@ -2,7 +2,6 @@ use crate::{library::LibraryContext, prisma::file_path};
 
 use std::sync::atomic::{AtomicI32, Ordering};
 
-use chrono::{DateTime, Utc};
 use prisma_client_rust::{Direction, QueryError};
 
 static LAST_FILE_PATH_ID: AtomicI32 = AtomicI32::new(0);
@@ -80,62 +79,4 @@ pub async fn create_file_path(
 	LAST_FILE_PATH_ID.store(next_id, Ordering::Release);
 
 	Ok(created_path)
-}
-
-pub struct FilePathBatchCreateEntry {
-	pub id: i32,
-	pub location_id: i32,
-	pub materialized_path: String,
-	pub name: String,
-	pub extension: Option<String>,
-	pub parent_id: Option<i32>,
-	pub is_dir: bool,
-	pub created_at: DateTime<Utc>,
-}
-
-pub async fn create_many_file_paths(
-	library_ctx: &LibraryContext,
-	entries: Vec<FilePathBatchCreateEntry>,
-) -> Result<i64, QueryError> {
-	library_ctx
-		.db
-		.file_path()
-		.create_many(
-			entries
-				.into_iter()
-				.map(
-					|FilePathBatchCreateEntry {
-					     id,
-					     location_id,
-					     mut materialized_path,
-					     name,
-					     extension,
-					     parent_id,
-					     is_dir,
-					     created_at,
-					 }| {
-						// If this new file_path is a directory, materialized_path must end with "/"
-						if is_dir && !materialized_path.ends_with('/') {
-							materialized_path += "/";
-						}
-
-						file_path::create_unchecked(
-							id,
-							location_id,
-							materialized_path,
-							name,
-							vec![
-								file_path::is_dir::set(is_dir),
-								file_path::parent_id::set(parent_id),
-								file_path::extension::set(extension),
-								file_path::date_created::set(created_at.into()),
-							],
-						)
-					},
-				)
-				.collect(),
-		)
-		.skip_duplicates()
-		.exec()
-		.await
 }
