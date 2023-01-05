@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import svg from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import path from 'path';
+import { relativeAliasResolver } from "@sd/config"
 
 import { name, version } from './package.json';
 
@@ -25,6 +25,9 @@ export default defineConfig({
 			brotliSize: true
 		})
 	],
+	resolve: {
+		alias: [relativeAliasResolver]
+	},
 	// resolve: {
 	//   alias: [
 	//     {
