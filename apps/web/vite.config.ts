@@ -3,6 +3,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import svg from 'vite-plugin-svgr';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
 import { name, version } from './package.json';
@@ -13,6 +14,7 @@ export default defineConfig({
 		port: 8002
 	},
 	plugins: [
+		tsconfigPaths(),
 		react(),
 		svg({ svgrOptions: { icon: true } }),
 		createHtmlPlugin({
@@ -23,14 +25,14 @@ export default defineConfig({
 			brotliSize: true
 		})
 	],
-	resolve: {
-		alias: [
-			{
-				find: '@sd/',
-				replacement: path.join(__dirname, '../../packages/')
-			}
-		]
-	},
+	// resolve: {
+	//   alias: [
+	//     {
+	//       find: '@sd/',
+	//       replacement: path.join(__dirname, '../../packages/')
+	//     }
+	//   ]
+	// },
 	root: 'src',
 	define: {
 		pkgJson: { name, version }

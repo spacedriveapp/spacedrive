@@ -124,6 +124,7 @@ importers:
       vite-plugin-markdown: ^2.1.0
       vite-plugin-ssr: ^0.4.39
       vite-plugin-svgr: ^2.2.1
+      vite-tsconfig-paths: ^3.5.2
     dependencies:
       '@headlessui/react': 1.7.5_biqbaboplfbrettd7655fr4n2y
       '@icons-pack/react-simple-icons': 5.11.0_react@18.2.0
@@ -172,6 +173,7 @@ importers:
       vite-plugin-esmodule: 1.4.4
       vite-plugin-markdown: 2.1.0_vite@3.2.5
       vite-plugin-svgr: 2.4.0_vite@3.2.5
+      vite-tsconfig-paths: 3.6.0_vite@3.2.5
 
   apps/mobile:
     specifiers:
@@ -8057,7 +8059,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.5
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 3.2.5_sass@1.56.2
+      vite: 3.2.5_o2iixvyklpce477lkpnahelma4
     transitivePeerDependencies:
       - supports-color
 
@@ -20514,7 +20516,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 3.2.5_sass@1.56.2
+      vite: 3.2.5_o2iixvyklpce477lkpnahelma4
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20529,7 +20531,7 @@ packages:
       globrex: 0.1.2
       recrawl-sync: 2.2.3
       tsconfig-paths: 4.1.1
-      vite: 3.2.5_sass@1.56.2
+      vite: 3.2.5_o2iixvyklpce477lkpnahelma4
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -20666,6 +20668,7 @@ packages:
       sass: 1.56.2
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}
