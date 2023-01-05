@@ -2,4 +2,4 @@
 // const plugin = require('tailwindcss/plugin');
 // const defaultTheme = require('tailwindcss/defaultTheme');
 
-module.exports = require('./style/tailwind')();
+module.exports = require('./style/tailwind');
