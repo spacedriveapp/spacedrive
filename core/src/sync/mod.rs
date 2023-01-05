@@ -38,12 +38,12 @@ impl SyncManager {
 		)
 	}
 
-	pub async fn write_ops<'item, Q: prisma_client_rust::BatchItem<'item>>(
+	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,
 		ops: Vec<CRDTOperation>,
-		queries: Q,
-	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
+		queries: I,
+	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let owned = ops
 			.iter()
 			.filter_map(|op| match &op.typ {
@@ -93,12 +93,12 @@ impl SyncManager {
 		Ok(res)
 	}
 
-	pub async fn write_op<'query, Q: prisma_client_rust::Query<'query>>(
+	pub async fn write_op<'item, Q: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,
 		op: CRDTOperation,
 		query: Q,
-	) -> prisma_client_rust::Result<Q::ReturnValue> {
+	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let ret = match &op.typ {
 			CRDTOperationType::Owned(owned_op) => {
 				tx._batch((
