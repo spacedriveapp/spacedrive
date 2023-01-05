@@ -31,6 +31,8 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 			hasMountedKeys = data.length > 0 ? true : false;
 			if (!hasMountedKeys) {
 				setDecryptType('password');
+			} else {
+				setDecryptType('key');
 			}
 		}
 	});

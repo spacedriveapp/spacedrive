@@ -8,7 +8,13 @@ import ssr from 'vite-plugin-ssr/plugin';
 import svg from 'vite-plugin-svgr';
 
 export default defineConfig({
-	plugins: [react(), ssr({ prerender: true }), svg(), md({ mode: [Mode.REACT] }), visualizer()],
+	plugins: [
+		react(),
+		ssr({ prerender: true }),
+		svg(),
+		md({ mode: [Mode.REACT] }),
+		visualizer()
+	],
 	resolve: {
 		alias: [
 			{

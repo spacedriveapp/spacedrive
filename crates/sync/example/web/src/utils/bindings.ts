@@ -11,7 +11,8 @@ export type Procedures = {
         { key: "createDatabase", input: string, result: string } | 
         { key: "file_path.create", input: string, result: FilePath } | 
         { key: "pullOperations", input: string, result: null } | 
-        { key: "removeDatabases", input: string, result: null },
+        { key: "removeDatabases", input: string, result: null } | 
+        { key: "testCreate", input: string, result: null },
     subscriptions: never
 };
 

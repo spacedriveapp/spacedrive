@@ -8,9 +8,11 @@ use std::path::PathBuf;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-#[derive(Default)]
+use crate::prisma::{file_path, PrismaClient};
+
 pub struct Ctx {
 	pub dbs: HashMap<Uuid, Db>,
+	pub prisma: PrismaClient,
 }
 
 type Router = rspc::Router<Arc<Mutex<Ctx>>>;
@@ -25,8 +27,24 @@ fn to_map(v: &impl serde::Serialize) -> serde_json::Map<String, Value> {
 pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 	Router::new()
 		.config(Config::new().export_ts_bindings(
-			PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../web/src/utils/bindings.ts"),
+			PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("web/src/utils/bindings.ts"),
 		))
+		.mutation("testCreate", |r| {
+			r(|ctx, _: String| async move {
+				let prisma = &ctx.lock().await.prisma;
+
+				let res = prisma
+					.file_path()
+					.create(vec![], String::new(), vec![])
+					.exec_raw()
+					.await
+					.unwrap();
+
+				file_path::Create::operation_from_data(&res);
+
+				Ok(())
+			})
+		})
 		.mutation("createDatabase", |r| {
 			r(|ctx, _: String| async move {
 				let dbs = &mut ctx.lock().await.dbs;
@@ -99,7 +117,10 @@ pub(crate) fn new() -> RouterBuilder<Arc<Mutex<Ctx>>> {
 					model: "FilePath".to_string(),
 					items: vec![OwnedOperationItem {
 						id: serde_json::to_value(id).unwrap(),
-						data: OwnedOperationData::Create(to_map(&file_path)),
+						data: OwnedOperationData::Create(
+							serde_json::from_value(serde_json::to_value(&file_path).unwrap())
+								.unwrap(),
+						),
 					}],
 				}));
 
