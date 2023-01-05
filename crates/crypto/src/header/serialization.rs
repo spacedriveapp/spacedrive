@@ -143,8 +143,8 @@ impl HashingAlgorithm {
 impl Display for HashingAlgorithm {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match *self {
-			Self::Argon2id(p) => write!(f, "Argon2id ({})", p),
-			Self::BalloonBlake3(p) => write!(f, "BLAKE3-Balloon ({})", p),
+			Self::Argon2id(p) => write!(f, "Argon2id ({p})"),
+			Self::BalloonBlake3(p) => write!(f, "BLAKE3-Balloon ({p})"),
 		}
 	}
 }
