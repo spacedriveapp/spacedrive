@@ -12,26 +12,25 @@ members = [
 ]
 
 [workspace.dependencies]
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "6581dc56abadddada4a076ede88acc7ce038042c", features = [
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "c3161ab535b49e64bc4ad3fc1314ebaeb0191f4c", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ], default-features = false }
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "6581dc56abadddada4a076ede88acc7ce038042c", features = [
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "c3161ab535b49e64bc4ad3fc1314ebaeb0191f4c", features = [
   "rspc",
   "sqlite-create-many",
   "migrations",
   "sqlite",
 ], default-features = false }
-prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "6581dc56abadddada4a076ede88acc7ce038042c", features = [
+prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-rust.git", rev = "c3161ab535b49e64bc4ad3fc1314ebaeb0191f4c", features = [
   "sqlite",
 ], default-features = false }
 
 rspc = { version = "0.1.2" }
 normi = { version = "0.0.1" }
 specta = { version = "0.0.4" }
-
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
