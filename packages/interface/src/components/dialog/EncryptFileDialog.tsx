@@ -1,4 +1,4 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Select, SelectOption } from '@sd/ui';
 import { useState } from 'react';
 
@@ -61,7 +61,6 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 				loading={encryptFile.isLoading}
 				ctaLabel="Encrypt"
 				ctaAction={() => {
-					const algorithm = getCryptoSettings(encryptionAlgo, hashingAlgo)[0];
 					const output = outputPath !== '' ? outputPath : null;
 					props.setOpen(false);
 
@@ -69,7 +68,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 						object_id &&
 						encryptFile.mutate(
 							{
-								algorithm,
+								algorithm: encryptionAlgo as Algorithm,
 								key_uuid: key,
 								location_id,
 								object_id,
