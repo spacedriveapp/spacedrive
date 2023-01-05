@@ -57,13 +57,6 @@ use serde_big_array::BigArray;
 
 use super::hashing::HashingAlgorithm;
 
-// The terminology in this file is very confusing.
-// The `master_key` is specific to the `StoredKey`, and is just used internally for encryption.
-// The `key` is what the user added/generated within their Spacedrive key manager.
-// The `password` in this sense is the user's "master password", similar to a password manager's main password
-// The `hashed_key` refers to the value you'd pass to PVM/MD decryption functions. It has been pre-hashed with the content salt.
-// The content salt refers to the semi-universal salt that's used for metadata/preview media (unique to each key in the manager)
-
 /// This is a stored key, and can be freely written to Prisma/another database.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -104,25 +97,6 @@ pub struct KeyManager {
 	keymount: DashMap<Uuid, MountedKey>,
 	default: Mutex<Option<Uuid>>,
 }
-
-// bundle returned during onboarding
-// nil key should be stored within prisma
-// secret key should be written down by the user (along with the master password)
-/// This bundle is returned during onboarding.
-///
-/// The verification key should be written to the database, and only one nil-UUID key should exist at any given point for a library.
-///
-/// The secret key needs to be given to the user, and should be written down.
-// pub struct OnboardingBundle {
-// 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
-// 	pub master_password: Protected<String>,
-// 	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
-// }
-
-// pub struct MasterPasswordChangeBundle {
-// 	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
-// 	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
-// }
 
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
@@ -680,44 +654,10 @@ impl KeyManager {
 		Ok(uuid)
 	}
 
-	/// Used internally to convert from a hex-encoded `Protected<String>` to a `Protected<[u8; SALT_LEN]>` in a secretive manner.
-	///
-	/// If the secret key is wrong (not base64 or not the correct length), a filler secret key will be inserted secretly.
 	#[allow(clippy::needless_pass_by_value)]
 	fn convert_secret_key_string(secret_key: Protected<String>) -> Protected<Vec<u8>> {
-		// let mut secret_key_sanitized = secret_key.expose().clone();
-		// secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
-
-		// // we shouldn't be letting on to *what* failed so we use a random secret key here if it's still invalid
-		// // could maybe do this better (and make use of the subtle crate)
-
-		// let secret_key = hex::decode(secret_key_sanitized)
-		// 	.ok()
-		// 	.map_or(Vec::new(), |v| v);
-
-		// to_array(secret_key)
-		// 	.ok()
-		// 	.map_or(Protected::new(generate_salt()), Protected::new)
-
 		Protected::new(secret_key.expose().as_bytes().to_vec())
 	}
-
-	// fn format_secret_key(salt: &[u8; SALT_LEN]) -> Protected<String> {
-	// 	let hex_string: String = hex::encode_upper(salt)
-	// 		.chars()
-	// 		.enumerate()
-	// 		.map(|(i, c)| {
-	// 			if (i + 1) % 8 == 0 && i != 31 {
-	// 				c.to_string() + "-"
-	// 			} else {
-	// 				c.to_string()
-	// 			}
-	// 		})
-	// 		.into_iter()
-	// 		.collect();
-
-	// 	Protected::new(hex_string)
-	// }
 
 	/// This function is for accessing the internal keymount.
 	///
