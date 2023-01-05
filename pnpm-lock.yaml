@@ -129,7 +129,6 @@ importers:
       '@icons-pack/react-simple-icons': 5.11.0_react@18.2.0
       '@sd/assets': link:../../packages/assets
       '@sd/docs': link:../../docs
-      '@sd/ui': link:../../packages/ui
       '@tryghost/content-api': 1.11.5
       '@vitejs/plugin-react': 2.2.0_vite@3.2.5
       clsx: 1.2.1
@@ -154,6 +153,7 @@ importers:
       vite-plugin-ssr: 0.4.57_vite@3.2.5
     devDependencies:
       '@sd/config': link:../../packages/config
+      '@sd/ui': link:../../packages/ui
       '@tailwindcss/line-clamp': 0.4.2
       '@tailwindcss/typography': 0.5.8
       '@types/compression': 1.7.2
@@ -8057,7 +8057,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.5
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 3.2.5_o2iixvyklpce477lkpnahelma4
+      vite: 3.2.5_sass@1.56.2
     transitivePeerDependencies:
       - supports-color
 
@@ -20514,7 +20514,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 3.2.5_o2iixvyklpce477lkpnahelma4
+      vite: 3.2.5_sass@1.56.2
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20529,7 +20529,7 @@ packages:
       globrex: 0.1.2
       recrawl-sync: 2.2.3
       tsconfig-paths: 4.1.1
-      vite: 3.2.5
+      vite: 3.2.5_sass@1.56.2
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -20666,7 +20666,6 @@ packages:
       sass: 1.56.2
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}
