@@ -4,10 +4,10 @@ import { Button, ButtonLink, Card, tw } from '@sd/ui';
 import { Database, DotsSixVertical, Link, Pen, Pencil, Trash } from 'phosphor-react';
 import { useState } from 'react';
 
-import CreateLibraryDialog from '../../../components/dialog/CreateLibraryDialog';
-import DeleteLibraryDialog from '../../../components/dialog/DeleteLibraryDialog';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import CreateLibraryDialog from '~/components/dialog/CreateLibraryDialog';
+import DeleteLibraryDialog from '~/components/dialog/DeleteLibraryDialog';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
 
 const Pill = tw.span`px-1.5 ml-2 py-[2px] rounded text-xs font-medium bg-accent`;
 
@@ -31,7 +31,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped; current: boolea
 				<p className="mt-0.5 text-xs text-ink-dull">{props.library.uuid}</p>
 			</div>
 			<div className="flex flex-row items-center space-x-2">
-				<Button className="!p-1.5" onClick={() => {}} variant="gray">
+				<Button className="!p-1.5" onClick={() => { }} variant="gray">
 					<Database className="w-4 h-4" />
 				</Button>
 				<ButtonLink className="!p-1.5" to="/settings/library" variant="gray">

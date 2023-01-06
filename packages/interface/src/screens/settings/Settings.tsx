@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { Outlet } from 'react-router';
 
-import { SettingsSidebar } from '../../components/settings/SettingsSidebar';
+import { SettingsSidebar } from '~/components/settings/SettingsSidebar';
 
 export default function SettingsScreen() {
 	return (
