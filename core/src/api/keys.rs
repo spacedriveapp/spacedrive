@@ -221,6 +221,8 @@ pub(crate) fn mount() -> RouterBuilder {
 					Protected::new(args.secret_key),
 				)?;
 
+				invalidate_query!(library, "keys.hasMasterPassword");
+
 				let automount = library
 					.db
 					.key()
@@ -237,9 +239,9 @@ pub(crate) fn mount() -> RouterBuilder {
 								"Error deserializing UUID from string".into(),
 							)
 						})?)?;
-				}
 
-				invalidate_query!(library, "keys.hasMasterPassword");
+					invalidate_query!(library, "keys.listMounted");
+				}
 
 				Ok(())
 			})
