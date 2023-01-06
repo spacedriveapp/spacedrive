@@ -90,10 +90,13 @@ impl StatefulJob for FileEncryptorJob {
 			.library_ctx
 			.db
 			.file_path()
-			.find_first(vec![file_path::id::equals(state.init.path_id)])
+			.find_unique(file_path::location_id_id(
+				state.init.location_id,
+				state.init.path_id,
+			))
 			.exec()
 			.await?
-			.expect("critical error: can't find object");
+			.expect("critical error: can't find path");
 
 		let obj_name = item.materialized_path;
 
