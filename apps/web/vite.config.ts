@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import svg from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { relativeAliasResolver } from "@sd/config"
+import { relativeAliasResolver } from "@sd/config/vite"
 
 import { name, version } from './package.json';
 
