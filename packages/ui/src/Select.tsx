@@ -58,6 +58,7 @@ export function SelectOption(props: PropsWithChildren<{ value: string }>) {
 				'focus:outline-none hover:text-white radix-disabled:opacity-50 hover:bg-accent '
 			)}
 			value={props.value}
+			key={props.value}
 		>
 			<SelectPrimitive.ItemText>{props.children}</SelectPrimitive.ItemText>
 			<SelectPrimitive.ItemIndicator className="absolute inline-flex items-center left-1">
