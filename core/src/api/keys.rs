@@ -1,9 +1,9 @@
 use std::io::{Read, Write};
 use std::{path::PathBuf, str::FromStr};
 
-use sd_crypto::keys::keymanager::{KeyManager, StoredKey};
-use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
-use serde::{Deserialize, Serialize};
+use sd_crypto::keys::keymanager::StoredKey;
+use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
+use serde::Deserialize;
 use specta::Type;
 use uuid::Uuid;
 
@@ -30,34 +30,22 @@ pub struct KeyNameUpdateArgs {
 #[derive(Type, Deserialize)]
 pub struct SetMasterPasswordArgs {
 	password: String,
-	secret_key: String,
+	secret_key: Option<String>,
 }
 
 #[derive(Type, Deserialize)]
 pub struct RestoreBackupArgs {
 	password: String,
-	secret_key: String,
+	secret_key: Option<String>,
 	path: PathBuf,
-}
-
-#[derive(Type, Deserialize)]
-pub struct OnboardingArgs {
-	algorithm: Algorithm,
-	hashing_algorithm: HashingAlgorithm,
-	password: Protected<String>,
 }
 
 #[derive(Type, Deserialize)]
 pub struct MasterPasswordChangeArgs {
 	password: String,
+	secret_key: Option<String>,
 	algorithm: Algorithm,
 	hashing_algorithm: HashingAlgorithm,
-}
-
-#[derive(Type, Serialize)]
-pub struct OnboardingKeys {
-	master_password: String,
-	secret_key: String,
 }
 
 #[derive(Type, Deserialize)]
@@ -83,12 +71,8 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, key_uuid: Uuid, library| async move {
 				let key = library.key_manager.get_key(key_uuid)?;
 
-				let key_string = String::from_utf8(key.expose().clone()).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error serializing bytes to String".into(),
-					)
-				})?;
+				let key_string =
+					String::from_utf8(key.expose().clone()).map_err(Error::StringParse)?;
 
 				Ok(key_string)
 			})
@@ -187,39 +171,14 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		.library_mutation("onboarding", |t| {
-			t(|_, args: OnboardingArgs, library| async move {
-				let bundle =
-					KeyManager::onboarding(args.algorithm, args.hashing_algorithm, args.password)?;
-
-				let verification_key = bundle.verification_key;
-
-				// remove old nil-id keys if they were set
-				// they possibly won't be, but we CANNOT have multiple
-				library
-					.db
-					.key()
-					.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
-					.exec()
-					.await?;
-
-				write_storedkey_to_db(&library.db, &verification_key).await?;
-
-				let keys = OnboardingKeys {
-					master_password: bundle.master_password.expose().clone(),
-					secret_key: base64::encode(bundle.secret_key.expose()),
-				};
-
-				Ok(keys)
-			})
-		})
 		.library_mutation("setMasterPassword", |t| {
 			t(|_, args: SetMasterPasswordArgs, library| async move {
+				let secret_key = args.secret_key.map(Protected::new);
+
 				// if this returns an error, the user MUST re-enter the correct password
-				library.key_manager.set_master_password(
-					Protected::new(args.password),
-					Protected::new(args.secret_key),
-				)?;
+				library
+					.key_manager
+					.set_master_password(Protected::new(args.password), secret_key)?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");
 
@@ -233,12 +192,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				for key in automount {
 					library
 						.key_manager
-						.mount(Uuid::from_str(&key.uuid).map_err(|_| {
-							rspc::Error::new(
-								rspc::ErrorCode::InternalServerError,
-								"Error deserializing UUID from string".into(),
-							)
-						})?)?;
+						.mount(Uuid::from_str(&key.uuid).map_err(|_| Error::Serialization)?)?;
 
 					invalidate_query!(library, "keys.listMounted");
 				}
@@ -338,57 +292,29 @@ pub(crate) fn mount() -> RouterBuilder {
 				stored_keys.push(library.key_manager.get_verification_key()?);
 				stored_keys.retain(|k| !k.memory_only);
 
-				let mut output_file = std::fs::File::create(path).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error creating file".into(),
-					)
-				})?;
+				let mut output_file = std::fs::File::create(path).map_err(Error::Io)?;
 				output_file
-					.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| {
-						rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Error serializing keystore".into(),
-						)
-					})?)
-					.map_err(|_| {
-						rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Error writing key backup to file".into(),
-						)
-					})?;
+					.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| Error::Serialization)?)
+					.map_err(Error::Io)?;
 				Ok(())
 			})
 		})
 		.library_mutation("restoreKeystore", |t| {
 			t(|_, args: RestoreBackupArgs, library| async move {
-				let mut input_file = std::fs::File::open(args.path).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error opening backup file".into(),
-					)
-				})?;
+				let mut input_file = std::fs::File::open(args.path).map_err(Error::Io)?;
 
 				let mut backup = Vec::new();
 
-				input_file.read_to_end(&mut backup).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error reading backup file".into(),
-					)
-				})?;
+				input_file.read_to_end(&mut backup).map_err(Error::Io)?;
 
 				let stored_keys: Vec<StoredKey> =
-					serde_json::from_slice(&backup).map_err(|_| {
-						rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Error deserializing backup".into(),
-						)
-					})?;
+					serde_json::from_slice(&backup).map_err(|_| Error::Serialization)?;
+
+				let secret_key = args.secret_key.map(Protected::new);
 
 				let updated_keys = library.key_manager.import_keystore_backup(
 					Protected::new(args.password),
-					Protected::new(args.secret_key),
+					secret_key,
 					&stored_keys,
 				)?;
 
@@ -404,10 +330,13 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("changeMasterPassword", |t| {
 			t(|_, args: MasterPasswordChangeArgs, library| async move {
-				let bundle = library.key_manager.change_master_password(
+				let secret_key = args.secret_key.map(Protected::new);
+
+				let verification_key = library.key_manager.change_master_password(
 					Protected::new(args.password),
 					args.algorithm,
 					args.hashing_algorithm,
+					secret_key,
 				)?;
 
 				// remove old nil-id keys if they were set
@@ -419,9 +348,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					.await?;
 
 				// write the new verification key
-				write_storedkey_to_db(&library.db, &bundle.verification_key).await?;
+				write_storedkey_to_db(&library.db, &verification_key).await?;
 
-				Ok(bundle.secret_key.expose().clone())
+				Ok(())
 			})
 		})
 }

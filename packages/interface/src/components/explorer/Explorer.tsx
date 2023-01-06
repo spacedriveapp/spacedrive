@@ -25,9 +25,6 @@ export default function Explorer(props: Props) {
 	const [showDecryptDialog, setShowDecryptDialog] = useState(false);
 
 	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
-	const setShowAlertDialog = (state: boolean) => {
-		setAlertDialogData({ ...alertDialogData, open: state });
-	};
 
 	useEffect(() => {
 		setSeparateTopBar((oldValue) => {
@@ -93,7 +90,9 @@ export default function Explorer(props: Props) {
 			</div>
 			<AlertDialog
 				open={alertDialogData.open}
-				setOpen={setShowAlertDialog}
+				setOpen={(e) => {
+					setAlertDialogData({ ...alertDialogData, open: e });
+				}}
 				title={alertDialogData.title}
 				value={alertDialogData.value}
 				inputBox={alertDialogData.inputBox}

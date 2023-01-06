@@ -13,11 +13,10 @@ use crate::{
 use sd_crypto::{
 	crypto::stream::Algorithm,
 	keys::{
-		hashing::{HashingAlgorithm, Params},
+		hashing::HashingAlgorithm,
 		keymanager::{KeyManager, StoredKey},
 	},
-	primitives::to_array,
-	Protected,
+	primitives::{to_array, OnboardingConfig},
 };
 use std::{
 	env, fs, io,
@@ -73,15 +72,13 @@ impl From<LibraryManagerError> for rspc::Error {
 	}
 }
 
-pub async fn create_keymanager(
+pub async fn seed_keymanager(
 	client: &PrismaClient,
-) -> Result<Arc<KeyManager>, LibraryManagerError> {
-	let key_manager = KeyManager::new(vec![])?;
-
+	km: &Arc<KeyManager>,
+) -> Result<(), LibraryManagerError> {
 	let mut default: Option<Uuid> = None;
 
 	// collect and serialize the stored keys
-	// shouldn't call unwrap so much here
 	let stored_keys: Vec<StoredKey> = client
 		.key()
 		.find_many(vec![])
@@ -117,14 +114,14 @@ pub async fn create_keymanager(
 		.unwrap();
 
 	// insert all keys from the DB into the keymanager's keystore
-	key_manager.populate_keystore(stored_keys)?;
+	km.populate_keystore(stored_keys)?;
 
 	// if any key had an associated default tag
 	if let Some(default) = default {
-		key_manager.set_default(default)?;
+		km.set_default(default)?;
 	}
 
-	Ok(Arc::new(key_manager))
+	Ok(())
 }
 
 impl LibraryManager {
@@ -184,7 +181,7 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
-		password: Option<Protected<String>>,
+		km_config: OnboardingConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		let id = Uuid::new_v4();
 		LibraryConfig::save(
@@ -204,20 +201,14 @@ impl LibraryManager {
 		// Run seeders
 		indexer_rules_seeder(&library.db).await?;
 
-		// Setup default key
-		if let Some(password) = password {
-			let verification_key = KeyManager::onboarding(
-				Algorithm::XChaCha20Poly1305,
-				HashingAlgorithm::Argon2id(Params::Standard),
-				password,
-			)?
-			.verification_key;
+		// setup master password
+		let verification_key = KeyManager::onboarding(km_config)?;
 
-			write_storedkey_to_db(&library.db, &verification_key).await?;
-		} else {
-			// TODO: Make setting up keys optional with rest of system before removing this.
-			todo!();
-		}
+		write_storedkey_to_db(&library.db, &verification_key).await?;
+
+		// populate KM with the verification key
+		seed_keymanager(&library.db, &library.key_manager).await?;
+
 		invalidate_query!(library, "library.list");
 
 		self.libraries.write().await.push(library);
@@ -343,13 +334,16 @@ impl LibraryManager {
 			.exec()
 			.await?;
 
+		let key_manager = Arc::new(KeyManager::new(vec![])?);
+
+		seed_keymanager(&db, &key_manager).await?;
 		let (sync_manager, _) = SyncManager::new(db.clone(), id);
 
 		Ok(LibraryContext {
 			id,
 			local_id: node_data.id,
 			config,
-			key_manager: create_keymanager(&db).await?,
+			key_manager,
 			sync: Arc::new(sync_manager),
 			db,
 			node_local_id: node_data.id,
