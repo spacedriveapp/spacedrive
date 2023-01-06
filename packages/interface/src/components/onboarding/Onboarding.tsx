@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { Button } from '../../../../ui/src';
+import { Button } from '@sd/ui';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 
 // TODO: This page requires styling for now it is just a placeholder.
