@@ -159,9 +159,9 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 							<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 							<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-							<SelectOption value="BalloonBlake3-s">Blake3-Balloon (standard)</SelectOption>
-							<SelectOption value="BalloonBlake3-h">Blake3-Balloon (hardened)</SelectOption>
-							<SelectOption value="BalloonBlake3-p">Blake3-Balloon (paranoid)</SelectOption>
+							<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
+							<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
+							<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
 						</Select>
 					</div>
 				</div>
