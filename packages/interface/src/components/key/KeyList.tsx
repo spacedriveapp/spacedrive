@@ -13,7 +13,9 @@ export const SelectOptionKeyList = (props: { keys: string[] }) => {
 	return (
 		<>
 			{props.keys.map((key) => {
-				return <SelectOption value={key}>Key {key.substring(0, 8).toUpperCase()}</SelectOption>;
+				<SelectOption key={key} value={key}>
+					Key {key.substring(0, 8).toUpperCase()}
+				</SelectOption>;
 			})}
 		</>
 	);
