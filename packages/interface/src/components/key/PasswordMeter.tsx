@@ -3,18 +3,19 @@ import zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
 import zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 import clsx from 'clsx';
 
+const options = {
+	dictionary: {
+		...zxcvbnCommonPackage.dictionary,
+		...zxcvbnEnPackage.dictionary
+	},
+	graps: zxcvbnCommonPackage.adjacencyGraphs,
+	translations: zxcvbnEnPackage.translations
+};
+zxcvbnOptions.setOptions(options);
+
 export const PasswordMeter = (props: { password: string }) => {
 	const ratings = ['Poor', 'Weak', 'Good', 'Strong', 'Perfect'];
 
-	const options = {
-		dictionary: {
-			...zxcvbnCommonPackage.dictionary,
-			...zxcvbnEnPackage.dictionary
-		},
-		graps: zxcvbnCommonPackage.adjacencyGraphs,
-		translations: zxcvbnEnPackage.translations
-	};
-	zxcvbnOptions.setOptions(options);
 	const zx = zxcvbn(props.password);
 
 	const innerDiv = {
