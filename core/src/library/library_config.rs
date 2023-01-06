@@ -5,7 +5,6 @@ use std::{
 };
 
 use rspc::Type;
-use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use uuid::Uuid;
@@ -26,14 +25,6 @@ pub struct LibraryConfig {
 	// /// is_encrypted is a flag that is set to true if the library is encrypted.
 	// #[serde(default)]
 	// pub is_encrypted: bool,
-}
-
-#[derive(Deserialize, Clone, Type)]
-pub struct LibraryKeymanagerConfig {
-	pub password: Protected<String>,
-	pub secret_key: Option<Protected<String>>,
-	pub algorithm: Algorithm,
-	pub hashing_algorithm: HashingAlgorithm,
 }
 
 impl LibraryConfig {

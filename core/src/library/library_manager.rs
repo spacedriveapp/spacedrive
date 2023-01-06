@@ -16,7 +16,7 @@ use sd_crypto::{
 		hashing::HashingAlgorithm,
 		keymanager::{KeyManager, StoredKey},
 	},
-	primitives::to_array,
+	primitives::{to_array, OnboardingConfig},
 };
 use std::{
 	env, fs, io,
@@ -28,7 +28,7 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext, LibraryKeymanagerConfig};
+use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
 
 /// LibraryManager is a singleton that manages all libraries for a node.
 pub struct LibraryManager {
@@ -181,7 +181,7 @@ impl LibraryManager {
 	pub(crate) async fn create(
 		&self,
 		config: LibraryConfig,
-		km_config: LibraryKeymanagerConfig,
+		km_config: OnboardingConfig,
 	) -> Result<LibraryConfigWrapped, LibraryManagerError> {
 		let id = Uuid::new_v4();
 		LibraryConfig::save(
