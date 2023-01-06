@@ -15,13 +15,13 @@ interface EncryptDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
 	location_id: number | null;
-	object_id: number | null;
+	path_id: number | undefined;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	const platform = usePlatform();
-	const { location_id, object_id } = props;
+	const { location_id, path_id } = props;
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
@@ -64,13 +64,13 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 					props.setOpen(false);
 
 					location_id &&
-						object_id &&
+						path_id &&
 						encryptFile.mutate(
 							{
 								algorithm,
 								key_uuid: key,
 								location_id,
-								object_id,
+								path_id,
 								metadata,
 								preview_media: previewMedia,
 								output_path: output

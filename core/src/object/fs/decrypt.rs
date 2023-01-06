@@ -16,7 +16,7 @@ pub struct FileDecryptorJobState {}
 #[derive(Serialize, Deserialize, Debug, Type, Hash)]
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,
-	pub object_id: i32,
+	pub path_id: i32,
 	pub output_path: Option<PathBuf>,
 	pub password: Option<String>, // if this is set, we can assume the user chose password decryption
 	pub save_to_library: Option<bool>,
@@ -62,9 +62,7 @@ impl StatefulJob for FileDecryptorJob {
 			.library_ctx
 			.db
 			.file_path()
-			.find_first(vec![file_path::object_id::equals(Some(
-				state.init.object_id,
-			))])
+			.find_first(vec![file_path::id::equals(state.init.path_id)])
 			.exec()
 			.await?
 			.expect("critical error: can't find object");

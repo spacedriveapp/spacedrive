@@ -100,14 +100,14 @@ export default function Explorer(props: Props) {
 			/>
 			<EncryptFileDialog
 				location_id={expStore.locationId}
-				object_id={expStore.contextMenuObjectId}
+				path_id={props.data?.items[expStore.selectedRowIndex].id}
 				open={showEncryptDialog}
 				setOpen={setShowEncryptDialog}
 				setAlertDialogData={setAlertDialogData}
 			/>
 			<DecryptFileDialog
 				location_id={expStore.locationId}
-				object_id={expStore.contextMenuObjectId}
+				path_id={props.data?.items[expStore.selectedRowIndex].id}
 				open={showDecryptDialog}
 				setOpen={setShowDecryptDialog}
 				setAlertDialogData={setAlertDialogData}

@@ -29,7 +29,7 @@ pub struct FileEncryptorJobState {}
 #[derive(Serialize, Deserialize, Type, Hash)]
 pub struct FileEncryptorJobInit {
 	pub location_id: i32,
-	pub object_id: i32,
+	pub path_id: i32,
 	pub key_uuid: uuid::Uuid,
 	pub algorithm: Algorithm,
 	pub metadata: bool,
@@ -46,7 +46,7 @@ pub struct FileEncryptorJobStep {
 
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
-	pub object_id: i32,
+	pub path_id: i32,
 	pub name: String,
 	pub hidden: bool,
 	pub favourite: bool,
@@ -90,9 +90,7 @@ impl StatefulJob for FileEncryptorJob {
 			.library_ctx
 			.db
 			.file_path()
-			.find_first(vec![file_path::object_id::equals(Some(
-				state.init.object_id,
-			))])
+			.find_first(vec![file_path::id::equals(state.init.path_id)])
 			.exec()
 			.await?
 			.expect("critical error: can't find object");
@@ -183,14 +181,14 @@ impl StatefulJob for FileEncryptorJob {
 						.library_ctx
 						.db
 						.object()
-						.find_unique(object::id::equals(state.init.object_id))
+						.find_unique(object::id::equals(state.init.path_id))
 						.exec()
 						.await?
 						.expect("critical error: can't get object info");
 
 					if state.init.metadata {
 						let metadata = Metadata {
-							object_id: state.init.object_id,
+							path_id: state.init.path_id,
 							name: step.obj_name.clone(),
 							hidden: object.hidden,
 							favourite: object.favorite,
