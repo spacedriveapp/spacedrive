@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::{path::PathBuf, str::FromStr};
 
 use sd_crypto::keys::keymanager::StoredKey;
-use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
+use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 use serde::Deserialize;
 use specta::Type;
 use uuid::Uuid;
@@ -71,12 +71,8 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, key_uuid: Uuid, library| async move {
 				let key = library.key_manager.get_key(key_uuid)?;
 
-				let key_string = String::from_utf8(key.expose().clone()).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error serializing bytes to String".into(),
-					)
-				})?;
+				let key_string =
+					String::from_utf8(key.expose().clone()).map_err(Error::StringParse)?;
 
 				Ok(key_string)
 			})
@@ -194,12 +190,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				for key in automount {
 					library
 						.key_manager
-						.mount(Uuid::from_str(&key.uuid).map_err(|_| {
-							rspc::Error::new(
-								rspc::ErrorCode::InternalServerError,
-								"Error deserializing UUID from string".into(),
-							)
-						})?)?;
+						.mount(Uuid::from_str(&key.uuid).map_err(|_| Error::Serialization)?)?;
 				}
 
 				invalidate_query!(library, "keys.hasMasterPassword");
@@ -299,53 +290,23 @@ pub(crate) fn mount() -> RouterBuilder {
 				stored_keys.push(library.key_manager.get_verification_key()?);
 				stored_keys.retain(|k| !k.memory_only);
 
-				let mut output_file = std::fs::File::create(path).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error creating file".into(),
-					)
-				})?;
+				let mut output_file = std::fs::File::create(path).map_err(Error::Io)?;
 				output_file
-					.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| {
-						rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Error serializing keystore".into(),
-						)
-					})?)
-					.map_err(|_| {
-						rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Error writing key backup to file".into(),
-						)
-					})?;
+					.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| Error::Serialization)?)
+					.map_err(Error::Io)?;
 				Ok(())
 			})
 		})
 		.library_mutation("restoreKeystore", |t| {
 			t(|_, args: RestoreBackupArgs, library| async move {
-				let mut input_file = std::fs::File::open(args.path).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error opening backup file".into(),
-					)
-				})?;
+				let mut input_file = std::fs::File::open(args.path).map_err(Error::Io)?;
 
 				let mut backup = Vec::new();
 
-				input_file.read_to_end(&mut backup).map_err(|_| {
-					rspc::Error::new(
-						rspc::ErrorCode::InternalServerError,
-						"Error reading backup file".into(),
-					)
-				})?;
+				input_file.read_to_end(&mut backup).map_err(Error::Io)?;
 
 				let stored_keys: Vec<StoredKey> =
-					serde_json::from_slice(&backup).map_err(|_| {
-						rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Error deserializing backup".into(),
-						)
-					})?;
+					serde_json::from_slice(&backup).map_err(|_| Error::Serialization)?;
 
 				let secret_key = args.secret_key.map(Protected::new);
 
