@@ -175,27 +175,6 @@ pub(crate) fn mount() -> RouterBuilder {
 				Ok(())
 			})
 		})
-		// .library_mutation("onboarding", |t| {
-		// 	t(|_, args: OnboardingArgs, library| async move {
-		// 		let bundle =
-		// 			KeyManager::onboarding(args.algorithm, args.hashing_algorithm, args.password)?;
-		// 		let verification_key = bundle.verification_key;
-		// 		// remove old nil-id keys if they were set
-		// 		// they possibly won't be, but we CANNOT have multiple
-		// 		library
-		// 			.db
-		// 			.key()
-		// 			.delete_many(vec![key::uuid::equals(Uuid::nil().to_string())])
-		// 			.exec()
-		// 			.await?;
-		// 		write_storedkey_to_db(&library.db, &verification_key).await?;
-		// 		let keys = OnboardingKeys {
-		// 			master_password: bundle.master_password.expose().clone(),
-		// 			secret_key: base64::encode(bundle.secret_key.expose()),
-		// 		};
-		// 		Ok(keys)
-		// 	})
-		// })
 		.library_mutation("setMasterPassword", |t| {
 			t(|_, args: SetMasterPasswordArgs, library| async move {
 				let secret_key = args.secret_key.map(Protected::new);
