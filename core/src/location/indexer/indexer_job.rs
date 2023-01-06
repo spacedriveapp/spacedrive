@@ -15,14 +15,12 @@ use std::{
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tokio::time::Instant;
 use tracing::info;
 
 use super::{
-	super::file_path_helper::{
-		create_many_file_paths, get_max_file_path_id, set_max_file_path_id,
-		FilePathBatchCreateEntry,
-	},
+	super::file_path_helper::{get_max_file_path_id, set_max_file_path_id},
 	rules::IndexerRule,
 	walk::{walk, WalkEntry},
 };
@@ -233,11 +231,12 @@ impl StatefulJob for IndexerJob {
 			.data
 			.as_ref()
 			.expect("critical error: missing data on job state");
+		let db = &ctx.library_ctx.db;
 
 		let location_path = &data.location_path;
 		let location_id = state.init.location.id;
 
-		let entries = state.steps[0]
+		let (sync_stuff, paths): (Vec<_>, Vec<_>) = state.steps[0]
 			.iter()
 			.map(|entry| {
 				let name;
@@ -253,7 +252,7 @@ impl StatefulJob for IndexerJob {
 					extension = Some(extract_name(entry.path.extension()).to_lowercase());
 					name = extract_name(entry.path.file_stem());
 				}
-				let materialized_path = entry
+				let mut materialized_path = entry
 					.path
 					.strip_prefix(location_path)
 					.unwrap()
@@ -261,20 +260,54 @@ impl StatefulJob for IndexerJob {
 					.expect("Found non-UTF-8 path")
 					.to_string();
 
-				FilePathBatchCreateEntry {
-					id: entry.file_id,
-					location_id,
-					materialized_path,
-					name,
-					extension,
-					parent_id: entry.parent_id,
-					is_dir: entry.is_dir,
-					created_at: entry.created_at,
+				if entry.is_dir && !materialized_path.ends_with('/') {
+					materialized_path += "/";
 				}
-			})
-			.collect();
 
-		let count = create_many_file_paths(&ctx.library_ctx, entries).await?;
+				use file_path::*;
+
+				(
+					(
+						json!({
+							"id": entry.file_id,
+							"location_id": state.init.location.pub_id,
+						}),
+						[
+							("materialized_path", json!(materialized_path.clone())),
+							("name", json!(name.clone())),
+							("is_dir", json!(entry.is_dir)),
+							("extension", json!(extension.clone())),
+							("parent_id", json!(entry.parent_id)),
+							("date_created", json!(entry.created_at)),
+						],
+					),
+					file_path::create_unchecked(
+						entry.file_id,
+						location_id,
+						materialized_path,
+						name,
+						vec![
+							is_dir::set(entry.is_dir),
+							extension::set(extension),
+							parent_id::set(entry.parent_id),
+							date_created::set(entry.created_at.into()),
+						],
+					),
+				)
+			})
+			.unzip();
+
+		let count = ctx
+			.library_ctx
+			.sync
+			.write_op(
+				db,
+				ctx.library_ctx
+					.sync
+					.owned_create_many("FilePath", sync_stuff, true),
+				db.file_path().create_many(paths).skip_duplicates(),
+			)
+			.await?;
 
 		info!("Inserted {count} records");
 

@@ -14,7 +14,6 @@
 		"@icons-pack/react-simple-icons": "^5.8.0",
 		"@sd/assets": "workspace:*",
 		"@sd/docs": "workspace:*",
-		"@sd/ui": "workspace:*",
 		"@tryghost/content-api": "^1.11.4",
 		"@vitejs/plugin-react": "^2.1.0",
 		"clsx": "^1.2.1",
@@ -40,6 +39,7 @@
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
+		"@sd/ui": "workspace:*",
 		"@tailwindcss/line-clamp": "^0.4.2",
 		"@tailwindcss/typography": "^0.5.7",
 		"@types/compression": "^1.7.2",
@@ -57,6 +57,7 @@
 		"sass": "^1.55.0",
 		"vite-plugin-esmodule": "^1.4.4",
 		"vite-plugin-markdown": "^2.1.0",
-		"vite-plugin-svgr": "^2.2.1"
+		"vite-plugin-svgr": "^2.2.1",
+		"vite-tsconfig-paths": "^3.5.2"
 	}
 }

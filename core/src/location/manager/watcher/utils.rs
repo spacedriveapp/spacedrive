@@ -171,12 +171,12 @@ async fn inner_create_file(
 				.object()
 				.upsert(
 					object::cas_id::equals(cas_id.clone()),
-					(
+					object::create_unchecked(
 						cas_id.clone(),
-						size_str.clone(),
 						vec![
 							object::date_created::set(date_created),
 							object::kind::set(kind.int_value()),
+							object::size_in_bytes::set(size_str.clone()),
 						],
 					),
 					vec![

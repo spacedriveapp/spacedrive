@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent, job::DynJob, location::LocationManager, node::NodeConfigManager,
-	prisma::PrismaClient, NodeContext,
+	prisma::PrismaClient, sync::SyncManager, NodeContext,
 };
 
 use std::{
@@ -25,6 +25,7 @@ pub struct LibraryContext {
 	pub config: LibraryConfig,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
+	pub sync: Arc<SyncManager>,
 	/// key manager that provides encryption keys to functions that require them
 	pub key_manager: Arc<KeyManager>,
 	/// node_local_id holds the local ID of the node which is running the library.

@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use rspc::Type;
 use serde::{Deserialize, Serialize};
@@ -23,11 +23,14 @@ pub struct RelationOperation {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub enum SharedOperationCreateData {
+	#[serde(rename = "u")]
 	Unique(Map<String, Value>),
+	#[serde(rename = "a")]
 	Atomic,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
+#[serde(untagged)]
 pub enum SharedOperationData {
 	Create(SharedOperationCreateData),
 	Update { field: String, value: Value },
@@ -36,15 +39,19 @@ pub enum SharedOperationData {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub struct SharedOperation {
-	pub record_id: Uuid,
+	pub record_id: Value,
 	pub model: String,
 	pub data: SharedOperationData,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type)]
 pub enum OwnedOperationData {
-	Create(Map<String, Value>),
-	Update(Map<String, Value>),
+	Create(BTreeMap<String, Value>),
+	CreateMany {
+		values: Vec<(Value, BTreeMap<String, Value>)>,
+		skip_duplicates: bool,
+	},
+	Update(BTreeMap<String, Value>),
 	Delete,
 }
 

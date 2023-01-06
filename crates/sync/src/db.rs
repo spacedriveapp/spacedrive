@@ -192,8 +192,11 @@ impl Db {
 
 								match item.data {
 									OwnedOperationData::Create(data) => {
-										self.file_paths
-											.insert(id, from_value(Value::Object(data)).unwrap());
+										self.file_paths.insert(
+											id,
+											from_value(Value::Object(data.into_iter().collect()))
+												.unwrap(),
+										);
 									}
 									OwnedOperationData::Update(data) => {
 										let obj = self.file_paths.get_mut(&id).unwrap();
@@ -252,11 +255,13 @@ impl Db {
 
 #[cfg(test)]
 mod tests {
+	use std::collections::BTreeMap;
+
 	use super::*;
 
-	fn to_map(v: &impl serde::Serialize) -> serde_json::Map<String, Value> {
+	fn to_map(v: &impl serde::Serialize) -> BTreeMap<String, Value> {
 		match to_value(&v).unwrap() {
-			Value::Object(m) => m,
+			Value::Object(m) => m.into_iter().collect(),
 			_ => unreachable!(),
 		}
 	}

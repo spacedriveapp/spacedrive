@@ -69,10 +69,9 @@ impl StatefulJob for FullFileIdentifierJob {
 		info!("Identifying orphan File Paths...");
 
 		let location_id = state.init.location_id;
+		let db = &ctx.library_ctx.db;
 
-		let location = ctx
-			.library_ctx
-			.db
+		let location = db
 			.location()
 			.find_unique(location::id::equals(location_id))
 			.exec()
@@ -97,9 +96,7 @@ impl StatefulJob for FullFileIdentifierJob {
 		// update job with total task count based on orphan file_paths count
 		ctx.progress(vec![JobReportUpdate::TaskCount(task_count)]);
 
-		let first_path_id = ctx
-			.library_ctx
-			.db
+		let first_path_id = db
 			.file_path()
 			.find_first(orphan_path_filters(location_id, None))
 			.exec()
