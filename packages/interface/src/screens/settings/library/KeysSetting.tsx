@@ -303,5 +303,8 @@ export const getHashingAlgorithmSettings = (hashingAlgorithm: string): HashingAl
 
 // not sure of a suitable place for this function
 export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
-	return Object.entries(table).find((s, i) => table[i] === hashingAlgorithm)![0];
+	return Object.entries(table).find(
+		([str, hashAlg], i) =>
+			hashAlg.name === hashingAlgorithm.name && hashAlg.params === hashingAlgorithm.params
+	)![0];
 };
