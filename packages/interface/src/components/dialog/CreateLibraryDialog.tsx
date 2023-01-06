@@ -1,7 +1,6 @@
 import { Algorithm, useBridgeMutation } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { writeText } from '@tauri-apps/api/clipboard';
 import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
@@ -124,7 +123,7 @@ export default function CreateLibraryDialog({
 						<Button
 							type="button"
 							onClick={() => {
-								writeText(form.watch('password') as string);
+								navigator.clipboard.writeText(form.watch('password') as string);
 							}}
 							size="icon"
 							className="border-none absolute right-[35px] top-[5px]"
@@ -185,7 +184,7 @@ export default function CreateLibraryDialog({
 						<Button
 							type="button"
 							onClick={() => {
-								writeText(form.watch('secret_key') as string);
+								navigator.clipboard.writeText(form.watch('secret_key') as string);
 							}}
 							size="icon"
 							className="border-none absolute right-[35px] top-[5px]"

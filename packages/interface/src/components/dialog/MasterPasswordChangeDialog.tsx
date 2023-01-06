@@ -1,6 +1,5 @@
 import { Algorithm, useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
-import { writeText } from '@tauri-apps/api/clipboard';
 import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
@@ -139,7 +138,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 						<Button
 							type="button"
 							onClick={() => {
-								writeText(form.watch('masterPassword') as string);
+								navigator.clipboard.writeText(form.watch('masterPassword') as string);
 							}}
 							size="icon"
 							className="border-none absolute right-[35px] top-[5px]"
@@ -195,7 +194,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 						<Button
 							type="button"
 							onClick={() => {
-								writeText(form.watch('secretKey') as string);
+								navigator.clipboard.writeText(form.watch('secretKey') as string);
 							}}
 							size="icon"
 							className="border-none absolute right-[35px] top-[5px]"

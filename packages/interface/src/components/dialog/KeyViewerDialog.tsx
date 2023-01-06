@@ -1,6 +1,5 @@
 import { useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
-import { writeText } from '@tauri-apps/api/clipboard';
 import { Buffer } from 'buffer';
 import { Clipboard } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
@@ -119,7 +118,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 							<Button
 								type="button"
 								onClick={() => {
-									writeText(contentSalt);
+									navigator.clipboard.writeText(contentSalt);
 								}}
 								size="icon"
 								className="border-none absolute right-[5px] top-[5px]"
@@ -137,7 +136,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 							<Button
 								type="button"
 								onClick={() => {
-									writeText(keyValue);
+									navigator.clipboard.writeText(keyValue);
 								}}
 								size="icon"
 								className="border-none absolute right-[5px] top-[5px]"

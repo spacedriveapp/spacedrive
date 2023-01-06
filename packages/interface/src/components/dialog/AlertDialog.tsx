@@ -1,5 +1,4 @@
 import { Button, Dialog, Input } from '@sd/ui';
-import { writeText } from '@tauri-apps/api/clipboard';
 import { Clipboard } from 'phosphor-react';
 
 export const GenericAlertDialogState = {
@@ -47,7 +46,7 @@ export const AlertDialog = (props: AlertDialogProps) => {
 					<Button
 						type="button"
 						onClick={() => {
-							writeText(props.value);
+							navigator.clipboard.writeText(props.value);
 						}}
 						size="icon"
 						className="border-none absolute right-[5px] top-[5px]"
