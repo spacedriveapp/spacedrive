@@ -23,8 +23,7 @@ const client = hooks.createClient({
 const platform: Platform = {
 	platform: 'web',
 	getThumbnailUrlById: (casId) =>
-		`${
-			import.meta.env.VITE_SDSERVER_BASE_URL || 'http://localhost:8080'
+		`${import.meta.env.VITE_SDSERVER_BASE_URL || 'http://localhost:8080'
 		}/spacedrive/thumbnail/${encodeURIComponent(casId)}.webp`,
 	openLink: (url) => window.open(url, '_blank')?.focus(),
 	demoMode: true

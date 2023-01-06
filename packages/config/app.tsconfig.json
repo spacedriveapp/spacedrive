@@ -1,6 +1,7 @@
 {
 	"extends": "./base.tsconfig.json",
 	"compilerOptions": {
-		"types": ["vite-plugin-svgr/client", "vite/client"]
+		"noEmit": true,
+		"emitDeclarationOnly": false,
 	}
 }

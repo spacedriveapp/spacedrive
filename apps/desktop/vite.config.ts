@@ -23,7 +23,6 @@ export default defineConfig({
 		alias: [relativeAliasResolver]
 	},
 	root: 'src',
-	publicDir: '../../packages/interface/src/assets',
 	define: {
 		pkgJson: { name, version }
 	},

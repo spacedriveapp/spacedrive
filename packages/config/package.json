@@ -2,6 +2,7 @@
 	"name": "@sd/config",
 	"version": "0.0.0",
 	"main": "index.js",
+	"types": "index.d.ts",
 	"license": "GPL-3.0-only",
 	"files": [
 		"eslint-react.js"

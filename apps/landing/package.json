@@ -7,7 +7,8 @@
 		"build": "vite build",
 		"server": "ts-node ./server",
 		"server:prod": "cross-env NODE_ENV=production ts-node ./server",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit"
+		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@headlessui/react": "^1.7.3",

@@ -9,7 +9,8 @@
 		"dev": "tauri dev",
 		"tauri": "tauri",
 		"build": "node ./src-tauri/build.js",
-		"dmg": "open ../../target/release/bundle/dmg/"
+		"dmg": "open ../../target/release/bundle/dmg/",
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@rspc/client": "^0.0.0-main-7c0a67c1",

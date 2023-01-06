@@ -2,8 +2,8 @@ import clsx from 'clsx';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { Button, Input } from '../../../../ui/src';
-import { useOperatingSystem } from '../../hooks/useOperatingSystem';
+import { Button } from '@sd/ui';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 
 // TODO: This page requires styling for now it is just a placeholder.
