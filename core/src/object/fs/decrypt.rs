@@ -16,7 +16,7 @@ pub struct FileDecryptorJobState {}
 #[derive(Serialize, Deserialize, Debug, Type, Hash)]
 pub struct FileDecryptorJobInit {
 	pub location_id: i32,
-	pub object_id: i32,
+	pub path_id: i32,
 	pub output_path: Option<PathBuf>,
 	pub password: Option<String>, // if this is set, we can assume the user chose password decryption
 	pub save_to_library: Option<bool>,
@@ -50,24 +50,33 @@ impl StatefulJob for FileDecryptorJob {
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
-			.expect("critical error: can't find location");
-
-		let root_path = location
-			.local_path
-			.as_ref()
-			.map(PathBuf::from)
-			.expect("critical error: issue getting local path as pathbuf");
-
+			.ok_or(JobError::EarlyFinish {
+				name: self.name().to_string(),
+				reason: "can't find location".to_string(),
+			})?;
+		let root_path =
+			location
+				.local_path
+				.as_ref()
+				.map(PathBuf::from)
+				.ok_or(JobError::EarlyFinish {
+					name: self.name().to_string(),
+					reason: "can't get path as pathbuf".to_string(),
+				})?;
 		let item = ctx
 			.library_ctx
 			.db
 			.file_path()
-			.find_first(vec![file_path::object_id::equals(Some(
-				state.init.object_id,
-			))])
+			.find_unique(file_path::location_id_id(
+				state.init.location_id,
+				state.init.path_id,
+			))
 			.exec()
 			.await?
-			.expect("critical error: can't find object");
+			.ok_or(JobError::EarlyFinish {
+				name: self.name().to_string(),
+				reason: "can't find file_path with location id and path id".to_string(),
+			})?;
 
 		let obj_name = item.materialized_path;
 

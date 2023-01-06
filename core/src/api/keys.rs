@@ -180,6 +180,8 @@ pub(crate) fn mount() -> RouterBuilder {
 					.key_manager
 					.set_master_password(Protected::new(args.password), secret_key)?;
 
+				invalidate_query!(library, "keys.hasMasterPassword");
+
 				let automount = library
 					.db
 					.key()
@@ -191,9 +193,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					library
 						.key_manager
 						.mount(Uuid::from_str(&key.uuid).map_err(|_| Error::Serialization)?)?;
-				}
 
-				invalidate_query!(library, "keys.hasMasterPassword");
+					invalidate_query!(library, "keys.listMounted");
+				}
 
 				Ok(())
 			})

@@ -12,12 +12,12 @@ interface EncryptDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
 	location_id: number | null;
-	object_id: number | null;
+	path_id: number | undefined;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const EncryptFileDialog = (props: EncryptDialogProps) => {
-	const { location_id, object_id } = props;
+	const { location_id, path_id } = props;
 	const platform = usePlatform();
 
 	// the selected key will be random, we should prioritise the default
@@ -61,13 +61,13 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 					props.setOpen(false);
 
 					location_id &&
-						object_id &&
+						path_id &&
 						encryptFile.mutate(
 							{
 								algorithm: encryptionAlgo as Algorithm,
 								key_uuid: key,
 								location_id,
-								object_id,
+								path_id,
 								metadata,
 								preview_media: previewMedia,
 								output_path: output
