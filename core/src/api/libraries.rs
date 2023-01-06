@@ -8,7 +8,10 @@ use super::{utils::LibraryRequest, RouterBuilder};
 use chrono::Utc;
 use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
 use rspc::Type;
-use sd_crypto::Protected;
+use sd_crypto::{
+	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, primitives::OnboardingConfig,
+	Protected,
+};
 use serde::Deserialize;
 use tokio::fs;
 use uuid::Uuid;
@@ -77,7 +80,10 @@ pub(crate) fn mount() -> RouterBuilder {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: String,
-				password: Option<Protected<String>>,
+				password: Protected<String>,
+				secret_key: Option<Protected<String>>,
+				algorithm: Algorithm,
+				hashing_algorithm: HashingAlgorithm,
 			}
 
 			t(|ctx, args: CreateLibraryArgs| async move {
@@ -88,7 +94,12 @@ pub(crate) fn mount() -> RouterBuilder {
 							name: args.name.to_string(),
 							..Default::default()
 						},
-						args.password,
+						OnboardingConfig {
+							password: args.password,
+							secret_key: args.secret_key,
+							algorithm: args.algorithm,
+							hashing_algorithm: args.hashing_algorithm,
+						},
 					)
 					.await?)
 			})

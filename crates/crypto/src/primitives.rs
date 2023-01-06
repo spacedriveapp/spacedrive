@@ -11,6 +11,7 @@ use crate::{
 		file::FileHeaderVersion, keyslot::KeyslotVersion, metadata::MetadataVersion,
 		preview_media::PreviewMediaVersion,
 	},
+	keys::hashing::HashingAlgorithm,
 	Error, Protected, Result,
 };
 
@@ -41,6 +42,16 @@ pub const ROOT_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:53:54 root key deri
 pub const MASTER_PASSWORD_CONTEXT: &str =
 	"spacedrive 2022-12-14 15:35:41 master password hash derivation"; // used for deriving keys from the master password hash
 pub const FILE_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:54:12 file key derivation"; // used for deriving keys from user key/content salt hashes (for file encryption)
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
+pub struct OnboardingConfig {
+	pub password: Protected<String>,
+	pub secret_key: Option<Protected<String>>,
+	pub algorithm: Algorithm,
+	pub hashing_algorithm: HashingAlgorithm,
+}
 
 /// This should be used for generating nonces for encryption.
 ///

@@ -1,6 +1,5 @@
 import { useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
-import { writeText } from '@tauri-apps/api/clipboard';
 import { Buffer } from 'buffer';
 import { Clipboard } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
@@ -105,9 +104,9 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 							<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 							<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 							<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-							<SelectOption value="BalloonBlake3-s">Blake3-Balloon (standard)</SelectOption>
-							<SelectOption value="BalloonBlake3-h">Blake3-Balloon (hardened)</SelectOption>
-							<SelectOption value="BalloonBlake3-p">Blake3-Balloon (paranoid)</SelectOption>
+							<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
+							<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
+							<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
 						</Select>
 					</div>
 				</div>
@@ -119,7 +118,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 							<Button
 								type="button"
 								onClick={() => {
-									writeText(contentSalt);
+									navigator.clipboard.writeText(contentSalt);
 								}}
 								size="icon"
 								className="border-none absolute right-[5px] top-[5px]"
@@ -137,7 +136,7 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 							<Button
 								type="button"
 								onClick={() => {
-									writeText(keyValue);
+									navigator.clipboard.writeText(keyValue);
 								}}
 								size="icon"
 								className="border-none absolute right-[5px] top-[5px]"
