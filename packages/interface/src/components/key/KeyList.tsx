@@ -9,20 +9,15 @@ export type KeyListProps = DefaultProps;
 
 // ideal for going within a select box
 // can use mounted or unmounted keys, just provide different inputs
-export const SelectOptionKeyList = (props: { keys: string[] }) => {
-	return (
-		<>
-			{props.keys.map((key) => {
-				return (
-					<SelectOption key={key} value={key}>
-						Key {key.substring(0, 8).toUpperCase()}
-					</SelectOption>
-				);
-			})}
-		</>
-	);
-};
-
+export const SelectOptionKeyList = (props: { keys: string[] }) => (
+	<>
+		{props.keys.map((key) => (
+			<SelectOption key={key} value={key}>
+				Key {key.substring(0, 8).toUpperCase()}
+			</SelectOption>
+		))}
+	</>
+);
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
