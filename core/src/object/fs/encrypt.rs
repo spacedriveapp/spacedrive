@@ -79,13 +79,20 @@ impl StatefulJob for FileEncryptorJob {
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
-			.expect("critical error: can't find location");
+			.ok_or(JobError::EarlyFinish {
+				name: self.name().to_string(),
+				reason: "can't find location".to_string(),
+			})?;
 
-		let root_path = location
-			.local_path
-			.as_ref()
-			.map(PathBuf::from)
-			.expect("critical error: issue getting local path as pathbuf");
+		let root_path =
+			location
+				.local_path
+				.as_ref()
+				.map(PathBuf::from)
+				.ok_or(JobError::EarlyFinish {
+					name: self.name().to_string(),
+					reason: "can't get path as pathbuf".to_string(),
+				})?;
 
 		let item = ctx
 			.library_ctx
@@ -97,7 +104,10 @@ impl StatefulJob for FileEncryptorJob {
 			))
 			.exec()
 			.await?
-			.expect("critical error: can't find path");
+			.ok_or(JobError::EarlyFinish {
+				name: self.name().to_string(),
+				reason: "can't find file_path with location id and path id".to_string(),
+			})?;
 
 		let obj_name = item.materialized_path;
 
@@ -152,7 +162,10 @@ impl StatefulJob for FileEncryptorJob {
 					let mut path = step.obj_path.clone();
 					let extension = if let Some(ext) = path.extension() {
 						ext.to_str()
-							.expect("critical error: path is not valid utf-8")
+							.ok_or(JobError::EarlyFinish {
+								name: self.name().to_string(),
+								reason: "path isn't valid UTF-8".to_string(),
+							})?
 							.to_string() + ".sdenc"
 					} else {
 						"sdenc".to_string()
@@ -190,7 +203,9 @@ impl StatefulJob for FileEncryptorJob {
 							.find_unique(object::id::equals(obj_id))
 							.exec()
 							.await?
-							.expect("critical error: can't get object info");
+							.ok_or(JobError::JobDataNotFound(String::from(
+								"can't find information about the object",
+							)))?;
 
 						if state.init.metadata {
 							let metadata = Metadata {
