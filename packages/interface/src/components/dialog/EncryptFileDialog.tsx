@@ -1,11 +1,8 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Select, SelectOption } from '@sd/ui';
 import { useState } from 'react';
 
-import {
-	getCryptoSettings,
-	getHashingAlgorithmString
-} from '../../screens/settings/library/KeysSetting';
+import { getHashingAlgorithmString } from '../../screens/settings/library/KeysSetting';
 import { usePlatform } from '../../util/Platform';
 import { SelectOptionKeyList } from '../key/KeyList';
 import { Checkbox } from '../primitive/Checkbox';
@@ -15,13 +12,24 @@ interface EncryptDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
 	location_id: number | null;
-	object_id: number | null;
+	path_id: number | undefined;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const EncryptFileDialog = (props: EncryptDialogProps) => {
+	const { location_id, path_id } = props;
 	const platform = usePlatform();
-	const { location_id, object_id } = props;
+
+	// the selected key will be random, we should prioritise the default
+	const [key, setKey] = useState('');
+
+	// decided against react-hook-form, as it doesn't allow us to work with select boxes and such
+	const [metadata, setMetadata] = useState(false);
+	const [previewMedia, setPreviewMedia] = useState(false);
+	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
+	const [hashingAlgo, setHashingAlgo] = useState('');
+	const [outputPath, setOutputpath] = useState('');
+
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
@@ -39,16 +47,6 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 
 	const encryptFile = useLibraryMutation('files.encryptFiles');
 
-	// the selected key will be random, we should prioritise the default
-	const [key, setKey] = useState('');
-
-	// decided against react-hook-form, as it doesn't allow us to work with select boxes and such
-	const [metadata, setMetadata] = useState(false);
-	const [previewMedia, setPreviewMedia] = useState(false);
-	const [encryptionAlgo, setEncryptionAlgo] = useState('XChaCha20Poly1305');
-	const [hashingAlgo, setHashingAlgo] = useState('');
-	const [outputPath, setOutputpath] = useState('');
-
 	return (
 		<>
 			<Dialog
@@ -59,18 +57,17 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 				loading={encryptFile.isLoading}
 				ctaLabel="Encrypt"
 				ctaAction={() => {
-					const algorithm = getCryptoSettings(encryptionAlgo, hashingAlgo)[0];
 					const output = outputPath !== '' ? outputPath : null;
 					props.setOpen(false);
 
 					location_id &&
-						object_id &&
+						path_id &&
 						encryptFile.mutate(
 							{
-								algorithm,
+								algorithm: encryptionAlgo as Algorithm,
 								key_uuid: key,
 								location_id,
-								object_id,
+								path_id,
 								metadata,
 								preview_media: previewMedia,
 								output_path: output
@@ -162,9 +159,9 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 							<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 							<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-							<SelectOption value="BalloonBlake3-s">Blake3-Balloon (standard)</SelectOption>
-							<SelectOption value="BalloonBlake3-h">Blake3-Balloon (hardened)</SelectOption>
-							<SelectOption value="BalloonBlake3-p">Blake3-Balloon (paranoid)</SelectOption>
+							<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
+							<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
+							<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
 						</Select>
 					</div>
 				</div>

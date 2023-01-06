@@ -10,6 +10,7 @@ import { GenericAlertDialogProps } from './AlertDialog';
 type FormValues = {
 	masterPassword: string;
 	secretKey: string;
+	filePath: string;
 };
 
 export interface BackupRestorationDialogProps {
@@ -19,20 +20,23 @@ export interface BackupRestorationDialogProps {
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const platform = usePlatform();
-	const { register, handleSubmit, reset } = useForm<FormValues>({
+	const form = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
-			secretKey: ''
+			secretKey: '',
+			filePath: ''
 		}
 	});
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
-		if (filePath !== '') {
+		const sk = data.secretKey ?? null;
+
+		if (data.filePath !== '') {
 			restoreKeystoreMutation.mutate(
 				{
 					password: data.masterPassword,
-					secret_key: data.secretKey,
-					path: filePath
+					secret_key: sk,
+					path: data.filePath
 				},
 				{
 					onSuccess: (total) => {
@@ -57,8 +61,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					}
 				}
 			);
-			reset();
-			setFilePath('');
+			form.reset();
 		}
 	};
 
@@ -67,14 +70,13 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
-	const [filePath, setFilePath] = useState('');
 
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
 	return (
 		<>
-			<form onSubmit={handleSubmit(onSubmit)}>
+			<form onSubmit={form.handleSubmit(onSubmit)}>
 				<Dialog
 					open={showBackupRestoreDialog}
 					setOpen={setShowBackupRestoreDialog}
@@ -90,7 +92,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 							placeholder="Master Password"
 							required
 							type={showMasterPassword ? 'text' : 'password'}
-							{...register('masterPassword', { required: true })}
+							{...form.register('masterPassword', { required: true })}
 						/>
 						<Button
 							onClick={() => setShowMasterPassword(!showMasterPassword)}
@@ -105,8 +107,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 						<Input
 							className="flex-grow !py-0.5"
 							placeholder="Secret Key"
-							{...register('secretKey', { required: true })}
-							required
+							{...form.register('secretKey', { required: false })}
 							type={showSecretKey ? 'text' : 'password'}
 						/>
 						<Button
@@ -121,7 +122,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					<div className="relative flex flex-grow mb-2">
 						<Button
 							size="sm"
-							variant={filePath !== '' ? 'accent' : 'gray'}
+							variant={form.watch('filePath') !== '' ? 'accent' : 'gray'}
 							type="button"
 							onClick={() => {
 								if (!platform.openFilePickerDialog) {
@@ -136,7 +137,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 									return;
 								}
 								platform.openFilePickerDialog().then((result) => {
-									if (result) setFilePath(result as string);
+									if (result) form.setValue('filePath', result as string);
 								});
 							}}
 						>

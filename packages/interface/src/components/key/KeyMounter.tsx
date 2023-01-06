@@ -1,20 +1,17 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
 import cryptoRandomString from 'crypto-random-string';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { getCryptoSettings } from '../../screens/settings/library/KeysSetting';
+import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import Slider from '../primitive/Slider';
 import { Tooltip } from '../tooltip/Tooltip';
 
 const KeyHeading = tw(CategoryHeading)`mb-1`;
 
-const PasswordCharset =
-	'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]:"\';<>?,./\\|`~';
-
-const GeneratePassword = (length: number) => {
-	return cryptoRandomString({ length, characters: PasswordCharset });
+export const generatePassword = (length: number) => {
+	return cryptoRandomString({ length, type: 'ascii-printable' });
 };
 
 export function KeyMounter() {
@@ -73,10 +70,10 @@ export function KeyMounter() {
 						defaultValue={[64]}
 						onValueChange={(e) => {
 							setSliderValue(e);
-							setKey(GeneratePassword(e[0]));
+							setKey(generatePassword(e[0]));
 						}}
 						onClick={() => {
-							setKey(GeneratePassword(sliderValue[0]));
+							setKey(generatePassword(sliderValue[0]));
 						}}
 					/>
 				</div>
@@ -131,9 +128,9 @@ export function KeyMounter() {
 						<SelectOption value="Argon2id-s">Argon2id (standard)</SelectOption>
 						<SelectOption value="Argon2id-h">Argon2id (hardened)</SelectOption>
 						<SelectOption value="Argon2id-p">Argon2id (paranoid)</SelectOption>
-						<SelectOption value="BalloonBlake3-s">Blake3-Balloon (standard)</SelectOption>
-						<SelectOption value="BalloonBlake3-h">Blake3-Balloon (hardened)</SelectOption>
-						<SelectOption value="BalloonBlake3-p">Blake3-Balloon (paranoid)</SelectOption>
+						<SelectOption value="BalloonBlake3-s">BLAKE3-Balloon (standard)</SelectOption>
+						<SelectOption value="BalloonBlake3-h">BLAKE3-Balloon (hardened)</SelectOption>
+						<SelectOption value="BalloonBlake3-p">BLAKE3-Balloon (paranoid)</SelectOption>
 					</Select>
 				</div>
 			</div>
@@ -144,10 +141,10 @@ export function KeyMounter() {
 				onClick={() => {
 					setKey('');
 
-					const [algorithm, hashing_algorithm] = getCryptoSettings(encryptionAlgo, hashingAlgo);
+					const hashing_algorithm = getHashingAlgorithmSettings(hashingAlgo);
 
 					createKey.mutate({
-						algorithm,
+						algorithm: encryptionAlgo as Algorithm,
 						hashing_algorithm,
 						key,
 						library_sync: librarySync,

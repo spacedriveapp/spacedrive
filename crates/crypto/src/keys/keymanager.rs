@@ -39,8 +39,8 @@ use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
-	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, KEY_LEN,
-	MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, OnboardingConfig,
+	KEY_LEN, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 };
 use crate::{
 	crypto::stream::Algorithm,
@@ -56,13 +56,6 @@ use uuid::Uuid;
 use serde_big_array::BigArray;
 
 use super::hashing::HashingAlgorithm;
-
-// The terminology in this file is very confusing.
-// The `master_key` is specific to the `StoredKey`, and is just used internally for encryption.
-// The `key` is what the user added/generated within their Spacedrive key manager.
-// The `password` in this sense is the user's "master password", similar to a password manager's main password
-// The `hashed_key` refers to the value you'd pass to PVM/MD decryption functions. It has been pre-hashed with the content salt.
-// The content salt refers to the semi-universal salt that's used for metadata/preview media (unique to each key in the manager)
 
 /// This is a stored key, and can be freely written to Prisma/another database.
 #[derive(Clone, PartialEq, Eq)]
@@ -105,25 +98,6 @@ pub struct KeyManager {
 	default: Mutex<Option<Uuid>>,
 }
 
-// bundle returned during onboarding
-// nil key should be stored within prisma
-// secret key should be written down by the user (along with the master password)
-/// This bundle is returned during onboarding.
-///
-/// The verification key should be written to the database, and only one nil-UUID key should exist at any given point for a library.
-///
-/// The secret key needs to be given to the user, and should be written down.
-pub struct OnboardingBundle {
-	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
-	pub master_password: Protected<String>,
-	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
-}
-
-pub struct MasterPasswordChangeBundle {
-	pub verification_key: StoredKey, // nil UUID key that is only ever used for verifying the master password is correct
-	pub secret_key: Protected<String>, // hex encoded string that is required along with the master password
-}
-
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
@@ -151,18 +125,26 @@ impl KeyManager {
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn onboarding(
-		algorithm: Algorithm,
-		hashing_algorithm: HashingAlgorithm,
-		password: Protected<String>,
-	) -> Result<OnboardingBundle> {
-		let content_salt = *b"0000000000000000"; // secret key // TODO: Don't hardcode this
+	pub fn onboarding(config: OnboardingConfig) -> Result<StoredKey> {
+		let content_salt = generate_salt();
+		let secret_key = config.secret_key.map(Self::convert_secret_key_string);
+
+		let algorithm = config.algorithm;
+		let hashing_algorithm = config.hashing_algorithm;
 
 		// Hash the master password
-		let hashed_password = hashing_algorithm.hash(
-			Protected::new(password.expose().as_bytes().to_vec()),
-			content_salt,
-		)?;
+		let hashed_password = if let Some(sk) = secret_key {
+			hashing_algorithm.hash_with_secret(
+				Protected::new(config.password.expose().as_bytes().to_vec()),
+				content_salt,
+				sk,
+			)?
+		} else {
+			hashing_algorithm.hash(
+				Protected::new(config.password.expose().as_bytes().to_vec()),
+				content_salt,
+			)?
+		};
 
 		let salt = generate_salt();
 		let derived_key = derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT);
@@ -196,25 +178,17 @@ impl KeyManager {
 			uuid,
 			algorithm,
 			hashing_algorithm,
-			content_salt: [0u8; SALT_LEN],
+			content_salt, // salt used for hashing
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
-			salt,
+			salt, // salt used for key derivation
 			memory_only: false,
 			automount: false,
 		};
 
-		let secret_key = Self::format_secret_key(&content_salt);
-
-		let onboarding_bundle = OnboardingBundle {
-			verification_key,
-			master_password: password,
-			secret_key,
-		};
-
-		Ok(onboarding_bundle)
+		Ok(verification_key)
 	}
 
 	/// This function should be used to populate the keystore with multiple stored keys at a time.
@@ -224,6 +198,10 @@ impl KeyManager {
 	/// This also detects the nil-UUID master passphrase verification key
 	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
 		for key in stored_keys {
+			if self.keystore_contains(key.uuid) {
+				continue;
+			}
+
 			if key.uuid.is_nil() {
 				*self.verification_key.lock()? = Some(key);
 			} else {
@@ -264,13 +242,23 @@ impl KeyManager {
 		master_password: Protected<String>,
 		algorithm: Algorithm,
 		hashing_algorithm: HashingAlgorithm,
-	) -> Result<MasterPasswordChangeBundle> {
-		let content_salt = generate_salt(); // secret key
+		secret_key: Option<Protected<String>>,
+	) -> Result<StoredKey> {
+		let secret_key = secret_key.map(Self::convert_secret_key_string);
+		let content_salt = generate_salt();
 
-		let hashed_password = hashing_algorithm.hash(
-			Protected::new(master_password.expose().as_bytes().to_vec()),
-			content_salt,
-		)?;
+		let hashed_password = if let Some(sk) = secret_key {
+			hashing_algorithm.hash_with_secret(
+				Protected::new(master_password.expose().as_bytes().to_vec()),
+				content_salt,
+				sk,
+			)?
+		} else {
+			hashing_algorithm.hash(
+				Protected::new(master_password.expose().as_bytes().to_vec()),
+				content_salt,
+			)?
+		};
 
 		let uuid = uuid::Uuid::nil();
 
@@ -305,26 +293,19 @@ impl KeyManager {
 			uuid,
 			algorithm,
 			hashing_algorithm,
-			content_salt: [0u8; SALT_LEN],
+			content_salt,
 			master_key: encrypted_master_key,
 			master_key_nonce,
 			key_nonce: root_key_nonce,
 			key: encrypted_root_key,
-			salt: [0u8; SALT_LEN],
+			salt,
 			memory_only: false,
 			automount: false,
 		};
 
 		*self.verification_key.lock()? = Some(verification_key.clone());
 
-		let secret_key = Self::format_secret_key(&salt);
-
-		let mp_change_bundle = MasterPasswordChangeBundle {
-			verification_key,
-			secret_key,
-		};
-
-		Ok(mp_change_bundle)
+		Ok(verification_key)
 	}
 
 	/// This re-encrypts master keys so they can be imported from a key backup into the current key manager.
@@ -333,13 +314,13 @@ impl KeyManager {
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn import_keystore_backup(
 		&self,
-		master_password: Protected<String>, // at the time of the backup
-		secret_key: Protected<String>,      // at the time of the backup
-		stored_keys: &[StoredKey],          // from the backup
+		master_password: Protected<String>,    // at the time of the backup
+		secret_key: Option<Protected<String>>, // at the time of the backup
+		stored_keys: &[StoredKey],             // from the backup
 	) -> Result<Vec<StoredKey>> {
 		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
 		let master_password = Protected::new(master_password.expose().as_bytes().to_vec());
-		let secret_key = Self::convert_secret_key_string(secret_key);
+		let secret_key = secret_key.map(Self::convert_secret_key_string);
 
 		let mut old_verification_key = None;
 
@@ -357,9 +338,17 @@ impl KeyManager {
 
 		let old_verification_key = old_verification_key.ok_or(Error::NoVerificationKey)?;
 
-		let hashed_password = old_verification_key
-			.hashing_algorithm
-			.hash(master_password, *secret_key.expose())?;
+		let hashed_password = if let Some(sk) = secret_key {
+			old_verification_key.hashing_algorithm.hash_with_secret(
+				master_password,
+				old_verification_key.content_salt,
+				sk,
+			)?
+		} else {
+			old_verification_key
+				.hashing_algorithm
+				.hash(master_password, old_verification_key.content_salt)?
+		};
 
 		let derived_key = derive_key(
 			hashed_password,
@@ -445,7 +434,7 @@ impl KeyManager {
 	pub fn set_master_password(
 		&self,
 		master_password: Protected<String>,
-		secret_key: Protected<String>,
+		secret_key: Option<Protected<String>>,
 	) -> Result<()> {
 		let verification_key = match &*self.verification_key.lock()? {
 			Some(k) => Ok(k.clone()),
@@ -453,11 +442,20 @@ impl KeyManager {
 		}?;
 
 		let master_password = Protected::new(master_password.expose().as_bytes().to_vec());
-		let secret_key = Self::convert_secret_key_string(secret_key);
+		let secret_key = secret_key.map(Self::convert_secret_key_string);
 
-		let hashed_password = verification_key
-			.hashing_algorithm
-			.hash(master_password, *secret_key.expose())?;
+		// Hash the master password
+		let hashed_password = if let Some(sk) = secret_key {
+			verification_key.hashing_algorithm.hash_with_secret(
+				master_password,
+				verification_key.content_salt,
+				sk,
+			)?
+		} else {
+			verification_key
+				.hashing_algorithm
+				.hash(master_password, verification_key.content_salt)?
+		};
 
 		let derived_key = derive_key(
 			hashed_password,
@@ -654,41 +652,9 @@ impl KeyManager {
 		Ok(uuid)
 	}
 
-	/// Used internally to convert from a hex-encoded `Protected<String>` to a `Protected<[u8; SALT_LEN]>` in a secretive manner.
-	///
-	/// If the secret key is wrong (not base64 or not the correct length), a filler secret key will be inserted secretly.
 	#[allow(clippy::needless_pass_by_value)]
-	fn convert_secret_key_string(secret_key: Protected<String>) -> Protected<[u8; SALT_LEN]> {
-		let mut secret_key_sanitized = secret_key.expose().clone();
-		secret_key_sanitized.retain(|c| c != '-' && !c.is_whitespace());
-
-		// we shouldn't be letting on to *what* failed so we use a random secret key here if it's still invalid
-		// could maybe do this better (and make use of the subtle crate)
-
-		let secret_key = hex::decode(secret_key_sanitized)
-			.ok()
-			.map_or(Vec::new(), |v| v);
-
-		to_array(secret_key)
-			.ok()
-			.map_or(Protected::new(generate_salt()), Protected::new)
-	}
-
-	fn format_secret_key(salt: &[u8; SALT_LEN]) -> Protected<String> {
-		let hex_string: String = hex::encode_upper(salt)
-			.chars()
-			.enumerate()
-			.map(|(i, c)| {
-				if (i + 1) % 8 == 0 && i != 31 {
-					c.to_string() + "-"
-				} else {
-					c.to_string()
-				}
-			})
-			.into_iter()
-			.collect();
-
-		Protected::new(hex_string)
+	fn convert_secret_key_string(secret_key: Protected<String>) -> Protected<Vec<u8>> {
+		Protected::new(secret_key.expose().as_bytes().to_vec())
 	}
 
 	/// This function is for accessing the internal keymount.

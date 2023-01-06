@@ -149,11 +149,12 @@ export default function KeysSettings() {
 						variant="accent"
 						disabled={setMasterPasswordMutation.isLoading}
 						onClick={() => {
-							if (masterPassword !== '' && secretKey !== '') {
+							if (masterPassword !== '') {
+								const sk = secretKey ?? null;
 								setMasterPassword('');
 								setSecretKey('');
 								setMasterPasswordMutation.mutate(
-									{ password: masterPassword, secret_key: secretKey },
+									{ password: masterPassword, secret_key: sk },
 									{
 										onError: () => {
 											setAlertDialogData({
@@ -286,62 +287,24 @@ export default function KeysSettings() {
 	}
 }
 
+const table: Record<string, HashingAlgorithm> = {
+	'Argon2id-s': { name: 'Argon2id', params: 'Standard' },
+	'Argon2id-h': { name: 'Argon2id', params: 'Hardened' },
+	'Argon2id-p': { name: 'Argon2id', params: 'Paranoid' },
+	'BalloonBlake3-s': { name: 'BalloonBlake3', params: 'Standard' },
+	'BalloonBlake3-h': { name: 'BalloonBlake3', params: 'Hardened' },
+	'BalloonBlake3-p': { name: 'BalloonBlake3', params: 'Paranoid' }
+};
+
 // not sure of a suitable place for this function
-export const getCryptoSettings = (
-	encryptionAlgorithm: string,
-	hashingAlgorithm: string
-): [Algorithm, HashingAlgorithm] => {
-	const algorithm = encryptionAlgorithm as Algorithm;
-	let hashing_algorithm: HashingAlgorithm = { Argon2id: 'Standard' };
-
-	switch (hashingAlgorithm) {
-		case 'Argon2id-s':
-			hashing_algorithm = { Argon2id: 'Standard' as Params };
-			break;
-		case 'Argon2id-h':
-			hashing_algorithm = { Argon2id: 'Hardened' as Params };
-			break;
-		case 'Argon2id-p':
-			hashing_algorithm = { Argon2id: 'Paranoid' as Params };
-			break;
-		case 'BalloonBlake3-s':
-			hashing_algorithm = { BalloonBlake3: 'Standard' as Params };
-			break;
-		case 'BalloonBlake3-h':
-			hashing_algorithm = { BalloonBlake3: 'Hardened' as Params };
-			break;
-		case 'BalloonBlake3-p':
-			hashing_algorithm = { BalloonBlake3: 'Paranoid' as Params };
-			break;
-	}
-
-	return [algorithm, hashing_algorithm];
+export const getHashingAlgorithmSettings = (hashingAlgorithm: string): HashingAlgorithm => {
+	return table[hashingAlgorithm];
 };
 
 // not sure of a suitable place for this function
 export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
-	let hashing_algorithm = '';
-
-	switch (hashingAlgorithm) {
-		case { Argon2id: 'Standard' }:
-			hashing_algorithm = 'Argon2id-s';
-			break;
-		case { Argon2id: 'Hardened' }:
-			hashing_algorithm = 'Argon2id-h';
-			break;
-		case { Argon2id: 'Paranoid' }:
-			hashing_algorithm = 'Argon2id-p';
-			break;
-		case { BalloonBlake3: 'Standard' }:
-			hashing_algorithm = 'BalloonBlake3-s';
-			break;
-		case { BalloonBlake3: 'Hardened' }:
-			hashing_algorithm = 'BalloonBlake3-h';
-			break;
-		case { BalloonBlake3: 'Paranoid' }:
-			hashing_algorithm = 'BalloonBlake3-p';
-			break;
-	}
-
-	return hashing_algorithm;
+	return Object.entries(table).find(
+		([str, hashAlg], i) =>
+			hashAlg.name === hashingAlgorithm.name && hashAlg.params === hashingAlgorithm.params
+	)![0];
 };
