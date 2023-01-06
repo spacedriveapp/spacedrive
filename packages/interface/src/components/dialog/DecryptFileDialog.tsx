@@ -12,13 +12,13 @@ interface DecryptDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
 	location_id: number | null;
-	object_id: number | null;
+	path_id: number | undefined;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 export const DecryptFileDialog = (props: DecryptDialogProps) => {
 	const platform = usePlatform();
-	const { location_id, object_id } = props;
+	const { location_id, path_id } = props;
 	const decryptFile = useLibraryMutation('files.decryptFiles');
 	const [outputPath, setOutputpath] = useState('');
 	const [password, setPassword] = useState('');
@@ -59,11 +59,11 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 					props.setOpen(false);
 
 					location_id &&
-						object_id &&
+						path_id &&
 						decryptFile.mutate(
 							{
 								location_id,
-								object_id,
+								path_id,
 								output_path: output,
 								password: pw,
 								save_to_library: save

@@ -29,7 +29,7 @@ pub struct FileEncryptorJobState {}
 #[derive(Serialize, Deserialize, Type, Hash)]
 pub struct FileEncryptorJobInit {
 	pub location_id: i32,
-	pub object_id: i32,
+	pub path_id: i32,
 	pub key_uuid: uuid::Uuid,
 	pub algorithm: Algorithm,
 	pub metadata: bool,
@@ -42,11 +42,12 @@ pub struct FileEncryptorJobStep {
 	obj_name: String,
 	obj_path: PathBuf,
 	obj_type: ObjectType,
+	obj_id: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
-	pub object_id: i32,
+	pub path_id: i32,
 	pub name: String,
 	pub hidden: bool,
 	pub favourite: bool,
@@ -78,24 +79,35 @@ impl StatefulJob for FileEncryptorJob {
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
-			.expect("critical error: can't find location");
+			.ok_or(JobError::EarlyFinish {
+				name: self.name().to_string(),
+				reason: "can't find location".to_string(),
+			})?;
 
-		let root_path = location
-			.local_path
-			.as_ref()
-			.map(PathBuf::from)
-			.expect("critical error: issue getting local path as pathbuf");
+		let root_path =
+			location
+				.local_path
+				.as_ref()
+				.map(PathBuf::from)
+				.ok_or(JobError::EarlyFinish {
+					name: self.name().to_string(),
+					reason: "can't get path as pathbuf".to_string(),
+				})?;
 
 		let item = ctx
 			.library_ctx
 			.db
 			.file_path()
-			.find_first(vec![file_path::object_id::equals(Some(
-				state.init.object_id,
-			))])
+			.find_unique(file_path::location_id_id(
+				state.init.location_id,
+				state.init.path_id,
+			))
 			.exec()
 			.await?
-			.expect("critical error: can't find object");
+			.ok_or(JobError::EarlyFinish {
+				name: self.name().to_string(),
+				reason: "can't find file_path with location id and path id".to_string(),
+			})?;
 
 		let obj_name = item.materialized_path;
 
@@ -114,6 +126,7 @@ impl StatefulJob for FileEncryptorJob {
 			obj_name,
 			obj_path,
 			obj_type,
+			obj_id: item.object_id,
 		});
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
@@ -149,7 +162,10 @@ impl StatefulJob for FileEncryptorJob {
 					let mut path = step.obj_path.clone();
 					let extension = if let Some(ext) = path.extension() {
 						ext.to_str()
-							.expect("critical error: path is not valid utf-8")
+							.ok_or(JobError::EarlyFinish {
+								name: self.name().to_string(),
+								reason: "path isn't valid UTF-8".to_string(),
+							})?
 							.to_string() + ".sdenc"
 					} else {
 						"sdenc".to_string()
@@ -179,41 +195,49 @@ impl StatefulJob for FileEncryptorJob {
 
 				if state.init.metadata || state.init.preview_media {
 					// if any are requested, we can make the query as it'll be used at least once
-					let object = ctx
-						.library_ctx
-						.db
-						.object()
-						.find_unique(object::id::equals(state.init.object_id))
-						.exec()
-						.await?
-						.expect("critical error: can't get object info");
+					if let Some(obj_id) = step.obj_id {
+						let object = ctx
+							.library_ctx
+							.db
+							.object()
+							.find_unique(object::id::equals(obj_id))
+							.exec()
+							.await?
+							.ok_or(JobError::JobDataNotFound(String::from(
+								"can't find information about the object",
+							)))?;
 
-					if state.init.metadata {
-						let metadata = Metadata {
-							object_id: state.init.object_id,
-							name: step.obj_name.clone(),
-							hidden: object.hidden,
-							favourite: object.favorite,
-							important: object.important,
-							note: object.note,
-							date_created: object.date_created,
-							date_modified: object.date_modified,
-						};
+						if state.init.metadata {
+							let metadata = Metadata {
+								path_id: state.init.path_id,
+								name: step.obj_name.clone(),
+								hidden: object.hidden,
+								favourite: object.favorite,
+								important: object.important,
+								note: object.note,
+								date_created: object.date_created,
+								date_modified: object.date_modified,
+							};
 
-						header.add_metadata(
-							LATEST_METADATA,
-							state.init.algorithm,
-							master_key.clone(),
-							&metadata,
-						)?;
-					}
+							header.add_metadata(
+								LATEST_METADATA,
+								state.init.algorithm,
+								master_key.clone(),
+								&metadata,
+							)?;
+						}
 
-					if state.init.preview_media
-						&& (object.has_thumbnail
-							|| object.has_video_preview || object.has_thumbstrip)
-					{
-						// need to find the preview media, read it and return it as Some()
-						// not currently able to do this as thumnails don't generate
+						if state.init.preview_media
+							&& (object.has_thumbnail
+								|| object.has_video_preview || object.has_thumbstrip)
+						{
+							// need to find the preview media, read it and return it as Some()
+							// not currently able to do this as thumnails don't generate
+						}
+					} else {
+						warn!(
+							"skipping metadata/preview media inclusion, no associated object found"
+						)
 					}
 				}
 
