@@ -39,8 +39,8 @@ use std::sync::Mutex;
 
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
-	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, KEY_LEN,
-	MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, OnboardingConfig,
+	KEY_LEN, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 };
 use crate::{
 	crypto::stream::Algorithm,
@@ -125,25 +125,23 @@ impl KeyManager {
 	///
 	/// It will also generate a verification key, which should be written to the database.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn onboarding(
-		algorithm: Algorithm,
-		hashing_algorithm: HashingAlgorithm,
-		password: Protected<String>,
-		secret_key: Option<Protected<String>>,
-	) -> Result<StoredKey> {
+	pub fn onboarding(config: OnboardingConfig) -> Result<StoredKey> {
 		let content_salt = generate_salt();
-		let secret_key = secret_key.map(Self::convert_secret_key_string);
+		let secret_key = config.secret_key.map(Self::convert_secret_key_string);
+
+		let algorithm = config.algorithm;
+		let hashing_algorithm = config.hashing_algorithm;
 
 		// Hash the master password
 		let hashed_password = if let Some(sk) = secret_key {
 			hashing_algorithm.hash_with_secret(
-				Protected::new(password.expose().as_bytes().to_vec()),
+				Protected::new(config.password.expose().as_bytes().to_vec()),
 				content_salt,
 				sk,
 			)?
 		} else {
 			hashing_algorithm.hash(
-				Protected::new(password.expose().as_bytes().to_vec()),
+				Protected::new(config.password.expose().as_bytes().to_vec()),
 				content_salt,
 			)?
 		};

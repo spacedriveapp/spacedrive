@@ -74,7 +74,7 @@ impl From<LibraryManagerError> for rspc::Error {
 
 pub async fn seed_keymanager(
 	client: &PrismaClient,
-	km: Arc<KeyManager>,
+	km: &Arc<KeyManager>,
 ) -> Result<(), LibraryManagerError> {
 	let mut default: Option<Uuid> = None;
 
@@ -202,17 +202,12 @@ impl LibraryManager {
 		indexer_rules_seeder(&library.db).await?;
 
 		// setup master password
-		let verification_key = KeyManager::onboarding(
-			km_config.algorithm,
-			km_config.hashing_algorithm,
-			km_config.password,
-			km_config.secret_key,
-		)?;
+		let verification_key = KeyManager::onboarding(km_config)?;
 
 		write_storedkey_to_db(&library.db, &verification_key).await?;
 
 		// populate KM with the verification key
-		seed_keymanager(&library.db, library.key_manager.clone()).await?;
+		seed_keymanager(&library.db, &library.key_manager).await?;
 
 		invalidate_query!(library, "library.list");
 
@@ -341,7 +336,7 @@ impl LibraryManager {
 
 		let key_manager = Arc::new(KeyManager::new(vec![])?);
 
-		seed_keymanager(&db, key_manager.clone()).await?;
+		seed_keymanager(&db, &key_manager).await?;
 		let (sync_manager, _) = SyncManager::new(db.clone(), id);
 
 		Ok(LibraryContext {

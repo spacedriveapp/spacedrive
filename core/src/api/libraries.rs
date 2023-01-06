@@ -1,5 +1,5 @@
 use crate::{
-	library::{LibraryConfig, LibraryKeymanagerConfig},
+	library::LibraryConfig,
 	prisma::statistics,
 	volume::{get_volumes, save_volume},
 };
@@ -8,7 +8,10 @@ use super::{utils::LibraryRequest, RouterBuilder};
 use chrono::Utc;
 use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
 use rspc::Type;
-use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Protected};
+use sd_crypto::{
+	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, primitives::OnboardingConfig,
+	Protected,
+};
 use serde::Deserialize;
 use tokio::fs;
 use uuid::Uuid;
@@ -91,7 +94,7 @@ pub(crate) fn mount() -> RouterBuilder {
 							name: args.name.to_string(),
 							..Default::default()
 						},
-						LibraryKeymanagerConfig {
+						OnboardingConfig {
 							password: args.password,
 							secret_key: args.secret_key,
 							algorithm: args.algorithm,
