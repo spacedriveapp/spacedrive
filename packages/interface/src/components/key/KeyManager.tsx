@@ -68,7 +68,7 @@ export function KeyManager(props: KeyManagerProps) {
 					disabled={setMasterPasswordMutation.isLoading}
 					onClick={() => {
 						if (masterPassword !== '') {
-							const sk = secretKey ?? null;
+							const sk = secretKey === '' ? null : secretKey;
 							setMasterPassword('');
 							setSecretKey('');
 							setMasterPasswordMutation.mutate(

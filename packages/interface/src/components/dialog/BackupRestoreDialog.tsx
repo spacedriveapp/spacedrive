@@ -29,7 +29,7 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	});
 
 	const onSubmit: SubmitHandler<FormValues> = (data) => {
-		const sk = data.secretKey ?? null;
+		const sk = data.secretKey === '' ? null : data.secretKey;
 
 		if (data.filePath !== '') {
 			restoreKeystoreMutation.mutate(
