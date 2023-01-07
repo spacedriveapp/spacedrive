@@ -105,7 +105,7 @@ impl Keyslot {
 	pub fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
-			.hash(password, self.content_salt)
+			.hash(password, self.content_salt, None)
 			.map_err(|_| Error::PasswordHash)?;
 
 		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
