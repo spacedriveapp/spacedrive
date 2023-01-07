@@ -518,25 +518,27 @@ impl KeyManager {
 	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
 	pub fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
-		match self.keystore.get(&uuid) {
-			Some(stored_key) => {
+		// match self.keystore.get(&uuid) {
+		// 	Some(stored_key) => {}
+		// 	None => Err(Error::KeyNotFound),
+		// }
+
+		self.keystore.get(&uuid).map_or_else(
+			|| Err(Error::KeyNotFound),
+			|stored_key| {
 				let derived_key =
 					derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT);
 
-				// Decrypt the StoredKey's master key using the root key
-				let master_key = if let Ok(decrypted_master_key) = StreamDecryption::decrypt_bytes(
+				let master_key = StreamDecryption::decrypt_bytes(
 					derived_key,
 					&stored_key.master_key_nonce,
 					stored_key.algorithm,
 					&stored_key.master_key,
 					&[],
-				) {
-					Ok(Protected::new(to_array(
-						decrypted_master_key.expose().clone(),
-					)?))
-				} else {
-					Err(Error::IncorrectPassword)
-				}?;
+				)
+				.map_or(Err(Error::IncorrectPassword), |k| {
+					Ok(Protected::new(to_array(k.expose().clone())?))
+				})?;
 
 				// Decrypt the StoredKey using the decrypted master key
 				let key = StreamDecryption::decrypt_bytes(
@@ -548,9 +550,8 @@ impl KeyManager {
 				)?;
 
 				Ok(key)
-			}
-			None => Err(Error::KeyNotFound),
-		}
+			},
+		)
 	}
 
 	/// This function is used to add a new key/password to the keystore.
