@@ -119,7 +119,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("syncKeyToLibrary", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				let key = library.key_manager.save_to_database(key_uuid)?;
+				let key = library.key_manager.sync_to_database(key_uuid)?;
 
 				// does not check that the key doesn't exist before writing
 				write_storedkey_to_db(&library.db, &key).await?;
