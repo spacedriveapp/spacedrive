@@ -20,7 +20,7 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"prisma": "cd core && cargo prisma",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
-		"typecheck": "pnpm -r exec tsc"
+		"typecheck": "turbo run typecheck"
 	},
 	"pnpm": {
 		"overrides": {
