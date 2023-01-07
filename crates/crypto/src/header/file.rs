@@ -178,15 +178,15 @@ impl FileHeader {
 	#[must_use]
 	pub fn generate_aad(&self) -> Vec<u8> {
 		match self.version {
-			FileHeaderVersion::V1 => vec![
+			FileHeaderVersion::V1 => [
 				MAGIC_BYTES.as_ref(),
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				self.nonce.as_ref(),
 				&vec![0u8; 25 - self.nonce.len()],
 			]
-			.iter()
-			.flat_map(|&v| v)
+			.into_iter()
+			.flatten()
 			.copied()
 			.collect(),
 		}
@@ -220,7 +220,7 @@ impl FileHeader {
 					.clone()
 					.map_or(Vec::new(), |v| v.to_bytes());
 
-				let header = vec![
+				let header = [
 					MAGIC_BYTES.as_ref(),
 					&self.version.to_bytes(),
 					&self.algorithm.to_bytes(),
@@ -231,8 +231,8 @@ impl FileHeader {
 					&metadata,
 					&preview_media,
 				]
-				.iter()
-				.flat_map(|&v| v)
+				.into_iter()
+				.flatten()
 				.copied()
 				.collect();
 

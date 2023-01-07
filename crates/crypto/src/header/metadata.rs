@@ -172,7 +172,7 @@ impl Metadata {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			MetadataVersion::V1 => vec![
+			MetadataVersion::V1 => [
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				&self.metadata_nonce,
@@ -180,8 +180,8 @@ impl Metadata {
 				&(self.metadata.len() as u64).to_le_bytes(),
 				&self.metadata,
 			]
-			.iter()
-			.flat_map(|&v| v)
+			.into_iter()
+			.flatten()
 			.copied()
 			.collect(),
 		}

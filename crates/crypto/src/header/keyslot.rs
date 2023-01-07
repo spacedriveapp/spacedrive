@@ -145,7 +145,7 @@ impl Keyslot {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			KeyslotVersion::V1 => vec![
+			KeyslotVersion::V1 => [
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				self.hashing_algorithm.to_bytes().as_ref(),
@@ -155,8 +155,8 @@ impl Keyslot {
 				&self.nonce,
 				&vec![0u8; 26 - self.nonce.len()],
 			]
-			.iter()
-			.flat_map(|&v| v)
+			.into_iter()
+			.flatten()
 			.copied()
 			.collect(),
 		}

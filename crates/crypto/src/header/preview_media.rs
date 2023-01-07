@@ -150,7 +150,7 @@ impl PreviewMedia {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			PreviewMediaVersion::V1 => vec![
+			PreviewMediaVersion::V1 => [
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				&self.media_nonce,
@@ -158,8 +158,8 @@ impl PreviewMedia {
 				&(self.media.len() as u64).to_le_bytes(),
 				&self.media,
 			]
-			.iter()
-			.flat_map(|&v| v)
+			.into_iter()
+			.flatten()
 			.copied()
 			.collect(),
 		}
