@@ -1,10 +1,18 @@
-use std::{collections::VecDeque, fs::File, path::PathBuf};
+use std::{
+	collections::VecDeque,
+	fs::{self, File},
+	io::Read,
+	path::PathBuf,
+};
 
 use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
 	header::{file::FileHeader, keyslot::Keyslot},
-	primitives::{generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA},
+	primitives::{
+		generate_master_key, LATEST_FILE_HEADER, LATEST_KEYSLOT, LATEST_METADATA,
+		LATEST_PREVIEW_MEDIA,
+	},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -227,12 +235,29 @@ impl StatefulJob for FileEncryptorJob {
 							)?;
 						}
 
-						if state.init.preview_media
-							&& (object.has_thumbnail
-								|| object.has_video_preview || object.has_thumbstrip)
-						{
-							// need to find the preview media, read it and return it as Some()
-							// not currently able to do this as thumnails don't generate
+						// if state.init.preview_media
+						// 	&& (object.has_thumbnail
+						// 		|| object.has_video_preview || object.has_thumbstrip)
+
+						// may not be the best - pvm isn't guaranteed to be webp
+						let pvm_path = ctx
+							.library_ctx
+							.config()
+							.data_directory()
+							.join("thumbnails")
+							.join(object.cas_id + ".webp");
+
+						if fs::metadata(pvm_path.clone()).is_ok() {
+							let mut pvm_bytes = Vec::new();
+							let mut pvm_file = File::open(pvm_path)?;
+							pvm_file.read_to_end(&mut pvm_bytes)?;
+
+							header.add_preview_media(
+								LATEST_PREVIEW_MEDIA,
+								state.init.algorithm,
+								master_key.clone(),
+								&pvm_bytes,
+							)?;
 						}
 					} else {
 						warn!(
