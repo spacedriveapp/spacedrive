@@ -500,13 +500,13 @@ impl KeyManager {
 						.hashing_algorithm
 						.hash(key, stored_key.content_salt, None)?;
 
-				// Construct the MountedKey and insert it into the Keymount
-				let mounted_key = MountedKey {
-					uuid: stored_key.uuid,
-					hashed_key,
-				};
-
-				self.keymount.insert(uuid, mounted_key);
+				self.keymount.insert(
+					uuid,
+					MountedKey {
+						uuid: stored_key.uuid,
+						hashed_key,
+					},
+				);
 
 				Ok(())
 			}
@@ -518,11 +518,6 @@ impl KeyManager {
 	///
 	/// The master password/salt needs to be present, so we are able to decrypt the key itself from the stored key.
 	pub fn get_key(&self, uuid: Uuid) -> Result<Protected<Vec<u8>>> {
-		// match self.keystore.get(&uuid) {
-		// 	Some(stored_key) => {}
-		// 	None => Err(Error::KeyNotFound),
-		// }
-
 		self.keystore.get(&uuid).map_or_else(
 			|| Err(Error::KeyNotFound),
 			|stored_key| {
@@ -602,23 +597,23 @@ impl KeyManager {
 		let encrypted_key =
 			StreamEncryption::encrypt_bytes(master_key, &key_nonce, algorithm, &key, &[])?;
 
-		// Construct the StoredKey
-		let stored_key = StoredKey {
-			uuid,
-			algorithm,
-			hashing_algorithm,
-			content_salt,
-			master_key: encrypted_master_key,
-			master_key_nonce,
-			key_nonce,
-			key: encrypted_key,
-			salt,
-			memory_only,
-			automount,
-		};
-
 		// Insert it into the Keystore
-		self.keystore.insert(stored_key.uuid, stored_key);
+		self.keystore.insert(
+			uuid,
+			StoredKey {
+				uuid,
+				algorithm,
+				hashing_algorithm,
+				content_salt,
+				master_key: encrypted_master_key,
+				master_key_nonce,
+				key_nonce,
+				key: encrypted_key,
+				salt,
+				memory_only,
+				automount,
+			},
+		);
 
 		// Return the ID so it can be identified
 		Ok(uuid)
