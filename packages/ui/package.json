@@ -15,7 +15,8 @@
 	"scripts": {
 		"storybook": "start-storybook -p 6006",
 		"storybook:build": "build-storybook",
-		"typecheck": "tsc -b"
+		"typecheck": "tsc -b",
+		"build": "tsc"
 	},
 	"dependencies": {
 		"@headlessui/react": "^1.7.3",

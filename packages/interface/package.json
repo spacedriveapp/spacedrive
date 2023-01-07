@@ -14,7 +14,8 @@
 	"scripts": {
 		"icons": "./scripts/generateSvgImports.mjs",
 		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
-		"typecheck": "tsc -b"
+		"typecheck": "tsc -b",
+		"build": "tsc"
 	},
 	"dependencies": {
 		"@fontsource/inter": "^4.5.13",
