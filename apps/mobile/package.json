@@ -11,7 +11,8 @@
 		"xcode": "open ios/spacedrive.xcworkspace",
 		"android-studio": "open -a '/Applications/Android Studio.app' ./android",
 		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
-		"postinstall": "node scripts/postinstall.js"
+		"postinstall": "node scripts/postinstall.js",
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@gorhom/bottom-sheet": "^4.4.5",

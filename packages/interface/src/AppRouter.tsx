@@ -3,7 +3,7 @@ import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
-import { useKeybindHandler } from './hooks/useKeyboardHandler';
+import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 
 // Using React.lazy breaks hot reload so we don't use it.
 const DebugScreen = lazy(() => import('./screens/Debug'));
