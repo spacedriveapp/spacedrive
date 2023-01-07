@@ -164,24 +164,29 @@ impl StatefulJob for FileEncryptorJob {
 					.key_manager
 					.access_keystore(state.init.key_uuid)?;
 
-				// needs refactoring - i could not get this pattern cleaned up effectively
-				let output_path = if let Some(path) = state.init.output_path.clone() {
-					path
-				} else {
-					let mut path = step.obj_path.clone();
-					let extension = if let Some(ext) = path.extension() {
-						ext.to_str()
-							.ok_or(JobError::EarlyFinish {
-								name: self.name().to_string(),
-								reason: "path isn't valid UTF-8".to_string(),
-							})?
-							.to_string() + ".sdenc"
-					} else {
-						"sdenc".to_string()
-					};
-					path.set_extension(extension);
-					path
-				};
+				let output_path = state.init.output_path.clone().map_or_else(
+					|| {
+						let mut path = step.obj_path.clone();
+						let extension = path.extension().map_or_else(
+							|| Ok("sdenc".to_string()),
+							|extension| {
+								Ok::<String, JobError>(
+									extension
+										.to_str()
+										.ok_or(JobError::EarlyFinish {
+											name: self.name().to_string(),
+											reason: "path isn't valid UTF-8".to_string(),
+										})?
+										.to_string() + ".sdenc",
+								)
+							},
+						)?;
+
+						path.set_extension(extension);
+						Ok::<PathBuf, JobError>(path)
+					},
+					Ok,
+				)?;
 
 				let mut reader = File::open(step.obj_path.clone())?;
 				let mut writer = File::create(output_path)?;
