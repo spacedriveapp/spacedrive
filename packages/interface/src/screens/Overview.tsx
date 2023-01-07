@@ -7,8 +7,8 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { proxy } from 'valtio';
 
-import useCounter from '../hooks/useCounter';
-import { usePlatform } from '../util/Platform';
+import useCounter from '~/hooks/useCounter';
+import { usePlatform } from '~/util/Platform';
 
 interface StatItemProps {
 	title: string;

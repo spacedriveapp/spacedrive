@@ -7,8 +7,8 @@ import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
 import { Suspense, lazy, useMemo } from 'react';
 
-import { useExplorerStore } from '../../hooks/useExplorerStore';
-import { usePlatform } from '../../util/Platform';
+import { useExplorerStore } from '~/hooks/useExplorerStore';
+import { usePlatform } from '~/util/Platform';
 import { Folder } from '../icons/Folder';
 import { isObject, isPath } from './utils';
 
@@ -45,8 +45,8 @@ export default function FileThumb({ data, ...props }: Props) {
 	const has_thumbnail = isObject(data)
 		? data.has_thumbnail
 		: isPath(data)
-		? data.object?.has_thumbnail
-		: !!store.newThumbnails[cas_id];
+			? data.object?.has_thumbnail
+			: !!store.newThumbnails[cas_id];
 
 	const url = platform.getThumbnailUrlById(cas_id);
 

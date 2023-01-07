@@ -1,7 +1,7 @@
 import { useCurrentLibrary, useLibraryQuery } from '@sd/client';
 import { useParams } from 'react-router-dom';
 
-import Explorer from '../components/explorer/Explorer';
+import Explorer from '~/components/explorer/Explorer';
 
 export default function TagExplorer() {
 	const { id } = useParams();

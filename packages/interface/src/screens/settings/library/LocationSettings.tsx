@@ -4,11 +4,11 @@ import { Button, Input } from '@sd/ui';
 import { MagnifyingGlass } from 'phosphor-react';
 import { useState } from 'react';
 
-import AddLocationDialog from '../../../components/dialog/AddLocationDialog';
-import LocationListItem from '../../../components/location/LocationListItem';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
-import { usePlatform } from '../../../util/Platform';
+import AddLocationDialog from '~/components/dialog/AddLocationDialog';
+import LocationListItem from '~/components/location/LocationListItem';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { usePlatform } from '~/util/Platform';
 
 export default function LocationSettings() {
 	const platform = usePlatform();
