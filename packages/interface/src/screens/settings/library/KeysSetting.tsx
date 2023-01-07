@@ -108,7 +108,7 @@ export default function KeysSettings() {
 	if (!hasMasterPw?.data) {
 		return (
 			<>
-				<div className="p-2 mr-20 ml-20 mt-10">
+				<div className="p-2 mt-10 ml-20 mr-20">
 					<div className="relative flex flex-grow mb-2">
 						<Input
 							value={masterPassword}
@@ -198,14 +198,14 @@ export default function KeysSettings() {
 										unmountAll.mutate(null);
 										clearMasterPassword.mutate(null);
 									}}
-									variant="outline"
+									variant="subtle"
 									className="text-ink-faint"
 								>
 									<Lock className="w-4 h-4 text-ink-faint" />
 								</Button>
 								<KeyMounterDropdown
 									trigger={
-										<Button size="icon" variant="outline" className="text-ink-faint">
+										<Button size="icon" variant="subtle" className="text-ink-faint">
 											<Plus className="w-4 h-4 text-ink-faint" />
 										</Button>
 									}

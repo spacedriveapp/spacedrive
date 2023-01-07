@@ -120,7 +120,7 @@ export function Sidebar() {
 					<ButtonLink
 						to="/settings/general"
 						size="icon"
-						variant="outline"
+						variant="subtle"
 						className="text-ink-faint ring-offset-sidebar"
 					>
 						<Gear className="w-5 h-5" />
@@ -131,7 +131,7 @@ export function Sidebar() {
 						trigger={
 							<Button
 								size="icon"
-								variant="outline"
+								variant="subtle"
 								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
 							>
 								{library && <IsRunningJob />}
@@ -293,7 +293,7 @@ const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (
 	const Icon = props.icon ?? Ellipsis;
 	return (
 		<NavLink to={props.to}>
-			<Button className="!p-[5px]" variant="outline">
+			<Button className="!p-[5px]" variant="subtle">
 				<Icon className="w-3 h-3" />
 			</Button>
 		</NavLink>

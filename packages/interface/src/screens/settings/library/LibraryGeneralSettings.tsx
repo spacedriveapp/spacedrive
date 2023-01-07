@@ -11,9 +11,11 @@ import { useDebouncedForm } from '../../../hooks/useDebouncedForm';
 export default function LibraryGeneralSettings() {
 	const { library } = useCurrentLibrary();
 	const { mutate: editLibrary } = useBridgeMutation('library.edit');
+
 	const form = useForm({
 		defaultValues: { id: library!.uuid, ...library?.config }
 	});
+
 	useDebouncedForm(form, (value) =>
 		editLibrary({
 			id: library!.uuid,

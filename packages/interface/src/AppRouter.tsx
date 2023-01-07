@@ -3,6 +3,9 @@ import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
+import OnboardingNewLibrary from './components/onboarding/OnboardingNewLibrary';
+import OnboardingRoot from './components/onboarding/OnboardingRoot';
+import OnboardingStart from './components/onboarding/OnboardingStart';
 import { useKeybindHandler } from './hooks/useKeyboardHandler';
 
 // Using React.lazy breaks hot reload so we don't use it.
@@ -13,7 +16,7 @@ const PhotosScreen = lazy(() => import('./screens/Photos'));
 const OverviewScreen = lazy(() => import('./screens/Overview'));
 const ContentScreen = lazy(() => import('./screens/Content'));
 const LocationExplorer = lazy(() => import('./screens/LocationExplorer'));
-const OnboardingScreen = lazy(() => import('./components/onboarding/Onboarding'));
+const OnboardingScreen = lazy(() => import('./components/onboarding/OnboardingStart'));
 const NotFound = lazy(() => import('./NotFound'));
 
 const AppearanceSettings = lazy(() => import('./screens/settings/client/AppearanceSettings'));
@@ -47,7 +50,11 @@ export function AppRouter() {
 
 	return (
 		<Routes>
-			<Route path="onboarding" element={<OnboardingScreen />} />
+			<Route path="onboarding" element={<OnboardingRoot />}>
+				<Route index element={<OnboardingStart />} />
+				<Route path="0" element={<OnboardingStart />} />
+				<Route path="1" element={<OnboardingNewLibrary />} />
+			</Route>
 			<Route element={<AppLayout />}>
 				{/* As we are caching the libraries in localStore so this *shouldn't* result is visual problems unless something else is wrong */}
 				{library === undefined ? (
@@ -64,7 +71,7 @@ export function AppRouter() {
 						<Route path="content" element={<ContentScreen />} />
 						<Route path="photos" element={<PhotosScreen />} />
 						<Route path="debug" element={<DebugScreen />} />
-						<Route path={'settings'} element={<SettingsScreen />}>
+						<Route path="settings" element={<SettingsScreen />}>
 							<Route index element={<GeneralSettings />} />
 							<Route path="general" element={<GeneralSettings />} />
 							<Route path="appearance" element={<AppearanceSettings />} />
