@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, path::PathBuf};
+use std::{collections::VecDeque, fs::File, path::PathBuf};
 
 use sd_crypto::{crypto::stream::StreamDecryption, header::file::FileHeader, Protected};
 use serde::{Deserialize, Serialize};
@@ -101,31 +101,24 @@ impl StatefulJob for FileDecryptorJob {
 		let step = &state.steps[0];
 		// handle overwriting checks, and making sure there's enough available space
 
-		let output_path = if let Some(path) = state.init.output_path.clone() {
-			path
-		} else {
-			let mut path = step.obj_path.clone();
+		let output_path = state.init.output_path.clone().map_or_else(
+			|| {
+				let mut path = step.obj_path.clone();
+				let extension = path.extension().map_or("decrypted", |ext| {
+					if ext == ".sdenc" {
+						""
+					} else {
+						"decrypted"
+					}
+				});
+				path.set_extension(extension);
+				path
+			},
+			|p| p,
+		);
 
-			// i really can't decide on the functionality of this
-			// maybe we should open a dialog in JS, and have the default as the file name without the ".sdenc",
-			// we don't do any overwriting checks as of yet, maybe these should be front-end though
-			let extension = if let Some(ext) = path.extension() {
-				// allow this with clippy as this won't be the final behaviour
-				#[allow(clippy::if_same_then_else)]
-				if ext == ".sdenc" {
-					"decrypted"
-				} else {
-					"decrypted"
-				}
-			} else {
-				"decrypted"
-			};
-			path.set_extension(extension);
-			path
-		};
-
-		let mut reader = std::fs::File::open(step.obj_path.clone())?;
-		let mut writer = std::fs::File::create(output_path)?;
+		let mut reader = File::open(step.obj_path.clone())?;
+		let mut writer = File::create(output_path)?;
 
 		let (header, aad) = FileHeader::from_reader(&mut reader)?;
 
