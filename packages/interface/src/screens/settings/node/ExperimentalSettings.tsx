@@ -1,9 +1,9 @@
 import { Switch } from '@sd/ui';
 
-import { useNodeStore } from '../../../components/device/Stores';
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { useNodeStore } from '~/components/device/Stores';
+import { InputContainer } from '~/components/primitive/InputContainer';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
 
 export default function ExperimentalSettings() {
 	const { isExperimental, setIsExperimental } = useNodeStore();
