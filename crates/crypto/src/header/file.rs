@@ -291,35 +291,37 @@ impl FileHeader {
 				reader.read_exact(&mut keyslot_bytes)?;
 
 				for _ in 0..2 {
-					if let Ok(keyslot) = Keyslot::from_reader(&mut keyslot_bytes.as_ref()) {
-						keyslots.push(keyslot);
-					}
+					Keyslot::from_reader(&mut keyslot_bytes.as_ref())
+						.map(|k| keyslots.push(k))
+						.ok();
 				}
 
-				let metadata = if let Ok(metadata) = Metadata::from_reader(reader) {
-					Some(metadata)
-				} else {
-					// header/aad area, keyslot area
-					reader.seek(SeekFrom::Start(
-						Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
-					))?;
-					None
-				};
+				let metadata = Metadata::from_reader(reader).map_or_else(
+					|_| {
+						reader.seek(SeekFrom::Start(
+							Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
+						))?;
+						Ok::<Option<Metadata>, Error>(None)
+					},
+					|metadata| Ok(Some(metadata)),
+				)?;
 
-				let preview_media = if let Ok(preview_media) = PreviewMedia::from_reader(reader) {
-					Some(preview_media)
-				} else if let Some(metadata) = metadata.clone() {
-					reader.seek(SeekFrom::Start(
-						Self::size(version) as u64
-							+ (KEYSLOT_SIZE * 2) as u64 + metadata.size() as u64,
-					))?;
-					None
-				} else {
-					reader.seek(SeekFrom::Start(
-						Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
-					))?;
-					None
-				};
+				let preview_media = PreviewMedia::from_reader(reader).map_or_else(
+					|_| {
+						let seek_len = metadata.clone().map_or_else(
+							|| Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
+							|metadata| {
+								Self::size(version) as u64
+									+ (KEYSLOT_SIZE * 2) as u64 + metadata.size() as u64
+							},
+						);
+
+						reader.seek(SeekFrom::Start(seek_len))?;
+
+						Ok::<Option<PreviewMedia>, Error>(None)
+					},
+					|preview_media| Ok(Some(preview_media)),
+				)?;
 
 				Self {
 					version,
