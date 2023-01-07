@@ -133,18 +133,11 @@ impl KeyManager {
 		let hashing_algorithm = config.hashing_algorithm;
 
 		// Hash the master password
-		let hashed_password = if let Some(sk) = secret_key {
-			hashing_algorithm.hash_with_secret(
-				Protected::new(config.password.expose().as_bytes().to_vec()),
-				content_salt,
-				sk,
-			)?
-		} else {
-			hashing_algorithm.hash(
-				Protected::new(config.password.expose().as_bytes().to_vec()),
-				content_salt,
-			)?
-		};
+		let hashed_password = hashing_algorithm.hash(
+			Protected::new(config.password.expose().as_bytes().to_vec()),
+			content_salt,
+			secret_key,
+		)?;
 
 		let salt = generate_salt();
 		let derived_key = derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT);
@@ -198,7 +191,7 @@ impl KeyManager {
 	/// This also detects the nil-UUID master passphrase verification key
 	pub fn populate_keystore(&self, stored_keys: Vec<StoredKey>) -> Result<()> {
 		for key in stored_keys {
-			if self.keystore_contains(key.uuid) {
+			if self.keystore.contains_key(&key.uuid) {
 				continue;
 			}
 
@@ -247,18 +240,11 @@ impl KeyManager {
 		let secret_key = secret_key.map(Self::convert_secret_key_string);
 		let content_salt = generate_salt();
 
-		let hashed_password = if let Some(sk) = secret_key {
-			hashing_algorithm.hash_with_secret(
-				Protected::new(master_password.expose().as_bytes().to_vec()),
-				content_salt,
-				sk,
-			)?
-		} else {
-			hashing_algorithm.hash(
-				Protected::new(master_password.expose().as_bytes().to_vec()),
-				content_salt,
-			)?
-		};
+		let hashed_password = hashing_algorithm.hash(
+			Protected::new(master_password.expose().as_bytes().to_vec()),
+			content_salt,
+			secret_key,
+		)?;
 
 		let uuid = uuid::Uuid::nil();
 
@@ -319,7 +305,6 @@ impl KeyManager {
 		stored_keys: &[StoredKey],             // from the backup
 	) -> Result<Vec<StoredKey>> {
 		// this backup should contain a verification key, which will tell us the algorithm+hashing algorithm
-		let master_password = Protected::new(master_password.expose().as_bytes().to_vec());
 		let secret_key = secret_key.map(Self::convert_secret_key_string);
 
 		let mut old_verification_key = None;
@@ -338,17 +323,11 @@ impl KeyManager {
 
 		let old_verification_key = old_verification_key.ok_or(Error::NoVerificationKey)?;
 
-		let hashed_password = if let Some(sk) = secret_key {
-			old_verification_key.hashing_algorithm.hash_with_secret(
-				master_password,
-				old_verification_key.content_salt,
-				sk,
-			)?
-		} else {
-			old_verification_key
-				.hashing_algorithm
-				.hash(master_password, old_verification_key.content_salt)?
-		};
+		let hashed_password = old_verification_key.hashing_algorithm.hash(
+			Protected::new(master_password.expose().as_bytes().to_vec()),
+			old_verification_key.content_salt,
+			secret_key,
+		)?;
 
 		let derived_key = derive_key(
 			hashed_password,
@@ -436,26 +415,17 @@ impl KeyManager {
 		master_password: Protected<String>,
 		secret_key: Option<Protected<String>>,
 	) -> Result<()> {
-		let verification_key = match &*self.verification_key.lock()? {
-			Some(k) => Ok(k.clone()),
-			None => Err(Error::NoVerificationKey),
-		}?;
+		let verification_key = (*self.verification_key.lock()?)
+			.as_ref()
+			.map_or(Err(Error::NoVerificationKey), |k| Ok(k.clone()))?;
 
-		let master_password = Protected::new(master_password.expose().as_bytes().to_vec());
 		let secret_key = secret_key.map(Self::convert_secret_key_string);
 
-		// Hash the master password
-		let hashed_password = if let Some(sk) = secret_key {
-			verification_key.hashing_algorithm.hash_with_secret(
-				master_password,
-				verification_key.content_salt,
-				sk,
-			)?
-		} else {
-			verification_key
-				.hashing_algorithm
-				.hash(master_password, verification_key.content_salt)?
-		};
+		let hashed_password = verification_key.hashing_algorithm.hash(
+			Protected::new(master_password.expose().as_bytes().to_vec()),
+			verification_key.content_salt,
+			secret_key,
+		)?;
 
 		let derived_key = derive_key(
 			hashed_password,
@@ -525,9 +495,10 @@ impl KeyManager {
 				)?;
 
 				// Hash the key once with the parameters/algorithm the user selected during first mount
-				let hashed_key = stored_key
-					.hashing_algorithm
-					.hash(key, stored_key.content_salt)?;
+				let hashed_key =
+					stored_key
+						.hashing_algorithm
+						.hash(key, stored_key.content_salt, None)?;
 
 				// Construct the MountedKey and insert it into the Keymount
 				let mounted_key = MountedKey {
@@ -592,7 +563,7 @@ impl KeyManager {
 	///
 	/// You may use the returned ID to identify this key.
 	///
-	/// You may optionally provide a content salt, if not one will be generated.
+	/// You may optionally provide a content salt, if not one will be generated (used primarily for password-based decryption)
 	#[allow(clippy::needless_pass_by_value)]
 	pub fn add_to_keystore(
 		&self,
@@ -688,16 +659,6 @@ impl KeyManager {
 		self.default.lock()?.ok_or(Error::NoDefaultKeySet)
 	}
 
-	/// This allows you to clear the default key
-	pub fn clear_default(&self) -> Result<()> {
-		let mut default = self.default.lock()?;
-
-		default
-			.is_some()
-			.then(|| *default = None)
-			.map_or(Err(Error::NoDefaultKeySet), |_| Ok(()))
-	}
-
 	/// This should ONLY be used internally.
 	fn get_root_key(&self) -> Result<Protected<[u8; KEY_LEN]>> {
 		self.root_key.lock()?.clone().ok_or(Error::NoMasterPassword)
@@ -747,7 +708,7 @@ impl KeyManager {
 	/// This function is for converting a memory-only key to a saved key which syncs to the library.
 	///
 	/// The returned value needs to be written to the database.
-	pub fn save_to_database(&self, uuid: Uuid) -> Result<StoredKey> {
+	pub fn sync_to_database(&self, uuid: Uuid) -> Result<StoredKey> {
 		if !self.is_memory_only(uuid)? {
 			return Err(Error::KeyNotMemoryOnly);
 		}
@@ -774,24 +735,11 @@ impl KeyManager {
 		Ok(())
 	}
 
-	pub fn keystore_contains(&self, uuid: Uuid) -> bool {
-		self.keystore.contains_key(&uuid)
-	}
-
-	pub fn keymount_contains(&self, uuid: Uuid) -> bool {
-		self.keymount.contains_key(&uuid)
-	}
-
 	/// This function is used for seeing if the key manager has a master password.
 	///
 	/// Technically this checks for the root key, but it makes no difference to the front end.
 	pub fn has_master_password(&self) -> Result<bool> {
 		Ok(self.root_key.lock()?.is_some())
-	}
-
-	/// This function is used for emptying the entire keystore.
-	pub fn empty_keystore(&self) {
-		self.keystore.clear();
 	}
 
 	/// This function is used for unmounting all keys at once.
@@ -800,26 +748,6 @@ impl KeyManager {
 		// if it doesn't, we're going to need to find another way to call drop on these values
 		// that way they will be zeroized and removed from memory fully
 		self.keymount.clear();
-	}
-
-	/// This function can be used for comparing an array of `StoredKeys` to the currently loaded keystore.
-	pub fn compare_keystore(&self, supplied_keys: &[StoredKey]) -> Result<()> {
-		if supplied_keys.len() != self.keystore.len() {
-			return Err(Error::KeystoreMismatch);
-		}
-
-		for key in supplied_keys {
-			let keystore_key = self
-				.keystore
-				.get(&key.uuid)
-				.map_or(Err(Error::KeystoreMismatch), |v| Ok(v.clone()))?;
-
-			if *key != keystore_key {
-				return Err(Error::KeystoreMismatch);
-			}
-		}
-
-		Ok(())
 	}
 
 	/// This function is for unmounting a key from the key manager
