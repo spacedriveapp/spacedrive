@@ -75,10 +75,9 @@ impl Keyslot {
 		let nonce = generate_nonce(algorithm);
 
 		let salt = generate_salt();
-		let derived_key = derive_key(hashed_key, salt, FILE_KEY_CONTEXT);
 
 		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derived_key,
+			derive_key(hashed_key, salt, FILE_KEY_CONTEXT),
 			&nonce,
 			algorithm,
 			master_key.expose(),
@@ -108,10 +107,8 @@ impl Keyslot {
 			.hash(password, self.content_salt, None)
 			.map_err(|_| Error::PasswordHash)?;
 
-		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
-
 		StreamDecryption::decrypt_bytes(
-			derived_key,
+			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
 			self.algorithm,
 			&self.master_key,
@@ -130,10 +127,8 @@ impl Keyslot {
 		&self,
 		key: Protected<[u8; KEY_LEN]>,
 	) -> Result<Protected<Vec<u8>>> {
-		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
-
 		StreamDecryption::decrypt_bytes(
-			derived_key,
+			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
 			self.algorithm,
 			&self.master_key,

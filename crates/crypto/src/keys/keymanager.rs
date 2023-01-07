@@ -140,7 +140,6 @@ impl KeyManager {
 		)?;
 
 		let salt = generate_salt();
-		let derived_key = derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT);
 		let uuid = uuid::Uuid::nil();
 
 		// Generate items we'll need for encryption
@@ -152,7 +151,7 @@ impl KeyManager {
 
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derived_key,
+			derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 			&master_key_nonce,
 			algorithm,
 			master_key.expose(),
@@ -256,11 +255,10 @@ impl KeyManager {
 		let root_key_nonce = generate_nonce(algorithm);
 
 		let salt = generate_salt();
-		let derived_key = derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT);
 
 		// Encrypt the master key with the hashed master password
 		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derived_key,
+			derive_key(hashed_password, salt, MASTER_PASSWORD_CONTEXT),
 			&master_key_nonce,
 			algorithm,
 			master_key.expose(),
@@ -329,15 +327,13 @@ impl KeyManager {
 			secret_key,
 		)?;
 
-		let derived_key = derive_key(
-			hashed_password,
-			old_verification_key.salt,
-			MASTER_PASSWORD_CONTEXT,
-		);
-
 		// decrypt the root key's KEK
 		let master_key = StreamDecryption::decrypt_bytes(
-			derived_key,
+			derive_key(
+				hashed_password,
+				old_verification_key.salt,
+				MASTER_PASSWORD_CONTEXT,
+			),
 			&old_verification_key.master_key_nonce,
 			old_verification_key.algorithm,
 			&old_verification_key.master_key,
@@ -362,11 +358,9 @@ impl KeyManager {
 				continue;
 			}
 
-			let old_derived_key = derive_key(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT);
-
 			// decrypt the key's master key
 			let master_key = StreamDecryption::decrypt_bytes(
-				old_derived_key,
+				derive_key(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT),
 				&key.master_key_nonce,
 				key.algorithm,
 				&key.master_key,
@@ -380,11 +374,10 @@ impl KeyManager {
 			let master_key_nonce = generate_nonce(key.algorithm);
 
 			let salt = generate_salt();
-			let derived_key = derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT);
 
 			// encrypt the master key with the current root key
 			let encrypted_master_key = to_array(StreamEncryption::encrypt_bytes(
-				derived_key,
+				derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT),
 				&master_key_nonce,
 				key.algorithm,
 				master_key.expose(),
@@ -427,14 +420,12 @@ impl KeyManager {
 			secret_key,
 		)?;
 
-		let derived_key = derive_key(
-			hashed_password,
-			verification_key.salt,
-			MASTER_PASSWORD_CONTEXT,
-		);
-
 		let master_key = StreamDecryption::decrypt_bytes(
-			derived_key,
+			derive_key(
+				hashed_password,
+				verification_key.salt,
+				MASTER_PASSWORD_CONTEXT,
+			),
 			&verification_key.master_key_nonce,
 			verification_key.algorithm,
 			&verification_key.master_key,
@@ -471,11 +462,8 @@ impl KeyManager {
 
 		match self.keystore.get(&uuid) {
 			Some(stored_key) => {
-				let derived_key =
-					derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT);
-
 				let master_key = StreamDecryption::decrypt_bytes(
-					derived_key,
+					derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT),
 					&stored_key.master_key_nonce,
 					stored_key.algorithm,
 					&stored_key.master_key,
@@ -521,11 +509,8 @@ impl KeyManager {
 		self.keystore.get(&uuid).map_or_else(
 			|| Err(Error::KeyNotFound),
 			|stored_key| {
-				let derived_key =
-					derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT);
-
 				let master_key = StreamDecryption::decrypt_bytes(
-					derived_key,
+					derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT),
 					&stored_key.master_key_nonce,
 					stored_key.algorithm,
 					&stored_key.master_key,
@@ -582,11 +567,9 @@ impl KeyManager {
 		// salt used for the kdf
 		let salt = generate_salt();
 
-		let derived_key = derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT);
-
-		// Encrypt the master key with the user's hashed password
+		// Encrypt the master key with a derived key (derived from the root key)
 		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derived_key,
+			derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT),
 			&master_key_nonce,
 			algorithm,
 			master_key.expose(),

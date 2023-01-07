@@ -74,12 +74,10 @@ impl FileHeader {
 	/// This function is used for creating a file header.
 	#[must_use]
 	pub fn new(version: FileHeaderVersion, algorithm: Algorithm, keyslots: Vec<Keyslot>) -> Self {
-		let nonce = generate_nonce(algorithm);
-
 		Self {
 			version,
 			algorithm,
-			nonce,
+			nonce: generate_nonce(algorithm),
 			keyslots,
 			metadata: None,
 			preview_media: None,
