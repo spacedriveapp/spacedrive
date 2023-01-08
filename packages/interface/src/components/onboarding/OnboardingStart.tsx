@@ -1,9 +1,7 @@
 import AppLogo from '@sd/assets/images/logo.png';
-import { Button, ButtonLink } from '@sd/ui';
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Button } from '@sd/ui';
+import { useNavigate } from 'react-router';
 
-import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { useOnboardingScreenMounted } from './OnboardingProgress';
 
 export default function OnboardingStart() {
@@ -19,7 +17,7 @@ export default function OnboardingStart() {
 				The file explorer from the future.
 			</h1>
 			<p className="text-center text-ink-faint">
-				Welcome to Spacedrive, create a library to get started.
+				Welcome to Spacedrive, an open source cross-platform file manager.
 			</p>
 			<div className="mt-6 space-x-3">
 				<Button onClick={() => navigate('/onboarding/1')} variant="accent" size="md">

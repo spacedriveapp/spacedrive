@@ -6,6 +6,7 @@ import { UnlockedScreens } from './OnboardingRoot';
 
 const SCREEN_COUNT = 9;
 
+// screens are locked to prevent users from skipping ahead
 export function useOnboardingScreenMounted() {
 	const { pathname } = useLocation();
 
@@ -25,7 +26,7 @@ export default function OnboardingProgress() {
 	const currentIndex = Number(pathname.split('/')[2]) || 0;
 
 	return (
-		<div className="flex items-center justify-center w-full mt-8">
+		<div className="flex items-center justify-center w-full">
 			<div className="flex items-center justify-center space-x-1">
 				{Array.from({ length: SCREEN_COUNT }).map((_, index) => (
 					<div
