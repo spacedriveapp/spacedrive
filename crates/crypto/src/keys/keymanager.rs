@@ -216,10 +216,9 @@ impl KeyManager {
 			drop(default);
 
 			// unmount if mounted
-			if self.keymount.contains_key(&uuid) {
-				// use remove as unmount calls the checks that we just did
-				self.keymount.remove(&uuid);
-			}
+			self.keymount
+				.contains_key(&uuid)
+				.then(|| self.keymount.remove(&uuid));
 
 			// remove from keystore
 			self.keystore.remove(&uuid);
