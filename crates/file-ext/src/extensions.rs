@@ -182,11 +182,11 @@ extension_category_enum! {
 extension_category_enum! {
 	EncryptedExtension _ALL_ENCRYPTED_EXTENSIONS {
 		// Spacedrive encrypted file
-		Bit = [0x73, 0x64, 0x62, 0x69, 0x74],
+		Sdenc = [0x62, 0x61, 0x6C, 0x6C, 0x61, 0x70, 0x70],
 		// Spacedrive container
-		Box = [0x73, 0x64, 0x62, 0x6F, 0x78],
+		Sdcontainer = [0x73, 0x64, 0x62, 0x6F, 0x78],
 		// Spacedrive block storage,
-		Block = [0x73, 0x64, 0x62, 0x6C, 0x6F, 0x63, 0x6B],
+		Sdblock = [0x73, 0x64, 0x62, 0x6C, 0x6F, 0x63, 0x6B],
 	}
 }
 
@@ -303,7 +303,7 @@ mod test {
 
 			let mut file = File::open(path).await.unwrap();
 
-			Extension::resolve_conflicting(&subpath.split(".").last().unwrap(), &mut file, true)
+			Extension::resolve_conflicting(subpath.split('.').last().unwrap(), &mut file, true)
 				.await
 		}
 		// Video extension tests
