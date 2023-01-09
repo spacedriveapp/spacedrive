@@ -13,14 +13,14 @@ const FileItem = ({ data, width = 100 }: FileItemProps) => {
 	const isVid = isVideoExt(data.extension || '');
 
 	return (
-		<View style={tw.style('h-[110px] items-center', { width: width })}>
+		<View style={tw.style('items-center', { width: width, height: width })}>
 			<FileThumb data={data} kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'} />
 			{data?.extension && isVid && (
 				<View style={tw`absolute bottom-8 opacity-70 right-5 py-0.5 px-1 bg-black/70 rounded`}>
 					<Text style={tw`text-[9px] text-white uppercase font-semibold`}>{data.extension}</Text>
 				</View>
 			)}
-			<View style={tw`px-1.5 py-[1px]`}>
+			<View style={tw`px-1.5 py-[1px] mt-1`}>
 				<Text numberOfLines={1} style={tw`text-xs font-medium text-center text-white`}>
 					{data?.name}
 					{data?.extension && `.${data.extension}`}

@@ -74,7 +74,7 @@ export default function FileThumb({ data, size = 1, kind }: FileThumbProps) {
 	if (has_thumbnail && url) {
 		return (
 			<FileThumbWrapper size={size}>
-				<Image source={{ uri: url }} style={tw`w-[70px] h-[70px]`} />
+				<Image source={{ uri: url }} resizeMode="contain" style={tw`w-full h-full`} />
 			</FileThumbWrapper>
 		);
 	}
