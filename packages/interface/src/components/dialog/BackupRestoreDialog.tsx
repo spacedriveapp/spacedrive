@@ -75,77 +75,75 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	});
 
 	return (
-		<>
-			<form onSubmit={onSubmit}>
-				<Dialog
-					open={show.backupRestoreDialog}
-					setOpen={(e) => setShow((old) => ({ ...old, backupRestoreDialog: e }))}
-					title="Restore Keys"
-					description="Restore keys from a backup."
-					loading={restoreKeystoreMutation.isLoading}
-					ctaLabel="Restore"
-					trigger={props.trigger}
-				>
-					<div className="relative flex flex-grow mt-3 mb-2">
-						<Input
-							className="flex-grow !py-0.5"
-							placeholder="Master Password"
-							required
-							type={show.masterPassword ? 'text' : 'password'}
-							{...form.register('masterPassword', { required: true })}
-						/>
-						<Button
-							onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
-							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
-							type="button"
-						>
-							<MPCurrentEyeIcon className="w-4 h-4" />
-						</Button>
-					</div>
-					<div className="relative flex flex-grow mb-3">
-						<Input
-							className="flex-grow !py-0.5"
-							placeholder="Secret Key"
-							{...form.register('secretKey', { required: false })}
-							type={show.secretKey ? 'text' : 'password'}
-						/>
-						<Button
-							onClick={() => setShow((old) => ({ ...old, secretKey: !old.secretKey }))}
-							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
-							type="button"
-						>
-							<SKCurrentEyeIcon className="w-4 h-4" />
-						</Button>
-					</div>
-					<div className="relative flex flex-grow mb-2">
-						<Button
-							size="sm"
-							variant={form.watch('filePath') !== '' ? 'accent' : 'gray'}
-							type="button"
-							onClick={() => {
-								if (!platform.openFilePickerDialog) {
-									// TODO: Support opening locations on web
-									props.setAlertDialogData({
-										open: true,
-										title: 'Error',
-										description: '',
-										value: "System dialogs aren't supported on this platform.",
-										inputBox: false
-									});
-									return;
-								}
-								platform.openFilePickerDialog().then((result) => {
-									if (result) form.setValue('filePath', result as string);
+		<form onSubmit={onSubmit}>
+			<Dialog
+				open={show.backupRestoreDialog}
+				setOpen={(e) => setShow((old) => ({ ...old, backupRestoreDialog: e }))}
+				title="Restore Keys"
+				description="Restore keys from a backup."
+				loading={restoreKeystoreMutation.isLoading}
+				ctaLabel="Restore"
+				trigger={props.trigger}
+			>
+				<div className="relative flex flex-grow mt-3 mb-2">
+					<Input
+						className="flex-grow !py-0.5"
+						placeholder="Master Password"
+						required
+						type={show.masterPassword ? 'text' : 'password'}
+						{...form.register('masterPassword', { required: true })}
+					/>
+					<Button
+						onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+						type="button"
+					>
+						<MPCurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
+				<div className="relative flex flex-grow mb-3">
+					<Input
+						className="flex-grow !py-0.5"
+						placeholder="Secret Key"
+						{...form.register('secretKey', { required: false })}
+						type={show.secretKey ? 'text' : 'password'}
+					/>
+					<Button
+						onClick={() => setShow((old) => ({ ...old, secretKey: !old.secretKey }))}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+						type="button"
+					>
+						<SKCurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
+				<div className="relative flex flex-grow mb-2">
+					<Button
+						size="sm"
+						variant={form.watch('filePath') !== '' ? 'accent' : 'gray'}
+						type="button"
+						onClick={() => {
+							if (!platform.openFilePickerDialog) {
+								// TODO: Support opening locations on web
+								props.setAlertDialogData({
+									open: true,
+									title: 'Error',
+									description: '',
+									value: "System dialogs aren't supported on this platform.",
+									inputBox: false
 								});
-							}}
-						>
-							Select File
-						</Button>
-					</div>
-				</Dialog>
-			</form>
-		</>
+								return;
+							}
+							platform.openFilePickerDialog().then((result) => {
+								if (result) form.setValue('filePath', result as string);
+							});
+						}}
+					>
+						Select File
+					</Button>
+				</div>
+			</Dialog>
+		</form>
 	);
 };

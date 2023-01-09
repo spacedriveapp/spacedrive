@@ -97,7 +97,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 	});
 
 	return (
-		<>
+		<form onSubmit={onSubmit}>
 			<Dialog
 				open={props.open}
 				setOpen={props.setOpen}
@@ -197,6 +197,6 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 					</div>
 				</div>
 			</Dialog>
-		</>
+		</form>
 	);
 };
