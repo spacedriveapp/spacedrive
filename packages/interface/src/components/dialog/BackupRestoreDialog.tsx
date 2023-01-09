@@ -2,7 +2,7 @@ import { useLibraryMutation } from '@sd/client';
 import { Button, Dialog, Input } from '@sd/ui';
 import { Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
-import { SubmitHandler, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 
 import { usePlatform } from '../../util/Platform';
 import { GenericAlertDialogProps } from './AlertDialog';
@@ -20,6 +20,39 @@ export interface BackupRestorationDialogProps {
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const platform = usePlatform();
+
+	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore', {
+		onSuccess: (total) => {
+			setShow((old) => ({ ...old, backupRestoreDialog: false }));
+			props.setAlertDialogData({
+				open: true,
+				title: 'Import Successful',
+				description: '',
+				value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`,
+				inputBox: false
+			});
+		},
+		onError: () => {
+			setShow((old) => ({ ...old, backupRestoreDialog: false }));
+			props.setAlertDialogData({
+				open: true,
+				title: 'Import Error',
+				description: '',
+				value: 'There was an error while restoring your backup.',
+				inputBox: false
+			});
+		}
+	});
+
+	const [show, setShow] = useState({
+		backupRestoreDialog: false,
+		masterPassword: false,
+		secretKey: false
+	});
+
+	const MPCurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
+	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
+
 	const form = useForm<FormValues>({
 		defaultValues: {
 			masterPassword: '',
@@ -28,58 +61,25 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 		}
 	});
 
-	const onSubmit: SubmitHandler<FormValues> = (data) => {
-		const sk = data.secretKey ?? null;
+	const onSubmit = form.handleSubmit((data) => {
+		const sk = data.secretKey;
 
 		if (data.filePath !== '') {
-			restoreKeystoreMutation.mutate(
-				{
-					password: data.masterPassword,
-					secret_key: sk,
-					path: data.filePath
-				},
-				{
-					onSuccess: (total) => {
-						setShowBackupRestoreDialog(false);
-						props.setAlertDialogData({
-							open: true,
-							title: 'Import Successful',
-							description: '',
-							value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`,
-							inputBox: false
-						});
-					},
-					onError: () => {
-						setShowBackupRestoreDialog(false);
-						props.setAlertDialogData({
-							open: true,
-							title: 'Import Error',
-							description: '',
-							value: 'There was an error while restoring your backup.',
-							inputBox: false
-						});
-					}
-				}
-			);
+			restoreKeystoreMutation.mutate({
+				password: data.masterPassword,
+				secret_key: sk,
+				path: data.filePath
+			});
 			form.reset();
 		}
-	};
-
-	const [showBackupRestoreDialog, setShowBackupRestoreDialog] = useState(false);
-	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore');
-
-	const [showMasterPassword, setShowMasterPassword] = useState(false);
-	const [showSecretKey, setShowSecretKey] = useState(false);
-
-	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
-	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
+	});
 
 	return (
 		<>
-			<form onSubmit={form.handleSubmit(onSubmit)}>
+			<form onSubmit={onSubmit}>
 				<Dialog
-					open={showBackupRestoreDialog}
-					setOpen={setShowBackupRestoreDialog}
+					open={show.backupRestoreDialog}
+					setOpen={(e) => setShow((old) => ({ ...old, backupRestoreDialog: e }))}
 					title="Restore Keys"
 					description="Restore keys from a backup."
 					loading={restoreKeystoreMutation.isLoading}
@@ -91,11 +91,11 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 							className="flex-grow !py-0.5"
 							placeholder="Master Password"
 							required
-							type={showMasterPassword ? 'text' : 'password'}
+							type={show.masterPassword ? 'text' : 'password'}
 							{...form.register('masterPassword', { required: true })}
 						/>
 						<Button
-							onClick={() => setShowMasterPassword(!showMasterPassword)}
+							onClick={() => setShow((old) => ({ ...old, masterPassword: !old.masterPassword }))}
 							size="icon"
 							className="border-none absolute right-[5px] top-[5px]"
 							type="button"
@@ -108,10 +108,10 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 							className="flex-grow !py-0.5"
 							placeholder="Secret Key"
 							{...form.register('secretKey', { required: false })}
-							type={showSecretKey ? 'text' : 'password'}
+							type={show.secretKey ? 'text' : 'password'}
 						/>
 						<Button
-							onClick={() => setShowSecretKey(!showSecretKey)}
+							onClick={() => setShow((old) => ({ ...old, secretKey: !old.secretKey }))}
 							size="icon"
 							className="border-none absolute right-[5px] top-[5px]"
 							type="button"
