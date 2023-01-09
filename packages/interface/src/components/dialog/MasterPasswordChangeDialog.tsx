@@ -24,18 +24,6 @@ type FormValues = {
 };
 
 export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
-	const { trigger } = props;
-
-	const form = useForm<FormValues>({
-		defaultValues: {
-			masterPassword: '',
-			masterPassword2: '',
-			secretKey: '',
-			encryptionAlgo: 'XChaCha20Poly1305',
-			hashingAlgo: 'Argon2id-s'
-		}
-	});
-
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword', {
 		onSuccess: () => {
 			setShow((old) => ({ ...old, masterPasswordDialog: false }));
@@ -70,6 +58,16 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 	const MP1CurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
 	const MP2CurrentEyeIcon = show.masterPassword2 ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
+
+	const form = useForm<FormValues>({
+		defaultValues: {
+			masterPassword: '',
+			masterPassword2: '',
+			secretKey: '',
+			encryptionAlgo: 'XChaCha20Poly1305',
+			hashingAlgo: 'Argon2id-s'
+		}
+	});
 
 	const onSubmit = form.handleSubmit((data) => {
 		if (data.masterPassword !== data.masterPassword2) {
@@ -108,7 +106,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 					ctaDanger={true}
 					loading={changeMasterPassword.isLoading}
 					ctaLabel="Change"
-					trigger={trigger}
+					trigger={props.trigger}
 				>
 					<div className="relative flex flex-grow mt-3 mb-2">
 						<Input
