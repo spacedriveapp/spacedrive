@@ -4,6 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { Rows, SquaresFour } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import Layout from '~/constants/Layout';
 import SortByMenu from '~/containers/menu/SortByMenu';
 import tw from '~/lib/tailwind';
 import { SharedScreenProps } from '~/navigation/SharedScreens';
@@ -16,6 +17,9 @@ import FileRow from './FileRow';
 type ExplorerProps = {
 	data: ExplorerData;
 };
+
+const GRID_NUM_COLUMNS = 3;
+const GRID_ITEM_WIDTH = Layout.window.width / GRID_NUM_COLUMNS - 10;
 
 const Explorer = ({ data }: ExplorerProps) => {
 	const navigation = useNavigation<SharedScreenProps<'Location'>['navigation']>();
@@ -61,16 +65,20 @@ const Explorer = ({ data }: ExplorerProps) => {
 			{data && (
 				<FlashList
 					key={layoutMode}
-					numColumns={layoutMode === 'grid' ? 3 : 1}
+					numColumns={layoutMode === 'grid' ? GRID_NUM_COLUMNS : 1}
 					data={data.items}
 					keyExtractor={(item) => item.id.toString()}
 					renderItem={({ item }) => (
 						<Pressable onPress={() => handlePress(item)}>
-							{layoutMode === 'grid' ? <FileItem data={item} /> : <FileRow data={item} />}
+							{layoutMode === 'grid' ? (
+								<FileItem width={GRID_ITEM_WIDTH} data={item} />
+							) : (
+								<FileRow data={item} />
+							)}
 						</Pressable>
 					)}
 					extraData={layoutMode}
-					// estimatedItemSize={}
+					estimatedItemSize={layoutMode === 'grid' ? GRID_ITEM_WIDTH : undefined}
 				/>
 			)}
 		</View>
