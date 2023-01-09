@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './AppLayout';
 import OnboardingNewLibrary from './components/onboarding/OnboardingNewLibrary';
+import { ONBOARDING_SCREENS } from './components/onboarding/OnboardingProgress';
 import OnboardingRoot from './components/onboarding/OnboardingRoot';
 import OnboardingStart from './components/onboarding/OnboardingStart';
 import { useKeybindHandler } from './hooks/useKeyboardHandler';
@@ -51,9 +52,10 @@ export function AppRouter() {
 	return (
 		<Routes>
 			<Route path="onboarding" element={<OnboardingRoot />}>
-				<Route index element={<OnboardingStart />} />
-				<Route path="0" element={<OnboardingStart />} />
-				<Route path="1" element={<OnboardingNewLibrary />} />
+				<Route index element={<Navigate to="start" />} />
+				{ONBOARDING_SCREENS.map(({ key, component: ScreenComponent }, index) => (
+					<Route key={key} path={key} element={<ScreenComponent />} />
+				))}
 			</Route>
 			<Route element={<AppLayout />}>
 				{/* As we are caching the libraries in localStore so this *shouldn't* result is visual problems unless something else is wrong */}

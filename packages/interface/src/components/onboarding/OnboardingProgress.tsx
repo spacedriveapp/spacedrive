@@ -1,45 +1,82 @@
 import clsx from 'clsx';
-import { useContext, useEffect, useState } from 'react';
+import { type ComponentType, useContext, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
-import { UnlockedScreens } from './OnboardingRoot';
+import OnboardingNewLibrary from './OnboardingNewLibrary';
+import { OnboardingStateContext } from './OnboardingRoot';
+import OnboardingStart from './OnboardingStart';
+import { useCurrentOnboardingScreenKey } from './helpers/screens';
 
-const SCREEN_COUNT = 9;
+interface OnboardingScreen {
+	/**
+	 * React component for rendering this screen.
+	 */
+	component: ComponentType<Record<string, never>>;
+	/**
+	 * Unique key used to record progression to this screen
+	 */
+	key: string;
+	/**
+	 * Sets whether the user is allowed to skip this screen.
+	 * @default false
+	 */
+	isSkippable?: boolean;
+}
+
+export const ONBOARDING_SCREENS: OnboardingScreen[] = [
+	{
+		component: OnboardingStart,
+		key: 'start'
+	},
+	{
+		component: OnboardingNewLibrary,
+		key: 'new-library'
+	},
+	{
+		component: OnboardingNewLibrary,
+		key: 'jeff1'
+	},
+	{
+		component: OnboardingNewLibrary,
+		key: 'jeff2'
+	},
+	{
+		component: OnboardingNewLibrary,
+		key: 'jeff3'
+	}
+];
 
 // screens are locked to prevent users from skipping ahead
-export function useOnboardingScreenMounted() {
-	const { pathname } = useLocation();
+export function useUnlockOnboardingScreen() {
+	const currentScreenKey = useCurrentOnboardingScreenKey()!;
 
-	const { unlockScreen } = useContext(UnlockedScreens);
-
-	const currentIndex = Number(pathname.split('/')[2]) || 0;
+	const { unlockScreen } = useContext(OnboardingStateContext);
 
 	useEffect(() => {
-		if (unlockScreen) unlockScreen(currentIndex);
-	}, [currentIndex, unlockScreen]);
+		if (unlockScreen) unlockScreen(currentScreenKey);
+	}, [currentScreenKey, unlockScreen]);
 }
 
 export default function OnboardingProgress() {
-	const { pathname } = useLocation();
-	const { unlockedScreens } = useContext(UnlockedScreens);
+	const { unlockedScreens } = useContext(OnboardingStateContext);
 	const navigate = useNavigate();
-	const currentIndex = Number(pathname.split('/')[2]) || 0;
+	const currentScreenKey = useCurrentOnboardingScreenKey();
 
 	return (
 		<div className="flex items-center justify-center w-full">
 			<div className="flex items-center justify-center space-x-1">
-				{Array.from({ length: SCREEN_COUNT }).map((_, index) => (
+				{ONBOARDING_SCREENS.map(({ isSkippable, key }) => (
 					<div
-						key={index}
+						key={key}
 						onClick={() => {
-							if (unlockedScreens.includes(index)) {
-								navigate(`/onboarding/${index}`);
+							if (unlockedScreens.includes(key)) {
+								navigate(`/onboarding/${key}`);
 							}
 						}}
 						className={clsx(
 							'w-2 h-2 rounded-full hover:bg-ink transition',
-							currentIndex === index ? 'bg-ink' : 'bg-ink-faint',
-							!unlockedScreens.includes(index) && 'opacity-10'
+							currentScreenKey === key ? 'bg-ink' : 'bg-ink-faint',
+							!unlockedScreens.includes(key) && 'opacity-10'
 						)}
 					/>
 				))}
