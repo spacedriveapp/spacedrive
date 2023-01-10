@@ -92,8 +92,7 @@ impl FileHeader {
 	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
 
-		// semi-expensive clone, < 1mb though
-		self.preview_media.clone().map_or_else(
+		self.preview_media.as_ref().map_or_else(
 			|| Err(Error::NoPreviewMedia),
 			|pvm| {
 				let pvm = StreamDecryption::decrypt_bytes(
@@ -120,8 +119,7 @@ impl FileHeader {
 	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key(password)?;
 
-		// semi-expensive clone, < 1mb though
-		self.preview_media.clone().map_or_else(
+		self.preview_media.as_ref().map_or_else(
 			|| Err(Error::NoPreviewMedia),
 			|pvm| {
 				let pvm = StreamDecryption::decrypt_bytes(

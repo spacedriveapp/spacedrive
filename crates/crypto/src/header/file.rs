@@ -205,12 +205,15 @@ impl FileHeader {
 					keyslots.push(vec![0u8; KEYSLOT_SIZE]);
 				}
 
-				let metadata = self.metadata.clone().map_or(Vec::new(), |v| v.to_bytes());
+				let metadata = self
+					.metadata
+					.as_ref()
+					.map_or(Vec::new(), Metadata::to_bytes);
 
 				let preview_media = self
 					.preview_media
-					.clone()
-					.map_or(Vec::new(), |v| v.to_bytes());
+					.as_ref()
+					.map_or(Vec::new(), PreviewMedia::to_bytes);
 
 				let header = [
 					MAGIC_BYTES.as_ref(),
@@ -300,7 +303,7 @@ impl FileHeader {
 
 				let preview_media = PreviewMedia::from_reader(reader).map_or_else(
 					|_| {
-						let seek_len = metadata.clone().map_or_else(
+						let seek_len = metadata.as_ref().map_or_else(
 							|| Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
 							|metadata| {
 								Self::size(version) as u64

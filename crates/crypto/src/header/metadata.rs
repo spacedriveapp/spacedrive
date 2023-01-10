@@ -115,7 +115,7 @@ impl FileHeader {
 	{
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
 
-		self.metadata.clone().map_or_else(
+		self.metadata.as_ref().map_or_else(
 			|| Err(Error::NoMetadata),
 			|metadata| {
 				let metadata = StreamDecryption::decrypt_bytes(
@@ -143,7 +143,7 @@ impl FileHeader {
 	{
 		let master_key = self.decrypt_master_key(password)?;
 
-		self.metadata.clone().map_or_else(
+		self.metadata.as_ref().map_or_else(
 			|| Err(Error::NoMetadata),
 			|metadata| {
 				let metadata = StreamDecryption::decrypt_bytes(
