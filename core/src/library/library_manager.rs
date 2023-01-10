@@ -11,11 +11,7 @@ use crate::{
 };
 
 use sd_crypto::{
-	crypto::stream::Algorithm,
-	keys::{
-		hashing::HashingAlgorithm,
-		keymanager::{KeyManager, StoredKey},
-	},
+	keys::keymanager::{KeyManager, StoredKey},
 	primitives::{to_array, OnboardingConfig},
 };
 use std::{
@@ -96,13 +92,17 @@ pub async fn seed_keymanager(
 
 			let stored_key = StoredKey {
 				uuid,
-				algorithm: Algorithm::from_bytes(to_array(key.algorithm)?)?,
+				version: serde_json::from_str(&key.version)
+					.map_err(|_| sd_crypto::Error::Serialization)?,
+				algorithm: serde_json::from_str(&key.algorithm)
+					.map_err(|_| sd_crypto::Error::Serialization)?,
 				content_salt: to_array(key.content_salt)?,
 				master_key: to_array(key.master_key)?,
 				master_key_nonce: key.master_key_nonce,
 				key_nonce: key.key_nonce,
 				key: key.key,
-				hashing_algorithm: HashingAlgorithm::from_bytes(to_array(key.hashing_algorithm)?)?,
+				hashing_algorithm: serde_json::from_str(&key.hashing_algorithm)
+					.map_err(|_| sd_crypto::Error::Serialization)?,
 				salt: to_array(key.salt)?,
 				memory_only: false,
 				automount: key.automount,
