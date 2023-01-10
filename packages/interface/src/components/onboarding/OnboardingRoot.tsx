@@ -63,4 +63,4 @@ const macOnly = (platform: string | undefined, classnames: string) =>
 export const OnboardingContainer = tw.div`flex flex-col items-center`;
 export const OnboardingTitle = tw.h2`mb-2 text-3xl font-bold`;
 export const OnboardingDescription = tw.p`max-w-xl text-center text-ink-dull`;
-export const OnboardingIcon = tw.img`w-20 h-20 mb-2`;
+export const OnboardingImg = tw.img`w-20 h-20 mb-2`;

@@ -9,6 +9,7 @@ export * from './Input';
 export * from './Select';
 export * from './Switch';
 export * as Tabs from './Tabs';
+export * as RadioGroup from './RadioGroup';
 export * from './Typography';
 export * from './utils';
 export { cva, cx } from 'class-variance-authority';

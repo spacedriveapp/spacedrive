@@ -4,7 +4,7 @@ import { FC } from 'react';
 import { useNavigate } from 'react-router';
 
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
-import { OnboardingContainer, OnboardingDescription, OnboardingIcon } from './OnboardingRoot';
+import { OnboardingContainer, OnboardingDescription, OnboardingImg } from './OnboardingRoot';
 
 const OnboardingStart: FC = () => {
 	const navigate = useNavigate();
@@ -13,7 +13,7 @@ const OnboardingStart: FC = () => {
 
 	return (
 		<OnboardingContainer>
-			<OnboardingIcon src={AppLogo} className="w-32 h-32 mb-8" />
+			<OnboardingImg src={AppLogo} className="w-32 h-32 mb-8" />
 
 			<h1 className="mb-2 text-4xl font-bold text-center text-ink">
 				The file explorer from the future.

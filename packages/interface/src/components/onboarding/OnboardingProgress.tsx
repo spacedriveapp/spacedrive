@@ -3,6 +3,7 @@ import { type ComponentType, useContext, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import OnboardingNewLibrary from './OnboardingNewLibrary';
+import OnboardingPrivacy from './OnboardingPrivacy';
 import { OnboardingStateContext } from './OnboardingRoot';
 import OnboardingStart from './OnboardingStart';
 import { useCurrentOnboardingScreenKey } from './helpers/screens';
@@ -33,8 +34,8 @@ export const ONBOARDING_SCREENS: OnboardingScreen[] = [
 		key: 'new-library'
 	},
 	{
-		component: OnboardingNewLibrary,
-		key: 'jeff1'
+		component: OnboardingPrivacy,
+		key: 'privacy'
 	},
 	{
 		component: OnboardingNewLibrary,
