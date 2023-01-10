@@ -25,7 +25,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 	const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>(getExplorerStore().layoutMode);
 
 	function changeLayoutMode(kind) {
-		// We need to do keep layoutMode as a state to make sure flash-list re-renders.
+		// We need to keep layoutMode as a state to make sure flash-list re-renders.
 		setLayoutMode(kind);
 		getExplorerStore().layoutMode = kind;
 	}
