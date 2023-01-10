@@ -1,8 +1,9 @@
-use std::{collections::VecDeque, path::PathBuf};
-
 use sd_crypto::{crypto::stream::StreamDecryption, header::file::FileHeader, Protected};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::{collections::VecDeque, fs::File, path::PathBuf};
+
+use tokio::task;
 
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
@@ -50,18 +51,17 @@ impl StatefulJob for FileDecryptorJob {
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
-			.ok_or(JobError::EarlyFinish {
-				name: self.name().to_string(),
-				reason: "can't find location".to_string(),
+			.ok_or(JobError::MissingData {
+				value: String::from("location which matches location_id"),
 			})?;
+
 		let root_path =
 			location
 				.local_path
 				.as_ref()
 				.map(PathBuf::from)
-				.ok_or(JobError::EarlyFinish {
-					name: self.name().to_string(),
-					reason: "can't get path as pathbuf".to_string(),
+				.ok_or(JobError::MissingData {
+					value: String::from("path when cast as `PathBuf`"),
 				})?;
 		let item = ctx
 			.library_ctx
@@ -73,9 +73,8 @@ impl StatefulJob for FileDecryptorJob {
 			))
 			.exec()
 			.await?
-			.ok_or(JobError::EarlyFinish {
-				name: self.name().to_string(),
-				reason: "can't find file_path with location id and path id".to_string(),
+			.ok_or(JobError::MissingData {
+				value: String::from("file_path that matches both location id and path id"),
 			})?;
 
 		let obj_name = item.materialized_path;
@@ -101,31 +100,24 @@ impl StatefulJob for FileDecryptorJob {
 		let step = &state.steps[0];
 		// handle overwriting checks, and making sure there's enough available space
 
-		let output_path = if let Some(path) = state.init.output_path.clone() {
-			path
-		} else {
-			let mut path = step.obj_path.clone();
+		let output_path = state.init.output_path.clone().map_or_else(
+			|| {
+				let mut path = step.obj_path.clone();
+				let extension = path.extension().map_or("decrypted", |ext| {
+					if ext == ".sdenc" {
+						""
+					} else {
+						"decrypted"
+					}
+				});
+				path.set_extension(extension);
+				path
+			},
+			|p| p,
+		);
 
-			// i really can't decide on the functionality of this
-			// maybe we should open a dialog in JS, and have the default as the file name without the ".sdenc",
-			// we don't do any overwriting checks as of yet, maybe these should be front-end though
-			let extension = if let Some(ext) = path.extension() {
-				// allow this with clippy as this won't be the final behaviour
-				#[allow(clippy::if_same_then_else)]
-				if ext == ".sdenc" {
-					"decrypted"
-				} else {
-					"decrypted"
-				}
-			} else {
-				"decrypted"
-			};
-			path.set_extension(extension);
-			path
-		};
-
-		let mut reader = std::fs::File::open(step.obj_path.clone())?;
-		let mut writer = std::fs::File::create(output_path)?;
+		let mut reader = File::open(step.obj_path.clone())?;
+		let mut writer = File::create(output_path)?;
 
 		let (header, aad) = FileHeader::from_reader(&mut reader)?;
 
@@ -160,9 +152,13 @@ impl StatefulJob for FileDecryptorJob {
 			header.decrypt_master_key_from_prehashed(keys)?
 		};
 
-		let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
+		task::block_in_place(|| {
+			let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
 
-		decryptor.decrypt_streams(&mut reader, &mut writer, &aad)?;
+			decryptor.decrypt_streams(&mut reader, &mut writer, &aad)?;
+
+			Ok::<(), JobError>(())
+		})?;
 
 		// need to decrypt preview media/metadata, and maybe add an option in the UI so the user can chosoe to restore these values
 		// for now this can't easily be implemented, as we don't know what the new object id for the file will be (we know the old one, but it may differ)

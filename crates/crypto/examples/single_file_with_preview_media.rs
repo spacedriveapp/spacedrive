@@ -23,7 +23,9 @@ fn encrypt() {
 
 	// These should ideally be done by a key management system
 	let content_salt = generate_salt();
-	let hashed_password = HASHING_ALGORITHM.hash(password, content_salt).unwrap();
+	let hashed_password = HASHING_ALGORITHM
+		.hash(password, content_salt, None)
+		.unwrap();
 
 	// Create a keyslot to be added to the header
 	let keyslots = vec![Keyslot::new(

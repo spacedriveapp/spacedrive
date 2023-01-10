@@ -1,10 +1,11 @@
-use std::io::{Read, Write};
 use std::{path::PathBuf, str::FromStr};
+use tokio::fs::File;
 
 use sd_crypto::keys::keymanager::StoredKey;
 use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 use serde::Deserialize;
 use specta::Type;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
 use crate::util::db::write_storedkey_to_db;
@@ -19,12 +20,6 @@ pub struct KeyAddArgs {
 	key: String,
 	library_sync: bool,
 	automount: bool,
-}
-
-#[derive(Type, Deserialize)]
-pub struct KeyNameUpdateArgs {
-	uuid: Uuid,
-	name: String,
 }
 
 #[derive(Type, Deserialize)]
@@ -71,10 +66,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, key_uuid: Uuid, library| async move {
 				let key = library.key_manager.get_key(key_uuid)?;
 
-				let key_string =
-					String::from_utf8(key.expose().clone()).map_err(Error::StringParse)?;
-
-				Ok(key_string)
+				Ok(String::from_utf8(key.into_inner()).map_err(Error::StringParse)?)
 			})
 		})
 		.library_mutation("mount", |t| {
@@ -82,21 +74,6 @@ pub(crate) fn mount() -> RouterBuilder {
 				library.key_manager.mount(key_uuid)?;
 				// we also need to dispatch jobs that automatically decrypt preview media and metadata here
 				invalidate_query!(library, "keys.listMounted");
-				Ok(())
-			})
-		})
-		.library_mutation("updateKeyName", |t| {
-			t(|_, args: KeyNameUpdateArgs, library| async move {
-				library
-					.db
-					.key()
-					.update(
-						key::uuid::equals(args.uuid.to_string()),
-						vec![key::SetParam::SetName(Some(args.name))],
-					)
-					.exec()
-					.await?;
-
 				Ok(())
 			})
 		})
@@ -119,7 +96,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("syncKeyToLibrary", |t| {
 			t(|_, key_uuid: Uuid, library| async move {
-				let key = library.key_manager.save_to_database(key_uuid)?;
+				let key = library.key_manager.sync_to_database(key_uuid)?;
 
 				// does not check that the key doesn't exist before writing
 				write_storedkey_to_db(&library.db, &key).await?;
@@ -173,12 +150,11 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("setMasterPassword", |t| {
 			t(|_, args: SetMasterPasswordArgs, library| async move {
-				let secret_key = args.secret_key.map(Protected::new);
-
 				// if this returns an error, the user MUST re-enter the correct password
-				library
-					.key_manager
-					.set_master_password(Protected::new(args.password), secret_key)?;
+				library.key_manager.set_master_password(
+					Protected::new(args.password),
+					args.secret_key.map(Protected::new),
+				)?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");
 
@@ -213,6 +189,7 @@ pub(crate) fn mount() -> RouterBuilder {
 					)
 					.exec()
 					.await?;
+
 				library
 					.db
 					.key()
@@ -228,15 +205,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_query("getDefault", |t| {
-			t(|_, _: (), library| async move {
-				let default = library.key_manager.get_default();
-
-				if let Ok(default_key) = default {
-					Ok(Some(default_key))
-				} else {
-					Ok(None)
-				}
-			})
+			t(|_, _: (), library| async move { library.key_manager.get_default().ok() })
 		})
 		.library_mutation("unmountAll", |t| {
 			t(|_, _: (), library| async move {
@@ -258,10 +227,9 @@ pub(crate) fn mount() -> RouterBuilder {
 					None,
 				)?;
 
-				let stored_key = library.key_manager.access_keystore(uuid)?;
-
 				if args.library_sync {
-					write_storedkey_to_db(&library.db, &stored_key).await?;
+					write_storedkey_to_db(&library.db, &library.key_manager.access_keystore(uuid)?)
+						.await?;
 
 					if args.automount {
 						library
@@ -288,24 +256,31 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, path: PathBuf, library| async move {
 				// dump all stored keys that are in the key manager (maybe these should be taken from prisma as this will include even "non-sync with library" keys)
 				let mut stored_keys = library.key_manager.dump_keystore();
+
 				// include the verification key at the time of backup
 				stored_keys.push(library.key_manager.get_verification_key()?);
+
+				// exclude all memory-only keys
 				stored_keys.retain(|k| !k.memory_only);
 
-				let mut output_file = std::fs::File::create(path).map_err(Error::Io)?;
+				let mut output_file = File::create(path).await.map_err(Error::Io)?;
 				output_file
 					.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| Error::Serialization)?)
+					.await
 					.map_err(Error::Io)?;
 				Ok(())
 			})
 		})
 		.library_mutation("restoreKeystore", |t| {
 			t(|_, args: RestoreBackupArgs, library| async move {
-				let mut input_file = std::fs::File::open(args.path).map_err(Error::Io)?;
+				let mut input_file = File::open(args.path).await.map_err(Error::Io)?;
 
 				let mut backup = Vec::new();
 
-				input_file.read_to_end(&mut backup).map_err(Error::Io)?;
+				input_file
+					.read_to_end(&mut backup)
+					.await
+					.map_err(Error::Io)?;
 
 				let stored_keys: Vec<StoredKey> =
 					serde_json::from_slice(&backup).map_err(|_| Error::Serialization)?;
