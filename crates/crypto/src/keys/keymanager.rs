@@ -40,7 +40,7 @@ use std::sync::Mutex;
 use crate::crypto::stream::{StreamDecryption, StreamEncryption};
 use crate::primitives::{
 	derive_key, generate_master_key, generate_nonce, generate_salt, to_array, OnboardingConfig,
-	KEY_LEN, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
+	KEY_LEN, LATEST_STORED_KEY, MASTER_PASSWORD_CONTEXT, ROOT_KEY_CONTEXT,
 };
 use crate::{
 	crypto::stream::Algorithm,
@@ -62,7 +62,8 @@ use super::hashing::HashingAlgorithm;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "rspc", derive(specta::Type))]
 pub struct StoredKey {
-	pub uuid: uuid::Uuid,     // uuid for identification. shared with mounted keys
+	pub uuid: uuid::Uuid, // uuid for identification. shared with mounted keys
+	pub version: StoredKeyVersion,
 	pub algorithm: Algorithm, // encryption algorithm for encrypting the master key. can be changed (requires a re-encryption though)
 	pub hashing_algorithm: HashingAlgorithm, // hashing algorithm used for hashing the key with the content salt
 	pub content_salt: [u8; SALT_LEN],
@@ -74,6 +75,13 @@ pub struct StoredKey {
 	pub salt: [u8; SALT_LEN],
 	pub memory_only: bool,
 	pub automount: bool,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "rspc", derive(specta::Type))]
+pub enum StoredKeyVersion {
+	V1,
 }
 
 /// This is a mounted key, and needs to be kept somewhat hidden.
@@ -176,6 +184,7 @@ impl KeyManager {
 
 		let verification_key = StoredKey {
 			uuid,
+			version: LATEST_STORED_KEY,
 			algorithm,
 			hashing_algorithm,
 			content_salt, // salt used for hashing
@@ -291,6 +300,7 @@ impl KeyManager {
 
 		let verification_key = StoredKey {
 			uuid,
+			version: LATEST_STORED_KEY,
 			algorithm,
 			hashing_algorithm,
 			content_salt,
@@ -633,6 +643,7 @@ impl KeyManager {
 		// Construct the StoredKey
 		let stored_key = StoredKey {
 			uuid,
+			version: LATEST_STORED_KEY,
 			algorithm,
 			hashing_algorithm,
 			content_salt,
