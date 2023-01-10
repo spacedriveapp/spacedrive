@@ -348,43 +348,47 @@ impl KeyManager {
 
 		let old_verification_key = old_verification_key.ok_or(Error::NoVerificationKey)?;
 
-		let hashed_password = if let Some(sk) = secret_key {
-			old_verification_key.hashing_algorithm.hash_with_secret(
-				master_password,
-				old_verification_key.content_salt,
-				sk,
-			)?
-		} else {
-			old_verification_key
-				.hashing_algorithm
-				.hash(master_password, old_verification_key.content_salt)?
+		let old_root_key = match old_verification_key.version {
+			StoredKeyVersion::V1 => {
+				let hashed_password = if let Some(sk) = secret_key {
+					old_verification_key.hashing_algorithm.hash_with_secret(
+						master_password,
+						old_verification_key.content_salt,
+						sk,
+					)?
+				} else {
+					old_verification_key
+						.hashing_algorithm
+						.hash(master_password, old_verification_key.content_salt)?
+				};
+
+				let derived_key = derive_key(
+					hashed_password,
+					old_verification_key.salt,
+					MASTER_PASSWORD_CONTEXT,
+				);
+
+				// decrypt the root key's KEK
+				let master_key = StreamDecryption::decrypt_bytes(
+					derived_key,
+					&old_verification_key.master_key_nonce,
+					old_verification_key.algorithm,
+					&old_verification_key.master_key,
+					&[],
+				)?;
+
+				// get the root key from the backup
+				let old_root_key = StreamDecryption::decrypt_bytes(
+					Protected::new(to_array(master_key.expose().clone())?),
+					&old_verification_key.key_nonce,
+					old_verification_key.algorithm,
+					&old_verification_key.key,
+					&[],
+				)?;
+
+				Protected::new(to_array(old_root_key.expose().clone())?)
+			}
 		};
-
-		let derived_key = derive_key(
-			hashed_password,
-			old_verification_key.salt,
-			MASTER_PASSWORD_CONTEXT,
-		);
-
-		// decrypt the root key's KEK
-		let master_key = StreamDecryption::decrypt_bytes(
-			derived_key,
-			&old_verification_key.master_key_nonce,
-			old_verification_key.algorithm,
-			&old_verification_key.master_key,
-			&[],
-		)?;
-
-		// get the root key from the backup
-		let old_root_key = StreamDecryption::decrypt_bytes(
-			Protected::new(to_array(master_key.expose().clone())?),
-			&old_verification_key.key_nonce,
-			old_verification_key.algorithm,
-			&old_verification_key.key,
-			&[],
-		)?;
-
-		let old_root_key = Protected::new(to_array(old_root_key.expose().clone())?);
 
 		let mut reencrypted_keys = Vec::new();
 
@@ -393,42 +397,47 @@ impl KeyManager {
 				continue;
 			}
 
-			let old_derived_key = derive_key(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT);
+			match key.version {
+				StoredKeyVersion::V1 => {
+					let old_derived_key =
+						derive_key(old_root_key.clone(), key.salt, ROOT_KEY_CONTEXT);
 
-			// decrypt the key's master key
-			let master_key = StreamDecryption::decrypt_bytes(
-				old_derived_key,
-				&key.master_key_nonce,
-				key.algorithm,
-				&key.master_key,
-				&[],
-			)
-			.map_or(Err(Error::IncorrectPassword), |v| {
-				Ok(Protected::new(to_array::<KEY_LEN>(v.expose().clone())?))
-			})?;
+					// decrypt the key's master key
+					let master_key = StreamDecryption::decrypt_bytes(
+						old_derived_key,
+						&key.master_key_nonce,
+						key.algorithm,
+						&key.master_key,
+						&[],
+					)
+					.map_or(Err(Error::IncorrectPassword), |v| {
+						Ok(Protected::new(to_array::<KEY_LEN>(v.expose().clone())?))
+					})?;
 
-			// generate a new nonce
-			let master_key_nonce = generate_nonce(key.algorithm);
+					// generate a new nonce
+					let master_key_nonce = generate_nonce(key.algorithm);
 
-			let salt = generate_salt();
-			let derived_key = derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT);
+					let salt = generate_salt();
+					let derived_key = derive_key(self.get_root_key()?, salt, ROOT_KEY_CONTEXT);
 
-			// encrypt the master key with the current root key
-			let encrypted_master_key = to_array(StreamEncryption::encrypt_bytes(
-				derived_key,
-				&master_key_nonce,
-				key.algorithm,
-				master_key.expose(),
-				&[],
-			)?)?;
+					// encrypt the master key with the current root key
+					let encrypted_master_key = to_array(StreamEncryption::encrypt_bytes(
+						derived_key,
+						&master_key_nonce,
+						key.algorithm,
+						master_key.expose(),
+						&[],
+					)?)?;
 
-			let mut updated_key = key.clone();
-			updated_key.master_key_nonce = master_key_nonce;
-			updated_key.master_key = encrypted_master_key;
-			updated_key.salt = salt;
+					let mut updated_key = key.clone();
+					updated_key.master_key_nonce = master_key_nonce;
+					updated_key.master_key = encrypted_master_key;
+					updated_key.salt = salt;
 
-			reencrypted_keys.push(updated_key.clone());
-			self.keystore.insert(updated_key.uuid, updated_key);
+					reencrypted_keys.push(updated_key.clone());
+					self.keystore.insert(updated_key.uuid, updated_key);
+				}
+			}
 		}
 
 		Ok(reencrypted_keys)
@@ -455,44 +464,49 @@ impl KeyManager {
 		let secret_key = secret_key.map(Self::convert_secret_key_string);
 
 		// Hash the master password
-		let hashed_password = if let Some(sk) = secret_key {
-			verification_key.hashing_algorithm.hash_with_secret(
-				master_password,
-				verification_key.content_salt,
-				sk,
-			)?
-		} else {
-			verification_key
-				.hashing_algorithm
-				.hash(master_password, verification_key.content_salt)?
-		};
 
-		let derived_key = derive_key(
-			hashed_password,
-			verification_key.salt,
-			MASTER_PASSWORD_CONTEXT,
-		);
+		match verification_key.version {
+			StoredKeyVersion::V1 => {
+				let hashed_password = if let Some(sk) = secret_key {
+					verification_key.hashing_algorithm.hash_with_secret(
+						master_password,
+						verification_key.content_salt,
+						sk,
+					)?
+				} else {
+					verification_key
+						.hashing_algorithm
+						.hash(master_password, verification_key.content_salt)?
+				};
 
-		let master_key = StreamDecryption::decrypt_bytes(
-			derived_key,
-			&verification_key.master_key_nonce,
-			verification_key.algorithm,
-			&verification_key.master_key,
-			&[],
-		)
-		.map_err(|_| Error::IncorrectKeymanagerDetails)?;
+				let derived_key = derive_key(
+					hashed_password,
+					verification_key.salt,
+					MASTER_PASSWORD_CONTEXT,
+				);
 
-		*self.root_key.lock()? = Some(Protected::new(to_array(
-			StreamDecryption::decrypt_bytes(
-				Protected::new(to_array(master_key.expose().clone())?),
-				&verification_key.key_nonce,
-				verification_key.algorithm,
-				&verification_key.key,
-				&[],
-			)?
-			.expose()
-			.clone(),
-		)?));
+				let master_key = StreamDecryption::decrypt_bytes(
+					derived_key,
+					&verification_key.master_key_nonce,
+					verification_key.algorithm,
+					&verification_key.master_key,
+					&[],
+				)
+				.map_err(|_| Error::IncorrectKeymanagerDetails)?;
+
+				*self.root_key.lock()? = Some(Protected::new(to_array(
+					StreamDecryption::decrypt_bytes(
+						Protected::new(to_array(master_key.expose().clone())?),
+						&verification_key.key_nonce,
+						verification_key.algorithm,
+						&verification_key.key,
+						&[],
+					)?
+					.expose()
+					.clone(),
+				)?));
+			}
+		}
 
 		Ok(())
 	}
@@ -509,48 +523,52 @@ impl KeyManager {
 			return Err(Error::KeyAlreadyMounted);
 		}
 
-		match self.keystore.get(&uuid) {
-			Some(stored_key) => {
-				let derived_key =
-					derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT);
+		self.keystore.get(&uuid).map_or_else(
+			|| Err(Error::KeyNotFound),
+			|stored_key| {
+				match stored_key.version {
+					StoredKeyVersion::V1 => {
+						let derived_key =
+							derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT);
 
-				let master_key = StreamDecryption::decrypt_bytes(
-					derived_key,
-					&stored_key.master_key_nonce,
-					stored_key.algorithm,
-					&stored_key.master_key,
-					&[],
-				)
-				.map_or(Err(Error::IncorrectPassword), |v| {
-					Ok(Protected::new(to_array(v.expose().clone())?))
-				})?;
+						let master_key = StreamDecryption::decrypt_bytes(
+							derived_key,
+							&stored_key.master_key_nonce,
+							stored_key.algorithm,
+							&stored_key.master_key,
+							&[],
+						)
+						.map_or(Err(Error::IncorrectPassword), |v| {
+							Ok(Protected::new(to_array(v.expose().clone())?))
+						})?;
 
-				// Decrypt the StoredKey using the decrypted master key
-				let key = StreamDecryption::decrypt_bytes(
-					master_key,
-					&stored_key.key_nonce,
-					stored_key.algorithm,
-					&stored_key.key,
-					&[],
-				)?;
+						// Decrypt the StoredKey using the decrypted master key
+						let key = StreamDecryption::decrypt_bytes(
+							master_key,
+							&stored_key.key_nonce,
+							stored_key.algorithm,
+							&stored_key.key,
+							&[],
+						)?;
 
-				// Hash the key once with the parameters/algorithm the user selected during first mount
-				let hashed_key = stored_key
-					.hashing_algorithm
-					.hash(key, stored_key.content_salt)?;
+						// Hash the key once with the parameters/algorithm the user selected during first mount
+						let hashed_key = stored_key
+							.hashing_algorithm
+							.hash(key, stored_key.content_salt)?;
 
-				// Construct the MountedKey and insert it into the Keymount
-				let mounted_key = MountedKey {
-					uuid: stored_key.uuid,
-					hashed_key,
-				};
+						// Construct the MountedKey and insert it into the Keymount
+						let mounted_key = MountedKey {
+							uuid: stored_key.uuid,
+							hashed_key,
+						};
 
-				self.keymount.insert(uuid, mounted_key);
+						self.keymount.insert(uuid, mounted_key);
 
-				Ok(())
-			}
-			None => Err(Error::KeyNotFound),
-		}
+						Ok(())
+					}
+				}
+			},
+		)
 	}
 
 	/// This function is used for getting the key value itself, from a given UUID.
