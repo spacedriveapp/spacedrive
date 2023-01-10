@@ -1,7 +1,7 @@
 {
 	"name": "@sd/desktop",
 	"version": "1.0.0",
-	"main": "index.js",
+	"main": "index.ts",
 	"license": "GPL-3.0-only",
 	"private": true,
 	"scripts": {
@@ -9,7 +9,8 @@
 		"dev": "tauri dev",
 		"tauri": "tauri",
 		"build": "node ./src-tauri/build.js",
-		"dmg": "open ../../target/release/bundle/dmg/"
+		"dmg": "open ../../target/release/bundle/dmg/",
+		"typecheck": "tsc -b"
 	},
 	"dependencies": {
 		"@rspc/client": "^0.0.0-main-7c0a67c1",
@@ -32,8 +33,8 @@
 		"prettier": "^2.7.1",
 		"sass": "^1.55.0",
 		"typescript": "^4.8.4",
-		"vite": "^3.1.4",
+		"vite": "^4.0.4",
 		"vite-plugin-svgr": "^2.2.1",
-		"vite-tsconfig-paths": "^3.5.2"
+		"vite-tsconfig-paths": "^4.0.3"
 	}
 }

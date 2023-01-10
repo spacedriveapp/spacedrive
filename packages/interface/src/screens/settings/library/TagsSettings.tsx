@@ -3,14 +3,14 @@ import { TagUpdateArgs } from '@sd/client';
 import { Button, Card, Dialog, Input, Switch } from '@sd/ui';
 import clsx from 'clsx';
 import { Trash } from 'phosphor-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useDebounce } from 'rooks';
 
-import { InputContainer } from '../../../components/primitive/InputContainer';
-import { PopoverPicker } from '../../../components/primitive/PopoverPicker';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
+import { InputContainer } from '~/components/primitive/InputContainer';
+import { PopoverPicker } from '~/components/primitive/PopoverPicker';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
 
 export default function TagsSettings() {
 	const [openCreateModal, setOpenCreateModal] = useState(false);

@@ -73,19 +73,11 @@ pub enum FileHeaderVersion {
 impl FileHeader {
 	/// This function is used for creating a file header.
 	#[must_use]
-	pub fn new(
-		version: FileHeaderVersion,
-		algorithm: Algorithm,
-		keyslots: Vec<Keyslot>,
-		//metadata: Option<Metadata>,
-		//preview_media: Option<PreviewMedia>,
-	) -> Self {
-		let nonce = generate_nonce(algorithm);
-
+	pub fn new(version: FileHeaderVersion, algorithm: Algorithm, keyslots: Vec<Keyslot>) -> Self {
 		Self {
 			version,
 			algorithm,
-			nonce,
+			nonce: generate_nonce(algorithm),
 			keyslots,
 			metadata: None,
 			preview_media: None,
@@ -117,7 +109,7 @@ impl FileHeader {
 		self.keyslots
 			.iter()
 			.find_map(|v| v.decrypt_master_key(password.clone()).ok())
-			.map(|v| Protected::new(to_array::<KEY_LEN>(v.expose().clone()).unwrap()))
+			.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
 			.ok_or(Error::IncorrectPassword)
 	}
 
@@ -166,7 +158,7 @@ impl FileHeader {
 				self.keyslots.iter().find_map(|z| {
 					z.decrypt_master_key_from_prehashed(v.clone())
 						.ok()
-						.map(|x| Protected::new(to_array::<KEY_LEN>(x.expose().clone()).unwrap()))
+						.map(|x| Protected::new(to_array::<KEY_LEN>(x.into_inner()).unwrap()))
 				})
 			})
 			.ok_or(Error::IncorrectPassword)
@@ -178,15 +170,15 @@ impl FileHeader {
 	#[must_use]
 	pub fn generate_aad(&self) -> Vec<u8> {
 		match self.version {
-			FileHeaderVersion::V1 => vec![
+			FileHeaderVersion::V1 => [
 				MAGIC_BYTES.as_ref(),
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				self.nonce.as_ref(),
 				&vec![0u8; 25 - self.nonce.len()],
 			]
-			.iter()
-			.flat_map(|&v| v)
+			.into_iter()
+			.flatten()
 			.copied()
 			.collect(),
 		}
@@ -213,14 +205,17 @@ impl FileHeader {
 					keyslots.push(vec![0u8; KEYSLOT_SIZE]);
 				}
 
-				let metadata = self.metadata.clone().map_or(Vec::new(), |v| v.to_bytes());
+				let metadata = self
+					.metadata
+					.as_ref()
+					.map_or(Vec::new(), Metadata::to_bytes);
 
 				let preview_media = self
 					.preview_media
-					.clone()
-					.map_or(Vec::new(), |v| v.to_bytes());
+					.as_ref()
+					.map_or(Vec::new(), PreviewMedia::to_bytes);
 
-				let header = vec![
+				let header = [
 					MAGIC_BYTES.as_ref(),
 					&self.version.to_bytes(),
 					&self.algorithm.to_bytes(),
@@ -231,8 +226,8 @@ impl FileHeader {
 					&metadata,
 					&preview_media,
 				]
-				.iter()
-				.flat_map(|&v| v)
+				.into_iter()
+				.flatten()
 				.copied()
 				.collect();
 
@@ -291,35 +286,37 @@ impl FileHeader {
 				reader.read_exact(&mut keyslot_bytes)?;
 
 				for _ in 0..2 {
-					if let Ok(keyslot) = Keyslot::from_reader(&mut keyslot_bytes.as_ref()) {
-						keyslots.push(keyslot);
-					}
+					Keyslot::from_reader(&mut keyslot_bytes.as_ref())
+						.map(|k| keyslots.push(k))
+						.ok();
 				}
 
-				let metadata = if let Ok(metadata) = Metadata::from_reader(reader) {
-					Some(metadata)
-				} else {
-					// header/aad area, keyslot area
-					reader.seek(SeekFrom::Start(
-						Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
-					))?;
-					None
-				};
+				let metadata = Metadata::from_reader(reader).map_or_else(
+					|_| {
+						reader.seek(SeekFrom::Start(
+							Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
+						))?;
+						Ok::<Option<Metadata>, Error>(None)
+					},
+					|metadata| Ok(Some(metadata)),
+				)?;
 
-				let preview_media = if let Ok(preview_media) = PreviewMedia::from_reader(reader) {
-					Some(preview_media)
-				} else if let Some(metadata) = metadata.clone() {
-					reader.seek(SeekFrom::Start(
-						Self::size(version) as u64
-							+ (KEYSLOT_SIZE * 2) as u64 + metadata.size() as u64,
-					))?;
-					None
-				} else {
-					reader.seek(SeekFrom::Start(
-						Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
-					))?;
-					None
-				};
+				let preview_media = PreviewMedia::from_reader(reader).map_or_else(
+					|_| {
+						let seek_len = metadata.as_ref().map_or_else(
+							|| Self::size(version) as u64 + (KEYSLOT_SIZE * 2) as u64,
+							|metadata| {
+								Self::size(version) as u64
+									+ (KEYSLOT_SIZE * 2) as u64 + metadata.size() as u64
+							},
+						);
+
+						reader.seek(SeekFrom::Start(seek_len))?;
+
+						Ok::<Option<PreviewMedia>, Error>(None)
+					},
+					|preview_media| Ok(Some(preview_media)),
+				)?;
 
 				Self {
 					version,
@@ -335,150 +332,3 @@ impl FileHeader {
 		Ok((header, aad))
 	}
 }
-
-// #[cfg(test)]
-// mod test {
-// 	use crate::{
-// 		crypto::stream::Algorithm,
-// 		header::keyslot::{Keyslot, KeyslotVersion},
-// 		keys::hashing::{HashingAlgorithm, Params},
-// 	};
-// 	use std::io::Cursor;
-
-// 	use super::{FileHeader, FileHeaderVersion};
-
-// 	const HEADER_BYTES_NO_ADDITIONAL_OBJECTS: [u8; 228] = [
-// 		98, 97, 108, 108, 97, 112, 112, 10, 1, 11, 1, 230, 47, 48, 63, 225, 227, 15, 211, 115, 69,
-// 		169, 184, 184, 18, 110, 189, 167, 0, 144, 26, 0, 0, 0, 0, 0, 13, 1, 11, 1, 15, 1, 104, 176,
-// 		135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235, 117, 160, 55, 36, 93, 100,
-// 		83, 164, 171, 19, 57, 66, 65, 253, 42, 160, 239, 74, 205, 239, 253, 48, 239, 249, 203, 121,
-// 		126, 231, 52, 38, 49, 154, 254, 234, 41, 113, 169, 25, 195, 84, 78, 180, 212, 54, 4, 198,
-// 		109, 33, 216, 163, 148, 79, 207, 121, 142, 102, 39, 169, 31, 55, 41, 231, 248, 65, 131,
-// 		184, 216, 175, 202, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-// 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-// 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-// 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-// 	];
-
-// 	#[test]
-// 	fn deserialize_header() {
-// 		let mut reader = Cursor::new(HEADER_BYTES_NO_ADDITIONAL_OBJECTS);
-// 		FileHeader::deserialize(&mut reader).unwrap();
-// 	}
-
-// 	#[test]
-// 	fn serialize_header() {
-// 		let header: FileHeader = FileHeader {
-// 			version: FileHeaderVersion::V1,
-// 			algorithm: Algorithm::XChaCha20Poly1305,
-// 			nonce: [
-// 				230, 47, 48, 63, 225, 227, 15, 211, 115, 69, 169, 184, 184, 18, 110, 189, 167, 0,
-// 				144, 26,
-// 			]
-// 			.to_vec(),
-// 			keyslots: [Keyslot {
-// 				version: KeyslotVersion::V1,
-// 				algorithm: Algorithm::XChaCha20Poly1305,
-// 				hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-// 				content_salt: [
-// 					104, 176, 135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235, 117,
-// 				],
-// 				master_key: [
-// 					160, 55, 36, 93, 100, 83, 164, 171, 19, 57, 66, 65, 253, 42, 160, 239, 74, 205,
-// 					239, 253, 48, 239, 249, 203, 121, 126, 231, 52, 38, 49, 154, 254, 234, 41, 113,
-// 					169, 25, 195, 84, 78, 180, 212, 54, 4, 198, 109, 33, 216,
-// 				],
-// 				nonce: [
-// 					163, 148, 79, 207, 121, 142, 102, 39, 169, 31, 55, 41, 231, 248, 65, 131, 184,
-// 					216, 175, 202,
-// 				]
-// 				.to_vec(),
-// 			}]
-// 			.to_vec(),
-// 			metadata: None,
-// 			preview_media: None,
-// 		};
-
-// 		let header_bytes = header.serialize().unwrap();
-
-// 		assert_eq!(HEADER_BYTES_NO_ADDITIONAL_OBJECTS.to_vec(), header_bytes)
-// 	}
-
-// 	#[test]
-// 	#[should_panic]
-// 	fn serialize_header_with_too_many_keyslots() {
-// 		let header: FileHeader = FileHeader {
-// 			version: FileHeaderVersion::V1,
-// 			algorithm: Algorithm::XChaCha20Poly1305,
-// 			nonce: [
-// 				230, 47, 48, 63, 225, 227, 15, 211, 115, 69, 169, 184, 184, 18, 110, 189, 167, 0,
-// 				144, 26,
-// 			]
-// 			.to_vec(),
-// 			keyslots: [
-// 				Keyslot {
-// 					version: KeyslotVersion::V1,
-// 					algorithm: Algorithm::XChaCha20Poly1305,
-// 					hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-// 					content_salt: [
-// 						104, 176, 135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235,
-// 						117,
-// 					],
-// 					master_key: [
-// 						160, 55, 36, 93, 100, 83, 164, 171, 19, 57, 66, 65, 253, 42, 160, 239, 74,
-// 						205, 239, 253, 48, 239, 249, 203, 121, 126, 231, 52, 38, 49, 154, 254, 234,
-// 						41, 113, 169, 25, 195, 84, 78, 180, 212, 54, 4, 198, 109, 33, 216,
-// 					],
-// 					nonce: [
-// 						163, 148, 79, 207, 121, 142, 102, 39, 169, 31, 55, 41, 231, 248, 65, 131,
-// 						184, 216, 175, 202,
-// 					]
-// 					.to_vec(),
-// 				},
-// 				Keyslot {
-// 					version: KeyslotVersion::V1,
-// 					algorithm: Algorithm::XChaCha20Poly1305,
-// 					hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-// 					content_salt: [
-// 						104, 176, 135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235,
-// 						117,
-// 					],
-// 					master_key: [
-// 						160, 55, 36, 93, 100, 83, 164, 171, 19, 57, 66, 65, 253, 42, 160, 239, 74,
-// 						205, 239, 253, 48, 239, 249, 203, 121, 126, 231, 52, 38, 49, 154, 254, 234,
-// 						41, 113, 169, 25, 195, 84, 78, 180, 212, 54, 4, 198, 109, 33, 216,
-// 					],
-// 					nonce: [
-// 						163, 148, 79, 207, 121, 142, 102, 39, 169, 31, 55, 41, 231, 248, 65, 131,
-// 						184, 216, 175, 202,
-// 					]
-// 					.to_vec(),
-// 				},
-// 				Keyslot {
-// 					version: KeyslotVersion::V1,
-// 					algorithm: Algorithm::XChaCha20Poly1305,
-// 					hashing_algorithm: HashingAlgorithm::Argon2id(Params::Standard),
-// 					content_salt: [
-// 						104, 176, 135, 146, 133, 75, 34, 155, 165, 148, 179, 133, 114, 245, 235,
-// 						117,
-// 					],
-// 					master_key: [
-// 						160, 55, 36, 93, 100, 83, 164, 171, 19, 57, 66, 65, 253, 42, 160, 239, 74,
-// 						205, 239, 253, 48, 239, 249, 203, 121, 126, 231, 52, 38, 49, 154, 254, 234,
-// 						41, 113, 169, 25, 195, 84, 78, 180, 212, 54, 4, 198, 109, 33, 216,
-// 					],
-// 					nonce: [
-// 						163, 148, 79, 207, 121, 142, 102, 39, 169, 31, 55, 41, 231, 248, 65, 131,
-// 						184, 216, 175, 202,
-// 					]
-// 					.to_vec(),
-// 				},
-// 			]
-// 			.to_vec(),
-// 			metadata: None,
-// 			preview_media: None,
-// 		};
-
-// 		header.serialize().unwrap();
-// 	}
-// }

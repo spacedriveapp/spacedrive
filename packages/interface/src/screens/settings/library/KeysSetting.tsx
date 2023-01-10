@@ -12,16 +12,16 @@ import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
 
-import { AlertDialog, GenericAlertDialogState } from '../../../components/dialog/AlertDialog';
-import { BackupRestoreDialog } from '../../../components/dialog/BackupRestoreDialog';
-import { KeyViewerDialog } from '../../../components/dialog/KeyViewerDialog';
-import { MasterPasswordChangeDialog } from '../../../components/dialog/MasterPasswordChangeDialog';
-import { ListOfKeys } from '../../../components/key/KeyList';
-import { KeyMounter } from '../../../components/key/KeyMounter';
-import { SettingsContainer } from '../../../components/settings/SettingsContainer';
-import { SettingsHeader } from '../../../components/settings/SettingsHeader';
-import { SettingsSubHeader } from '../../../components/settings/SettingsSubHeader';
-import { usePlatform } from '../../../util/Platform';
+import { AlertDialog, GenericAlertDialogState } from '~/components/dialog/AlertDialog';
+import { BackupRestoreDialog } from '~/components/dialog/BackupRestoreDialog';
+import { KeyViewerDialog } from '~/components/dialog/KeyViewerDialog';
+import { MasterPasswordChangeDialog } from '~/components/dialog/MasterPasswordChangeDialog';
+import { ListOfKeys } from '~/components/key/KeyList';
+import { KeyMounter } from '~/components/key/KeyMounter';
+import { SettingsContainer } from '~/components/settings/SettingsContainer';
+import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { SettingsSubHeader } from '~/components/settings/SettingsSubHeader';
+import { usePlatform } from '~/util/Platform';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
@@ -150,7 +150,7 @@ export default function KeysSettings() {
 						disabled={setMasterPasswordMutation.isLoading}
 						onClick={() => {
 							if (masterPassword !== '') {
-								const sk = secretKey ?? null;
+								const sk = secretKey || null;
 								setMasterPassword('');
 								setSecretKey('');
 								setMasterPasswordMutation.mutate(

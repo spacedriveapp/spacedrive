@@ -1,13 +1,11 @@
 import { lazy } from '@loadable/component';
 import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 
 import { AppLayout } from './AppLayout';
-import OnboardingNewLibrary from './components/onboarding/OnboardingNewLibrary';
 import { ONBOARDING_SCREENS } from './components/onboarding/OnboardingProgress';
 import OnboardingRoot from './components/onboarding/OnboardingRoot';
-import OnboardingStart from './components/onboarding/OnboardingStart';
-import { useKeybindHandler } from './hooks/useKeyboardHandler';
 
 // Using React.lazy breaks hot reload so we don't use it.
 const DebugScreen = lazy(() => import('./screens/Debug'));

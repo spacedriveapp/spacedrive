@@ -37,7 +37,7 @@ uuid = { version = "1.1.2", features = ["v4"] }
 
 dashmap = "5.4.0"
 
-rspc = { workspace = true, optional = true }
+rspc = { workspace = true, features = ["uuid"], optional = true }
 specta = { workspace = true, optional = true }
 
 hex = "0.4.3"

@@ -4,7 +4,7 @@ import minimizeIconPath from '@sd/assets/svgs/macos_minimize.svg';
 import clsx from 'clsx';
 import { HTMLAttributes, useEffect, useRef } from 'react';
 
-import { useFocusState } from '../../hooks/useFocusState';
+import { useFocusState } from '~/hooks/useFocusState';
 import { DefaultProps } from '../primitive/types';
 
 export interface TrafficLightsProps extends DefaultProps {
@@ -14,7 +14,7 @@ export interface TrafficLightsProps extends DefaultProps {
 }
 
 export function MacTrafficLights(props: TrafficLightsProps) {
-	const {onClose, onMinimize, onFullscreen, className} = props;
+	const { onClose, onMinimize, onFullscreen, className } = props;
 	const [focused] = useFocusState();
 
 	return (

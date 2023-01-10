@@ -26,8 +26,8 @@ import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus, ShareNetwork } from
 import React, { PropsWithChildren, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 
-import { useOperatingSystem } from '../../hooks/useOperatingSystem';
-import { usePlatform } from '../../util/Platform';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { usePlatform } from '~/util/Platform';
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';

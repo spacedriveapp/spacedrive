@@ -9,7 +9,9 @@
 	"scripts": {
 		"test": "jest",
 		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
-		"clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
+		"clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
+		"typecheck": "tsc -b",
+		"build": "tsc"
 	},
 	"dependencies": {
 		"@rspc/client": "^0.0.0-main-7c0a67c1",
