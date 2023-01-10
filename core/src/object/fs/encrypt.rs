@@ -5,6 +5,8 @@ use std::{
 	path::PathBuf,
 };
 
+use tokio::task;
+
 use chrono::FixedOffset;
 use sd_crypto::{
 	crypto::stream::{Algorithm, StreamEncryption},
@@ -252,8 +254,11 @@ impl StatefulJob for FileEncryptorJob {
 
 						if fs::metadata(pvm_path.clone()).is_ok() {
 							let mut pvm_bytes = Vec::new();
-							let mut pvm_file = File::open(pvm_path)?;
-							pvm_file.read_to_end(&mut pvm_bytes)?;
+							task::block_in_place(|| {
+								let mut pvm_file = File::open(pvm_path)?;
+								pvm_file.read_to_end(&mut pvm_bytes)?;
+								Ok::<_, JobError>(())
+							})?;
 
 							header.add_preview_media(
 								LATEST_PREVIEW_MEDIA,
@@ -269,11 +274,15 @@ impl StatefulJob for FileEncryptorJob {
 					}
 				}
 
-				header.write(&mut writer)?;
+				task::block_in_place(|| {
+					header.write(&mut writer)?;
 
-				let encryptor = StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
+					let encryptor =
+						StreamEncryption::new(master_key, &header.nonce, header.algorithm)?;
 
-				encryptor.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())?;
+					encryptor.encrypt_streams(&mut reader, &mut writer, &header.generate_aad())?;
+					Ok::<_, JobError>(())
+				})?;
 			}
 			_ => warn!(
 				"encryption is skipping {} as it isn't a file",

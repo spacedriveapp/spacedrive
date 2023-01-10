@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, fs::File, path::PathBuf};
 
+use tokio::task;
+
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
 	prisma::{file_path, location},
@@ -150,9 +152,13 @@ impl StatefulJob for FileDecryptorJob {
 			header.decrypt_master_key_from_prehashed(keys)?
 		};
 
-		let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
+		task::block_in_place(|| {
+			let decryptor = StreamDecryption::new(master_key, &header.nonce, header.algorithm)?;
 
-		decryptor.decrypt_streams(&mut reader, &mut writer, &aad)?;
+			decryptor.decrypt_streams(&mut reader, &mut writer, &aad)?;
+
+			Ok::<(), JobError>(())
+		})?;
 
 		// need to decrypt preview media/metadata, and maybe add an option in the UI so the user can chosoe to restore these values
 		// for now this can't easily be implemented, as we don't know what the new object id for the file will be (we know the old one, but it may differ)
