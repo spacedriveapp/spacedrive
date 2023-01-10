@@ -150,7 +150,7 @@ export default function KeysSettings() {
 						disabled={setMasterPasswordMutation.isLoading}
 						onClick={() => {
 							if (masterPassword !== '') {
-								const sk = secretKey ?? null;
+								const sk = secretKey || null;
 								setMasterPassword('');
 								setSecretKey('');
 								setMasterPasswordMutation.mutate(

@@ -5,12 +5,11 @@
 #![warn(clippy::style)]
 #![warn(clippy::suspicious)]
 #![warn(clippy::nursery)]
-#![warn(clippy::correctness)]
+#![warn(clippy::complexity)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::similar_names)]
-#![allow(clippy::option_if_let_else)]
 
 pub mod crypto;
 pub mod error;
