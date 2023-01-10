@@ -1,8 +1,7 @@
-use std::{collections::VecDeque, fs::File, path::PathBuf};
-
 use sd_crypto::{crypto::stream::StreamDecryption, header::file::FileHeader, Protected};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::{collections::VecDeque, fs::File, path::PathBuf};
 
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
@@ -54,6 +53,7 @@ impl StatefulJob for FileDecryptorJob {
 				name: self.name().to_string(),
 				reason: "can't find location".to_string(),
 			})?;
+
 		let root_path =
 			location
 				.local_path

@@ -1,10 +1,11 @@
-use std::io::{Read, Write};
-use std::{fs::File, path::PathBuf, str::FromStr};
+use std::{path::PathBuf, str::FromStr};
+use tokio::fs::File;
 
 use sd_crypto::keys::keymanager::StoredKey;
 use sd_crypto::{crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, Error, Protected};
 use serde::Deserialize;
 use specta::Type;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
 use crate::util::db::write_storedkey_to_db;
@@ -262,20 +263,24 @@ pub(crate) fn mount() -> RouterBuilder {
 				// exclude all memory-only keys
 				stored_keys.retain(|k| !k.memory_only);
 
-				let mut output_file = File::create(path).map_err(Error::Io)?;
+				let mut output_file = File::create(path).await.map_err(Error::Io)?;
 				output_file
 					.write_all(&serde_json::to_vec(&stored_keys).map_err(|_| Error::Serialization)?)
+					.await
 					.map_err(Error::Io)?;
 				Ok(())
 			})
 		})
 		.library_mutation("restoreKeystore", |t| {
 			t(|_, args: RestoreBackupArgs, library| async move {
-				let mut input_file = File::open(args.path).map_err(Error::Io)?;
+				let mut input_file = File::open(args.path).await.map_err(Error::Io)?;
 
 				let mut backup = Vec::new();
 
-				input_file.read_to_end(&mut backup).map_err(Error::Io)?;
+				input_file
+					.read_to_end(&mut backup)
+					.await
+					.map_err(Error::Io)?;
 
 				let stored_keys: Vec<StoredKey> =
 					serde_json::from_slice(&backup).map_err(|_| Error::Serialization)?;
