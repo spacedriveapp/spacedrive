@@ -87,9 +87,8 @@ impl StatefulJob for FileEncryptorJob {
 			.find_unique(location::id::equals(state.init.location_id))
 			.exec()
 			.await?
-			.ok_or(JobError::EarlyFinish {
-				name: self.name().to_string(),
-				reason: "can't find location".to_string(),
+			.ok_or(JobError::MissingData {
+				value: String::from("location which matches location_id"),
 			})?;
 
 		let root_path =
@@ -97,9 +96,8 @@ impl StatefulJob for FileEncryptorJob {
 				.local_path
 				.as_ref()
 				.map(PathBuf::from)
-				.ok_or(JobError::EarlyFinish {
-					name: self.name().to_string(),
-					reason: "can't get path as pathbuf".to_string(),
+				.ok_or(JobError::MissingData {
+					value: String::from("path when cast as `PathBuf`"),
 				})?;
 
 		let item = ctx
@@ -112,9 +110,8 @@ impl StatefulJob for FileEncryptorJob {
 			))
 			.exec()
 			.await?
-			.ok_or(JobError::EarlyFinish {
-				name: self.name().to_string(),
-				reason: "can't find file_path with location id and path id".to_string(),
+			.ok_or(JobError::MissingData {
+				value: String::from("file_path that matches both location id and path id"),
 			})?;
 
 		let obj_name = item.materialized_path;
@@ -173,9 +170,10 @@ impl StatefulJob for FileEncryptorJob {
 								Ok::<String, JobError>(
 									extension
 										.to_str()
-										.ok_or(JobError::EarlyFinish {
-											name: self.name().to_string(),
-											reason: "path isn't valid UTF-8".to_string(),
+										.ok_or(JobError::MissingData {
+											value: String::from(
+												"path contents when converted to string",
+											),
 										})?
 										.to_string() + ".sdenc",
 								)

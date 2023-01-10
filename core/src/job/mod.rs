@@ -43,6 +43,8 @@ pub enum JobError {
 		"Tried to resume a job that doesn't have saved state data: job <name='{1}', uuid='{0}'>"
 	)]
 	MissingJobDataState(Uuid, String),
+	#[error("missing some job data: '{value}'")]
+	MissingData { value: String },
 
 	// Specific job errors
 	#[error("Indexer error: {0}")]
@@ -53,12 +55,12 @@ pub enum JobError {
 	ThumbnailError(#[from] ThumbnailError),
 	#[error("Identifier error: {0}")]
 	IdentifierError(#[from] IdentifierJobError),
+	#[error("Crypto error: {0}")]
+	CryptoError(#[from] CryptoError),
 
 	// Not errors
 	#[error("Job had a early finish: <name='{name}', reason='{reason}'>")]
 	EarlyFinish { name: String, reason: String },
-	#[error("Crypto error: {0}")]
-	CryptoError(#[from] CryptoError),
 	#[error("Data needed for job execution not found: job <name='{0}'>")]
 	JobDataNotFound(String),
 	#[error("Job paused")]
