@@ -341,14 +341,14 @@ impl KeyManager {
 
 		// get the root key from the backup
 		let old_root_key = StreamDecryption::decrypt_bytes(
-			Protected::new(to_array(master_key.expose().clone())?),
+			Protected::new(to_array(master_key.into_inner())?),
 			&old_verification_key.key_nonce,
 			old_verification_key.algorithm,
 			&old_verification_key.key,
 			&[],
 		)?;
 
-		let old_root_key = Protected::new(to_array(old_root_key.expose().clone())?);
+		let old_root_key = Protected::new(to_array(old_root_key.into_inner())?);
 
 		let mut reencrypted_keys = Vec::new();
 
@@ -366,7 +366,7 @@ impl KeyManager {
 				&[],
 			)
 			.map_or(Err(Error::IncorrectPassword), |v| {
-				Ok(Protected::new(to_array::<KEY_LEN>(v.expose().clone())?))
+				Ok(Protected::new(to_array::<KEY_LEN>(v.into_inner())?))
 			})?;
 
 			// generate a new nonce
@@ -434,7 +434,7 @@ impl KeyManager {
 
 		*self.root_key.lock()? = Some(Protected::new(to_array(
 			StreamDecryption::decrypt_bytes(
-				Protected::new(to_array(master_key.expose().clone())?),
+				Protected::new(to_array(master_key.into_inner())?),
 				&verification_key.key_nonce,
 				verification_key.algorithm,
 				&verification_key.key,
@@ -469,7 +469,7 @@ impl KeyManager {
 					&[],
 				)
 				.map_or(Err(Error::IncorrectPassword), |v| {
-					Ok(Protected::new(to_array(v.expose().clone())?))
+					Ok(Protected::new(to_array(v.into_inner())?))
 				})?;
 
 				// Decrypt the StoredKey using the decrypted master key
@@ -516,7 +516,7 @@ impl KeyManager {
 					&[],
 				)
 				.map_or(Err(Error::IncorrectPassword), |k| {
-					Ok(Protected::new(to_array(k.expose().clone())?))
+					Ok(Protected::new(to_array(k.into_inner())?))
 				})?;
 
 				// Decrypt the StoredKey using the decrypted master key

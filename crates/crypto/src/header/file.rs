@@ -109,7 +109,7 @@ impl FileHeader {
 		self.keyslots
 			.iter()
 			.find_map(|v| v.decrypt_master_key(password.clone()).ok())
-			.map(|v| Protected::new(to_array::<KEY_LEN>(v.expose().clone()).unwrap()))
+			.map(|v| Protected::new(to_array::<KEY_LEN>(v.into_inner()).unwrap()))
 			.ok_or(Error::IncorrectPassword)
 	}
 
@@ -158,7 +158,7 @@ impl FileHeader {
 				self.keyslots.iter().find_map(|z| {
 					z.decrypt_master_key_from_prehashed(v.clone())
 						.ok()
-						.map(|x| Protected::new(to_array::<KEY_LEN>(x.expose().clone()).unwrap()))
+						.map(|x| Protected::new(to_array::<KEY_LEN>(x.into_inner()).unwrap()))
 				})
 			})
 			.ok_or(Error::IncorrectPassword)

@@ -65,7 +65,7 @@ pub(crate) fn mount() -> RouterBuilder {
 			t(|_, key_uuid: Uuid, library| async move {
 				let key = library.key_manager.get_key(key_uuid)?;
 
-				Ok(String::from_utf8(key.expose().clone()).map_err(Error::StringParse)?)
+				Ok(String::from_utf8(key.into_inner()).map_err(Error::StringParse)?)
 			})
 		})
 		.library_mutation("mount", |t| {
