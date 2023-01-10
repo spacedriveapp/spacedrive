@@ -15,7 +15,7 @@ const state = {
 	layoutMode: 'grid' as ExplorerLayoutMode,
 	// Using gridNumColumns instead of fixed size. We dynamically calculate the item size.
 	gridNumColumns: 3,
-	listItemSize: 40,
+	listItemSize: 65,
 	newThumbnails: {} as Record<string, boolean>
 };
 

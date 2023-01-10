@@ -81,7 +81,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 					estimatedItemSize={
 						layoutMode === 'grid'
 							? Layout.window.width / getExplorerStore().gridNumColumns
-							: undefined
+							: getExplorerStore().listItemSize
 					}
 				/>
 			)}

@@ -2,6 +2,7 @@ import { ExplorerItem, isVideoExt } from '@sd/client';
 import React from 'react';
 import { Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
+import { getExplorerStore } from '~/stores/explorerStore';
 
 import FileThumb from './FileThumb';
 
@@ -13,7 +14,11 @@ const FileRow = ({ data }: FileRowProps) => {
 	const isVid = isVideoExt(data.extension || '');
 
 	return (
-		<View style={tw.style('flex flex-row items-center px-3', { height: 65 })}>
+		<View
+			style={tw.style('flex flex-row items-center px-3', {
+				height: getExplorerStore().listItemSize
+			})}
+		>
 			<FileThumb
 				data={data}
 				kind={data.extension === 'zip' ? 'zip' : isVid ? 'video' : 'other'}
