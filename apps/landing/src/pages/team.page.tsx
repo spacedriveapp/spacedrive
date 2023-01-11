@@ -82,16 +82,6 @@ const teamMembers: Array<TeamMemberProps> = [
 			twitter: 'https://twitter.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
 		}
-	},
-	{
-		name: 'Haris Mehrzad',
-		role: 'Software Engineer',
-		image: teamImages['haris.jpg'],
-		socials: {
-			twitter: 'https://twitter.com/xPolarrr',
-			twitch: 'https://twitch.tv/polar_dev',
-			github: 'https://github.com/xPolar'
-		}
 	}
 ];
 

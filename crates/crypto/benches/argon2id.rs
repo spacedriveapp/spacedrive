@@ -17,8 +17,8 @@ fn bench(c: &mut Criterion) {
 
 		group.bench_function(BenchmarkId::new("hash", param.argon2id().m_cost()), |b| {
 			b.iter_batched(
-				|| (key.clone(), salt.clone()),
-				|(key, salt)| hashing_algorithm.hash(key, salt),
+				|| (key.clone(), salt),
+				|(key, salt)| hashing_algorithm.hash(key, salt, None),
 				BatchSize::SmallInput,
 			)
 		});

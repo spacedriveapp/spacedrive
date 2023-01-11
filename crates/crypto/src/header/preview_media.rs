@@ -92,20 +92,20 @@ impl FileHeader {
 	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
 
-		// could be an expensive clone (a few MiB at most)
-		if let Some(pvm) = self.preview_media.clone() {
-			let media = StreamDecryption::decrypt_bytes(
-				master_key,
-				&pvm.media_nonce,
-				pvm.algorithm,
-				&pvm.media,
-				&[],
-			)?;
+		self.preview_media.as_ref().map_or_else(
+			|| Err(Error::NoPreviewMedia),
+			|pvm| {
+				let pvm = StreamDecryption::decrypt_bytes(
+					master_key,
+					&pvm.media_nonce,
+					pvm.algorithm,
+					&pvm.media,
+					&[],
+				)?;
 
-			Ok(media)
-		} else {
-			Err(Error::NoPreviewMedia)
-		}
+				Ok(pvm)
+			},
+		)
 	}
 
 	/// This function is what you'll want to use to get the preview media for a file
@@ -119,20 +119,20 @@ impl FileHeader {
 	) -> Result<Protected<Vec<u8>>> {
 		let master_key = self.decrypt_master_key(password)?;
 
-		// could be an expensive clone (a few MiB at most)
-		if let Some(pvm) = self.preview_media.clone() {
-			let media = StreamDecryption::decrypt_bytes(
-				master_key,
-				&pvm.media_nonce,
-				pvm.algorithm,
-				&pvm.media,
-				&[],
-			)?;
+		self.preview_media.as_ref().map_or_else(
+			|| Err(Error::NoPreviewMedia),
+			|pvm| {
+				let pvm = StreamDecryption::decrypt_bytes(
+					master_key,
+					&pvm.media_nonce,
+					pvm.algorithm,
+					&pvm.media,
+					&[],
+				)?;
 
-			Ok(media)
-		} else {
-			Err(Error::NoPreviewMedia)
-		}
+				Ok(pvm)
+			},
+		)
 	}
 }
 
@@ -148,7 +148,7 @@ impl PreviewMedia {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			PreviewMediaVersion::V1 => vec![
+			PreviewMediaVersion::V1 => [
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				&self.media_nonce,
@@ -156,8 +156,8 @@ impl PreviewMedia {
 				&(self.media.len() as u64).to_le_bytes(),
 				&self.media,
 			]
-			.iter()
-			.flat_map(|&v| v)
+			.into_iter()
+			.flatten()
 			.copied()
 			.collect(),
 		}

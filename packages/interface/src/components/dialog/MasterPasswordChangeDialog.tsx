@@ -80,7 +80,7 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 			});
 		} else {
 			const hashing_algorithm = getHashingAlgorithmSettings(data.hashingAlgo);
-			const sk = data.secretKey ?? null;
+			const sk = data.secretKey || null;
 
 			changeMasterPassword.mutate({
 				algorithm: data.encryptionAlgo as Algorithm,

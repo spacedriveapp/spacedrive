@@ -75,10 +75,9 @@ impl Keyslot {
 		let nonce = generate_nonce(algorithm);
 
 		let salt = generate_salt();
-		let derived_key = derive_key(hashed_key, salt, FILE_KEY_CONTEXT);
 
 		let encrypted_master_key = to_array::<ENCRYPTED_KEY_LEN>(StreamEncryption::encrypt_bytes(
-			derived_key,
+			derive_key(hashed_key, salt, FILE_KEY_CONTEXT),
 			&nonce,
 			algorithm,
 			master_key.expose(),
@@ -105,13 +104,11 @@ impl Keyslot {
 	pub fn decrypt_master_key(&self, password: Protected<Vec<u8>>) -> Result<Protected<Vec<u8>>> {
 		let key = self
 			.hashing_algorithm
-			.hash(password, self.content_salt)
+			.hash(password, self.content_salt, None)
 			.map_err(|_| Error::PasswordHash)?;
 
-		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
-
 		StreamDecryption::decrypt_bytes(
-			derived_key,
+			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
 			self.algorithm,
 			&self.master_key,
@@ -130,10 +127,8 @@ impl Keyslot {
 		&self,
 		key: Protected<[u8; KEY_LEN]>,
 	) -> Result<Protected<Vec<u8>>> {
-		let derived_key = derive_key(key, self.salt, FILE_KEY_CONTEXT);
-
 		StreamDecryption::decrypt_bytes(
-			derived_key,
+			derive_key(key, self.salt, FILE_KEY_CONTEXT),
 			&self.nonce,
 			self.algorithm,
 			&self.master_key,
@@ -145,7 +140,7 @@ impl Keyslot {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			KeyslotVersion::V1 => vec![
+			KeyslotVersion::V1 => [
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				self.hashing_algorithm.to_bytes().as_ref(),
@@ -155,8 +150,8 @@ impl Keyslot {
 				&self.nonce,
 				&vec![0u8; 26 - self.nonce.len()],
 			]
-			.iter()
-			.flat_map(|&v| v)
+			.into_iter()
+			.flatten()
 			.copied()
 			.collect(),
 		}
