@@ -207,7 +207,7 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("getDefault", |t| {
 			t(|_, _: (), library| async move { library.key_manager.get_default().ok() })
 		})
-		.library_query("isKeymanagerUnlocking", |t| {
+		.library_query("isKeyManagerUnlocking", |t| {
 			t(|_, _: (), library| async move { library.key_manager.is_queued(Uuid::nil()) })
 		})
 		.library_query("getQueue", |t| {

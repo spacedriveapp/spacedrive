@@ -429,13 +429,23 @@ impl KeyManager {
 
 		let secret_key = secret_key.map(Self::convert_secret_key_string);
 
+		let uuid = Uuid::nil();
+
 		match verification_key.version {
 			StoredKeyVersion::V1 => {
-				let hashed_password = verification_key.hashing_algorithm.hash(
-					Protected::new(master_password.expose().as_bytes().to_vec()),
-					verification_key.content_salt,
-					secret_key,
-				)?;
+				self.mounting.insert(uuid);
+
+				let hashed_password = verification_key
+					.hashing_algorithm
+					.hash(
+						Protected::new(master_password.expose().as_bytes().to_vec()),
+						verification_key.content_salt,
+						secret_key,
+					)
+					.map_err(|e| {
+						self.remove_from_queue(uuid).ok();
+						e
+					})?;
 
 				let master_key = StreamDecryption::decrypt_bytes(
 					derive_key(
@@ -448,19 +458,30 @@ impl KeyManager {
 					&verification_key.master_key,
 					&[],
 				)
-				.map_err(|_| Error::IncorrectKeymanagerDetails)?;
+				.map_err(|_| {
+					self.remove_from_queue(uuid).ok();
+					Error::IncorrectKeymanagerDetails
+				})?;
 
-				*self.root_key.lock()? = Some(Protected::new(to_array(
-					StreamDecryption::decrypt_bytes(
-						Protected::new(to_array(master_key.into_inner())?),
-						&verification_key.key_nonce,
-						verification_key.algorithm,
-						&verification_key.key,
-						&[],
-					)?
-					.expose()
-					.clone(),
-				)?));
+				*self.root_key.lock()? = Some(Protected::new(
+					to_array(
+						StreamDecryption::decrypt_bytes(
+							Protected::new(to_array(master_key.into_inner())?),
+							&verification_key.key_nonce,
+							verification_key.algorithm,
+							&verification_key.key,
+							&[],
+						)?
+						.expose()
+						.clone(),
+					)
+					.map_err(|e| {
+						self.remove_from_queue(uuid).ok();
+						e
+					})?,
+				));
+
+				self.remove_from_queue(uuid)?;
 			}
 		}
 		Ok(())
@@ -530,10 +551,10 @@ impl KeyManager {
 						);
 
 						self.remove_from_queue(uuid)?;
-
-						Ok(())
 					}
 				}
+
+				Ok(())
 			})
 	}
 
