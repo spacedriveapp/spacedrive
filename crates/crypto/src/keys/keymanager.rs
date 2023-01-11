@@ -429,7 +429,7 @@ impl KeyManager {
 		invalidate: F,
 	) -> Result<()>
 	where
-		F: Fn() -> (),
+		F: Fn(),
 	{
 		let uuid = Uuid::nil();
 
