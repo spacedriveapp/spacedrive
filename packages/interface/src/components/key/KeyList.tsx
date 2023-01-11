@@ -1,6 +1,6 @@
-import { StoredKey, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, SelectOption } from '@sd/ui';
-import { useMemo } from 'react';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, SelectOption } from '@sd/ui';
+import { useMemo, useRef } from 'react';
 
 import { DefaultProps } from '../primitive/types';
 import { DummyKey, Key } from './Key';
@@ -19,7 +19,7 @@ export const SelectOptionKeyList = (props: { keys: string[] }) => (
 	</>
 );
 
-const mountingQueue = new Set<string>();
+const mountingQueue = useRef(new Set<string>());
 
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
