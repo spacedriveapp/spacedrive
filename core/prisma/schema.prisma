@@ -224,6 +224,7 @@ model Key {
     id                Int       @id @default(autoincrement())
     // uuid to identify the key
     uuid              String    @unique
+    version           String
     // the name that the user sets
     name              String?
     // is this key the default for encryption?
@@ -233,9 +234,9 @@ model Key {
     // nullable if concealed for security
     date_created      DateTime? @default(now())
     // encryption algorithm used to encrypt the key
-    algorithm         Bytes
+    algorithm         String
     // hashing algorithm used for hashing the key with the content salt
-    hashing_algorithm Bytes
+    hashing_algorithm String
     // salt used for encrypting data with this key
     content_salt      Bytes
     // the *encrypted* master key (48 bytes)
