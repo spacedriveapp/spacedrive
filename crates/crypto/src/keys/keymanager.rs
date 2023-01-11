@@ -104,7 +104,7 @@ pub struct KeyManager {
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
 	default: Mutex<Option<Uuid>>,
-	mounting: DashSet<Uuid>,
+	mounting_queue: DashSet<Uuid>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
@@ -117,7 +117,7 @@ impl KeyManager {
 			keystore: DashMap::new(),
 			keymount: DashMap::new(),
 			default: Mutex::new(None),
-			mounting: DashSet::new(),
+			mounting_queue: DashSet::new(),
 		};
 
 		keymanager.populate_keystore(stored_keys)?;
@@ -423,17 +423,23 @@ impl KeyManager {
 		master_password: Protected<String>,
 		secret_key: Option<Protected<String>>,
 	) -> Result<()> {
+		let uuid = Uuid::nil();
+
+		if self.has_master_password()? {
+			return Err(Error::KeyAlreadyMounted);
+		} else if self.is_queued(uuid) {
+			return Err(Error::KeyAlreadyQueued);
+		}
+
 		let verification_key = (*self.verification_key.lock()?)
 			.as_ref()
 			.map_or(Err(Error::NoVerificationKey), |k| Ok(k.clone()))?;
 
 		let secret_key = secret_key.map(Self::convert_secret_key_string);
 
-		let uuid = Uuid::nil();
-
 		match verification_key.version {
 			StoredKeyVersion::V1 => {
-				self.mounting.insert(uuid);
+				self.mounting_queue.insert(uuid);
 
 				let hashed_password = verification_key
 					.hashing_algorithm
@@ -497,6 +503,8 @@ impl KeyManager {
 	pub fn mount(&self, uuid: Uuid) -> Result<()> {
 		if self.keymount.get(&uuid).is_some() {
 			return Err(Error::KeyAlreadyMounted);
+		} else if self.is_queued(uuid) {
+			return Err(Error::KeyAlreadyQueued);
 		}
 
 		self.keystore
@@ -504,7 +512,7 @@ impl KeyManager {
 			.map_or(Err(Error::KeyNotFound), |stored_key| {
 				match stored_key.version {
 					StoredKeyVersion::V1 => {
-						self.mounting.insert(uuid);
+						self.mounting_queue.insert(uuid);
 
 						let master_key = StreamDecryption::decrypt_bytes(
 							derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT),
@@ -808,15 +816,17 @@ impl KeyManager {
 	}
 
 	pub fn get_queue(&self) -> Vec<Uuid> {
-		self.mounting.iter().map(|u| *u).collect()
+		self.mounting_queue.iter().map(|u| *u).collect()
 	}
 
 	pub fn is_queued(&self, uuid: Uuid) -> bool {
-		self.mounting.contains(&uuid)
+		self.mounting_queue.contains(&uuid)
 	}
 
 	pub fn remove_from_queue(&self, uuid: Uuid) -> Result<()> {
-		self.mounting.remove(&uuid).ok_or(Error::KeyNotQueued)?;
+		self.mounting_queue
+			.remove(&uuid)
+			.ok_or(Error::KeyNotQueued)?;
 
 		Ok(())
 	}
