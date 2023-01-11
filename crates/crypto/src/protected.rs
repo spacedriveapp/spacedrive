@@ -28,7 +28,7 @@
 //! let value = protected_data.expose();
 //! ```
 //!
-use std::fmt::Debug;
+use std::{fmt::Debug, mem::swap};
 use zeroize::Zeroize;
 
 #[derive(Clone)]
@@ -64,6 +64,17 @@ where
 
 	pub fn zeroize(mut self) {
 		self.data.zeroize();
+	}
+}
+
+impl<T> Protected<T>
+where
+	T: Zeroize + Default,
+{
+	pub fn into_inner(mut self) -> T {
+		let mut out = Default::default();
+		swap(&mut self.data, &mut out);
+		out
 	}
 }
 

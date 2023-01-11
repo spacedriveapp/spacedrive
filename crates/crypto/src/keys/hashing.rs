@@ -48,32 +48,18 @@ pub enum HashingAlgorithm {
 }
 
 impl HashingAlgorithm {
-	/// This function should be used to hash passwords
-	///
-	/// It also handles all the password hashing parameters.
+	/// This function should be used to hash passwords. It handles all appropriate parameters, and uses hashing with a secret key (if provided).
+	#[allow(clippy::needless_pass_by_value)]
 	pub fn hash(
 		&self,
 		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
+		secret: Option<Protected<Vec<u8>>>,
 	) -> Result<Protected<[u8; KEY_LEN]>> {
 		match self {
-			Self::Argon2id(params) => PasswordHasher::argon2id(password, salt, *params),
-			Self::BalloonBlake3(params) => PasswordHasher::balloon_blake3(password, salt, *params),
-		}
-	}
-
-	pub fn hash_with_secret(
-		&self,
-		password: Protected<Vec<u8>>,
-		salt: [u8; SALT_LEN],
-		secret: Protected<Vec<u8>>,
-	) -> Result<Protected<[u8; KEY_LEN]>> {
-		match self {
-			Self::Argon2id(params) => {
-				PasswordHasher::argon2id_with_secret(password, salt, secret, *params)
-			}
+			Self::Argon2id(params) => PasswordHasher::argon2id(password, salt, secret, *params),
 			Self::BalloonBlake3(params) => {
-				PasswordHasher::balloon_blake3_with_secret(password, salt, secret, *params)
+				PasswordHasher::balloon_blake3(password, salt, secret, *params)
 			}
 		}
 	}
@@ -122,30 +108,12 @@ impl PasswordHasher {
 	fn argon2id(
 		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
+		secret: Option<Protected<Vec<u8>>>,
 		params: Params,
 	) -> Result<Protected<[u8; KEY_LEN]>> {
+		let secret = secret.map_or(Protected::new(vec![]), |k| k);
+
 		let mut key = [0u8; KEY_LEN];
-
-		let argon2 = Argon2::new(
-			argon2::Algorithm::Argon2id,
-			argon2::Version::V0x13,
-			params.argon2id(),
-		);
-
-		argon2
-			.hash_password_into(password.expose(), &salt, &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Protected::new(key)))
-	}
-
-	#[allow(clippy::needless_pass_by_value)]
-	fn argon2id_with_secret(
-		password: Protected<Vec<u8>>,
-		salt: [u8; SALT_LEN],
-		secret: Protected<Vec<u8>>,
-		params: Params,
-	) -> Result<Protected<[u8; KEY_LEN]>> {
-		let mut key = [0u8; KEY_LEN];
-
 		let argon2 = Argon2::new_with_secret(
 			secret.expose(),
 			argon2::Algorithm::Argon2id,
@@ -163,28 +131,11 @@ impl PasswordHasher {
 	fn balloon_blake3(
 		password: Protected<Vec<u8>>,
 		salt: [u8; SALT_LEN],
+		secret: Option<Protected<Vec<u8>>>,
 		params: Params,
 	) -> Result<Protected<[u8; KEY_LEN]>> {
-		let mut key = [0u8; KEY_LEN];
+		let secret = secret.map_or(Protected::new(vec![]), |k| k);
 
-		let balloon = Balloon::<blake3::Hasher>::new(
-			balloon_hash::Algorithm::Balloon,
-			params.balloon_blake3(),
-			None,
-		);
-
-		balloon
-			.hash_into(password.expose(), &salt, &mut key)
-			.map_or(Err(Error::PasswordHash), |_| Ok(Protected::new(key)))
-	}
-
-	#[allow(clippy::needless_pass_by_value)]
-	fn balloon_blake3_with_secret(
-		password: Protected<Vec<u8>>,
-		salt: [u8; SALT_LEN],
-		secret: Protected<Vec<u8>>,
-		params: Params,
-	) -> Result<Protected<[u8; KEY_LEN]>> {
 		let mut key = [0u8; KEY_LEN];
 
 		let balloon = Balloon::<blake3::Hasher>::new(

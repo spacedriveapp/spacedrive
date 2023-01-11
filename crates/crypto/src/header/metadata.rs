@@ -115,20 +115,20 @@ impl FileHeader {
 	{
 		let master_key = self.decrypt_master_key_from_prehashed(hashed_keys)?;
 
-		// could be an expensive clone (a few MiB at most)
-		if let Some(metadata) = self.metadata.clone() {
-			let metadata = StreamDecryption::decrypt_bytes(
-				master_key,
-				&metadata.metadata_nonce,
-				metadata.algorithm,
-				&metadata.metadata,
-				&[],
-			)?;
+		self.metadata.as_ref().map_or_else(
+			|| Err(Error::NoMetadata),
+			|metadata| {
+				let metadata = StreamDecryption::decrypt_bytes(
+					master_key,
+					&metadata.metadata_nonce,
+					metadata.algorithm,
+					&metadata.metadata,
+					&[],
+				)?;
 
-			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
-		} else {
-			Err(Error::NoMetadata)
-		}
+				serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
+			},
+		)
 	}
 
 	/// This function should be used to retrieve the metadata for a file
@@ -143,20 +143,20 @@ impl FileHeader {
 	{
 		let master_key = self.decrypt_master_key(password)?;
 
-		// could be an expensive clone (a few MiB at most)
-		if let Some(metadata) = self.metadata.clone() {
-			let metadata = StreamDecryption::decrypt_bytes(
-				master_key,
-				&metadata.metadata_nonce,
-				metadata.algorithm,
-				&metadata.metadata,
-				&[],
-			)?;
+		self.metadata.as_ref().map_or_else(
+			|| Err(Error::NoMetadata),
+			|metadata| {
+				let metadata = StreamDecryption::decrypt_bytes(
+					master_key,
+					&metadata.metadata_nonce,
+					metadata.algorithm,
+					&metadata.metadata,
+					&[],
+				)?;
 
-			serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
-		} else {
-			Err(Error::NoMetadata)
-		}
+				serde_json::from_slice::<T>(&metadata).map_err(|_| Error::Serialization)
+			},
+		)
 	}
 }
 
@@ -172,7 +172,7 @@ impl Metadata {
 	#[must_use]
 	pub fn to_bytes(&self) -> Vec<u8> {
 		match self.version {
-			MetadataVersion::V1 => vec![
+			MetadataVersion::V1 => [
 				self.version.to_bytes().as_ref(),
 				self.algorithm.to_bytes().as_ref(),
 				&self.metadata_nonce,
@@ -180,8 +180,8 @@ impl Metadata {
 				&(self.metadata.len() as u64).to_le_bytes(),
 				&self.metadata,
 			]
-			.iter()
-			.flat_map(|&v| v)
+			.into_iter()
+			.flatten()
 			.copied()
 			.collect(),
 		}

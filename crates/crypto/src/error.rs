@@ -16,8 +16,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// This enum defines all possible errors that this crate can give
 #[derive(Error, Debug)]
 pub enum Error {
-	#[error("not enough bytes were written to the output file")]
-	WriteMismatch,
 	#[error("there was an error while password hashing")]
 	PasswordHash,
 	#[error("I/O error: {0}")]

@@ -72,7 +72,7 @@ pub async fn seed_keymanager(
 	client: &PrismaClient,
 	km: &Arc<KeyManager>,
 ) -> Result<(), LibraryManagerError> {
-	let mut default: Option<Uuid> = None;
+	let mut default = None;
 
 	// collect and serialize the stored keys
 	let stored_keys: Vec<StoredKey> = client
@@ -83,14 +83,13 @@ pub async fn seed_keymanager(
 		.iter()
 		.map(|key| {
 			let key = key.clone();
-
 			let uuid = uuid::Uuid::from_str(&key.uuid).unwrap();
 
 			if key.default {
 				default = Some(uuid);
 			}
 
-			let stored_key = StoredKey {
+			Ok(StoredKey {
 				uuid,
 				version: serde_json::from_str(&key.version)
 					.map_err(|_| sd_crypto::Error::Serialization)?,
@@ -106,9 +105,7 @@ pub async fn seed_keymanager(
 				salt: to_array(key.salt)?,
 				memory_only: false,
 				automount: key.automount,
-			};
-
-			Ok(stored_key)
+			})
 		})
 		.collect::<Result<Vec<StoredKey>, sd_crypto::Error>>()
 		.unwrap();
@@ -117,9 +114,7 @@ pub async fn seed_keymanager(
 	km.populate_keystore(stored_keys)?;
 
 	// if any key had an associated default tag
-	if let Some(default) = default {
-		km.set_default(default)?;
-	}
+	default.map(|k| km.set_default(k));
 
 	Ok(())
 }
