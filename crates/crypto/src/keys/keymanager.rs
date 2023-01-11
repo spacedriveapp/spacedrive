@@ -529,9 +529,7 @@ impl KeyManager {
 							},
 						);
 
-						dbg!("{:?}", self.get_queue());
 						self.remove_from_queue(uuid)?;
-						dbg!("{:?}", self.get_queue());
 
 						Ok(())
 					}
