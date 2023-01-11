@@ -96,6 +96,7 @@ pub struct KeyManager {
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
 	default: Mutex<Option<Uuid>>,
+	mounting: Mutex<Vec<Uuid>>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
@@ -112,6 +113,7 @@ impl KeyManager {
 			keystore,
 			keymount,
 			default: Mutex::new(None),
+			mounting: Mutex::new(vec![]),
 		};
 
 		keymanager.populate_keystore(stored_keys)?;
@@ -749,5 +751,13 @@ impl KeyManager {
 	#[must_use]
 	pub fn get_mounted_uuids(&self) -> Vec<Uuid> {
 		self.keymount.iter().map(|key| key.uuid).collect()
+	}
+
+	pub fn get_queue(&self) -> Result<Vec<Uuid>> {
+		Ok((*self.mounting.lock()?).clone())
+	}
+
+	pub fn is_queued(&self, uuid: Uuid) -> Result<bool> {
+		Ok((*self.mounting.lock()?).iter().any(|k| k == &uuid))
 	}
 }
