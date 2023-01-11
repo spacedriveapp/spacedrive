@@ -8,7 +8,7 @@ jamie@spacedrive.com
 
 ## Developers
 
-Jamie Pine, Brendan Allan, Oscar Beaumont, Ericson, Utku, Haden Fletcher, Benjamin Akar, Haris Mehrzad, and all other contributors displayed below!
+Jamie Pine, Brendan Allan, Oscar Beaumont, Ericson Soares, Utku Bakır, Haden Fletcher, Benjamin Akar, Haris Mehrzad, and all other contributors displayed below!
 
 ## Contributors
 
