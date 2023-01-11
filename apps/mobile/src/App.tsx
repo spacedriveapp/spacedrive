@@ -13,6 +13,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDeviceContext } from 'twrnc';
 
@@ -41,13 +42,15 @@ function AppContainer() {
 	return (
 		<SafeAreaProvider style={tw`flex-1 bg-app`}>
 			<GestureHandlerRootView style={tw`flex-1`}>
-				<BottomSheetModalProvider>
-					<StatusBar style="light" />
-					<NavigationContainer theme={NavigatorTheme}>
-						{!library ? <OnboardingNavigator /> : <RootNavigator />}
-					</NavigationContainer>
-					<GlobalModals />
-				</BottomSheetModalProvider>
+				<MenuProvider>
+					<BottomSheetModalProvider>
+						<StatusBar style="light" />
+						<NavigationContainer theme={NavigatorTheme}>
+							{!library ? <OnboardingNavigator /> : <RootNavigator />}
+						</NavigationContainer>
+						<GlobalModals />
+					</BottomSheetModalProvider>
+				</MenuProvider>
 			</GestureHandlerRootView>
 		</SafeAreaProvider>
 	);
