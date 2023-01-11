@@ -3,16 +3,20 @@ use job::JobManager;
 use library::LibraryManager;
 use location::{LocationManager, LocationManagerError};
 use node::NodeConfigManager;
+use sd_sync::CRDTOperation;
+use uuid::Uuid;
 
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{
 	fs::{self, File},
 	io::AsyncReadExt,
-	sync::broadcast,
+	sync::{broadcast, mpsc},
 };
 use tracing::{error, info};
 use tracing_subscriber::{prelude::*, EnvFilter};
+
+use crate::p2p::P2PManager;
 
 pub mod api;
 pub(crate) mod job;
@@ -20,6 +24,7 @@ pub(crate) mod library;
 pub(crate) mod location;
 pub(crate) mod node;
 pub(crate) mod object;
+pub(crate) mod p2p;
 pub(crate) mod sync;
 pub(crate) mod util;
 pub(crate) mod volume;
@@ -33,12 +38,14 @@ pub struct NodeContext {
 	pub jobs: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
+	pub p2p_tx: mpsc::Sender<(Uuid /* Library Id */, CRDTOperation)>,
 }
 
 pub struct Node {
 	config: Arc<NodeConfigManager>,
 	library_manager: Arc<LibraryManager>,
 	jobs: Arc<JobManager>,
+	p2p: Arc<P2PManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 }
 
@@ -83,7 +90,7 @@ impl Node {
 						.expect("Error invalid tracing directive!"),
 				)
 				.add_directive(
-					"sd-p2p=debug"
+					"sd_p2p=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),
 				)
@@ -120,6 +127,7 @@ impl Node {
 
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
+		let (p2p_tx, p2p_rx) = mpsc::channel(1024);
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
@@ -127,9 +135,11 @@ impl Node {
 				jobs: Arc::clone(&jobs),
 				location_manager: Arc::clone(&location_manager),
 				event_bus_tx: event_bus.0.clone(),
+				p2p_tx: p2p_tx.clone(),
 			},
 		)
 		.await?;
+		let p2p = P2PManager::new(config.clone(), library_manager.clone(), p2p_rx).await;
 
 		// Adding already existing locations for location management
 		for library_ctx in library_manager.get_all_libraries_ctx().await {
@@ -169,6 +179,7 @@ impl Node {
 			library_manager,
 			jobs,
 			event_bus,
+			p2p,
 		};
 
 		info!("Spacedrive online.");

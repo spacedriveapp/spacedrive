@@ -22,6 +22,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::RwLock;
+use tracing::error;
 use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryConfigWrapped, LibraryContext};
@@ -332,14 +333,27 @@ impl LibraryManager {
 		let key_manager = Arc::new(KeyManager::new(vec![])?);
 
 		seed_keymanager(&db, &key_manager).await?;
-		let (sync_manager, _) = SyncManager::new(db.clone(), id);
+		let (sync_manager, mut sync_rx) = SyncManager::new(db.clone(), id);
+		let sync_manager = Arc::new(sync_manager);
+
+		let p2p_tx = node_context.p2p_tx.clone();
+		let library_id = id.clone();
+		// I @oscartbeaumont hate this, it's an extra tasks for no purpose but it's just how the sync system works.
+		tokio::spawn(async move {
+			while let Some(event) = sync_rx.recv().await {
+				match p2p_tx.send((library_id.clone(), event)).await {
+					Ok(_) => {}
+					Err(err) => error!("TODO: Error sending operation to P2P system"),
+				}
+			}
+		});
 
 		Ok(LibraryContext {
 			id,
 			local_id: node_data.id,
 			config,
 			key_manager,
-			sync: Arc::new(sync_manager),
+			sync: sync_manager,
 			db,
 			node_local_id: node_data.id,
 			node_context,

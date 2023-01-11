@@ -76,9 +76,10 @@ where
 		fn_on_event: TEventFn,
 		fn_on_connect: TConnFn,
 	) -> Result<Arc<Self>, ManagerError> {
-		(!application_name.chars().all(char::is_alphanumeric))
-			.then_some(())
-			.ok_or(ManagerError::InvalidAppName)?;
+		// TODO
+		// (!application_name.chars().all(char::is_alphanumeric))
+		// 	.then_some(())
+		// 	.ok_or(ManagerError::InvalidAppName)?;
 
 		let mdns_daemon = ServiceDaemon::new()?;
 		let service_name = format!("_{}._udp.local.", application_name);
@@ -513,6 +514,7 @@ where
 		let this = self.clone();
 		tokio::spawn(async move {
 			for peer_id in peers {
+				// debug!("Broadcasting to peer: {}", peer_id); // TODO: Add id and relate to data which is printed once
 				let _ = this.send(peer_id.clone(), data.clone()).await;
 			}
 		});
