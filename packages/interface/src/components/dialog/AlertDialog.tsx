@@ -1,7 +1,7 @@
-import { Button, Dialog, Input, forms } from '@sd/ui';
+import { Button, Dialog, Input } from '@sd/ui';
 import { Clipboard } from 'phosphor-react';
 
-const { z, useZodForm } = forms;
+import { useZodForm, z } from '@sd/ui/src/forms';
 
 export const GenericAlertDialogState = {
 	open: false,

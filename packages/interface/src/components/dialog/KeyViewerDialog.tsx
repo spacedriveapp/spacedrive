@@ -1,5 +1,5 @@
 import { useLibraryQuery } from '@sd/client';
-import { Button, Dialog, Input, Select, SelectOption, forms } from '@sd/ui';
+import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { Buffer } from 'buffer';
 import { Clipboard } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
@@ -7,7 +7,7 @@ import { ReactNode, useState } from 'react';
 import { getHashingAlgorithmString } from '../../screens/settings/library/KeysSetting';
 import { SelectOptionKeyList } from '../key/KeyList';
 
-const { useZodForm, z } = forms;
+import { useZodForm, z } from '@sd/ui/src/forms';
 
 interface KeyViewerDialogProps {
 	trigger: ReactNode;

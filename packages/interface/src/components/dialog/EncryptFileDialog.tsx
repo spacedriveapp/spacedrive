@@ -1,12 +1,12 @@
 import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Dialog, Select, SelectOption, forms } from '@sd/ui';
+import { Button, Dialog, Select, SelectOption } from '@sd/ui';
 import { getHashingAlgorithmString } from '~/screens/settings/library/KeysSetting';
 import { usePlatform } from '~/util/Platform';
 
 import { SelectOptionKeyList } from '../key/KeyList';
 import { GenericAlertDialogProps } from './AlertDialog';
 
-const { CheckBox, useZodForm, z } = forms;
+import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
 
 interface EncryptDialogProps {
 	open: boolean;

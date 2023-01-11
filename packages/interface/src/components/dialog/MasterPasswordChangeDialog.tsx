@@ -1,5 +1,5 @@
 import { Algorithm, useLibraryMutation } from '@sd/client';
-import { Button, Dialog, Input, Select, SelectOption, forms } from '@sd/ui';
+import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { ReactNode, useState } from 'react';
@@ -9,7 +9,7 @@ import { generatePassword } from '../key/KeyMounter';
 import { PasswordMeter } from '../key/PasswordMeter';
 import { GenericAlertDialogProps } from './AlertDialog';
 
-const { useZodForm, z } = forms;
+import { useZodForm, z } from '@sd/ui/src/forms';
 
 export interface MasterPasswordChangeDialogProps {
 	trigger: ReactNode;

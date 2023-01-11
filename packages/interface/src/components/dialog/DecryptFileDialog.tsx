@@ -1,6 +1,6 @@
 import { RadioGroup } from '@headlessui/react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Dialog, forms } from '@sd/ui';
+import { Button, Dialog } from '@sd/ui';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useState } from 'react';
 
@@ -8,7 +8,7 @@ import { usePlatform } from '../../util/Platform';
 import { Tooltip } from '../tooltip/Tooltip';
 import { GenericAlertDialogProps } from './AlertDialog';
 
-const { Input, Switch, useZodForm, z } = forms;
+import { Input, Switch, useZodForm, z } from '@sd/ui/src/forms';
 
 interface DecryptDialogProps {
 	open: boolean;
