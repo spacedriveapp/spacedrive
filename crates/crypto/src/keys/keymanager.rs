@@ -49,7 +49,7 @@ use crate::{
 };
 use crate::{Error, Result};
 
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use uuid::Uuid;
 
 #[cfg(feature = "serde")]
@@ -104,24 +104,20 @@ pub struct KeyManager {
 	keystore: DashMap<Uuid, StoredKey>,
 	keymount: DashMap<Uuid, MountedKey>,
 	default: Mutex<Option<Uuid>>,
-	mounting: Mutex<Vec<Uuid>>,
+	mounting: DashSet<Uuid>,
 }
 
 /// The `KeyManager` functions should be used for all key-related management.
 impl KeyManager {
 	/// Initialize the Key Manager with `StoredKeys` retrieved from Prisma
 	pub fn new(stored_keys: Vec<StoredKey>) -> Result<Self> {
-		let keystore = DashMap::new();
-
-		let keymount: DashMap<Uuid, MountedKey> = DashMap::new();
-
 		let keymanager = Self {
 			root_key: Mutex::new(None),
 			verification_key: Mutex::new(None),
-			keystore,
-			keymount,
+			keystore: DashMap::new(),
+			keymount: DashMap::new(),
 			default: Mutex::new(None),
-			mounting: Mutex::new(vec![]),
+			mounting: DashSet::new(),
 		};
 
 		keymanager.populate_keystore(stored_keys)?;
@@ -487,6 +483,8 @@ impl KeyManager {
 			.map_or(Err(Error::KeyNotFound), |stored_key| {
 				match stored_key.version {
 					StoredKeyVersion::V1 => {
+						self.mounting.insert(uuid);
+
 						let master_key = StreamDecryption::decrypt_bytes(
 							derive_key(self.get_root_key()?, stored_key.salt, ROOT_KEY_CONTEXT),
 							&stored_key.master_key_nonce,
@@ -494,9 +492,13 @@ impl KeyManager {
 							&stored_key.master_key,
 							&[],
 						)
-						.map_or(Err(Error::IncorrectPassword), |v| {
-							Ok(Protected::new(to_array(v.into_inner())?))
-						})?;
+						.map_or_else(
+							|_| {
+								self.remove_from_queue(uuid).ok();
+								Err(Error::IncorrectPassword)
+							},
+							|v| Ok(Protected::new(to_array(v.into_inner())?)),
+						)?;
 						// Decrypt the StoredKey using the decrypted master key
 						let key = StreamDecryption::decrypt_bytes(
 							master_key,
@@ -504,14 +506,20 @@ impl KeyManager {
 							stored_key.algorithm,
 							&stored_key.key,
 							&[],
-						)?;
+						)
+						.map_err(|e| {
+							self.remove_from_queue(uuid).ok();
+							e
+						})?;
 
 						// Hash the key once with the parameters/algorithm the user selected during first mount
-						let hashed_key = stored_key.hashing_algorithm.hash(
-							key,
-							stored_key.content_salt,
-							None,
-						)?;
+						let hashed_key = stored_key
+							.hashing_algorithm
+							.hash(key, stored_key.content_salt, None)
+							.map_err(|e| {
+								self.remove_from_queue(uuid).ok();
+								e
+							})?;
 
 						self.keymount.insert(
 							uuid,
@@ -520,6 +528,10 @@ impl KeyManager {
 								hashed_key,
 							},
 						);
+
+						dbg!("{:?}", self.get_queue());
+						self.remove_from_queue(uuid)?;
+						dbg!("{:?}", self.get_queue());
 
 						Ok(())
 					}
@@ -758,10 +770,9 @@ impl KeyManager {
 	///
 	/// This does not remove the key from the key store
 	pub fn unmount(&self, uuid: Uuid) -> Result<()> {
-		self.keymount
-			.contains_key(&uuid)
-			.then(|| self.keymount.remove(&uuid))
-			.map_or(Err(Error::KeyNotMounted), |_| Ok(()))
+		self.keymount.remove(&uuid).ok_or(Error::KeyNotMounted)?;
+
+		Ok(())
 	}
 
 	/// This function returns a Vec of `StoredKey`s, so you can write them somewhere/update the database with them/etc
@@ -777,11 +788,17 @@ impl KeyManager {
 		self.keymount.iter().map(|key| key.uuid).collect()
 	}
 
-	pub fn get_queue(&self) -> Result<Vec<Uuid>> {
-		Ok((*self.mounting.lock()?).clone())
+	pub fn get_queue(&self) -> Vec<Uuid> {
+		self.mounting.iter().map(|u| *u).collect()
 	}
 
-	pub fn is_queued(&self, uuid: Uuid) -> Result<bool> {
-		Ok((*self.mounting.lock()?).iter().any(|k| k == &uuid))
+	pub fn is_queued(&self, uuid: Uuid) -> bool {
+		self.mounting.contains(&uuid)
+	}
+
+	pub fn remove_from_queue(&self, uuid: Uuid) -> Result<()> {
+		self.mounting.remove(&uuid).ok_or(Error::KeyNotQueued)?;
+
+		Ok(())
 	}
 }
