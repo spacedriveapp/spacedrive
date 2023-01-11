@@ -3,6 +3,7 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Input, Switch } from '@sd/ui';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 import { usePlatform } from '../../util/Platform';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -16,23 +17,23 @@ interface DecryptDialogProps {
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
+type FormValues = {
+	type: 'password' | 'key';
+	outputPath: string;
+	password: string;
+	saveToKeyManager: boolean;
+};
+
 export const DecryptFileDialog = (props: DecryptDialogProps) => {
 	const platform = usePlatform();
-	const { location_id, path_id } = props;
-	const decryptFile = useLibraryMutation('files.decryptFiles');
-	const [outputPath, setOutputpath] = useState('');
-	const [password, setPassword] = useState('');
-	const [saveToKeyManager, setSaveToKeyManager] = useState(true);
-	const [showPassword, setShowPassword] = useState(false);
-	const PasswordCurrentEyeIcon = showPassword ? EyeSlash : Eye;
 
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
 			hasMountedKeys = data.length > 0 ? true : false;
 			if (!hasMountedKeys) {
-				setDecryptType('password');
+				form.setValue('type', 'password');
 			} else {
-				setDecryptType('key');
+				form.setValue('type', 'key');
 			}
 		}
 	});
@@ -40,10 +41,63 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 	let hasMountedKeys =
 		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
 
-	const [decryptType, setDecryptType] = useState(hasMountedKeys ? 'key' : 'password');
+	const decryptFile = useLibraryMutation('files.decryptFiles', {
+		onSuccess: () => {
+			props.setAlertDialogData({
+				open: true,
+				title: 'Info',
+				value:
+					'The decryption job has started successfully. You may track the progress in the job overview panel.',
+				inputBox: false,
+				description: ''
+			});
+		},
+		onError: () => {
+			props.setAlertDialogData({
+				open: true,
+				title: 'Error',
+				value: 'The decryption job failed to start.',
+				inputBox: false,
+				description: ''
+			});
+		}
+	});
+
+	const [show, setShow] = useState({ password: false });
+
+	const PasswordCurrentEyeIcon = show.password ? EyeSlash : Eye;
+
+	const form = useForm<FormValues>({
+		defaultValues: {
+			type: hasMountedKeys ? 'key' : 'password',
+			outputPath: '',
+			password: '',
+			saveToKeyManager: true
+		}
+	});
+
+	const onSubmit = form.handleSubmit((data) => {
+		const output = data.outputPath !== '' ? data.outputPath : null;
+		const pw = data.type === 'password' ? data.password : null;
+		const save = data.type === 'password' ? data.saveToKeyManager : null;
+
+		props.setOpen(false);
+
+		props.location_id &&
+			props.path_id &&
+			decryptFile.mutate({
+				location_id: props.location_id,
+				path_id: props.path_id,
+				output_path: output,
+				password: pw,
+				save_to_library: save
+			});
+
+		form.reset();
+	});
 
 	return (
-		<>
+		<form onSubmit={onSubmit}>
 			<Dialog
 				open={props.open}
 				setOpen={props.setOpen}
@@ -51,48 +105,12 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 				description="Leave the output file blank for the default."
 				loading={decryptFile.isLoading}
 				ctaLabel="Decrypt"
-				ctaAction={() => {
-					const output = outputPath !== '' ? outputPath : null;
-					const pw = decryptType === 'password' ? password : null;
-					const save = decryptType === 'password' ? saveToKeyManager : null;
-
-					props.setOpen(false);
-
-					location_id &&
-						path_id &&
-						decryptFile.mutate(
-							{
-								location_id,
-								path_id,
-								output_path: output,
-								password: pw,
-								save_to_library: save
-							},
-							{
-								onSuccess: () => {
-									props.setAlertDialogData({
-										open: true,
-										title: 'Info',
-										value:
-											'The decryption job has started successfully. You may track the progress in the job overview panel.',
-										inputBox: false,
-										description: ''
-									});
-								},
-								onError: () => {
-									props.setAlertDialogData({
-										open: true,
-										title: 'Error',
-										value: 'The decryption job failed to start.',
-										inputBox: false,
-										description: ''
-									});
-								}
-							}
-						);
-				}}
 			>
-				<RadioGroup value={decryptType} onChange={setDecryptType} className="mt-2">
+				<RadioGroup
+					value={form.watch('type')}
+					onChange={(e: 'key' | 'password') => form.setValue('type', e)}
+					className="mt-2"
+				>
 					<span className="text-xs font-bold">Key Type</span>
 					<div className="flex flex-row gap-2 mt-2">
 						<RadioGroup.Option disabled={!hasMountedKeys} value="key">
@@ -117,19 +135,18 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 					</div>
 				</RadioGroup>
 
-				{decryptType === 'password' && (
+				{form.watch('type') === 'password' && (
 					<>
 						<div className="relative flex flex-grow mt-3 mb-2">
 							<Input
 								className={`flex-grow w-max !py-0.5`}
 								placeholder="Password"
-								onChange={(e) => setPassword(e.target.value)}
-								value={password}
-								type={showPassword ? 'text' : 'password'}
+								{...form.register('password', { required: false })}
+								type={show.password ? 'text' : 'password'}
 								required
 							/>
 							<Button
-								onClick={() => setShowPassword(!showPassword)}
+								onClick={() => setShow((old) => ({ ...old, password: !old.password }))}
 								size="icon"
 								className="border-none absolute right-[5px] top-[5px]"
 								type="button"
@@ -143,8 +160,8 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 								<Switch
 									className="bg-app-selected"
 									size="sm"
-									checked={saveToKeyManager}
-									onCheckedChange={setSaveToKeyManager}
+									checked={form.watch('saveToKeyManager')}
+									onCheckedChange={(e) => form.setValue('saveToKeyManager', e)}
 								/>
 							</div>
 							<span className="ml-3 text-xs font-medium mt-0.5">Save to Key Manager</span>
@@ -161,7 +178,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 
 						<Button
 							size="sm"
-							variant={outputPath !== '' ? 'accent' : 'gray'}
+							variant={form.watch('outputPath') !== '' ? 'accent' : 'gray'}
 							className="h-[23px] text-xs leading-3 mt-2"
 							type="button"
 							onClick={() => {
@@ -178,7 +195,7 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 									return;
 								}
 								platform.saveFilePickerDialog().then((result) => {
-									if (result) setOutputpath(result as string);
+									if (result) form.setValue('outputPath', result as string);
 								});
 							}}
 						>
@@ -187,6 +204,6 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 					</div>
 				</div>
 			</Dialog>
-		</>
+		</form>
 	);
 };
