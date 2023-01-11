@@ -139,9 +139,7 @@ export interface MediaData { id: number, pixel_width: number | null, pixel_heigh
 
 export interface Node { id: number, pub_id: Array<number>, name: string, platform: number, version: string | null, last_seen: string, timezone: string | null, date_created: string }
 
-export interface NodeConfig { version: string | null, id: string, name: string, p2p_port: number | null }
-
-export interface NodeState { version: string | null, id: string, name: string, p2p_port: number | null, data_path: string }
+export interface NodeState { data_path: string }
 
 export interface NormalisedCompositeId { $type: string, $id: any, org_id: string, user_id: string }
 

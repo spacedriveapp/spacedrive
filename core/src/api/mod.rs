@@ -7,11 +7,7 @@ use rspc::{Config, Type};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
-use crate::{
-	job::JobManager,
-	library::LibraryManager,
-	node::{NodeConfig, NodeConfigManager},
-};
+use crate::{job::JobManager, library::LibraryManager, node::NodeConfigManager};
 
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
@@ -46,8 +42,6 @@ pub mod volumes;
 
 #[derive(Serialize, Deserialize, Debug, Type)]
 struct NodeState {
-	#[serde(flatten)]
-	config: NodeConfig,
 	data_path: String,
 }
 
@@ -76,7 +70,6 @@ pub(crate) fn mount() -> Arc<Router> {
 		.query("nodeState", |t| {
 			t(|ctx, _: ()| async move {
 				Ok(NodeState {
-					config: ctx.config.get().await,
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
 					data_path: ctx
 						.config

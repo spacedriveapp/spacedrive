@@ -83,6 +83,11 @@ impl Node {
 						.expect("Error invalid tracing directive!"),
 				)
 				.add_directive(
+					"sd-p2p=debug"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
 					"server=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),

@@ -1,4 +1,5 @@
 use rspc::Type;
+use sd_p2p::Keypair;
 use serde::{Deserialize, Serialize};
 use std::{
 	fs::File,
@@ -30,7 +31,7 @@ impl Default for ConfigMetadata {
 }
 
 /// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NodeConfig {
 	#[serde(flatten)]
 	pub metadata: ConfigMetadata,
@@ -40,10 +41,9 @@ pub struct NodeConfig {
 	pub name: String,
 	// the port this node uses for peer to peer communication. By default a random free port will be chosen each time the application is started.
 	pub p2p_port: Option<u32>,
-	// /// The P2P identity public key
-	// pub p2p_cert: Vec<u8>,
-	// /// The P2P identity private key
-	// pub p2p_key: Vec<u8>,
+	/// p2p keypair which identifies the current node
+	/// TODO: This is currently optional to prevent a breaking change but should be required in the future.s
+	pub keypair: Option<Keypair>,
 	// /// The address of the Spacetunnel discovery service being used.
 	// pub spacetunnel_addr: Option<String>,
 }
@@ -74,6 +74,7 @@ impl NodeConfig {
 			metadata: ConfigMetadata {
 				version: Some(env!("CARGO_PKG_VERSION").into()),
 			},
+			keypair: Some(Keypair::generate()),
 		}
 	}
 }
@@ -115,7 +116,7 @@ impl NodeConfigManager {
 	async fn read(base_path: &PathBuf) -> Result<NodeConfig, NodeConfigError> {
 		let path = Path::new(base_path).join(NODE_STATE_CONFIG_NAME);
 
-		match path.try_exists().unwrap() {
+		let config = match path.try_exists().unwrap() {
 			true => {
 				let mut file = File::open(&path)?;
 				let base_config: ConfigMetadata =
@@ -131,6 +132,19 @@ impl NodeConfigManager {
 				Self::save(base_path, &config).await?;
 				Ok(config)
 			}
+		};
+
+		match config {
+			Ok(mut config) => {
+				// TODO: This can be removed in the future. It's to make this a non-breaking change.
+				if config.keypair.is_none() {
+					config.keypair = Some(Keypair::generate());
+					Self::save(base_path, &config).await?;
+				}
+
+				Ok(config)
+			}
+			Err(err) => Err(err),
 		}
 	}
 
