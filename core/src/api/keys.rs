@@ -154,6 +154,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				library.key_manager.set_master_password(
 					Protected::new(args.password),
 					args.secret_key.map(Protected::new),
+					|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
 				)?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");

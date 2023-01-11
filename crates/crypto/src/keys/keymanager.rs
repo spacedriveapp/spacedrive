@@ -417,12 +417,20 @@ impl KeyManager {
 	/// This minimises the risk of an attacker obtaining the master password, as both of these are required to unlock the vault (and both should be stored separately).
 	///
 	/// Both values need to be correct, otherwise this function will return a generic error.
+	///
+	/// The invalidate function is to handle query invalidation, so that the UI updates correctly. Leave it blank if this isn't required.
+	///
+	/// Note: The invalidation function is ran after updating the queue both times, so it isn't required externally.
 	#[allow(clippy::needless_pass_by_value)]
-	pub fn set_master_password(
+	pub fn set_master_password<F>(
 		&self,
 		master_password: Protected<String>,
 		secret_key: Option<Protected<String>>,
-	) -> Result<()> {
+		invalidate: F,
+	) -> Result<()>
+	where
+		F: Fn() -> (),
+	{
 		let uuid = Uuid::nil();
 
 		if self.has_master_password()? {
@@ -437,10 +445,11 @@ impl KeyManager {
 
 		let secret_key = secret_key.map(Self::convert_secret_key_string);
 
+		self.mounting_queue.insert(uuid);
+		invalidate();
+
 		match verification_key.version {
 			StoredKeyVersion::V1 => {
-				self.mounting_queue.insert(uuid);
-
 				let hashed_password = verification_key
 					.hashing_algorithm
 					.hash(
@@ -490,6 +499,9 @@ impl KeyManager {
 				self.remove_from_queue(uuid)?;
 			}
 		}
+
+		invalidate();
+
 		Ok(())
 	}
 
