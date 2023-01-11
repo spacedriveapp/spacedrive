@@ -79,7 +79,7 @@ export function KeyManager(props: KeyManagerProps) {
 						}
 					}}
 				>
-					{isKeyManagerUnlocking ? 'Unlocking...' : 'Unlock'}
+					Unlock
 				</Button>
 			</div>
 		);

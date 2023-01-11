@@ -167,7 +167,7 @@ export default function KeysSettings() {
 							}
 						}}
 					>
-						{isKeyManagerUnlocking.data! ? 'Unlocking...' : 'Unlock'}
+						Unlock
 					</Button>
 				</div>
 				<AlertDialog
