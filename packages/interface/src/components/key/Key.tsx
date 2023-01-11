@@ -15,7 +15,7 @@ export type KeyManagerProps = DefaultProps;
 export interface Key {
 	id: string;
 	name: string;
-	queue: MutableRefObject<Set<string>>;
+	queue: Set<string>;
 	mounted?: boolean;
 	locked?: boolean;
 	stats?: {
@@ -96,8 +96,8 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 	const changeAutomountStatus = useLibraryMutation('keys.updateAutomountStatus');
 	const syncToLibrary = useLibraryMutation('keys.syncKeyToLibrary');
 
-	if (data.mounted && data.queue.current.has(data.id)) {
-		data.queue.current.delete(data.id);
+	if (data.mounted && data.queue.has(data.id)) {
+		data.queue.delete(data.id);
 	}
 
 	return (
@@ -144,7 +144,7 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 					) : (
 						!data.mounted && (
 							<div className="text-[8pt] font-medium text-ink-dull opacity-30">
-								{data.queue.current.has(data.id) ? 'Key mounting...' : 'Key not mounted'}
+								{data.queue.has(data.id) ? 'Key mounting...' : 'Key not mounted'}
 							</div>
 						)
 					)}
@@ -181,10 +181,10 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 					/>
 					<KeyDropdownItem
 						onClick={() => {
-							data.queue.current.add(data.id);
+							data.queue.add(data.id);
 							mountKey.mutate(data.id);
 						}}
-						hidden={data.mounted || data.queue.current.has(data.id)}
+						hidden={data.mounted || data.queue.has(data.id)}
 						value="Mount"
 					/>
 					<KeyDropdownItem

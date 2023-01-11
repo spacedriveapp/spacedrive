@@ -48,7 +48,7 @@ export const ListOfKeys = () => {
 						data={{
 							id: key.uuid,
 							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
-							queue: mountingQueue,
+							queue: mountingQueue.current,
 							mounted: mountedKeys.includes(key),
 							default: defaultKey.data === key.uuid,
 							memoryOnly: key.memory_only,
