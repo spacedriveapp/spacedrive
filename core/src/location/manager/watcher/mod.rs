@@ -409,7 +409,12 @@ mod tests {
 		expect_event(events_rx, &file_path, EventKind::Modify(ModifyKind::Any)).await;
 
 		#[cfg(target_os = "macos")]
-		expect_event(events_rx, &file_path, EventKind::Create(CreateKind::File)).await;
+		expect_event(
+			events_rx,
+			&file_path,
+			EventKind::Access(AccessKind::Close(AccessMode::Write)),
+		)
+		.await;
 
 		#[cfg(target_os = "linux")]
 		expect_event(
@@ -488,7 +493,7 @@ mod tests {
 		expect_event(
 			events_rx,
 			&file_path,
-			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+			EventKind::Access(AccessKind::Close(AccessMode::Write)),
 		)
 		.await;
 
@@ -537,7 +542,7 @@ mod tests {
 		expect_event(
 			events_rx,
 			&file_path,
-			EventKind::Modify(ModifyKind::Name(RenameMode::Any)),
+			EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
 		)
 		.await;
 
@@ -588,7 +593,7 @@ mod tests {
 		expect_event(
 			events_rx,
 			&dir_path,
-			EventKind::Modify(ModifyKind::Name(RenameMode::Any)),
+			EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
 		)
 		.await;
 
@@ -627,12 +632,7 @@ mod tests {
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::Any)).await;
 
 		#[cfg(target_os = "macos")]
-		expect_event(
-			events_rx,
-			&root_dir.path(),
-			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
-		)
-		.await;
+		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
 
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &file_path, EventKind::Remove(RemoveKind::File)).await;
@@ -679,12 +679,7 @@ mod tests {
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Any)).await;
 
 		#[cfg(target_os = "macos")]
-		expect_event(
-			events_rx,
-			&root_dir.path(),
-			EventKind::Modify(ModifyKind::Data(DataChange::Any)),
-		)
-		.await;
+		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
 
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &dir_path, EventKind::Remove(RemoveKind::Folder)).await;
