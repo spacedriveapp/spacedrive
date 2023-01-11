@@ -39,3 +39,5 @@ openssl-sys = { git = "https://github.com/spacedriveapp/rust-openssl", rev = "92
 rspc = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }   # TODO: Move back to crates.io when new jsonrpc executor + `tokio::spawn` in the Tauri IPC plugin is released
 normi = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" }  # TODO: When normi is released on crates.io
 specta = { git = "https://github.com/oscartbeaumont/rspc", rev = "6243b5b6a1376940a40318340e5eaef22e4a2c22" } # TODO: When normi is released on crates.io
+
+mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd.git", rev = "a7e0c301f2a453f4b62d81273ce2c78103b7b966" } # TODO: Do upstream PR

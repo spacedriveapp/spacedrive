@@ -1,0 +1,25 @@
+[package]
+name = "sd-p2p"
+description = "Rust Peer to Peer Networking Library"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.24.1", features = ["macros", "sync", "time"] }
+libp2p = { version = "0.50.0", features = ["tokio", "quic", "request-response"] }
+futures = "0.3.1"
+mdns-sd = "0.5.10"
+thiserror = "1.0.38"
+tracing = "0.1.37"
+async-trait = "0.1.61"
+serde = { version = "1.0.152", features = ["derive"] }
+rmp-serde = "1.1.1"
+
+[dev-dependencies]
+tokio = { version = "1.24.1", features = ["rt-multi-thread"] }
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+
+# TODO: This patch is done at the workspace level now
+# [patch.crates-io]
+# mdns-sd = { git = "https://github.com/oscartbeaumont/mdns-sd.git", rev = "a7e0c301f2a453f4b62d81273ce2c78103b7b966" } # TODO: Do upstream PR
