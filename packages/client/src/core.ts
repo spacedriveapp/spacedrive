@@ -10,7 +10,6 @@ export type Procedures = {
         { key: "jobs.isRunning", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
-        { key: "keys.getQueue", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "keys.hasMasterPassword", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.list", input: LibraryArgs<null>, result: Array<StoredKey> } | 

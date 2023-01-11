@@ -18,6 +18,9 @@ export const SelectOptionKeyList = (props: { keys: string[] }) => (
 		))}
 	</>
 );
+
+const mountingQueue = new Set<string>();
+
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
@@ -45,6 +48,7 @@ export const ListOfKeys = () => {
 						data={{
 							id: key.uuid,
 							name: `Key ${key.uuid.substring(0, 8).toUpperCase()}`,
+							queue: mountingQueue,
 							mounted: mountedKeys.includes(key),
 							default: defaultKey.data === key.uuid,
 							memoryOnly: key.memory_only,
