@@ -365,8 +365,11 @@ mod tests {
 		path: impl AsRef<Path>,
 		expected_event: EventKind,
 	) {
-		debug!("Expecting event: {expected_event:#?}");
 		let path = path.as_ref();
+		debug!(
+			"Expecting event: {expected_event:#?} at path: {}",
+			path.display()
+		);
 		let mut tries = 0;
 		loop {
 			match events_rx.try_recv() {
@@ -412,7 +415,7 @@ mod tests {
 		expect_event(
 			events_rx,
 			&file_path,
-			EventKind::Access(AccessKind::Close(AccessMode::Write)),
+			EventKind::Modify(ModifyKind::Data(DataChange::Content)),
 		)
 		.await;
 
@@ -493,7 +496,7 @@ mod tests {
 		expect_event(
 			events_rx,
 			&file_path,
-			EventKind::Access(AccessKind::Close(AccessMode::Write)),
+			EventKind::Modify(ModifyKind::Data(DataChange::Content)),
 		)
 		.await;
 
@@ -542,7 +545,7 @@ mod tests {
 		expect_event(
 			events_rx,
 			&file_path,
-			EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
+			EventKind::Modify(ModifyKind::Name(RenameMode::Any)),
 		)
 		.await;
 
@@ -593,7 +596,7 @@ mod tests {
 		expect_event(
 			events_rx,
 			&dir_path,
-			EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
+			EventKind::Modify(ModifyKind::Name(RenameMode::Any)),
 		)
 		.await;
 
