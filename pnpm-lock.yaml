@@ -402,6 +402,7 @@ importers:
     specifiers:
       '@fontsource/inter': ^4.5.13
       '@headlessui/react': ^1.7.3
+      '@hookform/resolvers': ^2.9.10
       '@loadable/component': ^5.15.2
       '@radix-ui/react-progress': ^1.0.1
       '@radix-ui/react-slider': ^1.1.0
@@ -425,13 +426,13 @@ importers:
       '@types/react': ^18.0.21
       '@types/react-dom': ^18.0.6
       '@types/react-router-dom': ^5.3.3
-      '@types/tailwindcss': ^3.1.0
       '@vitejs/plugin-react': ^2.1.0
       '@zxcvbn-ts/core': ^2.1.0
       '@zxcvbn-ts/language-common': ^2.0.1
       '@zxcvbn-ts/language-en': ^2.1.0
       autoprefixer: ^10.4.12
       byte-size: ^8.1.0
+      class-variance-authority: ^0.4.0
       clsx: ^1.2.1
       crypto-random-string: ^5.0.0
       dayjs: ^1.11.5
@@ -454,9 +455,11 @@ importers:
       valtio: ^1.7.4
       vite: ^3.1.4
       vite-plugin-svgr: ^2.2.1
+      zod: ^3.20.2
     dependencies:
       '@fontsource/inter': 4.5.14
       '@headlessui/react': 1.7.5_biqbaboplfbrettd7655fr4n2y
+      '@hookform/resolvers': 2.9.10_react-hook-form@7.40.0
       '@loadable/component': 5.15.2_react@18.2.0
       '@radix-ui/react-progress': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@radix-ui/react-slider': 1.1.0_biqbaboplfbrettd7655fr4n2y
@@ -478,6 +481,7 @@ importers:
       '@zxcvbn-ts/language-en': 2.1.0
       autoprefixer: 10.4.13
       byte-size: 8.1.0
+      class-variance-authority: 0.4.0_typescript@4.9.4
       clsx: 1.2.1
       crypto-random-string: 5.0.0
       dayjs: 1.11.7
@@ -496,6 +500,7 @@ importers:
       use-count-up: 3.0.1_react@18.2.0
       use-debounce: 8.0.4_react@18.2.0
       valtio: 1.7.6_react@18.2.0+vite@3.2.5
+      zod: 3.20.2
     devDependencies:
       '@sd/config': link:../config
       '@types/babel-core': 6.25.7
@@ -505,7 +510,6 @@ importers:
       '@types/react': 18.0.26
       '@types/react-dom': 18.0.9
       '@types/react-router-dom': 5.3.3
-      '@types/tailwindcss': 3.1.0
       prettier: 2.8.1
       typescript: 4.9.4
       vite: 3.2.5_@types+node@18.11.15
@@ -541,7 +545,7 @@ importers:
       '@types/react-dom': ^18.0.6
       autoprefixer: ^10.4.12
       babel-loader: ^8.2.5
-      class-variance-authority: ^0.2.3
+      class-variance-authority: ^0.4.0
       clsx: ^1.2.1
       css-loader: ^6.7.1
       phosphor-react: ^1.4.1
@@ -571,7 +575,7 @@ importers:
       '@radix-ui/react-tabs': 1.0.1_biqbaboplfbrettd7655fr4n2y
       '@sd/assets': link:../assets
       '@tailwindcss/forms': 0.5.3_tailwindcss@3.2.4
-      class-variance-authority: 0.2.4_typescript@4.9.4
+      class-variance-authority: 0.4.0_typescript@4.9.4
       clsx: 1.2.1
       phosphor-react: 1.4.1_react@18.2.0
       postcss: 8.4.20
@@ -607,7 +611,7 @@ importers:
       storybook: 6.5.14_o4scbtliisanygemawej7x2d6i
       storybook-tailwind-dark-mode: 1.0.15_biqbaboplfbrettd7655fr4n2y
       style-loader: 3.3.1
-      tailwindcss: 3.2.4
+      tailwindcss: 3.2.4_postcss@8.4.20
       typescript: 4.9.4
 
 packages:
@@ -4049,7 +4053,15 @@ packages:
     peerDependencies:
       tailwindcss: ^3.0
     dependencies:
-      tailwindcss: 3.2.4
+      tailwindcss: 3.2.4_postcss@8.4.20
+    dev: false
+
+  /@hookform/resolvers/2.9.10_react-hook-form@7.40.0:
+    resolution: {integrity: sha512-JIL1DgJIlH9yuxcNGtyhsWX/PgNltz+5Gr6+8SX9fhXc/hPbEIk6wPI82nhgvp3uUb6ZfAM5mqg/x7KR7NAb+A==}
+    peerDependencies:
+      react-hook-form: ^7.0.0
+    dependencies:
+      react-hook-form: 7.40.0_react@18.2.0
     dev: false
 
   /@humanwhocodes/config-array/0.11.7:
@@ -7405,7 +7417,7 @@ packages:
     peerDependencies:
       tailwindcss: '>=2.0.0 || >=3.0.0 || >=3.0.0-alpha.1'
     dependencies:
-      tailwindcss: 3.2.4
+      tailwindcss: 3.2.4_postcss@8.4.20
     dev: true
 
   /@tailwindcss/typography/0.5.8:
@@ -7428,7 +7440,7 @@ packages:
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       postcss-selector-parser: 6.0.10
-      tailwindcss: 3.2.4
+      tailwindcss: 3.2.4_postcss@8.4.20
     dev: true
 
   /@tanstack/match-sorter-utils/8.7.2:
@@ -8257,7 +8269,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.5
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 3.2.5_sass@1.56.2
+      vite: 3.2.5_@types+node@18.11.15
     transitivePeerDependencies:
       - supports-color
 
@@ -10088,6 +10100,17 @@ packages:
 
   /class-variance-authority/0.2.4_typescript@4.9.4:
     resolution: {integrity: sha512-JJKn9ESARiNEBBRdTSPB9/SwaPb+wi19DMX/r8BVSyp1dxHa3JyUxa2GQjEVag5rBi+O3pL64UZ0XhnQsMz+3w==}
+    peerDependencies:
+      typescript: '>= 4.5.5 < 5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+    dependencies:
+      typescript: 4.9.4
+    dev: false
+
+  /class-variance-authority/0.4.0_typescript@4.9.4:
+    resolution: {integrity: sha512-74enNN8O9ZNieycac/y8FxqgyzZhZbxmCitAtAeUrLPlxjSd5zA7LfpprmxEcOmQBnaGs5hYhiSGnJ0mqrtBLQ==}
     peerDependencies:
       typescript: '>= 4.5.5 < 5'
     peerDependenciesMeta:
@@ -19246,6 +19269,39 @@ packages:
     transitivePeerDependencies:
       - ts-node
 
+  /tailwindcss/3.2.4_postcss@8.4.20:
+    resolution: {integrity: sha512-AhwtHCKMtR71JgeYDaswmZXhPcW9iuI9Sp2LvZPo9upDZ7231ZJ7eA9RaURbhpXGVlrjX4cFNlB4ieTetEb7hQ==}
+    engines: {node: '>=12.13.0'}
+    hasBin: true
+    peerDependencies:
+      postcss: ^8.0.9
+    dependencies:
+      arg: 5.0.2
+      chokidar: 3.5.3
+      color-name: 1.1.4
+      detective: 5.2.1
+      didyoumean: 1.2.2
+      dlv: 1.1.3
+      fast-glob: 3.2.12
+      glob-parent: 6.0.2
+      is-glob: 4.0.3
+      lilconfig: 2.0.6
+      micromatch: 4.0.5
+      normalize-path: 3.0.0
+      object-hash: 3.0.0
+      picocolors: 1.0.0
+      postcss: 8.4.20
+      postcss-import: 14.1.0_postcss@8.4.20
+      postcss-js: 4.0.0_postcss@8.4.20
+      postcss-load-config: 3.1.4_postcss@8.4.20
+      postcss-nested: 6.0.0_postcss@8.4.20
+      postcss-selector-parser: 6.0.11
+      postcss-value-parser: 4.2.0
+      quick-lru: 5.1.1
+      resolve: 1.22.1
+    transitivePeerDependencies:
+      - ts-node
+
   /tapable/1.1.3:
     resolution: {integrity: sha512-4WK/bYZmj8xLr+HUCODHGF1ZFzsYffasLUgEiMBY4fgtltdO6B4WJtlSbPaDTLpYTcGVwM2qLnFTICEcNxs3kA==}
     engines: {node: '>=6'}
@@ -20799,7 +20855,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 3.2.5_sass@1.56.2
+      vite: 3.2.5_@types+node@18.11.15
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20952,39 +21008,6 @@ packages:
         optional: true
     dependencies:
       '@types/node': 18.11.15
-      esbuild: 0.15.18
-      postcss: 8.4.20
-      resolve: 1.22.1
-      rollup: 2.79.1
-      sass: 1.56.2
-    optionalDependencies:
-      fsevents: 2.3.2
-
-  /vite/3.2.5_sass@1.56.2:
-    resolution: {integrity: sha512-4mVEpXpSOgrssFZAOmGIr85wPHKvaDAcXqxVxVRZhljkJOMZi1ibLibzjLHzJvcok8BMguLc7g1W6W/GqZbLdQ==}
-    engines: {node: ^14.18.0 || >=16.0.0}
-    hasBin: true
-    peerDependencies:
-      '@types/node': '>= 14'
-      less: '*'
-      sass: '*'
-      stylus: '*'
-      sugarss: '*'
-      terser: ^5.4.0
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-      less:
-        optional: true
-      sass:
-        optional: true
-      stylus:
-        optional: true
-      sugarss:
-        optional: true
-      terser:
-        optional: true
-    dependencies:
       esbuild: 0.15.18
       postcss: 8.4.20
       resolve: 1.22.1
@@ -21598,6 +21621,10 @@ packages:
   /yocto-queue/0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+
+  /zod/3.20.2:
+    resolution: {integrity: sha512-1MzNQdAvO+54H+EaK5YpyEy0T+Ejo/7YLHS93G3RnYWh5gaotGHwGeN/ZO687qEDU2y4CdStQYXVHIgrUl5UVQ==}
+    dev: false
 
   /zwitch/1.0.5:
     resolution: {integrity: sha512-V50KMwwzqJV0NpZIZFwfOD5/lyny3WlSzRiXgA0G7VUnRlqttta1L6UQIHzd6EuBY/cHGfwTIck7w1yH6Q5zUw==}
