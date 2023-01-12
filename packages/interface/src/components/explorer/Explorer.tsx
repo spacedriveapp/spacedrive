@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useExplorerStore } from '../../hooks/useExplorerStore';
 import { AlertDialog, GenericAlertDialogState } from '../dialog/AlertDialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
+import { DeleteFileDialog } from '../dialog/DeleteFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
 import { Inspector } from '../explorer/Inspector';
 import { ExplorerContextMenu } from './ExplorerContextMenu';
@@ -23,6 +24,7 @@ export default function Explorer(props: Props) {
 
 	const [showEncryptDialog, setShowEncryptDialog] = useState(false);
 	const [showDecryptDialog, setShowDecryptDialog] = useState(false);
+	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
 	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
 
@@ -65,6 +67,7 @@ export default function Explorer(props: Props) {
 									}}
 									setShowEncryptDialog={setShowEncryptDialog}
 									setShowDecryptDialog={setShowDecryptDialog}
+									setShowDeleteDialog={setShowDeleteDialog}
 									setAlertDialogData={setAlertDialogData}
 								/>
 							)}
@@ -99,6 +102,8 @@ export default function Explorer(props: Props) {
 				value={alertDialogData.value}
 				inputBox={alertDialogData.inputBox}
 			/>
+
+			{/* these props are all shared so could use the same prop type */}
 			{selectedItem && (
 				<EncryptFileDialog
 					location_id={expStore.locationId}
@@ -115,6 +120,14 @@ export default function Explorer(props: Props) {
 					open={showDecryptDialog}
 					setOpen={setShowDecryptDialog}
 					setAlertDialogData={setAlertDialogData}
+				/>
+			)}
+			{selectedItem && expStore.locationId !== null && (
+				<DeleteFileDialog
+					location_id={expStore.locationId}
+					path_id={selectedItem.id}
+					open={showDeleteDialog}
+					setOpen={setShowDeleteDialog}
 				/>
 			)}
 		</>

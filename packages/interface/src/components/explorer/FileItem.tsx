@@ -29,6 +29,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	index: number;
 	setShowEncryptDialog: (isShowing: boolean) => void;
 	setShowDecryptDialog: (isShowing: boolean) => void;
+	setShowDeleteDialog: (isShowing: boolean) => void;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
@@ -38,6 +39,7 @@ function FileItem({
 	index,
 	setShowEncryptDialog,
 	setShowDecryptDialog,
+	setShowDeleteDialog,
 	setAlertDialogData,
 	...rest
 }: Props) {
@@ -49,6 +51,7 @@ function FileItem({
 			item={data}
 			setShowEncryptDialog={setShowEncryptDialog}
 			setShowDecryptDialog={setShowDecryptDialog}
+			setShowDeleteDialog={setShowDeleteDialog}
 			setAlertDialogData={setAlertDialogData}
 		>
 			<div
