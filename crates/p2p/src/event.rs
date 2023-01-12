@@ -109,7 +109,7 @@ pub struct ConnectedPeer {
 }
 
 impl ConnectedPeer {
-	pub fn disconnect<TMetadata: Metadata>(self, manager: &Arc<ManagerRef<TMetadata>>) {
+	pub fn disconnect<TMetadata: Metadata>(self, _manager: &Arc<ManagerRef<TMetadata>>) {
 		todo!();
 	}
 }

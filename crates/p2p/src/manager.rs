@@ -1,6 +1,5 @@
 use std::{
 	collections::{HashMap, HashSet},
-	iter,
 	marker::PhantomData,
 	net::{IpAddr, SocketAddr},
 	num::NonZeroU32,
@@ -32,10 +31,7 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	event::Event,
-	spacetime::{
-		Behaviour, OutboundFailure, ProtocolSupport, ResponseChannel, SpaceTimeCodec,
-		SpaceTimeMessage, SpaceTimeProtocol,
-	},
+	spacetime::{Behaviour, OutboundFailure, ResponseChannel, SpaceTimeMessage},
 	utils::{quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr, AsyncFn, AsyncFn2},
 	ConnectedPeer, Connection, DiscoveredPeer, Keypair, ManagerRef, Metadata,
 };
@@ -85,11 +81,7 @@ where
 			quic::GenTransport::<quic::tokio::Provider>::new(quic::Config::new(keypair.inner()))
 				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 				.boxed(),
-			Behaviour::new(
-				SpaceTimeCodec(),
-				iter::once((SpaceTimeProtocol(), ProtocolSupport::Full)),
-				Default::default(),
-			),
+			Behaviour::new(),
 			keypair.public().to_peer_id(),
 		);
 		{

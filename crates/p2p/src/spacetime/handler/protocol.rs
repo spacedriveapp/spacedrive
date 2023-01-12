@@ -1,12 +1,18 @@
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use libp2p::{
-	core::upgrade::{InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+	core::upgrade::{
+		read_length_prefixed, write_length_prefixed, InboundUpgrade, OutboundUpgrade, UpgradeInfo,
+	},
 	swarm::NegotiatedSubstream,
 };
+use rmp_serde::{from_slice, to_vec_named};
 use smallvec::SmallVec;
-use std::{fmt, io};
+use std::{
+	fmt,
+	io::{self, ErrorKind},
+};
 
-use crate::spacetime::{Codec, RequestId, SpaceTimeCodec};
+use crate::spacetime::{RequestId, SpaceTimeMessage, SpaceTimeProtocol};
 
 /// The level of support for a particular protocol.
 #[derive(Debug, Clone)]
@@ -42,15 +48,14 @@ impl ProtocolSupport {
 /// Receives a request and sends a response.
 // #[derive(Debug)]
 pub struct ResponseProtocol {
-	pub(crate) codec: SpaceTimeCodec,
-	pub(crate) protocols: SmallVec<[<SpaceTimeCodec as Codec>::Protocol; 2]>,
-	pub(crate) request_sender: oneshot::Sender<(RequestId, <SpaceTimeCodec as Codec>::Request)>,
-	pub(crate) response_receiver: oneshot::Receiver<<SpaceTimeCodec as Codec>::Response>,
+	pub(crate) protocols: SmallVec<[SpaceTimeProtocol; 2]>,
+	pub(crate) request_sender: oneshot::Sender<(RequestId, SpaceTimeMessage)>,
+	pub(crate) response_receiver: oneshot::Receiver<SpaceTimeMessage>,
 	pub(crate) request_id: RequestId,
 }
 
 impl UpgradeInfo for ResponseProtocol {
-	type Info = <SpaceTimeCodec as Codec>::Protocol;
+	type Info = SpaceTimeProtocol;
 	type InfoIter = smallvec::IntoIter<[Self::Info; 2]>;
 
 	fn protocol_info(&self) -> Self::InfoIter {
@@ -63,13 +68,9 @@ impl InboundUpgrade<NegotiatedSubstream> for ResponseProtocol {
 	type Error = io::Error;
 	type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
-	fn upgrade_inbound(
-		mut self,
-		mut io: NegotiatedSubstream,
-		protocol: Self::Info,
-	) -> Self::Future {
+	fn upgrade_inbound(self, mut io: NegotiatedSubstream, protocol: Self::Info) -> Self::Future {
 		async move {
-			let read = self.codec.read_request(&protocol, &mut io);
+			let read = read_request(&protocol, &mut io);
 			let request = read.await?;
 			match self.request_sender.send((self.request_id, request)) {
 				Ok(()) => {}
@@ -79,7 +80,7 @@ impl InboundUpgrade<NegotiatedSubstream> for ResponseProtocol {
 			}
 
 			if let Ok(response) = self.response_receiver.await {
-				let write = self.codec.write_response(&protocol, &mut io, response);
+				let write = write_response(&protocol, &mut io, response);
 				write.await?;
 
 				io.close().await?;
@@ -99,10 +100,9 @@ impl InboundUpgrade<NegotiatedSubstream> for ResponseProtocol {
 ///
 /// Sends a request and receives a response.
 pub struct RequestProtocol {
-	pub(crate) codec: SpaceTimeCodec,
-	pub(crate) protocols: SmallVec<[<SpaceTimeCodec as Codec>::Protocol; 2]>,
+	pub(crate) protocols: SmallVec<[SpaceTimeProtocol; 2]>,
 	pub(crate) request_id: RequestId,
-	pub(crate) request: <SpaceTimeCodec as Codec>::Request,
+	pub(crate) request: SpaceTimeMessage,
 }
 
 impl fmt::Debug for RequestProtocol {
@@ -114,7 +114,7 @@ impl fmt::Debug for RequestProtocol {
 }
 
 impl UpgradeInfo for RequestProtocol {
-	type Info = <SpaceTimeCodec as Codec>::Protocol;
+	type Info = SpaceTimeProtocol;
 	type InfoIter = smallvec::IntoIter<[Self::Info; 2]>;
 
 	fn protocol_info(&self) -> Self::InfoIter {
@@ -123,23 +123,75 @@ impl UpgradeInfo for RequestProtocol {
 }
 
 impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
-	type Output = <SpaceTimeCodec as Codec>::Response;
+	type Output = SpaceTimeMessage;
 	type Error = io::Error;
 	type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
-	fn upgrade_outbound(
-		mut self,
-		mut io: NegotiatedSubstream,
-		protocol: Self::Info,
-	) -> Self::Future {
+	fn upgrade_outbound(self, mut io: NegotiatedSubstream, protocol: Self::Info) -> Self::Future {
 		async move {
-			let write = self.codec.write_request(&protocol, &mut io, self.request);
+			let write = write_request(&protocol, &mut io, self.request);
 			write.await?;
 			io.close().await?;
-			let read = self.codec.read_response(&protocol, &mut io);
+			let read = read_response(&protocol, &mut io);
 			let response = read.await?;
 			Ok(response)
 		}
 		.boxed()
 	}
+}
+
+async fn read_request<T>(_: &SpaceTimeProtocol, io: &mut T) -> io::Result<SpaceTimeMessage>
+where
+	T: AsyncRead + Unpin + Send,
+{
+	// TODO: Restrict the size of request that can be read to prevent Dos attacks -> Decide on a logical value for it and timeout clients that keep trying to blow the limit!
+
+	let buf = read_length_prefixed(io, 1_000_000).await?;
+	if buf.is_empty() {
+		return Err(io::Error::from(ErrorKind::UnexpectedEof));
+	}
+	// TODO: error handling
+	Ok(from_slice(&buf).unwrap())
+}
+
+async fn read_response<T>(_: &SpaceTimeProtocol, io: &mut T) -> io::Result<SpaceTimeMessage>
+where
+	T: AsyncRead + Unpin + Send,
+{
+	// TODO: Restrict the size of request that can be read to prevent Dos attacks -> Decide on a logical value for it and timeout clients that keep trying to blow the limit!
+
+	let buf = read_length_prefixed(io, 1_000_000).await?;
+	if buf.is_empty() {
+		return Err(io::Error::from(ErrorKind::UnexpectedEof));
+	}
+	// TODO: error handling
+	Ok(from_slice(&buf).unwrap())
+}
+
+async fn write_request<T>(
+	_: &SpaceTimeProtocol,
+	io: &mut T,
+	data: SpaceTimeMessage,
+) -> io::Result<()>
+where
+	T: AsyncWrite + Unpin + Send,
+{
+	// TODO: error handling
+	write_length_prefixed(io, to_vec_named(&data).unwrap().as_slice()).await?;
+	io.close().await?;
+	Ok(())
+}
+
+async fn write_response<T>(
+	_: &SpaceTimeProtocol,
+	io: &mut T,
+	data: SpaceTimeMessage,
+) -> io::Result<()>
+where
+	T: AsyncWrite + Unpin + Send,
+{
+	// TODO: error handling
+	write_length_prefixed(io, to_vec_named(&data).unwrap().as_slice()).await?;
+	io.close().await?;
+	Ok(())
 }

@@ -1,20 +1,11 @@
 //! `Spacetime` is just a fancy name for the protocol which sits between libp2p and the application build on this library.
 
 use std::{
-	io::ErrorKind,
+	iter,
 	sync::{atomic::AtomicU64, Arc},
 };
 
-use async_trait::async_trait;
-use futures::{io, prelude::*};
-use libp2p::{
-	core::{
-		upgrade::{read_length_prefixed, write_length_prefixed},
-		ProtocolName,
-	},
-	swarm::NetworkBehaviour,
-};
-use rmp_serde::{from_slice, to_vec_named};
+use libp2p::{core::ProtocolName, swarm::NetworkBehaviour};
 use serde::{Deserialize, Serialize};
 
 mod codec;
@@ -38,82 +29,6 @@ pub struct SpaceTimeProtocol();
 impl ProtocolName for SpaceTimeProtocol {
 	fn protocol_name(&self) -> &[u8] {
 		"/spacetime/1".as_bytes()
-	}
-}
-
-#[derive(Clone)]
-pub struct SpaceTimeCodec();
-
-#[async_trait]
-impl Codec for SpaceTimeCodec {
-	type Protocol = SpaceTimeProtocol;
-	type Request = SpaceTimeMessage;
-	type Response = SpaceTimeMessage;
-
-	async fn read_request<T>(
-		&mut self,
-		_: &SpaceTimeProtocol,
-		io: &mut T,
-	) -> io::Result<Self::Request>
-	where
-		T: AsyncRead + Unpin + Send,
-	{
-		// TODO: Restrict the size of request that can be read to prevent Dos attacks -> Decide on a logical value for it and timeout clients that keep trying to blow the limit!
-
-		let buf = read_length_prefixed(io, 1_000_000).await?;
-		if buf.is_empty() {
-			return Err(io::Error::from(ErrorKind::UnexpectedEof));
-		}
-		// TODO: error handling
-		Ok(from_slice(&buf).unwrap())
-	}
-
-	async fn read_response<T>(
-		&mut self,
-		_: &SpaceTimeProtocol,
-		io: &mut T,
-	) -> io::Result<Self::Response>
-	where
-		T: AsyncRead + Unpin + Send,
-	{
-		// TODO: Restrict the size of request that can be read to prevent Dos attacks -> Decide on a logical value for it and timeout clients that keep trying to blow the limit!
-
-		let buf = read_length_prefixed(io, 1_000_000).await?;
-		if buf.is_empty() {
-			return Err(io::Error::from(ErrorKind::UnexpectedEof));
-		}
-		// TODO: error handling
-		Ok(from_slice(&buf).unwrap())
-	}
-
-	async fn write_request<T>(
-		&mut self,
-		_: &SpaceTimeProtocol,
-		io: &mut T,
-		data: Self::Response,
-	) -> io::Result<()>
-	where
-		T: AsyncWrite + Unpin + Send,
-	{
-		// TODO: error handling
-		write_length_prefixed(io, to_vec_named(&data).unwrap().as_slice()).await?;
-		io.close().await?;
-		Ok(())
-	}
-
-	async fn write_response<T>(
-		&mut self,
-		_: &SpaceTimeProtocol,
-		io: &mut T,
-		data: Self::Response,
-	) -> io::Result<()>
-	where
-		T: AsyncWrite + Unpin + Send,
-	{
-		// TODO: error handling
-		write_length_prefixed(io, to_vec_named(&data).unwrap().as_slice()).await?;
-		io.close().await?;
-		Ok(())
 	}
 }
 
@@ -1059,17 +974,15 @@ impl Config {
 /// A request/response protocol for some message codec.
 pub struct Behaviour {
 	/// The supported inbound protocols.
-	inbound_protocols: SmallVec<[<SpaceTimeCodec as Codec>::Protocol; 2]>,
+	inbound_protocols: SmallVec<[SpaceTimeProtocol; 2]>,
 	/// The supported outbound protocols.
-	outbound_protocols: SmallVec<[<SpaceTimeCodec as Codec>::Protocol; 2]>,
+	outbound_protocols: SmallVec<[SpaceTimeProtocol; 2]>,
 	/// The next (local) request ID.
 	next_request_id: RequestId,
 	/// The next (inbound) request ID.
 	next_inbound_id: Arc<AtomicU64>,
 	/// The protocol configuration.
 	config: Config,
-	/// The protocol codec for reading and writing requests and responses.
-	codec: SpaceTimeCodec,
 	/// Pending events to return from `poll`.
 	pending_events: VecDeque<
 		NetworkBehaviourAction<
@@ -1088,12 +1001,10 @@ pub struct Behaviour {
 }
 
 impl Behaviour {
-	/// Creates a new `Behaviour` for the given
-	/// protocols, codec and configuration.
-	pub fn new<I>(codec: SpaceTimeCodec, protocols: I, cfg: Config) -> Self
-	where
-		I: IntoIterator<Item = (<SpaceTimeCodec as Codec>::Protocol, ProtocolSupport)>,
-	{
+	/// TODO
+	pub fn new() -> Self {
+		let protocols = iter::once((SpaceTimeProtocol(), ProtocolSupport::Full));
+
 		let mut inbound_protocols = SmallVec::new();
 		let mut outbound_protocols = SmallVec::new();
 		for (p, s) in protocols {
@@ -1109,8 +1020,7 @@ impl Behaviour {
 			outbound_protocols,
 			next_request_id: RequestId(1),
 			next_inbound_id: Arc::new(AtomicU64::new(1)),
-			config: cfg,
-			codec,
+			config: Default::default(),
 			pending_events: VecDeque::new(),
 			connected: HashMap::new(),
 			pending_outbound_requests: HashMap::new(),
@@ -1130,15 +1040,10 @@ impl Behaviour {
 	/// > address discovery, or known addresses of peers must be
 	/// > managed via [`Behaviour::add_address`] and
 	/// > [`Behaviour::remove_address`].
-	pub fn send_request(
-		&mut self,
-		peer: &PeerId,
-		request: <SpaceTimeCodec as Codec>::Request,
-	) -> RequestId {
+	pub fn send_request(&mut self, peer: &PeerId, request: SpaceTimeMessage) -> RequestId {
 		let request_id = self.next_request_id();
 		let request = RequestProtocol {
 			request_id,
-			codec: self.codec.clone(),
 			protocols: self.outbound_protocols.clone(),
 			request,
 		};
@@ -1171,9 +1076,9 @@ impl Behaviour {
 	/// [`Message::Request`].
 	pub fn send_response(
 		&mut self,
-		ch: ResponseChannel<<SpaceTimeCodec as Codec>::Response>,
-		rs: <SpaceTimeCodec as Codec>::Response,
-	) -> Result<(), <SpaceTimeCodec as Codec>::Response> {
+		ch: ResponseChannel<SpaceTimeMessage>,
+		rs: SpaceTimeMessage,
+	) -> Result<(), SpaceTimeMessage> {
 		ch.sender.send(rs)
 	}
 
@@ -1457,7 +1362,6 @@ impl NetworkBehaviour for Behaviour {
 	fn new_handler(&mut self) -> Self::ConnectionHandler {
 		Handler::new(
 			self.inbound_protocols.clone(),
-			self.codec.clone(),
 			self.config.connection_keep_alive,
 			self.config.request_timeout,
 			self.next_inbound_id.clone(),

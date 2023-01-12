@@ -1,27 +1,4 @@
-// Copyright 2020 Parity Technologies (UK) Ltd.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the "Software"),
-// to deal in the Software without restriction, including without limitation
-// the rights to use, copy, modify, merge, publish, distribute, sublicense,
-// and/or sell copies of the Software, and to permit persons to whom the
-// Software is furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-// DEALINGS IN THE SOFTWARE.
-
 mod protocol;
-
-// use crate::codec::Codec;
-// use crate::{RequestId, EMPTY_QUEUE_SHRINK_THRESHOLD};
 
 pub use protocol::{ProtocolSupport, RequestProtocol, ResponseProtocol};
 
@@ -52,14 +29,12 @@ use std::{
 
 use crate::spacetime::EMPTY_QUEUE_SHRINK_THRESHOLD;
 
-use super::{Codec, RequestId, SpaceTimeCodec};
+use super::{RequestId, SpaceTimeMessage, SpaceTimeProtocol};
 
 /// A connection handler for a request response [`Behaviour`](super::Behaviour) protocol.
 pub struct Handler {
 	/// The supported inbound protocols.
-	inbound_protocols: SmallVec<[<SpaceTimeCodec as Codec>::Protocol; 2]>,
-	/// The request/response message codec.
-	codec: SpaceTimeCodec,
+	inbound_protocols: SmallVec<[SpaceTimeProtocol; 2]>,
 	/// The keep-alive timeout of idle connections. A connection is considered
 	/// idle if there are no outbound substreams.
 	keep_alive_timeout: Duration,
@@ -80,8 +55,8 @@ pub struct Handler {
 			'static,
 			Result<
 				(
-					(RequestId, <SpaceTimeCodec as Codec>::Request),
-					oneshot::Sender<<SpaceTimeCodec as Codec>::Response>,
+					(RequestId, SpaceTimeMessage),
+					oneshot::Sender<SpaceTimeMessage>,
 				),
 				oneshot::Canceled,
 			>,
@@ -92,15 +67,13 @@ pub struct Handler {
 
 impl Handler {
 	pub(super) fn new(
-		inbound_protocols: SmallVec<[<SpaceTimeCodec as Codec>::Protocol; 2]>,
-		codec: SpaceTimeCodec,
+		inbound_protocols: SmallVec<[SpaceTimeProtocol; 2]>,
 		keep_alive_timeout: Duration,
 		substream_timeout: Duration,
 		inbound_request_id: Arc<AtomicU64>,
 	) -> Self {
 		Self {
 			inbound_protocols,
-			codec,
 			keep_alive: KeepAlive::Yes,
 			keep_alive_timeout,
 			substream_timeout,
@@ -193,13 +166,13 @@ pub enum TODOEvent {
 	/// A request has been received.
 	Request {
 		request_id: RequestId,
-		request: <SpaceTimeCodec as Codec>::Request,
-		sender: oneshot::Sender<<SpaceTimeCodec as Codec>::Response>,
+		request: SpaceTimeMessage,
+		sender: oneshot::Sender<SpaceTimeMessage>,
 	},
 	/// A response has been received.
 	Response {
 		request_id: RequestId,
-		response: <SpaceTimeCodec as Codec>::Response,
+		response: SpaceTimeMessage,
 	},
 	/// A response to an inbound request has been sent.
 	ResponseSent(RequestId),
@@ -292,7 +265,6 @@ impl ConnectionHandler for Handler {
 		// this sense.
 		let proto = ResponseProtocol {
 			protocols: self.inbound_protocols.clone(),
-			codec: self.codec.clone(),
 			request_sender: rq_send,
 			response_receiver: rs_recv,
 			request_id,
