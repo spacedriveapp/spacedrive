@@ -120,10 +120,13 @@ where
 		tokio::spawn({
 			let this = this.clone();
 			let is_advertisement_queued = AtomicBool::new(false);
-			let mut active_requests = HashMap::new(); // Active Spacetime requests // TODO: Move this into SpaceTime
+			// let mut active_requests = HashMap::new(); // Active Spacetime requests // TODO: Move this into SpaceTime
 
 			async move {
 				loop {
+					// TODO: Look into using `add_address` and `remove_address` on the Swarm. This should be hooked up with mDNS so the outbound dialing on `.send` can establish the connection.
+					// TODO: Don't create a connection with the peer until it's required? -> Eg. this event loop shouldn't create a connection!
+
 					tokio::select! {
 						event = internal_rx.recv() => {
 							// TODO: Correctly handle `unwrap`
@@ -150,7 +153,7 @@ where
 						}
 						event = swarm.select_next_some() => {
 							match event {
-								SwarmEvent::Behaviour(event) => event.handle(&this.state, this.fn_on_connect.clone(), &mut active_requests).await,
+								SwarmEvent::Behaviour(event) => event.handle(&this.state, this.fn_on_connect.clone()).await,
 								SwarmEvent::ConnectionEstablished { peer_id, endpoint, num_established, .. } => {
 									debug!("connection established with peer '{}'; peer has {} active connections", peer_id, num_established);
 									let (peer, send_create_event) = {

@@ -1,21 +1,21 @@
 use libp2p::swarm::{
 	handler::{
 		ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, ConnectionHandlerUpgrErr,
-		DialUpgradeError, FullyNegotiatedInbound, KeepAlive, ListenUpgradeError,
+		FullyNegotiatedOutbound, KeepAlive,
 	},
 	SubstreamProtocol,
 };
 use std::{
-	fmt, io,
-	sync::{atomic::AtomicU64, Arc},
+	io,
 	task::{Context, Poll},
 };
+use tracing::error;
 
-use super::{RequestId, RequestProtocol, ResponseProtocol, SpaceTimeEvent, SpaceTimeMessage};
+use super::{RequestId, RequestProtocol, ResponseProtocol, SpaceTimeEvent};
 
 /// A connection handler for a request response [`Behaviour`](super::Behaviour) protocol.
-pub struct Handler {
-	request_id: Arc<AtomicU64>,
+pub(super) struct Handler {
+	// request_id: Arc<AtomicU64>,
 	// BREAK
 
 	// /// The supported inbound protocols.
@@ -57,7 +57,7 @@ impl Handler {
 		// inbound_request_id: Arc<AtomicU64>,
 	) -> Self {
 		Self {
-			request_id: Arc::new(AtomicU64::new(0)),
+			// request_id: Arc::new(AtomicU64::new(0)),
 			// inbound_protocols,
 			// keep_alive: KeepAlive::Yes,
 			// keep_alive_timeout,
@@ -68,88 +68,6 @@ impl Handler {
 			// pending_error: None,
 			// inbound_request_id,
 		}
-	}
-
-	fn on_fully_negotiated_inbound(
-		&mut self,
-		FullyNegotiatedInbound {
-			protocol: sent,
-			info: request_id,
-		}: FullyNegotiatedInbound<
-			<Self as ConnectionHandler>::InboundProtocol,
-			<Self as ConnectionHandler>::InboundOpenInfo,
-		>,
-	) {
-		// if sent {
-		// 	self.pending_events
-		// 		.push_back(TODOEvent::ResponseSent(request_id))
-		// } else {
-		// 	self.pending_events
-		// 		.push_back(TODOEvent::ResponseOmission(request_id))
-		// }
-
-		todo!();
-	}
-
-	fn on_dial_upgrade_error(
-		&mut self,
-		DialUpgradeError { info, error }: DialUpgradeError<
-			<Self as ConnectionHandler>::OutboundOpenInfo,
-			<Self as ConnectionHandler>::OutboundProtocol,
-		>,
-	) {
-		// match error {
-		// 	ConnectionHandlerUpgrErr::Timeout => {
-		// 		self.pending_events
-		// 			.push_back(TODOEvent::OutboundTimeout(info));
-		// 	}
-		// 	ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(NegotiationError::Failed)) => {
-		// 		// The remote merely doesn't support the protocol(s) we requested.
-		// 		// This is no reason to close the connection, which may
-		// 		// successfully communicate with other protocols already.
-		// 		// An event is reported to permit user code to react to the fact that
-		// 		// the remote peer does not support the requested protocol(s).
-		// 		self.pending_events
-		// 			.push_back(TODOEvent::OutboundUnsupportedProtocols(info));
-		// 	}
-		// 	_ => {
-		// 		// Anything else is considered a fatal error or misbehaviour of
-		// 		// the remote peer and results in closing the connection.
-		// 		self.pending_error = Some(error);
-		// 	}
-		// }
-
-		todo!();
-	}
-
-	fn on_listen_upgrade_error(
-		&mut self,
-		ListenUpgradeError { info, error }: ListenUpgradeError<
-			<Self as ConnectionHandler>::InboundOpenInfo,
-			<Self as ConnectionHandler>::InboundProtocol,
-		>,
-	) {
-		// match error {
-		// 	ConnectionHandlerUpgrErr::Timeout => self
-		// 		.pending_events
-		// 		.push_back(TODOEvent::InboundTimeout(info)),
-		// 	ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(NegotiationError::Failed)) => {
-		// 		// The local peer merely doesn't support the protocol(s) requested.
-		// 		// This is no reason to close the connection, which may
-		// 		// successfully communicate with other protocols already.
-		// 		// An event is reported to permit user code to react to the fact that
-		// 		// the local peer does not support the requested protocol(s).
-		// 		self.pending_events
-		// 			.push_back(TODOEvent::InboundUnsupportedProtocols(info));
-		// 	}
-		// 	_ => {
-		// 		// Anything else is considered a fatal error or misbehaviour of
-		// 		// the remote peer and results in closing the connection.
-		// 		self.pending_error = Some(error);
-		// 	}
-		// }
-
-		todo!();
 	}
 }
 
@@ -284,28 +202,78 @@ impl ConnectionHandler for Handler {
 			Self::OutboundOpenInfo,
 		>,
 	) {
-		// match event {
-		// 	ConnectionEvent::FullyNegotiatedInbound(fully_negotiated_inbound) => {
-		// 		self.on_fully_negotiated_inbound(fully_negotiated_inbound)
-		// 	}
-		// 	ConnectionEvent::FullyNegotiatedOutbound(FullyNegotiatedOutbound {
-		// 		protocol: response,
-		// 		info: request_id,
-		// 	}) => {
-		// 		self.pending_events.push_back(TODOEvent::Response {
-		// 			request_id,
-		// 			response,
-		// 		});
-		// 	}
-		// 	ConnectionEvent::DialUpgradeError(dial_upgrade_error) => {
-		// 		self.on_dial_upgrade_error(dial_upgrade_error)
-		// 	}
-		// 	ConnectionEvent::ListenUpgradeError(listen_upgrade_error) => {
-		// 		self.on_listen_upgrade_error(listen_upgrade_error)
-		// 	}
-		// 	ConnectionEvent::AddressChange(_) => {}
-		// }
+		match event {
+			ConnectionEvent::FullyNegotiatedInbound(event) => {
+				// TODO
+				// if sent {
+				// 	self.pending_events
+				// 		.push_back(TODOEvent::ResponseSent(event.request_id))
+				// } else {
+				// 	self.pending_events
+				// 		.push_back(TODOEvent::ResponseOmission(event.request_id))
+				// }
+			}
+			ConnectionEvent::FullyNegotiatedOutbound(FullyNegotiatedOutbound {
+				protocol: response,
+				info: request_id,
+			}) => {
+				// TODO
+				// 		self.pending_events.push_back(TODOEvent::Response {
+				// 			request_id,
+				// 			response,
+				// 		});
 
-		todo!();
+				// 	// match error {
+				// 	// 	ConnectionHandlerUpgrErr::Timeout => {
+				// 	// 		self.pending_events
+				// 	// 			.push_back(TODOEvent::OutboundTimeout(info));
+				// 	// 	}
+				// 	// 	ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(NegotiationError::Failed)) => {
+				// 	// 		// The remote merely doesn't support the protocol(s) we requested.
+				// 	// 		// This is no reason to close the connection, which may
+				// 	// 		// successfully communicate with other protocols already.
+				// 	// 		// An event is reported to permit user code to react to the fact that
+				// 	// 		// the remote peer does not support the requested protocol(s).
+				// 	// 		self.pending_events
+				// 	// 			.push_back(TODOEvent::OutboundUnsupportedProtocols(info));
+				// 	// 	}
+				// 	// 	_ => {
+				// 	// 		// Anything else is considered a fatal error or misbehaviour of
+				// 	// 		// the remote peer and results in closing the connection.
+				// 	// 		self.pending_error = Some(error);
+				// 	// 	}
+				// 	// }
+			}
+			ConnectionEvent::DialUpgradeError(event) => {
+				error!("DialUpgradeError: {:#?}", event); // TODO: Better message
+
+				// self.on_dial_upgrade_error(event) // TODO
+			}
+			ConnectionEvent::ListenUpgradeError(event) => {
+				error!("DialUpgradeError: {:#?}", event); // TODO: Better message
+
+				// TODO
+				// match error {
+				// 	ConnectionHandlerUpgrErr::Timeout => self
+				// 		.pending_events
+				// 		.push_back(TODOEvent::InboundTimeout(info)),
+				// 	ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(NegotiationError::Failed)) => {
+				// 		// The local peer merely doesn't support the protocol(s) requested.
+				// 		// This is no reason to close the connection, which may
+				// 		// successfully communicate with other protocols already.
+				// 		// An event is reported to permit user code to react to the fact that
+				// 		// the local peer does not support the requested protocol(s).
+				// 		self.pending_events
+				// 			.push_back(TODOEvent::InboundUnsupportedProtocols(info));
+				// 	}
+				// 	_ => {
+				// 		// Anything else is considered a fatal error or misbehaviour of
+				// 		// the remote peer and results in closing the connection.
+				// 		self.pending_error = Some(error);
+				// 	}
+				// }
+			}
+			ConnectionEvent::AddressChange(_) => {}
+		}
 	}
 }

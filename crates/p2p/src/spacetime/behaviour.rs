@@ -1,44 +1,26 @@
-use std::task::{Context, Poll};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc,
+	},
+	task::{Context, Poll},
+};
 
 use libp2p::{
-	core::ProtocolName,
+	core::{ConnectedPoint, ProtocolName},
 	swarm::{
 		derive_prelude::{ConnectionId, FromSwarm},
-		IntoConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
+		ConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
 	},
 	Multiaddr, PeerId,
 };
+use smallvec::SmallVec;
+use tracing::debug;
 
-use crate::spacetime::Event;
+use crate::spacetime::{handler::Handler, Event};
 
-use super::Handler;
-
-// /// A request/response protocol for some message codec.
-// pub struct Behaviour {
-// 	// /// The supported inbound protocols.
-// 	// inbound_protocols: SmallVec<[SpaceTime; 2]>,
-// 	// /// The supported outbound protocols.
-// 	// outbound_protocols: SmallVec<[SpaceTime; 2]>,
-// 	// /// The next (local) request ID.
-// 	// next_request_id: RequestId,
-// 	// /// The next (inbound) request ID.
-// 	// next_inbound_id: Arc<AtomicU64>,
-// 	// /// Pending events to return from `poll`.
-// 	// pending_events: VecDeque<
-// 	// 	NetworkBehaviourAction<
-// 	// 		Event, // <<SpaceTimeCodec as Codec>::Request, <SpaceTimeCodec as Codec>::Response>,
-// 	// 		Handler,
-// 	// 	>,
-// 	// >,
-// 	// /// The currently connected peers, their pending outbound and inbound responses and their known,
-// 	// /// reachable addresses, if any.
-// 	// connected: HashMap<PeerId, SmallVec<[Connection; 2]>>,
-// 	// /// Externally managed addresses via `add_address` and `remove_address`.
-// 	// addresses: HashMap<PeerId, SmallVec<[Multiaddr; 6]>>,
-// 	// /// Requests that have not yet been sent and are waiting for a connection
-// 	// /// to be established.
-// 	// pending_outbound_requests: HashMap<PeerId, SmallVec<[RequestProtocol; 10]>>,
-// }
+use super::{SpaceTimeMessage, SpaceTimeResponseChan};
 
 /// Internal threshold for when to shrink the capacity
 /// of empty queues. If the capacity of an empty queue
@@ -46,9 +28,18 @@ use super::Handler;
 /// released.
 const EMPTY_QUEUE_SHRINK_THRESHOLD: usize = 100;
 
-/// TODO
-#[derive(Clone)]
-pub struct SpaceTime {}
+/// This is a vanity type alias so that the code is clearer.
+/// As this is only used internally it doesn't need to be a wrapper type.
+pub(super) type RequestId = u64;
+
+/// SpaceTime is a [libp2p::NetworkBehaviour] that implements the SpaceTime protocol.
+/// This protocol sits under the application to abstract many complexities of 2 way connections and to deal with authentication, chucking, etc.
+// #[derive(Clone)]
+pub struct SpaceTime {
+	request_id: Arc<AtomicU64>, // TODO: Remove `Arc` if removing `Self: Clone`
+	outbound_requests: HashMap<u64, Option<Arc<SpaceTimeResponseChan>>>,
+	connected: HashMap<PeerId, SmallVec<[Connection; 2]>>,
+}
 
 impl ProtocolName for SpaceTime {
 	fn protocol_name(&self) -> &[u8] {
@@ -57,71 +48,72 @@ impl ProtocolName for SpaceTime {
 }
 
 impl SpaceTime {
-	/// TODO
+	/// intialise the fabric of space time
 	pub fn new() -> Self {
 		Self {
+			request_id: Arc::new(AtomicU64::new(0)),
+			outbound_requests: HashMap::new(),
+
+			/// TODO: This is effectivly a better `ManagerRef.connected_peers`. Maybe we should storing this once and sharing it between that system and here???
+			connected: HashMap::new(),
 			// next_request_id: RequestId(1),
 			// next_inbound_id: Arc::new(AtomicU64::new(1)),
 			// pending_events: VecDeque::new(),
-			// connected: HashMap::new(),
 			// pending_outbound_requests: HashMap::new(),
 			// addresses: HashMap::new(),
 		}
 	}
 
-	// /// Initiates sending a request.
-	// ///
-	// /// If the targeted peer is currently not connected, a dialing
-	// /// attempt is initiated and the request is sent as soon as a
-	// /// connection is established.
-	// ///
-	// /// > **Note**: In order for such a dialing attempt to succeed,
-	// /// > the `RequestResonse` protocol must either be embedded
-	// /// > in another `NetworkBehaviour` that provides peer and
-	// /// > address discovery, or known addresses of peers must be
-	// /// > managed via [`Behaviour::add_address`] and
-	// /// > [`Behaviour::remove_address`].
-	// pub fn send_request(&mut self, peer: &PeerId, request: SpaceTimeMessage) -> RequestId {
-	// 	let request_id = self.next_request_id();
-	// 	let request = RequestProtocol {
-	// 		request_id,
-	// 		protocols: self.outbound_protocols.clone(),
-	// 		request,
-	// 	};
+	/// send a message to a single peer.
+	/// This will attempt to establish a connection with them if they are not currently connected.
+	pub fn send(
+		&mut self,
+		peer: &PeerId,
+		data: SpaceTimeMessage,
+		resp: Option<SpaceTimeResponseChan>,
+	) {
+		let request_id = self.request_id.fetch_add(1, Ordering::Relaxed);
+		let resp = resp.map(|v| Arc::new(v)); // Done so that `Self: Clone`
+		self.outbound_requests.insert(request_id, resp);
 
-	// 	if let Some(request) = self.try_send_request(peer, request) {
-	// 		let handler = self.new_handler();
-	// 		self.pending_events.push_back(NetworkBehaviourAction::Dial {
-	// 			opts: DialOpts::peer_id(*peer).build(),
-	// 			handler,
-	// 		});
-	// 		self.pending_outbound_requests
-	// 			.entry(*peer)
-	// 			.or_default()
-	// 			.push(request);
-	// 	}
+		// 	if let Some(connections) = self.connected.get_mut(peer) {
+		// 		if connections.is_empty() {
+		// 			return Some(request);
+		// 		}
+		// 		let ix = (request.request_id.0 as usize) % connections.len();
+		// 		let conn = &mut connections[ix];
+		// 		conn.pending_inbound_responses.insert(request.request_id);
+		// 		self.pending_events
+		// 			.push_back(NetworkBehaviourAction::NotifyHandler {
+		// 				peer_id: *peer,
+		// 				handler: NotifyHandler::One(conn.id),
+		// 				event: request,
+		// 			});
+		// 		None
+		// 	} else {
+		// 		Some(request)
+		// 	}
 
-	// 	request_id
-	// }
+		// 	let request = RequestProtocol {
+		// 		request_id,
+		// 		protocols: self.outbound_protocols.clone(),
+		// 		request,
+		// 	};
 
-	// /// Initiates sending a response to an inbound request.
-	// ///
-	// /// If the [`ResponseChannel`] is already closed due to a timeout or the
-	// /// connection being closed, the response is returned as an `Err` for
-	// /// further handling. Once the response has been successfully sent on the
-	// /// corresponding connection, [`Event::ResponseSent`] is
-	// /// emitted. In all other cases [`Event::InboundFailure`]
-	// /// will be or has been emitted.
-	// ///
-	// /// The provided `ResponseChannel` is obtained from an inbound
-	// /// [`Message::Request`].
-	// pub fn send_response(
-	// 	&mut self,
-	// 	ch: ResponseChannel<SpaceTimeMessage>,
-	// 	rs: SpaceTimeMessage,
-	// ) -> Result<(), SpaceTimeMessage> {
-	// 	ch.sender.send(rs)
-	// }
+		// 	if let Some(request) = self.try_send_request(peer, request) {
+		// 		let handler = self.new_handler();
+		// 		self.pending_events.push_back(NetworkBehaviourAction::Dial {
+		// 			opts: DialOpts::peer_id(*peer).build(),
+		// 			handler,
+		// 		});
+		// 		self.pending_outbound_requests
+		// 			.entry(*peer)
+		// 			.or_default()
+		// 			.push(request);
+		// 	}
+	}
+
+	// TODO: Expose all these but put them where the hashmap of connected peers ends up
 
 	// /// Adds a known address for a peer that can be used for
 	// /// dialing attempts by the `Swarm`, i.e. is returned
@@ -152,248 +144,6 @@ impl SpaceTime {
 	// 		false
 	// 	}
 	// }
-
-	// /// Checks whether an outbound request to the peer with the provided
-	// /// [`PeerId`] initiated by [`Behaviour::send_request`] is still
-	// /// pending, i.e. waiting for a response.
-	// pub fn is_pending_outbound(&self, peer: &PeerId, request_id: &RequestId) -> bool {
-	// 	// Check if request is already sent on established connection.
-	// 	let est_conn = self
-	// 		.connected
-	// 		.get(peer)
-	// 		.map(|cs| {
-	// 			cs.iter()
-	// 				.any(|c| c.pending_inbound_responses.contains(request_id))
-	// 		})
-	// 		.unwrap_or(false);
-	// 	// Check if request is still pending to be sent.
-	// 	let pen_conn = self
-	// 		.pending_outbound_requests
-	// 		.get(peer)
-	// 		.map(|rps| rps.iter().any(|rp| rp.request_id == *request_id))
-	// 		.unwrap_or(false);
-
-	// 	est_conn || pen_conn
-	// }
-
-	// /// Checks whether an inbound request from the peer with the provided
-	// /// [`PeerId`] is still pending, i.e. waiting for a response by the local
-	// /// node through [`Behaviour::send_response`].
-	// pub fn is_pending_inbound(&self, peer: &PeerId, request_id: &RequestId) -> bool {
-	// 	self.connected
-	// 		.get(peer)
-	// 		.map(|cs| {
-	// 			cs.iter()
-	// 				.any(|c| c.pending_outbound_responses.contains(request_id))
-	// 		})
-	// 		.unwrap_or(false)
-	// }
-
-	// /// Returns the next request ID.
-	// fn next_request_id(&mut self) -> RequestId {
-	// 	let request_id = self.next_request_id;
-	// 	self.next_request_id.0 += 1;
-	// 	request_id
-	// }
-
-	// /// Tries to send a request by queueing an appropriate event to be
-	// /// emitted to the `Swarm`. If the peer is not currently connected,
-	// /// the given request is return unchanged.
-	// fn try_send_request(
-	// 	&mut self,
-	// 	peer: &PeerId,
-	// 	request: RequestProtocol,
-	// ) -> Option<RequestProtocol> {
-	// 	if let Some(connections) = self.connected.get_mut(peer) {
-	// 		if connections.is_empty() {
-	// 			return Some(request);
-	// 		}
-	// 		let ix = (request.request_id.0 as usize) % connections.len();
-	// 		let conn = &mut connections[ix];
-	// 		conn.pending_inbound_responses.insert(request.request_id);
-	// 		self.pending_events
-	// 			.push_back(NetworkBehaviourAction::NotifyHandler {
-	// 				peer_id: *peer,
-	// 				handler: NotifyHandler::One(conn.id),
-	// 				event: request,
-	// 			});
-	// 		None
-	// 	} else {
-	// 		Some(request)
-	// 	}
-	// }
-
-	// /// Remove pending outbound response for the given peer and connection.
-	// ///
-	// /// Returns `true` if the provided connection to the given peer is still
-	// /// alive and the [`RequestId`] was previously present and is now removed.
-	// /// Returns `false` otherwise.
-	// fn remove_pending_outbound_response(
-	// 	&mut self,
-	// 	peer: &PeerId,
-	// 	connection: ConnectionId,
-	// 	request: RequestId,
-	// ) -> bool {
-	// 	self.get_connection_mut(peer, connection)
-	// 		.map(|c| c.pending_outbound_responses.remove(&request))
-	// 		.unwrap_or(false)
-	// }
-
-	// /// Remove pending inbound response for the given peer and connection.
-	// ///
-	// /// Returns `true` if the provided connection to the given peer is still
-	// /// alive and the [`RequestId`] was previously present and is now removed.
-	// /// Returns `false` otherwise.
-	// fn remove_pending_inbound_response(
-	// 	&mut self,
-	// 	peer: &PeerId,
-	// 	connection: ConnectionId,
-	// 	request: &RequestId,
-	// ) -> bool {
-	// 	self.get_connection_mut(peer, connection)
-	// 		.map(|c| c.pending_inbound_responses.remove(request))
-	// 		.unwrap_or(false)
-	// }
-
-	// /// Returns a mutable reference to the connection in `self.connected`
-	// /// corresponding to the given [`PeerId`] and [`ConnectionId`].
-	// fn get_connection_mut(
-	// 	&mut self,
-	// 	peer: &PeerId,
-	// 	connection: ConnectionId,
-	// ) -> Option<&mut Connection> {
-	// 	self.connected
-	// 		.get_mut(peer)
-	// 		.and_then(|connections| connections.iter_mut().find(|c| c.id == connection))
-	// }
-
-	// fn on_address_change(
-	// 	&mut self,
-	// 	AddressChange {
-	// 		peer_id,
-	// 		connection_id,
-	// 		new,
-	// 		..
-	// 	}: AddressChange,
-	// ) {
-	// 	let new_address = match new {
-	// 		ConnectedPoint::Dialer { address, .. } => Some(address.clone()),
-	// 		ConnectedPoint::Listener { .. } => None,
-	// 	};
-	// 	let connections = self
-	// 		.connected
-	// 		.get_mut(&peer_id)
-	// 		.expect("Address change can only happen on an established connection.");
-
-	// 	let connection = connections
-	// 		.iter_mut()
-	// 		.find(|c| c.id == connection_id)
-	// 		.expect("Address change can only happen on an established connection.");
-	// 	connection.address = new_address;
-	// }
-
-	// fn on_connection_established(
-	// 	&mut self,
-	// 	ConnectionEstablished {
-	// 		peer_id,
-	// 		connection_id,
-	// 		endpoint,
-	// 		other_established,
-	// 		..
-	// 	}: ConnectionEstablished,
-	// ) {
-	// 	let address = match endpoint {
-	// 		ConnectedPoint::Dialer { address, .. } => Some(address.clone()),
-	// 		ConnectedPoint::Listener { .. } => None,
-	// 	};
-	// 	self.connected
-	// 		.entry(peer_id)
-	// 		.or_default()
-	// 		.push(Connection::new(connection_id, address));
-
-	// 	if other_established == 0 {
-	// 		if let Some(pending) = self.pending_outbound_requests.remove(&peer_id) {
-	// 			for request in pending {
-	// 				let request = self.try_send_request(&peer_id, request);
-	// 				assert!(request.is_none());
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// fn on_connection_closed(
-	// 	&mut self,
-	// 	ConnectionClosed {
-	// 		peer_id,
-	// 		connection_id,
-	// 		remaining_established,
-	// 		..
-	// 	}: ConnectionClosed<<Self as NetworkBehaviour>::ConnectionHandler>,
-	// ) {
-	// 	let connections = self
-	// 		.connected
-	// 		.get_mut(&peer_id)
-	// 		.expect("Expected some established connection to peer before closing.");
-
-	// 	let connection = connections
-	// 		.iter()
-	// 		.position(|c| c.id == connection_id)
-	// 		.map(|p: usize| connections.remove(p))
-	// 		.expect("Expected connection to be established before closing.");
-
-	// 	debug_assert_eq!(connections.is_empty(), remaining_established == 0);
-	// 	if connections.is_empty() {
-	// 		self.connected.remove(&peer_id);
-	// 	}
-
-	// 	for request_id in connection.pending_outbound_responses {
-	// 		self.pending_events
-	// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-	// 				Event::InboundFailure {
-	// 					peer: peer_id,
-	// 					request_id,
-	// 					error: InboundFailure::ConnectionClosed,
-	// 				},
-	// 			));
-	// 	}
-
-	// 	for request_id in connection.pending_inbound_responses {
-	// 		self.pending_events
-	// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-	// 				Event::OutboundFailure {
-	// 					peer: peer_id,
-	// 					request_id,
-	// 					error: OutboundFailure::ConnectionClosed,
-	// 				},
-	// 			));
-	// 	}
-	// }
-
-	// fn on_dial_failure(
-	// 	&mut self,
-	// 	DialFailure { peer_id, .. }: DialFailure<<Self as NetworkBehaviour>::ConnectionHandler>,
-	// ) {
-	// 	if let Some(peer) = peer_id {
-	// 		// If there are pending outgoing requests when a dial failure occurs,
-	// 		// it is implied that we are not connected to the peer, since pending
-	// 		// outgoing requests are drained when a connection is established and
-	// 		// only created when a peer is not connected when a request is made.
-	// 		// Thus these requests must be considered failed, even if there is
-	// 		// another, concurrent dialing attempt ongoing.
-	// 		if let Some(pending) = self.pending_outbound_requests.remove(&peer) {
-	// 			for request in pending {
-	// 				self.pending_events
-	// 					.push_back(NetworkBehaviourAction::GenerateEvent(
-	// 						Event::OutboundFailure {
-	// 							peer,
-	// 							request_id: request.request_id,
-	// 							error: OutboundFailure::DialFailure,
-	// 						},
-	// 					));
-	// 			}
-	// 		}
-	// 	}
-	// }
 }
 
 impl NetworkBehaviour for SpaceTime {
@@ -410,197 +160,138 @@ impl NetworkBehaviour for SpaceTime {
 	}
 
 	fn addresses_of_peer(&mut self, peer: &PeerId) -> Vec<Multiaddr> {
-		// let mut addresses = Vec::new();
-		// if let Some(connections) = self.connected.get(peer) {
-		// 	addresses.extend(connections.iter().filter_map(|c| c.address.clone()))
-		// }
-		// if let Some(more) = self.addresses.get(peer) {
-		// 	addresses.extend(more.into_iter().cloned());
-		// }
-		// addresses
-
-		todo!();
+		let mut addresses = Vec::new();
+		if let Some(connections) = self.connected.get(peer) {
+			addresses.extend(connections.iter().filter_map(|c| c.address.clone()))
+		}
+		if let Some(more) = self.addresses.get(peer) {
+			addresses.extend(more.into_iter().cloned());
+		}
+		addresses
 	}
 
 	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
-		// match event {
-		// 	FromSwarm::ConnectionEstablished(connection_established) => {
-		// 		self.on_connection_established(connection_established)
-		// 	}
-		// 	FromSwarm::ConnectionClosed(connection_closed) => {
-		// 		self.on_connection_closed(connection_closed)
-		// 	}
-		// 	FromSwarm::AddressChange(address_change) => self.on_address_change(address_change),
-		// 	FromSwarm::DialFailure(dial_failure) => self.on_dial_failure(dial_failure),
-		// 	FromSwarm::ListenFailure(_) => {}
-		// 	FromSwarm::NewListener(_) => {}
-		// 	FromSwarm::NewListenAddr(_) => {}
-		// 	FromSwarm::ExpiredListenAddr(_) => {}
-		// 	FromSwarm::ListenerError(_) => {}
-		// 	FromSwarm::ListenerClosed(_) => {}
-		// 	FromSwarm::NewExternalAddr(_) => {}
-		// 	FromSwarm::ExpiredExternalAddr(_) => {}
-		// }
+		match event {
+			FromSwarm::ConnectionEstablished(event) => {
+				let address = match event.endpoint {
+					ConnectedPoint::Dialer { address, .. } => Some(address.clone()),
+					ConnectedPoint::Listener { .. } => None,
+				};
+				self.connected
+					.entry(event.peer_id)
+					.or_default()
+					.push(Connection::new(event.connection_id, event.address));
 
-		todo!();
+				// TODO
+				// if other_established == 0 {
+				// 	if let Some(pending) = self.pending_outbound_requests.remove(&peer_id) {
+				// 		for request in pending {
+				// 			let request = self.try_send_request(&peer_id, request);
+				// 			assert!(request.is_none());
+				// 		}
+				// 	}
+				// }
+			}
+			FromSwarm::ConnectionClosed(event) => {
+				let connections = self
+					.connected
+					.get_mut(&event.peer_id)
+					.expect("Expected some established connection to peer before closing.");
+
+				let connection = connections
+					.iter()
+					.position(|c| c.id == event.connection_id)
+					.map(|p: usize| connections.remove(p))
+					.expect("Expected connection to be established before closing.");
+
+				debug_assert_eq!(connections.is_empty(), event.remaining_established == 0);
+				if connections.is_empty() {
+					self.connected.remove(&event.peer_id);
+				}
+
+				// TODO
+				// for request_id in connection.pending_outbound_responses {
+				// 	self.pending_events
+				// 		.push_back(NetworkBehaviourAction::GenerateEvent(
+				// 			Event::InboundFailure {
+				// 				peer: peer_id,
+				// 				request_id,
+				// 				error: InboundFailure::ConnectionClosed,
+				// 			},
+				// 		));
+				// }
+
+				// TODO
+				// for request_id in connection.pending_inbound_responses {
+				// 	self.pending_events
+				// 		.push_back(NetworkBehaviourAction::GenerateEvent(
+				// 			Event::OutboundFailure {
+				// 				peer: peer_id,
+				// 				request_id,
+				// 				error: OutboundFailure::ConnectionClosed,
+				// 			},
+				// 		));
+				// }
+			}
+			FromSwarm::AddressChange(event) => {
+				let new_address = match event.new {
+					ConnectedPoint::Dialer { address, .. } => Some(address.clone()),
+					ConnectedPoint::Listener { .. } => None,
+				};
+				let connections = self
+					.connected
+					.get_mut(&event.peer_id)
+					.expect("Address change can only happen on an established connection.");
+
+				let connection = connections
+					.iter_mut()
+					.find(|c| c.id == event.connection_id)
+					.expect("Address change can only happen on an established connection.");
+				connection.address = event.new_address;
+			}
+			FromSwarm::DialFailure(event) => {
+				if let Some(peer_id) = event.peer_id {
+					debug!("Dialing failure to peer '{}': {:?}", peer_id, event.error);
+
+					// TODO
+					// If there are pending outgoing requests when a dial failure occurs,
+					// it is implied that we are not connected to the peer, since pending
+					// outgoing requests are drained when a connection is established and
+					// only created when a peer is not connected when a request is made.
+					// Thus these requests must be considered failed, even if there is
+					// another, concurrent dialing attempt ongoing.
+					// if let Some(pending) = self.pending_outbound_requests.remove(&peer_id) {
+					// 	for request in pending {
+					// 		self.pending_events
+					// 			.push_back(NetworkBehaviourAction::GenerateEvent(
+					// 				Event::OutboundFailure {
+					// 					peer_id,
+					// 					request_id: request.request_id,
+					// 					error: OutboundFailure::DialFailure,
+					// 				},
+					// 			));
+					// 	}
+					// }
+				}
+			}
+			FromSwarm::ListenFailure(_)
+			| FromSwarm::NewListener(_)
+			| FromSwarm::NewListenAddr(_)
+			| FromSwarm::ExpiredListenAddr(_)
+			| FromSwarm::ListenerError(_)
+			| FromSwarm::ListenerClosed(_)
+			| FromSwarm::NewExternalAddr(_)
+			| FromSwarm::ExpiredExternalAddr(_) => {}
+		}
 	}
 
 	fn on_connection_handler_event(
 		&mut self,
-		peer: PeerId,
+		peer_id: PeerId,
 		connection: ConnectionId,
-		event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as
-            libp2p::swarm::ConnectionHandler>::OutEvent,
+		event: <Handler as ConnectionHandler>::OutEvent,
 	) {
-		// match event {
-		// 	TODOEvent::Response {
-		// 		request_id,
-		// 		response,
-		// 	} => {
-		// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
-		// 		debug_assert!(
-		// 			removed,
-		// 			"Expect request_id to be pending before receiving response.",
-		// 		);
-
-		// 		let message = Message::Response {
-		// 			request_id,
-		// 			response,
-		// 		};
-		// 		self.pending_events
-		// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::Message {
-		// 				peer,
-		// 				message,
-		// 			}));
-		// 	}
-		// 	TODOEvent::Request {
-		// 		request_id,
-		// 		request,
-		// 		sender,
-		// 	} => {
-		// 		let channel = ResponseChannel { sender };
-		// 		let message = Message::Request {
-		// 			request_id,
-		// 			request,
-		// 			channel,
-		// 		};
-		// 		self.pending_events
-		// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::Message {
-		// 				peer,
-		// 				message,
-		// 			}));
-
-		// 		match self.get_connection_mut(&peer, connection) {
-		// 			Some(connection) => {
-		// 				let inserted = connection.pending_outbound_responses.insert(request_id);
-		// 				debug_assert!(inserted, "Expect id of new request to be unknown.");
-		// 			}
-		// 			// Connection closed after `Event::Request` has been emitted.
-		// 			None => {
-		// 				self.pending_events
-		// 					.push_back(NetworkBehaviourAction::GenerateEvent(
-		// 						Event::InboundFailure {
-		// 							peer,
-		// 							request_id,
-		// 							error: InboundFailure::ConnectionClosed,
-		// 						},
-		// 					));
-		// 			}
-		// 		}
-		// 	}
-		// 	TODOEvent::ResponseSent(request_id) => {
-		// 		let removed = self.remove_pending_outbound_response(&peer, connection, request_id);
-		// 		debug_assert!(
-		// 			removed,
-		// 			"Expect request_id to be pending before response is sent."
-		// 		);
-
-		// 		self.pending_events
-		// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::ResponseSent {
-		// 				peer,
-		// 				request_id,
-		// 			}));
-		// 	}
-		// 	TODOEvent::ResponseOmission(request_id) => {
-		// 		let removed = self.remove_pending_outbound_response(&peer, connection, request_id);
-		// 		debug_assert!(
-		// 			removed,
-		// 			"Expect request_id to be pending before response is omitted.",
-		// 		);
-
-		// 		self.pending_events
-		// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-		// 				Event::InboundFailure {
-		// 					peer,
-		// 					request_id,
-		// 					error: InboundFailure::ResponseOmission,
-		// 				},
-		// 			));
-		// 	}
-		// 	TODOEvent::OutboundTimeout(request_id) => {
-		// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
-		// 		debug_assert!(
-		// 			removed,
-		// 			"Expect request_id to be pending before request times out."
-		// 		);
-
-		// 		self.pending_events
-		// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-		// 				Event::OutboundFailure {
-		// 					peer,
-		// 					request_id,
-		// 					error: OutboundFailure::Timeout,
-		// 				},
-		// 			));
-		// 	}
-		// 	TODOEvent::InboundTimeout(request_id) => {
-		// 		// Note: `Event::InboundTimeout` is emitted both for timing
-		// 		// out to receive the request and for timing out sending the response. In the former
-		// 		// case the request is never added to `pending_outbound_responses` and thus one can
-		// 		// not assert the request_id to be present before removing it.
-		// 		self.remove_pending_outbound_response(&peer, connection, request_id);
-
-		// 		self.pending_events
-		// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-		// 				Event::InboundFailure {
-		// 					peer,
-		// 					request_id,
-		// 					error: InboundFailure::Timeout,
-		// 				},
-		// 			));
-		// 	}
-		// 	TODOEvent::OutboundUnsupportedProtocols(request_id) => {
-		// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
-		// 		debug_assert!(
-		// 			removed,
-		// 			"Expect request_id to be pending before failing to connect.",
-		// 		);
-
-		// 		self.pending_events
-		// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-		// 				Event::OutboundFailure {
-		// 					peer,
-		// 					request_id,
-		// 					error: OutboundFailure::UnsupportedProtocols,
-		// 				},
-		// 			));
-		// 	}
-		// 	TODOEvent::InboundUnsupportedProtocols(request_id) => {
-		// 		// Note: No need to call `self.remove_pending_outbound_response`,
-		// 		// `Event::Request` was never emitted for this request and
-		// 		// thus request was never added to `pending_outbound_responses`.
-		// 		self.pending_events
-		// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-		// 				Event::InboundFailure {
-		// 					peer,
-		// 					request_id,
-		// 					error: InboundFailure::UnsupportedProtocols,
-		// 				},
-		// 			));
-		// 	}
-		// }
-
-		todo!();
+		event.handle(peer_id, connection);
 	}
 
 	fn poll(
@@ -616,5 +307,29 @@ impl NetworkBehaviour for SpaceTime {
 		// }
 
 		Poll::Pending
+	}
+}
+
+/// Internal information tracked for an established connection.
+struct Connection {
+	id: ConnectionId,
+	address: Option<Multiaddr>,
+	/// Pending outbound responses where corresponding inbound requests have
+	/// been received on this connection and emitted via `poll` but have not yet
+	/// been answered.
+	pending_outbound_responses: HashSet<RequestId>,
+	/// Pending inbound responses for previously sent requests on this
+	/// connection.
+	pending_inbound_responses: HashSet<RequestId>,
+}
+
+impl Connection {
+	fn new(id: ConnectionId, address: Option<Multiaddr>) -> Self {
+		Self {
+			id,
+			address,
+			pending_outbound_responses: Default::default(),
+			pending_inbound_responses: Default::default(),
+		}
 	}
 }

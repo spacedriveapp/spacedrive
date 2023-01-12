@@ -1,6 +1,6 @@
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{fmt, sync::Arc};
 
-use libp2p::PeerId;
+use libp2p::{swarm::derive_prelude::ConnectionId, PeerId};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 use tracing::warn;
@@ -8,6 +8,9 @@ use tracing::warn;
 use crate::{utils::AsyncFn2, ManagerEvent, ManagerRef, Metadata};
 
 use super::{RequestId, ResponseChannel};
+
+/// TODO
+pub type SpaceTimeResponseChan = oneshot::Sender<Result<SpaceTimeMessage, OutboundFailure>>;
 
 /// TODO
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,10 +74,10 @@ impl Event {
 		self,
 		state: &Arc<ManagerRef<TMetadata>>,
 		fn_on_connect: Arc<TConnFn>,
-		active_requests: &mut HashMap<
-			RequestId,
-			tokio::sync::oneshot::Sender<Result<SpaceTimeMessage, OutboundFailure>>,
-		>,
+		// active_requests: &mut HashMap<
+		// 	RequestId,
+		// 	tokio::sync::oneshot::Sender<Result<SpaceTimeMessage, OutboundFailure>>,
+		// >,
 	) where
 		TConnFn: AsyncFn2<crate::Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
 	{
@@ -130,26 +133,32 @@ impl Event {
 					Message::Response {
 						request_id,
 						response,
-					} => match active_requests.remove(&request_id) {
-						Some(resp) => resp.send(Ok(response)).unwrap(),
-						None => warn!(
-							"error unable to find destination for response id '{:?}'",
-							request_id
-						),
-					},
+					} => {
+						todo!();
+						// match active_requests.remove(&request_id) {
+						// 	Some(resp) => resp.send(Ok(response)).unwrap(),
+						// 	None => warn!(
+						// 		"error unable to find destination for response id '{:?}'",
+						// 		request_id
+						// 	),
+						// }
+					}
 				}
 			}
 			Self::OutboundFailure {
 				peer,
 				request_id,
 				error,
-			} => match active_requests.remove(&request_id) {
-				Some(resp) => resp.send(Err(error)).unwrap(),
-				None => warn!(
-					"error with onbound request '{:?}' to peer '{:?}': '{:?}'",
-					request_id, peer, error
-				),
-			},
+			} => {
+				todo!();
+				// match active_requests.remove(&request_id) {
+				// 	Some(resp) => resp.send(Err(error)).unwrap(),
+				// 	None => warn!(
+				// 		"error with onbound request '{:?}' to peer '{:?}': '{:?}'",
+				// 		request_id, peer, error
+				// 	),
+				// }
+			}
 			Self::InboundFailure {
 				peer,
 				request_id,
@@ -241,6 +250,158 @@ impl fmt::Debug for TODOEvent {
 				.debug_tuple("Event::InboundUnsupportedProtocols")
 				.field(request_id)
 				.finish(),
+		}
+	}
+}
+
+impl TODOEvent {
+	pub fn handle(&self, peer_id: PeerId, connection: ConnectionId) {
+		match self {
+			Self::Response {
+				request_id,
+				response,
+			} => {
+				// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
+				// 		debug_assert!(
+				// 			removed,
+				// 			"Expect request_id to be pending before receiving response.",
+				// 		);
+
+				// 		let message = Message::Response {
+				// 			request_id,
+				// 			response,
+				// 		};
+				// 		self.pending_events
+				// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::Message {
+				// 				peer,
+				// 				message,
+				// 			}));
+			}
+			Self::Request {
+				request_id,
+				request,
+				sender,
+			} => {
+				// 		let channel = ResponseChannel { sender };
+				// 		let message = Message::Request {
+				// 			request_id,
+				// 			request,
+				// 			channel,
+				// 		};
+				// 		self.pending_events
+				// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::Message {
+				// 				peer,
+				// 				message,
+				// 			}));
+
+				// 		match self.get_connection_mut(&peer, connection) {
+				// 			Some(connection) => {
+				// 				let inserted = connection.pending_outbound_responses.insert(request_id);
+				// 				debug_assert!(inserted, "Expect id of new request to be unknown.");
+				// 			}
+				// 			// Connection closed after `Event::Request` has been emitted.
+				// 			None => {
+				// 				self.pending_events
+				// 					.push_back(NetworkBehaviourAction::GenerateEvent(
+				// 						Event::InboundFailure {
+				// 							peer,
+				// 							request_id,
+				// 							error: InboundFailure::ConnectionClosed,
+				// 						},
+				// 					));
+				// 			}
+				// 		}
+			}
+			Self::ResponseSent(request_id) => {
+				// 		let removed = self.remove_pending_outbound_response(&peer, connection, request_id);
+				// 		debug_assert!(
+				// 			removed,
+				// 			"Expect request_id to be pending before response is sent."
+				// 		);
+
+				// 		self.pending_events
+				// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::ResponseSent {
+				// 				peer,
+				// 				request_id,
+				// 			}));
+			}
+			Self::ResponseOmission(request_id) => {
+				// 		let removed = self.remove_pending_outbound_response(&peer, connection, request_id);
+				// 		debug_assert!(
+				// 			removed,
+				// 			"Expect request_id to be pending before response is omitted.",
+				// 		);
+
+				// 		self.pending_events
+				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
+				// 				Event::InboundFailure {
+				// 					peer,
+				// 					request_id,
+				// 					error: InboundFailure::ResponseOmission,
+				// 				},
+				// 			));
+			}
+			Self::OutboundTimeout(request_id) => {
+				// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
+				// 		debug_assert!(
+				// 			removed,
+				// 			"Expect request_id to be pending before request times out."
+				// 		);
+
+				// 		self.pending_events
+				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
+				// 				Event::OutboundFailure {
+				// 					peer,
+				// 					request_id,
+				// 					error: OutboundFailure::Timeout,
+				// 				},
+				// 			));
+			}
+			Self::InboundTimeout(request_id) => {
+				// 		// Note: `Event::InboundTimeout` is emitted both for timing
+				// 		// out to receive the request and for timing out sending the response. In the former
+				// 		// case the request is never added to `pending_outbound_responses` and thus one can
+				// 		// not assert the request_id to be present before removing it.
+				// 		self.remove_pending_outbound_response(&peer, connection, request_id);
+
+				// 		self.pending_events
+				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
+				// 				Event::InboundFailure {
+				// 					peer,
+				// 					request_id,
+				// 					error: InboundFailure::Timeout,
+				// 				},
+				// 			));
+			}
+			Self::OutboundUnsupportedProtocols(request_id) => {
+				// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
+				// 		debug_assert!(
+				// 			removed,
+				// 			"Expect request_id to be pending before failing to connect.",
+				// 		);
+
+				// 		self.pending_events
+				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
+				// 				Event::OutboundFailure {
+				// 					peer,
+				// 					request_id,
+				// 					error: OutboundFailure::UnsupportedProtocols,
+				// 				},
+				// 			));
+			}
+			Self::InboundUnsupportedProtocols(request_id) => {
+				// 		// Note: No need to call `self.remove_pending_outbound_response`,
+				// 		// `Event::Request` was never emitted for this request and
+				// 		// thus request was never added to `pending_outbound_responses`.
+				// 		self.pending_events
+				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
+				// 				Event::InboundFailure {
+				// 					peer,
+				// 					request_id,
+				// 					error: InboundFailure::UnsupportedProtocols,
+				// 				},
+				// 			));
+			}
 		}
 	}
 }
