@@ -29,13 +29,15 @@ where
 		stream.rewind()?;
 		for _ in 0..block_count {
 			rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-			stream.write(&buf)?;
+			stream.write_all(&buf)?;
 		}
 
 		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut end_buf);
-		stream.write(&end_buf)?;
+		stream.write_all(&end_buf)?;
 		stream.flush()?;
 	}
+
+	stream.rewind()?;
 
 	Ok(())
 }
