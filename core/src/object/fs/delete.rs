@@ -1,15 +1,15 @@
+use super::{context_menu_fs_info, FsInfo, ObjectType};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::{collections::VecDeque, hash::Hash};
-
-use super::{context_menu_fs_info, FsInfo, ObjectType};
 
 pub struct FileDeleterJob {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileDeleterJobState {}
 
-#[derive(Serialize, Deserialize, Hash)]
+#[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileDeleterJobInit {
 	pub location_id: i32,
 	pub path_id: i32,

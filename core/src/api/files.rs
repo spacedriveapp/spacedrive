@@ -4,6 +4,7 @@ use crate::{
 	location::fetch_location,
 	object::fs::{
 		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
+		delete::{FileDeleterJob, FileDeleterJobInit},
 		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
 	},
 	prisma::object,
@@ -125,6 +126,25 @@ pub(crate) fn mount() -> RouterBuilder {
 				}
 
 				library.spawn_job(Job::new(args, FileDecryptorJob {})).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("deleteFiles", |t| {
+			t(|_, args: FileDeleterJobInit, library| async move {
+				if fetch_location(&library, args.location_id)
+					.exec()
+					.await?
+					.is_none()
+				{
+					return Err(rspc::Error::new(
+						ErrorCode::NotFound,
+						"Location not found".into(),
+					));
+				}
+
+				library.spawn_job(Job::new(args, FileDeleterJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())

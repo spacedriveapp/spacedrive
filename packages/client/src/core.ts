@@ -34,6 +34,7 @@ export type Procedures = {
     mutations: 
         { key: "files.decryptFiles", input: LibraryArgs<FileDecryptorJobInit>, result: null } | 
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
+        { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
@@ -94,6 +95,8 @@ export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerI
 export type ExplorerItem = { type: "Path" } & FilePathWithObject | { type: "Object" } & ObjectWithFilePaths
 
 export interface FileDecryptorJobInit { location_id: number, path_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
+
+export interface FileDeleterJobInit { location_id: number, path_id: number }
 
 export interface FileEncryptorJobInit { location_id: number, path_id: number, key_uuid: string, algorithm: Algorithm, metadata: boolean, preview_media: boolean, output_path: string | null }
 
