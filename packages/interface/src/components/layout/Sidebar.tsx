@@ -22,12 +22,22 @@ import {
 	tw
 } from '@sd/ui';
 import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus, ShareNetwork } from 'phosphor-react';
+import {
+	CheckCircle,
+	CirclesFour,
+	Gear,
+	Lock,
+	MonitorPlay,
+	Planet,
+	Plus,
+	ShareNetwork,
+	UsersThree
+} from 'phosphor-react';
 import React, { PropsWithChildren, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
-
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
+
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
@@ -102,13 +112,17 @@ export function Sidebar() {
 						<Icon component={Planet} />
 						Overview
 					</SidebarLink>
-					{/* <SidebarLink to="photos">
-						<Icon component={ShareNetwork} />
-						Nodes
-					</SidebarLink> */}
-					<SidebarLink to="content">
+					<SidebarLink to="spaces">
 						<Icon component={CirclesFour} />
 						Spaces
+					</SidebarLink>
+					<SidebarLink to="people">
+						<Icon component={UsersThree} />
+						People
+					</SidebarLink>
+					<SidebarLink to="media">
+						<Icon component={MonitorPlay} />
+						Media
 					</SidebarLink>
 				</div>
 				{library && <LibraryScopedSection />}

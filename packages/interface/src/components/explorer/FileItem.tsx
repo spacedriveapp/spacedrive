@@ -1,4 +1,4 @@
-import { ExplorerItem, isVideoExt } from '@sd/client';
+import { ExplorerItem } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
@@ -42,8 +42,7 @@ function FileItem({
 	...rest
 }: Props) {
 	const objectData = data ? (isObject(data) ? data : data.object) : null;
-	const isVid = isVideoExt(data.extension || '');
-
+	const isVid = ObjectKind[objectData?.kind || 0] === 'Video';
 	return (
 		<FileItemContextMenu
 			item={data}

@@ -6,14 +6,17 @@ import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 import { AppLayout } from './AppLayout';
 import { ONBOARDING_SCREENS } from './components/onboarding/OnboardingProgress';
 import OnboardingRoot from './components/onboarding/OnboardingRoot';
+import MediaScreen from './screens/Media';
+import PeopleScreen from './screens/People';
+import SpacesScreen from './screens/Spaces';
 
 // Using React.lazy breaks hot reload so we don't use it.
 const DebugScreen = lazy(() => import('./screens/Debug'));
 const SettingsScreen = lazy(() => import('./screens/settings/Settings'));
 const TagExplorer = lazy(() => import('./screens/TagExplorer'));
-const PhotosScreen = lazy(() => import('./screens/Photos'));
+const PhotosScreen = lazy(() => import('./screens/Media'));
 const OverviewScreen = lazy(() => import('./screens/Overview'));
-const ContentScreen = lazy(() => import('./screens/Content'));
+const ContentScreen = lazy(() => import('./screens/People'));
 const LocationExplorer = lazy(() => import('./screens/LocationExplorer'));
 const OnboardingScreen = lazy(() => import('./components/onboarding/OnboardingStart'));
 const NotFound = lazy(() => import('./NotFound'));
@@ -68,8 +71,9 @@ export function AppRouter() {
 					<>
 						<Route index element={<Navigate to="/overview" />} />
 						<Route path="overview" element={<OverviewScreen />} />
-						<Route path="content" element={<ContentScreen />} />
-						<Route path="photos" element={<PhotosScreen />} />
+						<Route path="spaces" element={<SpacesScreen />} />
+						<Route path="people" element={<PeopleScreen />} />
+						<Route path="media" element={<MediaScreen />} />
 						<Route path="debug" element={<DebugScreen />} />
 						<Route path="settings" element={<SettingsScreen />}>
 							<Route index element={<GeneralSettings />} />
