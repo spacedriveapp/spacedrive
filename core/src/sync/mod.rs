@@ -50,7 +50,7 @@ impl SyncManager {
 				CRDTOperationType::Owned(owned_op) => Some(tx.owned_operation().create(
 					op.id.as_bytes().to_vec(),
 					op.timestamp.0 as i64,
-					to_vec(&owned_op.items).unwrap(),
+					to_vec(&owned_op.data).unwrap(),
 					owned_op.model.clone(),
 					node::pub_id::equals(op.node.as_bytes().to_vec()),
 					vec![],
@@ -105,7 +105,7 @@ impl SyncManager {
 					tx.owned_operation().create(
 						op.id.as_bytes().to_vec(),
 						op.timestamp.0 as i64,
-						to_vec(&owned_op.items).unwrap(),
+						to_vec(&owned_op.data).unwrap(),
 						owned_op.model.clone(),
 						node::pub_id::equals(op.node.as_bytes().to_vec()),
 						vec![],
@@ -162,7 +162,7 @@ impl SyncManager {
 					timestamp: NTP64(self.timestamp as u64),
 					typ: CRDTOperationType::Owned(OwnedOperation {
 						model: self.model,
-						items: serde_json::from_slice(&self.data).unwrap(),
+						data: serde_json::from_slice(&self.data).unwrap(),
 					}),
 				})
 			}
@@ -226,20 +226,20 @@ impl SyncManager {
 						id: i32,
 					}
 
-					for item in owned_op.items {
-						let id: FilePathId = serde_json::from_value(item.id).unwrap();
+					for data in owned_op.data {
+						match data {
+							OwnedOperationData::Create(id, mut data) => {
+								let id: FilePathId = serde_json::from_value(id).unwrap();
 
-						let location = self
-							.db
-							.location()
-							.find_unique(location::pub_id::equals(id.location_id))
-							.select(location::select!({ id }))
-							.exec()
-							.await?
-							.unwrap();
+								let location = self
+									.db
+									.location()
+									.find_unique(location::pub_id::equals(id.location_id))
+									.select(location::select!({ id }))
+									.exec()
+									.await?
+									.unwrap();
 
-						match item.data {
-							OwnedOperationData::Create(mut data) => {
 								self.db
 									.file_path()
 									.create(
@@ -321,7 +321,18 @@ impl SyncManager {
 
 								q.exec().await?;
 							}
-							OwnedOperationData::Update(data) => {
+							OwnedOperationData::Update(id, data) => {
+								let id: FilePathId = serde_json::from_value(id).unwrap();
+
+								let location = self
+									.db
+									.location()
+									.find_unique(location::pub_id::equals(id.location_id))
+									.select(location::select!({ id }))
+									.exec()
+									.await?
+									.unwrap();
+
 								self.db
 									.file_path()
 									.update(
@@ -345,11 +356,11 @@ impl SyncManager {
 						id: Vec<u8>,
 					}
 
-					for item in owned_op.items {
-						let id: LocationId = serde_json::from_value(item.id).unwrap();
+					for data in owned_op.data {
+						match data {
+							OwnedOperationData::Create(id, mut data) => {
+								let id: LocationId = serde_json::from_value(id).unwrap();
 
-						match item.data {
-							OwnedOperationData::Create(mut data) => {
 								self.db
 									.location()
 									.create(
@@ -434,13 +445,13 @@ impl SyncManager {
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Owned(OwnedOperation {
 			model: model.to_string(),
-			items: [(id, values)]
+			data: [(id, values)]
 				.into_iter()
-				.map(|(id, data)| OwnedOperationItem {
-					id,
-					data: OwnedOperationData::Create(
+				.map(|(id, data)| {
+					OwnedOperationData::Create(
+						id,
 						data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
-					),
+					)
 				})
 				.collect(),
 		}))
@@ -454,20 +465,17 @@ impl SyncManager {
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Owned(OwnedOperation {
 			model: model.to_string(),
-			items: vec![OwnedOperationItem {
-				id: Value::Null,
-				data: OwnedOperationData::CreateMany {
-					values: data
-						.into_iter()
-						.map(|(id, data)| {
-							(
-								id,
-								data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
-							)
-						})
-						.collect(),
-					skip_duplicates,
-				},
+			data: vec![OwnedOperationData::CreateMany {
+				values: data
+					.into_iter()
+					.map(|(id, data)| {
+						(
+							id,
+							data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
+						)
+					})
+					.collect(),
+				skip_duplicates,
 			}],
 		}))
 	}
@@ -480,13 +488,13 @@ impl SyncManager {
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Owned(OwnedOperation {
 			model: model.to_string(),
-			items: [(id, values)]
+			data: [(id, values)]
 				.into_iter()
-				.map(|(id, data)| OwnedOperationItem {
-					id,
-					data: OwnedOperationData::Update(
+				.map(|(id, data)| {
+					OwnedOperationData::Update(
+						id,
 						data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
-					),
+					)
 				})
 				.collect(),
 		}))
