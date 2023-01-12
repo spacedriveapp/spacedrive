@@ -73,7 +73,7 @@ impl StatefulJob for FileEraserJob {
 
 				sd_crypto::fs::erase::erase(&mut file, file_len as usize, 2)?;
 				file.set_len(1)?;
-				file.flush();
+				file.flush()?;
 				drop(file);
 
 				std::fs::remove_file(info.obj_path.clone())?;
