@@ -4,6 +4,17 @@ use rand::{RngCore, SeedableRng};
 
 use crate::{primitives::BLOCK_SIZE, Result};
 
+/// This is used for erasing a file.
+///
+/// It requires the file size, a stream and the amount of passes (to overwrite the entire stream with random data)
+///
+/// It works against `BLOCK_SIZE`.
+///
+/// Note, it will not be ideal on flash-based storage devices.
+/// The drive will be worn down, and due to wear-levelling built into the drive's firmware no tool (short of an ATA secure erase command)
+/// can guarantee a perfect erasure on solid-state drives.
+///
+/// This also does not factor in temporary files, caching, thumbnails, etc.
 pub fn erase<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<()>
 where
 	RW: Read + Write + Seek,
