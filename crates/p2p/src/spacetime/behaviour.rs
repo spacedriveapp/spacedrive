@@ -1,3 +1,18 @@
+use std::task::{Context, Poll};
+
+use libp2p::{
+	core::ProtocolName,
+	swarm::{
+		derive_prelude::{ConnectionId, FromSwarm},
+		IntoConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
+	},
+	Multiaddr, PeerId,
+};
+
+use crate::spacetime::Event;
+
+use super::Handler;
+
 // /// A request/response protocol for some message codec.
 // pub struct Behaviour {
 // 	// /// The supported inbound protocols.
@@ -25,21 +40,6 @@
 // 	// pending_outbound_requests: HashMap<PeerId, SmallVec<[RequestProtocol; 10]>>,
 // }
 
-use std::task::{Context, Poll};
-
-use libp2p::{
-	core::ProtocolName,
-	swarm::{
-		derive_prelude::{ConnectionId, FromSwarm},
-		IntoConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
-	},
-	Multiaddr, PeerId,
-};
-
-use crate::spacetime::Event;
-
-use super::Handler;
-
 /// Internal threshold for when to shrink the capacity
 /// of empty queues. If the capacity of an empty queue
 /// exceeds this threshold, the associated memory is
@@ -59,21 +59,7 @@ impl ProtocolName for SpaceTime {
 impl SpaceTime {
 	/// TODO
 	pub fn new() -> Self {
-		// let protocols = iter::once((SpaceTime(), ProtocolSupport::Full));
-
-		// let mut inbound_protocols = SmallVec::new();
-		// let mut outbound_protocols = SmallVec::new();
-		// for (p, s) in protocols {
-		// 	if s.inbound() {
-		// 		inbound_protocols.push(p.clone());
-		// 	}
-		// 	if s.outbound() {
-		// 		outbound_protocols.push(p.clone());
-		// 	}
-		// }
 		Self {
-			// inbound_protocols,
-			// outbound_protocols,
 			// next_request_id: RequestId(1),
 			// next_inbound_id: Arc::new(AtomicU64::new(1)),
 			// pending_events: VecDeque::new(),

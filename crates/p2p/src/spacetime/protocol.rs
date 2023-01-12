@@ -14,36 +14,6 @@ use std::{
 
 use crate::spacetime::{RequestId, SpaceTime, SpaceTimeMessage};
 
-/// The level of support for a particular protocol.
-#[deprecated]
-#[derive(Debug, Clone)]
-pub enum ProtocolSupport {
-	/// The protocol is only supported for inbound requests.
-	Inbound,
-	/// The protocol is only supported for outbound requests.
-	Outbound,
-	/// The protocol is supported for inbound and outbound requests.
-	Full,
-}
-
-impl ProtocolSupport {
-	/// Whether inbound requests are supported.
-	pub fn inbound(&self) -> bool {
-		match self {
-			ProtocolSupport::Inbound | ProtocolSupport::Full => true,
-			ProtocolSupport::Outbound => false,
-		}
-	}
-
-	/// Whether outbound requests are supported.
-	pub fn outbound(&self) -> bool {
-		match self {
-			ProtocolSupport::Outbound | ProtocolSupport::Full => true,
-			ProtocolSupport::Inbound => false,
-		}
-	}
-}
-
 /// Response substream upgrade protocol.
 ///
 /// Receives a request and sends a response.
