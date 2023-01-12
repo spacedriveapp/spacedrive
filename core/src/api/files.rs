@@ -1,16 +1,16 @@
 use crate::{
 	invalidate_query,
 	job::Job,
-	location::fetch_location,
 	object::fs::{
 		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
 		delete::{FileDeleterJob, FileDeleterJobInit},
 		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
+		erase::{FileEraserJob, FileEraserJobInit},
 	},
 	prisma::object,
 };
 
-use rspc::{ErrorCode, Type};
+use rspc::Type;
 use serde::Deserialize;
 
 use super::{utils::LibraryRequest, RouterBuilder};
@@ -95,17 +95,6 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("encryptFiles", |t| {
 			t(|_, args: FileEncryptorJobInit, library| async move {
-				if fetch_location(&library, args.location_id)
-					.exec()
-					.await?
-					.is_none()
-				{
-					return Err(rspc::Error::new(
-						ErrorCode::NotFound,
-						"Location not found".into(),
-					));
-				}
-
 				library.spawn_job(Job::new(args, FileEncryptorJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
@@ -114,17 +103,6 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("decryptFiles", |t| {
 			t(|_, args: FileDecryptorJobInit, library| async move {
-				if fetch_location(&library, args.location_id)
-					.exec()
-					.await?
-					.is_none()
-				{
-					return Err(rspc::Error::new(
-						ErrorCode::NotFound,
-						"Location not found".into(),
-					));
-				}
-
 				library.spawn_job(Job::new(args, FileDecryptorJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
@@ -133,18 +111,15 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("deleteFiles", |t| {
 			t(|_, args: FileDeleterJobInit, library| async move {
-				if fetch_location(&library, args.location_id)
-					.exec()
-					.await?
-					.is_none()
-				{
-					return Err(rspc::Error::new(
-						ErrorCode::NotFound,
-						"Location not found".into(),
-					));
-				}
-
 				library.spawn_job(Job::new(args, FileDeleterJob {})).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("eraseFiles", |t| {
+			t(|_, args: FileEraserJobInit, library| async move {
+				library.spawn_job(Job::new(args, FileEraserJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
