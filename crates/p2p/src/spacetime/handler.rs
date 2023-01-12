@@ -54,12 +54,6 @@ use crate::spacetime::EMPTY_QUEUE_SHRINK_THRESHOLD;
 
 use super::{Codec, RequestId, SpaceTimeCodec};
 
-#[deprecated(
-	since = "0.24.0",
-	note = "Use re-exports that omit `RequestResponse` prefix, i.e. `libp2p::request_response::handler::Handler`"
-)]
-pub type RequestResponseHandler = Handler;
-
 /// A connection handler for a request response [`Behaviour`](super::Behaviour) protocol.
 pub struct Handler {
 	/// The supported inbound protocols.
@@ -77,7 +71,7 @@ pub struct Handler {
 	/// A pending fatal error that results in the connection being closed.
 	pending_error: Option<ConnectionHandlerUpgrErr<io::Error>>,
 	/// Queue of events to emit in `poll()`.
-	pending_events: VecDeque<Event>,
+	pending_events: VecDeque<TODOEvent>,
 	/// Outbound upgrades waiting to be emitted as an `OutboundSubstreamRequest`.
 	outbound: VecDeque<RequestProtocol>,
 	/// Inbound upgrades waiting for the incoming request.
@@ -130,10 +124,10 @@ impl Handler {
 	) {
 		if sent {
 			self.pending_events
-				.push_back(Event::ResponseSent(request_id))
+				.push_back(TODOEvent::ResponseSent(request_id))
 		} else {
 			self.pending_events
-				.push_back(Event::ResponseOmission(request_id))
+				.push_back(TODOEvent::ResponseOmission(request_id))
 		}
 	}
 
@@ -146,7 +140,8 @@ impl Handler {
 	) {
 		match error {
 			ConnectionHandlerUpgrErr::Timeout => {
-				self.pending_events.push_back(Event::OutboundTimeout(info));
+				self.pending_events
+					.push_back(TODOEvent::OutboundTimeout(info));
 			}
 			ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(NegotiationError::Failed)) => {
 				// The remote merely doesn't support the protocol(s) we requested.
@@ -155,7 +150,7 @@ impl Handler {
 				// An event is reported to permit user code to react to the fact that
 				// the remote peer does not support the requested protocol(s).
 				self.pending_events
-					.push_back(Event::OutboundUnsupportedProtocols(info));
+					.push_back(TODOEvent::OutboundUnsupportedProtocols(info));
 			}
 			_ => {
 				// Anything else is considered a fatal error or misbehaviour of
@@ -172,9 +167,9 @@ impl Handler {
 		>,
 	) {
 		match error {
-			ConnectionHandlerUpgrErr::Timeout => {
-				self.pending_events.push_back(Event::InboundTimeout(info))
-			}
+			ConnectionHandlerUpgrErr::Timeout => self
+				.pending_events
+				.push_back(TODOEvent::InboundTimeout(info)),
 			ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(NegotiationError::Failed)) => {
 				// The local peer merely doesn't support the protocol(s) requested.
 				// This is no reason to close the connection, which may
@@ -182,7 +177,7 @@ impl Handler {
 				// An event is reported to permit user code to react to the fact that
 				// the local peer does not support the requested protocol(s).
 				self.pending_events
-					.push_back(Event::InboundUnsupportedProtocols(info));
+					.push_back(TODOEvent::InboundUnsupportedProtocols(info));
 			}
 			_ => {
 				// Anything else is considered a fatal error or misbehaviour of
@@ -193,14 +188,8 @@ impl Handler {
 	}
 }
 
-#[deprecated(
-	since = "0.24.0",
-	note = "Use re-exports that omit `RequestResponse` prefix, i.e. `libp2p::request_response::handler::Event`"
-)]
-pub type RequestResponseHandlerEvent = Event;
-
 /// The events emitted by the [`Handler`].
-pub enum Event {
+pub enum TODOEvent {
 	/// A request has been received.
 	Request {
 		request_id: RequestId,
@@ -229,10 +218,10 @@ pub enum Event {
 	InboundUnsupportedProtocols(RequestId),
 }
 
-impl fmt::Debug for Event {
+impl fmt::Debug for TODOEvent {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			Event::Request {
+			TODOEvent::Request {
 				request_id,
 				request: _,
 				sender: _,
@@ -240,34 +229,34 @@ impl fmt::Debug for Event {
 				.debug_struct("Event::Request")
 				.field("request_id", request_id)
 				.finish(),
-			Event::Response {
+			TODOEvent::Response {
 				request_id,
 				response: _,
 			} => f
 				.debug_struct("Event::Response")
 				.field("request_id", request_id)
 				.finish(),
-			Event::ResponseSent(request_id) => f
+			TODOEvent::ResponseSent(request_id) => f
 				.debug_tuple("Event::ResponseSent")
 				.field(request_id)
 				.finish(),
-			Event::ResponseOmission(request_id) => f
+			TODOEvent::ResponseOmission(request_id) => f
 				.debug_tuple("Event::ResponseOmission")
 				.field(request_id)
 				.finish(),
-			Event::OutboundTimeout(request_id) => f
+			TODOEvent::OutboundTimeout(request_id) => f
 				.debug_tuple("Event::OutboundTimeout")
 				.field(request_id)
 				.finish(),
-			Event::OutboundUnsupportedProtocols(request_id) => f
+			TODOEvent::OutboundUnsupportedProtocols(request_id) => f
 				.debug_tuple("Event::OutboundUnsupportedProtocols")
 				.field(request_id)
 				.finish(),
-			Event::InboundTimeout(request_id) => f
+			TODOEvent::InboundTimeout(request_id) => f
 				.debug_tuple("Event::InboundTimeout")
 				.field(request_id)
 				.finish(),
-			Event::InboundUnsupportedProtocols(request_id) => f
+			TODOEvent::InboundUnsupportedProtocols(request_id) => f
 				.debug_tuple("Event::InboundUnsupportedProtocols")
 				.field(request_id)
 				.finish(),
@@ -277,7 +266,7 @@ impl fmt::Debug for Event {
 
 impl ConnectionHandler for Handler {
 	type InEvent = RequestProtocol;
-	type OutEvent = Event;
+	type OutEvent = TODOEvent;
 	type Error = ConnectionHandlerUpgrErr<io::Error>;
 	type InboundProtocol = ResponseProtocol;
 	type OutboundProtocol = RequestProtocol;
@@ -350,7 +339,7 @@ impl ConnectionHandler for Handler {
 				Ok(((id, rq), rs_sender)) => {
 					// We received an inbound request.
 					self.keep_alive = KeepAlive::Yes;
-					return Poll::Ready(ConnectionHandlerEvent::Custom(Event::Request {
+					return Poll::Ready(ConnectionHandlerEvent::Custom(TODOEvent::Request {
 						request_id: id,
 						request: rq,
 						sender: rs_sender,
@@ -407,7 +396,7 @@ impl ConnectionHandler for Handler {
 				protocol: response,
 				info: request_id,
 			}) => {
-				self.pending_events.push_back(Event::Response {
+				self.pending_events.push_back(TODOEvent::Response {
 					request_id,
 					response,
 				});

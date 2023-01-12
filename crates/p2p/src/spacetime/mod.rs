@@ -12,9 +12,9 @@ use libp2p::{
 		upgrade::{read_length_prefixed, write_length_prefixed},
 		ProtocolName,
 	},
-	swarm::{handler::FullyNegotiatedInbound, ConnectionHandler, NetworkBehaviour},
+	swarm::NetworkBehaviour,
 };
-use rmp_serde::{from_slice, to_vec, to_vec_named};
+use rmp_serde::{from_slice, to_vec_named};
 use serde::{Deserialize, Serialize};
 
 mod codec;
@@ -45,7 +45,7 @@ impl ProtocolName for SpaceTimeProtocol {
 pub struct SpaceTimeCodec();
 
 #[async_trait]
-impl RequestResponseCodec for SpaceTimeCodec {
+impl Codec for SpaceTimeCodec {
 	type Protocol = SpaceTimeProtocol;
 	type Request = SpaceTimeMessage;
 	type Response = SpaceTimeMessage;
@@ -125,15 +125,6 @@ impl RequestResponseCodec for SpaceTimeCodec {
 // pub struct SpacetimeBehaviour {
 // 	request_id: Arc<AtomicU64>,
 // 	// TODO
-// }
-
-// /// TODO
-// pub enum Event {}
-
-// impl Event {
-// 	pub async fn handle(self) {
-// 		todo!();
-// 	}
 // }
 
 // impl NetworkBehaviour for SpacetimeBehaviour {
@@ -743,37 +734,9 @@ use std::{
 	task::{Context, Poll},
 	time::Duration,
 };
+use tracing::warn;
 
-#[deprecated(
-	since = "0.24.0",
-	note = "Use libp2p::request_response::Behaviour instead."
-)]
-pub type RequestResponse = Behaviour;
-
-#[deprecated(
-	since = "0.24.0",
-	note = "Use re-exports that omit `RequestResponse` prefix, i.e. `libp2p::request_response::Config`"
-)]
-pub type RequestResponseConfig = Config;
-
-#[deprecated(
-	since = "0.24.0",
-	note = "Use re-exports that omit `RequestResponse` prefix, i.e. `libp2p::request_response::Event`"
-)]
-pub type RequestResponseEvent<TRequest, TResponse> = Event<TRequest, TResponse>;
-
-#[deprecated(
-	since = "0.24.0",
-	note = "Use re-exports that omit `RequestResponse` prefix, i.e. `libp2p::request_response::Message`"
-)]
-pub type RequestResponseMessage<TRequest, TResponse, TChannelResponse> =
-	Message<TRequest, TResponse, TChannelResponse>;
-
-#[deprecated(
-	since = "0.24.0",
-	note = "Use re-exports that omit `RequestResponse` prefix, i.e. `libp2p::request_response::handler::Event`"
-)]
-pub type HandlerEvent = handler::Event;
+use crate::{utils::AsyncFn2, ManagerEvent, ManagerRef, Metadata};
 
 /// An inbound request or response.
 #[derive(Debug)]
@@ -804,13 +767,13 @@ pub enum Message<TRequest, TResponse, TChannelResponse = TResponse> {
 
 /// The events emitted by a request-response [`Behaviour`].
 #[derive(Debug)]
-pub enum Event<TRequest, TResponse, TChannelResponse = TResponse> {
+pub enum Event {
 	/// An incoming message (request or response).
 	Message {
 		/// The peer who sent the message.
 		peer: PeerId,
 		/// The incoming message.
-		message: Message<TRequest, TResponse, TChannelResponse>,
+		message: Message<SpaceTimeMessage, SpaceTimeMessage, SpaceTimeMessage>,
 	},
 	/// An outbound request failed.
 	OutboundFailure {
@@ -840,6 +803,110 @@ pub enum Event<TRequest, TResponse, TChannelResponse = TResponse> {
 		/// The ID of the inbound request whose response was sent.
 		request_id: RequestId,
 	},
+}
+
+// TODO: Remove
+impl Event {
+	pub async fn handle<TMetadata: Metadata, TConnFn>(
+		self,
+		state: &Arc<ManagerRef<TMetadata>>,
+		fn_on_connect: Arc<TConnFn>,
+		active_requests: &mut HashMap<
+			RequestId,
+			tokio::sync::oneshot::Sender<Result<SpaceTimeMessage, OutboundFailure>>,
+		>,
+	) where
+		TConnFn: AsyncFn2<crate::Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
+	{
+		match self {
+			Self::Message { peer, message } => {
+				match message {
+					Message::Request {
+						request_id,
+						request,
+						channel,
+					} => {
+						match request {
+							SpaceTimeMessage::Establish => {
+								println!("WE ESTBALISHED BI");
+								// TODO: Handle authentication here by moving over the old `ConnectionEstablishmentPayload` from `p2p`
+							}
+							SpaceTimeMessage::Application(data) => {
+								// TODO: Should this be put in the `active_requests` queue???
+								let state = state.clone();
+								tokio::spawn(async move {
+									let req = (fn_on_connect)(
+										crate::Connection {
+											manager: state.clone(),
+										},
+										data,
+									)
+									.await;
+
+									match req {
+										Ok(data) => {
+											// swarm.behaviour().send_response(channel, SpaceTimeMessage::Application(data)).unwrap();
+
+											// TODO: This is so cringe. The channel should be so unnecessary! Can we force the behavior into an `Arc`. Although I will probs yeet it from the codebase soon.
+											match state
+												.internal_tx
+												.send(ManagerEvent::SendResponse(
+													peer,
+													SpaceTimeMessage::Application(data),
+													channel,
+												))
+												.await
+											{
+												Ok(_) => {}
+												Err(_err) => todo!(),
+											}
+										}
+										Err(_err) => todo!(), // TODO: Imagine causing an error
+									}
+								});
+							}
+						}
+					}
+					Message::Response {
+						request_id,
+						response,
+					} => match active_requests.remove(&request_id) {
+						Some(resp) => resp.send(Ok(response)).unwrap(),
+						None => warn!(
+							"error unable to find destination for response id '{:?}'",
+							request_id
+						),
+					},
+				}
+			}
+			Self::OutboundFailure {
+				peer,
+				request_id,
+				error,
+			} => match active_requests.remove(&request_id) {
+				Some(resp) => resp.send(Err(error)).unwrap(),
+				None => warn!(
+					"error with onbound request '{:?}' to peer '{:?}': '{:?}'",
+					request_id, peer, error
+				),
+			},
+			Self::InboundFailure {
+				peer,
+				request_id,
+				error,
+			} => {
+				// TODO: Handle error
+
+				warn!(
+					"error with inbound request '{:?}' from peer '{:?}': '{:?}'",
+					request_id, peer, error
+				);
+			}
+			Self::ResponseSent { peer, request_id } => {
+				// todo!();
+			}
+		}
+	}
 }
 
 /// Possible failures occurring in the context of sending
@@ -1006,7 +1073,7 @@ pub struct Behaviour {
 	/// Pending events to return from `poll`.
 	pending_events: VecDeque<
 		NetworkBehaviourAction<
-			Event<<SpaceTimeCodec as Codec>::Request, <SpaceTimeCodec as Codec>::Response>,
+			Event, // <<SpaceTimeCodec as Codec>::Request, <SpaceTimeCodec as Codec>::Response>,
 			Handler,
 		>,
 	>,
@@ -1385,7 +1452,7 @@ impl Behaviour {
 
 impl NetworkBehaviour for Behaviour {
 	type ConnectionHandler = Handler;
-	type OutEvent = Event<<SpaceTimeCodec as Codec>::Request, <SpaceTimeCodec as Codec>::Response>;
+	type OutEvent = Event; // <<SpaceTimeCodec as Codec>::Request, <SpaceTimeCodec as Codec>::Response>;
 
 	fn new_handler(&mut self) -> Self::ConnectionHandler {
 		Handler::new(
@@ -1437,7 +1504,7 @@ impl NetworkBehaviour for Behaviour {
             libp2p::swarm::ConnectionHandler>::OutEvent,
 	) {
 		match event {
-			handler::Event::Response {
+			handler::TODOEvent::Response {
 				request_id,
 				response,
 			} => {
@@ -1457,7 +1524,7 @@ impl NetworkBehaviour for Behaviour {
 						message,
 					}));
 			}
-			handler::Event::Request {
+			handler::TODOEvent::Request {
 				request_id,
 				request,
 				sender,
@@ -1492,7 +1559,7 @@ impl NetworkBehaviour for Behaviour {
 					}
 				}
 			}
-			handler::Event::ResponseSent(request_id) => {
+			handler::TODOEvent::ResponseSent(request_id) => {
 				let removed = self.remove_pending_outbound_response(&peer, connection, request_id);
 				debug_assert!(
 					removed,
@@ -1505,7 +1572,7 @@ impl NetworkBehaviour for Behaviour {
 						request_id,
 					}));
 			}
-			handler::Event::ResponseOmission(request_id) => {
+			handler::TODOEvent::ResponseOmission(request_id) => {
 				let removed = self.remove_pending_outbound_response(&peer, connection, request_id);
 				debug_assert!(
 					removed,
@@ -1521,7 +1588,7 @@ impl NetworkBehaviour for Behaviour {
 						},
 					));
 			}
-			handler::Event::OutboundTimeout(request_id) => {
+			handler::TODOEvent::OutboundTimeout(request_id) => {
 				let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
 				debug_assert!(
 					removed,
@@ -1537,7 +1604,7 @@ impl NetworkBehaviour for Behaviour {
 						},
 					));
 			}
-			handler::Event::InboundTimeout(request_id) => {
+			handler::TODOEvent::InboundTimeout(request_id) => {
 				// Note: `Event::InboundTimeout` is emitted both for timing
 				// out to receive the request and for timing out sending the response. In the former
 				// case the request is never added to `pending_outbound_responses` and thus one can
@@ -1553,7 +1620,7 @@ impl NetworkBehaviour for Behaviour {
 						},
 					));
 			}
-			handler::Event::OutboundUnsupportedProtocols(request_id) => {
+			handler::TODOEvent::OutboundUnsupportedProtocols(request_id) => {
 				let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
 				debug_assert!(
 					removed,
@@ -1569,7 +1636,7 @@ impl NetworkBehaviour for Behaviour {
 						},
 					));
 			}
-			handler::Event::InboundUnsupportedProtocols(request_id) => {
+			handler::TODOEvent::InboundUnsupportedProtocols(request_id) => {
 				// Note: No need to call `self.remove_pending_outbound_response`,
 				// `Event::Request` was never emitted for this request and
 				// thus request was never added to `pending_outbound_responses`.

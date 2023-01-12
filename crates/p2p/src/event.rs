@@ -1,9 +1,9 @@
-use std::{collections::HashMap, hash::Hash, net::SocketAddr, num::NonZeroU32, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, num::NonZeroU32, sync::Arc};
 
 use libp2p::core::{ConnectedPoint, Endpoint};
 use tracing::warn;
 
-use crate::{spacetime::SpaceTimeMessage, ManagerEvent, ManagerRef};
+use crate::{ManagerEvent, ManagerRef};
 
 use super::PeerId;
 

@@ -23,7 +23,6 @@ use libp2p::{
 	Multiaddr, PeerId, Swarm, Transport,
 };
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
-use serde::Serialize;
 use thiserror::Error;
 use tokio::{
 	sync::{mpsc, oneshot, RwLock},
@@ -32,14 +31,13 @@ use tokio::{
 use tracing::{debug, error, warn};
 
 use crate::{
+	event::Event,
 	spacetime::{
-		OutboundFailure, ProtocolSupport, RequestResponse, RequestResponseEvent,
-		RequestResponseMessage, ResponseChannel, SpaceTimeCodec, SpaceTimeMessage,
-		SpaceTimeProtocol,
+		Behaviour, OutboundFailure, ProtocolSupport, ResponseChannel, SpaceTimeCodec,
+		SpaceTimeMessage, SpaceTimeProtocol,
 	},
 	utils::{quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr, AsyncFn, AsyncFn2},
-	ConnectedPeer, Connection, ConnectionType, DiscoveredPeer, Event, Keypair, ManagerRef,
-	Metadata,
+	ConnectedPeer, Connection, DiscoveredPeer, Keypair, ManagerRef, Metadata,
 };
 
 /// TODO
@@ -54,7 +52,7 @@ where
 
 	fn_get_metadata: TMetadataFn,
 	fn_on_event: TEventFn,
-	fn_on_connect: TConnFn,
+	fn_on_connect: Arc<TConnFn>,
 
 	mdns_daemon: ServiceDaemon,
 
@@ -76,10 +74,9 @@ where
 		fn_on_event: TEventFn,
 		fn_on_connect: TConnFn,
 	) -> Result<Arc<Self>, ManagerError> {
-		// TODO
-		// (!application_name.chars().all(char::is_alphanumeric))
-		// 	.then_some(())
-		// 	.ok_or(ManagerError::InvalidAppName)?;
+		(!application_name.chars().all(char::is_alphanumeric))
+			.then_some(())
+			.ok_or(ManagerError::InvalidAppName)?;
 
 		let mdns_daemon = ServiceDaemon::new()?;
 		let service_name = format!("_{}._udp.local.", application_name);
@@ -88,7 +85,7 @@ where
 			quic::GenTransport::<quic::tokio::Provider>::new(quic::Config::new(keypair.inner()))
 				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 				.boxed(),
-			RequestResponse::new(
+			Behaviour::new(
 				SpaceTimeCodec(),
 				iter::once((SpaceTimeProtocol(), ProtocolSupport::Full)),
 				Default::default(),
@@ -122,7 +119,7 @@ where
 			}),
 			fn_get_metadata,
 			fn_on_event,
-			fn_on_connect,
+			fn_on_connect: Arc::new(fn_on_connect),
 			mdns_daemon,
 			phantom: PhantomData,
 		});
@@ -160,61 +157,7 @@ where
 						}
 						event = swarm.select_next_some() => {
 							match event {
-								SwarmEvent::Behaviour(RequestResponseEvent::Message { peer, message }) => {
-									match message {
-										RequestResponseMessage::Request { request_id, request, channel } => {
-											match request {
-												SpaceTimeMessage::Establish => {
-													println!("WE ESTBALISHED BI");
-													// TODO: Handle authentication here by moving over the old `ConnectionEstablishmentPayload` from `p2p`
-												},
-												SpaceTimeMessage::Application(data) => {
-													// TODO: Should this be put in the `active_requests` queue???
-													let this = this.clone();
-													tokio::spawn(async move {
-														let req = (this.fn_on_connect)(Connection {
-															manager: this.state.clone()
-														}, data).await;
-
-														match req {
-															Ok(data) => {
-																// swarm.behaviour().send_response(channel, SpaceTimeMessage::Application(data)).unwrap();
-
-																// TODO: This is so cringe. The channel should be so unnecessary! Can we force the behavior into an `Arc`. Although I will probs yeet it from the codebase soon.
-																match this.state.internal_tx.send(ManagerEvent::SendResponse(peer, SpaceTimeMessage::Application(data), channel)).await {
-																	Ok(_) => {}
-																	Err(_err) => todo!(),
-																}
-
-															},
-															Err(_err) => todo!(), // TODO: Imagine causing an error
-														}
-													});
-												}
-											}
-										},
-										RequestResponseMessage::Response { request_id, response } => {
-											match active_requests.remove(&request_id) {
-												Some(resp) => resp.send(Ok(response)).unwrap(),
-												None => warn!("error unable to find destination for response id '{:?}'", request_id),
-											}
-										}
-									}
-								},
-								SwarmEvent::Behaviour(RequestResponseEvent::OutboundFailure { peer, request_id, error }) => {
-									match active_requests.remove(&request_id) {
-										Some(resp) => resp.send(Err(error)).unwrap(),
-										None => warn!("error with onbound request '{:?}' to peer '{:?}': '{:?}'", request_id, peer, error),
-									}
-								},
-								SwarmEvent::Behaviour(RequestResponseEvent::InboundFailure { peer, request_id, error }) => {
-									// TODO: Handle error
-
-									warn!("error with inbound request '{:?}' from peer '{:?}': '{:?}'", request_id, peer, error);
-								},
-								SwarmEvent::Behaviour(RequestResponseEvent::ResponseSent { peer, request_id }) => {
-									// todo!();
-								},
+								SwarmEvent::Behaviour(event) => event.handle(&this.state, this.fn_on_connect.clone(), &mut active_requests).await,
 								SwarmEvent::ConnectionEstablished { peer_id, endpoint, num_established, .. } => {
 									debug!("connection established with peer '{}'; peer has {} active connections", peer_id, num_established);
 									let (peer, send_create_event) = {
