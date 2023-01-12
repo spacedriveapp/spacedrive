@@ -24,6 +24,7 @@ interface Props {
 	setShowEncryptDialog: (isShowing: boolean) => void;
 	setShowDecryptDialog: (isShowing: boolean) => void;
 	setShowDeleteDialog: (isShowing: boolean) => void;
+	setShowEraseDialog: (isShowing: boolean) => void;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
@@ -34,6 +35,7 @@ export const VirtualizedList: React.FC<Props> = ({
 	setShowEncryptDialog,
 	setShowDecryptDialog,
 	setShowDeleteDialog,
+	setShowEraseDialog,
 	setAlertDialogData
 }) => {
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -162,6 +164,7 @@ export const VirtualizedList: React.FC<Props> = ({
 									setShowEncryptDialog={setShowEncryptDialog}
 									setShowDecryptDialog={setShowDecryptDialog}
 									setShowDeleteDialog={setShowDeleteDialog}
+									setShowEraseDialog={setShowEraseDialog}
 									setAlertDialogData={setAlertDialogData}
 								/>
 							) : (
@@ -181,6 +184,7 @@ export const VirtualizedList: React.FC<Props> = ({
 														setShowEncryptDialog={setShowEncryptDialog}
 														setShowDecryptDialog={setShowDecryptDialog}
 														setShowDeleteDialog={setShowDeleteDialog}
+														setShowEraseDialog={setShowEraseDialog}
 														setAlertDialogData={setAlertDialogData}
 													/>
 												)}
@@ -205,6 +209,7 @@ interface WrappedItemProps {
 	setShowEncryptDialog: (isShowing: boolean) => void;
 	setShowDecryptDialog: (isShowing: boolean) => void;
 	setShowDeleteDialog: (isShowing: boolean) => void;
+	setShowEraseDialog: (isShowing: boolean) => void;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
@@ -217,6 +222,7 @@ const WrappedItem: React.FC<WrappedItemProps> = ({
 	setShowEncryptDialog,
 	setShowDecryptDialog,
 	setShowDeleteDialog,
+	setShowEraseDialog,
 	setAlertDialogData
 }) => {
 	const [_, setSearchParams] = useSearchParams();
@@ -240,6 +246,7 @@ const WrappedItem: React.FC<WrappedItemProps> = ({
 			setShowEncryptDialog={setShowEncryptDialog}
 			setShowDecryptDialog={setShowDecryptDialog}
 			setShowDeleteDialog={setShowDeleteDialog}
+			setShowEraseDialog={setShowEraseDialog}
 			setAlertDialogData={setAlertDialogData}
 		/>
 	);

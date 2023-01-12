@@ -1,8 +1,6 @@
 import { useLibraryMutation } from '@sd/client';
 import { Dialog } from '@sd/ui';
 
-import { GenericAlertDialogProps } from './AlertDialog';
-
 import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
 
 // these props are all shared

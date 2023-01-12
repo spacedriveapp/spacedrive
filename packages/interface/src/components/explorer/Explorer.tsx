@@ -6,6 +6,7 @@ import { AlertDialog, GenericAlertDialogState } from '../dialog/AlertDialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { DeleteFileDialog } from '../dialog/DeleteFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
+import { EraseFileDialog } from '../dialog/EraseFileDialog';
 import { Inspector } from '../explorer/Inspector';
 import { ExplorerContextMenu } from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';
@@ -25,6 +26,7 @@ export default function Explorer(props: Props) {
 	const [showEncryptDialog, setShowEncryptDialog] = useState(false);
 	const [showDecryptDialog, setShowDecryptDialog] = useState(false);
 	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+	const [showEraseDialog, setShowEraseDialog] = useState(false);
 
 	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
 
@@ -68,6 +70,7 @@ export default function Explorer(props: Props) {
 									setShowEncryptDialog={setShowEncryptDialog}
 									setShowDecryptDialog={setShowDecryptDialog}
 									setShowDeleteDialog={setShowDeleteDialog}
+									setShowEraseDialog={setShowEraseDialog}
 									setAlertDialogData={setAlertDialogData}
 								/>
 							)}
@@ -128,6 +131,14 @@ export default function Explorer(props: Props) {
 					path_id={selectedItem.id}
 					open={showDeleteDialog}
 					setOpen={setShowDeleteDialog}
+				/>
+			)}
+			{selectedItem && expStore.locationId !== null && (
+				<EraseFileDialog
+					location_id={expStore.locationId}
+					path_id={selectedItem.id}
+					open={showEraseDialog}
+					setOpen={setShowEraseDialog}
 				/>
 			)}
 		</>
