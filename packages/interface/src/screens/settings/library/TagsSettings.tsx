@@ -8,6 +8,7 @@ import { InputContainer } from '~/components/primitive/InputContainer';
 import { PopoverPicker } from '~/components/primitive/PopoverPicker';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
+import { Tooltip } from '~/components/tooltip/Tooltip';
 
 import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
 
@@ -159,7 +160,9 @@ export default function TagsSettings() {
 							ctaLabel="Delete"
 							trigger={
 								<Button variant="gray" className="h-[38px] mt-[22px]">
-									<Trash className="w-4 h-4" />
+									<Tooltip label="Delete Tag">
+										<Trash className="w-4 h-4" />
+									</Tooltip>
 								</Button>
 							}
 						/>

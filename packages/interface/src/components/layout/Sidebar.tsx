@@ -25,9 +25,9 @@ import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus, ShareNetwork } from 'phosphor-react';
 import React, { PropsWithChildren, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
-
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
+
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
@@ -137,9 +137,11 @@ export function Sidebar() {
 								variant="outline"
 								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
 							>
-								<Tooltip label="Recent Jobs">
-									{library && <IsRunningJob />}
-								</Tooltip>
+								{library && (
+									<Tooltip label="Recent Jobs">
+										<IsRunningJob />
+									</Tooltip>
+								)}
 							</Button>
 						}
 					>

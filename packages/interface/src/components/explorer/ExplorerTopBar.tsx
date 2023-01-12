@@ -305,7 +305,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					</div>
 				</div>
 				<div className="flex mr-3 space-x-2">
-					<Tooltip label="File display options">
+					<Tooltip label="File display options" position="left">
 						<OverlayPanel
 							className="focus:outline-none"
 							trigger={
@@ -321,17 +321,23 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 							</div>
 						</OverlayPanel>
 					</Tooltip>
-					<TopBarButton
-						active={store.showInspector}
-						onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
-						className="my-2"
+
+					<Tooltip
+						label={store.showInspector ? 'Hide Inspector' : 'Show Inspector'}
+						position="left"
 					>
-						{store.showInspector ? (
-							<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-						) : (
-							<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-						)}
-					</TopBarButton>
+						<TopBarButton
+							active={store.showInspector}
+							onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
+							className="my-2"
+						>
+							{store.showInspector ? (
+								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
+							) : (
+								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
+							)}
+						</TopBarButton>
+					</Tooltip>
 					{/* <Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
 						align="right"
