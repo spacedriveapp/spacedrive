@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.24.1", features = ["macros", "sync", "time"] }
-libp2p = { version = "0.50.0", features = ["tokio", "quic", "request-response"] }
+libp2p = { version = "0.50.0", features = ["tokio", "quic"] }
 futures = "0.3.1"
 mdns-sd = "0.5.10"
 thiserror = "1.0.38"
@@ -15,6 +15,8 @@ tracing = "0.1.37"
 async-trait = "0.1.61"
 serde = { version = "1.0.152", features = ["derive"] }
 rmp-serde = "1.1.1"
+smallvec = "1.10.0" # TODO: Remove?
+instant = "0.1.12" # TODO: Remove?
 
 [dev-dependencies]
 tokio = { version = "1.24.1", features = ["rt-multi-thread"] }

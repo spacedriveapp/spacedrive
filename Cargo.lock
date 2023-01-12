@@ -3588,7 +3588,6 @@ dependencies = [
  "libp2p-dns",
  "libp2p-mdns",
  "libp2p-quic",
- "libp2p-request-response",
  "libp2p-swarm",
  "libp2p-tcp",
  "libp2p-webrtc",
@@ -3708,24 +3707,6 @@ dependencies = [
  "rustls 0.20.7",
  "thiserror",
  "tokio",
-]
-
-[[package]]
-name = "libp2p-request-response"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3236168796727bfcf4927f766393415361e2c644b08bedb6a6b13d957c9a4884"
-dependencies = [
- "async-trait",
- "bytes",
- "futures",
- "instant",
- "libp2p-core",
- "libp2p-swarm",
- "log",
- "rand 0.8.5",
- "smallvec",
- "unsigned-varint",
 ]
 
 [[package]]
@@ -6626,10 +6607,12 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "futures",
+ "instant",
  "libp2p",
  "mdns-sd",
  "rmp-serde",
  "serde",
+ "smallvec",
  "thiserror",
  "tokio",
  "tracing",
@@ -8372,8 +8355,6 @@ checksum = "d86a8dc7f45e4c1b0d30e43038c38f274e77af056aa5f74b93c2cf9eb3c1c836"
 dependencies = [
  "asynchronous-codec",
  "bytes",
- "futures-io",
- "futures-util",
 ]
 
 [[package]]

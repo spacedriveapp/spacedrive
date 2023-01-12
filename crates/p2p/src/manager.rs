@@ -16,10 +16,6 @@ use futures::StreamExt;
 use libp2p::{
 	core::muxing::StreamMuxerBox,
 	quic,
-	request_response::{
-		OutboundFailure, ProtocolSupport, RequestResponse, RequestResponseEvent,
-		RequestResponseMessage, ResponseChannel,
-	},
 	swarm::{
 		dial_opts::{DialOpts, PeerCondition},
 		SwarmEvent,
@@ -36,7 +32,11 @@ use tokio::{
 use tracing::{debug, error, warn};
 
 use crate::{
-	spacetime::{SpaceTimeCodec, SpaceTimeMessage, SpaceTimeProtocol},
+	spacetime::{
+		OutboundFailure, ProtocolSupport, RequestResponse, RequestResponseEvent,
+		RequestResponseMessage, ResponseChannel, SpaceTimeCodec, SpaceTimeMessage,
+		SpaceTimeProtocol,
+	},
 	utils::{quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr, AsyncFn, AsyncFn2},
 	ConnectedPeer, Connection, ConnectionType, DiscoveredPeer, Event, Keypair, ManagerRef,
 	Metadata,

@@ -1,9 +1,6 @@
 use std::{collections::HashMap, hash::Hash, net::SocketAddr, num::NonZeroU32, sync::Arc};
 
-use libp2p::{
-	core::{ConnectedPoint, Endpoint},
-	request_response::{RequestId, ResponseChannel},
-};
+use libp2p::core::{ConnectedPoint, Endpoint};
 use tracing::warn;
 
 use crate::{spacetime::SpaceTimeMessage, ManagerEvent, ManagerRef};
