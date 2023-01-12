@@ -34,6 +34,7 @@ import { Folder } from '../icons/Folder';
 import { JobsManager } from '../jobs/JobManager';
 import { MacTrafficLights } from '../os/TrafficLights';
 import { InputContainer } from '../primitive/InputContainer';
+import { Tooltip } from '../tooltip/Tooltip';
 
 const SidebarBody = tw.div`flex relative flex-col flex-grow-0 flex-shrink-0 w-44 min-h-full border-r border-sidebar-divider bg-sidebar`;
 
@@ -123,7 +124,9 @@ export function Sidebar() {
 						variant="outline"
 						className="text-ink-faint ring-offset-sidebar"
 					>
-						<Gear className="w-5 h-5" />
+						<Tooltip label="Settings">
+							<Gear className="w-5 h-5" />
+						</Tooltip>
 					</ButtonLink>
 					<OverlayPanel
 						transformOrigin="bottom left"
@@ -134,7 +137,9 @@ export function Sidebar() {
 								variant="outline"
 								className="radix-state-open:bg-sidebar-selected/50 text-ink-faint ring-offset-sidebar"
 							>
-								{library && <IsRunningJob />}
+								<Tooltip label="Recent Jobs">
+									{library && <IsRunningJob />}
+								</Tooltip>
 							</Button>
 						}
 					>
