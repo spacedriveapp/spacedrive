@@ -36,6 +36,7 @@ export type Procedures = {
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
         { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
+        { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
@@ -99,6 +100,8 @@ export interface FileDecryptorJobInit { location_id: number, path_id: number, ou
 export interface FileDeleterJobInit { location_id: number, path_id: number }
 
 export interface FileEncryptorJobInit { location_id: number, path_id: number, key_uuid: string, algorithm: Algorithm, metadata: boolean, preview_media: boolean, output_path: string | null }
+
+export interface FileEraserJobInit { location_id: number, path_id: number, passes: number }
 
 export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
 
