@@ -8,10 +8,8 @@ use std::{
 use libp2p::{core::ProtocolName, swarm::NetworkBehaviour};
 use serde::{Deserialize, Serialize};
 
-mod codec;
 mod handler;
 
-pub use codec::*;
 pub use handler::*;
 
 /// TODO
@@ -37,8 +35,6 @@ impl ProtocolName for SpaceTimeProtocol {
 ///
 /// BREAK
 ///
-pub use codec::RequestResponseCodec;
-
 pub use handler::ProtocolSupport;
 
 use futures::channel::oneshot;
@@ -735,7 +731,7 @@ impl Behaviour {
 
 impl NetworkBehaviour for Behaviour {
 	type ConnectionHandler = Handler;
-	type OutEvent = Event; // <<SpaceTimeCodec as Codec>::Request, <SpaceTimeCodec as Codec>::Response>;
+	type OutEvent = Event;
 
 	fn new_handler(&mut self) -> Self::ConnectionHandler {
 		Handler::new(
