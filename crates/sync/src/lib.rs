@@ -4,11 +4,11 @@ mod crdt;
 pub use crdt::*;
 // pub use db::*;
 
-use prisma_client_rust::ModelActions;
+use prisma_client_rust::ModelTypes;
 use serde_value::Value;
 use std::collections::BTreeMap;
 
-pub trait CreateCRDTMutation<T: ModelActions> {
+pub trait CreateCRDTMutation<T: ModelTypes> {
 	fn operation_from_data(
 		d: &BTreeMap<String, Value>,
 		typ: CreateOperationType,
@@ -22,7 +22,7 @@ pub enum CreateOperationType {
 	Relation,
 }
 
-impl<T: ModelActions> CreateCRDTMutation<T> for prisma_client_rust::Create<'_, T> {
+impl<T: ModelTypes> CreateCRDTMutation<T> for prisma_client_rust::Create<'_, T> {
 	fn operation_from_data(
 		_: &BTreeMap<String, Value>,
 		typ: CreateOperationType,
