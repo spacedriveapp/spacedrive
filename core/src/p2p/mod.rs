@@ -19,6 +19,13 @@ pub enum P2PEvent {
 	// TODO
 }
 
+/// TODO
+#[derive(Debug, Clone)]
+pub struct PeerBootstrapProgress {
+	synced_rows: u128,
+	total_rows: u128,
+}
+
 pub struct P2PManager {}
 
 impl P2PManager {

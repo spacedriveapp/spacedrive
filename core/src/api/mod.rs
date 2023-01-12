@@ -53,6 +53,9 @@ pub(crate) fn mount() -> Arc<Router> {
 		std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/client/src/core.ts"),
 	);
 
+	// TODO: Protect a library from being used while it is being boostraped by the P2P layer -> Maybe a rspc middleware style thing
+	// TODO: Implement the frontend progress page for during the boostrap process + show a symbol in library switcher if actively switching
+
 	let r = <Router>::new()
 		.config(config)
 		.query("buildInfo", |t| {
