@@ -66,7 +66,6 @@ impl StatefulJob for FileDecryptorJob {
 		let info = &step.fs_info;
 
 		// handle overwriting checks, and making sure there's enough available space
-
 		let output_path = state.init.output_path.clone().map_or_else(
 			|| {
 				let mut path = info.obj_path.clone();

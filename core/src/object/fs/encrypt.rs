@@ -216,6 +216,7 @@ impl StatefulJob for FileEncryptorJob {
 							)?;
 						}
 					} else {
+						// should use container encryption if it's a directory
 						warn!(
 							"skipping metadata/preview media inclusion, no associated object found"
 						)
