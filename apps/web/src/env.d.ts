@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-	readonly VITE_SDSERVER_BASE_URL: string;
+	readonly VITE_SDSERVER_ORIGIN: string;
 }
 
 interface ImportMeta {
