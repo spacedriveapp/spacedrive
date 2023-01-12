@@ -22,16 +22,12 @@ use tracing::warn;
 
 use crate::{
 	job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext},
-	prisma::{file_path, location, object},
+	prisma::object,
 };
 
-pub struct FileEncryptorJob;
+use super::{context_menu_fs_info, FsInfo, ObjectType};
 
-#[derive(Serialize, Deserialize, Debug)]
-enum ObjectType {
-	File,
-	Directory,
-}
+pub struct FileEncryptorJob;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobState {}
@@ -49,10 +45,7 @@ pub struct FileEncryptorJobInit {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileEncryptorJobStep {
-	obj_name: String,
-	obj_path: PathBuf,
-	obj_type: ObjectType,
-	obj_id: Option<i32>,
+	pub fs_info: FsInfo,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -80,61 +73,15 @@ impl StatefulJob for FileEncryptorJob {
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
-		// enumerate files to encrypt
-		// populate the steps with them (local file paths)
-		let location = ctx
-			.library_ctx
-			.db
-			.location()
-			.find_unique(location::id::equals(state.init.location_id))
-			.exec()
-			.await?
-			.ok_or(JobError::MissingData {
-				value: String::from("location which matches location_id"),
-			})?;
-
-		let root_path =
-			location
-				.local_path
-				.as_ref()
-				.map(PathBuf::from)
-				.ok_or(JobError::MissingData {
-					value: String::from("path when cast as `PathBuf`"),
-				})?;
-
-		let item = ctx
-			.library_ctx
-			.db
-			.file_path()
-			.find_unique(file_path::location_id_id(
-				state.init.location_id,
-				state.init.path_id,
-			))
-			.exec()
-			.await?
-			.ok_or(JobError::MissingData {
-				value: String::from("file_path that matches both location id and path id"),
-			})?;
-
-		let obj_name = item.materialized_path;
-
-		let mut obj_path = root_path.clone();
-		obj_path.push(obj_name.clone());
-
-		// i don't know if this covers symlinks
-		let obj_type = if item.is_dir {
-			ObjectType::Directory
-		} else {
-			ObjectType::File
-		};
+		let fs_info = context_menu_fs_info(
+			&ctx.library_ctx.db,
+			state.init.location_id,
+			state.init.path_id,
+		)
+		.await?;
 
 		state.steps = VecDeque::new();
-		state.steps.push_back(FileEncryptorJobStep {
-			obj_name,
-			obj_path,
-			obj_type,
-			obj_id: item.object_id,
-		});
+		state.steps.push_back(FileEncryptorJobStep { fs_info });
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -147,8 +94,9 @@ impl StatefulJob for FileEncryptorJob {
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
 		let step = &state.steps[0];
+		let info = &step.fs_info;
 
-		match step.obj_type {
+		match info.obj_type {
 			ObjectType::File => {
 				// handle overwriting checks, and making sure there's enough available space
 
@@ -165,7 +113,7 @@ impl StatefulJob for FileEncryptorJob {
 
 				let output_path = state.init.output_path.clone().map_or_else(
 					|| {
-						let mut path = step.obj_path.clone();
+						let mut path = info.obj_path.clone();
 						let extension = path.extension().map_or_else(
 							|| Ok("sdenc".to_string()),
 							|extension| {
@@ -188,7 +136,7 @@ impl StatefulJob for FileEncryptorJob {
 					Ok,
 				)?;
 
-				let mut reader = File::open(step.obj_path.clone())?;
+				let mut reader = File::open(info.obj_path.clone())?;
 				let mut writer = File::create(output_path)?;
 
 				let master_key = generate_master_key();
@@ -208,7 +156,7 @@ impl StatefulJob for FileEncryptorJob {
 
 				if state.init.metadata || state.init.preview_media {
 					// if any are requested, we can make the query as it'll be used at least once
-					if let Some(obj_id) = step.obj_id {
+					if let Some(obj_id) = info.obj_id {
 						let object = ctx
 							.library_ctx
 							.db
@@ -223,7 +171,7 @@ impl StatefulJob for FileEncryptorJob {
 						if state.init.metadata {
 							let metadata = Metadata {
 								path_id: state.init.path_id,
-								name: step.obj_name.clone(),
+								name: info.obj_name.clone(),
 								hidden: object.hidden,
 								favourite: object.favorite,
 								important: object.important,
@@ -286,7 +234,7 @@ impl StatefulJob for FileEncryptorJob {
 			}
 			_ => warn!(
 				"encryption is skipping {} as it isn't a file",
-				step.obj_name
+				info.obj_name
 			),
 		}
 
