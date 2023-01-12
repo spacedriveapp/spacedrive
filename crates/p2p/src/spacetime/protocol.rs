@@ -12,9 +12,10 @@ use std::{
 	io::{self, ErrorKind},
 };
 
-use crate::spacetime::{RequestId, SpaceTimeMessage, SpaceTimeProtocol};
+use crate::spacetime::{RequestId, SpaceTime, SpaceTimeMessage};
 
 /// The level of support for a particular protocol.
+#[deprecated]
 #[derive(Debug, Clone)]
 pub enum ProtocolSupport {
 	/// The protocol is only supported for inbound requests.
@@ -48,14 +49,14 @@ impl ProtocolSupport {
 /// Receives a request and sends a response.
 // #[derive(Debug)]
 pub struct ResponseProtocol {
-	pub(crate) protocols: SmallVec<[SpaceTimeProtocol; 2]>,
+	pub(crate) protocols: SmallVec<[SpaceTime; 2]>,
 	pub(crate) request_sender: oneshot::Sender<(RequestId, SpaceTimeMessage)>,
 	pub(crate) response_receiver: oneshot::Receiver<SpaceTimeMessage>,
 	pub(crate) request_id: RequestId,
 }
 
 impl UpgradeInfo for ResponseProtocol {
-	type Info = SpaceTimeProtocol;
+	type Info = SpaceTime;
 	type InfoIter = smallvec::IntoIter<[Self::Info; 2]>;
 
 	fn protocol_info(&self) -> Self::InfoIter {
@@ -100,7 +101,7 @@ impl InboundUpgrade<NegotiatedSubstream> for ResponseProtocol {
 ///
 /// Sends a request and receives a response.
 pub struct RequestProtocol {
-	pub(crate) protocols: SmallVec<[SpaceTimeProtocol; 2]>,
+	pub(crate) protocols: SmallVec<[SpaceTime; 2]>,
 	pub(crate) request_id: RequestId,
 	pub(crate) request: SpaceTimeMessage,
 }
@@ -114,7 +115,7 @@ impl fmt::Debug for RequestProtocol {
 }
 
 impl UpgradeInfo for RequestProtocol {
-	type Info = SpaceTimeProtocol;
+	type Info = SpaceTime;
 	type InfoIter = smallvec::IntoIter<[Self::Info; 2]>;
 
 	fn protocol_info(&self) -> Self::InfoIter {
@@ -140,7 +141,9 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
 	}
 }
 
-async fn read_request<T>(_: &SpaceTimeProtocol, io: &mut T) -> io::Result<SpaceTimeMessage>
+// TODO: Merge these in above
+
+async fn read_request<T>(_: &SpaceTime, io: &mut T) -> io::Result<SpaceTimeMessage>
 where
 	T: AsyncRead + Unpin + Send,
 {
@@ -154,7 +157,7 @@ where
 	Ok(from_slice(&buf).unwrap())
 }
 
-async fn read_response<T>(_: &SpaceTimeProtocol, io: &mut T) -> io::Result<SpaceTimeMessage>
+async fn read_response<T>(_: &SpaceTime, io: &mut T) -> io::Result<SpaceTimeMessage>
 where
 	T: AsyncRead + Unpin + Send,
 {
@@ -168,11 +171,7 @@ where
 	Ok(from_slice(&buf).unwrap())
 }
 
-async fn write_request<T>(
-	_: &SpaceTimeProtocol,
-	io: &mut T,
-	data: SpaceTimeMessage,
-) -> io::Result<()>
+async fn write_request<T>(_: &SpaceTime, io: &mut T, data: SpaceTimeMessage) -> io::Result<()>
 where
 	T: AsyncWrite + Unpin + Send,
 {
@@ -182,11 +181,7 @@ where
 	Ok(())
 }
 
-async fn write_response<T>(
-	_: &SpaceTimeProtocol,
-	io: &mut T,
-	data: SpaceTimeMessage,
-) -> io::Result<()>
+async fn write_response<T>(_: &SpaceTime, io: &mut T, data: SpaceTimeMessage) -> io::Result<()>
 where
 	T: AsyncWrite + Unpin + Send,
 {

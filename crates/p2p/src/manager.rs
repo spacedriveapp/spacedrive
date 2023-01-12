@@ -31,7 +31,7 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	event::Event,
-	spacetime::{Behaviour, OutboundFailure, ResponseChannel, SpaceTimeMessage},
+	spacetime::{OutboundFailure, ResponseChannel, SpaceTime, SpaceTimeMessage},
 	utils::{quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr, AsyncFn, AsyncFn2},
 	ConnectedPeer, Connection, DiscoveredPeer, Keypair, ManagerRef, Metadata,
 };
@@ -81,7 +81,7 @@ where
 			quic::GenTransport::<quic::tokio::Provider>::new(quic::Config::new(keypair.inner()))
 				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
 				.boxed(),
-			Behaviour::new(),
+			SpaceTime::new(),
 			keypair.public().to_peer_id(),
 		);
 		{
@@ -120,7 +120,7 @@ where
 		tokio::spawn({
 			let this = this.clone();
 			let is_advertisement_queued = AtomicBool::new(false);
-			let mut active_requests = HashMap::new(); // Active Spacetime requests
+			let mut active_requests = HashMap::new(); // Active Spacetime requests // TODO: Move this into SpaceTime
 
 			async move {
 				loop {
@@ -140,10 +140,11 @@ where
 									}
 								},
 								ManagerEvent::SendRequest(peer_id, data, resp) => {
-									active_requests.insert(swarm.behaviour_mut().send_request(&peer_id, data), resp);
+									// active_requests.insert(swarm.behaviour_mut().send_request(&peer_id, data), resp);
 								}
+								// TODO: Remove this event maybe????
 								ManagerEvent::SendResponse(_peer_id, data, channel) => {
-									swarm.behaviour_mut().send_response(channel, data).unwrap();
+									// swarm.behaviour_mut().send_response(channel, data).unwrap(); // TODO
 								}
 							}
 						}
@@ -174,7 +175,7 @@ where
 											// TODO: This should be stored into request map to be handled properly and so errors can be reported
 											// TODO: handle the event of this not being sent properly because it means the other side won't startup.
 											debug!("sending establishment request to peer '{}'", peer_id);
-											swarm.behaviour_mut().send_request(&peer_id, SpaceTimeMessage::Establish);
+											// swarm.behaviour_mut().send_request(&peer_id, SpaceTimeMessage::Establish); // TODO
 										}
 
 										(this.fn_on_event)(this.state.clone(), Event::PeerConnected(peer)).await;
