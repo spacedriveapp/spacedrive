@@ -7,6 +7,8 @@ import { useState } from 'react';
 
 import { Folder } from '../icons/Folder';
 
+import { useZodForm, z } from '@sd/ui/src/forms';
+
 interface LocationListItemProps {
 	location: Location & { node: Node };
 }
@@ -25,6 +27,8 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 			}
 		}
 	);
+
+	const form = useZodForm({ schema: z.object({}) });
 
 	if (hide) return <></>;
 
@@ -53,13 +57,14 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					</span>
 				</Button>
 				<Dialog
+					form={form}
+					onSubmit={form.handleSubmit(() => {
+						deleteLoc(location.id);
+					})}
 					open={open}
 					setOpen={setOpen}
 					title="Delete Location"
 					description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
-					ctaAction={() => {
-						deleteLoc(location.id);
-					}}
 					loading={locDeletePending}
 					ctaDanger
 					ctaLabel="Delete"
