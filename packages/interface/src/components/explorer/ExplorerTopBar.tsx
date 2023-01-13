@@ -265,7 +265,7 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					<SearchBar ref={searchRef} />
 
 					<div className="flex mx-8 space-x-2">
-						<Tooltip label="Unlock">
+						<Tooltip label="Key Manager">
 							<OverlayPanel
 								className="focus:outline-none"
 								trigger={
