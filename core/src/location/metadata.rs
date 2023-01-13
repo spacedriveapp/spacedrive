@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{fs, io};
+use tracing::error;
 use uuid::Uuid;
 
 static SPACEDRIVE_LOCATION_METADATA_FILE: &str = ".spacedrive";
@@ -45,10 +46,22 @@ impl SpacedriveLocationMetadataFile {
 
 		match fs::read(&metadata_file_name).await {
 			Ok(data) => Ok(Some(Self {
+				metadata: match serde_json::from_slice(&data) {
+					Ok(data) => data,
+					Err(e) => {
+						error!(
+							"Failed to deserialize corrupted metadata file, \
+						we will remove it and create a new one; File: {}; Error: {e}",
+							metadata_file_name.display()
+						);
+						fs::remove_file(&metadata_file_name).await.map_err(|e| {
+							LocationMetadataError::Delete(e, location_path.as_ref().to_path_buf())
+						})?;
+
+						return Ok(None);
+					}
+				},
 				path: metadata_file_name,
-				metadata: serde_json::from_slice(&data).map_err(|e| {
-					LocationMetadataError::Deserialize(e, location_path.as_ref().to_path_buf())
-				})?,
 			})),
 			Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
 			Err(e) => Err(LocationMetadataError::Read(
