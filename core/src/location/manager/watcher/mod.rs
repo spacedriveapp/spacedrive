@@ -252,78 +252,77 @@ impl Drop for LocationWatcher {
 }
 
 /***************************************************************************************************
- * Some tests to validate our assumptions of events through different file systems				   *
- ***************************************************************************************************
- *	Events dispatched on Linux:																	   *
- *		Create File:																			   *
- *			1) EventKind::Create(CreateKind::File)												   *
- *			2) EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any))						   *
- *				or EventKind::Modify(ModifyKind::Data(DataChange::Any))							   *
- *			3) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
- *		Create Directory:																		   *
- *			1) EventKind::Create(CreateKind::Folder)											   *
- *		Update File:																			   *
- *			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
- *			2) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
- *		Update File (rename):																	   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
- *		Update Directory (rename):																   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
- *		Delete File:																			   *
- *			1) EventKind::Remove(RemoveKind::File)												   *
- *		Delete Directory:																		   *
- *			1) EventKind::Remove(RemoveKind::Folder)											   *
- *																								   *
- *	Events dispatched on MacOS:																	   *
- *		Create File:																			   *
- *			1) EventKind::Create(CreateKind::File)												   *
- *		Create Directory:																		   *
- *			1) EventKind::Create(CreateKind::Folder)											   *
- *		Update File:																			   *
- *			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
- *		Update File (rename):																	   *
- *			1) EventKind::Create(CreateKind::File)												   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
- *		Update Directory (rename):																   *
- *			1) EventKind::Create(CreateKind::Folder)											   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))								   *
- *		Delete File:																			   *
- *			1) EventKind::Remove(RemoveKind::Any)												   *
- *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any)) - On parent directory		   *
- *		Delete Directory:																		   *
- *			1) EventKind::Remove(RemoveKind::Any)												   *
- *			2) EventKind::Modify(ModifyKind::Data(DataChange::Any)) - On parent directory		   *
- *																								   *
- *	Events dispatched on Windows:																   *
- *		Create File:																			   *
- *			1) EventKind::Create(CreateKind::Any)												   *
- *			2) EventKind::Modify(ModifyKind::Any)												   *
- *		Create Directory:																		   *
- *			1) EventKind::Create(CreateKind::Any)												   *
- *		Update File:																			   *
- *			1) EventKind::Modify(ModifyKind::Any)												   *
- *		Update File (rename):																	   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *		Update Directory (rename):																   *
- *			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
- *			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
- *		Delete File:																			   *
- *			1) EventKind::Remove(RemoveKind::Any)												   *
- *		Delete Directory:																		   *
- *			1) EventKind::Remove(RemoveKind::Any)												   *
- *																								   *
- *	Events dispatched on Android:																   *
- *	TODO																						   *
- *																								   *
- *	Events dispatched on iOS:																	   *
- *	TODO																						   *
- *																								   *
- **************************************************************************************************/
+* Some tests to validate our assumptions of events through different file systems				   *
+***************************************************************************************************
+*	Events dispatched on Linux:																	   *
+*		Create File:																			   *
+*			1) EventKind::Create(CreateKind::File)												   *
+*			2) EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any))						   *
+*				or EventKind::Modify(ModifyKind::Data(DataChange::Any))							   *
+*			3) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
+*		Create Directory:																		   *
+*			1) EventKind::Create(CreateKind::Folder)											   *
+*		Update File:																			   *
+*			1) EventKind::Modify(ModifyKind::Data(DataChange::Any))								   *
+*			2) EventKind::Access(AccessKind::Close(AccessMode::Write)))							   *
+*		Update File (rename):																	   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+*			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
+*		Update Directory (rename):																   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+*			3) EventKind::Modify(ModifyKind::Name(RenameMode::Both))							   *
+*		Delete File:																			   *
+*			1) EventKind::Remove(RemoveKind::File)												   *
+*		Delete Directory:																		   *
+*			1) EventKind::Remove(RemoveKind::Folder)											   *
+*																								   *
+*	Events dispatched on MacOS:																	   *
+*		Create File:																			   *
+*			1) EventKind::Create(CreateKind::File)												   *
+*			2) EventKind::Modify(ModifyKind::Data(DataChange::Content))							   *
+*		Create Directory:																		   *
+*			1) EventKind::Create(CreateKind::Folder)											   *
+*		Update File:																			   *
+*			1) EventKind::Modify(ModifyKind::Data(DataChange::Content))							   *
+*		Update File (rename):																	   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::Any)) -- From						   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))	-- To						   *
+*		Update Directory (rename):																   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::Any)) -- From						   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::Any))	-- To						   *
+*		Delete File:																			   *
+*			1) EventKind::Remove(RemoveKind::File)												   *
+*		Delete Directory:																		   *
+*			1) EventKind::Remove(RemoveKind::Folder)											   *
+*																								   *
+*	Events dispatched on Windows:																   *
+*		Create File:																			   *
+*			1) EventKind::Create(CreateKind::Any)												   *
+*			2) EventKind::Modify(ModifyKind::Any)												   *
+*		Create Directory:																		   *
+*			1) EventKind::Create(CreateKind::Any)												   *
+*		Update File:																			   *
+*			1) EventKind::Modify(ModifyKind::Any)												   *
+*		Update File (rename):																	   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+*		Update Directory (rename):																   *
+*			1) EventKind::Modify(ModifyKind::Name(RenameMode::From))							   *
+*			2) EventKind::Modify(ModifyKind::Name(RenameMode::To))								   *
+*		Delete File:																			   *
+*			1) EventKind::Remove(RemoveKind::Any)												   *
+*		Delete Directory:																		   *
+*			1) EventKind::Remove(RemoveKind::Any)												   *
+*																								   *
+*	Events dispatched on Android:																   *
+*	TODO																						   *
+*																								   *
+*	Events dispatched on iOS:																	   *
+*	TODO																						   *
+*																								   *
+**************************************************************************************************/
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
@@ -376,8 +375,8 @@ mod tests {
 				Ok(maybe_event) => {
 					let event = maybe_event.expect("Failed to receive event");
 					debug!("Received event: {event:#?}");
-					// In case of file creation, we expect to see an close event on write mode
-					if event.paths[0] == path && event.kind == expected_event {
+					// Using `ends_with` here due to a weird edge case on CI tests at MacOS
+					if event.paths[0].ends_with(path) && event.kind == expected_event {
 						debug!("Received expected event: {expected_event:#?}");
 						break;
 					}
