@@ -333,7 +333,10 @@ mod tests {
 		Config, Event, EventKind, RecommendedWatcher, Watcher,
 	};
 	use std::io::ErrorKind;
-	use std::{path::Path, time::Duration};
+	use std::{
+		path::{Path, PathBuf},
+		time::Duration,
+	};
 	use tempfile::{tempdir, TempDir};
 	use tokio::{fs, io::AsyncWriteExt, sync::mpsc, time::sleep};
 	use tracing::{debug, error};
@@ -375,8 +378,10 @@ mod tests {
 				Ok(maybe_event) => {
 					let event = maybe_event.expect("Failed to receive event");
 					debug!("Received event: {event:#?}");
-					// Using `ends_with` here due to a weird edge case on CI tests at MacOS
-					if event.paths[0].ends_with(path) && event.kind == expected_event {
+					// Using `ends_with` and removing root path here due to a weird edge case on CI tests at MacOS
+					if event.paths[0].ends_with(path.iter().skip(1).collect::<PathBuf>())
+						&& event.kind == expected_event
+					{
 						debug!("Received expected event: {expected_event:#?}");
 						break;
 					}

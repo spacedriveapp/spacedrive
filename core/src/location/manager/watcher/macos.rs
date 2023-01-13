@@ -8,7 +8,6 @@ use notify::{
 	event::{CreateKind, DataChange, ModifyKind, RenameMode},
 	Event, EventKind,
 };
-use tokio::{fs, io};
 use tracing::trace;
 
 use super::{
