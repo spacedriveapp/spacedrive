@@ -1,7 +1,7 @@
 use crate::{library::LibraryContext, prisma::location};
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 	time::Duration,
 };
@@ -10,7 +10,7 @@ use tokio::{fs, io::ErrorKind, time::sleep};
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use super::{watcher::LocationWatcher, LocationId};
+use super::{watcher::LocationWatcher, LocationId, LocationManagerError, ManagerMessage};
 
 type LibraryId = Uuid;
 type LocationAndLibraryKey = (LocationId, LibraryId);
@@ -162,4 +162,124 @@ pub(super) fn subtract_location_path(
 		);
 		None
 	}
+}
+
+pub(super) async fn handle_remove_location_request(
+	message: ManagerMessage,
+	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
+	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	to_remove: &mut HashSet<LocationAndLibraryKey>,
+) {
+	let (location_id, library_ctx, response_tx) = message;
+
+	let key = (location_id, library_ctx.id);
+	if let Some(location) = get_location(location_id, &library_ctx).await {
+		if let Some(ref local_path_str) = location.local_path.clone() {
+			unwatch_location(
+				location,
+				library_ctx.id,
+				local_path_str,
+				locations_watched,
+				locations_unwatched,
+			);
+			locations_unwatched.remove(&key);
+			forced_unwatch.remove(&key);
+		} else {
+			drop_location(
+				location_id,
+				library_ctx.id,
+				"Dropping location from location manager, because we don't have a `local_path` anymore",
+				locations_watched,
+				locations_unwatched
+			);
+		}
+	} else {
+		drop_location(
+			location_id,
+			library_ctx.id,
+			"Removing location from manager, as we failed to fetch from db",
+			locations_watched,
+			locations_unwatched,
+		);
+	}
+
+	// Marking location as removed, so we don't try to check it when the time comes
+	to_remove.insert(key);
+
+	let _ = response_tx.send(Ok(())); // ignore errors, we handle errors on receiver
+}
+
+pub(super) async fn handle_stop_watcher_request(
+	message: ManagerMessage,
+	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
+	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+) {
+	let (location_id, library_ctx, response_tx) = message;
+	let key = (location_id, library_ctx.id);
+
+	let _ = response_tx.send(
+		if !forced_unwatch.contains(&key) && locations_watched.contains_key(&key) {
+			if let Some(location) = get_location(location_id, &library_ctx).await {
+				if let Some(ref local_path_str) = location.local_path.clone() {
+					unwatch_location(
+						location,
+						library_ctx.id,
+						local_path_str,
+						locations_watched,
+						locations_unwatched,
+					);
+					forced_unwatch.insert(key);
+
+					Ok(())
+				} else {
+					Err(LocationManagerError::LocationMissingLocalPath(location_id))
+				}
+			} else {
+				Err(LocationManagerError::FailedToStopOrReinitWatcher {
+					reason: String::from("failed to fetch location from db"),
+				})
+			}
+		} else {
+			Ok(())
+		},
+	); // ignore errors, we handle errors on receiver
+}
+
+pub(super) async fn handle_reinit_watcher_request(
+	message: ManagerMessage,
+	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
+	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+) {
+	let (location_id, library_ctx, response_tx) = message;
+	let key = (location_id, library_ctx.id);
+
+	let _ = response_tx.send(
+		if forced_unwatch.contains(&key) && locations_unwatched.contains_key(&key) {
+			if let Some(location) = get_location(location_id, &library_ctx).await {
+				if let Some(ref local_path_str) = location.local_path.clone() {
+					watch_location(
+						location,
+						library_ctx.id,
+						local_path_str,
+						locations_watched,
+						locations_unwatched,
+					);
+					forced_unwatch.remove(&key);
+
+					Ok(())
+				} else {
+					Err(LocationManagerError::LocationMissingLocalPath(location_id))
+				}
+			} else {
+				Err(LocationManagerError::FailedToStopOrReinitWatcher {
+					reason: String::from("failed to fetch location from db"),
+				})
+			}
+		} else {
+			Ok(())
+		},
+	); // ignore errors, we handle errors on receiver
 }
