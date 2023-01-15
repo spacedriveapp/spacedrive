@@ -14,13 +14,19 @@ type FieldVec<'a> = Vec<&'a dml::Field>;
 
 #[derive(Debug)]
 enum ModelSyncType<'a> {
-	Local { id: FieldVec<'a> },
-	Owned { id: FieldVec<'a> },
-	Shared { id: FieldVec<'a> },
+	Local {
+		id: FieldVec<'a>,
+	},
+	Owned {
+		id: FieldVec<'a>,
+	},
+	Shared {
+		id: FieldVec<'a>,
+	},
 	Relation {
-        group: FieldVec<'a>,
-        item: FieldVec<'a>
-    },
+		group: FieldVec<'a>,
+		item: FieldVec<'a>,
+	},
 }
 
 impl<'a> ModelSyncType<'a> {
@@ -120,11 +126,12 @@ impl PrismaGenerator for SDSyncGenerator {
                         }
                     }
                 });
- 
+
             let set_param_impl = {
                 let field_matches = model.fields().filter_map(|field| {
                     let field_name_snake = snake_ident(field.name());
                     let field_name_snake_str = field_name_snake.to_string();
+
 
                     match field {
                         dml::Field::ScalarField(_) => {
