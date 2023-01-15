@@ -1,9 +1,7 @@
 import { useLibraryMutation } from '@sd/client';
-import { Input } from '@sd/ui';
 import { Dialog } from '@sd/ui';
-import { forms } from '@sd/ui';
 
-const { useZodForm, z } = forms;
+import { Input, useZodForm, z } from '@sd/ui/src/forms';
 
 const schema = z.object({ path: z.string() });
 

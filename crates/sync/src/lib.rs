@@ -5,8 +5,32 @@ pub use crdt::*;
 // pub use db::*;
 
 use prisma_client_rust::ModelTypes;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_value::Value;
 use std::collections::BTreeMap;
+
+pub trait SyncId: Serialize + DeserializeOwned {
+	type ModelTypes: SyncType;
+}
+
+pub trait SyncType: ModelTypes {
+	type SyncId: SyncId;
+	type Marker: SyncTypeMarker;
+}
+
+pub trait SyncTypeMarker {}
+
+pub struct LocalSyncType;
+impl SyncTypeMarker for LocalSyncType {}
+
+pub struct OwnedSyncType;
+impl SyncTypeMarker for OwnedSyncType {}
+
+pub struct SharedSyncType;
+impl SyncTypeMarker for SharedSyncType {}
+
+pub struct RelationSyncType;
+impl SyncTypeMarker for RelationSyncType {}
 
 pub trait CreateCRDTMutation<T: ModelTypes> {
 	fn operation_from_data(
