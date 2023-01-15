@@ -44,7 +44,6 @@ function FileItem({
 }: Props) {
 	const objectData = data ? (isObject(data) ? data : data.object) : null;
 	const isVid = isVideoExt(data.extension || '');
-	const fullName = `${data.name ?? ''}${data.extension ? `.${data.extension}` : ''}`;
 
 	return (
 		<FileItemContextMenu
@@ -97,7 +96,10 @@ function FileItem({
 					</div>
 				</div>
 				<NameArea>
-					<span className={nameContainerStyles({ selected })}>{fullName}</span>
+					<span className={nameContainerStyles({ selected })}>
+						{data?.name}
+						{data?.extension && `.${data.extension}`}
+					</span>
 				</NameArea>
 			</div>
 		</FileItemContextMenu>
