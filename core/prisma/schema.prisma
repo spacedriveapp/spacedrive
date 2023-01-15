@@ -40,24 +40,6 @@ model SharedOperation {
     @@map("shared_operation")
 }
 
-model SyncEvent {
-    id        Int     @id @default(autoincrement())
-    node_id   Int
-    timestamp String
-    // individual record pub id OR compound many-to-many pub ids
-    record_id Bytes
-    // the type of operation, I.E: CREATE, UPDATE, DELETE as an enum
-    kind      Int
-    // the column name for atomic update operations
-    column    String?
-    // the new value for create/update operations, msgpack encoded
-    value     String
-
-    node Node @relation(fields: [node_id], references: [id])
-
-    @@map("sync_event")
-}
-
 model Statistics {
     id                   Int      @id @default(autoincrement())
     date_captured        DateTime @default(now())
@@ -72,6 +54,7 @@ model Statistics {
     @@map("statistics")
 }
 
+/// @local(id: pub_id)
 model Node {
     id           Int      @id @default(autoincrement())
     pub_id       Bytes    @unique
@@ -82,10 +65,9 @@ model Node {
     timezone     String?
     date_created DateTime @default(now())
 
-    sync_events SyncEvent[]
-    jobs        Job[]
+    jobs     Job[]
+    Location Location[]
 
-    Location        Location[]
     OwnedOperation  OwnedOperation[]
     SharedOperation SharedOperation[]
 
@@ -108,6 +90,7 @@ model Volume {
     @@map("volume")
 }
 
+/// @owned(id: pub_id)
 model Location {
     id                 Int      @id @default(autoincrement())
     pub_id             Bytes    @unique
@@ -130,6 +113,7 @@ model Location {
     @@map("location")
 }
 
+/// @shared(id: cas_id)
 model Object {
     id                 Int      @id @default(autoincrement())
     // content addressable storage id - blake3 sampled checksum
@@ -174,6 +158,7 @@ model Object {
     @@map("object")
 }
 
+/// @shared(id: [location, id])
 model FilePath {
     id                Int
     is_dir            Boolean  @default(false)
@@ -220,6 +205,7 @@ model FileConflict {
 
 // keys allow us to know exactly which files can be decrypted with a given key
 // they can be "mounted" to a client, and then used to decrypt files automatically
+/// @shared(id: uuid)
 model Key {
     id                Int       @id @default(autoincrement())
     // uuid to identify the key
@@ -277,6 +263,7 @@ model MediaData {
     @@map("media_data")
 }
 
+/// @shared(id: pub_id)
 model Tag {
     id              Int      @id @default(autoincrement())
     pub_id          Bytes    @unique
@@ -376,6 +363,7 @@ model Job {
     @@map("job")
 }
 
+/// @shared(id: pub_id)
 model Album {
     id        Int     @id @default(autoincrement())
     pub_id    Bytes   @unique
