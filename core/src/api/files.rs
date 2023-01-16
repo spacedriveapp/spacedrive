@@ -4,6 +4,7 @@ use crate::{
 	object::fs::{
 		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
 		delete::{FileDeleterJob, FileDeleterJobInit},
+		duplicate::{FileDuplicatorJob, FileDuplicatorJobInit},
 		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
 		erase::{FileEraserJob, FileEraserJobInit},
 	},
@@ -120,6 +121,16 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("eraseFiles", |t| {
 			t(|_, args: FileEraserJobInit, library| async move {
 				library.spawn_job(Job::new(args, FileEraserJob {})).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("duplicateFiles", |t| {
+			t(|_, args: FileDuplicatorJobInit, library| async move {
+				library
+					.spawn_job(Job::new(args, FileDuplicatorJob {}))
+					.await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
