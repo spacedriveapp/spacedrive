@@ -23,7 +23,10 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 	const eraseFile = useLibraryMutation('files.eraseFiles');
 
 	const form = useZodForm({
-		schema
+		schema,
+		defaultValues: {
+			passes: 4
+		}
 	});
 
 	const onSubmit = form.handleSubmit((data) => {
@@ -68,9 +71,10 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 							max={16}
 							min={1}
 							step={1}
-							defaultValue={[64]}
+							defaultValue={[4]}
 							onValueChange={(e) => {
 								setPasses(e);
+								form.setValue('passes', e[0]);
 							}}
 						/>
 					</div>
