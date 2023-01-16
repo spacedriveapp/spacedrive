@@ -39,6 +39,8 @@ module.exports = {
 					shade: 'hsla(230, 15%, 0%, 1)',
 					// button
 					button: 'hsla(230, 15%, 23%, 1)',
+					// menu
+					menu: 'hsla(230, 25%, 5%, 1)',
 					50: 'hsla(230, 15%, 5%, 1)',
 					100: 'hsla(230, 15%, 10%, 1)',
 					150: 'hsla(230, 15%, 15%, 1)',

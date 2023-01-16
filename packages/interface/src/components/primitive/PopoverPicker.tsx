@@ -1,16 +1,16 @@
 import clsx from 'clsx';
 import { useCallback, useRef, useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
+import { UseControllerProps, useController } from 'react-hook-form';
 
 import useClickOutside from '../../hooks/useClickOutside';
 
-interface PopoverPickerProps {
-	value: string;
-	onChange: (color: string) => void;
+interface PopoverPickerProps extends UseControllerProps {
 	className?: string;
 }
 
-export const PopoverPicker = ({ value, onChange, className }: PopoverPickerProps) => {
+export const PopoverPicker = ({ className, ...props }: PopoverPickerProps) => {
+	const { field } = useController(props);
 	const popover = useRef<HTMLDivElement | null>(null);
 	const [isOpen, toggle] = useState(false);
 
@@ -21,7 +21,7 @@ export const PopoverPicker = ({ value, onChange, className }: PopoverPickerProps
 		<div className={clsx('relative flex items-center mt-3', className)}>
 			<div
 				className={clsx('w-5 h-5 rounded-full shadow ', isOpen && 'dark:border-gray-500')}
-				style={{ backgroundColor: value }}
+				style={{ backgroundColor: field.value }}
 				onClick={() => toggle(true)}
 			/>
 			{/* <span className="inline ml-2 text-sm text-gray-200">Pick Color</span> */}
@@ -32,7 +32,7 @@ export const PopoverPicker = ({ value, onChange, className }: PopoverPickerProps
 					className="absolute left-0 rounded-md shadow"
 					ref={popover}
 				>
-					<HexColorPicker color={value} onChange={onChange} />
+					<HexColorPicker color={field.value} onChange={field.onChange} />
 				</div>
 			)}
 		</div>

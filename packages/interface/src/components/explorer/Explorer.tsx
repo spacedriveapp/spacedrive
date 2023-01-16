@@ -41,6 +41,8 @@ export default function Explorer(props: Props) {
 		}
 	});
 
+	const selectedItem = props.data?.items[expStore.selectedRowIndex];
+
 	return (
 		<>
 			<div className="relative">
@@ -97,19 +99,19 @@ export default function Explorer(props: Props) {
 				value={alertDialogData.value}
 				inputBox={alertDialogData.inputBox}
 			/>
-			{props.data && props.data.items[expStore.selectedRowIndex] && (
+			{selectedItem && (
 				<EncryptFileDialog
 					location_id={expStore.locationId}
-					path_id={props.data?.items[expStore.selectedRowIndex].id}
+					path_id={selectedItem.id}
 					open={showEncryptDialog}
 					setOpen={setShowEncryptDialog}
 					setAlertDialogData={setAlertDialogData}
 				/>
 			)}
-			{props.data && props.data.items[expStore.selectedRowIndex] && (
+			{selectedItem && expStore.locationId !== null && (
 				<DecryptFileDialog
 					location_id={expStore.locationId}
-					path_id={props.data?.items[expStore.selectedRowIndex].id}
+					path_id={selectedItem.id}
 					open={showDecryptDialog}
 					setOpen={setShowDecryptDialog}
 					setAlertDialogData={setAlertDialogData}

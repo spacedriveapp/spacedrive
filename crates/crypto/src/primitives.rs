@@ -11,7 +11,7 @@ use crate::{
 		file::FileHeaderVersion, keyslot::KeyslotVersion, metadata::MetadataVersion,
 		preview_media::PreviewMediaVersion,
 	},
-	keys::hashing::HashingAlgorithm,
+	keys::{hashing::HashingAlgorithm, keymanager::StoredKeyVersion},
 	Error, Protected, Result,
 };
 
@@ -37,6 +37,7 @@ pub const LATEST_FILE_HEADER: FileHeaderVersion = FileHeaderVersion::V1;
 pub const LATEST_KEYSLOT: KeyslotVersion = KeyslotVersion::V1;
 pub const LATEST_METADATA: MetadataVersion = MetadataVersion::V1;
 pub const LATEST_PREVIEW_MEDIA: PreviewMediaVersion = PreviewMediaVersion::V1;
+pub const LATEST_STORED_KEY: StoredKeyVersion = StoredKeyVersion::V1;
 
 pub const ROOT_KEY_CONTEXT: &str = "spacedrive 2022-12-14 12:53:54 root key derivation"; // used for deriving keys from the root key
 pub const MASTER_PASSWORD_CONTEXT: &str =

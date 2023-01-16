@@ -6,6 +6,7 @@
 	"types": "src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
+		"./src/forms": "./src/forms/index.ts",
 		"./postcss": "./style/postcss.config.js",
 		"./tailwind": "./style/tailwind.js",
 		"./style": "./style/index.js",
@@ -30,7 +31,7 @@
 		"@radix-ui/react-tabs": "^1.0.1",
 		"@sd/assets": "workspace:*",
 		"@tailwindcss/forms": "^0.5.3",
-		"class-variance-authority": "^0.2.3",
+		"class-variance-authority": "^0.4.0",
 		"clsx": "^1.2.1",
 		"phosphor-react": "^1.4.1",
 		"postcss": "^8.4.17",

@@ -1,7 +1,6 @@
 use futures::future::join_all;
 use sd_sync::*;
-use serde::Deserialize;
-use serde_json::{from_slice, from_value, to_vec, Value};
+use serde_json::{from_slice, from_value, json, to_vec, Value};
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
@@ -10,8 +9,9 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 use uhlc::{HLCBuilder, HLC, NTP64};
 use uuid::Uuid;
 
-use crate::prisma::{
-	file_path, location, node, object, owned_operation, shared_operation, PrismaClient,
+use crate::{
+	prisma::{file_path, location, node, object, owned_operation, shared_operation, PrismaClient},
+	prisma_sync,
 };
 
 pub struct SyncManager {
@@ -220,19 +220,14 @@ impl SyncManager {
 		match op.typ {
 			CRDTOperationType::Owned(owned_op) => match owned_op.model.as_str() {
 				"FilePath" => {
-					#[derive(Deserialize)]
-					struct FilePathId {
-						location_id: Vec<u8>,
-						id: i32,
-					}
-
 					for item in owned_op.items {
-						let id: FilePathId = serde_json::from_value(item.id).unwrap();
+						let id: prisma_sync::file_path::SyncId =
+							serde_json::from_value(item.id).unwrap();
 
 						let location = self
 							.db
 							.location()
-							.find_unique(location::pub_id::equals(id.location_id))
+							.find_unique(location::pub_id::equals(id.location.pub_id))
 							.select(location::select!({ id }))
 							.exec()
 							.await?
@@ -264,14 +259,17 @@ impl SyncManager {
 								values,
 								skip_duplicates,
 							} => {
-								let location_ids = values
-									.iter()
-									.map(|(id, _)| {
-										serde_json::from_value::<FilePathId>(id.clone())
+								let location_ids =
+									values
+										.iter()
+										.map(|(id, _)| {
+											serde_json::from_value::<prisma_sync::file_path::SyncId>(id.clone())
 											.unwrap()
-											.location_id
-									})
-									.collect::<HashSet<_>>();
+											.location
+                                            .pub_id
+										})
+										.collect::<HashSet<_>>();
+
 								let location_id_mappings =
 									join_all(location_ids.iter().map(|id| async move {
 										self.db
@@ -291,12 +289,14 @@ impl SyncManager {
 									values
 										.into_iter()
 										.map(|(id, mut data)| {
-											let id: FilePathId =
+											let id: prisma_sync::file_path::SyncId =
 												serde_json::from_value(id).unwrap();
 
 											file_path::create_unchecked(
 												id.id,
-												*location_id_mappings.get(&id.location_id).unwrap(),
+												*location_id_mappings
+													.get(&id.location.pub_id)
+													.unwrap(),
 												serde_json::from_value(
 													data.remove("materialized_path").unwrap(),
 												)
@@ -340,20 +340,15 @@ impl SyncManager {
 					}
 				}
 				"Location" => {
-					#[derive(Deserialize)]
-					struct LocationId {
-						id: Vec<u8>,
-					}
-
 					for item in owned_op.items {
-						let id: LocationId = serde_json::from_value(item.id).unwrap();
+						let id: prisma_sync::location::SyncId = from_value(item.id).unwrap();
 
 						match item.data {
 							OwnedOperationData::Create(mut data) => {
 								self.db
 									.location()
 									.create(
-										id.id,
+										id.pub_id,
 										{
 											let val: std::collections::HashMap<String, Value> =
 												from_value(data.remove("node").unwrap()).unwrap();
@@ -379,15 +374,15 @@ impl SyncManager {
 			},
 			CRDTOperationType::Shared(shared_op) => match shared_op.model.as_str() {
 				"Object" => {
-					let cas_id: String = from_value(shared_op.record_id).unwrap();
+					let id: prisma_sync::object::SyncId = from_value(shared_op.record_id).unwrap();
 
 					match shared_op.data {
 						SharedOperationData::Create(_) => {
 							self.db
 								.object()
 								.upsert(
-									object::cas_id::equals(cas_id.clone()),
-									(cas_id, vec![]),
+									object::cas_id::equals(id.cas_id.clone()),
+									(id.cas_id, vec![]),
 									vec![],
 								)
 								.exec()
@@ -398,7 +393,7 @@ impl SyncManager {
 							self.db
 								.object()
 								.update(
-									object::cas_id::equals(cas_id),
+									object::cas_id::equals(id.cas_id),
 									vec![object::SetParam::deserialize(&field, value).unwrap()],
 								)
 								.exec()
@@ -426,18 +421,21 @@ impl SyncManager {
 		}
 	}
 
-	pub fn owned_create<const SIZE: usize>(
+	pub fn owned_create<
+		const SIZE: usize,
+		TSyncId: SyncId<ModelTypes = TModel>,
+		TModel: SyncType<Marker = OwnedSyncType>,
+	>(
 		&self,
-		model: &str,
-		id: Value,
+		id: TSyncId,
 		values: [(&'static str, Value); SIZE],
 	) -> CRDTOperation {
 		self.new_op(CRDTOperationType::Owned(OwnedOperation {
-			model: model.to_string(),
+			model: TModel::MODEL.to_string(),
 			items: [(id, values)]
 				.into_iter()
 				.map(|(id, data)| OwnedOperationItem {
-					id,
+					id: json!(id),
 					data: OwnedOperationData::Create(
 						data.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
 					),

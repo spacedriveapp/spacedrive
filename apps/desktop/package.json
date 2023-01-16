@@ -28,7 +28,6 @@
 		"@types/babel-core": "^6.25.7",
 		"@types/react": "^18.0.21",
 		"@types/react-dom": "^18.0.6",
-		"@types/tailwindcss": "^3.1.0",
 		"@vitejs/plugin-react": "^2.1.0",
 		"prettier": "^2.7.1",
 		"sass": "^1.55.0",

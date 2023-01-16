@@ -12,4 +12,6 @@ export * as Tabs from './Tabs';
 export * as RadioGroup from './RadioGroup';
 export * from './Typography';
 export * from './utils';
+export * from './CheckBox';
+export * as forms from './forms';
 export { cva, cx } from 'class-variance-authority';
