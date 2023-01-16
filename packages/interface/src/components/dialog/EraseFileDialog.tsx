@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import Slider from '../primitive/Slider';
 
-import { CheckBox, Input, useZodForm, z } from '@sd/ui/src/forms';
+import { useZodForm, z } from '@sd/ui/src/forms';
 
 // these props are all shared
 interface EraseDialogProps {
