@@ -2,12 +2,16 @@ use super::{context_menu_fs_info, FsInfo, ObjectType};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::VecDeque, fs::OpenOptions, hash::Hash, io::Write};
+use std::{collections::VecDeque, fs::OpenOptions, hash::Hash, io::Write, path::PathBuf};
+use tracing::warn;
 
 pub struct FileEraserJob {}
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileEraserJobState {}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FileEraserJobState {
+	pub root_path: PathBuf,
+	pub root_type: ObjectType,
+}
 
 #[derive(Serialize, Deserialize, Hash, Type)]
 pub struct FileEraserJobInit {
@@ -40,6 +44,11 @@ impl StatefulJob for FileEraserJob {
 			state.init.path_id,
 		)
 		.await?;
+
+		state.data = Some(FileEraserJobState {
+			root_path: fs_info.obj_path.clone(),
+			root_type: fs_info.obj_type.clone(),
+		});
 
 		state.steps = VecDeque::new();
 		state.steps.push_back(FileEraserJobStep { fs_info });
@@ -78,39 +87,34 @@ impl StatefulJob for FileEraserJob {
 
 				std::fs::remove_file(info.obj_path.clone())?;
 
-				dbg!("erasing {}", info.obj_path.clone());
+				dbg!(info.obj_path.clone());
 			}
 			ObjectType::Directory => {
-				let mut file_count = 0;
-				// let mut dir_count = 0;
 				for entry in std::fs::read_dir(info.obj_path.clone())? {
 					let entry = entry?;
-					let obj_type = if entry.metadata()?.is_dir() {
-						// dir_count += 1;
-						ObjectType::Directory
+					if entry.metadata()?.is_dir() {
+						let obj_type = ObjectType::Directory;
+						state.steps.push_back(FileEraserJobStep {
+							fs_info: FsInfo {
+								obj_id: None,
+								obj_name: String::new(),
+								obj_path: entry.path(),
+								obj_type,
+							},
+						});
 					} else {
-						file_count += 1;
-						ObjectType::File
+						let obj_type = ObjectType::File;
+						state.steps.push_back(FileEraserJobStep {
+							fs_info: FsInfo {
+								obj_id: None,
+								obj_name: entry.file_name().to_str().unwrap().to_string(),
+								obj_path: entry.path(),
+								obj_type,
+							},
+						});
 					};
 
-					state.steps.push_back(FileEraserJobStep {
-						fs_info: FsInfo {
-							obj_id: None,
-							obj_name: entry.file_name().to_str().unwrap().to_string(),
-							obj_path: entry.path(),
-							obj_type,
-						},
-					});
-
 					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
-				}
-
-				if file_count == 0 {
-					std::fs::remove_dir(info.obj_path.clone())?;
-				} else {
-					state.steps.push_back(FileEraserJobStep {
-						fs_info: info.clone(),
-					});
 				}
 			}
 		};
@@ -122,6 +126,14 @@ impl StatefulJob for FileEraserJob {
 	}
 
 	async fn finalize(&self, _ctx: WorkerContext, state: &mut JobState<Self>) -> JobResult {
+		if let Some(info) = state.data.clone() {
+			if info.root_type == ObjectType::Directory {
+				std::fs::remove_dir_all(info.root_path)?;
+			}
+		} else {
+			warn!("missing job state, unable to fully finalise erase job");
+		}
+
 		Ok(Some(serde_json::to_value(&state.init)?))
 	}
 }

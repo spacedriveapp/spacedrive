@@ -12,7 +12,7 @@ pub mod delete;
 pub mod encrypt;
 pub mod erase;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ObjectType {
 	File,
 	Directory,
