@@ -9,6 +9,7 @@ use crate::{
 
 pub mod decrypt;
 pub mod delete;
+pub mod duplicate;
 pub mod encrypt;
 pub mod erase;
 

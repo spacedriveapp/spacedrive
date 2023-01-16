@@ -172,6 +172,8 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 	const hasMountedKeys =
 		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
 
+	const duplicateFiles = useLibraryMutation('files.duplicateFiles');
+
 	return (
 		<div className="relative">
 			<CM.ContextMenu trigger={props.children}>
@@ -186,7 +188,15 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 				<CM.Separator />
 
 				<CM.Item label="Rename" />
-				<CM.Item label="Duplicate" keybind="⌘D" />
+				<CM.Item
+					label="Duplicate"
+					keybind="⌘D"
+					onClick={(e) => {
+						expStore.locationId &&
+							props.item.id &&
+							duplicateFiles.mutate({ location_id: expStore.locationId, path_id: props.item.id });
+					}}
+				/>
 
 				<CM.Separator />
 
