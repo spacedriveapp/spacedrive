@@ -177,7 +177,10 @@ model FilePath {
     parent_id         Int?
     key_id            Int? // replacement for encryption
     // permissions       String?
-    // temp_cas_id       String? // so a filepath can be created without its File, as they're created lazily
+    
+    // this path will exist when the owner node of the location comes online
+    // allows for optimistic file management
+    pending Boolean @default(false)
 
     date_created  DateTime @default(now())
     date_modified DateTime @default(now())

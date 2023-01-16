@@ -2,6 +2,7 @@ akar
 allred
 alluxio
 augusto
+automount
 benja
 brendonovich
 chacha
@@ -18,6 +19,7 @@ Iconoir
 josephjacks
 justinhoffman
 Keychain
+keymanager
 Keyslot
 keyslots
 lesterlee
@@ -45,6 +47,7 @@ skippable
 spacedrive
 spacedriveapp
 specta
+storedkey
 stringly
 tobiaslutke
 vdfs

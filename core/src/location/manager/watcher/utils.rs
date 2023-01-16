@@ -284,6 +284,7 @@ async fn inner_update_file(
 		date_modified: file_path.date_modified,
 		date_indexed: file_path.date_indexed,
 		key: None,
+		pending: false,
 	};
 	let ObjectCreationMetadata {
 		cas_id,
