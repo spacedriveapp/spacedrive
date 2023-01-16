@@ -1,9 +1,8 @@
 import { useLibraryMutation } from '@sd/client';
 import { Dialog } from '@sd/ui';
 
-import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
+import { useZodForm, z } from '@sd/ui/src/forms';
 
-// these props are all shared
 interface DeleteDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
@@ -28,13 +27,8 @@ export const DeleteFileDialog = (props: DeleteDialogProps) => {
 		props.location_id &&
 			props.path_id &&
 			deleteFile.mutate({
-				// algorithm: data.encryptionAlgo as Algorithm,
-				// key_uuid: data.key,
 				location_id: props.location_id,
 				path_id: props.path_id
-				// metadata: data.metadata,
-				// preview_media: data.previewMedia,
-				// output_path: data.outputPath || null
 			});
 
 		form.reset();
@@ -51,16 +45,7 @@ export const DeleteFileDialog = (props: DeleteDialogProps) => {
 			loading={deleteFile.isLoading}
 			ctaLabel="Delete"
 		>
-			<div className="grid w-full grid-cols-2 gap-4 mt-4 mb-3">
-				<div className="flex">
-					<span className="text-sm font-bold mr-3 ml-0.5 mt-0.5">X</span>
-					{/* <CheckBox {...form.register('metadata')} /> */}
-				</div>
-				<div className="flex">
-					<span className="text-sm font-bold mr-3 ml-0.5 mt-0.5">Y</span>
-					{/* <CheckBox {...form.register('previewMedia')} /> */}
-				</div>
-			</div>
+			<p>TODO: checkbox for "delete all matching files" (only if a file is selected)</p>
 		</Dialog>
 	);
 };

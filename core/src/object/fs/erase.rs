@@ -86,8 +86,6 @@ impl StatefulJob for FileEraserJob {
 				drop(file);
 
 				std::fs::remove_file(info.obj_path.clone())?;
-
-				dbg!(info.obj_path.clone());
 			}
 			ObjectType::Directory => {
 				for entry in std::fs::read_dir(info.obj_path.clone())? {

@@ -6,7 +6,6 @@ import Slider from '../primitive/Slider';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-// these props are all shared
 interface EraseDialogProps {
 	open: boolean;
 	setOpen: (isShowing: boolean) => void;
@@ -15,7 +14,6 @@ interface EraseDialogProps {
 }
 
 const schema = z.object({
-	// outputPath: z.string()
 	passes: z.number()
 });
 
@@ -35,14 +33,9 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 		props.location_id &&
 			props.path_id &&
 			eraseFile.mutate({
-				// algorithm: data.encryptionAlgo as Algorithm,
-				// key_uuid: data.key,
 				location_id: props.location_id,
 				path_id: props.path_id,
 				passes: data.passes
-				// metadata: data.metadata,
-				// preview_media: data.previewMedia,
-				// output_path: data.outputPath || null
 			});
 
 		form.reset();
@@ -81,6 +74,8 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 					<span className="text-sm mt-2.5 font-medium">{passes}</span>
 				</div>
 			</div>
+
+			<p>TODO: checkbox for "erase all matching files" (only if a file is selected)</p>
 		</Dialog>
 	);
 };

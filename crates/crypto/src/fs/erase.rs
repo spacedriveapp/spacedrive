@@ -22,8 +22,8 @@ where
 	let block_count = size / BLOCK_SIZE;
 	let additional = size % BLOCK_SIZE;
 
-	let mut buf = vec![0u8; block_count];
-	let mut end_buf = vec![0u8; additional];
+	let mut buf = vec![0u8; BLOCK_SIZE].into_boxed_slice();
+	let mut end_buf = vec![0u8; additional].into_boxed_slice();
 
 	for _ in 0..passes {
 		stream.rewind()?;

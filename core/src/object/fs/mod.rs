@@ -71,21 +71,8 @@ pub async fn context_menu_fs_info(
 
 	Ok(FsInfo {
 		obj_id: item.object_id,
-		obj_name: item.materialized_path.clone(),
+		obj_name: item.materialized_path,
 		obj_type,
 		obj_path,
 	})
 }
-
-// pub async fn context_menu_all_paths(
-// 	db: &PrismaClient,
-// 	location_id: i32,
-// 	path_id: i32,
-// ) -> Result<(), JobError> {
-// 	// find all occurances of the same file
-// 	// either via cas id or object id, will need to check
-// 	// return them as a Vec<PathBuf>
-// 	// will be used by `files.allOccurances(location_id, path_id)` route
-
-// 	todo!()
-// }
