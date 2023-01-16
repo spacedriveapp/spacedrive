@@ -12,13 +12,13 @@ pub mod delete;
 pub mod encrypt;
 pub mod erase;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ObjectType {
 	File,
 	Directory,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FsInfo {
 	pub obj_id: Option<i32>,
 	pub obj_name: String,

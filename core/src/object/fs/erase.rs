@@ -16,7 +16,7 @@ pub struct FileEraserJobInit {
 	pub passes: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileEraserJobStep {
 	pub fs_info: FsInfo,
 }
@@ -54,7 +54,7 @@ impl StatefulJob for FileEraserJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = &state.steps[0];
+		let step = state.steps[0].clone();
 		let info = &step.fs_info;
 
 		// need to handle stuff such as querying prisma for all paths of a file, and deleting all of those if requested (with a checkbox in the ui)
@@ -71,14 +71,48 @@ impl StatefulJob for FileEraserJob {
 					.open(info.obj_path.clone())?;
 				let file_len = file.metadata()?.len();
 
-				sd_crypto::fs::erase::erase(&mut file, file_len as usize, 2)?;
-				file.set_len(1)?;
+				sd_crypto::fs::erase::erase(&mut file, file_len as usize, state.init.passes)?;
+				file.set_len(0)?;
 				file.flush()?;
 				drop(file);
 
 				std::fs::remove_file(info.obj_path.clone())?;
+
+				dbg!("erasing {}", info.obj_path.clone());
 			}
-			ObjectType::Directory => todo!(),
+			ObjectType::Directory => {
+				let mut file_count = 0;
+				// let mut dir_count = 0;
+				for entry in std::fs::read_dir(info.obj_path.clone())? {
+					let entry = entry?;
+					let obj_type = if entry.metadata()?.is_dir() {
+						// dir_count += 1;
+						ObjectType::Directory
+					} else {
+						file_count += 1;
+						ObjectType::File
+					};
+
+					state.steps.push_back(FileEraserJobStep {
+						fs_info: FsInfo {
+							obj_id: None,
+							obj_name: entry.file_name().to_str().unwrap().to_string(),
+							obj_path: entry.path(),
+							obj_type,
+						},
+					});
+
+					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+				}
+
+				if file_count == 0 {
+					std::fs::remove_dir(info.obj_path.clone())?;
+				} else {
+					state.steps.push_back(FileEraserJobStep {
+						fs_info: info.clone(),
+					});
+				}
+			}
 		};
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
