@@ -3,6 +3,7 @@ use crate::{
 	job::Job,
 	object::fs::{
 		copy::{FileCopierJob, FileCopierJobInit},
+		cut::{FileCutterJob, FileCutterJobInit},
 		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
 		delete::{FileDeleterJob, FileDeleterJobInit},
 		duplicate::{FileDuplicatorJob, FileDuplicatorJobInit},
@@ -140,6 +141,14 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_mutation("copyFiles", |t| {
 			t(|_, args: FileCopierJobInit, library| async move {
 				library.spawn_job(Job::new(args, FileCopierJob {})).await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("cutFiles", |t| {
+			t(|_, args: FileCutterJobInit, library| async move {
+				library.spawn_job(Job::new(args, FileCutterJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
