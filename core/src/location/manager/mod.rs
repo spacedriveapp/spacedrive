@@ -1,7 +1,11 @@
 use crate::library::LibraryContext;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 
+use futures::executor::block_on;
 use thiserror::Error;
 use tokio::{
 	io,
@@ -23,10 +27,29 @@ type ManagerMessage = (
 	oneshot::Sender<Result<(), LocationManagerError>>,
 );
 
+type IgnorePathManagerMessage = (
+	LocationId,
+	LibraryContext,
+	PathBuf,
+	bool,
+	oneshot::Sender<Result<(), LocationManagerError>>,
+);
+
 #[derive(Error, Debug)]
 pub enum LocationManagerError {
 	#[error("Unable to send location id to be checked by actor: (error: {0})")]
 	ActorSendLocationError(#[from] mpsc::error::SendError<ManagerMessage>),
+
+	#[cfg(feature = "location-watcher")]
+	#[error("Unable to send path to be ignored by watcher actor: (error: {0})")]
+	ActorIgnorePathError(#[from] mpsc::error::SendError<watcher::IgnorePath>),
+
+	#[cfg(feature = "location-watcher")]
+	#[error(
+		"Unable to send path to be ignored by watcher on location manager actor: (error: {0})"
+	)]
+	ActorIgnorePathMessageError(#[from] mpsc::error::SendError<IgnorePathManagerMessage>),
+
 	#[error("Unable to receive actor response: (error: {0})")]
 	ActorResponseError(#[from] oneshot::error::RecvError),
 
@@ -55,6 +78,7 @@ pub struct LocationManager {
 	remove_locations_tx: mpsc::Sender<ManagerMessage>,
 	stop_watcher_tx: mpsc::Sender<ManagerMessage>,
 	reinit_watcher_tx: mpsc::Sender<ManagerMessage>,
+	ignore_path_tx: mpsc::Sender<IgnorePathManagerMessage>,
 	stop_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -65,14 +89,20 @@ impl LocationManager {
 		let (remove_locations_tx, remove_locations_rx) = mpsc::channel(128);
 		let (stop_watcher_tx, stop_watcher_rx) = mpsc::channel(128);
 		let (reinit_watcher_tx, reinit_watcher_rx) = mpsc::channel(128);
+		let (ignore_path_tx, ignore_path_rx) = mpsc::channel(128);
 		let (stop_tx, stop_rx) = oneshot::channel();
 
 		#[cfg(feature = "location-watcher")]
 		tokio::spawn(Self::run_locations_checker(
-			add_locations_rx,
-			remove_locations_rx,
-			stop_watcher_rx,
-			reinit_watcher_rx,
+			AddAndRemoveLocation {
+				add_rx: add_locations_rx,
+				remove_rx: remove_locations_rx,
+			},
+			StopAndReinitWatcher {
+				stop_rx: stop_watcher_rx,
+				reinit_rx: reinit_watcher_rx,
+			},
+			ignore_path_rx,
 			stop_rx,
 		));
 
@@ -86,6 +116,7 @@ impl LocationManager {
 			remove_locations_tx,
 			stop_watcher_tx,
 			reinit_watcher_tx,
+			ignore_path_tx,
 			stop_tx: Some(stop_tx),
 		})
 	}
@@ -162,12 +193,52 @@ impl LocationManager {
 		}
 	}
 
+	pub async fn temporary_stop(
+		&self,
+		location_id: LocationId,
+		library_ctx: LibraryContext,
+	) -> Result<StopWatcherGuard, LocationManagerError> {
+		if cfg!(feature = "location-watcher") {
+			self.stop_watcher(location_id, library_ctx.clone()).await?;
+		}
+
+		Ok(StopWatcherGuard {
+			location_id,
+			library_ctx: Some(library_ctx),
+			manager: self,
+		})
+	}
+
+	pub async fn temporary_ignore_events_for_path(
+		&self,
+		location_id: LocationId,
+		library_ctx: LibraryContext,
+		path: impl AsRef<Path>,
+	) -> Result<IgnoreEventsForPathGuard, LocationManagerError> {
+		let path = path.as_ref().to_path_buf();
+		if cfg!(feature = "location-watcher") {
+			let (tx, rx) = oneshot::channel();
+
+			self.ignore_path_tx
+				.send((location_id, library_ctx.clone(), path.clone(), true, tx))
+				.await?;
+
+			rx.await??;
+		}
+
+		Ok(IgnoreEventsForPathGuard {
+			location_id,
+			library_ctx: Some(library_ctx),
+			manager: self,
+			path: Some(path),
+		})
+	}
+
 	#[cfg(feature = "location-watcher")]
 	async fn run_locations_checker(
-		mut add_locations_rx: mpsc::Receiver<ManagerMessage>,
-		mut remove_locations_rx: mpsc::Receiver<ManagerMessage>,
-		mut stop_watcher_rx: mpsc::Receiver<ManagerMessage>,
-		mut reinit_watcher_rx: mpsc::Receiver<ManagerMessage>,
+		mut location: AddAndRemoveLocation,
+		mut watcher: StopAndReinitWatcher,
+		mut ignore_path_rx: mpsc::Receiver<IgnorePathManagerMessage>,
 		mut stop_rx: oneshot::Receiver<()>,
 	) -> Result<(), LocationManagerError> {
 		use std::collections::{HashMap, HashSet};
@@ -177,9 +248,9 @@ impl LocationManager {
 		use tracing::{info, warn};
 
 		use helpers::{
-			check_online, drop_location, get_location, handle_reinit_watcher_request,
-			handle_remove_location_request, handle_stop_watcher_request, location_check_sleep,
-			unwatch_location, watch_location,
+			check_online, drop_location, get_location, handle_ignore_path_request,
+			handle_reinit_watcher_request, handle_remove_location_request,
+			handle_stop_watcher_request, location_check_sleep, unwatch_location, watch_location,
 		};
 		use watcher::LocationWatcher;
 
@@ -192,7 +263,7 @@ impl LocationManager {
 		loop {
 			select! {
 				// To add a new location
-				Some((location_id, library_ctx, response_tx)) = add_locations_rx.recv() => {
+				Some((location_id, library_ctx, response_tx)) = location.add_rx.recv() => {
 					if let Some(location) = get_location(location_id, &library_ctx).await {
 						let is_online = check_online(&location, &library_ctx).await;
 						let _ = response_tx.send(
@@ -227,7 +298,7 @@ impl LocationManager {
 				}
 
 				// To remove an location
-				Some(message) = remove_locations_rx.recv() => {
+				Some(message) = location.remove_rx.recv() => {
 					handle_remove_location_request(
 						message,
 						&mut forced_unwatch,
@@ -238,7 +309,7 @@ impl LocationManager {
 				}
 
 				// To stop a watcher
-				Some(message) = stop_watcher_rx.recv() => {
+				Some(message) = watcher.stop_rx.recv() => {
 					handle_stop_watcher_request(
 						message,
 						&mut forced_unwatch,
@@ -248,13 +319,18 @@ impl LocationManager {
 				}
 
 				// To reinit a stopped watcher
-				Some(message) = reinit_watcher_rx.recv() => {
+				Some(message) = watcher.reinit_rx.recv() => {
 					handle_reinit_watcher_request(
 						message,
 						&mut forced_unwatch,
 						&mut locations_watched,
 						&mut locations_unwatched,
 					).await;
+				}
+
+				// To ignore or not events for a path
+				Some(message) = ignore_path_rx.recv() => {
+					handle_ignore_path_request(message, &locations_watched);
 				}
 
 				// Periodically checking locations
@@ -325,6 +401,72 @@ impl Drop for LocationManager {
 		if let Some(stop_tx) = self.stop_tx.take() {
 			if stop_tx.send(()).is_err() {
 				error!("Failed to send stop signal to location manager");
+			}
+		}
+	}
+}
+
+#[cfg(feature = "location-watcher")]
+struct AddAndRemoveLocation {
+	add_rx: mpsc::Receiver<ManagerMessage>,
+	remove_rx: mpsc::Receiver<ManagerMessage>,
+}
+
+#[cfg(feature = "location-watcher")]
+struct StopAndReinitWatcher {
+	stop_rx: mpsc::Receiver<ManagerMessage>,
+	reinit_rx: mpsc::Receiver<ManagerMessage>,
+}
+
+#[must_use = "this `StopWatcherGuard` must be held for some time, so the watcher is stopped"]
+pub struct StopWatcherGuard<'m> {
+	manager: &'m LocationManager,
+	location_id: LocationId,
+	library_ctx: Option<LibraryContext>,
+}
+
+impl Drop for StopWatcherGuard<'_> {
+	fn drop(&mut self) {
+		if cfg!(feature = "location-watcher") {
+			// FIXME: change this Drop to async drop in the future
+			if let Err(e) = block_on(
+				self.manager
+					.reinit_watcher(self.location_id, self.library_ctx.take().unwrap()),
+			) {
+				error!("Failed to reinit watcher on stop watcher guard drop: {e}");
+			}
+		}
+	}
+}
+
+#[must_use = "this `IgnoreEventsForPathGuard` must be held for some time, so the watcher can ignore events for the desired path"]
+pub struct IgnoreEventsForPathGuard<'m> {
+	manager: &'m LocationManager,
+	path: Option<PathBuf>,
+	location_id: LocationId,
+	library_ctx: Option<LibraryContext>,
+}
+
+impl Drop for IgnoreEventsForPathGuard<'_> {
+	fn drop(&mut self) {
+		if cfg!(feature = "location-watcher") {
+			// FIXME: change this Drop to async drop in the future
+			let (tx, rx) = oneshot::channel();
+			if self
+				.manager
+				.ignore_path_tx
+				.blocking_send((
+					self.location_id,
+					self.library_ctx.take().unwrap(),
+					self.path.take().unwrap(),
+					false,
+					tx,
+				))
+				.is_err()
+			{
+				error!("Failed to send un-ignore path request to location manager on ignore events for path watcher guard drop");
+			} else if let Err(e) = rx.blocking_recv() {
+				error!("Failed to un-ignore path on watcher guard drop: {e}");
 			}
 		}
 	}

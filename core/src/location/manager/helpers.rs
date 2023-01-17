@@ -10,7 +10,10 @@ use tokio::{fs, io::ErrorKind, time::sleep};
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use super::{watcher::LocationWatcher, LocationId, LocationManagerError, ManagerMessage};
+use super::{
+	watcher::LocationWatcher, IgnorePathManagerMessage, LocationId, LocationManagerError,
+	ManagerMessage,
+};
 
 type LibraryId = Uuid;
 type LocationAndLibraryKey = (LocationId, LibraryId);
@@ -278,6 +281,20 @@ pub(super) async fn handle_reinit_watcher_request(
 					reason: String::from("failed to fetch location from db"),
 				})
 			}
+		} else {
+			Ok(())
+		},
+	); // ignore errors, we handle errors on receiver
+}
+
+pub(super) fn handle_ignore_path_request(
+	message: IgnorePathManagerMessage,
+	locations_watched: &HashMap<LocationAndLibraryKey, LocationWatcher>,
+) {
+	let (location_id, library_ctx, path, ignore, response_tx) = message;
+	let _ = response_tx.send(
+		if let Some(watcher) = locations_watched.get(&(location_id, library_ctx.id)) {
+			watcher.ignore_path(path, ignore)
 		} else {
 			Ok(())
 		},
