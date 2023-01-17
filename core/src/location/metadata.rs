@@ -49,16 +49,28 @@ impl SpacedriveLocationMetadataFile {
 				metadata: match serde_json::from_slice(&data) {
 					Ok(data) => data,
 					Err(e) => {
-						error!(
-							"Failed to deserialize corrupted metadata file, \
-						we will remove it and create a new one; File: {}; Error: {e}",
-							metadata_file_name.display()
-						);
-						fs::remove_file(&metadata_file_name).await.map_err(|e| {
-							LocationMetadataError::Delete(e, location_path.as_ref().to_path_buf())
-						})?;
+						#[cfg(debug_assertions)]
+						{
+							error!(
+								"Failed to deserialize corrupted metadata file, \
+								we will remove it and create a new one; File: {}; Error: {e}",
+								metadata_file_name.display()
+							);
+							fs::remove_file(&metadata_file_name).await.map_err(|e| {
+								LocationMetadataError::Delete(
+									e,
+									location_path.as_ref().to_path_buf(),
+								)
+							})?;
 
-						return Ok(None);
+							return Ok(None);
+						}
+
+						#[cfg(not(debug_assertions))]
+						return Err(LocationMetadataError::Deserialize(
+							e,
+							location_path.as_ref().to_path_buf(),
+						));
 					}
 				},
 				path: metadata_file_name,
