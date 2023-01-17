@@ -1,7 +1,7 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
-import { CaretRight, Gear, Lock, Plus } from 'phosphor-react-native';
+import { CaretDown, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useCurrentLibrary } from '~/../../../packages/client/src';
@@ -29,24 +29,27 @@ const DrawerLibraryManager = () => {
 			<Pressable onPress={() => setDropdownClosed((v) => !v)}>
 				<View
 					style={tw.style(
-						'flex flex-row justify-between items-center px-3 h-10 w-full bg-app-box border border-app-darkLine shadow-sm',
-						dropdownClosed ? 'rounded' : 'rounded-t border-b-app-box'
+						'flex flex-row justify-between items-center px-3 h-10 w-full bg-sidebar-box border shadow-sm',
+						dropdownClosed
+							? 'rounded-md border-sidebar-line/50'
+							: 'rounded-t-md border-b-app-box border-sidebar-line bg-sidebar-button'
 					)}
 				>
 					<Text style={tw`text-ink text-sm font-semibold`}>{currentLibrary?.config.name}</Text>
 					<MotiView
 						animate={{
-							rotateZ: dropdownClosed ? '0deg' : '90deg'
+							rotate: dropdownClosed ? '0deg' : '180deg',
+							translateX: dropdownClosed ? 0 : -9
 						}}
-						transition={{ type: 'timing' }}
+						transition={{ type: 'timing', duration: 100 }}
 					>
-						<CaretRight color={tw.color('text-ink')} size={16} style={tw`ml-2`} />
+						<CaretDown color="white" size={18} weight="bold" style={tw`ml-2`} />
 					</MotiView>
 				</View>
 			</Pressable>
 			<AnimatedHeight hide={dropdownClosed}>
 				<View
-					style={tw`py-2 px-2 bg-app-box border-l border-b border-r border-app-darkLine rounded-b`}
+					style={tw`py-2 px-2 bg-sidebar-button border-l border-b border-r border-sidebar-line rounded-b-md`}
 				>
 					{/* Libraries */}
 					{libraries?.map((library) => (
@@ -70,25 +73,26 @@ const DrawerLibraryManager = () => {
 					))}
 					<Divider style={tw`mt-2 mb-2`} />
 					{/* Menu */}
+					{/* Create Library */}
+					<CreateLibraryDialog>
+						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
+							<Plus size={16} weight="bold" color="white" style={tw`mr-2`} />
+							<Text style={tw`text-sm text-white font-semibold`}>New Library</Text>
+						</View>
+					</CreateLibraryDialog>
 					<Pressable
 						onPress={() => navigation.navigate('Settings', { screen: 'LibraryGeneralSettings' })}
 					>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Gear size={16} color={tw.color('ink-dull')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-ink font-semibold`}>Library Settings</Text>
+							<Gear size={16} weight="bold" color="white" style={tw`mr-2`} />
+							<Text style={tw`text-sm text-white font-semibold`}>Manage Library</Text>
 						</View>
 					</Pressable>
-					{/* Create Library */}
-					<CreateLibraryDialog>
-						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Plus size={16} weight="bold" color={tw.color('ink-dull')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-ink font-semibold`}>Add Library</Text>
-						</View>
-					</CreateLibraryDialog>
+
 					<Pressable onPress={() => console.log('TODO: lock')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Lock size={16} weight="bold" color={tw.color('ink-dull')} style={tw`mr-2`} />
-							<Text style={tw`text-sm text-ink font-semibold`}>Lock</Text>
+							<Lock size={16} weight="bold" color="white" style={tw`mr-2`} />
+							<Text style={tw`text-sm text-white font-semibold`}>Lock</Text>
 						</View>
 					</Pressable>
 				</View>

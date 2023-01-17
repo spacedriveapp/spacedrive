@@ -18,7 +18,7 @@ export default function DrawerNavigator() {
 				headerShown: false,
 				drawerStyle: {
 					backgroundColor: tw.color('app-darkBox'),
-					width: '75%'
+					width: '70%'
 				},
 				overlayColor: 'transparent',
 				drawerType: 'slide',

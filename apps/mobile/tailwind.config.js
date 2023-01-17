@@ -61,6 +61,11 @@ module.exports = {
 					950: 'hsla(230, 15%, 95%, 1)',
 					1000: 'hsla(230, 15%, 100%, 1)'
 				},
+				sidebar: {
+					box: 'hsla(230, 15%, 16%, 1)',
+					line: 'hsla(230, 15%, 23%, 1)',
+					button: 'hsla(230, 15%, 18%, 1)'
+				},
 				gray: {
 					DEFAULT: '#505468',
 					50: '#F1F1F4',

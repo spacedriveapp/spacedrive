@@ -46,7 +46,7 @@ const DrawerLocations = ({ stackName }: DrawerLocationsProp) => {
 			<CollapsibleView
 				title="Locations"
 				titleStyle={tw`text-sm font-semibold text-gray-300`}
-				containerStyle={tw`mt-6 mb-3`}
+				containerStyle={tw`mt-6 mb-3 ml-1`}
 			>
 				<View style={tw`mt-2`}>
 					{locations?.map((location) => (

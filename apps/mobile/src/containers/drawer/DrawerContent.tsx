@@ -6,7 +6,6 @@ import Layout from '~/constants/Layout';
 import tw from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
 
-import Divider from '../../components/primitive/Divider';
 import DrawerLibraryManager from './DrawerLibraryManager';
 import DrawerLocations from './DrawerLocations';
 import DrawerTags from './DrawerTags';
@@ -27,7 +26,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 						<Image source={require('@sd/assets/images/logo.png')} style={tw`w-[35px] h-[35px]`} />
 						<Text style={tw`text-base font-bold text-ink ml-2`}>Spacedrive</Text>
 					</View>
-					<Divider style={tw`my-4`} />
+					<View style={tw`mt-5`} />
 					{/* Library Manager */}
 					<DrawerLibraryManager />
 					{/* Locations */}
