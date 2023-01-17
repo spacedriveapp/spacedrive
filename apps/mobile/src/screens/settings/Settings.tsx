@@ -109,7 +109,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 	return (
 		<Text
 			style={tw.style(
-				'mb-2 ml-2 text-sm font-semibold text-ink-dull',
+				'mb-2 ml-3 text-sm font-semibold text-ink-dull',
 				section.title === 'Client' ? 'mt-2' : 'mt-5'
 			)}
 		>
@@ -136,7 +136,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 				ListFooterComponent={
 					<View style={tw`items-center mt-6 mb-4`}>
 						<Text style={tw`text-sm font-bold text-ink`}>Spacedrive</Text>
-						<Text style={tw`text-ink-dull text-xs mt-0.5`}>v0.1.0</Text>
+						<Text style={tw`text-ink-faint text-xs mt-0.5`}>v0.1.0</Text>
 					</View>
 				}
 				showsVerticalScrollIndicator={false}

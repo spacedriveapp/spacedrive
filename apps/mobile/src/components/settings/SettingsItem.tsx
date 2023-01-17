@@ -12,12 +12,12 @@ type SettingsItemProps = {
 export function SettingsItem(props: SettingsItemProps) {
 	return (
 		<Pressable onPress={props.onPress}>
-			<View style={tw`flex flex-row items-center justify-between px-3 bg-app-overlay`}>
+			<View style={tw`flex flex-row items-center justify-between px-4 bg-app-overlay`}>
 				<View style={tw`flex flex-row items-center py-4`}>
-					{props.leftIcon && props.leftIcon({ size: 18, color: tw.color('ink'), style: tw`mr-2` })}
-					<Text style={tw`text-sm text-ink`}>{props.title}</Text>
+					{props.leftIcon && props.leftIcon({ size: 20, color: tw.color('ink'), style: tw`mr-3` })}
+					<Text style={tw`text-[14px] text-ink`}>{props.title}</Text>
 				</View>
-				{props.rightArea ? props.rightArea : <CaretRight size={20} color={tw.color('ink-faint')} />}
+				{props.rightArea ? props.rightArea : <CaretRight size={20} color={tw.color('ink-dull')} />}
 			</View>
 		</Pressable>
 	);

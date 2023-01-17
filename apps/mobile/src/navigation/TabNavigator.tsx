@@ -37,7 +37,7 @@ export default function TabNavigator() {
 						/>
 					),
 					tabBarLabel: 'Overview',
-					tabBarLabelStyle: tw`font-semibold text-tiny`
+					tabBarLabelStyle: tw`font-semibold text-[10px]`
 				}}
 			/>
 			<Tab.Screen
@@ -52,7 +52,7 @@ export default function TabNavigator() {
 						/>
 					),
 					tabBarLabel: 'Nodes',
-					tabBarLabelStyle: tw`font-semibold text-tiny`
+					tabBarLabelStyle: tw`font-semibold text-[10px]`
 				}}
 			/>
 			<Tab.Screen
@@ -67,7 +67,7 @@ export default function TabNavigator() {
 						/>
 					),
 					tabBarLabel: 'Spaces',
-					tabBarLabelStyle: tw`font-semibold text-tiny`
+					tabBarLabelStyle: tw`font-semibold text-[10px]`
 				}}
 			/>
 		</Tab.Navigator>

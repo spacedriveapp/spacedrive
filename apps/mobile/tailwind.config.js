@@ -4,11 +4,6 @@ module.exports = {
 	content: ['./screens/**/*.{js,ts,jsx}', './components/**/*.{js,ts,jsx}', 'App.tsx'],
 	theme: {
 		extend: {
-			fontSize: {
-				tiny: '.65rem',
-				// Default: '0.875rem'
-				sm: '.85rem'
-			},
 			colors: {
 				// Brand blue
 				accent: {

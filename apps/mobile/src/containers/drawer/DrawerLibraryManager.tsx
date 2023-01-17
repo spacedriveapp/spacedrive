@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { CaretDown, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { useCurrentLibrary } from '~/../../../packages/client/src';
 import tw from '~/lib/tailwind';
 
@@ -76,22 +76,23 @@ const DrawerLibraryManager = () => {
 					{/* Create Library */}
 					<CreateLibraryDialog>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Plus size={16} weight="bold" color="white" style={tw`mr-2`} />
+							<Plus size={18} weight="bold" color="white" style={tw`mr-2`} />
 							<Text style={tw`text-sm text-white font-semibold`}>New Library</Text>
 						</View>
 					</CreateLibraryDialog>
+					{/* Manage Library */}
 					<Pressable
 						onPress={() => navigation.navigate('Settings', { screen: 'LibraryGeneralSettings' })}
 					>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Gear size={16} weight="bold" color="white" style={tw`mr-2`} />
+							<Gear size={18} weight="bold" color="white" style={tw`mr-2`} />
 							<Text style={tw`text-sm text-white font-semibold`}>Manage Library</Text>
 						</View>
 					</Pressable>
-
-					<Pressable onPress={() => console.log('TODO: lock')}>
+					{/* Lock */}
+					<Pressable onPress={() => Alert.alert('TODO')}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
-							<Lock size={16} weight="bold" color="white" style={tw`mr-2`} />
+							<Lock size={18} weight="bold" color="white" style={tw`mr-2`} />
 							<Text style={tw`text-sm text-white font-semibold`}>Lock</Text>
 						</View>
 					</Pressable>
