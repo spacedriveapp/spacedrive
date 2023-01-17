@@ -52,6 +52,10 @@ pub enum Error {
 	KeyAlreadyMounted,
 	#[error("key not mounted")]
 	KeyNotMounted,
+	#[error("key isn't in the queue")]
+	KeyNotQueued,
+	#[error("key is already in the queue")]
+	KeyAlreadyQueued,
 	#[error("no default key has been set")]
 	NoDefaultKeySet,
 	#[error("no master password has been provided to the keymanager")]

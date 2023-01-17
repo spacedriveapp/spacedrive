@@ -11,7 +11,6 @@ import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
-
 import { AlertDialog, GenericAlertDialogState } from '~/components/dialog/AlertDialog';
 import { BackupRestoreDialog } from '~/components/dialog/BackupRestoreDialog';
 import { KeyViewerDialog } from '~/components/dialog/KeyViewerDialog';
@@ -85,10 +84,21 @@ export const KeyMounterDropdown = ({
 export default function KeysSettings() {
 	const platform = usePlatform();
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
+	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword', {
+		onError: () => {
+			setAlertDialogData({
+				open: true,
+				title: 'Unlock Error',
+				description: '',
+				value: 'The information provided to the key manager was incorrect',
+				inputBox: false
+			});
+		}
+	});
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 	const backupKeystore = useLibraryMutation('keys.backupKeystore');
+	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
 
 	const [showMasterPassword, setShowMasterPassword] = useState(false);
 	const [showSecretKey, setShowSecretKey] = useState(false);
@@ -147,26 +157,13 @@ export default function KeysSettings() {
 					<Button
 						className="w-full"
 						variant="accent"
-						disabled={setMasterPasswordMutation.isLoading}
+						disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
 						onClick={() => {
 							if (masterPassword !== '') {
 								const sk = secretKey || null;
 								setMasterPassword('');
 								setSecretKey('');
-								setMasterPasswordMutation.mutate(
-									{ password: masterPassword, secret_key: sk },
-									{
-										onError: () => {
-											setAlertDialogData({
-												open: true,
-												title: 'Unlock Error',
-												description: '',
-												value: 'The information provided to the key manager was incorrect',
-												inputBox: false
-											});
-										}
-									}
-								);
+								setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
 							}
 						}}
 					>
