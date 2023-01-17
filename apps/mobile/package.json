@@ -12,7 +12,8 @@
 		"android-studio": "open -a '/Applications/Android Studio.app' ./android",
 		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
 		"postinstall": "node scripts/postinstall.js",
-		"typecheck": "tsc -b"
+		"typecheck": "tsc -b",
+		"eas-build-pre-install": "npm i -g pnpm@7.18.2"
 	},
 	"dependencies": {
 		"@gorhom/bottom-sheet": "^4.4.5",
