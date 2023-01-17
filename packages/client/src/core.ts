@@ -83,6 +83,7 @@ export type Procedures = {
 		| { key: 'volumes.list'; input: never; result: Array<Volume> };
 	mutations:
 		| { key: 'files.copyFiles'; input: LibraryArgs<FileCopierJobInit>; result: null }
+		| { key: 'files.cutFiles'; input: LibraryArgs<FileCutterJobInit>; result: null }
 		| { key: 'files.decryptFiles'; input: LibraryArgs<FileDecryptorJobInit>; result: null }
 		| { key: 'files.delete'; input: LibraryArgs<number>; result: null }
 		| { key: 'files.deleteFiles'; input: LibraryArgs<FileDeleterJobInit>; result: null }
@@ -183,6 +184,13 @@ export type ExplorerItem =
 	| ({ type: 'Object' } & ObjectWithFilePaths);
 
 export interface FileCopierJobInit {
+	source_location_id: number;
+	source_path_id: number;
+	target_location_id: number;
+	target_path: string;
+}
+
+export interface FileCutterJobInit {
 	source_location_id: number;
 	source_path_id: number;
 	target_location_id: number;

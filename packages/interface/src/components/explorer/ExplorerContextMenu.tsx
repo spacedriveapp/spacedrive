@@ -106,6 +106,7 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.fullRescan');
 	const copyFiles = useLibraryMutation('files.copyFiles');
+	const cutFiles = useLibraryMutation('files.cutFiles');
 
 	return (
 		<div className="relative">
@@ -150,7 +151,13 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 									target_path: params.path
 								});
 						} else {
-							// cut here
+							store.locationId &&
+								cutFiles.mutate({
+									source_location_id: store.cutCopyState.sourceLocationId,
+									source_path_id: store.cutCopyState.sourcePathId,
+									target_location_id: store.locationId,
+									target_path: params.path
+								});
 						}
 					}}
 					icon={Clipboard}
