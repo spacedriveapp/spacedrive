@@ -79,60 +79,57 @@ impl StatefulJob for FileCopierJob {
 		match info.obj_type {
 			ObjectType::File => {
 				let mut path = job_state.target_path.clone();
+				path.push(job_state.source_path.clone().file_name().unwrap());
 
-				if job_state.root_type == ObjectType::Directory {
+				if job_state.root_type == ObjectType::File {
+					path.push(job_state.source_path.clone().file_name().unwrap());
+				} else if job_state.root_type == ObjectType::Directory {
 					path.push(
 						info.obj_path
 							.strip_prefix(job_state.source_path.clone())
 							.unwrap(),
 					);
-				} else {
-					path.push(info.obj_path.clone().file_name().unwrap());
 				}
-
-				dbg!(info.obj_path.clone());
-				dbg!(path.clone());
 
 				std::fs::copy(info.obj_path.clone(), path.clone())?;
 			}
-			_ => todo!(), // ObjectType::Directory => {
-			              // 	for entry in std::fs::read_dir(info.obj_path.clone())? {
-			              // 		let entry = entry?;
-			              // 		if entry.metadata()?.is_dir() {
-			              // 			let obj_type = ObjectType::Directory;
-			              // 			state.steps.push_back(FileCopierJobStep {
-			              // 				fs_info: FsInfo {
-			              // 					obj_id: None,
-			              // 					obj_name: String::new(),
-			              // 					obj_path: entry.path(),
-			              // 					obj_type,
-			              // 				},
-			              // 			});
+			ObjectType::Directory => {
+				for entry in std::fs::read_dir(info.obj_path.clone())? {
+					let entry = entry?;
+					if entry.metadata()?.is_dir() {
+						state.steps.push_back(FileCopierJobStep {
+							source_fs_info: FsInfo {
+								obj_id: None,
+								obj_name: String::new(),
+								obj_path: entry.path(),
+								obj_type: ObjectType::Directory,
+							},
+						});
 
-			              // 			let path_suffix = entry
-			              // 				.path()
-			              // 				.strip_prefix(job_state.root_path.clone())
-			              // 				.unwrap()
-			              // 				.to_path_buf();
+						let mut path = job_state.target_path.clone();
+						path.push(job_state.source_path.clone().file_name().unwrap());
+						path.push(
+							entry
+								.path()
+								.strip_prefix(job_state.source_path.clone())
+								.unwrap(),
+						);
 
-			              // 			let mut path = job_state.root_prefix.clone();
-			              // 			path.push(path_suffix);
-			              // 			std::fs::create_dir_all(path)?;
-			              // 		} else {
-			              // 			let obj_type = ObjectType::File;
-			              // 			state.steps.push_back(FileCopierJobStep {
-			              // 				fs_info: FsInfo {
-			              // 					obj_id: None,
-			              // 					obj_name: entry.file_name().to_str().unwrap().to_string(),
-			              // 					obj_path: entry.path(),
-			              // 					obj_type,
-			              // 				},
-			              // 			});
-			              // 		};
+						std::fs::create_dir_all(path)?;
+					} else {
+						state.steps.push_back(FileCopierJobStep {
+							source_fs_info: FsInfo {
+								obj_id: None,
+								obj_name: entry.file_name().to_str().unwrap().to_string(),
+								obj_path: entry.path(),
+								obj_type: ObjectType::File,
+							},
+						});
+					};
 
-			              // 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
-			              // 	}
-			              // }
+					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
+				}
+			}
 		};
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
