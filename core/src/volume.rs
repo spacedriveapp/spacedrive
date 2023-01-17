@@ -3,8 +3,22 @@ use crate::{library::LibraryContext, prisma::volume::*};
 use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use sysinfo::{DiskExt, System, SystemExt};
+use swift_rs::{swift_fn, swift_object, Bool, Int, SRArray, SRObject, SRString};
+use sysinfo::{DiskExt, RefreshKind, System, SystemExt};
 use thiserror::Error;
+
+#[cfg(target_os = "macos")]
+swift_fn!(get_mounts() -> SRArray<VolumeFromSwift>);
+
+#[swift_object]
+struct VolumeFromSwift {
+	name: SRString,
+	is_root_filesystem: Bool,
+	mount_point: SRString,
+	total_capacity: Int,
+	available_capacity: Int,
+	is_removable: Bool,
+}
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
 pub struct Volume {
@@ -73,7 +87,10 @@ pub async fn save_volume(ctx: &LibraryContext) -> Result<(), VolumeError> {
 
 // TODO: Error handling in this function
 pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
-	System::new_all()
+	#[cfg(target_os = "macos")]
+	{}
+
+	System::new_with_specifics(RefreshKind::new().with_disks())
 		.disks()
 		.iter()
 		.filter_map(|disk| {

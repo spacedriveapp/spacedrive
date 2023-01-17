@@ -5464,6 +5464,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta 0.0.4",
+ "swift-rs",
  "sysinfo",
  "tempfile",
  "thiserror",

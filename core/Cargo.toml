@@ -19,9 +19,7 @@ ffmpeg = [
   "dep:ffmpeg-next",
   "dep:sd-ffmpeg",
 ] # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
-location-watcher = [
-  "dep:notify"
-]
+location-watcher = ["dep:notify"]
 
 [dependencies]
 hostname = "0.3.1"
@@ -58,7 +56,7 @@ webp = "0.2.2"
 ffmpeg-next = { version = "5.1.1", optional = true, features = [] }
 sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = ["rspc", "serde"] }
-sd-file-ext = { path = "../crates/file-ext"}
+sd-file-ext = { path = "../crates/file-ext" }
 sd-sync = { path = "../crates/sync" }
 fs_extra = "1.2.0"
 tracing = "0.1.36"
@@ -70,9 +68,19 @@ ctor = "0.1.23"
 globset = { version = "^0.4.9", features = ["serde1"] }
 itertools = "^0.10.5"
 enumflags2 = "0.7.5"
-notify = { version = "5.0.0", default-features = false, features = ["macos_fsevent"], optional = true }
+notify = { version = "5.0.0", default-features = false, features = [
+  "macos_fsevent",
+], optional = true }
 uhlc = "0.5.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease" }
 
 [dev-dependencies]
 tempfile = "^3.3.0"
 tracing-test = "^0.2.3"
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", branch = "autorelease", features = [
+  "build",
+] }
