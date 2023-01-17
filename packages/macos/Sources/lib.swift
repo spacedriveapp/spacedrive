@@ -3,7 +3,7 @@ import AppKit
 import SwiftRs
 
 @_cdecl("get_file_thumbnail_base64")
-public func getFileThumbnailBase64(path: SRString) -> SRString {
+public func getFileThumbnailBase64(path: UnsafePointer<SRString>) -> SRString {
     let path = path.to_string();
     
     let image = NSWorkspace.shared.icon(forFile: path)
@@ -69,7 +69,7 @@ public func getMounts() -> SRObjectArray {
         }
     }
     
-    return SRObjectArray(validMounts)
+    return toRust(SRObjectArray(validMounts))
 }
 
 
