@@ -6,6 +6,7 @@ import { HTMLAttributes } from 'react';
 import { getExplorerStore } from '../../hooks/useExplorerStore';
 import { ObjectKind } from '../../util/kind';
 import { GenericAlertDialogProps } from '../dialog/AlertDialog';
+import { Tooltip } from '../tooltip/Tooltip';
 import { FileItemContextMenu } from './ExplorerContextMenu';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';

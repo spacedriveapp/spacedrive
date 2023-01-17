@@ -265,20 +265,22 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					<SearchBar ref={searchRef} />
 
 					<div className="flex mx-8 space-x-2">
-						<OverlayPanel
-							className="focus:outline-none"
-							trigger={
-								// <Tooltip label="Major Key Alert">
-								<TopBarButton>
-									<Key className={TOP_BAR_ICON_STYLE} />
-								</TopBarButton>
-								// </Tooltip>
-							}
-						>
-							<div className="block w-[350px]">
-								<KeyManager className={TOP_BAR_ICON_STYLE} />
-							</div>
-						</OverlayPanel>
+						<Tooltip label="Key Manager">
+							<OverlayPanel
+								className="focus:outline-none"
+								trigger={
+									// <Tooltip label="Major Key Alert">
+									<TopBarButton>
+										<Key className={TOP_BAR_ICON_STYLE} />
+									</TopBarButton>
+									// </Tooltip>
+								}
+							>
+								<div className="block w-[350px]">
+									<KeyManager className={TOP_BAR_ICON_STYLE} />
+								</div>
+							</OverlayPanel>
+						</Tooltip>
 						<Tooltip label="Tag Assign Mode">
 							<TopBarButton
 								onClick={() => (getExplorerStore().tagAssignMode = !store.tagAssignMode)}
@@ -303,31 +305,39 @@ export const TopBar: React.FC<TopBarProps> = (props) => {
 					</div>
 				</div>
 				<div className="flex mr-3 space-x-2">
-					<OverlayPanel
-						className="focus:outline-none"
-						trigger={
-							// <Tooltip label="Major Key Alert">
-							<TopBarButton className="my-2">
-								<List className={TOP_BAR_ICON_STYLE} />
-							</TopBarButton>
-							// </Tooltip>
-						}
+					<Tooltip label="File display options" position="left">
+						<OverlayPanel
+							className="focus:outline-none"
+							trigger={
+								// <Tooltip label="Major Key Alert">
+								<TopBarButton className="my-2">
+									<List className={TOP_BAR_ICON_STYLE} />
+								</TopBarButton>
+								// </Tooltip>
+							}
+						>
+							<div className="block w-[250px] ">
+								<ExplorerOptionsPanel />
+							</div>
+						</OverlayPanel>
+					</Tooltip>
+
+					<Tooltip
+						label={store.showInspector ? 'Hide Inspector' : 'Show Inspector'}
+						position="left"
 					>
-						<div className="block w-[250px] ">
-							<ExplorerOptionsPanel />
-						</div>
-					</OverlayPanel>
-					<TopBarButton
-						active={store.showInspector}
-						onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
-						className="my-2"
-					>
-						{store.showInspector ? (
-							<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-						) : (
-							<SidebarSimple className={TOP_BAR_ICON_STYLE} />
-						)}
-					</TopBarButton>
+						<TopBarButton
+							active={store.showInspector}
+							onClick={() => (getExplorerStore().showInspector = !store.showInspector)}
+							className="my-2"
+						>
+							{store.showInspector ? (
+								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
+							) : (
+								<SidebarSimple className={TOP_BAR_ICON_STYLE} />
+							)}
+						</TopBarButton>
+					</Tooltip>
 					{/* <Dropdown
 						// className="absolute block h-6 w-44 top-2 right-4"
 						align="right"

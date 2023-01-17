@@ -6,6 +6,7 @@ import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 
 import { Folder } from '../icons/Folder';
+import { Tooltip } from '../tooltip/Tooltip';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
@@ -70,7 +71,9 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					ctaLabel="Delete"
 					trigger={
 						<Button variant="gray" className="!p-1.5">
-							<Trash className="w-4 h-4" />
+							<Tooltip label="Delete Location">
+								<Trash className="w-4 h-4" />
+							</Tooltip>
 						</Button>
 					}
 				/>
@@ -82,7 +85,9 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 						locRescan(location.id);
 					}}
 				>
-					<Repeat className="w-4 h-4" />
+					<Tooltip label="Rescan Location">
+						<Repeat className="w-4 h-4" />
+					</Tooltip>
 				</Button>
 				{/* <Button variant="gray" className="!p-1.5">
 					<CogIcon className="w-4 h-4" />
