@@ -126,6 +126,16 @@ impl StatefulJob for FileDuplicatorJob {
 								obj_type,
 							},
 						});
+
+						let path_suffix = entry
+							.path()
+							.strip_prefix(job_state.root_path.clone())
+							.unwrap()
+							.to_path_buf();
+
+						let mut path = job_state.root_prefix.clone();
+						path.push(path_suffix);
+						std::fs::create_dir_all(path)?;
 					} else {
 						let obj_type = ObjectType::File;
 						state.steps.push_back(FileDuplicatorJobStep {
@@ -137,17 +147,6 @@ impl StatefulJob for FileDuplicatorJob {
 							},
 						});
 					};
-
-					let mut path_suffix = entry
-						.path()
-						.strip_prefix(job_state.root_path.clone())
-						.unwrap()
-						.to_path_buf();
-					path_suffix.set_file_name("");
-
-					let mut path = job_state.root_prefix.clone();
-					path.push(path_suffix);
-					std::fs::create_dir_all(path)?;
 
 					ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 				}
