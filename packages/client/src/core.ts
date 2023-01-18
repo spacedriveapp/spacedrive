@@ -87,7 +87,7 @@ export type Procedures = {
 		| { key: 'files.decryptFiles'; input: LibraryArgs<FileDecryptorJobInit>; result: null }
 		| { key: 'files.delete'; input: LibraryArgs<number>; result: null }
 		| { key: 'files.deleteFiles'; input: LibraryArgs<FileDeleterJobInit>; result: null }
-		| { key: 'files.duplicateFiles'; input: LibraryArgs<FileDuplicatorJobInit>; result: null }
+		| { key: 'files.duplicateFiles'; input: LibraryArgs<FileCopierJobInit>; result: null }
 		| { key: 'files.encryptFiles'; input: LibraryArgs<FileEncryptorJobInit>; result: null }
 		| { key: 'files.eraseFiles'; input: LibraryArgs<FileEraserJobInit>; result: null }
 		| { key: 'files.setFavorite'; input: LibraryArgs<SetFavoriteArgs>; result: null }
@@ -188,6 +188,7 @@ export interface FileCopierJobInit {
 	source_path_id: number;
 	target_location_id: number;
 	target_path: string;
+	target_file_name_suffix: string | null;
 }
 
 export interface FileCutterJobInit {
@@ -206,11 +207,6 @@ export interface FileDecryptorJobInit {
 }
 
 export interface FileDeleterJobInit {
-	location_id: number;
-	path_id: number;
-}
-
-export interface FileDuplicatorJobInit {
 	location_id: number;
 	path_id: number;
 }
