@@ -3,11 +3,11 @@
     "pins": [
       {
         "package": "SwiftRs",
-        "repositoryURL": "https://github.com/Brendonovich/swift-rs",
+        "repositoryURL": "https://github.com/brendonovich/swift-rs",
         "state": {
           "branch": null,
-          "revision": "e47a9e8186f6e25be6fae40d3cc3c272abea63a2",
-          "version": "0.3.0"
+          "revision": "833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff",
+          "version": null
         }
       }
     ]
