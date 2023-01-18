@@ -2,7 +2,7 @@ use super::{context_menu_fs_info, get_path_from_location_id, FsInfo, ObjectType}
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::VecDeque, hash::Hash, path::PathBuf};
+use std::{collections::VecDeque, ffi::OsStr, hash::Hash, path::PathBuf};
 
 pub struct FileCopierJob {}
 
@@ -28,6 +28,20 @@ pub struct FileCopierJobStep {
 }
 
 const JOB_NAME: &str = "file_copier";
+
+pub fn osstr_to_string(os_str: Option<&OsStr>) -> Result<String, JobError> {
+	let string = os_str
+		.ok_or(JobError::MissingData {
+			value: "no in option OsStr".to_string(),
+		})?
+		.to_str()
+		.ok_or(JobError::MissingData {
+			value: "issue converting OsStr to &str".to_string(),
+		})?
+		.to_string();
+
+	Ok(string)
+}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCopierJob {
@@ -60,41 +74,25 @@ impl StatefulJob for FileCopierJob {
 		let target_file_name = state.init.target_file_name_suffix.clone().map_or_else(
 			|| {
 				// if there's no provided suffix, just use source name
-				source_fs_info
-					.obj_path
-					.clone()
-					.file_name()
-					.unwrap()
-					.to_str()
-					.unwrap()
-					.to_string()
+				osstr_to_string(source_fs_info.obj_path.clone().file_name())
 			},
 			|s| match source_fs_info.obj_type {
 				ObjectType::Directory => {
-					source_fs_info
-						.obj_path
-						.clone()
-						.file_name()
-						.unwrap()
-						.to_str()
-						.unwrap()
-						.to_string() + &s
+					Ok(osstr_to_string(source_fs_info.obj_path.clone().file_name())? + &s)
 				}
-				ObjectType::File => {
-					source_fs_info
-						.obj_path
-						.clone()
-						.file_stem()
-						.unwrap()
-						.to_str()
-						.unwrap()
-						.to_string() + &s + &source_fs_info
-						.obj_path
-						.extension()
-						.map_or("".to_string(), |x| ".".to_string() + x.to_str().unwrap())
-				}
+				ObjectType::File => Ok(osstr_to_string(
+					source_fs_info.obj_path.clone().file_stem(),
+				)? + &s + &source_fs_info.obj_path.extension().map_or(
+					Ok::<_, JobError>("".to_string()),
+					|x| {
+						Ok(".".to_string()
+							+ x.to_str().ok_or(JobError::MissingData {
+								value: "issue converting OsStr to &str".to_string(),
+							})?)
+					},
+				)?),
 			},
-		);
+		)?;
 
 		full_target_path.push(target_file_name);
 
