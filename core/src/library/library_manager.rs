@@ -5,6 +5,7 @@ use crate::{
 	sync::SyncManager,
 	util::{
 		db::{load_and_migrate, write_storedkey_to_db},
+		secure_temp_store::SecureTempStore,
 		seeder::{indexer_rules_seeder, SeederError},
 	},
 	NodeContext,
@@ -343,6 +344,7 @@ impl LibraryManager {
 			db,
 			node_local_id: node_data.id,
 			node_context,
+			secure_temp_store: Arc::new(SecureTempStore::new()),
 		})
 	}
 }
