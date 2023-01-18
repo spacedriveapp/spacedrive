@@ -16,6 +16,7 @@ import {
 	Pause,
 	Question,
 	Trash,
+	TrashSimple,
 	X
 } from 'phosphor-react';
 
@@ -57,6 +58,18 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
 		}`,
 		icon: LockSimpleOpen
+	},
+	file_eraser: {
+		name: `Securely erased ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: TrashSimple
+	},
+	file_deleter: {
+		name: `Deleted ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: Trash
 	}
 });
 
