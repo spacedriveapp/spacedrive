@@ -5,7 +5,7 @@ use std::{
 
 use tokio::sync::{mpsc, RwLock};
 
-use crate::{ConnectedPeer, DiscoveredPeer, ManagerEvent, Metadata, PeerId};
+use crate::{DiscoveredPeer, ManagerEvent, Metadata, PeerId};
 
 /// TODO
 #[derive(Debug)]
@@ -18,5 +18,4 @@ where
 	pub(crate) internal_tx: mpsc::Sender<ManagerEvent>,
 	pub(crate) listen_addrs: RwLock<HashSet<SocketAddr>>,
 	pub(crate) discovered_peers: RwLock<HashMap<PeerId, DiscoveredPeer<TMetadata>>>,
-	pub(crate) connected_peers: RwLock<HashMap<PeerId, ConnectedPeer>>,
 }

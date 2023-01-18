@@ -1,13 +1,12 @@
 use std::{collections::HashMap, time::Duration};
 
-use p2p3::{Event, Keypair, Manager, Metadata};
+use sd_p2p::{Event, Keypair, Manager, Metadata};
 use tokio::time::sleep;
 use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct PeerMetadata {
 	name: String,
-	// TODO: Add OS and Spacedrive app version
 }
 
 impl Metadata for PeerMetadata {
@@ -36,13 +35,13 @@ async fn main() {
 	tracing_subscriber::fmt()
 		.with_env_filter(
 			tracing_subscriber::EnvFilter::from_default_env()
-				.add_directive("p2p3=trace".parse().unwrap())
+				.add_directive("sd_p2p=trace".parse().unwrap())
 				.add_directive("info".parse().unwrap()),
 		)
 		.try_init()
 		.unwrap();
 
-	let keypair = Keypair::generate_ed25519(); // TODO: Save and load from Spacedrive config
+	let keypair = Keypair::generate();
 
 	let manager = Manager::new(
 		"p2p3-demo",

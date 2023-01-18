@@ -22,6 +22,7 @@ pub enum P2PEvent {
 /// TODO
 #[derive(Debug, Clone)]
 pub struct PeerBootstrapProgress {
+	// TODO: Probs change this to a percentage so we don't need to send big number!
 	synced_rows: u128,
 	total_rows: u128,
 }

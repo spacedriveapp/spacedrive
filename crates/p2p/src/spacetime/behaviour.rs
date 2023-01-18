@@ -1,24 +1,26 @@
 use std::{
-	collections::{HashMap, HashSet},
-	sync::{
-		atomic::{AtomicU64, Ordering},
-		Arc,
-	},
+	collections::{HashMap, HashSet, VecDeque},
+	marker::PhantomData,
+	sync::Arc,
 	task::{Context, Poll},
 };
 
 use libp2p::{
 	core::{ConnectedPoint, ProtocolName},
 	swarm::{
-		derive_prelude::{ConnectionId, FromSwarm},
-		ConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
+		derive_prelude::{ConnectionEstablished, ConnectionId, FromSwarm},
+		ConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, PollParameters,
 	},
 	Multiaddr, PeerId,
 };
 use smallvec::SmallVec;
 use tracing::debug;
 
-use crate::spacetime::{handler::Handler, Event};
+use crate::{
+	spacetime::{handler::Handler, Event},
+	utils::AsyncFn2,
+	ManagerRef,
+};
 
 use super::{SpaceTimeMessage, SpaceTimeResponseChan};
 
@@ -26,41 +28,72 @@ use super::{SpaceTimeMessage, SpaceTimeResponseChan};
 /// of empty queues. If the capacity of an empty queue
 /// exceeds this threshold, the associated memory is
 /// released.
-const EMPTY_QUEUE_SHRINK_THRESHOLD: usize = 100;
+pub const EMPTY_QUEUE_SHRINK_THRESHOLD: usize = 100;
 
 /// This is a vanity type alias so that the code is clearer.
 /// As this is only used internally it doesn't need to be a wrapper type.
 pub(super) type RequestId = u64;
 
-/// SpaceTime is a [libp2p::NetworkBehaviour] that implements the SpaceTime protocol.
-/// This protocol sits under the application to abstract many complexities of 2 way connections and to deal with authentication, chucking, etc.
-// #[derive(Clone)]
-pub struct SpaceTime {
-	request_id: Arc<AtomicU64>, // TODO: Remove `Arc` if removing `Self: Clone`
-	outbound_requests: HashMap<u64, Option<Arc<SpaceTimeResponseChan>>>,
-	connected: HashMap<PeerId, SmallVec<[Connection; 2]>>,
+// TODO: Maybe remove this once the data ownership structure is clearer
+pub struct SpaceTimeState<TMetadata, TConnFn>
+where
+	TMetadata: crate::Metadata,
+	// TEventFn: AsyncFn2<Arc<ManagerRef<TMetadata>>, crate::Event<TMetadata>, Output = ()>,
+	TConnFn: AsyncFn2<crate::Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
+{
+	pub(crate) manager: Arc<ManagerRef<TMetadata>>,
+	pub(crate) fn_on_connect: Arc<TConnFn>,
+	phantom: PhantomData<TMetadata>,
 }
 
-impl ProtocolName for SpaceTime {
+/// SpaceTime is a [libp2p::NetworkBehaviour] that implements the SpaceTime protocol.
+/// This protocol sits under the application to abstract many complexities of 2 way connections and to deal with authentication, chucking, etc.
+pub struct SpaceTime<TMetadata, TEventFn, TConnFn>
+where
+	TMetadata: crate::Metadata,
+	TEventFn: AsyncFn2<Arc<ManagerRef<TMetadata>>, crate::Event<TMetadata>, Output = ()>,
+	TConnFn: AsyncFn2<crate::Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
+{
+	state: Arc<SpaceTimeState<TMetadata, TConnFn>>,
+	fn_on_event: Arc<TEventFn>, // TODO: Should be able to remove arc???? Closure may need clone but it would be two clones on startup so fine.
+	pending_events: VecDeque<NetworkBehaviourAction<Event, Handler<TMetadata, TConnFn>>>,
+	connected: HashMap<PeerId, SmallVec<[Connection; 2]>>,
+	addresses: HashMap<PeerId, SmallVec<[Multiaddr; 6]>>,
+}
+
+impl<TMetadata, TEventFn, TConnFn> ProtocolName for SpaceTime<TMetadata, TEventFn, TConnFn>
+where
+	TMetadata: crate::Metadata,
+	TEventFn: AsyncFn2<Arc<ManagerRef<TMetadata>>, crate::Event<TMetadata>, Output = ()>,
+	TConnFn: AsyncFn2<crate::Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
+{
 	fn protocol_name(&self) -> &[u8] {
-		"/spacetime/1".as_bytes()
+		b"/spacetime/1"
 	}
 }
 
-impl SpaceTime {
+impl<TMetadata, TEventFn, TConnFn> SpaceTime<TMetadata, TEventFn, TConnFn>
+where
+	TMetadata: crate::Metadata,
+	TEventFn: AsyncFn2<Arc<ManagerRef<TMetadata>>, crate::Event<TMetadata>, Output = ()>,
+	TConnFn: AsyncFn2<crate::Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
+{
 	/// intialise the fabric of space time
-	pub fn new() -> Self {
+	pub fn new(
+		fn_on_connect: Arc<TConnFn>,
+		manager: Arc<ManagerRef<TMetadata>>,
+		fn_on_event: Arc<TEventFn>,
+	) -> Self {
 		Self {
-			request_id: Arc::new(AtomicU64::new(0)),
-			outbound_requests: HashMap::new(),
-
-			/// TODO: This is effectivly a better `ManagerRef.connected_peers`. Maybe we should storing this once and sharing it between that system and here???
+			state: Arc::new(SpaceTimeState {
+				manager,
+				fn_on_connect,
+				phantom: PhantomData,
+			}),
+			fn_on_event,
+			pending_events: VecDeque::new(),
 			connected: HashMap::new(),
-			// next_request_id: RequestId(1),
-			// next_inbound_id: Arc::new(AtomicU64::new(1)),
-			// pending_events: VecDeque::new(),
-			// pending_outbound_requests: HashMap::new(),
-			// addresses: HashMap::new(),
+			addresses: HashMap::new(),
 		}
 	}
 
@@ -72,9 +105,11 @@ impl SpaceTime {
 		data: SpaceTimeMessage,
 		resp: Option<SpaceTimeResponseChan>,
 	) {
-		let request_id = self.request_id.fetch_add(1, Ordering::Relaxed);
-		let resp = resp.map(|v| Arc::new(v)); // Done so that `Self: Clone`
-		self.outbound_requests.insert(request_id, resp);
+		println!("TODO: SEND REQUEST");
+
+		// let request_id = self.request_id.fetch_add(1, Ordering::Relaxed);
+		// let resp = resp.map(|v| Arc::new(v)); // Done so that `Self: Clone`
+		// self.outbound_requests.insert(request_id, resp);
 
 		// 	if let Some(connections) = self.connected.get_mut(peer) {
 		// 		if connections.is_empty() {
@@ -113,6 +148,22 @@ impl SpaceTime {
 		// 	}
 	}
 
+	/// TODO
+	/// TODO: Allow broadcasting to all or a defined set of peers -> Deal with establishing connection if not already connected
+	pub fn broadcast(&mut self, data: SpaceTimeMessage) {
+		debug!("TODO: Broadcast");
+		for (peer_id, conns) in &self.connected {
+			debug!("TODO: Broadcast to peer: {:?}", peer_id);
+
+			self.pending_events
+				.push_back(NetworkBehaviourAction::NotifyHandler {
+					peer_id: *peer_id,
+					handler: NotifyHandler::One(conns.first().unwrap().id), // TODO: Error handling
+					event: data.clone(),
+				});
+		}
+	}
+
 	// TODO: Expose all these but put them where the hashmap of connected peers ends up
 
 	// /// Adds a known address for a peer that can be used for
@@ -146,17 +197,17 @@ impl SpaceTime {
 	// }
 }
 
-impl NetworkBehaviour for SpaceTime {
-	type ConnectionHandler = Handler;
+impl<TMetadata, TEventFn, TConnFn> NetworkBehaviour for SpaceTime<TMetadata, TEventFn, TConnFn>
+where
+	TMetadata: crate::Metadata,
+	TEventFn: AsyncFn2<Arc<ManagerRef<TMetadata>>, crate::Event<TMetadata>, Output = ()>,
+	TConnFn: AsyncFn2<crate::Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
+{
+	type ConnectionHandler = Handler<TMetadata, TConnFn>;
 	type OutEvent = Event;
 
 	fn new_handler(&mut self) -> Self::ConnectionHandler {
-		Handler::new(
-			// self.inbound_protocols.clone(),
-			// Duration::from_secs(10),
-			// Duration::from_secs(10),
-			// self.next_inbound_id.clone(),
-		)
+		Handler::new(self.state.clone())
 	}
 
 	fn addresses_of_peer(&mut self, peer: &PeerId) -> Vec<Multiaddr> {
@@ -172,15 +223,25 @@ impl NetworkBehaviour for SpaceTime {
 
 	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
 		match event {
-			FromSwarm::ConnectionEstablished(event) => {
-				let address = match event.endpoint {
+			FromSwarm::ConnectionEstablished(ConnectionEstablished {
+				peer_id,
+				connection_id,
+				endpoint,
+				other_established,
+				..
+			}) => {
+				let address = match endpoint {
 					ConnectedPoint::Dialer { address, .. } => Some(address.clone()),
 					ConnectedPoint::Listener { .. } => None,
 				};
+				debug!(
+					"connection established with peer '{}' found at '{:?}'; peer has {} active connections",
+					peer_id, address, other_established
+				);
 				self.connected
-					.entry(event.peer_id)
+					.entry(peer_id)
 					.or_default()
-					.push(Connection::new(event.connection_id, event.address));
+					.push(Connection::new(connection_id, address));
 
 				// TODO
 				// if other_established == 0 {
@@ -191,6 +252,49 @@ impl NetworkBehaviour for SpaceTime {
 				// 		}
 				// 	}
 				// }
+
+				// let (peer, send_create_event) = {
+				// 	let mut connected_peers = self.connected_peers.write().await;
+
+				// 	let (peer, send_create_event) =
+				// 		if let Some(mut peer) = connected_peers.remove(&peer_id) {
+				// 			peer.active_connections = num_established;
+				// 			(peer, false)
+				// 		} else {
+				// 			(
+				// 				ConnectedPeer {
+				// 					active_connections: num_established,
+				// 					conn_type: endpoint.into(),
+				// 				},
+				// 				true,
+				// 			)
+				// 		};
+				// 	connected_peers.insert(peer_id, peer.clone());
+				// 	(peer, send_create_event)
+				// };
+
+				// if send_create_event {
+				// 	// if matches!(peer.conn_type, ConnectionType::Dialer) { // TODO: This check is not working. Both are Dialer
+				// 	if this.state.peer_id < peer_id { // TODO: Move back to previous check once it's fixed. This will work for now.
+				// 		// TODO: This should be stored into request map to be handled properly and so errors can be reported
+				// 		// TODO: handle the event of this not being sent properly because it means the other side won't startup.
+				// 		debug!("sending establishment request to peer '{}'", peer_id);
+				// 		// swarm.behaviour_mut().send_request(&peer_id, SpaceTimeMessage::Establish); // TODO
+				// 	}
+
+				// (this.fn_on_event)(this.state.clone(), Event::PeerConnected(peer)).await; // TODO
+				// }
+
+				// let temp_peer = ConnectedPeer {
+				// 	active_connections: num_established,
+				// 	conn_type: endpoint.into(),
+				// };
+
+				// TODO: Only emit this on first connection
+				// tokio::spawn((this.fn_on_event)(
+				// 	this.state.clone(), // TODO
+				// 	Event::PeerConnected(temp_peer),
+				// ));
 			}
 			FromSwarm::ConnectionClosed(event) => {
 				let connections = self
@@ -247,7 +351,7 @@ impl NetworkBehaviour for SpaceTime {
 					.iter_mut()
 					.find(|c| c.id == event.connection_id)
 					.expect("Address change can only happen on an established connection.");
-				connection.address = event.new_address;
+				connection.address = new_address;
 			}
 			FromSwarm::DialFailure(event) => {
 				if let Some(peer_id) = event.peer_id {
@@ -289,9 +393,10 @@ impl NetworkBehaviour for SpaceTime {
 		&mut self,
 		peer_id: PeerId,
 		connection: ConnectionId,
-		event: <Handler as ConnectionHandler>::OutEvent,
+		event: <Handler<TMetadata, TConnFn> as ConnectionHandler>::OutEvent,
 	) {
-		event.handle(peer_id, connection);
+		// event.handle(peer_id, connection);
+		todo!();
 	}
 
 	fn poll(
@@ -300,16 +405,20 @@ impl NetworkBehaviour for SpaceTime {
 		_: &mut impl PollParameters,
 	) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
 		// TODO
-		// if let Some(ev) = self.pending_events.pop_front() {
-		// 	return Poll::Ready(ev);
-		// } else if self.pending_events.capacity() > EMPTY_QUEUE_SHRINK_THRESHOLD {
-		// 	self.pending_events.shrink_to_fit();
-		// }
+		if let Some(ev) = self.pending_events.pop_front() {
+			return Poll::Ready(ev);
+		} else if self.pending_events.capacity() > EMPTY_QUEUE_SHRINK_THRESHOLD {
+			self.pending_events.shrink_to_fit();
+		}
+
+		// TODO: This should emit a view of the active connections which we can shared with the UI.
+		// TODO: We can't use async mutex locks here so this push based approach is probs best.
 
 		Poll::Pending
 	}
 }
 
+// TODO: Probs merge this into my connection management system and then remove it.
 /// Internal information tracked for an established connection.
 struct Connection {
 	id: ConnectionId,

@@ -1,11 +1,11 @@
 use std::{fmt, sync::Arc};
 
-use libp2p::{swarm::derive_prelude::ConnectionId, PeerId};
+use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 use tracing::warn;
 
-use crate::{utils::AsyncFn2, ManagerEvent, ManagerRef, Metadata};
+use crate::{utils::AsyncFn2, ManagerRef, Metadata};
 
 use super::{RequestId, ResponseChannel};
 
@@ -22,11 +22,12 @@ pub enum SpaceTimeMessage {
 	Application(Vec<u8>),
 }
 
-/// TODO
-#[derive(Debug)]
-pub struct SpaceTimeEvent {}
-
-impl SpaceTimeEvent {}
+// TODO: Avoiding this impl because it provides no ability to do error handling
+impl AsRef<[u8]> for SpaceTimeMessage {
+	fn as_ref(&self) -> &[u8] {
+		todo!()
+	}
+}
 
 /// The events emitted by a request-response [`Behaviour`].
 #[derive(Debug)]
@@ -111,18 +112,20 @@ impl Event {
 											// swarm.behaviour().send_response(channel, SpaceTimeMessage::Application(data)).unwrap();
 
 											// TODO: This is so cringe. The channel should be so unnecessary! Can we force the behavior into an `Arc`. Although I will probs yeet it from the codebase soon.
-											match state
-												.internal_tx
-												.send(ManagerEvent::SendResponse(
-													peer,
-													SpaceTimeMessage::Application(data),
-													channel,
-												))
-												.await
-											{
-												Ok(_) => {}
-												Err(_err) => todo!(),
-											}
+											// match state
+											// 	.internal_tx
+											// 	.send(ManagerEvent::SendResponse(
+											// 		peer,
+											// 		SpaceTimeMessage::Application(data),
+											// 		channel,
+											// 	))
+											// 	.await
+											// {
+											// 	Ok(_) => {}
+											// 	Err(_err) => todo!(),
+											// }
+
+											todo!();
 										}
 										Err(_err) => todo!(), // TODO: Imagine causing an error
 									}
@@ -173,234 +176,6 @@ impl Event {
 			}
 			Self::ResponseSent { peer, request_id } => {
 				// todo!();
-			}
-		}
-	}
-}
-
-/// The events emitted by the [`Handler`].
-pub enum TODOEvent {
-	/// A request has been received.
-	Request {
-		request_id: RequestId,
-		request: SpaceTimeMessage,
-		sender: oneshot::Sender<SpaceTimeMessage>,
-	},
-	/// A response has been received.
-	Response {
-		request_id: RequestId,
-		response: SpaceTimeMessage,
-	},
-	/// A response to an inbound request has been sent.
-	ResponseSent(RequestId),
-	/// A response to an inbound request was omitted as a result
-	/// of dropping the response `sender` of an inbound `Request`.
-	ResponseOmission(RequestId),
-	/// An outbound request timed out while sending the request
-	/// or waiting for the response.
-	OutboundTimeout(RequestId),
-	/// An outbound request failed to negotiate a mutually supported `.
-	OutboundUnsupportedProtocols(RequestId),
-	/// An inbound request timed out while waiting for the request
-	/// or sending the response.
-	InboundTimeout(RequestId),
-	/// An inbound request failed to negotiate a mutually supported protocol.
-	InboundUnsupportedProtocols(RequestId),
-}
-
-impl fmt::Debug for TODOEvent {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			TODOEvent::Request {
-				request_id,
-				request: _,
-				sender: _,
-			} => f
-				.debug_struct("Event::Request")
-				.field("request_id", request_id)
-				.finish(),
-			TODOEvent::Response {
-				request_id,
-				response: _,
-			} => f
-				.debug_struct("Event::Response")
-				.field("request_id", request_id)
-				.finish(),
-			TODOEvent::ResponseSent(request_id) => f
-				.debug_tuple("Event::ResponseSent")
-				.field(request_id)
-				.finish(),
-			TODOEvent::ResponseOmission(request_id) => f
-				.debug_tuple("Event::ResponseOmission")
-				.field(request_id)
-				.finish(),
-			TODOEvent::OutboundTimeout(request_id) => f
-				.debug_tuple("Event::OutboundTimeout")
-				.field(request_id)
-				.finish(),
-			TODOEvent::OutboundUnsupportedProtocols(request_id) => f
-				.debug_tuple("Event::OutboundUnsupportedProtocols")
-				.field(request_id)
-				.finish(),
-			TODOEvent::InboundTimeout(request_id) => f
-				.debug_tuple("Event::InboundTimeout")
-				.field(request_id)
-				.finish(),
-			TODOEvent::InboundUnsupportedProtocols(request_id) => f
-				.debug_tuple("Event::InboundUnsupportedProtocols")
-				.field(request_id)
-				.finish(),
-		}
-	}
-}
-
-impl TODOEvent {
-	pub fn handle(&self, peer_id: PeerId, connection: ConnectionId) {
-		match self {
-			Self::Response {
-				request_id,
-				response,
-			} => {
-				// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
-				// 		debug_assert!(
-				// 			removed,
-				// 			"Expect request_id to be pending before receiving response.",
-				// 		);
-
-				// 		let message = Message::Response {
-				// 			request_id,
-				// 			response,
-				// 		};
-				// 		self.pending_events
-				// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::Message {
-				// 				peer,
-				// 				message,
-				// 			}));
-			}
-			Self::Request {
-				request_id,
-				request,
-				sender,
-			} => {
-				// 		let channel = ResponseChannel { sender };
-				// 		let message = Message::Request {
-				// 			request_id,
-				// 			request,
-				// 			channel,
-				// 		};
-				// 		self.pending_events
-				// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::Message {
-				// 				peer,
-				// 				message,
-				// 			}));
-
-				// 		match self.get_connection_mut(&peer, connection) {
-				// 			Some(connection) => {
-				// 				let inserted = connection.pending_outbound_responses.insert(request_id);
-				// 				debug_assert!(inserted, "Expect id of new request to be unknown.");
-				// 			}
-				// 			// Connection closed after `Event::Request` has been emitted.
-				// 			None => {
-				// 				self.pending_events
-				// 					.push_back(NetworkBehaviourAction::GenerateEvent(
-				// 						Event::InboundFailure {
-				// 							peer,
-				// 							request_id,
-				// 							error: InboundFailure::ConnectionClosed,
-				// 						},
-				// 					));
-				// 			}
-				// 		}
-			}
-			Self::ResponseSent(request_id) => {
-				// 		let removed = self.remove_pending_outbound_response(&peer, connection, request_id);
-				// 		debug_assert!(
-				// 			removed,
-				// 			"Expect request_id to be pending before response is sent."
-				// 		);
-
-				// 		self.pending_events
-				// 			.push_back(NetworkBehaviourAction::GenerateEvent(Event::ResponseSent {
-				// 				peer,
-				// 				request_id,
-				// 			}));
-			}
-			Self::ResponseOmission(request_id) => {
-				// 		let removed = self.remove_pending_outbound_response(&peer, connection, request_id);
-				// 		debug_assert!(
-				// 			removed,
-				// 			"Expect request_id to be pending before response is omitted.",
-				// 		);
-
-				// 		self.pending_events
-				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-				// 				Event::InboundFailure {
-				// 					peer,
-				// 					request_id,
-				// 					error: InboundFailure::ResponseOmission,
-				// 				},
-				// 			));
-			}
-			Self::OutboundTimeout(request_id) => {
-				// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
-				// 		debug_assert!(
-				// 			removed,
-				// 			"Expect request_id to be pending before request times out."
-				// 		);
-
-				// 		self.pending_events
-				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-				// 				Event::OutboundFailure {
-				// 					peer,
-				// 					request_id,
-				// 					error: OutboundFailure::Timeout,
-				// 				},
-				// 			));
-			}
-			Self::InboundTimeout(request_id) => {
-				// 		// Note: `Event::InboundTimeout` is emitted both for timing
-				// 		// out to receive the request and for timing out sending the response. In the former
-				// 		// case the request is never added to `pending_outbound_responses` and thus one can
-				// 		// not assert the request_id to be present before removing it.
-				// 		self.remove_pending_outbound_response(&peer, connection, request_id);
-
-				// 		self.pending_events
-				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-				// 				Event::InboundFailure {
-				// 					peer,
-				// 					request_id,
-				// 					error: InboundFailure::Timeout,
-				// 				},
-				// 			));
-			}
-			Self::OutboundUnsupportedProtocols(request_id) => {
-				// 		let removed = self.remove_pending_inbound_response(&peer, connection, &request_id);
-				// 		debug_assert!(
-				// 			removed,
-				// 			"Expect request_id to be pending before failing to connect.",
-				// 		);
-
-				// 		self.pending_events
-				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-				// 				Event::OutboundFailure {
-				// 					peer,
-				// 					request_id,
-				// 					error: OutboundFailure::UnsupportedProtocols,
-				// 				},
-				// 			));
-			}
-			Self::InboundUnsupportedProtocols(request_id) => {
-				// 		// Note: No need to call `self.remove_pending_outbound_response`,
-				// 		// `Event::Request` was never emitted for this request and
-				// 		// thus request was never added to `pending_outbound_responses`.
-				// 		self.pending_events
-				// 			.push_back(NetworkBehaviourAction::GenerateEvent(
-				// 				Event::InboundFailure {
-				// 					peer,
-				// 					request_id,
-				// 					error: InboundFailure::UnsupportedProtocols,
-				// 				},
-				// 			));
 			}
 		}
 	}

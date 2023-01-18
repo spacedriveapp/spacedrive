@@ -31,45 +31,44 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	event::Event,
-	spacetime::{OutboundFailure, ResponseChannel, SpaceTime, SpaceTimeMessage},
+	spacetime::{OutboundFailure, SpaceTime, SpaceTimeMessage, SpaceTimeResponseChan},
 	utils::{quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr, AsyncFn, AsyncFn2},
-	ConnectedPeer, Connection, DiscoveredPeer, Keypair, ManagerRef, Metadata,
+	Connection, DiscoveredPeer, Keypair, ManagerRef, Metadata,
 };
 
 /// TODO
-pub struct Manager<TMetadata, TMetadataFn, TEventFn, TConnFn>
+pub struct Manager<TMetadata, TMetadataFn, TEventFn>
 where
 	TMetadata: Metadata,
 	TMetadataFn: AsyncFn<Output = TMetadata>,
 	TEventFn: AsyncFn2<Arc<ManagerRef<TMetadata>>, Event<TMetadata>, Output = ()>,
-	TConnFn: AsyncFn2<Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
 {
 	state: Arc<ManagerRef<TMetadata>>,
 
 	fn_get_metadata: TMetadataFn,
-	fn_on_event: TEventFn,
-	fn_on_connect: Arc<TConnFn>,
-
+	fn_on_event: Arc<TEventFn>,
 	mdns_daemon: ServiceDaemon,
 
 	phantom: PhantomData<TMetadata>,
 }
 
-impl<TMetadata, TMetadataFn, TEventFn, TConnFn> Manager<TMetadata, TMetadataFn, TEventFn, TConnFn>
+impl<TMetadata, TMetadataFn, TEventFn> Manager<TMetadata, TMetadataFn, TEventFn>
 where
 	TMetadata: Metadata,
 	TMetadataFn: AsyncFn<Output = TMetadata>,
 	TEventFn: AsyncFn2<Arc<ManagerRef<TMetadata>>, Event<TMetadata>, Output = ()>,
-	TConnFn: AsyncFn2<Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
 {
 	/// create a new P2P manager. Please do your best to make the callback closures as fast as possible because they will slow the P2P event loop!
-	pub async fn new(
+	pub async fn new<TConnFn>(
 		application_name: &'static str,
 		keypair: &Keypair,
 		fn_get_metadata: TMetadataFn,
 		fn_on_event: TEventFn,
 		fn_on_connect: TConnFn,
-	) -> Result<Arc<Self>, ManagerError> {
+	) -> Result<Arc<Self>, ManagerError>
+	where
+		TConnFn: AsyncFn2<Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
+	{
 		(!application_name.chars().all(char::is_alphanumeric))
 			.then_some(())
 			.ok_or(ManagerError::InvalidAppName)?;
@@ -77,29 +76,11 @@ where
 		let mdns_daemon = ServiceDaemon::new()?;
 		let service_name = format!("_{}._udp.local.", application_name);
 
-		let mut swarm = Swarm::with_tokio_executor(
-			quic::GenTransport::<quic::tokio::Provider>::new(quic::Config::new(keypair.inner()))
-				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
-				.boxed(),
-			SpaceTime::new(),
-			keypair.public().to_peer_id(),
-		);
-		{
-			let listener_id = swarm
-            .listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this shoulnd't be possible."))
-            .unwrap();
-			debug!("created ipv4 listener with id '{:?}'", listener_id);
-		}
-		{
-			let listener_id = swarm
-        .listen_on("/ip6/::/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this shoulnd't be possible."))
-        .unwrap();
-			debug!("created ipv4 listener with id '{:?}'", listener_id);
-		}
-
-		let mut mdns_service = mdns_daemon.browse(&service_name).map(|r| r.into_stream())?;
+		let fn_on_connect = Arc::new(fn_on_connect); // TODO: Avoid arcing it?
+		let fn_on_event = Arc::new(fn_on_event); // TODO: Avoid arcing it?
 
 		let (internal_tx, mut internal_rx) = mpsc::channel(250);
+		let mut mdns_service = mdns_daemon.browse(&service_name).map(|r| r.into_stream())?;
 		let this = Arc::new(Self {
 			state: Arc::new(ManagerRef {
 				service_name,
@@ -107,14 +88,33 @@ where
 				internal_tx,
 				listen_addrs: RwLock::new(Default::default()),
 				discovered_peers: RwLock::new(Default::default()),
-				connected_peers: RwLock::new(Default::default()),
+				// connected_peers: RwLock::new(Default::default()),
 			}),
 			fn_get_metadata,
-			fn_on_event,
-			fn_on_connect: Arc::new(fn_on_connect),
+			fn_on_event: fn_on_event.clone(),
 			mdns_daemon,
 			phantom: PhantomData,
 		});
+
+		let mut swarm = Swarm::with_tokio_executor(
+			quic::GenTransport::<quic::tokio::Provider>::new(quic::Config::new(keypair.inner()))
+				.map(|(p, c), _| (p, StreamMuxerBox::new(c)))
+				.boxed(),
+			SpaceTime::new(fn_on_connect, this.state.clone(), fn_on_event),
+			keypair.public().to_peer_id(),
+		);
+		{
+			let listener_id = swarm
+            .listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
+            .unwrap();
+			debug!("created ipv4 listener with id '{:?}'", listener_id);
+		}
+		{
+			let listener_id = swarm
+        .listen_on("/ip6/::/udp/0/quic-v1".parse().expect("Error passing libp2p multiaddr. This value is hardcoded so this should be impossible."))
+        .unwrap();
+			debug!("created ipv4 listener with id '{:?}'", listener_id);
+		}
 
 		// TODO: Drop on manager drop
 		tokio::spawn({
@@ -143,70 +143,20 @@ where
 									}
 								},
 								ManagerEvent::SendRequest(peer_id, data, resp) => {
-									// active_requests.insert(swarm.behaviour_mut().send_request(&peer_id, data), resp);
-								}
-								// TODO: Remove this event maybe????
-								ManagerEvent::SendResponse(_peer_id, data, channel) => {
-									// swarm.behaviour_mut().send_response(channel, data).unwrap(); // TODO
-								}
+									swarm.behaviour_mut().send(&peer_id, data, resp);
+								},
+								ManagerEvent::BroadcastRequest(data, resp) => {
+									// TODO: Handle `resp` for collating results
+									swarm.behaviour_mut().broadcast(data);
+								},
 							}
 						}
 						event = swarm.select_next_some() => {
 							match event {
-								SwarmEvent::Behaviour(event) => event.handle(&this.state, this.fn_on_connect.clone()).await,
-								SwarmEvent::ConnectionEstablished { peer_id, endpoint, num_established, .. } => {
-									debug!("connection established with peer '{}'; peer has {} active connections", peer_id, num_established);
-									let (peer, send_create_event) = {
-										let mut connected_peers = this.state.connected_peers.write().await;
-
-										let (peer, send_create_event) = if let Some(mut peer) = connected_peers.remove(&peer_id) {
-											peer.active_connections = num_established;
-											(peer, false)
-										} else {
-											(ConnectedPeer {
-												active_connections: num_established,
-												conn_type: endpoint.into(),
-											}, true)
-										};
-										connected_peers.insert(peer_id, peer.clone());
-										(peer, send_create_event)
-									};
-
-									if send_create_event {
-										// if matches!(peer.conn_type, ConnectionType::Dialer) { // TODO: This check is not working. Both are Dialer
-										if this.state.peer_id < peer_id { // TODO: Move back to previous check once it's fixed. This will work for now.
-											// TODO: This should be stored into request map to be handled properly and so errors can be reported
-											// TODO: handle the event of this not being sent properly because it means the other side won't startup.
-											debug!("sending establishment request to peer '{}'", peer_id);
-											// swarm.behaviour_mut().send_request(&peer_id, SpaceTimeMessage::Establish); // TODO
-										}
-
-										(this.fn_on_event)(this.state.clone(), Event::PeerConnected(peer)).await;
-									}
-								},
-								SwarmEvent::ConnectionClosed { peer_id, num_established, cause, .. } => {
-									debug!("connection closed with peer '{}' due to '{:?}'; peer has {} remaining connections.", peer_id, cause, num_established);
-								   let event = {
-										let mut connected_peers = this.state.connected_peers.write().await;
-										let peer = connected_peers.remove(&peer_id);
-										match (NonZeroU32::new(num_established), peer) {
-											(Some(num_established), Some(mut peer)) => {
-												peer.active_connections = num_established;
-												connected_peers.insert(peer_id.clone(), peer);
-												Some(Event::PeerDisconnected(peer_id))
-											},
-											(Some(_), None) => {
-												warn!("error closing connection with peer '{}' because it doesn't exist in local state", peer_id);
-												None
-											},
-											_ => None,
-										}
-									};
-
-									if let Some(event) = event {
-										(this.fn_on_event)(this.state.clone(), event).await;
-									}
-								},
+								SwarmEvent::Behaviour(event) => {}, // TODO: event.handle(&this.state, this.fn_on_connect.clone()).await,
+								SwarmEvent::ConnectionEstablished { .. } => {},
+								SwarmEvent::ConnectionClosed { .. } => {},
+								// TODO: Move rest of these
 								SwarmEvent::IncomingConnection { local_addr, .. } => debug!("incoming connection from '{}'", local_addr),
 								SwarmEvent::IncomingConnectionError { local_addr, error, .. } => warn!("handshake error with incoming connection from '{}': {}", local_addr, error),
 								SwarmEvent::OutgoingConnectionError { peer_id, error } => warn!("error establishing connection with '{:?}': {}", peer_id, error),
@@ -423,7 +373,7 @@ where
 			.send(ManagerEvent::SendRequest(
 				peer_id,
 				SpaceTimeMessage::Application(data),
-				tx,
+				Some(tx),
 			))
 			.await
 			.map_err(|_| ())?;
@@ -444,19 +394,16 @@ where
 
 	// TODO: Error's should be collected and message should attempt to be send to everyone and not fail early
 	// TODO: Return channel which can be awaited to get report of broadcast -> How many sent vs dropped
-	pub async fn broadcast(self: &Arc<Self>, data: &[u8]) {
-		let data = data.to_vec();
-		let peers = {
-			let connected_peers = self.state.connected_peers.read().await;
-			connected_peers.keys().cloned().collect::<Vec<_>>()
-		};
-		let this = self.clone();
-		tokio::spawn(async move {
-			for peer_id in peers {
-				// debug!("Broadcasting to peer: {}", peer_id); // TODO: Add id and relate to data which is printed once
-				let _ = this.send(peer_id.clone(), data.clone()).await;
-			}
-		});
+	// TODO: Allow targeting a set of peer_ids with the broadcast
+	pub async fn broadcast(self: &Arc<Self>, data: impl Into<Vec<u8>>) -> Result<(), ()> {
+		self.state
+			.internal_tx
+			.send(ManagerEvent::BroadcastRequest(
+				SpaceTimeMessage::Application(data.into()),
+				None,
+			))
+			.await
+			.map_err(|_| ())
 	}
 }
 
@@ -472,10 +419,6 @@ pub enum ManagerError {
 
 pub(crate) enum ManagerEvent {
 	Dial(PeerId, Vec<SocketAddr>),
-	SendRequest(
-		PeerId,
-		SpaceTimeMessage,
-		oneshot::Sender<Result<SpaceTimeMessage, OutboundFailure>>,
-	),
-	SendResponse(PeerId, SpaceTimeMessage, ResponseChannel<SpaceTimeMessage>),
+	SendRequest(PeerId, SpaceTimeMessage, Option<SpaceTimeResponseChan>),
+	BroadcastRequest(SpaceTimeMessage, Option<SpaceTimeResponseChan>),
 }

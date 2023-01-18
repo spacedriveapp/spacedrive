@@ -13,6 +13,7 @@ pub use protocol::*;
 ///
 /// See [`Behaviour::send_response`].
 #[derive(Debug)]
+#[deprecated = "todo: remove this"]
 pub struct ResponseChannel<TResponse> {
 	sender: tokio::sync::oneshot::Sender<TResponse>,
 }
@@ -26,6 +27,7 @@ impl<TResponse> ResponseChannel<TResponse> {
 	/// If the response channel is no longer open then the inbound
 	/// request timed out waiting for the response.
 	pub fn is_open(&self) -> bool {
-		!self.sender.is_canceled()
+		// !self.sender.is_canceled()
+		todo!();
 	}
 }
