@@ -60,8 +60,8 @@ impl StatefulJob for FileDeleterJob {
 		// maybe a files.countOccurances/and or files.getPath(location_id, path_id) to show how many of these files would be deleted (and where?)
 
 		match info.obj_type {
-			ObjectType::File => std::fs::remove_file(info.obj_path.clone()),
-			ObjectType::Directory => std::fs::remove_dir_all(info.obj_path.clone()),
+			ObjectType::File => tokio::fs::remove_file(info.obj_path.clone()).await,
+			ObjectType::Directory => tokio::fs::remove_dir_all(info.obj_path.clone()).await,
 		}?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
