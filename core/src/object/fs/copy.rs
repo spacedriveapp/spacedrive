@@ -49,6 +49,8 @@ impl StatefulJob for FileCopierJob {
 
 		let mut full_target_path =
 			get_path_from_location_id(&ctx.library_ctx.db, state.init.target_location_id).await?;
+
+		// add the currently viewed subdirectory to the location root
 		full_target_path.push(state.init.target_path.clone());
 
 		// extension wizardry for cloning and such
@@ -57,6 +59,7 @@ impl StatefulJob for FileCopierJob {
 		// if a suffix is provided and it's a file, use the (file name + suffix).extension
 		let target_file_name = state.init.target_file_name_suffix.clone().map_or_else(
 			|| {
+				// if there's no provided suffix, just use source name
 				source_fs_info
 					.obj_path
 					.clone()
@@ -66,42 +69,30 @@ impl StatefulJob for FileCopierJob {
 					.unwrap()
 					.to_string()
 			},
-			|s| {
-				// this could be composed into a string
-				let mut path = source_fs_info.obj_path.clone();
-				path.pop();
-				if source_fs_info.obj_type == ObjectType::Directory {
-					path.push(
-						source_fs_info
-							.obj_path
-							.clone()
-							.file_name()
-							.unwrap()
-							.to_str()
-							.unwrap()
-							.to_string() + &s,
-					);
-				} else if source_fs_info.obj_type == ObjectType::File {
-					path.push(
-						source_fs_info
-							.obj_path
-							.clone()
-							.file_stem()
-							.unwrap()
-							.to_str()
-							.unwrap()
-							.to_string() + &s,
-					);
-
-					source_fs_info.obj_path.extension().map(|x| {
-						path.set_file_name(
-							path.file_name().unwrap().to_str().unwrap().to_string()
-								+ "." + x.to_str().unwrap(),
-						)
-					});
+			|s| match source_fs_info.obj_type {
+				ObjectType::Directory => {
+					source_fs_info
+						.obj_path
+						.clone()
+						.file_name()
+						.unwrap()
+						.to_str()
+						.unwrap()
+						.to_string() + &s
 				}
-
-				path.to_str().unwrap().to_string()
+				ObjectType::File => {
+					source_fs_info
+						.obj_path
+						.clone()
+						.file_stem()
+						.unwrap()
+						.to_str()
+						.unwrap()
+						.to_string() + &s + &source_fs_info
+						.obj_path
+						.extension()
+						.map_or("".to_string(), |x| ".".to_string() + x.to_str().unwrap())
+				}
 			},
 		);
 
