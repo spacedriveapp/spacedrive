@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { ExplorerData, ExplorerItem } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
 import { Rows, SquaresFour } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Layout from '~/constants/Layout';
 import SortByMenu from '~/containers/menu/SortByMenu';
@@ -30,18 +30,11 @@ const Explorer = ({ data }: ExplorerProps) => {
 		getExplorerStore().layoutMode = kind;
 	}
 
-	useEffect(() => {
-		// Set screen title to location name.
-		navigation.setOptions({
-			title: data?.context.name
-		});
-	}, [data, navigation]);
-
 	const { fileRef, setData } = useFileModalStore();
 
 	function handlePress(item: ExplorerItem) {
 		if (isPath(item) && item.is_dir) {
-			navigation.navigate('Location', { id: item.location_id, path: item.materialized_path });
+			navigation.push('Location', { id: item.location_id, path: item.materialized_path });
 		} else {
 			setData(item);
 			fileRef.current.present();
