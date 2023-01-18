@@ -11,6 +11,7 @@ pub struct FileCopierJobState {
 	pub target_path: PathBuf, // target dir prefix too
 	pub source_path: PathBuf,
 	pub root_type: ObjectType,
+	pub target_file_name: String,
 }
 
 #[derive(Serialize, Deserialize, Hash, Type)]
@@ -19,6 +20,7 @@ pub struct FileCopierJobInit {
 	pub source_path_id: i32,
 	pub target_location_id: i32,
 	pub target_path: PathBuf,
+	pub target_file_name_suffix: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,10 +52,42 @@ impl StatefulJob for FileCopierJob {
 			get_path_from_location_id(&ctx.library_ctx.db, state.init.target_location_id).await?;
 		full_target_path.push(state.init.target_path.clone());
 
+		let target_file_name = state.init.target_file_name_suffix.clone().map_or_else(
+			|| {
+				source_fs_info
+					.obj_path
+					.clone()
+					.file_name()
+					.unwrap()
+					.to_str()
+					.unwrap()
+					.to_string()
+			},
+			|s| {
+				// should turn /root/x.tar.gz into /root/x.tar - clone.gz (file_prefix is still unstable :|)
+				// need to get the original file name, add `s` onto it and preserve the extension fully
+				source_fs_info
+					.obj_path
+					.clone()
+					.file_stem()
+					.unwrap()
+					.to_str()
+					.unwrap()
+					.to_string() + &s + source_fs_info
+					.obj_path
+					.clone()
+					.extension()
+					.unwrap()
+					.to_str()
+					.unwrap()
+			},
+		);
+
 		state.data = Some(FileCopierJobState {
 			target_path: full_target_path,
 			source_path: source_fs_info.obj_path.clone(),
 			root_type: source_fs_info.obj_type.clone(),
+			target_file_name,
 		});
 
 		state.steps = VecDeque::new();
@@ -79,11 +113,9 @@ impl StatefulJob for FileCopierJob {
 		match info.obj_type {
 			ObjectType::File => {
 				let mut path = job_state.target_path.clone();
-				path.push(job_state.source_path.clone().file_name().unwrap());
+				path.push(job_state.target_file_name.clone());
 
-				if job_state.root_type == ObjectType::File {
-					path.push(job_state.source_path.clone().file_name().unwrap());
-				} else if job_state.root_type == ObjectType::Directory {
+				if job_state.root_type == ObjectType::Directory {
 					path.push(
 						info.obj_path
 							.strip_prefix(job_state.source_path.clone())
@@ -107,7 +139,7 @@ impl StatefulJob for FileCopierJob {
 						});
 
 						let mut path = job_state.target_path.clone();
-						path.push(job_state.source_path.clone().file_name().unwrap());
+						path.push(job_state.target_file_name.clone());
 						path.push(
 							entry
 								.path()

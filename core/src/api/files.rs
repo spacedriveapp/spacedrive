@@ -129,10 +129,8 @@ pub(crate) fn mount() -> RouterBuilder {
 			})
 		})
 		.library_mutation("duplicateFiles", |t| {
-			t(|_, args: FileDuplicatorJobInit, library| async move {
-				library
-					.spawn_job(Job::new(args, FileDuplicatorJob {}))
-					.await;
+			t(|_, args: FileCopierJobInit, library| async move {
+				library.spawn_job(Job::new(args, FileCopierJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())

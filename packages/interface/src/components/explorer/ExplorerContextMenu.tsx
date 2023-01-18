@@ -148,7 +148,8 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 									source_location_id: store.cutCopyState.sourceLocationId,
 									source_path_id: store.cutCopyState.sourcePathId,
 									target_location_id: store.locationId,
-									target_path: params.path
+									target_path: params.path,
+									target_file_name_suffix: null
 								});
 						} else {
 							store.locationId &&
@@ -217,6 +218,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
 
 	const duplicateFiles = useLibraryMutation('files.duplicateFiles');
+	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
 		<div className="relative">
@@ -237,8 +239,13 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 					keybind="⌘D"
 					onClick={(e) => {
 						expStore.locationId &&
-							props.item.id &&
-							duplicateFiles.mutate({ location_id: expStore.locationId, path_id: props.item.id });
+							copyFiles.mutate({
+								source_location_id: expStore.locationId,
+								source_path_id: props.item.id,
+								target_location_id: expStore.locationId,
+								target_path: params.path,
+								target_file_name_suffix: ' - Clone'
+							});
 					}}
 				/>
 
