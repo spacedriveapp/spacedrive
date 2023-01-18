@@ -65,7 +65,7 @@ public func getMounts() -> SRObjectArray {
 			
 			let volume = Volume(
 				name: metadata?.volumeName ?? url.absoluteString,
-				path: url.absoluteString,
+				path: url.path(),
 				is_root_filesystem: metadata?.volumeIsRootFileSystem ?? false,
 				total_capacity: metadata?.volumeTotalCapacity ?? 0,
 				available_capacity: metadata?.volumeAvailableCapacity ?? 0,
