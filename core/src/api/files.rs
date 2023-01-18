@@ -6,7 +6,6 @@ use crate::{
 		cut::{FileCutterJob, FileCutterJobInit},
 		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
 		delete::{FileDeleterJob, FileDeleterJobInit},
-		duplicate::{FileDuplicatorJob, FileDuplicatorJobInit},
 		encrypt::{FileEncryptorJob, FileEncryptorJobInit},
 		erase::{FileEraserJob, FileEraserJobInit},
 	},
