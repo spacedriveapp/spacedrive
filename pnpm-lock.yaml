@@ -10271,17 +10271,6 @@ packages:
       isobject: 3.0.1
       static-extend: 0.1.2
 
-  /class-variance-authority/0.2.4_typescript@4.9.4:
-    resolution: {integrity: sha512-JJKn9ESARiNEBBRdTSPB9/SwaPb+wi19DMX/r8BVSyp1dxHa3JyUxa2GQjEVag5rBi+O3pL64UZ0XhnQsMz+3w==}
-    peerDependencies:
-      typescript: '>= 4.5.5 < 5'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-    dependencies:
-      typescript: 4.9.4
-    dev: false
-
   /class-variance-authority/0.4.0_typescript@4.9.4:
     resolution: {integrity: sha512-74enNN8O9ZNieycac/y8FxqgyzZhZbxmCitAtAeUrLPlxjSd5zA7LfpprmxEcOmQBnaGs5hYhiSGnJ0mqrtBLQ==}
     peerDependencies:
@@ -19455,6 +19444,7 @@ packages:
       resolve: 1.22.1
     transitivePeerDependencies:
       - ts-node
+    dev: false
 
   /tailwindcss/3.2.4_postcss@8.4.20:
     resolution: {integrity: sha512-AhwtHCKMtR71JgeYDaswmZXhPcW9iuI9Sp2LvZPo9upDZ7231ZJ7eA9RaURbhpXGVlrjX4cFNlB4ieTetEb7hQ==}

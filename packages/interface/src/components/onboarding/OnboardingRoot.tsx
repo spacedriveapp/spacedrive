@@ -1,31 +1,73 @@
 import BloomOne from '@sd/assets/images/bloom-one.png';
-import BloomThree from '@sd/assets/images/bloom-three.png';
+import { getOnboardingStore } from '@sd/client';
 import { tw } from '@sd/ui';
 import clsx from 'clsx';
-import { Dispatch, SetStateAction, createContext, useState } from 'react';
-import { Outlet, useLocation } from 'react-router';
+import { ComponentType, useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
+import OnboardingMasterPassword from './OnboardingMasterPassword';
+import OnboardingNewLibrary from './OnboardingNewLibrary';
+import OnboardingPrivacy from './OnboardingPrivacy';
 import OnboardingProgress from './OnboardingProgress';
-import { useCurrentOnboardingScreenKey } from './helpers/screens';
+import OnboardingStart from './OnboardingStart';
 
-export const OnboardingStateContext = createContext<{
-	unlockedScreens: string[];
-	unlockScreen?: (screenIndex: string) => void;
-}>({ unlockedScreens: [] });
+interface OnboardingScreen {
+	/**
+	 * React component for rendering this screen.
+	 */
+	component: ComponentType<Record<string, never>>;
+	/**
+	 * Unique key used to record progression to this screen
+	 */
+	key: string;
+	/**
+	 * Sets whether the user is allowed to skip this screen.
+	 * @default false
+	 */
+	isSkippable?: boolean;
+}
+
+export const ONBOARDING_SCREENS: OnboardingScreen[] = [
+	{
+		component: OnboardingStart,
+		key: 'start'
+	},
+	{
+		component: OnboardingNewLibrary,
+		key: 'new-library'
+	},
+	{
+		component: OnboardingMasterPassword,
+		key: 'master-password'
+	},
+	{
+		component: OnboardingPrivacy,
+		key: 'privacy'
+	},
+	{
+		component: OnboardingNewLibrary,
+		key: 'jeff3'
+	}
+];
+
+export const OnboardingContainer = tw.div`flex flex-col items-center`;
+export const OnboardingTitle = tw.h2`mb-2 text-3xl font-bold`;
+export const OnboardingDescription = tw.p`max-w-xl text-center text-ink-dull`;
+export const OnboardingImg = tw.img`w-20 h-20 mb-2`;
 
 export default function OnboardingRoot() {
 	const os = useOperatingSystem();
-	const [unlockedScreens, setUnlockedScreens] = useState<string[]>([]);
+	const navigate = useNavigate();
+	const ob_store = getOnboardingStore();
 
-	const currentScreenKey = useCurrentOnboardingScreenKey();
-
-	function unlockScreen(key: string) {
-		setUnlockedScreens((prev) => {
-			if (prev.includes(key)) return prev;
-			return [...prev, key];
-		});
-	}
+	useEffect(() => {
+		// This is neat because restores the last active screen, but only if it is not the starting screen
+		// Ignoring if people navigate back to the start if progress has been made
+		if (ob_store.unlockedScreens.length > 1) {
+			navigate(`/onboarding/${ob_store.lastActiveScreen}`);
+		}
+	}, []);
 
 	return (
 		<div
@@ -37,12 +79,10 @@ export default function OnboardingRoot() {
 			<div data-tauri-drag-region className="z-50 flex flex-shrink-0 w-full h-9" />
 
 			<div className="flex flex-col flex-grow p-10 -mt-5">
-				<OnboardingStateContext.Provider value={{ unlockedScreens, unlockScreen }}>
-					<div className="flex flex-col items-center justify-center flex-grow">
-						<Outlet />
-					</div>
-					<OnboardingProgress />
-				</OnboardingStateContext.Provider>
+				<div className="flex flex-col items-center justify-center flex-grow">
+					<Outlet />
+				</div>
+				<OnboardingProgress />
 			</div>
 			<div className="flex justify-center p-4">
 				<p className="text-xs opacity-50 text-ink-dull">&copy; 2022 Spacedrive Technology Inc.</p>
@@ -59,8 +99,3 @@ export default function OnboardingRoot() {
 
 const macOnly = (platform: string | undefined, classnames: string) =>
 	platform === 'macOS' ? classnames : '';
-
-export const OnboardingContainer = tw.div`flex flex-col items-center`;
-export const OnboardingTitle = tw.h2`mb-2 text-3xl font-bold`;
-export const OnboardingDescription = tw.p`max-w-xl text-center text-ink-dull`;
-export const OnboardingImg = tw.img`w-20 h-20 mb-2`;

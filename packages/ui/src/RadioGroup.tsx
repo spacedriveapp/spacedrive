@@ -17,7 +17,7 @@ export const Root = ({ children, ...props }: RadioGroup.RadioGroupProps) => {
 
 export const Item = ({ children, ...props }: RadioGroup.RadioGroupItemProps) => {
 	return (
-		<div className="flex max-w-sm px-4 py-3 space-x-2 border rounded-md border-app-line bg-app-box">
+		<div className="flex max-w-sm px-4 py-3 space-x-2 border rounded-md border-app-line bg-app-box/50">
 			<RadioGroup.Item
 				id={'radio' + props.value}
 				className={cx(

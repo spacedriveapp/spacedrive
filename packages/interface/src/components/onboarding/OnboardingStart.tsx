@@ -1,15 +1,14 @@
 import AppLogo from '@sd/assets/images/logo.png';
+import { getOnboardingStore, useOnboardingStore } from '@sd/client';
 import { Button } from '@sd/ui';
-import { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
-import { useUnlockOnboardingScreen } from './OnboardingProgress';
+// import { useUnlockOnboardingScreen } from './OnboardingProgress';
 import { OnboardingContainer, OnboardingDescription, OnboardingImg } from './OnboardingRoot';
 
-const OnboardingStart: FC = () => {
+export default function OnboardingStart() {
 	const navigate = useNavigate();
-
-	useUnlockOnboardingScreen();
 
 	return (
 		<OnboardingContainer>
@@ -28,6 +27,4 @@ const OnboardingStart: FC = () => {
 			</div>
 		</OnboardingContainer>
 	);
-};
-
-export default OnboardingStart;
+}

@@ -1,6 +1,9 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import clsx from 'clsx';
-import { PropsWithChildren, forwardRef } from 'react';
+import { Eye, EyeSlash } from 'phosphor-react';
+import { PropsWithChildren, forwardRef, useState } from 'react';
+
+import { Button } from './Button';
 
 export interface InputBaseProps extends VariantProps<typeof styles> {}
 
@@ -49,3 +52,34 @@ export function Label(props: PropsWithChildren<{ slug?: string }>) {
 		</label>
 	);
 }
+
+interface PasswordShowHideInputProps extends InputProps {
+	buttonClassnames?: string;
+}
+
+export const PasswordShowHideInput = forwardRef<HTMLInputElement, PasswordShowHideInputProps>(
+	({ variant, size, className, ...props }, ref) => {
+		const [showPassword, setShowPassword] = useState(false);
+		const CurrentEyeIcon = showPassword ? EyeSlash : Eye;
+		return (
+			<span className="relative flex-grow">
+				<Button
+					onClick={() => setShowPassword(!showPassword)}
+					size="icon"
+					className={clsx(
+						'border-none absolute top-1.5 w-[25px] bottom-1.5 right-2 m-auto',
+						props.buttonClassnames
+					)}
+				>
+					<CurrentEyeIcon className="w-4 h-4" />
+				</Button>
+				<input
+					{...props}
+					type={showPassword ? 'text' : 'password'}
+					ref={ref}
+					className={styles({ variant, size, className })}
+				/>
+			</span>
+		);
+	}
+);

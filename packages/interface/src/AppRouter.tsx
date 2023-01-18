@@ -4,7 +4,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 
 import { AppLayout } from './AppLayout';
-import { ONBOARDING_SCREENS } from './components/onboarding/OnboardingProgress';
+import { ONBOARDING_SCREENS } from './components/onboarding/OnboardingRoot';
 import OnboardingRoot from './components/onboarding/OnboardingRoot';
 import MediaScreen from './screens/Media';
 import PeopleScreen from './screens/People';
