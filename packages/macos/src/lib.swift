@@ -24,20 +24,20 @@ class Volume: NSObject {
 		self.name = SRString(name)
 		self.is_root_filesystem = is_root_filesystem
 		self.mount_point = SRString(path)
-		self.total_capacity = total_capacity
-		self.available_capacity = available_capacity
+		self.total_capacity = UInt64(total_capacity)
+		self.available_capacity = UInt64(available_capacity)
 		self.is_removable = is_removable
 	}
 	
 	var name: SRString
 	var is_root_filesystem: Bool
 	var mount_point: SRString
-	var total_capacity: Int
-	var available_capacity: Int
+	var total_capacity: UInt64
+	var available_capacity: UInt64
 	var is_removable: Bool
 }
 
-@_cdecl("get_mounts")
+@_cdecl("native_get_mounts")
 public func getMounts() -> SRObjectArray {
 	   let keys: [URLResourceKey] = [
 		.volumeNameKey,
