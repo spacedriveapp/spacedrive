@@ -31,13 +31,9 @@ const JOB_NAME: &str = "file_copier";
 
 pub fn osstr_to_string(os_str: Option<&OsStr>) -> Result<String, JobError> {
 	let string = os_str
-		.ok_or(JobError::MissingData {
-			value: "no in option OsStr".to_string(),
-		})?
+		.ok_or(JobError::OsStr)?
 		.to_str()
-		.ok_or(JobError::MissingData {
-			value: "issue converting OsStr to &str".to_string(),
-		})?
+		.ok_or(JobError::OsStr)?
 		.to_string();
 
 	Ok(string)
@@ -82,15 +78,12 @@ impl StatefulJob for FileCopierJob {
 				}
 				ObjectType::File => Ok(osstr_to_string(
 					source_fs_info.obj_path.clone().file_stem(),
-				)? + &s + &source_fs_info.obj_path.extension().map_or(
-					Ok::<_, JobError>("".to_string()),
-					|x| {
-						Ok(".".to_string()
-							+ x.to_str().ok_or(JobError::MissingData {
-								value: "issue converting OsStr to &str".to_string(),
-							})?)
-					},
-				)?),
+				)? + &s + &source_fs_info
+					.obj_path
+					.extension()
+					.map_or(Ok::<_, JobError>("".to_string()), |x| {
+						Ok(".".to_string() + x.to_str().ok_or(JobError::OsStr)?)
+					})?),
 			},
 		)?;
 
@@ -131,7 +124,7 @@ impl StatefulJob for FileCopierJob {
 					path.push(
 						info.obj_path
 							.strip_prefix(job_state.source_path.clone())
-							.unwrap(),
+							.map_err(|_| JobError::Path)?,
 					);
 				}
 
@@ -163,7 +156,7 @@ impl StatefulJob for FileCopierJob {
 							entry
 								.path()
 								.strip_prefix(job_state.source_path.clone())
-								.unwrap(),
+								.map_err(|_| JobError::Path)?,
 						);
 
 						std::fs::create_dir_all(path)?;
@@ -171,7 +164,7 @@ impl StatefulJob for FileCopierJob {
 						state.steps.push_back(FileCopierJobStep {
 							source_fs_info: FsInfo {
 								obj_id: None,
-								obj_name: entry.file_name().to_str().unwrap().to_string(),
+								obj_name: osstr_to_string(Some(&entry.file_name()))?,
 								obj_path: entry.path(),
 								obj_type: ObjectType::File,
 							},
