@@ -216,9 +216,11 @@ impl StatefulJob for FileEncryptorJob {
 							.find_unique(object::id::equals(obj_id))
 							.exec()
 							.await?
-							.ok_or(JobError::JobDataNotFound(String::from(
-								"can't find information about the object",
-							)))?;
+							.ok_or_else(|| {
+								JobError::JobDataNotFound(String::from(
+									"can't find information about the object",
+								))
+							})?;
 
 						if state.init.metadata {
 							let metadata = Metadata {

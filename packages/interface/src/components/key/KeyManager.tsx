@@ -11,7 +11,12 @@ export type KeyManagerProps = DefaultProps;
 
 export function KeyManager(props: KeyManagerProps) {
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
+	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
+	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword', {
+		onError: () => {
+			alert('Incorrect information provided.');
+		}
+	});
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 
@@ -61,24 +66,16 @@ export function KeyManager(props: KeyManagerProps) {
 						<SKCurrentEyeIcon className="w-4 h-4" />
 					</Button>
 				</div>
-
 				<Button
 					className="w-full"
 					variant="accent"
-					disabled={setMasterPasswordMutation.isLoading}
+					disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
 					onClick={() => {
 						if (masterPassword !== '') {
 							const sk = secretKey || null;
 							setMasterPassword('');
 							setSecretKey('');
-							setMasterPasswordMutation.mutate(
-								{ password: masterPassword, secret_key: sk },
-								{
-									onError: () => {
-										alert('Incorrect information provided.');
-									}
-								}
-							);
+							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
 						}
 					}}
 				>

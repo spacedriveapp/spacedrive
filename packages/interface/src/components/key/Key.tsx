@@ -1,10 +1,10 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useLibraryMutation } from '@sd/client';
-import { Button, ContextMenu } from '@sd/ui';
+import { Button } from '@sd/ui';
 import clsx from 'clsx';
 import { DotsThree, Eye, Key as KeyIcon } from 'phosphor-react';
-import { MouseEventHandler, PropsWithChildren, ReactNode, useState } from 'react';
-import { animated, config, useTransition } from 'react-spring';
+import { MutableRefObject, PropsWithChildren, useState } from 'react';
+import { animated, useTransition } from 'react-spring';
 
 import { DefaultProps } from '../primitive/types';
 import { Tooltip } from '../tooltip/Tooltip';
@@ -15,6 +15,7 @@ export type KeyManagerProps = DefaultProps;
 export interface Key {
 	id: string;
 	name: string;
+	queue: Set<string>;
 	mounted?: boolean;
 	locked?: boolean;
 	stats?: {
@@ -95,6 +96,10 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 	const changeAutomountStatus = useLibraryMutation('keys.updateAutomountStatus');
 	const syncToLibrary = useLibraryMutation('keys.syncKeyToLibrary');
 
+	if (data.mounted && data.queue.has(data.id)) {
+		data.queue.delete(data.id);
+	}
+
 	return (
 		<div
 			className={clsx(
@@ -138,7 +143,9 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 						</div>
 					) : (
 						!data.mounted && (
-							<div className="text-[8pt] font-medium text-ink-dull opacity-30">Key not mounted</div>
+							<div className="text-[8pt] font-medium text-ink-dull opacity-30">
+								{data.queue.has(data.id) ? 'Key mounting...' : 'Key not mounted'}
+							</div>
 						)
 					)}
 				</div>
@@ -174,9 +181,10 @@ export const Key: React.FC<{ data: Key; index: number }> = ({ data, index }) => 
 					/>
 					<KeyDropdownItem
 						onClick={() => {
+							data.queue.add(data.id);
 							mountKey.mutate(data.id);
 						}}
-						hidden={data.mounted}
+						hidden={data.mounted || data.queue.has(data.id)}
 						value="Mount"
 					/>
 					<KeyDropdownItem
