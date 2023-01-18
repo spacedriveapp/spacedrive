@@ -78,7 +78,7 @@ impl StatefulJob for FileCutterJob {
 		dbg!(source_info.obj_path.clone());
 		dbg!(full_output.clone());
 
-		std::fs::rename(source_info.obj_path.clone(), full_output.clone())?;
+		tokio::fs::rename(source_info.obj_path.clone(), full_output.clone()).await?;
 
 		ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
 			state.step_number + 1,
