@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ffi::OsStr, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +28,16 @@ pub struct FsInfo {
 	pub obj_type: ObjectType,
 }
 
+pub fn osstr_to_string(os_str: Option<&OsStr>) -> Result<String, JobError> {
+	let string = os_str
+		.ok_or(JobError::OsStr)?
+		.to_str()
+		.ok_or(JobError::OsStr)?
+		.to_string();
+
+	Ok(string)
+}
+
 pub async fn get_path_from_location_id(
 	db: &PrismaClient,
 	location_id: i32,
@@ -41,13 +51,13 @@ pub async fn get_path_from_location_id(
 			value: String::from("location which matches location_id"),
 		})?;
 
-	Ok(location
+	location
 		.local_path
 		.as_ref()
 		.map(PathBuf::from)
 		.ok_or(JobError::MissingData {
 			value: String::from("path when cast as `PathBuf`"),
-		})?)
+		})
 }
 
 pub async fn context_menu_fs_info(
