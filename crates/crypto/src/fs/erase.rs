@@ -1,6 +1,5 @@
-use std::io::{Read, Seek, Write};
-
 use rand::{RngCore, SeedableRng};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{primitives::BLOCK_SIZE, Result};
 
@@ -15,9 +14,9 @@ use crate::{primitives::BLOCK_SIZE, Result};
 /// can guarantee a perfect erasure on solid-state drives.
 ///
 /// This also does not factor in temporary files, caching, thumbnails, etc.
-pub fn erase<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<()>
+pub async fn erase<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<()>
 where
-	RW: Read + Write + Seek,
+	RW: AsyncReadExt + AsyncWriteExt + AsyncSeekExt + Unpin,
 {
 	let block_count = size / BLOCK_SIZE;
 	let additional = size % BLOCK_SIZE;
@@ -26,18 +25,18 @@ where
 	let mut end_buf = vec![0u8; additional].into_boxed_slice();
 
 	for _ in 0..passes {
-		stream.rewind()?;
+		stream.rewind().await?;
 		for _ in 0..block_count {
 			rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut buf);
-			stream.write_all(&buf)?;
+			stream.write_all(&buf).await?;
 		}
 
 		rand_chacha::ChaCha20Rng::from_entropy().fill_bytes(&mut end_buf);
-		stream.write_all(&end_buf)?;
-		stream.flush()?;
+		stream.write_all(&end_buf).await?;
+		stream.flush().await?;
 	}
 
-	stream.rewind()?;
+	stream.rewind().await?;
 
 	Ok(())
 }
