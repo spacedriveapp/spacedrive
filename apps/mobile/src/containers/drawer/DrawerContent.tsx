@@ -2,7 +2,6 @@ import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { DrawerContentComponentProps } from '@react-navigation/drawer/lib/typescript/src/types';
 import { Gear } from 'phosphor-react-native';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
-import Divider from '~/components/primitive/Divider';
 import Layout from '~/constants/Layout';
 import tw from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
@@ -20,7 +19,7 @@ const DrawerContent = ({ navigation, state }: DrawerContentComponentProps) => {
 	const stackName = getStackNameFromState(state);
 
 	return (
-		<DrawerContentScrollView style={tw`flex-1 px-4 py-2`} scrollEnabled={false}>
+		<DrawerContentScrollView style={tw`flex-1 px-3 py-2`} scrollEnabled={false}>
 			<View style={tw.style('justify-between', { height: drawerHeight })}>
 				<View>
 					<View style={tw`flex flex-row items-center`}>
