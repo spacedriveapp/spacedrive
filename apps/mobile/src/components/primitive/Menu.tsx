@@ -5,7 +5,8 @@ import {
 	MenuOptionProps,
 	MenuOptions,
 	MenuTrigger,
-	Menu as PMenu
+	Menu as PMenu,
+	renderers
 } from 'react-native-popup-menu';
 import tw from '~/lib/tailwind';
 
@@ -17,7 +18,7 @@ type MenuProps = {
 // TODO: Still looks a bit off...
 export const Menu = (props: MenuProps) => (
 	<View>
-		<PMenu>
+		<PMenu renderer={renderers.NotAnimatedContextMenu}>
 			<MenuTrigger>{props.trigger}</MenuTrigger>
 			<MenuOptions optionsContainerStyle={tw`bg-app-menu p-1 rounded`}>
 				{props.children}
