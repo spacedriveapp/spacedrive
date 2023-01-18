@@ -101,50 +101,50 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 		println!("Hello macintosh :-O");
 
 		// we take this data from Swift because it provides a cleaner list we don't have to hack around
-		unsafe {
-			native_get_mounts().iter().for_each(|mount| {
-				println!("Now evaluating mount {}", mount.name.to_string());
+		let native_mounts = unsafe { native_get_mounts() };
 
-				let this_system_disk = system_disks.iter().find(|disk| {
-					println!(
-						"\nCOMPARING!\ndisk mount point {} to volume mount point {}",
-						disk.mount_point().to_str().unwrap_or(""),
-						mount.mount_point.to_string()
-					);
+		native_mounts.iter().for_each(|mount| {
+			println!("Now evaluating mount {}", mount.name.to_string());
 
-					disk.mount_point().to_str().unwrap_or("") == mount.mount_point.to_string()
-				});
-
-				if this_system_disk.is_none() {
-					println!(
-						"No matching system disk found for mount at {}. Skipping acknowledgment.",
-						mount.mount_point
-					);
-					return;
-				};
-
-				let disk_type = match this_system_disk.unwrap().type_() {
-					sysinfo::DiskType::SSD => "SSD".to_string(),
-					sysinfo::DiskType::HDD => "HDD".to_string(),
-					_ => "Removable Disk".to_string(),
-				};
-
-				volumes.insert(
-					volumes.len(),
-					Volume {
-						name: mount.name.to_string(),
-						is_root_filesystem: mount.is_root_filesystem,
-						mount_point: mount.mount_point.to_string(),
-						total_capacity: mount.total_capacity,
-						available_capacity: mount.available_capacity,
-						is_removable: mount.is_removable,
-						// todo: fill there from Rust System
-						disk_type: Some(disk_type),
-						file_system: None,
-					},
+			let this_system_disk = system_disks.iter().find(|disk| {
+				println!(
+					"\nCOMPARING!\ndisk mount point {} to volume mount point {}",
+					disk.mount_point().to_str().unwrap_or(""),
+					mount.mount_point.to_string()
 				);
+
+				disk.mount_point().to_str().unwrap_or("") == mount.mount_point.to_string()
 			});
-		}
+
+			if this_system_disk.is_none() {
+				println!(
+					"No matching system disk found for mount at {}. Skipping acknowledgment.",
+					mount.mount_point
+				);
+				return;
+			};
+
+			let disk_type = match this_system_disk.unwrap().type_() {
+				sysinfo::DiskType::SSD => "SSD".to_string(),
+				sysinfo::DiskType::HDD => "HDD".to_string(),
+				_ => "Removable Disk".to_string(),
+			};
+
+			volumes.insert(
+				volumes.len(),
+				Volume {
+					name: mount.name.to_string(),
+					is_root_filesystem: mount.is_root_filesystem,
+					mount_point: mount.mount_point.to_string(),
+					total_capacity: mount.total_capacity,
+					available_capacity: mount.available_capacity,
+					is_removable: mount.is_removable,
+					// todo: fill there from Rust System
+					disk_type: Some(disk_type),
+					file_system: None,
+				},
+			);
+		});
 	}
 
 	system_disks.iter().for_each(|disk| {
