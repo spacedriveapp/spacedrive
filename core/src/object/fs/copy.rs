@@ -66,20 +66,28 @@ impl StatefulJob for FileCopierJob {
 			|s| {
 				// should turn /root/x.tar.gz into /root/x.tar - clone.gz (file_prefix is still unstable :|)
 				// need to get the original file name, add `s` onto it and preserve the extension fully
-				source_fs_info
-					.obj_path
-					.clone()
-					.file_stem()
-					.unwrap()
-					.to_str()
-					.unwrap()
-					.to_string() + &s + source_fs_info
-					.obj_path
-					.clone()
-					.extension()
-					.unwrap()
-					.to_str()
-					.unwrap()
+				let mut path = source_fs_info.obj_path.clone();
+				path.pop();
+				path.push(
+					source_fs_info
+						.obj_path
+						.clone()
+						.file_stem()
+						.unwrap()
+						.to_str()
+						.unwrap()
+						.to_string() + &s,
+				);
+
+				// if source has extension, add it back to our target file name
+				source_fs_info.obj_path.clone().extension().map(|x| {
+					path.set_file_name(
+						path.file_name().unwrap().to_str().unwrap().to_string()
+							+ "." + x.to_str().unwrap(),
+					)
+				});
+
+				path.to_str().unwrap().to_string()
 			},
 		);
 
