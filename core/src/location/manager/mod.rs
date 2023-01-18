@@ -216,7 +216,8 @@ impl LocationManager {
 		path: impl AsRef<Path>,
 	) -> Result<IgnoreEventsForPathGuard, LocationManagerError> {
 		let path = path.as_ref().to_path_buf();
-		if cfg!(feature = "location-watcher") {
+		#[cfg(feature = "location-watcher")]
+		{
 			let (tx, rx) = oneshot::channel();
 
 			self.ignore_path_tx

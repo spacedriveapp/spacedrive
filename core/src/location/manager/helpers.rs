@@ -220,33 +220,51 @@ pub(super) async fn handle_stop_watcher_request(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let (location_id, library_ctx, response_tx) = message;
-	let key = (location_id, library_ctx.id);
 
-	let _ = response_tx.send(
+	async fn inner(
+		location_id: LocationId,
+		library_ctx: LibraryContext,
+		forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
+		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+		locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	) -> Result<(), LocationManagerError> {
+		let key = (location_id, library_ctx.id);
 		if !forced_unwatch.contains(&key) && locations_watched.contains_key(&key) {
-			if let Some(location) = get_location(location_id, &library_ctx).await {
-				if let Some(ref local_path_str) = location.local_path.clone() {
-					unwatch_location(
-						location,
-						library_ctx.id,
-						local_path_str,
-						locations_watched,
-						locations_unwatched,
-					);
-					forced_unwatch.insert(key);
-
-					Ok(())
-				} else {
-					Err(LocationManagerError::LocationMissingLocalPath(location_id))
-				}
-			} else {
-				Err(LocationManagerError::FailedToStopOrReinitWatcher {
+			get_location(location_id, &library_ctx)
+				.await
+				.ok_or_else(|| LocationManagerError::FailedToStopOrReinitWatcher {
 					reason: String::from("failed to fetch location from db"),
 				})
-			}
+				.map(|location| {
+					location
+						.local_path
+						.clone()
+						.ok_or(LocationManagerError::LocationMissingLocalPath(location_id))
+						.map(|local_path_str| {
+							unwatch_location(
+								location,
+								library_ctx.id,
+								local_path_str,
+								locations_watched,
+								locations_unwatched,
+							);
+							forced_unwatch.insert(key);
+						})
+				})?
 		} else {
 			Ok(())
-		},
+		}
+	}
+
+	let _ = response_tx.send(
+		inner(
+			location_id,
+			library_ctx,
+			forced_unwatch,
+			locations_watched,
+			locations_unwatched,
+		)
+		.await,
 	); // ignore errors, we handle errors on receiver
 }
 
@@ -257,33 +275,51 @@ pub(super) async fn handle_reinit_watcher_request(
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
 	let (location_id, library_ctx, response_tx) = message;
-	let key = (location_id, library_ctx.id);
 
-	let _ = response_tx.send(
+	async fn inner(
+		location_id: LocationId,
+		library_ctx: LibraryContext,
+		forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
+		locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+		locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
+	) -> Result<(), LocationManagerError> {
+		let key = (location_id, library_ctx.id);
 		if forced_unwatch.contains(&key) && locations_unwatched.contains_key(&key) {
-			if let Some(location) = get_location(location_id, &library_ctx).await {
-				if let Some(ref local_path_str) = location.local_path.clone() {
-					watch_location(
-						location,
-						library_ctx.id,
-						local_path_str,
-						locations_watched,
-						locations_unwatched,
-					);
-					forced_unwatch.remove(&key);
-
-					Ok(())
-				} else {
-					Err(LocationManagerError::LocationMissingLocalPath(location_id))
-				}
-			} else {
-				Err(LocationManagerError::FailedToStopOrReinitWatcher {
+			get_location(location_id, &library_ctx)
+				.await
+				.ok_or_else(|| LocationManagerError::FailedToStopOrReinitWatcher {
 					reason: String::from("failed to fetch location from db"),
 				})
-			}
+				.map(|location| {
+					location
+						.local_path
+						.clone()
+						.ok_or(LocationManagerError::LocationMissingLocalPath(location_id))
+						.map(|local_path_str| {
+							watch_location(
+								location,
+								library_ctx.id,
+								local_path_str,
+								locations_watched,
+								locations_unwatched,
+							);
+							forced_unwatch.remove(&key);
+						})
+				})?
 		} else {
 			Ok(())
-		},
+		}
+	}
+
+	let _ = response_tx.send(
+		inner(
+			location_id,
+			library_ctx,
+			forced_unwatch,
+			locations_watched,
+			locations_unwatched,
+		)
+		.await,
 	); // ignore errors, we handle errors on receiver
 }
 
