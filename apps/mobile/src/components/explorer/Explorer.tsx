@@ -41,7 +41,7 @@ const Explorer = ({ data }: ExplorerProps) => {
 
 	function handlePress(item: ExplorerItem) {
 		if (isPath(item) && item.is_dir) {
-			navigation.navigate('Location', { id: item.location_id });
+			navigation.navigate('Location', { id: item.location_id, path: item.materialized_path });
 		} else {
 			setData(item);
 			fileRef.current.present();
