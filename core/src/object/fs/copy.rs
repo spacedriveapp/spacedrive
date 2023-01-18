@@ -1,8 +1,8 @@
-use super::{context_menu_fs_info, get_path_from_location_id, FsInfo, ObjectType};
+use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo, ObjectType};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::VecDeque, ffi::OsStr, hash::Hash, path::PathBuf};
+use std::{collections::VecDeque, hash::Hash, path::PathBuf};
 
 pub struct FileCopierJob {}
 
@@ -28,16 +28,6 @@ pub struct FileCopierJobStep {
 }
 
 const JOB_NAME: &str = "file_copier";
-
-pub fn osstr_to_string(os_str: Option<&OsStr>) -> Result<String, JobError> {
-	let string = os_str
-		.ok_or(JobError::OsStr)?
-		.to_str()
-		.ok_or(JobError::OsStr)?
-		.to_string();
-
-	Ok(string)
-}
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCopierJob {
@@ -123,7 +113,7 @@ impl StatefulJob for FileCopierJob {
 					// if root type is a dir, we need to preserve structure by making paths relative
 					path.push(
 						info.obj_path
-							.strip_prefix(job_state.source_path.clone())
+							.strip_prefix(&job_state.source_path)
 							.map_err(|_| JobError::Path)?,
 					);
 				}
@@ -155,7 +145,7 @@ impl StatefulJob for FileCopierJob {
 						path.push(
 							entry
 								.path()
-								.strip_prefix(job_state.source_path.clone())
+								.strip_prefix(&job_state.source_path)
 								.map_err(|_| JobError::Path)?,
 						);
 

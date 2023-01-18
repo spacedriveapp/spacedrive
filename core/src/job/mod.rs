@@ -47,7 +47,7 @@ pub enum JobError {
 	MissingData { value: String },
 	#[error("Location manager error: {0}")]
 	LocationManager(#[from] LocationManagerError),
-	#[error("error handling OS strings")]
+	#[error("error converting/handling OS strings")]
 	OsStr,
 	#[error("error converting/handling paths")]
 	Path,

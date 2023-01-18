@@ -1,4 +1,4 @@
-use super::{context_menu_fs_info, FsInfo, ObjectType};
+use super::{context_menu_fs_info, osstr_to_string, FsInfo, ObjectType};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -105,7 +105,7 @@ impl StatefulJob for FileEraserJob {
 						state.steps.push_back(FileEraserJobStep {
 							fs_info: FsInfo {
 								obj_id: None,
-								obj_name: entry.file_name().to_str().unwrap().to_string(),
+								obj_name: osstr_to_string(Some(&entry.file_name()))?,
 								obj_path: entry.path(),
 								obj_type,
 							},

@@ -67,7 +67,13 @@ impl StatefulJob for FileCutterJob {
 		let source_info = &step.source_fs_info;
 
 		let mut full_output = step.target_directory.clone();
-		full_output.push(source_info.obj_path.clone().file_name().unwrap());
+		full_output.push(
+			source_info
+				.obj_path
+				.clone()
+				.file_name()
+				.ok_or(JobError::OsStr)?,
+		);
 
 		dbg!(source_info.obj_path.clone());
 		dbg!(full_output.clone());
