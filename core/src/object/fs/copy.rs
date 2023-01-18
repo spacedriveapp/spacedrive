@@ -57,18 +57,14 @@ impl StatefulJob for FileCopierJob {
 		// if no suffix has been selected, just use the file name
 		// if a suffix is provided and it's a directory, use the directory name + suffix
 		// if a suffix is provided and it's a file, use the (file name + suffix).extension
-		let target_file_name = state.init.target_file_name_suffix.clone().map_or_else(
-			|| {
-				// if there's no provided suffix, just use source name
-				osstr_to_string(source_fs_info.obj_path.clone().file_name())
-			},
+		let file_name = osstr_to_string(source_fs_info.obj_path.clone().file_name())?;
+
+		let target_file_name = state.init.target_file_name_suffix.as_ref().map_or(
+			Ok::<_, JobError>(file_name.clone()),
 			|s| match source_fs_info.obj_type {
-				ObjectType::Directory => {
-					Ok(osstr_to_string(source_fs_info.obj_path.clone().file_name())? + &s)
-				}
-				ObjectType::File => Ok(osstr_to_string(
-					source_fs_info.obj_path.clone().file_stem(),
-				)? + &s + &source_fs_info
+				ObjectType::Directory => Ok(file_name.clone() + s),
+				ObjectType::File => Ok(osstr_to_string(source_fs_info.obj_path.file_stem())?
+					+ s + &source_fs_info
 					.obj_path
 					.extension()
 					.map_or(Ok::<_, JobError>("".to_string()), |x| {
@@ -118,7 +114,7 @@ impl StatefulJob for FileCopierJob {
 					);
 				}
 
-				std::fs::copy(info.obj_path.clone(), path.clone())?;
+				tokio::fs::copy(&info.obj_path, &path).await?;
 			}
 			ObjectType::Directory => {
 				// if this is the very first path, create the target dir
@@ -126,12 +122,12 @@ impl StatefulJob for FileCopierJob {
 				if job_state.root_type == ObjectType::Directory
 					&& job_state.source_path == info.obj_path
 				{
-					std::fs::create_dir_all(&job_state.target_path)?;
+					tokio::fs::create_dir_all(&job_state.target_path).await?;
 				}
 
-				for entry in std::fs::read_dir(info.obj_path.clone())? {
-					let entry = entry?;
-					if entry.metadata()?.is_dir() {
+				let mut dir = tokio::fs::read_dir(&info.obj_path).await?;
+				while let Some(entry) = dir.next_entry().await? {
+					if entry.metadata().await?.is_dir() {
 						state.steps.push_back(FileCopierJobStep {
 							source_fs_info: FsInfo {
 								obj_id: None,
@@ -149,7 +145,7 @@ impl StatefulJob for FileCopierJob {
 								.map_err(|_| JobError::Path)?,
 						);
 
-						std::fs::create_dir_all(path)?;
+						tokio::fs::create_dir_all(path).await?;
 					} else {
 						state.steps.push_back(FileCopierJobStep {
 							source_fs_info: FsInfo {
