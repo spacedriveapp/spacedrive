@@ -15,7 +15,6 @@ import {
 	Question,
 	Scissors,
 	Trash,
-	TrashSimple,
 	X
 } from 'phosphor-react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
