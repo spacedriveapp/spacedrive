@@ -3,12 +3,18 @@
 #   https://github.com/evilmartians/lefthook/blob/master/docs/full_guide.md                                            #
 ########################################################################################################################
 
-pre-push:
-  parallel: true
+pre-commit:
   commands:
-    lint:
-      glob: '*.{ts,tsx}'
-      run: pnpm eslint {staged_files}
-    markdown-link-check:
-      glob: '*.md'
-      run: pnpm markdown-link-check {staged_files}
+    # automatically format files, ✨magically✨
+    prettier:
+      glob: '[^pnpm-lock]*.{js,jsx,ts,tsx,html,json,yml,yaml,css,scss,md}'
+      run: pnpm prettier --write {staged_files} && git add {staged_files}
+# pre-push:
+#   parallel: true
+#   commands:
+#     lint:
+#       glob: '*.{ts,tsx}'
+#       run: pnpm eslint {staged_files}
+#     markdown-link-check:
+#       glob: '*.md'
+#       run: pnpm markdown-link-check {staged_files}
