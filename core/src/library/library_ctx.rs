@@ -32,9 +32,6 @@ pub struct LibraryContext {
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
 	pub(super) node_context: NodeContext,
-	/// If `Some(progress)` the library is currently being bootstrapped (the first sync after pairing) and can not be used by the system.
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub boostrap_progress: Option<PeerBootstrapProgress>,
 }
 
 impl Debug for LibraryContext {

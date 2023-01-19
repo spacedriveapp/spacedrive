@@ -1,33 +1,32 @@
 use std::{sync::Arc, time::Duration};
 
+use rspc::Type;
 use sd_p2p::{Event, Manager};
 use sd_sync::CRDTOperation;
+use serde::{Deserialize, Serialize};
 use tokio::{sync::mpsc, time::sleep};
 use tracing::info;
 use uuid::Uuid;
 
-use crate::{invalidate_query, library::LibraryManager, node::NodeConfigManager};
+use crate::{library::LibraryManager, node::NodeConfigManager};
 
-use self::peer_metadata::PeerMetadata;
+use self::{
+	peer_metadata::{OperatingSystem, PeerMetadata},
+	proto::{Request, Response},
+};
 
 mod peer_metadata;
+mod proto;
 
 const SPACEDRIVE_APP_ID: &'static str = "spacedrive";
 
-#[derive(Clone, Debug)]
-pub enum P2PEvent {
-	// TODO
-}
-
 /// TODO
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PeerBootstrapProgress {
-	// TODO: Probs change this to a percentage so we don't need to send big number!
-	synced_rows: u128,
-	total_rows: u128,
+	completed: u8, // u8 is plenty for a percentage
 }
 
-pub struct P2PManager {}
+pub struct P2PManager;
 
 impl P2PManager {
 	pub async fn new(
@@ -48,6 +47,8 @@ impl P2PManager {
 			move || async move {
 				PeerMetadata {
 					name: "123".to_string(), // config.name.clone(), // TODO
+					operating_system: Some(OperatingSystem::get_os()),
+					version: Some(env!("CARGO_PKG_VERSION").to_string()),
 				}
 			},
 			|manager, event| async move {
@@ -74,28 +75,11 @@ impl P2PManager {
 				move |_manager, data: Vec<u8>| {
 					let library_manager = library_manager.clone(); // This makes sure this function is `Fn` not `FnOnce`.
 					async move {
-						if data.len() == 4
-							&& data[0] == 0 && data[1] == 1
-							&& data[2] == 2 && data[3] == 3
-						{
-							println!("Received ping!");
-							return Ok(vec![0, 1, 2, 3]); // TODO: Being empty breaks shit
+						let req = rmp_serde::from_slice::<Request>(&data).unwrap();
+						match req.handle(&library_manager).await.unwrap() {
+							Response::None => Ok(vec![]),
+							resp => Ok(rmp_serde::to_vec(&resp).unwrap()),
 						}
-
-						let (library_id, op) =
-							rmp_serde::from_slice::<(Uuid, CRDTOperation)>(&data).unwrap();
-						println!(
-							"P2P Received Sync Operations for library '{}': {:?}",
-							library_id, op
-						);
-
-						let ctx = library_manager.get_ctx(library_id).await.unwrap();
-
-						ctx.sync.ingest_op(op).await.unwrap();
-
-						invalidate_query!(ctx, "locations.list"); // TODO: Brendan's sync system needs to handle data invalidation
-
-						Ok(vec![0, 1, 2, 3]) // TODO: Being empty breaks shit
 					}
 				}
 			},
@@ -104,15 +88,15 @@ impl P2PManager {
 		.unwrap();
 
 		tokio::spawn({
-			let this = this.clone();
 			let manager = manager.clone();
 			async move {
 				while let Some(op) = p2p_rx.recv().await {
 					// TODO: Only seen to peers in the current library and deal with library signing here.
 					// TODO: Put protocol above broadcast feature.
 					manager
-						.broadcast(&rmp_serde::to_vec_named(&op).unwrap())
-						.await;
+						.broadcast(rmp_serde::to_vec_named(&op).unwrap())
+						.await
+						.unwrap();
 				}
 			}
 		});
@@ -128,7 +112,11 @@ impl P2PManager {
 			// TODO: Remove this without the connections timing out????
 			loop {
 				sleep(Duration::from_secs(3)).await;
-				manager.clone().broadcast(&[0, 1, 2, 3]).await;
+				manager
+					.clone()
+					.broadcast(rmp_serde::to_vec(&Request::Ping).unwrap())
+					.await
+					.unwrap();
 				// println!("Sent broadcast!");
 			}
 		});
@@ -139,6 +127,4 @@ impl P2PManager {
 
 		this
 	}
-
-	pub fn mount_library(&self) {}
 }

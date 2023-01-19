@@ -7,17 +7,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone)]
 pub struct PeerMetadata {
 	pub(super) name: String,
-	pub(super) operating_system: Option<OperationSystem>,
+	pub(super) operating_system: Option<OperatingSystem>,
 	pub(super) version: Option<String>,
 }
 
 impl Metadata for PeerMetadata {
 	fn to_hashmap(self) -> HashMap<String, String> {
-		HashMap::from([
-			("name".to_owned(), self.name),
-			("os".to_owned(), self.operating_system),
-			("version".to_owned(), self.version),
-		])
+		let mut map = HashMap::with_capacity(3);
+		map.insert("name".to_owned(), self.name);
+		if let Some(os) = self.operating_system {
+			map.insert("os".to_owned(), os.to_string());
+		}
+		if let Some(version) = self.version {
+			map.insert("version".to_owned(), version);
+		}
+		map
 	}
 
 	fn from_hashmap(data: &HashMap<String, String>) -> Result<Self, String>
@@ -44,7 +48,7 @@ impl Metadata for PeerMetadata {
 /// Represents the operating system which the remote peer is running.
 /// This is not used internally and predominantly is designed to be used for display purposes by the embedding application.
 #[derive(Debug, Clone, Type, Serialize, Deserialize)]
-pub enum OperationSystem {
+pub enum OperatingSystem {
 	Windows,
 	Linux,
 	MacOS,
@@ -53,28 +57,28 @@ pub enum OperationSystem {
 	Other(String),
 }
 
-impl OperationSystem {
+impl OperatingSystem {
 	pub fn get_os() -> Self {
 		match env::consts::OS {
-			"windows" => OperationSystem::Windows,
-			"macos" => OperationSystem::MacOS,
-			"linux" => OperationSystem::Linux,
-			"ios" => OperationSystem::IOS,
-			"android" => OperationSystem::Android,
-			platform => OperationSystem::Other(platform.into()),
+			"windows" => OperatingSystem::Windows,
+			"macos" => OperatingSystem::MacOS,
+			"linux" => OperatingSystem::Linux,
+			"ios" => OperatingSystem::IOS,
+			"android" => OperatingSystem::Android,
+			platform => OperatingSystem::Other(platform.into()),
 		}
 	}
 }
 
-impl From<OperationSystem> for String {
-	fn from(os: OperationSystem) -> Self {
-		match os {
-			OperationSystem::Windows => "Windows".into(),
-			OperationSystem::Linux => "Linux".into(),
-			OperationSystem::MacOS => "MacOS".into(),
-			OperationSystem::IOS => "IOS".into(),
-			OperationSystem::Android => "Android".into(),
-			OperationSystem::Other(s) => {
+impl ToString for OperatingSystem {
+	fn to_string(&self) -> String {
+		match self {
+			OperatingSystem::Windows => "Windows".into(),
+			OperatingSystem::Linux => "Linux".into(),
+			OperatingSystem::MacOS => "MacOS".into(),
+			OperatingSystem::IOS => "IOS".into(),
+			OperatingSystem::Android => "Android".into(),
+			OperatingSystem::Other(s) => {
 				let mut chars = s.chars();
 				chars.next();
 				chars.as_str().to_string()
@@ -83,18 +87,18 @@ impl From<OperationSystem> for String {
 	}
 }
 
-impl FromStr for OperationSystem {
+impl FromStr for OperatingSystem {
 	type Err = ();
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let mut chars = s.chars();
 		match chars.next() {
-			Some('w') => Ok(OperationSystem::Windows),
-			Some('l') => Ok(OperationSystem::Linux),
-			Some('m') => Ok(OperationSystem::MacOS),
-			Some('i') => Ok(OperationSystem::IOS),
-			Some('a') => Ok(OperationSystem::Android),
-			_ => Ok(OperationSystem::Other(chars.as_str().to_string())),
+			Some('w') => Ok(OperatingSystem::Windows),
+			Some('l') => Ok(OperatingSystem::Linux),
+			Some('m') => Ok(OperatingSystem::MacOS),
+			Some('i') => Ok(OperatingSystem::IOS),
+			Some('a') => Ok(OperatingSystem::Android),
+			_ => Ok(OperatingSystem::Other(chars.as_str().to_string())),
 		}
 	}
 }

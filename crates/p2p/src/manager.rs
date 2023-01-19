@@ -30,7 +30,7 @@ use tracing::{debug, error, warn};
 
 use crate::{
 	event::Event,
-	spacetime::{OutboundFailure, SpaceTime, SpaceTimeMessage, SpaceTimeResponseChan},
+	spacetime::{SpaceTime, SpaceTimeMessage, SpaceTimeResponseChan},
 	utils::{quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr, AsyncFn, AsyncFn2},
 	Connection, DiscoveredPeer, Keypair, ManagerRef, Metadata,
 };

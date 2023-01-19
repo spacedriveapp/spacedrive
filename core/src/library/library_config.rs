@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::io::Write;
 use uuid::Uuid;
 
-use crate::node::ConfigMetadata;
+use crate::{node::ConfigMetadata, p2p::PeerBootstrapProgress};
 
 use super::LibraryManagerError;
 
@@ -25,6 +25,9 @@ pub struct LibraryConfig {
 	// /// is_encrypted is a flag that is set to true if the library is encrypted.
 	// #[serde(default)]
 	// pub is_encrypted: bool,
+	/// If `Some(progress)` the library is currently being bootstrapped (the first sync after pairing) and can not be used by the system.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub boostrap_progress: Option<PeerBootstrapProgress>,
 }
 
 impl LibraryConfig {

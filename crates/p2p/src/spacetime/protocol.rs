@@ -14,6 +14,7 @@ use std::{
 	io::{self, ErrorKind},
 	sync::Arc,
 };
+use tracing::debug;
 
 use crate::{spacetime::SpaceTimeMessage, utils::AsyncFn2, Connection};
 
@@ -75,7 +76,7 @@ where
 			}
 			let request: SpaceTimeMessage = from_slice(&buf).unwrap();
 
-			println!("Request: {:?}", request); // TODO: Tracing
+			debug!("Request: {:?}", request); // TODO: Better debug message
 
 			match request {
 				SpaceTimeMessage::Establish => {
@@ -92,33 +93,14 @@ where
 					.await // TODO: Should this be spawned onto a separate task or not??? -> Which event loop it running in
 					.unwrap(); // TODO: Error handling]
 
-					let write = write_response(&mut io, SpaceTimeMessage::Application(resp));
-					write.await?;
+					if resp.len() != 0 {
+						let write = write_response(&mut io, SpaceTimeMessage::Application(resp));
+						write.await?;
+					}
+
 					io.close().await?;
 				}
 			}
-
-			// TODO: Dispatch request to the application and write the response
-
-			// 	match self.request_sender.send((self.request_id, request)) {
-			// 		Ok(()) => {}
-			// 		Err(_) => {
-			// 			panic!("Expect request receiver to be alive i.e. protocol handler to be alive.",)
-			// 		}
-			// 	}
-
-			// 	if let Ok(response) = self.response_receiver.await {
-			// 		let write = write_response(&protocol, &mut io, response);
-			// 		write.await?;
-
-			// 		io.close().await?;
-			// 		// Response was sent. Indicate to handler to emit a `ResponseSent` event.
-			// 		Ok(true)
-			// 	} else {
-			// 		io.close().await?;
-			// 		// No response was sent. Indicate to handler to emit a `ResponseOmission` event.
-			// 		Ok(false)
-			// 	}
 
 			Ok(())
 		}
