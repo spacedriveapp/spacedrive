@@ -3,6 +3,7 @@ use job::JobManager;
 use library::LibraryManager;
 use location::{LocationManager, LocationManagerError};
 use node::NodeConfigManager;
+use util::secure_temp_keystore::SecureTempKeystore;
 
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
@@ -33,6 +34,7 @@ pub struct NodeContext {
 	pub jobs: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
+	pub secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
 pub struct Node {
@@ -115,6 +117,7 @@ impl Node {
 
 		let jobs = JobManager::new();
 		let location_manager = LocationManager::new();
+		let secure_temp_keystore = SecureTempKeystore::new();
 		let library_manager = LibraryManager::new(
 			data_dir.join("libraries"),
 			NodeContext {
@@ -122,6 +125,7 @@ impl Node {
 				jobs: Arc::clone(&jobs),
 				location_manager: Arc::clone(&location_manager),
 				event_bus_tx: event_bus.0.clone(),
+				secure_temp_keystore: Arc::clone(&secure_temp_keystore),
 			},
 		)
 		.await?;

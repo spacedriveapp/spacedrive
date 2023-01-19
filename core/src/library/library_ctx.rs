@@ -1,6 +1,6 @@
 use crate::{
 	api::CoreEvent, job::DynJob, location::LocationManager, node::NodeConfigManager,
-	prisma::PrismaClient, sync::SyncManager, util::secure_temp_store::SecureTempStore, NodeContext,
+	prisma::PrismaClient, sync::SyncManager, NodeContext,
 };
 
 use std::{
@@ -32,8 +32,6 @@ pub struct LibraryContext {
 	pub node_local_id: i32,
 	/// node_context holds the node context for the node which this library is running on.
 	pub(super) node_context: NodeContext,
-	/// secure in-memory storage for sensitive data to be used later
-	pub secure_temp_store: Arc<SecureTempStore>,
 }
 
 impl Debug for LibraryContext {

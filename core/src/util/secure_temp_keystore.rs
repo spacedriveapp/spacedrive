@@ -1,17 +1,19 @@
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use sd_crypto::Protected;
 use thiserror::Error;
 use uuid::Uuid;
 
-pub struct SecureTempStore {
+pub struct SecureTempKeystore {
 	data: DashMap<Uuid, Protected<String>>,
 }
 
-impl SecureTempStore {
-	pub fn new() -> Self {
-		Self {
+impl SecureTempKeystore {
+	pub fn new() -> Arc<Self> {
+		Arc::new(Self {
 			data: DashMap::new(),
-		}
+		})
 	}
 
 	pub fn tokenize(&self, data: String) -> Uuid {
@@ -20,12 +22,12 @@ impl SecureTempStore {
 		uuid
 	}
 
-	pub fn claim(&self, uuid: Uuid) -> Result<String, SecureTempStoreError> {
+	pub fn claim(&self, uuid: Uuid) -> Result<String, SecureTempKeystoreError> {
 		let value = self
 			.data
 			.get(&uuid)
 			.map(|v| v.value().clone())
-			.ok_or(SecureTempStoreError::SecureItemNotFound)?;
+			.ok_or(SecureTempKeystoreError::SecureItemNotFound)?;
 
 		let sensitive_value = value.clone().as_str().to_string();
 
@@ -38,7 +40,7 @@ impl SecureTempStore {
 }
 
 #[derive(Error, Debug)]
-pub enum SecureTempStoreError {
+pub enum SecureTempKeystoreError {
 	#[error("Secure item not found")]
 	SecureItemNotFound,
 }
