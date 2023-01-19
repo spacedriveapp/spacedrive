@@ -93,7 +93,8 @@ async fn main() {
 			manager
 				.clone()
 				.broadcast(format!("Hello World From {}", keypair.public().to_peer_id()).as_bytes())
-				.await;
+				.await
+				.unwrap();
 			println!("Sent broadcast!");
 		}
 	});
