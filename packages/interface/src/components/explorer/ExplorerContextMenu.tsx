@@ -18,8 +18,8 @@ import {
 import { PropsWithChildren, useMemo } from 'react';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
-import { showAlertDialog } from '~/util';
 import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
 
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { DeleteFileDialog } from '../dialog/DeleteFileDialog';

@@ -13,8 +13,8 @@ import { KeyMounter } from '~/components/key/KeyMounter';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { SettingsSubHeader } from '~/components/settings/SettingsSubHeader';
-import { showAlertDialog } from '~/util';
 import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;

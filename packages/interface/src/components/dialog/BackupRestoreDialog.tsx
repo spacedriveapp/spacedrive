@@ -3,8 +3,8 @@ import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { forms } from '@sd/ui';
 import { Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
-import { showAlertDialog } from '~/util';
 import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
 
 const { Input, useZodForm, z } = forms;
 

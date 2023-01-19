@@ -4,7 +4,7 @@ import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
 import { getHashingAlgorithmSettings } from '~/screens/settings/library/KeysSetting';
-import { showAlertDialog } from '~/util';
+import { showAlertDialog } from '~/util/dialog';
 
 import { generatePassword } from '../key/KeyMounter';
 import { PasswordMeter } from '../key/PasswordMeter';

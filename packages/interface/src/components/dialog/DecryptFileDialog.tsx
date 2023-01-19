@@ -3,7 +3,7 @@ import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useState } from 'react';
-import { showAlertDialog } from '~/util';
+import { showAlertDialog } from '~/util/dialog';
 
 import { usePlatform } from '../../util/Platform';
 import { Tooltip } from '../tooltip/Tooltip';
