@@ -6605,9 +6605,7 @@ dependencies = [
 name = "sd-p2p"
 version = "0.0.0"
 dependencies = [
- "async-trait",
  "futures",
- "instant",
  "libp2p",
  "mdns-sd",
  "rmp-serde",

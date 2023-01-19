@@ -2,7 +2,6 @@ use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
 	net::{IpAddr, SocketAddr},
-	num::NonZeroU32,
 	str::FromStr,
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -88,7 +87,6 @@ where
 				internal_tx,
 				listen_addrs: RwLock::new(Default::default()),
 				discovered_peers: RwLock::new(Default::default()),
-				// connected_peers: RwLock::new(Default::default()),
 			}),
 			fn_get_metadata,
 			fn_on_event: fn_on_event.clone(),
@@ -380,10 +378,10 @@ where
 
 		match rx.await {
 			Ok(Ok(SpaceTimeMessage::Application(data))) => Ok(data),
-			Ok(Err(OutboundFailure::ConnectionClosed)) => {
-				// TODO: Ensure we remove it from the connected peers list if we missed it somewhere else
-				Err(())
-			}
+			// Ok(Err(OutboundFailure::ConnectionClosed)) => {
+			// 	// TODO: Ensure we remove it from the connected peers list if we missed it somewhere else
+			// 	Err(())
+			// }
 			// TODO: Error handling
 			err => {
 				error!("TODO: Broadcast error: {:?}", err);

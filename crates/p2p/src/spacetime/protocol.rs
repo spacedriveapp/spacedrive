@@ -78,7 +78,10 @@ where
 			println!("Request: {:?}", request); // TODO: Tracing
 
 			match request {
-				SpaceTimeMessage::Establish => println!("TODO: Handle connection establishment"), // TODO
+				SpaceTimeMessage::Establish => {
+					println!("WE ESTBALISHED BI");
+					// TODO: Handle authentication here by moving over the old `ConnectionEstablishmentPayload` from `p2p`
+				}
 				SpaceTimeMessage::Application(data) => {
 					let resp = (self.state.fn_on_connect)(
 						Connection {
@@ -86,7 +89,7 @@ where
 						},
 						data,
 					)
-					.await
+					.await // TODO: Should this be spawned onto a separate task or not??? -> Which event loop it running in
 					.unwrap(); // TODO: Error handling]
 
 					let write = write_response(&mut io, SpaceTimeMessage::Application(resp));

@@ -12,6 +12,7 @@ use std::{
 	task::{Context, Poll},
 	time::Duration,
 };
+use tracing::error;
 
 use crate::utils::AsyncFn2;
 
@@ -22,7 +23,6 @@ use super::{
 
 // TODO: Probs change this based on the connection type
 const SUBSTREAM_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
-const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10); // TODO: Tune value
 
 /// A connection handler for a request response [`Behaviour`](super::Behaviour) protocol.
 pub struct Handler<TMetadata, TConnFn>
@@ -271,12 +271,12 @@ where
 				// 	// }
 			}
 			ConnectionEvent::DialUpgradeError(event) => {
-				// error!("DialUpgradeError: {:#?}", event); // TODO: Better message
+				error!("DialUpgradeError: {:#?}", event.error); // TODO: Better message
 
 				// self.on_dial_upgrade_error(event) // TODO
 			}
 			ConnectionEvent::ListenUpgradeError(event) => {
-				// error!("DialUpgradeError: {:#?}", event); // TODO: Better message
+				error!("DialUpgradeError: {:#?}", event.error); // TODO: Better message
 
 				// TODO
 				// match error {

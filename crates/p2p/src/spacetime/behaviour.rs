@@ -14,21 +14,21 @@ use libp2p::{
 	Multiaddr, PeerId,
 };
 use smallvec::SmallVec;
+use tokio::sync::oneshot;
 use tracing::debug;
 
-use crate::{
-	spacetime::{handler::Handler, Event},
-	utils::AsyncFn2,
-	ManagerRef,
-};
+use crate::{spacetime::handler::Handler, utils::AsyncFn2, ManagerRef};
 
-use super::{SpaceTimeMessage, SpaceTimeResponseChan};
+use super::{OutboundFailure, SpaceTimeMessage};
 
 /// Internal threshold for when to shrink the capacity
 /// of empty queues. If the capacity of an empty queue
 /// exceeds this threshold, the associated memory is
 /// released.
 pub const EMPTY_QUEUE_SHRINK_THRESHOLD: usize = 100;
+
+/// TODO
+pub type SpaceTimeResponseChan = oneshot::Sender<Result<SpaceTimeMessage, OutboundFailure>>;
 
 /// This is a vanity type alias so that the code is clearer.
 /// As this is only used internally it doesn't need to be a wrapper type.
@@ -56,7 +56,9 @@ where
 {
 	state: Arc<SpaceTimeState<TMetadata, TConnFn>>,
 	fn_on_event: Arc<TEventFn>, // TODO: Should be able to remove arc???? Closure may need clone but it would be two clones on startup so fine.
-	pending_events: VecDeque<NetworkBehaviourAction<Event, Handler<TMetadata, TConnFn>>>,
+	pending_events: VecDeque<
+		NetworkBehaviourAction<<Self as NetworkBehaviour>::OutEvent, Handler<TMetadata, TConnFn>>,
+	>,
 	connected: HashMap<PeerId, SmallVec<[Connection; 2]>>,
 	addresses: HashMap<PeerId, SmallVec<[Multiaddr; 6]>>,
 }
@@ -163,38 +165,6 @@ where
 				});
 		}
 	}
-
-	// TODO: Expose all these but put them where the hashmap of connected peers ends up
-
-	// /// Adds a known address for a peer that can be used for
-	// /// dialing attempts by the `Swarm`, i.e. is returned
-	// /// by [`NetworkBehaviour::addresses_of_peer`].
-	// ///
-	// /// Addresses added in this way are only removed by `remove_address`.
-	// pub fn add_address(&mut self, peer: &PeerId, address: Multiaddr) {
-	// 	self.addresses.entry(*peer).or_default().push(address);
-	// }
-
-	// /// Removes an address of a peer previously added via `add_address`.
-	// pub fn remove_address(&mut self, peer: &PeerId, address: &Multiaddr) {
-	// 	let mut last = false;
-	// 	if let Some(addresses) = self.addresses.get_mut(peer) {
-	// 		addresses.retain(|a| a != address);
-	// 		last = addresses.is_empty();
-	// 	}
-	// 	if last {
-	// 		self.addresses.remove(peer);
-	// 	}
-	// }
-
-	// /// Checks whether a peer is currently connected.
-	// pub fn is_connected(&self, peer: &PeerId) -> bool {
-	// 	if let Some(connections) = self.connected.get(peer) {
-	// 		!connections.is_empty()
-	// 	} else {
-	// 		false
-	// 	}
-	// }
 }
 
 impl<TMetadata, TEventFn, TConnFn> NetworkBehaviour for SpaceTime<TMetadata, TEventFn, TConnFn>
@@ -204,7 +174,7 @@ where
 	TConnFn: AsyncFn2<crate::Connection<TMetadata>, Vec<u8>, Output = Result<Vec<u8>, ()>>,
 {
 	type ConnectionHandler = Handler<TMetadata, TConnFn>;
-	type OutEvent = Event;
+	type OutEvent = ();
 
 	fn new_handler(&mut self) -> Self::ConnectionHandler {
 		Handler::new(self.state.clone())
