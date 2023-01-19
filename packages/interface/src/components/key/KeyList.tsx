@@ -19,12 +19,12 @@ export const SelectOptionKeyList = (props: { keys: string[] }) => (
 	</>
 );
 
-const mountingQueue = useRef(new Set<string>());
-
 export const ListOfKeys = () => {
 	const keys = useLibraryQuery(['keys.list']);
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
 	const defaultKey = useLibraryQuery(['keys.getDefault']);
+
+	const mountingQueue = useRef(new Set<string>());
 
 	const [mountedKeys, unmountedKeys] = useMemo(
 		() => [
