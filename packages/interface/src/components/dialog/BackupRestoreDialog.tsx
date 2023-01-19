@@ -21,14 +21,12 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 
 	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore', {
 		onSuccess: (total) => {
-			setShow((old) => ({ ...old, backupRestoreDialog: false }));
 			showAlertDialog({
 				title: 'Import Successful',
 				value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`
 			});
 		},
 		onError: () => {
-			setShow((old) => ({ ...old, backupRestoreDialog: false }));
 			showAlertDialog({
 				title: 'Import Error',
 				value: 'There was an error while restoring your backup.'

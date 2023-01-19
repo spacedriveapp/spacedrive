@@ -24,7 +24,6 @@ const schema = z.object({
 export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword', {
 		onSuccess: () => {
-			setShow((old) => ({ ...old, masterPasswordDialog: false }));
 			showAlertDialog({
 				title: 'Success',
 				value: 'Your master password was changed successfully'
@@ -32,7 +31,6 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 		},
 		onError: () => {
 			// this should never really happen
-			setShow((old) => ({ ...old, masterPasswordDialog: false }));
 			showAlertDialog({
 				title: 'Master Password Change Error',
 				value: 'There was an error while changing your master password.'
