@@ -89,7 +89,7 @@ pub async fn save_volume(ctx: &LibraryContext) -> Result<(), VolumeError> {
 
 // TODO: Error handling in this function
 pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
-	println!("Listing volumes :-)");
+	println!("I LOVE LISTING VOLUMES");
 
 	let system_disks_binding = System::new_with_specifics(RefreshKind::new().with_disks());
 	let system_disks = system_disks_binding.disks();
@@ -98,53 +98,71 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 
 	#[cfg(target_os = "macos")]
 	{
-		println!("Hello macintosh :-O");
+		println!("Hello Macintosh! Let's get mounts...");
 
 		// we take this data from Swift because it provides a cleaner list we don't have to hack around
 		let native_mounts = unsafe { native_get_mounts() };
 
-		native_mounts.iter().for_each(|mount| {
-			println!("Now evaluating mount {}", mount.name.to_string());
+		println!("OK got the mounts. Loopy time");
 
-			let this_system_disk = system_disks.iter().find(|disk| {
+		/*
+		somewhere after here we get the following:
+			Crashed Thread:        25  tokio-runtime-worker
+
+			Exception Type:        EXC_BAD_ACCESS (SIGSEGV)
+			Exception Codes:       KERN_INVALID_ADDRESS at 0x8000000001f4c052 -> 0x0000000001f4c052 (possible pointer authentication failure)
+			Exception Codes:       0x0000000000000001, 0x8000000001f4c052
+
+			Termination Reason:    Namespace SIGNAL, Code 11 Segmentation fault: 11
+		*/
+
+		native_mounts //
+			.iter()
+			.for_each(|mount| {
 				println!(
-					"\nCOMPARING!\ndisk mount point {} to volume mount point {}",
+					"Evaluating worthiness of mount '{}' (potential heir to the throne)",
+					mount.name.to_string()
+				);
+
+				let this_system_disk = system_disks.iter().find(|disk| {
+					println!(
+					"\nComparing sysinfo disk mount '{}' to Swift FileManager volume mount '{}'",
 					disk.mount_point().to_str().unwrap_or(""),
 					mount.mount_point.to_string()
 				);
 
-				disk.mount_point().to_str().unwrap_or("") == mount.mount_point.to_string()
-			});
+					disk.mount_point().to_str().unwrap_or("") == mount.mount_point.to_string()
+				});
 
-			if this_system_disk.is_none() {
-				println!(
-					"No matching system disk found for mount at {}. Skipping acknowledgment.",
-					mount.mount_point
+				if this_system_disk.is_none() {
+					println!(
+						"No matching system disk found for mount at {}. Skipping acknowledgment.",
+						mount.mount_point
+					);
+					return;
+				};
+
+				let disk_type = match this_system_disk.unwrap().type_() {
+					sysinfo::DiskType::SSD => "SSD".to_string(),
+					sysinfo::DiskType::HDD => "HDD".to_string(),
+					_ => "Removable Disk".to_string(),
+				};
+
+				volumes.insert(
+					volumes.len(),
+					Volume {
+						name: mount.name.to_string(),
+						is_root_filesystem: mount.is_root_filesystem,
+						mount_point: mount.mount_point.to_string(),
+						total_capacity: mount.total_capacity,
+						available_capacity: mount.available_capacity,
+						is_removable: mount.is_removable,
+						// todo: fill there from Rust System
+						disk_type: Some(disk_type),
+						file_system: None,
+					},
 				);
-				return;
-			};
-
-			let disk_type = match this_system_disk.unwrap().type_() {
-				sysinfo::DiskType::SSD => "SSD".to_string(),
-				sysinfo::DiskType::HDD => "HDD".to_string(),
-				_ => "Removable Disk".to_string(),
-			};
-
-			volumes.insert(
-				volumes.len(),
-				Volume {
-					name: mount.name.to_string(),
-					is_root_filesystem: mount.is_root_filesystem,
-					mount_point: mount.mount_point.to_string(),
-					total_capacity: mount.total_capacity,
-					available_capacity: mount.available_capacity,
-					is_removable: mount.is_removable,
-					// todo: fill there from Rust System
-					disk_type: Some(disk_type),
-					file_system: None,
-				},
-			);
-		});
+			});
 	}
 
 	system_disks.iter().for_each(|disk| {

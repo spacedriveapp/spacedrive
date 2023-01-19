@@ -12,7 +12,7 @@ public func getFileThumbnailBase64(path: SRString) -> SRString {
 	return SRString(bitmap.base64EncodedString())
 }
 
-class Volume: NSObject {
+public class Volume: NSObject {
 	internal init(
 		name: String,
 		path: String,
@@ -57,24 +57,19 @@ public func getMounts() -> SRObjectArray {
 	}
 
 	for url in urls {
-		let components = url.pathComponents
-		if components.count == 1 || components.count > 1
-			&& components[1] == "Volumes"
-		{
-			let metadata = try? url.promisedItemResourceValues(forKeys: Set(keys))
-			
-			let volume = Volume(
-				name: metadata?.volumeName ?? url.absoluteString,
-				path: "/",
-				is_root_filesystem: metadata?.volumeIsRootFileSystem ?? false,
-				total_capacity: metadata?.volumeTotalCapacity ?? 0,
-				available_capacity: metadata?.volumeAvailableCapacity ?? 0,
-				is_removable: (metadata?.volumeIsRemovable ?? false) || (metadata?.volumeIsEjectable ?? false)
-			)
+		let metadata = try? url.promisedItemResourceValues(forKeys: Set(keys))
+		
+		let volume = Volume(
+			name: metadata?.volumeName ?? url.absoluteString,
+			path: url.path,
+			is_root_filesystem: metadata?.volumeIsRootFileSystem ?? false,
+			total_capacity: metadata?.volumeTotalCapacity ?? 0,
+			available_capacity: metadata?.volumeAvailableCapacity ?? 0,
+			is_removable: (metadata?.volumeIsRemovable ?? false) || (metadata?.volumeIsEjectable ?? false)
+		)
 
-			validMounts.append(volume)
-		}
-	}
+		validMounts.append(volume)
+    }
 	
 	return toRust(SRObjectArray(validMounts))
 }
