@@ -3,23 +3,29 @@ use crate::{library::LibraryContext, prisma::volume::*};
 use rspc::Type;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use swift_rs::{swift_object, Bool, SRArray, SRString, UInt64};
+use swift_rs::{swift_object, Bool, SRString, UInt64};
 use sysinfo::{DiskExt, RefreshKind, System, SystemExt};
 use thiserror::Error;
 
 #[cfg(target_os = "macos")]
 extern "C" {
-	fn native_get_mounts() -> SRArray<VolumeFromSwift>;
+	fn native_get_mounts() -> SRString;
 }
 
 #[swift_object]
+#[derive(Deserialize)]
 struct VolumeFromSwift {
-	name: SRString,
+	name: String,
 	is_root_filesystem: Bool,
-	mount_point: SRString,
+	mount_point: String,
 	total_capacity: UInt64,
 	available_capacity: UInt64,
 	is_removable: Bool,
+}
+
+#[derive(Deserialize)]
+struct VolumeListingFromSwift {
+	volumes: Vec<VolumeFromSwift>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
@@ -91,7 +97,7 @@ pub async fn save_volume(ctx: &LibraryContext) -> Result<(), VolumeError> {
 pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 	println!("I LOVE LISTING VOLUMES");
 
-	let system_disks_binding = System::new_with_specifics(RefreshKind::new().with_disks());
+	let system_disks_binding = System::new_with_specifics(RefreshKind::new().with_disks_list());
 	let system_disks = system_disks_binding.disks();
 
 	let mut volumes: Vec<Volume> = vec![];
@@ -101,22 +107,15 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 		println!("Hello Macintosh! Let's get mounts...");
 
 		// we take this data from Swift because it provides a cleaner list we don't have to hack around
-		let native_mounts = unsafe { native_get_mounts() };
+		let native_mounts = unsafe {
+			let native_mounts_raw = native_get_mounts();
+			serde_json::from_str::<VolumeListingFromSwift>(&native_mounts_raw).unwrap()
+		};
 
 		println!("OK got the mounts. Loopy time");
 
-		/*
-		somewhere after here we get the following:
-			Crashed Thread:        25  tokio-runtime-worker
-
-			Exception Type:        EXC_BAD_ACCESS (SIGSEGV)
-			Exception Codes:       KERN_INVALID_ADDRESS at 0x8000000001f4c052 -> 0x0000000001f4c052 (possible pointer authentication failure)
-			Exception Codes:       0x0000000000000001, 0x8000000001f4c052
-
-			Termination Reason:    Namespace SIGNAL, Code 11 Segmentation fault: 11
-		*/
-
 		native_mounts //
+			.volumes
 			.iter()
 			.for_each(|mount| {
 				println!(
@@ -126,10 +125,10 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 
 				let this_system_disk = system_disks.iter().find(|disk| {
 					println!(
-					"\nComparing sysinfo disk mount '{}' to Swift FileManager volume mount '{}'",
-					disk.mount_point().to_str().unwrap_or(""),
-					mount.mount_point.to_string()
-				);
+						"\nComparing sysinfo disk mount '{}' to Swift FileManager volume mount '{}'",
+						disk.mount_point().to_str().unwrap_or(""),
+						mount.mount_point.to_string()
+					);
 
 					disk.mount_point().to_str().unwrap_or("") == mount.mount_point.to_string()
 				});
@@ -141,6 +140,20 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 					);
 					return;
 				};
+
+				/*
+				somewhere after here we get the following BUT ONLY ON CERTAIN SUBSEQUENT RUNS???
+					Crashed Thread:        23  tokio-runtime-worker
+
+					Exception Type:        EXC_BAD_ACCESS (SIGSEGV)
+					Exception Codes:       KERN_INVALID_ADDRESS at 0x0000000000445370
+					Exception Codes:       0x0000000000000001, 0x0000000000445370
+
+					Termination Reason:    Namespace SIGNAL, Code 11 Segmentation fault: 11
+					Terminating Process:   exc handler [1256]
+
+					VM Region Info: 0x445370 is not in any region.  Bytes before following region: 4364364944
+				*/
 
 				let disk_type = match this_system_disk.unwrap().type_() {
 					sysinfo::DiskType::SSD => "SSD".to_string(),

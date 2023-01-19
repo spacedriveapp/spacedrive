@@ -12,6 +12,8 @@ public func getFileThumbnailBase64(path: SRString) -> SRString {
 	return SRString(bitmap.base64EncodedString())
 }
 
+// TODO: when SwiftRs gets unfrizzled put this back!
+/*
 public class Volume: NSObject {
 	internal init(
 		name: String,
@@ -36,9 +38,26 @@ public class Volume: NSObject {
 	var available_capacity: UInt64
 	var is_removable: Bool
 }
+*/
+
+// until SwiftRs is patched for object access we are encoding data as a JSON string
+let jsonEncoder = JSONEncoder()
+
+public struct VolumesForRust: Codable {
+	var volumes: [Volume]
+}
+
+public struct Volume: Codable {
+	var name: String
+	var is_root_filesystem: Bool
+	var mount_point: String
+	var total_capacity: Int
+	var available_capacity: Int
+	var is_removable: Bool
+}
 
 @_cdecl("native_get_mounts")
-public func getMounts() -> SRObjectArray {
+public func getMounts() -> SRString {
 	   let keys: [URLResourceKey] = [
 		.volumeNameKey,
 		.volumeIsRootFileSystemKey,
@@ -53,16 +72,22 @@ public func getMounts() -> SRObjectArray {
 	var validMounts: [Volume] = []
 	
 	guard let urls = paths else {
-		return SRObjectArray(validMounts)
+		return SRString(String(data: try! jsonEncoder.encode(VolumesForRust(volumes: validMounts)), encoding: .utf8) ?? "{ volumes: [] }")
 	}
 
 	for url in urls {
+		let components = url.pathComponents
+		if components.count > 1 && components[1] != "Volumes"
+		{
+			continue
+		}
+
 		let metadata = try? url.promisedItemResourceValues(forKeys: Set(keys))
 		
 		let volume = Volume(
 			name: metadata?.volumeName ?? url.absoluteString,
-			path: url.path,
 			is_root_filesystem: metadata?.volumeIsRootFileSystem ?? false,
+			mount_point: url.path,
 			total_capacity: metadata?.volumeTotalCapacity ?? 0,
 			available_capacity: metadata?.volumeAvailableCapacity ?? 0,
 			is_removable: (metadata?.volumeIsRemovable ?? false) || (metadata?.volumeIsEjectable ?? false)
@@ -71,5 +96,5 @@ public func getMounts() -> SRObjectArray {
 		validMounts.append(volume)
     }
 	
-	return toRust(SRObjectArray(validMounts))
+	return SRString(String(data: try! jsonEncoder.encode(VolumesForRust(volumes: validMounts)), encoding: .utf8) ?? "{ volumes: [] }")
 }
