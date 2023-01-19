@@ -1,6 +1,6 @@
 import { useLibraryMutation } from '@sd/client';
 import { Location, Node } from '@sd/client';
-import { Button, Card, Dialog } from '@sd/ui';
+import { Button, Card, Dialog, NewDialogProps, dialogManager, useDialog } from '@sd/ui';
 import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
@@ -16,20 +16,8 @@ interface LocationListItemProps {
 
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const [hide, setHide] = useState(false);
-	const [open, setOpen] = useState(false);
 
-	const { mutate: locRescan } = useLibraryMutation('locations.fullRescan');
-
-	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryMutation(
-		'locations.delete',
-		{
-			onSuccess: () => {
-				setHide(true);
-			}
-		}
-	);
-
-	const form = useZodForm({ schema: z.object({}) });
+	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	if (hide) return <></>;
 
@@ -57,32 +45,29 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 						{location.is_online ? 'Online' : 'Offline'}
 					</span>
 				</Button>
-				<Dialog
-					form={form}
-					onSubmit={form.handleSubmit(() => {
-						deleteLoc(location.id);
-					})}
-					open={open}
-					setOpen={setOpen}
-					title="Delete Location"
-					description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
-					loading={locDeletePending}
-					ctaDanger
-					ctaLabel="Delete"
-					trigger={
-						<Button variant="gray" className="!p-1.5">
-							<Tooltip label="Delete Location">
-								<Trash className="w-4 h-4" />
-							</Tooltip>
-						</Button>
-					}
-				/>
+				<Button
+					variant="gray"
+					className="!p-1.5"
+					onClick={() => {
+						dialogManager.create((dp) => (
+							<DeleteLocationDialog
+								{...dp}
+								onSuccess={() => setHide(true)}
+								locationId={location.id}
+							/>
+						));
+					}}
+				>
+					<Tooltip label="Delete Location">
+						<Trash className="w-4 h-4" />
+					</Tooltip>
+				</Button>
 				<Button
 					variant="gray"
 					className="!p-1.5"
 					onClick={() => {
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						locRescan(location.id);
+						fullRescan.mutate(location.id);
 					}}
 				>
 					<Tooltip label="Rescan Location">
@@ -94,5 +79,32 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 				</Button> */}
 			</div>
 		</Card>
+	);
+}
+
+interface DeleteLocationDialogProps extends NewDialogProps {
+	onSuccess: () => void;
+	locationId: number;
+}
+
+function DeleteLocationDialog(props: DeleteLocationDialogProps) {
+	const dialog = useDialog(props);
+
+	const form = useZodForm({ schema: z.object({}) });
+
+	const deleteLocation = useLibraryMutation('locations.delete', {
+		onSuccess: props.onSuccess
+	});
+
+	return (
+		<Dialog
+			form={form}
+			onSubmit={form.handleSubmit(() => deleteLocation.mutateAsync(props.locationId))}
+			dialog={dialog}
+			title="Delete Location"
+			description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
+			ctaDanger
+			ctaLabel="Delete"
+		/>
 	);
 }

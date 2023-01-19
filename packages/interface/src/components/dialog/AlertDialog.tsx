@@ -1,10 +1,9 @@
-import { Button, Dialog, Input } from '@sd/ui';
+import { Button, Dialog, Input, NewDialogProps, useDialog } from '@sd/ui';
 import { Clipboard } from 'phosphor-react';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
 export const GenericAlertDialogState = {
-	open: false,
 	title: '',
 	description: '',
 	value: '',
@@ -12,35 +11,29 @@ export const GenericAlertDialogState = {
 };
 
 export interface GenericAlertDialogProps {
-	open: boolean;
 	title: string;
-	description: string;
+	description?: string;
 	value: string;
-	inputBox: boolean;
+	inputBox?: boolean;
 }
 
-export interface AlertDialogProps {
-	open: boolean;
-	setOpen: (isShowing: boolean) => void;
+export interface AlertDialogProps extends NewDialogProps {
 	title: string; // dialog title
 	description?: string; // description of the dialog
 	value: string; // value to be displayed as text or in an input box
 	label?: string; // button label
-	inputBox: boolean; // whether the dialog should display the `value` in a disabled input box or as text
+	inputBox?: boolean; // whether the dialog should display the `value` in a disabled input box or as text
 }
 
 export const AlertDialog = (props: AlertDialogProps) => {
+	const dialog = useDialog(props);
 	const form = useZodForm({ schema: z.object({}) });
 	// maybe a copy-to-clipboard button would be beneficial too
 	return (
 		<Dialog
 			form={form}
-			onSubmit={form.handleSubmit(() => {
-				props.setOpen(false);
-			})}
-			open={props.open}
-			setOpen={props.setOpen}
-			title={props.title}
+			onSubmit={form.handleSubmit(() => {})}
+			dialog={dialog}
 			description={props.description}
 			ctaLabel={props.label !== undefined ? props.label : 'Done'}
 		>

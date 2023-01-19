@@ -1,8 +1,8 @@
 import { useCurrentLibrary } from '@sd/client';
+import { Dialogs } from '@sd/ui';
 import clsx from 'clsx';
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
-
 import { Sidebar } from '~/components/layout/Sidebar';
 import { Toasts } from '~/components/primitive/Toasts';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';

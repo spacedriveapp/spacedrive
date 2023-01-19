@@ -1,16 +1,14 @@
 import { useLibraryMutation } from '@sd/client';
-import { Dialog } from '@sd/ui';
+import { Dialog, NewDialogProps, useDialog } from '@sd/ui';
 import { useState } from 'react';
 
 import Slider from '../primitive/Slider';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-interface EraseDialogProps {
-	open: boolean;
-	setOpen: (isShowing: boolean) => void;
-	location_id: number | null;
-	path_id: number | undefined;
+interface EraseDialogProps extends NewDialogProps {
+	location_id: number;
+	path_id: number;
 }
 
 const schema = z.object({
@@ -18,6 +16,8 @@ const schema = z.object({
 });
 
 export const EraseFileDialog = (props: EraseDialogProps) => {
+	const dialog = useDialog(props);
+
 	const eraseFile = useLibraryMutation('files.eraseFiles');
 
 	const form = useZodForm({
@@ -27,19 +27,13 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 		}
 	});
 
-	const onSubmit = form.handleSubmit((data) => {
-		props.setOpen(false);
-
-		props.location_id &&
-			props.path_id &&
-			eraseFile.mutate({
-				location_id: props.location_id,
-				path_id: props.path_id,
-				passes: data.passes
-			});
-
-		form.reset();
-	});
+	const onSubmit = form.handleSubmit((data) =>
+		eraseFile.mutateAsync({
+			location_id: props.location_id,
+			path_id: props.path_id,
+			passes: data.passes
+		})
+	);
 
 	const [passes, setPasses] = useState([4]);
 
@@ -47,8 +41,7 @@ export const EraseFileDialog = (props: EraseDialogProps) => {
 		<Dialog
 			form={form}
 			onSubmit={onSubmit}
-			open={props.open}
-			setOpen={props.setOpen}
+			dialog={dialog}
 			title="Erase a file"
 			description="Configure your erasure settings."
 			loading={eraseFile.isLoading}

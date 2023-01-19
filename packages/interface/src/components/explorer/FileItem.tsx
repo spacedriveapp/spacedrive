@@ -2,11 +2,8 @@ import { ExplorerItem, isVideoExt } from '@sd/client';
 import { cva, tw } from '@sd/ui';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
+import { getExplorerStore } from '~/hooks/useExplorerStore';
 
-import { getExplorerStore } from '../../hooks/useExplorerStore';
-import { ObjectKind } from '../../util/kind';
-import { GenericAlertDialogProps } from '../dialog/AlertDialog';
-import { Tooltip } from '../tooltip/Tooltip';
 import { FileItemContextMenu } from './ExplorerContextMenu';
 import FileThumb from './FileThumb';
 import { isObject } from './utils';
@@ -28,36 +25,14 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 	data: ExplorerItem;
 	selected: boolean;
 	index: number;
-	setShowEncryptDialog: (isShowing: boolean) => void;
-	setShowDecryptDialog: (isShowing: boolean) => void;
-	setShowDeleteDialog: (isShowing: boolean) => void;
-	setShowEraseDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
-function FileItem({
-	data,
-	selected,
-	index,
-	setShowEncryptDialog,
-	setShowDecryptDialog,
-	setShowDeleteDialog,
-	setShowEraseDialog,
-	setAlertDialogData,
-	...rest
-}: Props) {
+function FileItem({ data, selected, index, ...rest }: Props) {
 	const objectData = data ? (isObject(data) ? data : data.object) : null;
 	const isVid = isVideoExt(data.extension || '');
 
 	return (
-		<FileItemContextMenu
-			item={data}
-			setShowEncryptDialog={setShowEncryptDialog}
-			setShowDecryptDialog={setShowDecryptDialog}
-			setShowDeleteDialog={setShowDeleteDialog}
-			setShowEraseDialog={setShowEraseDialog}
-			setAlertDialogData={setAlertDialogData}
-		>
+		<FileItemContextMenu item={data}>
 			<div
 				onContextMenu={(e) => {
 					if (index != undefined) {
