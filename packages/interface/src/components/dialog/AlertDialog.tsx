@@ -1,4 +1,4 @@
-import { Button, Dialog, Input, NewDialogProps, useDialog } from '@sd/ui';
+import { Button, Dialog, Input, UseDialogProps, useDialog } from '@sd/ui';
 import { Clipboard } from 'phosphor-react';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
@@ -17,7 +17,7 @@ export interface GenericAlertDialogProps {
 	inputBox?: boolean;
 }
 
-export interface AlertDialogProps extends NewDialogProps {
+export interface AlertDialogProps extends UseDialogProps {
 	title: string; // dialog title
 	description?: string; // description of the dialog
 	value: string; // value to be displayed as text or in an input box

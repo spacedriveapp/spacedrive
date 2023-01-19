@@ -1,5 +1,5 @@
 import { useLibraryQuery } from '@sd/client';
-import { Button, Dialog, Input, NewDialogProps, Select, SelectOption, useDialog } from '@sd/ui';
+import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { Buffer } from 'buffer';
 import { Clipboard } from 'phosphor-react';
 import { useState } from 'react';
@@ -9,7 +9,7 @@ import { SelectOptionKeyList } from '../key/KeyList';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-interface KeyViewerDialogProps extends NewDialogProps {}
+interface KeyViewerDialogProps extends UseDialogProps {}
 
 export const KeyUpdater = (props: {
 	uuid: string;

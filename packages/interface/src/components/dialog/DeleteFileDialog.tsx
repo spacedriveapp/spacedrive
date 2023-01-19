@@ -1,9 +1,9 @@
 import { useLibraryMutation } from '@sd/client';
-import { Dialog, NewDialogProps, useDialog } from '@sd/ui';
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-interface DeleteDialogProps extends NewDialogProps {
+interface DeleteDialogProps extends UseDialogProps {
 	location_id: number;
 	path_id: number;
 }

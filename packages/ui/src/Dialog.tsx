@@ -1,6 +1,6 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import clsx from 'clsx';
-import { ReactElement, ReactNode, useEffect, useRef } from 'react';
+import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { animated, useTransition } from 'react-spring';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
@@ -14,23 +14,13 @@ export function createDialogState(open = false) {
 	});
 }
 
-/**
- * Creates a dialog state to be consumed later on.
- * This hook does not automatically subscribe the component to state updates,
- * useSnapshot must be used for that.
- * */
-export function useDialogState() {
-	const state = useRef(createDialogState());
-	return state.current;
-}
-
 export type DialogState = ReturnType<typeof createDialogState>;
 
-export interface NewDialogOptions {
+export interface DialogOptions {
 	onSubmit?(): void;
 }
 
-export interface NewDialogProps extends NewDialogOptions {
+export interface UseDialogProps extends DialogOptions {
 	id: number;
 }
 
@@ -40,7 +30,7 @@ class DialogManager {
 
 	dialogs: Record<number, React.FC> = proxy({});
 
-	create(dialog: (props: NewDialogProps) => ReactElement, options?: NewDialogOptions) {
+	create(dialog: (props: UseDialogProps) => ReactElement, options?: DialogOptions) {
 		const id = this.getId();
 
 		this.dialogs[id] = ref(() => dialog({ id, ...options }));
@@ -92,7 +82,7 @@ function Remover({ id }: { id: number }) {
 	return null;
 }
 
-export function useDialog(props: NewDialogProps) {
+export function useDialog(props: UseDialogProps) {
 	return {
 		...props,
 		state: dialogManager.getState(props.id)

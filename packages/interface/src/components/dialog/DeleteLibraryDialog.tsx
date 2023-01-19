@@ -1,11 +1,11 @@
 import { useBridgeMutation } from '@sd/client';
-import { Dialog, NewDialogProps, useDialog } from '@sd/ui';
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { forms } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
 const { useZodForm, z } = forms;
 
-interface Props extends NewDialogProps {
+interface Props extends UseDialogProps {
 	libraryUuid: string;
 }
 

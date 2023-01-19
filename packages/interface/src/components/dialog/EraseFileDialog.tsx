@@ -1,12 +1,12 @@
 import { useLibraryMutation } from '@sd/client';
-import { Dialog, NewDialogProps, useDialog } from '@sd/ui';
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { useState } from 'react';
 
 import Slider from '../primitive/Slider';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-interface EraseDialogProps extends NewDialogProps {
+interface EraseDialogProps extends UseDialogProps {
 	location_id: number;
 	path_id: number;
 }

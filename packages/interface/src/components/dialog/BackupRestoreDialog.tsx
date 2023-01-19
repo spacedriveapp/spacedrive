@@ -1,5 +1,5 @@
 import { useLibraryMutation } from '@sd/client';
-import { Button, Dialog, NewDialogProps, useDialog } from '@sd/ui';
+import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { forms } from '@sd/ui';
 import { Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
@@ -14,7 +14,7 @@ const schema = z.object({
 	filePath: z.string()
 });
 
-export interface BackupRestorationDialogProps extends NewDialogProps {}
+export interface BackupRestorationDialogProps extends UseDialogProps {}
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const platform = usePlatform();

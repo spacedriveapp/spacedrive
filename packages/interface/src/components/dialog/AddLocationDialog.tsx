@@ -1,11 +1,11 @@
 import { useLibraryMutation } from '@sd/client';
-import { Dialog, NewDialogProps, useDialog } from '@sd/ui';
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 
 const schema = z.object({ path: z.string() });
 
-interface Props extends NewDialogProps {}
+interface Props extends UseDialogProps {}
 
 export default function AddLocationDialog(props: Props) {
 	const dialog = useDialog(props);

@@ -1,6 +1,6 @@
 import { useLibraryMutation } from '@sd/client';
 import { Location, Node } from '@sd/client';
-import { Button, Card, Dialog, NewDialogProps, dialogManager, useDialog } from '@sd/ui';
+import { Button, Card, Dialog, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
 import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
@@ -82,7 +82,7 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 	);
 }
 
-interface DeleteLocationDialogProps extends NewDialogProps {
+interface DeleteLocationDialogProps extends UseDialogProps {
 	onSuccess: () => void;
 	locationId: number;
 }

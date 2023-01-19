@@ -1,5 +1,5 @@
 import { Algorithm, useBridgeMutation } from '@sd/client';
-import { Button, Dialog, NewDialogProps, Select, SelectOption, useDialog } from '@sd/ui';
+import { Button, Dialog, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import { forms } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import cryptoRandomString from 'crypto-random-string';
@@ -21,7 +21,7 @@ const schema = z.object({
 	hashing_algorithm: z.string()
 });
 
-interface Props extends NewDialogProps {}
+interface Props extends UseDialogProps {}
 
 export default function CreateLibraryDialog(props: Props) {
 	const dialog = useDialog(props);

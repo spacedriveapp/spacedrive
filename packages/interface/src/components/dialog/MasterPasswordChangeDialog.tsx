@@ -1,5 +1,5 @@
 import { Algorithm, useLibraryMutation } from '@sd/client';
-import { Button, Dialog, Input, NewDialogProps, Select, SelectOption, useDialog } from '@sd/ui';
+import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
@@ -11,7 +11,7 @@ import { PasswordMeter } from '../key/PasswordMeter';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-export interface MasterPasswordChangeDialogProps extends NewDialogProps {}
+export interface MasterPasswordChangeDialogProps extends UseDialogProps {}
 
 const schema = z.object({
 	masterPassword: z.string(),
