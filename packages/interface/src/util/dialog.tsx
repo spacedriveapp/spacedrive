@@ -1,6 +1,6 @@
 import { dialogManager } from '@sd/ui';
-import { AlertDialog, GenericAlertDialogProps } from '~/components/dialog/AlertDialog';
+import { AlertDialog, AlertDialogProps } from '~/components/dialog/AlertDialog';
 
-export function showAlertDialog(props: GenericAlertDialogProps) {
+export function showAlertDialog(props: AlertDialogProps) {
 	dialogManager.create((dp) => <AlertDialog {...dp} {...props} />);
 }

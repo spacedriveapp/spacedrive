@@ -3,13 +3,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
+import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 
-import {
-	ExplorerLayoutMode,
-	getExplorerStore,
-	useExplorerStore
-} from '../../hooks/useExplorerStore';
-import { GenericAlertDialogProps } from '../dialog/AlertDialog';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import { isPath } from './utils';

@@ -3,20 +3,6 @@ import { Clipboard } from 'phosphor-react';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-export const GenericAlertDialogState = {
-	title: '',
-	description: '',
-	value: '',
-	inputBox: false
-};
-
-export interface GenericAlertDialogProps {
-	title: string;
-	description?: string;
-	value: string;
-	inputBox?: boolean;
-}
-
 export interface AlertDialogProps extends UseDialogProps {
 	title: string; // dialog title
 	description?: string; // description of the dialog
