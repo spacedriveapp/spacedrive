@@ -13,6 +13,7 @@
 
 pub mod crypto;
 pub mod error;
+pub mod fs;
 pub mod header;
 pub mod keys;
 pub mod primitives;
