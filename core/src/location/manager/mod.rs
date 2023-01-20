@@ -7,11 +7,14 @@ use std::{
 
 use futures::executor::block_on;
 use thiserror::Error;
-use tokio::{
-	io,
-	sync::{mpsc, oneshot},
-};
-use tracing::{debug, error};
+use tokio::{io, sync::oneshot};
+use tracing::error;
+
+#[cfg(feature = "location-watcher")]
+use tokio::sync::mpsc;
+
+#[cfg(feature = "location-watcher")]
+use tracing::debug;
 
 #[cfg(feature = "location-watcher")]
 mod watcher;
@@ -22,12 +25,14 @@ mod helpers;
 pub type LocationId = i32;
 
 #[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
 enum ManagementMessageAction {
 	Add,
 	Remove,
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct LocationManagementMessage {
 	location_id: LocationId,
 	library_ctx: LibraryContext,
@@ -36,6 +41,7 @@ pub struct LocationManagementMessage {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum WatcherManagementMessageAction {
 	Stop,
 	Reinit,
@@ -43,6 +49,7 @@ enum WatcherManagementMessageAction {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct WatcherManagementMessage {
 	location_id: LocationId,
 	library_ctx: LibraryContext,
@@ -88,45 +95,54 @@ pub enum LocationManagerError {
 
 #[derive(Debug)]
 pub struct LocationManager {
+	#[cfg(feature = "location-watcher")]
 	location_management_tx: mpsc::Sender<LocationManagementMessage>,
+	#[cfg(feature = "location-watcher")]
 	watcher_management_tx: mpsc::Sender<WatcherManagementMessage>,
 	stop_tx: Option<oneshot::Sender<()>>,
 }
 
 impl LocationManager {
-	#[allow(unused)]
 	pub fn new() -> Arc<Self> {
-		let (location_management_tx, location_management_rx) = mpsc::channel(128);
-		let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
-		let (stop_tx, stop_rx) = oneshot::channel();
-
 		#[cfg(feature = "location-watcher")]
-		tokio::spawn(Self::run_locations_checker(
-			location_management_rx,
-			watcher_management_rx,
-			stop_rx,
-		));
+		{
+			let (location_management_tx, location_management_rx) = mpsc::channel(128);
+			let (watcher_management_tx, watcher_management_rx) = mpsc::channel(128);
+			let (stop_tx, stop_rx) = oneshot::channel();
+
+			#[cfg(feature = "location-watcher")]
+			tokio::spawn(Self::run_locations_checker(
+				location_management_rx,
+				watcher_management_rx,
+				stop_rx,
+			));
+
+			debug!("Location manager initialized");
+
+			Arc::new(Self {
+				location_management_tx,
+				watcher_management_tx,
+				stop_tx: Some(stop_tx),
+			})
+		}
 
 		#[cfg(not(feature = "location-watcher"))]
-		tracing::warn!("Location watcher is disabled, locations will not be checked");
-
-		debug!("Location manager initialized");
-
-		Arc::new(Self {
-			location_management_tx,
-			watcher_management_tx,
-			stop_tx: Some(stop_tx),
-		})
+		{
+			tracing::warn!("Location watcher is disabled, locations will not be checked");
+			Arc::new(Self { stop_tx: None })
+		}
 	}
 
 	#[inline]
+	#[allow(unused_variables)]
 	async fn location_management_message(
 		&self,
 		location_id: LocationId,
 		library_ctx: LibraryContext,
 		action: ManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
-		if cfg!(feature = "location-watcher") {
+		#[cfg(feature = "location-watcher")]
+		{
 			let (tx, rx) = oneshot::channel();
 
 			self.location_management_tx
@@ -139,19 +155,22 @@ impl LocationManager {
 				.await?;
 
 			rx.await?
-		} else {
-			Ok(())
 		}
+
+		#[cfg(not(feature = "location-watcher"))]
+		Ok(())
 	}
 
 	#[inline]
+	#[allow(unused_variables)]
 	async fn watcher_management_message(
 		&self,
 		location_id: LocationId,
 		library_ctx: LibraryContext,
 		action: WatcherManagementMessageAction,
 	) -> Result<(), LocationManagerError> {
-		if cfg!(feature = "location-watcher") {
+		#[cfg(feature = "location-watcher")]
+		{
 			let (tx, rx) = oneshot::channel();
 
 			self.watcher_management_tx
@@ -164,9 +183,10 @@ impl LocationManager {
 				.await?;
 
 			rx.await?
-		} else {
-			Ok(())
 		}
+
+		#[cfg(not(feature = "location-watcher"))]
+		Ok(())
 	}
 
 	pub async fn add(
