@@ -1,11 +1,10 @@
-import { useLibraryMutation } from '@sd/client';
-import { Button, Dialog } from '@sd/ui';
-import { forms } from '@sd/ui';
 import { Eye, EyeSlash } from 'phosphor-react';
-import { ReactNode, useState } from 'react';
-
-import { usePlatform } from '../../util/Platform';
-import { GenericAlertDialogProps } from './AlertDialog';
+import { useState } from 'react';
+import { useLibraryMutation } from '@sd/client';
+import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
+import { forms } from '@sd/ui';
+import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
 
 const { Input, useZodForm, z } = forms;
 
@@ -15,42 +14,32 @@ const schema = z.object({
 	filePath: z.string()
 });
 
-export interface BackupRestorationDialogProps {
-	trigger: ReactNode;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
-}
+export interface BackupRestorationDialogProps extends UseDialogProps {}
 
 export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 	const platform = usePlatform();
 
 	const restoreKeystoreMutation = useLibraryMutation('keys.restoreKeystore', {
 		onSuccess: (total) => {
-			setShow((old) => ({ ...old, backupRestoreDialog: false }));
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Import Successful',
-				description: '',
-				value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`,
-				inputBox: false
+				value: `${total} ${total !== 1 ? 'keys were imported.' : 'key was imported.'}`
 			});
 		},
 		onError: () => {
-			setShow((old) => ({ ...old, backupRestoreDialog: false }));
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Import Error',
-				description: '',
-				value: 'There was an error while restoring your backup.',
-				inputBox: false
+				value: 'There was an error while restoring your backup.'
 			});
 		}
 	});
 
 	const [show, setShow] = useState({
-		backupRestoreDialog: false,
 		masterPassword: false,
 		secretKey: false
 	});
+
+	const dialog = useDialog(props);
 
 	const MPCurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = show.secretKey ? EyeSlash : Eye;
@@ -76,13 +65,11 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 		<Dialog
 			form={form}
 			onSubmit={onSubmit}
-			open={show.backupRestoreDialog}
-			setOpen={(e) => setShow((old) => ({ ...old, backupRestoreDialog: e }))}
+			dialog={dialog}
 			title="Restore Keys"
 			description="Restore keys from a backup."
 			loading={restoreKeystoreMutation.isLoading}
 			ctaLabel="Restore"
-			trigger={props.trigger}
 		>
 			<div className="relative flex flex-grow mt-3 mb-2">
 				<Input
@@ -123,12 +110,9 @@ export const BackupRestoreDialog = (props: BackupRestorationDialogProps) => {
 					onClick={() => {
 						if (!platform.openFilePickerDialog) {
 							// TODO: Support opening locations on web
-							props.setAlertDialogData({
-								open: true,
+							showAlertDialog({
 								title: 'Error',
-								description: '',
-								value: "System dialogs aren't supported on this platform.",
-								inputBox: false
+								value: "System dialogs aren't supported on this platform."
 							});
 							return;
 						}

@@ -41,6 +41,7 @@ and that node can inform all other nodes about the correct state of the paths.
 Used for Locations, Paths, and Volumes.
 
 `@owned(owner: String, id?: String)`
+
 - `owner` - Field that identifies the owner of this model.
   If a scalar, will directly use that value in sync operations.
   If a relation, the Sync ID of the related model will be resolved for sync operations.
@@ -54,15 +55,16 @@ Updates are applied per-field using a last-write-wins strategy.
 Used for Objects, Tags, Spaces, and Jobs.
 
 `@shared(create: SharedCreateType, id?: String)`
+
 - `id` - Scalar field to override the default Sync ID.
 - `create` - How the model should be created.
   - `Unique` (default): Model can be created with many required arguemnts,
-  but ID provided _must_ be unique across all nodes.
-  Useful for Tags since their IDs are non-deterministic.
+    but ID provided _must_ be unique across all nodes.
+    Useful for Tags since their IDs are non-deterministic.
   - `Atomic`: Require the model to have no required arguments apart from ID and apply all create arguments as atomic updates.
-  Necessary for models with the same ID that can be created on multiple nodes.
-  Useful for Objects since their ID is dependent on their content,
-  and could be the same across nodes.
+    Necessary for models with the same ID that can be created on multiple nodes.
+    Useful for Objects since their ID is dependent on their content,
+    and could be the same across nodes.
 
 ### Relation Records
 
@@ -72,11 +74,11 @@ Sync ID is the combination of `item` and `group` Sync IDs.
 Used for TagOnFile and FileInSpace.
 
 `@relation(item: String, group: String)`
+
 - `item` - Field that identifies the item that the relation is connecting.
   Similar to the `owner` argument of `@owned`.
 - `group` - Field that identifies the group that the item should be connected to.
   Similar to the `owner` argument of `@owned`.
-
 
 ## Other Prisma Attributes
 

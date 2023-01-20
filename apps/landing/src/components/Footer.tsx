@@ -1,3 +1,4 @@
+import AppLogo from '@sd/assets/images/logo.png';
 import {
 	Discord,
 	Github,
@@ -6,7 +7,6 @@ import {
 	Twitch,
 	Twitter
 } from '@icons-pack/react-simple-icons';
-import AppLogo from '@sd/assets/images/logo.png';
 import { PropsWithChildren } from 'react';
 
 function FooterLink(props: PropsWithChildren<{ link: string; blank?: boolean }>) {

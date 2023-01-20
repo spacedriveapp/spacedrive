@@ -3,7 +3,10 @@ use crate::{
 	prisma::{file_path, location},
 };
 
-use std::path::{Path, PathBuf};
+use std::{
+	collections::HashSet,
+	path::{Path, PathBuf},
+};
 
 use async_trait::async_trait;
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
@@ -39,6 +42,8 @@ type Handler = windows::WindowsEventHandler;
 
 file_path::include!(file_path_with_object { object });
 
+pub(super) type IgnorePath = (PathBuf, bool);
+
 #[async_trait]
 trait EventHandler {
 	fn new() -> Self
@@ -58,6 +63,7 @@ pub(super) struct LocationWatcher {
 	location: location::Data,
 	path: PathBuf,
 	watcher: RecommendedWatcher,
+	ignore_path_tx: mpsc::UnboundedSender<IgnorePath>,
 	handle: Option<JoinHandle<()>>,
 	stop_tx: Option<oneshot::Sender<()>>,
 }
@@ -68,6 +74,7 @@ impl LocationWatcher {
 		library_ctx: LibraryContext,
 	) -> Result<Self, LocationManagerError> {
 		let (events_tx, events_rx) = mpsc::unbounded_channel();
+		let (ignore_path_tx, ignore_path_rx) = mpsc::unbounded_channel();
 		let (stop_tx, stop_rx) = oneshot::channel();
 
 		let watcher = RecommendedWatcher::new(
@@ -89,12 +96,6 @@ impl LocationWatcher {
 			Config::default(),
 		)?;
 
-		let handle = tokio::spawn(Self::handle_watch_events(
-			location.id,
-			library_ctx,
-			events_rx,
-			stop_rx,
-		));
 		let path = PathBuf::from(
 			location
 				.local_path
@@ -102,10 +103,19 @@ impl LocationWatcher {
 				.ok_or(LocationManagerError::LocationMissingLocalPath(location.id))?,
 		);
 
+		let handle = tokio::spawn(Self::handle_watch_events(
+			location.id,
+			library_ctx,
+			events_rx,
+			ignore_path_rx,
+			stop_rx,
+		));
+
 		Ok(Self {
 			location,
 			path,
 			watcher,
+			ignore_path_tx,
 			handle: Some(handle),
 			stop_tx: Some(stop_tx),
 		})
@@ -115,9 +125,12 @@ impl LocationWatcher {
 		location_id: LocationId,
 		library_ctx: LibraryContext,
 		mut events_rx: mpsc::UnboundedReceiver<notify::Result<Event>>,
+		mut ignore_path_rx: mpsc::UnboundedReceiver<IgnorePath>,
 		mut stop_rx: oneshot::Receiver<()>,
 	) {
 		let mut event_handler = Handler::new();
+
+		let mut paths_to_ignore = HashSet::new();
 
 		loop {
 			select! {
@@ -128,7 +141,8 @@ impl LocationWatcher {
 								location_id,
 								event,
 								&mut event_handler,
-								&library_ctx
+								&library_ctx,
+								&paths_to_ignore,
 							).await {
 								error!("Failed to handle location file system event: \
 									<id='{location_id}', error='{e:#?}'>",
@@ -140,6 +154,15 @@ impl LocationWatcher {
 						}
 					}
 				}
+
+				Some((path, ignore)) = ignore_path_rx.recv() => {
+					if ignore {
+						paths_to_ignore.insert(path);
+					} else {
+						paths_to_ignore.remove(&path);
+					}
+				}
+
 				_ = &mut stop_rx => {
 					debug!("Stop Location Manager event handler for location: <id='{}'>", location_id);
 					break
@@ -153,8 +176,9 @@ impl LocationWatcher {
 		event: Event,
 		event_handler: &mut impl EventHandler,
 		library_ctx: &LibraryContext,
+		ignore_paths: &HashSet<PathBuf>,
 	) -> Result<(), LocationManagerError> {
-		if check_event(&event) {
+		if check_event(&event, ignore_paths) {
 			if let Some(location) = fetch_location(library_ctx, location_id)
 				.include(indexer_job_location::include())
 				.exec()
@@ -173,6 +197,14 @@ impl LocationWatcher {
 		}
 
 		Ok(())
+	}
+
+	pub(super) fn ignore_path(
+		&self,
+		path: PathBuf,
+		ignore: bool,
+	) -> Result<(), LocationManagerError> {
+		self.ignore_path_tx.send((path, ignore)).map_err(Into::into)
 	}
 
 	pub(super) fn check_path(&self, path: impl AsRef<Path>) -> bool {

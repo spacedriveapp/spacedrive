@@ -1,4 +1,8 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
+import clsx from 'clsx';
+import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
+import React, { PropsWithChildren } from 'react';
+import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
 	LocationCreateArgs,
 	getDebugState,
@@ -19,15 +23,11 @@ import {
 	SelectOption,
 	Switch,
 	cva,
+	dialogManager,
 	tw
 } from '@sd/ui';
-import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus, ShareNetwork } from 'phosphor-react';
-import React, { PropsWithChildren, useState } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
-
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';
@@ -47,7 +47,6 @@ export function Sidebar() {
 	const os = useOperatingSystem();
 	const { library, libraries, isLoading: isLoadingLibraries, switchLibrary } = useCurrentLibrary();
 	const debugState = useDebugState();
-	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
 	return (
 		<SidebarBody className={macOnly(os, 'bg-opacity-[0.75]')}>
@@ -86,7 +85,12 @@ export function Sidebar() {
 					))}
 				</Dropdown.Section>
 				<Dropdown.Section>
-					<Dropdown.Item icon={Plus} onClick={() => setIsCreateDialogOpen(true)}>
+					<Dropdown.Item
+						icon={Plus}
+						onClick={() => {
+							dialogManager.create((dp) => <CreateLibraryDialog {...dp} />);
+						}}
+					>
 						New Library
 					</Dropdown.Item>
 					<Dropdown.Item icon={Gear} to="settings/library">
@@ -152,8 +156,6 @@ export function Sidebar() {
 				</div>
 				{debugState.enabled && <DebugPanel />}
 			</SidebarFooter>
-			{/* Putting this within the dropdown will break the enter click handling in the modal. */}
-			<CreateLibraryDialog open={isCreateDialogOpen} setOpen={setIsCreateDialogOpen} />
 		</SidebarBody>
 	);
 }
@@ -309,10 +311,10 @@ const SidebarHeadingOptionsButton: React.FC<{ to: string; icon?: React.FC }> = (
 
 function LibraryScopedSection() {
 	const platform = usePlatform();
-	const { data: locations } = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
-	const { mutate: createLocation } = useLibraryMutation('locations.create');
-	const [textLocationDialogOpen, setTextLocationDialogOpen] = useState(false);
+
+	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const createLocation = useLibraryMutation('locations.create');
 
 	return (
 		<>
@@ -326,7 +328,7 @@ function LibraryScopedSection() {
 						</>
 					}
 				>
-					{locations?.map((location) => {
+					{locations.data?.map((location) => {
 						return (
 							<div key={location.id} className="flex flex-row items-center">
 								<SidebarLink
@@ -344,11 +346,11 @@ function LibraryScopedSection() {
 							</div>
 						);
 					})}
-					{(locations?.length || 0) < 4 && (
+					{(locations.data?.length || 0) < 4 && (
 						<button
 							onClick={() => {
 								if (platform.platform === 'web') {
-									setTextLocationDialogOpen(true);
+									dialogManager.create((dp) => <AddLocationDialog {...dp} />);
 								} else {
 									if (!platform.openDirectoryPickerDialog) {
 										alert('Opening a dialogue is not supported on this platform!');
@@ -357,7 +359,7 @@ function LibraryScopedSection() {
 									platform.openDirectoryPickerDialog().then((result) => {
 										// TODO: Pass indexer rules ids to create location
 										if (result)
-											createLocation({
+											createLocation.mutate({
 												path: result as string,
 												indexer_rules_ids: []
 											} as LocationCreateArgs);
@@ -374,15 +376,14 @@ function LibraryScopedSection() {
 						</button>
 					)}
 				</SidebarSection>
-				<AddLocationDialog open={textLocationDialogOpen} setOpen={setTextLocationDialogOpen} />
 			</div>
-			{!!tags?.length && (
+			{!!tags.data?.length && (
 				<SidebarSection
 					name="Tags"
 					actionArea={<SidebarHeadingOptionsButton to="/settings/tags" />}
 				>
 					<div className="mt-1 mb-2">
-						{tags?.slice(0, 6).map((tag, index) => (
+						{tags.data?.slice(0, 6).map((tag, index) => (
 							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
 								<div
 									className="w-[12px] h-[12px] rounded-full"

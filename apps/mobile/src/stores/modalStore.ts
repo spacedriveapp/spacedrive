@@ -1,7 +1,7 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { ExplorerItem } from '@sd/client';
 import { createRef } from 'react';
 import { proxy, ref, useSnapshot } from 'valtio';
+import { ExplorerItem } from '@sd/client';
 
 export const fileModalStore = proxy({
 	fileRef: ref(createRef<BottomSheetModal>()),

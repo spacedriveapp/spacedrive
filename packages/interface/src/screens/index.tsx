@@ -1,6 +1,5 @@
 import { Navigate, Route, RouteProps } from 'react-router-dom';
 import { lazyEl } from '~/util';
-
 import settingsScreens from './settings';
 
 const routes: RouteProps[] = [

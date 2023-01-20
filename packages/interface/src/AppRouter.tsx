@@ -1,9 +1,9 @@
-import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
 import { Route, Routes } from 'react-router-dom';
-import { AppLayout } from '~/AppLayout';
+import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 import screens from '~/screens';
 import { lazyEl } from '~/util';
+import { AppLayout } from './AppLayout';
 
 const Onboarding = lazyEl(() => import('./components/onboarding/Onboarding'));
 const NotFound = lazyEl(() => import('./NotFound'));

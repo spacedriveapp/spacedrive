@@ -1,9 +1,4 @@
-use std::{
-	collections::VecDeque,
-	fs::{self, File},
-	io::Read,
-	path::PathBuf,
-};
+use std::{collections::VecDeque, fs::File, io::Read, path::PathBuf};
 
 use tokio::task;
 
@@ -64,8 +59,8 @@ const JOB_NAME: &str = "file_encryptor";
 
 #[async_trait::async_trait]
 impl StatefulJob for FileEncryptorJob {
-	type Data = FileEncryptorJobState;
 	type Init = FileEncryptorJobInit;
+	type Data = FileEncryptorJobState;
 	type Step = FileEncryptorJobStep;
 
 	fn name(&self) -> &'static str {
@@ -136,8 +131,18 @@ impl StatefulJob for FileEncryptorJob {
 					Ok,
 				)?;
 
-				let mut reader = File::open(info.obj_path.clone())?;
-				let mut writer = File::create(output_path)?;
+				let _guard = ctx
+					.library_ctx
+					.location_manager()
+					.temporary_ignore_events_for_path(
+						state.init.location_id,
+						ctx.library_ctx.clone(),
+						&output_path,
+					)
+					.await?;
+
+				let mut reader = task::block_in_place(|| File::open(&info.obj_path))?;
+				let mut writer = task::block_in_place(|| File::create(output_path))?;
 
 				let master_key = generate_master_key();
 
@@ -202,7 +207,7 @@ impl StatefulJob for FileEncryptorJob {
 							.join("thumbnails")
 							.join(object.cas_id + ".webp");
 
-						if fs::metadata(pvm_path.clone()).is_ok() {
+						if tokio::fs::metadata(&pvm_path).await.is_ok() {
 							let mut pvm_bytes = Vec::new();
 							task::block_in_place(|| {
 								let mut pvm_file = File::open(pvm_path)?;

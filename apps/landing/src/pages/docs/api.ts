@@ -1,5 +1,4 @@
 import { Component } from 'react';
-
 import { parseMarkdown } from '../../utils/markdownParse';
 
 export interface Doc {

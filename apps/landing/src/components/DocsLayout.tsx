@@ -1,8 +1,7 @@
-import { Button } from '@sd/ui';
 import { CaretRight, List, X } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import pkg from 'react-burger-menu';
-
+import { Button } from '@sd/ui';
 import { Doc, DocsNavigation, toTitleCase } from '../pages/docs/api';
 import DocsSidebar from './DocsSidebar';
 

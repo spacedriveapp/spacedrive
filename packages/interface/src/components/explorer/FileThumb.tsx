@@ -3,12 +3,11 @@ import documentPdf from '@sd/assets/images/Document_pdf.png';
 import executable from '@sd/assets/images/Executable.png';
 import file from '@sd/assets/images/File.png';
 import video from '@sd/assets/images/Video.png';
-import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
 import { Suspense, lazy, useMemo } from 'react';
+import { ExplorerItem } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { usePlatform } from '~/util/Platform';
-
 import { Folder } from '../icons/Folder';
 import { isObject, isPath } from './utils';
 

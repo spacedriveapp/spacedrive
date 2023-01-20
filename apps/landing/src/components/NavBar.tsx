@@ -1,11 +1,10 @@
-import { Academia, Discord, Github } from '@icons-pack/react-simple-icons';
 import AppLogo from '@sd/assets/images/logo.png';
-import { Button, Dropdown } from '@sd/ui';
+import { Academia, Discord, Github } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { Book, Chat, DotsThreeVertical, MapPin, User } from 'phosphor-react';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import * as router from 'vite-plugin-ssr/client/router';
-
+import { Button, Dropdown } from '@sd/ui';
 import { positions } from '../pages/careers.page';
 import { getWindow } from '../utils';
 
