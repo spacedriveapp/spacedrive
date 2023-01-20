@@ -156,6 +156,8 @@ export interface FileItemContextMenuProps extends PropsWithChildren {
 	item: ExplorerItem;
 	setShowEncryptDialog: (isShowing: boolean) => void;
 	setShowDecryptDialog: (isShowing: boolean) => void;
+	setShowDeleteDialog: (isShowing: boolean) => void;
+	setShowEraseDialog: (isShowing: boolean) => void;
 	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
@@ -263,12 +265,27 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 					</CM.SubMenu>
 					<CM.Item label="Rescan Directory" icon={Package} />
 					<CM.Item label="Regen Thumbnails" icon={Package} />
-					<CM.Item variant="danger" label="Secure delete" icon={TrashSimple} />
+					<CM.Item
+						variant="danger"
+						label="Secure delete"
+						icon={TrashSimple}
+						onClick={(e) => {
+							props.setShowEraseDialog(true);
+						}}
+					/>
 				</CM.SubMenu>
 
 				<CM.Separator />
 
-				<CM.Item icon={Trash} label="Delete" variant="danger" keybind="⌘DEL" />
+				<CM.Item
+					icon={Trash}
+					label="Delete"
+					variant="danger"
+					keybind="⌘DEL"
+					onClick={(e) => {
+						props.setShowDeleteDialog(true);
+					}}
+				/>
 			</CM.ContextMenu>
 		</div>
 	);

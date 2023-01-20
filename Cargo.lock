@@ -5517,6 +5517,7 @@ dependencies = [
  "serde_json",
  "specta 0.0.4",
  "thiserror",
+ "tokio",
  "uuid 1.2.1",
  "zeroize",
 ]
