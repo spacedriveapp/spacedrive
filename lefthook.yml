@@ -6,15 +6,5 @@
 pre-commit:
   commands:
     # automatically format files, ✨magically✨
-    prettier:
-      glob: '[^pnpm-lock]*.{js,jsx,ts,tsx,html,json,yml,yaml,css,scss,md}'
-      run: pnpm prettier --write {staged_files} && git add {staged_files}
-# pre-push:
-#   parallel: true
-#   commands:
-#     lint:
-#       glob: '*.{ts,tsx}'
-#       run: pnpm eslint {staged_files}
-#     markdown-link-check:
-#       glob: '*.md'
-#       run: pnpm markdown-link-check {staged_files}
+    lint-staged:
+      run: pnpm lint-staged
