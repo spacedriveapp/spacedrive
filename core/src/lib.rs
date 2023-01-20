@@ -78,6 +78,11 @@ impl Node {
 						.expect("Error invalid tracing directive!"),
 				)
 				.add_directive(
+					"sd_core::location::manager=info"
+						.parse()
+						.expect("Error invalid tracing directive!"),
+				)
+				.add_directive(
 					"sd_core_mobile=debug"
 						.parse()
 						.expect("Error invalid tracing directive!"),
