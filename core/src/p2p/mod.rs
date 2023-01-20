@@ -41,7 +41,7 @@ impl P2PManager {
 	) -> Arc<Self> {
 		let config = Arc::new(node_config.get().await); // TODO: Update this throughout the application lifecycle
 
-		let (tx, rx) = broadcast::channel(100);
+		let (tx, _rx) = broadcast::channel(100);
 		let this = Arc::new(Self { events: tx.clone() });
 
 		let manager = Manager::new(
@@ -50,11 +50,16 @@ impl P2PManager {
 				.keypair
 				.as_ref()
 				.expect("Keypair not found. This should be unreachable code!"),
-			move || async move {
-				PeerMetadata {
-					name: "123".to_string(), // config.name.clone(), // TODO
-					operating_system: Some(OperatingSystem::get_os()),
-					version: Some(env!("CARGO_PKG_VERSION").to_string()),
+			{
+				let config = config.clone();
+				move || {
+					let peer_metadata = PeerMetadata {
+						name: config.name.clone(),
+						operating_system: Some(OperatingSystem::get_os()),
+						version: Some(env!("CARGO_PKG_VERSION").to_string()),
+					};
+
+					async move { peer_metadata }
 				}
 			},
 			move |manager, event: Event<PeerMetadata>| {
