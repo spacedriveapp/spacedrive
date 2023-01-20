@@ -7,6 +7,7 @@ use crate::{
 	prisma::{file_path, location, PrismaClient},
 };
 
+pub mod copy;
 pub mod decrypt;
 pub mod delete;
 pub mod duplicate;

@@ -2,6 +2,7 @@ use crate::{
 	invalidate_query,
 	job::Job,
 	object::fs::{
+		copy::{FileCopierJob, FileCopierJobInit},
 		decrypt::{FileDecryptorJob, FileDecryptorJobInit},
 		delete::{FileDeleterJob, FileDeleterJobInit},
 		duplicate::{FileDuplicatorJob, FileDuplicatorJobInit},
@@ -131,6 +132,14 @@ pub(crate) fn mount() -> RouterBuilder {
 				library
 					.spawn_job(Job::new(args, FileDuplicatorJob {}))
 					.await;
+				invalidate_query!(library, "locations.getExplorerData");
+
+				Ok(())
+			})
+		})
+		.library_mutation("copyFiles", |t| {
+			t(|_, args: FileCopierJobInit, library| async move {
+				library.spawn_job(Job::new(args, FileCopierJob {})).await;
 				invalidate_query!(library, "locations.getExplorerData");
 
 				Ok(())
