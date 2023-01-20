@@ -1,5 +1,6 @@
 import '@fontsource/inter/variable.css';
 import { LibraryContextProvider, queryClient, useDebugState } from '@sd/client';
+import { Dialogs } from '@sd/ui';
 import {
 	Dedupe as DedupeIntegration,
 	HttpContext as HttpContextIntegration,
@@ -64,6 +65,7 @@ function AppRouterWrapper() {
 	return (
 		<LibraryContextProvider onNoLibrary={() => navigate('/onboarding')}>
 			<AppRouter />
+			<Dialogs />
 		</LibraryContextProvider>
 	);
 }
