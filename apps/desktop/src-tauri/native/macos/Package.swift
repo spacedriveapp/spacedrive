@@ -18,7 +18,7 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/brendonovich/swift-rs", revision: "833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff"),
+        .package(url: "https://github.com/brendonovich/swift-rs", revision: "7737a29ecaaea83e6627c64219bb56290794f299"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.

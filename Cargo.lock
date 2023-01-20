@@ -5992,7 +5992,7 @@ dependencies = [
  "rspc",
  "sd-core",
  "serde",
- "swift-rs 0.3.0 (git+https://github.com/Brendonovich/swift-rs.git?rev=833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff)",
+ "swift-rs 0.3.0 (git+https://github.com/Brendonovich/swift-rs.git?rev=7737a29ecaaea83e6627c64219bb56290794f299)",
  "tauri",
  "tauri-build",
  "tokio",
@@ -6305,7 +6305,7 @@ dependencies = [
 [[package]]
 name = "swift-rs"
 version = "0.3.0"
-source = "git+https://github.com/Brendonovich/swift-rs.git?rev=833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff#833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff"
+source = "git+https://github.com/Brendonovich/swift-rs.git?rev=7737a29ecaaea83e6627c64219bb56290794f299#7737a29ecaaea83e6627c64219bb56290794f299"
 dependencies = [
  "base64 0.13.1",
  "serde",

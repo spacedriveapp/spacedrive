@@ -23,11 +23,6 @@ struct VolumeFromSwift {
 	is_removable: Bool,
 }
 
-#[derive(Deserialize)]
-struct VolumeListingFromSwift {
-	volumes: Vec<VolumeFromSwift>,
-}
-
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Type)]
 pub struct Volume {
 	pub name: String,
@@ -109,14 +104,13 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 		// we take this data from Swift because it provides a cleaner list we don't have to hack around
 		let native_mounts = unsafe {
 			let native_mounts_raw = native_get_mounts();
-			serde_json::from_str::<VolumeListingFromSwift>(&native_mounts_raw).unwrap()
+			serde_json::from_str::<Vec<VolumeFromSwift>>(&native_mounts_raw).unwrap()
 		};
 
 		println!("OK got the mounts. Loopy time");
 
 		native_mounts //
-			.volumes
-			.iter()
+			.into_iter()
 			.for_each(|mount| {
 				println!(
 					"Evaluating worthiness of mount '{}' (potential heir to the throne)",
@@ -164,9 +158,9 @@ pub fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
 				volumes.insert(
 					volumes.len(),
 					Volume {
-						name: mount.name.to_string(),
+						name: mount.name,
 						is_root_filesystem: mount.is_root_filesystem,
-						mount_point: mount.mount_point.to_string(),
+						mount_point: mount.mount_point,
 						total_capacity: mount.total_capacity,
 						available_capacity: mount.available_capacity,
 						is_removable: mount.is_removable,

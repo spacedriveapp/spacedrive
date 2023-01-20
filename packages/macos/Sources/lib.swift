@@ -9,7 +9,7 @@ public func getFileThumbnailBase64(path: SRString) -> SRString {
 	let image = NSWorkspace.shared.icon(forFile: path)
 	let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!.representation(using: .png, properties: [:])!
 
-	return SRString(bitmap.base64EncodedString())
+	return toRust(SRString(bitmap.base64EncodedString()))
 }
 
 // TODO: when SwiftRs gets unfrizzled put this back!
@@ -43,10 +43,6 @@ public class Volume: NSObject {
 // until SwiftRs is patched for object access we are encoding data as a JSON string
 let jsonEncoder = JSONEncoder()
 
-public struct VolumesForRust: Codable {
-	var volumes: [Volume]
-}
-
 public struct Volume: Codable {
 	var name: String
 	var is_root_filesystem: Bool
@@ -70,31 +66,29 @@ public func getMounts() -> SRString {
 	let paths = FileManager().mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [])
 	
 	var validMounts: [Volume] = []
-	
-	guard let urls = paths else {
-		return SRString(String(data: try! jsonEncoder.encode(VolumesForRust(volumes: validMounts)), encoding: .utf8) ?? "{ volumes: [] }")
-	}
 
-	for url in urls {
-		let components = url.pathComponents
-		if components.count > 1 && components[1] != "Volumes"
-		{
-			continue
-		}
+    if let urls = paths {
+        for url in urls {
+            let components = url.pathComponents
+            if components.count > 1 && components[1] != "Volumes"
+            {
+                continue
+            }
 
-		let metadata = try? url.promisedItemResourceValues(forKeys: Set(keys))
-		
-		let volume = Volume(
-			name: metadata?.volumeName ?? url.absoluteString,
-			is_root_filesystem: metadata?.volumeIsRootFileSystem ?? false,
-			mount_point: url.path,
-			total_capacity: metadata?.volumeTotalCapacity ?? 0,
-			available_capacity: metadata?.volumeAvailableCapacity ?? 0,
-			is_removable: (metadata?.volumeIsRemovable ?? false) || (metadata?.volumeIsEjectable ?? false)
-		)
+            let metadata = try? url.promisedItemResourceValues(forKeys: Set(keys))
+            
+            let volume = Volume(
+                name: metadata?.volumeName ?? url.absoluteString,
+                is_root_filesystem: metadata?.volumeIsRootFileSystem ?? false,
+                mount_point: url.path,
+                total_capacity: metadata?.volumeTotalCapacity ?? 0,
+                available_capacity: metadata?.volumeAvailableCapacity ?? 0,
+                is_removable: (metadata?.volumeIsRemovable ?? false) || (metadata?.volumeIsEjectable ?? false)
+            )
 
-		validMounts.append(volume)
+            validMounts.append(volume)
+        }
     }
 	
-	return SRString(String(data: try! jsonEncoder.encode(VolumesForRust(volumes: validMounts)), encoding: .utf8) ?? "{ volumes: [] }")
+	return SRString(String(data: try! jsonEncoder.encode(validMounts), encoding: .utf8)!)
 }

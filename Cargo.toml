@@ -32,7 +32,7 @@ rspc = { version = "0.1.2" }
 normi = { version = "0.0.1" }
 specta = { version = "0.0.4" }
 
-swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", rev = "833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff" }
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", rev = "7737a29ecaaea83e6627c64219bb56290794f299" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1
