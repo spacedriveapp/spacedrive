@@ -67,7 +67,7 @@ interface DatabaseViewProps {
 const TABS = ['File Paths', 'Objects', 'Tags', 'Operations'];
 
 function DatabaseView(props: DatabaseViewProps) {
-	const [currentTab, setCurrentTab] = useState<typeof TABS[number]>('Operations');
+	const [currentTab, setCurrentTab] = useState<(typeof TABS)[number]>('Operations');
 
 	const pullOperations = rspc.useMutation('pullOperations');
 
