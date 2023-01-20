@@ -5,7 +5,7 @@ import settingsScreens from './settings';
 const routes: RouteProps[] = [
 	{
 		index: true,
-		element: <Navigate to="overview" relative="path" />
+		element: <Navigate to="overview" relative="route" />
 	},
 	{
 		path: 'overview',
