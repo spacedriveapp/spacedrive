@@ -1,45 +1,33 @@
 import { useLibraryMutation } from '@sd/client';
-import { Dialog } from '@sd/ui';
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 
 import { useZodForm, z } from '@sd/ui/src/forms';
 
-interface DeleteDialogProps {
-	open: boolean;
-	setOpen: (isShowing: boolean) => void;
-	location_id: number | null;
-	path_id: number | undefined;
+interface DeleteDialogProps extends UseDialogProps {
+	location_id: number;
+	path_id: number;
 }
 
-const schema = z.object({
-	// outputPath: z.string()
-});
+const schema = z.object({});
 
 export const DeleteFileDialog = (props: DeleteDialogProps) => {
+	const dialog = useDialog(props);
 	const deleteFile = useLibraryMutation('files.deleteFiles');
-
 	const form = useZodForm({
 		schema
 	});
-
-	const onSubmit = form.handleSubmit((data) => {
-		props.setOpen(false);
-
-		props.location_id &&
-			props.path_id &&
-			deleteFile.mutate({
-				location_id: props.location_id,
-				path_id: props.path_id
-			});
-
-		form.reset();
-	});
+	const onSubmit = form.handleSubmit(() =>
+		deleteFile.mutateAsync({
+			location_id: props.location_id,
+			path_id: props.path_id
+		})
+	);
 
 	return (
 		<Dialog
 			form={form}
 			onSubmit={onSubmit}
-			open={props.open}
-			setOpen={props.setOpen}
+			dialog={dialog}
 			title="Delete a file"
 			description="Configure your deletion settings."
 			loading={deleteFile.isLoading}

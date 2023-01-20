@@ -1,17 +1,10 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import {
-	Algorithm,
-	HashingAlgorithm,
-	Params,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
-import { Button, Input } from '@sd/ui';
+import { HashingAlgorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, Input, dialogManager } from '@sd/ui';
 import clsx from 'clsx';
 import { Eye, EyeSlash, Lock, Plus } from 'phosphor-react';
 import { PropsWithChildren, useState } from 'react';
 import { animated, useTransition } from 'react-spring';
-import { AlertDialog, GenericAlertDialogState } from '~/components/dialog/AlertDialog';
 import { BackupRestoreDialog } from '~/components/dialog/BackupRestoreDialog';
 import { KeyViewerDialog } from '~/components/dialog/KeyViewerDialog';
 import { MasterPasswordChangeDialog } from '~/components/dialog/MasterPasswordChangeDialog';
@@ -21,6 +14,7 @@ import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { SettingsSubHeader } from '~/components/settings/SettingsSubHeader';
 import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
 
 interface Props extends DropdownMenu.MenuContentProps {
 	trigger: React.ReactNode;
@@ -31,10 +25,8 @@ interface Props extends DropdownMenu.MenuContentProps {
 export const KeyMounterDropdown = ({
 	trigger,
 	children,
-	disabled,
 	transformOrigin,
-	className,
-	...props
+	className
 }: PropsWithChildren<Props>) => {
 	const [open, setOpen] = useState(false);
 
@@ -86,12 +78,9 @@ export default function KeysSettings() {
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
 	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword', {
 		onError: () => {
-			setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Unlock Error',
-				description: '',
-				value: 'The information provided to the key manager was incorrect',
-				inputBox: false
+				value: 'The information provided to the key manager was incorrect'
 			});
 		}
 	});
@@ -107,78 +96,63 @@ export default function KeysSettings() {
 
 	const keys = useLibraryQuery(['keys.list']);
 
-	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
-	const setShowAlertDialog = (state: boolean) => {
-		setAlertDialogData({ ...alertDialogData, open: state });
-	};
-
 	const MPCurrentEyeIcon = showMasterPassword ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
 	if (!hasMasterPw?.data) {
 		return (
-			<>
-				<div className="p-2 mr-20 ml-20 mt-10">
-					<div className="relative flex flex-grow mb-2">
-						<Input
-							value={masterPassword}
-							onChange={(e) => setMasterPassword(e.target.value)}
-							autoFocus
-							type={showMasterPassword ? 'text' : 'password'}
-							className="flex-grow !py-0.5"
-							placeholder="Master Password"
-						/>
-						<Button
-							onClick={() => setShowMasterPassword(!showMasterPassword)}
-							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
-						>
-							<MPCurrentEyeIcon className="w-4 h-4" />
-						</Button>
-					</div>
-
-					<div className="relative flex flex-grow mb-2">
-						<Input
-							value={secretKey}
-							onChange={(e) => setSecretKey(e.target.value)}
-							type={showSecretKey ? 'text' : 'password'}
-							className="flex-grow !py-0.5"
-							placeholder="Secret Key"
-						/>
-						<Button
-							onClick={() => setShowSecretKey(!showSecretKey)}
-							size="icon"
-							className="border-none absolute right-[5px] top-[5px]"
-						>
-							<SKCurrentEyeIcon className="w-4 h-4" />
-						</Button>
-					</div>
-
+			<div className="p-2 mr-20 ml-20 mt-10">
+				<div className="relative flex flex-grow mb-2">
+					<Input
+						value={masterPassword}
+						onChange={(e) => setMasterPassword(e.target.value)}
+						autoFocus
+						type={showMasterPassword ? 'text' : 'password'}
+						className="flex-grow !py-0.5"
+						placeholder="Master Password"
+					/>
 					<Button
-						className="w-full"
-						variant="accent"
-						disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
-						onClick={() => {
-							if (masterPassword !== '') {
-								const sk = secretKey || null;
-								setMasterPassword('');
-								setSecretKey('');
-								setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
-							}
-						}}
+						onClick={() => setShowMasterPassword(!showMasterPassword)}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
 					>
-						Unlock
+						<MPCurrentEyeIcon className="w-4 h-4" />
 					</Button>
 				</div>
-				<AlertDialog
-					open={alertDialogData.open}
-					setOpen={setShowAlertDialog}
-					title={alertDialogData.title}
-					description={alertDialogData.description}
-					value={alertDialogData.value}
-					inputBox={alertDialogData.inputBox}
-				/>
-			</>
+
+				<div className="relative flex flex-grow mb-2">
+					<Input
+						value={secretKey}
+						onChange={(e) => setSecretKey(e.target.value)}
+						type={showSecretKey ? 'text' : 'password'}
+						className="flex-grow !py-0.5"
+						placeholder="Secret Key"
+					/>
+					<Button
+						onClick={() => setShowSecretKey(!showSecretKey)}
+						size="icon"
+						className="border-none absolute right-[5px] top-[5px]"
+					>
+						<SKCurrentEyeIcon className="w-4 h-4" />
+					</Button>
+				</div>
+
+				<Button
+					className="w-full"
+					variant="accent"
+					disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
+					onClick={() => {
+						if (masterPassword !== '') {
+							const sk = secretKey || null;
+							setMasterPassword('');
+							setSecretKey('');
+							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
+						}
+					}}
+				>
+					Unlock
+				</Button>
+			</div>
 		);
 	} else {
 		return (
@@ -218,21 +192,23 @@ export default function KeysSettings() {
 
 					<SettingsSubHeader title="Password Options" />
 					<div className="flex flex-row">
-						<MasterPasswordChangeDialog
-							setAlertDialogData={setAlertDialogData}
-							trigger={
-								<Button size="sm" variant="gray" className="mr-2">
-									Change Master Password
-								</Button>
-							}
-						/>
-						<KeyViewerDialog
-							trigger={
-								<Button size="sm" variant="gray" className="mr-2" hidden={keys.data?.length === 0}>
-									View Key Values
-								</Button>
-							}
-						/>
+						<Button
+							size="sm"
+							variant="gray"
+							className="mr-2"
+							onClick={() => dialogManager.create((dp) => <MasterPasswordChangeDialog {...dp} />)}
+						>
+							Change Master Password
+						</Button>
+						<Button
+							size="sm"
+							variant="gray"
+							className="mr-2"
+							hidden={keys.data?.length === 0}
+							onClick={() => dialogManager.create((dp) => <KeyViewerDialog {...dp} />)}
+						>
+							View Key Values
+						</Button>
 					</div>
 
 					<SettingsSubHeader title="Data Recovery" />
@@ -245,12 +221,9 @@ export default function KeysSettings() {
 							onClick={() => {
 								if (!platform.saveFilePickerDialog) {
 									// TODO: Support opening locations on web
-									setAlertDialogData({
-										open: true,
+									showAlertDialog({
 										title: 'Error',
-										description: '',
-										value: "System dialogs aren't supported on this platform.",
-										inputBox: false
+										value: "System dialogs aren't supported on this platform."
 									});
 									return;
 								}
@@ -261,24 +234,16 @@ export default function KeysSettings() {
 						>
 							Backup
 						</Button>
-						<BackupRestoreDialog
-							setAlertDialogData={setAlertDialogData}
-							trigger={
-								<Button size="sm" variant="gray" className="mr-2">
-									Restore
-								</Button>
-							}
-						/>
+						<Button
+							size="sm"
+							variant="gray"
+							className="mr-2"
+							onClick={() => dialogManager.create((dp) => <BackupRestoreDialog {...dp} />)}
+						>
+							Restore
+						</Button>
 					</div>
 				</SettingsContainer>
-				<AlertDialog
-					open={alertDialogData.open}
-					setOpen={setShowAlertDialog}
-					title={alertDialogData.title}
-					description={alertDialogData.description}
-					value={alertDialogData.value}
-					inputBox={alertDialogData.inputBox}
-				/>
 			</>
 		);
 	}
@@ -301,7 +266,7 @@ export const getHashingAlgorithmSettings = (hashingAlgorithm: string): HashingAl
 // not sure of a suitable place for this function
 export const getHashingAlgorithmString = (hashingAlgorithm: HashingAlgorithm): string => {
 	return Object.entries(table).find(
-		([str, hashAlg], i) =>
+		([_, hashAlg]) =>
 			hashAlg.name === hashingAlgorithm.name && hashAlg.params === hashingAlgorithm.params
 	)![0];
 };

@@ -1,5 +1,6 @@
 import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
+import { dialogManager } from '@sd/ui';
 import {
 	ArrowBendUpRight,
 	Image,
@@ -15,11 +16,15 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
+import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
 
-import { getExplorerStore } from '../../hooks/useExplorerStore';
-import { useOperatingSystem } from '../../hooks/useOperatingSystem';
-import { usePlatform } from '../../util/Platform';
-import { GenericAlertDialogProps } from '../dialog/AlertDialog';
+import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
+import { DeleteFileDialog } from '../dialog/DeleteFileDialog';
+import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
+import { EraseFileDialog } from '../dialog/EraseFileDialog';
 import { isObject } from './utils';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
@@ -64,7 +69,6 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 function OpenInNativeExplorer() {
 	const platform = usePlatform();
-	const store = getExplorerStore();
 	const os = useOperatingSystem();
 
 	const osFileBrowserName = useMemo(() => {
@@ -154,14 +158,9 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 
 export interface FileItemContextMenuProps extends PropsWithChildren {
 	item: ExplorerItem;
-	setShowEncryptDialog: (isShowing: boolean) => void;
-	setShowDecryptDialog: (isShowing: boolean) => void;
-	setShowDeleteDialog: (isShowing: boolean) => void;
-	setShowEraseDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
-export function FileItemContextMenu(props: FileItemContextMenuProps) {
+export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 	const objectData = props.item ? (isObject(props.item) ? props.item : props.item.object) : null;
 
 	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
@@ -219,22 +218,22 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 						keybind="⌘E"
 						onClick={() => {
 							if (hasMasterPassword && hasMountedKeys) {
-								props.setShowEncryptDialog(true);
+								dialogManager.create((dp) => (
+									<EncryptFileDialog
+										{...dp}
+										location_id={useExplorerStore().locationId!}
+										path_id={props.item.id}
+									/>
+								));
 							} else if (!hasMasterPassword) {
-								props.setAlertDialogData({
-									open: true,
+								showAlertDialog({
 									title: 'Key manager locked',
-									value: 'The key manager is currently locked. Please unlock it and try again.',
-									inputBox: false,
-									description: ''
+									value: 'The key manager is currently locked. Please unlock it and try again.'
 								});
 							} else if (!hasMountedKeys) {
-								props.setAlertDialogData({
-									open: true,
+								showAlertDialog({
 									title: 'No mounted keys',
-									description: '',
-									value: 'No mounted keys were found. Please mount a key and try again.',
-									inputBox: false
+									value: 'No mounted keys were found. Please mount a key and try again.'
 								});
 							}
 						}}
@@ -246,14 +245,17 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 						keybind="⌘D"
 						onClick={() => {
 							if (hasMasterPassword) {
-								props.setShowDecryptDialog(true);
+								dialogManager.create((dp) => (
+									<DecryptFileDialog
+										{...dp}
+										location_id={useExplorerStore().locationId!}
+										path_id={props.item.id}
+									/>
+								));
 							} else {
-								props.setAlertDialogData({
-									open: true,
+								showAlertDialog({
 									title: 'Key manager locked',
-									value: 'The key manager is currently locked. Please unlock it and try again.',
-									inputBox: false,
-									description: ''
+									value: 'The key manager is currently locked. Please unlock it and try again.'
 								});
 							}
 						}}
@@ -269,8 +271,14 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 						variant="danger"
 						label="Secure delete"
 						icon={TrashSimple}
-						onClick={(e) => {
-							props.setShowEraseDialog(true);
+						onClick={() => {
+							dialogManager.create((dp) => (
+								<EraseFileDialog
+									{...dp}
+									location_id={getExplorerStore().locationId!}
+									path_id={props.item.id}
+								/>
+							));
 						}}
 					/>
 				</CM.SubMenu>
@@ -282,8 +290,14 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 					label="Delete"
 					variant="danger"
 					keybind="⌘DEL"
-					onClick={(e) => {
-						props.setShowDeleteDialog(true);
+					onClick={() => {
+						dialogManager.create((dp) => (
+							<DeleteFileDialog
+								{...dp}
+								location_id={getExplorerStore().locationId!}
+								path_id={props.item.id}
+							/>
+						));
 					}}
 				/>
 			</CM.ContextMenu>
