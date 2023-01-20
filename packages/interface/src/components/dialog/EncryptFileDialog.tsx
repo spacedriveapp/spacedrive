@@ -1,12 +1,10 @@
 import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Dialog, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
+import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
 import { getHashingAlgorithmString } from '~/screens/settings/library/KeysSetting';
 import { usePlatform } from '~/util/Platform';
 import { showAlertDialog } from '~/util/dialog';
-
 import { SelectOptionKeyList } from '../key/KeyList';
-
-import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
 
 interface EncryptDialogProps extends UseDialogProps {
 	location_id: number;

@@ -1,7 +1,7 @@
-import { Location, Node, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { CaretRight, Repeat, Trash } from 'phosphor-react-native';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Location, Node, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import FolderIcon from '~/components/icons/FolderIcon';
 import DeleteLocationDialog from '~/containers/dialog/DeleteLocationDialog';
 import tw from '~/lib/tailwind';

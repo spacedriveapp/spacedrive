@@ -1,8 +1,7 @@
-import { ExplorerItem, isVideoExt } from '@sd/client';
 import { Text, View } from 'react-native';
+import { ExplorerItem, isVideoExt } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { getExplorerStore } from '~/stores/explorerStore';
-
 import tw from '../../lib/tailwind';
 import FileThumb from './FileThumb';
 

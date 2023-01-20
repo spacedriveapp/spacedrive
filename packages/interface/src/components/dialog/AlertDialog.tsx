@@ -1,6 +1,5 @@
-import { Button, Dialog, Input, UseDialogProps, useDialog } from '@sd/ui';
 import { Clipboard } from 'phosphor-react';
-
+import { Button, Dialog, Input, UseDialogProps, useDialog } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
 
 export interface AlertDialogProps extends UseDialogProps {

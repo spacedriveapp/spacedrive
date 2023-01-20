@@ -1,6 +1,5 @@
-import { Select, SelectOption } from '@sd/ui';
 import { PropsWithChildren, useState } from 'react';
-
+import { Select, SelectOption } from '@sd/ui';
 import Slider from '../primitive/Slider';
 
 function Heading({ children }: PropsWithChildren) {

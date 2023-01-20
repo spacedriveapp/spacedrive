@@ -1,7 +1,7 @@
+import { Database, DotsSixVertical, Pencil, Trash } from 'phosphor-react';
 import { useBridgeQuery, useCurrentLibrary } from '@sd/client';
 import { LibraryConfigWrapped } from '@sd/client';
 import { Button, ButtonLink, Card, dialogManager, tw } from '@sd/ui';
-import { Database, DotsSixVertical, Pencil, Trash } from 'phosphor-react';
 import CreateLibraryDialog from '~/components/dialog/CreateLibraryDialog';
 import DeleteLibraryDialog from '~/components/dialog/DeleteLibraryDialog';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';

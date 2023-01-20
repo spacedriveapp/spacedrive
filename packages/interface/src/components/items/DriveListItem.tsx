@@ -1,5 +1,4 @@
 import clsx from 'clsx';
-
 import { DefaultProps } from '../primitive/types';
 
 export interface DriveListItemProps extends DefaultProps {

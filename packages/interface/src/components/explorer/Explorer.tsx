@@ -1,7 +1,6 @@
-import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
+import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
-
 import { Inspector } from '../explorer/Inspector';
 import { ExplorerContextMenu } from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';

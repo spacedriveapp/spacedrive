@@ -1,7 +1,6 @@
-import { ExplorerItem } from '@sd/client';
 import clsx from 'clsx';
 import { HTMLAttributes } from 'react';
-
+import { ExplorerItem } from '@sd/client';
 import FileThumb from './FileThumb';
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
