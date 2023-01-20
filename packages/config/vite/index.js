@@ -7,12 +7,11 @@ module.exports = {
 		find: /^(~\/.+)/,
 		replacement: '$1',
 		async customResolver(source, importer) {
-			const [repo, filePath] = importer.split('/packages/');
-			const [pkg] = filePath.split('/src/');
+			const [pkg] = importer.split('/src/');
 
-			const sourcePath = source.substring(2);
+			const [_, sourcePath] = source.split('~/');
 
-			const absolutePath = `${repo}/packages/${pkg}/src/${sourcePath}`;
+			const absolutePath = `${pkg}/src/${sourcePath}`;
 
 			const folderItems = await fs.readdir(path.join(absolutePath, '../'));
 
