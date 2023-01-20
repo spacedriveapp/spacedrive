@@ -1,14 +1,18 @@
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Tag, useLibraryQuery } from '@sd/client';
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
+import { useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { AnimatedButton } from '~/components/primitive/Button';
-import DeleteTagDialog from '~/containers/dialog/tag/DeleteTagDialog';
-import UpdateTagDialog from '~/containers/dialog/tag/UpdateTagDialog';
+import DeleteTagDialog from '~/containers/dialog/DeleteTagDialog';
+import UpdateTagModal from '~/containers/modal/tag/UpdateTagModal';
 import tw from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/SettingsNavigator';
 
 function TagItem({ tag, index }: { tag: Tag; index: number }) {
+	const updateTagModalRef = useRef<BottomSheetModal>();
+
 	const renderRightActions = (
 		progress: Animated.AnimatedInterpolation<number>,
 		_dragX: Animated.AnimatedInterpolation<number>,
@@ -24,11 +28,10 @@ function TagItem({ tag, index }: { tag: Tag; index: number }) {
 			<Animated.View
 				style={[tw`flex flex-row items-center`, { transform: [{ translateX: translate }] }]}
 			>
-				<UpdateTagDialog tag={tag} onSubmit={() => swipeable.close()}>
-					<AnimatedButton size="md">
-						<Pen size={18} color="white" />
-					</AnimatedButton>
-				</UpdateTagDialog>
+				<UpdateTagModal tag={tag} ref={updateTagModalRef} onSubmit={() => swipeable.close()} />
+				<AnimatedButton size="md" onPress={() => updateTagModalRef.current.present()}>
+					<Pen size={18} color="white" />
+				</AnimatedButton>
 				<DeleteTagDialog tagId={tag.id}>
 					<AnimatedButton size="md" style={tw`mx-2`}>
 						<Trash size={18} color="white" />

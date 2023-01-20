@@ -1,11 +1,13 @@
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
 import { useLibraryQuery } from '@sd/client';
+import { useRef } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
 
 import CollapsibleView from '../../components/layout/CollapsibleView';
-import CreateTagDialog from '../dialog/tag/CreateTagDialog';
+import CreateTagModal from '../modal/tag/CreateTagModal';
 
 type DrawerTagItemProps = {
 	tagName: string;
@@ -36,6 +38,8 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 
 	const { data: tags } = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 
+	const createTagModalRef = useRef<BottomSheetModal>();
+
 	return (
 		<CollapsibleView
 			title="Tags"
@@ -58,11 +62,12 @@ const DrawerTags = ({ stackName }: DrawerTagsProp) => {
 				))}
 			</View>
 			{/* Add Tag */}
-			<CreateTagDialog>
+			<Pressable onPress={() => createTagModalRef.current.present()}>
 				<View style={tw`border border-dashed rounded border-app-line border-opacity-80 mt-1`}>
 					<Text style={tw`text-xs font-bold text-center text-gray-400 px-2 py-2`}>Add Tag</Text>
 				</View>
-			</CreateTagDialog>
+			</Pressable>
+			<CreateTagModal ref={createTagModalRef} />
 		</CollapsibleView>
 	);
 };

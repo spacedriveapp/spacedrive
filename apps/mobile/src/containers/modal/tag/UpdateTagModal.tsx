@@ -1,20 +1,24 @@
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Tag, queryClient, useLibraryMutation } from '@sd/client';
-import React, { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
-import Dialog from '~/components/layout/Dialog';
+import { Modal } from '~/components/layout/Modal';
 import { Input } from '~/components/primitive/Input';
+import useForwardedRef from '~/hooks/useForwardedRef';
 import tw from '~/lib/tailwind';
 
 type Props = {
 	tag: Tag;
 	onSubmit?: () => void;
-	children: React.ReactNode;
 };
 
-const UpdateTagDialog = ({ children, onSubmit, tag }: Props) => {
-	const [tagName, setTagName] = useState(tag.name);
-	const [tagColor, setTagColor] = useState(tag.color);
+// TODO: Needs styling
+const UpdateTagModal = forwardRef<BottomSheetModal, Props>((props, ref) => {
+	const modalRef = useForwardedRef(ref);
+
+	const [tagName, setTagName] = useState(props.tag.name);
+	const [tagColor, setTagColor] = useState(props.tag.color);
 	const [isOpen, setIsOpen] = useState(false);
 
 	const { mutate: updateTag, isLoading } = useLibraryMutation('tags.update', {
@@ -24,7 +28,7 @@ const UpdateTagDialog = ({ children, onSubmit, tag }: Props) => {
 
 			queryClient.invalidateQueries(['tags.list']);
 
-			onSubmit?.();
+			props.onSubmit?.();
 		},
 		onSettled: () => {
 			// Close dialog
@@ -35,17 +39,12 @@ const UpdateTagDialog = ({ children, onSubmit, tag }: Props) => {
 	const [showPicker, setShowPicker] = useState(false);
 
 	return (
-		<Dialog
-			isVisible={isOpen}
-			setIsVisible={setIsOpen}
-			title="Update Tag"
-			ctaLabel="Save"
-			ctaAction={() => updateTag({ id: tag.id, color: tagColor, name: tagName })}
-			loading={isLoading}
-			ctaDisabled={tagName.length === 0}
-			trigger={children}
-			onClose={() => {
-				setShowPicker(false); // Reset form
+		<Modal
+			ref={modalRef}
+			snapPoints={['40%', '60%']}
+			onDismiss={() => {
+				// Resets form onDismiss
+				setShowPicker(false);
 			}}
 		>
 			<Text style={tw`mb-1 text-xs font-medium text-ink-dull ml-1 mt-3`}>Name</Text>
@@ -85,8 +84,8 @@ const UpdateTagDialog = ({ children, onSubmit, tag }: Props) => {
 					/>
 				</View>
 			)}
-		</Dialog>
+		</Modal>
 	);
-};
+});
 
-export default UpdateTagDialog;
+export default UpdateTagModal;

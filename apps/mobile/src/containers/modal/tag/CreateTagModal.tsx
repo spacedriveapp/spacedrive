@@ -1,18 +1,17 @@
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { queryClient, useLibraryMutation } from '@sd/client';
-import React, { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
-import Dialog from '~/components/layout/Dialog';
+import { Modal } from '~/components/layout/Modal';
 import { Input } from '~/components/primitive/Input';
+import useForwardedRef from '~/hooks/useForwardedRef';
 import tw from '~/lib/tailwind';
 
-type Props = {
-	onSubmit?: () => void;
-	disableBackdropClose?: boolean;
-	children: React.ReactNode;
-};
+// TODO: Needs styling
+const CreateTagModal = forwardRef<BottomSheetModal, unknown>((_, ref) => {
+	const modalRef = useForwardedRef(ref);
 
-const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) => {
 	const [tagName, setTagName] = useState('');
 	const [tagColor, setTagColor] = useState('#A717D9');
 	const [isOpen, setIsOpen] = useState(false);
@@ -25,8 +24,6 @@ const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) =>
 			setShowPicker(false);
 
 			queryClient.invalidateQueries(['tags.list']);
-
-			onSubmit?.();
 		},
 		onSettled: () => {
 			// Close dialog
@@ -37,22 +34,15 @@ const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) =>
 	const [showPicker, setShowPicker] = useState(false);
 
 	return (
-		<Dialog
-			isVisible={isOpen}
-			setIsVisible={setIsOpen}
-			title="Create New Tag"
-			description="Choose a name and color."
-			ctaLabel="Create"
-			ctaAction={() => createTag({ color: tagColor, name: tagName })}
-			loading={isLoading}
-			ctaDisabled={tagName.length === 0}
-			trigger={children}
-			disableBackdropClose={disableBackdropClose}
-			onClose={() => {
+		<Modal
+			ref={modalRef}
+			snapPoints={['40%', '60%']}
+			onDismiss={() => {
+				// Resets form onDismiss
 				setTagName('');
 				setTagColor('#A717D9');
 				setShowPicker(false);
-			}} // Resets form onClose
+			}}
 		>
 			<View style={tw`flex flex-row items-center`}>
 				<Pressable
@@ -66,6 +56,7 @@ const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) =>
 					placeholder="Name"
 				/>
 			</View>
+			{/* Color Picker */}
 			{showPicker && (
 				<View style={tw`h-64 mt-4`}>
 					<ColorPicker
@@ -91,8 +82,9 @@ const CreateTagDialog = ({ children, onSubmit, disableBackdropClose }: Props) =>
 					/>
 				</View>
 			)}
-		</Dialog>
+			{/* Button */}
+		</Modal>
 	);
-};
+});
 
-export default CreateTagDialog;
+export default CreateTagModal;
