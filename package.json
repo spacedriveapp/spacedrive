@@ -3,7 +3,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"postinstall": "pnpm lefthook install",
+		"postinstall": "lefthook install",
 		"prep": "pnpm gen:prisma && cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"build": "turbo run build",
 		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
