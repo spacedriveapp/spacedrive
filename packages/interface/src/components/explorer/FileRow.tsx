@@ -89,6 +89,6 @@ const columns = ensureIsColumns([
 	{ column: 'Type', key: 'extension', width: 100 } as const
 ]);
 
-type ColumnKey = typeof columns[number]['key'];
+type ColumnKey = (typeof columns)[number]['key'];
 
 export default FileRow;
