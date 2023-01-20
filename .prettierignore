@@ -1,3 +1,10 @@
-/target
-.build
+# built product/cache
+target/
+dist/
+# macOS/iOS product/cache
+.build/
+Pods/
+# prettier sometimes can't parse .d.ts files
+*.d.ts
+# this one ... we just don't need the spam fr
 pnpm-lock.yaml
