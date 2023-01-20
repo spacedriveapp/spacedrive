@@ -20,8 +20,9 @@ import { PropsWithChildren, useMemo } from 'react';
 import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { ContextMenu as CM } from '@sd/ui';
 import { dialogManager } from '@sd/ui';
-import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { CutCopyType, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useExplorerParams } from '~/screens/LocationExplorer';
 import { usePlatform } from '~/util/Platform';
 import { showAlertDialog } from '~/util/dialog';
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
@@ -100,7 +101,8 @@ function OpenInNativeExplorer() {
 }
 
 export function ExplorerContextMenu(props: PropsWithChildren) {
-	const store = getExplorerStore();
+	const store = useExplorerStore();
+	const params = useExplorerParams();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
@@ -205,6 +207,8 @@ export interface FileItemContextMenuProps extends PropsWithChildren {
 }
 
 export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
+	const store = useExplorerStore();
+	const params = useExplorerParams();
 	const objectData = props.item ? (isObject(props.item) ? props.item : props.item.object) : null;
 
 	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
@@ -217,7 +221,6 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 	const hasMountedKeys =
 		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
 
-	const duplicateFiles = useLibraryMutation('files.duplicateFiles');
 	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
@@ -238,14 +241,13 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 					label="Duplicate"
 					keybind="⌘D"
 					onClick={(e) => {
-						expStore.locationId &&
-							copyFiles.mutate({
-								source_location_id: expStore.locationId,
-								source_path_id: props.item.id,
-								target_location_id: expStore.locationId,
-								target_path: params.path,
-								target_file_name_suffix: ' - Clone'
-							});
+						copyFiles.mutate({
+							source_location_id: store.locationId!,
+							source_path_id: props.item.id,
+							target_location_id: store.locationId!,
+							target_path: params.path,
+							target_file_name_suffix: ' - Clone'
+						});
 					}}
 				/>
 
@@ -254,7 +256,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 					keybind="⌘X"
 					onClick={(e) => {
 						getExplorerStore().cutCopyState = {
-							sourceLocationId: expStore.locationId!,
+							sourceLocationId: store.locationId!,
 							sourcePathId: props.item.id,
 							actionType: CutCopyType.Cut,
 							active: true
@@ -268,7 +270,7 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 					keybind="⌘C"
 					onClick={(e) => {
 						getExplorerStore().cutCopyState = {
-							sourceLocationId: expStore.locationId!,
+							sourceLocationId: store.locationId!,
 							sourcePathId: props.item.id,
 							actionType: CutCopyType.Copy,
 							active: true
@@ -279,10 +281,10 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 
 				<CM.Item
 					label="Deselect"
-					hidden={!expStore.cutCopyState.active}
+					hidden={!store.cutCopyState.active}
 					onClick={(e) => {
 						getExplorerStore().cutCopyState = {
-							...expStore.cutCopyState,
+							...store.cutCopyState,
 							active: false
 						};
 					}}
