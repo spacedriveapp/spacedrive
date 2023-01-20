@@ -1,7 +1,6 @@
 import { createClient, httpLink } from '@rspc/client';
 import { createReactHooks } from '@rspc/react';
 import { QueryClient } from '@tanstack/react-query';
-
 import type { Procedures } from './bindings';
 
 export * from './bindings';
@@ -11,18 +10,18 @@ export * from './bindings';
 const rspc = createReactHooks<Procedures>();
 
 const rspcClient = rspc.createClient({
-  links: [httpLink({ url: 'http://localhost:9000/rspc' })]
+	links: [httpLink({ url: 'http://localhost:9000/rspc' })]
 });
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      suspense: true
-    },
-    mutations: {
-      onSuccess: () => queryClient.invalidateQueries()
-    }
-  }
+	defaultOptions: {
+		queries: {
+			suspense: true
+		},
+		mutations: {
+			onSuccess: () => queryClient.invalidateQueries()
+		}
+	}
 });
 
 export { rspc, rspcClient, queryClient };

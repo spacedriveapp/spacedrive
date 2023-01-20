@@ -1,6 +1,5 @@
 import { hydrateRoot } from 'react-dom/client';
 import type { PageContextBuiltInClient } from 'vite-plugin-ssr/client';
-
 import App from '../App';
 import type { PageContext } from './types';
 

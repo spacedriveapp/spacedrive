@@ -1,6 +1,3 @@
-import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { ContextMenu as CM } from '@sd/ui';
-import { dialogManager } from '@sd/ui';
 import {
 	ArrowBendUpRight,
 	Image,
@@ -16,11 +13,13 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
+import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { ContextMenu as CM } from '@sd/ui';
+import { dialogManager } from '@sd/ui';
 import { getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
 import { showAlertDialog } from '~/util/dialog';
-
 import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
 import { DeleteFileDialog } from '../dialog/DeleteFileDialog';
 import { EncryptFileDialog } from '../dialog/EncryptFileDialog';

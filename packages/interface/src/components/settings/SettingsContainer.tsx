@@ -1,6 +1,5 @@
 import clsx from 'clsx';
 import { PropsWithChildren } from 'react';
-
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 
 export const SettingsContainer = ({ children }: PropsWithChildren) => {

@@ -1,4 +1,8 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
+import clsx from 'clsx';
+import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
+import React, { PropsWithChildren } from 'react';
+import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
 	LocationCreateArgs,
 	getDebugState,
@@ -22,13 +26,8 @@ import {
 	dialogManager,
 	tw
 } from '@sd/ui';
-import clsx from 'clsx';
-import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
-import React, { PropsWithChildren } from 'react';
-import { NavLink, NavLinkProps } from 'react-router-dom';
 import { useOperatingSystem } from '~/hooks/useOperatingSystem';
 import { usePlatform } from '~/util/Platform';
-
 import AddLocationDialog from '../dialog/AddLocationDialog';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';
 import { Folder } from '../icons/Folder';

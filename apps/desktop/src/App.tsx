@@ -1,12 +1,11 @@
 import { loggerLink } from '@rspc/client';
 import { tauriLink } from '@rspc/tauri';
-import { getDebugState, hooks, queryClient } from '@sd/client';
-import SpacedriveInterface, { OperatingSystem, Platform, PlatformProvider } from '@sd/interface';
-import { KeybindEvent } from '@sd/interface';
 import { dialog, invoke, os, shell } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { useEffect } from 'react';
-
+import { getDebugState, hooks, queryClient } from '@sd/client';
+import SpacedriveInterface, { OperatingSystem, Platform, PlatformProvider } from '@sd/interface';
+import { KeybindEvent } from '@sd/interface';
 import '@sd/ui/style';
 
 const client = hooks.createClient({

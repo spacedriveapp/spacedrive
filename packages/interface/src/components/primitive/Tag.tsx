@@ -1,6 +1,5 @@
 import clsx from 'clsx';
 import { PropsWithChildren, ReactNode } from 'react';
-
 import { DefaultProps } from './types';
 
 export interface TagProps extends DefaultProps {

@@ -1,15 +1,13 @@
-import { Algorithm, useLibraryMutation } from '@sd/client';
-import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
 import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
 import { useState } from 'react';
+import { Algorithm, useLibraryMutation } from '@sd/client';
+import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
+import { useZodForm, z } from '@sd/ui/src/forms';
 import { getHashingAlgorithmSettings } from '~/screens/settings/library/KeysSetting';
 import { showAlertDialog } from '~/util/dialog';
-
 import { generatePassword } from '../key/KeyMounter';
 import { PasswordMeter } from '../key/PasswordMeter';
-
-import { useZodForm, z } from '@sd/ui/src/forms';
 
 export interface MasterPasswordChangeDialogProps extends UseDialogProps {}
 

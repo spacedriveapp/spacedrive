@@ -1,11 +1,9 @@
-import '@fontsource/inter/variable.css';
-import { LibraryContextProvider, queryClient, useDebugState } from '@sd/client';
-import { Dialogs } from '@sd/ui';
 import {
 	Dedupe as DedupeIntegration,
 	HttpContext as HttpContextIntegration,
 	init
 } from '@sentry/browser';
+import '@fontsource/inter/variable.css';
 import { QueryClientProvider, defaultContext } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import dayjs from 'dayjs';
@@ -14,7 +12,8 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
-
+import { LibraryContextProvider, queryClient, useDebugState } from '@sd/client';
+import { Dialogs } from '@sd/ui';
 import { AppRouter } from './AppRouter';
 import { ErrorFallback } from './ErrorFallback';
 import './style.scss';

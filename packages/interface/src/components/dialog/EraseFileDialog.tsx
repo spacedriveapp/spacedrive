@@ -1,10 +1,8 @@
+import { useState } from 'react';
 import { useLibraryMutation } from '@sd/client';
 import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
-import { useState } from 'react';
-
-import Slider from '../primitive/Slider';
-
 import { useZodForm, z } from '@sd/ui/src/forms';
+import Slider from '../primitive/Slider';
 
 interface EraseDialogProps extends UseDialogProps {
 	location_id: number;

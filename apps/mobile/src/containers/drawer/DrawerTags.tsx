@@ -1,9 +1,8 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryQuery } from '@sd/client';
 import { ColorValue, Pressable, Text, View } from 'react-native';
+import { useLibraryQuery } from '@sd/client';
 import tw from '~/lib/tailwind';
-
 import CollapsibleView from '../../components/layout/CollapsibleView';
 import CreateTagDialog from '../dialog/tag/CreateTagDialog';
 
