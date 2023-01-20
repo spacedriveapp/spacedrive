@@ -11,13 +11,13 @@ use libp2p::{
 		derive_prelude::{ConnectionEstablished, ConnectionId, FromSwarm},
 		ConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, PollParameters,
 	},
-	Multiaddr, PeerId,
+	Multiaddr,
 };
 use smallvec::SmallVec;
 use tokio::sync::oneshot;
 use tracing::debug;
 
-use crate::{spacetime::handler::Handler, utils::AsyncFn2, ManagerRef};
+use crate::{spacetime::handler::Handler, utils::AsyncFn2, ManagerRef, PeerId};
 
 use super::{OutboundFailure, SpaceTimeMessage};
 
@@ -156,10 +156,9 @@ where
 		debug!("TODO: Broadcast");
 		for (peer_id, conns) in &self.connected {
 			debug!("TODO: Broadcast to peer: {:?}", peer_id);
-
 			self.pending_events
 				.push_back(NetworkBehaviourAction::NotifyHandler {
-					peer_id: *peer_id,
+					peer_id: peer_id.0.clone(),
 					handler: NotifyHandler::One(conns.first().unwrap().id), // TODO: Error handling
 					event: data.clone(),
 				});
@@ -180,7 +179,9 @@ where
 		Handler::new(self.state.clone())
 	}
 
-	fn addresses_of_peer(&mut self, peer: &PeerId) -> Vec<Multiaddr> {
+	fn addresses_of_peer(&mut self, peer: &libp2p::PeerId) -> Vec<Multiaddr> {
+		let peer = &PeerId(*peer);
+
 		let mut addresses = Vec::new();
 		if let Some(connections) = self.connected.get(peer) {
 			addresses.extend(connections.iter().filter_map(|c| c.address.clone()))
@@ -209,7 +210,7 @@ where
 					peer_id, address, other_established
 				);
 				self.connected
-					.entry(peer_id)
+					.entry(PeerId(peer_id))
 					.or_default()
 					.push(Connection::new(connection_id, address));
 
@@ -269,7 +270,7 @@ where
 			FromSwarm::ConnectionClosed(event) => {
 				let connections = self
 					.connected
-					.get_mut(&event.peer_id)
+					.get_mut(&PeerId(event.peer_id))
 					.expect("Expected some established connection to peer before closing.");
 
 				let connection = connections
@@ -280,7 +281,7 @@ where
 
 				debug_assert_eq!(connections.is_empty(), event.remaining_established == 0);
 				if connections.is_empty() {
-					self.connected.remove(&event.peer_id);
+					self.connected.remove(&PeerId(event.peer_id));
 				}
 
 				// TODO
@@ -314,7 +315,7 @@ where
 				};
 				let connections = self
 					.connected
-					.get_mut(&event.peer_id)
+					.get_mut(&PeerId(event.peer_id))
 					.expect("Address change can only happen on an established connection.");
 
 				let connection = connections
@@ -361,10 +362,11 @@ where
 
 	fn on_connection_handler_event(
 		&mut self,
-		peer_id: PeerId,
+		peer_id: libp2p::PeerId,
 		connection: ConnectionId,
 		event: <Handler<TMetadata, TConnFn> as ConnectionHandler>::OutEvent,
 	) {
+		// let peer = &PeerId(*peer);
 		// event.handle(peer_id, connection);
 		todo!();
 	}

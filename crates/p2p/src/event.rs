@@ -11,6 +11,8 @@ use super::PeerId;
 /// This is useful for updating your UI when stuff changes on the backend.
 /// You can also interact with some events to cause an event.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum Event<TMetadata>
 where
 	TMetadata: Metadata,
@@ -36,6 +38,8 @@ where
 
 /// represents a discovered peer. It can be used to get information about the peer or to initiate an action with it.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct DiscoveredPeer<TMetadata>
 where
 	TMetadata: Metadata,
@@ -81,6 +85,8 @@ where
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum ConnectionType {
 	/// The peer that created the Quic connection. The server in a conventional sense.
 	Dialer,
@@ -103,6 +109,8 @@ impl From<ConnectedPoint> for ConnectionType {
 
 /// TODO
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ConnectedPeer {
 	pub(crate) active_connections: NonZeroU32,
 	pub(crate) conn_type: ConnectionType,

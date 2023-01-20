@@ -343,7 +343,7 @@ impl LibraryManager {
 			while let Some(event) = sync_rx.recv().await {
 				match p2p_tx.send((library_id.clone(), event)).await {
 					Ok(_) => {}
-					Err(err) => error!("TODO: Error sending operation to P2P system"),
+					Err(_) => error!("TODO: Error sending operation to P2P system"),
 				}
 			}
 		});

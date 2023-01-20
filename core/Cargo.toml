@@ -28,7 +28,7 @@ sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
 sd-crypto = { path = "../crates/crypto", features = ["rspc", "serde"] }
 sd-file-ext = { path = "../crates/file-ext"}
 sd-sync = { path = "../crates/sync" }
-sd-p2p = { path = "../crates/p2p" }
+sd-p2p = { path = "../crates/p2p", features = ["serde", "specta"] }
 
 
 hostname = "0.3.1"

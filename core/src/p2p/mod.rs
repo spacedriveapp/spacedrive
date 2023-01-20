@@ -4,7 +4,10 @@ use rspc::Type;
 use sd_p2p::{Event, Manager};
 use sd_sync::CRDTOperation;
 use serde::{Deserialize, Serialize};
-use tokio::{sync::mpsc, time::sleep};
+use tokio::{
+	sync::{broadcast, mpsc},
+	time::sleep,
+};
 use tracing::info;
 use uuid::Uuid;
 
@@ -26,7 +29,9 @@ pub struct PeerBootstrapProgress {
 	completed: u8, // u8 is plenty for a percentage
 }
 
-pub struct P2PManager;
+pub struct P2PManager {
+	events: broadcast::Sender<sd_p2p::Event<PeerMetadata>>,
+}
 
 impl P2PManager {
 	pub async fn new(
@@ -36,7 +41,8 @@ impl P2PManager {
 	) -> Arc<Self> {
 		let config = Arc::new(node_config.get().await); // TODO: Update this throughout the application lifecycle
 
-		let this = Arc::new(Self {});
+		let (tx, rx) = broadcast::channel(100);
+		let this = Arc::new(Self { events: tx.clone() });
 
 		let manager = Manager::new(
 			SPACEDRIVE_APP_ID,
@@ -51,21 +57,30 @@ impl P2PManager {
 					version: Some(env!("CARGO_PKG_VERSION").to_string()),
 				}
 			},
-			|manager, event| async move {
-				// TODO: Send all these events to frontend through rspc
-				match event {
-					Event::PeerDiscovered(event) => {
-						println!(
-							"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
-							event.peer_id(),
-							event.addresses(),
-							event.metadata()
-						);
-
-						// TODO: Tie this into Spacedrive
-						event.dial(&manager).await;
+			move |manager, event: Event<PeerMetadata>| {
+				match tx.send(event.clone()) {
+					Ok(_) => {}
+					Err(e) => {
+						println!("Error sending event: {:?}", e);
 					}
-					event => println!("{:?}", event),
+				}
+
+				async move {
+					// TODO: Send all these events to frontend through rspc
+					match event {
+						Event::PeerDiscovered(event) => {
+							println!(
+								"Discovered peer by id '{}' with address '{:?}' and metadata: {:?}",
+								event.peer_id(),
+								event.addresses(),
+								event.metadata()
+							);
+
+							// TODO: Tie this into Spacedrive
+							event.dial(&manager).await;
+						}
+						event => println!("{:?}", event),
+					}
 				}
 			},
 			// This closure it run to handle a single incoming request. It's return type is then sent back to the client.
@@ -126,5 +141,9 @@ impl P2PManager {
 		// https://docs.rs/system_shutdown/latest/system_shutdown/
 
 		this
+	}
+
+	pub fn events(&self) -> broadcast::Receiver<sd_p2p::Event<PeerMetadata>> {
+		self.events.subscribe()
 	}
 }

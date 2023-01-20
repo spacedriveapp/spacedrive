@@ -192,6 +192,7 @@ impl Node {
 			config: Arc::clone(&self.config),
 			jobs: Arc::clone(&self.jobs),
 			event_bus: self.event_bus.0.clone(),
+			p2p_manager: self.p2p.clone(),
 		}
 	}
 

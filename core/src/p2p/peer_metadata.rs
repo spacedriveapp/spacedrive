@@ -4,7 +4,7 @@ use rspc::Type;
 use sd_p2p::Metadata;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Type, Serialize, Deserialize)]
 pub struct PeerMetadata {
 	pub(super) name: String,
 	pub(super) operating_system: Option<OperatingSystem>,

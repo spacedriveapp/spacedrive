@@ -18,7 +18,7 @@ use libp2p::{
 		dial_opts::{DialOpts, PeerCondition},
 		SwarmEvent,
 	},
-	Multiaddr, PeerId, Swarm, Transport,
+	Multiaddr, Swarm, Transport,
 };
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use thiserror::Error;
@@ -32,7 +32,7 @@ use crate::{
 	event::Event,
 	spacetime::{SpaceTime, SpaceTimeMessage, SpaceTimeResponseChan},
 	utils::{quic_multiaddr_to_socketaddr, socketaddr_to_quic_multiaddr, AsyncFn, AsyncFn2},
-	Connection, DiscoveredPeer, Keypair, ManagerRef, Metadata,
+	Connection, DiscoveredPeer, Keypair, ManagerRef, Metadata, PeerId,
 };
 
 /// TODO
@@ -83,7 +83,7 @@ where
 		let this = Arc::new(Self {
 			state: Arc::new(ManagerRef {
 				service_name,
-				peer_id: keypair.public().to_peer_id(),
+				peer_id: PeerId(keypair.public().to_peer_id()),
 				internal_tx,
 				listen_addrs: RwLock::new(Default::default()),
 				discovered_peers: RwLock::new(Default::default()),
@@ -131,7 +131,7 @@ where
 							match event.unwrap() {
 								ManagerEvent::Dial(peer_id, addresses) => {
 									debug!("dialing peer '{}' at addresses '{:?}'", peer_id, addresses);
-									match swarm.dial(DialOpts::peer_id(peer_id)
+									match swarm.dial(DialOpts::peer_id(peer_id.0)
 										.condition(PeerCondition::Disconnected)
 										.addresses(addresses.iter().map(|addr| socketaddr_to_quic_multiaddr(addr)).collect())
 										.extend_addresses_through_behaviour()
@@ -310,7 +310,7 @@ where
 
 	/// Do an mdns advertisement to the network
 	async fn advertise(self: Arc<Self>) {
-		let peer_id = self.state.peer_id.to_base58();
+		let peer_id = self.state.peer_id.0.to_base58();
 
 		// This is in simple terms converts from `Vec<(ip, port)>` to `Vec<(Vev<Ip>, port)>`
 		let mut services = HashMap::<u16, ServiceInfo>::new();
