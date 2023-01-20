@@ -6,14 +6,11 @@ use std::{
 	time::Duration,
 };
 
-use tokio::{fs, io::ErrorKind, time::sleep};
+use tokio::{fs, io::ErrorKind, sync::oneshot, time::sleep};
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use super::{
-	watcher::LocationWatcher, IgnorePathManagerMessage, LocationId, LocationManagerError,
-	ManagerMessage,
-};
+use super::{watcher::LocationWatcher, LocationId, LocationManagerError};
 
 type LibraryId = Uuid;
 type LocationAndLibraryKey = (LocationId, LibraryId);
@@ -168,14 +165,14 @@ pub(super) fn subtract_location_path(
 }
 
 pub(super) async fn handle_remove_location_request(
-	message: ManagerMessage,
+	location_id: LocationId,
+	library_ctx: LibraryContext,
+	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	to_remove: &mut HashSet<LocationAndLibraryKey>,
 ) {
-	let (location_id, library_ctx, response_tx) = message;
-
 	let key = (location_id, library_ctx.id);
 	if let Some(location) = get_location(location_id, &library_ctx).await {
 		if let Some(ref local_path_str) = location.local_path.clone() {
@@ -214,13 +211,13 @@ pub(super) async fn handle_remove_location_request(
 }
 
 pub(super) async fn handle_stop_watcher_request(
-	message: ManagerMessage,
+	location_id: LocationId,
+	library_ctx: LibraryContext,
+	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
-	let (location_id, library_ctx, response_tx) = message;
-
 	async fn inner(
 		location_id: LocationId,
 		library_ctx: LibraryContext,
@@ -269,13 +266,13 @@ pub(super) async fn handle_stop_watcher_request(
 }
 
 pub(super) async fn handle_reinit_watcher_request(
-	message: ManagerMessage,
+	location_id: LocationId,
+	library_ctx: LibraryContext,
+	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	forced_unwatch: &mut HashSet<LocationAndLibraryKey>,
 	locations_watched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 	locations_unwatched: &mut HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
-	let (location_id, library_ctx, response_tx) = message;
-
 	async fn inner(
 		location_id: LocationId,
 		library_ctx: LibraryContext,
@@ -324,10 +321,13 @@ pub(super) async fn handle_reinit_watcher_request(
 }
 
 pub(super) fn handle_ignore_path_request(
-	message: IgnorePathManagerMessage,
+	location_id: LocationId,
+	library_ctx: LibraryContext,
+	path: PathBuf,
+	ignore: bool,
+	response_tx: oneshot::Sender<Result<(), LocationManagerError>>,
 	locations_watched: &HashMap<LocationAndLibraryKey, LocationWatcher>,
 ) {
-	let (location_id, library_ctx, path, ignore, response_tx) = message;
 	let _ = response_tx.send(
 		if let Some(watcher) = locations_watched.get(&(location_id, library_ctx.id)) {
 			watcher.ignore_path(path, ignore)
