@@ -1,11 +1,15 @@
 import {
 	ArrowBendUpRight,
+	Clipboard,
+	Copy,
+	FileX,
 	Image,
 	LockSimple,
 	LockSimpleOpen,
 	Package,
 	Plus,
 	Repeat,
+	Scissors,
 	Share,
 	ShieldCheck,
 	TagSimple,
@@ -101,6 +105,7 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.fullRescan');
+	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
 		<div className="relative">
@@ -129,6 +134,38 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 					onClick={() => store.locationId && rescanLocation.mutate(store.locationId)}
 					label="Re-index"
 					icon={Repeat}
+				/>
+
+				<CM.Item
+					label="Paste"
+					keybind="⌘V"
+					hidden={!store.cutCopyState.active}
+					onClick={(e) => {
+						if (store.cutCopyState.actionType == CutCopyType.Copy) {
+							store.locationId &&
+								copyFiles.mutate({
+									source_location_id: store.cutCopyState.sourceLocationId,
+									source_path_id: store.cutCopyState.sourcePathId,
+									target_location_id: store.locationId,
+									target_path: params.path
+								});
+						} else {
+							// cut here
+						}
+					}}
+					icon={Clipboard}
+				/>
+
+				<CM.Item
+					label="Deselect"
+					hidden={!store.cutCopyState.active}
+					onClick={(e) => {
+						getExplorerStore().cutCopyState = {
+							...store.cutCopyState,
+							active: false
+						};
+					}}
+					icon={FileX}
 				/>
 
 				<CM.SubMenu label="More actions..." icon={Plus}>
@@ -196,6 +233,46 @@ export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
 							props.item.id &&
 							duplicateFiles.mutate({ location_id: expStore.locationId, path_id: props.item.id });
 					}}
+				/>
+
+				<CM.Item
+					label="Cut"
+					keybind="⌘X"
+					onClick={(e) => {
+						getExplorerStore().cutCopyState = {
+							sourceLocationId: expStore.locationId!,
+							sourcePathId: props.item.id,
+							actionType: CutCopyType.Cut,
+							active: true
+						};
+					}}
+					icon={Scissors}
+				/>
+
+				<CM.Item
+					label="Copy"
+					keybind="⌘C"
+					onClick={(e) => {
+						getExplorerStore().cutCopyState = {
+							sourceLocationId: expStore.locationId!,
+							sourcePathId: props.item.id,
+							actionType: CutCopyType.Copy,
+							active: true
+						};
+					}}
+					icon={Copy}
+				/>
+
+				<CM.Item
+					label="Deselect"
+					hidden={!expStore.cutCopyState.active}
+					onClick={(e) => {
+						getExplorerStore().cutCopyState = {
+							...expStore.cutCopyState,
+							active: false
+						};
+					}}
+					icon={FileX}
 				/>
 
 				<CM.Separator />
