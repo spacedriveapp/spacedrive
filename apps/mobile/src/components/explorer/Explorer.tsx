@@ -1,9 +1,9 @@
-import { useNavigation } from '@react-navigation/native';
-import { ExplorerData, ExplorerItem } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
+import { useNavigation } from '@react-navigation/native';
 import { Rows, SquaresFour } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { ExplorerData, ExplorerItem } from '@sd/client';
 import Layout from '~/constants/Layout';
 import SortByMenu from '~/containers/menu/SortByMenu';
 import tw from '~/lib/tailwind';
@@ -11,7 +11,6 @@ import { SharedScreenProps } from '~/navigation/SharedScreens';
 import { getExplorerStore } from '~/stores/explorerStore';
 import { useFileModalStore } from '~/stores/modalStore';
 import { isPath } from '~/types/helper';
-
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 

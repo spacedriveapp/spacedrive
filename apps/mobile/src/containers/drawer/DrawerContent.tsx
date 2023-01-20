@@ -5,7 +5,6 @@ import { Image, Platform, Pressable, Text, View } from 'react-native';
 import Layout from '~/constants/Layout';
 import tw from '~/lib/tailwind';
 import { getStackNameFromState } from '~/utils/nav';
-
 import DrawerLibraryManager from './DrawerLibraryManager';
 import DrawerLocations from './DrawerLocations';
 import DrawerTags from './DrawerTags';

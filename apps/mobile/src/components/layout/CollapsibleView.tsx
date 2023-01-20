@@ -3,7 +3,6 @@ import { CaretRight } from 'phosphor-react-native';
 import { PropsWithChildren, useReducer } from 'react';
 import { Pressable, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import tw from '~/lib/tailwind';
-
 import { AnimatedHeight } from '../animation/layout';
 
 type CollapsibleViewProps = PropsWithChildren<{

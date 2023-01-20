@@ -1,6 +1,5 @@
-import { Button, Card, GridLayout, Input } from '@sd/ui';
 import { MagnifyingGlass } from 'phosphor-react';
-
+import { Button, Card, GridLayout, Input } from '@sd/ui';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
 

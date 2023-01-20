@@ -24,7 +24,7 @@ fn parens(input: &str) -> IResult<&str, &str> {
 	delimited(char('('), is_not(")"), char(')'))(input)
 }
 
-pub fn single_value<T, E: ParseError<T>>(i: T) -> IResult<T, T, E>
+fn single_value<T, E: ParseError<T>>(i: T) -> IResult<T, T, E>
 where
 	T: InputTakeAtPosition,
 	<T as InputTakeAtPosition>::Item: AsChar,

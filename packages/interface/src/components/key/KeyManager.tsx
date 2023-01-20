@@ -1,8 +1,7 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
 import { Eye, EyeSlash, Gear, Lock } from 'phosphor-react';
 import { useState } from 'react';
-
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, ButtonLink, Input, Tabs } from '@sd/ui';
 import { DefaultProps } from '../primitive/types';
 import { KeyList } from './KeyList';
 import { KeyMounter } from './KeyMounter';
@@ -11,7 +10,12 @@ export type KeyManagerProps = DefaultProps;
 
 export function KeyManager(props: KeyManagerProps) {
 	const hasMasterPw = useLibraryQuery(['keys.hasMasterPassword']);
-	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword');
+	const isKeyManagerUnlocking = useLibraryQuery(['keys.isKeyManagerUnlocking']);
+	const setMasterPasswordMutation = useLibraryMutation('keys.setMasterPassword', {
+		onError: () => {
+			alert('Incorrect information provided.');
+		}
+	});
 	const unmountAll = useLibraryMutation('keys.unmountAll');
 	const clearMasterPassword = useLibraryMutation('keys.clearMasterPassword');
 
@@ -61,24 +65,16 @@ export function KeyManager(props: KeyManagerProps) {
 						<SKCurrentEyeIcon className="w-4 h-4" />
 					</Button>
 				</div>
-
 				<Button
 					className="w-full"
 					variant="accent"
-					disabled={setMasterPasswordMutation.isLoading}
+					disabled={setMasterPasswordMutation.isLoading || isKeyManagerUnlocking.data}
 					onClick={() => {
 						if (masterPassword !== '') {
 							const sk = secretKey || null;
 							setMasterPassword('');
 							setSecretKey('');
-							setMasterPasswordMutation.mutate(
-								{ password: masterPassword, secret_key: sk },
-								{
-									onError: () => {
-										alert('Incorrect information provided.');
-									}
-								}
-							);
+							setMasterPasswordMutation.mutate({ password: masterPassword, secret_key: sk });
 						}
 					}}
 				>

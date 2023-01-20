@@ -1,2 +1,13 @@
-/target
-.build
+# built product/cache
+target/
+dist/
+# macOS/iOS product/cache
+.build/
+Pods/
+# just in case it tries to parse for some reason
+*.rs
+# prettier sometimes can't parse these
+*.d.ts
+packages/interface/scripts/generateSvgImports.mjs
+# we plainly don't need a lockfile to look nice
+pnpm-lock.yaml

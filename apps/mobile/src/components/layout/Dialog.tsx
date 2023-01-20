@@ -2,7 +2,6 @@ import { MotiView } from 'moti';
 import { ReactNode, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native';
 import tw from '~/lib/tailwind';
-
 import { PulseAnimation } from '../animation/lottie';
 import { Button } from '../primitive/Button';
 

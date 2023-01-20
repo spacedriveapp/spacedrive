@@ -1,10 +1,6 @@
-import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useEffect, useState } from 'react';
-
-import { useExplorerStore } from '../../hooks/useExplorerStore';
-import { AlertDialog, GenericAlertDialogState } from '../dialog/AlertDialog';
-import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
-import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
+import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
+import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../explorer/Inspector';
 import { ExplorerContextMenu } from './ExplorerContextMenu';
 import { TopBar } from './ExplorerTopBar';
@@ -20,11 +16,6 @@ export default function Explorer(props: Props) {
 
 	const [scrollSegments, setScrollSegments] = useState<{ [key: string]: number }>({});
 	const [separateTopBar, setSeparateTopBar] = useState<boolean>(false);
-
-	const [showEncryptDialog, setShowEncryptDialog] = useState(false);
-	const [showDecryptDialog, setShowDecryptDialog] = useState(false);
-
-	const [alertDialogData, setAlertDialogData] = useState(GenericAlertDialogState);
 
 	useEffect(() => {
 		setSeparateTopBar((oldValue) => {
@@ -61,9 +52,6 @@ export default function Explorer(props: Props) {
 											};
 										});
 									}}
-									setShowEncryptDialog={setShowEncryptDialog}
-									setShowDecryptDialog={setShowDecryptDialog}
-									setAlertDialogData={setAlertDialogData}
 								/>
 							)}
 							{expStore.showInspector && (
@@ -88,33 +76,6 @@ export default function Explorer(props: Props) {
 					</div>
 				</ExplorerContextMenu>
 			</div>
-			<AlertDialog
-				open={alertDialogData.open}
-				setOpen={(e) => {
-					setAlertDialogData({ ...alertDialogData, open: e });
-				}}
-				title={alertDialogData.title}
-				value={alertDialogData.value}
-				inputBox={alertDialogData.inputBox}
-			/>
-			{props.data && props.data.items[expStore.selectedRowIndex] && (
-				<EncryptFileDialog
-					location_id={expStore.locationId}
-					path_id={props.data?.items[expStore.selectedRowIndex].id}
-					open={showEncryptDialog}
-					setOpen={setShowEncryptDialog}
-					setAlertDialogData={setAlertDialogData}
-				/>
-			)}
-			{props.data && props.data.items[expStore.selectedRowIndex] && (
-				<DecryptFileDialog
-					location_id={expStore.locationId}
-					path_id={props.data?.items[expStore.selectedRowIndex].id}
-					open={showDecryptDialog}
-					setOpen={setShowDecryptDialog}
-					setAlertDialogData={setAlertDialogData}
-				/>
-			)}
 		</>
 	);
 }

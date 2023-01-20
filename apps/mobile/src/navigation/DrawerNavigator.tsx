@@ -3,7 +3,6 @@ import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/n
 import { StackScreenProps } from '@react-navigation/stack';
 import DrawerContent from '~/containers/drawer/DrawerContent';
 import tw from '~/lib/tailwind';
-
 import type { RootStackParamList } from '.';
 import type { TabParamList } from './TabNavigator';
 import TabNavigator from './TabNavigator';

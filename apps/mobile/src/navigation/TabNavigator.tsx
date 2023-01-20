@@ -3,7 +3,6 @@ import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/n
 import { CirclesFour, Planet, ShareNetwork } from 'phosphor-react-native';
 import React from 'react';
 import tw from '~/lib/tailwind';
-
 import type { HomeDrawerScreenProps } from './DrawerNavigator';
 import NodesStack, { NodesStackParamList } from './tabs/NodesStack';
 import OverviewStack, { OverviewStackParamList } from './tabs/OverviewStack';

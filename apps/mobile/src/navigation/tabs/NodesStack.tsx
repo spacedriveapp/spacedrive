@@ -3,7 +3,6 @@ import { StackScreenProps, createStackNavigator } from '@react-navigation/stack'
 import Header from '~/components/header/Header';
 import tw from '~/lib/tailwind';
 import NodesScreen from '~/screens/Nodes';
-
 import { SharedScreens, SharedScreensParamList } from '../SharedScreens';
 import { TabScreenProps } from '../TabNavigator';
 

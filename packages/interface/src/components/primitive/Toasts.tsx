@@ -1,6 +1,5 @@
 import * as ToastPrimitive from '@radix-ui/react-toast';
 import clsx from 'clsx';
-
 import { useToasts } from '../../hooks/useToasts';
 
 export function Toasts() {

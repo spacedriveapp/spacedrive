@@ -1,9 +1,9 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { Tag, useLibraryQuery } from '@sd/client';
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Tag, useLibraryQuery } from '@sd/client';
 import { AnimatedButton } from '~/components/primitive/Button';
 import DeleteTagDialog from '~/containers/dialog/DeleteTagDialog';
 import UpdateTagModal from '~/containers/modal/tag/UpdateTagModal';

@@ -1,6 +1,5 @@
-import { onLibraryChange } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
-
+import { onLibraryChange } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'columns' | 'media';

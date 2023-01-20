@@ -1,6 +1,5 @@
 import { ReactComponent as ArrowRight } from '@sd/assets/svgs/arrow-right.svg';
 import { Helmet } from 'react-helmet';
-
 import Markdown from '../components/Markdown';
 import { TeamMember, TeamMemberProps } from '../components/TeamMember';
 import { resolveFilesGlob } from '../utils';

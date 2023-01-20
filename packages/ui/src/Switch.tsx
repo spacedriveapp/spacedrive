@@ -1,10 +1,10 @@
 import * as SwitchPrimitive from '@radix-ui/react-switch';
-import { VariantProps, cva, cx } from 'class-variance-authority';
+import { VariantProps, cva } from 'class-variance-authority';
 import { forwardRef } from 'react';
 
-export type SwitchProps = VariantProps<typeof switchStyles> &
-	React.ButtonHTMLAttributes<HTMLButtonElement> &
-	SwitchPrimitive.SwitchProps;
+export interface SwitchProps
+	extends VariantProps<typeof switchStyles>,
+		SwitchPrimitive.SwitchProps {}
 
 const switchStyles = cva(
 	[
@@ -45,13 +45,10 @@ const thumbStyles = cva(
 	}
 );
 
-export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch(
-	props,
-	forwardedRef
-) {
-	return (
-		<SwitchPrimitive.Root {...props} ref={forwardedRef} className={cx(switchStyles(props))}>
-			<SwitchPrimitive.Thumb className={cx(thumbStyles(props))} />
+export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
+	({ size, className, ...props }, ref) => (
+		<SwitchPrimitive.Root {...props} ref={ref} className={switchStyles({ size, className })}>
+			<SwitchPrimitive.Thumb className={thumbStyles({ size, className })} />
 		</SwitchPrimitive.Root>
-	);
-});
+	)
+);

@@ -2,11 +2,12 @@
 	"extends": "../../packages/config/base.tsconfig.json",
 	"compilerOptions": {
 		"rootDir": "src",
-		"declarationDir": "dist"
+		"declarationDir": "dist",
+		"paths": {
+			"~/*": ["./src/*"]
+		}
 	},
-	"include": [
-		"src"
-	],
+	"include": ["src"],
 	"references": [
 		{
 			"path": "../../packages/interface"

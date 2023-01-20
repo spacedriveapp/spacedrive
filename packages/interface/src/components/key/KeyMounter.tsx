@@ -1,9 +1,8 @@
-import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
 import cryptoRandomString from 'crypto-random-string';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useEffect, useRef, useState } from 'react';
-
+import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, Input, Select, SelectOption, Switch, cva, tw } from '@sd/ui';
 import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import Slider from '../primitive/Slider';
 import { Tooltip } from '../tooltip/Tooltip';

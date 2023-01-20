@@ -2,7 +2,6 @@ import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
-
 import AppEmbed, { AppEmbedPlaceholder } from '../components/AppEmbed';
 import { Bubbles } from '../components/Bubbles';
 // import { Bubbles } from '../components/Bubbles';

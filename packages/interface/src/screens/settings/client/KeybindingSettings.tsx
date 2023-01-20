@@ -1,6 +1,5 @@
-import { Switch } from '@sd/ui';
 import { useState } from 'react';
-
+import { Switch } from '@sd/ui';
 import { InputContainer } from '~/components/primitive/InputContainer';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';

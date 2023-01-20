@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-
 import { KeybindEvent } from '../util/keybind';
 
 export function useKeybindHandler() {

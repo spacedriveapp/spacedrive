@@ -1,6 +1,3 @@
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { JobReport } from '@sd/client';
-import { Button, CategoryHeading, tw } from '@sd/ui';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import {
@@ -16,9 +13,12 @@ import {
 	Pause,
 	Question,
 	Trash,
+	TrashSimple,
 	X
 } from 'phosphor-react';
-
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { JobReport } from '@sd/client';
+import { Button, CategoryHeading, tw } from '@sd/ui';
 import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';
 
@@ -57,6 +57,18 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
 		}`,
 		icon: LockSimpleOpen
+	},
+	file_eraser: {
+		name: `Securely erased ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: TrashSimple
+	},
+	file_deleter: {
+		name: `Deleted ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: Trash
 	}
 });
 
@@ -87,10 +99,14 @@ export function JobsManager() {
 				<div className="flex-grow" />
 
 				<Button onClick={() => clearAllJobs.mutate(null)} size="icon">
-					<Trash className="w-5 h-5" />
+					<Tooltip label="Clear out finished jobs">
+						<Trash className="w-5 h-5" />
+					</Tooltip>
 				</Button>
 				<Button size="icon">
-					<X className="w-5 h-5" />
+					<Tooltip label="Close">
+						<X className="w-5 h-5" />
+					</Tooltip>
 				</Button>
 			</HeaderContainer>
 			<div className="h-full mr-1 overflow-x-hidden custom-scroll inspector-scroll">
@@ -152,16 +168,22 @@ function Job({ job }: { job: JobReport }) {
 			<div className="flex flex-row space-x-2 ml-7">
 				{job.status === 'Running' && (
 					<Button size="icon">
-						<Pause className="w-4 h-4" />
+						<Tooltip label="Pause">
+							<Pause className="w-4 h-4" />
+						</Tooltip>
 					</Button>
 				)}
 				{job.status === 'Failed' && (
 					<Button size="icon">
-						<ArrowsClockwise className="w-4" />
+						<Tooltip label="Retry">
+							<ArrowsClockwise className="w-4" />
+						</Tooltip>
 					</Button>
 				)}
 				<Button size="icon">
-					<X className="w-4 h-4" />
+					<Tooltip label="Remove">
+						<X className="w-4 h-4" />
+					</Tooltip>
 				</Button>
 			</div>
 		</div>

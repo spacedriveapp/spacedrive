@@ -1796,6 +1796,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 
 [[package]]
+name = "fsevent-sys"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76ee7a02da4d231650c7cea31349b889be2f45ddb3ef3032d2ec8185f6313fd2"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "fuchsia-cprng"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3574,6 +3583,7 @@ checksum = "ed2c66da08abae1c024c01d635253e402341b4060a12e99b31c7594063bf490a"
 dependencies = [
  "bitflags",
  "filetime",
+ "fsevent-sys",
  "inotify",
  "kqueue",
  "libc",
@@ -4352,8 +4362,8 @@ dependencies = [
 
 [[package]]
 name = "prisma-client-rust"
-version = "0.6.3"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=1e30449d2981cbe0bb9252511493474eb35b2696#1e30449d2981cbe0bb9252511493474eb35b2696"
+version = "0.6.4"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.6.4#74b984dd4eb155b093f70988d1c046cf6e7e51b2"
 dependencies = [
  "base64 0.13.1",
  "bigdecimal",
@@ -4386,8 +4396,8 @@ dependencies = [
 
 [[package]]
 name = "prisma-client-rust-cli"
-version = "0.6.3"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=1e30449d2981cbe0bb9252511493474eb35b2696#1e30449d2981cbe0bb9252511493474eb35b2696"
+version = "0.6.4"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.6.4#74b984dd4eb155b093f70988d1c046cf6e7e51b2"
 dependencies = [
  "directories",
  "flate2",
@@ -4406,8 +4416,8 @@ dependencies = [
 
 [[package]]
 name = "prisma-client-rust-sdk"
-version = "0.6.3"
-source = "git+https://github.com/Brendonovich/prisma-client-rust.git?rev=1e30449d2981cbe0bb9252511493474eb35b2696#1e30449d2981cbe0bb9252511493474eb35b2696"
+version = "0.6.4"
+source = "git+https://github.com/Brendonovich/prisma-client-rust.git?tag=0.6.4#74b984dd4eb155b093f70988d1c046cf6e7e51b2"
 dependencies = [
  "convert_case 0.5.0",
  "dml",
@@ -5507,6 +5517,7 @@ dependencies = [
  "serde_json",
  "specta 0.0.4",
  "thiserror",
+ "tokio",
  "uuid 1.2.1",
  "zeroize",
 ]
@@ -6282,22 +6293,11 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 [[package]]
 name = "swift-rs"
 version = "0.3.0"
-source = "git+https://github.com/Brendonovich/swift-rs.git?branch=autorelease#b16ba936ca2330bb27c6b9b7a84ad0d583ef0caa"
+source = "git+https://github.com/Brendonovich/swift-rs.git?rev=833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff#833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff"
 dependencies = [
  "base64 0.13.1",
  "serde",
  "serde_json",
- "swift-rs-macros",
-]
-
-[[package]]
-name = "swift-rs-macros"
-version = "0.1.0"
-source = "git+https://github.com/Brendonovich/swift-rs.git?branch=autorelease#b16ba936ca2330bb27c6b9b7a84ad0d583ef0caa"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
