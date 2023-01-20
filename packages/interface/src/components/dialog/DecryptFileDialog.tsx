@@ -1,21 +1,18 @@
 import { RadioGroup } from '@headlessui/react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Dialog } from '@sd/ui';
+import { Button, Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Eye, EyeSlash, Info } from 'phosphor-react';
 import { useState } from 'react';
+import { showAlertDialog } from '~/util/dialog';
 
 import { usePlatform } from '../../util/Platform';
 import { Tooltip } from '../tooltip/Tooltip';
-import { GenericAlertDialogProps } from './AlertDialog';
 
 import { Input, Switch, useZodForm, z } from '@sd/ui/src/forms';
 
-interface DecryptDialogProps {
-	open: boolean;
-	setOpen: (isShowing: boolean) => void;
+interface DecryptDialogProps extends UseDialogProps {
 	location_id: number;
 	path_id: number;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 const schema = z.object({
@@ -27,6 +24,7 @@ const schema = z.object({
 
 export const DecryptFileDialog = (props: DecryptDialogProps) => {
 	const platform = usePlatform();
+	const dialog = useDialog(props);
 
 	const mountedUuids = useLibraryQuery(['keys.listMounted'], {
 		onSuccess: (data) => {
@@ -44,22 +42,16 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 
 	const decryptFile = useLibraryMutation('files.decryptFiles', {
 		onSuccess: () => {
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Info',
 				value:
-					'The decryption job has started successfully. You may track the progress in the job overview panel.',
-				inputBox: false,
-				description: ''
+					'The decryption job has started successfully. You may track the progress in the job overview panel.'
 			});
 		},
 		onError: () => {
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Error',
-				value: 'The decryption job failed to start.',
-				inputBox: false,
-				description: ''
+				value: 'The decryption job failed to start.'
 			});
 		}
 	});
@@ -81,25 +73,20 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 		const pw = data.type === 'password' ? data.password : null;
 		const save = data.type === 'password' ? data.saveToKeyManager : null;
 
-		props.setOpen(false);
-
-		decryptFile.mutate({
+		return decryptFile.mutateAsync({
 			location_id: props.location_id,
 			path_id: props.path_id,
 			output_path: output,
 			password: pw,
 			save_to_library: save
 		});
-
-		form.reset();
 	});
 
 	return (
 		<Dialog
 			form={form}
+			dialog={dialog}
 			onSubmit={onSubmit}
-			open={props.open}
-			setOpen={props.setOpen}
 			title="Decrypt a file"
 			description="Leave the output file blank for the default."
 			loading={decryptFile.isLoading}
@@ -182,12 +169,9 @@ export const DecryptFileDialog = (props: DecryptDialogProps) => {
 							// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
 							if (!platform.saveFilePickerDialog) {
 								// TODO: Support opening locations on web
-								props.setAlertDialogData({
-									open: true,
+								showAlertDialog({
 									title: 'Error',
-									description: '',
-									value: "System dialogs aren't supported on this platform.",
-									inputBox: false
+									value: "System dialogs aren't supported on this platform."
 								});
 								return;
 							}
