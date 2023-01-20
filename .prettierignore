@@ -1,2 +1,5 @@
-/target
-.build
+target/
+dist/
+.build/
+Pods/
+*.d.ts
