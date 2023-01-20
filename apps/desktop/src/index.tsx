@@ -1,9 +1,9 @@
 // WARNING: BE CAREFUL SAVING THIS FILE WITH A FORMATTER ENABLED. The import order is important and goes against prettier's recommendations.
-
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
+// THIS MUST GO BEFORE importing the App
+import '~/patches';
 
-import './patches'; // THIS MUST GO BEFORE importing the App
 import App from './App';
 
 import '@sd/ui/style';
