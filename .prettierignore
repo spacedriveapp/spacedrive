@@ -4,7 +4,10 @@ dist/
 # macOS/iOS product/cache
 .build/
 Pods/
-# prettier sometimes can't parse .d.ts files
+# just in case it tries to parse for some reason
+*.rs
+# prettier sometimes can't parse these
 *.d.ts
-# this one ... we just don't need the spam fr
+packages/interface/scripts/generateSvgImports.mjs
+# we plainly don't need a lockfile to look nice
 pnpm-lock.yaml
