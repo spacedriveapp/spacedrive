@@ -2,7 +2,7 @@ import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
 import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from '~/AppLayout';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
-import { screens } from '~/screens';
+import screens from '~/screens';
 import { lazyEl } from '~/util';
 
 const Onboarding = lazyEl(() => import('./components/onboarding/Onboarding'));

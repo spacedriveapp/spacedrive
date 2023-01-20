@@ -24,7 +24,7 @@ const routes: RouteProps[] = [
 	}
 ];
 
-export const screens = (
+export default (
 	<>
 		{routes.map((route) => (
 			<Route key={route.path} {...route} />
