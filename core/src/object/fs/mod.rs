@@ -1,11 +1,11 @@
-use std::{ffi::OsStr, path::PathBuf};
-
-use serde::{Deserialize, Serialize};
-
 use crate::{
 	job::JobError,
 	prisma::{file_path, location, PrismaClient},
 };
+
+use std::{ffi::OsStr, path::PathBuf};
+
+use serde::{Deserialize, Serialize};
 
 pub mod copy;
 pub mod cut;
@@ -76,9 +76,7 @@ pub async fn context_menu_fs_info(
 			value: String::from("file_path that matches both location id and path id"),
 		})?;
 
-	let obj_path = [location_path, item.materialized_path.clone().into()]
-		.iter()
-		.collect();
+	let obj_path = location_path.join(&item.materialized_path);
 
 	// i don't know if this covers symlinks
 	let obj_type = if item.is_dir {

@@ -1,8 +1,12 @@
-use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo, ObjectType};
 use crate::job::{JobError, JobReportUpdate, JobResult, JobState, StatefulJob, WorkerContext};
+
+use std::{hash::Hash, path::PathBuf};
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::VecDeque, hash::Hash, path::PathBuf};
+use tracing::trace;
+
+use super::{context_menu_fs_info, get_path_from_location_id, osstr_to_string, FsInfo, ObjectType};
 
 pub struct FileCopierJob {}
 
@@ -31,8 +35,8 @@ const JOB_NAME: &str = "file_copier";
 
 #[async_trait::async_trait]
 impl StatefulJob for FileCopierJob {
-	type Data = FileCopierJobState;
 	type Init = FileCopierJobInit;
+	type Data = FileCopierJobState;
 	type Step = FileCopierJobStep;
 
 	fn name(&self) -> &'static str {
@@ -51,25 +55,23 @@ impl StatefulJob for FileCopierJob {
 			get_path_from_location_id(&ctx.library_ctx.db, state.init.target_location_id).await?;
 
 		// add the currently viewed subdirectory to the location root
-		full_target_path.push(state.init.target_path.clone());
+		full_target_path.push(&state.init.target_path);
 
 		// extension wizardry for cloning and such
 		// if no suffix has been selected, just use the file name
 		// if a suffix is provided and it's a directory, use the directory name + suffix
 		// if a suffix is provided and it's a file, use the (file name + suffix).extension
-		let file_name = osstr_to_string(source_fs_info.obj_path.clone().file_name())?;
+		let file_name = osstr_to_string(source_fs_info.obj_path.file_name())?;
 
-		let target_file_name = state.init.target_file_name_suffix.as_ref().map_or(
-			Ok::<_, JobError>(file_name.clone()),
+		let target_file_name = state.init.target_file_name_suffix.as_ref().map_or_else(
+			|| Ok::<_, JobError>(file_name.clone()),
 			|s| match source_fs_info.obj_type {
-				ObjectType::Directory => Ok(file_name.clone() + s),
+				ObjectType::Directory => Ok(format!("{file_name}{s}")),
 				ObjectType::File => Ok(osstr_to_string(source_fs_info.obj_path.file_stem())?
-					+ s + &source_fs_info
-					.obj_path
-					.extension()
-					.map_or(Ok::<_, JobError>("".to_string()), |x| {
-						Ok(".".to_string() + x.to_str().ok_or(JobError::OsStr)?)
-					})?),
+					+ s + &source_fs_info.obj_path.extension().map_or_else(
+					|| Ok::<_, JobError>(String::new()),
+					|x| Ok(format!(".{}", x.to_str().ok_or(JobError::OsStr)?)),
+				)?),
 			},
 		)?;
 
@@ -81,8 +83,7 @@ impl StatefulJob for FileCopierJob {
 			root_type: source_fs_info.obj_type.clone(),
 		});
 
-		state.steps = VecDeque::new();
-		state.steps.push_back(FileCopierJobStep { source_fs_info });
+		state.steps = [FileCopierJobStep { source_fs_info }].into_iter().collect();
 
 		ctx.progress(vec![JobReportUpdate::TaskCount(state.steps.len())]);
 
@@ -94,10 +95,10 @@ impl StatefulJob for FileCopierJob {
 		ctx: WorkerContext,
 		state: &mut JobState<Self>,
 	) -> Result<(), JobError> {
-		let step = state.steps[0].clone();
+		let step = &state.steps[0];
 		let info = &step.source_fs_info;
 
-		let job_state = state.data.clone().ok_or(JobError::MissingData {
+		let job_state = state.data.as_ref().ok_or(JobError::MissingData {
 			value: String::from("job state"),
 		})?;
 
@@ -113,6 +114,8 @@ impl StatefulJob for FileCopierJob {
 							.map_err(|_| JobError::Path)?,
 					);
 				}
+
+				trace!("Copying from {:?} to {:?}", info.obj_path, path);
 
 				tokio::fs::copy(&info.obj_path, &path).await?;
 			}
@@ -137,15 +140,15 @@ impl StatefulJob for FileCopierJob {
 							},
 						});
 
-						let mut path = job_state.target_path.clone();
-						path.push(
-							entry
-								.path()
-								.strip_prefix(&job_state.source_path)
-								.map_err(|_| JobError::Path)?,
-						);
-
-						tokio::fs::create_dir_all(path).await?;
+						tokio::fs::create_dir_all(
+							job_state.target_path.join(
+								entry
+									.path()
+									.strip_prefix(&job_state.source_path)
+									.map_err(|_| JobError::Path)?,
+							),
+						)
+						.await?;
 					} else {
 						state.steps.push_back(FileCopierJobStep {
 							source_fs_info: FsInfo {
