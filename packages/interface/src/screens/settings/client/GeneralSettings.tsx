@@ -1,7 +1,6 @@
+import { Database } from 'phosphor-react';
 import { getDebugState, useBridgeQuery, useDebugState } from '@sd/client';
 import { Card, Input, Switch, tw } from '@sd/ui';
-import { Database } from 'phosphor-react';
-
 import { InputContainer } from '~/components/primitive/InputContainer';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';

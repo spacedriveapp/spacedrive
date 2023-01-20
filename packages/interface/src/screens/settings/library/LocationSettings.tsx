@@ -1,7 +1,7 @@
+import { MagnifyingGlass } from 'phosphor-react';
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { LocationCreateArgs } from '@sd/client';
 import { Button, Input, dialogManager } from '@sd/ui';
-import { MagnifyingGlass } from 'phosphor-react';
 import AddLocationDialog from '~/components/dialog/AddLocationDialog';
 import LocationListItem from '~/components/location/LocationListItem';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';

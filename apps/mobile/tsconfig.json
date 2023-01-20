@@ -5,9 +5,7 @@
 		"module": "ESNext",
 		"noEmit": true,
 		"paths": {
-			"~/*": [
-				"./src/*"
-			]
+			"~/*": ["./src/*"]
 		},
 		"jsx": "react-native"
 	},

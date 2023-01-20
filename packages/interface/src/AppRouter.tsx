@@ -1,9 +1,8 @@
 import { lazy } from '@loadable/component';
-import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
 import { Navigate, Route, Routes } from 'react-router-dom';
-
-import { AppLayout } from './AppLayout';
+import { useCurrentLibrary, useInvalidateQuery } from '@sd/client';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
+import { AppLayout } from './AppLayout';
 
 // Using React.lazy breaks hot reload so we don't use it.
 const DebugScreen = lazy(() => import('./screens/Debug'));

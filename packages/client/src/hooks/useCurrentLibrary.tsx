@@ -1,6 +1,5 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from 'react';
 import { subscribe, useSnapshot } from 'valtio';
-
 import { useBridgeQuery } from '../rspc';
 import { valtioPersist } from '../stores';
 

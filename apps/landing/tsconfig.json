@@ -1,8 +1,6 @@
 {
 	"extends": "../../packages/config/app.tsconfig.json",
-	"include": [
-		"src"
-	],
+	"include": ["src"],
 	"ts-node": {
 		"transpileOnly": true,
 		"compilerOptions": {}

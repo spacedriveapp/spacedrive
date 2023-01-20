@@ -3,7 +3,6 @@ import Prism from 'prismjs';
 import 'prismjs/components/prism-rust';
 import { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-
 import '../../atom-one.css';
 import { BlogTag } from '../../components/BlogTag';
 

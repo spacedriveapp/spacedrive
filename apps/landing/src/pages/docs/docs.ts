@@ -1,5 +1,4 @@
 import { Circle, Cube, Sparkle, Star } from 'phosphor-react';
-
 import { DocsConfig } from './api';
 
 export function loadDocs() {

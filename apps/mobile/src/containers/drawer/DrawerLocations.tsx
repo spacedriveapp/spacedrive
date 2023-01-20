@@ -1,11 +1,10 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryQuery } from '@sd/client';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useLibraryQuery } from '@sd/client';
 import tw from '~/lib/tailwind';
-
 import FolderIcon from '../../components/icons/FolderIcon';
 import CollapsibleView from '../../components/layout/CollapsibleView';
 import ImportModal from '../modal/ImportModal';

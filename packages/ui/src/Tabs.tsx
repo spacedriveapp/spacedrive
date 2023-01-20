@@ -1,5 +1,4 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs';
-
 import { tw } from './utils';
 
 export const Root = tw(TabsPrimitive.Root)`

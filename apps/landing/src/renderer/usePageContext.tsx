@@ -2,7 +2,6 @@
 // More infos: https://vite-plugin-ssr.com/pageContext-anywhere
 import { PropsWithChildren, ReactNode, createContext, useContext } from 'react';
 import { PageContextBuiltIn } from 'vite-plugin-ssr';
-
 import type { PageContext } from './types';
 
 export { PageContextProvider };

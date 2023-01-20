@@ -1,8 +1,8 @@
-import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import React from 'react';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import { AnimatedButton } from '~/components/primitive/Button';
 import DeleteLibraryDialog from '~/containers/dialog/DeleteLibraryDialog';
 import tw from '~/lib/tailwind';

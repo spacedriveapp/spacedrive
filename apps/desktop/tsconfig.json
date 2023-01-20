@@ -4,14 +4,10 @@
 		"rootDir": "src",
 		"declarationDir": "dist",
 		"paths": {
-			"~/*": [
-				"./src/*"
-			]
+			"~/*": ["./src/*"]
 		}
 	},
-	"include": [
-		"src"
-	],
+	"include": ["src"],
 	"references": [
 		{
 			"path": "../../packages/interface"

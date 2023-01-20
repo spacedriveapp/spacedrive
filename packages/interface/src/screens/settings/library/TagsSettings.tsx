@@ -1,16 +1,15 @@
-import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Card, Dialog, Switch, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
 import clsx from 'clsx';
 import { Trash } from 'phosphor-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useDebounce } from 'rooks';
+import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, Card, Dialog, Switch, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
+import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
 import { InputContainer } from '~/components/primitive/InputContainer';
 import { PopoverPicker } from '~/components/primitive/PopoverPicker';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';
 import { SettingsHeader } from '~/components/settings/SettingsHeader';
 import { Tooltip } from '~/components/tooltip/Tooltip';
-
-import { Form, Input, useZodForm, z } from '@sd/ui/src/forms';
 
 export default function TagsSettings() {
 	const tags = useLibraryQuery(['tags.list']);
