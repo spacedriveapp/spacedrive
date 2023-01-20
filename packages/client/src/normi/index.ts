@@ -3,7 +3,6 @@ import { CustomHooks } from '@rspc/client';
 // @ts-expect-error: // TODO(@Oscar): Fix types
 import { __useMutation, __useQuery } from '@rspc/react/internal';
 import { useMemo } from 'react';
-
 import { NormiOptions, getNormiCache, loadDataFromCache } from './utils';
 
 export function normiCustomHooks(

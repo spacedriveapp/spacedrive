@@ -1,5 +1,4 @@
 import { forwardRef } from 'react';
-
 import { CheckBox as Root } from '../CheckBox';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 

@@ -3,7 +3,6 @@ import fullscreenIconPath from '@sd/assets/svgs/macos_fullscreen.svg';
 import minimizeIconPath from '@sd/assets/svgs/macos_minimize.svg';
 import clsx from 'clsx';
 import { HTMLAttributes, useEffect, useRef } from 'react';
-
 import { useFocusState } from '~/hooks/useFocusState';
 import { DefaultProps } from '../primitive/types';
 
@@ -18,10 +17,7 @@ export function MacTrafficLights(props: TrafficLightsProps) {
 	const [focused] = useFocusState();
 
 	return (
-		<div
-			data-tauri-drag-region
-			className={clsx('flex flex-row space-x-[7.5px] group', className)}
-		>
+		<div data-tauri-drag-region className={clsx('flex flex-row space-x-[7.5px] group', className)}>
 			<TrafficLight type="close" onClick={onClose} colorful={focused} />
 			<TrafficLight type="minimize" onClick={onMinimize} colorful={focused} />
 			<TrafficLight type="fullscreen" onClick={onFullscreen} colorful={focused} />

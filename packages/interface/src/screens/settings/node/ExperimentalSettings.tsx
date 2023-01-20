@@ -1,5 +1,4 @@
 import { Switch } from '@sd/ui';
-
 import { useNodeStore } from '~/components/device/Stores';
 import { InputContainer } from '~/components/primitive/InputContainer';
 import { SettingsContainer } from '~/components/settings/SettingsContainer';

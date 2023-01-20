@@ -2,7 +2,6 @@ import clsx from 'clsx';
 import { useCallback, useRef, useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { UseControllerProps, useController } from 'react-hook-form';
-
 import useClickOutside from '../../hooks/useClickOutside';
 
 interface PopoverPickerProps extends UseControllerProps {
