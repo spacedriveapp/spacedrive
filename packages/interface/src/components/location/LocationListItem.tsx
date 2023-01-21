@@ -4,6 +4,7 @@ import { Button, Card, Dialog } from '@sd/ui';
 import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import { Folder } from '../icons/Folder';
 
@@ -14,6 +15,7 @@ interface LocationListItemProps {
 }
 
 export default function LocationListItem({ location }: LocationListItemProps) {
+	const navigate = useNavigate();
 	const [hide, setHide] = useState(false);
 	const [open, setOpen] = useState(false);
 
@@ -33,7 +35,12 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 	if (hide) return <></>;
 
 	return (
-		<Card>
+		<Card
+			className="cursor-pointer"
+			onClick={() => {
+				navigate('/settings/locations/location');
+			}}
+		>
 			<Folder size={30} className="mr-3" />
 			<div className="grid grid-cols-1 min-w-[110px]">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>

@@ -1,11 +1,8 @@
-import { Algorithm, getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
+import { getOnboardingStore, useBridgeMutation, useOnboardingStore } from '@sd/client';
 import { Button, Card, forms } from '@sd/ui';
-import { useQueryClient } from '@tanstack/react-query';
-import { Eye, EyeSlash } from 'phosphor-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
 import { PasswordMeter } from '../key/PasswordMeter';
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './OnboardingRoot';
@@ -21,7 +18,7 @@ const schema = z.object({
 
 export default function OnboardingNewLibrary() {
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
+	// const queryClient = useQueryClient();
 
 	const [showPasswordValidate, setShowPasswordValidate] = useState(false);
 
@@ -37,13 +34,10 @@ export default function OnboardingNewLibrary() {
 
 	useUnlockOnboardingScreen();
 
-	const createLibrary = useBridgeMutation('library.create', {
-		onSuccess: (library) => {
-			queryClient.setQueryData(['library.list'], (libraries: any) => [
-				...(libraries || []),
-				library
-			]);
-			form.reset();
+	const tokenizeSensitiveKey = useBridgeMutation('nodes.tokenizeSensitiveKey', {
+		onSuccess: (data) => {
+			getOnboardingStore().passwordSetToken = data.token;
+			navigate('/onboarding/privacy');
 		},
 		onError: (err: any) => {
 			alert(err);
@@ -53,10 +47,6 @@ export default function OnboardingNewLibrary() {
 	const ob_store = useOnboardingStore();
 
 	const _onSubmit = form.handleSubmit(async (data) => {
-		getOnboardingStore().hasSetPassword = true;
-		// actually create library
-		// createLibrary.mutate({ name:ob_store.newLibraryName, ...data, secret_key: null});
-
 		if (data.password !== data.password_validate) {
 			if (!showPasswordValidate) {
 				setShowPasswordValidate(true);
@@ -68,17 +58,9 @@ export default function OnboardingNewLibrary() {
 				});
 			}
 		} else {
-			await createLibrary
-				.mutateAsync({
-					name: ob_store.newLibraryName,
-					...data,
-					algorithm: data.algorithm as Algorithm,
-					hashing_algorithm: getHashingAlgorithmSettings(data.hashing_algorithm),
-					secret_key: null // temp
-				})
-				.then(() => {
-					navigate('/onboarding/privacy');
-				});
+			tokenizeSensitiveKey.mutate({
+				secret_key: data.password
+			});
 		}
 
 		return;
@@ -131,7 +113,7 @@ export default function OnboardingNewLibrary() {
 						<PasswordMeter password={form.watch('password')} />
 					</div>
 					<div className="flex justify-between w-full mt-7">
-						{ob_store.hasSetPassword ? (
+						{!ob_store.passwordSetToken ? (
 							<Button
 								disabled={form.formState.isSubmitting}
 								type="submit"
@@ -146,6 +128,7 @@ export default function OnboardingNewLibrary() {
 								variant="outline"
 								size="sm"
 								onClick={() => {
+									getOnboardingStore().passwordSetToken = null;
 									form.reset();
 								}}
 							>

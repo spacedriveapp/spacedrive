@@ -1,5 +1,6 @@
 import { getOnboardingStore } from '@sd/client';
 import { Button, RadioGroup, forms } from '@sd/ui';
+import { Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 
 import { useUnlockOnboardingScreen } from './OnboardingProgress';
@@ -23,6 +24,8 @@ export default function OnboardingPrivacy() {
 		}
 	});
 
+	console.log({ formState: form.formState });
+
 	const _onSubmit = form.handleSubmit(async (data) => {
 		switch (data.shareTelemetryDataWithDevelopers) {
 			case 'share-telemetry':
@@ -32,7 +35,7 @@ export default function OnboardingPrivacy() {
 				getOnboardingStore().shareTelemetryDataWithDevelopers = false;
 				break;
 		}
-		navigate('/overview');
+		navigate('/onboarding/creating-library');
 		return;
 	});
 
@@ -45,23 +48,30 @@ export default function OnboardingPrivacy() {
 					make it very clear what data is shared with us.
 				</OnboardingDescription>
 				<div className="m-4">
-					<RadioGroup.Root
-						{...form.register('shareTelemetryDataWithDevelopers')}
-						defaultValue="share-telemetry"
-					>
-						<RadioGroup.Item value="share-telemetry">
-							<h1 className="font-bold">Share anonymous usage</h1>
-							<p className="text-sm text-ink-faint">
-								Share completely anonymous telemetry data to help the developers improve the app
-							</p>
-						</RadioGroup.Item>
-						<RadioGroup.Item value="no-telemetry">
-							<h1 className="font-bold">Share nothing</h1>
-							<p className="text-sm text-ink-faint">
-								Do not share any telemetry data with the developers
-							</p>
-						</RadioGroup.Item>
-					</RadioGroup.Root>
+					<Controller
+						control={form.control}
+						name="shareTelemetryDataWithDevelopers"
+						render={({ field }) => (
+							<RadioGroup.Root
+								onValueChange={field.onChange}
+								value={field.value}
+								defaultValue="share-telemetry"
+							>
+								<RadioGroup.Item value="share-telemetry">
+									<h1 className="font-bold">Share anonymous usage</h1>
+									<p className="text-sm text-ink-faint">
+										Share completely anonymous telemetry data to help the developers improve the app
+									</p>
+								</RadioGroup.Item>
+								<RadioGroup.Item value="no-telemetry">
+									<h1 className="font-bold">Share nothing</h1>
+									<p className="text-sm text-ink-faint">
+										Do not share any telemetry data with the developers
+									</p>
+								</RadioGroup.Item>
+							</RadioGroup.Root>
+						)}
+					/>
 				</div>
 				<Button type="submit" variant="accent" size="sm">
 					Continue

@@ -7,7 +7,7 @@ use crate::{
 use super::{utils::LibraryRequest, RouterBuilder};
 use chrono::Utc;
 use fs_extra::dir::get_size; // TODO: Remove this dependency as it is sync instead of async
-use rspc::Type;
+use rspc::{Error, ErrorCode, Type};
 use sd_crypto::{
 	crypto::stream::Algorithm, keys::hashing::HashingAlgorithm, primitives::OnboardingConfig,
 	Protected,
@@ -80,13 +80,30 @@ pub(crate) fn mount() -> RouterBuilder {
 			#[derive(Deserialize, Type)]
 			pub struct CreateLibraryArgs {
 				name: String,
-				password: Protected<String>,
+				password: Option<Protected<String>>,
+				tokenized_password: Option<String>,
 				secret_key: Option<Protected<String>>,
 				algorithm: Algorithm,
 				hashing_algorithm: HashingAlgorithm,
 			}
+			println!("Creating library");
 
 			t(|ctx, args: CreateLibraryArgs| async move {
+				let password = match args.password {
+					Some(password) => password,
+					None => {
+						if args.tokenized_password.is_none() {
+							return Err(Error::new(
+								ErrorCode::BadRequest,
+								"No password or tokenized password provided".into(),
+							));
+						}
+						// TODO: remove unwraps
+						let token = Uuid::parse_str(&args.tokenized_password.unwrap()).unwrap();
+						Protected::new(ctx.secure_temp_keystore.claim(token).unwrap())
+					}
+				};
+
 				Ok(ctx
 					.library_manager
 					.create(
@@ -95,7 +112,7 @@ pub(crate) fn mount() -> RouterBuilder {
 							..Default::default()
 						},
 						OnboardingConfig {
-							password: args.password,
+							password,
 							secret_key: args.secret_key,
 							algorithm: args.algorithm,
 							hashing_algorithm: args.hashing_algorithm,

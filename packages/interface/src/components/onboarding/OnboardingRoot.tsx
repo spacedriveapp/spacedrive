@@ -6,6 +6,7 @@ import { ComponentType, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
+import OnboardingCreatingLibrary from './OnboardingCreatingLibrary';
 import OnboardingMasterPassword from './OnboardingMasterPassword';
 import OnboardingNewLibrary from './OnboardingNewLibrary';
 import OnboardingPrivacy from './OnboardingPrivacy';
@@ -46,8 +47,8 @@ export const ONBOARDING_SCREENS: OnboardingScreen[] = [
 		key: 'privacy'
 	},
 	{
-		component: OnboardingNewLibrary,
-		key: 'jeff3'
+		component: OnboardingCreatingLibrary,
+		key: 'creating-library'
 	}
 ];
 

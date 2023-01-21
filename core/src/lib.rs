@@ -34,7 +34,6 @@ pub struct NodeContext {
 	pub jobs: Arc<JobManager>,
 	pub location_manager: Arc<LocationManager>,
 	pub event_bus_tx: broadcast::Sender<CoreEvent>,
-	pub secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
 pub struct Node {
@@ -42,6 +41,7 @@ pub struct Node {
 	library_manager: Arc<LibraryManager>,
 	jobs: Arc<JobManager>,
 	event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
+	secure_temp_keystore: Arc<SecureTempKeystore>,
 }
 
 #[cfg(not(feature = "android"))]
@@ -125,7 +125,6 @@ impl Node {
 				jobs: Arc::clone(&jobs),
 				location_manager: Arc::clone(&location_manager),
 				event_bus_tx: event_bus.0.clone(),
-				secure_temp_keystore: Arc::clone(&secure_temp_keystore),
 			},
 		)
 		.await?;
@@ -168,6 +167,7 @@ impl Node {
 			library_manager,
 			jobs,
 			event_bus,
+			secure_temp_keystore,
 		};
 
 		info!("Spacedrive online.");
@@ -180,6 +180,7 @@ impl Node {
 			config: Arc::clone(&self.config),
 			jobs: Arc::clone(&self.jobs),
 			event_bus: self.event_bus.0.clone(),
+			secure_temp_keystore: Arc::clone(&self.secure_temp_keystore),
 		}
 	}
 

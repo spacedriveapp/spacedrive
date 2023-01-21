@@ -4,8 +4,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useKeybindHandler } from '~/hooks/useKeyboardHandler';
 
 import { AppLayout } from './AppLayout';
-import { ONBOARDING_SCREENS } from './components/onboarding/OnboardingRoot';
-import OnboardingRoot from './components/onboarding/OnboardingRoot';
+import OnboardingRoot, { ONBOARDING_SCREENS } from './components/onboarding/OnboardingRoot';
 import MediaScreen from './screens/Media';
 import PeopleScreen from './screens/People';
 import SpacesScreen from './screens/Spaces';
@@ -13,6 +12,7 @@ import SpacesScreen from './screens/Spaces';
 // Using React.lazy breaks hot reload so we don't use it.
 const DebugScreen = lazy(() => import('./screens/Debug'));
 const SettingsScreen = lazy(() => import('./screens/settings/Settings'));
+const SettingsSubPageScreen = lazy(() => import('./screens/settings/SettingsSubPage'));
 const TagExplorer = lazy(() => import('./screens/TagExplorer'));
 const PhotosScreen = lazy(() => import('./screens/Media'));
 const OverviewScreen = lazy(() => import('./screens/Overview'));
@@ -34,7 +34,8 @@ const KeysSettings = lazy(() => import('./screens/settings/library/KeysSetting')
 const LibraryGeneralSettings = lazy(
 	() => import('./screens/settings/library/LibraryGeneralSettings')
 );
-const LocationSettings = lazy(() => import('./screens/settings/library/LocationSettings'));
+const LocationsSettings = lazy(() => import('./screens/settings/library/LocationsSettings'));
+const LocationSettings = lazy(() => import('./screens/settings/library/location/LocationSettings'));
 const NodesSettings = lazy(() => import('./screens/settings/library/NodesSettings'));
 const SecuritySettings = lazy(() => import('./screens/settings/library/SecuritySettings'));
 const SharingSettings = lazy(() => import('./screens/settings/library/SharingSettings'));
@@ -92,7 +93,10 @@ export function AppRouter() {
 							<Route path="sync" element={<SyncSettings />} />
 							<Route path="tags" element={<TagsSettings />} />
 							<Route path="library" element={<LibraryGeneralSettings />} />
-							<Route path="locations" element={<LocationSettings />} />
+							<Route path="locations" element={<SettingsSubPageScreen />}>
+								<Route index element={<LocationsSettings />} />
+								<Route path="location" element={<LocationSettings />} />
+							</Route>
 							<Route path="tags" element={<TagsSettings />} />
 							<Route path="nodes" element={<NodesSettings />} />
 							<Route path="keys" element={<KeysSettings />} />
