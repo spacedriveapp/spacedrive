@@ -1,3 +1,4 @@
-import { Alias } from "vite"
+import type { Alias } from 'vite';
 
-export const relativeAliasResolver: Alias
+// should technically be const but Prettier somehow dislikes parsing this file that way
+export let relativeAliasResolver: Alias;
