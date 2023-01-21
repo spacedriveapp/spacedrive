@@ -1,5 +1,7 @@
+/**
+ * {@type require('prettier').Config}
+ */
 module.exports = {
-	pluginSearchDirs: ['.'],
 	useTabs: true,
 	printWidth: 100,
 	singleQuote: true,
