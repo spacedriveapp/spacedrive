@@ -7,18 +7,20 @@ importers:
 
   .:
     specifiers:
+      '@babel/plugin-syntax-import-assertions': ^7.20.0
       '@cspell/dict-rust': ^2.0.1
       '@cspell/dict-typescript': ^2.0.2
       '@evilmartians/lefthook': ^1.1.1
-      '@trivago/prettier-plugin-sort-imports': ^3.3.0
+      '@trivago/prettier-plugin-sort-imports': ^3.4.0
       cspell: ^6.12.0
       lint-staged: ^13.1.0
       markdown-link-check: ^3.10.3
-      prettier: ^2.7.1
+      prettier: ^2.8.3
       turbo: ^1.5.5
       turbo-ignore: ^0.3.0
-      typescript: ^4.8.4
+      typescript: ^4.9.4
     devDependencies:
+      '@babel/plugin-syntax-import-assertions': 7.20.0
       '@cspell/dict-rust': 2.0.1
       '@cspell/dict-typescript': 2.0.2
       '@evilmartians/lefthook': 1.2.7
@@ -1632,7 +1634,6 @@ packages:
       '@babel/core': ^7.0.0-0
     dependencies:
       '@babel/helper-plugin-utils': 7.20.2
-    dev: false
 
   /@babel/plugin-syntax-import-assertions/7.20.0_@babel+core@7.20.12:
     resolution: {integrity: sha512-IUh1vakzNoWalR8ch/areW7qFopR2AEw03JlG7BbrDqmQ4X3q9uuipQwSGrUn7oGiemKjtSLDhNtQHzMHr1JdQ==}
