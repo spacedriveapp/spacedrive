@@ -20,5 +20,7 @@ module.exports = {
 		'^\\.'
 	],
 	importOrderSortSpecifiers: true,
+	importOrderParserPlugins: ['importAssertions', 'typescript', 'jsx'],
+	pluginSearchDirs: ['.'],
 	plugins: ['@trivago/prettier-plugin-sort-imports']
 };
