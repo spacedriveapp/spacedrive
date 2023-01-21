@@ -1,4 +1,3 @@
-import { Button } from '@sd/ui';
 import {
 	Clock,
 	CurrencyDollar,
@@ -12,6 +11,7 @@ import {
 } from 'phosphor-react';
 import { useRef } from 'react';
 import { Helmet } from 'react-helmet';
+import { Button } from '@sd/ui';
 
 interface PositionPosting {
 	name: string;

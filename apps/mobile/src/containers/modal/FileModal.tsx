@@ -3,7 +3,6 @@ import dayjs from 'dayjs';
 import { CaretLeft } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Button, Pressable, Text, View } from 'react-native';
-
 import { default as FileIcon, default as FileThumb } from '../../components/explorer/FileThumb';
 import { Modal } from '../../components/layout/Modal';
 import Divider from '../../components/primitive/Divider';

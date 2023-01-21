@@ -1,17 +1,13 @@
-import { useLibraryQuery } from '@sd/client';
-import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import { Buffer } from 'buffer';
 import { Clipboard } from 'phosphor-react';
-import { ReactNode, useState } from 'react';
-
-import { getHashingAlgorithmString } from '../../screens/settings/library/KeysSetting';
+import { useState } from 'react';
+import { useLibraryQuery } from '@sd/client';
+import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
+import { useZodForm, z } from '@sd/ui/src/forms';
+import { getHashingAlgorithmString } from '~/screens/settings/library/KeysSetting';
 import { SelectOptionKeyList } from '../key/KeyList';
 
-import { useZodForm, z } from '@sd/ui/src/forms';
-
-interface KeyViewerDialogProps {
-	trigger: ReactNode;
-}
+interface KeyViewerDialogProps extends UseDialogProps {}
 
 export const KeyUpdater = (props: {
 	uuid: string;
@@ -40,6 +36,7 @@ const schema = z.object({});
 
 export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 	const form = useZodForm({ schema });
+	const dialog = useDialog(props);
 
 	const keys = useLibraryQuery(['keys.list'], {
 		onSuccess: (data) => {
@@ -49,7 +46,6 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 		}
 	});
 
-	const [showKeyViewerDialog, setShowKeyViewerDialog] = useState(false);
 	const [key, setKey] = useState('');
 	const [keyValue, setKeyValue] = useState('');
 	const [contentSalt, setContentSalt] = useState('');
@@ -59,12 +55,8 @@ export const KeyViewerDialog = (props: KeyViewerDialogProps) => {
 	return (
 		<Dialog
 			form={form}
-			onSubmit={async () => {
-				setShowKeyViewerDialog(false);
-			}}
-			open={showKeyViewerDialog}
-			setOpen={setShowKeyViewerDialog}
-			trigger={props.trigger}
+			onSubmit={form.handleSubmit(() => {})}
+			dialog={dialog}
 			title="View Key Values"
 			description="Here you can view the values of your keys."
 			ctaLabel="Done"

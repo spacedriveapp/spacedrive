@@ -1,5 +1,4 @@
 import { useSnapshot } from 'valtio';
-
 import { valtioPersist } from './util';
 
 const appThemeStore = valtioPersist('appTheme', {

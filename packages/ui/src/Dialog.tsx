@@ -1,17 +1,109 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import clsx from 'clsx';
-import { ReactNode, useEffect } from 'react';
+import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { animated, useTransition } from 'react-spring';
-
+import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 import { Button, Loader } from '../';
 import { Form, FormProps } from './forms/Form';
+
+export function createDialogState(open = false) {
+	return proxy({
+		open
+	});
+}
+
+export type DialogState = ReturnType<typeof createDialogState>;
+
+export interface DialogOptions {
+	onSubmit?(): void;
+}
+
+export interface UseDialogProps extends DialogOptions {
+	id: number;
+}
+
+class DialogManager {
+	private idGenerator = 0;
+	private state: Record<string, DialogState> = {};
+
+	dialogs: Record<number, React.FC> = proxy({});
+
+	create(dialog: (props: UseDialogProps) => ReactElement, options?: DialogOptions) {
+		const id = this.getId();
+
+		this.dialogs[id] = ref(() => dialog({ id, ...options }));
+		this.state[id] = createDialogState(true);
+
+		return new Promise<void>((res) => {
+			subscribe(this.dialogs, () => {
+				if (!this.dialogs[id]) res();
+			});
+		});
+	}
+
+	getId() {
+		return ++this.idGenerator;
+	}
+
+	getState(id: number) {
+		return this.state[id];
+	}
+
+	remove(id: number) {
+		const state = this.getState(id);
+
+		if (!state) {
+			throw new Error(`Dialog ${id} not registered!`);
+		}
+
+		if (state.open === false) {
+			delete this.dialogs[id];
+			delete this.state[id];
+			console.log(`Successfully removed state ${id}`);
+		} else console.log(`Tried to remove state ${id} but wasn't pending!`);
+	}
+}
+
+export const dialogManager = new DialogManager();
+
+/**
+ * Component used to detect when its parent dialog unmounts
+ */
+function Remover({ id }: { id: number }) {
+	useEffect(
+		() => () => {
+			dialogManager.remove(id);
+		},
+		[]
+	);
+
+	return null;
+}
+
+export function useDialog(props: UseDialogProps) {
+	return {
+		...props,
+		state: dialogManager.getState(props.id)
+	};
+}
+
+export function Dialogs() {
+	const dialogs = useSnapshot(dialogManager.dialogs);
+
+	return (
+		<>
+			{Object.entries(dialogs).map(([id, Dialog]) => (
+				<Dialog key={id} />
+			))}
+		</>
+	);
+}
 
 export interface DialogProps<S extends FieldValues>
 	extends DialogPrimitive.DialogProps,
 		FormProps<S> {
-	open: boolean;
-	setOpen: (open: boolean) => void;
+	dialog: ReturnType<typeof useDialog>;
 	trigger?: ReactNode;
 	ctaLabel?: string;
 	ctaDanger?: boolean;
@@ -26,11 +118,12 @@ export interface DialogProps<S extends FieldValues>
 export function Dialog<S extends FieldValues>({
 	form,
 	onSubmit,
-	open,
-	setOpen: onOpenChange,
+	dialog,
 	...props
 }: DialogProps<S>) {
-	const transitions = useTransition(open, {
+	const stateSnap = useSnapshot(dialog.state);
+
+	const transitions = useTransition(stateSnap.open, {
 		from: {
 			opacity: 0,
 			transform: `translateY(20px)`,
@@ -41,8 +134,10 @@ export function Dialog<S extends FieldValues>({
 		config: { mass: 0.4, tension: 200, friction: 10, bounce: 0 }
 	});
 
+	const setOpen = (v: boolean) => (dialog.state.open = v);
+
 	return (
-		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+		<DialogPrimitive.Root open={stateSnap.open} onOpenChange={setOpen}>
 			{props.trigger && <DialogPrimitive.Trigger asChild>{props.trigger}</DialogPrimitive.Trigger>}
 			{transitions((styles, show) =>
 				show ? (
@@ -63,7 +158,11 @@ export function Dialog<S extends FieldValues>({
 							>
 								<Form
 									form={form}
-									onSubmit={onSubmit}
+									onSubmit={async (e) => {
+										await onSubmit(e);
+										dialog.onSubmit?.();
+										setOpen(false);
+									}}
 									className="min-w-[300px] max-w-[400px] rounded-md bg-app-box border border-app-line text-ink shadow-app-shade !pointer-events-auto"
 								>
 									<div className="p-5">
@@ -94,6 +193,7 @@ export function Dialog<S extends FieldValues>({
 										</Button>
 									</div>
 								</Form>
+								<Remover id={dialog.id} />
 							</animated.div>
 						</DialogPrimitive.Content>
 					</DialogPrimitive.Portal>

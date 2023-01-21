@@ -2,7 +2,6 @@ import ReactDOMServer from 'react-dom/server';
 import { Helmet } from 'react-helmet';
 import { dangerouslySkipEscape, escapeInject } from 'vite-plugin-ssr';
 import type { PageContextBuiltIn } from 'vite-plugin-ssr';
-
 import App from '../App';
 import type { PageContext } from './types';
 

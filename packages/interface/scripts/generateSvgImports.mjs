@@ -2,7 +2,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { format as prettierFormat } from 'prettier';
-
 import prettierConfig from '../../../.prettierrc.json' assert { type: 'json' };
 
 /**
@@ -20,7 +19,7 @@ function iconFriendlyName(iconName, delimeter = '-') {
 }
 
 function iconBaseName(filePath) {
-	return path.basename(filePath, path.extname(filePath))
+	return path.basename(filePath, path.extname(filePath));
 }
 
 async function exists(path) {
@@ -40,7 +39,12 @@ async function exists(path) {
 	const generatedCode = `\
 ${icons
 	.map((path) => iconBaseName(path))
-	.map((baseName) => `import { ReactComponent as ${iconFriendlyName(baseName)} } from '@sd/assets/icons/${baseName}.svg';`)
+	.map(
+		(baseName) =>
+			`import { ReactComponent as ${iconFriendlyName(
+				baseName
+			)} } from '@sd/assets/icons/${baseName}.svg';`
+	)
 	.join('\n')}
 
 export default {
@@ -57,5 +61,5 @@ ${icons
 		await fs.rm(outPath);
 	}
 
-	await fs.writeFile(outPath, prettierFormat( generatedCode, prettierConfig));
+	await fs.writeFile(outPath, prettierFormat(generatedCode, prettierConfig));
 })();

@@ -1,15 +1,9 @@
-import { ExplorerContext, ExplorerItem } from '@sd/client';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
-
-import {
-	ExplorerLayoutMode,
-	getExplorerStore,
-	useExplorerStore
-} from '../../hooks/useExplorerStore';
-import { GenericAlertDialogProps } from '../dialog/AlertDialog';
+import { ExplorerContext, ExplorerItem } from '@sd/client';
+import { ExplorerLayoutMode, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import { isPath } from './utils';
@@ -21,23 +15,9 @@ interface Props {
 	context: ExplorerContext;
 	data: ExplorerItem[];
 	onScroll?: (posY: number) => void;
-	setShowEncryptDialog: (isShowing: boolean) => void;
-	setShowDecryptDialog: (isShowing: boolean) => void;
-	setShowDeleteDialog: (isShowing: boolean) => void;
-	setShowEraseDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
-export const VirtualizedList: React.FC<Props> = ({
-	data,
-	context,
-	onScroll,
-	setShowEncryptDialog,
-	setShowDecryptDialog,
-	setShowDeleteDialog,
-	setShowEraseDialog,
-	setAlertDialogData
-}) => {
+export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) => {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const innerRef = useRef<HTMLDivElement>(null);
 
@@ -161,11 +141,6 @@ export const VirtualizedList: React.FC<Props> = ({
 									isSelected={getExplorerStore().selectedRowIndex === virtualRow.index}
 									index={virtualRow.index}
 									item={data[virtualRow.index]}
-									setShowEncryptDialog={setShowEncryptDialog}
-									setShowDecryptDialog={setShowDecryptDialog}
-									setShowDeleteDialog={setShowDeleteDialog}
-									setShowEraseDialog={setShowEraseDialog}
-									setAlertDialogData={setAlertDialogData}
 								/>
 							) : (
 								[...Array(amountOfColumns)].map((_, i) => {
@@ -181,11 +156,6 @@ export const VirtualizedList: React.FC<Props> = ({
 														isSelected={isSelected}
 														index={index}
 														item={item}
-														setShowEncryptDialog={setShowEncryptDialog}
-														setShowDecryptDialog={setShowDecryptDialog}
-														setShowDeleteDialog={setShowDeleteDialog}
-														setShowEraseDialog={setShowEraseDialog}
-														setAlertDialogData={setAlertDialogData}
 													/>
 												)}
 											</div>
@@ -206,25 +176,10 @@ interface WrappedItemProps {
 	index: number;
 	isSelected: boolean;
 	kind: ExplorerLayoutMode;
-	setShowEncryptDialog: (isShowing: boolean) => void;
-	setShowDecryptDialog: (isShowing: boolean) => void;
-	setShowDeleteDialog: (isShowing: boolean) => void;
-	setShowEraseDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
 // Wrap either list item or grid item with click logic as it is the same for both
-const WrappedItem: React.FC<WrappedItemProps> = ({
-	item,
-	index,
-	isSelected,
-	kind,
-	setShowEncryptDialog,
-	setShowDecryptDialog,
-	setShowDeleteDialog,
-	setShowEraseDialog,
-	setAlertDialogData
-}) => {
+const WrappedItem: React.FC<WrappedItemProps> = ({ item, index, isSelected, kind }) => {
 	const [_, setSearchParams] = useSearchParams();
 
 	const onDoubleClick = useCallback(() => {
@@ -243,11 +198,6 @@ const WrappedItem: React.FC<WrappedItemProps> = ({
 			onClick={onClick}
 			onDoubleClick={onDoubleClick}
 			selected={isSelected}
-			setShowEncryptDialog={setShowEncryptDialog}
-			setShowDecryptDialog={setShowDecryptDialog}
-			setShowDeleteDialog={setShowDeleteDialog}
-			setShowEraseDialog={setShowEraseDialog}
-			setAlertDialogData={setAlertDialogData}
 		/>
 	);
 

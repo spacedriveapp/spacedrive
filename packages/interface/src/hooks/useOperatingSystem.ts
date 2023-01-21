@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-
 import { OperatingSystem, usePlatform } from '../util/Platform';
 
 export function guessOperatingSystem(): OperatingSystem {

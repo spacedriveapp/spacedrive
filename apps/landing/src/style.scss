@@ -237,6 +237,6 @@ html {
 		@apply bg-[#00000006] dark:bg-[#00000030] my-[10px] rounded-[6px];
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-app-selected
+		@apply rounded-[6px] bg-app-selected;
 	}
 }

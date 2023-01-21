@@ -1,20 +1,15 @@
-import { Algorithm, useLibraryMutation } from '@sd/client';
-import { Button, Dialog, Input, Select, SelectOption } from '@sd/ui';
 import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
-import { ReactNode, useState } from 'react';
-
-import { getHashingAlgorithmSettings } from '../../screens/settings/library/KeysSetting';
+import { useState } from 'react';
+import { Algorithm, useLibraryMutation } from '@sd/client';
+import { Button, Dialog, Input, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
+import { useZodForm, z } from '@sd/ui/src/forms';
+import { getHashingAlgorithmSettings } from '~/screens/settings/library/KeysSetting';
+import { showAlertDialog } from '~/util/dialog';
 import { generatePassword } from '../key/KeyMounter';
 import { PasswordMeter } from '../key/PasswordMeter';
-import { GenericAlertDialogProps } from './AlertDialog';
 
-import { useZodForm, z } from '@sd/ui/src/forms';
-
-export interface MasterPasswordChangeDialogProps {
-	trigger: ReactNode;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
-}
+export interface MasterPasswordChangeDialogProps extends UseDialogProps {}
 
 const schema = z.object({
 	masterPassword: z.string(),
@@ -27,34 +22,27 @@ const schema = z.object({
 export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProps) => {
 	const changeMasterPassword = useLibraryMutation('keys.changeMasterPassword', {
 		onSuccess: () => {
-			setShow((old) => ({ ...old, masterPasswordDialog: false }));
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Success',
-				description: '',
-				value: 'Your master password was changed successfully',
-				inputBox: false
+				value: 'Your master password was changed successfully'
 			});
 		},
 		onError: () => {
 			// this should never really happen
-			setShow((old) => ({ ...old, masterPasswordDialog: false }));
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Master Password Change Error',
-				description: '',
-				value: 'There was an error while changing your master password.',
-				inputBox: false
+				value: 'There was an error while changing your master password.'
 			});
 		}
 	});
 
 	const [show, setShow] = useState({
-		masterPasswordDialog: false,
 		masterPassword: false,
 		masterPassword2: false,
 		secretKey: false
 	});
+
+	const dialog = useDialog(props);
 
 	const MP1CurrentEyeIcon = show.masterPassword ? EyeSlash : Eye;
 	const MP2CurrentEyeIcon = show.masterPassword2 ? EyeSlash : Eye;
@@ -70,25 +58,20 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 
 	const onSubmit = form.handleSubmit((data) => {
 		if (data.masterPassword !== data.masterPassword2) {
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Error',
-				description: '',
-				value: 'Passwords are not the same, please try again.',
-				inputBox: false
+				value: 'Passwords are not the same, please try again.'
 			});
 		} else {
 			const hashing_algorithm = getHashingAlgorithmSettings(data.hashingAlgo);
 			const sk = data.secretKey || null;
 
-			changeMasterPassword.mutate({
+			return changeMasterPassword.mutateAsync({
 				algorithm: data.encryptionAlgo as Algorithm,
 				hashing_algorithm,
 				password: data.masterPassword,
 				secret_key: sk
 			});
-
-			form.reset();
 		}
 	});
 
@@ -96,16 +79,11 @@ export const MasterPasswordChangeDialog = (props: MasterPasswordChangeDialogProp
 		<Dialog
 			form={form}
 			onSubmit={onSubmit}
-			open={show.masterPasswordDialog}
-			setOpen={(e) => {
-				setShow((old) => ({ ...old, masterPasswordDialog: e }));
-			}}
+			dialog={dialog}
 			title="Change Master Password"
 			description="Select a new master password for your key manager. Leave the key secret blank to disable it."
 			ctaDanger={true}
-			loading={changeMasterPassword.isLoading}
 			ctaLabel="Change"
-			trigger={props.trigger}
 		>
 			<div className="relative flex flex-grow mt-3 mb-2">
 				<Input

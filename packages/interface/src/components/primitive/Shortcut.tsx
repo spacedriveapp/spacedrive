@@ -1,5 +1,4 @@
 import clsx from 'clsx';
-
 import { DefaultProps } from './types';
 
 export interface ShortcutProps extends DefaultProps {

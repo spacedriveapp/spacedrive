@@ -2,7 +2,6 @@ import { Github } from '@icons-pack/react-simple-icons';
 import { CaretRight } from 'phosphor-react';
 import { PropsWithChildren } from 'react';
 import { Helmet } from 'react-helmet';
-
 import '../../atom-one.css';
 import DocsLayout from '../../components/DocsLayout';
 import Markdown from '../../components/Markdown';

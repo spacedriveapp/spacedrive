@@ -1,9 +1,8 @@
-import { ExplorerItem, isVideoExt } from '@sd/client';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { ExplorerItem, isVideoExt } from '@sd/client';
 import tw from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
-
 import FileThumb from './FileThumb';
 
 type FileRowProps = {

@@ -1,6 +1,5 @@
 import clsx from 'clsx';
 import { PropsWithChildren } from 'react';
-
 import { DefaultProps } from './types';
 
 interface InputContainerProps extends DefaultProps<HTMLDivElement> {
