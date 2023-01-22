@@ -17,7 +17,8 @@ type TailwindFactory = {
 	<T>(c: T): ClassnameFactory<T>;
 };
 
-export const tw = new Proxy({} as unknown as TailwindFactory, {
+// eslint-ignore-next-line
+export const tw = new Proxy((() => {}) as unknown as TailwindFactory, {
 	get: (_, property: string) => twFactory(property),
 	apply: (_, __, [el]: [React.ReactElement]) => twFactory(el)
 });
