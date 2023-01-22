@@ -38,7 +38,7 @@ jobs:
         run: pnpm typecheck
 
   eslint:
-    name: TypeScript
+    name: ESLint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -58,7 +58,7 @@ jobs:
       - name: Install pnpm dependencies
         run: pnpm i --frozen-lockfile
 
-      - name: Perform typechecks
+      - name: Perform linting
         run: pnpm lint
 
   rustfmt:
