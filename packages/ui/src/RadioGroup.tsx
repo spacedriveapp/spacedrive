@@ -1,12 +1,13 @@
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import { cx } from 'class-variance-authority';
+import clsx from 'clsx';
 
 import { tw } from './utils';
 
-export const Root = ({ children, ...props }: RadioGroup.RadioGroupProps) => {
+export const Root = ({ children, className, ...props }: RadioGroup.RadioGroupProps) => {
 	return (
 		<RadioGroup.Root {...props}>
-			<div className="space-y-3">{children}</div>
+			<div className={clsx('space-y-3', className)}>{children}</div>
 		</RadioGroup.Root>
 	);
 };

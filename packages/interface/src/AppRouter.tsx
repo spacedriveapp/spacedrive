@@ -35,7 +35,7 @@ const LibraryGeneralSettings = lazy(
 	() => import('./screens/settings/library/LibraryGeneralSettings')
 );
 const LocationsSettings = lazy(() => import('./screens/settings/library/LocationsSettings'));
-const LocationSettings = lazy(() => import('./screens/settings/library/location/LocationSettings'));
+const EditLocation = lazy(() => import('./screens/settings/library/location/EditLocation'));
 const NodesSettings = lazy(() => import('./screens/settings/library/NodesSettings'));
 const SecuritySettings = lazy(() => import('./screens/settings/library/SecuritySettings'));
 const SharingSettings = lazy(() => import('./screens/settings/library/SharingSettings'));
@@ -88,14 +88,13 @@ export function AppRouter() {
 							<Route path="keys" element={<KeysSettings />} />
 							<Route path="libraries" element={<LibrarySettings />} />
 							<Route path="security" element={<SecuritySettings />} />
-							<Route path="locations" element={<LocationSettings />} />
 							<Route path="sharing" element={<SharingSettings />} />
 							<Route path="sync" element={<SyncSettings />} />
 							<Route path="tags" element={<TagsSettings />} />
 							<Route path="library" element={<LibraryGeneralSettings />} />
 							<Route path="locations" element={<SettingsSubPageScreen />}>
 								<Route index element={<LocationsSettings />} />
-								<Route path="location" element={<LocationSettings />} />
+								<Route path="location/:id" element={<EditLocation />} />
 							</Route>
 							<Route path="tags" element={<TagsSettings />} />
 							<Route path="nodes" element={<NodesSettings />} />

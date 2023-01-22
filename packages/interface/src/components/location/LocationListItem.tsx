@@ -36,23 +36,29 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 
 	return (
 		<Card
-			className="cursor-pointer"
+			className="cursor-pointer hover:bg-app-box/70"
 			onClick={() => {
-				navigate('/settings/locations/location');
+				navigate(`/settings/locations/location/${location.id}`);
 			}}
 		>
 			<Folder size={30} className="mr-3" />
 			<div className="grid grid-cols-1 min-w-[110px]">
 				<h1 className="pt-0.5 text-sm font-semibold">{location.name}</h1>
 				<p className="mt-0.5 text-sm truncate  select-text text-ink-dull">
-					<span className="py-[1px] px-1 bg-app-selected rounded mr-1">{location.node.name}</span>
+					<span className="py-[1px] px-1 bg-app-selected  rounded mr-1">{location.node.name}</span>
 					{location.local_path}
 				</p>
 			</div>
 			<div className="flex flex-grow" />
 			<div className="flex h-[45px] p-2 space-x-2">
 				{/* This is a fake button, do not add disabled prop pls */}
-				<Button variant="gray" className="!py-1.5 !px-2 pointer-events-none flex">
+				<Button
+					onClick={(e: { stopPropagation: () => void }) => {
+						e.stopPropagation();
+					}}
+					variant="gray"
+					className="!py-1.5 !px-2 pointer-events-none flex"
+				>
 					<div
 						className={clsx(
 							'w-2 h-2  rounded-full',
@@ -76,7 +82,13 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 					ctaDanger
 					ctaLabel="Delete"
 					trigger={
-						<Button variant="gray" className="!p-1.5">
+						<Button
+							onClick={(e: { stopPropagation: () => void }) => {
+								e.stopPropagation();
+							}}
+							variant="gray"
+							className="!p-1.5"
+						>
 							<Trash className="w-4 h-4" />
 						</Button>
 					}
@@ -84,7 +96,8 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 				<Button
 					variant="gray"
 					className="!p-1.5"
-					onClick={() => {
+					onClick={(e: { stopPropagation: () => void }) => {
+						e.stopPropagation();
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
 						locRescan(location.id);
 					}}

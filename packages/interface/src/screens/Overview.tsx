@@ -14,8 +14,22 @@
 // }
 import { onLibraryChange, queryClient, useCurrentLibrary, useLibraryQuery } from '@sd/client';
 import { Statistics } from '@sd/client';
+import { Card } from '@sd/ui';
 import byteSize from 'byte-size';
 import clsx from 'clsx';
+import {
+	AppWindow,
+	Briefcase,
+	Camera,
+	CloudArrowDown,
+	File,
+	FileText,
+	FrameCorners,
+	Heart,
+	Image,
+	MusicNote,
+	Wrench
+} from 'phosphor-react';
 import { useEffect } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
@@ -164,7 +178,6 @@ export default function OverviewScreen() {
 							);
 						})}
 					</div>
-
 					<div className="flex-grow" />
 					<div className="flex items-center h-full space-x-2">
 						<div>
@@ -198,10 +211,17 @@ export default function OverviewScreen() {
 						</div>
 					</div>
 				</div>
-				<div className="flex flex-col pb-4 mt-4 space-y-4">
-					{/* <Device name={`James' MacBook Pro`} size="1TB" locations={[]} type="desktop" /> */}
-					{/* <Device name={`James' iPhone 12`} size="47.7GB" locations={[]} type="phone" />
-					<Device name={`Spacedrive Server`} size="5GB" locations={[]} type="server" /> */}
+				<div className="grid grid-cols-5 gap-3 pb-4 mt-4">
+					<CategoryButton icon={Heart} category="Favorites" />
+					<CategoryButton icon={FileText} category="Documents" />
+					<CategoryButton icon={Camera} category="Movies" />
+					<CategoryButton icon={FrameCorners} category="Screenshots" />
+					<CategoryButton icon={AppWindow} category="Applications" />
+					<CategoryButton icon={Wrench} category="Projects" />
+					<CategoryButton icon={CloudArrowDown} category="Downloads" />
+					<CategoryButton icon={MusicNote} category="Music" />
+					<CategoryButton icon={Image} category="Albums" />
+					<CategoryButton icon={Heart} category="Favorites" />
 					<Debug />
 				</div>
 				<div className="flex flex-shrink-0 w-full h-4" />
@@ -216,4 +236,16 @@ function Debug() {
 	// console.log(org.data);
 
 	return null;
+}
+
+function CategoryButton({ category, icon: Icon }: { category: string; icon: any }) {
+	return (
+		<Card className="!px-3 items-center">
+			<Icon weight="fill" className="w-6 h-6 mr-3 text-ink-dull opacity-20" />
+			<div>
+				<h2 className="text-sm font-medium">{category}</h2>
+				<p className="text-xs text-ink-faint">23,324 items</p>
+			</div>
+		</Card>
+	);
 }
