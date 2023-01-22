@@ -75,7 +75,7 @@ function Remover({ id }: { id: number }) {
 		() => () => {
 			dialogManager.remove(id);
 		},
-		[]
+		[id]
 	);
 
 	return null;

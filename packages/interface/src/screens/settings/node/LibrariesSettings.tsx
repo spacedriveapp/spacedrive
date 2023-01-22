@@ -22,7 +22,7 @@ function LibraryListItem(props: { library: LibraryConfigWrapped; current: boolea
 				<p className="mt-0.5 text-xs text-ink-dull">{props.library.uuid}</p>
 			</div>
 			<div className="flex flex-row items-center space-x-2">
-				<Button className="!p-1.5" onClick={() => {}} variant="gray">
+				<Button className="!p-1.5" variant="gray">
 					<Tooltip label="TODO">
 						<Database className="w-4 h-4" />
 					</Tooltip>

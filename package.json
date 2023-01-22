@@ -21,7 +21,8 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"prisma": "cd core && cargo prisma",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
-		"typecheck": "turbo run typecheck"
+		"typecheck": "turbo run typecheck",
+		"lint": "turbo run lint"
 	},
 	"pnpm": {
 		"overrides": {
