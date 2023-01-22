@@ -1,3 +1,4 @@
+use prisma_client_rust::Direction;
 use rspc::{ErrorCode, Type};
 use serde::Deserialize;
 use tracing::info;
@@ -15,9 +16,15 @@ use super::{utils::LibraryRequest, RouterBuilder};
 pub(crate) fn mount() -> RouterBuilder {
 	RouterBuilder::new()
 		.library_query("list", |t| {
-			t(
-				|_, _: (), library| async move { Ok(library.db.tag().find_many(vec![]).exec().await?) },
-			)
+			t(|_, _: (), library| async move {
+				Ok(library
+					.db
+					.tag()
+					.find_many(vec![])
+					.order_by(tag::position::order(Direction::Asc))
+					.exec()
+					.await?)
+			})
 		})
 		.library_query("getExplorerData", |t| {
 			t(|_, tag_id: i32, library| async move {
@@ -105,11 +112,19 @@ pub(crate) fn mount() -> RouterBuilder {
 			}
 
 			t(|_, args: TagCreateArgs, library| async move {
+				library
+					.db
+					.tag()
+					.update_many(vec![], vec![tag::position::increment(1)])
+					.exec()
+					.await?;
+
 				let created_tag = library
 					.db
 					.tag()
 					.create(
 						Uuid::new_v4().as_bytes().to_vec(),
+						0,
 						vec![
 							tag::name::set(Some(args.name)),
 							tag::color::set(Some(args.color)),
@@ -183,11 +198,44 @@ pub(crate) fn mount() -> RouterBuilder {
 		})
 		.library_mutation("delete", |t| {
 			t(|_, tag_id: i32, library| async move {
-				library
+				let tag = library
 					.db
 					.tag()
 					.delete(tag::id::equals(tag_id))
 					.exec()
+					.await?;
+
+				library
+					.db
+					.tag()
+					.update_many(
+						vec![tag::position::gt(tag.position)],
+						vec![tag::position::decrement(1)],
+					)
+					.exec()
+					.await?;
+
+				invalidate_query!(library, "tags.list");
+
+				Ok(())
+			})
+		})
+		.library_mutation("updatePosition", |t| {
+			#[derive(Type, Deserialize)]
+			pub struct TagPosition {
+				pub id: i32,
+				pub position: i32,
+			}
+
+			t(|_, positions: Vec<TagPosition>, library| async move {
+				library
+					.db
+					._batch(positions.into_iter().map(|tag| {
+						library.db.tag().update(
+							tag::id::equals(tag.id),
+							vec![tag::position::set(tag.position)],
+						)
+					}))
 					.await?;
 
 				invalidate_query!(library, "tags.list");

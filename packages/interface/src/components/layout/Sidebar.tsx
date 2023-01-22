@@ -1,10 +1,30 @@
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
+import {
+	DndContext,
+	DragEndEvent,
+	DragOverlay,
+	DragStartEvent,
+	KeyboardSensor,
+	PointerSensor,
+	UniqueIdentifier,
+	closestCenter,
+	useSensor,
+	useSensors
+} from '@dnd-kit/core';
+import {
+	SortableContext,
+	arrayMove,
+	sortableKeyboardCoordinates,
+	useSortable,
+	verticalListSortingStrategy
+} from '@dnd-kit/sortable';
 import clsx from 'clsx';
 import { CheckCircle, CirclesFour, Gear, Lock, Planet, Plus } from 'phosphor-react';
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useMemo, useState } from 'react';
 import { NavLink, NavLinkProps } from 'react-router-dom';
 import {
 	LocationCreateArgs,
+	Tag as TagType,
 	getDebugState,
 	useBridgeQuery,
 	useCurrentLibrary,
@@ -313,7 +333,6 @@ function LibraryScopedSection() {
 	const platform = usePlatform();
 
 	const locations = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
 	const createLocation = useLibraryMutation('locations.create');
 
 	return (
@@ -377,27 +396,132 @@ function LibraryScopedSection() {
 					)}
 				</SidebarSection>
 			</div>
+			<Tags />
+		</>
+	);
+}
+
+const SortableItem = ({ id, children }: PropsWithChildren<{ id: UniqueIdentifier }>) => {
+	const sortable = useSortable({ id });
+
+	const getSortingDirection = () => (sortable.activeIndex > sortable.overIndex ? 'up' : 'down');
+
+	return (
+		<div
+			ref={sortable.setNodeRef}
+			{...sortable.attributes}
+			{...sortable.listeners}
+			className={clsx(
+				'relative',
+				sortable.isOver && sortable.activeIndex !== sortable.overIndex
+					? getSortingDirection() === 'up'
+						? 'before:bg-accent before:absolute before:-top-px before:h-px before:w-full'
+						: 'after:bg-accent after:absolute after:-bottom-px after:h-px after:w-full'
+					: null
+			)}
+		>
+			{children}
+		</div>
+	);
+};
+
+const Tag = (props: { tag: TagType; isDragged?: boolean }) => {
+	return (
+		<SidebarLink
+			to={`tag/${props.tag.id}`}
+			className={sidebarItemClass({ isActive: props.isDragged })}
+		>
+			<div
+				className="w-[12px] h-[12px] rounded-full"
+				style={{ backgroundColor: props.tag.color || '#efefef' }}
+			/>
+			<span className="ml-1.5 text-sm">{props.tag.name}</span>
+		</SidebarLink>
+	);
+};
+
+const Tags = () => {
+	const [activeSortableId, setActiveSortableId] = useState<number | null>(null);
+
+	const tags = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const updatePosition = useLibraryMutation(['tags.updatePosition'], {
+		onSuccess: () => tags.refetch()
+	});
+
+	const sensors = useSensors(
+		useSensor(PointerSensor, {
+			activationConstraint: {
+				distance: 10
+			}
+		}),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates
+		})
+	);
+
+	const sortableItems = useMemo(() => tags.data?.map((tag) => tag.id) || [], [tags.data]);
+	const activeTag = useMemo(
+		() => (activeSortableId ? tags.data?.find((tag) => tag.id === activeSortableId) : undefined),
+		[activeSortableId]
+	);
+
+	function handleDragStart(event: DragStartEvent) {
+		setActiveSortableId(event.active.id as number);
+	}
+
+	function handleDragEnd(event: DragEndEvent) {
+		const { active, over } = event;
+
+		if (tags.data && over && active.id !== over.id) {
+			const oldIndex = sortableItems.indexOf(active.id as number);
+			const newIndex = sortableItems.indexOf(over.id as number);
+
+			const moved = arrayMove(tags.data, oldIndex, newIndex);
+
+			const newOrder = moved
+				.map((group, i) => ({ id: group.id, position: i }))
+				.slice(
+					newIndex > oldIndex ? oldIndex : newIndex,
+					newIndex > oldIndex ? newIndex + 1 : oldIndex + 1
+				);
+
+			updatePosition.mutate(newOrder);
+		}
+
+		setActiveSortableId(null);
+	}
+
+	return (
+		<div>
 			{!!tags.data?.length && (
 				<SidebarSection
 					name="Tags"
 					actionArea={<SidebarHeadingOptionsButton to="/settings/tags" />}
 				>
 					<div className="mt-1 mb-2">
-						{tags.data?.slice(0, 6).map((tag, index) => (
-							<SidebarLink key={index} to={`tag/${tag.id}`} className="">
-								<div
-									className="w-[12px] h-[12px] rounded-full"
-									style={{ backgroundColor: tag.color || '#efefef' }}
-								/>
-								<span className="ml-1.5 text-sm">{tag.name}</span>
-							</SidebarLink>
-						))}
+						<DndContext
+							sensors={sensors}
+							collisionDetection={closestCenter}
+							onDragStart={handleDragStart}
+							onDragEnd={handleDragEnd}
+						>
+							<SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
+								{tags.data?.map((tag) => (
+									<SortableItem key={tag.id} id={tag.id}>
+										<Tag tag={tag} />
+									</SortableItem>
+								))}
+							</SortableContext>
+							<DragOverlay dropAnimation={null}>
+								{activeTag && <Tag tag={activeTag} isDragged />}
+							</DragOverlay>
+						</DndContext>
 					</div>
 				</SidebarSection>
 			)}
-		</>
+		</div>
 	);
-}
+};
 
 const Icon = ({ component: Icon, ...props }: any) => (
 	<Icon weight="bold" {...props} className={clsx('w-4 h-4 mr-2', props.className)} />

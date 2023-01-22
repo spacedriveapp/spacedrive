@@ -18,6 +18,8 @@
 		"build": "tsc"
 	},
 	"dependencies": {
+		"@dnd-kit/core": "^6.0.7",
+		"@dnd-kit/sortable": "^7.0.2",
 		"@fontsource/inter": "^4.5.13",
 		"@headlessui/react": "^1.7.3",
 		"@hookform/resolvers": "^2.9.10",

@@ -404,6 +404,8 @@ importers:
 
   packages/interface:
     specifiers:
+      '@dnd-kit/core': ^6.0.7
+      '@dnd-kit/sortable': ^7.0.2
       '@fontsource/inter': ^4.5.13
       '@headlessui/react': ^1.7.3
       '@hookform/resolvers': ^2.9.10
@@ -461,6 +463,8 @@ importers:
       vite-plugin-svgr: ^2.2.1
       zod: ^3.20.2
     dependencies:
+      '@dnd-kit/core': 6.0.7_biqbaboplfbrettd7655fr4n2y
+      '@dnd-kit/sortable': 7.0.2_pmudlfv2z3i7vvlookxjkeidxe
       '@fontsource/inter': 4.5.15
       '@headlessui/react': 1.7.7_biqbaboplfbrettd7655fr4n2y
       '@hookform/resolvers': 2.9.10_react-hook-form@7.42.1
@@ -3377,6 +3381,49 @@ packages:
     resolution: {integrity: sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==}
     engines: {node: '>=10.0.0'}
     dev: true
+
+  /@dnd-kit/accessibility/3.0.1_react@18.2.0:
+    resolution: {integrity: sha512-HXRrwS9YUYQO9lFRc/49uO/VICbM+O+ZRpFDe9Pd1rwVv2PCNkRiTZRdxrDgng/UkvdC3Re9r2vwPpXXrWeFzg==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.2.0
+      tslib: 2.4.1
+    dev: false
+
+  /@dnd-kit/core/6.0.7_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-qcLBTVTjmLuLqC0RHQ+dFKN5neWmAI56H9xZ+he9WEJEkAvR76YAcz7DSWDJfjErepfG2H3Fkb9lYiX7cPR62g==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/accessibility': 3.0.1_react@18.2.0
+      '@dnd-kit/utilities': 3.2.1_react@18.2.0
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      tslib: 2.4.1
+    dev: false
+
+  /@dnd-kit/sortable/7.0.2_pmudlfv2z3i7vvlookxjkeidxe:
+    resolution: {integrity: sha512-wDkBHHf9iCi1veM834Gbk1429bd4lHX4RpAwT0y2cHLf246GAvU2sVw/oxWNpPKQNQRQaeGXhAVgrOl1IT+iyA==}
+    peerDependencies:
+      '@dnd-kit/core': ^6.0.7
+      react: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/core': 6.0.7_biqbaboplfbrettd7655fr4n2y
+      '@dnd-kit/utilities': 3.2.1_react@18.2.0
+      react: 18.2.0
+      tslib: 2.4.1
+    dev: false
+
+  /@dnd-kit/utilities/3.2.1_react@18.2.0:
+    resolution: {integrity: sha512-OOXqISfvBw/1REtkSK2N3Fi2EQiLMlWUlqnOK/UpOISqBZPWpE6TqL+jcPtMOkE8TqYGiURvRdPSI9hltNUjEA==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.2.0
+      tslib: 2.4.1
+    dev: false
 
   /@egjs/hammerjs/2.0.17:
     resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
@@ -8262,7 +8309,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.0.4_sass@1.57.1
+      vite: 4.0.4_@types+node@18.11.18
     transitivePeerDependencies:
       - supports-color
 
@@ -20740,7 +20787,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.0.4_sass@1.57.1
+      vite: 4.0.4_@types+node@18.11.18
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20836,7 +20883,6 @@ packages:
       rollup: 3.10.0
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite/4.0.4_ovmyjmuuyckt3r3gpaexj2onji:
     resolution: {integrity: sha512-xevPU7M8FU0i/80DMR+YhgrzR5KS2ORy1B4xcX/cXLsvnUWvfHuqMmVU6N0YiJ4JWGRJJsLCgjEzKjG9/GKoSw==}
@@ -20904,6 +20950,7 @@ packages:
       sass: 1.57.1
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}

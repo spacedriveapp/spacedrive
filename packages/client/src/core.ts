@@ -72,7 +72,8 @@ export type Procedures = {
         { key: "tags.assign", input: LibraryArgs<TagAssignArgs>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
+        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
+        { key: "tags.updatePosition", input: LibraryArgs<Array<TagPosition>>, result: null },
     subscriptions: 
         { key: "invalidateQuery", input: never, result: InvalidateOperationEvent } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string }
@@ -180,11 +181,13 @@ export interface StoredKey { uuid: string, version: StoredKeyVersion, algorithm:
 
 export type StoredKeyVersion = "V1"
 
-export interface Tag { id: number, pub_id: Array<number>, name: string | null, color: string | null, total_objects: number | null, redundancy_goal: number | null, date_created: string, date_modified: string }
+export interface Tag { id: number, pub_id: Array<number>, name: string | null, color: string | null, total_objects: number | null, redundancy_goal: number | null, position: number, date_created: string, date_modified: string }
 
 export interface TagAssignArgs { object_id: number, tag_id: number, unassign: boolean }
 
 export interface TagCreateArgs { name: string, color: string }
+
+export interface TagPosition { id: number, position: number }
 
 export interface TagUpdateArgs { id: number, name: string | null, color: string | null }
 

@@ -271,6 +271,7 @@ model Tag {
     color           String?
     total_objects   Int?     @default(0)
     redundancy_goal Int?     @default(1)
+    position        Int
     date_created    DateTime @default(now())
     date_modified   DateTime @default(now())
 
