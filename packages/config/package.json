@@ -4,7 +4,7 @@
 	"license": "GPL-3.0-only",
 	"exports": {
 		"./*": "./*",
-		"./vite": "./vite.js"
+		"./vite": "./vite/index.js"
 	},
 	"files": [
 		"eslint-react.js"
