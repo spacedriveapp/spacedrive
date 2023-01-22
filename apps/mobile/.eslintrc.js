@@ -1,5 +1,5 @@
 module.exports = {
-	...require('@sd/config/eslint-react-native.js'),
+	extends: [require.resolve('@sd/config/eslint/reactNative.js')],
 	parserOptions: {
 		tsconfigRootDir: __dirname,
 		project: './tsconfig.json'

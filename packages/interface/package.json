@@ -13,7 +13,7 @@
 	},
 	"scripts": {
 		"icons": "./scripts/generateSvgImports.mjs",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
+		"lint": "eslint src",
 		"typecheck": "tsc -b",
 		"build": "tsc"
 	},
@@ -65,6 +65,7 @@
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",
+		"eslint-config-sd": "workspace:*",
 		"@types/babel-core": "^6.25.7",
 		"@types/byte-size": "^8.1.0",
 		"@types/loadable__component": "^5.13.4",

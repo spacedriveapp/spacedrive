@@ -388,10 +388,11 @@ importers:
 
   packages/config:
     specifiers:
-      '@typescript-eslint/eslint-plugin': ^5.39.0
-      '@typescript-eslint/parser': ^5.39.0
+      '@typescript-eslint/eslint-plugin': ^5.48.2
+      '@typescript-eslint/parser': ^5.48.2
       eslint: ^8.24.0
       eslint-config-prettier: ^8.5.0
+      eslint-config-turbo: ^0.0.7
       eslint-plugin-react: ^7.31.8
       eslint-plugin-react-hooks: ^4.6.0
     devDependencies:
@@ -399,6 +400,7 @@ importers:
       '@typescript-eslint/parser': 5.48.2_eslint@8.32.0
       eslint: 8.32.0
       eslint-config-prettier: 8.6.0_eslint@8.32.0
+      eslint-config-turbo: 0.0.7_eslint@8.32.0
       eslint-plugin-react: 7.32.1_eslint@8.32.0
       eslint-plugin-react-hooks: 4.6.0_eslint@8.32.0
 
@@ -440,6 +442,7 @@ importers:
       clsx: ^1.2.1
       crypto-random-string: ^5.0.0
       dayjs: ^1.11.5
+      eslint-config-sd: workspace:*
       phosphor-react: ^1.4.1
       prettier: ^2.7.1
       react: ^18.2.0
@@ -489,6 +492,7 @@ importers:
       clsx: 1.2.1
       crypto-random-string: 5.0.0
       dayjs: 1.11.7
+      eslint-config-sd: link:../eslint
       phosphor-react: 1.4.1_react@18.2.0
       react: 18.2.0
       react-colorful: 5.6.1_biqbaboplfbrettd7655fr4n2y
@@ -8262,7 +8266,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 4.0.4_sass@1.57.1
+      vite: 4.0.4_@types+node@18.11.18
     transitivePeerDependencies:
       - supports-color
 
@@ -11607,6 +11611,15 @@ packages:
       eslint: 8.32.0
     dev: true
 
+  /eslint-config-turbo/0.0.7_eslint@8.32.0:
+    resolution: {integrity: sha512-WbrGlyfs94rOXrhombi1wjIAYGdV2iosgJRndOZtmDQeq5GLTzYmBUCJQZWtLBEBUPCj96RxZ2OL7Cn+xv/Azg==}
+    peerDependencies:
+      eslint: '>6.6.0'
+    dependencies:
+      eslint: 8.32.0
+      eslint-plugin-turbo: 0.0.7_eslint@8.32.0
+    dev: true
+
   /eslint-plugin-react-hooks/4.6.0_eslint@8.32.0:
     resolution: {integrity: sha512-oFc7Itz9Qxh2x4gNHStv3BqJq54ExXmfC+a1NjAta66IAN87Wu0R/QArgIS9qKzX3dXKPI9H5crl9QchNMY9+g==}
     engines: {node: '>=10'}
@@ -11653,6 +11666,14 @@ packages:
       resolve: 2.0.0-next.4
       semver: 6.3.0
       string.prototype.matchall: 4.0.8
+    dev: true
+
+  /eslint-plugin-turbo/0.0.7_eslint@8.32.0:
+    resolution: {integrity: sha512-iajOH8eD4jha3duztGVBD1BEmvNrQBaA/y3HFHf91vMDRYRwH7BpHSDFtxydDpk5ghlhRxG299SFxz7D6z4MBQ==}
+    peerDependencies:
+      eslint: '>6.6.0'
+    dependencies:
+      eslint: 8.32.0
     dev: true
 
   /eslint-scope/4.0.3:
@@ -20740,7 +20761,7 @@ packages:
     dependencies:
       '@rollup/pluginutils': 5.0.2
       '@svgr/core': 6.5.1
-      vite: 4.0.4_sass@1.57.1
+      vite: 4.0.4_@types+node@18.11.18
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20836,7 +20857,6 @@ packages:
       rollup: 3.10.0
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
 
   /vite/4.0.4_ovmyjmuuyckt3r3gpaexj2onji:
     resolution: {integrity: sha512-xevPU7M8FU0i/80DMR+YhgrzR5KS2ORy1B4xcX/cXLsvnUWvfHuqMmVU6N0YiJ4JWGRJJsLCgjEzKjG9/GKoSw==}
@@ -20904,6 +20924,7 @@ packages:
       sass: 1.57.1
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
 
   /vlq/1.0.1:
     resolution: {integrity: sha512-gQpnTgkubC6hQgdIcRdYGDSDc+SaujOdyesZQMv6JlfQee/9Mp0Qhnys6WxDWvQnL5WZdT7o2Ul187aSt0Rq+w==}
