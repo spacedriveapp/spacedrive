@@ -3,11 +3,9 @@ import dayjs from 'dayjs';
 import {
 	ArrowsClockwise,
 	Camera,
-	DotsThree,
 	Eye,
 	Fingerprint,
 	Folder,
-	IconProps,
 	LockSimple,
 	LockSimpleOpen,
 	Pause,
@@ -16,9 +14,8 @@ import {
 	TrashSimple,
 	X
 } from 'phosphor-react';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { JobReport } from '@sd/client';
-import { Button, CategoryHeading, tw } from '@sd/ui';
+import { JobReport, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Button, CategoryHeading, tw, useOverlayPanelContext } from '@sd/ui';
 import ProgressBar from '../primitive/ProgressBar';
 import { Tooltip } from '../tooltip/Tooltip';
 
@@ -92,6 +89,8 @@ export function JobsManager() {
 	const jobs = useLibraryQuery(['jobs.getHistory']);
 	const clearAllJobs = useLibraryMutation(['jobs.clearAll']);
 
+	const overlayPanelContext = useOverlayPanelContext();
+
 	return (
 		<div className="h-full pb-10 overflow-hidden">
 			<HeaderContainer>
@@ -103,7 +102,7 @@ export function JobsManager() {
 						<Trash className="w-5 h-5" />
 					</Tooltip>
 				</Button>
-				<Button size="icon">
+				<Button size="icon" onClick={overlayPanelContext?.close}>
 					<Tooltip label="Close">
 						<X className="w-5 h-5" />
 					</Tooltip>
