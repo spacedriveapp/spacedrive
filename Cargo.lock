@@ -5478,14 +5478,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-core-android"
+version = "0.1.0"
+dependencies = [
+ "jni",
+ "sd-core-mobile",
+ "tracing",
+]
+
+[[package]]
+name = "sd-core-ios"
+version = "0.1.0"
+dependencies = [
+ "objc",
+ "objc-foundation",
+ "objc_id",
+ "sd-core-mobile",
+]
+
+[[package]]
 name = "sd-core-mobile"
 version = "0.1.0"
 dependencies = [
  "futures",
- "jni",
- "objc",
- "objc-foundation",
- "objc_id",
  "once_cell",
  "openssl",
  "openssl-sys",
