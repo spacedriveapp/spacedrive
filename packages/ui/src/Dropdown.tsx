@@ -45,15 +45,18 @@ export const Item = ({ to, className, icon: Icon, children, ...props }: Dropdown
 			<span className="text-left">{children}</span>
 		</>
 	);
-
-	return to ? (
-		<Link {...props} to={to} className={clsx(itemStyles(props), className)}>
-			{content}
-		</Link>
-	) : (
-		<button {...props} className={clsx(itemStyles(props), className)}>
-			{content}
-		</button>
+	return (
+		<Menu.Item>
+			{to ? (
+				<Link {...props} to={to} className={clsx(itemStyles(props), className)}>
+					{content}
+				</Link>
+			) : (
+				<button {...props} className={clsx(itemStyles(props), className)}>
+					{content}
+				</button>
+			)}
+		</Menu.Item>
 	);
 };
 
