@@ -1,4 +1,5 @@
 declare global {
+	// eslint-disable-next-line
 	var isDev: boolean;
 }
 

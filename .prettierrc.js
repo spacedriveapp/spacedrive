@@ -1,5 +1,7 @@
+/**
+ * {@type require('prettier').Config}
+ */
 module.exports = {
-	pluginSearchDirs: ['.'],
 	useTabs: true,
 	printWidth: 100,
 	singleQuote: true,
@@ -18,5 +20,7 @@ module.exports = {
 		'^\\.'
 	],
 	importOrderSortSpecifiers: true,
+	importOrderParserPlugins: ['importAssertions', 'typescript', 'jsx'],
+	pluginSearchDirs: ['.'],
 	plugins: ['@trivago/prettier-plugin-sort-imports']
 };

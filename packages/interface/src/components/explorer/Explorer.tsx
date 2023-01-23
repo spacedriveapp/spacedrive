@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ExplorerData, rspc, useCurrentLibrary } from '@sd/client';
 import { useExplorerStore } from '~/hooks/useExplorerStore';
 import { Inspector } from '../explorer/Inspector';
@@ -32,50 +32,50 @@ export default function Explorer(props: Props) {
 		}
 	});
 
-	return (
-		<>
-			<div className="relative">
-				<ExplorerContextMenu>
-					<div className="relative flex flex-col w-full">
-						<TopBar showSeparator={separateTopBar} />
+	const onScroll = useCallback((y: number) => {
+		setScrollSegments((old) => {
+			return {
+				...old,
+				mainList: y
+			};
+		});
+	}, []);
 
-						<div className="relative flex flex-row w-full max-h-full app-background">
-							{props.data && (
-								<VirtualizedList
-									data={props.data.items || []}
-									context={props.data.context}
-									onScroll={(y) => {
+	return (
+		<div className="relative">
+			<ExplorerContextMenu>
+				<div className="relative flex flex-col w-full">
+					<TopBar showSeparator={separateTopBar} />
+
+					<div className="relative flex flex-row w-full max-h-full app-background">
+						{props.data && (
+							<VirtualizedList
+								data={props.data.items}
+								context={props.data.context}
+								onScroll={onScroll}
+							/>
+						)}
+						{expStore.showInspector && (
+							<div className="flex min-w-[260px] max-w-[260px]">
+								<Inspector
+									onScroll={(e) => {
+										const y = (e.target as HTMLElement).scrollTop;
+
 										setScrollSegments((old) => {
 											return {
 												...old,
-												mainList: y
+												inspector: y
 											};
 										});
 									}}
+									key={props.data?.items[expStore.selectedRowIndex]?.id}
+									data={props.data?.items[expStore.selectedRowIndex]}
 								/>
-							)}
-							{expStore.showInspector && (
-								<div className="flex min-w-[260px] max-w-[260px]">
-									<Inspector
-										onScroll={(e) => {
-											const y = (e.target as HTMLElement).scrollTop;
-
-											setScrollSegments((old) => {
-												return {
-													...old,
-													inspector: y
-												};
-											});
-										}}
-										key={props.data?.items[expStore.selectedRowIndex]?.id}
-										data={props.data?.items[expStore.selectedRowIndex]}
-									/>
-								</div>
-							)}
-						</div>
+							</div>
+						)}
 					</div>
-				</ExplorerContextMenu>
-			</div>
-		</>
+				</div>
+			</ExplorerContextMenu>
+		</div>
 	);
 }
