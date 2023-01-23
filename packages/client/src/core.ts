@@ -112,7 +112,7 @@ export interface FileEncryptorJobInit { location_id: number, path_id: number, ke
 
 export interface FileEraserJobInit { location_id: number, path_id: number, passes: number }
 
-export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
+export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, pending: boolean, date_created: string, date_modified: string, date_indexed: string }
 
 export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
