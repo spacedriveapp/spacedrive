@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import {
 	ArrowsClockwise,
 	Camera,
+	Copy,
 	DotsThree,
 	Eye,
 	Fingerprint,
@@ -12,6 +13,7 @@ import {
 	LockSimpleOpen,
 	Pause,
 	Question,
+	Scissors,
 	Trash,
 	TrashSimple,
 	X
@@ -69,6 +71,18 @@ const getNiceData = (job: JobReport): Record<string, JobNiceData> => ({
 			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
 		}`,
 		icon: Trash
+	},
+	file_copier: {
+		name: `Copied ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: Copy
+	},
+	file_cutter: {
+		name: `Moved ${numberWithCommas(job.task_count)} ${
+			job.task_count > 1 || job.task_count === 0 ? 'files' : 'file'
+		}`,
+		icon: Scissors
 	}
 });
 
