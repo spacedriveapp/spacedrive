@@ -3,16 +3,18 @@
 	"version": "0.0.0",
 	"license": "GPL-3.0-only",
 	"exports": {
+		"./*": "./*",
 		"./vite": "./vite/index.js"
 	},
 	"files": [
 		"eslint-react.js"
 	],
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^5.39.0",
-		"@typescript-eslint/parser": "^5.39.0",
+		"@typescript-eslint/eslint-plugin": "^5.48.2",
+		"@typescript-eslint/parser": "^5.48.2",
 		"eslint": "^8.24.0",
 		"eslint-config-prettier": "^8.5.0",
+		"eslint-config-turbo": "^0.0.7",
 		"eslint-plugin-react": "^7.31.8",
 		"eslint-plugin-react-hooks": "^4.6.0"
 	}

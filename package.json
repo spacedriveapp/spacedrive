@@ -22,6 +22,7 @@
 		"prisma": "cd core && cargo prisma",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
 		"typecheck": "turbo run typecheck",
+		"lint": "turbo run lint",
 		"clean": "rimraf node_modules/ **/node_modules/ target/ **/.build/ **/.next/ **/dist/**"
 	},
 	"pnpm": {

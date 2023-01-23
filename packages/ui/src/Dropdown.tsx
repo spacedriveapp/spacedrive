@@ -39,7 +39,7 @@ type DropdownItemProps =
 			VariantProps<typeof itemStyles>;
 
 export const Item = ({ to, className, icon: Icon, children, ...props }: DropdownItemProps) => {
-	let content = (
+	const content = (
 		<>
 			{Icon && <Icon weight="bold" className={itemIconStyles(props)} />}
 			<span className="text-left">{children}</span>

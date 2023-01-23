@@ -7,7 +7,7 @@ import { useZodForm, z } from '@sd/ui/src/forms';
 import { getHashingAlgorithmString } from '~/screens/settings/library/KeysSetting';
 import { SelectOptionKeyList } from '../key/KeyList';
 
-interface KeyViewerDialogProps extends UseDialogProps {}
+type KeyViewerDialogProps = UseDialogProps;
 
 export const KeyUpdater = (props: {
 	uuid: string;
