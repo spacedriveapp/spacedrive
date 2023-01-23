@@ -21,7 +21,9 @@
 		"client": "pnpm --filter @sd/client -- ",
 		"prisma": "cd core && cargo prisma",
 		"codegen": "cargo test -p sd-core api::tests::test_and_export_rspc_bindings -- --exact",
-		"typecheck": "turbo run typecheck"
+		"typecheck": "turbo run typecheck",
+		"lint": "turbo run lint",
+		"clean": "rimraf node_modules/ **/node_modules/ target/ **/.build/ **/.next/ **/dist/**"
 	},
 	"pnpm": {
 		"overrides": {
@@ -29,17 +31,19 @@
 		}
 	},
 	"devDependencies": {
+		"@babel/plugin-syntax-import-assertions": "^7.20.0",
 		"@cspell/dict-rust": "^2.0.1",
 		"@cspell/dict-typescript": "^2.0.2",
 		"@evilmartians/lefthook": "^1.1.1",
-		"@trivago/prettier-plugin-sort-imports": "^3.3.0",
+		"@trivago/prettier-plugin-sort-imports": "^3.4.0",
 		"cspell": "^6.12.0",
 		"lint-staged": "^13.1.0",
 		"markdown-link-check": "^3.10.3",
-		"prettier": "^2.7.1",
+		"prettier": "^2.8.3",
+		"rimraf": "^4.1.1",
 		"turbo": "^1.5.5",
 		"turbo-ignore": "^0.3.0",
-		"typescript": "^4.8.4"
+		"typescript": "^4.9.4"
 	},
 	"overrides": {
 		"vite-plugin-svgr": "https://github.com/spacedriveapp/vite-plugin-svgr#cb4195b69849429cdb18d1f12381676bf9196a84",

@@ -20,7 +20,7 @@ const schema = z.object({
 	hashing_algorithm: z.string()
 });
 
-interface Props extends UseDialogProps {}
+type Props = UseDialogProps;
 
 export default function CreateLibraryDialog(props: Props) {
 	const dialog = useDialog(props);
