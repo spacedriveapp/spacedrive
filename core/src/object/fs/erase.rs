@@ -29,7 +29,7 @@ pub struct FileEraserJobStep {
 	pub fs_info: FsInfo,
 }
 
-const JOB_NAME: &str = "file_eraser";
+pub const ERASE_JOB_NAME: &str = "file_eraser";
 
 #[async_trait::async_trait]
 impl StatefulJob for FileEraserJob {
@@ -38,7 +38,7 @@ impl StatefulJob for FileEraserJob {
 	type Step = FileEraserJobStep;
 
 	fn name(&self) -> &'static str {
-		JOB_NAME
+		ERASE_JOB_NAME
 	}
 
 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
