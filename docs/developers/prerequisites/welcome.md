@@ -7,3 +7,5 @@ index: 0
 ```rust
 pub struct DeveloperDocumentation;
 ```
+
+This documentation is a work in progress, you will find unfinished or empty sections.
