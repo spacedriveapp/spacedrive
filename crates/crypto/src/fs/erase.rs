@@ -1,7 +1,7 @@
+use crate::{primitives::BLOCK_SIZE, Result};
+
 use rand::{RngCore, SeedableRng};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-
-use crate::{primitives::BLOCK_SIZE, Result};
 
 /// This is used for erasing a file.
 ///
@@ -16,7 +16,7 @@ use crate::{primitives::BLOCK_SIZE, Result};
 /// This also does not factor in temporary files, caching, thumbnails, etc.
 pub async fn erase<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<()>
 where
-	RW: AsyncReadExt + AsyncWriteExt + AsyncSeekExt + Unpin,
+	RW: AsyncReadExt + AsyncWriteExt + AsyncSeekExt + Unpin + Send,
 {
 	let block_count = size / BLOCK_SIZE;
 	let additional = size % BLOCK_SIZE;
