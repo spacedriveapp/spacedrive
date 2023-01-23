@@ -111,7 +111,7 @@ export interface FileEncryptorJobInit { location_id: number, path_id: number, ke
 
 export interface FileEraserJobInit { location_id: number, path_id: number, passes: number }
 
-export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, pending: boolean, date_created: string, date_modified: string, date_indexed: string }
+export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
 
 export interface GenerateThumbsForLocationArgs { id: number, path: string }
 
@@ -197,6 +197,6 @@ export interface TagUpdateArgs { id: number, name: string | null, color: string 
 
 export interface Volume { name: string, mount_point: string, total_capacity: bigint, available_capacity: bigint, is_removable: boolean, disk_type: string | null, file_system: string | null, is_root_filesystem: boolean }
 
-export interface FilePathWithObject { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, pending: boolean, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
+export interface FilePathWithObject { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string, object: Object | null }
 
 export interface ObjectWithFilePaths { id: number, cas_id: string, integrity_checksum: string | null, name: string | null, extension: string | null, kind: number, size_in_bytes: string, key_id: number | null, hidden: boolean, favorite: boolean, important: boolean, has_thumbnail: boolean, has_thumbstrip: boolean, has_video_preview: boolean, ipfs_id: string | null, note: string | null, date_created: string, date_modified: string, date_indexed: string, file_paths: Array<FilePath> }
