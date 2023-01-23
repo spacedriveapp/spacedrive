@@ -1,11 +1,11 @@
-import { Github } from '@icons-pack/react-simple-icons';
 import { ReactComponent as Alert } from '@sd/assets/svgs/alert.svg';
 import { ReactComponent as Info } from '@sd/assets/svgs/info.svg';
 import { ReactComponent as Spinner } from '@sd/assets/svgs/spinner.svg';
-import { Button, Input } from '@sd/ui';
+import { Github } from '@icons-pack/react-simple-icons';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Button, Input } from '@sd/ui';
 
 interface WaitlistInputs {
 	email: string;

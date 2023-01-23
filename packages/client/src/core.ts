@@ -11,6 +11,7 @@ export type Procedures = {
         { key: "keys.getDefault", input: LibraryArgs<null>, result: string | null } | 
         { key: "keys.getKey", input: LibraryArgs<string>, result: string } | 
         { key: "keys.hasMasterPassword", input: LibraryArgs<null>, result: boolean } | 
+        { key: "keys.isKeyManagerUnlocking", input: LibraryArgs<null>, result: boolean } | 
         { key: "keys.list", input: LibraryArgs<null>, result: Array<StoredKey> } | 
         { key: "keys.listMounted", input: LibraryArgs<null>, result: Array<string> } | 
         { key: "library.getStatistics", input: LibraryArgs<null>, result: Statistics } | 
@@ -32,9 +33,14 @@ export type Procedures = {
         { key: "tags.list", input: LibraryArgs<null>, result: Array<Tag> } | 
         { key: "volumes.list", input: never, result: Array<Volume> },
     mutations: 
+        { key: "files.copyFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
+        { key: "files.cutFiles", input: LibraryArgs<FileCutterJobInit>, result: null } | 
         { key: "files.decryptFiles", input: LibraryArgs<FileDecryptorJobInit>, result: null } | 
         { key: "files.delete", input: LibraryArgs<number>, result: null } | 
+        { key: "files.deleteFiles", input: LibraryArgs<FileDeleterJobInit>, result: null } | 
+        { key: "files.duplicateFiles", input: LibraryArgs<FileCopierJobInit>, result: null } | 
         { key: "files.encryptFiles", input: LibraryArgs<FileEncryptorJobInit>, result: null } | 
+        { key: "files.eraseFiles", input: LibraryArgs<FileEraserJobInit>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
         { key: "files.setNote", input: LibraryArgs<SetNoteArgs>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
@@ -94,11 +100,19 @@ export interface ExplorerData { context: ExplorerContext, items: Array<ExplorerI
 
 export type ExplorerItem = { type: "Path" } & FilePathWithObject | { type: "Object" } & ObjectWithFilePaths
 
+export interface FileCopierJobInit { source_location_id: number, source_path_id: number, target_location_id: number, target_path: string, target_file_name_suffix: string | null }
+
+export interface FileCutterJobInit { source_location_id: number, source_path_id: number, target_location_id: number, target_path: string }
+
 export interface FileDecryptorJobInit { location_id: number, path_id: number, output_path: string | null, password: string | null, save_to_library: boolean | null }
+
+export interface FileDeleterJobInit { location_id: number, path_id: number }
 
 export interface FileEncryptorJobInit { location_id: number, path_id: number, key_uuid: string, algorithm: Algorithm, metadata: boolean, preview_media: boolean, output_path: string | null }
 
-export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, pending: boolean, date_created: string, date_modified: string, date_indexed: string }
+export interface FileEraserJobInit { location_id: number, path_id: number, passes: number }
+
+export interface FilePath { id: number, is_dir: boolean, location_id: number, materialized_path: string, name: string, extension: string | null, object_id: number | null, parent_id: number | null, key_id: number | null, date_created: string, date_modified: string, date_indexed: string }
 
 export interface GenerateThumbsForLocationArgs { id: number, path: string }
 

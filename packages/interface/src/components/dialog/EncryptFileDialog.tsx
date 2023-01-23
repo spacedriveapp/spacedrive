@@ -1,19 +1,14 @@
 import { Algorithm, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { Button, Dialog, Select, SelectOption } from '@sd/ui';
+import { Button, Dialog, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
+import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
 import { getHashingAlgorithmString } from '~/screens/settings/library/KeysSetting';
 import { usePlatform } from '~/util/Platform';
-
+import { showAlertDialog } from '~/util/dialog';
 import { SelectOptionKeyList } from '../key/KeyList';
-import { GenericAlertDialogProps } from './AlertDialog';
 
-import { CheckBox, useZodForm, z } from '@sd/ui/src/forms';
-
-interface EncryptDialogProps {
-	open: boolean;
-	setOpen: (isShowing: boolean) => void;
-	location_id: number | null;
-	path_id: number | undefined;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
+interface EncryptDialogProps extends UseDialogProps {
+	location_id: number;
+	path_id: number;
 }
 
 const schema = z.object({
@@ -25,7 +20,8 @@ const schema = z.object({
 	outputPath: z.string()
 });
 
-export const EncryptFileDialog = (props: EncryptDialogProps) => {
+export const EncryptFileDialog = ({ ...props }: EncryptDialogProps) => {
+	const dialog = useDialog(props);
 	const platform = usePlatform();
 
 	const UpdateKey = (uuid: string) => {
@@ -45,8 +41,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 
 	const encryptFile = useLibraryMutation('files.encryptFiles', {
 		onSuccess: () => {
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Success',
 				value:
 					'The encryption job has started successfully. You may track the progress in the job overview panel.',
@@ -55,8 +50,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 			});
 		},
 		onError: () => {
-			props.setAlertDialogData({
-				open: true,
+			showAlertDialog({
 				title: 'Error',
 				value: 'The encryption job failed to start.',
 				inputBox: false,
@@ -69,30 +63,23 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 		schema
 	});
 
-	const onSubmit = form.handleSubmit((data) => {
-		props.setOpen(false);
-
-		props.location_id &&
-			props.path_id &&
-			encryptFile.mutate({
-				algorithm: data.encryptionAlgo as Algorithm,
-				key_uuid: data.key,
-				location_id: props.location_id,
-				path_id: props.path_id,
-				metadata: data.metadata,
-				preview_media: data.previewMedia,
-				output_path: data.outputPath || null
-			});
-
-		form.reset();
-	});
+	const onSubmit = form.handleSubmit((data) =>
+		encryptFile.mutateAsync({
+			algorithm: data.encryptionAlgo as Algorithm,
+			key_uuid: data.key,
+			location_id: props.location_id,
+			path_id: props.path_id,
+			metadata: data.metadata,
+			preview_media: data.previewMedia,
+			output_path: data.outputPath || null
+		})
+	);
 
 	return (
 		<Dialog
 			form={form}
 			onSubmit={onSubmit}
-			open={props.open}
-			setOpen={props.setOpen}
+			dialog={dialog}
 			title="Encrypt a file"
 			description="Configure your encryption settings. Leave the output file blank for the default."
 			loading={encryptFile.isLoading}
@@ -123,8 +110,7 @@ export const EncryptFileDialog = (props: EncryptDialogProps) => {
 							// if we allow the user to encrypt multiple files simultaneously, this should become a directory instead
 							if (!platform.saveFilePickerDialog) {
 								// TODO: Support opening locations on web
-								props.setAlertDialogData({
-									open: true,
+								showAlertDialog({
 									title: 'Error',
 									description: '',
 									value: "System dialogs aren't supported on this platform.",

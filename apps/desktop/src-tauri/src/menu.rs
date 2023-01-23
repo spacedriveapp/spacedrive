@@ -110,7 +110,7 @@ pub(crate) fn handle_menu_event(event: WindowMenuEvent<Wry>) {
 					.with_webview(|webview| {
 						use crate::macos::reload_webview;
 
-						reload_webview(webview.inner() as _);
+						unsafe { reload_webview(&(webview.inner() as _)) };
 					})
 					.unwrap();
 			}

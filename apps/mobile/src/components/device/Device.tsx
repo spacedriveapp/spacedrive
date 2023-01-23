@@ -1,8 +1,7 @@
-import { ExplorerItem } from '@sd/client';
 import { Cloud, Desktop, DeviceMobileCamera, Laptop, Lock } from 'phosphor-react-native';
 import { FlatList, Text, View } from 'react-native';
+import { ExplorerItem } from '@sd/client';
 import tw from '~/lib/tailwind';
-
 import FileItem from '../explorer/FileItem';
 
 const placeholderFileItems: ExplorerItem[] = [

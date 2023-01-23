@@ -1,6 +1,5 @@
-import { onLibraryChange } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
-
+import { onLibraryChange } from '@sd/client';
 import { resetStore } from '@sd/client/src/stores/util';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'columns' | 'media';
@@ -9,6 +8,11 @@ export enum ExplorerKind {
 	Location,
 	Tag,
 	Space
+}
+
+export enum CutCopyType {
+	Cut,
+	Copy
 }
 
 const state = {
@@ -22,7 +26,13 @@ const state = {
 	multiSelectIndexes: [] as number[],
 	contextMenuObjectId: null as number | null,
 	contextMenuActiveObject: null as object | null,
-	newThumbnails: {} as Record<string, boolean>
+	newThumbnails: {} as Record<string, boolean>,
+	cutCopyState: {
+		sourceLocationId: 0,
+		sourcePathId: 0,
+		actionType: CutCopyType.Cut,
+		active: false
+	}
 };
 
 onLibraryChange(() => getExplorerStore().reset());

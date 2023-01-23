@@ -1,9 +1,8 @@
-import { ExplorerItem } from '@sd/client';
 import { Image, View } from 'react-native';
 import { DocumentDirectoryPath } from 'react-native-fs';
+import { ExplorerItem } from '@sd/client';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { isObject, isPath } from '~/types/helper';
-
 // import icons from '../../assets/icons/file';
 import tw from '../../lib/tailwind';
 import FolderIcon from '../icons/FolderIcon';

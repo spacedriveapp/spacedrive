@@ -13,7 +13,6 @@ import {
 	ShieldCheck,
 	TagSimple
 } from 'phosphor-react';
-
 import { useOperatingSystem } from '../../hooks/useOperatingSystem';
 import { SidebarLink } from '../layout/Sidebar';
 import { SettingsHeading, SettingsIcon } from './SettingsHeader';

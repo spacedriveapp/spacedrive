@@ -1,6 +1,5 @@
 import { forwardRef } from 'react';
 import { useController } from 'react-hook-form';
-
 import * as Root from '../Switch';
 import { FormField, UseFormFieldProps, useFormField } from './FormField';
 

@@ -7,7 +7,7 @@ members = [
   # "crates/p2p/tunnel/utils",
   "apps/cli",
   "apps/desktop/src-tauri",
-  "apps/mobile/rust",
+  "apps/mobile/rust/*",
   "apps/server",
 ]
 
@@ -31,6 +31,8 @@ prisma-client-rust-sdk = { git = "https://github.com/Brendonovich/prisma-client-
 rspc = { version = "0.1.2" }
 normi = { version = "0.0.1" }
 specta = { version = "0.0.4" }
+
+swift-rs = { git = "https://github.com/Brendonovich/swift-rs.git", rev = "833e29ba333f1dfe303eaa21de78c4f8c5a3f2ff" }
 
 [patch.crates-io]
 # We use this patch so we can compile for the IOS simulator on M1

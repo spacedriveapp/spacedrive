@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useCurrentLibrary } from '~/../../../packages/client/src';
 import tw from '~/lib/tailwind';
-
 import { AnimatedHeight } from '../../components/animation/layout';
 import Divider from '../../components/primitive/Divider';
 import CreateLibraryDialog from '../dialog/CreateLibraryDialog';

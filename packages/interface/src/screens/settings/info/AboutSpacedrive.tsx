@@ -1,6 +1,5 @@
 import Logo from '@sd/assets/images/logo.png';
 import { useBridgeQuery } from '@sd/client';
-
 import { SettingsContainer } from '../../../components/settings/SettingsContainer';
 import { SettingsHeader } from '../../../components/settings/SettingsHeader';
 

@@ -1,7 +1,7 @@
-import { Tag, useLibraryQuery } from '@sd/client';
 import { CaretRight, Pen, Trash } from 'phosphor-react-native';
 import { Animated, FlatList, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Tag, useLibraryQuery } from '@sd/client';
 import { AnimatedButton } from '~/components/primitive/Button';
 import DeleteTagDialog from '~/containers/dialog/tag/DeleteTagDialog';
 import UpdateTagDialog from '~/containers/dialog/tag/UpdateTagDialog';

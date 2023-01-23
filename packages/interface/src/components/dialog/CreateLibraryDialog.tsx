@@ -1,12 +1,11 @@
-import { Algorithm, useBridgeMutation } from '@sd/client';
-import { Button, Dialog, Select, SelectOption } from '@sd/ui';
-import { forms } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import cryptoRandomString from 'crypto-random-string';
 import { ArrowsClockwise, Clipboard, Eye, EyeSlash } from 'phosphor-react';
-import { PropsWithChildren, useState } from 'react';
+import { useState } from 'react';
+import { Algorithm, useBridgeMutation } from '@sd/client';
+import { Button, Dialog, Select, SelectOption, UseDialogProps, useDialog } from '@sd/ui';
+import { forms } from '@sd/ui';
 import { getHashingAlgorithmSettings } from '~/screens/settings/library/KeysSetting';
-
 import { generatePassword } from '../key/KeyMounter';
 import { PasswordMeter } from '../key/PasswordMeter';
 
@@ -21,14 +20,10 @@ const schema = z.object({
 	hashing_algorithm: z.string()
 });
 
-interface Props {
-	onSubmit?: () => void;
-	open: boolean;
-	setOpen: (state: boolean) => void;
-}
+type Props = UseDialogProps;
 
-export default function CreateLibraryDialog(props: PropsWithChildren<Props>) {
-	const queryClient = useQueryClient();
+export default function CreateLibraryDialog(props: Props) {
+	const dialog = useDialog(props);
 
 	const form = useZodForm({
 		schema,
@@ -46,24 +41,20 @@ export default function CreateLibraryDialog(props: PropsWithChildren<Props>) {
 	const MP2CurrentEyeIcon = showMasterPassword2 ? EyeSlash : Eye;
 	const SKCurrentEyeIcon = showSecretKey ? EyeSlash : Eye;
 
+	const queryClient = useQueryClient();
 	const createLibrary = useBridgeMutation('library.create', {
 		onSuccess: (library) => {
 			queryClient.setQueryData(['library.list'], (libraries: any) => [
 				...(libraries || []),
 				library
 			]);
-
-			props.onSubmit?.();
-			props.setOpen(false);
-
-			form.reset();
 		},
 		onError: (err: any) => {
 			console.error(err);
 		}
 	});
 
-	const _onSubmit = form.handleSubmit(async (data) => {
+	const onSubmit = form.handleSubmit(async (data) => {
 		if (data.password !== data.password_validate) {
 			alert('Passwords are not the same');
 		} else {
@@ -78,14 +69,12 @@ export default function CreateLibraryDialog(props: PropsWithChildren<Props>) {
 	return (
 		<Dialog
 			form={form}
-			onSubmit={_onSubmit}
-			open={props.open}
-			setOpen={props.setOpen}
+			onSubmit={onSubmit}
+			dialog={dialog}
 			title="Create New Library"
 			description="Choose a name for your new library, you can configure this and more settings from the library settings later on."
 			submitDisabled={!form.formState.isValid}
 			ctaLabel="Create"
-			trigger={props.children}
 		>
 			<div className="relative flex flex-col">
 				<p className="text-sm mt-2 mb-2 font-bold">Library name</p>

@@ -154,6 +154,7 @@ pub(crate) fn mount() -> RouterBuilder {
 				library.key_manager.set_master_password(
 					Protected::new(args.password),
 					args.secret_key.map(Protected::new),
+					|| invalidate_query!(library, "keys.isKeyManagerUnlocking"),
 				)?;
 
 				invalidate_query!(library, "keys.hasMasterPassword");
@@ -207,6 +208,9 @@ pub(crate) fn mount() -> RouterBuilder {
 		.library_query("getDefault", |t| {
 			t(|_, _: (), library| async move { library.key_manager.get_default().ok() })
 		})
+		.library_query("isKeyManagerUnlocking", |t| {
+			t(|_, _: (), library| async move { library.key_manager.is_queued(Uuid::nil()) })
+		})
 		.library_mutation("unmountAll", |t| {
 			t(|_, _: (), library| async move {
 				library.key_manager.empty_keymount();
@@ -244,7 +248,6 @@ pub(crate) fn mount() -> RouterBuilder {
 					}
 				}
 
-				// mount the key
 				library.key_manager.mount(uuid)?;
 
 				invalidate_query!(library, "keys.list");

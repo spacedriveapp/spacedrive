@@ -1,6 +1,5 @@
 import { PostOrPage, Tag } from '@tryghost/content-api';
 import { Helmet } from 'react-helmet';
-
 import { BlogTag } from '../../components/BlogTag';
 import { getWindow } from '../../utils';
 import { blogEnabled } from './blog';

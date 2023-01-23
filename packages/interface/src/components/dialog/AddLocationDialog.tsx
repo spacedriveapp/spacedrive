@@ -1,19 +1,14 @@
 import { useLibraryMutation } from '@sd/client';
-import { Dialog } from '@sd/ui';
-
+import { Dialog, UseDialogProps, useDialog } from '@sd/ui';
 import { Input, useZodForm, z } from '@sd/ui/src/forms';
 
 const schema = z.object({ path: z.string() });
 
-interface Props {
-	open: boolean;
-	setOpen: (state: boolean) => void;
-}
+type Props = UseDialogProps;
 
-export default function AddLocationDialog({ open, setOpen }: Props) {
-	const createLocation = useLibraryMutation('locations.create', {
-		onSuccess: () => setOpen(false)
-	});
+export default function AddLocationDialog(props: Props) {
+	const dialog = useDialog(props);
+	const createLocation = useLibraryMutation('locations.create');
 
 	const form = useZodForm({
 		schema,
@@ -25,20 +20,16 @@ export default function AddLocationDialog({ open, setOpen }: Props) {
 
 	return (
 		<Dialog
-			form={form}
-			onSubmit={form.handleSubmit(async ({ path }) => {
-				await createLocation.mutateAsync({
+			{...{ dialog, form }}
+			onSubmit={form.handleSubmit(({ path }) =>
+				createLocation.mutateAsync({
 					path,
 					indexer_rules_ids: []
-				});
-			})}
-			open={open}
-			setOpen={setOpen}
+				})
+			)}
 			title="Add Location URL"
 			description="As you are using the browser version of Spacedrive you will (for now) need to specify an absolute URL of a directory local to the remote node."
-			loading={createLocation.isLoading}
 			ctaLabel="Add"
-			trigger={null}
 		>
 			<Input
 				className="flex-grow w-full mt-3"

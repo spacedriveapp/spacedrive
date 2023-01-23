@@ -1,6 +1,6 @@
-import { useBridgeQuery } from '@sd/client';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { useBridgeQuery } from '@sd/client';
 import Card from '~/components/layout/Card';
 import Divider from '~/components/primitive/Divider';
 import { Input } from '~/components/primitive/Input';

@@ -1,6 +1,6 @@
-import { Button } from '@sd/ui';
 import { captureException } from '@sentry/browser';
 import { FallbackProps } from 'react-error-boundary';
+import { Button } from '@sd/ui';
 
 export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 	const onClick = () => {

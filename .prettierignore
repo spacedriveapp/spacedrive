@@ -1,2 +1,12 @@
-/target
-.build
+# built product/cache
+target/
+dist/
+# macOS/iOS product/cache
+.build/
+Pods/
+# just in case it tries to parse for some reason
+*.rs
+# we plainly don't need a lockfile to look nice
+pnpm-lock.yaml
+# codegen from rspc -- not supposed to look nice
+/packages/client/src/core.ts

@@ -1,13 +1,15 @@
-import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { ContextMenu as CM } from '@sd/ui';
 import {
 	ArrowBendUpRight,
+	Clipboard,
+	Copy,
+	FileX,
 	Image,
 	LockSimple,
 	LockSimpleOpen,
 	Package,
 	Plus,
 	Repeat,
+	Scissors,
 	Share,
 	ShieldCheck,
 	TagSimple,
@@ -15,11 +17,18 @@ import {
 	TrashSimple
 } from 'phosphor-react';
 import { PropsWithChildren, useMemo } from 'react';
-
-import { getExplorerStore } from '../../hooks/useExplorerStore';
-import { useOperatingSystem } from '../../hooks/useOperatingSystem';
-import { usePlatform } from '../../util/Platform';
-import { GenericAlertDialogProps } from '../dialog/AlertDialog';
+import { ExplorerItem, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { ContextMenu as CM } from '@sd/ui';
+import { dialogManager } from '@sd/ui';
+import { CutCopyType, getExplorerStore, useExplorerStore } from '~/hooks/useExplorerStore';
+import { useOperatingSystem } from '~/hooks/useOperatingSystem';
+import { useExplorerParams } from '~/screens/LocationExplorer';
+import { usePlatform } from '~/util/Platform';
+import { showAlertDialog } from '~/util/dialog';
+import { DecryptFileDialog } from '../dialog/DecryptFileDialog';
+import { DeleteFileDialog } from '../dialog/DeleteFileDialog';
+import { EncryptFileDialog } from '../dialog/EncryptFileDialog';
+import { EraseFileDialog } from '../dialog/EraseFileDialog';
 import { isObject } from './utils';
 
 const AssignTagMenuItems = (props: { objectId: number }) => {
@@ -64,7 +73,6 @@ const AssignTagMenuItems = (props: { objectId: number }) => {
 
 function OpenInNativeExplorer() {
 	const platform = usePlatform();
-	const store = getExplorerStore();
 	const os = useOperatingSystem();
 
 	const osFileBrowserName = useMemo(() => {
@@ -93,11 +101,14 @@ function OpenInNativeExplorer() {
 }
 
 export function ExplorerContextMenu(props: PropsWithChildren) {
-	const store = getExplorerStore();
+	const store = useExplorerStore();
+	const params = useExplorerParams();
 
 	const generateThumbsForLocation = useLibraryMutation('jobs.generateThumbsForLocation');
 	const objectValidator = useLibraryMutation('jobs.objectValidator');
 	const rescanLocation = useLibraryMutation('locations.fullRescan');
+	const copyFiles = useLibraryMutation('files.copyFiles');
+	const cutFiles = useLibraryMutation('files.cutFiles');
 
 	return (
 		<div className="relative">
@@ -128,6 +139,45 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 					icon={Repeat}
 				/>
 
+				<CM.Item
+					label="Paste"
+					keybind="⌘V"
+					hidden={!store.cutCopyState.active}
+					onClick={(e) => {
+						if (store.cutCopyState.actionType == CutCopyType.Copy) {
+							store.locationId &&
+								copyFiles.mutate({
+									source_location_id: store.cutCopyState.sourceLocationId,
+									source_path_id: store.cutCopyState.sourcePathId,
+									target_location_id: store.locationId,
+									target_path: params.path,
+									target_file_name_suffix: null
+								});
+						} else {
+							store.locationId &&
+								cutFiles.mutate({
+									source_location_id: store.cutCopyState.sourceLocationId,
+									source_path_id: store.cutCopyState.sourcePathId,
+									target_location_id: store.locationId,
+									target_path: params.path
+								});
+						}
+					}}
+					icon={Clipboard}
+				/>
+
+				<CM.Item
+					label="Deselect"
+					hidden={!store.cutCopyState.active}
+					onClick={(e) => {
+						getExplorerStore().cutCopyState = {
+							...store.cutCopyState,
+							active: false
+						};
+					}}
+					icon={FileX}
+				/>
+
 				<CM.SubMenu label="More actions..." icon={Plus}>
 					<CM.Item
 						onClick={() =>
@@ -154,12 +204,11 @@ export function ExplorerContextMenu(props: PropsWithChildren) {
 
 export interface FileItemContextMenuProps extends PropsWithChildren {
 	item: ExplorerItem;
-	setShowEncryptDialog: (isShowing: boolean) => void;
-	setShowDecryptDialog: (isShowing: boolean) => void;
-	setAlertDialogData: (data: GenericAlertDialogProps) => void;
 }
 
-export function FileItemContextMenu(props: FileItemContextMenuProps) {
+export function FileItemContextMenu({ ...props }: FileItemContextMenuProps) {
+	const store = useExplorerStore();
+	const params = useExplorerParams();
 	const objectData = props.item ? (isObject(props.item) ? props.item : props.item.object) : null;
 
 	const hasMasterPasswordQuery = useLibraryQuery(['keys.hasMasterPassword']);
@@ -171,6 +220,8 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 	const mountedUuids = useLibraryQuery(['keys.listMounted']);
 	const hasMountedKeys =
 		mountedUuids.data !== undefined && mountedUuids.data.length > 0 ? true : false;
+
+	const copyFiles = useLibraryMutation('files.copyFiles');
 
 	return (
 		<div className="relative">
@@ -186,7 +237,59 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 				<CM.Separator />
 
 				<CM.Item label="Rename" />
-				<CM.Item label="Duplicate" keybind="⌘D" />
+				<CM.Item
+					label="Duplicate"
+					keybind="⌘D"
+					onClick={(e) => {
+						copyFiles.mutate({
+							source_location_id: store.locationId!,
+							source_path_id: props.item.id,
+							target_location_id: store.locationId!,
+							target_path: params.path,
+							target_file_name_suffix: ' - Clone'
+						});
+					}}
+				/>
+
+				<CM.Item
+					label="Cut"
+					keybind="⌘X"
+					onClick={(e) => {
+						getExplorerStore().cutCopyState = {
+							sourceLocationId: store.locationId!,
+							sourcePathId: props.item.id,
+							actionType: CutCopyType.Cut,
+							active: true
+						};
+					}}
+					icon={Scissors}
+				/>
+
+				<CM.Item
+					label="Copy"
+					keybind="⌘C"
+					onClick={(e) => {
+						getExplorerStore().cutCopyState = {
+							sourceLocationId: store.locationId!,
+							sourcePathId: props.item.id,
+							actionType: CutCopyType.Copy,
+							active: true
+						};
+					}}
+					icon={Copy}
+				/>
+
+				<CM.Item
+					label="Deselect"
+					hidden={!store.cutCopyState.active}
+					onClick={(e) => {
+						getExplorerStore().cutCopyState = {
+							...store.cutCopyState,
+							active: false
+						};
+					}}
+					icon={FileX}
+				/>
 
 				<CM.Separator />
 
@@ -217,22 +320,22 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 						keybind="⌘E"
 						onClick={() => {
 							if (hasMasterPassword && hasMountedKeys) {
-								props.setShowEncryptDialog(true);
+								dialogManager.create((dp) => (
+									<EncryptFileDialog
+										{...dp}
+										location_id={useExplorerStore().locationId!}
+										path_id={props.item.id}
+									/>
+								));
 							} else if (!hasMasterPassword) {
-								props.setAlertDialogData({
-									open: true,
+								showAlertDialog({
 									title: 'Key manager locked',
-									value: 'The key manager is currently locked. Please unlock it and try again.',
-									inputBox: false,
-									description: ''
+									value: 'The key manager is currently locked. Please unlock it and try again.'
 								});
 							} else if (!hasMountedKeys) {
-								props.setAlertDialogData({
-									open: true,
+								showAlertDialog({
 									title: 'No mounted keys',
-									description: '',
-									value: 'No mounted keys were found. Please mount a key and try again.',
-									inputBox: false
+									value: 'No mounted keys were found. Please mount a key and try again.'
 								});
 							}
 						}}
@@ -244,14 +347,17 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 						keybind="⌘D"
 						onClick={() => {
 							if (hasMasterPassword) {
-								props.setShowDecryptDialog(true);
+								dialogManager.create((dp) => (
+									<DecryptFileDialog
+										{...dp}
+										location_id={useExplorerStore().locationId!}
+										path_id={props.item.id}
+									/>
+								));
 							} else {
-								props.setAlertDialogData({
-									open: true,
+								showAlertDialog({
 									title: 'Key manager locked',
-									value: 'The key manager is currently locked. Please unlock it and try again.',
-									inputBox: false,
-									description: ''
+									value: 'The key manager is currently locked. Please unlock it and try again.'
 								});
 							}
 						}}
@@ -263,12 +369,39 @@ export function FileItemContextMenu(props: FileItemContextMenuProps) {
 					</CM.SubMenu>
 					<CM.Item label="Rescan Directory" icon={Package} />
 					<CM.Item label="Regen Thumbnails" icon={Package} />
-					<CM.Item variant="danger" label="Secure delete" icon={TrashSimple} />
+					<CM.Item
+						variant="danger"
+						label="Secure delete"
+						icon={TrashSimple}
+						onClick={() => {
+							dialogManager.create((dp) => (
+								<EraseFileDialog
+									{...dp}
+									location_id={getExplorerStore().locationId!}
+									path_id={props.item.id}
+								/>
+							));
+						}}
+					/>
 				</CM.SubMenu>
 
 				<CM.Separator />
 
-				<CM.Item icon={Trash} label="Delete" variant="danger" keybind="⌘DEL" />
+				<CM.Item
+					icon={Trash}
+					label="Delete"
+					variant="danger"
+					keybind="⌘DEL"
+					onClick={() => {
+						dialogManager.create((dp) => (
+							<DeleteFileDialog
+								{...dp}
+								location_id={getExplorerStore().locationId!}
+								path_id={props.item.id}
+							/>
+						));
+					}}
+				/>
 			</CM.ContextMenu>
 		</div>
 	);

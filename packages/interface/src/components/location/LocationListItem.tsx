@@ -1,14 +1,13 @@
-import { useLibraryMutation } from '@sd/client';
-import { Location, Node } from '@sd/client';
-import { Button, Card, Dialog } from '@sd/ui';
 import clsx from 'clsx';
 import { Repeat, Trash } from 'phosphor-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-
-import { Folder } from '../icons/Folder';
-
+import { useLibraryMutation } from '@sd/client';
+import { Location, Node } from '@sd/client';
+import { Button, Card, Dialog, UseDialogProps, dialogManager, useDialog } from '@sd/ui';
 import { useZodForm, z } from '@sd/ui/src/forms';
+import { Folder } from '../icons/Folder';
+import { Tooltip } from '../tooltip/Tooltip';
 
 interface LocationListItemProps {
 	location: Location & { node: Node };
@@ -17,20 +16,8 @@ interface LocationListItemProps {
 export default function LocationListItem({ location }: LocationListItemProps) {
 	const navigate = useNavigate();
 	const [hide, setHide] = useState(false);
-	const [open, setOpen] = useState(false);
 
-	const { mutate: locRescan } = useLibraryMutation('locations.fullRescan');
-
-	const { mutate: deleteLoc, isLoading: locDeletePending } = useLibraryMutation(
-		'locations.delete',
-		{
-			onSuccess: () => {
-				setHide(true);
-			}
-		}
-	);
-
-	const form = useZodForm({ schema: z.object({}) });
+	const fullRescan = useLibraryMutation('locations.fullRescan');
 
 	if (hide) return <></>;
 
@@ -69,45 +56,68 @@ export default function LocationListItem({ location }: LocationListItemProps) {
 						{location.is_online ? 'Online' : 'Offline'}
 					</span>
 				</Button>
-				<Dialog
-					form={form}
-					onSubmit={form.handleSubmit(() => {
-						deleteLoc(location.id);
-					})}
-					open={open}
-					setOpen={setOpen}
-					title="Delete Location"
-					description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
-					loading={locDeletePending}
-					ctaDanger
-					ctaLabel="Delete"
-					trigger={
-						<Button
-							onClick={(e: { stopPropagation: () => void }) => {
-								e.stopPropagation();
-							}}
-							variant="gray"
-							className="!p-1.5"
-						>
-							<Trash className="w-4 h-4" />
-						</Button>
-					}
-				/>
+				<Button
+					variant="gray"
+					className="!p-1.5"
+					onClick={(e: { stopPropagation: () => void }) => {
+						e.stopPropagation();
+						dialogManager.create((dp) => (
+							<DeleteLocationDialog
+								{...dp}
+								onSuccess={() => setHide(true)}
+								locationId={location.id}
+							/>
+						));
+					}}
+				>
+					<Tooltip label="Delete Location">
+						<Trash className="w-4 h-4" />
+					</Tooltip>
+				</Button>
 				<Button
 					variant="gray"
 					className="!p-1.5"
 					onClick={(e: { stopPropagation: () => void }) => {
 						e.stopPropagation();
 						// this should cause a lite directory rescan, but this will do for now, so the button does something useful
-						locRescan(location.id);
+						fullRescan.mutate(location.id);
 					}}
 				>
-					<Repeat className="w-4 h-4" />
+					<Tooltip label="Rescan Location">
+						<Repeat className="w-4 h-4" />
+					</Tooltip>
 				</Button>
 				{/* <Button variant="gray" className="!p-1.5">
 					<CogIcon className="w-4 h-4" />
 				</Button> */}
 			</div>
 		</Card>
+	);
+}
+
+interface DeleteLocationDialogProps extends UseDialogProps {
+	onSuccess: () => void;
+	locationId: number;
+}
+
+function DeleteLocationDialog(props: DeleteLocationDialogProps) {
+	const dialog = useDialog(props);
+
+	const form = useZodForm({ schema: z.object({}) });
+
+	const deleteLocation = useLibraryMutation('locations.delete', {
+		onSuccess: props.onSuccess
+	});
+
+	return (
+		<Dialog
+			form={form}
+			onSubmit={form.handleSubmit(() => deleteLocation.mutateAsync(props.locationId))}
+			dialog={dialog}
+			title="Delete Location"
+			description="Deleting a location will also remove all files associated with it from the Spacedrive database, the files themselves will not be deleted."
+			ctaDanger
+			ctaLabel="Delete"
+		/>
 	);
 }

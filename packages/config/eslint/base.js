@@ -1,8 +1,4 @@
 module.exports = {
-	env: {
-		browser: true,
-		node: true
-	},
 	parser: '@typescript-eslint/parser',
 	parserOptions: {
 		ecmaFeatures: {
@@ -16,7 +12,8 @@ module.exports = {
 		'plugin:react/recommended',
 		'plugin:react-hooks/recommended',
 		'plugin:@typescript-eslint/recommended',
-		'prettier'
+		'prettier',
+		'turbo'
 	],
 	plugins: ['react'],
 	rules: {
@@ -24,7 +21,7 @@ module.exports = {
 		'react/prop-types': 'off',
 		'react/no-unescaped-entities': 'off',
 		'react/react-in-jsx-scope': 'off',
-		'react-hooks/rules-of-hooks': 'error',
+		'react-hooks/rules-of-hooks': 'warn',
 		'react-hooks/exhaustive-deps': 'warn',
 		'@typescript-eslint/no-unused-vars': 'off',
 		'@typescript-eslint/ban-ts-comment': 'off',
@@ -32,10 +29,12 @@ module.exports = {
 		'@typescript-eslint/no-var-requires': 'off',
 		'@typescript-eslint/no-non-null-assertion': 'off',
 		'@typescript-eslint/explicit-module-boundary-types': 'off',
+		'@typescript-eslint/no-empty-interface': 'off',
+		'@typescript-eslint/no-empty-function': 'off',
 		'no-control-regex': 'off',
 		'no-mixed-spaces-and-tabs': ['warn', 'smart-tabs']
 	},
-	ignorePatterns: ['**/*.js', '**/*.json', 'node_modules'],
+	ignorePatterns: ['dist', '**/*.js', '**/*.json', 'node_modules'],
 	settings: {
 		react: {
 			version: 'detect'
