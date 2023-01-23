@@ -17,7 +17,19 @@ module.exports = {
 
 			const item = folderItems.find((i) => i.startsWith(sourcePath.split('/').at(-1)));
 
-			return absolutePath + path.extname(item);
+			const fullPath = absolutePath + path.extname(item);
+
+			const stats = await fs.stat(fullPath);
+
+			if (stats.isDirectory()) {
+				const directoryItems = await fs.readdir(absolutePath + path.extname(item));
+
+				const indexFile = directoryItems.find((i) => i.startsWith('index'));
+
+				return `${absolutePath}/${indexFile}`;
+			} else {
+				return fullPath;
+			}
 		}
 	}
 };

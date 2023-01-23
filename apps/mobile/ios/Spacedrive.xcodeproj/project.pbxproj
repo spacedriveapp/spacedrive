@@ -148,7 +148,7 @@
 			buildPhases = (
 				EE23FABC21723647AF9773BD /* [CP] Check Pods Manifest.lock */,
 				FD10A7F022414F080027D42C /* Start Packager */,
-				55B1130D28AB3061006C377F /* Build Spacedrive Core */,
+				350DC403297BF2B8009CD6A1 /* Build sd-core-ios */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
@@ -224,6 +224,25 @@
 			shellPath = /bin/sh;
 			shellScript = "export NODE_BINARY=node\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\n`node --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n";
 		};
+		350DC403297BF2B8009CD6A1 /* Build sd-core-ios */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build sd-core-ios";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/zsh;
+			shellScript = "env -i CONFIGURATION=$CONFIGURATION PLATFORM_NAME=$PLATFORM_NAME ./build-rust.sh\n";
+		};
 		37F7445AEFB5A9FBEDBB3916 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -243,29 +262,6 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-resources.sh\"\n";
 			showEnvVarsInLog = 0;
-		};
-		55B1130D28AB3061006C377F /* Build Spacedrive Core */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"../../../core/src/*.rs",
-				"../rust/src/*.rs",
-				"../../../core/src/*/*.rs",
-			);
-			name = "Build Spacedrive Core";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"../../../target/sdcore-universal-ios.a",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/zsh;
-			shellScript = "set -e\n\nif [[ -n \"${DEVELOPER_SDK_DIR:-}\" ]]; then\n  # Assume we're in Xcode, which means we're probably cross-compiling.\n  # In this case, we need to add an extra library search path for build scripts and proc-macros,\n  # which run on the host instead of the target.\n  # (macOS Big Sur does not have linkable libraries in /usr/lib/.)\n  export LIBRARY_PATH=\"${DEVELOPER_SDK_DIR}/MacOSX.sdk/usr/lib:${LIBRARY_PATH:-}\"\nfi\n\nCARGO_FLAGS=\nif [[ \"$BUILDVARIANT\" != \"debug\" ]]; then\n  CARGO_FLAGS=--release\nfi\n\nTARGET_DIRECTORY=../../../target\nif [[ $PLATFORM_NAME = \"iphonesimulator\" ]]\nthen\n    cargo build -p sd-core-mobile $CARGO_FLAGS --lib --target aarch64-apple-ios-sim\n    lipo -create -output $TARGET_DIRECTORY/libsd_core_mobile-iossim.a $TARGET_DIRECTORY/aarch64-apple-ios-sim/release/libsd_core_mobile.a\nelse\n    cargo build -p sd-core-mobile $CARGO_FLAGS --lib --target aarch64-apple-ios\n    lipo -create -output $TARGET_DIRECTORY/libsd_core_mobile-ios.a $TARGET_DIRECTORY/aarch64-apple-ios/release/libsd_core_mobile.a\nfi\n";
 		};
 		EE23FABC21723647AF9773BD /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -424,13 +420,13 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_core_mobile-ios",
+					"-lsd_core_ios-ios",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_core_mobile-iossim",
+					"-lsd_core_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;
@@ -519,13 +515,13 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_core_mobile-ios",
+					"-lsd_core_ios-ios",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsd_core_mobile-iossim",
+					"-lsd_core_ios-iossim",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.spacedrive.app;

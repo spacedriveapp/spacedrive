@@ -8,7 +8,7 @@
 	],
 	"scripts": {
 		"test": "jest",
-		"lint": "eslint src/**/*.{ts,tsx} && tsc --noEmit",
+		"lint": "eslint src",
 		"clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
 		"typecheck": "tsc -b",
 		"build": "tsc"

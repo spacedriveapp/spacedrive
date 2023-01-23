@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useKey, useOnWindowResize } from 'rooks';
 import { ExplorerContext, ExplorerItem } from '@sd/client';
@@ -17,7 +17,7 @@ interface Props {
 	onScroll?: (posY: number) => void;
 }
 
-export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) => {
+export const VirtualizedList = memo(({ data, context, onScroll }: Props) => {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const innerRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +56,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) =>
 		el.addEventListener('scroll', onElementScroll);
 
 		return () => el.removeEventListener('scroll', onElementScroll);
-	}, [scrollRef, onScroll]);
+	}, [onScroll]);
 
 	const rowVirtualizer = useVirtualizer({
 		count: amountOfRows,
@@ -169,7 +169,7 @@ export const VirtualizedList: React.FC<Props> = ({ data, context, onScroll }) =>
 			</div>
 		</div>
 	);
-};
+});
 
 interface WrappedItemProps {
 	item: ExplorerItem;
@@ -179,7 +179,7 @@ interface WrappedItemProps {
 }
 
 // Wrap either list item or grid item with click logic as it is the same for both
-const WrappedItem: React.FC<WrappedItemProps> = ({ item, index, isSelected, kind }) => {
+const WrappedItem = memo(({ item, index, isSelected, kind }: WrappedItemProps) => {
 	const [_, setSearchParams] = useSearchParams();
 
 	const onDoubleClick = useCallback(() => {
@@ -191,6 +191,7 @@ const WrappedItem: React.FC<WrappedItemProps> = ({ item, index, isSelected, kind
 	}, [isSelected, index]);
 
 	const ItemComponent = kind === 'list' ? FileRow : FileItem;
+
 	return (
 		<ItemComponent
 			data={item}
@@ -200,18 +201,4 @@ const WrappedItem: React.FC<WrappedItemProps> = ({ item, index, isSelected, kind
 			selected={isSelected}
 		/>
 	);
-
-	// // Memorize the item so that it doesn't get re-rendered when the selection changes
-	// return useMemo(() => {
-	// 	const ItemComponent = kind === 'list' ? FileRow : FileItem;
-	// 	return (
-	// 		<ItemComponent
-	// 			data={item}
-	// 			index={index}
-	// 			onClick={onClick}
-	// 			onDoubleClick={onDoubleClick}
-	// 			selected={isSelected}
-	// 		/>
-	// 	);
-	// }, [item, index, isSelected]);
-};
+});
